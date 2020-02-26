@@ -1,7 +1,7 @@
 import { createLogger, format, transports } from 'winston';
 import { TransformableInfo } from 'logform';
 
-import { log } from '../data/config';
+import { log } from '../../../data/config';
 
 function formatter(info: TransformableInfo): string {
     const level = info.level[0];
