@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as request from 'request-promise-native';
 
-import logger from './logger';
+import logger from '../logger';
 
 export class ISaveFileOption {
     public override?: boolean;

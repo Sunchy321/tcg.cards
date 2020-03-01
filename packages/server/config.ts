@@ -1,4 +1,4 @@
-export const enableConsole = true;
+export const enableControl = true;
 
 export const data = '../data';
 

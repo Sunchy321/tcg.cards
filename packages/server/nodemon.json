@@ -1,7 +1,7 @@
 {
     "verbose": true,
     "ext": "ts tsx",
-    "watch": ["src/", "data/"],
+    "watch": ["src/", "data/", "config.ts"],
     "execMap": {
         "ts": "node --require ts-node/register"
     }

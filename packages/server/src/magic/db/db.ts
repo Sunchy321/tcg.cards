@@ -1,6 +1,6 @@
 import * as Mongoose from 'mongoose';
 
-import logger from '../../common/logger';
+import logger from '../../logger';
 
 Mongoose.set('useCreateIndex', true);
 

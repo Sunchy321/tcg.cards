@@ -1,8 +1,8 @@
 import saveFile from '../../common/save-file';
 import { getList } from './basic';
-import logger from '../../common/logger';
+import logger from '../../logger';
 
-import { data } from '../../../data/config';
+import { data } from '../../../config';
 
 export interface IScryfallBulkData {
     object: 'bulk_data';
