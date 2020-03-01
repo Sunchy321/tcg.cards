@@ -1,4 +1,4 @@
-import magic from './route/magic';
+import magic from './magic';
 
 const routes = [
     {
@@ -12,7 +12,6 @@ const routes = [
     ...magic,
 ];
 
-// Always leave this as last one
 if (process.env.MODE !== 'ssr') {
     routes.push({
         path:      '*',

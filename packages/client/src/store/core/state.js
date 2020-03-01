@@ -1,3 +1,4 @@
 export default {
-    basic: null
+    enableControl: false,
+    basic:         null
 };

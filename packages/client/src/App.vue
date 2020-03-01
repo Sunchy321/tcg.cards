@@ -20,10 +20,10 @@ export default {
 
                 this.$i18n.locale = locale;
 
-                const qLocale = await import(`quasar/lang/${
-                    quasarLocaleMap[locale] ||
-                    locale.replace(/[A-Z]/, t => '-' + t.toLowerCase())
-                }`);
+                const qLocaleId = quasarLocaleMap[locale] ||
+                    locale.replace(/[A-Z]/, t => '-' + t.toLowerCase());
+
+                const qLocale = await import('quasar/lang/' + qLocaleId);
 
                 this.$q.lang.set(qLocale.default);
             }

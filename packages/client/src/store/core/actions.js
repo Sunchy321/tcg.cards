@@ -10,7 +10,9 @@ export async function boot({ commit }) {
         commit('locale/set', locale);
     }
 
+    const { data: enableControl } = await axios.get('/basic/enable-control');
     const { data: basic } = await axios.get('/basic');
 
+    commit('enableControl', enableControl);
     commit('basic', basic);
 }

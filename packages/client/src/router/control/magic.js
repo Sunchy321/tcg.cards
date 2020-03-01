@@ -1,11 +1,11 @@
 const routes = [
     {
-        path:      '/hearthstone',
+        path:      '/magic',
         component: () => import('layouts/Main.vue'),
         children:  [
             {
-                path:      'parse-log',
-                component: () => import('pages/hearthstone/LogParser')
+                path:      'control/get-bulk',
+                component: () => import('pages/magic/GetBulk')
             },
         ]
     },

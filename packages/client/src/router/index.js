@@ -1,7 +1,10 @@
 import Vue from 'vue';
 import VueRouter from 'vue-router';
 
-import routes from './routes';
+import axios from 'axios';
+
+import normalRoutes from './normal';
+import controlRotues from './control';
 
 Vue.use(VueRouter);
 
@@ -10,7 +13,15 @@ Vue.use(VueRouter);
  * directly export the Router instantiation
  */
 
-export default function (/* { store, ssrContext } */) {
+export default async function () {
+    const { data: enableControl } = await axios.get('/basic/enable-control');
+
+    const routes = [...normalRoutes];
+
+    if (enableControl) {
+        routes.push(...controlRotues);
+    }
+
     const Router = new VueRouter({
         scrollBehavior: () => ({ x: 0, y: 0 }),
         routes,
