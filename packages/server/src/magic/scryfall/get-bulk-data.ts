@@ -1,6 +1,5 @@
 import saveFile from '../../common/save-file';
 import { getList } from './basic';
-import logger from '../../logger';
 
 import { data } from '../../../config';
 
@@ -36,3 +35,5 @@ export async function getBulkData() {
         }
     }
 }
+
+

@@ -1,6 +1,7 @@
 export const enableControl = true;
 
-export const data = '../data';
+export const __data = '../data';
 
-export const asset = data + '/asset';
-export const log = data + '/log';
+export const asset = __data + '/asset';
+export const data = __data + '/data';
+export const log = __data + '/log';

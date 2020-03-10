@@ -1,8 +1,8 @@
 import router from './router';
-import { getBulkData } from '../../scryfall/get-bulk-data';
+import { getBulkData as getScryfallBulk } from '../../scryfall/get-bulk-data';
 
-router.post('/get-scryfall-card-bulk', async (ctx) => {
-    await getBulkData();
+router.post('/get-scryfall-bulk', async (ctx) => {
+    await getScryfallBulk();
 
     ctx.response.status = 200;
 });
