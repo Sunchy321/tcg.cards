@@ -1,6 +1,6 @@
 const routes = [
     {
-        path:      '/magic',
+        path:      '/hearthstone',
         component: () => import('layouts/Main.vue'),
         children:  [
             {

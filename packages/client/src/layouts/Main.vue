@@ -2,15 +2,6 @@
     <q-layout view="hHh Lpr fFf">
         <q-header elevated>
             <q-toolbar>
-                <q-btn
-                    flat
-                    dense
-                    round
-                    @click="leftDrawerOpen = !leftDrawerOpen"
-                    icon="menu"
-                    aria-label="Menu"
-                />
-
                 <q-toolbar-title>
                     {{ title }}
                 </q-toolbar-title>
@@ -75,12 +66,6 @@ export default {
     name: 'Main',
 
     mixins: [basic],
-
-    data() {
-        return {
-            leftDrawerOpen: false
-        };
-    },
 
     computed: {
         locale: {

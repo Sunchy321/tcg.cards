@@ -7,6 +7,12 @@ export default {
         }
     },
 
+    $control: {
+        'get-bulk': {
+            scryfall: 'Get Scryfall Data'
+        }
+    },
+
     format: {
         order:        'Order',
         localization: 'Localization',

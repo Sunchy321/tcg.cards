@@ -7,6 +7,12 @@ export default {
         }
     },
 
+    $control: {
+        'get-bulk': {
+            scryfall: '获取Scryfall数据'
+        }
+    },
+
     format: {
         order:        '顺序',
         localization: '本地化',
