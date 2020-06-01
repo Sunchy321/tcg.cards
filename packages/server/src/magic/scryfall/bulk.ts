@@ -16,7 +16,7 @@ export interface IScryfallBulkData {
     content_encoding: string;
 }
 
-export async function getBulkData() {
+export async function get() {
     const bulks = await getList<IScryfallBulkData>('https://api.scryfall.com/bulk-data');
 
     for (const b of bulks) {
@@ -34,6 +34,10 @@ export async function getBulkData() {
             );
         }
     }
+}
+
+export async function load() {
+
 }
 
 

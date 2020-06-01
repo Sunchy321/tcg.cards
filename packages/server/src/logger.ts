@@ -10,7 +10,7 @@ function formatter(info: TransformableInfo): string {
     return `${info.timestamp} ${tag.padEnd(10, ' ').toUpperCase()} ${info.message}`;
 }
 
-const logger = createLogger({
+const main = createLogger({
     level: 'info',
     format: format.combine(
         format.timestamp(),
@@ -23,4 +23,17 @@ const logger = createLogger({
     ],
 });
 
-export default logger;
+const bulk = createLogger({
+    level: 'info',
+    format: format.combine(
+        format.timestamp(),
+        format.printf(formatter),
+    ),
+    transports: [
+        new transports.File({
+            filename: log + '/bulk.log',
+        }),
+    ],
+});
+
+export { main, bulk };
