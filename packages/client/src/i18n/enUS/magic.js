@@ -4,12 +4,15 @@ export default {
     $title: {
         $control: {
             'get-bulk': 'Get Bulk Data'
-        }
+        },
+
+        'format-change': 'Format Change'
     },
 
     $control: {
         'get-bulk': {
-            scryfall: 'Get Scryfall Data'
+            'scryfall-get':  'Get Scryfall Data',
+            'scryfall-load': 'Load Scryfall Data'
         }
     },
 
@@ -23,6 +26,7 @@ export default {
         },
 
         standard: 'Standard',
+        historic: 'Historic',
         pioneer:  'Pioneer',
         modern:   'Modern',
         extended: 'Extended',

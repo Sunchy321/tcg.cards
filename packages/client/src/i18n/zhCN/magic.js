@@ -4,12 +4,15 @@ export default {
     $title: {
         $control: {
             'get-bulk': '下载数据'
-        }
+        },
+
+        'format-change': '赛制更动'
     },
 
     $control: {
         'get-bulk': {
-            scryfall: '获取Scryfall数据'
+            'scryfall-get':  '获取Scryfall数据',
+            'scryfall-load': '加载Scryfall数据'
         }
     },
 
@@ -23,6 +26,7 @@ export default {
         },
 
         standard: '标准',
+        historic: '史迹',
         pioneer:  '先驱',
         modern:   '近代',
         extended: '扩充',

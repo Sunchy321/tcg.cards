@@ -285,6 +285,7 @@ export default {
         formatList() {
             return [
                 'standard',
+                'historic',
                 'pioneer',
                 'modern',
                 'extended',
@@ -312,7 +313,7 @@ export default {
         },
 
         statusList() {
-            return ['legal', 'banned', 'restricted', 'banned_as_commander', 'unavailable'].map(v => ({
+            return ['legal', 'banned', 'suspended', 'restricted', 'banned_as_commander', 'unavailable'].map(v => ({
                 icon:  this.statusIcon(v),
                 class: 'magic-banlist-status-' + v,
                 value: v
@@ -511,6 +512,8 @@ export default {
             switch (status) {
             case 'banned':
                 return 'mdi-close-circle-outline';
+            case 'suspended':
+                return 'mdi-help-circle-outline';
             case 'banned_as_commander':
                 return 'mdi-progress-close';
             case 'restricted':
