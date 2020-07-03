@@ -4,8 +4,8 @@ const routes = [
         component: () => import('layouts/Main.vue'),
         children:  [
             {
-                path:      'control/get-bulk',
-                component: () => import('pages/magic/control/GetBulk')
+                path:      'control/load-scryfall',
+                component: () => import('pages/magic/control/LoadScryfall')
             },
         ]
     },

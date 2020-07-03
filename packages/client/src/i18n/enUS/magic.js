@@ -3,17 +3,13 @@ export default {
 
     $title: {
         $control: {
-            'get-bulk': 'Get Bulk Data'
+            'load-scryfall': 'Load Scryfall'
         },
 
         'format-change': 'Format Change'
     },
 
     $control: {
-        'get-bulk': {
-            'scryfall-get':  'Get Scryfall Data',
-            'scryfall-load': 'Load Scryfall Data'
-        }
     },
 
     format: {

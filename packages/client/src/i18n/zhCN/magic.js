@@ -3,17 +3,13 @@ export default {
 
     $title: {
         $control: {
-            'get-bulk': '下载数据'
+            'load-scryfall': '加载Scryfall'
         },
 
         'format-change': '赛制更动'
     },
 
     $control: {
-        'get-bulk': {
-            'scryfall-get':  '获取Scryfall数据',
-            'scryfall-load': '加载Scryfall数据'
-        }
     },
 
     format: {
