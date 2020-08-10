@@ -38,7 +38,7 @@ export async function parseBanlist(url: string): Promise<IBanlistChange> {
     } else if (url.startsWith('http://mtgcommander.net/')) {
         // MTG commander
         return parseMTGCommanderBanlist(url);
-    } else if (url.startsWith('http://www.duelcommander.com/')) {
+    } else if (url.startsWith('https://www.duelcommander.com/')) {
         // Duel commander
         return parseDuelCommanderBanlist(url);
     } else {

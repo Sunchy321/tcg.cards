@@ -8,6 +8,7 @@ import { toIdentifier } from '../util';
 
 const formatMap: { [k: string]: string } = {
     'Standard': 'standard',
+    'Historic': 'historic',
     'Pioneer': 'pioneer',
     'Modern': 'modern',
     'Extended': 'extended',
@@ -17,6 +18,7 @@ const formatMap: { [k: string]: string } = {
     'Vintage (formerly known as Type 1)': 'vintage',
     'Type 1': 'vintage',
     'Magic Online Pauper': 'pauper',
+    'Brawl': 'brawl',
 
     'Innistrad Block Constructed': 'block/innistrad',
     'Mirrodin Block Constructed': 'block/mirrodin',
@@ -82,6 +84,7 @@ const statusMap: { [k: string]: string } = {
     'banned': 'banned',
     'is banned': 'banned',
     'are banned': 'banned',
+    'is suspended': 'suspended',
     'is restricted': 'restricted',
     'is unbanned': 'legal',
     'is unrestricted': 'legal',
