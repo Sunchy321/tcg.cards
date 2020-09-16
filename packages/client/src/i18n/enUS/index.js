@@ -1,4 +1,5 @@
 import magic from './magic';
+import hearthstone from './hearthstone';
 
 export default {
     lang: {
@@ -23,5 +24,6 @@ export default {
         px:   'Phyrexian'
     },
 
-    magic
+    magic,
+    hearthstone
 };

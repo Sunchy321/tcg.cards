@@ -84,26 +84,26 @@ module.exports = function (ctx) {
 
       proxy: {
         '/basic': {
-            target:       'http://localhost:8889',
+            target:       'http://[::1]:8889',
             changeOrigin: true
         },
         '/data': {
-            target:       'http://localhost:8889',
+            target:       'http://[::1]:8889',
             changeOrigin: true
         },
         '/image': {
-            target:       'http://localhost:8889',
+            target:       'http://[::1]:8889',
             changeOrigin: true
         },
         '/action': {
-            target:       'http://localhost:8889',
+            target:       'http://[::1]:8889',
             changeOrigin: true
         },
         '/control': {
-            target:       'http://localhost:8889',
+            target:       'http://[::1]:8889',
             changeOrigin: true
         }
-    }
+      }
     },
 
     // animations: 'all', // --- includes all animations

@@ -38,7 +38,7 @@ export default {
             cards:   [],
             rulings: [],
 
-            selectedCard: null,
+            selectedCard:   null,
             selectedRuling: null
         };
     },

@@ -1,5 +1,6 @@
 export default {
-    $self: 'MTG',
+    $self:     'MTG',
+    $selfFull: 'Magic: the Gathering',
 
     $title: {
         $control: {

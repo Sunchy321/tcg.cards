@@ -4,7 +4,7 @@ import VueRouter from 'vue-router';
 import axios from 'axios';
 
 import normalRoutes from './normal';
-import controlRotues from './control';
+import controlRoutes from './control';
 
 Vue.use(VueRouter);
 
@@ -14,12 +14,12 @@ Vue.use(VueRouter);
  */
 
 export default async function () {
-    const { data: enableControl } = await axios.get('/basic/enable-control');
+    const { data: enableControl } = await axios.get('/control/enabled');
 
     const routes = [...normalRoutes];
 
     if (enableControl) {
-        routes.push(...controlRotues);
+        routes.push(...controlRoutes);
     }
 
     const Router = new VueRouter({
