@@ -1,6 +1,6 @@
 import router from './router';
 
-import { FormatModel } from '../../db/model/format';
+import { FormatModel } from '~/db/magic/model/format';
 
 router.get('/raw-format', async ctx => {
     const id = ctx.query.id;

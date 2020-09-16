@@ -1,7 +1,7 @@
 import router from './router';
 
 import { syncScryfallSet } from '../../scryfall/set';
-import { SetModel } from '../../db/model/set';
+import { SetModel } from '~/db/magic/model/set';
 import { parseSet } from '../../parse-set';
 
 router.get('/raw-set', async ctx => {

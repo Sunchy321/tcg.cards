@@ -1,18 +1,18 @@
 export const birthday = '1993-08-05';
 
-export const basicLang = [
+export const basicLocales = [
     'enUS', 'deDE', 'frFR', 'itIT', 'esES', 'ptBR',
     'ruRU', 'jaJP', 'koKR', 'zhCN', 'zhTW',
 ];
 
-export const lang = [
-    ...basicLang,
+export const locales = [
+    ...basicLocales,
 
     'px', 'he', 'ar',
     'sa', 'grc', 'la',
 ];
 
-export const symbol = [
+export const symbols = [
     'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z', 'S',
     'W/U', 'U/B', 'B/R', 'R/G', 'G/W',
     'W/B', 'U/R', 'B/G', 'R/W', 'G/U',

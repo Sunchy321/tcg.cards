@@ -1,8 +1,8 @@
 import KoaRouter from '@koa/router';
 import { Context } from 'koa';
 
-import { FormatModel } from '../db/model/format';
-import { SetModel } from '../db/model/set';
+import { FormatModel } from '~/db/magic/model/format';
+import { SetModel } from '~/db/magic/model/set';
 
 const router = new KoaRouter();
 

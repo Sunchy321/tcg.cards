@@ -1,6 +1,6 @@
 import router from './router';
 
-import { FormatChangeModel } from '../../db/model/format-change';
+import { FormatChangeModel } from '~/db/magic/model/format-change';
 import { parseBanlist } from '../../parse-banlist';
 
 router.get('/parse-banlist', async ctx => {

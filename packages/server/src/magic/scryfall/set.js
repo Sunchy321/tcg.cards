@@ -1,4 +1,4 @@
-import { SetModel } from '../db/model/set';
+import { SetModel } from '~/db/magic/model/set';
 
 import { getList } from './basic';
 

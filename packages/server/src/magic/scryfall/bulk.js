@@ -6,7 +6,7 @@ import * as Reader from 'async-stream-reader';
 import { data } from '../../../config';
 import lineReader from '../../common/line-reader';
 
-import { RawCardModel } from '../db/model/raw-card';
+import { RawCardModel } from '~/db/magic/model/raw-card';
 
 const lock = new AsyncLock();
 
