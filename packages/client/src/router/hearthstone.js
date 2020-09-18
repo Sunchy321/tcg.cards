@@ -1,11 +1,11 @@
 const routes = [
     {
-        path:      '/magic',
+        path:      '/hearthstone',
         component: () => import('layouts/Main.vue'),
         children:  [
             {
-                path:      'control/load-scryfall',
-                component: () => import('pages/magic/control/LoadScryfall')
+                path:      '',
+                component: () => import('pages/hearthstone/Index')
             },
         ]
     },

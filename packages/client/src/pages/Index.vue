@@ -27,7 +27,7 @@ export default {
 
     computed: {
         games() {
-            return this.basic?.games || [];
+            return this.$store.state.core.games || [];
         }
     },
 

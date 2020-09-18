@@ -1,5 +1,5 @@
-export function enableControl(state, newValue) {
-    state.enableControl = newValue;
+export function games(state, newValue) {
+    state.games = newValue;
 }
 
 export function basic(state, newValue) {

@@ -1,4 +1,5 @@
 import magic from './magic';
+import hearthstone from './hearthstone';
 
 const routes = [
     {
@@ -10,6 +11,7 @@ const routes = [
     },
 
     ...magic,
+    ...hearthstone,
 ];
 
 if (process.env.MODE !== 'ssr') {

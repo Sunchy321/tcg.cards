@@ -102,6 +102,13 @@ module.exports = function (ctx) {
         '/control': {
             target:       'http://[::1]:8889',
             changeOrigin: true
+        },
+        '/api': {
+            target:       'http://api.test.local:8889',
+            changeOrigin: true,
+            pathRewrite:  {
+              '^/api': ''
+            }
         }
       }
     },
