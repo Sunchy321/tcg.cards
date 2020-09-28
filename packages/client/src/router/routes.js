@@ -9,6 +9,13 @@ const routes = [
             { path: '', component: () => import('pages/Index.vue') },
         ]
     },
+    {
+        path:      '/login',
+        component: () => import('layouts/Main.vue'),
+        children:  [
+            { path: 'login', component: () => import('pages/Login.vue') },
+        ]
+    },
 
     ...magic,
     ...hearthstone,

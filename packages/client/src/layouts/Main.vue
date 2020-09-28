@@ -89,7 +89,7 @@ export default {
         title() {
             const path = this.$route.path;
 
-            if (path === '' || path === '/') {
+            if (path === '' || path === '/' || this.game == null) {
                 return '';
             } else {
                 const restPath = path.split('/').filter(v => v !== '').slice(1).join('/');

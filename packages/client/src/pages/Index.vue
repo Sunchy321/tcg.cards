@@ -25,12 +25,6 @@ export default {
 
     mixins: [basic],
 
-    computed: {
-        games() {
-            return this.$store.state.core.games || [];
-        }
-    },
-
     methods: {
         fullName(g) {
             if (this.$te(g + '.$selfFull')) {

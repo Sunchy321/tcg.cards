@@ -1,13 +1,19 @@
 export default {
     computed: {
-        basic() {
-            return this.$store.state.core.basic;
+        games() {
+            return this.$store.state.core.games || [];
         },
 
         game() {
             const path = this.$route.path;
 
-            return path.split('/').filter(v => v !== '')[0];
+            const firstPart = path.split('/').filter(v => v !== '')[0];
+
+            if (this.games.includes(firstPart)) {
+                return firstPart;
+            }
+
+            return null;
         }
     }
 };
