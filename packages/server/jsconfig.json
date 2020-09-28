@@ -2,7 +2,10 @@
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
-            "~/*": ["src/*"]
+            "~/*": ["src/*"],
+            "@/data/*": ["data/*"],
+            "@/config": ["config.js"],
+            "@/logger": ["src/logger.js"]
         }
     }
 }

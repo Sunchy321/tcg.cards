@@ -7,8 +7,16 @@ module.exports = {
                 paths: [
                     { rootPathSuffix: './src' },
                     {
-                        rootPathPrefix: '#data',
+                        rootPathPrefix: '@/data',
                         rootPathSuffix: './data'
+                    },
+                    {
+                        rootPathPrefix: '@/config',
+                        rootPathSuffix: './config.js'
+                    },
+                    {
+                        rootPathPrefix: '@/logger',
+                        rootPathSuffix: './src/logger.js'
                     }
                 ]
             }

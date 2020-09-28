@@ -10,7 +10,7 @@ function formatter(info) {
     return `${info.timestamp} ${tag.padEnd(10, ' ').toUpperCase()} ${info.message}`;
 }
 
-const main = createLogger({
+export const main = createLogger({
     level: 'info',
     format: format.combine(
         format.timestamp(),
@@ -23,7 +23,7 @@ const main = createLogger({
     ],
 });
 
-const bulk = createLogger({
+export const data = createLogger({
     level: 'info',
     format: format.combine(
         format.timestamp(),
@@ -31,9 +31,20 @@ const bulk = createLogger({
     ),
     transports: [
         new transports.File({
-            filename: log + '/bulk.log',
+            filename: log + '/data.log',
         }),
     ],
 });
 
-export { main, bulk };
+export const user = createLogger({
+    level: 'info',
+    format: format.combine(
+        format.timestamp(),
+        format.printf(formatter),
+    ),
+    transports: [
+        new transports.File({
+            filename: log + '/user.log',
+        }),
+    ],
+});

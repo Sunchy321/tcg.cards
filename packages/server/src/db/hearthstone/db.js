@@ -2,7 +2,7 @@ import Mongoose from 'mongoose';
 
 import * as logger from '~/logger';
 
-import { database, dbDataUser, dbDataPassword } from '~/../config';
+import { database, dbDataUser, dbDataPassword } from '@/config';
 
 Mongoose.set('useCreateIndex', true);
 

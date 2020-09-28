@@ -1,6 +1,8 @@
 import KoaRouter from '@koa/router';
 
-import data from '#data';
+import hearthstone from './hearthstone/router';
+
+import data from '@/data';
 
 const router = new KoaRouter();
 
@@ -9,5 +11,7 @@ router.get('/', async (ctx) => {
         games: data.games
     };
 });
+
+router.use(hearthstone.routes());
 
 export default router;
