@@ -1,9 +1,9 @@
 import { Document, Schema } from 'mongoose';
 
 import bcrypt from 'bcrypt';
+import passportLocalMongoose from 'passport-local-mongoose';
 
 import conn from './db';
-import passport from '~/user/passport';
 
 const saltLength = 10;
 
@@ -15,9 +15,8 @@ const UserSchema = new Schema({
     },
     password: {
         type: String,
-        required: true
     },
-    permission: {
+    role: {
         type:     String,
         enum:     ['normal', 'admin'],
         required: true,
@@ -25,39 +24,13 @@ const UserSchema = new Schema({
     }
 });
 
-UserSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) {
-        return next();
-    }
+UserSchema.plugin(passportLocalMongoose);
 
-    const salt = await bcrypt.genSalt(saltLength);
-    this.password = await bcrypt.hash(this.password, salt);
-
-    return next();
-});
-
-UserSchema.statics.register = async function(username, password) {
-    const user = await this.findOne({ username }).exec();
-
-    if (user != null) {
-        return null;
-    } else {
-        return await this.create({ username, password });
-    }
-}
-
-UserSchema.statics.login = async function (username, password) {
-    const user = await this.findOne({ username }).exec();
-
-    if (user != null) {
-        if (bcrypt.compareSync(passport, user.password)) {
-            return user;
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
+UserSchema.methods.profile = function() {
+    return {
+        username: this.username,
+        role:     this.role
+    };
 }
 
 const User = conn.model('user', UserSchema);

@@ -49,6 +49,7 @@
     "mongoose": "^5.10.5",
     "nodegit": "^0.27.0",
     "passport-local": "^1.0.0",
+    "passport-local-mongoose": "^6.0.1",
     "request": "^2.88.2",
     "request-promise-native": "^1.0.9",
     "winston": "^3.3.3"

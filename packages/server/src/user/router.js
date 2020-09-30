@@ -10,32 +10,55 @@ const router = new KoaRouter();
 
 router.post('/register', async (ctx, next) => {
     const { username, password } = ctx.request.body;
-    const user = await User.register(username, password);
+    const user = await User.register(
+        new User({ username }),
+        password
+    );
 
     if (user != null) {
         logger.user.info(username, { category: 'register' });
-        ctx.body = true;
+
+        return passport.authenticate('local', (err, user, info, status) => {
+            if (user != null) {
+                ctx.body = user.profile();
+                return ctx.login(user);
+            } else {
+                ctx.body = { failure: 'LoginFailed' };
+            }
+        })(ctx, next);
     } else {
-        ctx.body = false;
+        ctx.body = { failure: 'UserDuplicate' };
     }
 });
 
 router.post('/login', async (ctx, next) => {
     return passport.authenticate('local', (err, user, info, status) => {
-        if (user) {
-            ctx.body = true;
+        if (user != null) {
+            ctx.body = user.profile();
             logger.user.info(user.username, { category: 'login' });
             return ctx.login(user);
         } else {
-            ctx.body = false;
+            ctx.body = { failure: 'UsernamePasswordMismatch' };
         }
     })(ctx, next);
 });
 
-router.post('/logout', async (ctx, next) => {
+router.post('/logout', async ctx => {
+    logger.user.info(ctx.state.user.username, { category: 'logout' });
     ctx.logout();
-    logger.user.info(username, { category: 'logout' });
-    ctx.body = true;
+    ctx.body = { success: true };
+});
+
+router.get('/profile', async ctx => {
+    if (ctx.isAuthenticated()) {
+        const user = ctx.state.user;
+
+        ctx.body = user.profile()
+    } else {
+        ctx.body = {
+            failure: 'NotLoggedIn'
+        }
+    }
 })
 
 export default router;
