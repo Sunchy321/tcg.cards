@@ -1,5 +1,5 @@
-export function enableControl(state) {
-    return state.enableControl;
+export function profile(state) {
+    return state.user;
 }
 
 export function locales() {

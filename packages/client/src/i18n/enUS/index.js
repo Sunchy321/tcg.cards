@@ -24,6 +24,22 @@ export default {
         px:   'Phyrexian'
     },
 
+    login: {
+        username: 'Username',
+        password: 'Password',
+        login:    'Login',
+        register: 'Register'
+    },
+
+    profile: {
+        logout: 'Logout',
+
+        role: {
+            normal: 'Normal user',
+            admin:  'Administrator'
+        }
+    },
+
     magic,
     hearthstone
 };

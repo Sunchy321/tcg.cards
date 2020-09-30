@@ -24,24 +24,18 @@
                         </q-item>
                     </q-list>
                 </q-btn-dropdown>
+
+                <q-btn
+                    :icon="hasLoggedIn ? 'mdi-account-circle' : 'mdi-account-circle-outline'"
+                    dense flat size="sm"
+                    @click="toProfile"
+                />
             </q-toolbar>
         </q-header>
 
         <q-page-container>
             <q-ajax-bar />
             <router-view />
-
-            <div class="footer">
-                <div v-if="enableControl" style="padding: 12px">
-                    <router-link
-                        v-for="p in controlPages[game] || []"
-                        :key="p.id"
-                        :to="p.path"
-                    >
-                        {{ $t(p.title) }}
-                    </router-link>
-                </div>
-            </div>
         </q-page-container>
     </q-layout>
 </template>
@@ -80,10 +74,6 @@ export default {
 
         locales() {
             return this.$store.getters['locale/values'];
-        },
-
-        enableControl() {
-            return this.$store.getters.enableControl;
         },
 
         title() {
@@ -135,23 +125,14 @@ export default {
             return pages;
         },
 
-        controlPages() {
-            const pages = { };
+        hasLoggedIn() {
+            return this.$store.getters.profile != null;
+        }
+    },
 
-            for (const g in this.pages) {
-                pages[g] = [];
-
-                for (const p of this.pages[g]) {
-                    if (p.isControl) {
-                        pages[g].push({
-                            path:  p.path,
-                            title: p.title
-                        });
-                    }
-                }
-            }
-
-            return pages;
+    methods: {
+        toProfile() {
+            this.$router.push({ name: 'profile' });
         }
     }
 };

@@ -6,22 +6,13 @@ import locale from './locale';
 
 Vue.use(Vuex);
 
-/*
- * If not building with SSR mode, you can
- * directly export the Store instantiation
- */
+const Store = new Vuex.Store({
+    modules: {
+        core,
+        locale
+    },
 
-export default function (/* { ssrContext } */) {
-    const Store = new Vuex.Store({
-        modules: {
-            core,
-            locale
-        },
+    strict: process.env.DEV
+});
 
-        // enable strict mode (adds overhead!)
-        // for dev mode only
-        strict: process.env.DEV
-    });
-
-    return Store;
-}
+export default Store;

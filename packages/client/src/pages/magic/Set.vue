@@ -154,20 +154,18 @@ export default {
 
     components: { Btn },
 
-    data() {
-        return {
-            sets:       [],
-            setOptions: [],
-            set:        null,
+    data: () => ({
+        sets:       [],
+        setOptions: [],
+        set:        null,
 
-            setUrl: '',
+        setUrl: '',
 
-            data: null,
+        data: null,
 
-            scryfallSyncing: false,
-            mtgjsonSyncing:  false
-        };
-    },
+        scryfallSyncing: false,
+        mtgjsonSyncing:  false
+    }),
 
     watch: {
         $route: {

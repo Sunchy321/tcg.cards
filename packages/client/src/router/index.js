@@ -3,6 +3,8 @@ import VueRouter from 'vue-router';
 
 import routes from './routes';
 
+import store from '../store';
+
 Vue.use(VueRouter);
 
 /*
@@ -22,11 +24,27 @@ export default async function () {
         base: process.env.VUE_ROUTER_BASE
     });
 
-    // Router.beforeEach((to, from, next) => {
-    //     if (to.matched.some(r => r.meta.requiresAuth)) {
+    Router.beforeEach((to, from, next) => {
+        if (to.matched.some(r => r.meta.requireAuth)) {
+            const user = store.getters.profile;
 
-    //     }
-    // });
+            if (user == null) {
+                next({ name: 'login' });
+            } else {
+                next();
+            }
+        } else if (to.matched.some(r => r.name === 'login')) {
+            const user = store.getters.profile;
+
+            if (user != null) {
+                next({ name: 'profile' });
+            } else {
+                next();
+            }
+        } else {
+            next();
+        }
+    });
 
     return Router;
 }

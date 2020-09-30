@@ -19,7 +19,7 @@ module.exports = function (ctx) {
 
     // https://github.com/quasarframework/quasar/tree/dev/extras
     extras: [
-      'mdi-v4',+
+      'mdi-v4',
 
       'roboto-font', // optional, you are not bound to it
       'material-icons' // optional, you are not bound to it
@@ -107,7 +107,14 @@ module.exports = function (ctx) {
             target:       'http://api.test.local:8889',
             changeOrigin: true,
             pathRewrite:  {
-              '^/api': ''
+                '^/api': ''
+            }
+        },
+        '/user': {
+            target:       'http://user.test.local:8889',
+            changeOrigin: true,
+            pathRewrite:  {
+              '^/user': ''
             }
         }
       }

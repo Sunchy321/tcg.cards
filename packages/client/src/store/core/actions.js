@@ -1,12 +1,8 @@
-import axios from 'axios';
+import { api, user } from '../../boot/axios';
 
 import { LocalStorage } from 'quasar';
 
-const api = axios.create({
-    baseURL: process.env.NODE_ENV === 'production' ? 'api.tcg.cards' : '/api'
-});
-
-export async function boot({ commit }) {
+export async function boot({ commit, dispatch }) {
     // set locale
     const locale = LocalStorage.getItem('locale');
 
@@ -17,4 +13,19 @@ export async function boot({ commit }) {
     const { data: root } = await api.get('/');
 
     commit('games', root.games);
+
+    // try login
+    const { data: profile } = await user.get('/profile');
+
+    if (profile.failure == null) {
+        dispatch('login', profile);
+    }
+}
+
+export function login({ commit }, profile) {
+    commit('user', profile);
+}
+
+export function logout({ commit }) {
+    commit('user', null);
 }

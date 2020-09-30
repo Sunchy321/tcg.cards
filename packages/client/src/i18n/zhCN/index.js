@@ -24,6 +24,22 @@ export default {
         px:   '非瑞克西亚文'
     },
 
+    login: {
+        username: '用户名',
+        password: '密码',
+        login:    '登录',
+        register: '注册'
+    },
+
+    profile: {
+        logout: '退出',
+
+        role: {
+            normal: '普通用户',
+            admin:  '管理员'
+        }
+    },
+
     magic,
     hearthstone
 };
