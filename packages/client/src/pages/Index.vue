@@ -1,5 +1,5 @@
 <template>
-    <q-page class="q-ma-md">
+    <q-page class="q-pa-md">
         <q-btn
             v-for="g in games" :key="g"
             no-caps flat align="left" class="tcg-item"

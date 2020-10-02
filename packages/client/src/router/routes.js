@@ -11,9 +11,9 @@ const routes = [
                 component: () => import('pages/Index.vue')
             },
             {
-                path:      'profile',
-                name:      'profile',
-                component: () => import('pages/Profile.vue'),
+                path:      'setting',
+                name:      'setting',
+                component: () => import('pages/Setting.vue')
             },
         ]
     },

@@ -4,6 +4,10 @@ const routes = [
         component: () => import('layouts/Main.vue'),
         children:  [
             {
+                path:      '',
+                component: () => import('pages/magic/Index')
+            },
+            {
                 path:      'format',
                 component: () => import('pages/magic/Format')
             },

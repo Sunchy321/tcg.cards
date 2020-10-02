@@ -2,6 +2,12 @@
     <q-layout view="hHh Lpr fFf">
         <q-header elevated>
             <q-toolbar>
+                <q-btn
+                    icon="mdi-home"
+                    flat dense
+                    @click="toHome"
+                />
+
                 <q-toolbar-title>
                     {{ title }}
                 </q-toolbar-title>
@@ -26,9 +32,9 @@
                 </q-btn-dropdown>
 
                 <q-btn
-                    :icon="hasLoggedIn ? 'mdi-account-circle' : 'mdi-account-circle-outline'"
-                    dense flat size="sm"
-                    @click="toProfile"
+                    :icon="hasLoggedIn ? 'mdi-cog' : 'mdi-cog-outline'"
+                    flat dense
+                    @click="toSetting"
                 />
             </q-toolbar>
         </q-header>
@@ -44,12 +50,6 @@
 
 .q-btn-locale
     text-transform none !important
-
-.footer
-    background $primary
-    color white
-
-    padding 0 12px
 
 </style>
 
@@ -131,8 +131,22 @@ export default {
     },
 
     methods: {
-        toProfile() {
-            this.$router.push({ name: 'profile' });
+        toHome() {
+            if (this.game && this.$route.path !== '/' + this.game) {
+                this.$router.push('/' + this.game);
+            } else {
+                this.$router.push('/');
+            }
+        },
+
+        toSetting() {
+            const path = encodeURIComponent(this.$route.path.slice(1));
+
+            if (path === '') {
+                this.$router.push('/setting');
+            } else {
+                this.$router.push('/setting?redirect');
+            }
         }
     }
 };

@@ -6,6 +6,7 @@ export default {
             'load-scryfall': '加载Scryfall'
         },
 
+        banlist:         '禁止限制牌表',
         'format-change': '赛制更动'
     },
 

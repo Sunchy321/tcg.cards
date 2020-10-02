@@ -29,15 +29,7 @@ export default async function () {
             const user = store.getters.profile;
 
             if (user == null) {
-                next({ name: 'login' });
-            } else {
-                next();
-            }
-        } else if (to.matched.some(r => r.name === 'login')) {
-            const user = store.getters.profile;
-
-            if (user != null) {
-                next({ name: 'profile' });
+                next({ name: 'setting' });
             } else {
                 next();
             }

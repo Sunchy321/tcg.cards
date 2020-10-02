@@ -28,11 +28,14 @@ export default {
         username: '用户名',
         password: '密码',
         login:    '登录',
-        register: '注册'
+        register: '注册',
+
+        passwordHint: '至少8位，且须包含大小写字母、数字和特殊字符',
+        weakPassword: '你设置的密码太弱'
     },
 
     profile: {
-        logout: '退出',
+        logout: '退出账号',
 
         role: {
             normal: '普通用户',

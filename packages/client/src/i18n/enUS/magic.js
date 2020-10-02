@@ -7,6 +7,7 @@ export default {
             'load-scryfall': 'Load Scryfall'
         },
 
+        banlist:         'Banned & Restricted List',
         'format-change': 'Format Change'
     },
 

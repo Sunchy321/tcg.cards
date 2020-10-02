@@ -27,12 +27,15 @@ export default {
     login: {
         username: 'Username',
         password: 'Password',
-        login:    'Login',
-        register: 'Register'
+        login:    'Log in',
+        register: 'Sign up',
+
+        passwordHint: 'At least 8 characters, and must includes lower & upper letters, digits and special characters',
+        weakPassword: 'Your password is too weak'
     },
 
     profile: {
-        logout: 'Logout',
+        logout: 'Log out',
 
         role: {
             normal: 'Normal user',
