@@ -2,13 +2,13 @@ import KoaRouter from '@koa/router';
 
 import hearthstone from './hearthstone/router';
 
-import data from '@/data';
+import basic from '@/data/basic';
 
 const router = new KoaRouter();
 
-router.get('/', async (ctx) => {
+router.get('/', async ctx => {
     ctx.body = {
-        games: data.games
+        games: basic.games,
     };
 });
 

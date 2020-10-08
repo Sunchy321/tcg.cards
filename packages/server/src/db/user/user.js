@@ -1,4 +1,4 @@
-import { Document, Schema } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import bcrypt from 'bcrypt';
 import passportLocalMongoose from 'passport-local-mongoose';
@@ -11,27 +11,31 @@ const UserSchema = new Schema({
     username: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
     },
     password: {
         type: String,
     },
     role: {
-        type:     String,
-        enum:     ['normal', 'admin'],
+        type: String,
+        enum: ['normal', 'admin'],
         required: true,
-        default:  'normal'
-    }
+        default: 'normal',
+    },
 });
 
 UserSchema.plugin(passportLocalMongoose);
 
-UserSchema.methods.profile = function() {
+UserSchema.methods.profile = function () {
     return {
         username: this.username,
-        role:     this.role
+        role: this.role,
     };
-}
+};
+
+UserSchema.methods.isAdmin = function () {
+    return this.role === 'admin';
+};
 
 const User = conn.model('user', UserSchema);
 

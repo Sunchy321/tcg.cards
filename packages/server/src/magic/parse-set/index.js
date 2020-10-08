@@ -21,17 +21,13 @@ export async function parseSet(url) {
     const result = [];
 
     for (const l of basicLang) {
-        try {
-            const link = url.replace('en', langMap[l]);
-            const html = await request(link) ;
-            const $ = cheerio.load(html);
+        const link = url.replace('en', langMap[l]);
+        const html = await request(link);
+        const $ = cheerio.load(html);
 
-            const name = $($('title').get(0)).text().replace(/\|.*$/, '').trim();
+        const name = $($('title').get(0)).text().replace(/\|.*$/, '').trim();
 
-            console.log(l, name);
-
-            result.push({ lang: l, name, link });
-        } catch (e) { console.log(l, e.toString().slice(0, 60)); }
+        result.push({ lang: l, name, link });
     }
 
     return result;

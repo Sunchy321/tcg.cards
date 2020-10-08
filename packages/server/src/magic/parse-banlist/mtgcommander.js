@@ -42,7 +42,7 @@ export async function parseMTGCommanderBanlist(url) {
         source: 'duelcommander',
         date: undefined,
         nextDate: undefined,
-        effectiveDate: { },
+        effectiveDate: {},
         link: [url],
         changes: [],
         __debug: [],
@@ -55,7 +55,10 @@ export async function parseMTGCommanderBanlist(url) {
     result.date = `${year}-${month}-${day}`;
 
     for (const e of getLines(content, $)) {
-        const text = e.map(v => $(v).text()).join('').trim();
+        const text = e
+            .map(v => $(v).text())
+            .join('')
+            .trim();
 
         let isChange = false;
 
@@ -82,21 +85,24 @@ export async function parseMTGCommanderBanlist(url) {
         result.__debug.push({
             type: 'line',
             tag: e.map(v => v.tagName),
-            text, isChange,
+            text,
+            isChange,
         });
 
         if (!isChange) {
             // tslint:disable-next-line: max-line-length
-            const eDate = /(?:These changes apply|This update applies|These changes take effect|This change takes effect|They take effect) on ([a-z]+ \d+(?:st|nd|rd|th)?,? \d+)/i.exec(text);
-
-            console.log(text, eDate);
+            const eDate = /(?:These changes apply|This update applies|These changes take effect|This change takes effect|They take effect) on ([a-z]+ \d+(?:st|nd|rd|th)?,? \d+)/i.exec(
+                text,
+            );
 
             if (eDate != null) {
                 result.effectiveDate.tabletop = parseDate(eDate[1]);
             }
 
             // tslint:disable-next-line: max-line-length
-            const nDate = /(?:The next announcements? will be published|The next announcement is expected to be|See you all) on ([a-z]+ \d+(?:st|nd|rd|th)?, \d+)/i.exec(text);
+            const nDate = /(?:The next announcements? will be published|The next announcement is expected to be|See you all) on ([a-z]+ \d+(?:st|nd|rd|th)?, \d+)/i.exec(
+                text,
+            );
 
             if (nDate != null) {
                 result.nextDate = parseDate(nDate[1]);

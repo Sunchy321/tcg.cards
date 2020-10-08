@@ -10,10 +10,7 @@ const router = new KoaRouter();
 
 router.post('/register', async (ctx, next) => {
     const { username, password } = ctx.request.body;
-    const user = await User.register(
-        new User({ username }),
-        password
-    );
+    const user = await User.register(new User({ username }), password);
 
     if (user != null) {
         logger.user.info(username, { category: 'register' });
@@ -53,12 +50,12 @@ router.get('/profile', async ctx => {
     if (ctx.isAuthenticated()) {
         const user = ctx.state.user;
 
-        ctx.body = user.profile()
+        ctx.body = user.profile();
     } else {
         ctx.body = {
-            failure: 'NotLoggedIn'
-        }
+            failure: 'NotLoggedIn',
+        };
     }
-})
+});
 
 export default router;

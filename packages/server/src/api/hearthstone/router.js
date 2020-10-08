@@ -1,13 +1,19 @@
 import KoaRouter from '@koa/router';
 
-import { patches } from './hsdata';
+import hsdata from './hsdata/router';
+
+import Patch from '~/db/hearthstone/patch';
 
 const router = new KoaRouter();
 
 router.prefix('/hearthstone');
 
+router.use(hsdata.routes());
+
 router.get('/patches', async ctx => {
-    ctx.body = await patches();
+    const patches = await Patch.find();
+
+    ctx.body = patches.map(p => p.profile());
 });
 
 export default router;

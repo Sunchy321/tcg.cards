@@ -14,9 +14,9 @@ const port = process.env.NODE_ENV === 'production' ? 80 : 8889;
 
 const app = new Koa();
 
-app.keys = ['some secret hurr'];
+app.keys = ['secret key for tcg.cards'];
 
-app.use(KoaSession({ }, app));
+app.use(KoaSession({}, app));
 app.use(KoaCORS());
 app.use(KoaBody({ multipart: true }));
 app.use(passport.initialize());

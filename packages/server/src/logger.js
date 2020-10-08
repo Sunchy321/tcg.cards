@@ -7,15 +7,14 @@ function formatter(info) {
     const level = info.level[0];
     const tag = info.category != null ? level + '/' + info.category : level;
 
-    return `${info.timestamp} ${tag.padEnd(10, ' ').toUpperCase()} ${info.message}`;
+    return `${info.timestamp} ${tag.padEnd(10, ' ').toUpperCase()} ${
+        info.message
+    }`;
 }
 
 export const main = createLogger({
     level: 'info',
-    format: format.combine(
-        format.timestamp(),
-        format.printf(formatter),
-    ),
+    format: format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
             filename: log + '/main.log',
@@ -25,10 +24,7 @@ export const main = createLogger({
 
 export const data = createLogger({
     level: 'info',
-    format: format.combine(
-        format.timestamp(),
-        format.printf(formatter),
-    ),
+    format: format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
             filename: log + '/data.log',
@@ -38,10 +34,7 @@ export const data = createLogger({
 
 export const user = createLogger({
     level: 'info',
-    format: format.combine(
-        format.timestamp(),
-        format.printf(formatter),
-    ),
+    format: format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
             filename: log + '/user.log',
