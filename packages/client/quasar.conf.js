@@ -83,26 +83,6 @@ module.exports = function (ctx) {
       open: true, // opens browser window automatically
 
       proxy: {
-        '/basic': {
-            target:       'http://[::1]:8889',
-            changeOrigin: true
-        },
-        '/data': {
-            target:       'http://[::1]:8889',
-            changeOrigin: true
-        },
-        '/image': {
-            target:       'http://[::1]:8889',
-            changeOrigin: true
-        },
-        '/action': {
-            target:       'http://[::1]:8889',
-            changeOrigin: true
-        },
-        '/control': {
-            target:       'http://[::1]:8889',
-            changeOrigin: true
-        },
         '/api': {
             target:       'http://api.test.local:8889',
             changeOrigin: true,

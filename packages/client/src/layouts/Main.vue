@@ -32,7 +32,7 @@
                 </q-btn-dropdown>
 
                 <q-btn
-                    :icon="hasLoggedIn ? 'mdi-cog' : 'mdi-cog-outline'"
+                    :icon="loggedIn ? 'mdi-cog' : 'mdi-cog-outline'"
                     flat dense
                     @click="toSetting"
                 />
@@ -56,6 +56,8 @@
 <script>
 import basic from '../mixins/basic';
 
+import { format } from 'quasar';
+
 export default {
     name: 'Main',
 
@@ -77,56 +79,13 @@ export default {
         },
 
         title() {
-            const path = this.$route.path;
+            const titleMatch = this.$route.matched.find(r => r.meta.title != null);
 
-            if (path === '' || path === '/' || this.game == null) {
-                return '';
+            if (titleMatch != null) {
+                return format.capitalize(this.$t(titleMatch.meta.title));
             } else {
-                const restPath = path.split('/').filter(v => v !== '').slice(1).join('/');
-
-                if (restPath === '') {
-                    return this.$t(`${this.game}.$self`);
-                }
-
-                for (const p of this.pages[this.game]) {
-                    if (p.path === restPath) {
-                        return this.$t(p.title);
-                    }
-                }
-
-                return this.$t(`${this.game}.$title.${restPath.replace(/\//, '.')}`);
+                return this.$route.path.slice(1).replace(/\//g, '.');
             }
-        },
-
-        pages() {
-            const pages = {};
-
-            for (const r of this.$router.options.routes) {
-                if (r.path !== '/' && r.children != null) {
-                    for (const c of r.children) {
-                        const game = r.path.slice(1);
-                        const path = c.path;
-
-                        if (pages[game] == null) {
-                            pages[game] = [];
-                        }
-
-                        pages[game].push({
-                            isControl: path.startsWith('control/'),
-                            path,
-                            title:     `${game}.$title.${
-                                path.replace(/\//g, '.').replace(/^control\./, '$control.')
-                            }`
-                        });
-                    }
-                }
-            }
-
-            return pages;
-        },
-
-        hasLoggedIn() {
-            return this.$store.getters.profile != null;
         }
     },
 

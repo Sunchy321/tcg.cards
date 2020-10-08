@@ -1,13 +1,9 @@
 <template>
-    <q-page class="flex row">
-        <aside class="left-panel col-3 flex column items-strech q-pa-md">
+    <q-page class="row">
+        <aside class="left-panel col-3 column items-strech q-pa-md">
             <template v-if="profile == null">
                 <q-form class="q-pa-md q-gutter-md">
-                    <q-input
-                        filled
-                        v-model="username"
-                        :label="$t('login.username')"
-                    />
+                    <q-input filled v-model="username" :label="$t('login.username')" />
                     <q-input
                         filled
                         v-model="password"
@@ -24,11 +20,7 @@
                         </template>
                     </q-input>
                     <div class="flex items-center justify-center">
-                        <q-btn
-                            class="col q-ma-sm"
-                            :label="$t('login.register')"
-                            @click="register"
-                        />
+                        <q-btn class="col q-ma-sm" :label="$t('login.register')" @click="register" />
                         <q-btn
                             class="col q-ma-sm"
                             color="primary"
@@ -39,30 +31,20 @@
                 </q-form>
             </template>
             <template v-else>
-                <div class="header flex column items-center q-pa-lg q-mb-md">
-                    <div class="name">
-                        {{ profile.username }}
-                    </div>
-                    <div class="role">
-                        {{ $t('profile.role.' + profile.role) }}
-                    </div>
+                <div class="header column items-center q-pa-lg q-mb-md">
+                    <div class="name">{{ profile.username }}</div>
+                    <div class="role">{{ $t('profile.role.' + profile.role) }}</div>
                 </div>
                 <div class="action flex">
-                    <q-btn
-                        flat
-                        :label="$t('profile.logout')"
-                        @click="logout"
-                    />
+                    <q-btn flat :label="$t('profile.logout')" @click="logout" />
                 </div>
             </template>
         </aside>
-        <article class="body col">
-        </article>
+        <article class="body col"></article>
     </q-page>
 </template>
 
 <style lang="stylus" scoped>
-
 .left-panel
     border-right 1px solid #DDD
     margin-top 10px
@@ -75,7 +57,6 @@
 
 .name
     font-size 120%
-
 </style>
 
 <script>
@@ -86,17 +67,13 @@ export default {
         username: '',
         password: '',
 
-        showPassword: false
+        showPassword: false,
     }),
 
     mounted() {
-        this.$store.subscribe(async (mutation) => {
+        this.$store.subscribe(async mutation => {
             if (mutation.type === 'user' && mutation.payload != null) {
-                const redirect = this.$route.query.redirect;
-
-                if (redirect != null) {
-                    this.$router.go(-1);
-                }
+                this.$router.go(-1);
             }
         });
     },
@@ -104,7 +81,7 @@ export default {
     computed: {
         profile() {
             return this.$store.getters.profile;
-        }
+        },
     },
 
     methods: {
@@ -133,7 +110,7 @@ export default {
 
             const { data } = await this.user.post('/register', {
                 username: this.username,
-                password: this.password
+                password: this.password,
             });
 
             if (data.failure == null) {
@@ -147,7 +124,7 @@ export default {
         async login() {
             const { data } = await this.user.post('/login', {
                 username: this.username,
-                password: this.password
+                password: this.password,
             });
 
             if (data.failure == null) {
@@ -162,7 +139,7 @@ export default {
             await this.user.post('/logout');
 
             this.$store.dispatch('logout');
-        }
-    }
+        },
+    },
 };
 </script>

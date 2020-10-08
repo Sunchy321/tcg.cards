@@ -608,8 +608,6 @@ export default {
         modifyChangeCard(i, v) {
             const changes = cloneDeep(this.changes);
 
-            console.log(v.split('\n'));
-
             if (v.startsWith('#')) {
                 changes[i].card = v;
 

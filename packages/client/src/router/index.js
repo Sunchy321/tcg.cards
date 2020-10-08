@@ -12,7 +12,7 @@ Vue.use(VueRouter);
  * directly export the Router instantiation
  */
 
-export default async function () {
+export default async function() {
     const Router = new VueRouter({
         scrollBehavior: () => ({ x: 0, y: 0 }),
         routes,
@@ -21,14 +21,22 @@ export default async function () {
         // quasar.conf.js -> build -> vueRouterMode
         // quasar.conf.js -> build -> publicPath
         mode: process.env.VUE_ROUTER_MODE,
-        base: process.env.VUE_ROUTER_BASE
+        base: process.env.VUE_ROUTER_BASE,
     });
 
-    Router.beforeEach((to, from, next) => {
-        if (to.matched.some(r => r.meta.requireAuth)) {
-            const user = store.getters.profile;
+    Router.beforeEach(async (to, from, next) => {
+        if (to.matched.some(r => r.meta.requireAdmin)) {
+            const isAdmin = await store.dispatch('isAdmin');
 
-            if (user == null) {
+            if (!isAdmin) {
+                next({ name: 'setting' });
+            } else {
+                next();
+            }
+        } else if (to.matched.some(r => r.meta.requireAuth)) {
+            const hasLoggedIn = await store.dispatch('hasLoggedIn');
+
+            if (!hasLoggedIn) {
                 next({ name: 'setting' });
             } else {
                 next();

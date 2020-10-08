@@ -3,19 +3,19 @@ import hearthstone from './hearthstone';
 
 const routes = [
     {
-        path:      '/',
+        path: '/',
         component: () => import('layouts/Main.vue'),
-        children:  [
+        children: [
             {
-                path:      '',
-                component: () => import('pages/Index.vue')
+                path: '',
+                component: () => import('pages/Index.vue'),
             },
             {
-                path:      'setting',
-                name:      'setting',
-                component: () => import('pages/Setting.vue')
+                path: 'setting',
+                name: 'setting',
+                component: () => import('pages/Setting.vue'),
             },
-        ]
+        ],
     },
 
     ...magic,
@@ -24,8 +24,8 @@ const routes = [
 
 if (process.env.MODE !== 'ssr') {
     routes.push({
-        path:      '*',
-        component: () => import('pages/Error404.vue')
+        path: '*',
+        component: () => import('pages/Error404.vue'),
     });
 }
 

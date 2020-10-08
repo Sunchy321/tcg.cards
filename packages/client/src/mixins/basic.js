@@ -14,6 +14,14 @@ export default {
             }
 
             return null;
+        },
+
+        loggedIn() {
+            return this.$store.getters.profile != null;
+        },
+
+        isAdmin() {
+            return this.$store.getters.isAdmin;
         }
     }
 };

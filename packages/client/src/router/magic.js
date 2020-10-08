@@ -1,29 +1,29 @@
 const routes = [
     {
-        path:      '/magic',
+        path: '/magic',
         component: () => import('layouts/Main.vue'),
-        children:  [
+        children: [
             {
-                path:      '',
-                component: () => import('pages/magic/Index')
+                path: '',
+                component: () => import('pages/magic/Index'),
             },
             {
-                path:      'format',
-                component: () => import('pages/magic/Format')
+                path: 'format',
+                component: () => import('pages/magic/Format'),
             },
             {
-                path:      'format-change',
-                component: () => import('pages/magic/FormatChange')
+                path: 'format-change',
+                component: () => import('pages/magic/FormatChange'),
             },
             {
-                path:      'set',
-                component: () => import('pages/magic/Set')
+                path: 'set',
+                component: () => import('pages/magic/Set'),
             },
             {
-                path:      'card',
-                component: () => import('pages/magic/Card')
+                path: 'card',
+                component: () => import('pages/magic/Card'),
             },
-        ]
+        ],
     },
 ];
 
