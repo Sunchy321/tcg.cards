@@ -1,0 +1,8 @@
+{
+    "verbose": true,
+    "ext": "ts tsx",
+    "watch": ["src/", "data/", "config.ts"],
+    "execMap": {
+        "ts": "node -r ts-node/register -r tsconfig-paths/register"
+    }
+}

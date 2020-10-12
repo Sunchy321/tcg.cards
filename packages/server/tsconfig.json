@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "module": "CommonJS",
+        "target": "ES2018",
+        "noImplicitAny": true,
+        "outDir": "./dist",
+        "sourceMap": true,
+        "strictNullChecks": true,
+        "esModuleInterop": true,
+        "lib": ["ES2018.AsyncIterable"],
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["./src/*"],
+            "@config": ["./config"],
+            "@data/*": ["./data/*"]
+        }
+    },
+    "include": ["./src/*"]
+}

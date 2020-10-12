@@ -2,4 +2,4 @@
 .thumbs.db
 node_modules
 
-config.js
+config.*
