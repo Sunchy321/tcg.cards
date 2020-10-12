@@ -29,21 +29,8 @@ export default {
     data() {
         return {
             change: [],
-            filter: null
+            filter: null,
         };
-    },
-
-    watch: {
-        $route: {
-            immediate: true,
-            handler() {
-                this.loadChanges();
-            }
-        },
-
-        filter() {
-            this.loadChanges();
-        }
     },
 
     computed: {
@@ -54,15 +41,28 @@ export default {
                 { value: 'mtgcommander', label: this.$t('magic.format-change.source/option.mtgcommander') },
                 { value: 'duelcommander', label: this.$t('magic.format-change.source/option.duelcommander') },
             ];
-        }
+        },
+    },
+
+    watch: {
+        $route: {
+            immediate: true,
+            handler() {
+                this.loadChanges();
+            },
+        },
+
+        filter() {
+            this.loadChanges();
+        },
     },
 
     methods: {
         async loadChanges() {
             const { data } = await this.$axios.get('/control/magic/raw-format-change', {
                 params: {
-                    filter: this.filter
-                }
+                    filter: this.filter,
+                },
             });
 
             this.change = data;
@@ -91,8 +91,8 @@ export default {
         updateItem(i, v) {
             this.change[i] = v;
             this.$forceUpdate();
-        }
-    }
+        },
+    },
 };
 </script>
 

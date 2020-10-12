@@ -21,7 +21,7 @@ export default {
         grc:  '古希腊文',
         ar:   '阿拉伯文',
         sa:   '梵文',
-        px:   '非瑞克西亚文'
+        px:   '非瑞克西亚文',
     },
 
     login: {
@@ -31,7 +31,7 @@ export default {
         register: '注册',
 
         passwordHint: '至少8位，且须包含大小写字母、数字和特殊字符',
-        weakPassword: '你设置的密码太弱'
+        weakPassword: '你设置的密码太弱',
     },
 
     profile: {
@@ -39,10 +39,12 @@ export default {
 
         role: {
             normal: '普通用户',
-            admin:  '管理员'
-        }
+            admin:  '管理员',
+        },
     },
 
+    data: '数据',
+
     magic,
-    hearthstone
+    hearthstone,
 };

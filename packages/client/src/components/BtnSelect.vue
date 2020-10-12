@@ -3,8 +3,8 @@
         <q-btn
             v-for="o in options" :key="o.value"
             :color="color(o)"
-            @click="$emit('input', o.value)"
             v-bind="{ flat, dense, ...o }"
+            @click="$emit('input', o.value)"
         />
     </q-btn-group>
 </template>
@@ -14,10 +14,16 @@ export default {
     name: 'BtnSelect',
 
     props: {
-        value:   null,
-        options: Array,
-        flat:    Boolean,
-        dense:   Boolean
+        value: {
+            type:     null,
+            required: true,
+        },
+        options: {
+            type:     Array,
+            required: true,
+        },
+        flat:  Boolean,
+        dense: Boolean,
     },
 
     methods: {
@@ -31,8 +37,8 @@ export default {
                     return o.color ?? 'primary';
                 }
             }
-        }
-    }
+        },
+    },
 };
 </script>
 

@@ -2,11 +2,13 @@
     <q-page class="main">
         <div class="row">
             <q-select
+                v-model="set"
                 class="code"
                 style="max-width: 300px"
                 dense
-                use-input hide-selected fill-input
-                v-model="set"
+                use-input
+                hide-selected
+                fill-input
                 :options="setOptions"
                 @filter="setFilter"
             >
@@ -16,7 +18,9 @@
                         v-on="scope.itemEvents"
                     >
                         <q-item-section>
-                            <q-item-label class="code">{{ scope.opt }}</q-item-label>
+                            <q-item-label class="code">
+                                {{ scope.opt }}
+                            </q-item-label>
                         </q-item-section>
                     </q-item>
                 </template>
@@ -37,7 +41,7 @@
             <btn ref="upload" icon="mdi-upload" dense round @click="updateSet" />
         </div>
         <div class="row">
-            <q-input class="col-grow" v-model="setId" label="ID" />
+            <q-input v-model="setId" class="col-grow" label="ID" />
             <q-input class="col-grow" :value="scryfallCode" :label="$t('magic.set.scryfall-code')" disable />
             <q-input class="col-grow" :value="onlineCode" :label="$t('magic.set.online-code')" disable />
             <q-input class="col-grow" :value="tcgplayerId" :label="$t('magic.set.tcgplayer-id')" disable />
@@ -68,7 +72,7 @@
                         {{ $t('magic.set.localization') }}
                     </div>
                     <div class="col" />
-                    <q-input class="q-mr-sm col" v-model="setUrl" dense>
+                    <q-input v-model="setUrl" class="q-mr-sm col" dense>
                         <template #append>
                             <q-btn icon="mdi-file-document-box-search" flat round dense @click="getSetLocalization" />
                         </template>
@@ -150,9 +154,9 @@ import { cloneDeep } from 'lodash';
 export default {
     name: 'Set',
 
-    mixins: [basic],
-
     components: { Btn },
+
+    mixins: [basic],
 
     data: () => ({
         sets:       [],
@@ -164,25 +168,8 @@ export default {
         data: null,
 
         scryfallSyncing: false,
-        mtgjsonSyncing:  false
+        mtgjsonSyncing:  false,
     }),
-
-    watch: {
-        $route: {
-            immediate: true,
-            handler() {
-                this.loadSets();
-            }
-        },
-
-        set: {
-            handler() {
-                if (this.set != null) {
-                    this.loadSet();
-                }
-            }
-        }
-    },
 
     computed: {
         scryfallSyncIcon() {
@@ -201,7 +188,7 @@ export default {
                 if (this.data != null) {
                     this.$set(this.data, 'setId', newSetId);
                 }
-            }
+            },
         },
 
         scryfallCode() {
@@ -254,29 +241,46 @@ export default {
             },
             set(newLocalization) {
                 this.$set(this.data, 'localization', newLocalization);
-            }
+            },
         },
 
         localizationColumn() {
             return [
                 {
                     name:  'lang',
-                    label: this.$t('magic.set.localization/column.lang')
+                    label: this.$t('magic.set.localization/column.lang'),
                 },
                 {
                     name:  'name',
-                    label: this.$t('magic.set.localization/column.name')
+                    label: this.$t('magic.set.localization/column.name'),
                 },
                 {
                     name:  'block',
-                    label: this.$t('magic.set.localization/column.block')
+                    label: this.$t('magic.set.localization/column.block'),
                 },
                 {
                     name:  'link',
-                    label: this.$t('magic.set.localization/column.link')
+                    label: this.$t('magic.set.localization/column.link'),
                 },
             ];
-        }
+        },
+    },
+
+    watch: {
+        $route: {
+            immediate: true,
+            handler() {
+                this.loadSets();
+            },
+        },
+
+        set: {
+            handler() {
+                if (this.set != null) {
+                    this.loadSet();
+                }
+            },
+        },
     },
 
     methods: {
@@ -294,8 +298,8 @@ export default {
             if (this.set != null) {
                 const { data } = await this.$axios.get('/control/magic/raw-set', {
                     params: {
-                        id: this.set
-                    }
+                        id: this.set,
+                    },
                 });
 
                 this.data = data;
@@ -304,7 +308,7 @@ export default {
 
         async updateSet() {
             await this.$axios.post('/control/magic/update-set', {
-                data: this.data
+                data: this.data,
             });
 
             this.$refs.upload.flicker('positive');
@@ -329,7 +333,7 @@ export default {
             this.insertAllLocalization();
 
             const { data } = await this.$axios.get('/control/magic/parse-set', {
-                params: { url: this.setUrl }
+                params: { url: this.setUrl },
             });
 
             const localization = cloneDeep(this.localization);
@@ -361,7 +365,7 @@ export default {
 
             this.localization = [
                 ...langs.map(l => this.localization.find(v => v.lang === l) ?? {
-                    lang: l
+                    lang: l,
                 }),
                 ...this.localization.filter(v => !langs.includes(v.lang)),
             ];
@@ -369,7 +373,7 @@ export default {
 
         removeLocalization(idx) {
             this.localization = this.localization.filter((e, i) => i !== idx);
-        }
-    }
+        },
+    },
 };
 </script>

@@ -9,10 +9,10 @@ Vue.use(Vuex);
 const Store = new Vuex.Store({
     modules: {
         core,
-        locale
+        locale,
     },
 
-    strict: process.env.DEV
+    strict: process.env.DEV,
 });
 
 export default Store;

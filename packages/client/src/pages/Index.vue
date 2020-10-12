@@ -1,8 +1,12 @@
 <template>
     <q-page class="q-pa-md">
         <q-btn
-            v-for="g in games" :key="g"
-            no-caps flat align="left" class="tcg-item"
+            v-for="g in games"
+            :key="g"
+            no-caps
+            flat
+            align="left"
+            class="tcg-item"
             @click="$router.push('/' + g)"
         >
             {{ fullName(g) }}
@@ -11,10 +15,8 @@
 </template>
 
 <style lang="stylus" scoped>
-
 .tcg-item
     width 25%
-
 </style>
 
 <script>
@@ -32,7 +34,7 @@ export default {
             } else {
                 return this.$t(g + '.$self');
             }
-        }
-    }
+        },
+    },
 };
 </script>

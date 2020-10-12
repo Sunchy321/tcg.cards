@@ -22,6 +22,6 @@ export default {
 
         isAdmin() {
             return this.$store.getters.isAdmin;
-        }
-    }
+        },
+    },
 };

@@ -19,7 +19,11 @@
             />
         </div>
         <div class="row">
-            <div v-for="p in patches" :key="p.version" class="patch-item col-2 flex items-center">
+            <div
+                v-for="p in patches"
+                :key="p.version"
+                class="patch-item col-2 flex items-center"
+            >
                 <q-icon
                     :class="p.isUpdated ? 'color-positive' : 'color-negative'"
                     :name="p.isUpdated ? 'mdi-check' : 'mdi-close'"
@@ -28,9 +32,13 @@
                 <q-btn
                     flat
                     dense
-                    :icon="loadingPatch === p.version ? 'mdi-autorenew mdi-spin' : 'mdi-autorenew'"
+                    :icon="
+                        loadingPatch === p.version
+                            ? 'mdi-autorenew mdi-spin'
+                            : 'mdi-autorenew'
+                    "
                     @click="loadPatch(p)"
-                >{{ loadingPatch === p.version && loadingPatchStatus ? loadingPatchStatus.count : '' }}</q-btn>
+                />
             </div>
         </div>
     </q-page>
@@ -46,12 +54,12 @@ export default {
     name: 'Hsdata',
 
     data: () => ({
-        gettingData: false,
-        loadingData: false,
+        gettingData:  false,
+        loadingData:  false,
         loadingPatch: null,
 
         hasData: false,
-        status: null,
+        status:  null,
         patches: [],
     }),
 
@@ -67,7 +75,7 @@ export default {
 
             if (this.hasData) {
                 ({ data: this.patches } = await this.api.get(
-                    '/hearthstone/patches',
+                    '/hearthstone/patch',
                 ));
             }
         },

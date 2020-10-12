@@ -1,8 +1,6 @@
 <template>
     <q-page class="main">
-        <div class="row">
-
-        </div>
+        <div class="row" />
     </q-page>
 </template>
 

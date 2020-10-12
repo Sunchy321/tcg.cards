@@ -7,7 +7,7 @@
 <script>
 const quasarLocaleMap = {
     enUS: 'en-us',
-    zhCN: 'zh-hans'
+    zhCN: 'zh-hans',
 };
 
 export default {
@@ -30,6 +30,6 @@ export default {
         });
 
         this.$store.dispatch('boot');
-    }
+    },
 };
 </script>

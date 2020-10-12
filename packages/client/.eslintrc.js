@@ -10,19 +10,9 @@ module.exports = {
         browser: true,
     },
 
-    extends: [
-        'standard',
-        'prettier',
-        // Uncomment any of the lines below to choose desired strictness,
-        // but leave only one uncommented!
-        // See https://vuejs.github.io/eslint-plugin-vue/rules/#available-rules
-        'plugin:vue/essential', // Priority A: Essential (Error Prevention)
-        // 'plugin:vue/strongly-recommended' // Priority B: Strongly Recommended (Improving Readability)
-        // 'plugin:vue/recommended' // Priority C: Recommended (Minimizing Arbitrary Choices and Cognitive Overhead)
-    ],
-
-    // required to lint *.vue files
     plugins: ['vue'],
+
+    extends: ['standard', 'plugin:vue/recommended'],
 
     globals: {
         ga: true, // Google Analytics
@@ -67,6 +57,17 @@ module.exports = {
         'use-isnan': 'error',
         'standard/no-callback-literal': 'off',
         'no-unused-expressions': 'off',
+
+        'comma-dangle': ['warn', 'always-multiline'],
+        'key-spacing': ['warn', {
+            beforeColon: false,
+            afterColon: true,
+            align: 'value'
+        }],
+        'quote-props': ['warn', 'consistent-as-needed'],
+
         'vue/no-unused-components': 'warn',
+        'vue/html-indent': ['warn', 4],
+        'vue/max-attributes-per-line': 'off',
     },
 };

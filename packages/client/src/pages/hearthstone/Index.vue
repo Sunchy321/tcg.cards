@@ -3,14 +3,16 @@
         <div class="main-input q-ma-xl">
             <q-input filled size="md" />
         </div>
-        <div></div>
+        <div />
         <div class="links q-pa-md">
             <router-link
                 v-for="l in adminLinks"
                 :key="l.name"
                 :to="'/hearthstone/' + l.to"
                 class="link admin"
-            >{{ $t('hearthstone.' + l.name) }}</router-link>
+            >
+                {{ $t('hearthstone.' + l.name) }}
+            </router-link>
         </div>
     </q-page>
 </template>
@@ -35,8 +37,8 @@ export default {
         adminLinks() {
             return [
                 {
-                    name: 'hsdata.$self',
-                    to: 'hsdata',
+                    name:  'hsdata.$self',
+                    to:    'hsdata',
                     admin: true,
                 },
             ];

@@ -1,22 +1,22 @@
 const routes = [
     {
-        path: '/hearthstone',
+        path:      '/hearthstone',
         component: () => import('layouts/Main.vue'),
-        children: [
+        children:  [
             {
-                path: '',
+                path:      '',
                 component: () => import('pages/hearthstone/Index'),
-                meta: {
+                meta:      {
                     title: 'hearthstone.$self',
                 },
             },
 
             {
-                path: 'hsdata',
-                component: () => import('pages/hearthstone/admin/Hsdata'),
-                meta: {
+                path:      'data',
+                component: () => import('pages/hearthstone/Data'),
+                meta:      {
                     requireAdmin: true,
-                    title: 'hearthstone.hsdata.$self',
+                    title:        'hearthstone.hsdata.$self',
                 },
             },
         ],

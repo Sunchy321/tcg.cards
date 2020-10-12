@@ -1,86 +1,95 @@
 export default {
-    $self:     'MTG',
-    $selfFull: 'Magic: the Gathering',
+    '$self':     'MTG',
+    '$selfFull': 'Magic: the Gathering',
 
-    $title: {
-        $control: {
-            'load-scryfall': 'Load Scryfall'
+    '$title': {
+        '$control': {
+            'load-scryfall': 'Load Scryfall',
         },
 
-        banlist:         'Banned & Restricted List',
-        'format-change': 'Format Change'
+        'banlist':       'Banned & Restricted List',
+        'format-change': 'Format Change',
     },
 
-    $control: {
+    'data': {
+        tabs: {
+            scryfall: 'Scryfall',
+        },
+
+        scryfall: {
+            bulkData: 'Bulk Data',
+        },
     },
 
-    format: {
-        order:        'Order',
-        localization: 'Localization',
+    '$control': {},
+
+    'format': {
+        'order':        'Order',
+        'localization': 'Localization',
 
         'localization/column': {
             lang: 'Language',
-            name: 'Name'
+            name: 'Name',
         },
 
-        standard: 'Standard',
-        historic: 'Historic',
-        pioneer:  'Pioneer',
-        modern:   'Modern',
-        extended: 'Extended',
-        legacy:   'Legacy',
-        vintage:  'Vintage',
+        'standard': 'Standard',
+        'historic': 'Historic',
+        'pioneer':  'Pioneer',
+        'modern':   'Modern',
+        'extended': 'Extended',
+        'legacy':   'Legacy',
+        'vintage':  'Vintage',
 
         'standard/arena': 'Arena Standard',
 
-        commander:     'Commander',
-        duelcommander: 'Duel Commander',
-        commander1v1:  'Commander 1v1',
-        brawl:         'Brawl',
+        'commander':     'Commander',
+        'duelcommander': 'Duel Commander',
+        'commander1v1':  'Commander 1v1',
+        'brawl':         'Brawl',
 
-        pauper: 'Pauper',
+        'pauper': 'Pauper',
 
-        two_head_giant: 'Two Head Giant',
+        'two_head_giant': 'Two Head Giant',
 
         '100_card_singleton': '100 Card Singleton',
-        kaleidoscope:         'Kaleidoscope',
-        online_classic:       'Online Classic',
-        online_commander:     'Online Commander',
-        prismatic:            'Prismatic',
-        singleton:            'Singleton',
-        tribal:               'Tribal'
+        'kaleidoscope':       'Kaleidoscope',
+        'online_classic':     'Online Classic',
+        'online_commander':   'Online Commander',
+        'prismatic':          'Prismatic',
+        'singleton':          'Singleton',
+        'tribal':             'Tribal',
     },
 
     'format-change': {
-        type: 'Type',
+        'type': 'Type',
 
         'type/option': {
-            'banlist-change': 'Banlist Change'
+            'banlist-change': 'Banlist Change',
         },
 
-        source: 'Source',
+        'source': 'Source',
 
         'source/option': {
             wotc:          'WotC',
             mtgcommander:  'Commander',
-            duelcommander: 'Duel Commander'
+            duelcommander: 'Duel Commander',
         },
 
-        category: 'Category',
+        'category': 'Category',
 
         'category/option': {
             pioneer:      'Pioneer',
-            commander1v1: 'Commander 1v1'
+            commander1v1: 'Commander 1v1',
         },
 
-        tabletop: 'Tabletop',
-        online:   'Magic Online',
-        arena:    'Magic Arena',
+        'tabletop': 'Tabletop',
+        'online':   'Magic Online',
+        'arena':    'Magic Arena',
 
-        format: 'Format'
+        'format': 'Format',
     },
 
-    set: {
+    'set': {
         'sync-with-scryfall': 'Sync with Scryfall',
         'sync-with-mtgjson':  'Sync with MTGJSON',
 
@@ -89,8 +98,8 @@ export default {
         'online-code':   'Online Code',
         'tcgplayer-id':  'TCGPlayer ID',
 
-        block:  'Block',
-        parent: 'Parent',
+        'block':  'Block',
+        'parent': 'Parent',
 
         'set-type':     'Set Type',
         'is-digital':   'Is Digital',
@@ -98,13 +107,13 @@ export default {
         'release-date': 'ReleaseDate',
         'card-count':   'Card Count',
 
-        localization: 'Localization',
+        'localization': 'Localization',
 
         'localization/column': {
             lang:  'Language',
             name:  'Name',
             block: 'Block',
-            link:  'Link'
-        }
-    }
+            link:  'Link',
+        },
+    },
 };

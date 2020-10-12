@@ -3,10 +3,14 @@
         <aside class="left-panel col-3 column items-strech q-pa-md">
             <template v-if="profile == null">
                 <q-form class="q-pa-md q-gutter-md">
-                    <q-input filled v-model="username" :label="$t('login.username')" />
                     <q-input
+                        v-model="username"
                         filled
+                        :label="$t('login.username')"
+                    />
+                    <q-input
                         v-model="password"
+                        filled
                         :type="showPassword ? 'text' : 'password'"
                         :label="$t('login.password')"
                         :hint="$t('login.passwordHint')"
@@ -20,7 +24,11 @@
                         </template>
                     </q-input>
                     <div class="flex items-center justify-center">
-                        <q-btn class="col q-ma-sm" :label="$t('login.register')" @click="register" />
+                        <q-btn
+                            class="col q-ma-sm"
+                            :label="$t('login.register')"
+                            @click="register"
+                        />
                         <q-btn
                             class="col q-ma-sm"
                             color="primary"
@@ -32,15 +40,19 @@
             </template>
             <template v-else>
                 <div class="header column items-center q-pa-lg q-mb-md">
-                    <div class="name">{{ profile.username }}</div>
-                    <div class="role">{{ $t('profile.role.' + profile.role) }}</div>
+                    <div class="name">
+                        {{ profile.username }}
+                    </div>
+                    <div class="role">
+                        {{ $t('profile.role.' + profile.role) }}
+                    </div>
                 </div>
                 <div class="action flex">
                     <q-btn flat :label="$t('profile.logout')" @click="logout" />
                 </div>
             </template>
         </aside>
-        <article class="body col"></article>
+        <article class="body col" />
     </q-page>
 </template>
 
@@ -70,18 +82,18 @@ export default {
         showPassword: false,
     }),
 
+    computed: {
+        profile() {
+            return this.$store.getters.profile;
+        },
+    },
+
     mounted() {
         this.$store.subscribe(async mutation => {
             if (mutation.type === 'user' && mutation.payload != null) {
                 this.$router.go(-1);
             }
         });
-    },
-
-    computed: {
-        profile() {
-            return this.$store.getters.profile;
-        },
     },
 
     methods: {
@@ -94,7 +106,7 @@ export default {
                 !/\d/.test(password) ||
                 !/[a-z]/.test(password) ||
                 !/[A-Z]/.test(password) ||
-                /[0-9a-zA-Z]/.test(password)
+                !/[^0-9a-zA-Z]+/.test(password)
             ) {
                 return true;
             }
@@ -104,7 +116,7 @@ export default {
 
         async register() {
             if (this.isWeak(this.password)) {
-                this.$notify(this.$t('login.weakPassword'));
+                this.$q.notify(this.$t('login.weakPassword'));
                 return;
             }
 

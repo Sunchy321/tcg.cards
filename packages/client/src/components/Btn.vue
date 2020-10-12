@@ -9,17 +9,30 @@
 
 <script>
 export default {
-    props: [
-        'color',
-        'icon',
-        'dense',
-        'round',
-        'size',
-    ],
+    props: {
+        color: {
+            type:    String,
+            default: undefined,
+        },
+        dense: {
+            type: Boolean,
+        },
+        icon: {
+            type:    String,
+            default: undefined,
+        },
+        round: {
+            type: Boolean,
+        },
+        size: {
+            type:    String,
+            default: undefined,
+        },
+    },
 
     data() {
         return {
-            flickerColor: undefined
+            flickerColor: undefined,
         };
     },
 
@@ -30,7 +43,7 @@ export default {
             } else {
                 return this.color;
             }
-        }
+        },
     },
 
     methods: {
@@ -42,11 +55,10 @@ export default {
 
         onEvent(e, ...args) {
             this.$emit(e, ...args);
-        }
-    }
+        },
+    },
 };
 </script>
 
 <style>
-
 </style>

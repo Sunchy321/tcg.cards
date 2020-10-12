@@ -8,7 +8,7 @@ const i18n = new VueI18n({
     locale:             'enUS',
     fallbackLocale:     'enUS',
     silentFallbackWarn: true,
-    messages
+    messages,
 });
 
 export default ({ app }) => {

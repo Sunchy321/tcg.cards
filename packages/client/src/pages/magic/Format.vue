@@ -2,10 +2,10 @@
     <q-page>
         <div class="q-pa-md row">
             <q-select
+                v-model="format"
                 class="code"
                 style="max-width: 300px"
-                dense
-                v-model="format" :options="formats"
+                dense :options="formats"
             >
                 <template #option="scope">
                     <q-item
@@ -13,7 +13,9 @@
                         v-on="scope.itemEvents"
                     >
                         <q-item-section>
-                            <q-item-label class="code">{{ scope.opt }}</q-item-label>
+                            <q-item-label class="code">
+                                {{ scope.opt }}
+                            </q-item-label>
                         </q-item-section>
                     </q-item>
                 </template>
@@ -52,9 +54,9 @@
         <template v-if="data != null">
             <div class="q-pa-md">
                 <q-input
+                    v-model.number="order"
                     dense
                     type="number"
-                    v-model.number="order"
                     :label="$t('magic.format.order')"
                 />
             </div>
@@ -85,7 +87,7 @@
                                     <q-input v-model="props.row.lang" dense autofocus />
                                 </q-popup-edit>
                             </q-td>
-                             <q-td key="name" :props="props">
+                            <q-td key="name" :props="props">
                                 {{ props.row.name }}
                                 <q-popup-edit v-model="props.row.name">
                                     <q-input v-model="props.row.name" dense autofocus />
@@ -115,25 +117,8 @@ export default {
             data: null,
 
             inputNewFormat: '',
-            showNewFormat:  false
+            showNewFormat:  false,
         };
-    },
-
-    watch: {
-        $route: {
-            immediate: true,
-            handler() {
-                this.loadFormats();
-            }
-        },
-
-        format: {
-            handler() {
-                if (this.format != null) {
-                    this.loadFormat();
-                }
-            }
-        }
     },
 
     computed: {
@@ -146,7 +131,7 @@ export default {
                     this.data.order = newOrder;
                     this.$forceUpdate();
                 }
-            }
+            },
         },
 
         localization() {
@@ -157,14 +142,31 @@ export default {
             return [
                 {
                     name:  'lang',
-                    label: this.$t('magic.format.localization/column.lang')
+                    label: this.$t('magic.format.localization/column.lang'),
                 },
                 {
                     name:  'name',
-                    label: this.$t('magic.format.localization/column.name')
+                    label: this.$t('magic.format.localization/column.name'),
                 },
             ];
-        }
+        },
+    },
+
+    watch: {
+        $route: {
+            immediate: true,
+            handler() {
+                this.loadFormats();
+            },
+        },
+
+        format: {
+            handler() {
+                if (this.format != null) {
+                    this.loadFormat();
+                }
+            },
+        },
     },
 
     methods: {
@@ -182,8 +184,8 @@ export default {
             if (this.format != null) {
                 const { data } = await this.$axios.get('/control/magic/raw-format', {
                     params: {
-                        id: this.format
-                    }
+                        id: this.format,
+                    },
                 });
 
                 this.data = data;
@@ -198,7 +200,7 @@ export default {
             }
 
             const { data } = await this.$axios.post('/control/magic/create-format', {
-                id: newId
+                id: newId,
             });
 
             if (data) {
@@ -212,7 +214,7 @@ export default {
 
         async updateFormat() {
             await this.$axios.post('/control/magic/update-format', {
-                data: this.data
+                data: this.data,
             });
 
             this.$refs.update.flicker('positive');
@@ -223,8 +225,8 @@ export default {
 
         async insertLocalization() {
             this.localization.push({ });
-        }
-    }
+        },
+    },
 };
 </script>
 

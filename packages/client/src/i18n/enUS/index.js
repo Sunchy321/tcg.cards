@@ -21,7 +21,7 @@ export default {
         grc:  'Ancient Greek',
         ar:   'Arabic',
         sa:   'Sanskrit',
-        px:   'Phyrexian'
+        px:   'Phyrexian',
     },
 
     login: {
@@ -30,8 +30,9 @@ export default {
         login:    'Log in',
         register: 'Sign up',
 
-        passwordHint: 'At least 8 characters, and must includes lower & upper letters, digits and special characters',
-        weakPassword: 'Your password is too weak'
+        passwordHint:
+            'At least 8 characters, and must includes lower & upper letters, digits and special characters',
+        weakPassword: 'Your password is too weak',
     },
 
     profile: {
@@ -39,10 +40,12 @@ export default {
 
         role: {
             normal: 'Normal user',
-            admin:  'Administrator'
-        }
+            admin:  'Administrator',
+        },
     },
 
+    data: 'Data',
+
     magic,
-    hearthstone
+    hearthstone,
 };

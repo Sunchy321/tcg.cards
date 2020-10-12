@@ -6,27 +6,53 @@
                     v-model="type"
                     :options="typeList"
                     :label="$t('magic.format-change.type')"
-                    dense emit-value map-options
+                    dense
+                    emit-value
+                    map-options
                 />
                 <q-select
                     v-model="source"
                     :options="sourceList"
                     :label="$t('magic.format-change.source')"
-                    dense emit-value map-options
+                    dense
+                    emit-value
+                    map-options
                 />
                 <q-select
                     v-model="category"
                     :options="categoryList"
                     :label="$t('magic.format-change.category')"
-                    dense emit-value map-options clearable
+                    dense
+                    emit-value
+                    map-options
+                    clearable
                 />
-                <q-input class="col" v-model="url" dense @change="importURL" >
+                <q-input v-model="url" class="col" dense @change="importURL">
                     <template #append>
-                        <q-btn icon="mdi-file-document-box-search" flat round dense @click="importURL" />
+                        <q-btn
+                            icon="mdi-file-document-box-search"
+                            flat
+                            round
+                            dense
+                            @click="importURL"
+                        />
                     </template>
                 </q-input>
-                <btn ref="upload" icon="mdi-upload" size="sm" round dense @click="upload" />
-                <q-btn icon="mdi-pencil" size="sm" round dense @click="toggleEditing"/>
+                <btn
+                    ref="upload"
+                    icon="mdi-upload"
+                    size="sm"
+                    round
+                    dense
+                    @click="upload"
+                />
+                <q-btn
+                    icon="mdi-pencil"
+                    size="sm"
+                    round
+                    dense
+                    @click="toggleEditing"
+                />
             </div>
             <div class="row">
                 <q-icon name="mdi-calendar" />
@@ -65,7 +91,9 @@
                                 <q-date
                                     v-model="date"
                                     mask="YYYY-MM-DD"
-                                    @input="() => $refs.tabletopDateProxy.hide()"
+                                    @input="
+                                        () => $refs.tabletopDateProxy.hide()
+                                    "
                                 />
                             </q-popup-proxy>
                         </q-icon>
@@ -104,36 +132,81 @@
                 <q-icon name="mdi-link" />
                 <q-btn size="sm" flat dense icon="mdi-plus" @click="addLink" />
             </div>
-            <div class="row" v-for="(l, i) in link" :key="'link-' + i">
-                <q-input class="col" :value="l" @input="v => modifyLink(i, v)" dense />
-                <q-btn size="sm" flat dense icon="mdi-minus" @click="removeLink(i)" />
+            <div v-for="(l, i) in link" :key="'link-' + i" class="row">
+                <q-input
+                    class="col"
+                    :value="l"
+                    dense
+                    @input="v => modifyLink(i, v)"
+                />
+                <q-btn
+                    size="sm"
+                    flat
+                    dense
+                    icon="mdi-minus"
+                    @click="removeLink(i)"
+                />
             </div>
             <div class="row">
                 <q-icon name="mdi-card-bulleted-outline" />
-                <q-btn size="sm" flat dense icon="mdi-plus" @click="addChange" />
+                <q-btn
+                    size="sm"
+                    flat
+                    dense
+                    icon="mdi-plus"
+                    @click="addChange"
+                />
             </div>
-            <div class="row" v-for="(c, i) in changes" :key="'change-' + i">
-                <q-input class="col" :value="c.card" @input="v => modifyChangeCard(i, v)" dense />
+            <div v-for="(c, i) in changes" :key="'change-' + i" class="row">
+                <q-input
+                    class="col"
+                    :value="c.card"
+                    dense
+                    @input="v => modifyChangeCard(i, v)"
+                />
                 <q-select
                     :value="c.format"
-                    @input="v => modifyChangeFormat(i, v)"
                     :options="formatList"
                     :label="$t('magic.format-change.format')"
-                    dense emit-value map-options
+                    dense
+                    emit-value
+                    map-options
+                    @input="v => modifyChangeFormat(i, v)"
                 />
                 <btn-select
                     :value="c.status"
-                    @input="v => modifyChangeStatus(i, v)"
                     :options="statusList"
-                    flat dense
+                    flat
+                    dense
+                    @input="v => modifyChangeStatus(i, v)"
                 />
 
-                <q-btn size="sm" flat dense icon="mdi-arrow-up" @click="moveChangeUp(i)" :disable="i === 0" />
-                <q-btn size="sm" flat dense icon="mdi-arrow-down" @click="moveChangeDown(i)" :disable="i === changes.length - 1" />
-                <q-btn size="sm" flat dense icon="mdi-minus" @click="removeChange(i)" />
+                <q-btn
+                    size="sm"
+                    flat
+                    dense
+                    icon="mdi-arrow-up"
+                    :disable="i === 0"
+                    @click="moveChangeUp(i)"
+                />
+                <q-btn
+                    size="sm"
+                    flat
+                    dense
+                    icon="mdi-arrow-down"
+                    :disable="i === changes.length - 1"
+                    @click="moveChangeDown(i)"
+                />
+                <q-btn
+                    size="sm"
+                    flat
+                    dense
+                    icon="mdi-minus"
+                    @click="removeChange(i)"
+                />
             </div>
-            <div class="row" v-if="__text != null">
-                <div class="full-width" v-for="(t, i) in __text" :key="i">
+            <div v-if="__text != null" class="row">
+                <div v-for="(t, i) in __text" :key="i" class="full-width">
                     {{ t }}
                 </div>
             </div>
@@ -143,18 +216,41 @@
                 <span v-if="type != null">{{ typeDesc }}</span>
                 <span v-if="source != null">{{ sourceDesc }}</span>
                 <template v-if="isEmptyId">
-                    <q-input class="col" v-model="url" dense @change="importURL" >
+                    <q-input
+                        v-model="url"
+                        class="col"
+                        dense
+                        @change="importURL"
+                    >
                         <template #append>
-                            <q-btn icon="mdi-import" flat round dense @click="importURL" />
+                            <q-btn
+                                icon="mdi-import"
+                                flat
+                                round
+                                dense
+                                @click="importURL"
+                            />
                         </template>
                     </q-input>
-                    <q-btn icon="mdi-upload" size="sm" round dense @click="upload" />
+                    <q-btn
+                        icon="mdi-upload"
+                        size="sm"
+                        round
+                        dense
+                        @click="upload"
+                    />
                 </template>
                 <div v-else class="col" />
-                <q-btn icon="mdi-pencil" size="sm" round dense @click="toggleEditing"/>
+                <q-btn
+                    icon="mdi-pencil"
+                    size="sm"
+                    round
+                    dense
+                    @click="toggleEditing"
+                />
             </div>
             <div class="row">
-                <div v-if="date != null"  class="col-3">
+                <div v-if="date != null" class="col-3">
                     <q-icon name="mdi-calendar" />
                     <span class="q-mr-sm">{{ date }}</span>
                 </div>
@@ -177,12 +273,16 @@
                     <span>{{ eDateArena }}</span>
                 </div>
             </div>
-            <div class="row" v-for="l in link" :key="l">
+            <div v-for="l in link" :key="l" class="row">
                 <q-icon name="mdi-link" />
                 <a :href="l">{{ l }}</a>
             </div>
             <div class="row">
-                <div class="col-3 change" v-for="c in changes" :key="c.card + ':' + c.format">
+                <div
+                    v-for="c in changes"
+                    :key="c.card + ':' + c.format"
+                    class="col-3 change"
+                >
                     <q-icon
                         :class="'magic-banlist-status-' + c.status"
                         :name="statusIcon(c.status, c.card)"
@@ -191,8 +291,8 @@
                     <code>{{ c.card }}</code>
                 </div>
             </div>
-            <div class="row" v-if="__text != null">
-                <div class="full-width" v-for="(t, i) in __text" :key="i">
+            <div v-if="__text != null" class="row">
+                <div v-for="(t, i) in __text" :key="i" class="full-width">
                     {{ t }}
                 </div>
             </div>
@@ -201,21 +301,17 @@
 </template>
 
 <style lang="stylus" scoped>
-
 .main > .row
     align-items center
 
 .main > .row:not(:last-child)
     margin-bottom $space-sm.y
 
-.main > .row > *:not(:last-child)
-.main > .row > .col > *:not(:last-child)
-.main > .row > .col-3 > *:not(:last-child)
+.main > .row > *:not(:last-child), .main > .row > .col > *:not(:last-child), .main > .row > .col-3 > *:not(:last-child)
     margin-right $space-sm.x
 
 .col-3.change
     width calc(33.333% - 10px)
-
 </style>
 
 <script>
@@ -236,24 +332,21 @@ function toIdentifier(text) {
 export default {
     name: 'ChangeItem',
 
-    props: {
-        value: Object
-    },
-
     components: { Btn, BtnSelect },
+
+    props: {
+        value: {
+            type:     Object,
+            required: true,
+        },
+    },
 
     data() {
         return {
             editing: false,
 
-            url: ''
+            url: '',
         };
-    },
-
-    mounted() {
-        if (this.isEmptyId) {
-            this.editing = true;
-        }
     },
 
     computed: {
@@ -264,21 +357,21 @@ export default {
         typeList() {
             return ['banlist-change'].map(v => ({
                 label: this.$t('magic.format-change.type/option.' + v),
-                value: v
+                value: v,
             }));
         },
 
         sourceList() {
             return ['wotc', 'mtgcommander', 'duelcommander'].map(v => ({
                 label: this.$t('magic.format-change.source/option.' + v),
-                value: v
+                value: v,
             }));
         },
 
         categoryList() {
             return ['pioneer', 'commander1v1'].map(v => ({
                 label: this.$t('magic.format-change.category/option.' + v),
-                value: v
+                value: v,
             }));
         },
 
@@ -308,15 +401,22 @@ export default {
                 'block/mirrodin',
             ].map(v => ({
                 label: this.formatName(v),
-                value: v
+                value: v,
             }));
         },
 
         statusList() {
-            return ['legal', 'banned', 'suspended', 'restricted', 'banned_as_commander', 'unavailable'].map(v => ({
+            return [
+                'legal',
+                'banned',
+                'suspended',
+                'restricted',
+                'banned_as_commander',
+                'unavailable',
+            ].map(v => ({
                 icon:  this.statusIcon(v),
                 class: 'magic-banlist-status-' + v,
-                value: v
+                value: v,
             }));
         },
 
@@ -328,7 +428,7 @@ export default {
                 const newValue = cloneDeep(this.value);
                 newValue.type = newType;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         typeDesc() {
@@ -347,7 +447,7 @@ export default {
                 const newValue = cloneDeep(this.value);
                 newValue.source = newSource;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         category: {
@@ -358,15 +458,24 @@ export default {
                 const newValue = cloneDeep(this.value);
                 newValue.category = newCategory;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         sourceDesc() {
             if (this.source) {
-                const source = this.$t('magic.format-change.source/option.' + this.source);
+                const source = this.$t(
+                    'magic.format-change.source/option.' + this.source,
+                );
 
                 if (this.category != null) {
-                    return source + '/' + this.$t('magic.format-change.category/option.' + this.category);
+                    return (
+                        source +
+                        '/' +
+                        this.$t(
+                            'magic.format-change.category/option.' +
+                                this.category,
+                        )
+                    );
                 } else {
                     return source;
                 }
@@ -383,7 +492,7 @@ export default {
                 const newValue = cloneDeep(this.value);
                 newValue.date = newDate;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         nextDate: {
@@ -394,7 +503,7 @@ export default {
                 const newValue = cloneDeep(this.value);
                 newValue.nextDate = newDate;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         effectiveDate() {
@@ -414,7 +523,7 @@ export default {
 
                 newValue.effectiveDate.tabletop = newDate;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         eDateOnline: {
@@ -430,7 +539,7 @@ export default {
 
                 newValue.effectiveDate.online = newDate;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         eDateArena: {
@@ -446,7 +555,7 @@ export default {
 
                 newValue.effectiveDate.arena = newDate;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         link: {
@@ -457,7 +566,7 @@ export default {
                 const newValue = cloneDeep(this.value);
                 newValue.link = newLink;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         changes: {
@@ -468,11 +577,19 @@ export default {
                 const newValue = cloneDeep(this.value);
                 newValue.changes = newChanges;
                 this.$emit('input', newValue);
-            }
+            },
         },
 
         __text() {
-            return this.value.__debug?.filter(v => v.type === 'line').map(v => v.text);
+            return this.value.__debug
+                ?.filter(v => v.type === 'line')
+                .map(v => v.text);
+        },
+    },
+
+    mounted() {
+        if (this.isEmptyId) {
+            this.editing = true;
         }
     },
 
@@ -486,11 +603,14 @@ export default {
                 return;
             }
 
-            const { data } = await this.$axios.get('/control/magic/parse-banlist', {
-                params: {
-                    url: this.url
-                }
-            });
+            const { data } = await this.$axios.get(
+                '/control/magic/parse-banlist',
+                {
+                    params: {
+                        url: this.url,
+                    },
+                },
+            );
 
             this.$emit('input', data);
         },
@@ -499,8 +619,8 @@ export default {
             await this.$axios.post('/control/magic/update-format-change', {
                 data:    this.value,
                 headers: {
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                },
             });
 
             await this.$refs.upload.flicker('positive');
@@ -525,7 +645,8 @@ export default {
             case undefined:
                 if (card.startsWith('#{clone:')) {
                     return 'mdi-content-copy';
-                } if (card === '#{assign}') {
+                }
+                if (card === '#{assign}') {
                     return 'mdi-lock';
                 } else {
                     return 'mdi-help-circle-outline';
@@ -564,7 +685,7 @@ export default {
         addChange() {
             const changes = cloneDeep(this.changes);
 
-            const c = { };
+            const c = {};
 
             if (changes.length !== 0) {
                 c.format = changes[changes.length - 1].format;
@@ -631,7 +752,7 @@ export default {
             const changes = cloneDeep(this.changes);
             changes[i].status = v;
             this.changes = changes;
-        }
-    }
+        },
+    },
 };
 </script>
