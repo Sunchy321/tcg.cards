@@ -2,7 +2,7 @@ import KoaRouter from '@koa/router';
 
 import hsdata from './hsdata';
 
-import Patch from '@/db/hearthstone/patch';
+import Patch from '@/hearthstone/db/patch';
 
 const router = new KoaRouter();
 

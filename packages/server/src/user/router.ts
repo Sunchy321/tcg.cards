@@ -1,7 +1,7 @@
 import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 
-import User from '@/db/user/user';
+import User from './db/user';
 
 import jwtAuth from '@/middlewares/jwt-auth';
 

@@ -1,4 +1,4 @@
-import { connect } from '../db';
+import { connect } from '@/db';
 
 const conn = connect('magic');
 

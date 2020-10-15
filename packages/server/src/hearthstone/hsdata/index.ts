@@ -13,8 +13,8 @@ import { castArray } from 'lodash';
 import { data } from '@config';
 import * as logger from '@/logger';
 
-import Patch from '@/db/hearthstone/patch';
-import Entity, { IEntityData, IPlayRequirement, IPower } from '@/db/hearthstone/entity';
+import Patch from '@/hearthstone/db/patch';
+import Entity, { IEntityData, IPlayRequirement, IPower } from '@/hearthstone/db/entity';
 
 import {
     classes,

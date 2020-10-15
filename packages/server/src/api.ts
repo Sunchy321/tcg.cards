@@ -1,7 +1,7 @@
 import KoaRouter from '@koa/router';
 
-import hearthstone from './hearthstone';
-import magic from './magic';
+import hearthstone from './hearthstone/api';
+import magic from './magic/api';
 
 import basic from '@data/basic';
 

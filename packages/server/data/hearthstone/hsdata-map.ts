@@ -1,4 +1,4 @@
-import { IEntityData } from '@/db/hearthstone/entity';
+import { IEntityData } from '@/hearthstone/db/entity';
 
 export interface ITag {
     /**

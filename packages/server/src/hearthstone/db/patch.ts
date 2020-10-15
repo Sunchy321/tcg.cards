@@ -15,17 +15,17 @@ export interface IPatch extends Document {
 
 const PatchSchema = new Schema({
     version: String,
-    sha: String,
+    sha:     String,
 
     isUpdated: {
-        type: Boolean,
+        type:    Boolean,
         default: false,
     },
 });
 
 PatchSchema.methods.json = function () {
     return {
-        version: this.version,
+        version:   this.version,
         isUpdated: this.isUpdated,
     };
 };
