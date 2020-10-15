@@ -2,7 +2,7 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
-export interface IFormatChange extends Document {
+interface IFormatChangeData {
     type: string;
     date: string;
 
@@ -21,9 +21,9 @@ export interface IFormatChange extends Document {
 
     changes: {
         card: string;
-        format: String;
-        status: String;
-        effectiveDate: String;
+        format: string;
+        status: string;
+        effectiveDate: string;
     }[];
 }
 
@@ -31,13 +31,13 @@ const FormatChangeSchema = new Schema({
     type: String,
     date: String,
 
-    source: String,
+    source:   String,
     category: String,
 
     effectiveDate: {
         tabletop: String,
-        arena: String,
-        online: String,
+        arena:    String,
+        online:   String,
     },
 
     nextDate: String,
@@ -46,14 +46,16 @@ const FormatChangeSchema = new Schema({
 
     changes: [
         {
-            _id: false,
-            card: String,
-            format: String,
-            status: String,
+            _id:           false,
+            card:          String,
+            format:        String,
+            status:        String,
             effectiveDate: String,
         },
     ],
 });
+
+export interface IFormatChange extends IFormatChangeData, Document {}
 
 const FormatChange = conn.model<IFormatChange>(
     'format_change',

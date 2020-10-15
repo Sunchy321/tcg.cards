@@ -7,37 +7,37 @@ import { IBanlistChange, parseDate, getLines } from './index';
 import { toIdentifier } from '../util';
 
 const formatMap = {
-    'Standard': 'standard',
-    'Historic': 'historic',
-    'Pioneer': 'pioneer',
-    'Modern': 'modern',
-    'Extended': 'extended',
-    'Legacy': 'legacy',
-    'Type 1.5': 'legacy',
-    'Vintage': 'vintage',
+    'Standard':                           'standard',
+    'Historic':                           'historic',
+    'Pioneer':                            'pioneer',
+    'Modern':                             'modern',
+    'Extended':                           'extended',
+    'Legacy':                             'legacy',
+    'Type 1.5':                           'legacy',
+    'Vintage':                            'vintage',
     'Vintage (formerly known as Type 1)': 'vintage',
-    'Type 1': 'vintage',
-    'Magic Online Pauper': 'pauper',
-    'Brawl': 'brawl',
+    'Type 1':                             'vintage',
+    'Magic Online Pauper':                'pauper',
+    'Brawl':                              'brawl',
 
     'Innistrad Block Constructed': 'block/innistrad',
-    'Mirrodin Block Constructed': 'block/mirrodin',
+    'Mirrodin Block Constructed':  'block/mirrodin',
 
     'Two-Headed Giant Constructed': 'two_head_giant',
 
-    'Classic': 'online_classic',
-    'Online Classic': 'online_classic',
-    'Kaleidoscope**': 'kaleidoscope',
-    'Prismatic': 'prismatic',
-    'Singleton': 'singleton',
+    'Classic':            'online_classic',
+    'Online Classic':     'online_classic',
+    'Kaleidoscope**':     'kaleidoscope',
+    'Prismatic':          'prismatic',
+    'Singleton':          'singleton',
     '100 Card Singleton': '100_card_singleton',
-    'Tribal': 'tribal',
+    'Tribal':             'tribal',
 
     // Sentences
-    'The banned list for Pauper is as follows': 'pauper',
+    'The banned list for Pauper is as follows':                 'pauper',
     'The new banned list for 100 Card Singleton is as follows': '100_card_singleton',
-    'The new banned list for Commander is as follows': 'online_commander',
-    'Format: 100 Card Singleton': '100_card_singleton',
+    'The new banned list for Commander is as follows':          'online_commander',
+    'Format: 100 Card Singleton':                               '100_card_singleton',
 };
 
 function isStrong(e) {
@@ -52,45 +52,45 @@ function parseDateText(sText, rest, result) {
     const sTextDeburr = sText.replace(/\xA0/g, ' ');
 
     switch (sTextDeburr) {
-        case 'Announcement Date':
-            result.date = parseDate(rest);
-            return;
-        case 'Effective Date':
-        case 'Tabletop Effective Date':
-            result.effectiveDate.tabletop = parseDate(rest);
-            return;
-        case 'Magic Online Effective Date':
-        case 'Magic OnlineEffective Date':
-            result.effectiveDate.online = parseDate(rest);
-            return;
-        case 'MTG Arena Effective Date':
-            result.effectiveDate.arena = parseDate(rest);
-            return;
-        case 'Next B&R Announcement':
-        case 'Next Pioneer B&R Announcement':
-        case 'Next Pioneer Banned Announcement':
-            result.nextDate = parseDate(rest);
-            return null;
-        default:
-            // Formats
-            if (rest === '') {
-                return formatMap[sText] || null;
-            }
+    case 'Announcement Date':
+        result.date = parseDate(rest);
+        return;
+    case 'Effective Date':
+    case 'Tabletop Effective Date':
+        result.effectiveDate.tabletop = parseDate(rest);
+        return;
+    case 'Magic Online Effective Date':
+    case 'Magic OnlineEffective Date':
+        result.effectiveDate.online = parseDate(rest);
+        return;
+    case 'MTG Arena Effective Date':
+        result.effectiveDate.arena = parseDate(rest);
+        return;
+    case 'Next B&R Announcement':
+    case 'Next Pioneer B&R Announcement':
+    case 'Next Pioneer Banned Announcement':
+        result.nextDate = parseDate(rest);
+        return null;
+    default:
+        // Formats
+        if (rest === '') {
+            return formatMap[sText] || null;
         }
+    }
 }
 
 const statusMap = {
-    '': 'banned',
-    'banned': 'banned',
-    'is banned': 'banned',
-    'are banned': 'banned',
-    'is suspended': 'suspended',
-    'is restricted': 'restricted',
-    'is unbanned': 'legal',
-    'is unrestricted': 'legal',
-    'is no longer banned': 'legal',
+    '':                        'banned',
+    'banned':                  'banned',
+    'is banned':               'banned',
+    'are banned':              'banned',
+    'is suspended':            'suspended',
+    'is restricted':           'restricted',
+    'is unbanned':             'legal',
+    'is unrestricted':         'legal',
+    'is no longer banned':     'legal',
     'is no longer restricted': 'legal',
-    'are unbanned': 'legal',
+    'are unbanned':            'legal',
 };
 
 function parseStatus(text) {
@@ -114,7 +114,7 @@ function parseLine(elems, currFormat, $) {
             }
 
             pairs.push(...cards.map(c => ({
-                card: c,
+                card:   c,
                 status: parseStatus(text),
             })));
 
@@ -123,7 +123,7 @@ function parseLine(elems, currFormat, $) {
     }
 
     return pairs.map(p => ({
-        card: p.card,
+        card:   p.card,
         format: currFormat,
         status: p.status,
     }));
@@ -144,14 +144,14 @@ export async function parseWizardsBanlist(url) {
     })();
 
     const result = {
-        type: 'banlist-change',
-        source: 'wotc',
-        date: undefined,
-        nextDate: undefined,
+        type:          'banlist-change',
+        source:        'wotc',
+        date:          undefined,
+        nextDate:      undefined,
         effectiveDate: { },
-        link: [url],
-        changes: [],
-        __debug: [],
+        link:          [url],
+        changes:       [],
+        __debug:       [],
     };
 
     if (url.includes('pioneer')) {
@@ -164,8 +164,8 @@ export async function parseWizardsBanlist(url) {
         const text = e.map(v => $(v).text()).join('');
 
         result.__debug.push({
-            type: 'line',
-            tag: e.map(v => v.tagName),
+            type:   'line',
+            tag:    e.map(v => v.tagName),
             format: currFormat,
             text,
         });
@@ -179,7 +179,8 @@ export async function parseWizardsBanlist(url) {
 
             result.__debug.push({
                 type: 'strong',
-                sText, rest,
+                sText,
+                rest,
             });
 
             const newFormat = parseDateText(sText, rest, result);
@@ -194,7 +195,7 @@ export async function parseWizardsBanlist(url) {
                 for (const s of Object.keys(statusMap)) {
                     if (s !== '' && s !== 'banned' && text.endsWith(s)) {
                         result.changes.push({
-                            card: toIdentifier(text.slice(0, -s.length)),
+                            card:   toIdentifier(text.slice(0, -s.length)),
                             format: currFormat,
                             status: statusMap[s],
                         });
@@ -223,14 +224,14 @@ export async function parseWizardsOldBanlist(url) {
     const content = $('#bodycontent');
 
     const result = {
-        type: 'banlist-change',
-        source: 'wotc',
-        date: undefined,
-        nextDate: undefined,
+        type:          'banlist-change',
+        source:        'wotc',
+        date:          undefined,
+        nextDate:      undefined,
         effectiveDate: { },
-        link: [url],
-        changes: [],
-        __debug: [],
+        link:          [url],
+        changes:       [],
+        __debug:       [],
     };
 
     let currFormat = null;
@@ -239,8 +240,8 @@ export async function parseWizardsOldBanlist(url) {
         const text = e.map(v => $(v).text()).join('').trim();
 
         result.__debug.push({
-            type: 'line',
-            tag: e.map(v => v.tagName),
+            type:   'line',
+            tag:    e.map(v => v.tagName),
             format: currFormat,
             text,
         });
@@ -254,7 +255,8 @@ export async function parseWizardsOldBanlist(url) {
 
             result.__debug.push({
                 type: 'strong',
-                sText, rest,
+                sText,
+                rest,
             });
 
             const newFormat = parseDateText(sText, rest, result);
@@ -269,14 +271,14 @@ export async function parseWizardsOldBanlist(url) {
                 if (s !== '' && s !== 'banned') {
                     if (text.endsWith(s)) {
                         result.changes.push({
-                            card: toIdentifier(text.slice(0, -s.length)),
+                            card:   toIdentifier(text.slice(0, -s.length)),
                             format: currFormat,
                             status: statusMap[s],
                         });
                         break;
                     } else if (text.endsWith(s + '.')) {
                         result.changes.push({
-                            card: toIdentifier(text.slice(0, -s.length - 1)),
+                            card:   toIdentifier(text.slice(0, -s.length - 1)),
                             format: currFormat,
                             status: statusMap[s],
                         });

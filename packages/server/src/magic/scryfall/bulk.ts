@@ -1,84 +1,54 @@
-// import * as fs from 'fs';
-// import AsyncLock from 'async-lock';
-// import * as readline from 'readline';
-// import * as Reader from 'async-stream-reader';
-
-// import { data } from '../../../config';
-// import lineReader from '../../common/line-reader';
-
-// import { ScryfallCard } from '~/db/magic/scryfall-card';
-
-// let cardProgress = { status: 'idle' };
-// let rulingProgress = { status: 'idle' };
-
-// export function cardList() {
-//     const files = fs
-//         .readdirSync(data + '/magic/bulk/scryfall')
-//         .map(v => v.replace(/\.json$/, ''));
-
-//     return files.filter(v => v.startsWith('all-cards')).sort();
-// }
-
-// export function loadCard(file) {
-//     lock.acquire('card', async () => {
-//         let rawCount = 0;
-
-//         for (let line of lineReader(
-//             data + '/magic/bulk/scryfall' + file + '.json',
-//         )) {
-//             if (line === '[') {
-//                 continue;
-//             } else if (line === ']') {
-//                 break;
-//             }
-
-//             let text = line.trim();
-
-//             if (text.endsWith(',')) {
-//                 text = text.slice(0, -1);
-//             }
-
-//             const json = JSON.parse(text);
-
-//             const rawCard = new ScryfallCard(json);
-
-//             await rawCard.save();
-
-//             ++rawCount;
-
-//             cardProgress = {
-//                 status: 'save-raw',
-//                 count: rawCount,
-//             };
-//         }
-
-//         cardProgress = { status: 'idle' };
-//     });
-// }
-
-// export function getCardProgress() {
-//     return cardProgress;
-// }
-
-// export function rulingList() {
-//     const files = fs
-//         .readdirSync(data + '/magic/bulk/scryfall')
-//         .map(v => v.replace(/\.json$/, ''));
-
-//     return files.filter(v => v.startsWith('rulings')).sort();
-// }
-
-// export async function loadRuling(file) {}
-
-// export function getRulingProgress() {
-//     return rulingProgress;
-// }
-
 import request from 'request-promise-native';
-import { BulkData } from './interface';
+import { BulkData, BulkList, BulkProgress } from './interface';
 
-export async function getBulk(callback: () => void): Promise<void> {
-    const allCardInfo: BulkData = await request('https://api.scryfall.com/all-cards');
+import saveFile from '@/common/save-file';
+import { existsSync, readdirSync } from 'fs';
+import { last } from 'lodash';
+import { join } from 'path';
 
-    const rulingInfo: BulkData = await request('https://api.scryfall.com/rulings');
+import { data } from '@config';
+
+const bulkPath = join(data, 'magic/scryfall');
+
+export async function getBulk(callback: (progress: BulkProgress) => void): Promise<void> {
+    {
+        const info: BulkData = await request('https://api.scryfall.com/all-cards');
+        const uri = info.download_uri;
+        const filename = last(uri.split('/'));
+
+        if (filename != null) {
+            const path = join(bulkPath, filename);
+
+            await saveFile(uri, path, {}, progress => {
+                callback({ type: 'all-card', ...progress });
+            });
+        }
+    }
+
+    {
+        const info: BulkData = await request('https://api.scryfall.com/rulings');
+        const uri = info.download_uri;
+        const filename = last(uri.split('/'));
+
+        if (filename != null) {
+            const path = join(bulkPath, filename);
+
+            await saveFile(uri, path, {}, progress => {
+                callback({ type: 'ruling', ...progress });
+            });
+        }
+    }
+}
+
+export function bulkData(): BulkList {
+    if (!existsSync(bulkPath)) {
+        return { allCard: [], ruling: [] };
+    }
+
+    const content = readdirSync(bulkPath);
+
+    return {
+        allCard: content.filter(v => v.startsWith('all-cards')).map(v => v.slice(0, -5)),
+        ruling:  content.filter(v => v.startsWith('rulings')).map(v => v.slice(0, -5)),
+    };
 }

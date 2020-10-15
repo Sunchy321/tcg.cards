@@ -4,7 +4,6 @@
 import { Clone, Commit, Repository, Reset, Revwalk } from 'nodegit';
 
 import { XCardDefs, XEntity, XLocStringTag, XTag } from './interface';
-import { Dictionary } from '@/interface';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -15,7 +14,7 @@ import { data } from '@config';
 import * as logger from '@/logger';
 
 import Patch from '@/db/hearthstone/patch';
-import Entity from '@/db/hearthstone/entity';
+import Entity, { IEntityData, IPlayRequirement, IPower } from '@/db/hearthstone/entity';
 
 import {
     classes,
@@ -149,7 +148,7 @@ export async function loadPatch(version: string): Promise<void> {
             throw new Error(failure.join('\n'));
         }
 
-        const dbfIndexes = [
+        const dbfIndexes: (keyof IEntityData)[] = [
             'countAsCopyOf',
             'heroicHeroPower',
             'mouseOverCard',
@@ -168,8 +167,8 @@ export async function loadPatch(version: string): Promise<void> {
             if (indexes.length != null) {
                 for (const i of indexes) {
                     for (const e0 of entities) {
-                        if (e0.dbfId === e[i]) {
-                            e[i] = e0.cardId;
+                        if (e0.dbfId === e[i] as number) {
+                            (e as any)[i] = e0.cardId;
                         }
                     }
                 }
@@ -259,7 +258,7 @@ function getValue(tag: XTag | XLocStringTag, info: ITag) {
 }
 
 function convertEntity(e: XEntity, version: string) {
-    const entity: Record<string, any> = { version };
+    const entity: Partial<IEntityData> = { version };
 
     const cardId = e._attributes.CardID;
 
@@ -304,12 +303,12 @@ function convertEntity(e: XEntity, version: string) {
 
                     if (tag.array) {
                         if (entity[tag.index] == null) {
-                            entity[tag.index] = [];
+                            (entity as any)[tag.index] = [];
                         }
 
-                        (entity[tag.index] as unknown[]).push(value);
+                        (entity as any)[tag.index].push(value);
                     } else {
-                        entity[tag.index] = value;
+                        (entity as any)[tag.index] = value;
                     }
 
                     continue;
@@ -358,12 +357,12 @@ function convertEntity(e: XEntity, version: string) {
                             entity.referencedTags.push('jade_golem');
                             break;
                         case 'quest':
-                            if (entity.isQuery !== 'side') {
-                                entity.isQuery = true;
+                            if (entity.isQuest !== 'side') {
+                                entity.isQuest = true;
                             }
                             break;
                         case 'sidequest':
-                            entity.isQuery = 'side';
+                            entity.isQuest = 'side';
                             break;
                         case 'windfury':
                             if (value === 1) {
@@ -418,7 +417,7 @@ function convertEntity(e: XEntity, version: string) {
             entity.powers = [];
 
             for (const p of castArray(powers)) {
-                const power: Dictionary<any> = {};
+                const power: Partial<IPower> = {};
 
                 power.definition = p._attributes.definition;
 
@@ -436,17 +435,17 @@ function convertEntity(e: XEntity, version: string) {
                             );
                         }
 
-                        const req: Dictionary<any> = { type };
+                        const req: Partial<IPlayRequirement> = { type };
 
                         if (param !== '') {
                             req.param = parseInt(param);
                         }
 
-                        power.playRequirements.push(req);
+                        power.playRequirements.push(req as IPlayRequirement);
                     }
                 }
 
-                entity.powers.push(power);
+                entity.powers.push(power as IPower);
             }
         }
 

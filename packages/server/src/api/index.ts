@@ -1,6 +1,7 @@
 import KoaRouter from '@koa/router';
 
 import hearthstone from './hearthstone';
+import magic from './magic';
 
 import basic from '@data/basic';
 
@@ -13,5 +14,6 @@ router.get('/', async ctx => {
 });
 
 router.use(hearthstone.routes());
+router.use(magic.routes());
 
 export default router;

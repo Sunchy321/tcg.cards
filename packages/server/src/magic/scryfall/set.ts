@@ -1,13 +1,13 @@
-import { SetModel } from '~/db/magic/model/set';
+import { SetModel } from '@/db/magic/model/set';
 
 import { getList } from './basic';
 
-export async function syncScryfallSet() {
+export async function syncScryfallSet(): Promise<void> {
     const sets = await getList('https://api.scryfall.com/sets');
 
     for (const s of sets) {
-        const so = await SetModel.findOne({ 'scryfall.id': s.id })
-            || new SetModel({ setId: s.code, scryfall: { id: s.id } });
+        const so = await SetModel.findOne({ 'scryfall.id': s.id }) ||
+            new SetModel({ setId: s.code, scryfall: { id: s.id } });
 
         so.scryfall.code = s.code;
         so.onlineCode = s.mtgo_code;
@@ -27,8 +27,8 @@ export async function syncScryfallSet() {
             enUS.block = s.block;
         } else {
             so.localization.push({
-                lang: 'enUS',
-                name: s.name,
+                lang:  'enUS',
+                name:  s.name,
                 block: s.block,
             });
         }

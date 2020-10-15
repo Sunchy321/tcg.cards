@@ -8,12 +8,13 @@
         "strictNullChecks": true,
         "esModuleInterop": true,
         "lib": ["ES2018.AsyncIterable"],
-        "baseUrl": ".",
+        "baseUrl": "./src",
         "paths": {
-            "@/*": ["./src/*"],
-            "@config": ["./config"],
-            "@data/*": ["./data/*"]
+            "*": ["@types/*"],
+            "@/*": ["./*"],
+            "@config": ["../config"],
+            "@data/*": ["../data/*"]
         }
     },
-    "include": ["./src/*"]
+    "include": ["./src/*", "src/middlewares/subdomain.ts"]
 }

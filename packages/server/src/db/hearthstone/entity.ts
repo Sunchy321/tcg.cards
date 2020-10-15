@@ -2,6 +2,16 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
+export interface IPlayRequirement {
+    type: string;
+    param: number;
+}
+
+export interface IPower {
+    definition: string;
+    playRequirements: IPlayRequirement[];
+}
+
 export interface IEntityData {
     version: string;
 
@@ -32,18 +42,12 @@ export interface IEntityData {
     puzzleType: string;
     isQuest: boolean | 'side'; // true if is quest, 'side' if is also sidequest
     questProgress: number;
-    questReward: String;
+    questReward: string;
     thresholdValue: number;
     mechanics: string[];
     referencedTags: string[];
 
-    powers: {
-        definition: string;
-        playRequirements: {
-            type: string;
-            param: number;
-        }[];
-    }[];
+    powers: IPower[];
 
     entourages: string[];
     heroPower: string;
@@ -78,74 +82,74 @@ const EntitySchema = new Schema({
     version: String,
 
     cardId: String,
-    dbfId: Number,
+    dbfId:  Number,
 
     setId: String,
 
-    name: [{ _id: false, lang: String, value: String }],
-    text: [{ _id: false, lang: String, value: String }],
+    name:               [{ _id: false, lang: String, value: String }],
+    text:               [{ _id: false, lang: String, value: String }],
     targetingArrowText: [{ _id: false, lang: String, value: String }],
 
-    classes: [String],
-    cardType: String,
-    cost: Number,
-    attack: Number,
-    health: Number,
+    classes:    [String],
+    cardType:   String,
+    cost:       Number,
+    attack:     Number,
+    health:     Number,
     durability: Number,
-    armor: Number,
-    race: String,
+    armor:      Number,
+    race:       String,
 
-    techLevel: Number,
+    techLevel:    Number,
     inBobsTavern: { type: Boolean, default: false },
-    tripleCard: String,
-    raceBucket: String,
-    coin: Number,
+    tripleCard:   String,
+    raceBucket:   String,
+    coin:         Number,
 
-    puzzleType: String,
-    isQuest: {}, // true if is quest, 'side' if is also sidequest
-    questProgress: Number,
-    questReward: String,
+    puzzleType:     String,
+    isQuest:        {}, // true if is quest, 'side' if is also sidequest
+    questProgress:  Number,
+    questReward:    String,
     thresholdValue: Number,
-    mechanics: [String],
+    mechanics:      [String],
     referencedTags: [String],
 
     powers: [
         {
-            _id: false,
-            definition: String,
+            _id:              false,
+            definition:       String,
             playRequirements: {
                 type: [
                     {
-                        _id: false,
+                        _id:     false,
                         reqType: String,
-                        param: Number,
+                        param:   Number,
                     },
                 ],
             },
         },
     ],
 
-    entourages: { type: [String], default: undefined },
-    heroPower: String,
-    heroicHeroPower: String,
+    entourages:              { type: [String], default: undefined },
+    heroPower:               String,
+    heroicHeroPower:         String,
     relatedCardInCollection: String,
-    twinspellCopy: String,
-    upgradedPower: String,
-    swapTo: String,
+    twinspellCopy:           String,
+    upgradedPower:           String,
+    swapTo:                  String,
 
-    scoreValue1: Number,
-    scoreValue2: Number,
-    multipleClasses: Number,
-    mouseOverCard: String,
-    countAsCopyOf: String,
-    deckOrder: Number,
+    scoreValue1:       Number,
+    scoreValue2:       Number,
+    multipleClasses:   Number,
+    mouseOverCard:     String,
+    countAsCopyOf:     String,
+    deckOrder:         Number,
     overrideWatermark: String,
 
     collectible: { type: Boolean, default: false },
-    elite: { type: Boolean, default: false },
-    rarity: String,
+    elite:       { type: Boolean, default: false },
+    rarity:      String,
 
-    howToEarn: [{ _id: false, lang: String, value: String }],
+    howToEarn:       [{ _id: false, lang: String, value: String }],
     howToEarnGolden: [{ _id: false, lang: String, value: String }],
 
     flavor: [{ _id: false, lang: String, value: String }],

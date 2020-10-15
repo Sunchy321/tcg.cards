@@ -1,16 +1,14 @@
 import * as request from 'request-promise-native';
 
-export async function getList(uri) {
-    const result = [];
+export async function getList<T>(uri: string): Promise<T[]> {
+    const result: T[] = [];
 
     let data = null;
 
     do {
         data = JSON.parse(await request(uri));
 
-        for (const v of data.data) {
-            result.push(v);
-        }
+        result.push(...data.data);
 
         if (data.has_more) {
             uri = data.next_page;

@@ -1,6 +1,6 @@
 import { deburr } from 'lodash';
 
-export function toIdentifier(text: string) {
+export function toIdentifier(text: string): string {
     return deburr(text)
         .trim()
         .toLowerCase()

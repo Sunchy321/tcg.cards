@@ -1,8 +1,10 @@
+import { IEntityData } from '@/db/hearthstone/entity';
+
 export interface ITag {
     /**
      * name of field assigned
      */
-    index: string;
+    index: keyof IEntityData;
     /**
      * true if the field is a boolean value
      */
@@ -23,14 +25,14 @@ export const tags: Record<string, ITag> = {
     47:   { index: 'attack' },
     48:   { index: 'cost' },
     114:  { index: 'elite', bool: true },
-    183:  { index: 'set', enum: true },
+    183:  { index: 'setId', enum: true },
     184:  { index: 'text' },
     185:  { index: 'name' },
     187:  { index: 'durability' },
-    199:  { index: 'class', array: true, enum: true },
+    199:  { index: 'classes', array: true, enum: true },
     200:  { index: 'race', enum: true },
     201:  { index: 'faction', enum: true },
-    202:  { index: 'type', enum: true },
+    202:  { index: 'cardType', enum: true },
     203:  { index: 'rarity', enum: true },
     292:  { index: 'armor' },
     321:  { index: 'collectible', bool: true },
@@ -43,10 +45,9 @@ export const tags: Record<string, ITag> = {
     451:  { index: 'scoreValue1' },
     453:  { index: 'scoreValue2' },
     476:  { index: 'multipleClasses' },
-    480:  { index: 'class', enum: 'multiClass' },
+    480:  { index: 'classes', enum: 'multiClass' },
     982:  { index: 'puzzleType', enum: true },
     1132: { index: 'mouseOverCard' },
-    1142: { index: 'mouseOVerAppearance' },
     1429: { index: 'tripleCard' },
     1440: { index: 'techLevel' },
     1452: { index: 'relatedCardInCollection' },

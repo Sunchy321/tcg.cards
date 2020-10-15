@@ -2,35 +2,38 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
-export interface IFormat extends Document {}
+interface IFormatData {
+    formatId: string;
+    order: number;
+    localization: {
+        lang: string;
+        name: string;
+    }[];
+    setList: string[];
+}
 
 const FormatSchema = new Schema({
     formatId: {
-        type: String,
+        type:     String,
         required: true,
-        unique: true,
+        unique:   true,
     },
 
     order: Number,
 
     localization: [
         {
-            _id: false,
+            _id:  false,
             lang: String,
             name: String,
         },
     ],
 
-    setList: [
-        {
-            _id: false,
-            id: String,
-            enterTime: Date,
-            leaveTime: Date,
-        },
-    ],
+    setList: [String],
 });
 
-const Format = conn.model('format', FormatSchema);
+export interface IFormat extends IFormatData, Document {}
+
+const Format = conn.model<IFormat>('format', FormatSchema);
 
 export default Format;

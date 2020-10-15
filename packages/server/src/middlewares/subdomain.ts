@@ -1,6 +1,6 @@
-import KoaRouter from '@koa/router';
-
 import { Middleware } from 'koa';
+
+import KoaRouter from '@koa/router';
 
 function subdomain<StateT, ContextT>(sub: string, router: KoaRouter<StateT, ContextT>): Middleware<StateT, KoaRouter.RouterContext<StateT, ContextT>> {
     return async function (ctx, next) {
