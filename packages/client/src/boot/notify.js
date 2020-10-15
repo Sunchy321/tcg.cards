@@ -1,3 +1,5 @@
 import { Notify } from 'quasar';
 
-Notify.setDefaults({ position: 'top' });
+export default async function() {
+    Notify.setDefaults({ position: 'top' });
+}

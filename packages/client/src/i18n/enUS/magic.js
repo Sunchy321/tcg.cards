@@ -17,7 +17,10 @@ export default {
         },
 
         scryfall: {
-            bulkData: 'Bulk Data',
+            bulk: {
+                data: 'Bulk Data',
+                get:  'Get',
+            },
         },
     },
 

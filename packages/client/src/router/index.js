@@ -26,7 +26,7 @@ export default async function() {
 
     Router.beforeEach(async (to, from, next) => {
         if (to.matched.some(r => r.meta.requireAdmin)) {
-            const isAdmin = await store.dispatch('isAdmin');
+            const isAdmin = store.getters['user/isAdmin'];
 
             if (!isAdmin) {
                 next({ name: 'setting' });
@@ -34,9 +34,9 @@ export default async function() {
                 next();
             }
         } else if (to.matched.some(r => r.meta.requireAuth)) {
-            const hasLoggedIn = await store.dispatch('hasLoggedIn');
+            const user = store.getters['user/user'];
 
-            if (!hasLoggedIn) {
+            if (user == null) {
                 next({ name: 'setting' });
             } else {
                 next();

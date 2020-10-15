@@ -16,7 +16,10 @@ export default {
         },
 
         scryfall: {
-            bulkData: '全部数据',
+            bulk: {
+                data: '全部数据',
+                get:  '获取',
+            },
         },
     },
 

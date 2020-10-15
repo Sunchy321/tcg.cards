@@ -39,7 +39,7 @@ export default {
             rulings: [],
 
             selectedCard:   null,
-            selectedRuling: null
+            selectedRuling: null,
         };
     },
 
@@ -48,8 +48,8 @@ export default {
             immediate: true,
             handler() {
                 this.loadData();
-            }
-        }
+            },
+        },
     },
 
     methods: {
@@ -61,8 +61,8 @@ export default {
 
             this.selectedCard = data.cards[0];
             this.selectedRuling = data.rulings[0];
-        }
-    }
+        },
+    },
 };
 </script>
 

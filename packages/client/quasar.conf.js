@@ -1,16 +1,16 @@
 module.exports = function() {
     return {
-        boot: ['i18n', 'axios', 'notify', 'utility'],
-        css: ['app.styl'],
+        boot:   ['i18n', 'axios', 'notify', 'utility', 'websocket'],
+        css:    ['app.styl'],
         extras: ['mdi-v5'],
 
         framework: {
-            iconSet: 'mdi-v5', // Quasar icon set
-            lang: 'en-us', // Quasar language pack
-            all: 'auto',
+            iconSet:    'mdi-v5', // Quasar icon set
+            lang:       'en-us', // Quasar language pack
+            all:        'auto',
             components: [],
             directives: [],
-            plugins: ['Notify', 'LocalStorage'],
+            plugins:    ['Notify', 'LocalStorage'],
         },
 
         supportIE: false,
@@ -31,8 +31,8 @@ module.exports = function() {
             extendWebpack(cfg) {
                 cfg.module.rules.push({
                     enforce: 'pre',
-                    test: /\.(js|vue)$/,
-                    loader: 'eslint-loader',
+                    test:    /\.(js|vue)$/,
+                    loader:  'eslint-loader',
                     exclude: /node_modules/,
                     options: {
                         formatter: require('eslint').CLIEngine.getFormatter(
@@ -45,25 +45,8 @@ module.exports = function() {
 
         devServer: {
             https: false,
-            port: 8080,
-            open: true, // opens browser window automatically
-
-            proxy: {
-                '/api': {
-                    target: 'http://api.test.local:8889',
-                    changeOrigin: true,
-                    pathRewrite: {
-                        '^/api': '',
-                    },
-                },
-                '/user': {
-                    target: 'http://user.test.local:8889',
-                    changeOrigin: true,
-                    pathRewrite: {
-                        '^/user': '',
-                    },
-                },
-            },
+            port:  8080,
+            open:  true,
         },
 
         animations: [],
@@ -74,40 +57,40 @@ module.exports = function() {
 
         pwa: {
             workboxPluginMode: 'GenerateSW', // 'GenerateSW' or 'InjectManifest'
-            workboxOptions: {}, // only for GenerateSW
-            manifest: {
-                name: 'Client',
-                short_name: 'Client',
-                description: 'A Card Client',
-                display: 'standalone',
-                orientation: 'portrait',
+            workboxOptions:    {}, // only for GenerateSW
+            manifest:          {
+                name:             'Client',
+                short_name:       'Client',
+                description:      'A Card Client',
+                display:          'standalone',
+                orientation:      'portrait',
                 background_color: '#ffffff',
-                theme_color: '#027be3',
-                icons: [
+                theme_color:      '#027be3',
+                icons:            [
                     {
-                        src: 'statics/icons/icon-128x128.png',
+                        src:   'statics/icons/icon-128x128.png',
                         sizes: '128x128',
-                        type: 'image/png',
+                        type:  'image/png',
                     },
                     {
-                        src: 'statics/icons/icon-192x192.png',
+                        src:   'statics/icons/icon-192x192.png',
                         sizes: '192x192',
-                        type: 'image/png',
+                        type:  'image/png',
                     },
                     {
-                        src: 'statics/icons/icon-256x256.png',
+                        src:   'statics/icons/icon-256x256.png',
                         sizes: '256x256',
-                        type: 'image/png',
+                        type:  'image/png',
                     },
                     {
-                        src: 'statics/icons/icon-384x384.png',
+                        src:   'statics/icons/icon-384x384.png',
                         sizes: '384x384',
-                        type: 'image/png',
+                        type:  'image/png',
                     },
                     {
-                        src: 'statics/icons/icon-512x512.png',
+                        src:   'statics/icons/icon-512x512.png',
                         sizes: '512x512',
-                        type: 'image/png',
+                        type:  'image/png',
                     },
                 ],
             },

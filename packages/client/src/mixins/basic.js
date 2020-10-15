@@ -16,12 +16,12 @@ export default {
             return null;
         },
 
-        loggedIn() {
-            return this.$store.getters.profile != null;
+        user() {
+            return this.$store.getters['user/user'];
         },
 
         isAdmin() {
-            return this.$store.getters.isAdmin;
+            return this.$store.getters['user/isAdmin'];
         },
     },
 };

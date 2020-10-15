@@ -48,7 +48,7 @@ module.exports = {
         'generator-star-spacing': 'off',
         'indent': ['warn', 4, { SwitchCase: 0 }],
         'no-new': 'off',
-        'no-unused-vars': ['warn', { argsIgnorePattern: '(^_|reject)' }],
+        'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
         'no-var': 'error',
         'prefer-const': ['error', { destructuring: 'all' }],
         'quotes': ['warn', 'single', { avoidEscape: true }],

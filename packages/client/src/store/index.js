@@ -2,6 +2,7 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 
 import core from './core';
+import user from './user';
 import locale from './locale';
 
 Vue.use(Vuex);
@@ -9,6 +10,7 @@ Vue.use(Vuex);
 const Store = new Vuex.Store({
     modules: {
         core,
+        user,
         locale,
     },
 

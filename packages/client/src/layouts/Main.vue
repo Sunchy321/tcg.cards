@@ -32,7 +32,7 @@
                 <q-btn icon="mdi-database-outline" flat dense />
 
                 <q-btn
-                    :icon="loggedIn ? 'mdi-cog' : 'mdi-cog-outline'"
+                    :icon="user != null ? 'mdi-cog' : 'mdi-cog-outline'"
                     flat
                     dense
                     @click="toSetting"
