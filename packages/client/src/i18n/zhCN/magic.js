@@ -10,19 +10,6 @@ export default {
         'format-change': '赛制更动',
     },
 
-    'data': {
-        tabs: {
-            scryfall: 'Scryfall',
-        },
-
-        scryfall: {
-            bulk: {
-                data: '全部数据',
-                get:  '获取',
-            },
-        },
-    },
-
     '$control': {},
 
     'format': {

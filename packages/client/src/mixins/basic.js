@@ -1,7 +1,7 @@
 export default {
     computed: {
         games() {
-            return this.$store.state.core.games || [];
+            return this.$store.state.core.games ?? [];
         },
 
         game() {

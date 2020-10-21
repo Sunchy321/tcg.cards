@@ -89,7 +89,7 @@ export default {
     }),
 
     mounted() {
-        this.$store.subscribe(async ({ type, payload }) => {
+        this.$store.subscribeAction(async ({ type, payload }) => {
             if (type === 'user/login' && payload != null) {
                 this.$router.go(-1);
             }

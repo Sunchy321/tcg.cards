@@ -11,19 +11,6 @@ export default {
         'format-change': 'Format Change',
     },
 
-    'data': {
-        tabs: {
-            scryfall: 'Scryfall',
-        },
-
-        scryfall: {
-            bulk: {
-                data: 'Bulk Data',
-                get:  'Get',
-            },
-        },
-    },
-
     '$control': {},
 
     'format': {

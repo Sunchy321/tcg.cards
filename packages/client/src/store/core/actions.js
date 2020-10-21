@@ -1,4 +1,4 @@
-import { api } from 'boot/axios';
+import { api } from 'src/boot/backend';
 
 import { LocalStorage } from 'quasar';
 

@@ -5,41 +5,31 @@
                 v-for="t in tabs"
                 :key="t"
                 :name="t"
-                :label="$t('magic.data.tabs.' + t)"
+                label="Scryfall"
             />
         </q-tabs>
 
-        <q-tab-panels v-model="tab" animated>
-            <q-tab-panel name="scryfall">
-                <div class="row items-center">
-                    <div class="title">
-                        {{ $t('magic.data.scryfall.bulk.data') }}
-                    </div>
-
-                    <q-btn
-                        flat
-                        :label="$t('magic.data.scryfall.bulk.get')"
-                        @click="loadScryfallBulk"
-                    />
-                </div>
-            </q-tab-panel>
-        </q-tab-panels>
+        <component :is="'DataScryfall'" />
     </q-page>
 </template>
 
 <style lang="stylus" scoped>
 
-.title
-    font-size 150%
+.flex-grow
+    flex-grow 1
 
 </style>
 
 <script>
+import DataScryfall from './data/Scryfall';
+
 export default {
+    name: 'Data',
+
+    components: { DataScryfall },
+
     data: () => ({
         tab: 'scryfall',
-
-        bulk: {},
     }),
 
     computed: {
@@ -48,33 +38,5 @@ export default {
         },
     },
 
-    watch: {
-        tabs() {
-            switch (this.tabs) {
-            case 'scryfall':
-            }
-        },
-    },
-
-    methods: {
-        async loadScryfall() {
-            const { data: bulk } = await this.api.get('/magic/scryfall/bulk');
-
-            this.bulk = bulk;
-        },
-
-        async loadScryfallBulk() {
-            const ws = this.apiWs.create('/magic/scryfall/bulk/get');
-
-            await new Promise((resolve, reject) => {
-                ws.onmessage = e => {
-                    console.log(e);
-                };
-
-                ws.onerror = reject;
-                ws.onend = resolve;
-            });
-        },
-    },
 };
 </script>

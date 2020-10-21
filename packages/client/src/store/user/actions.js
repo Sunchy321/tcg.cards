@@ -1,12 +1,12 @@
-import { user } from 'boot/axios';
+import { user } from 'src/boot/backend';
 
 export async function refresh({ commit, getters }) {
-    const userToken = getters.userToken;
+    const token = getters.token;
 
-    if (userToken != null) {
+    if (token != null) {
         const { data } = await user.get('/refresh', {
             headers: {
-                Authentication: userToken,
+                Authentication: token,
             },
         });
 
