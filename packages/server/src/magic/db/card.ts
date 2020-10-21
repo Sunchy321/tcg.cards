@@ -9,11 +9,11 @@ const CardSchema = new Schema({
         id: String,
     },
 
-    arenaId: String,
-    mtgoId: Number,
-    mtgoFoilId: Number,
+    arenaId:      String,
+    mtgoId:       Number,
+    mtgoFoilId:   Number,
     multiverseId: [Number],
-    tcgPlayerId: Number,
+    tcgPlayerId:  Number,
 
     lang: String,
 });

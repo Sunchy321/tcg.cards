@@ -1,7 +1,5 @@
 import { Connection, createConnection, set } from 'mongoose';
 
-import * as logger from '@/logger';
-
 import { database } from '@config';
 
 set('useCreateIndex', true);
@@ -27,9 +25,7 @@ export function connect(dbName: string): Connection {
     }
 
     conn.once('open', () => {
-        logger.main.info(`database ${dbName} is connected`, {
-            category: 'database',
-        });
+        console.log(`database ${dbName} is connected`);
     });
 
     return conn;

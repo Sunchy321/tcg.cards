@@ -1,6 +1,6 @@
 import fs from 'fs';
 import request from 'request';
-import progress, { Progress } from 'request-progress';
+import progress, { Progress, RequestProgress } from 'request-progress';
 
 import * as logger from '../logger';
 
@@ -8,39 +8,66 @@ interface ISaveFileOption {
     override?: boolean;
 }
 
-export default async function saveFile(
-    url: string,
-    path: string,
-    option: ISaveFileOption = {},
-    callback?: (progress: Progress) => void,
-): Promise<void> {
-    const fileInfo = `${url} -> ${path}`;
+export default class FileSaver {
+    url: string;
+    path: string;
+    override = false;
 
-    const override = option.override || false;
+    progress?: (progress: Progress) => void;
+    request?: RequestProgress
 
-    const dir = path.split('/').slice(0, -1).join('/');
+    constructor(url:string, path:string, option: ISaveFileOption = {}) {
+        this.url = url;
+        this.path = path;
 
-    if (fs.existsSync(dir + '/.no-auto-save')) {
-        logger.main.info(`${fileInfo}: skipped`, { category: 'file' });
-        return;
+        if (option.override != null) {
+            this.override = option.override;
+        }
     }
 
-    if (fs.existsSync(path) && !override) {
-        logger.main.info(`${fileInfo}: exists`, { category: 'file' });
-        return;
+    on(event: 'progress', callback: (progress: Progress) => void): void {
+        this.progress = callback;
     }
 
-    await new Promise((resolve, reject) => {
-        const p = progress(request(url));
+    abort(): void {
+        if (this.request != null) {
+            this.request.abort();
+        }
+    }
 
-        if (callback != null) {
-            p.on('progress', callback);
+    async save(): Promise<void> {
+        const fileInfo = `${this.url} -> ${this.path}`;
+
+        const override = this.override;
+
+        const dir = this.path.split('/').slice(0, -1).join('/');
+
+        if (fs.existsSync(dir + '/.no-auto-save')) {
+            logger.main.info(`${fileInfo}: skipped`, { category: 'file' });
+            return;
         }
 
-        p.on('error', reject)
-            .on('end', resolve)
-            .pipe(fs.createWriteStream(path));
-    });
+        if (fs.existsSync(this.path) && !override) {
+            logger.main.info(`${fileInfo}: exists`, { category: 'file' });
+            return;
+        }
 
-    logger.main.info(`${fileInfo}: downloaded`, { category: 'file' });
+        this.request = progress(request(this.url));
+
+        if (this.progress != null) {
+            this.request.on('progress', this.progress);
+        }
+
+        return new Promise((resolve, reject) => {
+            if (this.request != null) {
+                this.request
+                    .on('error', reject)
+                    .on('end', () => {
+                        logger.main.info(`${fileInfo}: downloaded`, { category: 'file' });
+                        resolve();
+                    })
+                    .pipe(fs.createWriteStream(this.path));
+            }
+        });
+    }
 }

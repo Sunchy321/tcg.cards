@@ -39,15 +39,20 @@ export default function jwtAuth(option: JwtAuthOption = { }): Middleware {
 
             if (user != null && (!option.admin || user.isAdmin())) {
                 ctx.state.user = user;
+                return next();
+            } else {
+                if (option.pass) {
+                    return next();
+                } else {
+                    ctx.status = 401;
+                }
+            }
+        } else {
+            if (option.pass) {
+                return next();
             } else {
                 ctx.status = 401;
             }
-        } else {
-            ctx.status = 401;
-        }
-
-        if (ctx.status !== 401 || option.pass) {
-            return next();
         }
     };
 }

@@ -13,8 +13,8 @@ function formatter(info: TransformableInfo) {
 }
 
 export const main = createLogger({
-    level: 'info',
-    format: format.combine(format.timestamp(), format.printf(formatter)),
+    level:      'info',
+    format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
             filename: log + '/main.log',
@@ -23,8 +23,8 @@ export const main = createLogger({
 });
 
 export const data = createLogger({
-    level: 'info',
-    format: format.combine(format.timestamp(), format.printf(formatter)),
+    level:      'info',
+    format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
             filename: log + '/data.log',
@@ -33,8 +33,8 @@ export const data = createLogger({
 });
 
 export const user = createLogger({
-    level: 'info',
-    format: format.combine(format.timestamp(), format.printf(formatter)),
+    level:      'info',
+    format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
             filename: log + '/user.log',

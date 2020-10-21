@@ -1,20 +1,28 @@
-import * as fs from 'fs';
-import * as readline from 'readline';
-import * as Reader from 'async-stream-reader';
+import fs from 'fs';
+import readline from 'readline';
 
-export default async function* lineReader(path) {
-    const rl = readline.createInterface({
-        input: fs.createReadStream(path),
-    });
+export default class LineReader {
+    file: string;
+    stream: fs.ReadStream;
 
-    const reader = new Reader(rl, {
-        events: { data: 'line', end: 'close' },
-    });
+    constructor(file: string) {
+        this.file = file;
+        this.reset();
+    }
 
-    let line;
+    reset(): void {
+        this.stream = fs.createReadStream(this.file);
+    }
 
-    // tslint:disable-next-line: no-conditional-assignment
-    while (line = await reader.next()) {
-        yield await line;
+    abort(): void {
+        this.stream.destroy();
+    }
+
+    async* get(): AsyncGenerator<string> {
+        const rl = readline.createInterface(this.stream);
+
+        for await (const line of rl) {
+            yield line;
+        }
     }
 }
