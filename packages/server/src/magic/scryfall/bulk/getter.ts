@@ -5,27 +5,18 @@ import { existsSync, readdirSync } from 'fs';
 import { last } from 'lodash';
 import { join } from 'path';
 
+import { ProgressHandler } from '@/common/progress';
+
 import { IBulkData, IBulkList, IBulkStatus } from './interface';
 
 import { data } from '@config';
 
 const bulkPath = join(data, 'magic/scryfall');
 
-export default class BulkSaver {
-    progress?: (progress: IBulkStatus) => void;
+export default class BulkSaver extends ProgressHandler<IBulkStatus> {
     saver?: FileSaver;
 
-    on(event: 'progress', callback: (progress: IBulkStatus) => void): void {
-        this.progress = callback;
-    }
-
-    abort(): void {
-        if (this.saver != null) {
-            this.saver.abort();
-        }
-    }
-
-    async get(): Promise<void> {
+    async action(): Promise<void> {
         {
             const info: IBulkData = JSON.parse(await request('https://api.scryfall.com/bulk-data/all-cards'));
             const uri = info.download_uri;
@@ -36,17 +27,15 @@ export default class BulkSaver {
 
                 this.saver = new FileSaver(uri, path, { override: true });
 
-                this.saver.on('progress', progress => {
-                    if (this.progress != null) {
-                        this.progress({
-                            method: 'get',
-                            type:   'all-card',
-                            count:  progress.size.transferred,
-                        });
-                    }
+                this.saver.onProgress(progress => {
+                    this.emitProgress({
+                        method: 'get',
+                        type:   'all-card',
+                        count:  progress.size.transferred,
+                    });
                 });
 
-                await this.saver.save();
+                await this.saver.exec();
             }
         }
 
@@ -60,19 +49,27 @@ export default class BulkSaver {
 
                 this.saver = new FileSaver(uri, path, { override: true });
 
-                this.saver.on('progress', progress => {
-                    if (this.progress != null) {
-                        this.progress({
-                            method: 'get',
-                            type:   'ruling',
-                            count:  progress.size.transferred,
-                        });
-                    }
+                this.saver.onProgress(progress => {
+                    this.emitProgress({
+                        method: 'get',
+                        type:   'ruling',
+                        count:  progress.size.transferred,
+                    });
                 });
 
-                await this.saver.save();
+                await this.saver.exec();
             }
         }
+    }
+
+    abort(): void {
+        if (this.saver != null) {
+            this.saver.abort();
+        }
+    }
+
+    equals(): boolean {
+        return true;
     }
 
     static data(): IBulkList {
@@ -86,27 +83,5 @@ export default class BulkSaver {
             allCard: content.filter(v => v.startsWith('all-cards')).map(v => v.slice(0, -5)),
             ruling:  content.filter(v => v.startsWith('rulings')).map(v => v.slice(0, -5)),
         };
-    }
-}
-
-export class BulkLoader {
-    file: string;
-    progress?: (progress: IBulkStatus) => void;
-    aborted = false;
-
-    constructor(file: string) {
-        this.file = file;
-    }
-
-    on(event: 'progress', callback: (progress: IBulkStatus) => void): void {
-        this.progress = callback;
-    }
-
-    abort(): void {
-        this.aborted = true;
-    }
-
-    async get(): Promise<void> {
-        // TODO
     }
 }

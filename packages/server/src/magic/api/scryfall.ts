@@ -4,40 +4,40 @@ import { DefaultState, Context } from 'koa';
 import websocket from '@/middlewares/websocket';
 import jwtAuth from '@/middlewares/jwt-auth';
 import { BulkGetter, BulkLoader } from '@/magic/scryfall/bulk';
+import Card from '../db/scryfall/card';
+import Ruling from '../db/scryfall/ruling';
+import Set from '../db/scryfall/set';
+import { ProgressWebSocket } from '@/common/progress';
+import { IBulkStatus } from '../scryfall/bulk/interface';
+import { ISetStatus, SetGetter } from '../scryfall/set';
 
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/scryfall');
 
-router.get('/bulk', async ctx => {
-    ctx.body = BulkGetter.data();
+router.get('/', async ctx => {
+    ctx.body = {
+        bulk:     BulkGetter.data(),
+        database: {
+            card:   await Card.count({ }),
+            ruling: await Ruling.count({ }),
+            set:    await Set.count({ }),
+        },
+    };
 });
 
-let getter: BulkGetter | null;
+const bulkGetter = new ProgressWebSocket<IBulkStatus>(BulkGetter);
 
 router.get('/bulk/get',
     websocket,
     jwtAuth({ admin: true }),
     async ctx => {
-        const ws = await ctx.ws();
-
-        if (getter == null) {
-            getter = new BulkGetter();
-        }
-
-        getter.on('progress', progress => {
-            ws.send(JSON.stringify(progress));
-        });
-
-        await getter.get();
-
-        getter = null;
-        ctx.status = 200;
-        ws.close();
+        bulkGetter.bind(await ctx.ws());
+        await bulkGetter.exec();
     },
 );
 
-let loader: BulkLoader | null;
+const bulkLoader = new ProgressWebSocket<IBulkStatus>(BulkLoader);
 
 router.get('/bulk/load',
     websocket,
@@ -53,22 +53,20 @@ router.get('/bulk/load',
             return;
         }
 
-        if (loader == null) {
-            loader = new BulkLoader(file);
-        } else if (loader.file !== file) {
-            loader.abort();
-            loader = new BulkLoader(file);
-        }
+        bulkLoader.bind(ws, file);
+        await bulkLoader.exec();
+    },
+);
 
-        loader.on('progress', progress => {
-            ws.send(JSON.stringify(progress));
-        });
+const setGetter = new ProgressWebSocket<ISetStatus>(SetGetter);
 
-        await loader.get();
-
-        loader = null;
-        ctx.status = 200;
-        ws.close();
-    });
+router.get('/get-set',
+    websocket,
+    jwtAuth({ admin: true }),
+    async ctx => {
+        setGetter.bind(await ctx.ws());
+        await setGetter.exec();
+    },
+);
 
 export default router;

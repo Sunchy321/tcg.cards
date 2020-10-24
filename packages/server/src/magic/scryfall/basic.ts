@@ -1,23 +1,25 @@
-import * as request from 'request-promise-native';
+import request from 'request-promise-native';
 
-export async function getList<T>(uri: string): Promise<T[]> {
-    const result: T[] = [];
+import { List } from './interface';
 
-    let data = null;
+export async function* listOf<T>(url: string): AsyncGenerator<T[]> {
+    let data: List<T>;
 
     do {
-        data = JSON.parse(await request(uri));
+        data = JSON.parse(await request(url));
 
-        result.push(...data.data);
+        yield data.data;
 
-        if (data.has_more) {
-            uri = data.next_page;
+        if (data.has_more && data.next_page) {
+            url = data.next_page;
         }
     } while (data.has_more);
+}
 
-    if (data.total_cards != null && result.length !== data.total_cards) {
-        throw new Error('Number mismatch');
+export async function* dataOf<T>(url: string): AsyncGenerator<T> {
+    for await (const list of listOf<T>(url)) {
+        for (const e of list) {
+            yield e;
+        }
     }
-
-    return result;
 }

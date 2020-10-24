@@ -1,131 +1,16 @@
 /* eslint-disable camelcase */
 import { Document, Schema } from 'mongoose';
 
-import conn from './db';
+import conn from '../db';
 
-import { CardComponent, Colors, Game, Legalities, URI, UUID } from '../scryfall/interface';
+import { RawCard, UUID } from '../../scryfall/interface';
 
-export interface IScryfallPart {
-    id: string,
-    object: 'related_card',
-    component: CardComponent,
-    name: string,
-    type_line: string,
-    uri: URI,
-}
+export type ICard = {
+    card_id: UUID;
+    set_id: string;
+} & Omit<RawCard, 'id' | 'set'>;
 
-export interface IScryfallCardFace {
-    artist?: string,
-    color_indicator?: Colors,
-    colors?: Colors,
-    flavor_text?: string,
-    illustration_id?: UUID,
-    image_uris?: Record<string, URI>,
-    loyalty?: string,
-    mana_cost: string,
-    name: string,
-    object: 'card_face',
-    oracle_text?: string,
-    power?: string,
-    printed_name?: string,
-    printed_text?: string,
-    printed_type_line?: string,
-    toughness?: string,
-    type_line: string,
-    watermark?: string,
-}
-
-export interface IScryfallCardData {
-    // Core Card Fields
-    arena_id?: number,
-    card_id: UUID,
-    lang: string,
-    mtgo_id?: number,
-    mtgo_foil_id?: number,
-    multiverse_ids?: number[],
-    tcgplayer_id?: number,
-    cardmarket_id?: number,
-    object: 'card',
-    oracle_id: UUID,
-    prints_search_uri: URI,
-    ruling_uri: URI,
-    scryfall_uri: URI,
-    uri: URI,
-
-    // Gameplay Fields
-    all_parts?: IScryfallPart[],
-    card_faces?: IScryfallCardFace[],
-    cmc: number,
-    color_identity: Colors,
-    color_indicator?: Colors,
-    colors?: Colors,
-    edhrec_rank?: number,
-    foil: boolean,
-    hand_modifier?: string,
-    keywords: string[],
-    layout: string,
-    legalities: Legalities,
-    life_modifier?: string,
-    loyalty?: string,
-    mana_cost?: string,
-    name: string,
-    nonfoil: boolean,
-    oracle_text?: string,
-    oversized: boolean,
-    power?: string,
-    produced_mana?: Colors,
-    reserved: boolean,
-    toughness?: string,
-    type_line: string,
-
-    // Print Fields
-    artist?: string,
-    booster: boolean,
-    border_color: string,
-    card_back_id: UUID,
-    collector_number: string,
-    content_warning?: boolean,
-    digital: boolean,
-    flavor_name?: string,
-    flavor_text?: string,
-    frame_effects: string[],
-    frame: string,
-    full_art: boolean,
-    games: Game[],
-    highres_image: boolean,
-    illustration_id?: UUID,
-    image_uris?: Record<string, URI>,
-    prices: Record<string, string>,
-    printed_name?: string,
-    printed_text?: string,
-    printed_type_line?: string,
-    promo: boolean,
-    promo_types?: string[],
-    purchase_uris: Record<string, URI>,
-    rarity: string,
-    related_uris: Record<string, URI>,
-    released_at: string,
-    reprint: boolean,
-    scryfall_set_uri: URI,
-    set_name: string,
-    set_search_uri: URI,
-    set_type: string,
-    set_uri: URI,
-    set_id: string, // set in scryfall document
-    story_spotlight: boolean,
-    textless: boolean,
-    variation: boolean,
-    variation_of?: string,
-    watermark?: string,
-
-    preview?: {
-        previewed_at: string,
-        source_uri: URI,
-        source: string,
-    },
-}
-
-export const ScryfallCardSchema = new Schema({
+export const CardSchema = new Schema({
     // Core Card Fields
     arena_id:          Number,
     card_id:           String,
@@ -245,6 +130,6 @@ export const ScryfallCardSchema = new Schema({
     },
 });
 
-const ScryfallCard = conn.model<IScryfallCardData & Document>('scryfall_card', ScryfallCardSchema);
+const Card = conn.model<ICard & Document>('scryfall_card', CardSchema);
 
-export default ScryfallCard;
+export default Card;

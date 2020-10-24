@@ -3,20 +3,22 @@ import request from 'request';
 import progress, { Progress, RequestProgress } from 'request-progress';
 
 import * as logger from '../logger';
+import { ProgressHandler } from './progress';
 
 interface ISaveFileOption {
     override?: boolean;
 }
 
-export default class FileSaver {
+export default class FileSaver extends ProgressHandler<Progress> {
     url: string;
     path: string;
     override = false;
 
-    progress?: (progress: Progress) => void;
-    request?: RequestProgress
+    request?: RequestProgress;
 
-    constructor(url:string, path:string, option: ISaveFileOption = {}) {
+    constructor(url: string, path: string, option: ISaveFileOption = {}) {
+        super();
+
         this.url = url;
         this.path = path;
 
@@ -25,17 +27,7 @@ export default class FileSaver {
         }
     }
 
-    on(event: 'progress', callback: (progress: Progress) => void): void {
-        this.progress = callback;
-    }
-
-    abort(): void {
-        if (this.request != null) {
-            this.request.abort();
-        }
-    }
-
-    async save(): Promise<void> {
+    async action(): Promise<void> {
         const fileInfo = `${this.url} -> ${this.path}`;
 
         const override = this.override;
@@ -54,9 +46,7 @@ export default class FileSaver {
 
         this.request = progress(request(this.url));
 
-        if (this.progress != null) {
-            this.request.on('progress', this.progress);
-        }
+        this.request.on('progress', p => this.emitProgress(p));
 
         return new Promise((resolve, reject) => {
             if (this.request != null) {
@@ -69,5 +59,15 @@ export default class FileSaver {
                     .pipe(fs.createWriteStream(this.path));
             }
         });
+    }
+
+    abort(): void {
+        if (this.request != null) {
+            this.request.abort();
+        }
+    }
+
+    equals(url: string, path: string): boolean {
+        return this.url === url && this.path === path;
     }
 }

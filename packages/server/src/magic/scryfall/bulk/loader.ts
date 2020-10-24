@@ -1,26 +1,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import LineReader from '@/common/line-reader';
-import ScryfallCard from '../../db/scryfall-card';
-import ScryfallRuling from '../../db/scryfall-ruling';
+import Card from '../../db/scryfall/card';
+import Ruling from '../../db/scryfall/ruling';
 
 import { join } from 'path';
 
 import { IBulkStatus } from './interface';
 
 import { data } from '@config';
+import { ProgressHandler } from '@/common/progress';
 
 const bulkPath = join(data, 'magic/scryfall');
 
 const bucketSize = 1000;
 
-export default class BulkLoader {
+export default class BulkLoader extends ProgressHandler<IBulkStatus> {
     type: 'all-card' | 'ruling';
     file: string;
     filePath: string;
     lineReader: LineReader;
-    progress?: (progress: IBulkStatus) => void;
 
     constructor(fileName: string) {
+        super();
+
         if (fileName.startsWith('all-cards')) {
             this.type = 'all-card';
         } else {
@@ -32,19 +34,11 @@ export default class BulkLoader {
         this.lineReader = new LineReader(this.filePath);
     }
 
-    on(event: 'progress', callback: (progress: IBulkStatus) => void): void {
-        this.progress = callback;
-    }
-
-    abort(): void {
-        this.lineReader.abort();
-    }
-
-    async get(): Promise<void> {
+    async action(): Promise<void> {
         if (this.type === 'all-card') {
-            await ScryfallCard.deleteMany({ });
+            await Card.deleteMany({ });
         } else {
-            await ScryfallRuling.deleteMany({ });
+            await Ruling.deleteMany({ });
         }
 
         let count = 0;
@@ -54,8 +48,8 @@ export default class BulkLoader {
             if (line !== '[' && line !== ']') {
                 ++total;
 
-                if (this.progress != null && total % bucketSize === 0) {
-                    this.progress({
+                if (total % bucketSize === 0) {
+                    this.emitProgress({
                         method: 'load',
                         type:   this.type,
                         total,
@@ -84,14 +78,12 @@ export default class BulkLoader {
                 await insertMany(jsons, this.type);
                 count += jsons.length;
 
-                if (this.progress != null) {
-                    this.progress({
-                        method: 'load',
-                        type:   this.type,
-                        total,
-                        count,
-                    });
-                }
+                this.emitProgress({
+                    method: 'load',
+                    type:   this.type,
+                    total,
+                    count,
+                });
 
                 jsons.splice(0, jsons.length);
             }
@@ -101,15 +93,21 @@ export default class BulkLoader {
             await insertMany(jsons, this.type);
             count += jsons.length;
 
-            if (this.progress != null) {
-                this.progress({
-                    method: 'load',
-                    type:   this.type,
-                    total,
-                    count,
-                });
-            }
+            this.emitProgress({
+                method: 'load',
+                type:   this.type,
+                total,
+                count,
+            });
         }
+    }
+
+    abort(): void {
+        this.lineReader.abort();
+    }
+
+    equals(file: string): boolean {
+        return this.file === file;
     }
 }
 
@@ -123,8 +121,8 @@ async function insertMany(jsons: any[], type: 'all-card' | 'ruling') {
             delete j.set;
         }
 
-        return ScryfallCard.insertMany(jsons);
+        return Card.insertMany(jsons);
     } else {
-        return ScryfallRuling.insertMany(jsons);
+        return Ruling.insertMany(jsons);
     }
 }
