@@ -29,7 +29,12 @@
                     </q-list>
                 </q-btn-dropdown>
 
-                <q-btn icon="mdi-database-outline" flat dense />
+                <q-btn
+                    v-if="isAdmin && game != null"
+                    icon="mdi-database"
+                    flat dense
+                    @click="toData"
+                />
 
                 <q-btn
                     :icon="user != null ? 'mdi-cog' : 'mdi-cog-outline'"
@@ -85,7 +90,16 @@ export default {
             if (titleMatch != null) {
                 return format.capitalize(this.$t(titleMatch.meta.title));
             } else {
-                return this.$route.path.slice(1).replace(/\//g, '.');
+                const regex = /\//g;
+                return this.$route.path.slice(1).replace(regex, '.');
+            }
+        },
+
+        dataPath() {
+            if (this.isAdmin && this.game != null) {
+                return `/${this.game}/data`;
+            } else {
+                return null;
             }
         },
     },
@@ -96,6 +110,12 @@ export default {
                 this.$router.push('/' + this.game);
             } else {
                 this.$router.push('/');
+            }
+        },
+
+        toData() {
+            if (this.game != null) {
+                this.$router.push(`/${this.game}/data`);
             }
         },
 
