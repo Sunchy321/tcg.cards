@@ -30,6 +30,7 @@ export const CardSchema = new Schema({
     // Gameplay Fields
     all_parts: [
         {
+            _id:       false,
             id:        String,
             object:    String,
             component: String,
@@ -40,6 +41,7 @@ export const CardSchema = new Schema({
     ],
     card_faces: [
         {
+            _id:               false,
             artist:            String,
             color_indicator:   [String],
             colors:            [String],

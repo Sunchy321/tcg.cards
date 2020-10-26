@@ -7,8 +7,9 @@ import { listOf } from './basic';
 import { RawSet } from './interface';
 
 export interface ISetStatus {
-    method: 'get',
+    method: 'get' | 'merge',
     type: 'set',
+    total?: number,
     count: number
 }
 

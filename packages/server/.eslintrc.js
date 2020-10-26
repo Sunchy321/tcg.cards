@@ -3,6 +3,10 @@ module.exports = {
 
     parser: '@typescript-eslint/parser',
 
+    parserOptions: {
+        project: './tsconfig.json'
+    },
+
     env: {
         node: true,
     },
@@ -58,5 +62,7 @@ module.exports = {
         }],
         'space-infix-ops': 'warn',
         'quote-props': ['warn', 'consistent-as-needed'],
+
+        '@typescript-eslint/switch-exhaustiveness-check': 'error'
     },
 };

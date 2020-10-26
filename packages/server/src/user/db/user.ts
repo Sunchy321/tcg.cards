@@ -38,7 +38,7 @@ export interface IUser extends Document {
     profile(): IUserProfile;
 }
 
-interface UserModel extends Model<IUser, unknown> {
+interface UserModel extends Model<IUser> {
     authenticate(username: string, password: string): Promise<IUser>;
     register(username: string, password: string): Promise<IUser>;
     findByUsername(username: string): Promise<IUser>;

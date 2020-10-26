@@ -18,6 +18,7 @@ const SetSchema = new Schema({
     block_code:      String,
     block:           String,
     parent_set_code: String,
+    card_count:      Number,
     printed_size:    Number,
     digital:         Boolean,
     foil_only:       Boolean,

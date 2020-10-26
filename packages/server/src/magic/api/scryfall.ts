@@ -3,13 +3,17 @@ import { DefaultState, Context } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 import jwtAuth from '@/middlewares/jwt-auth';
+
+import { IBulkStatus } from '../scryfall/bulk/interface';
 import { BulkGetter, BulkLoader } from '@/magic/scryfall/bulk';
+import { ISetStatus, SetGetter } from '../scryfall/set';
+import { SetMerger } from '../scryfall/merge/set';
+
 import Card from '../db/scryfall/card';
 import Ruling from '../db/scryfall/ruling';
 import Set from '../db/scryfall/set';
+
 import { ProgressWebSocket } from '@/common/progress';
-import { IBulkStatus } from '../scryfall/bulk/interface';
-import { ISetStatus, SetGetter } from '../scryfall/set';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -60,12 +64,23 @@ router.get('/bulk/load',
 
 const setGetter = new ProgressWebSocket<ISetStatus>(SetGetter);
 
-router.get('/get-set',
+router.get('/set/get',
     websocket,
     jwtAuth({ admin: true }),
     async ctx => {
         setGetter.bind(await ctx.ws());
         await setGetter.exec();
+    },
+);
+
+const setMerger = new ProgressWebSocket<ISetStatus>(SetMerger);
+
+router.get('/set/merge',
+    websocket,
+    jwtAuth({ admin: true }),
+    async ctx => {
+        setMerger.bind(await ctx.ws());
+        await setMerger.exec();
     },
 );
 
