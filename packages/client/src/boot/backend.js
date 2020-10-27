@@ -15,8 +15,34 @@ export const api = axios.create({ baseURL: 'http://' + apiBase });
 export const user = axios.create({ baseURL: 'http://' + userBase });
 
 export default async ({ Vue }) => {
-    Vue.prototype.api = api;
-    Vue.prototype.user = user;
+    Vue.prototype.apiGet = function(url, params) {
+        const token = this?.$store?.getters?.['user/token'];
+
+        if (token != null) {
+            return api.get(url, {
+                headers: {
+                    Authentication: 'Bearer ' + token,
+                },
+                params,
+            });
+        } else {
+            return api.get(url, { params });
+        }
+    };
+
+    Vue.prototype.apiPost = function(url, params) {
+        const token = this?.$store?.getters?.['user/token'];
+
+        if (token != null) {
+            return api.post(url, params, {
+                headers: {
+                    Authentication: 'Bearer ' + token,
+                },
+            });
+        } else {
+            return api.post(url, params);
+        }
+    };
 
     Vue.prototype.apiWs = function(url, params) {
         const token = this?.$store?.getters?.['user/token'];

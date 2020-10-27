@@ -71,10 +71,10 @@ export default {
         async loadInfo() {
             ({
                 data: { hasData: this.hasData },
-            } = await this.api.get('/hearthstone/hsdata'));
+            } = await this.apiGet('/hearthstone/hsdata'));
 
             if (this.hasData) {
-                ({ data: this.patches } = await this.api.get(
+                ({ data: this.patches } = await this.apiGet(
                     '/hearthstone/patch',
                 ));
             }
@@ -83,8 +83,8 @@ export default {
         async getData() {
             this.gettingData = true;
 
-            await this.api.post('/hearthstone/hsdata/get-data');
-            await this.api.post('/hearthstone/hsdata/load-data');
+            await this.apiPost('/hearthstone/hsdata/get-data');
+            await this.apiPost('/hearthstone/hsdata/load-data');
 
             this.gettingData = false;
             this.loadInfo();
@@ -93,7 +93,7 @@ export default {
         async loadData() {
             this.loadingData = true;
 
-            await this.api.post('/hearthstone/hsdata/load-data');
+            await this.apiPost('/hearthstone/hsdata/load-data');
 
             this.loadingData = false;
             this.loadInfo();

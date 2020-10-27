@@ -5,11 +5,11 @@
                 v-for="t in tabs"
                 :key="t"
                 :name="t"
-                label="Scryfall"
+                :label="t.replace('-', ' ')"
             />
         </q-tabs>
 
-        <component :is="'DataScryfall'" />
+        <component :is="tabComponent" />
     </q-page>
 </template>
 
@@ -21,20 +21,43 @@
 </style>
 
 <script>
-import DataScryfall from './data/Scryfall';
+import Scryfall from './data/Scryfall';
+import Set from './data/Set';
+import BanlistChange from './data/BanlistChange';
 
 export default {
     name: 'Data',
 
-    components: { DataScryfall },
-
-    data: () => ({
-        tab: 'scryfall',
-    }),
+    components: { Scryfall, Set, BanlistChange },
 
     computed: {
         tabs() {
-            return ['scryfall'];
+            return ['scryfall', 'set', 'banlist-change'];
+        },
+
+        tab: {
+            get() {
+                return this.$route.query.tab ?? 'scryfall';
+            },
+            set(newValue) {
+                this.$router.replace({
+                    path:  '/magic/data',
+                    query: { tab: newValue },
+                });
+            },
+        },
+
+        tabComponent() {
+            switch (this.tab) {
+            case 'scryfall':
+                return 'Scryfall';
+            case 'set':
+                return 'Set';
+            case 'banlist-change':
+                return 'BanlistChange';
+            default:
+                return null;
+            }
         },
     },
 

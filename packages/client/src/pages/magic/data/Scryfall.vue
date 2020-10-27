@@ -1,5 +1,5 @@
 <template>
-    <q-tab-panel name="scryfall">
+    <div class="q-pa-md">
         <div class="row items-center">
             <div>Bulk Data</div>
 
@@ -125,7 +125,7 @@
                 </q-item>
             </q-list>
         </div>
-    </q-tab-panel>
+    </div>
 </template>
 
 <style lang="stylus" scoped>
@@ -189,6 +189,16 @@ export default {
             }
         },
 
+        dataProgressValue() {
+            const prog = this.dataProgress;
+
+            if (prog != null && prog.total != null) {
+                return prog.count / prog.total;
+            } else {
+                return null;
+            }
+        },
+
         dataProgressLabel() {
             const prog = this.dataProgress;
 
@@ -228,7 +238,7 @@ export default {
 
     methods: {
         async loadData() {
-            const { data } = await this.api.get('/magic/scryfall');
+            const { data } = await this.apiGet('/magic/scryfall');
 
             this.bulk = data.bulk;
             this.database = data.database;
@@ -275,7 +285,7 @@ export default {
         },
 
         async getSet() {
-            const ws = this.apiWs('/magic/scryfall/get-set');
+            const ws = this.apiWs('/magic/scryfall/set/get');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -299,7 +309,23 @@ export default {
         },
 
         async mergeSet() {
-            // TODO
+            const ws = this.apiWs('/magic/scryfall/set/merge');
+
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    const progress = JSON.parse(data);
+
+                    this.dataProgress = progress;
+                };
+
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    this.dataProgress = null;
+                    this.loadData();
+
+                    resolve();
+                };
+            });
         },
     },
 };

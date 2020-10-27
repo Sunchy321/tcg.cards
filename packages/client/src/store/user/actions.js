@@ -6,7 +6,7 @@ export async function refresh({ commit, getters }) {
     if (token != null) {
         const { data } = await user.get('/refresh', {
             headers: {
-                Authentication: token,
+                Authentication: 'Bearer ' + token,
             },
         });
 
