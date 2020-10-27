@@ -10,8 +10,11 @@ declare module 'koa' {
 }
 
 function getJwtToken(ctx: Context): string | undefined {
-    if (ctx.header.authentication != null) {
-        return ctx.header.authentication;
+    const auth = ctx.header.authentication;
+    if (auth != null) {
+        if (auth.startsWith('Bearer ')) {
+            return auth.slice(7).trim();
+        }
     } else if (ctx.query.jwt != null) {
         return ctx.query.jwt;
     }

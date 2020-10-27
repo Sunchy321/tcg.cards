@@ -17,6 +17,7 @@
     },
     "homepage": "https://github.com/Sunchy321/CardServer#readme",
     "devDependencies": {
+        "@types/cheerio": "^0.22.22",
         "@types/download": "^6.2.4",
         "@types/jsonwebtoken": "^8.5.0",
         "@types/koa-logger": "^3.1.1",

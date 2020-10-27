@@ -63,6 +63,7 @@ module.exports = {
         'space-infix-ops': 'warn',
         'quote-props': ['warn', 'consistent-as-needed'],
 
-        '@typescript-eslint/switch-exhaustiveness-check': 'error'
+        '@typescript-eslint/switch-exhaustiveness-check': 'error',
+        '@typescript-eslint/no-non-null-assertion': 'off'
     },
 };

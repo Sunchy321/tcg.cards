@@ -4,16 +4,16 @@ import { DefaultState, Context } from 'koa';
 import websocket from '@/middlewares/websocket';
 import jwtAuth from '@/middlewares/jwt-auth';
 
-import { IBulkStatus } from '../scryfall/bulk/interface';
-import { BulkGetter, BulkLoader } from '@/magic/scryfall/bulk';
-import { ISetStatus, SetGetter } from '../scryfall/set';
-import { SetMerger } from '../scryfall/merge/set';
+import { ProgressWebSocket } from '@/common/progress';
 
 import Card from '../db/scryfall/card';
 import Ruling from '../db/scryfall/ruling';
 import Set from '../db/scryfall/set';
 
-import { ProgressWebSocket } from '@/common/progress';
+import { IBulkStatus } from '../scryfall/bulk/interface';
+import { BulkGetter, BulkLoader } from '@/magic/scryfall/bulk';
+import { ISetStatus, SetGetter } from '../scryfall/set';
+import { SetMerger } from '../scryfall/merge/set';
 
 const router = new KoaRouter<DefaultState, Context>();
 

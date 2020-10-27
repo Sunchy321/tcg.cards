@@ -1,12 +1,14 @@
-import * as cheerio from 'cheerio';
+import cheerio from 'cheerio';
 import request from 'request-promise-native';
+
+import { IBanlistChange } from '../db/banlist-change';
 
 import { escapeRegExp } from 'lodash';
 
-import { IBanlistChange, parseDate, getLines } from './index';
+import { parseDate, getLines } from './helper';
 import { toIdentifier } from '../util';
 
-const formatMap = {
+const formatMap: Record<string, string> = {
     'Standard':                           'standard',
     'Historic':                           'historic',
     'Pioneer':                            'pioneer',
@@ -40,15 +42,19 @@ const formatMap = {
     'Format: 100 Card Singleton':                               '100_card_singleton',
 };
 
-function isStrong(e) {
+function isStrong(e: cheerio.Element): boolean {
     return e.tagName === 'strong' || e.tagName === 'b';
 }
 
-function isCardLink(e, $) {
+function isCardLink(e: cheerio.Element, $: cheerio.Root): boolean {
     return e.tagName === 'a' && ($(e).hasClass('autocard-link') || $(e).hasClass('nodec'));
 }
 
-function parseDateText(sText, rest, result) {
+function parseDateText(
+    sText: string,
+    rest: string,
+    result: Partial<IBanlistChange>,
+): string | null | undefined {
     const sTextDeburr = sText.replace(/\xA0/g, ' ');
 
     switch (sTextDeburr) {
@@ -57,14 +63,14 @@ function parseDateText(sText, rest, result) {
         return;
     case 'Effective Date':
     case 'Tabletop Effective Date':
-        result.effectiveDate.tabletop = parseDate(rest);
+        result.effectiveDate!.tabletop = parseDate(rest);
         return;
     case 'Magic Online Effective Date':
     case 'Magic OnlineEffective Date':
-        result.effectiveDate.online = parseDate(rest);
+        result.effectiveDate!.online = parseDate(rest);
         return;
     case 'MTG Arena Effective Date':
-        result.effectiveDate.arena = parseDate(rest);
+        result.effectiveDate!.arena = parseDate(rest);
         return;
     case 'Next B&R Announcement':
     case 'Next Pioneer B&R Announcement':
@@ -79,7 +85,7 @@ function parseDateText(sText, rest, result) {
     }
 }
 
-const statusMap = {
+const statusMap: Record<string, string> = {
     '':                        'banned',
     'banned':                  'banned',
     'is banned':               'banned',
@@ -88,18 +94,19 @@ const statusMap = {
     'is restricted':           'restricted',
     'is unbanned':             'legal',
     'is unrestricted':         'legal',
+    'is unsuspended':          'legal',
     'is no longer banned':     'legal',
     'is no longer restricted': 'legal',
     'are unbanned':            'legal',
 };
 
-function parseStatus(text) {
+function parseStatus(text: string) {
     const trimmed = text.trim().toLowerCase().replace(/(\.|\*+)$/, '');
 
     return statusMap[trimmed] || `<${trimmed}>`;
 }
 
-function parseLine(elems, currFormat, $) {
+function parseLine(elems: cheerio.Element[], currFormat: string, $: cheerio.Root) {
     const pairs = [];
     const cards = [];
 
@@ -129,7 +136,7 @@ function parseLine(elems, currFormat, $) {
     }));
 }
 
-export async function parseWizardsBanlist(url) {
+export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> {
     const html = await request(url);
     const $ = cheerio.load(html);
 
@@ -143,15 +150,13 @@ export async function parseWizardsBanlist(url) {
         }
     })();
 
-    const result = {
-        type:          'banlist-change',
+    const result: Partial<IBanlistChange> = {
         source:        'wotc',
         date:          undefined,
         nextDate:      undefined,
         effectiveDate: { },
         link:          [url],
         changes:       [],
-        __debug:       [],
     };
 
     if (url.includes('pioneer')) {
@@ -163,25 +168,14 @@ export async function parseWizardsBanlist(url) {
     for (const e of getLines(content, $)) {
         const text = e.map(v => $(v).text()).join('');
 
-        result.__debug.push({
-            type:   'line',
-            tag:    e.map(v => v.tagName),
-            format: currFormat,
-            text,
-        });
-
-        if (isStrong(e[0])) {
+        if (text.startsWith('The list of all banned and restricted cards, by format, is here')) {
+            currFormat = null;
+        } else if (isStrong(e[0])) {
             const sText = (t => t.endsWith(':') ? t.slice(0, -1) : t)(
                 e.filter(isStrong).map(v => $(v).text()).join(''),
             );
 
             const rest = text.replace(new RegExp(escapeRegExp(sText) + ':?'), '').trim();
-
-            result.__debug.push({
-                type: 'strong',
-                sText,
-                rest,
-            });
 
             const newFormat = parseDateText(sText, rest, result);
 
@@ -190,11 +184,11 @@ export async function parseWizardsBanlist(url) {
             }
         } else if (currFormat != null) {
             if (isCardLink(e[0], $)) {
-                result.changes.push(...parseLine(e, currFormat, $));
+                result.changes!.push(...parseLine(e, currFormat, $));
             } else {
                 for (const s of Object.keys(statusMap)) {
                     if (s !== '' && s !== 'banned' && text.endsWith(s)) {
-                        result.changes.push({
+                        result.changes!.push({
                             card:   toIdentifier(text.slice(0, -s.length)),
                             format: currFormat,
                             status: statusMap[s],
@@ -206,32 +200,34 @@ export async function parseWizardsBanlist(url) {
         }
     }
 
+    if (result.date == null && result.effectiveDate!.tabletop != null) {
+        result.date = result.effectiveDate?.tabletop;
+    }
+
     if (
-        result.effectiveDate.tabletop == null &&
-        result.effectiveDate.online == null &&
-        result.effectiveDate.arena == null
+        result.effectiveDate!.tabletop == null &&
+        result.effectiveDate!.online == null &&
+        result.effectiveDate!.arena == null
     ) {
         result.effectiveDate = undefined;
     }
 
-    return result;
+    return result as IBanlistChange;
 }
 
-export async function parseWizardsOldBanlist(url) {
+export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChange> {
     const html = await request(url);
     const $ = cheerio.load(html);
 
     const content = $('#bodycontent');
 
-    const result = {
-        type:          'banlist-change',
+    const result: Partial<IBanlistChange> = {
         source:        'wotc',
         date:          undefined,
         nextDate:      undefined,
         effectiveDate: { },
         link:          [url],
         changes:       [],
-        __debug:       [],
     };
 
     let currFormat = null;
@@ -239,25 +235,12 @@ export async function parseWizardsOldBanlist(url) {
     for (const e of getLines(content, $)) {
         const text = e.map(v => $(v).text()).join('').trim();
 
-        result.__debug.push({
-            type:   'line',
-            tag:    e.map(v => v.tagName),
-            format: currFormat,
-            text,
-        });
-
         if (isStrong(e[0])) {
             const sText = (t => t.endsWith(':') ? t.slice(0, -1) : t)(
                 e.filter(isStrong).map(v => $(v).text().trim()).join(''),
             );
 
             const rest = text.replace(new RegExp(escapeRegExp(sText) + ':?'), '').trim();
-
-            result.__debug.push({
-                type: 'strong',
-                sText,
-                rest,
-            });
 
             const newFormat = parseDateText(sText, rest, result);
 
@@ -270,14 +253,14 @@ export async function parseWizardsOldBanlist(url) {
             for (const s of Object.keys(statusMap)) {
                 if (s !== '' && s !== 'banned') {
                     if (text.endsWith(s)) {
-                        result.changes.push({
+                        result.changes!.push({
                             card:   toIdentifier(text.slice(0, -s.length)),
                             format: currFormat,
                             status: statusMap[s],
                         });
                         break;
                     } else if (text.endsWith(s + '.')) {
-                        result.changes.push({
+                        result.changes!.push({
                             card:   toIdentifier(text.slice(0, -s.length - 1)),
                             format: currFormat,
                             status: statusMap[s],
@@ -289,5 +272,5 @@ export async function parseWizardsOldBanlist(url) {
         }
     }
 
-    return result;
+    return result as IBanlistChange;
 }

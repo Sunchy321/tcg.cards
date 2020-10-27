@@ -1,10 +1,12 @@
-import * as cheerio from 'cheerio';
-import * as request from 'request-promise-native';
+import cheerio from 'cheerio';
+import request from 'request-promise-native';
 
-import { IBanlistChange, parseDate, getLines } from './index';
+import { IBanlistChange } from '../db/banlist-change';
+
+import { parseDate, getLines } from './helper';
 import { toIdentifier } from '../util';
 
-const monthMap = {
+const monthMap: Record<string, string> = {
     Jan: '01',
     Feb: '02',
     Mar: '03',
@@ -19,33 +21,29 @@ const monthMap = {
     Dec: '12',
 };
 
-const statusMap = {
-    'is now banned': 'banned',
-    'is banned': 'banned',
-    'is now banned as a commander only': 'banned_as_commander',
+const statusMap: Record<string, string> = {
+    'is now banned':                      'banned',
+    'is banned':                          'banned',
+    'is now banned as a commander only':  'banned_as_commander',
     'is now banned as as commander only': 'banned_as_commander',
-    'is banned as a commander': 'banned_as_commander',
-    'is now legal': 'legal',
-    'is allowed': 'legal',
-    'is unbanned': 'legal',
-    'is unbanned as a commander': 'legal',
+    'is banned as a commander':           'banned_as_commander',
+    'is now legal':                       'legal',
+    'is allowed':                         'legal',
+    'is unbanned':                        'legal',
+    'is unbanned as a commander':         'legal',
 };
 
-export async function parseDuelCommanderBanlist(url) {
+export async function parseDuelCommanderBanlist(url: string): Promise<IBanlistChange> {
     const html = await request(url);
     const $ = cheerio.load(html);
 
     const content = $('.single-post');
 
-    const result = {
-        type: 'banlist-change',
-        source: 'duelcommander',
-        date: undefined,
-        nextDate: undefined,
+    const result: Partial<IBanlistChange> = {
+        source:        'duelcommander',
         effectiveDate: {},
-        link: [url],
-        changes: [],
-        __debug: [],
+        link:          [url],
+        changes:       [],
     };
 
     const year = url.substr(url.search(/\d{4}/), 4);
@@ -70,8 +68,8 @@ export async function parseDuelCommanderBanlist(url) {
                 const id = toIdentifier(text.slice(0, -mStatus[0].length));
 
                 if (id.length <= 80) {
-                    result.changes.push({
-                        card: id,
+                    result.changes!.push({
+                        card:   id,
                         format: 'duelcommander',
                         status: statusMap[s],
                     });
@@ -82,13 +80,6 @@ export async function parseDuelCommanderBanlist(url) {
             }
         }
 
-        result.__debug.push({
-            type: 'line',
-            tag: e.map(v => v.tagName),
-            text,
-            isChange,
-        });
-
         if (!isChange) {
             // tslint:disable-next-line: max-line-length
             const eDate = /(?:These changes apply|This update applies|These changes take effect|This change takes effect|They take effect) on ([a-z]+ \d+(?:st|nd|rd|th)?,? \d+)/i.exec(
@@ -96,7 +87,7 @@ export async function parseDuelCommanderBanlist(url) {
             );
 
             if (eDate != null) {
-                result.effectiveDate.tabletop = parseDate(eDate[1]);
+                result.effectiveDate!.tabletop = parseDate(eDate[1]);
             }
 
             // tslint:disable-next-line: max-line-length
@@ -112,12 +103,12 @@ export async function parseDuelCommanderBanlist(url) {
     }
 
     if (
-        result.effectiveDate.tabletop == null &&
-        result.effectiveDate.online == null &&
-        result.effectiveDate.arena == null
+        result.effectiveDate!.tabletop == null &&
+        result.effectiveDate!.online == null &&
+        result.effectiveDate!.arena == null
     ) {
         result.effectiveDate = undefined;
     }
 
-    return result;
+    return result as IBanlistChange;
 }
