@@ -24,15 +24,16 @@
 import Scryfall from './data/Scryfall';
 import Set from './data/Set';
 import BanlistChange from './data/BanlistChange';
+import BanlistCheck from './data/BanlistCheck';
 
 export default {
     name: 'Data',
 
-    components: { Scryfall, Set, BanlistChange },
+    components: { Scryfall, Set, BanlistChange, BanlistCheck },
 
     computed: {
         tabs() {
-            return ['scryfall', 'set', 'banlist-change'];
+            return ['scryfall', 'set', 'banlist-change', 'banlist-check'];
         },
 
         tab: {
@@ -55,6 +56,8 @@ export default {
                 return 'Set';
             case 'banlist-change':
                 return 'BanlistChange';
+            case 'banlist-check':
+                return 'BanlistCheck';
             default:
                 return null;
             }

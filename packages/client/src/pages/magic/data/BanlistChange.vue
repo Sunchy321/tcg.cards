@@ -305,7 +305,7 @@ export default {
 
     methods: {
         async loadOutline() {
-            const { data } = await this.apiGet('/magic/banlist-change/outlines');
+            const { data } = await this.apiGet('/magic/banlist/change/outlines');
 
             this.changeOutlines = data;
             this.selected = data[0];
@@ -315,7 +315,7 @@ export default {
             if (this.selected.id != null) {
                 this.data = null;
 
-                const { data } = await this.apiGet('/magic/banlist-change/raw', {
+                const { data } = await this.apiGet('/magic/banlist/change/raw', {
                     id: this.selected.id,
                 });
 
@@ -324,7 +324,7 @@ export default {
         },
 
         async parseUrl() {
-            const { data } = await this.apiGet('/magic/banlist-change/parse', {
+            const { data } = await this.apiGet('/magic/banlist/change/parse', {
                 url: this.url,
             });
 
@@ -334,7 +334,7 @@ export default {
         },
 
         async saveData() {
-            await this.apiPost('/magic/banlist-change/save', {
+            await this.apiPost('/magic/banlist/change/save', {
                 data: this.data,
             });
 

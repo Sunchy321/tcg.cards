@@ -23,10 +23,6 @@ const routes = [
                 component: () => import('pages/magic/Format'),
             },
             {
-                path:      'format-change',
-                component: () => import('pages/magic/FormatChange'),
-            },
-            {
                 path:      'set',
                 component: () => import('pages/magic/Set'),
             },

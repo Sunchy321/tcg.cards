@@ -29,7 +29,7 @@ export default async function() {
             const isAdmin = store.getters['user/isAdmin'];
 
             if (!isAdmin) {
-                next({ name: 'setting' });
+                next(`/setting?redirect=${to.path}&admin=true`);
             } else {
                 next();
             }
@@ -37,7 +37,7 @@ export default async function() {
             const user = store.getters['user/user'];
 
             if (user == null) {
-                next({ name: 'setting' });
+                next(`/setting?redirect=${to.path}`);
             } else {
                 next();
             }

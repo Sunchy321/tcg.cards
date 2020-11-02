@@ -89,9 +89,13 @@ export default {
     }),
 
     mounted() {
-        this.$store.subscribeAction(async ({ type, payload }) => {
-            if (type === 'user/login' && payload != null) {
-                this.$router.go(-1);
+        this.$store.subscribe(async ({ type }) => {
+            const { redirect, admin } = this.$route.query;
+
+            if (type === 'user/user' && redirect != null) {
+                if (admin === undefined || this.$store.getters['user/isAdmin']) {
+                    this.$router.replace(redirect);
+                }
             }
         });
     },

@@ -1,5 +1,20 @@
 <template>
     <div class="q-pa-md">
+        <div v-if="progress != null" class="row items-center">
+            <div class="q-mr-sm">
+                {{ progressLabel }}
+            </div>
+
+            <q-linear-progress
+                rounded
+                color="primary"
+                :indeterminate="progressValue == null"
+                :value="progressValue"
+                size="15px"
+                class="flex-grow"
+            />
+        </div>
+
         <div class="row items-center">
             <div>Bulk Data</div>
 
@@ -7,23 +22,6 @@
                 flat
                 label="Get"
                 @click="getBulk"
-            />
-
-            <div
-                v-if="bulkProgress != null"
-                class="q-mr-sm"
-            >
-                {{ bulkProgressLabel }}
-            </div>
-
-            <q-linear-progress
-                v-if="bulkProgress != null"
-                rounded
-                color="primary"
-                :indeterminate="bulkProgressValue == null"
-                :value="bulkProgressValue"
-                size="15px"
-                class="flex-grow"
             />
         </div>
 
@@ -57,23 +55,6 @@
 
         <div class="row items-center q-mt-xl">
             <div>Database Data</div>
-
-            <div
-                v-if="dataProgress != null"
-                class="q-mr-sm"
-            >
-                {{ dataProgressLabel }}
-            </div>
-
-            <q-linear-progress
-                v-if="dataProgress != null"
-                rounded
-                color="primary"
-                :indeterminate="bulkProgressValue == null"
-                :value="bulkProgressValue"
-                size="15px"
-                class="flex-grow"
-            />
         </div>
 
         <div class="row q-gutter-md">
@@ -150,74 +131,51 @@ export default {
             set:    0,
         },
 
-        bulkProgress: null,
-        dataProgress: null,
+        progress: null,
     }),
 
     computed: {
-        bulkProgressValue() {
-            const prog = this.bulkProgress;
+        progressValue() {
+            const prog = this.progress;
 
-            if (prog != null && prog.total != null) {
-                return prog.count / prog.total;
+            if (prog != null && prog.amount.total != null) {
+                return prog.amount.count / prog.amount.total;
             } else {
                 return null;
             }
         },
 
-        bulkProgressLabel() {
-            const prog = this.bulkProgress;
+        progressLabel() {
+            const prog = this.progress;
 
             if (prog != null) {
-                const head = `[${prog.method}] ${prog.type}:`;
+                let result = '';
+
+                result += `[${prog.method}] ${prog.type}: `;
 
                 if (prog.method === 'get') {
-                    if (prog.total != null) {
-                        return `${head} ${bytes(prog.count)}/${bytes(prog.total)}`;
-                    } else {
-                        return `${head} ${bytes(prog.count)}`;
+                    result += bytes(prog.amount.count);
+
+                    if (prog.amount.total != null) {
+                        result += '/' + bytes(prog.amount.total);
                     }
                 } else {
-                    if (prog.total != null) {
-                        return `${head} ${prog.count}/${prog.total}`;
-                    } else {
-                        return `${head} ${prog.count}`;
+                    if (prog.amount.updated != null) {
+                        result += prog.amount.updated + ',';
+                    }
+
+                    result += prog.amount.count;
+
+                    if (prog.amount.total != null) {
+                        result += '/' + prog.amount.total;
                     }
                 }
-            } else {
-                return '';
-            }
-        },
 
-        dataProgressValue() {
-            const prog = this.dataProgress;
-
-            if (prog != null && prog.total != null) {
-                return prog.count / prog.total;
-            } else {
-                return null;
-            }
-        },
-
-        dataProgressLabel() {
-            const prog = this.dataProgress;
-
-            if (prog != null) {
-                const head = `[${prog.method}] ${prog.type}:`;
-
-                if (prog.method === 'get') {
-                    if (prog.total != null) {
-                        return `${head} ${bytes(prog.count)}/${bytes(prog.total)}`;
-                    } else {
-                        return `${head} ${bytes(prog.count)}`;
-                    }
-                } else {
-                    if (prog.total != null) {
-                        return `${head} ${prog.count}/${prog.total}`;
-                    } else {
-                        return `${head} ${prog.count}`;
-                    }
+                if (prog.time != null) {
+                    result += ` (${new Date(prog.time.remaining).toISOString().substr(11, 8)})`;
                 }
+
+                return result;
             } else {
                 return '';
             }
@@ -251,12 +209,12 @@ export default {
                 ws.onmessage = ({ data }) => {
                     const progress = JSON.parse(data);
 
-                    this.bulkProgress = progress;
+                    this.progress = progress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.bulkProgress = null;
+                    this.progress = null;
                     this.loadData();
 
                     resolve();
@@ -271,12 +229,12 @@ export default {
                 ws.onmessage = ({ data }) => {
                     const progress = JSON.parse(data);
 
-                    this.bulkProgress = progress;
+                    this.progress = progress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.bulkProgress = null;
+                    this.progress = null;
                     this.loadData();
 
                     resolve();
@@ -291,12 +249,12 @@ export default {
                 ws.onmessage = ({ data }) => {
                     const progress = JSON.parse(data);
 
-                    this.dataProgress = progress;
+                    this.progress = progress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.dataProgress = null;
+                    this.progress = null;
                     this.loadData();
 
                     resolve();
@@ -305,7 +263,23 @@ export default {
         },
 
         async mergeCard() {
-            // TODO
+            const ws = this.apiWs('/magic/scryfall/set/merge');
+
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    const progress = JSON.parse(data);
+
+                    this.progress = progress;
+                };
+
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    this.progress = null;
+                    this.loadData();
+
+                    resolve();
+                };
+            });
         },
 
         async mergeSet() {
@@ -315,12 +289,12 @@ export default {
                 ws.onmessage = ({ data }) => {
                     const progress = JSON.parse(data);
 
-                    this.dataProgress = progress;
+                    this.progress = progress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.dataProgress = null;
+                    this.progress = null;
                     this.loadData();
 
                     resolve();
