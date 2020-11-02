@@ -31,7 +31,10 @@ export default class BulkSaver extends ProgressHandler<IBulkStatus> {
                     this.emitProgress({
                         method: 'get',
                         type:   'all-card',
-                        count:  progress.size.transferred,
+
+                        amount: {
+                            count: progress.size.transferred,
+                        },
                     });
                 });
 
@@ -53,7 +56,10 @@ export default class BulkSaver extends ProgressHandler<IBulkStatus> {
                     this.emitProgress({
                         method: 'get',
                         type:   'ruling',
-                        count:  progress.size.transferred,
+
+                        amount: {
+                            count: progress.size.transferred,
+                        },
                     });
                 });
 

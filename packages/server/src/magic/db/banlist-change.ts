@@ -1,5 +1,7 @@
 import { Document, Schema } from 'mongoose';
 
+import { BanlistStatus } from '../banlist/interface';
+
 import conn from './db';
 
 export interface IBanlistChange {
@@ -21,7 +23,7 @@ export interface IBanlistChange {
     changes: {
         card: string;
         format: string;
-        status: string;
+        status: BanlistStatus;
         effectiveDate?: string;
     }[];
 }

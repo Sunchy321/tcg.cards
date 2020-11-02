@@ -21,8 +21,17 @@ export interface IBulkList {
 }
 
 export interface IBulkStatus {
-    method: 'get'|'load';
-    type: 'all-card'|'ruling';
-    total?: number;
-    count: number;
+    method: 'get' | 'load';
+    type: 'all-card' | 'ruling';
+
+    amount: {
+        updated?: number;
+        count: number;
+        total?: number;
+    }
+
+    time?: {
+        elapsed: number;
+        remaining: number;
+    }
 }

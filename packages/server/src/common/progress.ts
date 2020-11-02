@@ -51,7 +51,7 @@ export class ProgressWebSocket<T> {
 
     bind(ws: WebSocket, ...args: any[]): void {
         if (this.handler == null || !this.handler.equals(...args)) {
-            this.handler = new this.creator(args);
+            this.handler = new this.creator(...args);
         }
 
         this.handler.onProgress(p => {

@@ -1,12 +1,13 @@
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
-import { IBanlistChange } from '../db/banlist-change';
+import { IBanlistChange } from '../../db/banlist-change';
+import { BanlistStatus } from '../interface';
 
 import { escapeRegExp } from 'lodash';
 
 import { parseDate, getLines } from './helper';
-import { toIdentifier } from '../util';
+import { toIdentifier } from '../../util';
 
 const formatMap: Record<string, string> = {
     'Standard':                           'standard',
@@ -85,7 +86,7 @@ function parseDateText(
     }
 }
 
-const statusMap: Record<string, string> = {
+const statusMap: Record<string, BanlistStatus> = {
     '':                        'banned',
     'banned':                  'banned',
     'is banned':               'banned',

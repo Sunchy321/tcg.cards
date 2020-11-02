@@ -13,6 +13,7 @@ import Set from '../db/scryfall/set';
 import { IBulkStatus } from '../scryfall/bulk/interface';
 import { BulkGetter, BulkLoader } from '@/magic/scryfall/bulk';
 import { ISetStatus, SetGetter } from '../scryfall/set';
+import { CardMerger } from '../scryfall/merge/card';
 import { SetMerger } from '../scryfall/merge/set';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -23,9 +24,9 @@ router.get('/', async ctx => {
     ctx.body = {
         bulk:     BulkGetter.data(),
         database: {
-            card:   await Card.count({ }),
-            ruling: await Ruling.count({ }),
-            set:    await Set.count({ }),
+            card:   await Card.estimatedDocumentCount(),
+            ruling: await Ruling.estimatedDocumentCount(),
+            set:    await Set.estimatedDocumentCount(),
         },
     };
 });
@@ -84,4 +85,14 @@ router.get('/set/merge',
     },
 );
 
+const cardMerger = new ProgressWebSocket<ISetStatus>(CardMerger);
+
+router.get('/card/merge',
+    websocket,
+    jwtAuth({ admin: true }),
+    async ctx => {
+        cardMerger.bind(await ctx.ws());
+        await cardMerger.exec();
+    },
+);
 export default router;

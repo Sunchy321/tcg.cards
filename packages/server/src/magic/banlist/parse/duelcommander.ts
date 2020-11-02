@@ -1,10 +1,11 @@
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
-import { IBanlistChange } from '../db/banlist-change';
+import { IBanlistChange } from '../../db/banlist-change';
+import { BanlistStatus } from '../interface';
 
 import { parseDate, getLines } from './helper';
-import { toIdentifier } from '../util';
+import { toIdentifier } from '../../util';
 
 const monthMap: Record<string, string> = {
     Jan: '01',
@@ -21,7 +22,7 @@ const monthMap: Record<string, string> = {
     Dec: '12',
 };
 
-const statusMap: Record<string, string> = {
+const statusMap: Record<string, BanlistStatus> = {
     'is now banned':                      'banned',
     'is banned':                          'banned',
     'is now banned as a commander only':  'banned_as_commander',

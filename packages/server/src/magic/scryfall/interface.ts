@@ -33,6 +33,7 @@ export interface Part {
 
 export interface CardFace {
     artist?: string,
+    artist_id?: string,
     color_indicator?: Colors,
     colors?: Colors,
     flavor_text?: string,
@@ -132,7 +133,7 @@ export interface RawCard {
     story_spotlight: boolean,
     textless: boolean,
     variation: boolean,
-    variation_of?: string,
+    variation_of?: UUID,
     watermark?: string,
 
     preview?: {

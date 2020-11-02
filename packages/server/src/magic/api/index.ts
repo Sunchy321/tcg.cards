@@ -1,13 +1,13 @@
 import KoaRouter from '@koa/router';
 
 import scryfall from './scryfall';
-import banlistChange from './banlist-change';
+import banlist from './banlist';
 
 const router = new KoaRouter();
 
 router.prefix('/magic');
 
 router.use(scryfall.routes());
-router.use(banlistChange.routes());
+router.use(banlist.routes());
 
 export default router;

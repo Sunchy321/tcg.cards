@@ -5,13 +5,20 @@ import jwtAuth from '@/middlewares/jwt-auth';
 
 import BanlistChange from '../db/banlist-change';
 
-import parseBanlist from '../parse-banlist';
+import parseBanlist from '../banlist/parse';
+import { getWizardsBanlist } from '../banlist/get';
 
 const router = new KoaRouter<DefaultState, Context>();
 
-router.prefix('/banlist-change');
+router.prefix('/banlist');
 
-router.get('/outlines',
+router.get('/', async ctx => {
+    ctx.body = {
+        ...await getWizardsBanlist(),
+    };
+});
+
+router.get('/change/outlines',
     jwtAuth({ admin: true }),
     async ctx => {
         const banlistChanges = await BanlistChange.find().sort({ date: -1 });
@@ -23,7 +30,7 @@ router.get('/outlines',
     },
 );
 
-router.get('/raw',
+router.get('/change/raw',
     jwtAuth({ admin: true }),
     async ctx => {
         const id = ctx.query.id;
@@ -36,7 +43,7 @@ router.get('/raw',
     },
 );
 
-router.get('/parse',
+router.get('/change/parse',
     jwtAuth({ admin: true }),
     async ctx => {
         const url = ctx.query.url;
@@ -45,7 +52,7 @@ router.get('/parse',
     },
 );
 
-router.post('/save',
+router.post('/change/save',
     jwtAuth({ admin: true }),
     async ctx => {
         const data = ctx.request.body.data;
