@@ -71,14 +71,14 @@ export interface ICard {
     releaseDate: string,
 
     isDigital: boolean,
-    isFoil: boolean,
     isFullArt: boolean,
-    isNonfoil: boolean,
     isOversized: boolean,
     isPromo: boolean,
     isReprint: boolean,
     isStorySpotlight: boolean,
     isTextless: boolean,
+    hasFoil: boolean,
+    hasNonfoil: boolean,
 
     legalities: Record<string, string>,
     isReserved: boolean,
@@ -178,14 +178,14 @@ const CardSchema = new Schema({
     releaseDate:  String,
 
     isDigital:        Boolean,
-    isFoil:           Boolean,
     isFullArt:        Boolean,
-    isNonfoil:        Boolean,
     isOversized:      Boolean,
     isPromo:          Boolean,
     isReprint:        Boolean,
     isStorySpotlight: Boolean,
     isTextless:       Boolean,
+    hasFoil:          Boolean,
+    hasNonfoil:       Boolean,
 
     legalities:     Object,
     isReserved:     Boolean,

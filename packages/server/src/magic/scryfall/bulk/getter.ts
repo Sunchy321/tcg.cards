@@ -7,13 +7,14 @@ import { join } from 'path';
 
 import { ProgressHandler } from '@/common/progress';
 
-import { IBulkData, IBulkList, IBulkStatus } from './interface';
+import { IStatus } from '../interface';
+import { IBulkData, IBulkList } from './interface';
 
 import { data } from '@config';
 
 const bulkPath = join(data, 'magic/scryfall');
 
-export default class BulkSaver extends ProgressHandler<IBulkStatus> {
+export default class BulkSaver extends ProgressHandler<IStatus> {
     saver?: FileSaver;
 
     async action(): Promise<void> {
@@ -30,7 +31,7 @@ export default class BulkSaver extends ProgressHandler<IBulkStatus> {
                 this.saver.onProgress(progress => {
                     this.emitProgress({
                         method: 'get',
-                        type:   'all-card',
+                        type:   'card',
 
                         amount: {
                             count: progress.size.transferred,

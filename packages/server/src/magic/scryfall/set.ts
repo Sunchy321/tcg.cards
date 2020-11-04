@@ -4,16 +4,9 @@ import Set, { ISet } from '../db/scryfall/set';
 import { ProgressHandler } from '@/common/progress';
 
 import { listOf } from './basic';
-import { RawSet } from './interface';
+import { IStatus, RawSet } from './interface';
 
-export interface ISetStatus {
-    method: 'get' | 'merge',
-    type: 'set',
-    total?: number,
-    count: number
-}
-
-export class SetGetter extends ProgressHandler<ISetStatus> {
+export class SetGetter extends ProgressHandler<IStatus> {
     async action(): Promise<void> {
         await Set.deleteMany({});
 
@@ -32,7 +25,8 @@ export class SetGetter extends ProgressHandler<ISetStatus> {
             this.emitProgress({
                 method: 'get',
                 type:   'set',
-                count,
+
+                amount: { count },
             });
         }
     }

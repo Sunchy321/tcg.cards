@@ -4,8 +4,7 @@ import { ProgressHandler } from '@/common/progress';
 import Card, { ICard } from '../../db/scryfall/card';
 import Ruling, { IRuling } from '../../db/scryfall/ruling';
 
-import { IBulkStatus } from './interface';
-import { RawCard, RawRuling } from '../interface';
+import { IStatus, RawCard, RawRuling } from '../interface';
 
 import LineReader from '@/common/line-reader';
 import toBucket from '@/common/to-bucket';
@@ -33,8 +32,8 @@ async function* convertJson<T>(gen: AsyncGenerator<string>): AsyncGenerator<T> {
 
 const bucketSize = 500;
 
-export default class BulkLoader extends ProgressHandler<IBulkStatus> {
-    type: 'all-card' | 'ruling';
+export default class BulkLoader extends ProgressHandler<IStatus> {
+    type: 'card' | 'ruling';
     file: string;
     filePath: string;
     lineReader: LineReader;
@@ -49,7 +48,7 @@ export default class BulkLoader extends ProgressHandler<IBulkStatus> {
         super();
 
         if (fileName.startsWith('all-cards')) {
-            this.type = 'all-card';
+            this.type = 'card';
         } else {
             this.type = 'ruling';
         }
@@ -61,7 +60,7 @@ export default class BulkLoader extends ProgressHandler<IBulkStatus> {
 
     async action(): Promise<void> {
         const postProgress = () => {
-            const progress: IBulkStatus = {
+            const progress: IStatus = {
                 method: 'load',
                 type:   this.type,
 
@@ -71,7 +70,7 @@ export default class BulkLoader extends ProgressHandler<IBulkStatus> {
                 },
             };
 
-            if (this.type === 'all-card') {
+            if (this.type === 'card') {
                 progress.amount.updated = this.updated;
             }
 
@@ -99,7 +98,7 @@ export default class BulkLoader extends ProgressHandler<IBulkStatus> {
 
         this.start = Date.now();
 
-        if (this.type === 'all-card') {
+        if (this.type === 'card') {
             for await (const jsons of toBucket(convertJson<RawCard>(this.lineReader.get()), bucketSize)) {
                 await this.insertCards(jsons);
             }
@@ -149,7 +148,7 @@ export default class BulkLoader extends ProgressHandler<IBulkStatus> {
 
         const [toInsert, toUpdate] = partition(updated, pair => pair[1] == null);
 
-        await Card.insertMany(toInsert);
+        await Card.insertMany(toInsert.map(pair => pair[0]));
 
         for (const [json, doc] of toUpdate) {
             await doc.replaceOne(json);

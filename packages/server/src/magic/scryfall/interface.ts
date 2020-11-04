@@ -1,4 +1,21 @@
 /* eslint-disable camelcase */
+
+export interface IStatus {
+    method: 'get' | 'load' | 'merge',
+    type: 'card' | 'ruling' | 'set',
+
+    amount: {
+        updated?: number;
+        total?: number;
+        count: number;
+    };
+
+    time?: {
+        elapsed: number;
+        remaining: number;
+    };
+}
+
 export type UUID = string;
 export type URI = string;
 export type Timestamp = string;

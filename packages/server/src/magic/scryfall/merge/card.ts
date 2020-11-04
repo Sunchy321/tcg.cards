@@ -3,9 +3,10 @@ import { ProgressHandler } from '@/common/progress';
 import ScryfallCard, { ICard as IScryfallCard } from '../../db/scryfall/card';
 import Card, { ICard } from '../../db/card';
 
-import { ISetStatus } from '../set';
 import { convertColor, parseTypeline, toIdentifier, convertLegality } from '@/magic/util';
-import { CardFace, Colors } from '../interface';
+import { CardFace, Colors, IStatus } from '../interface';
+import toBucket from '@/common/to-bucket';
+import { Document } from 'mongoose';
 
 type NewCardFace = Omit<CardFace, 'colors'> & {
     colors: Colors,
@@ -69,10 +70,11 @@ function convertScryfallCard(card: IScryfallCard): NewScryfallCard {
     };
 }
 
-async function mergeWith(data: IScryfallCard) {
+async function mergeWith(
+    data: IScryfallCard,
+    card: (ICard & Document) | undefined,
+): Promise<ICard | undefined> {
     const newData = convertScryfallCard(data);
-
-    const card = await Card.findOne({ 'scryfall.id': newData.card_id });
 
     if (card == null) {
         const object: ICard = {
@@ -148,14 +150,14 @@ async function mergeWith(data: IScryfallCard) {
             releaseDate:  newData.released_at,
 
             isDigital:        newData.digital,
-            isFoil:           newData.foil,
             isFullArt:        newData.full_art,
-            isNonfoil:        newData.nonfoil,
             isOversized:      newData.oversized,
             isPromo:          newData.promo,
             isReprint:        newData.reprint,
             isStorySpotlight: newData.story_spotlight,
             isTextless:       newData.textless,
+            hasFoil:          newData.foil,
+            hasNonfoil:       newData.nonfoil,
 
             legalities:     convertLegality(newData.legalities),
             isReserved:     newData.reserved,
@@ -182,7 +184,7 @@ async function mergeWith(data: IScryfallCard) {
             edhredRank:   newData.edhrec_rank,
         };
 
-        return this.create(object);
+        return object;
     } else {
         card.arenaId = newData.arena_id;
         card.scryfall.cardId = newData.card_id;
@@ -230,12 +232,12 @@ async function mergeWith(data: IScryfallCard) {
         card.cmc = newData.cmc;
         card.colorIdentity = convertColor(newData.color_identity);
         card.edhredRank = newData.edhrec_rank;
-        card.isFoil = newData.foil;
         card.keywords = newData.keywords;
         card.layout = newData.layout;
         card.legalities = convertLegality(newData.legalities);
-        card.isNonfoil = newData.nonfoil;
         card.isOversized = newData.oversized;
+        card.hasFoil = newData.foil;
+        card.hasNonfoil = newData.nonfoil;
         card.producedMana = newData.produced_mana != null
             ? convertColor(newData.produced_mana) : undefined;
         card.isReserved = newData.reserved;
@@ -268,29 +270,86 @@ async function mergeWith(data: IScryfallCard) {
         } else {
             card.preview = undefined;
         }
-
-        await card.save();
     }
 }
 
-export class CardMerger extends ProgressHandler<ISetStatus> {
+const bucketSize = 500;
+
+export class CardMerger extends ProgressHandler<IStatus> {
+    progressId?: NodeJS.Timeout;
+
     async action(): Promise<void> {
         let count = 0;
 
-        const total = await ScryfallCard.count({ });
+        const files = await ScryfallCard.aggregate([
+            { $group: { _id: '$file' } },
+            { $sort: { _id: -1 } },
+        ]);
 
-        await ScryfallCard.find({}).cursor().eachAsync(async c => {
-            await mergeWith(c);
+        const lastFile = files[0]._id;
 
-            ++count;
+        const total = await ScryfallCard.countDocuments({ file: lastFile });
 
-            this.emitProgress({
+        const start = Date.now();
+
+        const postProgress = () => {
+            const progress: IStatus = {
                 method: 'merge',
-                type:   'set',
-                total,
-                count,
+                type:   'card',
+
+                amount: { total, count },
+            };
+
+            const elapsed = Date.now() - start;
+
+            progress.time = {
+                elapsed,
+                remaining: elapsed / count * (total - count),
+            };
+
+            this.emitProgress(progress);
+        };
+
+        this.progressId = setInterval(postProgress, 500);
+
+        const query = ScryfallCard.find({ file: lastFile }).lean();
+
+        for await (const jsons of toBucket(
+            query as unknown as AsyncGenerator<IScryfallCard>,
+            bucketSize,
+        )) {
+            const cards = await Card.find({
+                'scryfall.cardId': {
+                    $in: jsons.map(j => j.card_id),
+                },
             });
-        });
+
+            const newCards: ICard[] = [];
+
+            for (const json of jsons) {
+                const card = cards.find(c => c.scryfall.cardId === json.card_id);
+
+                const newCard = await mergeWith(json, card);
+
+                if (newCard != null) {
+                    newCards.push(newCard);
+                }
+            }
+
+            await Card.insertMany(newCards);
+
+            for (const c of cards) {
+                await c.save();
+            }
+
+            count += jsons.length;
+        }
+
+        if (this.progressId != null) {
+            postProgress();
+            clearInterval(this.progressId);
+            this.progressId = undefined;
+        }
     }
 
     abort(): void {

@@ -19,19 +19,3 @@ export interface IBulkList {
     allCard: string[];
     ruling: string[];
 }
-
-export interface IBulkStatus {
-    method: 'get' | 'load';
-    type: 'all-card' | 'ruling';
-
-    amount: {
-        updated?: number;
-        count: number;
-        total?: number;
-    }
-
-    time?: {
-        elapsed: number;
-        remaining: number;
-    }
-}
