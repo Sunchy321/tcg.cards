@@ -15,11 +15,6 @@
 </template>
 
 <style lang="stylus" scoped>
-.left-panel
-    border-right 1px solid #DDD
-    margin-top 10px
-    margin-bottom 10px
-
 .header
     border-radius 5px
     background-color lighten($primary, 20%)

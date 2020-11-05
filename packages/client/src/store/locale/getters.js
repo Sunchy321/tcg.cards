@@ -1,7 +1,15 @@
-export function value(state) {
-    return state.value;
+export function appValues() {
+    return ['en', 'zhs'];
 }
 
-export function values() {
-    return ['enUS', 'zhCN'];
+export function app(state) {
+    return state.app;
+}
+
+export function gameValues(state) {
+    return g => state.gameLocales[g];
+}
+
+export function game(state) {
+    return g => state.gameValues[g];
 }

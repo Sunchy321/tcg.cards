@@ -1,5 +1,4 @@
 export default {
-    isBooted: false,
-    user:     null,
-    games:    [],
+    user:  null,
+    games: [],
 };

@@ -2,28 +2,28 @@
     <q-layout view="hHh Lpr fFf">
         <q-header elevated>
             <q-toolbar>
-                <q-btn icon="mdi-home" flat dense @click="toHome" />
+                <q-btn icon="mdi-home" flat dense round @click="toHome" />
 
-                <q-toolbar-title>
-                    {{ title }}
-                </q-toolbar-title>
+                <app-title />
 
-                <q-btn-dropdown class="q-btn-locale" dense flat :label="locale">
-                    <q-list link>
+                <q-btn-dropdown
+                    v-if="game != null"
+                    flat dense
+                    :label="gameLocale"
+                >
+                    <q-list link style="width: 150px">
                         <q-item
-                            v-for="l in locales"
-                            :key="l"
+                            v-for="l in gameLocales" :key="l"
                             v-close-popup
+
                             clickable
-                            @click="locale = l"
+                            @click="gameLocale = l"
                         >
-                            <q-item-section side>
+                            <q-item-section side class="code">
                                 {{ l }}
                             </q-item-section>
-                            <q-item-section>
-                                {{
-                                    $t('lang.' + l)
-                                }}
+                            <q-item-section no-wrap>
+                                {{ $t('lang.' + l) }}
                             </q-item-section>
                         </q-item>
                     </q-list>
@@ -32,14 +32,13 @@
                 <q-btn
                     v-if="isAdmin && game != null"
                     icon="mdi-database"
-                    flat dense
+                    flat dense round
                     @click="toData"
                 />
 
                 <q-btn
                     :icon="user != null ? 'mdi-cog' : 'mdi-cog-outline'"
-                    flat
-                    dense
+                    flat dense round
                     @click="toSetting"
                 />
             </q-toolbar>
@@ -53,45 +52,46 @@
 </template>
 
 <style lang="stylus" scoped>
-.q-btn-locale
-    text-transform none !important
+.code
+    color #777
+    width 40px
 </style>
 
 <script>
 import basic from '../mixins/basic';
 
-import { format } from 'quasar';
+import AppTitle from 'components/Title';
 
 export default {
     name: 'Main',
 
+    components: { AppTitle },
+
     mixins: [basic],
 
     computed: {
-        locale: {
+        gameLocale: {
             get() {
-                return this.$store.getters['locale/value'];
+                if (this.game != null) {
+                    return this.$store.getters['locale/game'](this.game);
+                } else {
+                    return null;
+                }
             },
 
             set(newValue) {
-                this.$store.commit('locale/set', newValue);
+                this.$store.commit('locale/game', {
+                    game:  this.game,
+                    value: newValue,
+                });
             },
         },
 
-        locales() {
-            return this.$store.getters['locale/values'];
-        },
-
-        title() {
-            const titleMatch = this.$route.matched.find(
-                r => r.meta.title != null,
-            );
-
-            if (titleMatch != null) {
-                return format.capitalize(this.$t(titleMatch.meta.title));
+        gameLocales() {
+            if (this.game != null) {
+                return this.$store.getters['locale/gameValues'](this.game);
             } else {
-                const regex = /\//g;
-                return this.$route.path.slice(1).replace(regex, '.');
+                return [];
             }
         },
 

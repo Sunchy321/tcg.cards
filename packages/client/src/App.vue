@@ -6,18 +6,16 @@
 
 <script>
 const quasarLocaleMap = {
-    enUS: 'en-us',
-    zhCN: 'zh-hans',
+    en:  'en-us',
+    zhs: 'zh-hans',
 };
 
 export default {
     name: 'App',
 
     created() {
-        this.$store.subscribe(async (mutation) => {
-            if (mutation.type === 'locale/set') {
-                const locale = mutation.payload;
-
+        this.$store.subscribe(async ({ type, payload: locale }) => {
+            if (type === 'locale/app') {
                 this.$i18n.locale = locale;
 
                 const qLocaleId = quasarLocaleMap[locale] ||

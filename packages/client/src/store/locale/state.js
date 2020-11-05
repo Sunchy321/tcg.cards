@@ -1,3 +1,6 @@
 export default {
-    value: 'enUS',
+    app: 'en',
+
+    gameLocales: { },
+    gameValues:  { },
 };
