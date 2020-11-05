@@ -53,8 +53,8 @@
             </q-list>
         </div>
 
-        <div class="row items-center q-mt-xl">
-            <div>Database Data</div>
+        <div class="q-mt-xl q-mb-sm">
+            Scryfall Database Data
         </div>
 
         <div class="row q-gutter-md">
@@ -69,7 +69,7 @@
                         />
                     </q-item-section>
                     <q-item-section side>
-                        {{ database.card }}
+                        {{ scryfall.card }}
                     </q-item-section>
                 </q-item>
             </q-list>
@@ -78,7 +78,14 @@
                 <q-item>
                     <q-item-section>Ruling</q-item-section>
                     <q-item-section side>
-                        {{ database.ruling }}
+                        <q-btn
+                            round dense flat
+                            icon="mdi-merge"
+                            @click="mergeRuling"
+                        />
+                    </q-item-section>
+                    <q-item-section side>
+                        {{ scryfall.ruling }}
                     </q-item-section>
                 </q-item>
             </q-list>
@@ -100,6 +107,29 @@
                             @click="mergeSet"
                         />
                     </q-item-section>
+                    <q-item-section side>
+                        {{ scryfall.set }}
+                    </q-item-section>
+                </q-item>
+            </q-list>
+        </div>
+
+        <div class="q-mt-xl q-mb-sm">
+            Database Data
+        </div>
+
+        <div class="row q-gutter-md">
+            <q-list class="col" bordered separator>
+                <q-item>
+                    <q-item-section>Card</q-item-section>
+                    <q-item-section side>
+                        {{ database.card }}
+                    </q-item-section>
+                </q-item>
+            </q-list>
+            <q-list class="col" bordered separator>
+                <q-item>
+                    <q-item-section>Set</q-item-section>
                     <q-item-section side>
                         {{ database.set }}
                     </q-item-section>
@@ -125,10 +155,14 @@ export default {
 
     data: () => ({
         bulk:     {},
-        database: {
+        scryfall: {
             card:   0,
             ruling: 0,
             set:    0,
+        },
+        database: {
+            card: 0,
+            set:  0,
         },
 
         progress: null,
@@ -199,6 +233,7 @@ export default {
             const { data } = await this.apiGet('/magic/scryfall');
 
             this.bulk = data.bulk;
+            this.scryfall = data.scryfall;
             this.database = data.database;
         },
 
@@ -263,7 +298,27 @@ export default {
         },
 
         async mergeCard() {
-            const ws = this.apiWs('/magic/scryfall/set/merge');
+            const ws = this.apiWs('/magic/scryfall/card/merge');
+
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    const progress = JSON.parse(data);
+
+                    this.progress = progress;
+                };
+
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    this.progress = null;
+                    this.loadData();
+
+                    resolve();
+                };
+            });
+        },
+
+        async mergeRuling() {
+            const ws = this.apiWs('/magic/scryfall/ruling/merge');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
