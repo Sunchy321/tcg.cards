@@ -5,15 +5,15 @@ import conn from './db';
 export interface ICard {
     cardId: string,
 
+    lang: string,
     setId: string,
     number: string,
-    lang: string,
 
     cmc: number,
     colorIdentity: string,
 
     parts: {
-        cost?: string,
+        cost?: string[],
         color?: string,
         colorIndicator?: string,
 
@@ -109,15 +109,17 @@ export interface ICard {
 const CardSchema = new Schema({
     cardId: String,
 
+    lang:   String,
     setId:  String,
     number: String,
-    lang:   String,
 
     cmc:           Number,
     colorIdentity: String,
 
     parts: [{
-        cost:           String,
+        _id: false,
+
+        cost:           { type: [String], default: undefined },
         color:          String,
         colorIndicator: String,
 
@@ -158,6 +160,7 @@ const CardSchema = new Schema({
 
     relatedCards: {
         type: [{
+            _id:      false,
             relation: String,
             id:       String,
             name:     String,

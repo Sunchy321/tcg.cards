@@ -8,9 +8,7 @@ import basic from '@data/basic';
 const router = new KoaRouter();
 
 router.get('/', async ctx => {
-    ctx.body = {
-        games: basic.games,
-    };
+    ctx.body = basic;
 });
 
 router.use(hearthstone.routes());

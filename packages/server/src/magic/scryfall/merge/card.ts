@@ -70,6 +70,10 @@ function convertScryfallCard(card: IScryfallCard): NewScryfallCard {
     };
 }
 
+function splitCost(cost : string) {
+    return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
+}
+
 async function mergeWith(
     data: IScryfallCard,
     card: (ICard & Document) | undefined,
@@ -80,15 +84,15 @@ async function mergeWith(
         const object: ICard = {
             cardId: toIdentifier(data.name),
 
+            lang:   newData.lang,
             setId:  newData.set_id,
             number: newData.collector_number,
-            lang:   newData.lang,
 
             cmc:           newData.cmc,
             colorIdentity: convertColor(newData.color_identity),
 
             parts: newData.card_faces.map(f => ({
-                cost: f.mana_cost,
+                cost: f.mana_cost != null ? splitCost(f.mana_cost) : undefined,
 
                 color:          convertColor(f.colors),
                 colorIndicator: f.color_indicator != null
@@ -211,7 +215,7 @@ async function mergeWith(
             part.flavorText = newPart.flavor_text;
             part.scryfallIllusId = newPart.illustration_id;
             part.loyalty = newPart.loyalty;
-            part.cost = newPart.mana_cost;
+            part.cost = newPart.mana_cost != null ? splitCost(newPart.mana_cost) : undefined;
             part.power = newPart.power;
             part.toughness = newPart.toughness;
             part.watermark = newPart.watermark;
