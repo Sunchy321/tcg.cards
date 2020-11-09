@@ -3,12 +3,12 @@
         <div class="row items-center">
             {{ $t('setting.lang') }}
             <q-select
-                v-model="localeApp"
+                v-model="locale"
                 class="q-ml-sm"
                 style="width: 150px"
                 dense outlined
                 emit-value map-options
-                :options="localeAppOptions"
+                :options="localeOptions"
             >
                 <template v-slot:option="scope">
                     <q-item
@@ -39,21 +39,21 @@ export default {
     name: 'Basic',
 
     computed: {
-        localeApp: {
+        locale: {
             get() {
-                return this.$store.getters['locale/app'];
+                return this.$store.getters.locale;
             },
             set(newValue) {
-                this.$store.commit('locale/app', newValue);
+                this.$store.commit('locale', newValue);
             },
         },
 
-        localesApp() {
-            return this.$store.getters['locale/appValues'];
+        locales() {
+            return this.$store.getters.locales;
         },
 
-        localeAppOptions() {
-            return this.localesApp.map(l => ({
+        localeOptions() {
+            return this.locales.map(l => ({
                 value: l,
                 label: this.$t('lang.$self', l),
             }));

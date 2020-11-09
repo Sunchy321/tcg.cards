@@ -73,23 +73,20 @@ export default {
         gameLocale: {
             get() {
                 if (this.game != null) {
-                    return this.$store.getters['locale/game'](this.game);
+                    return this.$store.getters[`${this.game}/locale`];
                 } else {
                     return null;
                 }
             },
 
             set(newValue) {
-                this.$store.commit('locale/game', {
-                    game:  this.game,
-                    value: newValue,
-                });
+                this.$store.commit(`${this.game}/locale`, newValue);
             },
         },
 
         gameLocales() {
             if (this.game != null) {
-                return this.$store.getters['locale/gameValues'](this.game);
+                return this.$store.getters[`${this.game}/locales`];
             } else {
                 return [];
             }

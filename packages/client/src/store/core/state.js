@@ -1,4 +1,5 @@
 export default {
-    user:  null,
-    games: [],
+    games:  [],
+    user:   null,
+    locale: 'en',
 };

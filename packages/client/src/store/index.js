@@ -3,16 +3,13 @@ import Vuex from 'vuex';
 
 import core from './core';
 import user from './user';
-import locale from './locale';
+
+import * as games from './games';
 
 Vue.use(Vuex);
 
 const Store = new Vuex.Store({
-    modules: {
-        core,
-        user,
-        locale,
-    },
+    modules: { core, user, ...games },
 
     strict: process.env.DEV,
 });

@@ -1,11 +1,21 @@
+import { LocalStorage } from 'quasar';
+
 import { api } from 'src/boot/backend';
 
 export async function boot({ commit, dispatch }) {
-    const { data: rootData } = await api.get('/');
+    const { data: root } = await api.get('/');
 
-    dispatch('locale/init', rootData);
+    const locale = LocalStorage.getItem('locale');
 
-    commit('games', rootData.games);
+    if (locale != null) {
+        commit('locale', locale);
+    }
+
+    commit('games', root.games);
+
+    for (const g of root.games) {
+        dispatch(g + '/init', root[g]);
+    }
 
     await dispatch('user/refresh');
 }

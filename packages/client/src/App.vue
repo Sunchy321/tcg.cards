@@ -15,7 +15,7 @@ export default {
 
     created() {
         this.$store.subscribe(async ({ type, payload: locale }) => {
-            if (type === 'locale/app') {
+            if (type === 'locale') {
                 this.$i18n.locale = locale;
 
                 const qLocaleId = quasarLocaleMap[locale] ||
