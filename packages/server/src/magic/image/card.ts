@@ -34,13 +34,15 @@ router.get('/', async ctx => {
         return;
     }
 
-    for (const l of locales) {
-        const path = `${asset}/magic/card/png/${set}/${l}/${number}.png`;
+    if (ctx.query['auto-locale'] != null) {
+        for (const l of locales) {
+            const path = `${asset}/magic/card/png/${set}/${l}/${number}.png`;
 
-        if (existsSync(path)) {
-            ctx.response.set('content-type', mime.lookup(path) as string);
-            ctx.body = createReadStream(path);
-            return;
+            if (existsSync(path)) {
+                ctx.response.set('content-type', mime.lookup(path) as string);
+                ctx.body = createReadStream(path);
+                return;
+            }
         }
     }
 
