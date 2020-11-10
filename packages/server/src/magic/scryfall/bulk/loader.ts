@@ -7,7 +7,7 @@ import Ruling, { IRuling } from '../../db/scryfall/ruling';
 import { IStatus, RawCard, RawRuling } from '../interface';
 
 import LineReader from '@/common/line-reader';
-import toBucket from '@/common/to-bucket';
+import { toAsyncBucket } from '@/common/to-bucket';
 import { join } from 'path';
 import { isEqual, partition } from 'lodash';
 
@@ -99,13 +99,13 @@ export default class BulkLoader extends ProgressHandler<IStatus> {
         this.start = Date.now();
 
         if (this.type === 'card') {
-            for await (const jsons of toBucket(convertJson<RawCard>(this.lineReader.get()), bucketSize)) {
+            for await (const jsons of toAsyncBucket(convertJson<RawCard>(this.lineReader.get()), bucketSize)) {
                 await this.insertCards(jsons);
             }
         } else {
             await Ruling.deleteMany({ });
 
-            for await (const jsons of toBucket(convertJson<RawRuling>(this.lineReader.get()), bucketSize)) {
+            for await (const jsons of toAsyncBucket(convertJson<RawRuling>(this.lineReader.get()), bucketSize)) {
                 await this.insertRulings(jsons);
             }
         }

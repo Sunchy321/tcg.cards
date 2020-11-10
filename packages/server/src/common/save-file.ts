@@ -1,9 +1,39 @@
 import fs from 'fs';
-import request from 'request';
+import request, { Response } from 'request';
 import progress, { Progress, RequestProgress } from 'request-progress';
 
-import * as logger from '../logger';
 import { ProgressHandler } from './progress';
+
+export async function saveFile(url: string, path: string, override = false): Promise<void> {
+    const dir = path.split('/').slice(0, -1).join('/');
+
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (fs.existsSync(dir + '/.no-auto-save')) {
+        return;
+    }
+
+    if (fs.existsSync(path) && fs.statSync(path).size > 0 && !override) {
+        return;
+    }
+
+    const response = await new Promise<Response>((resolve, reject) => {
+        request.head(url, (err, res) => err != null ? reject(err) : resolve(res));
+    });
+
+    if (response.statusCode !== 200) {
+        return;
+    }
+
+    return new Promise((resolve, reject) => {
+        request(url)
+            .on('error', reject)
+            .on('end', resolve)
+            .pipe(fs.createWriteStream(path));
+    });
+}
 
 interface ISaveFileOption {
     override?: boolean;
@@ -28,19 +58,17 @@ export default class FileSaver extends ProgressHandler<Progress> {
     }
 
     async action(): Promise<void> {
-        const fileInfo = `${this.url} -> ${this.path}`;
-
-        const override = this.override;
-
         const dir = this.path.split('/').slice(0, -1).join('/');
 
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
         if (fs.existsSync(dir + '/.no-auto-save')) {
-            logger.main.info(`${fileInfo}: skipped`, { category: 'file' });
             return;
         }
 
-        if (fs.existsSync(this.path) && !override) {
-            logger.main.info(`${fileInfo}: exists`, { category: 'file' });
+        if (fs.existsSync(this.path) && fs.statSync(this.path).size > 0 && !this.override) {
             return;
         }
 
@@ -52,10 +80,7 @@ export default class FileSaver extends ProgressHandler<Progress> {
             if (this.request != null) {
                 this.request
                     .on('error', reject)
-                    .on('end', () => {
-                        logger.main.info(`${fileInfo}: downloaded`, { category: 'file' });
-                        resolve();
-                    })
+                    .on('end', resolve)
                     .pipe(fs.createWriteStream(this.path));
             }
         });

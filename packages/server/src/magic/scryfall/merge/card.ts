@@ -5,7 +5,7 @@ import Card, { ICard } from '../../db/card';
 
 import { convertColor, parseTypeline, toIdentifier, convertLegality } from '@/magic/util';
 import { CardFace, Colors, IStatus } from '../interface';
-import toBucket from '@/common/to-bucket';
+import { toAsyncBucket } from '@/common/to-bucket';
 import { Document } from 'mongoose';
 
 type NewCardFace = Omit<CardFace, 'colors'> & {
@@ -318,7 +318,7 @@ export class CardMerger extends ProgressHandler<IStatus> {
 
         const query = ScryfallCard.find({ file: lastFile }).lean();
 
-        for await (const jsons of toBucket(
+        for await (const jsons of toAsyncBucket(
             query as unknown as AsyncGenerator<IScryfallCard>,
             bucketSize,
         )) {

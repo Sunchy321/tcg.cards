@@ -2,7 +2,7 @@
 
 export interface IStatus {
     method: 'get' | 'load' | 'merge',
-    type: 'card' | 'ruling' | 'set',
+    type: 'card' | 'ruling' | 'set' | 'image',
 
     amount: {
         updated?: number;

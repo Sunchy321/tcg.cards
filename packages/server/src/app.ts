@@ -9,8 +9,9 @@ import { main } from '@/logger';
 
 import subdomain from '@/middlewares/subdomain';
 
-import apiRouter from '@/api';
-import userRouter from '@/user/router';
+import api from '@/api';
+import img from '@/image';
+import user from '@/user/router';
 
 const port = process.env.NODE_ENV === 'production' ? 80 : 8889;
 
@@ -24,8 +25,9 @@ app
     .use(body({ multipart: true }))
     .use(logger())
     .use(websocket())
-    .use(subdomain('api', apiRouter))
-    .use(subdomain('user', userRouter));
+    .use(subdomain('api', api))
+    .use(subdomain('image', img))
+    .use(subdomain('user', user));
 
 app.listen(port, () => {
     main.info('Server is running at ' + port, { category: 'server' });
