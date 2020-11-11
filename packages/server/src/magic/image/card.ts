@@ -4,10 +4,7 @@ import { DefaultState, Context } from 'koa';
 import websocket from '@/middlewares/websocket';
 import jwtAuth from '@/middlewares/jwt-auth';
 
-import { ProgressWebSocket } from '@/common/progress';
-
 import { ImageGetter } from '../scryfall/image';
-import { IStatus } from '../scryfall/interface';
 
 import { locales } from '@data/magic/basic';
 import { asset } from '@config';
@@ -49,14 +46,13 @@ router.get('/', async ctx => {
     ctx.status = 404;
 });
 
-const imageGetter = new ProgressWebSocket<IStatus>(ImageGetter);
+const imageGetter = new ImageGetter();
 
 router.get('/get',
     websocket,
     jwtAuth({ admin: true }),
     async ctx => {
         imageGetter.bind(await ctx.ws());
-        await imageGetter.exec();
     },
 );
 

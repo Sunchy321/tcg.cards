@@ -1,31 +1,71 @@
-import { ProgressHandler } from '@/common/progress';
+import Task from '@/common/task';
 
 import Card from '../db/scryfall/card';
 
 import { IStatus } from './interface';
 
-import { saveFile } from '@/common/save-file';
+import FileSaver from '@/common/save-file';
 import { join } from 'path';
 
 import { asset } from '@config';
-import { existsSync, unlinkSync } from 'fs';
+import { EventEmitter } from 'events';
+
+class FileSavers extends EventEmitter {
+    savers: FileSaver[] = [];
+    private finished = 0;
+
+    constructor(pairs: [string, string][]) {
+        super();
+
+        for (const p of pairs) {
+            const saver = new FileSaver(p[0], p[1]);
+
+            saver.on('end', () => {
+                ++this.finished;
+
+                if (this.finished === this.savers.length) {
+                    this.emit('end');
+                }
+            }).on('error', err => {
+                for (const s of this.savers) {
+                    s.stop();
+                }
+
+                this.emit('error', err);
+            });
+
+            this.savers.push(saver);
+        }
+    }
+
+    start(): void {
+        for (const saver of this.savers) {
+            saver.start();
+        }
+    }
+
+    stop(): void {
+        for (const saver of this.savers) {
+            saver.stop();
+        }
+    }
+}
 
 interface IImageProjection {
     _id: { set: string, lang:string },
     info: { number: string, uris: Record<string, string> }[]
 }
 
-interface IImageStatus {
-    uris: Record<string, string>,
-    status?: string
-}
+export class ImageGetter extends Task<IStatus> {
+    set: string;
+    lang: string;
 
-export class ImageGetter extends ProgressHandler<IStatus> {
-    // progressId?: NodeJS.Timeout;
+    total: number;
+    todoTasks: { number: string, uris: Record<string, string> }[] = [];
+    taskMap: Record<string, FileSavers> = {};
+    reachEnd = false;
 
-    async action(): Promise<void> {
-        // let count = 0;
-
+    async startImpl(): Promise<void> {
         const files = await Card.aggregate([
             { $group: { _id: '$file' } },
             { $sort: { _id: -1 } },
@@ -36,31 +76,9 @@ export class ImageGetter extends ProgressHandler<IStatus> {
         const query = {
             image_uris: { $exists: true },
             file:       lastFile,
+
+            lang: 'zhs',
         };
-
-        // const total = await Card.countDocuments(query);
-
-        // const start = Date.now();
-
-        // const postProgress = () => {
-        //     const progress: IStatus = {
-        //         method: 'get',
-        //         type:   'image',
-
-        //         amount: { total, count },
-        //     };
-
-        //     const elapsed = Date.now() - start;
-
-        //     progress.time = {
-        //         elapsed,
-        //         remaining: elapsed / count * (total - count),
-        //     };
-
-        //     this.emitProgress(progress);
-        // };
-
-        // this.progressId = setInterval(postProgress, 500);
 
         const aggregate = Card.aggregate().match(query).group({
             _id:  { set: '$set_id', lang: '$lang' },
@@ -68,88 +86,110 @@ export class ImageGetter extends ProgressHandler<IStatus> {
         }).allowDiskUse(true);
 
         for await (const proj of aggregate as unknown as AsyncGenerator<IImageProjection>) {
-            await new Promise(resolve => {
-                const { set, lang } = proj._id;
+            if (this.status === 'idle') {
+                return;
+            }
 
-                let finished = 0;
-                const total = proj.info.length;
+            this.set = proj._id.set;
+            this.lang = proj._id.lang;
 
-                const status: Record<string, IImageStatus> = {};
+            this.todoTasks = proj.info;
+            this.total = proj.info.length;
 
-                const print = () => {
-                    const working = Object.keys(status).length;
+            this.reachEnd = false;
 
-                    process.stdout.write('\r' + ' '.repeat(80) + '\r');
-
-                    process.stdout.write(`${set} ${lang} ${finished}:${working}:${total}`);
-
-                    for (const n in status) {
-                        process.stdout.write(' ' + n);
-                    }
-                };
-
-                const finish = (n: string) => {
-                    delete status[n];
-                    ++finished;
-                    print();
-                    next();
-                    if (Object.keys(status).length === 0) {
-                        resolve();
-                    }
-                };
-
-                const push = async (n: string, i: Record<string, string>) => {
-                    status[n] = { uris: i };
-                    print();
-
-                    await Promise.all(
-                        Object.entries(i).filter(v => v[0] === 'png').map(async ([type, uri]) => {
-                            const ext = type === 'png' ? 'png' : 'jpg';
-                            const path = join(asset, 'magic', 'card', type, set, lang, n + '.' + ext);
-
-                            try {
-                                await saveFile(uri, path);
-                                finish(n);
-                            } catch (e) {
-                                if (existsSync(path)) {
-                                    unlinkSync(path);
-                                }
-
-                                throw e;
-                            }
-                        }),
-                    );
-
-                    print();
-                };
-
-                const next = () => {
-                    while (Object.keys(status).length < 10) {
-                        const info = proj.info.shift();
-
-                        if (info != null) {
-                            push(info.number, info.uris);
-                        } else {
-                            break;
-                        }
-                    }
-                };
-
-                next();
-            });
-
-            console.log();
+            await this.waitForTasks();
         }
 
-        // if (this.progressId != null) {
-        //     postProgress();
-        //     clearInterval(this.progressId);
-        //     this.progressId = undefined;
-        // }
+        this.emit('end');
     }
 
-    abort(): void {
-        // TODO
+    private rest() {
+        return this.todoTasks.length;
+    }
+
+    private working() {
+        return Object.keys(this.taskMap).length;
+    }
+
+    private print() {
+        const finished = this.total - this.rest() - this.working();
+
+        process.stdout.write('\r' + ' '.repeat(80) + '\r');
+
+        process.stdout.write(`${this.set} ${this.lang} ${finished}/${this.total}`);
+
+        for (const n in this.taskMap) {
+            process.stdout.write(' ' + n);
+        }
+    }
+
+    private async waitForTasks() {
+        const promise = new Promise((resolve, reject) => {
+            const resolveListener = () => {
+                if (!this.reachEnd) {
+                    this.reachEnd = true;
+                    console.log();
+                }
+
+                this.off('all-end', resolveListener);
+                this.off('error', reject);
+
+                resolve();
+            };
+
+            this.on('all-end', resolveListener).on('error', reject);
+        });
+
+        this.pushTask();
+
+        return promise;
+    }
+
+    private pushTask() {
+        while (this.working() < 10 && this.todoTasks.length > 0) {
+            const task = this.todoTasks.shift()!;
+
+            const pairs = Object
+                .entries(task.uris)
+                .filter(v => v[0] === 'png')
+                .map(([type, uri]): [string, string] => {
+                    const ext = type === 'png' ? 'png' : 'jpg';
+                    const path = join(asset, 'magic', 'card', type, this.set, this.lang, task.number + '.' + ext);
+
+                    return [uri, path];
+                });
+
+            const savers = new FileSavers(pairs);
+
+            savers.on('end', () => {
+                delete this.taskMap[task.number];
+                this.print();
+                this.pushTask();
+
+                if (this.rest() === 0 && this.working() === 0) {
+                    this.emit('all-end');
+                }
+            }).on('error', err => {
+                for (const k in this.taskMap) {
+                    this.taskMap[k].stop();
+                }
+
+                this.emit('error', err);
+            });
+
+            this.taskMap[task.number] = savers;
+            this.print();
+            savers.start();
+        }
+    }
+
+    stopImpl(): void {
+        this.todoTasks = [];
+
+        for (const k in this.taskMap) {
+            this.taskMap[k].stop();
+        }
     }
 
     equals(): boolean { return true; }

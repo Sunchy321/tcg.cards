@@ -5,7 +5,7 @@ import { existsSync, readdirSync } from 'fs';
 import { last } from 'lodash';
 import { join } from 'path';
 
-import { ProgressHandler } from '@/common/progress';
+import Task from '@/common/task';
 
 import { IStatus } from '../interface';
 import { IBulkData, IBulkList } from './interface';
@@ -14,10 +14,10 @@ import { data } from '@config';
 
 const bulkPath = join(data, 'magic/scryfall');
 
-export default class BulkSaver extends ProgressHandler<IStatus> {
+export default class BulkSaver extends Task<IStatus> {
     saver?: FileSaver;
 
-    async action(): Promise<void> {
+    async startImpl(): Promise<void> {
         {
             const info: IBulkData = JSON.parse(await request('https://api.scryfall.com/bulk-data/all-cards'));
             const uri = info.download_uri;
@@ -28,18 +28,18 @@ export default class BulkSaver extends ProgressHandler<IStatus> {
 
                 this.saver = new FileSaver(uri, path, { override: true });
 
-                this.saver.onProgress(progress => {
-                    this.emitProgress({
+                this.saver.on('progress', prog => {
+                    this.emit('progress', {
                         method: 'get',
                         type:   'card',
 
                         amount: {
-                            count: progress.size.transferred,
+                            count: prog.size.transferred,
                         },
                     });
                 });
 
-                await this.saver.exec();
+                await this.saver.waitForEnd();
             }
         }
 
@@ -53,30 +53,26 @@ export default class BulkSaver extends ProgressHandler<IStatus> {
 
                 this.saver = new FileSaver(uri, path, { override: true });
 
-                this.saver.onProgress(progress => {
-                    this.emitProgress({
+                this.saver.on('progress', prog => {
+                    this.emit('progress', {
                         method: 'get',
                         type:   'ruling',
 
                         amount: {
-                            count: progress.size.transferred,
+                            count: prog.size.transferred,
                         },
                     });
                 });
 
-                await this.saver.exec();
+                await this.saver.waitForEnd();
             }
         }
+
+        this.emit('end');
     }
 
-    abort(): void {
-        if (this.saver != null) {
-            this.saver.abort();
-        }
-    }
-
-    equals(): boolean {
-        return true;
+    stopImpl(): void {
+        this.saver?.stop();
     }
 
     static data(): IBulkList {

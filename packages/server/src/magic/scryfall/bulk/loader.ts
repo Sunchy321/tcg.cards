@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ProgressHandler } from '@/common/progress';
+import Task from '@/common/task';
 
 import Card, { ICard } from '../../db/scryfall/card';
 import Ruling, { IRuling } from '../../db/scryfall/ruling';
@@ -32,14 +32,13 @@ async function* convertJson<T>(gen: AsyncGenerator<string>): AsyncGenerator<T> {
 
 const bucketSize = 500;
 
-export default class BulkLoader extends ProgressHandler<IStatus> {
+export default class BulkLoader extends Task<IStatus> {
     type: 'card' | 'ruling';
     file: string;
     filePath: string;
     lineReader: LineReader;
-    progressId?: NodeJS.Timeout;
 
-    start?: number;
+    startTime?: number;
     count = 0;
     updated = 0;
     total = 0;
@@ -58,9 +57,9 @@ export default class BulkLoader extends ProgressHandler<IStatus> {
         this.lineReader = new LineReader(this.filePath);
     }
 
-    async action(): Promise<void> {
-        const postProgress = () => {
-            const progress: IStatus = {
+    async startImpl(): Promise<void> {
+        this.intervalProgress(500, function () {
+            const prog: IStatus = {
                 method: 'load',
                 type:   this.type,
 
@@ -71,22 +70,20 @@ export default class BulkLoader extends ProgressHandler<IStatus> {
             };
 
             if (this.type === 'card') {
-                progress.amount.updated = this.updated;
+                prog.amount.updated = this.updated;
             }
 
-            if (this.start != null) {
-                const elapsed = Date.now() - this.start;
+            if (this.startTime != null) {
+                const elapsed = Date.now() - this.startTime;
 
-                progress.time = {
+                prog.time = {
                     elapsed,
                     remaining: elapsed / this.count * (this.total - this.count),
                 };
             }
 
-            this.emitProgress(progress);
-        };
-
-        this.progressId = setInterval(postProgress, 500);
+            return prog;
+        });
 
         for await (const line of this.lineReader.get()) {
             if (line !== '[' && line !== ']') {
@@ -96,7 +93,7 @@ export default class BulkLoader extends ProgressHandler<IStatus> {
 
         this.lineReader.reset();
 
-        this.start = Date.now();
+        this.startTime = Date.now();
 
         if (this.type === 'card') {
             for await (const jsons of toAsyncBucket(convertJson<RawCard>(this.lineReader.get()), bucketSize)) {
@@ -108,12 +105,6 @@ export default class BulkLoader extends ProgressHandler<IStatus> {
             for await (const jsons of toAsyncBucket(convertJson<RawRuling>(this.lineReader.get()), bucketSize)) {
                 await this.insertRulings(jsons);
             }
-        }
-
-        if (this.progressId != null) {
-            postProgress();
-            clearInterval(this.progressId);
-            this.progressId = undefined;
         }
     }
 
@@ -156,6 +147,8 @@ export default class BulkLoader extends ProgressHandler<IStatus> {
 
         this.updated += updated.length;
         this.count += rawJsons.length;
+
+        this.emit('end');
     }
 
     private async insertRulings(rawJsons: RawRuling[]) {
@@ -166,16 +159,7 @@ export default class BulkLoader extends ProgressHandler<IStatus> {
         await Ruling.insertMany(jsons);
     }
 
-    abort(): void {
+    stopImpl(): void {
         this.lineReader.abort();
-
-        if (this.progressId != null) {
-            clearInterval(this.progressId);
-            this.progressId = undefined;
-        }
-    }
-
-    equals(file: string): boolean {
-        return this.file === file;
     }
 }

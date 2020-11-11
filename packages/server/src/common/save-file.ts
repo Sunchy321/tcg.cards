@@ -1,45 +1,14 @@
-import fs from 'fs';
-import request, { Response } from 'request';
+import { createWriteStream, existsSync, mkdirSync, statSync, unlinkSync } from 'fs';
+import request from 'request';
 import progress, { Progress, RequestProgress } from 'request-progress';
 
-import { ProgressHandler } from './progress';
-
-export async function saveFile(url: string, path: string, override = false): Promise<void> {
-    const dir = path.split('/').slice(0, -1).join('/');
-
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-    }
-
-    if (fs.existsSync(dir + '/.no-auto-save')) {
-        return;
-    }
-
-    if (fs.existsSync(path) && fs.statSync(path).size > 0 && !override) {
-        return;
-    }
-
-    const response = await new Promise<Response>((resolve, reject) => {
-        request.head(url, (err, res) => err != null ? reject(err) : resolve(res));
-    });
-
-    if (response.statusCode !== 200) {
-        return;
-    }
-
-    return new Promise((resolve, reject) => {
-        request(url)
-            .on('error', reject)
-            .on('end', resolve)
-            .pipe(fs.createWriteStream(path));
-    });
-}
+import Task from './task';
 
 interface ISaveFileOption {
     override?: boolean;
 }
 
-export default class FileSaver extends ProgressHandler<Progress> {
+export default class FileSaver extends Task<Progress> {
     url: string;
     path: string;
     override = false;
@@ -57,42 +26,40 @@ export default class FileSaver extends ProgressHandler<Progress> {
         }
     }
 
-    async action(): Promise<void> {
+    startImpl(): void {
         const dir = this.path.split('/').slice(0, -1).join('/');
 
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+        if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
         }
 
-        if (fs.existsSync(dir + '/.no-auto-save')) {
+        if (existsSync(dir + '/.no-auto-save')) {
+            this.emit('end', 'auto_save_disabled');
             return;
         }
 
-        if (fs.existsSync(this.path) && fs.statSync(this.path).size > 0 && !this.override) {
+        if (existsSync(this.path) && statSync(this.path).size > 0 && !this.override) {
+            this.emit('end', 'file_exists');
             return;
         }
 
         this.request = progress(request(this.url));
 
-        this.request.on('progress', p => this.emitProgress(p));
-
-        return new Promise((resolve, reject) => {
-            if (this.request != null) {
-                this.request
-                    .on('error', reject)
-                    .on('end', resolve)
-                    .pipe(fs.createWriteStream(this.path));
-            }
-        });
+        this.request
+            .on('response', res => {
+                if (res.statusCode !== 200) {
+                    this.request?.abort();
+                    this.emit('end', 'network_error');
+                }
+            })
+            .on('progress', p => this.emit('progress', p))
+            .on('error', e => this.emit('error', e))
+            .on('end', () => this.emit('end'))
+            .pipe(createWriteStream(this.path));
     }
 
-    abort(): void {
-        if (this.request != null) {
-            this.request.abort();
-        }
-    }
-
-    equals(url: string, path: string): boolean {
-        return this.url === url && this.path === path;
+    stopImpl(): void {
+        this.request?.abort();
+        unlinkSync(this.path);
     }
 }

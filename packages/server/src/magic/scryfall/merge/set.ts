@@ -1,4 +1,4 @@
-import { ProgressHandler } from '@/common/progress';
+import Task from '@/common/task';
 
 import ScryfallSet, { ISet as IScryfallSet } from '../../db/scryfall/set';
 import Set, { ISet } from '../../db/set';
@@ -66,22 +66,26 @@ async function mergeWith(data: IScryfallSet) {
     }
 }
 
-export class SetMerger extends ProgressHandler<IStatus> {
-    async action(): Promise<void> {
+export class SetMerger extends Task<IStatus> {
+    async startImpl(): Promise<void> {
         let count = 0;
 
         const total = await ScryfallSet.estimatedDocumentCount();
 
         const start = Date.now();
 
-        await ScryfallSet.find({}).cursor().eachAsync(async s => {
-            await mergeWith(s);
+        for await (const set of await ScryfallSet.find()) {
+            if (this.status === 'idle') {
+                return;
+            }
+
+            await mergeWith(set);
 
             ++count;
 
             const elapsed = Date.now() - start;
 
-            this.emitProgress({
+            this.emit('progress', {
                 method: 'merge',
                 type:   'set',
 
@@ -95,12 +99,10 @@ export class SetMerger extends ProgressHandler<IStatus> {
                     remaining: elapsed / count * (total - count),
                 },
             });
-        });
+        }
+
+        this.emit('end');
     }
 
-    abort(): void {
-        // TODO
-    }
-
-    equals(): boolean { return true; }
+    stopImpl(): void { /* no-op */ }
 }

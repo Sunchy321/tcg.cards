@@ -1,4 +1,4 @@
-import { ProgressHandler } from '@/common/progress';
+import Task from '@/common/task';
 
 import ScryfallRuling, { IRuling as IScryfallRuling } from '../../db/scryfall/ruling';
 import Card, { ICard } from '../../db/card';
@@ -9,24 +9,28 @@ async function mergeWith(data: IScryfallRuling) {
     // TODO
 }
 
-export class RulingMerger extends ProgressHandler<IStatus> {
-    async action(): Promise<void> {
+export class RulingMerger extends Task<IStatus> {
+    async startImpl(): Promise<void> {
         let count = 0;
 
         const total = await ScryfallRuling.estimatedDocumentCount();
 
         const start = Date.now();
 
-        await ScryfallRuling.find({}).cursor().eachAsync(async r => {
-            await mergeWith(r);
+        for await (const ruling of await ScryfallRuling.find()) {
+            if (this.status === 'idle') {
+                return;
+            }
+
+            await mergeWith(ruling);
 
             ++count;
 
             const elapsed = Date.now() - start;
 
-            this.emitProgress({
+            this.emit('progress', {
                 method: 'merge',
-                type:   'set',
+                type:   'ruling',
 
                 amount: {
                     total,
@@ -38,12 +42,10 @@ export class RulingMerger extends ProgressHandler<IStatus> {
                     remaining: elapsed / count * (total - count),
                 },
             });
-        });
+        }
+
+        this.emit('end');
     }
 
-    abort(): void {
-        // TODO
-    }
-
-    equals(): boolean { return true; }
+    stopImpl(): void { /* no-op */ }
 }

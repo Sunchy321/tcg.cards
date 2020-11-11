@@ -1,4 +1,4 @@
-import { ProgressHandler } from '@/common/progress';
+import Task from '@/common/task';
 
 import ScryfallCard, { ICard as IScryfallCard } from '../../db/scryfall/card';
 import Card, { ICard } from '../../db/card';
@@ -279,10 +279,10 @@ async function mergeWith(
 
 const bucketSize = 500;
 
-export class CardMerger extends ProgressHandler<IStatus> {
+export class CardMerger extends Task<IStatus> {
     progressId?: NodeJS.Timeout;
 
-    async action(): Promise<void> {
+    async startImpl(): Promise<void> {
         let count = 0;
 
         const files = await ScryfallCard.aggregate([
@@ -296,8 +296,8 @@ export class CardMerger extends ProgressHandler<IStatus> {
 
         const start = Date.now();
 
-        const postProgress = () => {
-            const progress: IStatus = {
+        this.intervalProgress(500, function () {
+            const prog: IStatus = {
                 method: 'merge',
                 type:   'card',
 
@@ -306,15 +306,13 @@ export class CardMerger extends ProgressHandler<IStatus> {
 
             const elapsed = Date.now() - start;
 
-            progress.time = {
+            prog.time = {
                 elapsed,
                 remaining: elapsed / count * (total - count),
             };
 
-            this.emitProgress(progress);
-        };
-
-        this.progressId = setInterval(postProgress, 500);
+            return prog;
+        });
 
         const query = ScryfallCard.find({ file: lastFile }).lean();
 
@@ -322,6 +320,10 @@ export class CardMerger extends ProgressHandler<IStatus> {
             query as unknown as AsyncGenerator<IScryfallCard>,
             bucketSize,
         )) {
+            if (this.status === 'idle') {
+                return;
+            }
+
             const cards = await Card.find({
                 'scryfall.cardId': {
                     $in: jsons.map(j => j.card_id),
@@ -349,16 +351,8 @@ export class CardMerger extends ProgressHandler<IStatus> {
             count += jsons.length;
         }
 
-        if (this.progressId != null) {
-            postProgress();
-            clearInterval(this.progressId);
-            this.progressId = undefined;
-        }
+        this.emit('end');
     }
 
-    abort(): void {
-        // TODO
-    }
-
-    equals(): boolean { return true; }
+    stopImpl(): void { /* no-op */ }
 }
