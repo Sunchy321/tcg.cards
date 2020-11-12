@@ -220,10 +220,6 @@ async function mergeWith(
             part.toughness = newPart.toughness;
             part.watermark = newPart.watermark;
 
-            part.oracle.name = newPart.name;
-            part.oracle.text = newPart.oracle_text;
-            part.oracle.typeline = newPart.type_line;
-
             part.handModifier = newPart.hand_modifier;
             part.lifeModifier = newPart.life_modifier;
             part.flavorName = newPart.flavor_name;

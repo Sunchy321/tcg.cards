@@ -110,6 +110,8 @@ router.post('/update',
             }
 
             await old.replaceOne(data);
+
+            ctx.status = 200;
         } else {
             ctx.status = 404;
         }
