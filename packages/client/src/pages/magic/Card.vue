@@ -46,6 +46,14 @@
                 </div>
             </div>
             <div class="col-3">
+                <div v-if="isAdmin" class="editor-line">
+                    <q-btn
+                        icon="mdi-file-edit"
+                        dense flat round
+                        @click="toEditor"
+                    />
+                </div>
+
                 <div class="text-mode">
                     <btn-select
                         v-model="textMode"
@@ -86,9 +94,6 @@
     background-color transparent !important
     padding 0 !important
 
-.space
-    flex-grow 1
-
 .artist-line
     margin-top 10px
     text-align center
@@ -107,6 +112,9 @@
 .flavor-line
     margin-top 20px
     font-style italic
+
+.editor-line
+    margin-bottom 10px
 
 .text-mode
     & > *
@@ -161,6 +169,8 @@
 </style>
 
 <script>
+import basic from 'src/mixins/basic';
+
 import BtnSelect from 'components/BtnSelect';
 import MagicText from 'components/magic/Text';
 
@@ -174,10 +184,11 @@ export default {
 
     components: { BtnSelect, MagicText },
 
-    data: () => ({
-        data: null,
+    mixins: [basic],
 
-        partId: 0,
+    data: () => ({
+        data:      null,
+        partIndex: 0,
     }),
 
     computed: {
@@ -191,6 +202,8 @@ export default {
                 label: this.$t('magic.card.text-mode.' + v),
             }));
         },
+
+        id() { return this.data?.cardId ?? this.$route.params.id; },
 
         versions() { return this.data?.versions ?? []; },
 
@@ -216,7 +229,7 @@ export default {
             set(newValue) { this.$router.replace({ query: { ...this.$route.query, number: newValue } }); },
         },
 
-        part() { return this.data?.parts?.[this.partId]; },
+        part() { return this.data?.parts?.[this.partIndex]; },
 
         cost() { return this.part?.cost; },
 
@@ -293,6 +306,21 @@ export default {
             const { data } = await this.apiGet('/magic/card', query);
 
             this.data = data;
+        },
+
+        toEditor() {
+            if (this.isAdmin) {
+                this.$router.push({
+                    path:  '/magic/data',
+                    query: {
+                        tab:    'card',
+                        id:     this.id,
+                        lang:   this.lang,
+                        set:    this.set,
+                        number: this.number,
+                    },
+                });
+            }
         },
     },
 };

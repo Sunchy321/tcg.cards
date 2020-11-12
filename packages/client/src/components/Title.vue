@@ -45,9 +45,7 @@ export default {
 
             if (titleMeta === '$input') {
                 return <q-input
-                    class="title-input"
-                    dense outlined
-                    color="white"
+                    dark dense standout
                     value={this.q}
                     onInput={v => { this.q = v; }}
                 >
@@ -68,9 +66,3 @@ export default {
     },
 };
 </script>
-
-<style lang="stylus">
-.title-input input
-    color white
-
-</style>

@@ -23,17 +23,18 @@
 <script>
 import Scryfall from 'components/magic/data/Scryfall';
 import Set from 'components/magic/data/Set';
+import Card from 'components/magic/data/Card';
 import BanlistChange from 'components/magic/data/BanlistChange';
 import BanlistCheck from 'components/magic/data/BanlistCheck';
 
 export default {
     name: 'Data',
 
-    components: { Scryfall, Set, BanlistChange, BanlistCheck },
+    components: { Scryfall, Set, Card, BanlistChange, BanlistCheck },
 
     computed: {
         tabs() {
-            return ['scryfall', 'set', 'banlist-change', 'banlist-check'];
+            return ['scryfall', 'set', 'card', 'banlist-change', 'banlist-check'];
         },
 
         tab: {
@@ -54,6 +55,8 @@ export default {
                 return 'Scryfall';
             case 'set':
                 return 'Set';
+            case 'card':
+                return 'Card';
             case 'banlist-change':
                 return 'BanlistChange';
             case 'banlist-check':

@@ -1,6 +1,11 @@
 <style lang="stylus" scoped>
 .magic-symbol
     transform translateY(10%)
+
+    [lang=zhs] &, [lang=zht] &
+        transform translateY(15%)
+        margin-left 2px
+        margin-right 2px
 </style>
 
 <script>
