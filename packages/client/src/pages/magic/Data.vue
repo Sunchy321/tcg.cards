@@ -21,10 +21,10 @@
 </style>
 
 <script>
-import Scryfall from './data/Scryfall';
-import Set from './data/Set';
-import BanlistChange from './data/BanlistChange';
-import BanlistCheck from './data/BanlistCheck';
+import Scryfall from 'components/magic/data/Scryfall';
+import Set from 'components/magic/data/Set';
+import BanlistChange from 'components/magic/data/BanlistChange';
+import BanlistCheck from 'components/magic/data/BanlistCheck';
 
 export default {
     name: 'Data',

@@ -30,6 +30,13 @@
                 </q-btn-dropdown>
 
                 <q-btn
+                    v-for="b in buttons" :key="b.event"
+                    :icon="b.icon"
+                    flat dense round
+                    @click="$store.commit('event', b.event)"
+                />
+
+                <q-btn
                     v-if="isAdmin && game != null"
                     icon="mdi-database"
                     flat dense round
@@ -70,6 +77,18 @@ export default {
     mixins: [basic],
 
     computed: {
+        buttons() {
+            const buttons = [];
+
+            for (const r of this.$route.matched) {
+                if (r.meta.button != null) {
+                    buttons.push(...r.meta.button);
+                }
+            }
+
+            return buttons;
+        },
+
         gameLocale: {
             get() {
                 if (this.game != null) {

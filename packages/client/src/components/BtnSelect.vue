@@ -1,9 +1,9 @@
 <template>
-    <q-btn-group :flat="flat">
+    <q-btn-group :flat="flat" :spread="spread">
         <q-btn
             v-for="o in options" :key="o.value"
             :color="color(o)"
-            v-bind="{ flat, dense, ...o }"
+            v-bind="{ dense, ...o }"
             @click="$emit('input', o.value)"
         />
     </q-btn-group>
@@ -22,8 +22,9 @@ export default {
             type:     Array,
             required: true,
         },
-        flat:  Boolean,
-        dense: Boolean,
+        flat:   Boolean,
+        dense:  Boolean,
+        spread: Boolean,
     },
 
     methods: {

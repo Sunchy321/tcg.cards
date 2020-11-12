@@ -95,4 +95,12 @@ export default {
             link:  '链接',
         },
     },
+
+    'card': {
+        'text-mode': {
+            oracle:  'Oracle',
+            unified: '一致描述',
+            printed: '牌面描述',
+        },
+    },
 };

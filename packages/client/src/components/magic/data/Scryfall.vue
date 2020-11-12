@@ -54,7 +54,7 @@
         </div>
 
         <div class="q-mt-xl q-mb-sm">
-            Scryfall Database Data
+            Scryfall Data
         </div>
 
         <div class="row q-gutter-md">
@@ -112,6 +112,19 @@
                     </q-item-section>
                 </q-item>
             </q-list>
+
+            <q-list class="col" bordered separator>
+                <q-item>
+                    <q-item-section>Image</q-item-section>
+                    <q-item-section side>
+                        <q-btn
+                            round dense flat
+                            icon="mdi-download"
+                            @click="getImage"
+                        />
+                    </q-item-section>
+                </q-item>
+            </q-list>
         </div>
 
         <div class="q-mt-xl q-mb-sm">
@@ -150,6 +163,30 @@
 <script>
 import bytes from 'bytes';
 
+function formatTime(time) {
+    let result = '';
+
+    time = Math.floor(time / 1000);
+
+    result = (time % 60) + result;
+
+    time = Math.floor(time / 60);
+
+    result = (time % 60) + ':' + result;
+
+    time = Math.floor(time / 60);
+
+    result = (time % 60) + ':' + result;
+
+    time = Math.floor(time / 24);
+
+    if (time > 0) {
+        result = time + ' ' + result;
+    }
+
+    return result;
+}
+
 export default {
     name: 'DataScryfall',
 
@@ -187,7 +224,7 @@ export default {
 
                 result += `[${prog.method}] ${prog.type}: `;
 
-                if (prog.method === 'get') {
+                if (prog.method === 'get' && prog.type !== 'image') {
                     result += bytes(prog.amount.count);
 
                     if (prog.amount.total != null) {
@@ -206,7 +243,7 @@ export default {
                 }
 
                 if (prog.time != null) {
-                    result += ` (${new Date(prog.time.remaining).toISOString().substr(11, 8)})`;
+                    result += ` (${formatTime(prog.time.remaining)})`;
                 }
 
                 return result;
@@ -279,6 +316,26 @@ export default {
 
         async getSet() {
             const ws = this.apiWs('/magic/scryfall/set/get');
+
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    const progress = JSON.parse(data);
+
+                    this.progress = progress;
+                };
+
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    this.progress = null;
+                    this.loadData();
+
+                    resolve();
+                };
+            });
+        },
+
+        async getImage() {
+            const ws = this.imageWs('/magic/card/get');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {

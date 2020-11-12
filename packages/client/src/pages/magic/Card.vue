@@ -1,21 +1,299 @@
 <template>
-    <q-page class="main">
-        <div class="row" />
+    <q-page class="row q-pa-md">
+        <template v-if="data != null">
+            <div class="col-3">
+                <q-img
+                    :src="imageUrl" :ratio="745/1040"
+                    native-context-menu
+                >
+                    <template v-slot:error>
+                        <div class="card-not-found">
+                            <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
+                        </div>
+                    </template>
+                </q-img>
+
+                <div class="artist-line">
+                    {{ artist }}
+                </div>
+            </div>
+            <div class="col-6 q-px-md">
+                <div class="name-line">
+                    <div class="name" :lang="lang">
+                        {{ name }}
+                    </div>
+
+                    <div class="space" />
+
+                    <div v-if="cost != null" class="cost">
+                        <img
+                            v-for="(s, i) in cost" :key="i"
+                            :class="'magic-symbol icon-' + s"
+                            :src="`magic/symbols.svg#icon-${s}`"
+                            alt="`{${s}}`"
+                        >
+                    </div>
+                </div>
+                <div class="info-line">
+                    <span class="typeline" :lang="lang">{{ typeline }}</span>
+                    <span v-if="info != null" class="other-info">{{ info }}</span>
+                </div>
+                <div class="ability-line" :lang="lang">
+                    <magic-text :value="text" />
+                </div>
+                <div v-if="flavor != null" class="flavor-line" :lang="lang">
+                    <magic-text :value="flavor" />
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="text-mode">
+                    <btn-select
+                        v-model="textMode"
+                        :options="textModeOptions"
+                        flat spread
+                    />
+                </div>
+
+                <div class="lang-line">
+                    <q-btn
+                        v-for="l in langs" :key="l"
+                        class="lang-selector"
+                        :disable="l === lang"
+                        :label="l"
+                        dense outline size="sm"
+                        color="primary"
+                        @click="lang = l"
+                    />
+                </div>
+
+                <div class="set-block">
+                    <div
+                        v-for="s in sets" :key="s" v-ripple class="set-line"
+                        @click="set = s"
+                    >
+                        <div v-if="s === set" class="set-dot" />
+                        <span>{{ s }}</span>
+                    </div>
+                </div>
+            </div>
+        </template>
     </q-page>
 </template>
 
-<style lang="stylus">
+<style lang="stylus" scoped>
+.card-not-found
+    width 100%
+    background-color transparent !important
+    padding 0 !important
 
-.main > .row
-    margin $space-md.x $space-md.y
+.space
+    flex-grow 1
 
-.main > .row > *:not(:last-child)
-    margin-right $space-sm.x
+.artist-line
+    margin-top 10px
+    text-align center
 
+.name-line
+    font-size 200%
+    display flex
+    align-items stretch
+
+.info-line
+    margin-top 10px
+
+.ability-line
+    margin-top 30px
+
+.flavor-line
+    margin-top 20px
+    font-style italic
+
+.text-mode
+    & > *
+        width 100%
+
+.lang-line
+    margin-top 10px
+
+.set-block
+    margin-top 10px
+
+    border 1px solid $primary
+    border-radius 5px
+
+.name
+    display inline
+
+.cost
+    display inline-flex
+    align-items center
+
+    & > *
+        margin-right 1px
+
+.other-info
+    margin-left 15px
+
+.lang-selector
+    display inline
+    margin-right 2px
+    margin-top 2px
+
+.set-line
+    position relative
+    padding 5px
+    padding-left 10px
+
+    &:not(:first-child)
+        border-top 1px solid $primary
+
+    cursor pointer
+
+.set-dot
+    width 10px
+    height 10px
+    border-radius 100px
+    background-color $primary
+
+    position absolute
+    left -5px
+    transform translateY(50%)
 </style>
 
 <script>
-export default {
+import BtnSelect from 'components/BtnSelect';
+import MagicText from 'components/magic/Text';
 
+import { omitBy, uniq } from 'lodash';
+import mapComputed from 'src/store/map-computed';
+
+import { imageBase } from 'boot/backend';
+
+export default {
+    name: 'Card',
+
+    components: { BtnSelect, MagicText },
+
+    data: () => ({
+        data: null,
+
+        partId: 0,
+    }),
+
+    computed: {
+        ...mapComputed({
+            textMode: 'magic/cardTextMode',
+        }),
+
+        textModeOptions() {
+            return ['oracle', 'unified', 'printed'].map(v => ({
+                value: v,
+                label: this.$t('magic.card.text-mode.' + v),
+            }));
+        },
+
+        versions() { return this.data?.versions ?? []; },
+
+        langs() {
+            const locales = this.$store.getters['magic/locales'];
+            return uniq(this.versions.map(v => v.lang)).sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
+        },
+
+        sets() { return uniq(this.versions.map(v => v.set)); },
+
+        lang: {
+            get() { return this.data?.lang ?? this.$route.query.lang ?? this.$store.getters['magic/locale']; },
+            set(newValue) { this.$router.replace({ query: { ...this.$route.query, lang: newValue } }); },
+        },
+
+        set: {
+            get() { return this.data?.setId ?? this.$route.query.set; },
+            set(newValue) { this.$router.replace({ query: { ...this.$route.query, set: newValue } }); },
+        },
+
+        number: {
+            get() { return this.data?.number ?? this.$route.query.number; },
+            set(newValue) { this.$router.replace({ query: { ...this.$route.query, number: newValue } }); },
+        },
+
+        part() { return this.data?.parts?.[this.partId]; },
+
+        cost() { return this.part?.cost; },
+
+        info() {
+            const p = this.part;
+
+            if (p == null) {
+                return null;
+            }
+
+            if (p.power && p.toughness) {
+                return `${p.power}/${p.toughness}`;
+            }
+
+            if (p.loyalty) {
+                return `[${p.loyalty}]`;
+            }
+
+            if (p.handModifier && p.lifeModifier) {
+                return `${p.handModifier};${p.lifeModifier}`;
+            }
+
+            return null;
+        },
+
+        name() { return this.part?.[this.textMode]?.name; },
+        typeline() { return this.part?.[this.textMode]?.typeline; },
+        text() { return this.part?.[this.textMode]?.text || ''; },
+
+        flavor() { return this.part?.flavorText; },
+
+        artist() { return this.part?.artist; },
+
+        imageUrl() {
+            return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
+        },
+    },
+
+    watch: {
+        $route: {
+            immediate: true,
+            handler(newValue, oldValue) {
+                if (oldValue == null || oldValue.query.q === newValue.query.q) {
+                    this.loadData();
+                }
+            },
+        },
+    },
+
+    created() {
+        this.$store.subscribe(async ({ type, payload }) => {
+            if (type === 'magic/locale') {
+                this.loadData();
+            } else if (type === 'event' && payload === 'randomize') {
+                const { data: id } = await this.apiGet('/magic/card/random');
+
+                this.$router.push({
+                    name:   'magic/card',
+                    params: { id },
+                });
+            }
+        });
+    },
+
+    methods: {
+        async loadData() {
+            const query = omitBy({
+                id:     this.$route.params.id,
+                lang:   this.$route.query.lang ?? this.$store.getters['magic/locale'],
+                set:    this.$route.query.set,
+                number: this.$route.query.number,
+            }, v => v == null);
+
+            const { data } = await this.apiGet('/magic/card', query);
+
+            this.data = data;
+        },
+    },
 };
 </script>

@@ -5,7 +5,7 @@ const routes = [
         children:  [
             {
                 path:      '',
-                component: () => import('pages/magic/Index'),
+                component: () => import('pages/magic'),
                 meta:      {
                     title: 'magic.$self',
                 },
@@ -27,8 +27,15 @@ const routes = [
                 component: () => import('pages/magic/Set'),
             },
             {
-                path:      'card',
+                path:      'card/:id',
+                name:      'magic/card',
                 component: () => import('pages/magic/Card'),
+                meta:      {
+                    title:  '$input',
+                    button: [
+                        { icon: 'mdi-shuffle-variant', event: 'randomize' },
+                    ],
+                },
             },
         ],
     },

@@ -12,3 +12,5 @@ export function locale(state, newValue) {
     LocalStorage.set('locale', newValue);
     state.locale = newValue;
 }
+
+export function event() {}

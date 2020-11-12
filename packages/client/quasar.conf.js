@@ -13,8 +13,6 @@ module.exports = function() {
             plugins:    ['Notify', 'LocalStorage'],
         },
 
-        supportIE: false,
-
         build: {
             scopeHoisting: true,
             vueRouterMode: 'history',

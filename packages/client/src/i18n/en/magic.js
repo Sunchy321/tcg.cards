@@ -106,4 +106,12 @@ export default {
             link:  'Link',
         },
     },
+
+    'card': {
+        'text-mode': {
+            oracle:  'Oracle',
+            unified: 'Unified',
+            printed: 'Printed',
+        },
+    },
 };
