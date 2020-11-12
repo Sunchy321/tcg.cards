@@ -38,7 +38,7 @@ export default class FileSaver extends Task<Progress> {
             return;
         }
 
-        if (existsSync(this.path) && statSync(this.path).size > 0 && !this.override) {
+        if (FileSaver.fileExists(this.path) && !this.override) {
             this.emit('end', 'file_exists');
             return;
         }
@@ -60,6 +60,13 @@ export default class FileSaver extends Task<Progress> {
 
     stopImpl(): void {
         this.request?.abort();
-        unlinkSync(this.path);
+
+        if (existsSync(this.path)) {
+            unlinkSync(this.path);
+        }
+    }
+
+    static fileExists(path: string): boolean {
+        return existsSync(path) && statSync(path).size > 0;
     }
 }

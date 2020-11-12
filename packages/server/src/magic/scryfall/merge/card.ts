@@ -101,11 +101,11 @@ async function mergeWith(
 
                 ...parseTypeline(f.type_line),
 
-                power:         f.power,
-                toughness:     f.toughness,
-                loyalty:       f.loyalty,
-                hand_modifier: f.hand_modifier,
-                life_modifier: f.life_modifier,
+                power:        f.power,
+                toughness:    f.toughness,
+                loyalty:      f.loyalty,
+                handModifier: f.hand_modifier,
+                lifeModifier: f.life_modifier,
 
                 oracle: {
                     name:     f.name,

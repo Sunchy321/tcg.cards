@@ -60,10 +60,11 @@ export class ImageGetter extends Task<IStatus> {
     set: string;
     lang: string;
 
+    projCount = 0;
+    projTotal: number;
     total: number;
     todoTasks: { number: string, uris: Record<string, string> }[] = [];
     taskMap: Record<string, FileSavers> = {};
-    reachEnd = false;
 
     async startImpl(): Promise<void> {
         const files = await Card.aggregate([
@@ -77,13 +78,18 @@ export class ImageGetter extends Task<IStatus> {
             image_uris: { $exists: true },
             file:       lastFile,
 
-            lang: 'zhs',
+            lang: 'ph',
         };
 
         const aggregate = Card.aggregate().match(query).group({
             _id:  { set: '$set_id', lang: '$lang' },
             info: { $push: { number: '$collector_number', uris: '$image_uris' } },
         }).allowDiskUse(true);
+
+        const total = await Card.aggregate(aggregate.pipeline()).count('total');
+
+        this.projCount = 0;
+        this.projTotal = total[0].total;
 
         for await (const proj of aggregate as unknown as AsyncGenerator<IImageProjection>) {
             if (this.status === 'idle') {
@@ -96,7 +102,7 @@ export class ImageGetter extends Task<IStatus> {
             this.todoTasks = proj.info;
             this.total = proj.info.length;
 
-            this.reachEnd = false;
+            ++this.projCount;
 
             await this.waitForTasks();
         }
@@ -117,7 +123,7 @@ export class ImageGetter extends Task<IStatus> {
 
         process.stdout.write('\r' + ' '.repeat(80) + '\r');
 
-        process.stdout.write(`${this.set} ${this.lang} ${finished}/${this.total}`);
+        process.stdout.write(`${this.set} ${this.projCount}/${this.projTotal} ${this.lang} ${finished}/${this.total}`);
 
         for (const n in this.taskMap) {
             process.stdout.write(' ' + n);
@@ -126,19 +132,11 @@ export class ImageGetter extends Task<IStatus> {
 
     private async waitForTasks() {
         const promise = new Promise((resolve, reject) => {
-            const resolveListener = () => {
-                if (!this.reachEnd) {
-                    this.reachEnd = true;
-                    console.log();
-                }
-
-                this.off('all-end', resolveListener);
+            this.once('all-end', () => {
+                console.log();
                 this.off('error', reject);
-
                 resolve();
-            };
-
-            this.on('all-end', resolveListener).on('error', reject);
+            }).on('error', reject);
         });
 
         this.pushTask();
@@ -158,29 +156,38 @@ export class ImageGetter extends Task<IStatus> {
                     const path = join(asset, 'magic', 'card', type, this.set, this.lang, task.number + '.' + ext);
 
                     return [uri, path];
+                })
+                .filter(v => !FileSaver.fileExists(v[1]));
+
+            if (pairs.length > 0) {
+                const savers = new FileSavers(pairs);
+
+                savers.on('end', () => {
+                    delete this.taskMap[task.number];
+                    this.print();
+                    this.pushTask();
+
+                    if (this.rest() === 0 && this.working() === 0) {
+                        this.emit('all-end');
+                    }
+                }).on('error', err => {
+                    for (const k in this.taskMap) {
+                        this.taskMap[k].stop();
+                    }
+
+                    this.emit('error', err);
                 });
 
-            const savers = new FileSavers(pairs);
-
-            savers.on('end', () => {
-                delete this.taskMap[task.number];
+                this.taskMap[task.number] = savers;
                 this.print();
-                this.pushTask();
+                savers.start();
+            } else {
+                this.print();
 
                 if (this.rest() === 0 && this.working() === 0) {
                     this.emit('all-end');
                 }
-            }).on('error', err => {
-                for (const k in this.taskMap) {
-                    this.taskMap[k].stop();
-                }
-
-                this.emit('error', err);
-            });
-
-            this.taskMap[task.number] = savers;
-            this.print();
-            savers.start();
+            }
         }
     }
 

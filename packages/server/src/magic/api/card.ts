@@ -21,9 +21,13 @@ router.get('/', async ctx => {
 
     aggregate.addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } });
     aggregate.sort({ langIsQuery: -1, langIsEnglish: -1, releaseDate: -1 });
+    aggregate.limit(1);
 
-    const cards = await Card.aggregate(aggregate.pipeline()).limit(1);
-    const versions = await Card.aggregate(aggregate.pipeline()).project('-_id lang setId number');
+    const cards = await aggregate;
+    const versions = await Card.aggregate()
+        .match({ cardId })
+        .sort({ releaseDate: -1 })
+        .project('-_id lang setId number');
 
     if (cards.length !== 0) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
