@@ -1,8 +1,12 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
-import { omitBy, random } from 'lodash';
 
-import Card from '../db/card';
+import jwtAuth from '@/middlewares/jwt-auth';
+
+import Card, { ICard } from '../db/card';
+import { Document } from 'mongoose';
+
+import { omitBy, random } from 'lodash';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -47,5 +51,69 @@ router.get('/random', async ctx => {
 
     ctx.body = cardId[random(cardId.length - 1)];
 });
+
+router.get('/raw',
+    jwtAuth({ admin: true }),
+    async ctx => {
+        const { id: cardId, lang, set: setId, number } = ctx.query;
+
+        const card = await Card.findOne({ cardId, lang, setId, number });
+
+        if (card != null) {
+            ctx.body = card.toJSON();
+        } else {
+            ctx.status = 404;
+        }
+    },
+);
+
+async function tryUpdate(
+    oldCard: ICard & Document,
+    newCard: ICard & { _id: string },
+    index: number,
+    firstKey: 'oracle' | 'unified',
+    lastKey: 'name' | 'typeline' | 'text',
+) {
+    const oldValue = oldCard.parts[index][firstKey][lastKey];
+    const newValue = newCard.parts[index][firstKey][lastKey];
+
+    if (oldValue !== newValue) {
+        if (firstKey === 'oracle') {
+            await Card.updateMany(
+                { cardId: newCard.cardId },
+                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue } },
+            );
+        } else {
+            await Card.updateMany(
+                { cardId: newCard.cardId, lang: newCard.lang },
+                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue } },
+            );
+        }
+    }
+}
+
+router.post('/update',
+    jwtAuth({ admin: true }),
+    async ctx => {
+        const data: ICard & { _id: string } = ctx.request.body.data;
+
+        const old = await Card.findById(data._id);
+
+        if (old != null) {
+            for (let i = 0; i < data.parts.length; ++i) {
+                await tryUpdate(old, data, i, 'oracle', 'name');
+                await tryUpdate(old, data, i, 'oracle', 'typeline');
+                await tryUpdate(old, data, i, 'oracle', 'text');
+                await tryUpdate(old, data, i, 'unified', 'name');
+                await tryUpdate(old, data, i, 'unified', 'typeline');
+                await tryUpdate(old, data, i, 'unified', 'text');
+            }
+
+            await old.replaceOne(data);
+        } else {
+            ctx.status = 404;
+        }
+    },
+);
 
 export default router;

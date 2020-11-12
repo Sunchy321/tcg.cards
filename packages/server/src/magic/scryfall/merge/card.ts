@@ -224,10 +224,6 @@ async function mergeWith(
             part.oracle.text = newPart.oracle_text;
             part.oracle.typeline = newPart.type_line;
 
-            part.printed.name = newPart.printed_name || newPart.name;
-            part.printed.text = newPart.printed_text || newPart.oracle_text;
-            part.printed.typeline = newPart.printed_type_line || newPart.type_line;
-
             part.handModifier = newPart.hand_modifier;
             part.lifeModifier = newPart.life_modifier;
             part.flavorName = newPart.flavor_name;
