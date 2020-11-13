@@ -12,12 +12,10 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
 
-router.get('/', async ctx => {
-    const { id: cardId, lang, set: setId, number } = ctx.query;
+function findCard(id: string, lang?: string, set?: string, number?: string) {
+    const aggregate = Card.aggregate().allowDiskUse(true);
 
-    const aggregate = Card.aggregate();
-
-    aggregate.match(omitBy({ cardId, setId, number }, v => v == null));
+    aggregate.match(omitBy({ cardId: id, setId: set, number }, v => v == null));
 
     if (lang != null) {
         aggregate.addFields({ langIsQuery: { $eq: ['$lang', lang] } });
@@ -27,9 +25,17 @@ router.get('/', async ctx => {
     aggregate.sort({ langIsQuery: -1, langIsEnglish: -1, releaseDate: -1 });
     aggregate.limit(1);
 
+    return aggregate;
+}
+
+router.get('/', async ctx => {
+    const { id, lang, set, number } = ctx.query;
+
+    const aggregate = findCard(id, lang, set, number);
+
     const cards = await aggregate;
     const versions = await Card.aggregate()
-        .match({ cardId })
+        .match({ cardId: id })
         .sort({ releaseDate: -1 })
         .project('-_id lang setId number');
 
@@ -81,12 +87,12 @@ async function tryUpdate(
         if (firstKey === 'oracle') {
             await Card.updateMany(
                 { cardId: newCard.cardId },
-                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue } },
+                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue?.trim() } },
             );
         } else {
             await Card.updateMany(
                 { cardId: newCard.cardId, lang: newCard.lang },
-                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue } },
+                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue?.trim() } },
             );
         }
     }
@@ -100,6 +106,8 @@ router.post('/update',
         const old = await Card.findById(data._id);
 
         if (old != null) {
+            await old.replaceOne(data);
+
             for (let i = 0; i < data.parts.length; ++i) {
                 await tryUpdate(old, data, i, 'oracle', 'name');
                 await tryUpdate(old, data, i, 'oracle', 'typeline');
@@ -109,11 +117,60 @@ router.post('/update',
                 await tryUpdate(old, data, i, 'unified', 'text');
             }
 
-            await old.replaceOne(data);
-
             ctx.status = 200;
         } else {
             ctx.status = 404;
+        }
+    },
+);
+
+router.get('/special',
+    // jwtAuth({ admin: true }),
+    async ctx => {
+        switch (ctx.query.type) {
+        case 'incorrect-unified': {
+            const aggregate = Card.aggregate().allowDiskUse(true);
+
+            if (ctx.query.lang != null) {
+                aggregate.match({ lang: ctx.query.lang });
+            }
+
+            aggregate.unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
+                .group({
+                    _id: {
+                        id:   '$cardId',
+                        lang: '$lang',
+                        part: '$partIndex',
+                    },
+                    name:     { $addToSet: '$parts.unified.name' },
+                    typeline: { $addToSet: '$parts.unified.typeline' },
+                    text:     { $addToSet: '$parts.unified.text' },
+                })
+                .match({
+                    $or: [
+                        { name: { $not: { $size: 1 } } },
+                        { typeline: { $not: { $size: 1 } } },
+                        { text: { $not: { $size: 1 } } },
+                    ],
+                });
+
+            const result = await aggregate;
+
+            if (result.length > 0) {
+                const cards = await findCard(result[0]._id.id, ctx.query.lang);
+
+                if (cards.length > 0) {
+                    ctx.body = {
+                        ...cards[0],
+                        total: result.length,
+                    };
+                } else {
+                    ctx.status = 404;
+                }
+            } else {
+                ctx.status = 404;
+            }
+        }
         }
     },
 );

@@ -6,6 +6,7 @@ import { IStatus } from './interface';
 
 import FileSaver from '@/common/save-file';
 import { join } from 'path';
+import readline from 'readline';
 
 import { asset } from '@config';
 
@@ -51,7 +52,8 @@ export class ImageGetter extends Task<IStatus> {
         const lastFile = files[0]._id;
 
         const aggregate = Card.aggregate()
-            .match({ file: lastFile, lang: 'zhs' })
+            .allowDiskUse(true)
+            .match({ file: lastFile })
             .group({
                 _id:   { set: '$set_id', lang: '$lang' },
                 infos: {
@@ -61,10 +63,9 @@ export class ImageGetter extends Task<IStatus> {
                         partsUris: '$card_faces.image_uris',
                     },
                 },
-            })
-            .allowDiskUse(true);
+            });
 
-        const total = await Card.aggregate(aggregate.pipeline()).count('total');
+        const total = await Card.aggregate(aggregate.pipeline()).allowDiskUse(true).count('total');
 
         this.projCount = 0;
         this.projTotal = total[0].total;
@@ -128,6 +129,8 @@ export class ImageGetter extends Task<IStatus> {
 
     private print() {
         const finished = this.total - this.rest() - this.working();
+
+        readline.clearLine(process.stdout, 0);
 
         process.stdout.write('\r' + ' '.repeat(80) + '\r');
 
