@@ -1,6 +1,6 @@
 <template>
-    <div v-if="data != null" class="q-pa-md row">
-        <div class="col-2 q-mr-md">
+    <div class="q-pa-md row">
+        <div class="col-3 q-mr-md">
             <q-img
                 :src="imageUrl" :ratio="745/1040"
                 native-context-menu
@@ -13,9 +13,23 @@
             </q-img>
         </div>
         <div class="col">
+            <div class="special-line q-mb-md">
+                <q-btn-group outline>
+                    <q-btn outline label="Unified" @click="loadData('incorrect-unified')" />
+                </q-btn-group>
+
+                <span v-if="total != null" class="q-ml-md">
+                    {{ total }}
+                </span>
+            </div>
+
             <div class="id-line row items-center">
                 <div class="id code">
-                    {{ data._id }}
+                    {{ id }}
+                </div>
+
+                <div class="lang q-ml-md">
+                    {{ lang }}
                 </div>
 
                 <div class="space" />
@@ -71,11 +85,18 @@
                     </td>
                 </tr>
             </table>
+
+            <q-input v-model="flavor" type="textarea" />
         </div>
     </div>
 </template>
 
 <style lang="stylus" scoped>
+.card-not-found
+    width 100%
+    background-color transparent !important
+    padding 0 !important
+
 table
     width 100%
 
@@ -85,33 +106,48 @@ table
 import { imageBase } from 'boot/backend';
 
 function field(firstKey, lastKey) {
-    return {
-        get() { return this.part?.[firstKey]?.[lastKey]; },
-        set(newValue) {
-            if (this.data != null) {
-                this.data.parts[this.partIndex][firstKey][lastKey] = newValue;
-            }
-        },
-    };
+    if (lastKey != null) {
+        return {
+            get() { return this.part?.[firstKey]?.[lastKey]; },
+            set(newValue) {
+                if (this.data != null) {
+                    this.data.parts[this.partIndex][firstKey][lastKey] = newValue;
+                }
+            },
+        };
+    } else {
+        return {
+            get() { return this.part?.[firstKey]; },
+            set(newValue) {
+                if (this.data != null) {
+                    this.data.parts[this.partIndex][firstKey] = newValue;
+                }
+            },
+        };
+    }
 }
 
 export default {
     name: 'DataCard',
 
     data: () => ({
+        dbQuery:   '',
         data:      null,
         partIndex: 0,
     }),
 
     computed: {
-        id() { return this.$route.query.id; },
-        lang() { return this.$route.query.lang; },
-        set() { return this.$route.query.set; },
-        number() { return this.$route.query.number; },
+
+        id() { return this.$route.query.id ?? this.data?.cardId; },
+        lang() { return this.$route.query.lang ?? this.data?.lang; },
+        set() { return this.$route.query.set ?? this.data?.setId; },
+        number() { return this.$route.query.number ?? this.data?.number; },
 
         imageUrl() {
             return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
         },
+
+        total() { return this.data?.total; },
 
         part() { return this.data?.parts[this.partIndex]; },
 
@@ -124,6 +160,9 @@ export default {
         printedName:     field('printed', 'name'),
         printedTypeline: field('printed', 'typeline'),
         printedText:     field('printed', 'text'),
+
+        flavor: field('flavorText'),
+
     },
 
     mounted() {
@@ -131,8 +170,19 @@ export default {
     },
 
     methods: {
-        async loadData() {
-            if (this.id && this.lang && this.set && this.number) {
+        async loadData(special) {
+            if (special != null) {
+                if (this.data != null) {
+                    await this.update();
+                }
+
+                const { data } = await this.apiGet('/magic/card/special', {
+                    type: special,
+                    lang: this.$store.getters['magic/locale'],
+                });
+
+                this.data = data;
+            } else if (this.id && this.lang && this.set && this.number) {
                 const { data } = await this.apiGet('/magic/card/raw', {
                     id:     this.id,
                     lang:   this.lang,

@@ -5,7 +5,10 @@
     [lang=zhs] &, [lang=zht] &
         transform translateY(15%)
         margin-left 2px
-        margin-right 2px
+
+    [lang=zhs] & + &, [lang=zht] & + &,
+    [lang=zhs] &:first-child, [lang=zht] &:first-child
+        margin-left 0px
 </style>
 
 <script>
@@ -33,10 +36,10 @@ export default {
 
                     result.push(<img class={klass} src={src} alt={p} />);
                 } else {
-                    result.push(p);
+                    result.push(<span>{p}</span>);
                 }
             } else {
-                result.push(p);
+                result.push(<span>{p}</span>);
             }
         }
 

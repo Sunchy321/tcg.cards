@@ -2,7 +2,7 @@
     <q-layout view="hHh Lpr fFf">
         <q-header elevated>
             <q-toolbar>
-                <q-btn icon="mdi-home" flat dense round @click="toHome" />
+                <q-btn icon="mdi-home" flat dense round :to="homePath" />
 
                 <app-title />
 
@@ -40,13 +40,13 @@
                     v-if="isAdmin && game != null"
                     icon="mdi-database"
                     flat dense round
-                    @click="toData"
+                    :to="dataPath"
                 />
 
                 <q-btn
                     :icon="user != null ? 'mdi-cog' : 'mdi-cog-outline'"
                     flat dense round
-                    @click="toSetting"
+                    :to="'/setting'"
                 />
             </q-toolbar>
         </q-header>
@@ -111,32 +111,20 @@ export default {
             }
         },
 
+        homePath() {
+            if (this.game && this.$route.path !== '/' + this.game) {
+                return '/' + this.game;
+            } else {
+                return '/';
+            }
+        },
+
         dataPath() {
             if (this.isAdmin && this.game != null) {
                 return `/${this.game}/data`;
             } else {
                 return null;
             }
-        },
-    },
-
-    methods: {
-        toHome() {
-            if (this.game && this.$route.path !== '/' + this.game) {
-                this.$router.push('/' + this.game);
-            } else {
-                this.$router.push('/');
-            }
-        },
-
-        toData() {
-            if (this.game != null) {
-                this.$router.push(`/${this.game}/data`);
-            }
-        },
-
-        toSetting() {
-            this.$router.push('/setting');
         },
     },
 };

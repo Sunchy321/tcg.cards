@@ -35,6 +35,11 @@
                     </div>
                 </div>
                 <div class="info-line">
+                    <magic-color
+                        v-if="colorIndicator != null"
+                        class="color-indicator"
+                        :value="colorIndicator"
+                    />
                     <span class="typeline" :lang="lang">{{ typeline }}</span>
                     <span v-if="info != null" class="other-info">{{ info }}</span>
                 </div>
@@ -64,13 +69,16 @@
 
                 <div class="lang-line">
                     <q-btn
-                        v-for="l in langs" :key="l"
+                        v-for="i in langInfos" :key="i.lang"
                         class="lang-selector"
-                        :disable="l === lang"
-                        :label="l"
-                        dense outline size="sm"
-                        color="primary"
-                        @click="lang = l"
+                        :disable="i.current || !i.exist"
+                        :color="i.exist ? 'primary' : 'grey'"
+                        dense
+                        :outline="!i.current"
+                        :unelevated="i.current"
+                        size="sm"
+                        :label="i.lang"
+                        @click="lang = i.lang"
                     />
                 </div>
 
@@ -101,10 +109,12 @@
 .name-line
     font-size 200%
     display flex
-    align-items stretch
+    align-items centerima
 
 .info-line
     margin-top 10px
+    display flex
+    align-items center
 
 .ability-line
     margin-top 30px
@@ -139,6 +149,10 @@
     & > *
         margin-right 1px
 
+.color-indicator
+    height 1em
+    margin-right 5px
+
 .other-info
     margin-left 15px
 
@@ -172,6 +186,7 @@
 import basic from 'src/mixins/basic';
 
 import BtnSelect from 'components/BtnSelect';
+import MagicColor from 'components/magic/Color';
 import MagicText from 'components/magic/Text';
 
 import { omitBy, uniq } from 'lodash';
@@ -182,11 +197,13 @@ import { imageBase } from 'boot/backend';
 export default {
     name: 'Card',
 
-    components: { BtnSelect, MagicText },
+    components: { BtnSelect, MagicColor, MagicText },
 
     mixins: [basic],
 
     data: () => ({
+        unsubscribe: null,
+
         data:      null,
         partIndex: 0,
     }),
@@ -210,6 +227,21 @@ export default {
         langs() {
             const locales = this.$store.getters['magic/locales'];
             return uniq(this.versions.map(v => v.lang)).sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
+        },
+
+        langInfos() {
+            const locales = this.$store.getters['magic/locales'];
+
+            const langs = uniq([
+                ...this.$store.getters['magic/data'].basicLocales,
+                ...this.versions.map(v => v.lang),
+            ]).sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
+
+            return langs.map(l => ({
+                lang:    l,
+                exist:   this.versions.filter(v => v.set === this.set).some(v => v.lang === l),
+                current: l === this.lang,
+            }));
         },
 
         sets() { return uniq(this.versions.map(v => v.set)); },
@@ -255,6 +287,8 @@ export default {
             return null;
         },
 
+        colorIndicator() { return this.part?.colorIndicator; },
+
         name() { return this.part?.[this.textMode]?.name; },
         typeline() { return this.part?.[this.textMode]?.typeline; },
         text() { return this.part?.[this.textMode]?.text || ''; },
@@ -280,7 +314,7 @@ export default {
     },
 
     created() {
-        this.$store.subscribe(async ({ type, payload }) => {
+        this.unsubscribe = this.$store.subscribe(async ({ type, payload }) => {
             if (type === 'magic/locale') {
                 this.loadData();
             } else if (type === 'event' && payload === 'randomize') {
@@ -292,6 +326,10 @@ export default {
                 });
             }
         });
+    },
+
+    beforeDestroy() {
+        this.unsubscribe();
     },
 
     methods: {
