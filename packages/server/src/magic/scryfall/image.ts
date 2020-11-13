@@ -8,52 +8,28 @@ import FileSaver from '@/common/save-file';
 import { join } from 'path';
 
 import { asset } from '@config';
-import { EventEmitter } from 'events';
-
-class FileSavers extends EventEmitter {
-    savers: FileSaver[] = [];
-    private finished = 0;
-
-    constructor(pairs: [string, string][]) {
-        super();
-
-        for (const p of pairs) {
-            const saver = new FileSaver(p[0], p[1]);
-
-            saver.on('end', () => {
-                ++this.finished;
-
-                if (this.finished === this.savers.length) {
-                    this.emit('end');
-                }
-            }).on('error', err => {
-                for (const s of this.savers) {
-                    s.stop();
-                }
-
-                this.emit('error', err);
-            });
-
-            this.savers.push(saver);
-        }
-    }
-
-    start(): void {
-        for (const saver of this.savers) {
-            saver.start();
-        }
-    }
-
-    stop(): void {
-        for (const saver of this.savers) {
-            saver.stop();
-        }
-    }
-}
 
 interface IImageProjection {
     _id: { set: string, lang:string },
-    info: { number: string, uris: Record<string, string> }[]
+    infos: { number: string, uris?: Record<string, string>, partsUris?: Record<string, string>[] }[]
+}
+
+interface IImageTask {
+    number: string,
+    part?: number,
+    type: string,
+    uri: string,
+    path: string
+}
+
+function addPath(data: Omit<IImageTask, 'path'>, set: string, lang: string): IImageTask {
+    const ext = data.type === 'png' ? 'png' : 'jpg';
+
+    const path = data.part != null
+        ? join(asset, 'magic', 'card', data.type, set, lang, `${data.number}-${data.part}.${ext}`)
+        : join(asset, 'magic', 'card', data.type, set, lang, `${data.number}.${ext}`);
+
+    return { ...data, path };
 }
 
 export class ImageGetter extends Task<IStatus> {
@@ -63,8 +39,8 @@ export class ImageGetter extends Task<IStatus> {
     projCount = 0;
     projTotal: number;
     total: number;
-    todoTasks: { number: string, uris: Record<string, string> }[] = [];
-    taskMap: Record<string, FileSavers> = {};
+    todoTasks: IImageTask[] = [];
+    taskMap: Record<string, [IImageTask, FileSaver]> = {};
 
     async startImpl(): Promise<void> {
         const files = await Card.aggregate([
@@ -74,17 +50,19 @@ export class ImageGetter extends Task<IStatus> {
 
         const lastFile = files[0]._id;
 
-        const query = {
-            image_uris: { $exists: true },
-            file:       lastFile,
-
-            lang: 'ph',
-        };
-
-        const aggregate = Card.aggregate().match(query).group({
-            _id:  { set: '$set_id', lang: '$lang' },
-            info: { $push: { number: '$collector_number', uris: '$image_uris' } },
-        }).allowDiskUse(true);
+        const aggregate = Card.aggregate()
+            .match({ file: lastFile, lang: 'zhs' })
+            .group({
+                _id:   { set: '$set_id', lang: '$lang' },
+                infos: {
+                    $push: {
+                        number:    '$collector_number',
+                        uris:      '$image_uris',
+                        partsUris: '$card_faces.image_uris',
+                    },
+                },
+            })
+            .allowDiskUse(true);
 
         const total = await Card.aggregate(aggregate.pipeline()).count('total');
 
@@ -96,13 +74,43 @@ export class ImageGetter extends Task<IStatus> {
                 return;
             }
 
+            ++this.projCount;
+
             this.set = proj._id.set;
             this.lang = proj._id.lang;
 
-            this.todoTasks = proj.info;
-            this.total = proj.info.length;
+            this.todoTasks = [];
 
-            ++this.projCount;
+            for (const info of proj.infos) {
+                if (info.uris != null) {
+                    for (const type in info.uris) {
+                        this.todoTasks.push(addPath({
+                            number: info.number,
+                            type,
+                            uri:    info.uris[type],
+                        }, this.set, this.lang));
+                    }
+                }
+
+                if (info.partsUris != null) {
+                    for (let i = 0; i < info.partsUris.length; ++i) {
+                        for (const type in info.partsUris[i]) {
+                            this.todoTasks.push(addPath({
+                                number: info.number,
+                                part:   i,
+                                type,
+                                uri:    info.partsUris[i][type],
+                            }, this.set, this.lang));
+                        }
+                    }
+                }
+            }
+
+            this.todoTasks = this.todoTasks.filter(task => task.type === 'png');
+
+            this.total = this.todoTasks.length;
+
+            this.todoTasks = this.todoTasks.filter(task => !FileSaver.fileExists(task.path));
 
             await this.waitForTasks();
         }
@@ -126,7 +134,13 @@ export class ImageGetter extends Task<IStatus> {
         process.stdout.write(`${this.set} ${this.projCount}/${this.projTotal} ${this.lang} ${finished}/${this.total}`);
 
         for (const n in this.taskMap) {
-            process.stdout.write(' ' + n);
+            const task = this.taskMap[n][0];
+
+            const info = task.part != null
+                ? `${task.number}-${task.part}/${task.type}`
+                : `${task.number}/${task.type}`;
+
+            process.stdout.write(' ' + info);
         }
     }
 
@@ -139,7 +153,12 @@ export class ImageGetter extends Task<IStatus> {
             }).on('error', reject);
         });
 
-        this.pushTask();
+        if (this.rest() === 0) {
+            this.print();
+            this.emit('all-end');
+        } else {
+            this.pushTask();
+        }
 
         return promise;
     }
@@ -148,19 +167,8 @@ export class ImageGetter extends Task<IStatus> {
         while (this.working() < 10 && this.todoTasks.length > 0) {
             const task = this.todoTasks.shift()!;
 
-            const pairs = Object
-                .entries(task.uris)
-                .filter(v => v[0] === 'png')
-                .map(([type, uri]): [string, string] => {
-                    const ext = type === 'png' ? 'png' : 'jpg';
-                    const path = join(asset, 'magic', 'card', type, this.set, this.lang, task.number + '.' + ext);
-
-                    return [uri, path];
-                })
-                .filter(v => !FileSaver.fileExists(v[1]));
-
-            if (pairs.length > 0) {
-                const savers = new FileSavers(pairs);
+            if (task != null) {
+                const savers = new FileSaver(task.uri, task.path);
 
                 savers.on('end', () => {
                     delete this.taskMap[task.number];
@@ -172,13 +180,13 @@ export class ImageGetter extends Task<IStatus> {
                     }
                 }).on('error', err => {
                     for (const k in this.taskMap) {
-                        this.taskMap[k].stop();
+                        this.taskMap[k][1].stop();
                     }
 
                     this.emit('error', err);
                 });
 
-                this.taskMap[task.number] = savers;
+                this.taskMap[task.number] = [task, savers];
                 this.print();
                 savers.start();
             } else {
@@ -195,7 +203,7 @@ export class ImageGetter extends Task<IStatus> {
         this.todoTasks = [];
 
         for (const k in this.taskMap) {
-            this.taskMap[k].stop();
+            this.taskMap[k][1].stop();
         }
     }
 
