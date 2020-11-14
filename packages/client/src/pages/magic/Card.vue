@@ -31,10 +31,17 @@
                     </q-img>
                 </div>
 
-                <div v-if="layout === 'transform'" class="image-button">
+                <div v-if="['transform','modal_dfc'].includes(layout)" class="image-button">
                     <q-btn
                         v-if="layout === 'transform'"
                         :label="$t('magic.card.layout.transform')"
+                        outline
+                        @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
+                    />
+
+                    <q-btn
+                        v-else-if="layout === 'modal_dfc'"
+                        :label="$t('magic.card.layout.another_face')"
                         outline
                         @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
                     />
@@ -127,9 +134,10 @@
 <style lang="stylus" scoped>
 .image-button
     margin-top 20px
+    text-align center
 
 .artist-line
-    margin-top 10px
+    margin-top 20px
     text-align center
 
 .name-line
@@ -168,7 +176,7 @@
 .image
     padding-bottom calc(100% / (745/1040))
 
-    &.layout-transform
+    &.layout-transform, &.layout-modal_dfc
         position relative
 
         transform-style preserve-3d
@@ -358,12 +366,14 @@ export default {
         artist() { return this.part?.artist; },
 
         imageUrls() {
-            if (this.layout === 'transform') {
+            switch (this.layout) {
+            case 'transform':
+            case 'modal_dfc':
                 return [
                     `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=0`,
                     `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=1`,
                 ];
-            } else {
+            default:
                 return [
                     `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`,
                 ];

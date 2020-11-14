@@ -12,6 +12,7 @@
         <div class="col">
             <div class="special-line q-mb-md">
                 <q-btn-group outline>
+                    <q-btn outline label="oracle" @click="loadData('inconsistent-oracle')" />
                     <q-btn outline label="unified" @click="loadData('inconsistent-unified')" />
                     <q-btn outline label="paren" @click="loadData('parentheses')" />
                 </q-btn-group>
@@ -19,6 +20,23 @@
                 <span v-if="total != null" class="q-ml-md">
                     {{ total }}
                 </span>
+
+                <q-btn
+                    class="q-ml-md"
+                    outline
+                    label="remove paren"
+                    @click="removeParen"
+                />
+
+                <q-input v-model="remove" class="q-ml-md" style="display: inline-flex">
+                    <template v-slot:append>
+                        <q-btn
+                            label="remove all"
+                            flat dense
+                            @click="removeText"
+                        />
+                    </template>
+                </q-input>
             </div>
 
             <div class="id-line row items-center">
@@ -145,6 +163,8 @@ export default {
 
     data: () => ({
         data: null,
+
+        remove: '',
     }),
 
     computed: {
@@ -152,7 +172,24 @@ export default {
         lang() { return this.data?.lang ?? this.$route.query.lang; },
         set() { return this.data?.setId ?? this.$route.query.set; },
         number() { return this.data?.number ?? this.$route.query.number; },
-        partIndex() { return this.data?.partIndex ?? this.$route.query.part ?? 0; },
+
+        partIndex: {
+            get() { return this.$route.query.part ?? this.data?.partIndex ?? 0; },
+            set(newValue) {
+                if (this.data?.partIndex != null) {
+                    this.data.partIndex = newValue;
+                    this.$forceUpdate();
+                } else {
+                    this.$router.replace({
+                        query: {
+                            tab:  this.$route.query.tab,
+                            part: newValue,
+                        },
+                    });
+                }
+            },
+
+        },
 
         total() { return this.data?.total; },
 
@@ -188,9 +225,11 @@ export default {
                 return null;
             }
 
-            if (this.layout === 'transform') {
-                return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=${this.partIndex}`;
-            } else {
+            switch (this.layout) {
+            case 'transform':
+            case 'modal_dfc':
+                return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=${this.partIndex}`; ;
+            default:
                 return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
             }
         },
@@ -202,9 +241,9 @@ export default {
     },
 
     methods: {
-        async loadData(editType) {
+        async loadData(editType, update = true) {
             if (editType != null) {
-                if (this.data != null) {
+                if (this.data != null && update) {
                     await this.update();
                 }
 
@@ -231,9 +270,23 @@ export default {
         },
 
         async update() {
-            await this.apiPost('/magic/card/update', {
+            await this.apiPost('/magic/card/update?id=' + this.id, {
                 data: this.data,
             });
+        },
+
+        removeParen() {
+            this.oracleText = this.oracleText.replace(/ *\([^)]+\) */g, '').trim();
+            this.unifiedText = this.unifiedText.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+        },
+
+        async removeText() {
+            await this.apiPost('/magic/card/remove-text', {
+                text: this.remove,
+                lang: this.$store.getters['magic/locale'],
+            });
+
+            await this.loadData('parentheses', false);
         },
     },
 };

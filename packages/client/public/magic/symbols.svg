@@ -696,7 +696,7 @@
     <use href="#symbol-W:old" x="735" y="525" width="100" height="100" />
     <use href="#symbol-HW" x="865" y="525" width="100" height="100" />
     <use href="#symbol-HR" x="970" y="525" width="100" height="100" />
-    <use href="#symbol-P" x="10" y="630" width="100" height="100" />
+    <use href="#symbol-P" x="0" y="630" width="100" height="100" />
     <use href="#symbol-E" x="105" y="630" width="100" height="100" />
     <use href="#symbol-A" x="210" y="630" width="100" height="100" />
     <use href="#symbol-CHAOS" x="0" y="735" width="130" height="100" />
@@ -763,7 +763,7 @@
     <view id="icon-W:old" viewBox="735 525 100 100" />
     <view id="icon-HW" viewBox="865 525 100 100" />
     <view id="icon-HR" viewBox="970 525 100 100" />
-    <view id="icon-P" viewBox="10 630 100 100" />
+    <view id="icon-P" viewBox="0 630 100 100" />
     <view id="icon-E" viewBox="105 630 100 100" />
     <view id="icon-A" viewBox="210 630 100 100" />
     <view id="icon-CHAOS" viewBox="0 735 130 100" />

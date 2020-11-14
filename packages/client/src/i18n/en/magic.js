@@ -115,7 +115,8 @@ export default {
         },
 
         'layout': {
-            transform: '转化',
+            transform:    'Transform',
+            another_face: 'Another Face',
         },
     },
 };

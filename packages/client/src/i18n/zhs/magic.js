@@ -104,7 +104,8 @@ export default {
         },
 
         'layout': {
-            transform: '转化',
+            transform:    '转化',
+            another_face: '另一面',
         },
     },
 };
