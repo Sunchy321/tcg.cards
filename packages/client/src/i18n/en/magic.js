@@ -113,5 +113,9 @@ export default {
             unified: 'Unified',
             printed: 'Printed',
         },
+
+        'layout': {
+            transform: '转化',
+        },
     },
 };

@@ -1,10 +1,7 @@
 <template>
     <div class="q-pa-md row">
         <div class="col-3 q-mr-md">
-            <q-img
-                :src="imageUrl" :ratio="745/1040"
-                native-context-menu
-            >
+            <q-img :src="imageUrl" :ratio="745/1040" native-context-menu>
                 <template v-slot:error>
                     <div class="card-not-found">
                         <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
@@ -15,7 +12,8 @@
         <div class="col">
             <div class="special-line q-mb-md">
                 <q-btn-group outline>
-                    <q-btn outline label="Unified" @click="loadData('incorrect-unified')" />
+                    <q-btn outline label="unified" @click="loadData('inconsistent-unified')" />
+                    <q-btn outline label="paren" @click="loadData('parentheses')" />
                 </q-btn-group>
 
                 <span v-if="total != null" class="q-ml-md">
@@ -28,9 +26,15 @@
                     {{ id }}
                 </div>
 
-                <div class="lang q-ml-md">
+                <div class="lang q-mx-md">
                     {{ lang }}
                 </div>
+
+                <q-btn-toggle
+                    v-model="partIndex"
+                    :options="partOptions"
+                    outline dense
+                />
 
                 <div class="space" />
 
@@ -100,6 +104,15 @@
 table
     width 100%
 
+    & .title
+        width 50px
+
+    & .name
+        width 150px
+
+    & .typeline
+        width 250px
+
 </style>
 
 <script>
@@ -131,25 +144,32 @@ export default {
     name: 'DataCard',
 
     data: () => ({
-        dbQuery:   '',
-        data:      null,
-        partIndex: 0,
+        data: null,
     }),
 
     computed: {
-
-        id() { return this.$route.query.id ?? this.data?.cardId; },
-        lang() { return this.$route.query.lang ?? this.data?.lang; },
-        set() { return this.$route.query.set ?? this.data?.setId; },
-        number() { return this.$route.query.number ?? this.data?.number; },
-
-        imageUrl() {
-            return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
-        },
+        id() { return this.data?.cardId ?? this.$route.query.id; },
+        lang() { return this.data?.lang ?? this.$route.query.lang; },
+        set() { return this.data?.setId ?? this.$route.query.set; },
+        number() { return this.data?.number ?? this.$route.query.number; },
+        partIndex() { return this.data?.partIndex ?? this.$route.query.part ?? 0; },
 
         total() { return this.data?.total; },
 
-        part() { return this.data?.parts[this.partIndex]; },
+        layout() { return this.data?.layout; },
+
+        partCount() { return this.data?.parts?.length ?? 0; },
+        partOptions() {
+            const result = [];
+
+            for (let i = 0; i < this.partCount; ++i) {
+                result.push({ value: i, label: i });
+            }
+
+            return result;
+        },
+
+        part() { return this.data?.parts?.[this.partIndex]; },
 
         oracleName:      field('oracle', 'name'),
         oracleTypeline:  field('oracle', 'typeline'),
@@ -163,6 +183,18 @@ export default {
 
         flavor: field('flavorText'),
 
+        imageUrl() {
+            if (this.data == null) {
+                return null;
+            }
+
+            if (this.layout === 'transform') {
+                return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=${this.partIndex}`;
+            } else {
+                return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
+            }
+        },
+
     },
 
     mounted() {
@@ -170,18 +202,22 @@ export default {
     },
 
     methods: {
-        async loadData(special) {
-            if (special != null) {
+        async loadData(editType) {
+            if (editType != null) {
                 if (this.data != null) {
                     await this.update();
                 }
 
-                const { data } = await this.apiGet('/magic/card/special', {
-                    type: special,
+                const { data } = await this.apiGet('/magic/card/need-edit', {
+                    type: editType,
                     lang: this.$store.getters['magic/locale'],
                 });
 
-                this.data = data;
+                if (data != null && data !== '') {
+                    this.data = data;
+                } else {
+                    this.data = null;
+                }
             } else if (this.id && this.lang && this.set && this.number) {
                 const { data } = await this.apiGet('/magic/card/raw', {
                     id:     this.id,

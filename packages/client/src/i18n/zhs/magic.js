@@ -102,5 +102,9 @@ export default {
             unified: '一致描述',
             printed: '牌面描述',
         },
+
+        'layout': {
+            transform: '转化',
+        },
     },
 };

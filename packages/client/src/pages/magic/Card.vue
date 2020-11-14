@@ -2,16 +2,43 @@
     <q-page class="row q-pa-md">
         <template v-if="data != null">
             <div class="col-3">
-                <q-img
-                    :src="imageUrl" :ratio="745/1040"
-                    native-context-menu
-                >
-                    <template v-slot:error>
-                        <div class="card-not-found">
-                            <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
-                        </div>
-                    </template>
-                </q-img>
+                <div class="image" :class="`layout-${layout} part-${partIndex}`">
+                    <q-img
+                        class="front"
+                        :src="imageUrls[0]"
+                        :ratio="745/1040"
+                        native-context-menu
+                    >
+                        <template v-slot:error>
+                            <div class="card-not-found">
+                                <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
+                            </div>
+                        </template>
+                    </q-img>
+
+                    <q-img
+                        v-if="imageUrls[1] != null"
+                        class="back"
+                        :src="imageUrls[1]"
+                        :ratio="745/1040"
+                        native-context-menu
+                    >
+                        <template v-slot:error>
+                            <div class="card-not-found">
+                                <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
+                            </div>
+                        </template>
+                    </q-img>
+                </div>
+
+                <div v-if="layout === 'transform'" class="image-button">
+                    <q-btn
+                        v-if="layout === 'transform'"
+                        :label="$t('magic.card.layout.transform')"
+                        outline
+                        @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
+                    />
+                </div>
 
                 <div class="artist-line">
                     {{ artist }}
@@ -30,7 +57,7 @@
                             v-for="(s, i) in cost" :key="i"
                             :class="'magic-symbol icon-' + s"
                             :src="`magic/symbols.svg#icon-${s}`"
-                            alt="`{${s}}`"
+                            :alt="`{${s}}`"
                         >
                     </div>
                 </div>
@@ -60,10 +87,11 @@
                 </div>
 
                 <div class="text-mode">
-                    <btn-select
+                    <q-btn-toggle
                         v-model="textMode"
                         :options="textModeOptions"
-                        flat spread
+                        toggle-color="primary"
+                        outline spread
                     />
                 </div>
 
@@ -97,10 +125,8 @@
 </template>
 
 <style lang="stylus" scoped>
-.card-not-found
-    width 100%
-    background-color transparent !important
-    padding 0 !important
+.image-button
+    margin-top 20px
 
 .artist-line
     margin-top 10px
@@ -138,6 +164,36 @@
 
     border 1px solid $primary
     border-radius 5px
+
+.image
+    padding-bottom calc(100% / (745/1040))
+
+    &.layout-transform
+        position relative
+
+        transform-style preserve-3d
+        transition transform 0.5s
+
+        & > .front, & > .back
+            position absolute
+            top 0
+            left 0
+
+            backface-visibility hidden
+
+        & > .front
+            transform rotateY(0deg)
+
+        & > .back
+            transform rotateY(180deg)
+
+        &.part-1
+            transform rotateY(180deg)
+
+.card-not-found
+    width 100%
+    background-color transparent !important
+    padding 0 !important
 
 .name
     display inline
@@ -185,7 +241,6 @@
 <script>
 import basic from 'src/mixins/basic';
 
-import BtnSelect from 'components/BtnSelect';
 import MagicColor from 'components/magic/Color';
 import MagicText from 'components/magic/Text';
 
@@ -197,15 +252,14 @@ import { imageBase } from 'boot/backend';
 export default {
     name: 'Card',
 
-    components: { BtnSelect, MagicColor, MagicText },
+    components: { MagicColor, MagicText },
 
     mixins: [basic],
 
     data: () => ({
         unsubscribe: null,
 
-        data:      null,
-        partIndex: 0,
+        data: null,
     }),
 
     computed: {
@@ -261,8 +315,14 @@ export default {
             set(newValue) { this.$router.replace({ query: { ...this.$route.query, number: newValue } }); },
         },
 
+        partIndex: {
+            get() { return this.$route.query.part ?? 0; },
+            set(newValue) { this.$router.replace({ query: { ...this.$route.query, part: newValue } }); },
+        },
+
         part() { return this.data?.parts?.[this.partIndex]; },
 
+        layout() { return this.data?.layout; },
         cost() { return this.part?.cost; },
 
         info() {
@@ -297,8 +357,17 @@ export default {
 
         artist() { return this.part?.artist; },
 
-        imageUrl() {
-            return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
+        imageUrls() {
+            if (this.layout === 'transform') {
+                return [
+                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=0`,
+                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=1`,
+                ];
+            } else {
+                return [
+                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`,
+                ];
+            }
         },
     },
 
@@ -306,9 +375,23 @@ export default {
         $route: {
             immediate: true,
             handler(newValue, oldValue) {
-                if (oldValue == null || oldValue.query.q === newValue.query.q) {
+                if (oldValue == null) {
                     this.loadData();
+                    return;
                 }
+
+                const oldQuery = oldValue.query;
+                const newQuery = newValue.query;
+
+                if (oldQuery.q !== newQuery.q) {
+                    return;
+                }
+
+                if (oldQuery.part !== newQuery.part) {
+                    return;
+                }
+
+                this.loadData();
             },
         },
     },
@@ -356,6 +439,7 @@ export default {
                         lang:   this.lang,
                         set:    this.set,
                         number: this.number,
+                        part:   this.partIndex,
                     },
                 });
             }
