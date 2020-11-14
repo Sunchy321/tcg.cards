@@ -15,15 +15,23 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
 
+function imagePath(lang: string, set: string, number: string, part?: string) {
+    if (part != null) {
+        return `${asset}/magic/card/png/${set}/${lang}/${number}-${part}.png`;
+    } else {
+        return `${asset}/magic/card/png/${set}/${lang}/${number}.png`;
+    }
+}
+
 router.get('/', async ctx => {
-    const { lang = 'en', set, number } = ctx.query;
+    const { lang = 'en', set, number, part } = ctx.query;
 
     if (set == null || number == null) {
         ctx.status = 404;
         return;
     }
 
-    const path = `${asset}/magic/card/png/${set}/${lang}/${number}.png`;
+    const path = imagePath(lang, set, number, part);
 
     if (existsSync(path)) {
         ctx.response.set('content-type', mime.lookup(path) as string);
@@ -33,7 +41,7 @@ router.get('/', async ctx => {
 
     if (ctx.query['auto-locale'] != null) {
         for (const l of locales) {
-            const path = `${asset}/magic/card/png/${set}/${l}/${number}.png`;
+            const path = imagePath(l, set, number, part);
 
             if (existsSync(path)) {
                 ctx.response.set('content-type', mime.lookup(path) as string);
