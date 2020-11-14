@@ -4,7 +4,6 @@ import { DefaultState, Context } from 'koa';
 import jwtAuth from '@/middlewares/jwt-auth';
 
 import Card, { ICard } from '../db/card';
-import { Document } from 'mongoose';
 
 import { omitBy, random } from 'lodash';
 
@@ -73,31 +72,6 @@ router.get('/raw',
     },
 );
 
-async function tryUpdate(
-    oldCard: ICard & Document,
-    newCard: ICard & { _id: string },
-    index: number,
-    firstKey: 'oracle' | 'unified',
-    lastKey: 'name' | 'typeline' | 'text',
-) {
-    const oldValue = oldCard.parts[index][firstKey][lastKey];
-    const newValue = newCard.parts[index][firstKey][lastKey];
-
-    if (oldValue !== newValue) {
-        if (firstKey === 'oracle') {
-            await Card.updateMany(
-                { cardId: newCard.cardId },
-                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue?.trim() } },
-            );
-        } else {
-            await Card.updateMany(
-                { cardId: newCard.cardId, lang: newCard.lang },
-                { $set: { [`parts.${index}.${firstKey}.${lastKey}`]: newValue?.trim() } },
-            );
-        }
-    }
-}
-
 router.post('/update',
     jwtAuth({ admin: true }),
     async ctx => {
@@ -109,12 +83,17 @@ router.post('/update',
             await old.replaceOne(data);
 
             for (let i = 0; i < data.parts.length; ++i) {
-                await tryUpdate(old, data, i, 'oracle', 'name');
-                await tryUpdate(old, data, i, 'oracle', 'typeline');
-                await tryUpdate(old, data, i, 'oracle', 'text');
-                await tryUpdate(old, data, i, 'unified', 'name');
-                await tryUpdate(old, data, i, 'unified', 'typeline');
-                await tryUpdate(old, data, i, 'unified', 'text');
+                const part = data.parts[i];
+
+                await Card.updateMany(
+                    { cardId: data.cardId },
+                    { $set: { [`parts.${i}.oracle`]: part.oracle } },
+                );
+
+                await Card.updateMany(
+                    { cardId: data.cardId, lang: data.lang },
+                    { $set: { [`parts.${i}.unified`]: part.unified } },
+                );
             }
 
             ctx.status = 200;
@@ -124,53 +103,81 @@ router.post('/update',
     },
 );
 
-router.get('/special',
-    // jwtAuth({ admin: true }),
-    async ctx => {
-        switch (ctx.query.type) {
-        case 'incorrect-unified': {
-            const aggregate = Card.aggregate().allowDiskUse(true);
+interface INeedEditResult {
+    _id: { id: string, lang: string, part: number }
+}
 
-            if (ctx.query.lang != null) {
-                aggregate.match({ lang: ctx.query.lang });
-            }
+function defaultAggregate(lang?: string) {
+    const aggregate = Card.aggregate().allowDiskUse(true);
 
-            aggregate.unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-                .group({
-                    _id: {
-                        id:   '$cardId',
-                        lang: '$lang',
-                        part: '$partIndex',
-                    },
-                    name:     { $addToSet: '$parts.unified.name' },
-                    typeline: { $addToSet: '$parts.unified.typeline' },
-                    text:     { $addToSet: '$parts.unified.text' },
-                })
-                .match({
-                    $or: [
-                        { name: { $not: { $size: 1 } } },
-                        { typeline: { $not: { $size: 1 } } },
-                        { text: { $not: { $size: 1 } } },
-                    ],
-                });
+    if (lang != null) {
+        aggregate.match({ lang });
+    }
 
-            const result = await aggregate;
+    aggregate
+        .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
+        .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
 
-            if (result.length > 0) {
-                const cards = await findCard(result[0]._id.id, ctx.query.lang);
+    return aggregate;
+}
 
-                if (cards.length > 0) {
-                    ctx.body = {
-                        ...cards[0],
-                        total: result.length,
-                    };
-                } else {
-                    ctx.status = 404;
-                }
-            } else {
-                ctx.status = 404;
-            }
+const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult[]>> = {
+    'inconsistent-unified': async lang => {
+        return await defaultAggregate(lang)
+            .group({
+                _id:      '$info',
+                name:     { $addToSet: '$parts.unified.name' },
+                typeline: { $addToSet: '$parts.unified.typeline' },
+                text:     { $addToSet: '$parts.unified.text' },
+            })
+            .match({
+                $or: [
+                    { name: { $not: { $size: 1 } } },
+                    { typeline: { $not: { $size: 1 } } },
+                    { text: { $not: { $size: 1 } } },
+                ],
+            });
+    },
+
+    'parentheses': async lang => {
+        const matches: Record<string, RegExp>[] = [{ 'parts.oracle.text': /\(.+\)/ }];
+
+        if (lang != null) {
+            matches.push({ 'parts.unified.text': lang === 'zhs' || lang === 'zht' ? /（.+）/ : /\(.+\)/ });
         }
+
+        return await defaultAggregate(lang)
+            .match({ $or: matches })
+            .group({ _id: '$info' });
+    },
+};
+
+router.get('/need-edit',
+    jwtAuth({ admin: true }),
+    async ctx => {
+        const getter = needEditGetters[ctx.query.type];
+
+        if (getter == null) {
+            ctx.status = 404;
+            return;
+        }
+
+        const result = await getter(ctx.query.lang);
+
+        if (result.length > 0) {
+            const cards = await findCard(result[0]._id.id, ctx.query.lang);
+
+            if (cards.length > 0) {
+                ctx.body = {
+                    ...cards[0],
+                    partIndex: result[0]._id.part,
+                    total:     result.length,
+                };
+            } else {
+                ctx.body = null;
+            }
+        } else {
+            ctx.body = null;
         }
     },
 );
