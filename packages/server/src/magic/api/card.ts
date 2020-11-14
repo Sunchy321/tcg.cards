@@ -4,8 +4,9 @@ import { DefaultState, Context } from 'koa';
 import jwtAuth from '@/middlewares/jwt-auth';
 
 import Card, { ICard } from '../db/card';
+import { Document } from 'mongoose';
 
-import { omitBy, random } from 'lodash';
+import { escapeRegExp, omitBy, random } from 'lodash';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -115,6 +116,7 @@ function defaultAggregate(lang?: string) {
     }
 
     aggregate
+        .sort({ releaseDate: -1 })
         .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
         .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
 
@@ -122,6 +124,23 @@ function defaultAggregate(lang?: string) {
 }
 
 const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult[]>> = {
+    'inconsistent-oracle': async lang => {
+        return await defaultAggregate(lang)
+            .group({
+                _id:      '$info',
+                name:     { $addToSet: '$parts.oracle.name' },
+                typeline: { $addToSet: '$parts.oracle.typeline' },
+                text:     { $addToSet: '$parts.oracle.text' },
+            })
+            .match({
+                $or: [
+                    { name: { $not: { $size: 1 } } },
+                    { typeline: { $not: { $size: 1 } } },
+                    { text: { $not: { $size: 1 } } },
+                ],
+            });
+    },
+
     'inconsistent-unified': async lang => {
         return await defaultAggregate(lang)
             .group({
@@ -139,17 +158,14 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
             });
     },
 
-    'parentheses': async lang => {
-        const matches: Record<string, RegExp>[] = [{ 'parts.oracle.text': /\(.+\)/ }];
-
-        if (lang != null) {
-            matches.push({ 'parts.unified.text': lang === 'zhs' || lang === 'zht' ? /（.+）/ : /\(.+\)/ });
-        }
-
-        return await defaultAggregate(lang)
-            .match({ $or: matches })
-            .group({ _id: '$info' });
-    },
+    'parentheses': async lang => await defaultAggregate(lang)
+        .match({
+            $or: [
+                { 'parts.oracle.text': /\(.+\)/ },
+                { 'parts.unified.text': /[(（].+[)）]/ },
+            ],
+        })
+        .group({ _id: '$info' }),
 };
 
 router.get('/need-edit',
@@ -179,6 +195,38 @@ router.get('/need-edit',
         } else {
             ctx.body = null;
         }
+    },
+);
+
+router.post('/remove-text',
+    jwtAuth({ admin: true }),
+    async ctx => {
+        const { text, lang } = ctx.request.body;
+
+        const matchRegex = new RegExp(escapeRegExp(text));
+        const replaceRegex = new RegExp(' *' + escapeRegExp(text) + ' *');
+
+        for await (const card of Card.find({
+            lang,
+            $or: [
+                { 'parts.oracle.text': matchRegex },
+                { 'parts.unified.text': matchRegex },
+            ],
+        }) as unknown as AsyncGenerator<ICard & Document>) {
+            for (const p of card.parts) {
+                if (p.oracle.text) {
+                    p.oracle.text = p.oracle.text.replace(replaceRegex, '');
+                }
+
+                if (p.unified.text) {
+                    p.unified.text = p.unified.text.replace(replaceRegex, '');
+                }
+            }
+
+            await card.save();
+        }
+
+        ctx.status = 200;
     },
 );
 
