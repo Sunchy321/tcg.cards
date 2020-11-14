@@ -89,7 +89,7 @@
                     map-options
                     @input="v => modifyChangeFormat(i, v)"
                 />
-                <btn-select
+                <q-btn-toggle
                     :value="c.status"
                     :options="statusList"
                     flat
@@ -139,7 +139,6 @@
 </style>
 
 <script>
-import BtnSelect from 'components/BtnSelect';
 import DateInput from 'components/DateInput';
 
 import { capitalize, cloneDeep, deburr } from 'lodash';
@@ -154,7 +153,7 @@ function toIdentifier(text) {
 }
 
 export default {
-    components: { BtnSelect, DateInput },
+    components: { DateInput },
 
     data: () => ({
         url: '',
