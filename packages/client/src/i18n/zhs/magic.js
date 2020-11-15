@@ -10,8 +10,6 @@ export default {
         'format-change': '赛制更动',
     },
 
-    '$control': {},
-
     'format': {
         'order':        '顺序',
         'localization': '本地化',
@@ -105,7 +103,11 @@ export default {
 
         'layout': {
             transform:    '转化',
-            another_face: '另一面',
+            turn_over:    '翻转',
+            rotate:       '旋转',
+            another_part: '另一部分',
         },
     },
+
+    'image-wall': '图片墙',
 };

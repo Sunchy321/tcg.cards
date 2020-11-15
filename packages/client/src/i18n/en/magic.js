@@ -11,8 +11,6 @@ export default {
         'format-change': 'Format Change',
     },
 
-    '$control': {},
-
     'format': {
         'order':        'Order',
         'localization': 'Localization',
@@ -116,7 +114,11 @@ export default {
 
         'layout': {
             transform:    'Transform',
-            another_face: 'Another Face',
+            turn_over:    'Turn Over',
+            rotate:       'Rotate',
+            another_part: 'Another Part',
         },
     },
+
+    'image-wall': 'Image Wall',
 };

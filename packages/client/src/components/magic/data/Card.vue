@@ -17,8 +17,7 @@
                     <q-btn outline label="paren" @click="loadData('parentheses')" />
                 </q-btn-group>
 
-                <span v-if="total != null" class="q-ml-md">
-                    {{ total }}
+                <span v-if="total != null" class="q-ml-md">{{ total }}
                 </span>
 
                 <q-btn
@@ -27,16 +26,6 @@
                     label="remove paren"
                     @click="removeParen"
                 />
-
-                <q-input v-model="remove" class="q-ml-md" style="display: inline-flex">
-                    <template v-slot:append>
-                        <q-btn
-                            label="remove all"
-                            flat dense
-                            @click="removeText"
-                        />
-                    </template>
-                </q-input>
             </div>
 
             <div class="id-line row items-center">
@@ -69,13 +58,13 @@
                         Oracle
                     </td>
                     <td class="name">
-                        <q-input v-model="oracleName" dense />
+                        <q-input v-model="oracleName" outlined dense />
                     </td>
                     <td class="typeline">
-                        <q-input v-model="oracleTypeline" dense />
+                        <q-input v-model="oracleTypeline" outlined dense />
                     </td>
                     <td class="text">
-                        <q-input v-model="oracleText" type="textarea" dense />
+                        <q-input v-model="oracleText" outlined type="textarea" dense />
                     </td>
                 </tr>
                 <tr>
@@ -83,13 +72,13 @@
                         Unified
                     </td>
                     <td class="name">
-                        <q-input v-model="unifiedName" dense />
+                        <q-input v-model="unifiedName" outlined dense />
                     </td>
                     <td class="typeline">
-                        <q-input v-model="unifiedTypeline" dense />
+                        <q-input v-model="unifiedTypeline" outlined dense />
                     </td>
                     <td class="text">
-                        <q-input v-model="unifiedText" type="textarea" dense />
+                        <q-input v-model="unifiedText" outlined type="textarea" dense />
                     </td>
                 </tr>
                 <tr>
@@ -97,18 +86,24 @@
                         Printed
                     </td>
                     <td class="name">
-                        <q-input v-model="printedName" dense />
+                        <q-input v-model="printedName" outlined dense />
                     </td>
                     <td class="typeline">
-                        <q-input v-model="printedTypeline" dense />
+                        <q-input v-model="printedTypeline" outlined dense />
                     </td>
                     <td class="text">
-                        <q-input v-model="printedText" type="textarea" dense />
+                        <q-input v-model="printedText" outlined type="textarea" dense />
                     </td>
                 </tr>
             </table>
 
-            <q-input v-model="flavor" type="textarea" />
+            <q-input v-model="flavor" label="Flavor" outlined type="textarea" />
+
+            <q-input
+                v-model="relatedCards"
+                label="Related Cards" outlined
+                dense
+            />
         </div>
     </div>
 </template>
@@ -143,6 +138,7 @@ function field(firstKey, lastKey) {
             set(newValue) {
                 if (this.data != null) {
                     this.data.parts[this.partIndex][firstKey][lastKey] = newValue;
+                    this.$forceUpdate();
                 }
             },
         };
@@ -152,6 +148,7 @@ function field(firstKey, lastKey) {
             set(newValue) {
                 if (this.data != null) {
                     this.data.parts[this.partIndex][firstKey] = newValue;
+                    this.$forceUpdate();
                 }
             },
         };
@@ -163,8 +160,6 @@ export default {
 
     data: () => ({
         data: null,
-
-        remove: '',
     }),
 
     computed: {
@@ -220,6 +215,25 @@ export default {
 
         flavor: field('flavorText'),
 
+        relatedCards: {
+            get() {
+                return this.data?.relatedCards
+                    ?.map(({ relation, cardId }) => relation + '|' + cardId)
+                    ?.join(', ') ?? '';
+            },
+            set(newValue) {
+                const parts = newValue.split(/, /);
+
+                if (this.data != null) {
+                    this.data.relatedCards = parts.map(p => {
+                        const [relation, cardId] = p.split('|');
+
+                        return { relation, cardId };
+                    });
+                }
+            },
+        },
+
         imageUrl() {
             if (this.data == null) {
                 return null;
@@ -233,7 +247,6 @@ export default {
                 return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
             }
         },
-
     },
 
     mounted() {
@@ -278,15 +291,6 @@ export default {
         removeParen() {
             this.oracleText = this.oracleText.replace(/ *\([^)]+\) */g, '').trim();
             this.unifiedText = this.unifiedText.replace(/ *[(（][^)）]+[)）] */g, '').trim();
-        },
-
-        async removeText() {
-            await this.apiPost('/magic/card/remove-text', {
-                text: this.remove,
-                lang: this.$store.getters['magic/locale'],
-            });
-
-            await this.loadData('parentheses', false);
         },
     },
 };
