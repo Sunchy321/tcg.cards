@@ -22,6 +22,7 @@
 
 <script>
 import Scryfall from 'components/magic/data/Scryfall';
+import ScryfallImage from 'components/magic/data/ScryfallImage';
 import Set from 'components/magic/data/Set';
 import Card from 'components/magic/data/Card';
 import BanlistChange from 'components/magic/data/BanlistChange';
@@ -30,11 +31,11 @@ import BanlistCheck from 'components/magic/data/BanlistCheck';
 export default {
     name: 'Data',
 
-    components: { Scryfall, Set, Card, BanlistChange, BanlistCheck },
+    components: { Scryfall, ScryfallImage, Set, Card, BanlistChange, BanlistCheck },
 
     computed: {
         tabs() {
-            return ['scryfall', 'set', 'card', 'banlist-change', 'banlist-check'];
+            return ['scryfall', 'scryfall-image', 'set', 'card', 'banlist-change', 'banlist-check'];
         },
 
         tab: {
@@ -53,6 +54,8 @@ export default {
             switch (this.tab) {
             case 'scryfall':
                 return 'Scryfall';
+            case 'scryfall-image':
+                return 'ScryfallImage';
             case 'set':
                 return 'Set';
             case 'card':

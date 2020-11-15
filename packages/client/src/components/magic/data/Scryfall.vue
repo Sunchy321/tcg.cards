@@ -112,19 +112,6 @@
                     </q-item-section>
                 </q-item>
             </q-list>
-
-            <q-list class="col" bordered separator>
-                <q-item>
-                    <q-item-section>Image</q-item-section>
-                    <q-item-section side>
-                        <q-btn
-                            round dense flat
-                            icon="mdi-download"
-                            @click="getImage"
-                        />
-                    </q-item-section>
-                </q-item>
-            </q-list>
         </div>
 
         <div class="q-mt-xl q-mb-sm">
@@ -316,26 +303,6 @@ export default {
 
         async getSet() {
             const ws = this.apiWs('/magic/scryfall/set/get');
-
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    const progress = JSON.parse(data);
-
-                    this.progress = progress;
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    this.progress = null;
-                    this.loadData();
-
-                    resolve();
-                };
-            });
-        },
-
-        async getImage() {
-            const ws = this.imageWs('/magic/card/get');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
