@@ -6,8 +6,8 @@ export interface IStatus {
 
     amount: {
         updated?: number;
-        total?: number;
         count: number;
+        total?: number;
     };
 
     time?: {

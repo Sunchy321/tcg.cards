@@ -74,6 +74,10 @@ abstract class Task<T> extends EventEmitter {
         this.intervalProgressFunc = postProgress;
         this.intervalProgressId = setInterval(postProgress, ms);
     }
+
+    postIntervalProgress():void {
+        this.intervalProgressFunc?.();
+    }
 }
 
 export default Task;

@@ -8,7 +8,7 @@ import { ImageGetter } from '../scryfall/image';
 
 import { locales } from '@data/magic/basic';
 import { asset } from '@config';
-import { createReadStream, existsSync } from 'fs';
+import { createReadStream, existsSync, readdirSync } from 'fs';
 import mime from 'mime-types';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -54,13 +54,47 @@ router.get('/', async ctx => {
     ctx.status = 404;
 });
 
-const imageGetter = new ImageGetter();
+router.get('/all', async ctx => {
+    const { set, lang, type } = ctx.query;
+
+    const path = `${asset}/magic/card/${type}/${set}/${lang}`;
+
+    if (existsSync(path)) {
+        ctx.body = readdirSync(path)
+            .filter(v => v.endsWith('.png') || v.endsWith('.jpg'))
+            .map(v => v.replace(/\..*$/, ''))
+            .sort((a, b) => {
+                const aLong = a.padStart(10, '0');
+                const bLong = b.padStart(10, '0');
+
+                return aLong < bLong ? -1 : 1;
+            });
+    } else {
+        ctx.status = 404;
+    }
+});
+
+const imageGetters: Record<string, ImageGetter> = { };
 
 router.get('/get',
     websocket,
     jwtAuth({ admin: true }),
     async ctx => {
-        imageGetter.bind(await ctx.ws());
+        const ws = await ctx.ws();
+
+        const type = ctx.query.type;
+
+        if (type == null) {
+            ctx.status = 401;
+            ws.close();
+        } else {
+            if (imageGetters[type] == null) {
+                imageGetters[type] = new ImageGetter(type);
+            }
+
+            imageGetters[type].on('end', () => delete imageGetters[type]);
+            imageGetters[type].bind(ws);
+        }
     },
 );
 

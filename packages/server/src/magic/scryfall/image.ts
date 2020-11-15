@@ -2,13 +2,11 @@ import Task from '@/common/task';
 
 import Card from '../db/scryfall/card';
 
-import { IStatus } from './interface';
-
 import FileSaver from '@/common/save-file';
 import { join } from 'path';
-import readline from 'readline';
 
 import { asset } from '@config';
+import { partition } from 'lodash';
 
 interface IImageProjection {
     _id: { set: string, lang:string },
@@ -16,24 +14,29 @@ interface IImageProjection {
 }
 
 interface IImageTask {
-    number: string,
-    part?: number,
-    type: string,
+    name: string,
     uri: string,
     path: string
 }
 
-function addPath(data: Omit<IImageTask, 'path'>, set: string, lang: string): IImageTask {
-    const ext = data.type === 'png' ? 'png' : 'jpg';
+interface IImageStatus {
+    overall: { count: number, total: number }
+    current: { set: string, lang: string; }
+    status: Record<string, string>
+}
 
-    const path = data.part != null
-        ? join(asset, 'magic', 'card', data.type, set, lang, `${data.number}-${data.part}.${ext}`)
-        : join(asset, 'magic', 'card', data.type, set, lang, `${data.number}.${ext}`);
+function addPath(
+    data: Omit<IImageTask, 'path'>, type: string, set: string, lang: string,
+): IImageTask {
+    const ext = type === 'png' ? 'png' : 'jpg';
+
+    const path = join(asset, 'magic', 'card', type, set, lang, `${data.name}.${ext}`);
 
     return { ...data, path };
 }
 
-export class ImageGetter extends Task<IStatus> {
+export class ImageGetter extends Task<IImageStatus> {
+    type:string;
     set: string;
     lang: string;
 
@@ -42,6 +45,13 @@ export class ImageGetter extends Task<IStatus> {
     total: number;
     todoTasks: IImageTask[] = [];
     taskMap: Record<string, [IImageTask, FileSaver]> = {};
+    statusMap: Record<string, string> = {};
+
+    constructor(type: string) {
+        super();
+
+        this.type = type;
+    }
 
     async startImpl(): Promise<void> {
         const files = await Card.aggregate([
@@ -70,6 +80,18 @@ export class ImageGetter extends Task<IStatus> {
         this.projCount = 0;
         this.projTotal = total[0].total;
 
+        this.todoTasks = [];
+        this.taskMap = {};
+        this.statusMap = {};
+
+        this.intervalProgress(500, function () {
+            return {
+                overall: { count: this.projCount, total: this.projTotal },
+                current: { set: this.set, lang: this.lang },
+                status:  this.statusMap,
+            };
+        });
+
         for await (const proj of aggregate as unknown as AsyncGenerator<IImageProjection>) {
             if (this.status === 'idle') {
                 return;
@@ -81,41 +103,48 @@ export class ImageGetter extends Task<IStatus> {
             this.lang = proj._id.lang;
 
             this.todoTasks = [];
+            this.taskMap = {};
+            this.statusMap = {};
 
             for (const info of proj.infos) {
                 if (info.uris != null) {
-                    for (const type in info.uris) {
-                        this.todoTasks.push(addPath({
-                            number: info.number,
-                            type,
-                            uri:    info.uris[type],
-                        }, this.set, this.lang));
-                    }
+                    const name = info.number;
+                    this.todoTasks.push(addPath({
+                        name,
+                        uri: info.uris[this.type],
+                    }, this.type, this.set, this.lang));
+
+                    this.statusMap[name] = 'waiting';
                 }
 
                 if (info.partsUris != null) {
                     for (let i = 0; i < info.partsUris.length; ++i) {
-                        for (const type in info.partsUris[i]) {
-                            this.todoTasks.push(addPath({
-                                number: info.number,
-                                part:   i,
-                                type,
-                                uri:    info.partsUris[i][type],
-                            }, this.set, this.lang));
-                        }
+                        const name = info.number + '-' + i;
+
+                        this.todoTasks.push(addPath({
+                            name,
+                            uri: info.partsUris[i][this.type],
+                        }, this.type, this.set, this.lang));
+
+                        this.statusMap[name] = 'waiting';
                     }
                 }
             }
 
-            this.todoTasks = this.todoTasks.filter(task => task.type === 'png');
-
             this.total = this.todoTasks.length;
 
-            this.todoTasks = this.todoTasks.filter(task => !FileSaver.fileExists(task.path));
+            const [exists, nonexist] = partition(this.todoTasks, task => FileSaver.fileExists(task.path));
+
+            for (const task of exists) {
+                this.statusMap[task.name] = 'success';
+            }
+
+            this.todoTasks = nonexist;
 
             await this.waitForTasks();
         }
 
+        this.postIntervalProgress();
         this.emit('end');
     }
 
@@ -127,37 +156,15 @@ export class ImageGetter extends Task<IStatus> {
         return Object.keys(this.taskMap).length;
     }
 
-    private print() {
-        const finished = this.total - this.rest() - this.working();
-
-        readline.clearLine(process.stdout, 0);
-
-        process.stdout.write('\r' + ' '.repeat(80) + '\r');
-
-        process.stdout.write(`${this.set} ${this.projCount}/${this.projTotal} ${this.lang} ${finished}/${this.total}`);
-
-        for (const n in this.taskMap) {
-            const task = this.taskMap[n][0];
-
-            const info = task.part != null
-                ? `${task.number}-${task.part}/${task.type}`
-                : `${task.number}/${task.type}`;
-
-            process.stdout.write(' ' + info);
-        }
-    }
-
     private async waitForTasks() {
         const promise = new Promise((resolve, reject) => {
             this.once('all-end', () => {
-                console.log();
                 this.off('error', reject);
                 resolve();
             }).on('error', reject);
         });
 
         if (this.rest() === 0) {
-            this.print();
             this.emit('all-end');
         } else {
             this.pushTask();
@@ -174,27 +181,29 @@ export class ImageGetter extends Task<IStatus> {
                 const savers = new FileSaver(task.uri, task.path);
 
                 savers.on('end', () => {
-                    delete this.taskMap[task.number];
-                    this.print();
+                    delete this.taskMap[task.name];
+                    this.statusMap[task.name] = 'success';
                     this.pushTask();
 
                     if (this.rest() === 0 && this.working() === 0) {
                         this.emit('all-end');
                     }
                 }).on('error', err => {
+                    this.statusMap[task.name] = 'failed';
+
                     for (const k in this.taskMap) {
                         this.taskMap[k][1].stop();
+                        this.statusMap[k] = 'aborted';
                     }
 
+                    this.postIntervalProgress();
                     this.emit('error', err);
                 });
 
-                this.taskMap[task.number] = [task, savers];
-                this.print();
+                this.taskMap[task.name] = [task, savers];
+                this.statusMap[task.name] = 'working';
                 savers.start();
             } else {
-                this.print();
-
                 if (this.rest() === 0 && this.working() === 0) {
                     this.emit('all-end');
                 }
