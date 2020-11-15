@@ -12,9 +12,19 @@
 </style>
 
 <script>
+import Symbol from './Symbol';
+
 export default {
     props: {
         value: { type: String, required: true },
+        tap:   {
+            type:    String,
+            default: 'modern',
+        },
+        white: {
+            type:    String,
+            default: 'modern',
+        },
     },
 
     render() {
@@ -31,10 +41,16 @@ export default {
                 const content = p.slice(1, -1);
 
                 if (symbols.includes(content)) {
-                    const klass = 'magic-symbol icon-' + content;
-                    const src = `magic/symbols.svg#icon-${content}`;
-
-                    result.push(<img class={klass} src={src} alt={p} />);
+                    switch (content) {
+                    case 'T':
+                        result.push(<Symbol value={content} type={this.tap} />);
+                        break;
+                    case 'W':
+                        result.push(<Symbol value={content} type={this.white} />);
+                        break;
+                    default:
+                        result.push(<Symbol value={content} />);
+                    }
                 } else {
                     result.push(<span>{p}</span>);
                 }
