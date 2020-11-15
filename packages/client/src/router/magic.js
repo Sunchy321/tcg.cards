@@ -37,6 +37,13 @@ const routes = [
                     ],
                 },
             },
+            {
+                path:      'image-wall',
+                component: () => import('pages/magic/ImageWall'),
+                meta:      {
+                    title: 'magic.image-wall',
+                },
+            },
         ],
     },
 ];

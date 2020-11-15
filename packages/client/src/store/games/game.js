@@ -44,13 +44,19 @@ export function generateSetting(game, options) {
         };
     }
 
-    actions.init = function ({ commit }, data) {
+    actions.init = function ({ commit, rootGetters }, data) {
         const locale = LocalStorage.getItem(`${game}/locale`);
 
         if (locale != null) {
             commit('locale', locale);
         } else {
-            commit('locale', data.locales[0]);
+            const appLocale = rootGetters.locale;
+
+            if (data.locales.include(appLocale)) {
+                commit('locale', appLocale);
+            } else {
+                commit('locale', data.locales[0]);
+            }
         }
 
         commit('locales', data.locales);

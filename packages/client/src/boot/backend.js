@@ -65,6 +65,21 @@ export default async ({ Vue }) => {
         }
     };
 
+    Vue.prototype.imageGet = function(url, params) {
+        const token = this?.$store?.getters?.['user/token'];
+
+        if (token != null) {
+            return image.get(url, {
+                headers: {
+                    Authentication: 'Bearer ' + token,
+                },
+                params,
+            });
+        } else {
+            return image.get(url, { params });
+        }
+    };
+
     Vue.prototype.imageWs = function(url, params) {
         const token = this?.$store?.getters?.['user/token'];
 
