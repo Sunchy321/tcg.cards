@@ -52,10 +52,14 @@ export interface ICard {
         watermark?: string
     }[],
 
-    relatedCards?: {
+    relatedCards: {
         relation: string,
-        id: string,
-        name: string
+        cardId: string,
+        version?: {
+            lang: string,
+            set: string,
+            number: string
+        }
     }[],
 
     keywords: string[],
@@ -158,15 +162,19 @@ const CardSchema = new Schema({
         watermark:       String,
     }],
 
-    relatedCards: {
-        type: [{
-            _id:      false,
-            relation: String,
-            id:       String,
-            name:     String,
-        }],
-        default: undefined,
-    },
+    relatedCards: [{
+        _id:      false,
+        relation: String,
+        cardId:   String,
+        version:  {
+            type: {
+                lang:   String,
+                set:    String,
+                number: String,
+            },
+            default: undefined,
+        },
+    }],
 
     keywords:     [String],
     producedMana: { type: [String], default: undefined },

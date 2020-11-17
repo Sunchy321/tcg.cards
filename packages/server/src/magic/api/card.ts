@@ -12,7 +12,7 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
 
-function findCard(id: string, lang?: string, set?: string, number?: string) {
+function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
     const aggregate = Card.aggregate().allowDiskUse(true);
 
     aggregate.match(omitBy({ cardId: id, setId: set, number }, v => v == null));
@@ -21,19 +21,43 @@ function findCard(id: string, lang?: string, set?: string, number?: string) {
         aggregate.addFields({ langIsQuery: { $eq: ['$lang', lang] } });
     }
 
-    aggregate.addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } });
-    aggregate.sort({ langIsQuery: -1, langIsEnglish: -1, releaseDate: -1 });
-    aggregate.limit(1);
+    aggregate
+        .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
+        .sort({ langIsQuery: -1, langIsEnglish: -1, releaseDate: -1 })
+        .limit(1);
 
-    return aggregate;
+    return aggregate as unknown as Promise<ICard[]>;
+}
+
+interface IQuickFindResult {
+    _id: string,
+    name: string[]
+}
+
+function quickFind(id: string[], lang?: string): Promise<IQuickFindResult[]> {
+    const aggregate = Card.aggregate().allowDiskUse(true);
+
+    aggregate.match({ cardId: { $in: id } });
+
+    if (lang != null) {
+        aggregate.addFields({ langIsQuery: { $eq: ['$lang', lang] } });
+    }
+
+    aggregate
+        .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
+        .sort({ langIsQuery: -1, langIsEnglish: -1, releaseDate: -1 })
+        .group({
+            _id:  '$cardId',
+            name: { $first: '$parts.unified.name' },
+        });
+
+    return aggregate as unknown as Promise<IQuickFindResult[]>;
 }
 
 router.get('/', async ctx => {
     const { id, lang, set, number } = ctx.query;
 
-    const aggregate = findCard(id, lang, set, number);
-
-    const cards = await aggregate;
+    const cards = await find(id, lang, set, number);
     const versions = await Card.aggregate()
         .match({ cardId: id })
         .sort({ releaseDate: -1 })
@@ -41,12 +65,51 @@ router.get('/', async ctx => {
 
     if (cards.length !== 0) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { _id, __v, ...data } = cards[0];
+        const { relatedCards, ...data } = cards[0];
 
-        ctx.body = {
-            ...data,
-            versions: versions.map(({ lang, setId, number }) => ({ lang, set: setId, number })),
-        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result: any = omitBy(data, ['_id', '__v']);
+
+        result.versions = versions.map(({ lang, setId, number }) => ({ lang, set: setId, number }));
+
+        const relatedCardObjects = await quickFind(
+            relatedCards.filter(r => r.version == null).map(r => r.cardId),
+            cards[0].lang,
+        );
+
+        result.relatedCards = [];
+
+        for (const { relation, cardId, version } of relatedCards) {
+            if (version != null) {
+                const card = await Card.findOne({
+                    cardId,
+                    lang:   version.lang,
+                    setId:  version.set,
+                    number: version.number,
+                });
+
+                if (card != null) {
+                    result.relatedCards.push({
+                        relation,
+                        cardId,
+                        version,
+                        name: card.parts.map(p => p.unified.name).join(' // '),
+                    });
+                }
+            } else {
+                const card = relatedCardObjects.find(o => o._id === cardId);
+
+                if (card != null) {
+                    result.relatedCards.push({
+                        relation,
+                        cardId,
+                        name: card.name.join(' // '),
+                    });
+                }
+            }
+        }
+
+        ctx.body = result;
     } else {
         ctx.status = 404;
     }
@@ -83,17 +146,24 @@ router.post('/update',
         if (old != null) {
             await old.replaceOne(data);
 
-            for (let i = 0; i < data.parts.length; ++i) {
-                const part = data.parts[i];
+            if (data.cardId === old.cardId) {
+                for (let i = 0; i < data.parts.length; ++i) {
+                    const part = data.parts[i];
+
+                    await Card.updateMany(
+                        { cardId: data.cardId },
+                        { $set: { [`parts.${i}.oracle`]: part.oracle } },
+                    );
+
+                    await Card.updateMany(
+                        { cardId: data.cardId, lang: data.lang },
+                        { $set: { [`parts.${i}.unified`]: part.unified } },
+                    );
+                }
 
                 await Card.updateMany(
                     { cardId: data.cardId },
-                    { $set: { [`parts.${i}.oracle`]: part.oracle } },
-                );
-
-                await Card.updateMany(
-                    { cardId: data.cardId, lang: data.lang },
-                    { $set: { [`parts.${i}.unified`]: part.unified } },
+                    { relatedCards: data.relatedCards },
                 );
             }
 
@@ -160,10 +230,19 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
 
     'parentheses': async lang => await defaultAggregate(lang)
         .match({
-            $or: [
-                { 'parts.oracle.text': /\(.+\)/ },
-                { 'parts.unified.text': /[(（].+[)）]/ },
-            ],
+            'cardId': {
+                $nin: [
+                    'svend_geertsen_bio',
+                    'mark_le_pine_bio',
+                    'jakub_slemr_bio',
+                    'punctuate',
+                    'bureaucracy',
+                    'antoine_ruel_bio',
+                    'innistrad_checklist',
+                    'dark_ascension_checklist',
+                ],
+            },
+            'parts.unified.text': /[(（].+[)）]/,
         })
         .group({ _id: '$info' }),
 };
@@ -181,7 +260,7 @@ router.get('/need-edit',
         const result = await getter(ctx.query.lang);
 
         if (result.length > 0) {
-            const cards = await findCard(result[0]._id.id, ctx.query.lang);
+            const cards = await find(result[0]._id.id, ctx.query.lang);
 
             if (cards.length > 0) {
                 ctx.body = {
@@ -203,23 +282,20 @@ router.post('/remove-text',
     async ctx => {
         const { text, lang } = ctx.request.body;
 
+        if (!/^ *[(（]/.test(text) || !/[)）] *$/.test(text)) {
+            return;
+        }
+
         const matchRegex = new RegExp(escapeRegExp(text));
         const replaceRegex = new RegExp(' *' + escapeRegExp(text) + ' *');
 
         for await (const card of Card.find({
             lang,
-            $or: [
-                { 'parts.oracle.text': matchRegex },
-                { 'parts.unified.text': matchRegex },
-            ],
+            'parts.unified.text': matchRegex,
         }) as unknown as AsyncGenerator<ICard & Document>) {
             for (const p of card.parts) {
-                if (p.oracle.text) {
-                    p.oracle.text = p.oracle.text.replace(replaceRegex, '');
-                }
-
                 if (p.unified.text) {
-                    p.unified.text = p.unified.text.replace(replaceRegex, '');
+                    p.unified.text = p.unified.text.replace(replaceRegex, '').trim();
                 }
             }
 

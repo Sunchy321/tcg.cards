@@ -132,19 +132,27 @@ async function mergeWith(
                 watermark:       f.watermark,
             })),
 
-            // TODO postprocess
-            relatedCards: newData.all_parts?.map(p => ({
-                relation: p.component,
-                id:       p.id,
-                name:     p.name,
-            })),
+            relatedCards: [],
 
             keywords:     newData.keywords,
             producedMana: newData.produced_mana != null
                 ? convertColor(newData.produced_mana)
                 : undefined,
 
-            layout:       newData.layout,
+            layout: (() => {
+                if (newData.layout === 'split') {
+                    if (newData.keywords.includes('Aftermath')) {
+                        if (newData.games.includes('paper')) {
+                            return 'aftermath';
+                        } else {
+                            return 'split_arena';
+                        }
+                    }
+                }
+
+                return newData.layout;
+            })(),
+
             frame:        newData.frame,
             frameEffects: newData.frame_effects,
             borderColor:  newData.border_color,
@@ -200,8 +208,6 @@ async function mergeWith(
         card.cardMarketId = newData.cardmarket_id;
         card.scryfall.oracleId = newData.oracle_id;
 
-        // all_parts ignore
-
         for (let i = 0; i < card.parts.length; ++i) {
             const part = card.parts[i];
             const newPart = newData.card_faces[i];
@@ -223,6 +229,12 @@ async function mergeWith(
             part.handModifier = newPart.hand_modifier;
             part.lifeModifier = newPart.life_modifier;
             part.flavorName = newPart.flavor_name;
+
+            part.oracle = {
+                name:     newPart.name,
+                typeline: newPart.type_line,
+                text:     newPart.oracle_text,
+            };
         }
 
         card.cmc = newData.cmc;
