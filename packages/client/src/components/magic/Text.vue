@@ -7,8 +7,9 @@
         margin-left 2px
 
     [lang=zhs] & + &, [lang=zht] & + &,
-    [lang=zhs] &:first-child, [lang=zht] &:first-child
-        margin-left 0px
+    [lang=zhs] &:first-child, [lang=zht] &:first-child,
+    br + &
+        margin-left 0px !important
 </style>
 
 <script>

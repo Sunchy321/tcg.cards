@@ -26,6 +26,16 @@
                     label="remove paren"
                     @click="removeParen"
                 />
+
+                <q-input v-model="remove" class="q-ml-md" style="display: inline-flex">
+                    <template v-slot:append>
+                        <q-btn
+                            label="remove all"
+                            flat dense
+                            @click="removeText"
+                        />
+                    </template>
+                </q-input>
             </div>
 
             <div class="id-line row items-center">
@@ -58,13 +68,15 @@
                         Oracle
                     </td>
                     <td class="name">
-                        <q-input v-model="oracleName" outlined dense />
+                        {{ oracleName }}
                     </td>
                     <td class="typeline">
-                        <q-input v-model="oracleTypeline" outlined dense />
+                        {{ oracleTypeline }}
                     </td>
                     <td class="text">
-                        <q-input v-model="oracleText" outlined type="textarea" dense />
+                        <div v-for="(t, i) in (oracleText || '').split('\n')" :key="i">
+                            {{ t }}
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -101,8 +113,9 @@
 
             <q-input
                 v-model="relatedCards"
-                label="Related Cards" outlined
-                dense
+                debounce="500"
+                label="Related Cards"
+                outlined dense
             />
         </div>
     </div>
@@ -160,6 +173,8 @@ export default {
 
     data: () => ({
         data: null,
+
+        remove: '',
     }),
 
     computed: {
@@ -183,7 +198,6 @@ export default {
                     });
                 }
             },
-
         },
 
         total() { return this.data?.total; },
@@ -218,17 +232,26 @@ export default {
         relatedCards: {
             get() {
                 return this.data?.relatedCards
-                    ?.map(({ relation, cardId }) => relation + '|' + cardId)
+                    ?.map(
+                        ({ relation, cardId, version }) => (version != null
+                            ? [relation, cardId, version.lang, version.set, version.number]
+                            : [relation, cardId]
+                        ).join('|')
+                    )
                     ?.join(', ') ?? '';
             },
             set(newValue) {
-                const parts = newValue.split(/, /);
+                const parts = newValue.split(/, */);
 
                 if (this.data != null) {
                     this.data.relatedCards = parts.map(p => {
-                        const [relation, cardId] = p.split('|');
+                        const [relation, cardId, lang, set, number] = p.split('|');
 
-                        return { relation, cardId };
+                        if (lang != null) {
+                            return { relation, cardId, version: { lang, set, number } };
+                        } else {
+                            return { relation, cardId };
+                        }
                     });
                 }
             },
@@ -289,8 +312,16 @@ export default {
         },
 
         removeParen() {
-            this.oracleText = this.oracleText.replace(/ *\([^)]+\) */g, '').trim();
             this.unifiedText = this.unifiedText.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+        },
+
+        async removeText() {
+            await this.apiPost('/magic/card/remove-text', {
+                text: this.remove,
+                lang: this.$store.getters['magic/locale'],
+            });
+
+            await this.loadData('parentheses', false);
         },
     },
 };

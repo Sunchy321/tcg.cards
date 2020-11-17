@@ -113,10 +113,11 @@ export default {
         },
 
         'layout': {
+            another_part: 'Another Part',
+            flip:         'Flip',
+            rotate:       'Rotate',
             transform:    'Transform',
             turn_over:    'Turn Over',
-            rotate:       'Rotate',
-            another_part: 'Another Part',
         },
     },
 

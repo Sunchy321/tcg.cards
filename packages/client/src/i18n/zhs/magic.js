@@ -102,10 +102,11 @@ export default {
         },
 
         'layout': {
-            transform:    '转化',
-            turn_over:    '翻转',
-            rotate:       '旋转',
             another_part: '另一部分',
+            flip:         '倒转',
+            turn_over:    '翻转',
+            transform:    '转化',
+            rotate:       '旋转',
         },
     },
 

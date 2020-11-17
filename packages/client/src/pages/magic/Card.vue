@@ -4,6 +4,7 @@
             <div class="row">
                 <div class="col-4">
                     <div
+                        v-if="imageUrls != null"
                         class="image"
                         :class="[
                             `layout-${layout}`,
@@ -60,6 +61,13 @@
                         <q-btn
                             v-else-if="layout === 'transform'"
                             :label="$t('magic.card.layout.transform')"
+                            outline
+                            @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
+                        />
+
+                        <q-btn
+                            v-else-if="layout === 'flip'"
+                            :label="$t('magic.card.layout.flip')"
                             outline
                             @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
                         />
@@ -166,8 +174,8 @@
             </div>
 
             <div v-if="relatedCards.length > 0" class="related-card-block">
-                <div v-for="r in relatedCards" :key="r.cardId" class="related-card">
-                    <router-link :to="{ name: 'magic/card', query: { id: r.cardId }}">
+                <div v-for="r in relatedCardInfos" :key="r.cardId" class="related-card">
+                    <router-link :to="r.route">
                         {{ r.name }}
                     </router-link>
                 </div>
@@ -240,6 +248,9 @@
     &.rotate
         transform rotate(90deg) scale(745/1040)
 
+    &.layout-flip.part-1
+        transform rotate(180deg)
+
     &.layout-aftermath.part-1
         transform rotate(-90deg) scale(745/1040)
 
@@ -296,6 +307,9 @@
 
 .related-card
     padding 5px
+
+    &:not(:first-child)
+        border-top 1px solid $primary
 
 .set-line
     position relative
@@ -443,7 +457,36 @@ export default {
 
         relatedCards() { return this.data?.relatedCards ?? []; },
 
+        relatedCardInfos() {
+            return this.relatedCards.map(({ relation, cardId, version, name }) => {
+                if (version != null) {
+                    return {
+                        relation,
+                        cardId,
+                        name,
+                        version,
+                        route: {
+                            name:   'magic/card',
+                            params: { id: cardId },
+                            query:  version,
+                        },
+                    };
+                } else {
+                    return {
+                        relation,
+                        cardId,
+                        name,
+                        route: { name: 'magic/card', params: { id: cardId } },
+                    };
+                }
+            });
+        },
+
         imageUrls() {
+            if (this.set == null || this.number == null) {
+                return null;
+            }
+
             switch (this.layout) {
             case 'transform':
             case 'modal_dfc':
@@ -511,6 +554,22 @@ export default {
                 }
             },
         },
+
+        id: {
+            immediate: true,
+            handler() {
+                if (this.id === 'capital_offense') {
+                    document.body.classList.add('force-lowercase');
+                } else {
+                    document.body.classList.remove('force-lowercase');
+                }
+            },
+        },
+    },
+
+    beforeRouteLeave(to, from, next) {
+        document.body.classList.remove('force-lowercase');
+        next();
     },
 
     created() {
