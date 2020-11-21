@@ -22,7 +22,7 @@
                             <q-item-section side class="code">
                                 {{ l }}
                             </q-item-section>
-                            <q-item-section no-wrap>
+                            <q-item-section>
                                 {{ $t('lang.' + l) }}
                             </q-item-section>
                         </q-item>

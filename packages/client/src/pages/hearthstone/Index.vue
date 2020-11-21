@@ -4,16 +4,6 @@
             <q-input filled size="md" />
         </div>
         <div />
-        <div class="links q-pa-md">
-            <router-link
-                v-for="l in adminLinks"
-                :key="l.name"
-                :to="'/hearthstone/' + l.to"
-                class="link admin"
-            >
-                {{ $t('hearthstone.' + l.name) }}
-            </router-link>
-        </div>
     </q-page>
 </template>
 

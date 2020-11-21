@@ -18,11 +18,7 @@
         <div class="row items-center">
             <div>Bulk Data</div>
 
-            <q-btn
-                flat
-                label="Get"
-                @click="getBulk"
-            />
+            <q-btn flat label="Get" @click="getBulk" />
         </div>
 
         <div class="row q-gutter-md">

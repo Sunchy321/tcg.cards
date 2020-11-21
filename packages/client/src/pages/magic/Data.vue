@@ -9,7 +9,7 @@
             />
         </q-tabs>
 
-        <component :is="tabComponent" />
+        <component :is="tab" />
     </q-page>
 </template>
 
@@ -21,52 +21,25 @@
 </style>
 
 <script>
-import Scryfall from 'components/magic/data/Scryfall';
-import ScryfallImage from 'components/magic/data/ScryfallImage';
-import Set from 'components/magic/data/Set';
-import Card from 'components/magic/data/Card';
-import BanlistChange from 'components/magic/data/BanlistChange';
-import BanlistCheck from 'components/magic/data/BanlistCheck';
+import * as components from 'components/magic/data';
 
 export default {
     name: 'Data',
 
-    components: { Scryfall, ScryfallImage, Set, Card, BanlistChange, BanlistCheck },
+    components: { ...components },
 
     computed: {
         tabs() {
-            return ['scryfall', 'scryfall-image', 'set', 'card', 'banlist-change', 'banlist-check'];
+            return Object.keys(components);
         },
 
         tab: {
             get() {
-                return this.$route.query.tab ?? 'scryfall';
+                return this.$route.query.tab ?? this.tabs[0];
             },
             set(newValue) {
-                this.$router.replace({
-                    path:  '/magic/data',
-                    query: { tab: newValue },
-                });
+                this.$router.replace({ query: { tab: newValue } });
             },
-        },
-
-        tabComponent() {
-            switch (this.tab) {
-            case 'scryfall':
-                return 'Scryfall';
-            case 'scryfall-image':
-                return 'ScryfallImage';
-            case 'set':
-                return 'Set';
-            case 'card':
-                return 'Card';
-            case 'banlist-change':
-                return 'BanlistChange';
-            case 'banlist-check':
-                return 'BanlistCheck';
-            default:
-                return null;
-            }
         },
     },
 

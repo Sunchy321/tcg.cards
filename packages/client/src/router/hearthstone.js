@@ -16,7 +16,7 @@ const routes = [
                 component: () => import('pages/hearthstone/Data'),
                 meta:      {
                     requireAdmin: true,
-                    title:        'hearthstone.hsdata.$self',
+                    title:        'data',
                 },
             },
         ],
