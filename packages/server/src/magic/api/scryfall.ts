@@ -43,6 +43,7 @@ router.get('/bulk/get',
     jwtAuth({ admin: true }),
     async ctx => {
         bulkGetter.bind(await ctx.ws());
+        ctx.status = 200;
     },
 );
 
@@ -67,6 +68,8 @@ router.get('/bulk/load',
             bulkLoaders[file].on('end', () => delete bulkLoaders[file]);
             bulkLoaders[file].bind(ws);
         }
+
+        ctx.status = 200;
     },
 );
 
@@ -77,6 +80,7 @@ router.get('/set/get',
     jwtAuth({ admin: true }),
     async ctx => {
         setGetter.bind(await ctx.ws());
+        ctx.status = 200;
     },
 );
 
@@ -87,6 +91,7 @@ router.get('/set/merge',
     jwtAuth({ admin: true }),
     async ctx => {
         setMerger.bind(await ctx.ws());
+        ctx.status = 200;
     },
 );
 
@@ -97,6 +102,7 @@ router.get('/card/merge',
     jwtAuth({ admin: true }),
     async ctx => {
         cardMerger.bind(await ctx.ws());
+        ctx.status = 200;
     },
 );
 
@@ -107,6 +113,7 @@ router.get('/ruling/merge',
     jwtAuth({ admin: true }),
     async ctx => {
         rulingMerger.bind(await ctx.ws());
+        ctx.status = 200;
     },
 );
 

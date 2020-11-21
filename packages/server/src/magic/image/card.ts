@@ -95,6 +95,8 @@ router.get('/get',
             imageGetters[type].on('end', () => delete imageGetters[type]);
             imageGetters[type].bind(ws);
         }
+
+        ctx.status = 200;
     },
 );
 
