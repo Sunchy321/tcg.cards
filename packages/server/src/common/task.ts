@@ -34,6 +34,10 @@ abstract class Task<T> extends EventEmitter {
     bind(ws: WebSocket): void {
         this
             .on('progress', p => ws.send(JSON.stringify(p)))
+            .on('error', e => {
+                ws.send(JSON.stringify({ error: true, ...e }));
+                ws.close();
+            })
             .on('end', () => ws.close());
 
         ws.on('close', () => this.stop());

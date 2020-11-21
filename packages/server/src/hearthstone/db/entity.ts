@@ -12,7 +12,7 @@ export interface IPower {
     playRequirements: IPlayRequirement[];
 }
 
-export interface IEntityData {
+export interface IEntity {
     version: string;
 
     cardId: string;
@@ -39,32 +39,6 @@ export interface IEntityData {
     raceBucket: string;
     coin: number;
 
-    puzzleType: string;
-    isQuest: boolean | 'side'; // true if is quest, 'side' if is also sidequest
-    questProgress: number;
-    questReward: string;
-    thresholdValue: number;
-    mechanics: string[];
-    referencedTags: string[];
-
-    powers: IPower[];
-
-    entourages: string[];
-    heroPower: string;
-    heroicHeroPower: string;
-    relatedCardInCollection: string;
-    twinspellCopy: string;
-    upgradedPower: string;
-    swapTo: string;
-
-    scoreValue1: number;
-    scoreValue2: number;
-    multipleClasses: number;
-    mouseOverCard: string;
-    countAsCopyOf: string;
-    deckOrder: number;
-    overrideWatermark: string;
-
     collectible: boolean;
     elite: boolean;
     rarity: string;
@@ -76,6 +50,21 @@ export interface IEntityData {
     artist: string;
 
     faction: string;
+
+    mechanics: string[];
+    referencedTags: string[];
+
+    powers: IPower[];
+
+    relatedEntities: { relation: string, cardId: string }[];
+
+    entourages: string[];
+    heroPower: string;
+    heroicHeroPower: string;
+
+    multipleClasses: number;
+    deckOrder: number;
+    overrideWatermark: string;
 }
 
 const EntitySchema = new Schema({
@@ -105,46 +94,6 @@ const EntitySchema = new Schema({
     raceBucket:   String,
     coin:         Number,
 
-    puzzleType:     String,
-    isQuest:        {}, // true if is quest, 'side' if is also sidequest
-    questProgress:  Number,
-    questReward:    String,
-    thresholdValue: Number,
-    mechanics:      [String],
-    referencedTags: [String],
-
-    powers: [
-        {
-            _id:              false,
-            definition:       String,
-            playRequirements: {
-                type: [
-                    {
-                        _id:     false,
-                        reqType: String,
-                        param:   Number,
-                    },
-                ],
-            },
-        },
-    ],
-
-    entourages:              { type: [String], default: undefined },
-    heroPower:               String,
-    heroicHeroPower:         String,
-    relatedCardInCollection: String,
-    twinspellCopy:           String,
-    upgradedPower:           String,
-    swapTo:                  String,
-
-    scoreValue1:       Number,
-    scoreValue2:       Number,
-    multipleClasses:   Number,
-    mouseOverCard:     String,
-    countAsCopyOf:     String,
-    deckOrder:         Number,
-    overrideWatermark: String,
-
     collectible: { type: Boolean, default: false },
     elite:       { type: Boolean, default: false },
     rarity:      String,
@@ -156,10 +105,39 @@ const EntitySchema = new Schema({
     artist: String,
 
     faction: String,
+
+    mechanics:      [String],
+    referencedTags: [String],
+
+    powers: [{
+        _id:              false,
+        definition:       String,
+        playRequirements: {
+            type: [
+                {
+                    _id:     false,
+                    reqType: String,
+                    param:   Number,
+                },
+            ],
+        },
+    }],
+
+    relatedEntities: [{
+        _id:      false,
+        relation: String,
+        cardId:   String,
+    }],
+
+    entourages:      { type: [String], default: undefined },
+    heroPower:       String,
+    heroicHeroPower: String,
+
+    multipleClasses:   Number,
+    deckOrder:         Number,
+    overrideWatermark: String,
 });
 
-interface IEntity extends IEntityData, Document {}
-
-const Entity = conn.model<IEntity>('entity', EntitySchema);
+const Entity = conn.model<IEntity & Document>('entity', EntitySchema);
 
 export default Entity;

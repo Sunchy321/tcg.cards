@@ -1,22 +1,9 @@
-import { IEntityData } from '@/hearthstone/db/entity';
+import { IEntity } from '@/hearthstone/db/entity';
 
 export interface ITag {
-    /**
-     * name of field assigned
-     */
-    index: keyof IEntityData;
-    /**
-     * true if the field is a boolean value
-     */
+    index: keyof IEntity;
     bool?: true;
-    /**
-     * true if the field is an array
-     */
     array?: true;
-    /**
-     * non-null if use enum string instead of number;
-     * true if the enum name is same as index
-     */
     enum?: true | string;
 }
 
@@ -25,14 +12,14 @@ export const tags: Record<string, ITag> = {
     47:   { index: 'attack' },
     48:   { index: 'cost' },
     114:  { index: 'elite', bool: true },
-    183:  { index: 'setId', enum: true },
+    183:  { index: 'setId', enum: 'set' },
     184:  { index: 'text' },
     185:  { index: 'name' },
     187:  { index: 'durability' },
-    199:  { index: 'classes', array: true, enum: true },
+    199:  { index: 'classes', array: true, enum: 'class' },
     200:  { index: 'race', enum: true },
     201:  { index: 'faction', enum: true },
-    202:  { index: 'cardType', enum: true },
+    202:  { index: 'cardType', enum: 'type' },
     203:  { index: 'rarity', enum: true },
     292:  { index: 'armor' },
     321:  { index: 'collectible', bool: true },
@@ -42,151 +29,15 @@ export const tags: Record<string, ITag> = {
     364:  { index: 'howToEarn' },
     365:  { index: 'howToEarnGolden' },
     380:  { index: 'heroPower' },
-    451:  { index: 'scoreValue1' },
-    453:  { index: 'scoreValue2' },
     476:  { index: 'multipleClasses' },
     480:  { index: 'classes', enum: 'multiClass' },
-    982:  { index: 'puzzleType', enum: true },
-    1132: { index: 'mouseOverCard' },
+    1125: { index: 'deckOrder' },
+    1282: { index: 'heroicHeroPower' },
     1429: { index: 'tripleCard' },
     1440: { index: 'techLevel' },
-    1452: { index: 'relatedCardInCollection' },
     1456: { index: 'inBobsTavern', bool: true },
     1587: { index: 'coin' },
-    1086: { index: 'upgradedPower' },
-    1186: { index: 'twinspellCopy' },
-    1413: { index: 'countAsCopyOf' },
-    1125: { index: 'deckOrder' },
-    535:  { index: 'questProgress' },
-    1089: { index: 'questReward' },
-    1116: { index: 'thresholdValue' },
     1517: { index: 'overrideWatermark', enum: 'set' },
-    1282: { index: 'heroicHeroPower' },
-    1396: { index: 'swapTo' },
-};
-
-export const sets: Record<string, string> = {
-    2:    'BASIC', // Basic
-    3:    'CLS', // Classic
-    4:    'HOF', // Hall of Fame
-    12:   'NAXX', // Curse of Naxxramas
-    13:   'GVG', // Goblins vs Gnomes
-    14:   'BRM', // Blackrock mountain
-    15:   'TGT', // The Grand Tournament
-    20:   'LOE', // League of Explorers
-    21:   'WOG', // Whispers of the Old Gods
-    23:   'ONK', // "One Night in Karazhan
-    25:   'MSG', // Mean Streets of Gadgetzan
-    27:   'JUG', // Journey to Un'Goro
-    1001: 'KFT', // Knights of the Frozen Throne
-    1004: 'KNC', // Kobolds and Catacombs
-    1125: 'TWW', // The Witchwood
-    1127: 'TBP', // The Boomsday Project
-    1129: 'RKR', // Rastakhan's Rumble
-    1130: 'ROS', // Rise of Shadows
-    1158: 'SOU', // Saviors of Uldum
-    1347: 'DOD', // Descent of Dragons
-    1403: 'GRA', // Galakrond's Awakening
-    1414: 'AOO', // Ash of Outland
-    1463: 'DHI', // Demon Hunter Initiate
-    1443: 'SMA', // Scholomance Academy
-
-    5:    'MISSION',
-    16:   'CREDITS',
-    17:   'SKIN', // Hero Skins
-    18:   'TB', // Tavern Brawl, containing cards used in this mode
-    1143: 'TOT', // Tavern of Time
-    1439: 'WR', // Wild Returning
-    1453: 'BGS', // Battlegrounds
-};
-
-export const classes: Record<string, string> = {
-    1:  'death_knight',
-    2:  'druid',
-    3:  'hunter',
-    4:  'mage',
-    5:  'paladin',
-    6:  'priest',
-    7:  'rogue',
-    8:  'shaman',
-    9:  'warlock',
-    10: 'warrior',
-    11: 'dream',
-    12: 'neutral',
-    13: 'whizbang',
-    14: 'demon_hunter',
-};
-
-export const multiClasses: Record<string, string[]> = {
-    1:  ['hunter', 'paladin', 'warrior'],
-    2:  ['druid', 'rogue', 'shaman'],
-    3:  ['mage', 'priest', 'warlock'],
-    4:  ['paladin', 'priest'],
-    5:  ['priest', 'warlock'],
-    6:  ['warlock', 'demon_hunter'],
-    7:  ['demon_hunter', 'hunter'],
-    8:  ['hunter', 'druid'],
-    9:  ['druid', 'shaman'],
-    10: ['shaman', 'mage'],
-    11: ['mage', 'rogue'],
-    12: ['rogue', 'warrior'],
-    13: ['warrior', 'paladin'],
-};
-
-export const types: Record<string, string> = {
-    1:  'game',
-    2:  'player',
-    3:  'hero',
-    4:  'minion',
-    5:  'spell',
-    6:  'enchantment',
-    7:  'weapon',
-    8:  'item',
-    9:  'token',
-    11: 'blank',
-    12: 'game_mode_button',
-    10: 'hero_power',
-    22: 'move_minion_hover_target',
-};
-
-export const races: Record<string, string> = {
-    1:  'bloodelf',
-    2:  'draenei',
-    3:  'dwarf',
-    4:  'gnome',
-    5:  'goblin',
-    6:  'human',
-    7:  'nightelf',
-    8:  'orc',
-    9:  'tauren',
-    10: 'troll',
-    11: 'undead',
-    12: 'worgen',
-    13: 'goblin2',
-    14: 'murloc',
-    15: 'demon',
-    16: 'scourge',
-    17: 'mechanical',
-    18: 'elemental',
-    19: 'ogre',
-    20: 'beast',
-    21: 'totem',
-    22: 'nerubian',
-    23: 'pirate',
-    24: 'dragon',
-    25: 'blank',
-    26: 'all',
-    38: 'egg',
-};
-
-export const raceBuckets: Record<string, string> = {
-    1591: 'dragon',
-    1592: 'murloc',
-    1593: 'demon',
-    1594: 'beast',
-    1595: 'mech',
-    1596: 'pirate',
-    1688: 'elemental',
 };
 
 export const mechanics: Record<string, string | null> = {
@@ -244,6 +95,8 @@ export const mechanics: Record<string, string | null> = {
     441:  'jade_golem', // it should be a referenced tag
     443:  'choose_one',
     448:  'untouchable',
+    451:  null, // scoreValue1, ignore
+    453:  null, // scoreValue2, ignore
     456:  'cant_be_fatigued',
     457:  'auto_attack',
     462:  'quest', // use isQuest instead of mechanics
@@ -252,6 +105,7 @@ export const mechanics: Record<string, string | null> = {
     482:  null, // grimy_goons, ignored because useless
     483:  null, // jade_lotus, ignored because useless
     484:  null, // kabal, ignored because useless
+    535:  'quest_progress',
     542:  'special_deathrattle',
     554:  '?corpse_raiser', // only on Corpse Raiser
     556:  '?boss_anomalous_rex', // only on boss Anomalous Rex
@@ -289,6 +143,7 @@ export const mechanics: Record<string, string | null> = {
     974:  'opponent_turn_deathrattle',
     976:  'enchantment_invisible',
     979:  'puzzle',
+    982:  'puzzle_type',
     994:  'lackey',
     997:  'special_deck',
     998:  'shudderwork',
@@ -303,6 +158,7 @@ export const mechanics: Record<string, string | null> = {
     1107: 'hide_watermark',
     1114: 'non_keyword_echo',
     1115: null, // threshold tag id, ignore
+    1116: null, // threshold value, ignore
     1118: 'affected_by_healing_does_damage',
     1135: null, // enchantment_banner_text, ignored
     1137: 'function_watcher',
@@ -373,13 +229,6 @@ export const mechanics: Record<string, string | null> = {
     1745: '?secret_exit', // only on Secret Exit
 };
 
-export const puzzleTypes: Record<string, string> = {
-    1: 'mirror',
-    2: 'lethal',
-    3: 'survive',
-    4: 'board_clear',
-};
-
 export const referencedTags: Record<string, string> = {
     45:   'health',
     189:  'windfury',
@@ -427,6 +276,16 @@ export const referencedTags: Record<string, string> = {
     1427: 'spellburst',
     1518: 'dormant',
     1531: 'start_of_combat',
+};
+
+export const relatedEntities: Record<string, string> = {
+    1086: 'upgraded_power',
+    1089: 'quest_reward',
+    1132: 'alternate_mouse_over_card',
+    1186: 'twinspell_copy',
+    1396: 'swap_to',
+    1413: 'count_as_copy_of',
+    1452: 'related_card_in_collection',
 };
 
 export const playRequirements: Record<string, string> = {
@@ -534,12 +393,144 @@ export const playRequirements: Record<string, string> = {
     999: 'REQ_DRAG_TO_PLAY',
 };
 
+export const sets: Record<string, string> = {
+    2:    'basic', // Basic
+    3:    'classic', // Classic
+    4:    'hof', // Hall of Fame
+    12:   'naxx', // Curse of Naxxramas
+    13:   'gvg', // Goblins vs Gnomes
+    14:   'brm', // Blackrock mountain
+    15:   'tgt', // The Grand Tournament
+    20:   'loe', // League of Explorers
+    21:   'wog', // Whispers of the Old Gods
+    23:   'onk', // "One Night in Karazhan
+    25:   'msg', // Mean Streets of Gadgetzan
+    27:   'jug', // Journey to Un'Goro
+    1001: 'kft', // Knights of the Frozen Throne
+    1004: 'knc', // Kobolds and Catacombs
+    1125: 'tww', // The Witchwood
+    1127: 'tbp', // The Boomsday Project
+    1129: 'rkr', // Rastakhan's Rumble
+    1130: 'ros', // Rise of Shadows
+    1158: 'sou', // Saviors of Uldum
+    1347: 'dod', // Descent of Dragons
+    1403: 'gra', // Galakrond's Awakening
+    1414: 'aoo', // Ash of Outland
+    1463: 'dhi', // Demon Hunter Initiate
+    1443: 'sma', // Scholomance Academy
+    1466: 'mdf', // Madness at the Darkmoon faire
+
+    5:    'mission',
+    16:   'credits',
+    17:   'skin', // Hero Skins
+    18:   'tb', // Tavern Brawl, containing cards used in this mode
+    1143: 'tot', // Tavern of Time
+    1439: 'wr', // Wild Returning
+    1453: 'bgs', // Battlegrounds
+};
+
+export const classes: Record<string, string> = {
+    1:  'death_knight',
+    2:  'druid',
+    3:  'hunter',
+    4:  'mage',
+    5:  'paladin',
+    6:  'priest',
+    7:  'rogue',
+    8:  'shaman',
+    9:  'warlock',
+    10: 'warrior',
+    11: 'dream',
+    12: 'neutral',
+    13: 'whizbang',
+    14: 'demon_hunter',
+};
+
+export const multiClasses: Record<string, string[]> = {
+    1:  ['hunter', 'paladin', 'warrior'],
+    2:  ['druid', 'rogue', 'shaman'],
+    3:  ['mage', 'priest', 'warlock'],
+    4:  ['paladin', 'priest'],
+    5:  ['priest', 'warlock'],
+    6:  ['warlock', 'demon_hunter'],
+    7:  ['demon_hunter', 'hunter'],
+    8:  ['hunter', 'druid'],
+    9:  ['druid', 'shaman'],
+    10: ['shaman', 'mage'],
+    11: ['mage', 'rogue'],
+    12: ['rogue', 'warrior'],
+    13: ['warrior', 'paladin'],
+};
+
+export const types: Record<string, string> = {
+    1:  'game',
+    2:  'player',
+    3:  'hero',
+    4:  'minion',
+    5:  'spell',
+    6:  'enchantment',
+    7:  'weapon',
+    8:  'item',
+    9:  'token',
+    11: 'blank',
+    12: 'game_mode_button',
+    10: 'hero_power',
+    22: 'move_minion_hover_target',
+};
+
+export const races: Record<string, string> = {
+    1:  'bloodelf',
+    2:  'draenei',
+    3:  'dwarf',
+    4:  'gnome',
+    5:  'goblin',
+    6:  'human',
+    7:  'nightelf',
+    8:  'orc',
+    9:  'tauren',
+    10: 'troll',
+    11: 'undead',
+    12: 'worgen',
+    13: 'goblin2',
+    14: 'murloc',
+    15: 'demon',
+    16: 'scourge',
+    17: 'mechanical',
+    18: 'elemental',
+    19: 'ogre',
+    20: 'beast',
+    21: 'totem',
+    22: 'nerubian',
+    23: 'pirate',
+    24: 'dragon',
+    25: 'blank',
+    26: 'all',
+    38: 'egg',
+};
+
+export const raceBuckets: Record<string, string> = {
+    1591: 'dragon',
+    1592: 'murloc',
+    1593: 'demon',
+    1594: 'beast',
+    1595: 'mech',
+    1596: 'pirate',
+    1688: 'elemental',
+};
+
 export const rarities: Record<string, string> = {
     1: 'common',
     2: 'free',
     3: 'rare',
     4: 'epic',
     5: 'legendary',
+};
+
+export const puzzleTypes: Record<string, string> = {
+    1: 'mirror',
+    2: 'lethal',
+    3: 'survive',
+    4: 'board_clear',
 };
 
 export const factions: Record<string, string> = {

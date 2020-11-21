@@ -1,20 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
-import { Clone, Commit, Repository, Reset, Revwalk } from 'nodegit';
+import { Clone, Commit, Repository, Reset, Revwalk, TransferProgress } from 'nodegit';
 
 import { XCardDefs, XEntity, XLocStringTag, XTag } from './interface';
 
+import Patch from '@/hearthstone/db/patch';
+import Entity, { IEntity, IPlayRequirement, IPower } from '@/hearthstone/db/entity';
+import Task from '@/common/task';
+
 import * as fs from 'fs';
 import * as path from 'path';
-import { xml2js } from 'xml-js';
+import { js2xml, xml2js } from 'xml-js';
 import { castArray } from 'lodash';
 
 import { data } from '@config';
 import * as logger from '@/logger';
-
-import Patch from '@/hearthstone/db/patch';
-import Entity, { IEntityData, IPlayRequirement, IPower } from '@/hearthstone/db/entity';
 
 import {
     classes,
@@ -31,165 +32,137 @@ import {
     tags,
     types,
     ITag,
+    relatedEntities,
 } from '@data/hearthstone/hsdata-map';
 
 const remoteUrl = 'https://github.com/HearthSim/hsdata';
 const localPath = path.join(data, 'hearthstone', 'hsdata');
 
-export function hasData(): boolean {
+function hasData(): boolean {
     return fs.existsSync(path.join(localPath, '.git'));
 }
 
-export async function getData(): Promise<void> {
-    if (!fs.existsSync(localPath)) {
-        fs.mkdirSync(localPath, { recursive: true });
+const langMap: Record<string, string> = {
+    deDE: 'de',
+    enUS: 'en',
+    esES: 'es',
+    esMX: 'mx',
+    frFR: 'fr',
+    itIT: 'it',
+    jaJP: 'ja',
+    koKR: 'ko',
+    plPL: 'pl',
+    ptBR: 'pt',
+    ruRU: 'ru',
+    thTH: 'th',
+    zhCN: 'zhs',
+    zhTW: 'zht',
+};
+
+export class DataGetter extends Task<TransferProgress & { type: 'get' }> {
+    async startImpl(): Promise<void> {
+        if (!fs.existsSync(localPath)) {
+            fs.mkdirSync(localPath, { recursive: true });
+        }
+
+        if (!fs.existsSync(path.join(localPath, '.git'))) {
+            await Clone.clone(remoteUrl, localPath, {
+                fetchOpts: {
+                    callbacks: {
+                        transferProgress: (progress: any) => {
+                            this.emit('progress', {
+                                type:            'git',
+                                totalObjects:    progress.totalObjects(),
+                                indexedObjects:  progress.indexedObjects(),
+                                receivedObjects: progress.receivedObjects(),
+                                localObjects:    progress.localObjects(),
+                                totalDeltas:     progress.totalDeltas(),
+                                indexedDeltas:   progress.indexedDeltas(),
+                                receivedBytes:   progress.receivedBytes(),
+                            });
+                        },
+                    },
+                },
+            });
+
+            logger.data.info('Hsdata has been cloned', { category: 'hsdata' });
+        } else {
+            const repo = await Repository.open(localPath);
+
+            await repo.fetchAll({
+                callbacks: {
+                    transferProgress: (progress: any) => {
+                        this.emit('progress', {
+                            type:            'git',
+                            totalObjects:    progress.totalObjects(),
+                            indexedObjects:  progress.indexedObjects(),
+                            receivedObjects: progress.receivedObjects(),
+                            localObjects:    progress.localObjects(),
+                            totalDeltas:     progress.totalDeltas(),
+                            indexedDeltas:   progress.indexedDeltas(),
+                            receivedBytes:   progress.receivedBytes(),
+                        });
+                    },
+                },
+            });
+
+            await repo.mergeBranches('master', 'origin/master');
+
+            logger.data.info('Hsdata has been pulled', { category: 'hsdata' });
+        }
+
+        this.emit('end');
     }
 
-    if (!fs.existsSync(path.join(localPath, '.git'))) {
-        await Clone.clone(remoteUrl, localPath);
+    stopImpl(): void { /* no-op */ }
+}
 
-        logger.data.info('Hsdata has been cloned', { category: 'hsdata' });
-    } else {
-        const repo = await Repository.open(localPath);
-
-        await repo.fetchAll();
-        await repo.mergeBranches('master', 'origin/master');
-
-        logger.data.info('Hsdata has been pulled', { category: 'hsdata' });
-    }
+export interface ILoaderStatus {
+    type: 'load',
+    count: number,
+    total: number
 }
 
 const messagePrefix = 'Update to patch';
 
-export async function loadData(): Promise<void> {
-    const repo = await Repository.open(localPath);
-
-    const walker = Revwalk.create(repo);
-
-    walker.pushHead();
-
-    const commits = await walker.getCommitsUntil((c: Commit) =>
-        c.message().startsWith(messagePrefix),
-    );
-
-    for (const c of commits.slice(0, -1)) {
-        const version = c.message().slice(messagePrefix.length).trim();
-        const sha = c.sha();
-
-        const patch = await Patch.findOne({ version });
-
-        if (patch == null) {
-            const newPatch = new Patch({
-                version,
-                sha,
-            });
-
-            await newPatch.save();
-        }
-    }
-}
-
-let patchStatus: {
-    version?: string;
-    count?: number;
-} = {};
-
-export async function loadPatch(version: string): Promise<void> {
-    try {
-        if (!hasData()) {
-            return;
-        }
-
-        if (patchStatus.version != null) {
-            return;
-        }
-
-        patchStatus = {
-            version,
-            count: 0,
-        };
-
-        const patch = await Patch.findOne({ version });
-
-        if (patch == null) {
-            return;
-        }
-
-        await Entity.deleteMany({ version });
-
+export class DataLoader extends Task<ILoaderStatus> {
+    async startImpl(): Promise<void> {
         const repo = await Repository.open(localPath);
 
-        const commit = await repo.getCommit(patch.sha);
+        const walker = Revwalk.create(repo);
 
-        await Reset.reset(repo, commit, Reset.TYPE.HARD, {});
+        walker.pushHead();
 
-        const xml = fs
-            .readFileSync(path.join(localPath, 'CardDefs.xml'))
-            .toString();
+        const commits = await walker.getCommitsUntil((c: Commit) =>
+            c.message().startsWith(messagePrefix),
+        );
 
-        const cardDefs = xml2js(xml, {
-            compact:           true,
-            ignoreDeclaration: true,
-            ignoreComment:     true,
-        }) as { CardDefs: XCardDefs };
+        let count = 0;
+        const total = commits.length - 1;
 
-        const failure: string[] = [];
+        for (const c of commits.slice(0, -1)) {
+            const version = c.message().slice(messagePrefix.length).trim();
+            const sha = c.sha();
 
-        const entities = cardDefs.CardDefs.Entity.map(e => {
-            try {
-                return convertEntity(e, version);
-            } catch (e) {
-                failure.push(e.message);
-                return {};
-            }
-        });
+            const patch = await Patch.findOne({ version });
 
-        if (failure.length !== 0) {
-            throw new Error(failure.join('\n'));
-        }
+            if (patch == null) {
+                const newPatch = new Patch({
+                    version,
+                    sha,
+                });
 
-        const dbfIndexes: (keyof IEntityData)[] = [
-            'countAsCopyOf',
-            'heroicHeroPower',
-            'mouseOverCard',
-            'questReward',
-            'relatedCardInCollection',
-            'swapTo',
-            'tripleCard',
-            'twinspellCopy',
-            'upgradedPower',
-        ];
+                await newPatch.save();
+                ++count;
 
-        // find card id by dbf id
-        for (const e of entities) {
-            const indexes = dbfIndexes.filter(i => e[i] != null);
-
-            if (indexes.length != null) {
-                for (const i of indexes) {
-                    for (const e0 of entities) {
-                        if (e0.dbfId === e[i] as number) {
-                            (e as any)[i] = e0.cardId;
-                        }
-                    }
-                }
+                this.emit('progress', { type: 'load', count, total });
             }
         }
 
-        await Entity.insertMany(entities);
-
-        patch.isUpdated = true;
-
-        await patch.save();
-
-        patchStatus = {};
-
-        logger.data.info(`Patch ${version} has been loaded`, {
-            category: 'hsdata',
-        });
-    } catch (e) {
-        patchStatus = {};
-        throw e;
+        this.emit('end');
     }
+
+    stopImpl(): void { /* no-op */ }
 }
 
 function getValue(tag: XTag | XLocStringTag, info: ITag) {
@@ -197,14 +170,14 @@ function getValue(tag: XTag | XLocStringTag, info: ITag) {
         return Object.entries(tag)
             .filter(v => v[0] !== '_attributes')
             .map(v => ({
-                lang:  v[0],
+                lang:  langMap[v[0]] || v[0].slice(2),
                 value: v[1]._text,
             }));
     } else {
         if (info.bool) {
             const value = tag._attributes.value;
 
-            if (value !== '') {
+            if (value !== '1') {
                 throw new Error(`Tag ${info.index} with non-1 value`);
             } else {
                 return true;
@@ -257,122 +230,210 @@ function getValue(tag: XTag | XLocStringTag, info: ITag) {
     }
 }
 
-function convertEntity(e: XEntity, version: string) {
-    const entity: Partial<IEntityData> = { version };
+export interface ILoadPatchStatus {
+    type: 'load-patch';
+    version: string;
+    count: number;
+    total: number;
+}
 
-    const cardId = e._attributes.CardID;
+export class PatchLoader extends Task<ILoadPatchStatus> {
+    version: string;
 
-    entity.classes = [];
-    entity.mechanics = [];
+    constructor(version: string) {
+        super();
+        this.version = version;
+    }
 
-    try {
-        const keys = Object.keys(e);
-
-        if (
-            keys.some(
-                k =>
-                    ![
-                        '_attributes',
-                        'Tag',
-                        'Power',
-                        'ReferencedTag',
-                        'EntourageCard',
-                        'MasterPower',
-                        'TriggeredPowerHistoryInfo',
-                    ].includes(k),
-            )
-        ) {
-            throw new Error(`Unknown key in ${cardId}`);
+    async startImpl(): Promise<void> {
+        if (!hasData()) {
+            this.emit('end');
+            return;
         }
 
-        const attr = e._attributes;
+        const patch = await Patch.findOne({ version: this.version });
 
-        entity.cardId = attr.CardID;
-        entity.dbfId = parseInt(attr.ID);
+        if (patch == null) {
+            this.emit('end');
+            return;
+        }
 
-        const tagElems = e.Tag;
+        await Entity.deleteMany({ version: this.version });
 
-        if (tagElems != null) {
-            for (const t of castArray(tagElems)) {
-                const id = t._attributes.enumID;
+        const repo = await Repository.open(localPath);
 
-                const tag = tags[id];
+        const commit = await repo.getCommit(patch.sha);
 
-                if (tag != null) {
-                    const value = getValue(t, tag);
+        await Reset.reset(repo, commit, Reset.TYPE.HARD, {});
 
-                    if (tag.array) {
-                        if (entity[tag.index] == null) {
-                            (entity as any)[tag.index] = [];
+        const text = fs
+            .readFileSync(path.join(localPath, 'CardDefs.xml'))
+            .toString();
+
+        const xml = xml2js(text, {
+            compact:           true,
+            ignoreDeclaration: true,
+            ignoreComment:     true,
+        }) as { CardDefs: XCardDefs };
+
+        let count = 0;
+        const total = xml.CardDefs.Entity.length;
+
+        const entities: IEntity[] = [];
+
+        for (const e of xml.CardDefs.Entity) {
+            try {
+                const entity = this.convert(e);
+
+                ++count;
+
+                if (count % 500 === 0) {
+                    this.emit('progress', {
+                        type:    'load-patch',
+                        version: this.version,
+                        count,
+                        total,
+                    });
+                }
+
+                entities.push(entity as IEntity);
+            } catch (err) {
+                this.emit('error', {
+                    message: err.message,
+                    entity:  js2xml(e),
+                });
+            }
+        }
+
+        this.emit('progress', {
+            type:    'load-patch',
+            version: this.version,
+            count,
+            total,
+        });
+
+        for (const e of entities) {
+            for (const r of e.relatedEntities) {
+                r.cardId = entities.find(e => e.dbfId.toString() === r.cardId)?.cardId || '';
+            }
+        }
+
+        await Entity.insertMany(entities);
+
+        patch.isUpdated = true;
+
+        await patch.save();
+
+        logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
+
+        this.emit('end');
+    }
+
+    convert(entity: XEntity): IEntity {
+        const result: Partial<IEntity> = { };
+
+        result.version = this.version;
+        result.cardId = entity._attributes.CardID;
+        result.dbfId = parseInt(entity._attributes.ID);
+
+        result.classes = [];
+        result.mechanics = [];
+        result.referencedTags = [];
+        result.relatedEntities = [];
+
+        const quest: { type ?: true | 'side', progress ?: number } = {};
+
+        for (const k in entity) {
+            switch (k) {
+            case '_attributes':
+                break;
+            case 'Tag': {
+                for (const t of castArray(entity[k])) {
+                    const id = t._attributes.enumID;
+
+                    const tag = tags[id];
+
+                    if (tag != null) {
+                        const value = getValue(t, tag);
+
+                        if (tag.array) {
+                            if (result[tag.index] == null) {
+                                (result as any)[tag.index] = [];
+                            }
+
+                            (result as any)[tag.index].push(value);
+                        } else {
+                            (result as any)[tag.index] = value;
                         }
 
-                        (entity as any)[tag.index].push(value);
-                    } else {
-                        (entity as any)[tag.index] = value;
+                        continue;
                     }
 
-                    continue;
-                }
+                    const raceBucket = raceBuckets[id];
 
-                const raceBucket = raceBuckets[id];
+                    if (raceBucket != null) {
+                        result.raceBucket = raceBucket;
+                        continue;
+                    }
 
-                if (raceBucket != null) {
-                    entity.raceBucket = raceBucket;
-                    continue;
-                }
+                    const relatedEntity = relatedEntities[id];
 
-                try {
+                    if (relatedEntities != null) {
+                        result.relatedEntities.push({
+                            relation: relatedEntity,
+                            cardId:   (t as XTag)._attributes.value,
+                        });
+
+                        continue;
+                    }
+
                     const mechanic = mechanics[id];
 
                     const type = t._attributes.type;
 
                     if (type !== 'Int' && type !== 'Card') {
-                        throw new Error(
-                            `Incorrect type ${type} of mechanic ${mechanic}`,
-                        );
+                        throw new Error(`Incorrect type ${type} of mechanic ${mechanic}`);
                     }
 
                     const value = parseInt((t as XTag)._attributes.value);
 
                     if (mechanic != null) {
                         switch (mechanic) {
-                        case 'drag_minion':
+                        case 'windfury':
                             if (value === 1) {
-                                entity.mechanics.push('drag_minion_to_buy');
-                            } else if (value === 2) {
-                                entity.mechanics.push(
-                                    'drag_minion_to_sell',
-                                );
+                                result.mechanics.push(mechanic);
+                            } else if (value === 3) {
+                                result.mechanics.push('mega_windfury');
                             } else {
-                                throw new Error(
-                                    `Mechanic ${mechanic} with non-1 value`,
-                                );
+                                throw new Error(`Mechanic ${mechanic} with non-1 value`);
                             }
                             break;
                         case 'jade_golem':
-                            if (entity.referencedTags == null) {
-                                entity.referencedTags = [];
-                            }
-
-                            entity.referencedTags.push('jade_golem');
+                            result.referencedTags.push('jade_golem');
                             break;
                         case 'quest':
-                            if (entity.isQuest !== 'side') {
-                                entity.isQuest = true;
+                            if (quest.type == null) {
+                                quest.type = true;
                             }
+
+                            result.mechanics.push('quest');
                             break;
                         case 'sidequest':
-                            entity.isQuest = 'side';
+                            quest.type = 'side';
                             break;
-                        case 'windfury':
+                        case 'quest_progress':
+                            quest.progress = value;
+                            break;
+                        case 'puzzle_type':
+                            result.mechanics[result.mechanics.indexOf('puzzle')!] = 'puzzle:' + puzzleTypes[value];
+                            break;
+                        case 'drag_minion':
                             if (value === 1) {
-                                entity.mechanics.push(mechanic);
-                            } else if (value === 3) {
-                                entity.mechanics.push('mega_windfury');
+                                result.mechanics.push('drag_minion_to_buy');
+                            } else if (value === 2) {
+                                result.mechanics.push('drag_minion_to_sell');
                             } else {
-                                throw new Error(
-                                    `Mechanic ${mechanic} with non-1 value`,
-                                );
+                                throw new Error(`Mechanic ${mechanic} with non-1 value`);
                             }
                             break;
 
@@ -385,134 +446,129 @@ function convertEntity(e: XEntity, version: string) {
                         case 'game_button':
                         case 'overload':
                         case 'spell_power':
-                            entity.mechanics.push(mechanic + ':' + value);
+                            result.mechanics.push(mechanic + ':' + value);
                             break;
 
                         case 'base_galakrond':
                         case 'hide_stats':
                         case 'hide_watermark':
-                            entity.mechanics.push(mechanic);
+                            result.mechanics.push(mechanic);
                             break;
 
                         default:
                             if (value === 1 || mechanic.startsWith('?')) {
-                                entity.mechanics.push(mechanic);
+                                result.mechanics.push(mechanic);
                             } else {
+                                throw new Error(`Mechanic ${mechanic} with non-1 value`);
+                            }
+                        }
+                    }
+                }
+
+                const m = result.mechanics;
+
+                if (quest.type != null) {
+                    m[m.indexOf('quest')] =
+                        quest.type === 'side' ? `quest:side,${quest.progress}` : `quest:${quest.progress}`;
+                }
+
+                if (
+                    m.includes('cant_be_targeted_by_spells') &&
+                    m.includes('cant_be_targeted_by_hero_powers')
+                ) {
+                    m[m.indexOf('cant_be_targeted_by_spells')] = 'elusive';
+                    m.splice(m.indexOf('cant_be_targeted_by_hero_powers'), 1);
+                }
+
+                break;
+            }
+            case 'Power': {
+                result.powers = [];
+
+                for (const p of castArray(entity[k])) {
+                    const power: Partial<IPower> = {};
+
+                    power.definition = p._attributes.definition;
+
+                    if (p.PlayRequirement != null) {
+                        power.playRequirements = [];
+
+                        for (const r of castArray(p.PlayRequirement)) {
+                            const type = playRequirements[r._attributes.enumID];
+
+                            const param = r._attributes.param;
+
+                            if (type == null) {
                                 throw new Error(
-                                    `Mechanic ${mechanic} with non-1 value`,
+                                    `Unknown play requirements ${r._attributes.reqID}`,
                                 );
                             }
-                        }
-                    }
-                } catch (e) {
-                    e.message += ` <${t._attributes.name}>`;
-                    throw e;
-                }
-            }
-        }
 
-        const powers = e.Power;
+                            const req: Partial<IPlayRequirement> = { type };
 
-        if (powers != null) {
-            entity.powers = [];
-
-            for (const p of castArray(powers)) {
-                const power: Partial<IPower> = {};
-
-                power.definition = p._attributes.definition;
-
-                if (p.PlayRequirement != null) {
-                    power.playRequirements = [];
-
-                    for (const r of castArray(p.PlayRequirement)) {
-                        const type = playRequirements[r._attributes.enumID];
-
-                        const param = r._attributes.param;
-
-                        if (type == null) {
-                            throw new Error(
-                                `Unknown play requirements ${r._attributes.reqID} in ${cardId}`,
-                            );
-                        }
-
-                        const req: Partial<IPlayRequirement> = { type };
-
-                        if (param !== '') {
-                            req.param = parseInt(param);
-                        }
-
-                        power.playRequirements.push(req as IPlayRequirement);
-                    }
-                }
-
-                entity.powers.push(power as IPower);
-            }
-        }
-
-        const rtagElems = e.ReferencedCard;
-
-        if (rtagElems != null) {
-            if (entity.referencedTags == null) {
-                entity.referencedTags = [];
-            }
-
-            for (const r of castArray(rtagElems)) {
-                const id = r._attributes.enumID;
-
-                try {
-                    const req = referencedTags[id];
-
-                    const value = r._attributes.value;
-
-                    if (value !== '1') {
-                        switch (req) {
-                        case 'windfury':
-                            if (value === '3') {
-                                entity.referencedTags.push('mega_windfury');
-                                break;
+                            if (param !== '') {
+                                req.param = parseInt(param);
                             }
-                        // fallthrough
-                        default:
-                            throw new Error(
-                                `Referenced tag ${id} with non-1 value`,
-                            );
+
+                            power.playRequirements.push(req as IPlayRequirement);
                         }
-                    } else {
-                        entity.referencedTags.push(req);
                     }
-                } catch (e) {
-                    e.message += ` <${r._attributes.name}>`;
-                    throw e;
+
+                    result.powers.push(power as IPower);
                 }
+
+                break;
+            }
+            case 'ReferencedTag': {
+                result.referencedTags = [];
+
+                for (const r of castArray(entity[k])) {
+                    const id = r._attributes.enumID;
+
+                    try {
+                        const req = referencedTags[id];
+
+                        const value = r._attributes.value;
+
+                        if (value !== '1') {
+                            switch (req) {
+                            case 'windfury':
+                                if (value === '3') {
+                                    result.referencedTags.push('mega_windfury');
+                                    break;
+                                }
+                                // fallthrough
+                            default:
+                                throw new Error(
+                                    `Referenced tag ${id} with non-1 value`,
+                                );
+                            }
+                        } else {
+                            result.referencedTags.push(req);
+                        }
+                    } catch (e) {
+                        e.message += ` <${r._attributes.name}>`;
+                        throw e;
+                    }
+                }
+
+                break;
+            }
+            case 'EntourageCard': {
+                result.entourages = castArray(entity[k]).map(
+                    v => v._attributes.CardID,
+                );
+
+                break;
+            }
+
+            default:
+                throw new Error(`Unknown key ${k}`);
             }
         }
 
-        const entourageCard = e.EntourageCard;
-
-        if (entourageCard != null) {
-            entity.entourages = castArray(entourageCard).map(
-                v => v._attributes.CardID,
-            );
-        }
-
-        // Replace can't be targeted by spell and hero power with 'elusive'
-        if (entity.mechanics != null) {
-            const m = entity.mechanics;
-
-            if (
-                m.includes('cant_be_targeted_by_spells') &&
-                m.includes('cant_be_targeted_by_hero_powers')
-            ) {
-                m[m.indexOf('cant_be_targeted_by_spells')] = 'elusive';
-                m.splice(m.indexOf('cant_be_targeted_by_hero_powers'), 1);
-            }
-        }
-
-        ++patchStatus.count!;
-    } catch (e) {
-        e.message += ` [${cardId}]`;
-        throw e;
+        return result as IEntity;
     }
 
-    return entity;
+    stopImpl(): void { /* no-op */ }
 }
