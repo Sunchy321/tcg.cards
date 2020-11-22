@@ -67,8 +67,6 @@ export default class BulkSaver extends Task<IStatus> {
                 await this.saver.waitForEnd();
             }
         }
-
-        this.emit('end');
     }
 
     stopImpl(): void {

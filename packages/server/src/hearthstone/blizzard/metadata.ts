@@ -58,8 +58,6 @@ export class MetadataGetter extends Task<void> {
         const setNonexist = sets.filter(s => !setSlugsExist.includes(s.slug));
 
         await Set.insertMany(setNonexist);
-
-        this.emit('end');
     }
 
     stopImpl(): void { /* no-op */ }

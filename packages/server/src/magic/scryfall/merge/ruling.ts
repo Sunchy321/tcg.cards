@@ -43,8 +43,6 @@ export class RulingMerger extends Task<IStatus> {
                 },
             });
         }
-
-        this.emit('end');
     }
 
     stopImpl(): void { /* no-op */ }

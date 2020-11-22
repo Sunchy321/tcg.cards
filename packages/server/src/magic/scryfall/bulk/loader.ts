@@ -147,8 +147,6 @@ export default class BulkLoader extends Task<IStatus> {
 
         this.updated += updated.length;
         this.count += rawJsons.length;
-
-        this.emit('end');
     }
 
     private async insertRulings(rawJsons: RawRuling[]) {

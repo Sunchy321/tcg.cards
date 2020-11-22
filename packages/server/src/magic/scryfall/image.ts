@@ -143,9 +143,6 @@ export class ImageGetter extends Task<IImageStatus> {
 
             await this.waitForTasks();
         }
-
-        this.postIntervalProgress();
-        this.emit('end');
     }
 
     private rest() {

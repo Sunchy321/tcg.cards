@@ -45,10 +45,12 @@ abstract class Task<T> extends EventEmitter {
         this.start();
     }
 
-    start(): void {
+    async start(): Promise<void> {
         if (this.status === 'idle') {
             this.status = 'working';
-            this.startImpl();
+            await this.startImpl();
+            this.postIntervalProgress();
+            this.emit('end');
         }
     }
 
@@ -65,7 +67,7 @@ abstract class Task<T> extends EventEmitter {
         });
     }
 
-    protected abstract startImpl(): void;
+    protected abstract startImpl(): any;
     protected abstract stopImpl(): void;
 
     intervalProgress(ms: number, func: (this: this) => T): void {
@@ -79,7 +81,7 @@ abstract class Task<T> extends EventEmitter {
         this.intervalProgressId = setInterval(postProgress, ms);
     }
 
-    postIntervalProgress():void {
+    postIntervalProgress(): void {
         this.intervalProgressFunc?.();
     }
 }

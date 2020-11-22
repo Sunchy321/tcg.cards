@@ -17,6 +17,7 @@ export interface IEntity {
 
     cardId: string;
     dbfId: number;
+    slug?: string;
 
     setId: string;
 
@@ -61,6 +62,8 @@ export interface IEntity {
     entourages: string[];
     heroPower: string;
     heroicHeroPower: string;
+    parentCard?: string;
+    childrenCard?: string[];
 
     multipleClasses: number;
     deckOrder: number;
@@ -72,6 +75,7 @@ const EntitySchema = new Schema({
 
     cardId: String,
     dbfId:  Number,
+    slug:   String,
 
     setId: String,
 
@@ -132,6 +136,8 @@ const EntitySchema = new Schema({
     entourages:      { type: [String], default: undefined },
     heroPower:       String,
     heroicHeroPower: String,
+    parentCard:      String,
+    childrenCard:    { type: [String], default: undefined },
 
     multipleClasses:   Number,
     deckOrder:         Number,

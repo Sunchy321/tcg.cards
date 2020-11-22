@@ -354,8 +354,6 @@ export class CardMerger extends Task<IStatus> {
 
             count += jsons.length;
         }
-
-        this.emit('end');
     }
 
     stopImpl(): void { /* no-op */ }

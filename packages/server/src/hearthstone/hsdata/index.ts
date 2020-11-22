@@ -110,8 +110,6 @@ export class DataGetter extends Task<TransferProgress & { type: 'get' }> {
 
             logger.data.info('Hsdata has been pulled', { category: 'hsdata' });
         }
-
-        this.emit('end');
     }
 
     stopImpl(): void { /* no-op */ }
@@ -158,8 +156,6 @@ export class DataLoader extends Task<ILoaderStatus> {
                 this.emit('progress', { type: 'load', count, total });
             }
         }
-
-        this.emit('end');
     }
 
     stopImpl(): void { /* no-op */ }
@@ -247,14 +243,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
     async startImpl(): Promise<void> {
         if (!hasData()) {
-            this.emit('end');
             return;
         }
 
         const patch = await Patch.findOne({ version: this.version });
 
         if (patch == null) {
-            this.emit('end');
             return;
         }
 
@@ -325,8 +319,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         await patch.save();
 
         logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
-
-        this.emit('end');
     }
 
     convert(entity: XEntity): IEntity {

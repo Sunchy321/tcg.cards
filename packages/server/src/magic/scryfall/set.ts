@@ -29,8 +29,6 @@ export class SetGetter extends Task<IStatus> {
                 amount: { count },
             });
         }
-
-        this.emit('end');
     }
 
     stopImpl(): void { /* no-op */ }
