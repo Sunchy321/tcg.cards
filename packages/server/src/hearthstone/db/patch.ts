@@ -1,15 +1,17 @@
-import { Document, Model, Schema } from 'mongoose';
+import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
 export interface IPatch {
     version: string;
+    number: number;
     sha: string;
     isUpdated: boolean;
 }
 
 const PatchSchema = new Schema({
     version: String,
+    number:  Number,
     sha:     String,
 
     isUpdated: {

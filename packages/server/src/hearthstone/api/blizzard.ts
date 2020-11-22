@@ -8,6 +8,7 @@ import jwtAuth from '@/middlewares/jwt-auth';
 import blzApi from '../blizzard/api';
 
 import { MetadataGetter } from '../blizzard/metadata';
+import { CardGetter } from '../blizzard/card';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -17,13 +18,25 @@ router.get('/metadata', async ctx => {
     ctx.body = await blzApi('/hearthstone/metadata');
 });
 
-const getter = new MetadataGetter();
+const metadataGetter = new MetadataGetter();
 
 router.get('/get-metadata',
     websocket,
     jwtAuth({ admin: true }),
     async ctx => {
-        getter.bind(await ctx.ws());
+        metadataGetter.bind(await ctx.ws());
+        ctx.status = 200;
+    },
+);
+
+const cardGetter = new CardGetter();
+
+router.get('/get-card',
+    websocket,
+    jwtAuth({ admin: true }),
+    async ctx => {
+        cardGetter.bind(await ctx.ws());
+        ctx.status = 200;
     },
 );
 

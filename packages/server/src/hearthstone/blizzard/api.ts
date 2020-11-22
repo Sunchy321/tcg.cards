@@ -27,7 +27,8 @@ async function blzAuth(): Promise<string> {
     return 'Bearer ' + data.access_token;
 }
 
-export default async function blzApi<T>(path: string, params?: Record<string, string>): Promise<T> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default async function blzApi<T>(path: string, params?: Record<string, any>): Promise<T> {
     const auth = await blzAuth();
 
     let uri = 'https://us.api.blizzard.com/' + path;
@@ -36,9 +37,7 @@ export default async function blzApi<T>(path: string, params?: Record<string, st
         uri += '?' + Object.entries(params).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
     }
 
-    const data = JSON.parse(
-        await request.get(uri, { headers: { Authorization: auth } }),
-    );
+    const data = JSON.parse(await request.get(uri, { headers: { Authorization: auth } }));
 
     return data;
 }

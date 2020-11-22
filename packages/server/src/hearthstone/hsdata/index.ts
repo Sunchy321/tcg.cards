@@ -12,7 +12,7 @@ import Task from '@/common/task';
 import * as fs from 'fs';
 import * as path from 'path';
 import { js2xml, xml2js } from 'xml-js';
-import { castArray } from 'lodash';
+import { castArray, last } from 'lodash';
 
 import { data } from '@config';
 import * as logger from '@/logger';
@@ -131,7 +131,7 @@ export class DataLoader extends Task<ILoaderStatus> {
 
         walker.pushHead();
 
-        const commits = await walker.getCommitsUntil((c: Commit) =>
+        const commits: Commit[] = await walker.getCommitsUntil((c: Commit) =>
             c.message().startsWith(messagePrefix),
         );
 
@@ -140,15 +140,13 @@ export class DataLoader extends Task<ILoaderStatus> {
 
         for (const c of commits.slice(0, -1)) {
             const version = c.message().slice(messagePrefix.length).trim();
+            const number = parseInt(last(version.split('.'))!);
             const sha = c.sha();
 
             const patch = await Patch.findOne({ version });
 
             if (patch == null) {
-                const newPatch = new Patch({
-                    version,
-                    sha,
-                });
+                const newPatch = new Patch({ version, number, sha });
 
                 await newPatch.save();
                 ++count;
@@ -234,11 +232,11 @@ export interface ILoadPatchStatus {
 }
 
 export class PatchLoader extends Task<ILoadPatchStatus> {
-    version: string;
+    version: number;
 
     constructor(version: string) {
         super();
-        this.version = version;
+        this.version = parseInt(last(version.split('.'))!);
     }
 
     async startImpl(): Promise<void> {
@@ -246,7 +244,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             return;
         }
 
-        const patch = await Patch.findOne({ version: this.version });
+        const patch = await Patch.findOne({ number: this.version });
 
         if (patch == null) {
             return;

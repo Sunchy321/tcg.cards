@@ -95,3 +95,39 @@ export interface IMetadata {
     numericFields: string[];
     cardBackCategories: ICardBackCategory[];
 }
+
+export interface ICard {
+    id: number;
+    collectible: 0|1;
+    slug: string;
+    classId: number;
+    multiClassIds: number[];
+    cardTypeId: number;
+    cardSetId: number;
+    rarityId: number|null;
+    artistName: string|null;
+    health?: number;
+    attack?: number;
+    manaCost: number;
+    durability?: number;
+    name: LocaleMap<string>;
+    text: LocaleMap<string>;
+    image: LocaleMap<string>;
+    imageGold: LocaleMap<string>;
+    flavorText: LocaleMap<string>;
+    cropImage: string;
+    parentId?: number;
+    childIds?: number[];
+    keywordIds?: number[];
+    duels?: {
+        relevant: true;
+        constructed: true;
+    }
+    battlegrounds?: {
+        tier?: number;
+        hero: boolean;
+        upgradeId?: number;
+        image: LocaleMap<string>;
+        imageGold: LocaleMap<string>;
+    }
+}

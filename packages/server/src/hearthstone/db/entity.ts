@@ -13,7 +13,7 @@ export interface IPower {
 }
 
 export interface IEntity {
-    version: string;
+    version: number;
 
     cardId: string;
     dbfId: number;
@@ -71,7 +71,7 @@ export interface IEntity {
 }
 
 const EntitySchema = new Schema({
-    version: String,
+    version: Number,
 
     cardId: String,
     dbfId:  Number,
