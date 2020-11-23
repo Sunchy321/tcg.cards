@@ -61,6 +61,10 @@ export default {
         progressValue() {
             const prog = this.progress;
 
+            if (prog == null) {
+                return null;
+            }
+
             if (prog.type === 'git') {
                 if (prog.totalDeltas != null) {
                     return prog.indexedObjects / prog.totalObjects;
