@@ -171,7 +171,7 @@ export class ImageGetter extends Task<IImageStatus> {
     }
 
     private pushTask() {
-        while (this.working() < 10 && this.todoTasks.length > 0) {
+        while (this.working() < 10 && this.rest() > 0) {
             const task = this.todoTasks.shift()!;
 
             if (task != null) {

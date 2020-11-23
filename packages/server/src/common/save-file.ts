@@ -26,7 +26,7 @@ export default class FileSaver extends Task<Progress> {
         }
     }
 
-    startImpl(): void {
+    async startImpl(): Promise<string | void> {
         const dir = this.path.split('/').slice(0, -1).join('/');
 
         if (!existsSync(dir)) {
@@ -34,28 +34,28 @@ export default class FileSaver extends Task<Progress> {
         }
 
         if (existsSync(dir + '/.no-auto-save')) {
-            this.emit('end', 'auto_save_disabled');
-            return;
+            return 'auto_save_disabled';
         }
 
         if (FileSaver.fileExists(this.path) && !this.override) {
-            this.emit('end', 'file_exists');
-            return;
+            return 'file_exists';
         }
 
         this.request = progress(request(this.url));
 
-        this.request
-            .on('response', res => {
-                if (res.statusCode !== 200) {
-                    this.request?.abort();
-                    this.emit('end', 'network_error');
-                }
-            })
-            .on('progress', p => this.emit('progress', p))
-            .on('error', e => this.emit('error', e))
-            .on('end', () => this.emit('end'))
-            .pipe(createWriteStream(this.path));
+        return new Promise((resolve, reject) => {
+            this.request!
+                .on('response', res => {
+                    if (res.statusCode !== 200) {
+                        this.request?.abort();
+                        resolve('network_error');
+                    }
+                })
+                .on('progress', p => this.emit('progress', p))
+                .on('error', reject)
+                .on('end', resolve)
+                .pipe(createWriteStream(this.path));
+        });
     }
 
     stopImpl(): void {

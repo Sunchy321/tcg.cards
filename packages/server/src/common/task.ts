@@ -48,9 +48,14 @@ abstract class Task<T> extends EventEmitter {
     async start(): Promise<void> {
         if (this.status === 'idle') {
             this.status = 'working';
-            await this.startImpl();
-            this.postIntervalProgress();
-            this.emit('end');
+
+            try {
+                const result = await this.startImpl();
+                this.postIntervalProgress();
+                this.emit('end', result);
+            } catch (e) {
+                this.emit('error', e);
+            }
         }
     }
 

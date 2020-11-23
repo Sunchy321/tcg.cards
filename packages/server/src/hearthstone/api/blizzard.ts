@@ -9,6 +9,7 @@ import blzApi from '../blizzard/api';
 
 import { MetadataGetter } from '../blizzard/metadata';
 import { CardGetter } from '../blizzard/card';
+import { ImageGetter } from '../blizzard/image';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -36,6 +37,17 @@ router.get('/get-card',
     jwtAuth({ admin: true }),
     async ctx => {
         cardGetter.bind(await ctx.ws());
+        ctx.status = 200;
+    },
+);
+
+const imageGetter = new ImageGetter();
+
+router.get('/get-image',
+    websocket,
+    jwtAuth({ admin: true }),
+    async ctx => {
+        imageGetter.bind(await ctx.ws());
         ctx.status = 200;
     },
 );

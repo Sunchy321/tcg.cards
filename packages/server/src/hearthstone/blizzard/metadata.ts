@@ -18,8 +18,8 @@ const localeMap: Record<Locale, string> = {
     pl_PL: 'pl',
     ru_RU: 'ru',
     ko_KR: 'ko',
-    zh_TW: 'zhs',
-    zh_CN: 'zht',
+    zh_CN: 'zhs',
+    zh_TW: 'zht',
     th_TH: 'th',
 };
 
