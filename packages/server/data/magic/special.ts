@@ -1,0 +1,15 @@
+export const textWithParen = [
+    'antoine_ruel_bio',
+    'bureaucracy',
+    'dark_ascension_checklist',
+    'eldritch_moon_checklist',
+    'innistrad_checklist',
+    'jakub_slemr_bio',
+    'mark_le_pine_bio',
+    'nicolas_labarre_bio',
+    'rivals_of_ixalan_checklist',
+    'shadows_over_innistrad_checklist_2',
+    'svend_geertsen_bio',
+    'shadows_over_innistrad_checklist_1',
+    'ixalan_checklist',
+];

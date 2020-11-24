@@ -36,11 +36,7 @@ const typeMainMap: Record<string, string> = {
 export function parseTypeline(typeline: string): IType {
     const [main, sub] = typeline.split('—').map(s => s.trim());
 
-    const mainWord = main.split(' ').map(s => {
-        const word = s.toLowerCase();
-
-        return typeMainMap[word] || word;
-    });
+    const mainWord = main.toLowerCase().split(' ').map(w => typeMainMap[w] || w);
 
     const typeSub =
         sub != null

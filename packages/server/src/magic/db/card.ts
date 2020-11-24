@@ -99,6 +99,7 @@ export interface ICard {
     scryfall: {
         cardId: string,
         oracleId: string,
+        face?: 'front'|'back'
     },
 
     arenaId?: number,
@@ -216,6 +217,7 @@ const CardSchema = new Schema({
     scryfall: {
         cardId:   String,
         oracleId: String,
+        face:     String,
     },
 
     arenaId:      Number,

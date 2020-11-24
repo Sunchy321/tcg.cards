@@ -1,12 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import jwtAuth from '@/middlewares/jwt-auth';
 
 import Card, { ICard } from '../db/card';
-import { Document } from 'mongoose';
+import { Aggregate, Document } from 'mongoose';
 
 import { escapeRegExp, omitBy, random } from 'lodash';
+
+import { textWithParen } from '@data/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -178,11 +181,21 @@ interface INeedEditResult {
     _id: { id: string, lang: string, part: number }
 }
 
-function defaultAggregate(lang?: string) {
+type AggregateOption = {
+    lang?: string,
+    match?: any,
+    post?: (arg: Aggregate<any[]>) => Aggregate<any[]>;
+}
+
+function aggregate({ lang, match, post }: AggregateOption) {
     const aggregate = Card.aggregate().allowDiskUse(true);
 
+    if (match != null) {
+        aggregate.match(match);
+    }
+
     if (lang != null) {
-        aggregate.match({ lang });
+        aggregate.match({ lang: lang });
     }
 
     aggregate
@@ -190,29 +203,49 @@ function defaultAggregate(lang?: string) {
         .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
         .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
 
+    if (match != null) {
+        aggregate.match(match);
+    }
+
+    if (post != null) {
+        post(aggregate);
+    } else {
+        aggregate.group({ _id: '$info' });
+    }
+
     return aggregate;
 }
 
 const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult[]>> = {
-    'inconsistent-oracle': async lang => {
-        return await defaultAggregate(lang)
+    'inconsistent-oracle': async lang => await aggregate({
+        lang,
+        post: aggregate => aggregate
             .group({
-                _id:      '$info',
-                name:     { $addToSet: '$parts.oracle.name' },
-                typeline: { $addToSet: '$parts.oracle.typeline' },
-                text:     { $addToSet: '$parts.oracle.text' },
+                _id:           '$info',
+                colorIdentity: { $addToSet: '$colorIdentity' },
+                color:         { $addToSet: '$parts.color' },
+                power:         { $addToSet: '$parts.power' },
+                toughness:     { $addToSet: '$parts.toughness' },
+                name:          { $addToSet: '$parts.oracle.name' },
+                typeline:      { $addToSet: '$parts.oracle.typeline' },
+                text:          { $addToSet: '$parts.oracle.text' },
             })
             .match({
                 $or: [
-                    { name: { $not: { $size: 1 } } },
-                    { typeline: { $not: { $size: 1 } } },
-                    { text: { $not: { $size: 1 } } },
+                    { 'colorIdentity.2': { $exists: true } },
+                    { 'color.2': { $exists: true } },
+                    { 'power.2': { $exists: true } },
+                    { 'toughness.2': { $exists: true } },
+                    { 'name.2': { $exists: true } },
+                    { 'typeline.2': { $exists: true } },
+                    { 'text.2': { $exists: true } },
                 ],
-            });
-    },
+            }),
+    }),
 
-    'inconsistent-unified': async lang => {
-        return await defaultAggregate(lang)
+    'inconsistent-unified': async lang => await aggregate({
+        lang,
+        post: aggregate => aggregate
             .group({
                 _id:      '$info',
                 name:     { $addToSet: '$parts.unified.name' },
@@ -225,26 +258,23 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                     { typeline: { $not: { $size: 1 } } },
                     { text: { $not: { $size: 1 } } },
                 ],
-            });
-    },
+            }),
+    }),
 
-    'parentheses': async lang => await defaultAggregate(lang)
-        .match({
-            'cardId': {
-                $nin: [
-                    'svend_geertsen_bio',
-                    'mark_le_pine_bio',
-                    'jakub_slemr_bio',
-                    'punctuate',
-                    'bureaucracy',
-                    'antoine_ruel_bio',
-                    'innistrad_checklist',
-                    'dark_ascension_checklist',
-                ],
-            },
+    'parentheses': async lang => await aggregate({
+        lang,
+        match: {
+            'cardId':             { $nin: textWithParen },
             'parts.unified.text': /[(（].+[)）]/,
-        })
-        .group({ _id: '$info' }),
+        },
+    }),
+
+    'token': async () => await aggregate({
+        match: {
+            'cardId':          { $not: /!/ },
+            'parts.typeSuper': 'token',
+        },
+    }),
 };
 
 router.get('/need-edit',
@@ -267,6 +297,7 @@ router.get('/need-edit',
                     ...cards[0],
                     partIndex: result[0]._id.part,
                     total:     result.length,
+                    result:    result[0],
                 };
             } else {
                 ctx.body = null;
