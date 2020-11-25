@@ -1,7 +1,7 @@
 import KoaRouter from '@koa/router';
 
 // import hearthstone from './hearthstone/api';
-import magic from './magic/image';
+import magic from './magic/router/image';
 
 const router = new KoaRouter();
 

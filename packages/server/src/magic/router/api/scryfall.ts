@@ -4,18 +4,18 @@ import { DefaultState, Context } from 'koa';
 import websocket from '@/middlewares/websocket';
 import jwtAuth from '@/middlewares/jwt-auth';
 
-import Card from '../db/card';
-import Set from '../db/set';
+import Card from '@/magic/db/card';
+import Set from '@/magic/db/set';
 
-import ScryfallCard from '../db/scryfall/card';
-import ScryfallRuling from '../db/scryfall/ruling';
-import ScryfallSet from '../db/scryfall/set';
+import ScryfallCard from '@/magic/db/scryfall/card';
+import ScryfallRuling from '@/magic/db/scryfall/ruling';
+import ScryfallSet from '@/magic/db/scryfall/set';
 
-import { BulkGetter, BulkLoader } from '../scryfall/bulk';
-import { SetGetter } from '../scryfall/set';
-import { CardMerger } from '../scryfall/merge/card';
-import { RulingMerger } from '../scryfall/merge/ruling';
-import { SetMerger } from '../scryfall/merge/set';
+import { BulkGetter, BulkLoader } from '@/magic/scryfall/bulk';
+import { SetGetter } from '@/magic/scryfall/set';
+import { CardMerger } from '@/magic/scryfall/merge/card';
+import { RulingMerger } from '@/magic/scryfall/merge/ruling';
+import { SetMerger } from '@/magic/scryfall/merge/set';
 
 const router = new KoaRouter<DefaultState, Context>();
 

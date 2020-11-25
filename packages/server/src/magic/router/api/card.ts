@@ -4,7 +4,7 @@ import { DefaultState, Context } from 'koa';
 
 import jwtAuth from '@/middlewares/jwt-auth';
 
-import Card, { ICard } from '../db/card';
+import Card, { ICard } from '@/magic/db/card';
 import { Aggregate, Document } from 'mongoose';
 
 import { escapeRegExp, omitBy, random } from 'lodash';

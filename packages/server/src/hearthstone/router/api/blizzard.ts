@@ -5,11 +5,11 @@ import { Context, DefaultState } from 'koa';
 import websocket from '@/middlewares/websocket';
 import jwtAuth from '@/middlewares/jwt-auth';
 
-import blzApi from '../blizzard/api';
+import blzApi from '@/hearthstone/blizzard/api';
 
-import { MetadataGetter } from '../blizzard/metadata';
-import { CardGetter } from '../blizzard/card';
-import { ImageGetter } from '../blizzard/image';
+import { MetadataGetter } from '@/hearthstone/blizzard/metadata';
+import { CardGetter } from '@/hearthstone/blizzard/card';
+import { ImageGetter } from '@/hearthstone/blizzard/image';
 
 const router = new KoaRouter<DefaultState, Context>();
 

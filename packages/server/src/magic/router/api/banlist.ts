@@ -3,10 +3,10 @@ import { DefaultState, Context } from 'koa';
 
 import jwtAuth from '@/middlewares/jwt-auth';
 
-import BanlistChange from '../db/banlist-change';
+import BanlistChange from '@/magic/db/banlist-change';
 
-import parseBanlist from '../banlist/parse';
-import { getWizardsBanlist } from '../banlist/get';
+import parseBanlist from '@/magic/banlist/parse';
+import { getWizardsBanlist } from '@/magic/banlist/get';
 
 const router = new KoaRouter<DefaultState, Context>();
 

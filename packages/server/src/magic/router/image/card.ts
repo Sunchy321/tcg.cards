@@ -4,7 +4,7 @@ import { DefaultState, Context } from 'koa';
 import websocket from '@/middlewares/websocket';
 import jwtAuth from '@/middlewares/jwt-auth';
 
-import { ImageGetter } from '../scryfall/image';
+import { ImageGetter } from '../../scryfall/image';
 
 import { locales } from '@data/magic/basic';
 import { asset } from '@config';
