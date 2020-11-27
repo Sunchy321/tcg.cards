@@ -13,4 +13,12 @@ export const textWithParen = [
     'svend_geertsen_bio',
     'shadows_over_innistrad_checklist_1',
     'ixalan_checklist',
+    'strictly_better_front',
+    'roil_royale_back',
+    'b_o_b___bevy_of_beebles_',
+    'base_race_back',
+    'magic_origins_checklist',
+    'metagamer',
+    'nerf_war',
+    'loopy_lobster',
 ];

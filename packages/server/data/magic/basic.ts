@@ -1,6 +1,6 @@
 export const birthday = '1993-08-05';
 
-export const basicLocales = [
+export const locales = [
     'en',
     'de',
     'es',
@@ -14,8 +14,8 @@ export const basicLocales = [
     'zht',
 ];
 
-export const locales = [
-    ...basicLocales,
+export const extendedLocales = [
+    ...locales,
     'ph',
     'he',
     'ar',

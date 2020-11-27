@@ -43,16 +43,8 @@ export class ImageGetter extends Task<IImageStatus> {
     }
 
     async startImpl(): Promise<void> {
-        const files = await Card.aggregate([
-            { $group: { _id: '$file' } },
-            { $sort: { _id: -1 } },
-        ]);
-
-        const lastFile = files[0]._id;
-
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
-            .match({ file: lastFile })
             .group({
                 _id:   { set: '$set_id', lang: '$lang' },
                 infos: {

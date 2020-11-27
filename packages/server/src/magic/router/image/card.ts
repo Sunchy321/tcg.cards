@@ -35,7 +35,7 @@ router.get('/', async ctx => {
 
     if (ctx.query['auto-locale'] != null) {
         for (const l of locales) {
-            const path = imagePath(l, set, number, part);
+            const path = imagePath('png', set, l, number, part);
 
             if (existsSync(path)) {
                 ctx.response.set('content-type', mime.lookup(path) as string);
