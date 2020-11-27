@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Task from '@/common/task';
 
-import Card, { ICard } from '../../db/scryfall/card';
+import Card, { ICard, ICardBase } from '../../db/scryfall/card';
 import Ruling, { IRuling } from '../../db/scryfall/ruling';
 
 import { IStatus, RawCard, RawRuling } from '../interface';
@@ -9,7 +9,8 @@ import { IStatus, RawCard, RawRuling } from '../interface';
 import LineReader from '@/common/line-reader';
 import { toAsyncBucket } from '@/common/to-bucket';
 import { join } from 'path';
-import { isEqual, partition } from 'lodash';
+import { omit, partition } from 'lodash';
+import { diff } from 'deep-diff';
 
 import { data } from '@config';
 import { Document } from 'mongoose';
@@ -115,26 +116,31 @@ export default class BulkLoader extends Task<IStatus> {
 
         const docs = await Card.find({ card_id: { $in: jsons.map(j => j.card_id) } });
 
-        const updated = jsons.map(
-            json => [json, docs.find(j => j.card_id === json.card_id)] as [ICard, ICard & Document],
-        ).filter(([json, doc]) => {
+        const updated: [ICard, ICard & Document | null][] = jsons.map(json => {
+            const doc = docs.find(j => j.card_id === json.card_id);
+
             if (doc == null) {
-                return true;
+                return [json, null] as [ICard, null];
             }
 
             const oldJson = doc.toJSON();
 
-            const unequalFields = Object.keys(oldJson).filter(k =>
-                !k.startsWith('_') &&
-                k !== 'file' &&
-                !isEqual((oldJson as any)[k], (json as any)[k]),
+            json.diff = diff(
+                omit(oldJson, ['_id', '__v', 'file', 'diff']) as ICardBase,
+                omit(json, ['file', 'diff']) as ICardBase,
             );
 
-            if (unequalFields.length !== 0) {
+            return [json, doc] as [ICard, ICard & Document];
+        }).filter(([json, doc]) => {
+            if (doc == null) {
                 return true;
             }
 
-            return false;
+            if (json.diff == null) {
+                return false;
+            }
+
+            return json.diff.filter(d => d.path?.[0] !== 'edhrec_rank' && d.path?.[0] !== 'prices').length > 0;
         });
 
         const [toInsert, toUpdate] = partition(updated, pair => pair[1] == null);
@@ -142,7 +148,7 @@ export default class BulkLoader extends Task<IStatus> {
         await Card.insertMany(toInsert.map(pair => pair[0]));
 
         for (const [json, doc] of toUpdate) {
-            await doc.replaceOne(json);
+            await doc!.replaceOne(json);
         }
 
         this.updated += updated.length;

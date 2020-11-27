@@ -83,6 +83,7 @@ export interface ICard {
     isTextless: boolean,
     hasFoil: boolean,
     hasNonfoil: boolean,
+    hasHighResImage: boolean,
 
     legalities: Record<string, string>,
     isReserved: boolean,
@@ -108,7 +109,6 @@ export interface ICard {
     multiverseId?: number[],
     tcgPlayerId?: number,
     cardMarketId?: number,
-    edhredRank?: number
 }
 
 const CardSchema = new Schema({
@@ -198,6 +198,7 @@ const CardSchema = new Schema({
     isTextless:       Boolean,
     hasFoil:          Boolean,
     hasNonfoil:       Boolean,
+    hasHighResImage:  Boolean,
 
     legalities:     Object,
     isReserved:     Boolean,
@@ -226,7 +227,6 @@ const CardSchema = new Schema({
     multiverseId: { type: [Number], default: undefined },
     tcgPlayerId:  Number,
     cardMarketId: Number,
-    edhredRank:   Number,
 });
 
 const Card = conn.model<ICard & Document>('card', CardSchema);

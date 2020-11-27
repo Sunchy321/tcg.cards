@@ -1,6 +1,7 @@
 export const textWithParen = [
     'antoine_ruel_bio',
     'bureaucracy',
+    'core_set_2019_checklist',
     'dark_ascension_checklist',
     'eldritch_moon_checklist',
     'innistrad_checklist',

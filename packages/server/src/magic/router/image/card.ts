@@ -6,22 +6,16 @@ import jwtAuth from '@/middlewares/jwt-auth';
 
 import { ImageGetter } from '../../scryfall/image';
 
-import { locales } from '@data/magic/basic';
-import { asset } from '@config';
 import { createReadStream, existsSync, readdirSync } from 'fs';
 import mime from 'mime-types';
+import { imagePath } from '@/magic/image';
+
+import { asset } from '@config';
+import { locales } from '@data/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
-
-function imagePath(lang: string, set: string, number: string, part?: string) {
-    if (part != null) {
-        return `${asset}/magic/card/png/${set}/${lang}/${number}-${part}.png`;
-    } else {
-        return `${asset}/magic/card/png/${set}/${lang}/${number}.png`;
-    }
-}
 
 router.get('/', async ctx => {
     const { lang = 'en', set, number, part } = ctx.query;
@@ -31,7 +25,7 @@ router.get('/', async ctx => {
         return;
     }
 
-    const path = imagePath(lang, set, number, part);
+    const path = imagePath('png', set, lang, number, part);
 
     if (existsSync(path)) {
         ctx.response.set('content-type', mime.lookup(path) as string);

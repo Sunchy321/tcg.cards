@@ -3,10 +3,9 @@ import Task from '@/common/task';
 import Card from '../db/scryfall/card';
 
 import FileSaver from '@/common/save-file';
-import { join } from 'path';
 
-import { asset } from '@config';
 import { partition } from 'lodash';
+import { imagePath } from '@/magic/image';
 
 interface IImageProjection {
     _id: { set: string, lang:string },
@@ -23,16 +22,6 @@ interface IImageStatus {
     overall: { count: number, total: number }
     current: { set: string, lang: string; }
     status: Record<string, string>
-}
-
-function addPath(
-    data: Omit<IImageTask, 'path'>, type: string, set: string, lang: string,
-): IImageTask {
-    const ext = type === 'png' ? 'png' : 'jpg';
-
-    const path = join(asset, 'magic', 'card', type, set, lang, `${data.name}.${ext}`);
-
-    return { ...data, path };
 }
 
 export class ImageGetter extends Task<IImageStatus> {
@@ -109,10 +98,16 @@ export class ImageGetter extends Task<IImageStatus> {
             for (const info of proj.infos) {
                 if (info.uris != null) {
                     const name = info.number;
-                    this.todoTasks.push(addPath({
+                    this.todoTasks.push({
                         name,
-                        uri: info.uris[this.type],
-                    }, this.type, this.set, this.lang));
+                        uri:  info.uris[this.type],
+                        path: imagePath(
+                            this.type,
+                            this.set,
+                            this.lang,
+                            info.number,
+                        ),
+                    });
 
                     this.statusMap[name] = 'waiting';
                 }
@@ -121,10 +116,17 @@ export class ImageGetter extends Task<IImageStatus> {
                     for (let i = 0; i < info.partsUris.length; ++i) {
                         const name = info.number + '-' + i;
 
-                        this.todoTasks.push(addPath({
+                        this.todoTasks.push({
                             name,
-                            uri: info.partsUris[i][this.type],
-                        }, this.type, this.set, this.lang));
+                            uri:  info.partsUris[i][this.type],
+                            path: imagePath(
+                                this.type,
+                                this.set,
+                                this.lang,
+                                info.number,
+                                i,
+                            ),
+                        });
 
                         this.statusMap[name] = 'waiting';
                     }

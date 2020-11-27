@@ -40,7 +40,7 @@ async function mergeWith(data: IScryfallSet) {
             printedSize: data.printed_size,
         };
 
-        return this.create(object);
+        await Set.create(object);
     } else {
         set.scryfall.id = data.set_id;
         set.scryfall.code = data.code;

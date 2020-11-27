@@ -115,6 +115,7 @@ export interface RawCard {
 
     // Print Fields
     artist?: string,
+    artist_ids?: string[],
     booster: boolean,
     border_color: string,
     card_back_id: UUID,

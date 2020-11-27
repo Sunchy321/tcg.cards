@@ -39,7 +39,7 @@ export default class BulkSaver extends Task<IStatus> {
                     });
                 });
 
-                await this.saver.waitForEnd();
+                await this.saver.start();
             }
         }
 
@@ -64,7 +64,7 @@ export default class BulkSaver extends Task<IStatus> {
                     });
                 });
 
-                await this.saver.waitForEnd();
+                await this.saver.start();
             }
         }
     }

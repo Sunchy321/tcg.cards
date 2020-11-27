@@ -4,13 +4,17 @@ import { Document, Schema } from 'mongoose';
 import conn from '../db';
 
 import { RawCard, UUID } from '../../scryfall/interface';
+import { Diff } from 'deep-diff';
 
-export type ICard = {
+export type ICardBase = {
     card_id: UUID;
     set_id: string;
-
-    file: string;
 } & Omit<RawCard, 'object' | 'id' | 'set'>;
+
+export type ICard = ICardBase & {
+    file: string;
+    diff?: Diff<ICardBase, ICardBase>[];
+};
 
 const CardSchema = new Schema({
     // Core Card Fields
@@ -98,6 +102,7 @@ const CardSchema = new Schema({
 
     // Print Fields
     artist:            String,
+    artist_ids:        { type: [String], default: undefined },
     booster:           Boolean,
     border_color:      String,
     card_back_id:      String,
@@ -143,6 +148,7 @@ const CardSchema = new Schema({
     },
 
     file: String,
+    diff: {},
 }, { strict: false });
 
 const Card = conn.model<ICard & Document>('scryfall_card', CardSchema);

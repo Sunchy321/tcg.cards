@@ -18,6 +18,7 @@
     "homepage": "https://github.com/Sunchy321/CardServer#readme",
     "devDependencies": {
         "@types/cheerio": "^0.22.22",
+        "@types/deep-diff": "^1.0.0",
         "@types/download": "^6.2.4",
         "@types/jsonwebtoken": "^8.5.0",
         "@types/koa-logger": "^3.1.1",
@@ -58,6 +59,7 @@
         "@koa/router": "^9.4.0",
         "async-stream-reader": "^1.2.0",
         "cheerio": "^1.0.0-rc.3",
+        "deep-diff": "^1.0.2",
         "jsonwebtoken": "^8.5.1",
         "koa": "^2.13.0",
         "koa-body": "^4.2.0",
