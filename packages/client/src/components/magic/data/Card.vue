@@ -15,6 +15,7 @@
                     <q-btn outline label="oracle" @click="loadData('inconsistent-oracle')" />
                     <q-btn outline label="unified" @click="loadData('inconsistent-unified')" />
                     <q-btn outline label="paren" @click="loadData('parentheses')" />
+                    <q-btn outline label="token" @click="loadData('token')" />
                 </q-btn-group>
 
                 <span v-if="total != null" class="q-ml-md">{{ total }}
@@ -23,8 +24,8 @@
                 <q-btn
                     class="q-ml-md"
                     outline
-                    label="remove paren"
-                    @click="removeParen"
+                    label="prettify"
+                    @click="prettify"
                 />
 
                 <q-input v-model="remove" class="q-ml-md" style="display: inline-flex">
@@ -39,12 +40,19 @@
             </div>
 
             <div class="id-line row items-center">
-                <div class="id code">
+                <q-input
+                    v-if="unlock"
+                    v-model="id"
+                    class="id code"
+                    dense outlined
+                />
+
+                <div v-else class="id code">
                     {{ id }}
                 </div>
 
-                <div class="lang q-mx-md">
-                    {{ lang }}
+                <div class="info q-mx-md">
+                    {{ info }}
                 </div>
 
                 <q-btn-toggle
@@ -54,6 +62,12 @@
                 />
 
                 <div class="space" />
+
+                <q-btn
+                    :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'"
+                    dense flat round
+                    @click="unlock = !unlock"
+                />
 
                 <q-btn
                     icon="mdi-upload"
@@ -68,14 +82,23 @@
                         Oracle
                     </td>
                     <td class="name">
-                        {{ oracleName }}
+                        <q-input v-if="unlock" v-model="oracleName" outlined type="textarea" dense />
+                        <div v-else>
+                            {{ oracleName }}
+                        </div>
                     </td>
                     <td class="typeline">
-                        {{ oracleTypeline }}
+                        <q-input v-if="unlock" v-model="oracleTypeline" outlined type="textarea" dense />
+                        <div v-else>
+                            {{ oracleTypeline }}
+                        </div>
                     </td>
                     <td class="text">
-                        <div v-for="(t, i) in (oracleText || '').split('\n')" :key="i">
-                            {{ t }}
+                        <q-input v-if="unlock" v-model="oracleText" outlined type="textarea" dense />
+                        <div v-else>
+                            <div v-for="(t, i) in (oracleText || '').split('\n')" :key="i">
+                                {{ t }}
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -127,6 +150,9 @@
     background-color transparent !important
     padding 0 !important
 
+.q-input.id
+    width 300px
+
 table
     width 100%
 
@@ -172,16 +198,32 @@ export default {
     name: 'DataCard',
 
     data: () => ({
-        data: null,
-
+        data:   null,
+        unlock: false,
         remove: '',
     }),
 
     computed: {
-        id() { return this.data?.cardId ?? this.$route.query.id; },
+        id: {
+            get() { return this.data?.cardId ?? this.$route.query.id; },
+            set(newValue) {
+                if (this.data != null) {
+                    this.data.cardId = newValue;
+                }
+            },
+        },
+
         lang() { return this.data?.lang ?? this.$route.query.lang; },
         set() { return this.data?.setId ?? this.$route.query.set; },
         number() { return this.data?.number ?? this.$route.query.number; },
+
+        info() {
+            if (this.data) {
+                return `${this.lang}, ${this.set}:${this.number}`;
+            } else {
+                return '';
+            }
+        },
 
         partIndex: {
             get() { return this.$route.query.part ?? this.data?.partIndex ?? 0; },
@@ -265,6 +307,7 @@ export default {
             switch (this.layout) {
             case 'transform':
             case 'modal_dfc':
+            case 'double_faced_token':
                 return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=${this.partIndex}`; ;
             default:
                 return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
@@ -289,6 +332,10 @@ export default {
                 });
 
                 if (data != null && data !== '') {
+                    if (data.result != null) {
+                        console.log(data.result);
+                    }
+
                     this.data = data;
                 } else {
                     this.data = null;
@@ -311,7 +358,10 @@ export default {
             });
         },
 
-        removeParen() {
+        prettify() {
+            this.unifiedTypeline = this.unifiedTypeline.replace(' ～', '～');
+            this.printedTypeline = this.printedTypeline.replace(' ～', '～');
+
             this.unifiedText = this.unifiedText.replace(/ *[(（][^)）]+[)）] */g, '').trim();
         },
 

@@ -114,7 +114,13 @@
 
                         <div class="space" />
 
-                        <div v-if="cost != null" class="cost">
+                        <div
+                            v-if="cost != null"
+                            class="cost"
+                            :class="{
+                                'large-cost': id === 'b_f_m___big_furry_monster_'
+                            }"
+                        >
                             <magic-symbol
                                 v-for="(s, i) in cost" :key="i"
                                 :value="s"
@@ -293,6 +299,13 @@
         border-radius 100px
         box-shadow -2px 2px 0 rgba(0,0,0,0.85)
 
+    &.large-cost
+        font-size 50%
+
+        & > *
+            margin-right 2px
+            box-shadow -1px 1px 0 rgba(0,0,0,0.85)
+
 .color-indicator
     height 1em
     margin-right 5px
@@ -383,7 +396,7 @@ export default {
             const locales = this.$store.getters['magic/locales'];
 
             const langs = uniq([
-                ...this.$store.getters['magic/data'].basicLocales,
+                ...this.$store.getters['magic/locales'],
                 ...this.versions.map(v => v.lang),
             ]).sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
 
