@@ -16,5 +16,5 @@
             "@data/*": ["../data/*"]
         }
     },
-    "include": ["./src/*", "src/middlewares/subdomain.ts", "src/magic/search/interface.ts"]
+    "include": ["src/*"]
 }

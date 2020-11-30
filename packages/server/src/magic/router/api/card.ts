@@ -308,33 +308,4 @@ router.get('/need-edit',
     },
 );
 
-router.post('/remove-text',
-    jwtAuth({ admin: true }),
-    async ctx => {
-        const { text, lang } = ctx.request.body;
-
-        if (!/^ *[(（]/.test(text) || !/[)）] *$/.test(text)) {
-            return;
-        }
-
-        const matchRegex = new RegExp(escapeRegExp(text));
-        const replaceRegex = new RegExp(' *' + escapeRegExp(text) + ' *');
-
-        for await (const card of Card.find({
-            lang,
-            'parts.unified.text': matchRegex,
-        }) as unknown as AsyncGenerator<ICard & Document>) {
-            for (const p of card.parts) {
-                if (p.unified.text) {
-                    p.unified.text = p.unified.text.replace(replaceRegex, '').trim();
-                }
-            }
-
-            await card.save();
-        }
-
-        ctx.status = 200;
-    },
-);
-
 export default router;
