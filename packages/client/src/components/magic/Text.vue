@@ -6,6 +6,9 @@
         transform translateY(15%)
         margin-left 2px
 
+    [lang=zhs] & + span, [lang=zht] & + span
+        margin-left 2px
+
     [lang=zhs] & + &, [lang=zht] & + &,
     [lang=zhs] &:first-child, [lang=zht] &:first-child,
     br + &

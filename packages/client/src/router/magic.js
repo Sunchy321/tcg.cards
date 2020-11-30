@@ -7,7 +7,12 @@ const routes = [
                 path:      '',
                 component: () => import('pages/magic'),
                 meta:      {
-                    title: 'magic.$self',
+                    title:      'magic.$self',
+                    fixedInput: true,
+                    inputClass: 'index-input',
+                    button:     [
+                        { icon: 'mdi-shuffle-variant', event: 'random' },
+                    ],
                 },
             },
             {
@@ -33,8 +38,16 @@ const routes = [
                 meta:      {
                     title:  '$input',
                     button: [
-                        { icon: 'mdi-shuffle-variant', event: 'randomize' },
+                        { icon: 'mdi-shuffle-variant', event: 'random' },
                     ],
+                },
+            },
+            {
+                path:      'search',
+                name:      'magic/search',
+                component: () => import('pages/magic/Search'),
+                meta:      {
+                    title: '$input',
                 },
             },
             {

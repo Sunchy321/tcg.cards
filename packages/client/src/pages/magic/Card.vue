@@ -3,42 +3,17 @@
         <div class="col">
             <div class="row">
                 <div class="col-4">
-                    <div
-                        v-if="imageUrls != null"
-                        class="image"
-                        :class="[
-                            `layout-${layout}`,
-                            `part-${partIndex}`,
-                            {rotate}
-                        ]"
-                    >
-                        <q-img
-                            class="front"
-                            :src="imageUrls[0]"
-                            :ratio="745/1040"
-                            native-context-menu
-                        >
-                            <template v-slot:error>
-                                <div class="card-not-found">
-                                    <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
-                                </div>
-                            </template>
-                        </q-img>
-
-                        <q-img
-                            v-if="imageUrls[1] != null"
-                            class="back"
-                            :src="imageUrls[1]"
-                            :ratio="745/1040"
-                            native-context-menu
-                        >
-                            <template v-slot:error>
-                                <div class="card-not-found">
-                                    <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
-                                </div>
-                            </template>
-                        </q-img>
-                    </div>
+                    <card-image
+                        v-if="set != null && number != null"
+                        :lang="lang"
+                        :set="set"
+                        :number="number"
+                        :layout="layout"
+                        :part="partIndex"
+                        :rotate="rotate"
+                        @part="v => partIndex = v"
+                        @rotate="rotate = !rotate"
+                    />
 
                     <div
                         v-if="partCount > 1 || ['planar'].includes(layout)"
@@ -248,45 +223,6 @@
     border 1px solid $primary
     border-radius 5px
 
-.image
-    transition transform 0.5s
-
-    &.rotate
-        transform rotate(90deg) scale(745/1040)
-
-    &.layout-flip.part-1
-        transform rotate(180deg)
-
-    &.layout-aftermath.part-1
-        transform rotate(-90deg) scale(745/1040)
-
-    &.layout-transform, &.layout-modal_dfc, &.layout-art_series
-        position relative
-        padding-bottom calc(100% / (745/1040))
-
-        transform-style preserve-3d
-
-        & > .front, & > .back
-            position absolute
-            top 0
-            left 0
-
-            backface-visibility hidden
-
-        & > .front
-            transform rotateY(0deg)
-
-        & > .back
-            transform rotateY(180deg)
-
-        &.part-1
-            transform rotateY(180deg)
-
-.card-not-found
-    width 100%
-    background-color transparent !important
-    padding 0 !important
-
 .name
     display inline
 
@@ -346,8 +282,9 @@
 </style>
 
 <script>
-import basic from 'src/mixins/basic';
+import magic from 'src/mixins/magic';
 
+import CardImage from 'components/magic/CardImage';
 import MagicColor from 'components/magic/Color';
 import MagicText from 'components/magic/Text';
 import MagicSymbol from 'components/magic/Symbol';
@@ -355,20 +292,17 @@ import MagicSymbol from 'components/magic/Symbol';
 import { omitBy, uniq } from 'lodash';
 import mapComputed from 'src/store/map-computed';
 
-import { imageBase } from 'boot/backend';
-
 export default {
     name: 'Card',
 
-    components: { MagicColor, MagicText, MagicSymbol },
+    components: { CardImage, MagicColor, MagicText, MagicSymbol },
 
-    mixins: [basic],
+    mixins: [magic],
 
     data: () => ({
+        data:        null,
+        rotate:      false,
         unsubscribe: null,
-
-        data:   null,
-        rotate: false,
     }),
 
     computed: {
@@ -393,14 +327,7 @@ export default {
         },
 
         langInfos() {
-            const locales = this.$store.getters['magic/locales'];
-
-            const langs = uniq([
-                ...this.$store.getters['magic/locales'],
-                ...this.versions.map(v => v.lang),
-            ]).sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
-
-            return langs.map(l => ({
+            return this.langs.map(l => ({
                 lang:    l,
                 exist:   this.versions.filter(v => v.set === this.set).some(v => v.lang === l),
                 current: l === this.lang,
@@ -495,26 +422,6 @@ export default {
             });
         },
 
-        imageUrls() {
-            if (this.set == null || this.number == null) {
-                return null;
-            }
-
-            switch (this.layout) {
-            case 'transform':
-            case 'modal_dfc':
-            case 'art_series':
-                return [
-                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=0`,
-                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=1`,
-                ];
-            default:
-                return [
-                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`,
-                ];
-            }
-        },
-
         tapType() {
             if (this.textMode !== 'printed') {
                 return 'modern';
@@ -580,28 +487,20 @@ export default {
         },
     },
 
-    beforeRouteLeave(to, from, next) {
-        document.body.classList.remove('force-lowercase');
-        next();
-    },
-
-    created() {
-        this.unsubscribe = this.$store.subscribe(async ({ type, payload }) => {
-            if (type === 'magic/locale') {
-                this.loadData();
-            } else if (type === 'event' && payload === 'randomize') {
-                const { data: id } = await this.apiGet('/magic/card/random');
-
-                this.$router.push({
-                    name:   'magic/card',
-                    params: { id },
-                });
-            }
+    beforeRouteEnter(to, from, next) {
+        next(vm => {
+            vm.unsubscribe = vm.$store.subscribe(({ type }) => {
+                if (type === 'magic/locale') {
+                    vm.loadData();
+                }
+            });
         });
     },
 
-    beforeDestroy() {
-        this.unsubscribe();
+    beforeRouteLeave(to, from, next) {
+        this.unsubscribe?.();
+        document.body.classList.remove('force-lowercase');
+        next();
     },
 
     methods: {

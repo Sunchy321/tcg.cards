@@ -33,7 +33,7 @@
                     v-for="b in buttons" :key="b.event"
                     :icon="b.icon"
                     flat dense round
-                    @click="$store.commit('event', b.event)"
+                    @click="$store.commit('event', { type: b.event })"
                 />
 
                 <q-btn

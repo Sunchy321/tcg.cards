@@ -1,61 +1,74 @@
 <script>
+import basic from 'src/mixins/basic';
+
 import { capitalize } from 'lodash';
 
 export default {
+    mixins: [basic],
+
     computed: {
-        q: {
-            get() {
-                return this.$route.query.q;
-            },
+        titleMeta() {
+            let meta = {};
 
-            set(newValue) {
-                if (newValue === '') {
-                    // eslint-disable-next-line no-unused-vars
-                    const { q, removeQ } = this.$route.query;
-
-                    this.$router.replace({
-                        query: removeQ,
-                    });
-                } else {
-                    this.$router.replace({
-                        query: {
-                            ...this.$route.query,
-                            q: newValue,
-                        },
-                    });
+            for (const m of this.$route.matched) {
+                if (m.meta != null) {
+                    meta = {
+                        ...meta,
+                        ...m.meta,
+                    };
                 }
-            },
+            }
+
+            return meta;
         },
 
-        titleMeta() {
-            const titleMatch = this.$route.matched.find(
-                r => r.meta.title != null,
-            );
+        titleText() { return this.titleMeta?.title; },
+        fixedInput() { return this.titleMeta?.fixedInput; },
+        inputClass() { return this.titleMeta?.inputClass; },
 
-            return titleMatch?.meta.title;
+        titleInput() {
+            let klass = 'title-input';
+
+            if (this.inputClass != null) {
+                klass += ' ' + this.inputClass;
+            }
+
+            return <q-input
+                class={klass}
+                dense={!this.fixedInput}
+                dark={!this.fixedInput}
+                standout={!this.fixedInput}
+                filled={this.fixedInput}
+                value={this.q}
+                onInput={v => { this.q = v; }}
+                onChange={() => this.$store.commit('event', { type: 'search' })}
+            >
+                <template slot="append">
+                    <q-btn
+                        icon="mdi-magnify"
+                        flat dense round
+                        onClick={() => this.$store.commit('event', { type: 'search' })}
+                    />
+                </template>
+            </q-input>;
         },
 
         title() {
-            const titleMeta = this.titleMeta;
+            const titleText = this.titleText;
 
-            if (titleMeta === null) {
-                const regex = /\//g;
-                return this.$route.path.slice(1).replace(regex, '.');
+            if (titleText === '$input') {
+                return this.titleInput;
             }
 
-            if (titleMeta === '$input') {
-                return <q-input
-                    dark dense standout
-                    value={this.q}
-                    onInput={v => { this.q = v; }}
-                >
-                    <template slot="append">
-                        <div></div>
-                    </template>
-                </q-input>;
-            }
+            const text = titleText != null
+                ? capitalize(this.$t(titleText))
+                : this.$route.path.slice(1).replace(new RegExp('/', 'g'), '.');
 
-            return capitalize(this.$t(titleMeta));
+            if (this.fixedInput) {
+                return [text, this.titleInput];
+            } else {
+                return text;
+            }
         },
     },
 
@@ -66,3 +79,10 @@ export default {
     },
 };
 </script>
+
+<style lang="stylus">
+
+.title-input
+    transition 0.5s
+
+</style>

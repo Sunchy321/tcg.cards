@@ -10,7 +10,18 @@
             </q-img>
         </div>
         <div class="col">
-            <div class="special-line q-mb-md">
+            <div class="q-mb-md">
+                <q-input v-model="search" class="q-mr-md" dense>
+                    <template v-slot:append>
+                        <q-btn
+                            icon="mdi-magnify"
+                            flat dense round
+                            @click="doSearch"
+                        />
+                    </template>
+                </q-input>
+            </div>
+            <div class="q-mb-md">
                 <q-btn-group outline>
                     <q-btn outline label="oracle" @click="loadData('inconsistent-oracle')" />
                     <q-btn outline label="unified" @click="loadData('inconsistent-unified')" />
@@ -22,21 +33,15 @@
                 </span>
 
                 <q-btn
-                    class="q-ml-md"
+                    class="q-mx-md"
                     outline
                     label="prettify"
                     @click="prettify"
                 />
 
-                <q-input v-model="remove" class="q-ml-md" style="display: inline-flex">
-                    <template v-slot:append>
-                        <q-btn
-                            label="remove all"
-                            flat dense
-                            @click="removeText"
-                        />
-                    </template>
-                </q-input>
+                <q-input v-model="replaceFrom" class="inline-flex" dense />
+                <q-icon name="mdi-arrow-right" class="q-mx-md" />
+                <q-input v-model="replaceTo" class="inline-flex" dense />
             </div>
 
             <div class="id-line row items-center">
@@ -145,6 +150,9 @@
 </template>
 
 <style lang="stylus" scoped>
+.inline-flex
+    display inline-flex
+
 .card-not-found
     width 100%
     background-color transparent !important
@@ -169,6 +177,8 @@ table
 
 <script>
 import { imageBase } from 'boot/backend';
+
+import { escapeRegExp } from 'lodash';
 
 function field(firstKey, lastKey) {
     if (lastKey != null) {
@@ -198,9 +208,11 @@ export default {
     name: 'DataCard',
 
     data: () => ({
-        data:   null,
-        unlock: false,
-        remove: '',
+        data:        null,
+        unlock:      false,
+        search:      '',
+        replaceFrom: '',
+        replaceTo:   '',
     }),
 
     computed: {
@@ -353,25 +365,63 @@ export default {
         },
 
         async update() {
+            this.defaultPrettify();
+
             await this.apiPost('/magic/card/update?id=' + this.id, {
                 data: this.data,
             });
         },
 
+        defaultPrettify() {
+            this.unifiedTypeline = this.unifiedTypeline.replace(/ *～ *-? */, '～');
+            this.printedTypeline = this.printedTypeline.replace(/ *～ *-? */, '～');
+
+            this.unifiedText = this.unifiedText.replace(/[●•] ?/g, '• ');
+            this.printedText = this.printedText.replace(/[●•] ?/g, '• ');
+
+            if (this.lang === 'zhs' || this.lang === 'zht') {
+                this.unifiedText = this.unifiedText.replace(/(?<!•) /g, '');
+                this.printedText = this.printedText.replace(/(?<!•) /g, '');
+            }
+        },
+
         prettify() {
-            this.unifiedTypeline = this.unifiedTypeline.replace(' ～', '～');
-            this.printedTypeline = this.printedTypeline.replace(' ～', '～');
+            if (this.lang !== 'en') {
+                if (
+                    (this.oracleName !== this.unifiedName && this.oracleName === this.printedName) ||
+                    (this.oracleTypeline !== this.unifiedTypeline && this.oracleTypeline === this.printedTypeline) ||
+                    (this.oracleText !== this.unifiedText && this.oracleText === this.printedText)
+                ) {
+                    this.printedName = this.unifiedName;
+                    this.printedTypeline = this.unifiedTypeline;
+                    this.printedText = this.unifiedText;
+                }
+            }
+
+            this.defaultPrettify();
+
+            if (this.replaceFrom !== '') {
+                this.unifiedText = this.unifiedText.replace(
+                    new RegExp(escapeRegExp(this.replaceFrom), 'g'),
+                    this.replaceTo,
+                );
+            }
 
             this.unifiedText = this.unifiedText.replace(/ *[(（][^)）]+[)）] */g, '').trim();
         },
 
-        async removeText() {
-            await this.apiPost('/magic/card/remove-text', {
-                text: this.remove,
-                lang: this.$store.getters['magic/locale'],
-            });
+        async doSearch() {
+            if (this.data != null && this.id != null) {
+                await this.update();
+            }
 
-            await this.loadData('parentheses', false);
+            const { data } = await this.apiGet('/magic/search', { q: this.search, one: '' });
+
+            if (this.partIndex !== 0 && this.partIndex !== '0') {
+                this.partIndex = 0;
+            }
+
+            this.data = data.result;
         },
     },
 };
