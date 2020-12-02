@@ -28,7 +28,7 @@ export default {
                         vm.$router.push({
                             name:   'magic/card',
                             params: { id },
-                            query:  { q: vm.q },
+                            query:  { q: vm.q === '' ? undefined : vm.q },
                         });
 
                         break;

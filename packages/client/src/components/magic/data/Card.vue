@@ -1,6 +1,6 @@
 <template>
     <div class="q-pa-md row">
-        <div class="col-3 q-mr-md">
+        <div class="card-image col-3 q-mr-md">
             <q-img :src="imageUrl" :ratio="745/1040" native-context-menu>
                 <template v-slot:error>
                     <div class="card-not-found">
@@ -173,6 +173,10 @@ table
     & .typeline
         width 250px
 
+@media screen and (max-width: 1000px)
+    .card-image
+        display none
+
 </style>
 
 <script>
@@ -180,24 +184,22 @@ import { imageBase } from 'boot/backend';
 
 import { escapeRegExp } from 'lodash';
 
-function field(firstKey, lastKey) {
+function field(firstKey, lastKey, defaultValue) {
     if (lastKey != null) {
         return {
-            get() { return this.part?.[firstKey]?.[lastKey]; },
+            get() { return this.part?.[firstKey]?.[lastKey] ?? defaultValue; },
             set(newValue) {
                 if (this.data != null) {
                     this.data.parts[this.partIndex][firstKey][lastKey] = newValue;
-                    this.$forceUpdate();
                 }
             },
         };
     } else {
         return {
-            get() { return this.part?.[firstKey]; },
+            get() { return this.part?.[firstKey] ?? defaultValue; },
             set(newValue) {
                 if (this.data != null) {
-                    this.data.parts[this.partIndex][firstKey] = newValue;
-                    this.$forceUpdate();
+                    this.$set(this.part, firstKey, newValue);
                 }
             },
         };
@@ -281,7 +283,7 @@ export default {
         printedTypeline: field('printed', 'typeline'),
         printedText:     field('printed', 'text'),
 
-        flavor: field('flavorText'),
+        flavor: field('flavorText', null, ''),
 
         relatedCards: {
             get() {
@@ -373,16 +375,38 @@ export default {
         },
 
         defaultPrettify() {
-            this.unifiedTypeline = this.unifiedTypeline.replace(/ *～ *-? */, '～');
-            this.printedTypeline = this.printedTypeline.replace(/ *～ *-? */, '～');
+            if (this.lang === 'zhs' || this.lang === 'zht') {
+                this.unifiedTypeline = this.unifiedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
+                this.printedTypeline = this.printedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
+                this.unifiedText = this.unifiedText.replace(/~/g, '～');
+                this.printedText = this.printedText.replace(/~/g, '～');
+            }
 
             this.unifiedText = this.unifiedText.replace(/[●•] ?/g, '• ');
             this.printedText = this.printedText.replace(/[●•] ?/g, '• ');
 
             if (this.lang === 'zhs' || this.lang === 'zht') {
-                this.unifiedText = this.unifiedText.replace(/(?<!•) /g, '');
-                this.printedText = this.printedText.replace(/(?<!•) /g, '');
+                if (!/[a-z](?![/}])/.test(this.unifiedText)) {
+                    this.unifiedText = this.unifiedText
+                        .replace(/(?<!•)(?<!.-.)(?<!.\+) /g, '')
+                        .replace(/\(/g, '（')
+                        .replace(/\)/g, '）');
+                }
+
+                if (!/[a-z](?![/}])/.test(this.printedText)) {
+                    this.printedText = this.printedText
+                        .replace(/(?<!•)(?<!.-.)(?<!.\+) /g, '')
+                        .replace(/\(/g, '（')
+                        .replace(/\)/g, '）');
+                }
+
+                if (this.flavor !== '') {
+                    this.flavor = this.flavor.replace(/」 ?～/, '」\n～');
+                }
             }
+
+            this.unifiedTypeline = this.unifiedTypeline.replace(/ *～ *-? */, '～');
+            this.printedTypeline = this.printedTypeline.replace(/ *～ *-? */, '～');
         },
 
         prettify() {
@@ -402,6 +426,10 @@ export default {
 
             if (this.replaceFrom !== '') {
                 this.unifiedText = this.unifiedText.replace(
+                    new RegExp(escapeRegExp(this.replaceFrom), 'g'),
+                    this.replaceTo,
+                );
+                this.unifiedTypeline = this.unifiedTypeline.replace(
                     new RegExp(escapeRegExp(this.replaceFrom), 'g'),
                     this.replaceTo,
                 );

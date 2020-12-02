@@ -8,7 +8,7 @@
 
 <style lang="stylus">
 .title-input.index-input
-    position fixed
+    position absolute
     width calc(100vw - 150px)
     top 100px
 </style>

@@ -143,12 +143,12 @@
                 <q-btn
                     v-for="i in langInfos" :key="i.lang"
                     class="lang-selector"
+                    dense
+                    size="sm"
                     :disable="i.current || !i.exist"
                     :color="i.exist ? 'primary' : 'grey'"
-                    dense
                     :outline="!i.current"
                     :unelevated="i.current"
-                    size="sm"
                     :label="i.lang"
                     @click="lang = i.lang"
                 />
@@ -163,12 +163,25 @@
             </div>
 
             <div class="set-block">
-                <div
-                    v-for="s in sets" :key="s" v-ripple class="set-line"
-                    @click="set = s"
-                >
-                    <div v-if="s === set" class="set-dot" />
-                    <span>{{ s }}</span>
+                <div v-for="i in setInfos" :key="i.set" class="set-line">
+                    <div v-if="i.langs.includes(lang)" class="set-dot" :class="{ current: i.set === set }" />
+                    <div>
+                        <div v-ripple @click="set = i.set">
+                            {{ i.set }}
+                        </div>
+                        <div v-if="i.numbers.length > 1">
+                            <q-btn
+                                v-for="n of i.numbers" :key="n.number"
+                                flat dense
+                                size="xs"
+                                :disable="set !== i.set || number === n.number || !n.langs.includes(lang)"
+                                :color="n.langs.includes(lang) ? 'primary' : 'grey'"
+                                :outline="number === n.number"
+                                :label="n.number"
+                                @click="number = n.number"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -274,11 +287,17 @@
     width 10px
     height 10px
     border-radius 100px
-    background-color $primary
+    border 1px $primary solid
+
+    background-color white
+
+    &.current
+        background-color $primary
 
     position absolute
     left -5px
-    transform translateY(50%)
+    top 50%
+    transform translateY(-50%)
 </style>
 
 <script>
@@ -289,7 +308,7 @@ import MagicColor from 'components/magic/Color';
 import MagicText from 'components/magic/Text';
 import MagicSymbol from 'components/magic/Symbol';
 
-import { omitBy, uniq } from 'lodash';
+import { omit, omitBy, uniq } from 'lodash';
 import mapComputed from 'src/store/map-computed';
 
 export default {
@@ -336,6 +355,30 @@ export default {
 
         sets() { return uniq(this.versions.map(v => v.set)); },
 
+        setInfos() {
+            return this.sets.map(s => {
+                const versions = this.versions.filter(v => v.set === s);
+
+                const numbers = [];
+
+                for (const v of versions) {
+                    const n = numbers.find(n => n.number === v.number);
+
+                    if (n != null) {
+                        n.langs.push(v.lang);
+                    } else {
+                        numbers.push({ number: v.number, langs: [v.lang] });
+                    }
+                }
+
+                return {
+                    set:   s,
+                    langs: uniq(versions.map(v => v.lang)),
+                    numbers,
+                };
+            });
+        },
+
         lang: {
             get() { return this.data?.lang ?? this.$route.query.lang ?? this.$store.getters['magic/locale']; },
             set(newValue) { this.$router.replace({ query: { ...this.$route.query, lang: newValue } }); },
@@ -343,7 +386,7 @@ export default {
 
         set: {
             get() { return this.data?.setId ?? this.$route.query.set; },
-            set(newValue) { this.$router.replace({ query: { ...this.$route.query, set: newValue } }); },
+            set(newValue) { this.$router.replace({ query: { ...omit(this.$route.query, 'number'), set: newValue } }); },
         },
 
         number: {
@@ -352,7 +395,7 @@ export default {
         },
 
         partIndex: {
-            get() { return this.$route.query.part ?? 0; },
+            get() { return parseInt(this.$route.query.part ?? 0); },
             set(newValue) { this.$router.replace({ query: { ...this.$route.query, part: newValue } }); },
         },
 

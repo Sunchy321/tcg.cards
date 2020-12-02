@@ -4,6 +4,7 @@ import Card from './Card';
 import Set from './Set';
 import BanlistChange from './BanlistChange';
 import BanlistCheck from './BanlistCheck';
+import CR from './CR';
 
 export {
     Scryfall,
@@ -12,4 +13,5 @@ export {
     Set,
     BanlistChange,
     BanlistCheck,
+    CR,
 };
