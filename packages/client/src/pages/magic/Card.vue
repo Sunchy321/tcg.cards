@@ -4,7 +4,7 @@
             <div class="row">
                 <div class="col-4">
                     <card-image
-                        v-if="set != null && number != null"
+                        v-if="data != null"
                         :lang="lang"
                         :set="set"
                         :number="number"
@@ -68,6 +68,15 @@
                             @click="rotate = !rotate"
                         />
 
+                        <q-btn-group v-else-if="layout === 'split_5w'" outline>
+                            <q-btn
+                                v-for="i in 5" :key="i"
+                                :label="i - 1"
+                                outline
+                                @click="partIndex = i - 1"
+                            />
+                        </q-btn-group>
+
                         <q-btn
                             v-else
                             :label="$t('magic.card.layout.another_part')"
@@ -87,7 +96,7 @@
                             {{ name }}
                         </div>
 
-                        <div class="space" />
+                        <div class="col-grow" />
 
                         <div
                             v-if="cost != null"
@@ -122,17 +131,18 @@
             </div>
         </div>
         <div class="col-3">
-            <div v-if="isAdmin" class="editor-line">
+            <div class="text-mode row">
                 <q-btn
+                    v-if="isAdmin"
                     icon="mdi-file-edit"
+                    class="q-mr-sm"
                     dense flat round
                     @click="toEditor"
                 />
-            </div>
 
-            <div class="text-mode">
                 <q-btn-toggle
                     v-model="textMode"
+                    class="col-grow"
                     :options="textModeOptions"
                     toggle-color="primary"
                     outline spread
@@ -169,7 +179,7 @@
                         <div v-ripple @click="set = i.set">
                             {{ i.set }}
                         </div>
-                        <div v-if="i.numbers.length > 1">
+                        <div>
                             <q-btn
                                 v-for="n of i.numbers" :key="n.number"
                                 flat dense
@@ -214,13 +224,6 @@
     margin-top 20px
     font-style italic
 
-.editor-line
-    margin-bottom 10px
-
-.text-mode
-    & > *
-        width 100%
-
 .lang-line
     margin-top 10px
 
@@ -242,6 +245,7 @@
 .cost
     display inline-flex
     align-items center
+    margin-left 30px
 
     & > *
         margin-right 3px

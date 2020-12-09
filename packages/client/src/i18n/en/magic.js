@@ -122,4 +122,11 @@ export default {
     },
 
     'image-wall': 'Image Wall',
+
+    'cr': {
+        $self:    'CompRules',
+        intro:    'Introduction',
+        glossary: 'Glossary',
+        credits:  'Credits',
+    },
 };

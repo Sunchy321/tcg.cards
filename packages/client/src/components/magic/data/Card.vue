@@ -66,7 +66,7 @@
                     outline dense
                 />
 
-                <div class="space" />
+                <div class="col-grow" />
 
                 <q-btn
                     :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'"
@@ -401,7 +401,9 @@ export default {
                 }
 
                 if (this.flavor !== '') {
-                    this.flavor = this.flavor.replace(/」 ?～/, '」\n～');
+                    this.flavor = this.flavor
+                        .replace(/」 ?～/, '」\n～')
+                        .replace(/ /g, '');
                 }
             }
 

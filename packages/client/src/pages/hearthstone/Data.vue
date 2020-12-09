@@ -13,13 +13,6 @@
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
-
-.flex-grow
-    flex-grow 1
-
-</style>
-
 <script>
 import * as components from 'components/hearthstone/data';
 

@@ -25,6 +25,10 @@ export default async function() {
     });
 
     Router.beforeEach(async (to, from, next) => {
+        if (to.path !== from.path) {
+            store.commit('selections', []);
+        }
+
         if (to.matched.some(r => r.meta.requireAdmin)) {
             const isAdmin = store.getters['user/isAdmin'];
 

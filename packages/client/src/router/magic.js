@@ -57,6 +57,14 @@ const routes = [
                     title: 'magic.image-wall',
                 },
             },
+            {
+                path:      'cr',
+                component: () => import('pages/magic/CR'),
+                meta:      {
+                    title:  'magic.cr.$self',
+                    select: 'date',
+                },
+            },
         ],
     },
 ];

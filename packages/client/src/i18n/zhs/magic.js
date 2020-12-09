@@ -111,4 +111,11 @@ export default {
     },
 
     'image-wall': '图片墙',
+
+    'cr': {
+        $self:    '规则',
+        intro:    '前言',
+        glossary: '词汇表',
+        credits:  '版权信息',
+    },
 };

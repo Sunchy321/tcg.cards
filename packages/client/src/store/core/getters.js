@@ -7,3 +7,7 @@ export function locales() {
 export function locale(state) {
     return state.locale;
 }
+
+export function selections(state) {
+    return state.selections;
+}

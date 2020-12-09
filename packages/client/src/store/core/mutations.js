@@ -14,3 +14,7 @@ export function locale(state, newValue) {
 }
 
 export function event() {}
+
+export function selections(state, newValue) {
+    state.selections = newValue;
+}

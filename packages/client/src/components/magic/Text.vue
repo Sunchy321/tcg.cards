@@ -63,7 +63,7 @@ export default {
             }
         }
 
-        return <div>{result}</div>;
+        return <span>{result}</span>;
     },
 };
 </script>

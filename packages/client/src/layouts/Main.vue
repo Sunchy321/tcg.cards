@@ -7,6 +7,26 @@
                 <app-title />
 
                 <q-btn-dropdown
+                    v-if="meta.select"
+                    flat dense
+                    :label="selection"
+                >
+                    <q-list link style="width: 150px">
+                        <q-item
+                            v-for="s in selections" :key="s"
+                            v-close-popup
+
+                            clickable
+                            @click="selection = s"
+                        >
+                            <q-item-section>
+                                {{ s }}
+                            </q-item-section>
+                        </q-item>
+                    </q-list>
+                </q-btn-dropdown>
+
+                <q-btn-dropdown
                     v-if="game != null"
                     flat dense
                     :label="gameLocale"
@@ -77,6 +97,26 @@ export default {
     mixins: [basic],
 
     computed: {
+        homePath() {
+            if (this.game && this.$route.path !== '/' + this.game) {
+                return '/' + this.game;
+            } else {
+                return '/';
+            }
+        },
+
+        dataPath() {
+            if (this.isAdmin && this.game != null) {
+                return `/${this.game}/data`;
+            } else {
+                return null;
+            }
+        },
+
+        meta() {
+            return this.$route.meta;
+        },
+
         buttons() {
             const buttons = [];
 
@@ -111,21 +151,39 @@ export default {
             }
         },
 
-        homePath() {
-            if (this.game && this.$route.path !== '/' + this.game) {
-                return '/' + this.game;
-            } else {
-                return '/';
-            }
+        selection: {
+            get() {
+                if (this.meta.select != null) {
+                    return this.$route.query[this.meta.select];
+                } else {
+                    return null;
+                }
+            },
+            set(newValue) {
+                if (this.meta.select != null && this.selection !== newValue) {
+                    this.$router.push({
+                        query: {
+                            ...this.$route.query,
+                            [this.meta.select]: newValue,
+                        },
+                    });
+                } else {
+                    return null;
+                }
+            },
         },
 
-        dataPath() {
-            if (this.isAdmin && this.game != null) {
-                return `/${this.game}/data`;
-            } else {
-                return null;
-            }
+        selections() {
+            return this.$store.getters.selections ?? [];
         },
+    },
+
+    mounted() {
+        this.$store.subscribe(({ type, payload }) => {
+            if (type === 'selections') {
+                this.selection = payload[0] || '';
+            }
+        });
     },
 };
 </script>

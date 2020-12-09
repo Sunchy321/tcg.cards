@@ -7,24 +7,13 @@ export default {
     mixins: [basic],
 
     computed: {
-        titleMeta() {
-            let meta = {};
-
-            for (const m of this.$route.matched) {
-                if (m.meta != null) {
-                    meta = {
-                        ...meta,
-                        ...m.meta,
-                    };
-                }
-            }
-
-            return meta;
+        meta() {
+            return this.$route.meta;
         },
 
-        titleText() { return this.titleMeta?.title; },
-        fixedInput() { return this.titleMeta?.fixedInput; },
-        inputClass() { return this.titleMeta?.inputClass; },
+        titleText() { return this.meta?.title; },
+        fixedInput() { return this.meta?.fixedInput; },
+        inputClass() { return this.meta?.inputClass; },
 
         titleInput() {
             let klass = 'title-input';
