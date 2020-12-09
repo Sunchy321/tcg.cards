@@ -237,7 +237,7 @@ UserSchema.statics.findByUsername = async function(this: UserModel, username: st
 
 UserSchema.statics.toJwtToken = function(this: UserModel, user: IUser) {
     return jwt.sign(user.info(), jwtSecretKey, {
-        expiresIn: '1d',
+        expiresIn: '7d',
     });
 };
 

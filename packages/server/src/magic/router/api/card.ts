@@ -5,9 +5,9 @@ import { DefaultState, Context } from 'koa';
 import jwtAuth from '@/middlewares/jwt-auth';
 
 import Card, { ICard } from '@/magic/db/card';
-import { Aggregate, Document } from 'mongoose';
+import { Aggregate } from 'mongoose';
 
-import { escapeRegExp, omitBy, random } from 'lodash';
+import { omitBy, random } from 'lodash';
 
 import { textWithParen } from '@data/magic/special';
 

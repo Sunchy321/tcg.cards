@@ -35,7 +35,7 @@ export class Searcher<T> {
     }
 
     async search(text: string, options: Record<string, string>): Promise<SearchResult<T>> {
-        const commands = parser.parse(text.trim()) as QueryItem[];
+        const commands: QueryItem[] = text.trim() !== '' ? parser.parse(text.trim()) : [];
 
         const queries = [];
         const errors = [];

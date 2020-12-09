@@ -2,7 +2,7 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
-interface IFormatData {
+interface IFormat {
     formatId: string;
     order: number;
     localization: {
@@ -32,8 +32,6 @@ const FormatSchema = new Schema({
     setList: [String],
 });
 
-export interface IFormat extends IFormatData, Document {}
-
-const Format = conn.model<IFormat>('format', FormatSchema);
+const Format = conn.model<IFormat & Document>('format', FormatSchema);
 
 export default Format;

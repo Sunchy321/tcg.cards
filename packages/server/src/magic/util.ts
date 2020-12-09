@@ -21,7 +21,6 @@ const superList = [
     'elemental',
     'elite',
     'hero',
-    'host',
     'legendary',
     'ongoing',
     'snow',
