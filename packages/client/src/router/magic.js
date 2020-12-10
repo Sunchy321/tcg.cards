@@ -64,10 +64,14 @@ const routes = [
                     title:         'magic.cr.$self',
                     select:        'date',
                     selectDefault: '$last',
+                    buttons:       [
+                        { icon: 'mdi-vector-difference', event: 'diff' },
+                    ],
                 },
             },
             {
                 path:      'cr/diff',
+                name:      'magic/cr/diff',
                 component: () => import('pages/magic/CRDiff'),
                 meta:      {
                     title: 'magic.cr.diff',

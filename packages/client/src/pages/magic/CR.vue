@@ -66,9 +66,10 @@ export default {
     mixins: [basic],
 
     data: () => ({
-        data:     null,
-        selected: null,
-        expanded: [],
+        data:        null,
+        selected:    null,
+        expanded:    [],
+        unsubscribe: null,
     }),
 
     computed: {
@@ -240,6 +241,21 @@ export default {
 
     mounted() {
         this.loadList();
+    },
+
+    beforeRouteEnter(to, from, next) {
+        next(vm => {
+            vm.baseUnsubscribe = vm.$store.subscribe(async ({ type, payload }) => {
+                if (type === 'event' && payload.type === 'diff') {
+                    vm.$router.push({ name: 'magic/cr/diff' });
+                }
+            });
+        });
+    },
+
+    beforeRouteLeave(to, from, next) {
+        this.baseUnsubscribe?.();
+        next();
     },
 
     methods: {

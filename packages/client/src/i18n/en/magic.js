@@ -129,6 +129,6 @@ export default {
         glossary: 'Glossary',
         credits:  'Credits',
 
-        diff: 'Diff between CR versions',
+        diff: 'Differences between CR versions',
     },
 };
