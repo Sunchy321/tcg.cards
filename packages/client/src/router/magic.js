@@ -61,8 +61,16 @@ const routes = [
                 path:      'cr',
                 component: () => import('pages/magic/CR'),
                 meta:      {
-                    title:  'magic.cr.$self',
-                    select: 'date',
+                    title:         'magic.cr.$self',
+                    select:        'date',
+                    selectDefault: '$last',
+                },
+            },
+            {
+                path:      'cr/diff',
+                component: () => import('pages/magic/CRDiff'),
+                meta:      {
+                    title: 'magic.cr.diff',
                 },
             },
         ],

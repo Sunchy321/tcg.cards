@@ -128,5 +128,7 @@ export default {
         intro:    'Introduction',
         glossary: 'Glossary',
         credits:  'Credits',
+
+        diff: 'Diff between CR versions',
     },
 };

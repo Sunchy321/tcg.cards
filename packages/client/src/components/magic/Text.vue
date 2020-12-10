@@ -19,6 +19,8 @@
 import Symbol from './Symbol';
 
 export default {
+    functional: true,
+
     props: {
         value: { type: String, required: true },
         tap:   {
@@ -31,10 +33,10 @@ export default {
         },
     },
 
-    render() {
-        const symbols = this.$store.getters['magic/data'].symbols || [];
+    render(h, { props, parent, data }) {
+        const symbols = parent.$store.getters['magic/data'].symbols || [];
 
-        const pieces = this.value.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
+        const pieces = props.value.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
 
         const result = [];
 
@@ -47,23 +49,23 @@ export default {
                 if (symbols.includes(content)) {
                     switch (content) {
                     case 'T':
-                        result.push(<Symbol value={content} type={this.tap} />);
+                        result.push(<Symbol class={data.class} value={content} type={props.tap} />);
                         break;
                     case 'W':
-                        result.push(<Symbol value={content} type={this.white} />);
+                        result.push(<Symbol class={data.class} value={content} type={props.white} />);
                         break;
                     default:
-                        result.push(<Symbol value={content} />);
+                        result.push(<Symbol class={data.class} value={content} />);
                     }
                 } else {
-                    result.push(<span>{p}</span>);
+                    result.push(<span class={data.class}>{p}</span>);
                 }
             } else {
-                result.push(<span>{p}</span>);
+                result.push(<span class={data.class}>{p}</span>);
             }
         }
 
-        return <span>{result}</span>;
+        return result;
     },
 };
 </script>

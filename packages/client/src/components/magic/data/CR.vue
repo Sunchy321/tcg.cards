@@ -43,8 +43,6 @@
                 @click="save"
             />
 
-            <q-checkbox v-model="onlySlide" label="Only Slide" />
-
             <span v-if="duplicatedID.length > 0" class="error">Duplicated ID {{ duplicatedID.join(', ') }}</span>
 
             <div class="col-grow" />
@@ -63,21 +61,35 @@
             </q-tab-panel>
             <q-tab-panel name="content">
                 <q-table
-                    title="Contents"
-                    :data="filteredContents"
+                    style="height: 500px"
+                    :title="contentTitle"
+                    :data="contents"
                     :columns="contentColumns"
                     row-key="id"
-                    :pagination="{ rowsPerPage: 50 }"
+                    virtual-scroll
+                    :pagination="{ rowsPerPage: 0 }"
+                    :filter="contentFilter"
+                    :rows-per-page-options="[0]"
                 >
+                    <template v-slot:top-right>
+                        <q-input v-model="contentFilter" borderless dense debounce="300">
+                            <template v-slot:append>
+                                <q-icon name="mdi-magnify" />
+                            </template>
+                        </q-input>
+                    </template>
+
                     <template v-slot:body="props">
                         <q-tr :props="props">
                             <q-td key="id" :props="props">
                                 {{ props.row.id }}
                                 <q-popup-edit v-model="props.row.id">
                                     <q-input
-                                        v-model="props.row.id"
-                                        dense autofocus counter
+                                        :value="props.row.id"
+                                        dense
+                                        autofocus counter
                                         @focus="e => e.target.select()"
+                                        @change="e => props.row.id = e.target.value"
                                     />
                                 </q-popup-edit>
                             </q-td>
@@ -95,7 +107,51 @@
                 </q-table>
             </q-tab-panel>
             <q-tab-panel name="glossary">
-                123
+                <q-table
+                    style="height: 500px"
+                    :title="glossaryTitle"
+                    :data="glossary"
+                    :columns="glossaryColumns"
+                    row-key="id"
+                    virtual-scroll
+                    :pagination="{ rowsPerPage: 0 }"
+                    :filter="glossaryFilter"
+                    :rows-per-page-options="[0]"
+                >
+                    <template v-slot:top-right>
+                        <q-input v-model="glossaryFilter" borderless dense debounce="300">
+                            <template v-slot:append>
+                                <q-icon name="mdi-magnify" />
+                            </template>
+                        </q-input>
+                    </template>
+
+                    <template v-slot:body="props">
+                        <q-tr :props="props">
+                            <q-td key="ids" :props="props">
+                                {{ props.row.ids.join(', ') }}
+                                <q-popup-edit
+                                    :value="props.row.ids.join(', ')"
+                                    @input="v => props.row.ids = v.split(', ')"
+                                >
+                                    <q-input
+                                        :value="props.row.ids.join(', ')"
+                                        dense
+                                        autofocus counter
+                                        @focus="e => e.target.select()"
+                                        @change="e => props.row.ids = e.target.value.split(', ')"
+                                    />
+                                </q-popup-edit>
+                            </q-td>
+                            <q-td key="words" :props="props">
+                                {{ props.row.words.join(', ') }}
+                            </q-td>
+                            <q-td key="text" :props="props" style="white-space: normal;">
+                                {{ props.row.text }}
+                            </q-td>
+                        </q-tr>
+                    </template>
+                </q-table>
             </q-tab-panel>
             <q-tab-panel name="credits">
                 <q-input v-model="credits" type="textarea" autogrow />
@@ -118,12 +174,14 @@ export default {
     name: 'CR',
 
     data: () => ({
-        cr:        [],
-        txt:       [],
-        date:      null,
-        data:      null,
-        onlySlide: false,
-        tab:       'content',
+        cr:   [],
+        txt:  [],
+        date: null,
+        data: null,
+        tab:  'content',
+
+        contentFilter:  '',
+        glossaryFilter: '',
     }),
 
     computed: {
@@ -140,6 +198,14 @@ export default {
         glossary() { return this.data?.glossary ?? []; },
         credits() { return this.data?.credits ?? ''; },
 
+        contentTitle() {
+            if (this.data != null) {
+                return `Contents (${this.data.date})`;
+            } else {
+                return 'Contents';
+            }
+        },
+
         contentColumns() {
             return [
                 { name: 'id', label: 'ID', field: 'id' },
@@ -147,14 +213,6 @@ export default {
                 { name: 'index', label: 'Index', field: 'index' },
                 { name: 'text', label: 'Text', field: 'text', align: 'left' },
             ];
-        },
-
-        filteredContents() {
-            if (this.onlySlide) {
-                return this.contents.filter(c => c.id.startsWith('~'));
-            } else {
-                return this.contents;
-            }
         },
 
         duplicatedID() {
@@ -167,6 +225,22 @@ export default {
             }
 
             return Object.keys(count).filter(id => count[id] > 1);
+        },
+
+        glossaryTitle() {
+            if (this.data != null) {
+                return `Glossary (${this.data.date})`;
+            } else {
+                return 'Glossary';
+            }
+        },
+
+        glossaryColumns() {
+            return [
+                { name: 'ids', label: 'IDs', field: 'ids' },
+                { name: 'words', label: 'Words', field: 'words' },
+                { name: 'text', label: 'Text', field: 'text', align: 'left' },
+            ];
         },
     },
 
@@ -181,7 +255,10 @@ export default {
 
             this.cr = cr;
             this.txt = txt;
-            this.date = last(txt);
+
+            if (this.date == null) {
+                this.date = last(txt);
+            }
 
             if (this.cr.includes(this.date)) {
                 this.load();

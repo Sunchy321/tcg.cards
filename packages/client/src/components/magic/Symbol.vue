@@ -14,8 +14,28 @@
 </style>
 
 <script>
+function calcActualValue(value, type) {
+    switch (value) {
+    case 'T':
+        return {
+            old1:   'T,old1',
+            old2:   'T,old2',
+            modern: 'T',
+        }[type] ?? 'T';
+    case 'W':
+        return {
+            old:    'W,old',
+            modern: 'W',
+        }[type] ?? 'W';
+    default:
+        return value;
+    }
+}
+
 export default {
     name: 'MagicSymbol',
+
+    functional: true,
 
     props: {
         value: {
@@ -29,31 +49,14 @@ export default {
         },
     },
 
-    computed: {
-        actualValue() {
-            switch (this.value) {
-            case 'T':
-                return {
-                    old1:   'T,old1',
-                    old2:   'T,old2',
-                    modern: 'T',
-                }[this.type] ?? 'T';
-            case 'W':
-                return {
-                    old:    'W,old',
-                    modern: 'W',
-                }[this.type] ?? 'W';
-            default:
-                return this.value;
-            }
-        },
-    },
+    render(h, { props, data }) {
+        const actualValue = calcActualValue(props.value, props.type);
 
-    render() {
-        const klass = 'magic-symbol icon-' + this.actualValue;
-        const src = `magic/symbols.svg#icon-${this.actualValue}`;
+        const klass = 'magic-symbol icon-' + actualValue +
+            (data.class ? ' ' + data.class : '');
+        const src = `magic/symbols.svg#icon-${actualValue}`;
 
-        return <img class={klass} src={src} alt={`{${this.value}}`} />;
+        return <img class={klass} src={src} alt={`{${props.value}}`} />;
     },
 };
 </script>

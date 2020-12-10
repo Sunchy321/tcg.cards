@@ -117,5 +117,7 @@ export default {
         intro:    '前言',
         glossary: '词汇表',
         credits:  '版权信息',
+
+        diff: '规则版本间差异',
     },
 };

@@ -2,15 +2,19 @@
     <q-page class="row">
         <q-tree
             v-if="menu != null"
-            class="col-2 menu"
+            class="menu col-2 scroll"
             no-connectors
             :nodes="menu"
             node-key="id"
             :selected.sync="selected"
             :expanded.sync="expanded"
         />
-        <div v-if="data != null" class="col detail q-pa-md">
-            <div v-for="c in chapterContent" :key="c.id" :class="`content-${c.depth}`">
+        <div v-if="data != null" class="detail col scroll q-pa-md">
+            <div
+                v-for="c in chapterContent"
+                :id="c.id" :key="c.id"
+                :class="`depth-${c.depth}`"
+            >
                 <magic-text :value="c.index ? c.index + ' ' + c.text : c.text" />
 
                 <div v-for="(e, i) in c.examples || []" :key="i" class="example">
@@ -25,20 +29,19 @@
 <style lang="stylus" scoped>
 .menu, .detail
     height calc(100vh - 50px)
-    overflow auto
 
-.content-0
+.depth-0
     font-size 200%
     margin-bottom 30px
 
-.content-1
+.depth-1
     font-size 150%
     margin-bottom 20px
 
-.content-2
+.depth-2
     margin-bottom 15px
 
-.content-3
+.depth-3
     margin-bottom 15px
 
 .example-icon
@@ -50,12 +53,17 @@
 <script>
 import MagicText from 'components/magic/Text';
 
+import basic from 'src/mixins/basic';
+
 import { last } from 'lodash';
+import { scroll } from 'quasar';
 
 export default {
     name: 'CR',
 
     components: { MagicText },
+
+    mixins: [basic],
 
     data: () => ({
         data:     null,
@@ -64,9 +72,7 @@ export default {
     }),
 
     computed: {
-        date() {
-            return this.$route.query.date;
-        },
+        date() { return this.selection; },
 
         menu() {
             if (this.data == null) {
@@ -174,6 +180,19 @@ export default {
                 return this.data?.contents
                     ?.filter(c => c.index.startsWith(this.chapter)) ??
                     [];
+            case 'glossary':
+                return [
+                    {
+                        id:    'glossary.title',
+                        depth: 0,
+                        text:  this.$t('magic.cr.glossary'),
+                    },
+                    ...(this.data?.glossary ?? []).map(g => ({
+                        id:    'g:' + g.ids.join(','),
+                        depth: 2,
+                        text:  g.words.join(', ') + '\n' + g.text,
+                    })),
+                ];
             case 'credits':
                 return [
                     {
@@ -195,16 +214,28 @@ export default {
         date: {
             immediate: true,
             handler() {
+                this.selected = null;
                 this.loadData();
             },
         },
 
-        item() {
-        },
-
         selected() {
-            this.item = this.selected;
+            if (this.selected != null && this.selected !== this.item) {
+                this.item = this.selected;
+                this.selected = null;
+            }
         },
+    },
+
+    updated() {
+        this.$nextTick(() => {
+            const elem = document.getElementById(this.item);
+            if (elem != null) {
+                const target = scroll.getScrollTarget(elem);
+                const offset = elem.offsetTop - elem.scrollHeight;
+                scroll.setScrollPosition(target, offset, 500);
+            }
+        });
     },
 
     mounted() {
@@ -218,8 +249,10 @@ export default {
         },
 
         async loadData() {
-            const { data } = await this.apiGet('/magic/cr', { date: this.date });
-            this.data = data;
+            if (this.date != null) {
+                const { data } = await this.apiGet('/magic/cr', { date: this.date });
+                this.data = data;
+            }
         },
     },
 };

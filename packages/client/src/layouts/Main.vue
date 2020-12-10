@@ -113,21 +113,7 @@ export default {
             }
         },
 
-        meta() {
-            return this.$route.meta;
-        },
-
-        buttons() {
-            const buttons = [];
-
-            for (const r of this.$route.matched) {
-                if (r.meta.button != null) {
-                    buttons.push(...r.meta.button);
-                }
-            }
-
-            return buttons;
-        },
+        buttons() { return this.meta.buttons ?? []; },
 
         gameLocale: {
             get() {
@@ -137,10 +123,7 @@ export default {
                     return null;
                 }
             },
-
-            set(newValue) {
-                this.$store.commit(`${this.game}/locale`, newValue);
-            },
+            set(newValue) { this.$store.commit(`${this.game}/locale`, newValue); },
         },
 
         gameLocales() {
@@ -150,40 +133,6 @@ export default {
                 return [];
             }
         },
-
-        selection: {
-            get() {
-                if (this.meta.select != null) {
-                    return this.$route.query[this.meta.select];
-                } else {
-                    return null;
-                }
-            },
-            set(newValue) {
-                if (this.meta.select != null && this.selection !== newValue) {
-                    this.$router.push({
-                        query: {
-                            ...this.$route.query,
-                            [this.meta.select]: newValue,
-                        },
-                    });
-                } else {
-                    return null;
-                }
-            },
-        },
-
-        selections() {
-            return this.$store.getters.selections ?? [];
-        },
-    },
-
-    mounted() {
-        this.$store.subscribe(({ type, payload }) => {
-            if (type === 'selections') {
-                this.selection = payload[0] || '';
-            }
-        });
     },
 };
 </script>
