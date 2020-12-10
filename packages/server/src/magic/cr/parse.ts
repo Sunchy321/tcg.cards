@@ -66,8 +66,8 @@ function parseGlossary(texts: string[]) {
 
     return {
         words,
-        ids:  words.map(toIdentifier),
-        text: obsolete ? ['(Obsolete) ' + texts[1], ...texts.slice(2)] : texts.slice(1),
+        ids:  words.map(v => toIdentifier(v.replace(/^“|( *\[[^]]+\])?”$/, ''))),
+        text: (obsolete ? '(Obsolete) ' : '') + texts.slice(1).join('\n'),
     };
 }
 
@@ -159,7 +159,7 @@ export async function parse(date: string): Promise<ICR> /* : { menu: CRMenu, ite
         }
 
         if (c.id.startsWith('~')) {
-            const cr = await CR.findOne({ 'contents.text': c.text });
+            const cr = await CR.findOne({ 'contents.text': c.text }).sort({ date: 1 });
 
             if (cr != null) {
                 crs.push(cr);

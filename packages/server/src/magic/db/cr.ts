@@ -14,7 +14,7 @@ export interface ICRContent {
 export interface ICRGlossary {
     words: string[];
     ids: string[];
-    text: string[];
+    text: string;
 }
 
 export interface ICR {
@@ -41,7 +41,7 @@ const CRMenuSchema = new Schema({
         _id:   false,
         words: [String],
         ids:   [String],
-        text:  [String],
+        text:  String,
     }],
     credits: String,
 });

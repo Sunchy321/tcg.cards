@@ -6,6 +6,7 @@ import jwtAuth from '@/middlewares/jwt-auth';
 import CR, { ICR } from '@/magic/db/cr';
 
 import { parse } from '@/magic/cr/parse';
+import { diff } from '@/magic/cr/diff';
 import { readdirSync } from 'fs';
 import { join } from 'path';
 import { omit } from 'lodash';
@@ -34,6 +35,16 @@ router.get('/txt', async ctx => {
     const dir = join(data, 'magic', 'cr', 'txt');
 
     ctx.body = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+});
+
+router.get('/diff', async ctx => {
+    const { from, to } = ctx.query;
+
+    if (from == null || to == null) {
+        return;
+    }
+
+    ctx.body = await diff(from, to);
 });
 
 router.get('/parse',

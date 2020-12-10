@@ -13,11 +13,13 @@ import api from '@/api';
 import img from '@/image';
 import user from '@/user/router';
 
+import { appKey } from '@config';
+
 const port = process.env.NODE_ENV === 'production' ? 80 : 8889;
 
 const app = new Koa();
 
-app.keys = ['secret key for tcg.cards'];
+app.keys = [appKey];
 
 app
     .use(session({}, app))
