@@ -1,12 +1,9 @@
 import CR, { ICRContent, ICRGlossary } from '@/magic/db/cr';
 
 import { diffWords, diffArrays } from 'diff';
-import { zip } from 'lodash';
+import { last, zip } from 'lodash';
 
-type TextChange = {
-    value: string
-    type: 'add' | 'remove' | 'common'
-}
+type TextChange = string | [string, string]
 
 type ContentChange = {
     id: string
@@ -32,17 +29,55 @@ type Change = {
 }
 
 function diffString(lhs: string, rhs: string): TextChange[] {
-    return diffWords(lhs, rhs).map(d => ({
-        value: d.value,
-        type:  d.added ? 'add' : (d.removed ? 'remove' : 'common'),
-    }));
+    const diffs: TextChange[] = [];
+
+    for (const d of diffWords(lhs, rhs)) {
+        if (d.added) {
+            const lastDiff = last(diffs);
+
+            if (lastDiff == null) {
+                diffs.push(['', d.value]);
+            } else if (typeof lastDiff === 'string') {
+                diffs.push(['', d.value]);
+            } else {
+                lastDiff[1] += d.value;
+            }
+        } else if (d.removed) {
+            const lastDiff = last(diffs);
+
+            if (lastDiff == null) {
+                diffs.push([d.value, '']);
+            } else if (typeof lastDiff === 'string') {
+                diffs.push([d.value, '']);
+            } else {
+                lastDiff[0] += d.value;
+            }
+        } else {
+            const lastDiff = last(diffs);
+
+            if (lastDiff == null) {
+                diffs.push(d.value);
+            } else if (typeof lastDiff === 'string') {
+                diffs[diffs.length - 1] += d.value;
+            } else {
+                if (d.value === ' ') {
+                    lastDiff[0] += d.value;
+                    lastDiff[1] += d.value;
+                } else {
+                    diffs.push(d.value);
+                }
+            }
+        }
+    }
+
+    return diffs;
 }
 
 function isChanged(change: TextChange[]) {
     if (change.length === 0) {
         return false;
     } else if (change.length === 1) {
-        return change[0].type !== 'common';
+        return typeof change[0] !== 'string';
     } else {
         return true;
     }
@@ -147,7 +182,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
         const oldItem = oldGlossaryMap[g.ids!.join(' ')];
         const newItem = newGlossaryMap[g.ids!.join(' ')];
 
-        g.words = oldItem?.words || newItem?.words;
+        g.words = newItem?.words || oldItem?.words;
         g.text = diffString(oldItem?.text || '', newItem?.text || '');
     }
 

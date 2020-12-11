@@ -62,11 +62,16 @@ function parseGlossary(texts: string[]) {
 
     const [first, obsolete] = m == null ? [texts[0], false] : [texts[0].slice(0, -m[0].length), true];
 
-    const words = first === 'Active Player, Nonactive Player Order' ? [first] : first.trim().split(', ');
+    const words = first === 'Active Player, Nonactive Player Order' ? [first] : first.split(',').map(s => s.trim());
 
     return {
         words,
-        ids:  words.map(v => toIdentifier(v.replace(/^“|( *\[[^]]+\])?”$/, ''))),
+        ids: words.map(v => toIdentifier(
+            v
+                .replace(/^“|”$/g, '')
+                .replace(/\[.+\]$/g, '')
+                .trim(),
+        )),
         text: (obsolete ? '(Obsolete) ' : '') + texts.slice(1).join('\n'),
     };
 }
