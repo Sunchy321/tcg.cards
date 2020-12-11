@@ -145,6 +145,18 @@
                             </q-td>
                             <q-td key="words" :props="props">
                                 {{ props.row.words.join(', ') }}
+                                <q-popup-edit
+                                    :value="props.row.words.join(', ')"
+                                    @input="v => props.row.words = v.split(', ')"
+                                >
+                                    <q-input
+                                        :value="props.row.words.join(', ')"
+                                        dense
+                                        autofocus counter
+                                        @focus="e => e.target.select()"
+                                        @change="e => props.row.words = e.target.value.split(', ')"
+                                    />
+                                </q-popup-edit>
                             </q-td>
                             <q-td key="text" :props="props" style="white-space: normal;">
                                 {{ props.row.text }}

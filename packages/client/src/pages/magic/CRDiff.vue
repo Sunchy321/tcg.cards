@@ -15,9 +15,9 @@
                         {{ $t('magic.cr.intro') }}
                     </div>
                     <magic-text
-                        v-for="(d, i) in intro.filter(d => d.type !== 'add')" :key="i"
-                        :class="`depth-2 text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in intro" :key="i"
+                        :class="`depth-2 ${textClass(v, 'remove')}`"
+                        :value="textValue(v, 'remove')"
                     />
                 </div>
             </template>
@@ -27,9 +27,9 @@
                         {{ $t('magic.cr.intro') }}
                     </div>
                     <magic-text
-                        v-for="(d, i) in intro.filter(d => d.type !== 'remove')" :key="i"
-                        :class="`depth-2 text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in intro" :key="i"
+                        :class="`depth-2 ${textClass(v, 'add')}`"
+                        :value="textValue(v, 'add')"
                     />
                 </div>
             </template>
@@ -45,17 +45,17 @@
                     <magic-text :class="c.type ? `text-${c.type}` : ''" :value="c.index[0] + ' '" />
 
                     <magic-text
-                        v-for="(d, i) in (c.text || []).filter(d => d.type !== 'add')" :key="i"
-                        :class="`text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in c.text || []" :key="i"
+                        :class="`depth-2 ${textClass(v, 'remove')}`"
+                        :value="textValue(v, 'remove')"
                     />
 
                     <div v-for="(e, i) in c.examples || []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
-                            v-for="(d, j) in e.filter(d => d.type !== 'add')" :key="j"
-                            :class="`text-${d.type}`"
-                            :value="d.value"
+                            v-for="(v, j) in e" :key="j"
+                            :class="`depth-2 ${textClass(v, 'remove')}`"
+                            :value="textValue(v, 'remove')"
                         />
                     </div>
                 </div>
@@ -69,17 +69,17 @@
                     <magic-text :class="c.type ? `text-${c.type}` : ''" :value="c.index[1] + ' '" />
 
                     <magic-text
-                        v-for="(d, i) in (c.text || []).filter(d => d.type !== 'remove')" :key="i"
-                        :class="`text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in c.text || []" :key="i"
+                        :class="`depth-2 ${textClass(v, 'add')}`"
+                        :value="textValue(v, 'add')"
                     />
 
                     <div v-for="(e, i) in c.examples || []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
-                            v-for="(d, j) in e.filter(d => d.type !== 'remove')" :key="j"
-                            :class="`text-${d.type}`"
-                            :value="d.value"
+                            v-for="(v, j) in e" :key="j"
+                            :class="`depth-2 ${textClass(v, 'add')}`"
+                            :value="textValue(v, 'add')"
                         />
                     </div>
                 </div>
@@ -110,9 +110,9 @@
                     <br>
 
                     <magic-text
-                        v-for="(d, i) in (g.text || []).filter(d => d.type !== 'add')" :key="i"
-                        :class="`text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in g.text || []" :key="i"
+                        :class="`depth-2 ${textClass(v, 'remove')}`"
+                        :value="textValue(v, 'remove')"
                     />
                 </div>
             </template>
@@ -126,9 +126,9 @@
                     <br>
 
                     <magic-text
-                        v-for="(d, i) in (g.text || []).filter(d => d.type !== 'remove')" :key="i"
-                        :class="`text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in g.text || []" :key="i"
+                        :class="`depth-2 ${textClass(v, 'add')}`"
+                        :value="textValue(v, 'add')"
                     />
                 </div>
             </template>
@@ -140,10 +140,11 @@
                     <div class="depth-0">
                         {{ $t('magic.cr.credits') }}
                     </div>
+
                     <magic-text
-                        v-for="(d, i) in credits.filter(d => d.type !== 'add')" :key="i"
-                        :class="`depth-2 text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in credits" :key="i"
+                        :class="`depth-2 ${textClass(v, 'remove')}`"
+                        :value="textValue(v, 'remove')"
                     />
                 </div>
             </template>
@@ -152,10 +153,11 @@
                     <div class="depth-0">
                         {{ $t('magic.cr.credits') }}
                     </div>
+
                     <magic-text
-                        v-for="(d, i) in credits.filter(d => d.type !== 'remove')" :key="i"
-                        :class="`depth-2 text-${d.type}`"
-                        :value="d.value"
+                        v-for="(v, i) in credits" :key="i"
+                        :class="`depth-2 ${textClass(v, 'add')}`"
+                        :value="textValue(v, 'add')"
                     />
                 </div>
             </template>
@@ -250,6 +252,22 @@ export default {
             const { data } = await this.apiGet('/magic/cr/diff', { from: this.from, to: this.to });
 
             this.data = data;
+        },
+
+        textClass(value, type) {
+            if (typeof value === 'string') {
+                return '';
+            } else {
+                return 'text-' + type;
+            }
+        },
+
+        textValue(value, type) {
+            if (typeof value === 'string') {
+                return value;
+            } else {
+                return type === 'remove' ? value[0] : value[1];
+            }
         },
     },
 };

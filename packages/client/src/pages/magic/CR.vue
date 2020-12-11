@@ -247,7 +247,29 @@ export default {
         next(vm => {
             vm.baseUnsubscribe = vm.$store.subscribe(async ({ type, payload }) => {
                 if (type === 'event' && payload.type === 'diff') {
-                    vm.$router.push({ name: 'magic/cr/diff' });
+                    const index = vm.selections.indexOf(vm.date);
+
+                    if (index === -1) {
+                        return;
+                    }
+
+                    if (index === vm.selections.length - 1) {
+                        vm.$router.push({
+                            name:  'magic/cr/diff',
+                            query: {
+                                from: vm.selections[index - 1],
+                                to:   vm.date,
+                            },
+                        });
+                    } else {
+                        vm.$router.push({
+                            name:  'magic/cr/diff',
+                            query: {
+                                from: vm.date,
+                                to:   vm.selections[index + 1],
+                            },
+                        });
+                    }
                 }
             });
         });
