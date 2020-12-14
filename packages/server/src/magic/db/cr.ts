@@ -23,6 +23,7 @@ export interface ICR {
     contents: ICRContent[];
     glossary: ICRGlossary[];
     credits: string;
+    csi?: string;
 }
 
 const CRMenuSchema = new Schema({
@@ -44,6 +45,7 @@ const CRMenuSchema = new Schema({
         text:  String,
     }],
     credits: String,
+    csi:     String,
 });
 
 const CR = conn.model<ICR & Document>('cr', CRMenuSchema);

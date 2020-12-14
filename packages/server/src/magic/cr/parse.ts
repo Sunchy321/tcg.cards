@@ -3,7 +3,7 @@ import CR, { ICR, ICRContent, ICRGlossary } from '@/magic/db/cr';
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { last } from 'lodash';
+import { last, zip } from 'lodash';
 import { toIdentifier } from '../util';
 
 import { data } from '@config';
@@ -32,7 +32,7 @@ function parseContentLine(text: string) {
             depth: 2,
             index: m[1],
         };
-    } else if ((m = /^(\d{3}\.\d+[a-z])\.? /.exec(text)) != null) {
+    } else if ((m = /^(\d{3}\.\d+[a-z]) /.exec(text)) != null) {
         return {
             text:  text.slice(m[0].length),
             id:    '~' + m[1],
@@ -50,10 +50,7 @@ function parseContentLine(text: string) {
             depth: 'example',
         };
     } else {
-        return {
-            text,
-            depth: null,
-        };
+        throw new Error(`Unknown text "${text}`);
     }
 }
 
@@ -76,8 +73,9 @@ function parseGlossary(texts: string[]) {
     };
 }
 
-export async function parse(date: string): Promise<ICR> /* : { menu: CRMenu, items: CRItem[] } */ {
+export async function parse(date: string): Promise<ICR> {
     const path = join(data, 'magic', 'cr', 'txt', date + '.txt');
+
     if (!existsSync(path)) {
         throw new Error(`cr ${date} doesn't exist`);
     }
@@ -88,6 +86,7 @@ export async function parse(date: string): Promise<ICR> /* : { menu: CRMenu, ite
     const contents: ICRContent[] = [];
     const glossary: ICRGlossary[] = [];
     let credits = '';
+    let csi = '';
 
     let glossrayLines = [];
 
@@ -113,7 +112,9 @@ export async function parse(date: string): Promise<ICR> /* : { menu: CRMenu, ite
             }
             break;
         case 'content':
-            if (l === 'Glossary') {
+            if (l === 'Customer Service Information' || l === 'Questions?') {
+                // no-op
+            } else if (l === 'Glossary') {
                 mode = 'glossary';
             } else if (l !== '') {
                 const content = parseContentLine(l);
@@ -141,49 +142,45 @@ export async function parse(date: string): Promise<ICR> /* : { menu: CRMenu, ite
             }
             break;
         case 'credits':
-            credits += '\n' + l;
+            if (l === 'Customer Service Information' || l === 'Questions?') {
+                mode = 'csi';
+            } else {
+                credits += '\n' + l;
+            }
+            break;
+        case 'csi':
+            csi += '\n' + l;
         }
     }
 
     intro = intro.trim();
+    credits = credits.trim();
+    csi = csi.trim();
 
-    const crs = [];
+    const crDates: string[] = await CR.find({ date: { $ne: date } }).sort({ date: 1 }).distinct('date');
+    const nearestDate = crDates.find(d => d > date) ?? last(crDates);
+    const crDoc = await CR.findOne({ date: nearestDate });
 
-    for (const [i, c] of contents.entries()) {
-        for (const cr of crs) {
-            let idxDistance = contents.length;
-
-            for (const [cri, crc] of cr.contents.entries()) {
-                if (crc.text === c.text) {
-                    if (Math.abs(cri - i) < idxDistance) {
-                        c.id = crc.id;
-                        idxDistance = Math.abs(cri - i);
-                    }
-                }
+    if (crDoc != null) {
+        for (const e of contents.entries()) {
+            if (!e[1].id.startsWith('~')) {
+                continue;
             }
-        }
 
-        if (c.id.startsWith('~')) {
-            const cr = await CR.findOne({ 'contents.text': c.text }).sort({ date: 1 });
+            const same = [...contents.entries()].filter(eo => eo[1].text === e[1].text);
+            const sameInDoc = [...crDoc.contents.entries()].filter(eo => eo[1].text === e[1].text);
 
-            if (cr != null) {
-                crs.push(cr);
-
-                let idxDistance = contents.length;
-
-                for (const [cri, crc] of cr.contents.entries()) {
-                    if (crc.text === c.text) {
-                        if (Math.abs(cri - i) < idxDistance) {
-                            c.id = crc.id;
-                            idxDistance = Math.abs(cri - i);
-                        }
-                    }
+            if (sameInDoc.length === same.length) {
+                for (const [e, ed] of zip(same, sameInDoc)) {
+                    contents[e![0]].id = crDoc.contents[ed![0]].id;
+                }
+            } else if (sameInDoc.length > 0) {
+                for (const e of same) {
+                    contents[e[0]].id = sameInDoc[0][1].id;
                 }
             }
         }
     }
-
-    credits = credits.trim();
 
     return {
         date,
@@ -191,5 +188,55 @@ export async function parse(date: string): Promise<ICR> /* : { menu: CRMenu, ite
         contents,
         glossary,
         credits,
+        csi: csi !== '' ? csi : undefined,
+    };
+}
+
+export async function reparse(date: string): Promise<ICR> {
+    const parseResult = await parse(date);
+
+    const data = await CR.findOne({ date });
+
+    if (data == null) {
+        throw new Error(`cr ${date} doesn't exist`);
+    }
+
+    data.intro = parseResult.intro;
+
+    for (const [co, cn] of zip(data.contents, parseResult.contents)) {
+        if (co == null || cn == null) {
+            throw new Error(`cr ${date} contents mismatch`);
+        }
+
+        if (co.id.startsWith('~') && !cn.id.startsWith('~')) {
+            co.id = cn.id;
+        }
+
+        co.index = cn.index;
+        co.text = cn.text;
+        co.examples = cn.examples;
+    }
+
+    for (const [go, gn] of zip(data.glossary, parseResult.glossary)) {
+        if (go == null || gn == null) {
+            throw new Error(`cr ${date} glossary mismatch`);
+        }
+
+        go.words = gn.words;
+        go.text = gn.text;
+    }
+
+    data.credits = parseResult.credits;
+    data.csi = parseResult.csi;
+
+    await data.save();
+
+    return {
+        date:     data.date,
+        intro:    data.intro,
+        contents: data.contents,
+        glossary: data.glossary,
+        credits:  data.credits,
+        csi:      data.csi,
     };
 }

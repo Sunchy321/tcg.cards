@@ -5,7 +5,7 @@ import jwtAuth from '@/middlewares/jwt-auth';
 
 import CR, { ICR } from '@/magic/db/cr';
 
-import { parse } from '@/magic/cr/parse';
+import { parse, reparse } from '@/magic/cr/parse';
 import { diff } from '@/magic/cr/diff';
 import { readdirSync } from 'fs';
 import { join } from 'path';
@@ -26,9 +26,7 @@ router.get('/', async ctx => {
 });
 
 router.get('/list', async ctx => {
-    const menus = await CR.find();
-
-    ctx.body = menus.map(m => m.date).sort();
+    ctx.body = await CR.find().sort({ date: 1 }).distinct('date');
 });
 
 router.get('/txt', async ctx => {
@@ -56,6 +54,19 @@ router.get('/parse',
 
         if (txt.includes(ctx.query.date)) {
             ctx.body = await parse(ctx.query.date);
+        }
+    },
+);
+
+router.get('/reparse',
+    jwtAuth({ admin: true }),
+    async ctx => {
+        const dir = join(data, 'magic', 'cr', 'txt');
+
+        const txt = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+
+        if (txt.includes(ctx.query.date)) {
+            ctx.body = await reparse(ctx.query.date);
         }
     },
 );
