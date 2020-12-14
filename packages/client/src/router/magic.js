@@ -36,8 +36,8 @@ const routes = [
                 name:      'magic/card',
                 component: () => import('pages/magic/Card'),
                 meta:      {
-                    title:  '$input',
-                    button: [
+                    title:   '$input',
+                    buttons: [
                         { icon: 'mdi-shuffle-variant', event: 'random' },
                     ],
                 },

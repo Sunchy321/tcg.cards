@@ -80,38 +80,34 @@ export default {
                 return null;
             }
 
+            const menu = [];
+
             const contents = this.data.contents
                 .filter(c => c.example == null && /\w$/.test(c.text));
 
-            const menu = [];
+            const contentMenu = [];
+
+            menu.push({
+                id:    'intro',
+                label: this.$t('magic.cr.intro'),
+            });
 
             function insert(menu, item, depth) {
                 if (depth === 0) {
-                    menu.push({
-                        id:    item.id,
-                        label: item.text,
-                    });
+                    menu.push({ id: item.id, label: item.text });
                 } else {
                     const lastMenu = last(menu);
 
-                    if (lastMenu.children == null) {
-                        lastMenu.children = [];
-                    }
-
+                    if (lastMenu.children == null) { lastMenu.children = []; }
                     insert(lastMenu.children, item, depth - 1);
                 }
             }
 
-            for (const c of contents) {
-                insert(menu, c, c.depth);
-            }
+            for (const c of contents) { insert(contentMenu, c, c.depth); }
 
-            return [
-                {
-                    id:    'intro',
-                    label: this.$t('magic.cr.intro'),
-                },
-                ...menu,
+            menu.push(...contentMenu);
+
+            menu.push(
                 {
                     id:    'glossary',
                     label: this.$t('magic.cr.glossary'),
@@ -120,7 +116,16 @@ export default {
                     id:    'credits',
                     label: this.$t('magic.cr.credits'),
                 },
-            ];
+            );
+
+            if (this.data.csi) {
+                menu.push({
+                    id:    'csi',
+                    label: this.$t('magic.cr.csi'),
+                });
+            }
+
+            return menu;
         },
 
         item: {
@@ -130,7 +135,7 @@ export default {
                 if (hash.startsWith('#')) {
                     const id = hash.slice(1);
 
-                    if (id === 'intro' || id === 'glossary' || id === 'credits') {
+                    if (['intro', 'glossary', 'credits', 'csi'].includes(id)) {
                         return id;
                     }
 
@@ -152,11 +157,17 @@ export default {
         chapter() {
             switch (this.item) {
             case 'intro':
+            case 'intro.title':
                 return 'intro';
             case 'glossary':
+            case 'glossary.title':
                 return 'glossary';
             case 'credits':
+            case 'credits.title':
                 return 'credits';
+            case 'csi':
+            case 'csi.title':
+                return 'csi';
             default:
                 return this.data?.contents?.find(c => c.id === this.item)?.index[0];
             }
@@ -207,6 +218,19 @@ export default {
                         text:  this.data?.credits,
                     },
                 ];
+            case 'csi':
+                return [
+                    {
+                        id:    'csi.title',
+                        depth: 0,
+                        text:  this.$t('magic.cr.csi'),
+                    },
+                    {
+                        id:    'csi',
+                        depth: 2,
+                        text:  this.data?.csi,
+                    },
+                ];
             }
         },
     },
@@ -253,20 +277,20 @@ export default {
                         return;
                     }
 
-                    if (index === vm.selections.length - 1) {
+                    if (index === 0) {
                         vm.$router.push({
                             name:  'magic/cr/diff',
                             query: {
-                                from: vm.selections[index - 1],
-                                to:   vm.date,
+                                from: vm.date,
+                                to:   vm.selections[1],
                             },
                         });
                     } else {
                         vm.$router.push({
                             name:  'magic/cr/diff',
                             query: {
-                                from: vm.date,
-                                to:   vm.selections[index + 1],
+                                from: vm.selections[index - 1],
+                                to:   vm.date,
                             },
                         });
                     }

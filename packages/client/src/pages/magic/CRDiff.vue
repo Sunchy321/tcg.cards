@@ -35,6 +35,8 @@
             </template>
         </q-splitter>
 
+        <hr v-if="intro.length > 0">
+
         <q-splitter v-for="c in contents" :key="c.id" v-model="splitter" emit-immediately>
             <template v-slot:before class="q-pa-sm">
                 <div
@@ -86,6 +88,8 @@
             </template>
         </q-splitter>
 
+        <hr v-if="glossary.length > 0">
+
         <q-splitter v-if="glossary.length > 0" v-model="splitter" emit-immediately>
             <template v-slot:before class="q-pa-sm">
                 <div class="q-pa-sm depth-0">
@@ -134,7 +138,9 @@
             </template>
         </q-splitter>
 
-        <q-splitter v-if="credits.length > 0" :value="splitter" emit-immediately>
+        <hr v-if="credits.length > 0">
+
+        <q-splitter v-if="credits.length > 0" v-model="splitter" emit-immediately>
             <template v-slot:before>
                 <div class="q-pa-sm">
                     <div class="depth-0">
@@ -156,6 +162,37 @@
 
                     <magic-text
                         v-for="(v, i) in credits" :key="i"
+                        :class="`depth-2 ${textClass(v, 'add')}`"
+                        :value="textValue(v, 'add')"
+                    />
+                </div>
+            </template>
+        </q-splitter>
+
+        <hr v-if="csi.length > 0">
+
+        <q-splitter v-if="csi.length > 0" v-model="splitter" emit-immediately>
+            <template v-slot:before>
+                <div class="q-pa-sm">
+                    <div class="depth-0">
+                        {{ $t('magic.cr.csi') }}
+                    </div>
+
+                    <magic-text
+                        v-for="(v, i) in csi" :key="i"
+                        :class="`depth-2 ${textClass(v, 'remove')}`"
+                        :value="textValue(v, 'remove')"
+                    />
+                </div>
+            </template>
+            <template v-slot:after>
+                <div class="q-pa-sm">
+                    <div class="depth-0">
+                        {{ $t('magic.cr.csi') }}
+                    </div>
+
+                    <magic-text
+                        v-for="(v, i) in csi" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
                         :value="textValue(v, 'add')"
                     />
@@ -234,6 +271,7 @@ export default {
         contents() { return this.data?.contents ?? []; },
         glossary() { return this.data?.glossary ?? []; },
         credits() { return this.data?.credits ?? []; },
+        csi() { return this.data?.csi ?? []; },
     },
 
     async mounted() {

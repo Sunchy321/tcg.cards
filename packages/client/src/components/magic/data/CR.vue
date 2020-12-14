@@ -43,22 +43,24 @@
                 @click="save"
             />
 
+            <q-btn
+                v-if="cr.includes(date)"
+                label="Reparse"
+                dense outline
+                @click="reparse"
+            />
+
             <span v-if="duplicatedID.length > 0" class="error">Duplicated ID {{ duplicatedID.join(', ') }}</span>
 
             <div class="col-grow" />
 
-            <q-tabs v-model="tab">
-                <q-tab name="intro" label="Intro" />
+            <q-tabs v-model="tab" dense>
                 <q-tab name="content" label="Content" />
                 <q-tab name="glossary" label="Glossary" />
-                <q-tab name="credits" label="Credits" />
             </q-tabs>
         </div>
 
         <q-tab-panels v-model="tab" animated>
-            <q-tab-panel name="intro">
-                <q-input v-model="intro" type="textarea" autogrow />
-            </q-tab-panel>
             <q-tab-panel name="content">
                 <q-table
                     style="height: 500px"
@@ -81,7 +83,7 @@
 
                     <template v-slot:body="props">
                         <q-tr :props="props">
-                            <q-td key="id" :props="props">
+                            <q-td key="id" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.id }}
                                 <q-popup-edit v-model="props.row.id">
                                     <q-input
@@ -100,7 +102,9 @@
                                 {{ props.row.index }}
                             </q-td>
                             <q-td key="text" :props="props" style="white-space: normal;">
-                                {{ props.row.text }}
+                                <div class="scroll" style="max-height: 120px;">
+                                    {{ props.row.text }}
+                                </div>
                             </q-td>
                         </q-tr>
                     </template>
@@ -128,7 +132,7 @@
 
                     <template v-slot:body="props">
                         <q-tr :props="props">
-                            <q-td key="ids" :props="props">
+                            <q-td key="ids" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.ids.join(', ') }}
                                 <q-popup-edit
                                     :value="props.row.ids.join(', ')"
@@ -143,7 +147,7 @@
                                     />
                                 </q-popup-edit>
                             </q-td>
-                            <q-td key="words" :props="props">
+                            <q-td key="words" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.words.join(', ') }}
                                 <q-popup-edit
                                     :value="props.row.words.join(', ')"
@@ -159,14 +163,13 @@
                                 </q-popup-edit>
                             </q-td>
                             <q-td key="text" :props="props" style="white-space: normal;">
-                                {{ props.row.text }}
+                                <div class="scroll" style="max-height: 120px;">
+                                    {{ props.row.text }}
+                                </div>
                             </q-td>
                         </q-tr>
                     </template>
                 </q-table>
-            </q-tab-panel>
-            <q-tab-panel name="credits">
-                <q-input v-model="credits" type="textarea" autogrow />
             </q-tab-panel>
         </q-tab-panels>
     </div>
@@ -188,7 +191,6 @@ export default {
     data: () => ({
         cr:   [],
         txt:  [],
-        date: null,
         data: null,
         tab:  'content',
 
@@ -197,6 +199,20 @@ export default {
     }),
 
     computed: {
+        date: {
+            get() {
+                return this.$route.query.date ?? last(this.cr);
+            },
+            set(newValue) {
+                this.$router.push({
+                    query: {
+                        ...this.$route.query,
+                        date: newValue,
+                    },
+                });
+            },
+        },
+
         crOptions() {
             return this.txt.map(d => ({
                 value:   d,
@@ -205,10 +221,8 @@ export default {
             }));
         },
 
-        intro() { return this.data?.intro ?? ''; },
         contents() { return this.data?.contents ?? []; },
         glossary() { return this.data?.glossary ?? []; },
-        credits() { return this.data?.credits ?? ''; },
 
         contentTitle() {
             if (this.data != null) {
@@ -256,6 +270,14 @@ export default {
         },
     },
 
+    watch: {
+        date() {
+            if (this.cr.includes(this.date)) {
+                this.load();
+            }
+        },
+    },
+
     mounted() {
         this.loadData();
     },
@@ -272,7 +294,7 @@ export default {
                 this.date = last(txt);
             }
 
-            if (this.cr.includes(this.date)) {
+            if (this.data == null) {
                 this.load();
             }
         },
@@ -298,6 +320,14 @@ export default {
                 await this.apiPost('/magic/cr/save', { data: this.data });
 
                 this.loadData();
+            }
+        },
+
+        async reparse() {
+            if (this.date != null && this.cr.includes(this.date)) {
+                const { data } = await this.apiGet('/magic/cr/reparse', { date: this.date });
+
+                this.data = data;
             }
         },
     },

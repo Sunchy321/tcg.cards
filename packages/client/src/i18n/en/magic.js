@@ -128,6 +128,7 @@ export default {
         intro:    'Introduction',
         glossary: 'Glossary',
         credits:  'Credits',
+        csi:      'Customer Service Information',
 
         diff: 'Differences between CR versions',
     },
