@@ -1,9 +1,13 @@
+import FileSaver from '@/common/save-file';
 import Task from '@/common/task';
+import { setIconPath } from '@/magic/image';
 
 import ScryfallSet, { ISet as IScryfallSet } from '../../db/scryfall/set';
 import Set, { ISet } from '../../db/set';
 
 import { IStatus } from '../interface';
+
+import { auxSetType } from '@/../data/magic/special';
 
 async function mergeWith(data: IScryfallSet) {
     const set = await Set.findOne({ 'scryfall.id': data.set_id });
@@ -81,6 +85,15 @@ export class SetMerger extends Task<IStatus> {
 
             await mergeWith(set);
 
+            if (!auxSetType.includes(set.set_type)) {
+                const saver = new FileSaver(
+                    set.icon_svg_uri,
+                    setIconPath(set.code, 'default', 'svg'),
+                );
+
+                await saver.start();
+            }
+
             ++count;
 
             const elapsed = Date.now() - start;
@@ -89,10 +102,7 @@ export class SetMerger extends Task<IStatus> {
                 method: 'merge',
                 type:   'set',
 
-                amount: {
-                    total,
-                    count,
-                },
+                amount: { count, total },
 
                 time: {
                     elapsed,

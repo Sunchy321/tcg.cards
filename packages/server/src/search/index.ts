@@ -9,6 +9,7 @@ const parser = pegjs.generate(
 );
 
 export type SearchResult<T> = {
+    text: string;
     commands: QueryItem[];
     queries: any[];
     errors: { type: string; value: string, query?: string }[];
@@ -35,7 +36,9 @@ export class Searcher<T> {
     }
 
     async search(text: string, options: Record<string, string>): Promise<SearchResult<T>> {
-        const commands: QueryItem[] = text.trim() !== '' ? parser.parse(text.trim()) : [];
+        text = text.trim();
+
+        const commands: QueryItem[] = text !== '' ? parser.parse(text) : [];
 
         const queries = [];
         const errors = [];
@@ -92,6 +95,7 @@ export class Searcher<T> {
         const result = queries.length > 0 ? await this.model.aggregate(queries, options) : null;
 
         return {
+            text,
             commands,
             queries,
             errors,

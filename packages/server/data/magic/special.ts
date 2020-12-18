@@ -22,3 +22,15 @@ export const textWithParen = [
     'nerf_war',
     'loopy_lobster',
 ];
+
+export const auxSetType = [
+    'promo',
+    'token',
+    'memorabilia',
+    'funny',
+    'masters',
+    'planechase',
+    'box',
+    'archenemy',
+    'expansion',
+];

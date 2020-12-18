@@ -10,7 +10,7 @@ import { Diff } from 'deep-diff';
 
 import { toAsyncBucket } from '@/common/to-bucket';
 import { convertColor, parseTypeline, toIdentifier, convertLegality } from '@/magic/util';
-import { imagePath } from '@/magic/image';
+import { cardImagePath } from '@/magic/image';
 import { existsSync, unlinkSync } from 'fs';
 import { isEqual } from 'lodash';
 
@@ -300,14 +300,14 @@ function toCard(data: NSCard): ICard {
 
 function deleteImage(data: ICard) {
     for (const type of ['png', 'border_crop', 'art_crop', 'large', 'normal', 'small']) {
-        const path = imagePath(type, data.setId, data.lang, data.number);
+        const path = cardImagePath(type, data.setId, data.lang, data.number);
 
         if (existsSync(path)) {
             unlinkSync(path);
         }
 
         for (let i = 0; i < data.parts.length; ++i) {
-            const path = imagePath(type, data.setId, data.lang, data.number, i);
+            const path = cardImagePath(type, data.setId, data.lang, data.number, i);
 
             if (existsSync(path)) {
                 unlinkSync(path);

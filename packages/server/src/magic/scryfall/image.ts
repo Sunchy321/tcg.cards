@@ -5,7 +5,7 @@ import Card from '../db/scryfall/card';
 import FileSaver from '@/common/save-file';
 
 import { partition } from 'lodash';
-import { imagePath } from '@/magic/image';
+import { cardImagePath } from '@/magic/image';
 
 interface IImageProjection {
     _id: { set: string, lang:string },
@@ -93,7 +93,7 @@ export class ImageGetter extends Task<IImageStatus> {
                     this.todoTasks.push({
                         name,
                         uri:  info.uris[this.type],
-                        path: imagePath(
+                        path: cardImagePath(
                             this.type,
                             this.set,
                             this.lang,
@@ -111,7 +111,7 @@ export class ImageGetter extends Task<IImageStatus> {
                         this.todoTasks.push({
                             name,
                             uri:  info.partsUris[i][this.type],
-                            path: imagePath(
+                            path: cardImagePath(
                                 this.type,
                                 this.set,
                                 this.lang,
@@ -151,7 +151,7 @@ export class ImageGetter extends Task<IImageStatus> {
         const promise = new Promise((resolve, reject) => {
             this.once('all-end', () => {
                 this.off('error', reject);
-                resolve();
+                resolve(null);
             }).on('error', reject);
         });
 
@@ -165,7 +165,7 @@ export class ImageGetter extends Task<IImageStatus> {
     }
 
     private pushTask() {
-        while (this.working() < 10 && this.rest() > 0) {
+        while (this.working() < 15 && this.rest() > 0) {
             const task = this.todoTasks.shift()!;
 
             if (task != null) {

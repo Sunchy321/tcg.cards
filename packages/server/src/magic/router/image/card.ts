@@ -8,7 +8,7 @@ import { ImageGetter } from '../../scryfall/image';
 
 import { createReadStream, existsSync, readdirSync } from 'fs';
 import mime from 'mime-types';
-import { imagePath } from '@/magic/image';
+import { cardImagePath } from '@/magic/image';
 
 import { asset } from '@config';
 import { locales } from '@data/magic/basic';
@@ -25,7 +25,7 @@ router.get('/', async ctx => {
         return;
     }
 
-    const path = imagePath('png', set, lang, number, part);
+    const path = cardImagePath('png', set, lang, number, part);
 
     if (existsSync(path)) {
         ctx.response.set('content-type', mime.lookup(path) as string);
@@ -35,7 +35,7 @@ router.get('/', async ctx => {
 
     if (ctx.query['auto-locale'] != null) {
         for (const l of locales) {
-            const path = imagePath('png', set, l, number, part);
+            const path = cardImagePath('png', set, l, number, part);
 
             if (existsSync(path)) {
                 ctx.response.set('content-type', mime.lookup(path) as string);

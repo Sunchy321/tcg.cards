@@ -4,6 +4,20 @@ import Card from '@/magic/db/card';
 
 import { escapeRegExp } from 'lodash';
 
+function parseOption(text: string | undefined, defaultValue: number): number {
+    if (text == null) {
+        return defaultValue;
+    }
+
+    const num = Number.parseInt(text);
+
+    if (Number.isNaN(num)) {
+        return defaultValue;
+    }
+
+    return num;
+}
+
 function simpleQuery(key: string, param: string|RegExp, op:string|undefined) {
     if (typeof param !== 'string') {
         throw new QueryError({
@@ -56,16 +70,36 @@ export default {
     commands: [
         {
             name:  '',
-            query: ({ param }) => ({
-                $or: [
-                    textQuery('parts.oracle.name', param, ':'),
-                    textQuery('parts.unified.name', param, ':'),
-                    textQuery('parts.printed.name', param, ':'),
-                    textQuery('parts.oracle.text', param, ':'),
-                    textQuery('parts.unified.text', param, ':'),
-                    textQuery('parts.printed.text', param, ':'),
-                ],
-            }),
+            query: ({ param }) => {
+                if (
+                    (typeof param === 'string' && /^\{[^}]+\}$/.test(param)) ||
+                    (typeof param !== 'string' && /^\\\{[^}]+\\\}$/.test(param.source))
+                ) {
+                    return {
+                        $or: [
+                            textQuery('parts.oracle.text', param, ':'),
+                            textQuery('parts.unified.text', param, ':'),
+                            textQuery('parts.printed.text', param, ':'),
+                            {
+                                'parts.cost': typeof param === 'string'
+                                    ? param.slice(1, -1).toUpperCase()
+                                    : new RegExp('^' + param.source.slice(2, -2).toUpperCase() + '$'),
+                            },
+                        ],
+                    };
+                } else {
+                    return {
+                        $or: [
+                            textQuery('parts.oracle.name', param, ':'),
+                            textQuery('parts.unified.name', param, ':'),
+                            textQuery('parts.printed.name', param, ':'),
+                            textQuery('parts.oracle.text', param, ':'),
+                            textQuery('parts.unified.text', param, ':'),
+                            textQuery('parts.printed.text', param, ':'),
+                        ],
+                    };
+                }
+            },
         },
         {
             name:  'set',
@@ -125,29 +159,59 @@ export default {
     ],
 
     aggregate: async (q, o) => {
-        const aggregate = Card.aggregate().match({ $and: q });
+        const groupBy = o['group-by'] || 'card';
+        const sortBy = o['sort-by'] || 'id';
+        const sortDir = o['sort-dir'] === 'desc' ? -1 : 1;
+        const page = parseOption(o.page, 1);
+        const pageSize = parseOption(o['page-size'], 100);
+        const locale = o.locale || 'en';
 
-        const total = await Card.aggregate(aggregate.pipeline())
-            .group({ _id: null, count: { $sum: 1 } });
+        const aggregate = Card.aggregate().allowDiskUse(true).match({ $and: q });
+
+        switch (groupBy) {
+        case 'print':
+            break;
+        case 'card':
+        default:
+            aggregate
+                .addFields({
+                    langIsLocale:  { $eq: ['$lang', locale] },
+                    langIsEnglish: { $eq: ['$lang', 'en'] },
+                })
+                .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
+                .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
+                .replaceRoot('data');
+        }
+
+        const total = (
+            await Card.aggregate(aggregate.pipeline())
+                .allowDiskUse(true)
+                .group({ _id: null, count: { $sum: 1 } })
+        )[0]?.count ?? 0;
 
         if (o.one != null) {
             const cards = await Card.aggregate(aggregate.pipeline())
                 .limit(1);
 
-            return { ...cards[0], total: total[0]?.count || 0 };
+            return { ...cards[0], total };
         } else {
-            const cards = await Card.aggregate(aggregate.pipeline())
-                .project({
-                    _id:    0,
-                    cardId: 1,
-                    set:    '$setId',
-                    number: 1,
-                    lang:   1,
-                    layout: 1,
-                })
-                .limit(100);
+            switch (sortBy) {
+            case 'name':
+                aggregate
+                    .addFields({ firstPart: { $first: '$part' } })
+                    .sort({ 'part.unified.name': sortDir });
+                break;
+            case 'id':
+            default:
+                aggregate.sort({ cardId: sortDir });
+            }
 
-            return { total: total[0]?.count || 0, cards };
+            aggregate.skip((page - 1) * pageSize);
+            aggregate.limit(pageSize);
+
+            const cards = await aggregate;
+
+            return { cards, total, page };
         }
     },
 } as QueryModel<QueryResult>;

@@ -18,15 +18,17 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/cr');
 
 router.get('/', async ctx => {
-    const menu = await CR.findOne({ date: ctx.query.date });
+    const { date } = ctx.query;
 
-    if (menu != null) {
-        ctx.body = omit(menu.toJSON(), ['_id', '__v']);
+    if (date == null) {
+        ctx.body = await CR.find().sort({ date: 1 }).distinct('date');
+    } else {
+        const menu = await CR.findOne({ date: ctx.query.date });
+
+        if (menu != null) {
+            ctx.body = omit(menu.toJSON(), ['_id', '__v']);
+        }
     }
-});
-
-router.get('/list', async ctx => {
-    ctx.body = await CR.find().sort({ date: 1 }).distinct('date');
 });
 
 router.get('/txt', async ctx => {

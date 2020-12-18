@@ -5,11 +5,12 @@ import { DefaultState, Context } from 'koa';
 import jwtAuth from '@/middlewares/jwt-auth';
 
 import Card, { ICard } from '@/magic/db/card';
+import Set from '@/magic/db/set';
 import { Aggregate } from 'mongoose';
 
-import { omitBy, random } from 'lodash';
+import { fromPairs, omitBy, random, uniq } from 'lodash';
 
-import { textWithParen } from '@data/magic/special';
+import { auxSetType, textWithParen } from '@data/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -21,12 +22,12 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
     aggregate.match(omitBy({ cardId: id, setId: set, number }, v => v == null));
 
     if (lang != null) {
-        aggregate.addFields({ langIsQuery: { $eq: ['$lang', lang] } });
+        aggregate.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
     }
 
     aggregate
         .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
-        .sort({ langIsQuery: -1, langIsEnglish: -1, releaseDate: -1 })
+        .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
         .limit(1);
 
     return aggregate as unknown as Promise<ICard[]>;
@@ -43,12 +44,12 @@ function quickFind(id: string[], lang?: string): Promise<IQuickFindResult[]> {
     aggregate.match({ cardId: { $in: id } });
 
     if (lang != null) {
-        aggregate.addFields({ langIsQuery: { $eq: ['$lang', lang] } });
+        aggregate.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
     }
 
     aggregate
         .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
-        .sort({ langIsQuery: -1, langIsEnglish: -1, releaseDate: -1 })
+        .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
         .group({
             _id:  '$cardId',
             name: { $first: '$parts.unified.name' },
@@ -64,16 +65,29 @@ router.get('/', async ctx => {
     const versions = await Card.aggregate()
         .match({ cardId: id })
         .sort({ releaseDate: -1 })
-        .project('-_id lang setId number');
+        .project('-_id lang setId number rarity');
 
     if (cards.length !== 0) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { relatedCards, ...data } = cards[0];
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result: any = omitBy(data, ['_id', '__v']);
 
-        result.versions = versions.map(({ lang, setId, number }) => ({ lang, set: setId, number }));
+        result.versions = versions.map(v => ({ ...v, set: v.setId, setId: undefined }));
+
+        const sets = await Set.find({ setId: { $in: uniq(versions.map(v => v.setId)) } });
+
+        for (const v of result.versions) {
+            const set = sets.find(s => s.setId === v.set);
+
+            if (set == null) {
+                continue;
+            }
+
+            v.name = fromPairs(set.localizations.map(l => [l.lang, l.name]));
+
+            if (auxSetType.includes(set.setType)) {
+                v.parent = set.parent;
+            }
+        }
 
         const relatedCardObjects = await quickFind(
             relatedCards.filter(r => r.version == null).map(r => r.cardId),
