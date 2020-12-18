@@ -13,10 +13,10 @@ export default {
                 if (type === 'event') {
                     switch (payload.type) {
                     case 'search': {
-                        if (vm.q !== '') {
+                        if (vm.$store.getters.search !== '') {
                             vm.$router.push({
                                 name:  'magic/search',
-                                query: { q: vm.q },
+                                query: { q: vm.$store.getters.search },
                             });
                         }
 

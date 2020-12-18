@@ -1,4 +1,4 @@
-import { last, omit } from 'lodash';
+import { last } from 'lodash';
 
 export default {
     computed: {
@@ -12,18 +12,6 @@ export default {
 
         user() { return this.$store.getters['user/user']; },
         isAdmin() { return this.$store.getters['user/isAdmin']; },
-
-        q: {
-            get() { return this.$route.query.q || ''; },
-
-            set(newValue) {
-                if (newValue === '') {
-                    this.$router.replace({ query: omit(this.$route.query, 'q') });
-                } else {
-                    this.$router.replace({ query: { ...this.$route.query, q: newValue } });
-                }
-            },
-        },
 
         meta() { return this.$route.meta; },
 
@@ -65,6 +53,5 @@ export default {
         },
 
         selections() { return this.$store.getters.selections ?? []; },
-
     },
 };

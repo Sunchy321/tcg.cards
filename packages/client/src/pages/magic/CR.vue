@@ -306,7 +306,7 @@ export default {
 
     methods: {
         async loadList() {
-            const { data } = await this.apiGet('/magic/cr/list');
+            const { data } = await this.apiGet('/magic/cr');
             this.$store.commit('selections', data);
         },
 

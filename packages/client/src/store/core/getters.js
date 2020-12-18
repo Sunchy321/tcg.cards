@@ -8,6 +8,10 @@ export function locale(state) {
     return state.locale;
 }
 
+export function search(state) {
+    return state.search;
+}
+
 export function selections(state) {
     return state.selections;
 }

@@ -13,8 +13,12 @@ export function locale(state, newValue) {
     state.locale = newValue;
 }
 
-export function event() {}
+export function search(state, newValue) {
+    state.search = newValue;
+}
 
 export function selections(state, newValue) {
     state.selections = newValue;
 }
+
+export function event() {}

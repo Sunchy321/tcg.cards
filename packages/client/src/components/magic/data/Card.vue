@@ -11,7 +11,7 @@
         </div>
         <div class="col">
             <div class="q-mb-md">
-                <q-input v-model="search" class="q-mr-md" dense>
+                <q-input v-model="search" class="q-mr-md" dense @keypress.enter="doSearch">
                     <template v-slot:append>
                         <q-btn
                             icon="mdi-magnify"
@@ -180,9 +180,11 @@ table
 </style>
 
 <script>
-import { imageBase } from 'boot/backend';
-
 import { escapeRegExp } from 'lodash';
+
+import routeComputed from 'src/route-computed';
+
+import { imageBase } from 'boot/backend';
 
 function field(firstKey, lastKey, defaultValue) {
     if (lastKey != null) {
@@ -212,12 +214,13 @@ export default {
     data: () => ({
         data:        null,
         unlock:      false,
-        search:      '',
         replaceFrom: '',
         replaceTo:   '',
     }),
 
     computed: {
+        search: routeComputed('q', { keep: ['tab'] }),
+
         id: {
             get() { return this.data?.cardId ?? this.$route.query.id; },
             set(newValue) {
@@ -245,13 +248,6 @@ export default {
                 if (this.data?.partIndex != null) {
                     this.data.partIndex = newValue;
                     this.$forceUpdate();
-                } else {
-                    this.$router.replace({
-                        query: {
-                            tab:  this.$route.query.tab,
-                            part: newValue,
-                        },
-                    });
                 }
             },
         },
@@ -375,6 +371,10 @@ export default {
         },
 
         defaultPrettify() {
+            if (this.data == null) {
+                return;
+            }
+
             if (this.lang === 'zhs' || this.lang === 'zht') {
                 this.unifiedTypeline = this.unifiedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
                 this.printedTypeline = this.printedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
@@ -388,14 +388,14 @@ export default {
             if (this.lang === 'zhs' || this.lang === 'zht') {
                 if (!/[a-z](?![/}])/.test(this.unifiedText)) {
                     this.unifiedText = this.unifiedText
-                        .replace(/(?<!•)(?<!.-.)(?<!.\+) /g, '')
+                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+) /g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
                 }
 
                 if (!/[a-z](?![/}])/.test(this.printedText)) {
                     this.printedText = this.printedText
-                        .replace(/(?<!•)(?<!.-.)(?<!.\+) /g, '')
+                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+) /g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
                 }
@@ -412,6 +412,10 @@ export default {
         },
 
         prettify() {
+            if (this.data == null) {
+                return;
+            }
+
             if (this.lang !== 'en') {
                 if (
                     (this.oracleName !== this.unifiedName && this.oracleName === this.printedName) ||

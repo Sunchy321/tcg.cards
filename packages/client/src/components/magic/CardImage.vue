@@ -1,5 +1,6 @@
 <template>
     <div
+        v-scroll-fire="visible=true"
         class="card-image"
         :class="[
             `layout-${layout}`,
@@ -8,6 +9,7 @@
         ]"
     >
         <q-img
+            v-if="visible"
             class="front"
             :src="imageUrls[0]"
             :ratio="745/1040"
@@ -83,33 +85,16 @@ import { imageBase } from 'boot/backend';
 
 export default {
     props: {
-        lang: {
-            type:     String,
-            required: true,
-        },
-        set: {
-            type:     String,
-            required: true,
-        },
-        number: {
-            type:     String,
-            required: true,
-        },
-        part: {
-            type:    Number,
-            default: null,
-        },
-        layout: {
-            type:     String,
-            required: true,
-        },
-        rotate: {
-            type:    Boolean,
-            default: null,
-        },
+        lang:   { type: String, default: null },
+        set:    { type: String, default: null },
+        number: { type: String, default: null },
+        part:   { type: Number, default: null },
+        layout: { type: String, default: null },
+        rotate: { type: Boolean, default: null },
     },
 
     data: () => ({
+        visible:     false,
         innerPart:   0,
         innerRotate: false,
     }),

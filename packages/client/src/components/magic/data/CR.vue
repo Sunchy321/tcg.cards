@@ -284,7 +284,7 @@ export default {
 
     methods: {
         async loadData() {
-            const { data: cr } = await this.apiGet('/magic/cr/list');
+            const { data: cr } = await this.apiGet('/magic/cr');
             const { data: txt } = await this.apiGet('/magic/cr/txt');
 
             this.cr = cr;

@@ -155,7 +155,6 @@
                     class="lang-selector"
                     dense
                     size="sm"
-                    :disable="i.current || !i.exist"
                     :color="i.exist ? 'primary' : 'grey'"
                     :outline="!i.current"
                     :unelevated="i.current"
@@ -176,8 +175,10 @@
                 <div v-for="i in setInfos" :key="i.set" class="set-line">
                     <div v-if="i.langs.includes(lang)" class="set-dot" :class="{ current: i.set === set }" />
                     <div>
-                        <div v-ripple @click="set = i.set">
-                            {{ i.set }}
+                        <div v-ripple class="flex no-wrap items-center" @click="set = i.set">
+                            <span class="code q-mr-sm">{{ i.set }}</span>
+                            <span class="set-name">{{ i.name }}</span>
+                            <img class="set-icon q-ml-sm" :src="i.iconUrl">
                         </div>
                         <div>
                             <q-btn
@@ -302,6 +303,12 @@
     left -5px
     top 50%
     transform translateY(-50%)
+
+.set-name
+    flex 1 1 auto
+
+.set-icon
+    height 1em
 </style>
 
 <script>
@@ -313,7 +320,9 @@ import MagicText from 'components/magic/Text';
 import MagicSymbol from 'components/magic/Symbol';
 
 import { omit, omitBy, uniq } from 'lodash';
-import mapComputed from 'src/store/map-computed';
+import mapComputed from 'src/map-computed';
+
+import { imageBase } from 'boot/backend';
 
 export default {
     name: 'Card',
@@ -375,17 +384,46 @@ export default {
                     }
                 }
 
+                const currVersion = (
+                    s === this.set ? versions.find(v => v.number === this.number) : null
+                ) ?? versions[0];
+
+                const rarity = currVersion.rarity;
+                const iconSet = currVersion.parent ?? s;
+
                 return {
-                    set:   s,
-                    langs: uniq(versions.map(v => v.lang)),
+                    set:     s,
+                    langs:   uniq(versions.map(v => v.lang)),
                     numbers,
+                    rarity,
+                    iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
+                    name:    currVersion.name[this.$store.getters['magic/locale']] ??
+                        currVersion.name[this.$store.getters['magic/locales'][0]] ?? s,
                 };
             });
         },
 
         lang: {
             get() { return this.data?.lang ?? this.$route.query.lang ?? this.$store.getters['magic/locale']; },
-            set(newValue) { this.$router.replace({ query: { ...this.$route.query, lang: newValue } }); },
+            set(newValue) {
+                const set = this.setInfos.find(i => i.set === this.set);
+
+                if (set.langs.includes(newValue)) {
+                    this.$router.replace({ query: { ...this.$route.query, lang: newValue } });
+                } else {
+                    const set = this.setInfos.find(i => i.langs.includes(newValue));
+
+                    if (set != null) {
+                        this.$router.replace({
+                            query: {
+                                ...this.$route.query,
+                                set:  set.set,
+                                lang: newValue,
+                            },
+                        });
+                    }
+                }
+            },
         },
 
         set: {

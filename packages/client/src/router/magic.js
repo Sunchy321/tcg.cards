@@ -10,7 +10,7 @@ const routes = [
                     title:      'magic.$self',
                     fixedInput: true,
                     inputClass: 'index-input',
-                    button:     [
+                    buttons:    [
                         { icon: 'mdi-shuffle-variant', event: 'random' },
                     ],
                 },

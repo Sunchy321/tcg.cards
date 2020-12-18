@@ -29,7 +29,11 @@ export default async function() {
             store.commit('selections', []);
         }
 
-        if (to.matched.some(r => r.meta.requireAdmin)) {
+        if (to.meta.title !== '$input') {
+            store.commit('search', '');
+        }
+
+        if (to.meta.requireAdmin) {
             const isAdmin = store.getters['user/isAdmin'];
 
             if (!isAdmin) {
@@ -37,7 +41,7 @@ export default async function() {
             } else {
                 next();
             }
-        } else if (to.matched.some(r => r.meta.requireAuth)) {
+        } else if (to.meta.requireAuth) {
             const user = store.getters['user/user'];
 
             if (user == null) {

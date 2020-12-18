@@ -16,6 +16,8 @@
 <script>
 import * as components from 'components/hearthstone/data';
 
+import routeComputed from 'src/route-computed';
+
 export default {
     name: 'Data',
 
@@ -26,14 +28,7 @@ export default {
             return Object.keys(components);
         },
 
-        tab: {
-            get() {
-                return this.$route.query.tab ?? this.tabs[0];
-            },
-            set(newValue) {
-                this.$router.replace({ query: { tab: newValue } });
-            },
-        },
+        tab: routeComputed('tab', { keep: false }),
     },
 
 };

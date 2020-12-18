@@ -4,15 +4,15 @@ import { join } from 'path';
 
 const apiBase = process.env.NODE_ENV === 'production'
     ? 'api.tcg.cards'
-    : 'api.test.local:8889';
+    : 'api.tcg.cards:8889';
 
 export const imageBase = process.env.NODE_ENV === 'production'
     ? 'image.tcg.cards'
-    : 'image.test.local:8889';
+    : 'image.tcg.cards:8889';
 
 const userBase = process.env.NODE_ENV === 'production'
     ? 'user.tcg.cards'
-    : 'user.test.local:8889';
+    : 'user.tcg.cards:8889';
 
 export const api = axios.create({ baseURL: 'http://' + apiBase });
 export const image = axios.create({ baseURL: 'http://' + imageBase });

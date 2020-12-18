@@ -11,6 +11,11 @@ export default {
             return this.$route.meta;
         },
 
+        search: {
+            get() { return this.$store.getters.search; },
+            set(newValue) { this.$store.commit('search', newValue); },
+        },
+
         titleText() { return this.meta?.title; },
         fixedInput() { return this.meta?.fixedInput; },
         inputClass() { return this.meta?.inputClass; },
@@ -28,9 +33,13 @@ export default {
                 dark={!this.fixedInput}
                 standout={!this.fixedInput}
                 filled={this.fixedInput}
-                value={this.q}
-                onInput={v => { this.q = v; }}
-                onChange={() => this.$store.commit('event', { type: 'search' })}
+                value={this.search}
+                onInput={v => { this.search = v; }}
+                onKeypress={e => {
+                    if (e.keyCode === 13) {
+                        this.$store.commit('event', { type: 'search' });
+                    }
+                }}
             >
                 <template slot="append">
                     <q-btn
@@ -58,6 +67,19 @@ export default {
             } else {
                 return text;
             }
+        },
+    },
+
+    watch: {
+        $route: {
+            immediate: true,
+            handler() {
+                const q = this.$route.query.q;
+
+                if (q != null && q !== '') {
+                    this.search = q;
+                }
+            },
         },
     },
 

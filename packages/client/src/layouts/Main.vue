@@ -7,7 +7,7 @@
                 <app-title />
 
                 <q-btn-dropdown
-                    v-if="meta.select"
+                    v-if="meta.select != null"
                     flat dense
                     :label="selection"
                 >
