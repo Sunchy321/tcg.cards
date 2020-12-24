@@ -27,10 +27,10 @@ async function mergeWith(data: IScryfallSet) {
             block:  data.block_code,
             parent: data.parent_set_code,
 
-            localizations: [{
-                lang:  'en',
-                name:  data.name,
-                block: data.block,
+            localization: [{
+                lang:           'en',
+                name:           data.name,
+                isOfficialName: true,
             }],
 
             setType:       data.set_type,
@@ -59,12 +59,6 @@ async function mergeWith(data: IScryfallSet) {
         set.isDigital = data.digital;
         set.isFoilOnly = data.foil_only;
         set.isNonfoilOnly = data.nonfoil_only;
-
-        for (const l of set.localizations) {
-            if (l.lang === 'en') {
-                l.name = data.name;
-            }
-        }
 
         await set.save();
     }

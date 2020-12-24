@@ -43,11 +43,11 @@ const formatMap: Record<string, string> = {
     'Format: 100 Card Singleton':                               '100_card_singleton',
 };
 
-function isStrong(e: cheerio.Element): boolean {
+function isStrong(e: cheerio.TagElement): boolean {
     return e.tagName === 'strong' || e.tagName === 'b';
 }
 
-function isCardLink(e: cheerio.Element, $: cheerio.Root): boolean {
+function isCardLink(e: cheerio.TagElement, $: cheerio.Root): boolean {
     return e.tagName === 'a' && ($(e).hasClass('autocard-link') || $(e).hasClass('nodec'));
 }
 
@@ -107,7 +107,7 @@ function parseStatus(text: string) {
     return statusMap[trimmed] || `<${trimmed}>`;
 }
 
-function parseLine(elems: cheerio.Element[], currFormat: string, $: cheerio.Root) {
+function parseLine(elems: cheerio.TagElement[], currFormat: string, $: cheerio.Root) {
     const pairs = [];
     const cards = [];
 

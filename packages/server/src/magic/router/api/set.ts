@@ -1,11 +1,11 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-// import jwtAuth from '@/middlewares/jwt-auth';
+import jwtAuth from '@/middlewares/jwt-auth';
 
-import Set from '@/magic/db/set';
+import Set, { ISet } from '@/magic/db/set';
 
-import { omitBy } from 'lodash';
+import { omit } from 'lodash';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -20,9 +20,26 @@ router.get('/', async ctx => {
         const set = await Set.findOne({ setId: id });
 
         if (set != null) {
-            ctx.body = omitBy(set.toJSON(), ['_id', '__v']);
+            ctx.body = omit(set.toJSON(), ['_id', '__v']);
         }
     }
 });
+
+router.post('/save',
+    jwtAuth({ admin: true }),
+    async ctx => {
+        const data = ctx.request.body.data as ISet;
+
+        const cr = await Set.findOne({ setId: data.setId });
+
+        if (cr != null) {
+            await cr.replaceOne(data);
+        } else {
+            await Set.create(data);
+        }
+
+        ctx.status = 200;
+    },
+);
 
 export default router;

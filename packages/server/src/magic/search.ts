@@ -41,14 +41,14 @@ function simpleQuery(key: string, param: string|RegExp, op:string|undefined) {
     }
 }
 
-function textQuery(key: string, param: string|RegExp, op: string|undefined) {
+function textQuery(key: string, param: string|RegExp, op: string|undefined, multiline = true) {
     const regexSource = typeof param === 'string' ? escapeRegExp(param) : param.source;
 
     switch (op) {
     case ':':
-        return { [key]: new RegExp(regexSource, 'mi') };
+        return { [key]: new RegExp(regexSource, multiline ? 'mi' : 'i') };
     case '!:':
-        return { [key]: { $not: new RegExp(regexSource, 'mi') } };
+        return { [key]: { $not: new RegExp(regexSource, multiline ? 'mi' : 'i') } };
     case '=':
         return { [key]: new RegExp('^' + regexSource + '$', 'i') };
     case '!=':
@@ -62,8 +62,13 @@ function textQuery(key: string, param: string|RegExp, op: string|undefined) {
 }
 
 export type QueryResult = {
+    onlyId: false,
     total: number,
     cards: { cardId: string, set: string, number: string, lang: string, layout: string }[]
+} | {
+    onlyId: true,
+    total: number,
+    cards: string[]
 }
 
 export default {
@@ -127,6 +132,17 @@ export default {
             query: ({ param, op }) => textQuery('parts.printed.name', param, op),
         },
         {
+            name:  'name',
+            short: 'n',
+            query: ({ param, op }) => ({
+                $or: [
+                    textQuery('parts.oracle.name', param, op),
+                    textQuery('parts.unified.name', param, op),
+                    textQuery('parts.printed.name', param, op),
+                ],
+            }),
+        },
+        {
             name:  'text.oracle',
             short: 'ox',
             query: ({ param, op }) => textQuery('parts.oracle.text', param, op),
@@ -140,6 +156,17 @@ export default {
             name:  'text.printed',
             short: 'px',
             query: ({ param, op }) => textQuery('parts.printed.text', param, op),
+        },
+        {
+            name:  'text',
+            short: 'x',
+            query: ({ param, op }) => ({
+                $or: [
+                    textQuery('parts.oracle.text', param, op),
+                    textQuery('parts.unified.text', param, op),
+                    textQuery('parts.printed.text', param, op),
+                ],
+            }),
         },
         {
             name:  'type.oracle',
@@ -156,9 +183,27 @@ export default {
             short: 'pt',
             query: ({ param, op }) => textQuery('parts.printed.typeline', param, op),
         },
+        {
+            name:  'type',
+            short: 't',
+            query: ({ param, op }) => ({
+                $or: [
+                    textQuery('parts.oracle.typeline', param, op),
+                    textQuery('parts.unified.typeline', param, op),
+                    textQuery('parts.printed.typeline', param, op),
+                ],
+            }),
+        },
+        {
+            name:  'flavor',
+            short: 'fv',
+            query: ({ param, op }) => textQuery('parts.flavorText', param, op, false),
+        },
     ],
 
     aggregate: async (q, o) => {
+        const dev = o.dev != null;
+        const onlyId = o['only-id'] != null;
         const groupBy = o['group-by'] || 'card';
         const sortBy = o['sort-by'] || 'id';
         const sortDir = o['sort-dir'] === 'desc' ? -1 : 1;
@@ -168,19 +213,21 @@ export default {
 
         const aggregate = Card.aggregate().allowDiskUse(true).match({ $and: q });
 
-        switch (groupBy) {
-        case 'print':
-            break;
-        case 'card':
-        default:
-            aggregate
-                .addFields({
-                    langIsLocale:  { $eq: ['$lang', locale] },
-                    langIsEnglish: { $eq: ['$lang', 'en'] },
-                })
-                .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
-                .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
-                .replaceRoot('data');
+        if (!dev && !onlyId) {
+            switch (groupBy) {
+            case 'print':
+                break;
+            case 'card':
+            default:
+                aggregate
+                    .addFields({
+                        langIsLocale:  { $eq: ['$lang', locale] },
+                        langIsEnglish: { $eq: ['$lang', 'en'] },
+                    })
+                    .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
+                    .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
+                    .replaceRoot('data');
+            }
         }
 
         const total = (
@@ -189,7 +236,11 @@ export default {
                 .group({ _id: null, count: { $sum: 1 } })
         )[0]?.count ?? 0;
 
-        if (o.one != null) {
+        if (onlyId) {
+            const result = await aggregate.group({ _id: '$cardId' });
+
+            return { total, cards: result.map(v => v._id) };
+        } else if (dev) {
             const cards = await Card.aggregate(aggregate.pipeline())
                 .limit(1);
 

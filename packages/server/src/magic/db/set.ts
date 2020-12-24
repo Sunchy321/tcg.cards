@@ -5,7 +5,8 @@ import conn from './db';
 interface ISetLocalization {
     lang: string,
     name: string,
-    block?: string,
+    isOfficialName: boolean,
+    link?: string,
 }
 
 export interface ISet {
@@ -22,7 +23,7 @@ export interface ISet {
     block?: string,
     parent?: string,
 
-    localizations: ISetLocalization[],
+    localization: ISetLocalization[],
 
     setType: string,
     isDigital: boolean,
@@ -49,15 +50,13 @@ export const SetSchema = new Schema({
     block:  String,
     parent: String,
 
-    localizations: [
-        {
-            _id:   false,
-            lang:  String,
-            name:  String,
-            block: String,
-            link:  String,
-        },
-    ],
+    localization: [{
+        _id:            false,
+        lang:           String,
+        name:           String,
+        isOfficialName: Boolean,
+        link:           String,
+    }],
 
     setType:       String,
     isDigital:     Boolean,

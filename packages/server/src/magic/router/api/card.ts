@@ -7,9 +7,11 @@ import jwtAuth from '@/middlewares/jwt-auth';
 import Card, { ICard } from '@/magic/db/card';
 import Set from '@/magic/db/set';
 import { Aggregate } from 'mongoose';
+import { Searcher } from '@/search';
 
-import { fromPairs, omitBy, random, uniq } from 'lodash';
+import { fromPairs, omit, omitBy, random, uniq } from 'lodash';
 
+import model from '@/magic/search';
 import { auxSetType, textWithParen } from '@data/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -69,7 +71,7 @@ router.get('/', async ctx => {
 
     if (cards.length !== 0) {
         const { relatedCards, ...data } = cards[0];
-        const result: any = omitBy(data, ['_id', '__v']);
+        const result: any = omit(data, ['_id', '__v']);
 
         result.versions = versions.map(v => ({ ...v, set: v.setId, setId: undefined }));
 
@@ -82,7 +84,7 @@ router.get('/', async ctx => {
                 continue;
             }
 
-            v.name = fromPairs(set.localizations.map(l => [l.lang, l.name]));
+            v.name = fromPairs(set.localization.map(l => [l.lang, l.name]));
 
             if (auxSetType.includes(set.setType)) {
                 v.parent = set.parent;
@@ -132,10 +134,16 @@ router.get('/', async ctx => {
     }
 });
 
-router.get('/random', async ctx => {
-    const cardId = await Card.distinct('cardId');
+const searcher = new Searcher(model);
 
-    ctx.body = cardId[random(cardId.length - 1)];
+router.get('/random', async ctx => {
+    const q = ctx.query.q;
+
+    const cardIds = q != null && q !== ''
+        ? (await searcher.search(q, { 'only-id': '' })).result?.cards as string[]
+        : await Card.distinct('cardId');
+
+    ctx.body = cardIds[random(cardIds.length - 1)];
 });
 
 router.get('/raw',
@@ -321,5 +329,43 @@ router.get('/need-edit',
         }
     },
 );
+
+import { asset } from '@config';
+import { existsSync, renameSync } from 'fs';
+
+router.get('/rename', async ctx => {
+    const { set } = ctx.query;
+
+    const cards = await Card.find({ setId: set, lang: 'zhs' });
+
+    const renamed = [];
+    const missed = [];
+
+    for (const c of cards) {
+        const name = c.parts[0].oracle.name;
+
+        const oldPath = `${asset}/magic/card/large/${set}/zhs/${name.replace(':', '')}.full.jpg`;
+        const oldPathWithNumber = `${asset}/magic/card/large/${set}/zhs/${name.replace(':', '')}.${c.number}.full.jpg`;
+        const newPath = `${asset}/magic/card/large/${set}/zhs/${c.number}.jpg`;
+
+        if (existsSync(newPath)) {
+            continue;
+        }
+
+        if (existsSync(oldPath)) {
+            renameSync(oldPath, newPath);
+
+            renamed.push(`${name} -> ${c.number}`);
+        } else if (existsSync(oldPathWithNumber)) {
+            renameSync(oldPathWithNumber, newPath);
+
+            renamed.push(`${name}.${c.number} -> ${c.number}`);
+        } else {
+            missed.push([c.cardId, c.parts.map(p => p.oracle.name), c.number]);
+        }
+    }
+
+    ctx.body = { missed, renamed };
+});
 
 export default router;

@@ -194,7 +194,7 @@ export class ImageGetter extends Task<IImageStatus> {
     }
 
     private async waitForTasks() {
-        const promise = new Promise((resolve, reject) => {
+        const promise = new Promise<void>((resolve, reject) => {
             this.once('all-end', () => {
                 this.off('error', reject);
                 resolve();

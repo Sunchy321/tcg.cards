@@ -31,7 +31,7 @@ export function parseDate(text: string): string {
     }
 }
 
-function* flat(div: cheerio.Cheerio, $: cheerio.Root): Generator<cheerio.Element | 'newline'> {
+function* flat(div: cheerio.Cheerio, $: cheerio.Root): Generator<cheerio.TagElement | 'newline'> {
     for (const i of div.contents().get()) {
         switch (i.tagName) {
         case 'p':
@@ -66,8 +66,8 @@ function* flat(div: cheerio.Cheerio, $: cheerio.Root): Generator<cheerio.Element
     }
 }
 
-export function* getLines(div: cheerio.Cheerio, $: cheerio.Root): Generator<cheerio.Element[]> {
-    const result: cheerio.Element[] = [];
+export function* getLines(div: cheerio.Cheerio, $: cheerio.Root): Generator<cheerio.TagElement[]> {
+    const result: cheerio.TagElement[] = [];
 
     for (const i of flat(div, $)) {
         if (i === 'newline') {

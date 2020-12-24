@@ -25,21 +25,31 @@ router.get('/', async ctx => {
         return;
     }
 
-    const path = cardImagePath('png', set, lang, number, part);
+    const pngPath = cardImagePath('png', set, lang, number, part);
+    const jpgPath = cardImagePath('large', set, lang, number, part);
 
-    if (existsSync(path)) {
-        ctx.response.set('content-type', mime.lookup(path) as string);
-        ctx.body = createReadStream(path);
+    if (existsSync(pngPath)) {
+        ctx.response.set('content-type', mime.lookup(pngPath) as string);
+        ctx.body = createReadStream(pngPath);
+        return;
+    } else if (existsSync(jpgPath)) {
+        ctx.response.set('content-type', mime.lookup(jpgPath) as string);
+        ctx.body = createReadStream(jpgPath);
         return;
     }
 
     if (ctx.query['auto-locale'] != null) {
         for (const l of locales) {
-            const path = cardImagePath('png', set, l, number, part);
+            const pngPath = cardImagePath('png', set, l, number, part);
+            const jpgPath = cardImagePath('large', set, l, number, part);
 
-            if (existsSync(path)) {
-                ctx.response.set('content-type', mime.lookup(path) as string);
-                ctx.body = createReadStream(path);
+            if (existsSync(pngPath)) {
+                ctx.response.set('content-type', mime.lookup(pngPath) as string);
+                ctx.body = createReadStream(pngPath);
+                return;
+            } else if (existsSync(jpgPath)) {
+                ctx.response.set('content-type', mime.lookup(jpgPath) as string);
+                ctx.body = createReadStream(jpgPath);
                 return;
             }
         }
