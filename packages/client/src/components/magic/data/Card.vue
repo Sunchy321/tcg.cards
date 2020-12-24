@@ -1,7 +1,7 @@
 <template>
     <div class="q-pa-md row">
         <div class="card-image col-3 q-mr-md">
-            <q-img :src="imageUrl" :ratio="745/1040" native-context-menu>
+            <q-img :src="imageUrl" :ratio="745/1040" native-context-menu :class="{ rotate }">
                 <template v-slot:error>
                     <div class="card-not-found">
                         <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
@@ -173,6 +173,9 @@ table
     & .typeline
         width 250px
 
+.rotate
+    transform rotate(90deg) scale(745/1040)
+
 @media screen and (max-width: 1000px)
     .card-image
         display none
@@ -243,11 +246,10 @@ export default {
         },
 
         partIndex: {
-            get() { return this.$route.query.part ?? this.data?.partIndex ?? 0; },
+            get() { return this.data?.partIndex ?? this.$route.query.part ?? 0; },
             set(newValue) {
-                if (this.data?.partIndex != null) {
-                    this.data.partIndex = newValue;
-                    this.$forceUpdate();
+                if (this.data != null) {
+                    this.$set(this.data, 'partIndex', newValue);
                 }
             },
         },
@@ -255,6 +257,8 @@ export default {
         total() { return this.data?.total; },
 
         layout() { return this.data?.layout; },
+
+        rotate() { return ['split'].includes(this.layout); },
 
         partCount() { return this.data?.parts?.length ?? 0; },
         partOptions() {
@@ -378,32 +382,33 @@ export default {
             if (this.lang === 'zhs' || this.lang === 'zht') {
                 this.unifiedTypeline = this.unifiedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
                 this.printedTypeline = this.printedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
-                this.unifiedText = this.unifiedText.replace(/~/g, '～');
-                this.printedText = this.printedText.replace(/~/g, '～');
+                this.unifiedText = this.unifiedText.replace(/~/g, '～').replace(new RegExp('//', 'g'), '／');
+                this.printedText = this.printedText.replace(/~/g, '～').replace(new RegExp('//', 'g'), '／');
+
+                if (this.flavor != null) {
+                    this.flavor = this.flavor.replace(/~/g, '～');
+                }
+            } else {
+                this.unifiedTypeline = this.unifiedTypeline.replace(/ - /g, ' — ');
+                this.printedTypeline = this.printedTypeline.replace(/ - /g, ' — ');
             }
 
-            this.unifiedText = this.unifiedText.replace(/[●•] ?/g, '• ');
-            this.printedText = this.printedText.replace(/[●•] ?/g, '• ');
+            this.unifiedText = this.unifiedText.trim().replace(/[●•] ?/g, '• ');
+            this.printedText = this.printedText.trim().replace(/[●•] ?/g, '• ');
 
             if (this.lang === 'zhs' || this.lang === 'zht') {
-                if (!/[a-z](?![/}])/.test(this.unifiedText)) {
+                if (!/[a-wyz](?![/}])/.test(this.unifiedText)) {
                     this.unifiedText = this.unifiedText
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+) /g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
                 }
 
-                if (!/[a-z](?![/}])/.test(this.printedText)) {
+                if (!/[a-wyz](?![/}])/.test(this.printedText)) {
                     this.printedText = this.printedText
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+) /g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
-                }
-
-                if (this.flavor !== '') {
-                    this.flavor = this.flavor
-                        .replace(/」 ?～/, '」\n～')
-                        .replace(/ /g, '');
                 }
             }
 
@@ -449,7 +454,7 @@ export default {
                 await this.update();
             }
 
-            const { data } = await this.apiGet('/magic/search', { q: this.search, one: '' });
+            const { data } = await this.apiGet('/magic/search', { q: this.search, dev: '' });
 
             if (this.partIndex !== 0 && this.partIndex !== '0') {
                 this.partIndex = 0;

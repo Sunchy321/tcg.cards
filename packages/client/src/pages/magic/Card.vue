@@ -384,6 +384,18 @@ export default {
                     }
                 }
 
+                numbers.sort((a, b) => {
+                    const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a.number)[1];
+                    const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b.number)[1];
+
+                    const len = Math.max(ma.length, mb.length);
+
+                    const pa = ma.padStart(len, '0');
+                    const pb = mb.padStart(len, '0');
+
+                    return pa < pb ? -1 : pa > pb ? 1 : 0;
+                });
+
                 const currVersion = (
                     s === this.set ? versions.find(v => v.number === this.number) : null
                 ) ?? versions[0];
@@ -397,8 +409,8 @@ export default {
                     numbers,
                     rarity,
                     iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
-                    name:    currVersion.name[this.$store.getters['magic/locale']] ??
-                        currVersion.name[this.$store.getters['magic/locales'][0]] ?? s,
+                    name:    currVersion.name[this.$store.getters.locale] ??
+                        currVersion.name[this.$store.getters.locales[0]] ?? s,
                 };
             });
         },

@@ -23,7 +23,9 @@ export default {
                         break;
                     }
                     case 'random': {
-                        const { data: id } = await vm.apiGet('/magic/card/random');
+                        const { data: id } = await vm.apiGet('/magic/card/random', {
+                            q: vm.$store.getters.search,
+                        });
 
                         vm.$router.push({
                             name:   'magic/card',

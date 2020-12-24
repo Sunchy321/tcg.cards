@@ -45,9 +45,9 @@ export default {
     },
 
     setting: {
+        $self: 'Settings',
         basic: 'Basic Settings',
-
-        lang: 'Language',
+        lang:  'Language',
     },
 
     data: 'Data',

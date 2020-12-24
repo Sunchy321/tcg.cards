@@ -8,8 +8,7 @@ const routes = [
                 component: () => import('pages/magic'),
                 meta:      {
                     title:      'magic.$self',
-                    fixedInput: true,
-                    inputClass: 'index-input',
+                    keepSearch: true,
                     buttons:    [
                         { icon: 'mdi-shuffle-variant', event: 'random' },
                     ],
@@ -23,14 +22,14 @@ const routes = [
                     title:        'data',
                 },
             },
-            {
-                path:      'format',
-                component: () => import('pages/magic/Format'),
-            },
-            {
-                path:      'set',
-                component: () => import('pages/magic/Set'),
-            },
+            // {
+            //     path:      'format',
+            //     component: () => import('pages/magic/Format'),
+            // },
+            // {
+            //     path:      'set',
+            //     component: () => import('pages/magic/Set'),
+            // },
             {
                 path:      'card/:id',
                 name:      'magic/card',

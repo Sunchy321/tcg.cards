@@ -17,22 +17,11 @@ export default {
         },
 
         titleText() { return this.meta?.title; },
-        fixedInput() { return this.meta?.fixedInput; },
-        inputClass() { return this.meta?.inputClass; },
 
         titleInput() {
-            let klass = 'title-input';
-
-            if (this.inputClass != null) {
-                klass += ' ' + this.inputClass;
-            }
-
             return <q-input
-                class={klass}
-                dense={!this.fixedInput}
-                dark={!this.fixedInput}
-                standout={!this.fixedInput}
-                filled={this.fixedInput}
+                class="title-input"
+                dense dark standout
                 value={this.search}
                 onInput={v => { this.search = v; }}
                 onKeypress={e => {
@@ -62,11 +51,7 @@ export default {
                 ? capitalize(this.$t(titleText))
                 : this.$route.path.slice(1).replace(new RegExp('/', 'g'), '.');
 
-            if (this.fixedInput) {
-                return [text, this.titleInput];
-            } else {
-                return text;
-            }
+            return text;
         },
     },
 

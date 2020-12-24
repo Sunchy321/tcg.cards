@@ -34,7 +34,7 @@
                 v-else
                 label="Load"
                 dense outline
-                @click="load"
+                @click="loadData"
             />
 
             <q-btn
@@ -273,33 +273,29 @@ export default {
     watch: {
         date() {
             if (this.cr.includes(this.date)) {
-                this.load();
+                this.loadData();
             }
         },
     },
 
     mounted() {
-        this.loadData();
+        this.loadList();
     },
 
     methods: {
-        async loadData() {
+        async loadList() {
             const { data: cr } = await this.apiGet('/magic/cr');
             const { data: txt } = await this.apiGet('/magic/cr/txt');
 
             this.cr = cr;
             this.txt = txt;
 
-            if (this.date == null) {
-                this.date = last(txt);
-            }
-
             if (this.data == null) {
                 this.load();
             }
         },
 
-        async load() {
+        async loadData() {
             if (this.date != null && this.cr.includes(this.date)) {
                 const { data } = await this.apiGet('/magic/cr', { date: this.date });
 
@@ -319,7 +315,7 @@ export default {
             if (this.data != null) {
                 await this.apiPost('/magic/cr/save', { data: this.data });
 
-                this.loadData();
+                this.loadList();
             }
         },
 

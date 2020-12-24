@@ -14,6 +14,9 @@ const routes = [
                 path:      'setting',
                 name:      'setting',
                 component: () => import('pages/Setting.vue'),
+                meta:      {
+                    title: 'setting.$self',
+                },
             },
         ],
     },

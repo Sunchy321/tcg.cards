@@ -22,10 +22,10 @@
 
         <div v-if="progress != null">
             <span
-                v-for="(s, n) in progress.status"
-                :key="n"
-                class="single-status" :class="`status-${s}`"
-            >{{ n }}</span>
+                v-for="k in statusKey"
+                :key="k"
+                class="single-status" :class="`status-${status[k]}`"
+            >{{ k }}</span>
         </div>
     </div>
 </template>
@@ -74,6 +74,24 @@ export default {
             return this.types.map(t => ({
                 value: t, label: t,
             }));
+        },
+
+        status() {
+            return this.progress?.status ?? {};
+        },
+
+        statusKey() {
+            return Object.keys(this.status).sort((a, b) => {
+                const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a)[1];
+                const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b)[1];
+
+                const len = Math.max(ma.length, mb.length);
+
+                const pa = ma.padStart(len, '0');
+                const pb = mb.padStart(len, '0');
+
+                return pa < pb ? -1 : pa > pb ? 1 : 0;
+            });
         },
     },
 

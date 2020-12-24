@@ -29,7 +29,7 @@ export default async function() {
             store.commit('selections', []);
         }
 
-        if (to.meta.title !== '$input') {
+        if (to.meta.title !== '$input' && !to.meta.keepSearch) {
             store.commit('search', '');
         }
 
