@@ -100,15 +100,12 @@
 
                         <div
                             v-if="cost != null"
-                            class="cost"
-                            :class="{
-                                'large-cost': id === 'b_f_m___big_furry_monster_'
-                            }"
+                            class="mana-cost"
                         >
                             <magic-symbol
                                 v-for="(s, i) in cost" :key="i"
                                 :value="s"
-                                :type="s === 'W' ? whiteType : undefined"
+                                :type="costStyles"
                             />
                         </div>
                     </div>
@@ -122,10 +119,14 @@
                         <span v-if="info != null" class="other-info">{{ info }}</span>
                     </div>
                     <div class="ability-line" :lang="lang">
-                        <magic-text :value="text" :tap="tapType" :white="whiteType" />
+                        <magic-text :type="symbolStyle">
+                            {{ text }}
+                        </magic-text>
                     </div>
                     <div v-if="flavor != null" class="flavor-line" :lang="lang">
-                        <magic-text :value="flavor" />
+                        <magic-text :type="symbolStyle">
+                            {{ flavor }}
+                        </magic-text>
                     </div>
                 </div>
             </div>
@@ -243,22 +244,10 @@
 .name
     display inline
 
-.cost
+.mana-cost
     display inline-flex
     align-items center
-    margin-left 30px
-
-    & > *
-        margin-right 3px
-        border-radius 100px
-        box-shadow -2px 2px 0 rgba(0,0,0,0.85)
-
-    &.large-cost
-        font-size 50%
-
-        & > *
-            margin-right 2px
-            box-shadow -1px 1px 0 rgba(0,0,0,0.85)
+    margin-left 5px
 
 .color-indicator
     height 1em
@@ -411,6 +400,7 @@ export default {
                     iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
                     name:    currVersion.name[this.$store.getters.locale] ??
                         currVersion.name[this.$store.getters.locales[0]] ?? s,
+                    symbolStyle: currVersion.symbolStyle,
                 };
             });
         },
@@ -418,18 +408,18 @@ export default {
         lang: {
             get() { return this.data?.lang ?? this.$route.query.lang ?? this.$store.getters['magic/locale']; },
             set(newValue) {
-                const set = this.setInfos.find(i => i.set === this.set);
+                const info = this.setInfos.find(i => i.set === this.set);
 
-                if (set.langs.includes(newValue)) {
+                if (info.langs.includes(newValue)) {
                     this.$router.replace({ query: { ...this.$route.query, lang: newValue } });
                 } else {
-                    const set = this.setInfos.find(i => i.langs.includes(newValue));
+                    const info = this.setInfos.find(i => i.langs.includes(newValue));
 
-                    if (set != null) {
+                    if (info != null) {
                         this.$router.replace({
                             query: {
                                 ...this.$route.query,
-                                set:  set.set,
+                                set:  info.set,
                                 lang: newValue,
                             },
                         });
@@ -519,35 +509,19 @@ export default {
             });
         },
 
-        tapType() {
+        symbolStyle() {
             if (this.textMode !== 'printed') {
-                return 'modern';
-            }
-
-            switch (this.set) {
-            case '3ed':
-            case 'sum':
-                return 'old1';
-            case '4ed':
-            case 'rqs':
-            case 'itp':
-            case '5ed':
-            case '6ed':
-            case 'me4':
-                return 'old2';
-            default:
-                return 'modern';
+                return [];
+            } else {
+                return this.setInfos.find(i => i.set === this.set)?.symbolStyle ?? [];
             }
         },
 
-        whiteType() {
-            if (this.textMode !== 'printed') {
-                return 'modern';
-            }
-
-            switch (this.set) {
-            default:
-                return 'modern';
+        costStyles() {
+            if (this.id === 'b_f_m___big_furry_monster_') {
+                return [...this.symbolStyle, 'cost', 'mini'];
+            } else {
+                return [...this.symbolStyle, 'cost'];
             }
         },
     },

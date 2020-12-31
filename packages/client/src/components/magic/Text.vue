@@ -22,46 +22,41 @@ export default {
     functional: true,
 
     props: {
-        value: { type: String, required: true },
-        tap:   {
-            type:    String,
-            default: 'modern',
-        },
-        white: {
-            type:    String,
-            default: 'modern',
+        type: {
+            type:    Array,
+            default: () => [],
         },
     },
 
-    render(h, { props, parent, data }) {
-        const symbols = parent.$store.getters['magic/data'].symbols || [];
+    render(h, { props, parent, data, slots }) {
+        const defaultSlot = slots().default;
 
-        const pieces = props.value.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
+        const symbols = parent.$store.getters['magic/data'].symbols || [];
 
         const result = [];
 
-        for (const p of pieces) {
-            if (p === '\n') {
-                result.push(<br />);
-            } else if (p.startsWith('{') && p.endsWith('}')) {
-                const content = p.slice(1, -1);
+        for (const node of defaultSlot) {
+            if (node.tag != null) {
+                result.push(node);
+                continue;
+            }
 
-                if (symbols.includes(content)) {
-                    switch (content) {
-                    case 'T':
-                        result.push(<Symbol class={data.class} value={content} type={props.tap} />);
-                        break;
-                    case 'W':
-                        result.push(<Symbol class={data.class} value={content} type={props.white} />);
-                        break;
-                    default:
-                        result.push(<Symbol class={data.class} value={content} />);
+            const pieces = node.text.trim().split(/(\n|\{[^}]+\})/).filter(v => v !== '');
+
+            for (const p of pieces) {
+                if (p === '\n') {
+                    result.push(<br />);
+                } else if (p.startsWith('{') && p.endsWith('}')) {
+                    const content = p.slice(1, -1);
+
+                    if (symbols.includes(content)) {
+                        result.push(<Symbol class={data.class} value={content} type={props.type} />);
+                    } else {
+                        result.push(<span class={data.class}>{p}</span>);
                     }
                 } else {
                     result.push(<span class={data.class}>{p}</span>);
                 }
-            } else {
-                result.push(<span class={data.class}>{p}</span>);
             }
         }
 

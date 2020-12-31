@@ -4,7 +4,16 @@
             v-model="search"
             class="main-input q-ma-xl"
             filled
-        />
+            @keypress.enter="doSearch"
+        >
+            <template slot="append">
+                <q-btn
+                    icon="mdi-magnify"
+                    flat dense round
+                    @click="doSearch"
+                />
+            </template>
+        </q-input>
         <div class="links q-pa-xl q-gutter-md row ">
             <div class="col column" />
             <div class="col column">
@@ -36,6 +45,12 @@ export default {
         search: {
             get() { return this.$store.getters.search; },
             set(newValue) { this.$store.commit('search', newValue); },
+        },
+    },
+
+    methods: {
+        doSearch() {
+            this.$store.commit('event', { type: 'search' });
         },
     },
 };

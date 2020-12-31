@@ -422,13 +422,15 @@ export default {
             }
 
             if (this.lang !== 'en') {
-                if (
-                    (this.oracleName !== this.unifiedName && this.oracleName === this.printedName) ||
-                    (this.oracleTypeline !== this.unifiedTypeline && this.oracleTypeline === this.printedTypeline) ||
-                    (this.oracleText !== this.unifiedText && this.oracleText === this.printedText)
-                ) {
+                if (this.oracleName !== this.unifiedName && this.oracleName === this.printedName) {
                     this.printedName = this.unifiedName;
+                }
+
+                if (this.oracleTypeline !== this.unifiedTypeline && this.oracleTypeline === this.printedTypeline) {
                     this.printedTypeline = this.unifiedTypeline;
+                }
+
+                if (this.oracleText !== this.unifiedText && this.oracleText === this.printedText) {
                     this.printedText = this.unifiedText;
                 }
             }

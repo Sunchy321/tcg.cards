@@ -26,6 +26,50 @@
             />
         </div>
 
+        <div class="q-mb-sm">
+            <q-btn-toggle
+                v-model="tapStyle"
+                class="q-mr-sm"
+                dense outline
+                :options="tapStyleOption"
+            >
+                <template v-slot:old1>
+                    <magic-symbol value="T" :type="['tap:old1']" />
+                </template>
+
+                <template v-slot:old2>
+                    <magic-symbol value="T" :type="['tap:old2']" />
+                </template>
+
+                <template v-slot:modern>
+                    <magic-symbol value="T" />
+                </template>
+            </q-btn-toggle>
+
+            <q-btn-toggle
+                v-model="whiteStyle"
+                class="q-mr-sm"
+                dense outline
+                :options="whiteStyleOption"
+            >
+                <template v-slot:old>
+                    <magic-symbol value="W" :type="['white:old']" />
+                </template>
+
+                <template v-slot:modern>
+                    <magic-symbol value="W" />
+                </template>
+            </q-btn-toggle>
+
+            <q-checkbox
+                v-model="flat"
+                class="q-mr-sm"
+                label="Flat"
+            />
+
+            <span>{{ symbolStyle }}</span>
+        </div>
+
         <div>
             <div v-for="l in localization" :key="l.lang" class="row items-center q-gutter-md">
                 <div class="code" style="flex-basis: 25px">
@@ -50,6 +94,9 @@
 </template>
 
 <script>
+
+import MagicSymbol from 'components/magic/Symbol';
+
 const linkMap = {
     en:  'en',
     de:  'de',
@@ -64,7 +111,29 @@ const linkMap = {
     zht: 'zh-hant',
 };
 
+function makeSymbolStyle(tap, white, flat) {
+    const result = [];
+
+    if (tap !== 'modern') {
+        result.push('tap:' + tap);
+    }
+
+    if (white !== 'modern') {
+        result.push('white:' + white);
+    }
+
+    if (flat) {
+        result.push('flat');
+    }
+
+    return result;
+}
+
 export default {
+    name: 'Set',
+
+    components: { MagicSymbol },
+
     data: () => ({
         set:         [],
         data:        null,
@@ -100,6 +169,71 @@ export default {
                 { name: 'name', label: 'Name', field: 'name' },
                 { name: 'link', label: 'Link', field: 'link' },
             ];
+        },
+
+        symbolStyle() { return this.data?.symbolStyle ?? []; },
+
+        tapStyle: {
+            get() {
+                if (this.symbolStyle.includes('tap:old1')) {
+                    return 'old1';
+                } else if (this.symbolStyle.includes('tap:old2')) {
+                    return 'old2';
+                } else {
+                    return 'modern';
+                }
+            },
+            set(newValue) {
+                if (this.data == null) {
+                    return;
+                }
+
+                this.data.symbolStyle = makeSymbolStyle(newValue, this.whiteStyle, this.flat);
+            },
+        },
+
+        tapStyleOption() {
+            return [
+                { value: 'old1', slot: 'old1' },
+                { value: 'old2', slot: 'old2' },
+                { value: 'modern', slot: 'modern' },
+            ];
+        },
+
+        whiteStyle: {
+            get() {
+                if (this.symbolStyle.includes('white:old')) {
+                    return 'old';
+                } else {
+                    return 'modern';
+                }
+            },
+            set(newValue) {
+                if (this.data == null) {
+                    return;
+                }
+
+                this.data.symbolStyle = makeSymbolStyle(this.tapStyle, newValue, this.flat);
+            },
+        },
+
+        whiteStyleOption() {
+            return [
+                { value: 'old', slot: 'old' },
+                { value: 'modern', slot: 'modern' },
+            ];
+        },
+
+        flat: {
+            get() {
+                return this.symbolStyle.includes('flat');
+            },
+            set(newValue) {
+                if (this.data == null) {
+                    return;
+                }
+                this.data.symbolStyle = makeSymbolStyle(this.tapStyle, this.whiteStyle, newValue);
+            },
         },
     },
 
