@@ -78,16 +78,17 @@ router.get('/', async ctx => {
         const sets = await Set.find({ setId: { $in: uniq(versions.map(v => v.setId)) } });
 
         for (const v of result.versions) {
-            const set = sets.find(s => s.setId === v.set);
+            const s = sets.find(s => s.setId === v.set);
 
-            if (set == null) {
+            if (s == null) {
                 continue;
             }
 
-            v.name = fromPairs(set.localization.map(l => [l.lang, l.name]));
+            v.name = fromPairs(s.localization.map(l => [l.lang, l.name]));
+            v.symbolStyle = s.symbolStyle;
 
-            if (auxSetType.includes(set.setType)) {
-                v.parent = set.parent;
+            if (auxSetType.includes(s.setType)) {
+                v.parent = s.parent;
             }
         }
 

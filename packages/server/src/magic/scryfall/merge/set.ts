@@ -37,6 +37,7 @@ async function mergeWith(data: IScryfallSet) {
             isDigital:     data.digital,
             isFoilOnly:    data.foil_only,
             isNonfoilOnly: data.nonfoil_only,
+            symbolStyle:   [],
 
             releaseDate: data.released_at,
 

@@ -92,18 +92,18 @@ export default {
                             },
                         ],
                     };
-                } else {
-                    return {
-                        $or: [
-                            textQuery('parts.oracle.name', param, ':'),
-                            textQuery('parts.unified.name', param, ':'),
-                            textQuery('parts.printed.name', param, ':'),
-                            textQuery('parts.oracle.text', param, ':'),
-                            textQuery('parts.unified.text', param, ':'),
-                            textQuery('parts.printed.text', param, ':'),
-                        ],
-                    };
                 }
+
+                return {
+                    $or: [
+                        textQuery('parts.oracle.name', param, ':'),
+                        textQuery('parts.unified.name', param, ':'),
+                        textQuery('parts.printed.name', param, ':'),
+                        textQuery('parts.oracle.text', param, ':'),
+                        textQuery('parts.unified.text', param, ':'),
+                        textQuery('parts.printed.text', param, ':'),
+                    ],
+                };
             },
         },
         {
@@ -198,6 +198,27 @@ export default {
             name:  'flavor',
             short: 'fv',
             query: ({ param, op }) => textQuery('parts.flavorText', param, op, false),
+        },
+        {
+            name:  ' rarity',
+            short: 'r',
+            query: ({ param, op }) => {
+                if (param instanceof RegExp) {
+                    throw new QueryError({
+                        type:  'regex/disabled',
+                        value: '',
+                    });
+                }
+
+                const rarity = ({
+                    c: 'common',
+                    u: 'uncommon',
+                    r: 'rare',
+                    m: 'mythic',
+                } as Record<string, string>)[param] || param;
+
+                return simpleQuery('rarity', rarity, op);
+            },
         },
     ],
 

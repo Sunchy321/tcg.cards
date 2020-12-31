@@ -29,6 +29,7 @@ export interface ISet {
     isDigital: boolean,
     isFoilOnly: boolean,
     isNonfoilOnly: boolean,
+    symbolStyle: string[],
 
     releaseDate?: string,
 
@@ -62,6 +63,7 @@ export const SetSchema = new Schema({
     isDigital:     Boolean,
     isFoilOnly:    Boolean,
     isNonfoilOnly: Boolean,
+    symbolStyle:   [String],
 
     releaseDate: String,
 
