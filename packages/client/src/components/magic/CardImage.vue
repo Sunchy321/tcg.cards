@@ -105,7 +105,6 @@
 
     &.layout-transform
     &.layout-modal_dfc
-    &.layout-art_series
         transform-style preserve-3d
 
         & .front
@@ -188,7 +187,7 @@ export default {
         },
 
         turnable() {
-            return ['transform', 'modal_dfc', 'art_series'].includes(this.layout);
+            return ['transform', 'modal_dfc'].includes(this.layout);
         },
 
         imageUrls() {
