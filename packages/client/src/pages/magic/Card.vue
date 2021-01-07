@@ -12,78 +12,8 @@
                         :part="partIndex"
                         :rotate="rotate"
                         @part="v => partIndex = v"
-                        @rotate="rotate = !rotate"
+                        @rotate="v => rotate = v"
                     />
-
-                    <div
-                        v-if="partCount > 1 || ['planar'].includes(layout)"
-                        class="image-button"
-                    >
-                        <q-btn-group v-if="layout==='split'" outline>
-                            <q-btn
-                                :label="$t('magic.card.layout.another_part')"
-                                outline
-                                @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
-                            />
-
-                            <q-btn
-                                :label="$t('magic.card.layout.rotate')"
-                                outline
-                                @click="rotate = !rotate"
-                            />
-                        </q-btn-group>
-
-                        <q-btn
-                            v-else-if="layout === 'transform'"
-                            :label="$t('magic.card.layout.transform')"
-                            outline
-                            @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
-                        />
-
-                        <q-btn
-                            v-else-if="layout === 'flip'"
-                            :label="$t('magic.card.layout.flip')"
-                            outline
-                            @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
-                        />
-
-                        <q-btn
-                            v-else-if="layout === 'modal_dfc' || layout === 'art_series'"
-                            :label="$t('magic.card.layout.turn_over')"
-                            outline
-                            @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
-                        />
-
-                        <q-btn
-                            v-else-if="layout === 'aftermath'"
-                            :label="$t('magic.card.layout.rotate')"
-                            outline
-                            @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
-                        />
-
-                        <q-btn
-                            v-else-if="layout === 'planar'"
-                            :label="$t('magic.card.layout.rotate')"
-                            outline
-                            @click="rotate = !rotate"
-                        />
-
-                        <q-btn-group v-else-if="layout === 'split_5w'" outline>
-                            <q-btn
-                                v-for="i in 5" :key="i"
-                                :label="i - 1"
-                                outline
-                                @click="partIndex = i - 1"
-                            />
-                        </q-btn-group>
-
-                        <q-btn
-                            v-else
-                            :label="$t('magic.card.layout.another_part')"
-                            outline
-                            @click="partIndex = { 0: 1, 1: 0 }[partIndex]"
-                        />
-                    </div>
 
                     <div class="artist-line">
                         {{ artist }}
@@ -91,7 +21,15 @@
                 </div>
 
                 <div class="col q-px-md">
-                    <div class="name-line">
+                    <div class="name-line row items-center">
+                        <q-btn
+                            v-if="partIcon != null"
+                            class="q-mr-sm"
+                            flat round dense
+                            :icon="partIcon"
+                            @click="switchPart"
+                        />
+
                         <div class="name" :lang="lang">
                             {{ name }}
                         </div>
@@ -322,7 +260,7 @@ export default {
 
     data: () => ({
         data:        null,
-        rotate:      false,
+        rotate:      null,
         unsubscribe: null,
     }),
 
@@ -344,7 +282,24 @@ export default {
 
         langs() {
             const locales = this.$store.getters['magic/locales'];
-            return uniq(this.versions.map(v => v.lang)).sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
+            return uniq(this.versions.map(v => v.lang)).sort((a, b) => {
+                const idxa = locales.indexOf(a);
+                const idxb = locales.indexOf(b);
+
+                if (idxa === -1) {
+                    if (idxb === -1) {
+                        return a < b ? -1 : a > b ? 1 : 0;
+                    } else {
+                        return 1;
+                    }
+                } else {
+                    if (idxb === -1) {
+                        return -1;
+                    } else {
+                        return idxa - idxb;
+                    }
+                }
+            });
         },
 
         langInfos() {
@@ -419,8 +374,9 @@ export default {
                         this.$router.replace({
                             query: {
                                 ...this.$route.query,
-                                set:  info.set,
-                                lang: newValue,
+                                set:    info.set,
+                                number: undefined,
+                                lang:   newValue,
                             },
                         });
                     }
@@ -509,6 +465,21 @@ export default {
             });
         },
 
+        partIcon() {
+            switch (this.layout) {
+            case 'split':
+                if (this.partIndex === 0) {
+                    return 'mdi-circle-half-full';
+                } else {
+                    return 'mdi-circle-half-full mdi-flip-h';
+                }
+            case 'multipart':
+                return 'mdi-text-box-multiple';
+            default:
+                return null;
+            }
+        },
+
         symbolStyle() {
             if (this.textMode !== 'printed') {
                 return [];
@@ -585,7 +556,7 @@ export default {
 
             const { data } = await this.apiGet('/magic/card', query);
 
-            this.rotate = false;
+            this.rotate = null;
             this.data = data;
         },
 
@@ -602,6 +573,14 @@ export default {
                         part:   this.partIndex,
                     },
                 });
+            }
+        },
+
+        switchPart() {
+            if (this.partIndex === this.partCount - 1) {
+                this.partIndex = 0;
+            } else {
+                this.partIndex = this.partIndex + 1;
             }
         },
     },

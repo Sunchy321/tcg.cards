@@ -60,6 +60,13 @@
                     {{ info }}
                 </div>
 
+                <q-select
+                    v-model="layout"
+                    class="q-mr-md"
+                    :options="layoutOptions"
+                    dense
+                />
+
                 <q-btn-toggle
                     v-model="partIndex"
                     :options="partOptions"
@@ -256,7 +263,18 @@ export default {
 
         total() { return this.data?.total; },
 
-        layout() { return this.data?.layout; },
+        layout: {
+            get() { return this.data?.layout ?? 'normal'; },
+            set(newValue) {
+                if (this.data != null) {
+                    this.data.layout = newValue;
+                }
+            },
+        },
+
+        layoutOptions() {
+            return ['normal', 'split', 'multipart'];
+        },
 
         rotate() { return ['split'].includes(this.layout); },
 
@@ -346,11 +364,9 @@ export default {
                 });
 
                 if (data != null && data !== '') {
-                    if (data.result != null) {
-                        console.log(data.result);
-                    }
-
                     this.data = data;
+
+                    console.log(data.cardId);
                 } else {
                     this.data = null;
                 }
@@ -369,7 +385,7 @@ export default {
         async update() {
             this.defaultPrettify();
 
-            await this.apiPost('/magic/card/update?id=' + this.id, {
+            await this.apiPost('/magic/card/update', {
                 data: this.data,
             });
         },
