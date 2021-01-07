@@ -520,6 +520,10 @@ export class CardMerger extends Task<IStatus> {
             const cardsToInsert: ICard[] = [];
 
             for (const json of jsons) {
+                if (json.layout === 'art_series') {
+                    continue;
+                }
+
                 const newCards = splitDFT(toNSCard(json));
 
                 const oldCards = cards.filter(c => c.scryfall.cardId === json.card_id);

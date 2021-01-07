@@ -107,6 +107,10 @@ export default {
             },
         },
         {
+            name:  'layout',
+            query: ({ param, op }) => simpleQuery('layout', param, op),
+        },
+        {
             name:  'set',
             short: 's',
             query: ({ param, op }) => simpleQuery('setId', param, op),
