@@ -27,11 +27,13 @@ export default {
                             q: vm.$store.getters.search,
                         });
 
-                        vm.$router.push({
-                            name:   'magic/card',
-                            params: { id },
-                            query:  { q: vm.q === '' ? undefined : vm.q },
-                        });
+                        if (id !== '') {
+                            vm.$router.push({
+                                name:   'magic/card',
+                                params: { id },
+                                query:  { q: vm.q === '' ? undefined : vm.q },
+                            });
+                        }
 
                         break;
                     }

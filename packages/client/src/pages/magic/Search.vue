@@ -1,6 +1,6 @@
 <template>
     <q-page>
-        <div class="controller flex items-center z-top shadow-4 q-px-md">
+        <div class="controller flex items-center shadow-4 q-px-md">
             <q-icon v-show="searching" name="mdi-autorenew mdi-spin" size="sm" />
 
             <div class="col-grow" />
@@ -54,6 +54,8 @@
     right 0
 
     background-color lighten($primary, 20%)
+
+    z-index 10
 
     & >>> *
         color white !important

@@ -365,8 +365,6 @@ export default {
 
                 if (data != null && data !== '') {
                     this.data = data;
-
-                    console.log(data.cardId);
                 } else {
                     this.data = null;
                 }
@@ -384,6 +382,8 @@ export default {
 
         async update() {
             this.defaultPrettify();
+
+            console.log(this.data.cardId);
 
             await this.apiPost('/magic/card/update', {
                 data: this.data,

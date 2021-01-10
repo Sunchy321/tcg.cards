@@ -25,7 +25,7 @@ export function generateSetting(game, options) {
         state.locale = newValue;
     };
 
-    state.locales = 'en';
+    state.locales = ['en'];
     getters.locales = state => state.locales;
     mutations.locales = (state, newValue) => { state.locales = newValue; };
 
@@ -52,7 +52,7 @@ export function generateSetting(game, options) {
         } else {
             const appLocale = rootGetters.locale;
 
-            if (data.locales.include(appLocale)) {
+            if (data.locales.includes(appLocale)) {
                 commit('locale', appLocale);
             } else {
                 commit('locale', data.locales[0]);
