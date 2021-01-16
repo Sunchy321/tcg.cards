@@ -20,12 +20,20 @@
                 <q-btn
                     class="link"
                     flat
+                    icon="mdi-text-box-outline"
+                    :label="$t('magic.format.$self')"
+                    to="/magic/format/standard"
+                />
+            </div>
+            <div class="col column">
+                <q-btn
+                    class="link"
+                    flat
                     icon="mdi-book-open-variant"
                     :label="$t('magic.cr.$self')"
                     to="/magic/cr"
                 />
             </div>
-            <div class="col column" />
             <div class="col column" />
         </div>
     </q-page>

@@ -25,8 +25,8 @@ export default async function() {
     });
 
     Router.beforeEach(async (to, from, next) => {
-        if (to.path !== from.path) {
-            store.commit('selections', []);
+        if (to.name !== from.name) {
+            store.commit('paramOptions', []);
         }
 
         if (to.meta.title !== '$input' && !to.meta.keepSearch) {

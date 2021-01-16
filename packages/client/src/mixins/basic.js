@@ -1,5 +1,3 @@
-import { last } from 'lodash';
-
 export default {
     computed: {
         games() { return this.$store.state.core.games ?? []; },
@@ -15,43 +13,26 @@ export default {
 
         meta() { return this.$route.meta; },
 
-        selection: {
+        param: {
             get() {
-                if (this.meta.select != null) {
-                    const select = this.$route.query[this.meta.select];
-
-                    if (select != null) {
-                        return select;
-                    }
-
-                    const selections = this.$store.getters.selections;
-                    const selectDefault = this.meta.selectDefault;
-
-                    if (selectDefault === '$last') {
-                        return last(selections);
-                    } else if (selectDefault == null) {
-                        return selections[0];
-                    } else {
-                        return selectDefault;
-                    }
+                if (this.meta.param) {
+                    return this.$store.getters.param;
                 } else {
                     return null;
                 }
             },
             set(newValue) {
-                if (this.meta.select != null && this.selection !== newValue) {
-                    this.$router.push({
-                        query: {
-                            ...this.$route.query,
-                            [this.meta.select]: newValue,
-                        },
-                    });
+                if (this.meta.param && this.param !== newValue) {
+                    this.$store.commit('param', newValue);
                 } else {
                     return null;
                 }
             },
         },
 
-        selections() { return this.$store.getters.selections ?? []; },
+        paramOptions: {
+            get() { return this.$store.getters.paramOptions ?? []; },
+            set(newValue) { this.$store.commit('paramOptions', newValue); },
+        },
     },
 };

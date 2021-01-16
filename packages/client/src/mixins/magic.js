@@ -3,48 +3,27 @@ import basic from './basic';
 export default {
     mixins: [basic],
 
-    data: () => ({
-        baseUnsubscribe: null,
-    }),
-
-    beforeRouteEnter(to, from, next) {
-        next(vm => {
-            vm.baseUnsubscribe = vm.$store.subscribe(async ({ type, payload }) => {
-                if (type === 'event') {
-                    switch (payload.type) {
-                    case 'search': {
-                        if (vm.$store.getters.search !== '') {
-                            vm.$router.push({
-                                name:  'magic/search',
-                                query: { q: vm.$store.getters.search },
-                            });
-                        }
-
-                        break;
-                    }
-                    case 'random': {
-                        const { data: id } = await vm.apiGet('/magic/card/random', {
-                            q: vm.$store.getters.search,
-                        });
-
-                        if (id !== '') {
-                            vm.$router.push({
-                                name:   'magic/card',
-                                params: { id },
-                                query:  { q: vm.q === '' ? undefined : vm.q },
-                            });
-                        }
-
-                        break;
-                    }
-                    }
-                }
+    methods: {
+        'event/search'() {
+            if (this.$store.getters.search !== '') {
+                this.$router.push({
+                    name:  'magic/search',
+                    query: { q: this.$store.getters.search },
+                });
+            }
+        },
+        async 'event/random'() {
+            const { data: id } = await this.apiGet('/magic/card/random', {
+                q: this.$store.getters.search,
             });
-        });
-    },
 
-    beforeRouteLeave(to, from, next) {
-        this.baseUnsubscribe?.();
-        next();
+            if (id !== '') {
+                this.$router.push({
+                    name:   'magic/card',
+                    params: { id },
+                    query:  { q: this.q === '' ? undefined : this.q },
+                });
+            }
+        },
     },
 };

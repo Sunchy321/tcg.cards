@@ -4,5 +4,6 @@ export default {
     locale: 'en',
     search: '',
 
-    selections: [],
+    paramOptions: [],
+    param:        null,
 };

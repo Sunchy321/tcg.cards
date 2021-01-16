@@ -57,7 +57,7 @@
 <script>
 import MagicText from 'components/magic/Text';
 
-import basic from 'src/mixins/basic';
+import magic from 'src/mixins/magic';
 
 import { last } from 'lodash';
 import { scroll } from 'quasar';
@@ -67,17 +67,16 @@ export default {
 
     components: { MagicText },
 
-    mixins: [basic],
+    mixins: [magic],
 
     data: () => ({
-        data:        null,
-        selected:    null,
-        expanded:    [],
-        unsubscribe: null,
+        data:     null,
+        selected: null,
+        expanded: [],
     }),
 
     computed: {
-        date() { return this.selection; },
+        date() { return this.$route.query.date || this.paramOptions[0]; },
 
         menu() {
             if (this.data == null) {
@@ -240,6 +239,12 @@ export default {
     },
 
     watch: {
+        param() {
+            if (this.param !== this.date && this.param != null) {
+                this.$router.push({ name: 'magic/cr', query: { date: this.param } });
+            }
+        },
+
         date: {
             immediate: true,
             handler() {
@@ -271,53 +276,43 @@ export default {
         this.loadList();
     },
 
-    beforeRouteEnter(to, from, next) {
-        next(vm => {
-            vm.baseUnsubscribe = vm.$store.subscribe(async ({ type, payload }) => {
-                if (type === 'event' && payload.type === 'diff') {
-                    const index = vm.selections.indexOf(vm.date);
-
-                    if (index === -1) {
-                        return;
-                    }
-
-                    if (index === 0) {
-                        vm.$router.push({
-                            name:  'magic/cr/diff',
-                            query: {
-                                from: vm.date,
-                                to:   vm.selections[1],
-                            },
-                        });
-                    } else {
-                        vm.$router.push({
-                            name:  'magic/cr/diff',
-                            query: {
-                                from: vm.selections[index - 1],
-                                to:   vm.date,
-                            },
-                        });
-                    }
-                }
-            });
-        });
-    },
-
-    beforeRouteLeave(to, from, next) {
-        this.baseUnsubscribe?.();
-        next();
-    },
-
     methods: {
         async loadList() {
             const { data } = await this.apiGet('/magic/cr');
-            this.$store.commit('selections', data);
+
+            this.paramOptions = data;
         },
 
         async loadData() {
             if (this.date != null) {
                 const { data } = await this.apiGet('/magic/cr', { date: this.date });
                 this.data = data;
+            }
+        },
+
+        'event/diff'() {
+            const index = this.paramOptions.indexOf(this.date);
+
+            if (index === -1) {
+                return;
+            }
+
+            if (index === 0) {
+                this.$router.push({
+                    name:  'magic/cr/diff',
+                    query: {
+                        from: this.date,
+                        to:   this.paramOptions[1],
+                    },
+                });
+            } else {
+                this.$router.push({
+                    name:  'magic/cr/diff',
+                    query: {
+                        from: this.paramOptions[index - 1],
+                        to:   this.date,
+                    },
+                });
             }
         },
     },

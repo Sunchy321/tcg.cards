@@ -7,20 +7,20 @@
                 <app-title />
 
                 <q-btn-dropdown
-                    v-if="meta.select != null"
+                    v-if="meta.param"
                     flat dense
-                    :label="selection"
+                    :label="paramLabel(param)"
                 >
                     <q-list link style="width: 150px">
                         <q-item
-                            v-for="s in selections" :key="s"
+                            v-for="p in paramOptions" :key="p"
                             v-close-popup
 
                             clickable
-                            @click="selection = s"
+                            @click="param = p"
                         >
                             <q-item-section>
-                                {{ s }}
+                                {{ paramLabel(p) }}
                             </q-item-section>
                         </q-item>
                     </q-list>
@@ -73,7 +73,7 @@
 
         <q-page-container>
             <q-ajax-bar />
-            <router-view />
+            <router-view ref="main" />
         </q-page-container>
     </q-layout>
 </template>
@@ -131,6 +131,24 @@ export default {
                 return this.$store.getters[`${this.game}/locales`];
             } else {
                 return [];
+            }
+        },
+    },
+
+    mounted() {
+        this.$store.subscribe(async ({ type, payload }) => {
+            if (type === 'event') {
+                this.$refs.main['event/' + payload.type](payload);
+            }
+        });
+    },
+
+    methods: {
+        paramLabel(v) {
+            if (this.$refs.main?.['param/label'] != null) {
+                return this.$refs.main?.['param/label'](v);
+            } else {
+                return v;
             }
         },
     },

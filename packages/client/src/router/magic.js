@@ -22,10 +22,19 @@ const routes = [
                     title:        'data',
                 },
             },
-            // {
-            //     path:      'format',
-            //     component: () => import('pages/magic/Format'),
-            // },
+            {
+                path:     'format',
+                redirect: 'format/standard',
+            },
+            {
+                path:      'format/:id',
+                name:      'magic/format',
+                component: () => import('pages/magic/Format'),
+                meta:      {
+                    title: 'magic.format.$self',
+                    param: true,
+                },
+            },
             // {
             //     path:      'set',
             //     component: () => import('pages/magic/Set'),
@@ -58,12 +67,12 @@ const routes = [
             },
             {
                 path:      'cr',
+                name:      'magic/cr',
                 component: () => import('pages/magic/CR'),
                 meta:      {
-                    title:         'magic.cr.$self',
-                    select:        'date',
-                    selectDefault: '$last',
-                    buttons:       [
+                    title:   'magic.cr.$self',
+                    param:   true,
+                    buttons: [
                         { icon: 'mdi-vector-difference', event: 'diff' },
                     ],
                 },

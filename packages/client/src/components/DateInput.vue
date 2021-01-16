@@ -3,6 +3,7 @@
         :value="value"
         :dense="dense"
         @input="input"
+        @change="change"
     >
         <template #append>
             <q-icon name="mdi-calendar" class="cursor-pointer">
@@ -10,7 +11,7 @@
                     <q-date
                         :value="value"
                         mask="YYYY-MM-DD"
-                        @input="input"
+                        @input="dateInput"
                     />
                 </q-popup-proxy>
             </q-icon>
@@ -35,6 +36,17 @@ export default {
         input(v) {
             this.$refs.dateProxy.hide();
             this.$emit('input', v);
+        },
+
+        change(v) {
+            this.$refs.dateProxy.hide();
+            this.$emit('change', v);
+        },
+
+        dateInput(v) {
+            this.$refs.dateProxy.hide();
+            this.$emit('input', v);
+            this.$emit('change', v);
         },
     },
 };
