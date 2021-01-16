@@ -144,7 +144,7 @@ router.get('/random', async ctx => {
         ? (await searcher.search(q, { 'only-id': '' })).result?.cards as string[]
         : await Card.distinct('cardId');
 
-    ctx.body = cardIds[random(cardIds.length - 1)];
+    ctx.body = cardIds[random(cardIds.length - 1)] ?? '';
 });
 
 router.get('/raw',

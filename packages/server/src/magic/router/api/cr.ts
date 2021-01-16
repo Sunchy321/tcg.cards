@@ -9,7 +9,6 @@ import { parse, reparse } from '@/magic/cr/parse';
 import { diff } from '@/magic/cr/diff';
 import { readdirSync } from 'fs';
 import { join } from 'path';
-import { omit } from 'lodash';
 
 import { data } from '@config';
 
@@ -21,12 +20,12 @@ router.get('/', async ctx => {
     const { date } = ctx.query;
 
     if (date == null) {
-        ctx.body = await CR.find().sort({ date: 1 }).distinct('date');
+        ctx.body = (await CR.find().distinct('date') as string[]).sort((a, b) => a > b ? -1 : a < b ? 1 : 0);
     } else {
         const menu = await CR.findOne({ date: ctx.query.date });
 
         if (menu != null) {
-            ctx.body = omit(menu.toJSON(), ['_id', '__v']);
+            ctx.body = menu.toJSON();
         }
     }
 });

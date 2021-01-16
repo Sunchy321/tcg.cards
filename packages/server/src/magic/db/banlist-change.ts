@@ -7,7 +7,6 @@ import conn from './db';
 export interface IBanlistChange {
     date: string;
 
-    source: string;
     category: string;
 
     effectiveDate?: {
@@ -23,15 +22,15 @@ export interface IBanlistChange {
     changes: {
         card: string;
         format: string;
-        status: BanlistStatus;
+        status?: BanlistStatus;
         effectiveDate?: string;
+        detail?: { card: string, date?: string }[];
     }[];
 }
 
 const BanlistChangeSchema = new Schema({
     date: String,
 
-    source:   String,
     category: String,
 
     effectiveDate: {
@@ -50,6 +49,10 @@ const BanlistChangeSchema = new Schema({
         format:        String,
         status:        String,
         effectiveDate: String,
+        detail:        {
+            type:    [{ _id: false, card: String, date: String }],
+            default: undefined,
+        },
     }],
 }, {
     toJSON: {

@@ -34,3 +34,16 @@ export const symbols = [
     'P', 'E', 'A',
     'PW', 'CHAOS', '100', '100000',
 ];
+
+export const formats = [
+    'standard',
+    'historic',
+    'pioneer',
+    'modern',
+    'extended',
+    'legacy',
+    'vintage',
+    'commander',
+    'duelcommander',
+    'commander1v1',
+];

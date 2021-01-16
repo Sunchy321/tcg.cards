@@ -1,4 +1,4 @@
 export type BanlistStatus =
-    'legal' | 'restricted' | 'banned' | 'banned_as_commander' | 'suspended';
+    'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'unavailable';
 
 export type Banlist = Record<string, BanlistStatus>;

@@ -46,6 +46,14 @@ const CRMenuSchema = new Schema({
     }],
     credits: String,
     csi:     String,
+}, {
+    toJSON: {
+        transform(doc, ret) {
+            delete ret._id;
+            delete ret.__v;
+            return ret;
+        },
+    },
 });
 
 const CR = conn.model<ICR & Document>('cr', CRMenuSchema);

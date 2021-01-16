@@ -41,7 +41,7 @@ export async function parseDuelCommanderBanlist(url: string): Promise<IBanlistCh
     const content = $('.single-post');
 
     const result: Partial<IBanlistChange> = {
-        source:        'duelcommander',
+        category:      'duelcommander',
         effectiveDate: {},
         link:          [url],
         changes:       [],

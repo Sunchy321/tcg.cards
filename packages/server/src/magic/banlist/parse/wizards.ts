@@ -152,17 +152,13 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
     })();
 
     const result: Partial<IBanlistChange> = {
-        source:        'wotc',
+        category:      'wotc',
         date:          undefined,
         nextDate:      undefined,
         effectiveDate: { },
         link:          [url],
         changes:       [],
     };
-
-    if (url.includes('pioneer')) {
-        result.category = 'pioneer';
-    }
 
     let currFormat = null;
 
@@ -223,7 +219,7 @@ export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChang
     const content = $('#bodycontent');
 
     const result: Partial<IBanlistChange> = {
-        source:        'wotc',
+        category:      'wotc',
         date:          undefined,
         nextDate:      undefined,
         effectiveDate: { },

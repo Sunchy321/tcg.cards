@@ -41,7 +41,7 @@ export async function parseMTGCommanderBanlist(url: string): Promise<IBanlistCha
     const content = $('.single-post');
 
     const result: Partial<IBanlistChange> = {
-        source:        'duelcommander',
+        category:      'duelcommander',
         effectiveDate: {},
         link:          [url],
         changes:       [],
