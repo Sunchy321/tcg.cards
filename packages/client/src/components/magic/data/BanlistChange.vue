@@ -272,7 +272,7 @@ export default {
 
     methods: {
         async loadData() {
-            const { data } = await this.apiGet('/magic/format/banlist/change');
+            const { data } = await this.controlGet('/magic/format/banlist/change');
 
             this.changeList = data;
 
@@ -285,7 +285,7 @@ export default {
             if (this.selected.id != null) {
                 this.data = null;
 
-                const { data } = await this.apiGet('/magic/format/banlist/change', {
+                const { data } = await this.controlGet('/magic/format/banlist/change', {
                     id: this.selected.id,
                 });
 
@@ -294,7 +294,7 @@ export default {
         },
 
         async parseUrl() {
-            const { data } = await this.apiGet('/magic/format/banlist/change/parse', {
+            const { data } = await this.controlGet('/magic/format/banlist/change/parse', {
                 url: this.url,
             });
 
@@ -304,7 +304,7 @@ export default {
         },
 
         async saveChange() {
-            await this.apiPost('/magic/format/banlist/change/save', {
+            await this.controlPost('/magic/format/banlist/change/save', {
                 data: this.data,
             });
 
@@ -312,7 +312,7 @@ export default {
         },
 
         async sync() {
-            const { data, status } = await this.apiPost('/magic/format/sync');
+            const { data, status } = await this.controlPost('/magic/format/sync');
 
             if (status === 500) {
                 console.log(data);

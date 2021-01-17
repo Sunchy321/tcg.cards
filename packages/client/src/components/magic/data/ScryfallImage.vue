@@ -99,7 +99,7 @@ export default {
         async getImage() {
             this.progress = null;
 
-            const ws = this.imageWs('/magic/card/get', { type: this.type });
+            const ws = this.controlWs('/magic/image/get', { type: this.type });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {

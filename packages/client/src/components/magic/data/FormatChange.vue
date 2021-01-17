@@ -151,7 +151,7 @@ export default {
 
     methods: {
         async loadData() {
-            const { data } = await this.apiGet('/magic/format/change', { id: this.format });
+            const { data } = await this.controlGet('/magic/format/change', { id: this.format });
 
             this.formatChanges = data;
 
@@ -161,7 +161,7 @@ export default {
         },
 
         async saveData() {
-            await this.apiPost('/magic/format/change/save', {
+            await this.controlPost('/magic/format/change/save', {
                 data: this.formatChange,
             });
 
@@ -169,7 +169,7 @@ export default {
         },
 
         async sync() {
-            const { data, status } = await this.apiPost('/magic/format/sync');
+            const { data, status } = await this.controlPost('/magic/format/sync');
 
             if (status === 500) {
                 console.log(data);

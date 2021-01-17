@@ -358,7 +358,7 @@ export default {
                     await this.update();
                 }
 
-                const { data } = await this.apiGet('/magic/card/need-edit', {
+                const { data } = await this.controlGet('/magic/card/need-edit', {
                     type: editType,
                     lang: this.$store.getters['magic/locale'],
                 });
@@ -369,7 +369,7 @@ export default {
                     this.data = null;
                 }
             } else if (this.id && this.lang && this.set && this.number) {
-                const { data } = await this.apiGet('/magic/card/raw', {
+                const { data } = await this.controlGet('/magic/card/raw', {
                     id:     this.id,
                     lang:   this.lang,
                     set:    this.set,
@@ -385,7 +385,7 @@ export default {
 
             console.log(this.data.cardId);
 
-            await this.apiPost('/magic/card/update', {
+            await this.controlPost('/magic/card/update', {
                 data: this.data,
             });
         },
@@ -472,7 +472,7 @@ export default {
                 await this.update();
             }
 
-            const { data } = await this.apiGet('/magic/search', { q: this.search, dev: '' });
+            const { data } = await this.controlGet('/magic/search', { q: this.search, dev: '' });
 
             if (this.partIndex !== 0 && this.partIndex !== '0') {
                 this.partIndex = 0;

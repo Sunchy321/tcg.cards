@@ -73,7 +73,7 @@ export default {
 
     methods: {
         loadPatch() {
-            const ws = this.apiWs('/hearthstone/hsdata/load-patch', { version: this.version });
+            const ws = this.controlWs('/hearthstone/hsdata/load-patch', { version: this.version });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {

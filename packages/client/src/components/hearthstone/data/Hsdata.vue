@@ -97,7 +97,7 @@ export default {
 
     methods: {
         async loadData() {
-            const { data } = await this.apiGet('/hearthstone/patches');
+            const { data } = await this.controlGet('/hearthstone/patches');
 
             this.patches = data;
         },
@@ -105,7 +105,7 @@ export default {
         async getHsdata() {
             this.error = null;
 
-            const ws = this.apiWs('/hearthstone/hsdata/get-data');
+            const ws = this.controlWs('/hearthstone/hsdata/get-data');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -126,7 +126,7 @@ export default {
         async loadHsdata() {
             this.error = null;
 
-            const ws = this.apiWs('/hearthstone/hsdata/load-data');
+            const ws = this.controlWs('/hearthstone/hsdata/load-data');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {

@@ -369,7 +369,7 @@ export default {
             if (this.data != null) {
                 this.prettify();
 
-                await this.apiPost('/magic/set/save', { data: this.data });
+                await this.controlPost('/magic/set/save', { data: this.data });
             }
         },
     },

@@ -99,7 +99,7 @@ export default {
         },
 
         async saveFormat() {
-            await this.apiPost('/magic/format/save', { data: this.data });
+            await this.controlPost('/magic/format/save', { data: this.data });
             await this.loadFormat();
         },
     },

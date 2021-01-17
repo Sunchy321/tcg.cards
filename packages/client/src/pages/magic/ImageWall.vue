@@ -56,7 +56,7 @@ export default {
 
     methods: {
         async loadData() {
-            const { data } = await this.imageGet('/magic/card/all', {
+            const { data } = await this.apiGet('/magic/card/image-all', {
                 set: this.set, lang: this.lang, type: this.type,
             });
 

@@ -103,7 +103,7 @@ export default {
         async getMetadata() {
             this.metadata = true;
 
-            const ws = this.apiWs('/hearthstone/blizzard/get-metadata');
+            const ws = this.controlWs('/hearthstone/blizzard/get-metadata');
 
             return new Promise((resolve, reject) => {
                 ws.onerror = e => {
@@ -118,7 +118,7 @@ export default {
         },
 
         async getCard() {
-            const ws = this.apiWs('/hearthstone/blizzard/get-card');
+            const ws = this.controlWs('/hearthstone/blizzard/get-card');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -135,7 +135,7 @@ export default {
         },
 
         async getImage() {
-            const ws = this.apiWs('/hearthstone/blizzard/get-image');
+            const ws = this.controlWs('/hearthstone/blizzard/get-image');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {

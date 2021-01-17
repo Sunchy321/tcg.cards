@@ -5,7 +5,6 @@ import Set from './Set';
 import Format from './Format';
 import FormatChange from './FormatChange';
 import BanlistChange from './BanlistChange';
-import BanlistCheck from './BanlistCheck';
 import CR from './CR';
 
 export {
@@ -16,6 +15,5 @@ export {
     Format,
     FormatChange,
     BanlistChange,
-    BanlistCheck,
     CR,
 };

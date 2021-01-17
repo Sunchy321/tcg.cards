@@ -14,9 +14,13 @@ const userBase = process.env.NODE_ENV === 'production'
     ? 'user.tcg.cards'
     : 'user.tcg.cards:8889';
 
+const controlBase = process.env.NODE_ENV === 'production'
+    ? 'control.tcg.cards'
+    : 'control.tcg.cards:8889';
+
 export const api = axios.create({ baseURL: 'http://' + apiBase });
-export const image = axios.create({ baseURL: 'http://' + imageBase });
 export const user = axios.create({ baseURL: 'http://' + userBase });
+const control = axios.create({ baseURL: 'http://' + controlBase });
 
 export default async ({ Vue }) => {
     Vue.prototype.apiGet = function(url, params) {
@@ -34,62 +38,45 @@ export default async ({ Vue }) => {
         }
     };
 
-    Vue.prototype.apiPost = function(url, params) {
+    Vue.prototype.controlGet = function(url, params) {
         const token = this?.$store?.getters?.['user/token'];
 
         if (token != null) {
-            return api.post(url, params, {
-                headers: {
-                    Authentication: 'Bearer ' + token,
-                },
-            });
-        } else {
-            return api.post(url, params);
-        }
-    };
-
-    Vue.prototype.apiWs = function(url, params) {
-        const token = this?.$store?.getters?.['user/token'];
-
-        params = params || {};
-        params = token != null ? { jwt: token, ...params } : params;
-
-        if (Object.keys(params).length === 0) {
-            return new WebSocket(`ws://${join(apiBase, url)}`);
-        } else {
-            return new WebSocket(`ws://${join(apiBase, url)}?${
-                Object.entries(params).map(
-                    ([k, v]) => `${k}=${encodeURIComponent(v)}`,
-                ).join('&')
-            }`);
-        }
-    };
-
-    Vue.prototype.imageGet = function(url, params) {
-        const token = this?.$store?.getters?.['user/token'];
-
-        if (token != null) {
-            return image.get(url, {
+            return control.get(url, {
                 headers: {
                     Authentication: 'Bearer ' + token,
                 },
                 params,
             });
         } else {
-            return image.get(url, { params });
+            return control.get(url, { params });
         }
     };
 
-    Vue.prototype.imageWs = function(url, params) {
+    Vue.prototype.controlPost = function(url, params) {
+        const token = this?.$store?.getters?.['user/token'];
+
+        if (token != null) {
+            return control.post(url, params, {
+                headers: {
+                    Authentication: 'Bearer ' + token,
+                },
+            });
+        } else {
+            return control.post(url, params);
+        }
+    };
+
+    Vue.prototype.controlWs = function(url, params) {
         const token = this?.$store?.getters?.['user/token'];
 
         params = params || {};
         params = token != null ? { jwt: token, ...params } : params;
 
         if (Object.keys(params).length === 0) {
-            return new WebSocket(`ws://${join(imageBase, url)}`);
+            return new WebSocket(`ws://${join(controlBase, url)}`);
         } else {
-            return new WebSocket(`ws://${join(imageBase, url)}?${
+            return new WebSocket(`ws://${join(controlBase, url)}?${
                 Object.entries(params).map(
                     ([k, v]) => `${k}=${encodeURIComponent(v)}`,
                 ).join('&')

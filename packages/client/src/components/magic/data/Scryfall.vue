@@ -250,7 +250,7 @@ export default {
 
     methods: {
         async loadData() {
-            const { data } = await this.apiGet('/magic/scryfall');
+            const { data } = await this.controlGet('/magic/scryfall');
 
             this.bulk = data.bulk;
             this.scryfall = data.scryfall;
@@ -258,7 +258,7 @@ export default {
         },
 
         async getBulk() {
-            const ws = this.apiWs('/magic/scryfall/bulk/get');
+            const ws = this.controlWs('/magic/scryfall/bulk/get');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -278,7 +278,7 @@ export default {
         },
 
         async loadBulk(file) {
-            const ws = this.apiWs('/magic/scryfall/bulk/load', { file });
+            const ws = this.controlWs('/magic/scryfall/bulk/load', { file });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -298,7 +298,7 @@ export default {
         },
 
         async getSet() {
-            const ws = this.apiWs('/magic/scryfall/set/get');
+            const ws = this.controlWs('/magic/scryfall/set/get');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -318,7 +318,7 @@ export default {
         },
 
         async mergeCard() {
-            const ws = this.apiWs('/magic/scryfall/card/merge');
+            const ws = this.controlWs('/magic/scryfall/card/merge');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -338,7 +338,7 @@ export default {
         },
 
         async mergeRuling() {
-            const ws = this.apiWs('/magic/scryfall/ruling/merge');
+            const ws = this.controlWs('/magic/scryfall/ruling/merge');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -358,7 +358,7 @@ export default {
         },
 
         async mergeSet() {
-            const ws = this.apiWs('/magic/scryfall/set/merge');
+            const ws = this.controlWs('/magic/scryfall/set/merge');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {

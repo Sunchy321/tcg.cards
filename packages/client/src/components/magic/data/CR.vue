@@ -305,7 +305,7 @@ export default {
 
         async parse() {
             if (this.date != null && !this.cr.includes(this.date)) {
-                const { data } = await this.apiGet('/magic/cr/parse', { date: this.date });
+                const { data } = await this.controlGet('/magic/cr/parse', { date: this.date });
 
                 this.data = data;
             }
@@ -313,7 +313,7 @@ export default {
 
         async save() {
             if (this.data != null) {
-                await this.apiPost('/magic/cr/save', { data: this.data });
+                await this.controlPost('/magic/cr/save', { data: this.data });
 
                 this.loadList();
             }
@@ -321,7 +321,7 @@ export default {
 
         async reparse() {
             if (this.date != null && this.cr.includes(this.date)) {
-                const { data } = await this.apiGet('/magic/cr/reparse', { date: this.date });
+                const { data } = await this.controlGet('/magic/cr/reparse', { date: this.date });
 
                 this.data = data;
             }
