@@ -12,6 +12,7 @@ import subdomain from '@/middlewares/subdomain';
 import api from '@/api';
 import img from '@/image';
 import user from '@/user/router';
+import control from '@/control';
 
 import { appKey } from '@config';
 
@@ -29,7 +30,8 @@ app
     .use(websocket())
     .use(subdomain('api', api))
     .use(subdomain('image', img))
-    .use(subdomain('user', user));
+    .use(subdomain('user', user))
+    .use(subdomain('control', control));
 
 app.listen(port, () => {
     main.info('Server is running at ' + port, { category: 'server' });

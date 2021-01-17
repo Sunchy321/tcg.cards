@@ -2,7 +2,6 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import websocket from '@/middlewares/websocket';
-import jwtAuth from '@/middlewares/jwt-auth';
 
 import Card from '@/magic/db/card';
 import Set from '@/magic/db/set';
@@ -40,7 +39,6 @@ const bulkGetter = new BulkGetter();
 
 router.get('/bulk/get',
     websocket,
-    jwtAuth({ admin: true }),
     async ctx => {
         bulkGetter.bind(await ctx.ws());
         ctx.status = 200;
@@ -51,7 +49,6 @@ const bulkLoaders: Record<string, BulkLoader> = { };
 
 router.get('/bulk/load',
     websocket,
-    jwtAuth({ admin: true }),
     async ctx => {
         const ws = await ctx.ws();
 
@@ -77,7 +74,6 @@ const setGetter = new SetGetter();
 
 router.get('/set/get',
     websocket,
-    jwtAuth({ admin: true }),
     async ctx => {
         setGetter.bind(await ctx.ws());
         ctx.status = 200;
@@ -88,7 +84,6 @@ const setMerger = new SetMerger();
 
 router.get('/set/merge',
     websocket,
-    jwtAuth({ admin: true }),
     async ctx => {
         setMerger.bind(await ctx.ws());
         ctx.status = 200;
@@ -99,7 +94,6 @@ const cardMerger = new CardMerger();
 
 router.get('/card/merge',
     websocket,
-    jwtAuth({ admin: true }),
     async ctx => {
         cardMerger.bind(await ctx.ws());
         ctx.status = 200;
@@ -110,7 +104,6 @@ const rulingMerger = new RulingMerger();
 
 router.get('/ruling/merge',
     websocket,
-    jwtAuth({ admin: true }),
     async ctx => {
         rulingMerger.bind(await ctx.ws());
         ctx.status = 200;

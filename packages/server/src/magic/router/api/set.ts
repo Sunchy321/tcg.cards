@@ -1,9 +1,10 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import jwtAuth from '@/middlewares/jwt-auth';
+import Set from '@/magic/db/set';
 
-import Set, { ISet } from '@/magic/db/set';
+import { cardImageBase } from '@/magic/image';
+import { existsSync, readdirSync } from 'fs';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -23,21 +24,24 @@ router.get('/', async ctx => {
     }
 });
 
-router.post('/save',
-    jwtAuth({ admin: true }),
-    async ctx => {
-        const data = ctx.request.body.data as ISet;
+router.get('/image-all', async ctx => {
+    const { set, lang, type } = ctx.query;
 
-        const cr = await Set.findOne({ setId: data.setId });
+    const path = cardImageBase(type, set, lang);
 
-        if (cr != null) {
-            await cr.replaceOne(data);
-        } else {
-            await Set.create(data);
-        }
+    if (existsSync(path)) {
+        ctx.body = readdirSync(path)
+            .filter(v => v.endsWith('.png') || v.endsWith('.jpg'))
+            .map(v => v.replace(/\..*$/, ''))
+            .sort((a, b) => {
+                const aLong = a.padStart(10, '0');
+                const bLong = b.padStart(10, '0');
 
-        ctx.status = 200;
-    },
-);
+                return aLong < bLong ? -1 : 1;
+            });
+    } else {
+        ctx.status = 404;
+    }
+});
 
 export default router;
