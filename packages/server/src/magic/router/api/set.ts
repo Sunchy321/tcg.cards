@@ -5,8 +5,6 @@ import jwtAuth from '@/middlewares/jwt-auth';
 
 import Set, { ISet } from '@/magic/db/set';
 
-import { omit } from 'lodash';
-
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/set');
@@ -20,7 +18,7 @@ router.get('/', async ctx => {
         const set = await Set.findOne({ setId: id });
 
         if (set != null) {
-            ctx.body = omit(set.toJSON(), ['_id', '__v']);
+            ctx.body = set.toJSON();
         }
     }
 });

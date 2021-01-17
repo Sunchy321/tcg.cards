@@ -69,6 +69,14 @@ export const SetSchema = new Schema({
 
     cardCount:   Number,
     printedSize: Number,
+}, {
+    toJSON: {
+        transform(doc, ret) {
+            delete ret._id;
+            delete ret.__v;
+            return ret;
+        },
+    },
 });
 
 const Set = conn.model<ISet & Document>('set', SetSchema);

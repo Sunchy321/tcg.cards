@@ -93,6 +93,8 @@ const legendaries = [
 /* cSpell: enable */
 
 const formatWithSet = ['standard', 'pioneer', 'modern', 'extended'];
+const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'restricted', 'legal', 'unavailable'];
+const banlistSourceOrder = ['#ante', '#conspiracy', '#legendary', null];
 
 export async function syncChange(): Promise<void> {
     const formats = await Format.find();
@@ -332,14 +334,20 @@ export async function syncChange(): Promise<void> {
                     case 'unavailable':
                         format.banlist = format.banlist.filter(b => b.card !== c.card);
                         break;
-                    default:
-                        if (format.banlist.every(b => b.card !== c.card)) {
+                    default: {
+                        const b = format.banlist.find(b => b.card === c.card);
+
+                        if (b == null) {
                             format.banlist.push({
                                 card:   c.card,
                                 status: c.status!,
                                 date:   bc.date,
                             });
+                        } else {
+                            b.status = c.status!;
+                            b.date = bc.date;
                         }
+                    }
                     }
                 }
             }
@@ -349,6 +357,18 @@ export async function syncChange(): Promise<void> {
     }
 
     for (const f in formatMap) {
+        formatMap[f].banlist = formatMap[f].banlist.sort((a, b) => {
+            if (a.status !== b.status) {
+                return banlistStatusOrder.indexOf(a.status) -
+                    banlistStatusOrder.indexOf(b.status);
+            } else if (a.source !== b.source) {
+                return banlistSourceOrder.indexOf(a.source ?? null) -
+                    banlistSourceOrder.indexOf(b.source ?? null);
+            } else {
+                return a.card < b.card ? -1 : 1;
+            }
+        });
+
         await formatMap[f].save();
     }
 }
