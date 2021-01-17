@@ -35,6 +35,7 @@ export default {
         'pauper': '纯铁',
 
         'two_head_giant': '双头巨人',
+
     },
 
     'image-wall': '图片墙',
@@ -46,5 +47,12 @@ export default {
         credits:  '版权信息',
 
         diff: '规则版本间差异',
+    },
+
+    'ui': {
+        format: {
+            set:     '系列',
+            banlist: '禁限牌表',
+        },
     },
 };

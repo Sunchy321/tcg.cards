@@ -57,4 +57,11 @@ export default {
 
         diff: 'Differences between CR versions',
     },
+
+    'ui': {
+        format: {
+            set:     'Sets',
+            banlist: 'Banlist',
+        },
+    },
 };

@@ -336,9 +336,6 @@ export default {
             case undefined:
                 if (card.startsWith('#{clone:')) {
                     return 'mdi-content-copy';
-                }
-                if (card === '#{assign}') {
-                    return 'mdi-lock';
                 } else {
                     return 'mdi-help-circle-outline';
                 }
