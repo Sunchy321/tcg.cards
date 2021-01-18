@@ -35,10 +35,6 @@ const routes = [
                     param: true,
                 },
             },
-            // {
-            //     path:      'set',
-            //     component: () => import('pages/magic/Set'),
-            // },
             {
                 path:      'card/:id',
                 name:      'magic/card',

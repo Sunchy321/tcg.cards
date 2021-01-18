@@ -307,7 +307,7 @@ export default {
         },
 
         async loadData() {
-            const { data } = await this.apiGet('/magic/cr/diff', { from: this.from, to: this.to });
+            const { data } = await this.apiGet('/magic/cr-diff', { from: this.from, to: this.to });
 
             this.data = data;
         },

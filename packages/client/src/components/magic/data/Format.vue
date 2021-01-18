@@ -93,7 +93,7 @@ export default {
         },
 
         async loadFormat() {
-            const { data } = await this.apiGet('/magic/format', { id: this.format });
+            const { data } = await this.apiGet('/magic/format/' + this.format);
 
             this.data = data;
         },

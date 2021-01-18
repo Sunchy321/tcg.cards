@@ -285,7 +285,7 @@ export default {
     methods: {
         async loadList() {
             const { data: cr } = await this.apiGet('/magic/cr');
-            const { data: txt } = await this.apiGet('/magic/cr/txt');
+            const { data: txt } = await this.controlGet('/magic/cr/txt');
 
             this.cr = cr;
             this.txt = txt;
@@ -297,7 +297,7 @@ export default {
 
         async loadData() {
             if (this.date != null && this.cr.includes(this.date)) {
-                const { data } = await this.apiGet('/magic/cr', { date: this.date });
+                const { data } = await this.apiGet('/magic/cr/' + this.date);
 
                 this.data = data;
             }

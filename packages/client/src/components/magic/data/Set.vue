@@ -267,7 +267,7 @@ export default {
                 this.save();
             }
 
-            const { data } = await this.apiGet('/magic/set', { id: this.id });
+            const { data } = await this.apiGet('/magic/set/' + this.id);
 
             this.data = data;
         },

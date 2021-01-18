@@ -5,7 +5,11 @@
                 {{ $t('magic.ui.format.set') }}
             </div>
 
-            <span v-for="s in sets" :key="s" class="set">{{ s }}</span>
+            <div class="row q-gutter-sm">
+                <div v-for="s in sets" :key="s" class="set">
+                    {{ s }}
+                </div>
+            </div>
         </template>
 
         <template v-if="banlist.length > 0">
@@ -36,7 +40,6 @@
 .set
     border black 1px solid
     border-radius 5px
-    margin 2px
     padding 2px
 
 .banlist
@@ -101,7 +104,7 @@ export default {
         },
 
         async loadData() {
-            const { data } = await this.apiGet('/magic/format', { id: this.id });
+            const { data } = await this.apiGet('/magic/format/' + this.id);
 
             this.data = data;
         },
