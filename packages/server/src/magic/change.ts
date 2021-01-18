@@ -280,9 +280,7 @@ export async function syncChange(): Promise<void> {
                         '#legendary':  legendaryInfo,
                     } as Record<string, Record<string, [string, string][]>>)[c.card];
 
-                    if (c.detail == null) {
-                        c.detail = [];
-                    }
+                    c.detail = [];
 
                     if (c.status === 'legal' || c.status === 'unavailable') {
                         const toRemove = format.banlist.filter(b => b.source === c.card.slice(1));

@@ -13,6 +13,12 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/cr');
 
+router.get('/txt', async ctx => {
+    const dir = join(data, 'magic', 'cr', 'txt');
+
+    ctx.body = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+});
+
 router.get('/parse',
     async ctx => {
         const dir = join(data, 'magic', 'cr', 'txt');

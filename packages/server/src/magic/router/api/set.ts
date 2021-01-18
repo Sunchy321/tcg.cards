@@ -11,21 +11,26 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/set');
 
 router.get('/', async ctx => {
-    const { id } = ctx.query;
+    ctx.body = await Set.find().sort({ releaseDate: 1 }).distinct('setId');
+});
 
-    if (id == null) {
-        ctx.body = await Set.find().sort({ releaseDate: 1 }).distinct('setId');
-    } else {
-        const set = await Set.findOne({ setId: id });
+router.get('/:id', async ctx => {
+    const set = await Set.findOne({ setId: ctx.params.id });
 
-        if (set != null) {
-            ctx.body = set.toJSON();
-        }
+    if (set != null) {
+        ctx.body = set.toJSON();
     }
 });
 
-router.get('/image-all', async ctx => {
-    const { set, lang, type } = ctx.query;
+router.get('/:id/image-all', async ctx => {
+    const set = ctx.params.id;
+
+    const { lang, type } = ctx.query;
+
+    if (lang == null || type == null) {
+        ctx.status = 404;
+        return;
+    }
 
     const path = cardImageBase(type, set, lang);
 
