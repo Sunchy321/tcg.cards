@@ -4,7 +4,6 @@ import Format from '@/magic/db/format';
 import Set from '@/magic/db/set';
 import FormatChange, { IFormatChange } from '@/magic/db/format-change';
 import BanlistChange, { IBanlistChange } from '@/magic/db/banlist-change';
-import { fromPairs } from 'lodash';
 import Card from './db/card';
 import { BanlistStatus } from './banlist/interface';
 
@@ -102,7 +101,7 @@ export async function syncChange(): Promise<void> {
     const formatChanges = await FormatChange.find();
     const banlistChanges = await BanlistChange.find();
 
-    const formatMap = fromPairs(formats.map(f => [f.formatId, f]));
+    const formatMap = Object.fromEntries(formats.map(f => [f.formatId, f]));
 
     // antes
     const anteInfo: Record<string, [string, string][]> = { };

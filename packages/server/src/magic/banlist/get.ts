@@ -3,8 +3,6 @@ import { Banlist } from './interface';
 import request from 'request-promise-native';
 import cheerio from 'cheerio';
 
-import { fromPairs } from 'lodash';
-
 import { toIdentifier } from '../util';
 
 export async function getWizardsBanlist(): Promise<Record<string, Banlist>> {
@@ -16,25 +14,25 @@ export async function getWizardsBanlist(): Promise<Record<string, Banlist>> {
     {
         const elems = $('#standard-banned-cards a.autocard-link').get();
         const cards = elems.map(e => toIdentifier($(e).text())).sort();
-        result.standard = fromPairs(cards.map(c => [c, 'banned']));
+        result.standard = Object.fromEntries(cards.map(c => [c, 'banned']));
     }
 
     {
         const elems = $('#bnr-pioneer a.autocard-link').get();
         const cards = elems.map(e => toIdentifier($(e).text())).sort();
-        result.pioneer = fromPairs(cards.map(c => [c, 'banned']));
+        result.pioneer = Object.fromEntries(cards.map(c => [c, 'banned']));
     }
 
     {
         const elems = $('#modern-banned-cards a.autocard-link').get();
         const cards = elems.map(e => toIdentifier($(e).text())).sort();
-        result.modern = fromPairs(cards.map(c => [c, 'banned']));
+        result.modern = Object.fromEntries(cards.map(c => [c, 'banned']));
     }
 
     {
         const elems = $('#legacy-banned-cards a.autocard-link').get();
         const cards = elems.map(e => toIdentifier($(e).text())).sort();
-        result.legacy = fromPairs(cards.map(c => [c, 'banned']));
+        result.legacy = Object.fromEntries(cards.map(c => [c, 'banned']));
     }
 
     {
@@ -48,7 +46,7 @@ export async function getWizardsBanlist(): Promise<Record<string, Banlist>> {
 
         const cardsRestricted = elemsRestricted.map(e => toIdentifier($(e).text())).sort();
 
-        result.vintage = fromPairs([
+        result.vintage = Object.fromEntries([
             ...cardsBanned.map(c => [c, 'banned']),
             ...cardsRestricted.map(c => [c, 'restricted']),
         ]);
@@ -57,19 +55,19 @@ export async function getWizardsBanlist(): Promise<Record<string, Banlist>> {
     {
         const elems = $('#commander-banned-cards a.autocard-link').get();
         const cards = elems.map(e => toIdentifier($(e).text())).sort();
-        result.commander = fromPairs(cards.map(c => [c, 'banned']));
+        result.commander = Object.fromEntries(cards.map(c => [c, 'banned']));
     }
 
     {
         const elems = $('#bnr-brawl a.autocard-link').get();
         const cards = elems.map(e => toIdentifier($(e).text())).sort();
-        result.brawl = fromPairs(cards.map(c => [c, 'banned']));
+        result.brawl = Object.fromEntries(cards.map(c => [c, 'banned']));
     }
 
     {
         const elems = $('#pauper-banned-cards a.autocard-link').get();
         const cards = elems.map(e => toIdentifier($(e).text())).sort();
-        result.pauper = fromPairs(cards.map(c => [c, 'banned']));
+        result.pauper = Object.fromEntries(cards.map(c => [c, 'banned']));
     }
 
     return result;

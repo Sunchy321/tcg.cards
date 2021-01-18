@@ -6,7 +6,7 @@ import Card, { ICard } from '@/magic/db/card';
 import Set from '@/magic/db/set';
 import { Searcher } from '@/search';
 
-import { fromPairs, omit, omitBy, random, uniq } from 'lodash';
+import { omit, omitBy, random, uniq } from 'lodash';
 
 import model from '@/magic/search';
 import { auxSetType } from '@data/magic/special';
@@ -81,7 +81,7 @@ router.get('/', async ctx => {
                 continue;
             }
 
-            v.name = fromPairs(s.localization.map(l => [l.lang, l.name]));
+            v.name = Object.fromEntries(s.localization.map(l => [l.lang, l.name]));
             v.symbolStyle = s.symbolStyle;
 
             if (auxSetType.includes(s.setType)) {
