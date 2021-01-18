@@ -12,7 +12,8 @@ export default {
                 });
             }
         },
-        async 'event/random'() {
+
+        async 'action/random'() {
             const { data: id } = await this.apiGet('/magic/card/random', {
                 q: this.$store.getters.search,
             });

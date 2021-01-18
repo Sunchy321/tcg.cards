@@ -6,17 +6,13 @@ const routes = [
             {
                 path:      '',
                 component: () => import('pages/hearthstone/Index'),
-                meta:      {
-                    title: 'hearthstone.$self',
-                },
             },
 
             {
                 path:      'data',
                 component: () => import('pages/hearthstone/Data'),
                 meta:      {
-                    requireAdmin: true,
-                    title:        'data',
+                    admin: true,
                 },
             },
         ],

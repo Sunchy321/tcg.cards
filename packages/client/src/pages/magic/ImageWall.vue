@@ -23,16 +23,22 @@
 </style>
 
 <script>
+import page from 'src/mixins/page';
+
 import { imageBase } from 'src/boot/backend';
 
 export default {
     name: 'ImageWall',
+
+    mixins: [page],
 
     data: () => ({
         data: [],
     }),
 
     computed: {
+        title() { return this.$t('magic.image-wall'); },
+
         set() { return this.$route.query.set; },
         lang() { return this.$route.query.lang || this.$store.getters['magic/locale']; },
         type() { return this.$route.query.type || 'png'; },

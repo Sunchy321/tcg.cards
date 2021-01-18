@@ -50,7 +50,9 @@ export default {
         lang:  'Language',
     },
 
-    data: 'Data',
+    ui: {
+        search: 'Search',
+    },
 
     magic,
     hearthstone,

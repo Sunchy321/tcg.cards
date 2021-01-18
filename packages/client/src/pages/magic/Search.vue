@@ -66,6 +66,7 @@
 </style>
 
 <script>
+import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
 
 import CardImage from 'components/magic/CardImage';
@@ -77,7 +78,7 @@ export default {
 
     components: { CardImage },
 
-    mixins: [magic],
+    mixins: [page, magic],
 
     data: () => ({
         data:      null,
@@ -91,6 +92,14 @@ export default {
     }),
 
     computed: {
+        pageOptions() {
+            return {
+                title: 'input',
+            };
+        },
+
+        title() { return this.$t('ui.search'); },
+
         q() { return this.$route.query.q; },
 
         cards() { return this.data?.result?.cards || []; },

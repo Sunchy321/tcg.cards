@@ -16,8 +16,6 @@ export default {
     },
 
     'format': {
-        '$self': 'Format',
-
         'standard': 'Standard',
         'historic': 'Historic',
         'pioneer':  'Pioneer',
@@ -60,6 +58,7 @@ export default {
 
     'ui': {
         format: {
+            $self:   'Format',
             set:     'Sets',
             banlist: 'Banlist',
         },

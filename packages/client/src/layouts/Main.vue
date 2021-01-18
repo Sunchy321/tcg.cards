@@ -6,25 +6,28 @@
 
                 <app-title />
 
-                <q-btn-dropdown
-                    v-if="meta.param"
-                    flat dense
-                    :label="paramLabel(param)"
-                >
-                    <q-list link style="width: 150px">
-                        <q-item
-                            v-for="p in paramOptions" :key="p"
-                            v-close-popup
+                <template v-for="(p, k) in paramDetails">
+                    <q-btn-dropdown
+                        v-if="p.type === 'array'"
+                        :key="k"
+                        flat dense
+                        :label="p.label || p.value"
+                    >
+                        <q-list link style="width: 150px">
+                            <q-item
+                                v-for="o in p.option" :key="o.value || o"
+                                v-close-popup
 
-                            clickable
-                            @click="param = p"
-                        >
-                            <q-item-section>
-                                {{ paramLabel(p) }}
-                            </q-item-section>
-                        </q-item>
-                    </q-list>
-                </q-btn-dropdown>
+                                clickable
+                                @click="commitParam(k, o.value || o)"
+                            >
+                                <q-item-section>
+                                    {{ o.label || o }}
+                                </q-item-section>
+                            </q-item>
+                        </q-list>
+                    </q-btn-dropdown>
+                </template>
 
                 <q-btn-dropdown
                     v-if="game != null"
@@ -35,7 +38,6 @@
                         <q-item
                             v-for="l in gameLocales" :key="l"
                             v-close-popup
-
                             clickable
                             @click="gameLocale = l"
                         >
@@ -50,10 +52,10 @@
                 </q-btn-dropdown>
 
                 <q-btn
-                    v-for="b in buttons" :key="b.event"
-                    :icon="b.icon"
+                    v-for="a in actions" :key="a.action"
+                    :icon="a.icon"
                     flat dense round
-                    @click="$store.commit('event', { type: b.event })"
+                    @click="commitAction(a.action)"
                 />
 
                 <q-btn
@@ -113,8 +115,6 @@ export default {
             }
         },
 
-        buttons() { return this.meta.buttons ?? []; },
-
         gameLocale: {
             get() {
                 if (this.game != null) {
@@ -133,6 +133,9 @@ export default {
                 return [];
             }
         },
+
+        paramDetails() { return this.$store.getters.paramDetails; },
+        actions() { return this.$store.getters.actions; },
     },
 
     mounted() {
@@ -144,12 +147,12 @@ export default {
     },
 
     methods: {
-        paramLabel(v) {
-            if (this.$refs.main?.['param/label'] != null) {
-                return this.$refs.main?.['param/label'](v);
-            } else {
-                return v;
-            }
+        commitParam(key, value) {
+            this.$store.commit('param', { key, value });
+        },
+
+        commitAction(action) {
+            this.$refs.main['action/' + action]();
         },
     },
 };

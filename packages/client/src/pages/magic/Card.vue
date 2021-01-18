@@ -239,6 +239,7 @@
 </style>
 
 <script>
+import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
 
 import CardImage from 'components/magic/CardImage';
@@ -256,7 +257,7 @@ export default {
 
     components: { CardImage, MagicColor, MagicText, MagicSymbol },
 
-    mixins: [magic],
+    mixins: [page, magic],
 
     data: () => ({
         data:        null,
@@ -265,6 +266,23 @@ export default {
     }),
 
     computed: {
+        pageOptions() {
+            return {
+                title:   'input',
+                actions: [
+                    { icon: 'mdi-shuffle-variant', action: 'random' },
+                ],
+            };
+        },
+
+        title() {
+            if (this.data == null) {
+                return '';
+            }
+
+            return this.data.parts.map(p => p[this.textMode].name).join(' // ');
+        },
+
         ...mapComputed({
             textMode: 'magic/cardTextMode',
         }),

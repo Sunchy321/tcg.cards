@@ -51,6 +51,7 @@ export default {
 
     'ui': {
         format: {
+            $self:   '赛制',
             set:     '系列',
             banlist: '禁限牌表',
         },

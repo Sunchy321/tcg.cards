@@ -12,27 +12,5 @@ export default {
         isAdmin() { return this.$store.getters['user/isAdmin']; },
 
         meta() { return this.$route.meta; },
-
-        param: {
-            get() {
-                if (this.meta.param) {
-                    return this.$store.getters.param;
-                } else {
-                    return null;
-                }
-            },
-            set(newValue) {
-                if (this.meta.param && this.param !== newValue) {
-                    this.$store.commit('param', newValue);
-                } else {
-                    return null;
-                }
-            },
-        },
-
-        paramOptions: {
-            get() { return this.$store.getters.paramOptions ?? []; },
-            set(newValue) { this.$store.commit('paramOptions', newValue); },
-        },
     },
 };

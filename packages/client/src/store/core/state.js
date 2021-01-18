@@ -4,6 +4,13 @@ export default {
     locale: 'en',
     search: '',
 
-    paramOptions: [],
-    param:        null,
+    pageOptions: {
+        title:  'text',
+        params: { },
+    },
+
+    page: {
+        title:  '',
+        params: { },
+    },
 };

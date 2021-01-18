@@ -14,6 +14,8 @@
 </template>
 
 <script>
+import page from 'src/mixins/page';
+
 import * as components from 'components/magic/data';
 
 import routeComputed from 'src/route-computed';
@@ -21,9 +23,17 @@ import routeComputed from 'src/route-computed';
 export default {
     name: 'Data',
 
-    components: { ...components },
+    components,
+
+    mixins: [page],
 
     computed: {
+        pageOptions() {
+            return {
+                title: 'Data',
+            };
+        },
+
         tabs() {
             return Object.keys(components);
         },

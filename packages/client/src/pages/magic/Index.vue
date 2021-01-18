@@ -44,12 +44,23 @@
 </style>
 
 <script>
+import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
 
 export default {
-    mixins: [magic],
+    mixins: [page, magic],
 
     computed: {
+        pageOptions() {
+            return {
+                actions: [
+                    { icon: 'mdi-shuffle-variant', action: 'random' },
+                ],
+            };
+        },
+
+        title() { return this.$t('magic.$self'); },
+
         search: {
             get() { return this.$store.getters.search; },
             set(newValue) { this.$store.commit('search', newValue); },

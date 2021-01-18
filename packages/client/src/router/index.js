@@ -25,15 +25,7 @@ export default async function() {
     });
 
     Router.beforeEach(async (to, from, next) => {
-        if (to.name !== from.name) {
-            store.commit('paramOptions', []);
-        }
-
-        if (to.meta.title !== '$input' && !to.meta.keepSearch) {
-            store.commit('search', '');
-        }
-
-        if (to.meta.requireAdmin) {
+        if (to.meta.admin) {
             const isAdmin = store.getters['user/isAdmin'];
 
             if (!isAdmin) {

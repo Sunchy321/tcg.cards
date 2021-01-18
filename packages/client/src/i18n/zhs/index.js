@@ -49,7 +49,9 @@ export default {
         lang:  '语言',
     },
 
-    data: '数据',
+    ui: {
+        search: '搜索',
+    },
 
     magic,
     hearthstone,

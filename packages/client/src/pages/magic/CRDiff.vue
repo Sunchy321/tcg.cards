@@ -17,9 +17,7 @@
                     <magic-text
                         v-for="(v, i) in intro" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >
-                        {{ textValue(v, 'remove') }}
-                    </magic-text>
+                    >{{ textValue(v, 'remove') }}</magic-text>
                 </div>
             </template>
             <template v-slot:after class="q-pa-sm">
@@ -30,9 +28,7 @@
                     <magic-text
                         v-for="(v, i) in intro" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >
-                        {{ textValue(v, 'add') }}
-                    </magic-text>
+                    >{{ textValue(v, 'add') }}</magic-text>
                 </div>
             </template>
         </q-splitter>
@@ -46,25 +42,19 @@
                     class="q-pa-sm"
                     :class="`depth-${c.depth[0]}`"
                 >
-                    <magic-text :class="c.type ? `text-${c.type}` : ''">
-                        {{ c.index[0] + ' ' }}
-                    </magic-text>
+                    <magic-text :class="c.type ? `text-${c.type}` : ''">{{ c.index[0] + ' ' }}</magic-text>
 
                     <magic-text
                         v-for="(v, i) in c.text || []" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >
-                        {{ textValue(v, 'remove') }}
-                    </magic-text>
+                    >{{ textValue(v, 'remove') }}</magic-text>
 
                     <div v-for="(e, i) in c.examples || []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
                             v-for="(v, j) in e" :key="j"
                             :class="`depth-2 ${textClass(v, 'remove')}`"
-                        >
-                            {{ textValue(v, 'remove') }}
-                        </magic-text>
+                        >{{ textValue(v, 'remove') }}</magic-text>
                     </div>
                 </div>
             </template>
@@ -74,25 +64,19 @@
                     class="q-pa-sm"
                     :class="`depth-${c.depth[1]}`"
                 >
-                    <magic-text :class="c.type ? `text-${c.type}` : ''">
-                        {{ c.index[1] + ' ' }}
-                    </magic-text>
+                    <magic-text :class="c.type ? `text-${c.type}` : ''">{{ c.index[1] + ' ' }}</magic-text>
 
                     <magic-text
                         v-for="(v, i) in c.text || []" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >
-                        {{ textValue(v, 'add') }}
-                    </magic-text>
+                    >{{ textValue(v, 'add') }}</magic-text>
 
                     <div v-for="(e, i) in c.examples || []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
                             v-for="(v, j) in e" :key="j"
                             :class="`depth-2 ${textClass(v, 'add')}`"
-                        >
-                            {{ textValue(v, 'add') }}
-                        </magic-text>
+                        >{{ textValue(v, 'add') }}</magic-text>
                     </div>
                 </div>
             </template>
@@ -119,18 +103,14 @@
                     v-if="g.type !== 'add'"
                     class="q-pa-sm depth-2"
                 >
-                    <magic-text :class="g.type ? `text-${g.type}` : ''">
-                        {{ g.words.join(', ') }}
-                    </magic-text>
+                    <magic-text :class="g.type ? `text-${g.type}` : ''">{{ g.words.join(', ') }}</magic-text>
 
                     <br>
 
                     <magic-text
                         v-for="(v, i) in g.text || []" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >
-                        {{ textValue(v, 'remove') }}
-                    </magic-text>
+                    >{{ textValue(v, 'remove') }}</magic-text>
                 </div>
             </template>
             <template v-slot:after class="q-pa-sm">
@@ -138,18 +118,14 @@
                     v-if="g.type !== 'remove'"
                     class="q-pa-sm depth-2"
                 >
-                    <magic-text :class="g.type ? `text-${g.type}` : ''">
-                        {{ g.words.join(', ') }}
-                    </magic-text>
+                    <magic-text :class="g.type ? `text-${g.type}` : ''">{{ g.words.join(', ') }}</magic-text>
 
                     <br>
 
                     <magic-text
                         v-for="(v, i) in g.text || []" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >
-                        {{ textValue(v, 'add') }}
-                    </magic-text>
+                    >{{ textValue(v, 'add') }}</magic-text>
                 </div>
             </template>
         </q-splitter>
@@ -166,9 +142,7 @@
                     <magic-text
                         v-for="(v, i) in credits" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >
-                        {{ textValue(v, 'remove') }}
-                    </magic-text>
+                    >{{ textValue(v, 'remove') }}</magic-text>
                 </div>
             </template>
             <template v-slot:after>
@@ -180,9 +154,7 @@
                     <magic-text
                         v-for="(v, i) in credits" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >
-                        {{ textValue(v, 'add') }}
-                    </magic-text>
+                    >{{ textValue(v, 'add') }}</magic-text>
                 </div>
             </template>
         </q-splitter>
@@ -199,9 +171,7 @@
                     <magic-text
                         v-for="(v, i) in csi" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >
-                        {{ textValue(v, 'remove') }}
-                    </magic-text>
+                    >{{ textValue(v, 'remove') }}</magic-text>
                 </div>
             </template>
             <template v-slot:after>
@@ -213,9 +183,7 @@
                     <magic-text
                         v-for="(v, i) in csi" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >
-                        {{ textValue(v, 'add') }}
-                    </magic-text>
+                    >{{ textValue(v, 'add') }}</magic-text>
                 </div>
             </template>
         </q-splitter>
@@ -254,12 +222,16 @@
 </style>
 
 <script>
+import page from 'src/mixins/page';
+
 import MagicText from 'components/magic/Text';
 
 export default {
     name: 'CRDiff',
 
     components: { MagicText },
+
+    mixins: [page],
 
     data: () => ({
         date:     [],
@@ -268,6 +240,8 @@ export default {
     }),
 
     computed: {
+        title() { return this.$t('magic.cr.diff'); },
+
         from: {
             get() { return this.$route.query.from ?? this.date.slice(-2)[0]; },
             set(newValue) {

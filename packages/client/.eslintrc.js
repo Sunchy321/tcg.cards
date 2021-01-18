@@ -69,5 +69,7 @@ module.exports = {
         'vue/no-unused-components': 'warn',
         'vue/html-indent': ['warn', 4],
         'vue/max-attributes-per-line': 'off',
+        'vue/singleline-html-element-content-newline': 'off',
+        'vue/multiline-html-element-content-newline': 'off',
     },
 };

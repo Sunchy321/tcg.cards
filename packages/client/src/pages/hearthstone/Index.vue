@@ -7,31 +7,18 @@
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
-.link
-    font-size 120%
-
-    &.admin
-        font-style italic
-</style>
-
 <script>
+import page from 'src/mixins/page';
 import basic from '../../mixins/basic';
 
 export default {
     name: 'Hearthstone',
 
-    mixins: [basic],
+    mixins: [page, basic],
 
     computed: {
-        adminLinks() {
-            return [
-                {
-                    name:  'hsdata.$self',
-                    to:    'hsdata',
-                    admin: true,
-                },
-            ];
+        title() {
+            return this.$t('hearthstone.$self');
         },
     },
 };

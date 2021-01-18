@@ -52,35 +52,44 @@
 </style>
 
 <script>
+import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
 
 export default {
     name: 'Format',
 
-    mixins: [magic],
+    mixins: [page, magic],
 
     data: () => ({
-        data: null,
+        formats: [],
+        data:    null,
     }),
 
     computed: {
-        id() {
-            return this.$route.params.id;
+        pageOptions() {
+            return {
+                params: {
+                    format: this.formats.map(f => ({
+                        value: f,
+                        label: this.$t('magic.format.' + f),
+                    })),
+                },
+            };
         },
 
-        sets() {
-            return this.data?.sets ?? [];
-        },
+        title() { return this.$t('magic.ui.format.$self'); },
 
-        banlist() {
-            return this.data?.banlist ?? [];
-        },
+        id() { return this.$route.params.id; },
+        sets() { return this.data?.sets ?? []; },
+        banlist() { return this.data?.banlist ?? []; },
     },
 
     watch: {
-        param() {
-            if (this.param !== this.id && this.param != null) {
-                this.$router.push({ name: 'magic/format', params: { id: this.param } });
+        '$store.getters.params.format'() {
+            const format = this.$store.getters.params.format;
+
+            if (format !== this.id && format != null) {
+                this.$router.push({ name: 'magic/format', params: { id: format } });
             }
         },
 
@@ -100,7 +109,7 @@ export default {
         async loadList() {
             const { data } = await this.apiGet('/magic/format');
 
-            this.paramOptions = { options: data, initial: this.id };
+            this.formats = data;
         },
 
         async loadData() {

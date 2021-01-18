@@ -41,7 +41,7 @@ export default {
                 continue;
             }
 
-            const pieces = node.text.trim().split(/(\n|\{[^}]+\})/).filter(v => v !== '');
+            const pieces = node.text.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
 
             for (const p of pieces) {
                 if (p === '\n') {

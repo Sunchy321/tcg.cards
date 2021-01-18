@@ -14,6 +14,8 @@
 </template>
 
 <script>
+import page from 'src/mixins/page';
+
 import * as components from 'components/hearthstone/data';
 
 import routeComputed from 'src/route-computed';
@@ -21,9 +23,15 @@ import routeComputed from 'src/route-computed';
 export default {
     name: 'Data',
 
-    components: { ...components },
+    components,
+
+    mixins: [page],
 
     computed: {
+        title() {
+            return 'Data';
+        },
+
         tabs() {
             return Object.keys(components);
         },

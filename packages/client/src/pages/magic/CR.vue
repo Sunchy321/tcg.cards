@@ -55,9 +55,10 @@
 </style>
 
 <script>
-import MagicText from 'components/magic/Text';
-
+import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
+
+import MagicText from 'components/magic/Text';
 
 import { last } from 'lodash';
 import { scroll } from 'quasar';
@@ -67,16 +68,30 @@ export default {
 
     components: { MagicText },
 
-    mixins: [magic],
+    mixins: [page, magic],
 
     data: () => ({
+        list:     [],
         data:     null,
         selected: null,
         expanded: [],
     }),
 
     computed: {
-        date() { return this.$route.query.date || this.paramOptions[0]; },
+        pageOptions() {
+            return {
+                params: {
+                    date: this.list,
+                },
+                actions: [
+                    { icon: 'mdi-vector-difference', action: 'diff' },
+                ],
+            };
+        },
+
+        title() { return this.$t('magic.cr.$self'); },
+
+        date() { return this.$route.query.date; },
 
         menu() {
             if (this.data == null) {
@@ -239,9 +254,11 @@ export default {
     },
 
     watch: {
-        param() {
-            if (this.param !== this.date && this.param != null) {
-                this.$router.push({ name: 'magic/cr', query: { date: this.param } });
+        '$store.getters.params.date'() {
+            const date = this.$store.getters.params.date;
+
+            if (date !== this.date && date != null) {
+                this.$router.push({ name: 'magic/cr', query: { date } });
             }
         },
 
@@ -280,36 +297,36 @@ export default {
         async loadList() {
             const { data } = await this.apiGet('/magic/cr');
 
-            this.paramOptions = data;
+            this.list = data;
         },
 
         async loadData() {
             if (this.date != null) {
-                const { data } = await this.apiGet('/magic/cr', { date: this.date });
+                const { data } = await this.apiGet('/magic/cr/' + this.date);
                 this.data = data;
             }
         },
 
-        'event/diff'() {
-            const index = this.paramOptions.indexOf(this.date);
+        'action/diff'() {
+            const index = this.list.indexOf(this.date);
 
             if (index === -1) {
                 return;
             }
 
-            if (index === 0) {
+            if (index === this.list.length - 1) {
                 this.$router.push({
                     name:  'magic/cr/diff',
                     query: {
                         from: this.date,
-                        to:   this.paramOptions[1],
+                        to:   this.list[this.list.length - 2],
                     },
                 });
             } else {
                 this.$router.push({
                     name:  'magic/cr/diff',
                     query: {
-                        from: this.paramOptions[index - 1],
+                        from: this.list[index + 1],
                         to:   this.date,
                     },
                 });

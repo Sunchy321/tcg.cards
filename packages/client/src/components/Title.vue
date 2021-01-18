@@ -1,22 +1,14 @@
 <script>
 import basic from 'src/mixins/basic';
 
-import { capitalize } from 'lodash';
-
 export default {
     mixins: [basic],
 
     computed: {
-        meta() {
-            return this.$route.meta;
-        },
-
         search: {
             get() { return this.$store.getters.search; },
             set(newValue) { this.$store.commit('search', newValue); },
         },
-
-        titleText() { return this.meta?.title; },
 
         titleInput() {
             return <q-input
@@ -41,17 +33,14 @@ export default {
         },
 
         title() {
-            const titleText = this.titleText;
-
-            if (titleText === '$input') {
+            switch (this.$store.getters.titleOption) {
+            case 'text':
+                return this.$store.getters.title;
+            case 'input':
                 return this.titleInput;
+            default:
+                return '';
             }
-
-            const text = titleText != null
-                ? capitalize(this.$t(titleText))
-                : this.$route.path.slice(1).replace(new RegExp('/', 'g'), '.');
-
-            return text;
         },
     },
 
