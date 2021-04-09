@@ -12,6 +12,7 @@ function parseContentLine(text: string) {
     let m: RegExpExecArray | null;
 
     if ((m = /^(\d\.) /.exec(text)) != null) {
+        // 1. Concepts
         return {
             text:  text.slice(m[0].length),
             id:    '~' + m[1],
@@ -19,6 +20,7 @@ function parseContentLine(text: string) {
             index: m[1],
         };
     } else if ((m = /^(\d{3}\.) /.exec(text)) != null) {
+        // 101. The Magic Golden Rules
         return {
             text:  text.slice(m[0].length),
             id:    '~' + m[1],
@@ -26,13 +28,15 @@ function parseContentLine(text: string) {
             index: m[1],
         };
     } else if ((m = /^(\d{3}\.\d+\.) /.exec(text)) != null) {
+        // 101.1. xxxxx
         return {
             text:  text.slice(m[0].length),
             id:    '~' + m[1],
             depth: 2,
             index: m[1],
         };
-    } else if ((m = /^(\d{3}\.\d+[a-z]) /.exec(text)) != null) {
+    } else if ((m = /^(\d{3}\.\d+[a-z]\.?) /.exec(text)) != null) {
+        // 101.1a xxxxxx
         return {
             text:  text.slice(m[0].length),
             id:    '~' + m[1],
@@ -74,7 +78,7 @@ function parseGlossary(texts: string[]) {
 }
 
 export async function parse(date: string): Promise<ICR> {
-    const path = join(data, 'magic', 'cr', 'txt', date + '.txt');
+    const path = join(data, 'magic', 'cr', 'data', date + '.txt');
 
     if (!existsSync(path)) {
         throw new Error(`cr ${date} doesn't exist`);

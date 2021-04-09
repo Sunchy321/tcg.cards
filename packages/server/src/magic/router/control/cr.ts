@@ -13,6 +13,12 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/cr');
 
+router.get('/list', async ctx => {
+    const dir = join(data, 'magic', 'cr', 'data');
+
+    ctx.body = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+});
+
 router.get('/txt', async ctx => {
     const dir = join(data, 'magic', 'cr', 'txt');
 
@@ -21,11 +27,11 @@ router.get('/txt', async ctx => {
 
 router.get('/parse',
     async ctx => {
-        const dir = join(data, 'magic', 'cr', 'txt');
+        const dir = join(data, 'magic', 'cr', 'data');
 
-        const txt = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+        const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
-        if (txt.includes(ctx.query.date)) {
+        if (dataList.includes(ctx.query.date)) {
             ctx.body = await parse(ctx.query.date);
         }
     },
@@ -33,11 +39,11 @@ router.get('/parse',
 
 router.get('/reparse',
     async ctx => {
-        const dir = join(data, 'magic', 'cr', 'txt');
+        const dir = join(data, 'magic', 'cr', 'data');
 
-        const txt = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+        const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
-        if (txt.includes(ctx.query.date)) {
+        if (dataList.includes(ctx.query.date)) {
             ctx.body = await reparse(ctx.query.date);
         }
     },

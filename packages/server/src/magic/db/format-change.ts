@@ -6,7 +6,7 @@ export interface IFormatChange {
     date: string;
 
     changes: {
-        reason: string,
+        category: string,
         format?: string,
         in: string[],
         out: string[],
@@ -18,11 +18,11 @@ const IFormatChangeSchema = new Schema({
 
     changes: {
         type: [{
-            _id:    false,
-            reason: String,
-            format: String,
-            in:     [String],
-            out:    [String],
+            _id:      false,
+            category: String,
+            format:   String,
+            in:       [String],
+            out:      [String],
         }],
     },
 });

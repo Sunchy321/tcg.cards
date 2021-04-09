@@ -46,4 +46,5 @@ export const formats = [
     'commander',
     'duelcommander',
     'commander1v1',
+    'pauper',
 ];

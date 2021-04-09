@@ -3,8 +3,10 @@ import { DefaultState, Context } from 'koa';
 
 import Format from '@/magic/db/format';
 
+import { omit } from 'lodash';
+
 import { formats } from '@/../data/magic/basic';
-import BanlistChange from '@/magic/db/banlist-change';
+import { getChanges } from '@/magic/change';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -45,23 +47,18 @@ router.get('/:id', async ctx => {
 });
 
 router.get('/:id/timeline', async ctx => {
-    const format = await Format.findOne({ formatId: ctx.params.id });
+    const id = ctx.params.id;
+
+    const format = await Format.findOne({ formatId: id });
 
     if (format == null) {
         ctx.status = 404;
         return;
     }
 
-    const result = [];
+    const changes = await getChanges(ctx.params.id);
 
-    if (ctx.query.type !== 'banlist') {
-        const banlistChange = await BanlistChange.aggregate([
-            { $unwind: { path: '$change' } },
-            { $match: { 'changes.format': ctx.params.id } },
-        ]);
-    }
-
-    ctx.body = format.toJSON();
+    ctx.body = changes.map(c => omit(c, '_id'));
 });
 
 export default router;

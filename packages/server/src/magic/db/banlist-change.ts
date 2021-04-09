@@ -11,8 +11,8 @@ export interface IBanlistChange {
 
     effectiveDate?: {
         tabletop?: string;
-        arena?: string;
         online?: string;
+        arena?: string;
     };
 
     nextDate?: string;
@@ -35,8 +35,8 @@ const BanlistChangeSchema = new Schema({
 
     effectiveDate: {
         tabletop: String,
-        arena:    String,
         online:   String,
+        arena:    String,
     },
 
     nextDate: String,
