@@ -51,9 +51,11 @@ export default {
 
     'ui': {
         format: {
-            $self:   '赛制',
-            set:     '系列',
-            banlist: '禁限牌表',
+            $self:      '赛制',
+            timeline:   '时间线',
+            ante:       '赌博牌',
+            conspiracy: '诡局',
+            legendary:  '传奇',
         },
     },
 };

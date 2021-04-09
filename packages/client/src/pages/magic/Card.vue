@@ -57,14 +57,10 @@
                         <span v-if="info != null" class="other-info">{{ info }}</span>
                     </div>
                     <div class="ability-line" :lang="lang">
-                        <magic-text :type="symbolStyle">
-                            {{ text }}
-                        </magic-text>
+                        <magic-text :type="symbolStyle">{{ text }}</magic-text>
                     </div>
                     <div v-if="flavor != null" class="flavor-line" :lang="lang">
-                        <magic-text :type="symbolStyle">
-                            {{ flavor }}
-                        </magic-text>
+                        <magic-text :type="symbolStyle">{{ flavor }}</magic-text>
                     </div>
                 </div>
             </div>

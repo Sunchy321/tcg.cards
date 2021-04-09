@@ -23,7 +23,7 @@ import routeComputed from 'src/route-computed';
 export default {
     name: 'Data',
 
-    components,
+    components: { ...components },
 
     mixins: [page],
 

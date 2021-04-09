@@ -20,12 +20,17 @@
 </style>
 
 <script>
+import page from '../mixins/page';
 import basic from '../mixins/basic';
 
 export default {
     name: 'PageIndex',
 
-    mixins: [basic],
+    mixins: [page, basic],
+
+    computed: {
+        title() { return ''; },
+    },
 
     methods: {
         fullName(g) {

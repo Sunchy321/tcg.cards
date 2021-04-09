@@ -15,15 +15,11 @@
                 :id="c.id" :key="c.id"
                 :class="`depth-${c.depth}`"
             >
-                <magic-text>
-                    {{ c.index ? c.index + ' ' + c.text : c.text }}
-                </magic-text>
+                <magic-text>{{ c.index ? c.index + ' ' + c.text : c.text }}</magic-text>
 
                 <div v-for="(e, i) in c.examples || []" :key="i" class="example">
                     <q-icon name="mdi-chevron-right" class="example-icon" />
-                    <magic-text>
-                        {{ e }}
-                    </magic-text>
+                    <magic-text>{{ e }}</magic-text>
                 </div>
             </div>
         </div>

@@ -16,7 +16,7 @@
         </div>
 
         <div v-for="(c, i) in changes" :key="'change-' + i" class="row items-center q-gutter-sm">
-            <q-select v-model="c.reason" :options="['release', 'rotation', 'initial', 'other']" dense />
+            <q-select v-model="c.category" :options="['release', 'rotation', 'initial', 'other']" dense />
             <q-select v-model="c.format" :options="[null, ...formatList]" dense />
 
             <q-input
@@ -190,10 +190,10 @@ export default {
 
         addChange() {
             this.changes.push({
-                reason: 'release',
-                format: null,
-                in:     [],
-                out:    [],
+                category: 'release',
+                format:   null,
+                in:       [],
+                out:      [],
             });
         },
 

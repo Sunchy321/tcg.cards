@@ -285,13 +285,13 @@ export default {
     methods: {
         async loadList() {
             const { data: cr } = await this.apiGet('/magic/cr');
-            const { data: txt } = await this.controlGet('/magic/cr/txt');
+            const { data: txt } = await this.controlGet('/magic/cr/list');
 
             this.cr = cr;
             this.txt = txt;
 
             if (this.data == null) {
-                this.load();
+                this.loadData();
             }
         },
 

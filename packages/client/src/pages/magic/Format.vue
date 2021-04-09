@@ -1,35 +1,51 @@
 <template>
     <div class="q-pa-md">
-        <template v-if="sets.length > 0">
-            <div class="title q-mb-md">
-                {{ $t('magic.ui.format.set') }}
-            </div>
+        <div class="title row items-center q-mb-lg">
+            <div class="q-mr-sm">{{ $t('magic.format.' + id) }}</div>
+            <div>{{ birthAndDeath }}</div>
 
-            <div class="row q-gutter-sm">
-                <div v-for="s in sets" :key="s" class="set">
-                    {{ s }}
+            <div class="col-grow" />
+
+            <q-btn
+                icon="mdi-arrow-left-circle"
+                flat dense round
+                @click="toPrevDate"
+            />
+
+            <date-input
+                v-model="date"
+                class="q-mx-sm"
+                dense outlined clearable
+                :date-from="dateFrom"
+                :date-to="dateTo"
+                :events="timelineEvents"
+            />
+
+            <q-btn
+                icon="mdi-arrow-right-circle"
+                flat dense round
+                @click="toNextDate"
+            />
+        </div>
+
+        <div v-if="sets.length > 0" class="row q-mb-md q-gutter-sm">
+            <div v-for="s in sets" :key="s" class="set">
+                {{ s }}
+            </div>
+        </div>
+
+        <div v-if="banlist.length > 0" class="row">
+            <div v-for="b in banlist" :key="b.card" class="banlist row items-center q-gutter-sm">
+                <q-icon
+                    :name="statusIcon(b.status, b.card)"
+                    :class="'magic-banlist-status-' + b.status"
+                />
+                <div class="date">
+                    {{ b.date }}
                 </div>
+                <div>{{ b.card }}</div>
             </div>
-        </template>
-
-        <template v-if="banlist.length > 0">
-            <div class="title q-my-md">
-                {{ $t('magic.ui.format.banlist') }}
-            </div>
-
-            <div class="row">
-                <div v-for="b in banlist" :key="b.card" class="banlist row items-center q-gutter-sm">
-                    <q-icon
-                        :name="statusIcon(b.status, b.card)"
-                        :class="'magic-banlist-status-' + b.status"
-                    />
-                    <div class="date">
-                        {{ b.date }}
-                    </div>
-                    <div>{{ b.card }}</div>
-                </div>
-            </div>
-        </template>
+        </div>
     </div>
 </template>
 
@@ -55,14 +71,21 @@
 import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
 
+import DateInput from 'components/DateInput';
+
+const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'restricted', 'legal', 'unavailable'];
+const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
+
 export default {
     name: 'Format',
+
+    components: { DateInput },
 
     mixins: [page, magic],
 
     data: () => ({
-        formats: [],
-        data:    null,
+        data:     null,
+        timeline: [],
     }),
 
     computed: {
@@ -79,9 +102,121 @@ export default {
 
         title() { return this.$t('magic.ui.format.$self'); },
 
+        date: {
+            get() { return this.$route.query.date; },
+            set(newValue) {
+                if (newValue != null) {
+                    this.$router.replace({ query: { date: newValue } });
+                } else {
+                    this.$router.replace({ query: { } });
+                }
+            },
+        },
+
+        dateFrom() { return (this.data?.birthday ?? this.$store.getters['magic/data'].birthday); },
+        dateTo() { return (this.data?.deathdate ?? new Date().toLocaleDateString('en-CA')); },
+
+        formats() { return this.$store.getters['magic/data']?.formats ?? []; },
+
         id() { return this.$route.params.id; },
-        sets() { return this.data?.sets ?? []; },
-        banlist() { return this.data?.banlist ?? []; },
+
+        birthAndDeath() {
+            if (this.data?.birthday != null) {
+                if (this.data?.deathdate != null) {
+                    return this.data.birthday + ' ~ ' + this.data.deathdate;
+                } else {
+                    return this.data.birthday + ' ~';
+                }
+            } else {
+                return '';
+            }
+        },
+
+        sets() {
+            if (this.date == null || !['standard', 'pioneer', 'modern', 'extended'].includes(this.id)) {
+                return this.data?.sets ?? [];
+            } else {
+                let result = [];
+
+                for (const c of this.timeline) {
+                    if (c.type === 'format') {
+                        if (c.date > this.date) {
+                            break;
+                        }
+
+                        result.push(...c.in);
+
+                        result = result.filter(s => !c.out.includes(s));
+                    }
+                }
+
+                return result;
+            }
+        },
+
+        banlist() {
+            if (this.date == null) {
+                return this.data?.banlist ?? [];
+            } else {
+                let result = [];
+
+                for (const c of this.timeline) {
+                    if (c.type === 'banlist') {
+                        if (c.date > this.date) {
+                            break;
+                        }
+
+                        if (c.status === 'legal' || c.status === 'unavailable') {
+                            result = result.filter(v => v.card !== c.card);
+                        } else {
+                            const sameIndex = result.findIndex(b => b.card === c.card);
+
+                            if (sameIndex === -1) {
+                                result.push(c);
+                            } else {
+                                result.splice(sameIndex, 1, c);
+                            }
+                        }
+                    }
+                }
+
+                result.sort((a, b) => {
+                    if (a.status !== b.status) {
+                        return banlistStatusOrder.indexOf(a.status) -
+                    banlistStatusOrder.indexOf(b.status);
+                    } else if (a.source !== b.source) {
+                        return banlistSourceOrder.indexOf(a.source ?? null) -
+                    banlistSourceOrder.indexOf(b.source ?? null);
+                    } else {
+                        return a.card < b.card ? -1 : 1;
+                    }
+                });
+
+                return result;
+            }
+        },
+
+        timelineEvents() {
+            const result = [];
+
+            for (const t of this.timeline) {
+                const v = result.find(r => r.date === t.date);
+
+                if (v != null) {
+                    if (t.type === 'format') {
+                        v.color = 'cyan';
+                    }
+                } else {
+                    result.push({
+                        date:  t.date,
+                        color: t.type === 'format' ? 'cyan' : 'orange',
+                    });
+                }
+            }
+
+            return result;
+        },
+
     },
 
     watch: {
@@ -96,30 +231,24 @@ export default {
         id: {
             immediate: true,
             handler() {
+                if (this.$store.getters.params.format !== this.id) {
+                    this.$store.commit('param', { key: 'format', value: this.id });
+                }
+
                 this.loadData();
             },
         },
     },
 
-    mounted() {
-        this.loadList();
-    },
-
     methods: {
-        async loadList() {
-            const { data } = await this.apiGet('/magic/format');
-
-            this.formats = data;
-        },
-
         async loadData() {
             const { data } = await this.apiGet('/magic/format/' + this.id);
 
             this.data = data;
-        },
 
-        'param/label'(v) {
-            return this.$t('magic.format.' + v);
+            const { data:timeline } = await this.apiGet(`/magic/format/${this.id}/timeline`);
+
+            this.timeline = timeline;
         },
 
         statusIcon(status, card) {
@@ -141,6 +270,28 @@ export default {
                     return 'mdi-content-copy';
                 } else {
                     return 'mdi-help-circle-outline';
+                }
+            }
+        },
+
+        toPrevDate() {
+            const currDate = this.date ?? new Date().toLocaleDateString('en-CA');
+
+            for (const { date } of this.timelineEvents.slice().reverse()) {
+                if (date < currDate) {
+                    this.date = date;
+                    return;
+                }
+            }
+        },
+
+        toNextDate() {
+            const currDate = this.date ?? new Date().toLocaleDateString('en-CA');
+
+            for (const { date } of this.timelineEvents) {
+                if (date > currDate) {
+                    this.date = date;
+                    return;
                 }
             }
         },

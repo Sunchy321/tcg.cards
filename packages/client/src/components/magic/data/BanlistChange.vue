@@ -29,6 +29,7 @@
             <div class="col-grow" />
 
             <q-btn label="sync" flat dense @click="sync" />
+            <q-btn icon="mdi-plus" flat dense round @click="newChange" />
             <q-btn v-if="data != null" icon="mdi-upload" flat dense round @click="saveChange" />
         </div>
 
@@ -76,9 +77,10 @@
             </div>
             <div v-for="(c, i) in changes" :key="'change-' + i" class="row q-gutter-sm">
                 <q-input
-                    v-model="c.card"
+                    :value="c.card"
                     class="col"
                     dense
+                    @input="v => modifyChangeCard(c, v)"
                 />
                 <q-select
                     v-model="c.format"
@@ -303,6 +305,16 @@ export default {
             this.data = data;
         },
 
+        newChange() {
+            this.changeList.unshift('');
+            this.selected = { date: new Date().toLocaleDateString('en-CA') };
+            this.data = {
+                date:    new Date().toLocaleDateString('en-CA'),
+                link:    [],
+                changes: [],
+            };
+        },
+
         async saveChange() {
             await this.controlPost('/magic/format/banlist/change/save', {
                 data: this.data,
@@ -374,15 +386,11 @@ export default {
             }
         },
 
-        modifyChangeCard(i, v) {
+        modifyChangeCard(c, v) {
             if (v.startsWith('#')) {
-                this.changes[i].card = v;
-
-                if (v === '#{assign}') {
-                    delete this.changes[i].status;
-                }
+                c.card = v;
             } else {
-                this.changes[i].card = toIdentifier(v);
+                c.card = toIdentifier(v);
             }
         },
     },

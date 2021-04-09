@@ -23,16 +23,12 @@ import routeComputed from 'src/route-computed';
 export default {
     name: 'Data',
 
-    components,
+    components: { ...components },
 
     mixins: [page],
 
     computed: {
-        pageOptions() {
-            return {
-                title: 'Data',
-            };
-        },
+        title() { return 'Data'; },
 
         tabs() {
             return Object.keys(components);

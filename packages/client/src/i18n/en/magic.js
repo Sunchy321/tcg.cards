@@ -58,9 +58,11 @@ export default {
 
     'ui': {
         format: {
-            $self:   'Format',
-            set:     'Sets',
-            banlist: 'Banlist',
+            $self:      'Format',
+            timeline:   'Timeline',
+            ante:       'Ante',
+            conspiracy: 'Conspiracy',
+            legendary:  'Legendary',
         },
     },
 };

@@ -415,14 +415,14 @@ export default {
             if (this.lang === 'zhs' || this.lang === 'zht') {
                 if (!/[a-wyz](?![/}])/.test(this.unifiedText)) {
                     this.unifiedText = this.unifiedText
-                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+) /g, '')
+                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
                 }
 
                 if (!/[a-wyz](?![/}])/.test(this.printedText)) {
                     this.printedText = this.printedText
-                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+) /g, '')
+                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
                 }
@@ -472,7 +472,7 @@ export default {
                 await this.update();
             }
 
-            const { data } = await this.controlGet('/magic/search', { q: this.search, dev: '' });
+            const { data } = await this.apiGet('/magic/search', { q: this.search, dev: '' });
 
             if (this.partIndex !== 0 && this.partIndex !== '0') {
                 this.partIndex = 0;

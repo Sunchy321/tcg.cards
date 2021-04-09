@@ -22,12 +22,13 @@
 </style>
 
 <script>
+import page from 'src/mixins/page';
+import basic from 'src/mixins/basic';
+
 import UserLogin from 'components/setting/Login';
 import UserProfile from 'components/setting/Profile';
 
 import MainBasic from 'components/setting/main/Basic';
-
-import basic from 'src/mixins/basic';
 
 export default {
     name: 'Setting',
@@ -36,13 +37,15 @@ export default {
         UserLogin, UserProfile,
     },
 
-    mixins: [basic],
+    mixins: [page, basic],
 
     data: () => ({
         tab: 'basic',
     }),
 
     computed: {
+        title() { return this.$t('setting.$self'); },
+
         mainComponent() {
             switch (this.tab) {
             case 'basic':
