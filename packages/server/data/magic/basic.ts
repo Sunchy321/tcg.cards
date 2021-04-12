@@ -45,6 +45,9 @@ export const formats = [
     'vintage',
     'commander',
     'duelcommander',
+    'leviathan_commander',
     'commander1v1',
+    'brawl',
+    'historic_brawl',
     'pauper',
 ];

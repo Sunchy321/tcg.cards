@@ -70,7 +70,7 @@ export async function getChanges(
                     source:        card.startsWith('#{clone') ? 'clone' : card.slice(1),
                     format:        v.changes.format,
                     card:          d.card,
-                    status:        v.changes.status,
+                    status:        d.status ?? v.changes.status,
                     effectiveDate: {
                         tabletop: d.date ?? v.changes.effectiveDate ?? v.effectiveDate?.tabletop,
                         online:   d.date ?? v.changes.effectiveDate ?? v.effectiveDate?.online,
@@ -116,6 +116,22 @@ export async function getChanges(
                     },
                 ],
             });
+        } else if (id === 'brawl') {
+            // brawl sets follows standard
+            formatAggregate.match({
+                $or: [
+                    { 'changes.format': 'brawl' },
+                    {
+                        'changes.category': 'rotation',
+                        'changes.format':   'standard',
+                        'date':             { $gte: format?.birthday },
+                    },
+                    {
+                        'changes.category': 'release',
+                        'date':             { $gte: format?.birthday },
+                    },
+                ],
+            });
         } else {
             formatAggregate.match({ 'changes.format': id });
         }
@@ -144,8 +160,8 @@ export async function getChanges(
     return result;
 }
 
-const formatWithSet = ['standard', 'historic', 'pioneer', 'modern', 'extended'];
-const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'restricted', 'legal', 'unavailable'];
+const formatWithSet = ['standard', 'historic', 'pioneer', 'modern', 'extended', 'brawl'];
+const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
 const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
 
 export async function syncChange(): Promise<void> {
@@ -183,6 +199,11 @@ export async function syncChange(): Promise<void> {
 
                     return true;
                 });
+
+            // brawl sets follows standard
+            if (formats.includes('standard') && !formats.includes('brawl') && c.date >= '2018-03-22') {
+                formats.push('brawl');
+            }
 
             for (const f of formats) {
                 const fo = formatMap[f]!;
@@ -284,13 +305,14 @@ export async function syncChange(): Promise<void> {
                         if (!fo.banlist.some(bf => bf.card === b.card)) {
                             fo.banlist.push({
                                 card:   b.card,
-                                status: c.status || b.status,
+                                status: c.status ?? b.status,
                                 date:   c.date,
                                 source: b.source,
                             });
 
                             ci.detail.push({
-                                card: b.card,
+                                card:   b.card,
+                                status: c.status ?? b.status,
                             });
                         }
                     }

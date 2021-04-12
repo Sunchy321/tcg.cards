@@ -24,7 +24,7 @@ export interface IBanlistChange {
         format: string;
         status?: BanlistStatus;
         effectiveDate?: string;
-        detail?: { card: string, date?: string }[];
+        detail?: { card: string, date?: string, status?: string }[];
     }[];
 }
 
@@ -50,7 +50,7 @@ const BanlistChangeSchema = new Schema({
         status:        String,
         effectiveDate: String,
         detail:        {
-            type:    [{ _id: false, card: String, date: String }],
+            type:    [{ _id: false, card: String, date: String, status: String }],
             default: undefined,
         },
     }],
