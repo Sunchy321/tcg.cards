@@ -22,9 +22,20 @@
                 outlined dense
             />
 
-            <div v-if="data != null" class="code q-ml-md">
+            <div v-if="data != null" class="code q-mx-md">
                 {{ data._id || 'unsaved' }}
             </div>
+
+            <q-select
+                v-model="category"
+                :options="[
+                    'wotc',
+                    'duelcommander',
+                    'mtgcommander',
+                    'leviathan_commander',
+                    'initial',
+                ]"
+            />
 
             <div class="col-grow" />
 
@@ -165,8 +176,10 @@ export default {
 
                 'commander',
                 'duelcommander',
+                'leviathan_commander',
                 'commander1v1',
                 'brawl',
+                'historic_brawl',
 
                 'pauper',
 
@@ -185,12 +198,24 @@ export default {
                 'suspended',
                 'restricted',
                 'banned_as_commander',
+                'banned_as_companion',
                 'unavailable',
             ].map(v => ({
                 icon:  this.statusIcon(v),
                 class: 'magic-banlist-status-' + v,
                 value: v,
             }));
+        },
+
+        category: {
+            get() {
+                return this.data.category;
+            },
+            set(newValue) {
+                if (this.data != null) {
+                    this.data.category = newValue;
+                }
+            },
         },
 
         date: {
@@ -309,9 +334,10 @@ export default {
             this.changeList.unshift('');
             this.selected = { date: new Date().toLocaleDateString('en-CA') };
             this.data = {
-                date:    new Date().toLocaleDateString('en-CA'),
-                link:    [],
-                changes: [],
+                date:     new Date().toLocaleDateString('en-CA'),
+                link:     [],
+                category: 'wotc',
+                changes:  [],
             };
         },
 
@@ -336,9 +362,11 @@ export default {
             case 'banned':
                 return 'mdi-close-circle-outline';
             case 'suspended':
-                return 'mdi-help-circle-outline';
+                return 'mdi-minus-circle-outline';
             case 'banned_as_commander':
                 return 'mdi-progress-close';
+            case 'banned_as_companion':
+                return 'mdi-heart-circle-outline';
             case 'restricted':
                 return 'mdi-alert-circle-outline';
             case 'legal':

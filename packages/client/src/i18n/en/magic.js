@@ -26,10 +26,12 @@ export default {
 
         'standard/arena': 'Arena Standard',
 
-        'commander':     'Commander',
-        'duelcommander': 'Duel Commander',
-        'commander1v1':  'Commander 1v1',
-        'brawl':         'Brawl',
+        'commander':           'Commander',
+        'duelcommander':       'Duel Commander',
+        'leviathan_commander': 'Leviathan Commander',
+        'commander1v1':        'Commander 1v1',
+        'brawl':               'Brawl',
+        'historic_brawl':      'Historic Brawl',
 
         'pauper': 'Pauper',
 

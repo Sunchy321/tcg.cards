@@ -73,7 +73,7 @@ import magic from 'src/mixins/magic';
 
 import DateInput from 'components/DateInput';
 
-const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'restricted', 'legal', 'unavailable'];
+const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
 const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
 
 export default {
@@ -133,7 +133,7 @@ export default {
         },
 
         sets() {
-            if (this.date == null || !['standard', 'pioneer', 'modern', 'extended'].includes(this.id)) {
+            if (this.date == null || !['standard', 'pioneer', 'modern', 'extended', 'brawl'].includes(this.id)) {
                 return this.data?.sets ?? [];
             } else {
                 let result = [];
@@ -256,9 +256,11 @@ export default {
             case 'banned':
                 return 'mdi-close-circle-outline';
             case 'suspended':
-                return 'mdi-help-circle-outline';
+                return 'mdi-minus-circle-outline';
             case 'banned_as_commander':
                 return 'mdi-progress-close';
+            case 'banned_as_companion':
+                return 'mdi-heart-circle-outline';
             case 'restricted':
                 return 'mdi-alert-circle-outline';
             case 'legal':

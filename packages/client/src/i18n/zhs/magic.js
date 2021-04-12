@@ -27,10 +27,12 @@ export default {
 
         'standard/arena': 'MTGA标准',
 
-        'commander':     '指挥官',
-        'duelcommander': '法禁指挥官',
-        'commander1v1':  '指挥官1v1',
-        'brawl':         '争锋',
+        'commander':           '指挥官',
+        'duelcommander':       '法禁指挥官',
+        'leviathan_commander': '海怪禁指挥官',
+        'commander1v1':        '指挥官1v1',
+        'brawl':               '争锋',
+        'historic_brawl':      '史迹争锋',
 
         'pauper': '纯铁',
 
