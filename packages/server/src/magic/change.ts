@@ -343,6 +343,7 @@ export async function syncChange(): Promise<void> {
                             card:   c.card,
                             status: c.status!,
                             date:   c.date,
+                            source: c.source,
                         });
                     } else {
                         b.status = c.status!;
