@@ -223,6 +223,8 @@ export default {
         '$store.getters.params.format'() {
             const format = this.$store.getters.params.format;
 
+            console.log(format);
+
             if (format !== this.id && format != null) {
                 this.$router.push({ name: 'magic/format', params: { id: format } });
             }

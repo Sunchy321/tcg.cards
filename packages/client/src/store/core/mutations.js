@@ -1,5 +1,7 @@
 import { LocalStorage } from 'quasar';
 
+import { mapValues } from 'lodash';
+
 export function event() {}
 
 export function games(state, newValue) {
@@ -29,31 +31,34 @@ export function pageOptions(state, newValue) {
     state.pageOptions = newValue;
 
     const paramOptions = newValue?.params ?? {};
-    const paramKeys = Object.keys(paramOptions);
 
-    state.page.params = Object.fromEntries(paramKeys.map(k => {
+    state.page.params = mapValues(paramOptions, (v, k) => {
+        if (state.page.params?.[k] != null) {
+            return state.page.params[k];
+        }
+
         const paramOption = paramOptions[k];
 
         if (Array.isArray(paramOption)) {
             const initial = paramOption.find(v => v.initial);
 
             if (initial != null) {
-                return [k, initial.value];
+                return initial.value;
             }
 
             const first = paramOption[0];
 
             if (first == null) {
-                return [k, null];
+                return null;
             }
 
             if (first.value) {
-                return [k, first.value];
+                return first.value;
             } else {
-                return [k, first];
+                return first;
             }
         }
-    }));
+    });
 }
 
 export function param(state, { key, value }) {
