@@ -36,6 +36,7 @@ abstract class Task<T> extends EventEmitter {
             .on('progress', p => ws.send(JSON.stringify(p)))
             .on('error', e => {
                 ws.send(JSON.stringify({ error: true, ...e }));
+                console.log(e);
                 ws.close();
             })
             .on('end', () => ws.close());

@@ -295,6 +295,10 @@ function toCard(data: NSCard): ICard {
         multiverseId: data.multiverse_ids,
         tcgPlayerId:  data.tcgplayer_id,
         cardMarketId: data.cardmarket_id,
+
+        __tags: {
+            oracleUpdated: false,
+        },
     };
 }
 
@@ -400,6 +404,7 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
             case 'oracle_text':
                 if (card.parts[d.path![1]].oracle.text !== data.parts[d.path![1]].oracle.text) {
                     card.parts[d.path![1]].oracle.text = data.parts[d.path![1]].oracle.text;
+                    card.__tags.oracleUpdated = true;
                 }
                 break;
             case 'printed_name':
@@ -412,8 +417,8 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                     card.parts[d.path![1]].flavorText = data.parts[d.path![1]].flavorText;
                 }
                 break;
-            default:
-                throw new Error(`Unknown path ${d.path!.join('.')}`);
+            // default:
+                // throw new Error(`Unknown path ${d.path!.join('.')}`);
             }
             break;
         case 'color_indicator':
@@ -462,8 +467,8 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                 card.legalities = data.legalities;
             }
             break;
-        default:
-            throw new Error(`Unknown path ${d.path!.join('.')}`);
+        // default:
+            // throw new Error(`Unknown path ${d.path!.join('.')}`);
         }
     }
 }
@@ -477,13 +482,13 @@ export class CardMerger extends Task<IStatus> {
         let count = 0;
 
         const files = await ScryfallCard.aggregate([
-            { $group: { _id: '$file' } },
+            { $group: { _id: '$__file' } },
             { $sort: { _id: -1 } },
         ]);
 
         const lastFile = files[0]._id;
 
-        const total = await ScryfallCard.countDocuments({ file: lastFile });
+        const total = await ScryfallCard.countDocuments({ __file: lastFile });
 
         const start = Date.now();
 
@@ -505,7 +510,7 @@ export class CardMerger extends Task<IStatus> {
             return prog;
         });
 
-        const query = ScryfallCard.find({ file: lastFile }).lean();
+        const query = ScryfallCard.find({ __file: lastFile }).lean();
 
         for await (const jsons of toAsyncBucket(
             query as unknown as AsyncGenerator<ISCard>,
@@ -528,37 +533,52 @@ export class CardMerger extends Task<IStatus> {
 
                 const oldCards = cards.filter(c => c.scryfall.cardId === json.card_id);
 
-                if (oldCards.length === 0) {
-                    cardsToInsert.push(...newCards.map(toCard));
-                } else if (newCards.length === 1 && oldCards.length === 1) {
-                    merge(oldCards[0], toCard(newCards[0]), newCards[0].diff!);
+                if (newCards.length === 1) {
+                    // a single card
+                    if (oldCards.length === 0) {
+                        cardsToInsert.push(...newCards.map(toCard));
+                    } else if (oldCards.length === 1) {
+                        merge(oldCards[0], toCard(newCards[0]), newCards[0].__diff!);
 
-                    if (oldCards[0].modifiedPaths().length > 0) {
-                        await oldCards[0].save();
-                    }
-                } else if (newCards.length === 2 && oldCards.length === 2) {
-                    const front = oldCards.find(c => c.scryfall.face === 'front');
-                    const back = oldCards.find(c => c.scryfall.face === 'back');
-
-                    if (front != null && back != null) {
-                        merge(front, toCard(newCards[0]), newCards[0].diff!);
-                        merge(back, toCard(newCards[1]), newCards[1].diff!);
-
-                        if (front.modifiedPaths().length > 0) {
-                            await front.save();
-                        }
-
-                        if (back.modifiedPaths().length > 0) {
-                            await back.save();
+                        if (oldCards[0].modifiedPaths().length > 0) {
+                            await oldCards[0].save();
                         }
                     } else {
                         throw new Error('mismatch object count');
                     }
-                } else {
-                    throw new Error('mismatch object count');
+                } else if (newCards.length === 2) {
+                    if (oldCards.length === 0) {
+                        cardsToInsert.push(...newCards.map(toCard));
+                    } else if (oldCards.length === 1 || oldCards.length === 2) {
+                        for (const n of newCards) {
+                            if (n.face === 'front') {
+                                const front = oldCards.find(c => c.scryfall.face === 'front');
+
+                                if (front != null) {
+                                    merge(front, toCard(n), n.__diff!);
+                                } else {
+                                    cardsToInsert.push(toCard(n));
+                                }
+                            } else {
+                                const back = oldCards.find(c => c.scryfall.face === 'back');
+
+                                if (back != null) {
+                                    merge(back, toCard(n), n.__diff!);
+                                } else {
+                                    cardsToInsert.push(toCard(n));
+                                }
+                            }
+                        }
+                    } else {
+                        throw new Error('mismatch object count');
+                    }
                 }
 
                 ++count;
+            }
+
+            for (const c of cardsToInsert) {
+                c.__tags.oracleUpdated = true;
             }
 
             await Card.insertMany(cardsToInsert);

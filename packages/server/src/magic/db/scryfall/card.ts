@@ -12,8 +12,8 @@ export type ICardBase = {
 } & Omit<RawCard, 'object' | 'id' | 'set'>;
 
 export type ICard = ICardBase & {
-    file: string;
-    diff?: Diff<ICardBase, ICardBase>[];
+    __file: string;
+    __diff?: Diff<ICardBase, ICardBase>[];
 };
 
 const CardSchema = new Schema({

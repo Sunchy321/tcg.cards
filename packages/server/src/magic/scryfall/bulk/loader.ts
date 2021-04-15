@@ -111,7 +111,7 @@ export default class BulkLoader extends Task<IStatus> {
 
     private async insertCards(rawJsons: RawCard[]) {
         const jsons = rawJsons.map(
-            ({ id, set, ...rest }) => ({ card_id: id, set_id: set, ...rest, file: this.file } as ICard),
+            ({ id, set, ...rest }) => ({ card_id: id, set_id: set, ...rest, __file: this.file } as ICard),
         );
 
         const docs = await Card.find({ card_id: { $in: jsons.map(j => j.card_id) } });
@@ -120,12 +120,22 @@ export default class BulkLoader extends Task<IStatus> {
             const doc = docs.find(j => j.card_id === json.card_id);
 
             if (doc == null) {
+                json.__diff = diff(
+                    {} as ICardBase,
+                    omit(json, ['file', 'diff']) as ICardBase,
+                );
+
                 return [json, null] as [ICard, null];
+            }
+
+            if (doc.__file === json.__file) {
+                // same file, keep diff unchanged
+                return [json, doc] as [ICard, ICard & Document];
             }
 
             const oldJson = doc.toJSON();
 
-            json.diff = diff(
+            json.__diff = diff(
                 omit(oldJson, ['_id', '__v', 'file', 'diff']) as ICardBase,
                 omit(json, ['file', 'diff']) as ICardBase,
             );
@@ -136,11 +146,11 @@ export default class BulkLoader extends Task<IStatus> {
                 return true;
             }
 
-            if (json.diff == null) {
+            if (json.__diff == null) {
                 return false;
             }
 
-            return json.diff.filter(d => d.path?.[0] !== 'edhrec_rank' && d.path?.[0] !== 'prices').length > 0;
+            return json.__diff.filter(d => d.path?.[0] !== 'edhrec_rank' && d.path?.[0] !== 'prices').length > 0;
         });
 
         const [toInsert, toUpdate] = partition(updated, pair => pair[1] == null);

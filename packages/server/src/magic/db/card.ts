@@ -109,6 +109,10 @@ export interface ICard {
     multiverseId?: number[],
     tcgPlayerId?: number,
     cardMarketId?: number,
+
+    __tags: {
+        oracleUpdated: boolean
+    }
 }
 
 const CardSchema = new Schema({
@@ -227,6 +231,10 @@ const CardSchema = new Schema({
     multiverseId: { type: [Number], default: undefined },
     tcgPlayerId:  Number,
     cardMarketId: Number,
+
+    __tags: {
+        updated: Boolean,
+    },
 });
 
 const Card = conn.model<ICard & Document>('card', CardSchema);
