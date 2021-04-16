@@ -323,7 +323,6 @@ export default {
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
                     const progress = JSON.parse(data);
-
                     this.progress = progress;
                 };
 

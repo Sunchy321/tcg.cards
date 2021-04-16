@@ -201,7 +201,7 @@ function field(firstKey, lastKey, defaultValue) {
         return {
             get() { return this.part?.[firstKey]?.[lastKey] ?? defaultValue; },
             set(newValue) {
-                if (this.data != null) {
+                if (this.hasData) {
                     this.data.parts[this.partIndex][firstKey][lastKey] = newValue;
                 }
             },
@@ -210,7 +210,7 @@ function field(firstKey, lastKey, defaultValue) {
         return {
             get() { return this.part?.[firstKey] ?? defaultValue; },
             set(newValue) {
-                if (this.data != null) {
+                if (this.hasData) {
                     this.$set(this.part, firstKey, newValue);
                 }
             },
@@ -231,10 +231,24 @@ export default {
     computed: {
         search: routeComputed('q', { keep: ['tab'] }),
 
+        hasData() {
+            if (this.data == null) {
+                return false;
+            }
+
+            const keys = Object.keys(this.data);
+
+            if (keys.length === 1 && keys[0] === 'total' && this.data.total === 0) {
+                return false;
+            }
+
+            return true;
+        },
+
         id: {
             get() { return this.data?.cardId ?? this.$route.query.id; },
             set(newValue) {
-                if (this.data != null) {
+                if (this.hasData) {
                     this.data.cardId = newValue;
                 }
             },
@@ -255,7 +269,7 @@ export default {
         partIndex: {
             get() { return this.data?.partIndex ?? this.$route.query.part ?? 0; },
             set(newValue) {
-                if (this.data != null) {
+                if (this.hasData) {
                     this.$set(this.data, 'partIndex', newValue);
                 }
             },
@@ -266,7 +280,7 @@ export default {
         layout: {
             get() { return this.data?.layout ?? 'normal'; },
             set(newValue) {
-                if (this.data != null) {
+                if (this.hasData) {
                     this.data.layout = newValue;
                 }
             },
@@ -317,7 +331,7 @@ export default {
             set(newValue) {
                 const parts = newValue.split(/, */);
 
-                if (this.data != null) {
+                if (this.hasData) {
                     this.data.relatedCards = parts.map(p => {
                         const [relation, cardId, lang, set, number] = p.split('|');
 
@@ -332,7 +346,7 @@ export default {
         },
 
         imageUrl() {
-            if (this.data == null) {
+            if (!this.hasData) {
                 return null;
             }
 
@@ -354,7 +368,7 @@ export default {
     methods: {
         async loadData(editType, update = true) {
             if (editType != null) {
-                if (this.data != null && update) {
+                if (this.hasData && update) {
                     await this.update();
                 }
 
@@ -391,7 +405,7 @@ export default {
         },
 
         defaultPrettify() {
-            if (this.data == null) {
+            if (this.data == null || this.data.total === 0) {
                 return;
             }
 
@@ -433,7 +447,7 @@ export default {
         },
 
         prettify() {
-            if (this.data == null) {
+            if (this.data == null || this.data.total === 0) {
                 return;
             }
 
@@ -465,10 +479,14 @@ export default {
             }
 
             this.unifiedText = this.unifiedText.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+
+            if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(this.printedText)) {
+                this.printedText = '';
+            }
         },
 
         async doSearch() {
-            if (this.data != null && this.id != null) {
+            if (this.hasData && this.id != null) {
                 await this.update();
             }
 
