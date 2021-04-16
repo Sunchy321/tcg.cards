@@ -133,6 +133,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                 name:          { $addToSet: '$parts.oracle.name' },
                 typeline:      { $addToSet: '$parts.oracle.typeline' },
                 text:          { $addToSet: '$parts.oracle.text' },
+                __tags:        { $first: '$__tags' },
             })
             .match({
                 $or: [
@@ -143,6 +144,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                     { 'name.2': { $exists: true } },
                     { 'typeline.2': { $exists: true } },
                     { 'text.2': { $exists: true } },
+                    { __tags: { oracleUpdated: true } },
                 ],
             }),
     }),

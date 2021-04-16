@@ -233,7 +233,7 @@ const CardSchema = new Schema({
     cardMarketId: Number,
 
     __tags: {
-        updated: Boolean,
+        oracleUpdated: Boolean,
     },
 });
 

@@ -216,13 +216,13 @@ function toCard(data: NSCard): ICard {
             unified: {
                 name:     f.printed_name || f.name,
                 text:     f.printed_text || f.oracle_text,
-                typeline: f.printed_type_line || f.type_line,
+                typeline: (f.printed_type_line || f.type_line).replace(/ ～/, '～'),
             },
 
             printed: {
                 name:     f.printed_name || f.name,
                 text:     f.printed_text || f.oracle_text,
-                typeline: f.printed_type_line || f.type_line,
+                typeline: (f.printed_type_line || f.type_line).replace(/ ～/, '～'),
             },
 
             scryfallIllusId: f.illustration_id,

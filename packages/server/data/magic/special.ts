@@ -21,6 +21,9 @@ export const textWithParen = [
     'metagamer',
     'nerf_war',
     'loopy_lobster',
+    'roil_royale__cont_d_',
+    'base_race__cont_d_',
+    'strictly_better',
 ];
 
 export const auxSetType = [
