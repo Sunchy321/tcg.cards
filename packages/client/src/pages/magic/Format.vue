@@ -43,7 +43,7 @@
                 <div class="date">
                     {{ b.date }}
                 </div>
-                <div>{{ b.card }}</div>
+                <card-avatar :id="b.card" />
             </div>
         </div>
     </div>
@@ -63,6 +63,11 @@
     flex-shrink 0
     flex-grow 1
 
+    flex-wrap nowrap
+
+    & > .date
+        flex-shrink 0
+
 .date
     color grey
 </style>
@@ -72,6 +77,7 @@ import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
 
 import DateInput from 'components/DateInput';
+import CardAvatar from 'components/magic/CardAvatar';
 
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
 const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
@@ -79,7 +85,7 @@ const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
 export default {
     name: 'Format',
 
-    components: { DateInput },
+    components: { DateInput, CardAvatar },
 
     mixins: [page, magic],
 
@@ -222,8 +228,6 @@ export default {
     watch: {
         '$store.getters.params.format'() {
             const format = this.$store.getters.params.format;
-
-            console.log(format);
 
             if (format !== this.id && format != null) {
                 this.$router.push({ name: 'magic/format', params: { id: format } });

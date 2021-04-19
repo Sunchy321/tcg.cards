@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@quasar/extras": "^1.9.6",
-    "axios": "^0.18.1",
+    "axios": "^0.21.1",
     "babel-plugin-syntax-jsx": "^6.18.0",
     "babel-plugin-transform-vue-jsx": "^3.7.0",
     "bytes": "^3.1.0",
+    "debounce-promise": "^3.1.2",
+    "dexie": "^3.0.3",
     "jsonwebtoken": "^8.5.1",
     "quasar": "^1.14.1",
     "vue-i18n": "^8.0.0"
