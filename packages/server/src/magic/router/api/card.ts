@@ -147,12 +147,21 @@ router.get('/random', async ctx => {
 interface CardProfile {
     cardId: string;
 
+    layout: string;
+
     parts: {
         localization: {
             lang: string;
             name: string;
         }[]
-    }[]
+    }[],
+
+    versions: {
+        lang: string;
+        set: string;
+        number: string;
+        releaseDate: string;
+    }[],
 }
 
 router.get('/profile', async ctx => {
@@ -165,8 +174,10 @@ router.get('/profile', async ctx => {
     for (const c of cards) {
         if (result[c.cardId] == null) {
             result[c.cardId] = {
-                cardId: c.cardId,
-                parts:  [],
+                cardId:   c.cardId,
+                layout:   c.layout,
+                parts:    [],
+                versions: [],
             };
         }
 
@@ -184,6 +195,13 @@ router.get('/profile', async ctx => {
                 });
             }
         }
+
+        profile.versions.push({
+            lang:        c.lang,
+            set:         c.setId,
+            number:      c.number,
+            releaseDate: c.releaseDate,
+        });
     }
 
     ctx.body = result;
