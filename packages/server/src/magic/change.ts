@@ -162,7 +162,7 @@ export async function getChanges(
 
 const formatWithSet = ['standard', 'historic', 'pioneer', 'modern', 'extended', 'brawl'];
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
-const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
+const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
 
 export async function syncChange(): Promise<void> {
     const formats = await Format.find();

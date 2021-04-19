@@ -144,4 +144,49 @@ router.get('/random', async ctx => {
     ctx.body = cardIds[random(cardIds.length - 1)] ?? '';
 });
 
+interface CardProfile {
+    cardId: string;
+
+    parts: {
+        localization: {
+            lang: string;
+            name: string;
+        }[]
+    }[]
+}
+
+router.get('/profile', async ctx => {
+    const ids = (ctx.query.id ?? '').split(',');
+
+    const cards = await Card.find({ cardId: { $in: ids } });
+
+    const result: Record<string, CardProfile> = {};
+
+    for (const c of cards) {
+        if (result[c.cardId] == null) {
+            result[c.cardId] = {
+                cardId: c.cardId,
+                parts:  [],
+            };
+        }
+
+        const profile = result[c.cardId];
+
+        for (const [i, p] of c.parts.entries()) {
+            if (profile.parts[i] == null) {
+                profile.parts[i] = { localization: [] };
+            }
+
+            if (!profile.parts[i].localization.some(l => l.lang === c.lang)) {
+                profile.parts[i].localization.push({
+                    lang: c.lang,
+                    name: p.unified.name,
+                });
+            }
+        }
+    }
+
+    ctx.body = result;
+});
+
 export default router;
