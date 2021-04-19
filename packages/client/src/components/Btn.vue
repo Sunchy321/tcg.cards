@@ -30,11 +30,9 @@ export default {
         },
     },
 
-    data() {
-        return {
-            flickerColor: undefined,
-        };
-    },
+    data: () => ({
+        flickerColor: undefined,
+    }),
 
     computed: {
         actualColor() {

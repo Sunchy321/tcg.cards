@@ -28,7 +28,7 @@
 <script>
 export default {
     props: {
-        value: { required: true, validator: v => v == null || /^\d{4}-\d{2}-\d{2}$/.test(v) },
+        value: { required: true, validator: v => v == null || typeof v === 'string' },
 
         dense:     { type: Boolean, default: false },
         outlined:  { type: Boolean, default: false },

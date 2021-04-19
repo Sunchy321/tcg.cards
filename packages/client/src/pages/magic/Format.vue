@@ -28,24 +28,25 @@
             />
         </div>
 
-        <div v-if="sets.length > 0" class="row q-mb-md q-gutter-sm">
-            <div v-for="s in sets" :key="s" class="set">
+        <div class="row q-mb-md">
+            <div v-for="s in sets" :key="s" class="set code">
                 {{ s }}
             </div>
         </div>
 
-        <div v-if="banlist.length > 0" class="row">
-            <div v-for="b in banlist" :key="b.card" class="banlist row items-center q-gutter-sm">
+        <grid
+            v-slot="{ status, card, date: effectiveDate }"
+            :value="banlist" :item-width="300" item-key="card"
+        >
+            <div class="banlist row items-center q-gutter-sm">
                 <q-icon
-                    :name="statusIcon(b.status, b.card)"
-                    :class="'magic-banlist-status-' + b.status"
+                    :name="statusIcon(status, card)"
+                    :class="'magic-banlist-status-' + status"
                 />
-                <div class="date">
-                    {{ b.date }}
-                </div>
-                <card-avatar :id="b.card" />
+                <div class="date">{{ effectiveDate }}</div>
+                <card-avatar :id="card" />
             </div>
-        </div>
+        </grid>
     </div>
 </template>
 
@@ -54,15 +55,9 @@
     font-size 24px
 
 .set
-    border black 1px solid
-    border-radius 5px
-    padding 2px
+    padding 5px
 
 .banlist
-    flex-basis 300px
-    flex-shrink 0
-    flex-grow 1
-
     flex-wrap nowrap
 
     & > .date
@@ -76,6 +71,8 @@
 import page from 'src/mixins/page';
 import magic from 'src/mixins/magic';
 
+import Grid from 'components/Grid';
+
 import DateInput from 'components/DateInput';
 import CardAvatar from 'components/magic/CardAvatar';
 
@@ -85,7 +82,7 @@ const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
 export default {
     name: 'Format',
 
-    components: { DateInput, CardAvatar },
+    components: { Grid, DateInput, CardAvatar },
 
     mixins: [page, magic],
 
