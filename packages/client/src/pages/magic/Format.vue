@@ -44,7 +44,7 @@
                     :class="'magic-banlist-status-' + status"
                 />
                 <div class="date">{{ effectiveDate }}</div>
-                <card-avatar :id="card" />
+                <card-avatar :id="card" :pauper="id === 'pauper'" />
             </div>
         </grid>
     </div>

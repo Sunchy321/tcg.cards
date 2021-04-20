@@ -40,6 +40,11 @@ export default {
             type:     String,
             required: true,
         },
+
+        pauper: {
+            type:    Boolean,
+            default: false,
+        },
     },
 
     data: () => ({
@@ -68,8 +73,42 @@ export default {
         },
 
         imageVersion() {
-            if (this.profile == null) {
+            if (this.profile == null || this.profile.versions == null) {
                 return null;
+            }
+
+            if (this.pauper) {
+                const versions = this.profile.versions.filter(v => v.rarity === 'common');
+
+                const locales = this.$store.getters['magic/locales'];
+
+                const locale = this.$store.getters['magic/locale'];
+                const defauleLocale = locales[0];
+
+                const localeVersion = versions.filter(v => v.lang === locale);
+
+                if (localeVersion.length > 0) {
+                    return localeVersion.sort((a, b) =>
+                        a.releaseDate > b.releaseDate ? -1
+                            : a.releaseDate < b.releaseDate ? 1 : 0,
+                    )[0];
+                }
+
+                const defaultVersion = versions.filter(v => v.lang === defauleLocale);
+
+                if (defaultVersion.length > 0) {
+                    return defaultVersion.sort((a, b) =>
+                        a.releaseDate > b.releaseDate ? -1
+                            : a.releaseDate < b.releaseDate ? 1 : 0,
+                    )[0];
+                }
+
+                if (versions.length > 0) {
+                    return versions.sort((a, b) =>
+                        a.releaseDate > b.releaseDate ? -1
+                            : a.releaseDate < b.releaseDate ? 1 : 0,
+                    )[0];
+                }
             }
 
             const versions = this.profile.versions;
