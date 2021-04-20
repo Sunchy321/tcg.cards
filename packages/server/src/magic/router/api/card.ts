@@ -160,6 +160,7 @@ interface CardProfile {
         lang: string;
         set: string;
         number: string;
+        rarity: string;
         releaseDate: string;
     }[],
 }
@@ -200,6 +201,7 @@ router.get('/profile', async ctx => {
             lang:        c.lang,
             set:         c.setId,
             number:      c.number,
+            rarity:      c.rarity,
             releaseDate: c.releaseDate,
         });
     }
