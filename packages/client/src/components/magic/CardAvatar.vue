@@ -5,7 +5,7 @@
             <span v-else class="code">{{ id }}</span>
             <q-tooltip v-if="imageVersion != null" content-class="card-popover">
                 <card-image
-                    class="card-image"
+                    class="card-image-popover"
                     :lang="imageVersion.lang"
                     :set="imageVersion.set"
                     :number="imageVersion.number"
@@ -22,7 +22,7 @@
     background-color transparent !important
     padding 0 !important
 
-.card-image
+.card-image-popover
     width 250px
 
 </style>
