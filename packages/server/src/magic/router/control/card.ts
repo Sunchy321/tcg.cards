@@ -48,6 +48,10 @@ router.post('/update',
     async ctx => {
         const data: ICard & { _id: string } = ctx.request.body.data;
 
+        if (data?.__tags?.oracleUpdated) {
+            data.__tags.oracleUpdated = false;
+        }
+
         const old = await Card.findById(data._id);
 
         if (old != null) {

@@ -398,27 +398,16 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
             break;
         case 'card_faces':
             switch (d.path![2]) {
-            case 'image_uris':
-                // ignore
-                break;
             case 'oracle_text':
                 if (card.parts[d.path![1]].oracle.text !== data.parts[d.path![1]].oracle.text) {
                     card.parts[d.path![1]].oracle.text = data.parts[d.path![1]].oracle.text;
                     card.__tags.oracleUpdated = true;
+
+                    if (card.lang === 'en') {
+                        card.parts[d.path![1]].unified.text = data.parts[d.path![1]].oracle.text;
+                    }
                 }
                 break;
-            case 'printed_name':
-                if (card.parts[d.path![1]].printed.name !== data.parts[d.path![1]].printed.name) {
-                    card.parts[d.path![1]].printed.name = data.parts[d.path![1]].printed.name;
-                }
-                break;
-            case 'flavor_text':
-                if (card.parts[d.path![1]].flavorText !== data.parts[d.path![1]].flavorText) {
-                    card.parts[d.path![1]].flavorText = data.parts[d.path![1]].flavorText;
-                }
-                break;
-            // default:
-                // throw new Error(`Unknown path ${d.path!.join('.')}`);
             }
             break;
         case 'color_indicator':
@@ -429,26 +418,11 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
         case 'oracle_text':
             if (card.parts[0].oracle.text !== data.parts[0].oracle.text) {
                 card.parts[0].oracle.text = data.parts[0].oracle.text;
-            }
-            break;
-        case 'printed_name':
-            if (card.parts[0].printed.name !== data.parts[0].printed.name) {
-                card.parts[0].printed.name = data.parts[0].printed.name;
-            }
-            break;
-        case 'printed_type_line':
-            if (card.parts[0].printed.typeline !== data.parts[0].printed.typeline) {
-                card.parts[0].printed.typeline = data.parts[0].printed.typeline;
-            }
-            break;
-        case 'printed_text':
-            if (card.parts[0].printed.text !== data.parts[0].printed.text) {
-                card.parts[0].printed.text = data.parts[0].printed.text;
-            }
-            break;
-        case 'flavor_text':
-            if (card.parts[0].flavorText !== data.parts[0].flavorText) {
-                card.parts[0].flavorText = data.parts[0].flavorText;
+                card.__tags.oracleUpdated = true;
+
+                if (card.lang === 'en') {
+                    card.parts[0].unified.text = data.parts[0].oracle.text;
+                }
             }
             break;
         case 'artist':
@@ -467,8 +441,6 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                 card.legalities = data.legalities;
             }
             break;
-        // default:
-            // throw new Error(`Unknown path ${d.path!.join('.')}`);
         }
     }
 }
