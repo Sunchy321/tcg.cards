@@ -32,31 +32,6 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
     return aggregate as unknown as Promise<ICard[]>;
 }
 
-interface IQuickFindResult {
-    _id: string,
-    name: string[]
-}
-
-function quickFind(id: string[], lang?: string): Promise<IQuickFindResult[]> {
-    const aggregate = Card.aggregate().allowDiskUse(true);
-
-    aggregate.match({ cardId: { $in: id } });
-
-    if (lang != null) {
-        aggregate.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
-    }
-
-    aggregate
-        .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
-        .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
-        .group({
-            _id:  '$cardId',
-            name: { $first: '$parts.unified.name' },
-        });
-
-    return aggregate as unknown as Promise<IQuickFindResult[]>;
-}
-
 router.get('/', async ctx => {
     const { id, lang, set, number } = ctx.query;
 
@@ -89,42 +64,7 @@ router.get('/', async ctx => {
             }
         }
 
-        const relatedCardObjects = await quickFind(
-            relatedCards.filter(r => r.version == null).map(r => r.cardId),
-            cards[0].lang,
-        );
-
-        result.relatedCards = [];
-
-        for (const { relation, cardId, version } of relatedCards) {
-            if (version != null) {
-                const card = await Card.findOne({
-                    cardId,
-                    lang:   version.lang,
-                    setId:  version.set,
-                    number: version.number,
-                });
-
-                if (card != null) {
-                    result.relatedCards.push({
-                        relation,
-                        cardId,
-                        version,
-                        name: card.parts.map(p => p.unified.name).join(' // '),
-                    });
-                }
-            } else {
-                const card = relatedCardObjects.find(o => o._id === cardId);
-
-                if (card != null) {
-                    result.relatedCards.push({
-                        relation,
-                        cardId,
-                        name: card.name.join(' // '),
-                    });
-                }
-            }
-        }
+        result.relatedCards = relatedCards;
 
         ctx.body = result;
     } else {
