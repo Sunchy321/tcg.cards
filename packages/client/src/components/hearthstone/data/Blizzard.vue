@@ -62,98 +62,110 @@
     </div>
 </template>
 
-<style lang="stylus" scoped>
-
+<style lang="sass" scoped>
 .flex-grow
-    flex-grow 1
-    width inherit
-
+    flex-grow: 1
+    width: inherit
 </style>
 
-<script>
-export default {
-    data: () => ({
-        progress: null,
-        metadata: false,
-    }),
+<script lang="ts">
+import { defineComponent, ref, computed } from 'vue';
 
-    computed: {
-        progressValue() {
-            const prog = this.progress;
+import controlSetup from 'setup/control';
+
+interface Progress {
+    method: 'get';
+    type: 'card' | 'image';
+    count: number;
+    total: number;
+}
+
+export default defineComponent({
+    setup() {
+        const { controlWs } = controlSetup();
+
+        const progress = ref<Progress|null>(null);
+        const metadata = ref(false);
+
+        const progressValue = computed(() => {
+            const prog = progress.value;
 
             if (prog == null) {
                 return null;
             }
 
             return prog.count / prog.total;
-        },
+        });
 
-        progressLabel() {
-            const prog = this.progress;
+        const progressLabel = computed(() => {
+            const prog = progress.value;
 
             if (prog == null) {
                 return null;
             }
 
             return `[${prog.method}] ${prog.type}: ${prog.count}/${prog.total}`;
-        },
-    },
+        });
 
-    methods: {
-        async getMetadata() {
-            this.metadata = true;
+        const getMetadata = async () => {
+            metadata.value = true;
 
-            const ws = this.controlWs('/hearthstone/blizzard/get-metadata');
+            const ws = controlWs('/hearthstone/blizzard/get-metadata');
 
             return new Promise((resolve, reject) => {
                 ws.onerror = e => {
-                    this.metadata = false;
+                    metadata.value = false;
                     reject(e);
                 };
                 ws.onclose = () => {
-                    this.metadata = false;
-                    resolve();
+                    metadata.value = false;
+                    resolve(undefined);
                 };
             });
-        },
+        };
 
-        async getCard() {
-            const ws = this.controlWs('/hearthstone/blizzard/get-card');
+        const getCard = async () => {
+            const ws = controlWs('/hearthstone/blizzard/get-card');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
-                    const progress = JSON.parse(data);
-                    this.progress = progress;
+                    progress.value = JSON.parse(data) as Progress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.progress = null;
-                    resolve();
+                    progress.value = null;
+                    resolve(undefined);
                 };
             });
-        },
+        };
 
-        async getImage() {
-            const ws = this.controlWs('/hearthstone/blizzard/get-image');
+        const getImage = async () => {
+            const ws = controlWs('/hearthstone/blizzard/get-image');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
-                    const progress = JSON.parse(data);
-                    this.progress = progress;
+                    progress.value = JSON.parse(data) as Progress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.progress = null;
-                    resolve();
+                    progress.value = null;
+                    resolve(undefined);
                 };
             });
-        },
+        };
+
+        return {
+            progress,
+            progressValue,
+            progressLabel,
+            metadata,
+
+            getMetadata,
+            getCard,
+            getImage,
+        };
     },
-};
+});
 </script>
-
-<style>
-
-</style>

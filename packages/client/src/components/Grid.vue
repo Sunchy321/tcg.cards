@@ -15,11 +15,18 @@
     </div>
 </template>
 
-<script>
-export default {
+<script lang="ts">
+import { PropType, defineComponent, ref, watch } from 'vue';
+
+export default defineComponent({
     props: {
         value: {
-            type:     Array,
+            type:     Array as PropType<any[]>,
+            required: true,
+        },
+
+        itemWidth: {
+            type:     Number,
             required: true,
         },
 
@@ -27,53 +34,45 @@ export default {
             type:    String,
             default: undefined,
         },
-
-        itemWidth: {
-            type:     Number,
-            required: true,
-        },
     },
 
-    data: () => ({
-        itemRealWidth: 0,
-        itemPerLine:   0,
-        placeholder:   0,
-    }),
+    setup(props) {
+        const root = ref<HTMLDivElement|null>(null);
 
-    watch: {
-        value: {
-            immediate: true,
-            handler() {
-                this.calcGridInfo();
-            },
-        },
-    },
+        const itemRealWidth = ref(0);
+        const itemPerLine = ref(0);
+        const placeholder = ref(0);
 
-    methods: {
-        calcGridInfo() {
-            const root = this.$refs.root;
-
-            if (root == null) {
+        function calcGridInfo() {
+            if (root.value == null) {
                 return;
             }
 
-            // hard code
+            // magic number
             const margin = 16;
 
-            const panelWidth = root.clientWidth;
+            const panelWidth = root.value.clientWidth;
             const contentWidth = panelWidth - 2 * margin;
 
-            this.itemRealWidth = contentWidth < this.itemWidth ? contentWidth : this.itemWidth;
-            this.itemPerLine = Math.floor((panelWidth - margin) / (this.itemRealWidth + margin));
+            itemRealWidth.value = contentWidth < props.itemWidth ? contentWidth : props.itemWidth;
+            itemPerLine.value = Math.floor((panelWidth - margin) / (itemRealWidth.value + margin));
 
-            const reminder = this.value.length % this.itemPerLine;
+            const reminder = props.value.length % itemPerLine.value;
 
-            this.placeholder = reminder === 0 ? 0 : reminder;
-        },
+            placeholder.value = reminder === 0 ? 0 : reminder;
+        }
+
+        watch(props.value, calcGridInfo, { immediate: true });
+
+        return {
+            root,
+
+            itemRealWidth,
+            itemPerLine,
+            placeholder,
+
+            calcGridInfo,
+        };
     },
-};
+});
 </script>
-
-<style>
-
-</style>

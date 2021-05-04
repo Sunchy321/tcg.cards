@@ -30,60 +30,62 @@
     </div>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .single-status
-    display inline-flex
-    justify-content center
-    align-items center
+    display: inline-flex
+    justify-content: center
+    align-items: center
 
-    width 35px
-    height 35px
-    font-size 10px
+    width: 35px
+    height: 35px
+    font-size: 10px
 
     &.status-success
-        background-color green
-        color white
+        background-color: green
+        color: white
 
     &.status-working
-        background-color blue
-        color white
+        background-color: blue
+        color: white
 
     &.status-failed
-        background-color red
-        color white
+        background-color: red
+        color: white
 
     &.status-stopped
-        background-color yellow
+        background-color: yellow
 </style>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref, computed } from 'vue';
 
-export default {
-    data: () => ({
-        type: 'png',
+import contorlSetup from 'setup/control';
 
-        progress: null,
-    }),
+interface Progress {
+    overall: { count: number, total: number }
+    current: { set: string, lang: string; }
+    status: Record<string, string>
+}
 
-    computed: {
-        types() {
-            return ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
-        },
+export default defineComponent({
+    setup() {
+        const { controlWs } = contorlSetup();
 
-        typeOptions() {
-            return this.types.map(t => ({
-                value: t, label: t,
-            }));
-        },
+        const type = ref('png');
+        const progress = ref<Progress|null>(null);
 
-        status() {
-            return this.progress?.status ?? {};
-        },
+        const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
 
-        statusKey() {
-            return Object.keys(this.status).sort((a, b) => {
-                const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a)[1];
-                const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b)[1];
+        const typeOptions = types.map(t => ({
+            value: t, label: t,
+        }));
+
+        const status = computed(() => progress.value?.status ?? {});
+
+        const statusKey = computed(() => {
+            return Object.keys(status.value).sort((a, b) => {
+                const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a)![1];
+                const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b)![1];
 
                 const len = Math.max(ma.length, mb.length);
 
@@ -92,34 +94,37 @@ export default {
 
                 return pa < pb ? -1 : pa > pb ? 1 : 0;
             });
-        },
-    },
+        });
 
-    methods: {
-        async getImage() {
-            this.progress = null;
+        const getImage = async() => {
+            progress.value = null;
 
-            const ws = this.controlWs('/magic/image/get', { type: this.type });
+            const ws = controlWs('/magic/image/get', { type: type.value });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
-                    const progress = JSON.parse(data);
+                    const prog = JSON.parse(data) as Progress;
 
-                    if (progress?.current?.set != null) {
-                        this.progress = progress;
+                    if (prog?.current?.set != null) {
+                        progress.value = prog;
                     }
                 };
 
                 ws.onerror = reject;
-                ws.onclose = () => {
-                    resolve();
-                };
+                ws.onclose = () => { resolve(undefined); };
             });
-        },
+        };
+
+        return {
+            type,
+            progress,
+            status,
+            statusKey,
+
+            typeOptions,
+
+            getImage,
+        };
     },
-};
+});
 </script>
-
-<style>
-
-</style>

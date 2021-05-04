@@ -7,19 +7,21 @@
     </q-page>
 </template>
 
-<script>
-import page from 'src/mixins/page';
-import basic from '../../mixins/basic';
+<script lang="ts">
+import { defineComponent } from 'vue';
+import { useI18n } from 'vue-i18n';
 
-export default {
+import pageSetup from 'setup/page';
+
+export default defineComponent({
     name: 'Hearthstone',
 
-    mixins: [page, basic],
+    setup() {
+        const i18n = useI18n();
 
-    computed: {
-        title() {
-            return this.$t('hearthstone.$self');
-        },
+        pageSetup({
+            title: () => i18n.t('hearthstone.$self'),
+        });
     },
-};
+});
 </script>

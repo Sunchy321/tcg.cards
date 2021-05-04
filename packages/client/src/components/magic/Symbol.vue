@@ -1,35 +1,37 @@
-<style lang="stylus">
+<style lang="sass">
 .magic-symbol
-    height 1em
-    width 1em
+    height: 1em
+    width: 1em
 
     &.icon-100
-        width 1.88em
+        width: 1.88em
 
     &.icon-1000000
-        width 5.08em
+        width: 5.08em
 
     &.icon-CHAOS
-        width 1.20em
+        width: 1.20em
 
     &.cost
-        margin-right 1px
+        margin-right: 1px
 
         &.cost-shadow
-            margin-right 3px
-            border-radius 100px
-            box-shadow -2px 2px 0 rgba(0,0,0,0.85)
+            margin-right: 3px
+            border-radius: 100px
+            box-shadow: -2px 2px 0 rgba(0,0,0,0.85)
 
     &.cost.mini
-        font-size 50%
+        font-size: 50%
 
         &.cost-shadow
-            margin-right 2px
-            box-shadow -1px 1px 0 rgba(0,0,0,0.85)
+            margin-right: 2px
+            box-shadow: -1px 1px 0 rgba(0,0,0,0.85)
 </style>
 
-<script>
-function calcActualValue(value, type) {
+<script lang="ts">
+import { PropType, defineComponent, h } from 'vue';
+
+function calcActualValue(value: string, type: string[]) {
     if (type.includes('flat')) {
         return value + ',flat';
     }
@@ -54,7 +56,7 @@ function calcActualValue(value, type) {
     }
 }
 
-export default {
+export default defineComponent({
     name: 'MagicSymbol',
 
     functional: true,
@@ -66,35 +68,40 @@ export default {
         },
 
         type: {
-            type:    Array,
+            type:    Array as PropType<string[]>,
             default: () => ['modern'],
         },
     },
 
-    render(h, { props:{ value, type }, data }) {
-        const actualValue = calcActualValue(value, type);
+    setup(props) {
+        return () => {
+            const value = props.value;
+            const type = props.type;
 
-        const src = `magic/symbols.svg#icon-${actualValue}`;
+            const actualValue = calcActualValue(value, type);
 
-        let klass = 'magic-symbol icon-' + actualValue;
+            const src = `magic/symbols.svg#icon-${actualValue}`;
 
-        if (type.includes('cost')) {
-            klass += ' cost';
+            let klass = 'magic-symbol icon-' + actualValue;
 
-            if (!type.includes('flat')) {
-                klass += ' cost-shadow';
+            if (type.includes('cost')) {
+                klass += ' cost';
+
+                if (!type.includes('flat')) {
+                    klass += ' cost-shadow';
+                }
             }
-        }
 
-        if (type.includes('mini')) {
-            klass += ' mini';
-        }
+            if (type.includes('mini')) {
+                klass += ' mini';
+            }
 
-        if (data.class != null) {
-            klass += ' ' + data.class;
-        }
-
-        return <img class={klass} src={src} alt={`{${value}}`} />;
+            return h('img', {
+                class: klass,
+                src,
+                alt:   `{${value}}`,
+            });
+        };
     },
-};
+});
 </script>

@@ -10,7 +10,7 @@
                 emit-value map-options
                 :options="localeOptions"
             >
-                <template v-slot:option="scope">
+                <template #option="scope">
                     <q-item
                         v-bind="scope.itemProps"
                         v-on="scope.itemEvents"
@@ -28,36 +28,37 @@
     </article>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .code
-    color #777
-    width 40px
+    color: #777
+    width: 40px
 </style>
 
-<script>
-export default {
-    name: 'Basic',
+<script lang="ts">
+import { defineComponent, computed } from 'vue';
 
-    computed: {
-        locale: {
-            get() {
-                return this.$store.getters.locale;
-            },
-            set(newValue) {
-                this.$store.commit('locale', newValue);
-            },
-        },
+import { useStore } from 'src/store';
+import { useI18n } from 'vue-i18n';
 
-        locales() {
-            return this.$store.getters.locales;
-        },
+export default defineComponent({
+    setup() {
+        const store = useStore();
+        const i18n = useI18n();
 
-        localeOptions() {
-            return this.locales.map(l => ({
-                value: l,
-                label: this.$t('lang.$self', l),
-            }));
-        },
+        const locale = computed({
+            get() { return store.getters.locale; },
+            set(newValue: string) { store.commit('locale', newValue); },
+        });
+
+        const locales = computed(() => store.getters.locales);
+
+        const localeOptions = computed(() => locales.value.map(l => ({
+            value: l,
+            label: i18n.t('lang.$self', '', { locale: l }),
+        })));
+
+        return { locale, locales, localeOptions };
     },
-};
+
+});
 </script>

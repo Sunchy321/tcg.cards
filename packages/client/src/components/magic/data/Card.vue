@@ -2,7 +2,7 @@
     <div class="q-pa-md row">
         <div class="card-image col-3 q-mr-md">
             <q-img :src="imageUrl" :ratio="745/1040" native-context-menu :class="{ rotate }">
-                <template v-slot:error>
+                <template #error>
                     <div class="card-not-found">
                         <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
                     </div>
@@ -12,7 +12,7 @@
         <div class="col">
             <div class="q-mb-md">
                 <q-input v-model="search" class="q-mr-md" dense @keypress.enter="doSearch">
-                    <template v-slot:append>
+                    <template #append>
                         <q-btn
                             icon="mdi-magnify"
                             flat dense round
@@ -84,7 +84,7 @@
                 <q-btn
                     icon="mdi-upload"
                     dense flat round
-                    @click="update"
+                    @click="doUpdate"
                 />
             </div>
 
@@ -156,183 +156,275 @@
     </div>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .inline-flex
-    display inline-flex
+    display: inline-flex
 
 .card-not-found
-    width 100%
-    background-color transparent !important
-    padding 0 !important
+    width: 100%
+    background-color: transparent !important
+    padding: 0 !important
 
 .q-input.id
-    width 300px
+    width: 300px
 
 table
-    width 100%
+    width: 100%
 
     & .title
-        width 50px
+        width: 50px
 
     & .name
-        width 150px
+        width: 150px
 
     & .typeline
-        width 250px
+        width: 250px
 
 .rotate
-    transform rotate(90deg) scale(745/1040)
+    transform: rotate(90deg) scale(745/1040)
 
 @media screen and (max-width: 1000px)
     .card-image
-        display none
+        display: none
 
 </style>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
+
+import { useRouter, useRoute } from 'vue-router';
+import { useStore } from 'src/store';
+
+import controlSetup from 'setup/control';
+
 import { escapeRegExp } from 'lodash';
 
-import routeComputed from 'src/route-computed';
+import { imageBase, apiGet } from 'boot/backend';
 
-import { imageBase } from 'boot/backend';
+interface Part {
+    cost: string[];
 
-function field(firstKey, lastKey, defaultValue) {
-    if (lastKey != null) {
-        return {
-            get() { return this.part?.[firstKey]?.[lastKey] ?? defaultValue; },
-            set(newValue) {
-                if (this.hasData) {
-                    this.data.parts[this.partIndex][firstKey][lastKey] = newValue;
-                }
-            },
-        };
-    } else {
-        return {
-            get() { return this.part?.[firstKey] ?? defaultValue; },
-            set(newValue) {
-                if (this.hasData) {
-                    this.$set(this.part, firstKey, newValue);
-                }
-            },
-        };
+    color: string;
+    colorIndicator?: string;
+
+    power?: string;
+    toughness?: string;
+    loyalty?: string;
+    handModifier?: string;
+    lifeModifier?: string;
+
+    oracle: {
+        name: string;
+        typeline: string;
+        text: string;
+    };
+
+    unified: {
+        name: string;
+        typeline: string;
+        text: string;
+    };
+
+    printed: {
+        name: string;
+        typeline: string;
+        text: string;
+    };
+
+    flavorText: string;
+    artist: string;
+}
+
+interface RelatedCard {
+    relation: string;
+    cardId: string;
+    version?: {
+        lang: string;
+        set: string;
+        number: string;
     }
 }
 
-export default {
+interface Card {
+    cardId: string;
+
+    setId: string;
+    number: string;
+    lang: string;
+
+    layout: string;
+
+    parts: Part[];
+
+    versions: {
+        lang: string;
+        set: string;
+        number: string;
+
+        rarity: string;
+
+        // set info
+        name: Record<string, string>;
+        symbolStyle: string[];
+        parent?: string;
+    }[];
+
+    relatedCards: RelatedCard[];
+
+    partIndex?: number;
+    total?: number;
+    result?: {
+        _id: { id: string, lang: string, part: number }
+    };
+}
+
+export default defineComponent({
     name: 'DataCard',
 
-    data: () => ({
-        data:        null,
-        unlock:      false,
-        replaceFrom: '',
-        replaceTo:   '',
-    }),
+    setup() {
+        const router = useRouter();
+        const route = useRoute();
+        const store = useStore();
 
-    computed: {
-        search: routeComputed('q', { keep: ['tab'] }),
+        const { controlGet, controlPost } = controlSetup();
 
-        hasData() {
-            if (this.data == null) {
+        const data = ref<Card|null>(null);
+        const unlock = ref(false);
+        const replaceFrom = ref('');
+        const replaceTo = ref('');
+
+        const search = computed({
+            get() { return route.query.q as string ?? ''; },
+            set(newValue: string) {
+                void router.replace({
+                    query: {
+                        ...route.query,
+                        q: newValue,
+                    },
+                });
+            },
+        });
+
+        const hasData = computed(() => {
+            if (data.value == null) {
                 return false;
             }
 
-            const keys = Object.keys(this.data);
+            const keys = Object.keys(data.value);
 
-            if (keys.length === 1 && keys[0] === 'total' && this.data.total === 0) {
+            if (keys.length === 1 && keys[0] === 'total' && data.value.total === 0) {
                 return false;
             }
 
             return true;
-        },
+        });
 
-        id: {
-            get() { return this.data?.cardId ?? this.$route.query.id; },
-            set(newValue) {
-                if (this.hasData) {
-                    this.data.cardId = newValue;
+        const id = computed({
+            get() { return data.value?.cardId ?? route.query.id as string; },
+            set(newValue: string) {
+                if (hasData.value) {
+                    data.value!.cardId = newValue;
                 }
             },
-        },
+        });
 
-        lang() { return this.data?.lang ?? this.$route.query.lang; },
-        set() { return this.data?.setId ?? this.$route.query.set; },
-        number() { return this.data?.number ?? this.$route.query.number; },
+        const lang = computed(() => data.value?.lang ?? route.query.lang as string);
+        const set = computed(() => data.value?.setId ?? route.query.set as string);
+        const number = computed(() => data.value?.number ?? route.query.number as string);
 
-        info() {
-            if (this.data) {
-                return `${this.lang}, ${this.set}:${this.number}`;
+        const info = computed(() => {
+            if (hasData.value) {
+                return `${lang.value}, ${set.value}:${number.value}`;
             } else {
                 return '';
             }
-        },
+        });
 
-        partIndex: {
-            get() { return this.data?.partIndex ?? this.$route.query.part ?? 0; },
-            set(newValue) {
-                if (this.hasData) {
-                    this.$set(this.data, 'partIndex', newValue);
+        const partIndex = computed({
+            get() { return data.value?.partIndex ?? parseInt(route.query.part as string) ?? 0; },
+            set(newValue: number) {
+                if (hasData.value) {
+                    data.value!.partIndex = newValue;
                 }
             },
-        },
+        });
 
-        total() { return this.data?.total; },
+        const total = computed(() => data.value?.total);
 
-        layout: {
-            get() { return this.data?.layout ?? 'normal'; },
-            set(newValue) {
-                if (this.hasData) {
-                    this.data.layout = newValue;
+        const layout = computed({
+            get() { return data.value?.layout ?? 'normal'; },
+            set(newValue: string) {
+                if (hasData.value) {
+                    data.value!.layout = newValue;
                 }
             },
-        },
+        });
 
-        layoutOptions() {
-            return ['normal', 'split', 'multipart'];
-        },
+        const layoutOptions = ['normal', 'split', 'multipart'];
+        const rotate = computed(() => ['split'].includes(layout.value));
+        const partCount = computed(() => data.value?.parts?.length ?? 0);
 
-        rotate() { return ['split'].includes(this.layout); },
-
-        partCount() { return this.data?.parts?.length ?? 0; },
-        partOptions() {
+        const partOptions = computed(() => {
             const result = [];
 
-            for (let i = 0; i < this.partCount; ++i) {
+            for (let i = 0; i < partCount.value; ++i) {
                 result.push({ value: i, label: i });
             }
 
             return result;
-        },
+        });
 
-        part() { return this.data?.parts?.[this.partIndex]; },
+        const part = computed(() => data?.value?.parts?.[partIndex.value]);
 
-        oracleName:      field('oracle', 'name'),
-        oracleTypeline:  field('oracle', 'typeline'),
-        oracleText:      field('oracle', 'text'),
-        unifiedName:     field('unified', 'name'),
-        unifiedTypeline: field('unified', 'typeline'),
-        unifiedText:     field('unified', 'text'),
-        printedName:     field('printed', 'name'),
-        printedTypeline: field('printed', 'typeline'),
-        printedText:     field('printed', 'text'),
+        const partField1 = <F extends keyof Part>(firstKey: F, defaultValue?: Part[F]) => computed({
+            get() { return (part.value?.[firstKey] ?? defaultValue)!; },
+            set(newValue: Part[F]) {
+                if (hasData.value) {
+                    part.value![firstKey] = newValue;
+                }
+            },
+        });
 
-        flavor: field('flavorText', null, ''),
+        const partField2 = <
+            F extends keyof Part,
+            L extends keyof Part[F]
+        >(firstKey: F, lastKey: L, defaultValue?: Part[F][L]) => computed({
+            get() { return (part.value?.[firstKey]?.[lastKey] ?? defaultValue)!; },
+            set(newValue: Part[F][L]) {
+                if (hasData.value) {
+                    part.value![firstKey][lastKey] = newValue;
+                }
+            },
+        });
 
-        relatedCards: {
+        const oracleName = partField2('oracle', 'name');
+        const oracleTypeline = partField2('oracle', 'typeline');
+        const oracleText = partField2('oracle', 'text');
+        const unifiedName = partField2('unified', 'name');
+        const unifiedTypeline = partField2('unified', 'typeline');
+        const unifiedText = partField2('unified', 'text');
+        const printedName = partField2('printed', 'name');
+        const printedTypeline = partField2('printed', 'typeline');
+        const printedText = partField2('printed', 'text');
+
+        const flavor = partField1('flavorText', '');
+
+        const relatedCards = computed({
             get() {
-                return this.data?.relatedCards
+                return data.value?.relatedCards
                     ?.map(
                         ({ relation, cardId, version }) => (version != null
                             ? [relation, cardId, version.lang, version.set, version.number]
                             : [relation, cardId]
-                        ).join('|')
+                        ).join('|'),
                     )
                     ?.join(', ') ?? '';
             },
-            set(newValue) {
+            set(newValue: string) {
                 const parts = newValue.split(/, */);
 
-                if (this.hasData) {
-                    this.data.relatedCards = parts.map(p => {
+                if (hasData.value) {
+                    data.value!.relatedCards = parts.map(p => {
                         const [relation, cardId, lang, set, number] = p.split('|');
 
                         if (lang != null) {
@@ -343,161 +435,192 @@ export default {
                     });
                 }
             },
-        },
+        });
 
-        imageUrl() {
-            if (!this.hasData) {
+        const imageUrl = computed(() => {
+            if (!hasData.value) {
                 return null;
             }
 
-            switch (this.layout) {
+            switch (layout.value) {
             case 'transform':
             case 'modal_dfc':
             case 'double_faced_token':
-                return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=${this.partIndex}`; ;
+                return `http://${imageBase}/magic/card?auto-locale&lang=${lang.value}&set=${set.value}&number=${number.value}&part=${partIndex.value}`;
             default:
-                return `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`;
+                return `http://${imageBase}/magic/card?auto-locale&lang=${lang.value}&set=${set.value}&number=${number.value}`;
             }
-        },
-    },
+        });
 
-    mounted() {
-        this.loadData();
-    },
-
-    methods: {
-        async loadData(editType, update = true) {
-            if (editType != null) {
-                if (this.hasData && update) {
-                    await this.update();
-                }
-
-                const { data } = await this.controlGet('/magic/card/need-edit', {
-                    type: editType,
-                    lang: this.$store.getters['magic/locale'],
-                });
-
-                if (data != null && data !== '') {
-                    this.data = data;
-                } else {
-                    this.data = null;
-                }
-            } else if (this.id && this.lang && this.set && this.number) {
-                const { data } = await this.controlGet('/magic/card/raw', {
-                    id:     this.id,
-                    lang:   this.lang,
-                    set:    this.set,
-                    number: this.number,
-                });
-
-                this.data = data;
-            }
-        },
-
-        async update() {
-            this.defaultPrettify();
-
-            console.log(this.data.cardId);
-
-            await this.controlPost('/magic/card/update', {
-                data: this.data,
-            });
-        },
-
-        defaultPrettify() {
-            if (this.data == null || this.data.total === 0) {
+        const defaultPrettify = () => {
+            if (!hasData.value) {
                 return;
             }
 
-            if (this.lang === 'zhs' || this.lang === 'zht') {
-                this.unifiedTypeline = this.unifiedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
-                this.printedTypeline = this.printedTypeline.replace(/~/g, '～').replace(new RegExp('/', 'g'), '／');
-                this.unifiedText = this.unifiedText.replace(/~/g, '～').replace(new RegExp('//', 'g'), '／');
-                this.printedText = this.printedText.replace(/~/g, '～').replace(new RegExp('//', 'g'), '／');
+            if (lang.value === 'zhs' || lang.value === 'zht') {
+                unifiedTypeline.value = unifiedTypeline.value.replace(/~/g, '～').replace(/\//g, '／');
+                printedTypeline.value = printedTypeline.value.replace(/~/g, '～').replace(/\//g, '／');
+                unifiedText.value = unifiedText.value.replace(/~/g, '～').replace(/\/\//g, '／');
+                printedText.value = printedText.value.replace(/~/g, '～').replace(/\/\//g, '／');
 
-                if (this.flavor != null) {
-                    this.flavor = this.flavor.replace(/~/g, '～');
+                if (flavor.value != null) {
+                    flavor.value = flavor.value.replace(/~/g, '～');
                 }
             } else {
-                this.unifiedTypeline = this.unifiedTypeline.replace(/ - /g, ' — ');
-                this.printedTypeline = this.printedTypeline.replace(/ - /g, ' — ');
+                unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ');
+                printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ');
             }
 
-            this.unifiedText = this.unifiedText.trim().replace(/[●•] ?/g, '• ');
-            this.printedText = this.printedText.trim().replace(/[●•] ?/g, '• ');
+            unifiedText.value = unifiedText.value.trim().replace(/[●•] ?/g, '• ');
+            printedText.value = printedText.value.trim().replace(/[●•] ?/g, '• ');
 
-            if (this.lang === 'zhs' || this.lang === 'zht') {
-                if (!/[a-wyz](?![/}])/.test(this.unifiedText)) {
-                    this.unifiedText = this.unifiedText
+            if (lang.value === 'zhs' || lang.value === 'zht') {
+                if (!/[a-wyz](?![/}])/.test(unifiedText.value)) {
+                    unifiedText.value = unifiedText.value
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
                 }
 
-                if (!/[a-wyz](?![/}])/.test(this.printedText)) {
-                    this.printedText = this.printedText
+                if (!/[a-wyz](?![/}])/.test(printedText.value)) {
+                    printedText.value = printedText.value
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）');
                 }
             }
 
-            this.unifiedTypeline = this.unifiedTypeline.replace(/ *～ *-? */, '～');
-            this.printedTypeline = this.printedTypeline.replace(/ *～ *-? */, '～');
-        },
+            unifiedTypeline.value = unifiedTypeline.value.replace(/ *～ *-? */, '～');
+            printedTypeline.value = printedTypeline.value.replace(/ *～ *-? */, '～');
+        };
 
-        prettify() {
-            if (this.data == null || this.data.total === 0) {
+        const prettify = () => {
+            if (!hasData.value) {
                 return;
             }
 
-            if (this.lang !== 'en') {
-                if (this.oracleName !== this.unifiedName && this.oracleName === this.printedName) {
-                    this.printedName = this.unifiedName;
+            if (lang.value !== 'en') {
+                if (oracleName.value !== unifiedName.value && oracleName.value === printedName.value) {
+                    printedName.value = unifiedName.value;
                 }
 
-                if (this.oracleTypeline !== this.unifiedTypeline && this.oracleTypeline === this.printedTypeline) {
-                    this.printedTypeline = this.unifiedTypeline;
+                if (oracleTypeline.value !== unifiedTypeline.value && oracleTypeline.value === printedTypeline.value) {
+                    printedTypeline.value = unifiedTypeline.value;
                 }
 
-                if (this.oracleText !== this.unifiedText && this.oracleText === this.printedText) {
-                    this.printedText = this.unifiedText;
+                if (oracleText.value !== unifiedText.value && oracleText.value === printedText.value) {
+                    printedText.value = unifiedText.value;
                 }
             }
 
-            this.defaultPrettify();
+            defaultPrettify();
 
-            if (this.replaceFrom !== '') {
-                this.unifiedText = this.unifiedText.replace(
-                    new RegExp(escapeRegExp(this.replaceFrom), 'g'),
-                    this.replaceTo,
+            if (replaceFrom.value !== '') {
+                unifiedText.value = unifiedText.value.replace(
+                    new RegExp(escapeRegExp(replaceFrom.value), 'g'),
+                    replaceTo.value,
                 );
-                this.unifiedTypeline = this.unifiedTypeline.replace(
-                    new RegExp(escapeRegExp(this.replaceFrom), 'g'),
-                    this.replaceTo,
+                unifiedTypeline.value = unifiedTypeline.value.replace(
+                    new RegExp(escapeRegExp(replaceFrom.value), 'g'),
+                    replaceTo.value,
                 );
             }
 
-            this.unifiedText = this.unifiedText.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+            unifiedText.value = unifiedText.value.replace(/ *[(（][^)）]+[)）] */g, '').trim();
 
-            if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(this.printedText)) {
-                this.printedText = '';
+            if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value)) {
+                printedText.value = '';
             }
-        },
+        };
 
-        async doSearch() {
-            if (this.hasData && this.id != null) {
-                await this.update();
+        const doUpdate = async () => {
+            defaultPrettify();
+
+            console.log(data.value?.cardId);
+
+            await controlPost('/magic/card/update', {
+                data: data.value,
+            });
+        };
+
+        const loadData = async (editType?: string, update = true) => {
+            if (editType != null) {
+                if (hasData.value && update) {
+                    await doUpdate();
+                }
+
+                const { data: result } = await controlGet<Card>('/magic/card/need-edit', {
+                    type: editType,
+                    lang: store.getters['magic/locale'],
+                });
+
+                if (result != null) {
+                    data.value = result;
+                } else {
+                    data.value = null;
+                }
+            } else if (id.value && lang.value && set.value && number.value) {
+                const { data: result } = await controlGet<Card>('/magic/card/raw', {
+                    id:     id.value,
+                    lang:   lang.value,
+                    set:    set.value,
+                    number: number.value,
+                });
+
+                data.value = result;
+            }
+        };
+
+        const doSearch = async () => {
+            if (hasData.value && id.value != null) {
+                await doUpdate();
             }
 
-            const { data } = await this.apiGet('/magic/search', { q: this.search, dev: '' });
+            const { data: result } = await apiGet<{ result: Card }>('/magic/search', { q: search.value, dev: '' });
 
-            if (this.partIndex !== 0 && this.partIndex !== '0') {
-                this.partIndex = 0;
+            if (partIndex.value !== 0) {
+                partIndex.value = 0;
             }
 
-            this.data = data.result;
-        },
+            data.value = result.result;
+        };
+
+        onMounted(loadData);
+
+        return {
+            unlock,
+            rotate,
+            replaceFrom,
+            replaceTo,
+            search,
+
+            partIndex,
+            total,
+
+            id,
+            info,
+            layout,
+            oracleName,
+            oracleTypeline,
+            oracleText,
+            unifiedName,
+            unifiedTypeline,
+            unifiedText,
+            printedName,
+            printedTypeline,
+            printedText,
+            flavor,
+            relatedCards,
+            imageUrl,
+
+            layoutOptions,
+            partOptions,
+
+            doUpdate,
+            prettify,
+            loadData,
+            doSearch,
+        };
     },
-};
+});
 </script>

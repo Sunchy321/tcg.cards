@@ -33,39 +33,64 @@
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
-
+<style lang="sass" scoped>
 .flex-grow
-    flex-grow 1
-    width inherit
-
+    flex-grow: 1
+    width: inherit
 </style>
 
-<script>
-import HsdataPatch from './HsdataPatch';
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
+
+import controlSetup from 'setup/control';
+
+import HsdataPatch from './HsdataPatch.vue';
 
 import bytes from 'bytes';
 
-export default {
-    name: 'Hsdata',
+interface Patch {
+    version: string;
+    number: number;
+    sha: string;
+    isUpdated: boolean;
+}
 
+interface TransferProgress {
+    type: 'get';
+    totalObjects: number;
+    indexedObjects: number;
+    receivedObjects: number;
+    localObjects: number;
+    totalDeltas: number;
+    indexedDeltas: number;
+    receivedBytes: number;
+}
+
+interface LoaderProgress {
+    type: 'load',
+    count: number,
+    total: number
+}
+
+type Progress = TransferProgress | LoaderProgress;
+
+export default defineComponent({
     components: { HsdataPatch },
 
-    data: () => ({
-        patches:  [],
-        progress: null,
-        error:    null,
-    }),
+    setup() {
+        const { controlGet, controlWs } = controlSetup();
 
-    computed: {
-        progressValue() {
-            const prog = this.progress;
+        const patches = ref<Patch[]>([]);
+        const progress = ref<Progress|null>(null);
+
+        const progressValue = computed(() => {
+            const prog = progress.value;
 
             if (prog == null) {
                 return null;
             }
 
-            if (prog.type === 'git') {
+            if (prog.type === 'get') {
                 if (prog.totalDeltas != null) {
                     return prog.indexedObjects / prog.totalObjects;
                 } else {
@@ -76,73 +101,78 @@ export default {
             } else {
                 return null;
             }
-        },
+        });
 
-        progressLabel() {
-            const prog = this.progress;
+        const progressLabel = computed(() => {
+            const prog = progress.value;
 
-            if (prog.type === 'git') {
+            if (prog == null) {
+                return null;
+            }
+
+            if (prog.type === 'get') {
                 return `${prog.indexedObjects}/${prog.receivedObjects}/${prog.totalObjects} (${bytes(prog.receivedBytes)})`;
             } else if (prog.type === 'load') {
                 return `${prog.count}/${prog.total}`;
             } else {
                 return null;
             }
-        },
-    },
+        });
 
-    mounted() {
-        this.loadData();
-    },
+        const loadData = async () => {
+            const { data } = await controlGet<Patch[]>('/hearthstone/patches');
 
-    methods: {
-        async loadData() {
-            const { data } = await this.controlGet('/hearthstone/patches');
+            patches.value = data;
+        };
 
-            this.patches = data;
-        },
-
-        async getHsdata() {
-            this.error = null;
-
-            const ws = this.controlWs('/hearthstone/hsdata/get-data');
+        const getHsdata = async () => {
+            const ws = controlWs('/hearthstone/hsdata/get-data');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
-                    const progress = JSON.parse(data);
-                    this.progress = progress;
+                    progress.value = JSON.parse(data) as TransferProgress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.progress = null;
-                    this.loadData();
+                    progress.value = null;
+                    void loadData();
 
-                    resolve();
+                    resolve(undefined);
                 };
             });
-        },
+        };
 
-        async loadHsdata() {
-            this.error = null;
-
-            const ws = this.controlWs('/hearthstone/hsdata/load-data');
+        const loadHsdata = async () => {
+            const ws = controlWs('/hearthstone/hsdata/load-data');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
-                    const progress = JSON.parse(data);
-                    this.progress = progress;
+                    progress.value = JSON.parse(data) as LoaderProgress;
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.progress = null;
-                    this.loadData();
+                    progress.value = null;
+                    void loadData();
 
-                    resolve();
+                    resolve(undefined);
                 };
             });
-        },
+        };
+
+        onMounted(loadData);
+
+        return {
+            patches,
+            progress,
+            progressValue,
+            progressLabel,
+
+            loadData,
+            getHsdata,
+            loadHsdata,
+        };
     },
-};
+});
 </script>

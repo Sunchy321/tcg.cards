@@ -13,29 +13,37 @@
     </q-page>
 </template>
 
-<script>
-import page from 'src/mixins/page';
+<script lang="ts">
+import { defineComponent } from 'vue';
 
-import * as components from 'components/magic/data';
+import pageSetup from 'setup/page';
 
-import routeComputed from 'src/route-computed';
+import components from 'components/magic/data';
 
-export default {
+export default defineComponent({
     name: 'Data',
 
     components: { ...components },
 
-    mixins: [page],
+    setup() {
+        const tabs = Object.keys(components);
 
-    computed: {
-        title() { return 'Data'; },
+        const params = pageSetup({
+            title: 'Data',
 
-        tabs() {
-            return Object.keys(components);
-        },
+            params: {
+                tab: {
+                    type:   'enum',
+                    bind:   'query',
+                    values: tabs,
+                },
+            },
+        });
 
-        tab: routeComputed('tab', { keep: false }),
+        return {
+            tabs,
+            tab: params.tab,
+        };
     },
-
-};
+});
 </script>

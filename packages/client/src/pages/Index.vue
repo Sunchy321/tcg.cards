@@ -14,32 +14,40 @@
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .tcg-item
-    width 25%
+    width: 25%
 </style>
 
-<script>
-import page from '../mixins/page';
-import basic from '../mixins/basic';
+<script lang="ts">
+import { defineComponent } from 'vue';
 
-export default {
+import { useI18n } from 'vue-i18n';
+
+import basicSetup from 'setup/basic';
+import pageSetup from 'setup/page';
+
+export default defineComponent({
     name: 'PageIndex',
 
-    mixins: [page, basic],
+    setup() {
+        const i18n = useI18n();
+        const basic = basicSetup();
 
-    computed: {
-        title() { return ''; },
-    },
+        pageSetup({ });
 
-    methods: {
-        fullName(g) {
-            if (this.$te(g + '.$selfFull')) {
-                return this.$t(g + '.$selfFull');
+        const fullName = (g: string) => {
+            if (i18n.te(g + '.$selfFull')) {
+                return i18n.t(g + '.$selfFull');
             } else {
-                return this.$t(g + '.$self');
+                return i18n.t(g + '.$self');
             }
-        },
+        };
+
+        return {
+            games: basic.games,
+            fullName,
+        };
     },
-};
+});
 </script>

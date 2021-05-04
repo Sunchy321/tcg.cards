@@ -4,7 +4,7 @@
             v-model="url"
             dense
         >
-            <template v-slot:append>
+            <template #append>
                 <q-btn
                     icon="mdi-text-box-search"
                     flat dense round
@@ -73,7 +73,7 @@
                     class="q-ml-sm"
                     flat dense round
                     icon="mdi-plus"
-                    @click="data.link.push('')"
+                    @click="data?.link?.push('')"
                 />
             </div>
             <q-input v-for="(l, i) in data.link" :key="l" v-model="data.link[i]" class="q-my-sm" dense />
@@ -91,7 +91,7 @@
                     :value="c.card"
                     class="col"
                     dense
-                    @input="v => modifyChangeCard(c, v)"
+                    @input="modifyChangeCard(c)"
                 />
                 <q-select
                     v-model="c.format"
@@ -133,12 +133,52 @@
     </div>
 </template>
 
-<script>
-import DateInput from 'components/DateInput';
+<script lang="ts">
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+
+import controlSetup from 'setup/control';
+
+import DateInput from 'components/DateInput.vue';
 
 import { deburr, last } from 'lodash';
 
-function toIdentifier(text) {
+type BanlistStatus =
+    'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';
+
+interface BanlistChangeItem {
+    card: string;
+    format: string;
+    status?: BanlistStatus;
+    effectiveDate?: string;
+    detail?: { card: string, date?: string, status?: string }[];
+}
+
+interface BanlistChange {
+    _id?: string;
+
+    date: string;
+
+    category: string;
+
+    effectiveDate?: {
+        tabletop?: string;
+        online?: string;
+        arena?: string;
+    };
+
+    nextDate?: string;
+
+    link: string[];
+
+    changes: BanlistChangeItem[];
+}
+
+interface BanlistChangeProfile {
+    id?: string;
+    date: string;
+}
+
+function toIdentifier(text: string) {
     return deburr(text)
         .trim()
         .toLowerCase()
@@ -147,217 +187,49 @@ function toIdentifier(text) {
         .replace(/[^a-z0-9]/g, '_');
 }
 
-export default {
+export default defineComponent({
     name: 'DataBanlistChange',
 
     components: { DateInput },
 
-    data: () => ({
-        url: '',
+    setup() {
+        const { controlGet, controlPost } = controlSetup();
 
-        changeList: [],
-        selected:   null,
+        const url = ref('');
 
-        data: null,
-    }),
+        const changeList = ref<BanlistChangeProfile[]>([]);
+        const selected = ref<BanlistChangeProfile|null>(null);
 
-    computed: {
-        formatList() {
-            return [
-                'standard',
-                'historic',
-                'pioneer',
-                'modern',
-                'extended',
-                'legacy',
-                'vintage',
+        const data = ref<BanlistChange|null>(null);
 
-                'standard/arena',
+        const formatList = [
+            'standard',
+            'historic',
+            'pioneer',
+            'modern',
+            'extended',
+            'legacy',
+            'vintage',
 
-                'commander',
-                'duelcommander',
-                'leviathan_commander',
-                'commander1v1',
-                'brawl',
-                'historic_brawl',
+            'standard/arena',
 
-                'pauper',
+            'commander',
+            'duelcommander',
+            'leviathan_commander',
+            'commander1v1',
+            'brawl',
+            'historic_brawl',
 
-                'block/ice_age',
-                'block/tempest',
-                'block/urza',
-                'block/masques',
-                'block/mirrodin',
-            ];
-        },
+            'pauper',
 
-        statusList() {
-            return [
-                'legal',
-                'banned',
-                'suspended',
-                'restricted',
-                'banned_as_commander',
-                'banned_as_companion',
-                'unavailable',
-            ].map(v => ({
-                icon:  this.statusIcon(v),
-                class: 'magic-banlist-status-' + v,
-                value: v,
-            }));
-        },
+            'block/ice_age',
+            'block/tempest',
+            'block/urza',
+            'block/masques',
+            'block/mirrodin',
+        ];
 
-        category: {
-            get() {
-                return this.data.category;
-            },
-            set(newValue) {
-                if (this.data != null) {
-                    this.data.category = newValue;
-                }
-            },
-        },
-
-        date: {
-            get() {
-                return this.data.date;
-            },
-            set(newValue) {
-                if (this.data != null) {
-                    this.data.date = newValue;
-                }
-            },
-        },
-
-        nextDate: {
-            get() {
-                return this.data.nextDate;
-            },
-            set(newValue) {
-                if (this.data != null) {
-                    this.data.nextDate = newValue;
-                }
-            },
-        },
-
-        eDateTable: {
-            get() {
-                return this.data.effectiveDate?.tabletop;
-            },
-            set(newValue) {
-                if (this.data != null) {
-                    this.data.effectiveDate = {
-                        ...this.data.effectiveDate ?? {},
-                        tabletop: newValue,
-                    };
-                }
-            },
-        },
-
-        eDateOnline: {
-            get() {
-                return this.data.effectiveDate?.online;
-            },
-            set(newValue) {
-                if (this.data != null) {
-                    this.data.effectiveDate = {
-                        ...this.data.effectiveDate ?? {},
-                        online: newValue,
-                    };
-                }
-            },
-        },
-
-        eDateArena: {
-            get() {
-                return this.data.effectiveDate?.arena;
-            },
-            set(newValue) {
-                if (this.data != null) {
-                    this.data.effectiveDate = {
-                        ...this.data.effectiveDate ?? {},
-                        arena: newValue,
-                    };
-                }
-            },
-        },
-
-        changes() {
-            return this.data.changes ?? [];
-        },
-    },
-
-    watch: {
-        selected() {
-            this.loadChange();
-        },
-    },
-
-    mounted() {
-        this.loadData();
-    },
-
-    methods: {
-        async loadData() {
-            const { data } = await this.controlGet('/magic/format/banlist/change');
-
-            this.changeList = data;
-
-            if (data.length > 0 && this.selected == null) {
-                this.selected = data[0];
-            }
-        },
-
-        async loadChange() {
-            if (this.selected.id != null) {
-                this.data = null;
-
-                const { data } = await this.controlGet('/magic/format/banlist/change', {
-                    id: this.selected.id,
-                });
-
-                this.data = data;
-            }
-        },
-
-        async parseUrl() {
-            const { data } = await this.controlGet('/magic/format/banlist/change/parse', {
-                url: this.url,
-            });
-
-            this.changes.unshift('');
-            this.selected = { date: data.date };
-            this.data = data;
-        },
-
-        newChange() {
-            this.changeList.unshift('');
-            this.selected = { date: new Date().toLocaleDateString('en-CA') };
-            this.data = {
-                date:     new Date().toLocaleDateString('en-CA'),
-                link:     [],
-                category: 'wotc',
-                changes:  [],
-            };
-        },
-
-        async saveChange() {
-            await this.controlPost('/magic/format/banlist/change/save', {
-                data: this.data,
-            });
-
-            this.loadData();
-        },
-
-        async sync() {
-            const { data, status } = await this.controlPost('/magic/format/sync');
-
-            if (status === 500) {
-                console.log(data);
-            }
-        },
-
-        statusIcon(status, card) {
+        const statusIcon = (status: string, card?: string) => {
             switch (status) {
             case 'banned':
                 return 'mdi-close-circle-outline';
@@ -374,53 +246,244 @@ export default {
             case 'unavailable':
                 return 'mdi-cancel';
             case undefined:
-                if (card.startsWith('#{clone:')) {
+                if (card?.startsWith('#{clone:')) {
                     return 'mdi-content-copy';
                 } else {
                     return 'mdi-help-circle-outline';
                 }
             }
-        },
+        };
 
-        addChange() {
-            if (this.changes.length !== 0) {
-                this.changes.push({ format: last(this.changes).format, status: last(this.changes).status });
+        const statusList = [
+            'legal',
+            'banned',
+            'suspended',
+            'restricted',
+            'banned_as_commander',
+            'banned_as_companion',
+            'unavailable',
+        ].map(v => ({
+            icon:  statusIcon(v),
+            class: 'magic-banlist-status-' + v,
+            value: v,
+        }));
+
+        const category = computed({
+            get() {
+                return data.value?.category ?? 'wotc';
+            },
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.category = newValue;
+                }
+            },
+        });
+
+        const date = computed({
+            get() {
+                return data.value?.date ?? '';
+            },
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.date = newValue;
+                }
+            },
+        });
+
+        const nextDate = computed({
+            get() {
+                return data.value?.nextDate ?? '';
+            },
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.nextDate = newValue;
+                }
+            },
+        });
+
+        const eDateTable = computed({
+            get() {
+                return data.value?.effectiveDate?.tabletop ?? '';
+            },
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.effectiveDate = {
+                        ...data.value.effectiveDate ?? {},
+                        tabletop: newValue,
+                    };
+                }
+            },
+        });
+
+        const eDateOnline = computed({
+            get() {
+                return data.value?.effectiveDate?.online ?? '';
+            },
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.effectiveDate = {
+                        ...data.value.effectiveDate ?? {},
+                        online: newValue,
+                    };
+                }
+            },
+        });
+
+        const eDateArena = computed({
+            get() {
+                return data.value?.effectiveDate?.arena ?? '';
+            },
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.effectiveDate = {
+                        ...data.value.effectiveDate ?? {},
+                        arena: newValue,
+                    };
+                }
+            },
+        });
+
+        const changes = computed(() => data.value?.changes ?? []);
+
+        const loadData = async () => {
+            const { data } = await controlGet<BanlistChangeProfile[]>('/magic/format/banlist/change');
+
+            changeList.value = data;
+
+            if (data.length > 0 && selected.value == null) {
+                selected.value = data[0];
+            }
+        };
+
+        const loadChange = async () => {
+            if (selected.value?.id != null) {
+                data.value = null;
+
+                const { data: result } = await controlGet<BanlistChange>('/magic/format/banlist/change', {
+                    id: selected.value.id,
+                });
+
+                data.value = result;
+            }
+        };
+
+        const parseUrl = async () => {
+            const { data: result } = await controlGet<BanlistChange>('/magic/format/banlist/change/parse', {
+                url: url.value,
+            });
+
+            changeList.value.unshift({ date: result.date });
+            selected.value = { date: result.date };
+            data.value = result;
+        };
+
+        const newChange = () => {
+            const date = new Date().toLocaleDateString('en-CA');
+
+            changeList.value.unshift({ date });
+            selected.value = { date };
+            data.value = {
+                date,
+                link:     [],
+                category: 'wotc',
+                changes:  [],
+            };
+        };
+
+        const saveChange = async () => {
+            await controlPost('/magic/format/banlist/change/save', {
+                data: data.value,
+            });
+
+            void loadData();
+        };
+
+        const sync = async () => {
+            const { data, status } = await controlPost('/magic/format/sync');
+
+            if (status === 500) {
+                console.log(data);
+            }
+        };
+
+        const addChange = () => {
+            if (changes.value.length !== 0) {
+                changes.value.push({
+                    card:   '',
+                    format: last(changes.value)!.format,
+                    status: last(changes.value)!.status,
+                });
             } else {
-                this.changes.push({});
+                changes.value.push({
+                    card:   '',
+                    format: 'standard',
+                    status: 'banned',
+                });
             }
-        },
+        };
 
-        removeChange(i) {
-            this.changes.splice(i, 1);
-        },
+        const removeChange = (i: number) => {
+            changes.value.splice(i, 1);
+        };
 
-        moveChangeUp(i) {
+        const moveChangeUp = (i: number) => {
             if (i !== 0) {
-                const curr = this.changes[i];
-                const prev = this.changes[i - 1];
+                const curr = changes.value[i];
+                const prev = changes.value[i - 1];
 
-                this.$set(this.changes, i - 1, curr);
-                this.$set(this.changes, i, prev);
+                changes.value[i - 1] = curr;
+                changes.value[i] = prev;
             }
-        },
+        };
 
-        moveChangeDown(i) {
-            if (i !== this.changes.length - 1) {
-                const curr = this.changes[i];
-                const next = this.changes[i + 1];
+        const moveChangeDown = (i: number) => {
+            if (i !== changes.value.length - 1) {
+                const curr = changes.value[i];
+                const next = changes.value[i + 1];
 
-                this.$set(this.changes, i + 1, curr);
-                this.$set(this.changes, i, next);
+                changes.value[i + 1] = curr;
+                changes.value[i] = next;
             }
-        },
+        };
 
-        modifyChangeCard(c, v) {
+        const modifyChangeCard = (c: BanlistChangeItem) => (v: string) => {
             if (v.startsWith('#')) {
                 c.card = v;
             } else {
                 c.card = toIdentifier(v);
             }
-        },
+        };
+
+        watch(selected, loadChange);
+        onMounted(loadData);
+
+        return {
+            formatList,
+            statusList,
+
+            url,
+            changeList,
+            selected,
+            data,
+
+            date,
+            category,
+            nextDate,
+            eDateTable,
+            eDateOnline,
+            eDateArena,
+            changes,
+
+            sync,
+            parseUrl,
+            newChange,
+            saveChange,
+            addChange,
+            moveChangeUp,
+            moveChangeDown,
+            removeChange,
+            modifyChangeCard,
+        };
     },
-};
+});
 </script>

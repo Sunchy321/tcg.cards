@@ -1,5 +1,7 @@
-<script>
-const colorMap = {
+<script lang="ts">
+import { defineComponent, h } from 'vue';
+
+const colorMap: Record<string, string> = {
     W: '#F5F1ED',
     U: '#006BA7',
     B: '#3C3734',
@@ -7,7 +9,7 @@ const colorMap = {
     G: '#006B47',
 };
 
-const toPart = {
+const toPart: Record<string, string[]> = {
     '':  [],
     'W': ['W'],
     'U': ['U'],
@@ -16,36 +18,49 @@ const toPart = {
     'G': ['G'],
 };
 
-export default {
+export default defineComponent({
     props: {
         value: {
             type:     String,
             required: true,
         },
     },
-    methods: {
-        renderElems() {
-            const value = toPart[this.value].map(v => colorMap[v]);
 
-            switch (value.length) {
-            case 0:
-                return <circle r="50" cy="50" cx="50" stroke="black" stroke-width="5" />;
-            case 1:
-                return <circle r="50" cy="50" cx="50" fill={value[0]} />;
-            case 2:
-                return [
-                    <path d="M35.35534,35.35534" fill={value[0]} />,
-                ];
-            }
-        },
-    },
+    setup(props) {
+        return () => {
+            const value = props.value;
 
-    render() {
-        return <svg viewBox="0 0 100 100">{this.renderElems()}</svg>;
+            const colors = toPart[value].map(v => colorMap[v]);
+
+            const elems = (() => {
+                switch (colors.length) {
+                case 0:
+                    return h('circle', {
+                        r:           50,
+                        cy:          50,
+                        cx:          50,
+                        stroke:      'black',
+                        strokeWidth: 5,
+                    });
+                case 1:
+                    return h('circle', {
+                        r:    50,
+                        cy:   59,
+                        cx:   50,
+                        fill: colors[0],
+                    });
+                case 2:
+                    return [
+                        h('path', {
+                            d:    'M35.35534,35.35534',
+                            fill: colors[0],
+                        }),
+                    ];
+                }
+            })();
+
+            return h('svg', { viewBox: '0 0 100 100' }, elems);
+        };
     },
-};
+});
 </script>
-
-<style>
-
-</style>

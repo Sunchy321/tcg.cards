@@ -1,66 +1,80 @@
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .magic-symbol
-    transform translateY(10%)
+    transform: translateY(10%)
 
     [lang=zhs] &, [lang=zht] &
-        transform translateY(15%)
-        margin-left 2px
+        transform: translateY(15%)
+        margin-left: 2px
 
     [lang=zhs] & + span, [lang=zht] & + span
-        margin-left 2px
+        margin-left: 2px
 
     [lang=zhs] & + &, [lang=zht] & + &,
     [lang=zhs] &:first-child, [lang=zht] &:first-child,
     br + &
-        margin-left 0px !important
+        margin-left: 0px !important
 </style>
 
-<script>
-import Symbol from './Symbol';
+<script lang="ts">
+import { VNode, PropType, defineComponent, h } from 'vue';
 
-export default {
-    functional: true,
+import { useStore } from 'src/store';
 
+import Symbol from './Symbol.vue';
+
+export default defineComponent({
     props: {
-        type: {
-            type:    Array,
+        symbol: {
+            type:    Array as PropType<string[]>,
             default: () => [],
         },
     },
 
-    render(h, { props, parent, data, slots }) {
-        const defaultSlot = slots().default;
+    setup(props, { attrs, slots }) {
+        const store = useStore();
 
-        const symbols = parent.$store.getters['magic/data'].symbols || [];
+        const symbols = store.getters['magic/data'].symbols || [];
+        const symbolType = props.symbol ?? [];
 
-        const result = [];
+        return () => {
+            const defaultSlot = slots.default!();
 
-        for (const node of defaultSlot) {
-            if (node.tag != null) {
-                result.push(node);
-                continue;
-            }
+            const result: (string | VNode)[] = [];
 
-            const pieces = node.text.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
+            for (const node of defaultSlot) {
+                if (typeof node.children === 'string') {
+                    const pieces = node.children.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
 
-            for (const p of pieces) {
-                if (p === '\n') {
-                    result.push(<br />);
-                } else if (p.startsWith('{') && p.endsWith('}')) {
-                    const content = p.slice(1, -1);
+                    for (const p of pieces) {
+                        if (p === '\n') {
+                            result.push(h('br'));
+                        } else if (p.startsWith('{') && p.endsWith('}')) {
+                            const content = p.slice(1, -1);
 
-                    if (symbols.includes(content)) {
-                        result.push(<Symbol class={data.class} value={content} type={props.type} />);
-                    } else {
-                        result.push(<span class={data.class}>{p}</span>);
+                            if (symbols.includes(content)) {
+                                result.push(h(Symbol, {
+                                    class: attrs.class,
+                                    value: content,
+                                    type:  symbolType,
+                                }));
+                            } else {
+                                result.push(h('span', {
+                                    class: attrs.class,
+                                }, p));
+                            }
+                        } else {
+                            result.push(h('span', {
+                                class: attrs.class,
+                            }, p));
+                        }
                     }
                 } else {
-                    result.push(<span class={data.class}>{p}</span>);
+                    result.push(node);
                 }
             }
-        }
 
-        return result;
+            return result;
+        };
     },
-};
+});
 </script>

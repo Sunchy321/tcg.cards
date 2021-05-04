@@ -7,65 +7,75 @@
                 <q-tab name="basic" :label="$t('setting.basic')" />
             </q-tabs>
         </aside>
-        <article :is="mainComponent" class="body col q-pa-md" />
+        <component :is="main" class="body col q-pa-md" />
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .left-panel
-    border-right 1px solid #DDD
-    margin-top 10px
-    margin-bottom 10px
+    border-right: 1px solid #DDD
+    margin-top: 10px
+    margin-bottom: 10px
 
 .left-tabs
-    height auto
+    height: auto
 </style>
 
 <script>
-import page from 'src/mixins/page';
-import basic from 'src/mixins/basic';
+import { defineComponent, ref, computed } from 'vue';
 
-import UserLogin from 'components/setting/Login';
-import UserProfile from 'components/setting/Profile';
+import { useI18n } from 'vue-i18n';
 
-import MainBasic from 'components/setting/main/Basic';
+import basicSetup from 'setup/basic';
+import pageSetup from 'setup/page';
 
-export default {
-    name: 'Setting',
+import UserLogin from 'components/setting/Login.vue';
+import UserProfile from 'components/setting/Profile.vue';
 
+import MainBasic from 'components/setting/main/Basic.vue';
+
+export default defineComponent({
     components: {
         UserLogin, UserProfile,
     },
 
-    mixins: [page, basic],
+    setup() {
+        const i18n = useI18n();
 
-    data: () => ({
-        tab: 'basic',
-    }),
+        const basic = basicSetup();
 
-    computed: {
-        title() { return this.$t('setting.$self'); },
+        pageSetup({
+            title: () => i18n.t('setting.$self'),
+        });
 
-        mainComponent() {
-            switch (this.tab) {
+        const tab = ref('basic');
+
+        const main = computed(() => {
+            switch (tab.value) {
             case 'basic':
                 return MainBasic;
             default:
                 return null;
             }
-        },
-    },
-
-    mounted() {
-        this.$store.subscribe(async ({ type }) => {
-            const { redirect, admin } = this.$route.query;
-
-            if (type === 'user/user' && redirect != null) {
-                if (admin === undefined || this.$store.getters['user/isAdmin']) {
-                    this.$router.replace(redirect);
-                }
-            }
         });
+
+        return {
+            user: basic.user,
+            tab,
+            main,
+        };
     },
-};
+
+    // mounted() {
+    //     this.$store.subscribe(async ({ type }) => {
+    //         const { redirect, admin } = this.$route.query;
+
+    //         if (type === 'user/user' && redirect != null) {
+    //             if (admin === undefined || this.$store.getters['user/isAdmin']) {
+    //                 void router.replace(redirect);
+    //             }
+    //         }
+    //     });
+    // },
+});
 </script>

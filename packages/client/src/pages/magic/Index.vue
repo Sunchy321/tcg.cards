@@ -1,12 +1,12 @@
 <template>
     <q-page>
         <q-input
-            v-model="search"
+            v-model="searchText"
             class="main-input q-ma-xl"
             filled
             @keypress.enter="doSearch"
         >
-            <template slot="append">
+            <template #append>
                 <q-btn
                     icon="mdi-magnify"
                     flat dense round
@@ -39,38 +39,50 @@
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
+<script lang="ts">
+import { defineComponent, computed } from 'vue';
 
-</style>
+import { useStore } from 'src/store';
+import { useI18n } from 'vue-i18n';
 
-<script>
-import page from 'src/mixins/page';
-import magic from 'src/mixins/magic';
+import magicSetup from 'setup/magic';
+import pageSetup from 'setup/page';
 
-export default {
-    mixins: [page, magic],
+export default defineComponent({
+    setup() {
+        const store = useStore();
+        const i18n = useI18n();
 
-    computed: {
-        pageOptions() {
-            return {
-                actions: [
-                    { icon: 'mdi-shuffle-variant', action: 'random' },
-                ],
-            };
-        },
+        const { search, random } = magicSetup();
 
-        title() { return this.$t('magic.$self'); },
+        pageSetup({
+            title:   () => i18n.t('magic.$self'),
+            actions: [
+                {
+                    action:  'search',
+                    handler: search,
+                },
+                {
+                    action:  'random',
+                    icon:    'mdi-shuffle-variant',
+                    handler: random,
+                },
+            ],
+        });
 
-        search: {
-            get() { return this.$store.getters.search; },
-            set(newValue) { this.$store.commit('search', newValue); },
-        },
+        const searchText = computed({
+            get() { return store.getters.search; },
+            set(newValue: string) { store.commit('search', newValue); },
+        });
+
+        const doSearch = () => {
+            store.commit('event', { type: 'search' });
+        };
+
+        return {
+            searchText, doSearch,
+        };
     },
 
-    methods: {
-        doSearch() {
-            this.$store.commit('event', { type: 'search' });
-        },
-    },
-};
+});
 </script>

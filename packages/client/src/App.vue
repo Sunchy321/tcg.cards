@@ -4,30 +4,44 @@
     </div>
 </template>
 
-<script>
-const quasarLocaleMap = {
-    en:  'en-us',
-    zhs: 'zh-hans',
+<script lang="ts">
+import { defineComponent } from 'vue';
+
+import { QuasarLanguage, useQuasar } from 'quasar';
+import { useStore } from 'src/store';
+import { useI18n } from 'vue-i18n';
+
+const quasarLocaleMap: Record<string, string> = {
+    en:  'en-US',
+    zhs: 'zh-CN',
 };
 
-export default {
+export default defineComponent({
     name: 'App',
 
-    created() {
-        this.$store.subscribe(async ({ type, payload: locale }) => {
-            if (type === 'locale') {
-                this.$i18n.locale = locale;
+    setup() {
+        const quasar = useQuasar();
+        const store = useStore();
+        const i18n = useI18n();
 
-                const qLocaleId = quasarLocaleMap[locale] ||
+        store.subscribe(async ({ type, payload }) => {
+            const locale = payload as string;
+
+            if (type === 'locale') {
+                i18n.locale.value = locale;
+
+                const qLocaleId = quasarLocaleMap[locale] ??
                     locale.replace(/[A-Z]/, t => '-' + t.toLowerCase());
 
-                const qLocale = await import('quasar/lang/' + qLocaleId);
+                const qLocale = (
+                    await import('quasar/lang/' + qLocaleId)
+                ) as { default: QuasarLanguage };
 
-                this.$q.lang.set(qLocale.default);
+                quasar.lang.set(qLocale.default);
             }
         });
 
-        this.$store.dispatch('boot');
+        void store.dispatch('boot');
     },
-};
+});
 </script>

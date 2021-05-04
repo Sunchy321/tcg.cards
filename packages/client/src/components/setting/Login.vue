@@ -12,7 +12,7 @@
             :label="$t('user.password')"
             :hint="$t('user.passwordHint')"
         >
-            <template v-slot:append>
+            <template #append>
                 <q-icon
                     :name="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
                     class="cursor-pointer"
@@ -36,45 +36,57 @@
     </q-form>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref } from 'vue';
+
+import { useStore } from 'src/store';
+import { useI18n } from 'vue-i18n';
+import { useQuasar } from 'quasar';
+
 import { camelCase } from 'lodash';
 
-export default {
+export default defineComponent({
     name: 'Login',
 
-    data: () => ({
-        username: '',
-        password: '',
+    setup() {
+        const quasar = useQuasar();
+        const store = useStore();
+        const i18n = useI18n();
 
-        showPassword: false,
-    }),
+        const username = ref('');
+        const password = ref('');
+        const showPassword = ref(false);
 
-    methods: {
-        async register() {
+        const register = () => {
             try {
-                this.$store.dispatch('user/register', {
-                    username: this.username,
-                    password: this.password,
+                void store.dispatch('user/register', {
+                    username: username.value,
+                    password: password.value,
                 });
             } catch (e) {
-                this.$q.notify(this.$t('user.' + camelCase(e.message)));
+                quasar.notify(i18n.t('user.' + camelCase(e.message)));
             }
-        },
+        };
 
-        async login() {
+        const login = () => {
             try {
-                this.$store.dispatch('user/login', {
-                    username: this.username,
-                    password: this.password,
+                void store.dispatch('user/login', {
+                    username: username.value,
+                    password: password.value,
                 });
             } catch (e) {
-                this.$q.notify(this.$t('user.' + camelCase(e.message)));
+                quasar.notify(i18n.t('user.' + camelCase(e.message)));
             }
-        },
+        };
+
+        return {
+            username,
+            password,
+            showPassword,
+
+            register,
+            login,
+        };
     },
-};
+});
 </script>
-
-<style>
-
-</style>

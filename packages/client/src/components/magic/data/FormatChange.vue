@@ -23,9 +23,9 @@
                 class="col-grow"
                 :value="c.in.join(', ')"
                 dense
-                @input="v => c.in = v.split(',').map(s => s.trim()).filter(s => s !== '')"
+                @input="setChangeIn(c)"
             >
-                <template v-slot:prepend>
+                <template #prepend>
                     <q-icon name="mdi-plus" />
                 </template>
             </q-input>
@@ -34,9 +34,9 @@
                 class="col-grow"
                 :value="c.out.join(', ')"
                 dense
-                @input="v => c.out = v.split(',').map(s => s.trim()).filter(s => s !== '')"
+                @input="setChangeOut(c)"
             >
-                <template v-slot:prepend>
+                <template #prepend>
                     <q-icon name="mdi-minus" />
                 </template>
             </q-input>
@@ -65,161 +65,190 @@
     </div>
 </template>
 
-<script>
-import DateInput from 'components/DateInput';
+<script lang="ts">
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 
-export default {
+import controlSetup from 'setup/control';
+
+import DateInput from 'components/DateInput.vue';
+
+interface FormatChangeDetail {
+    category: string,
+    format?: string,
+    in: string[],
+    out: string[],
+}
+
+interface FormatChange {
+    date: string;
+    changes: FormatChangeDetail[];
+}
+
+export default defineComponent({
     name: 'DataFormatChange',
 
     components: { DateInput },
 
-    data: () => ({
-        format:        null,
-        formatChanges: [],
-        selected:      null,
-    }),
+    setup() {
+        const { controlGet, controlPost } = controlSetup();
 
-    computed: {
-        formatList() {
-            return [
-                'standard',
-                'historic',
-                'pioneer',
-                'modern',
-                'extended',
-                'legacy',
-                'vintage',
+        const format = ref<string|null>(null);
+        const formatChanges = ref<FormatChange[]>([]);
+        const selected = ref<{ label: string, value: FormatChange }|null>(null);
 
-                'standard/arena',
+        const formatList = [
+            'standard',
+            'historic',
+            'pioneer',
+            'modern',
+            'extended',
+            'legacy',
+            'vintage',
 
-                'commander',
-                'duelcommander',
-                'commander1v1',
-                'brawl',
+            'standard/arena',
 
-                'pauper',
+            'commander',
+            'duelcommander',
+            'commander1v1',
+            'brawl',
 
-                'block/ice_age',
-                'block/tempest',
-                'block/urza',
-                'block/masques',
-                'block/mirrodin',
-            ];
-        },
+            'pauper',
 
-        formatChangeOptions() {
-            return this.formatChanges.map(r => ({ label: r.date ?? '#', value: r }));
-        },
+            'block/ice_age',
+            'block/tempest',
+            'block/urza',
+            'block/masques',
+            'block/mirrodin',
+        ];
 
-        formatChange() {
-            return this.selected?.value;
-        },
+        const formatChangeOptions = computed(() => formatChanges.value.map(r => ({ label: r.date ?? '#', value: r })));
 
-        date: {
+        const formatChange = computed(() => selected.value?.value);
+
+        const date = computed({
             get() {
-                return this.formatChange?.date;
+                return formatChange.value?.date ?? '';
             },
-            set(newValue) {
-                if (this.formatChange != null) {
-                    this.formatChange.date = newValue;
+            set(newValue: string) {
+                if (formatChange.value != null) {
+                    formatChange.value.date = newValue;
                 }
             },
-        },
+        });
 
-        changes: {
+        const changes = computed({
             get() {
-                return this.formatChange?.changes;
+                return formatChange.value?.changes ?? [];
             },
-            set(newValue) {
-                if (this.formatChange != null) {
-                    this.formatChange.changes = newValue;
+            set(newValue: FormatChangeDetail[]) {
+                if (formatChange.value != null) {
+                    formatChange.value.changes = newValue;
                 }
             },
-        },
+        });
 
-    },
+        const loadData = async () => {
+            const { data } = await controlGet<FormatChange[]>('/magic/format/change', { id: format.value });
 
-    watch: {
-        format() {
-            this.loadData();
-        },
-    },
+            formatChanges.value = data;
 
-    mounted() {
-        this.loadData();
-    },
-
-    methods: {
-        async loadData() {
-            const { data } = await this.controlGet('/magic/format/change', { id: this.format });
-
-            this.formatChanges = data;
-
-            if (this.selected == null || this.selected.label === '#') {
-                this.selected = this.formatChangeOptions[0];
+            if (selected.value == null || selected.value.label === '#') {
+                selected.value = formatChangeOptions.value[0];
             }
-        },
+        };
 
-        async saveData() {
-            await this.controlPost('/magic/format/change/save', {
-                data: this.formatChange,
+        const saveData = async () => {
+            await controlPost('/magic/format/change/save', {
+                data: formatChange,
             });
 
-            await this.loadData();
-        },
+            await loadData();
+        };
 
-        async sync() {
-            const { data, status } = await this.controlPost('/magic/format/sync');
+        const sync = async () => {
+            const { data, status } = await controlPost('/magic/format/sync');
 
             if (status === 500) {
                 console.log(data);
             }
-        },
+        };
 
-        async add() {
-            if (this.selected?.label === '#') {
-                await this.saveData();
+        const add = async () => {
+            if (selected.value?.label === '#') {
+                await saveData();
             }
 
-            this.formatChanges.unshift({ date: null, changes: [] });
+            formatChanges.value.unshift({ date: '', changes: [] });
 
-            this.selected = this.formatChangeOptions[0];
+            selected.value = formatChangeOptions.value[0];
 
-            this.addChange();
-        },
+            addChange();
+        };
 
-        addChange() {
-            this.changes.push({
+        const addChange = () => {
+            changes.value.push({
                 category: 'release',
-                format:   null,
+                format:   '',
                 in:       [],
                 out:      [],
             });
-        },
+        };
 
-        removeChange(i) {
-            this.changes.splice(i, 1);
-        },
+        const removeChange = (i: number) => {
+            changes.value.splice(i, 1);
+        };
 
-        moveChangeUp(i) {
+        const setChangeIn = (c: FormatChangeDetail) => (v: string) => {
+            c.in = v.split(',').map(s => s.trim()).filter(s => s !== '');
+        };
+
+        const setChangeOut = (c: FormatChangeDetail) => (v: string) => {
+            c.out = v.split(',').map(s => s.trim()).filter(s => s !== '');
+        };
+
+        const moveChangeUp = (i :number) => {
             if (i !== 0) {
-                const curr = this.changes[i];
-                const prev = this.changes[i - 1];
+                const curr = changes.value[i];
+                const prev = changes.value[i - 1];
 
-                this.$set(this.changes, i - 1, curr);
-                this.$set(this.changes, i, prev);
+                changes.value[i - 1] = curr;
+                changes.value[i] = prev;
             }
-        },
+        };
 
-        moveChangeDown(i) {
-            if (i !== this.changes.length - 1) {
-                const curr = this.changes[i];
-                const next = this.changes[i + 1];
+        const moveChangeDown = (i :number) => {
+            if (i !== changes.value.length - 1) {
+                const curr = changes.value[i];
+                const next = changes.value[i + 1];
 
-                this.$set(this.changes, i + 1, curr);
-                this.$set(this.changes, i, next);
+                changes.value[i + 1] = curr;
+                changes.value[i] = next;
             }
-        },
+        };
+
+        watch(format, loadData);
+        onMounted(loadData);
+
+        return {
+            format,
+            formatList,
+            formatChange,
+            selected,
+            date,
+            changes,
+
+            formatChangeOptions,
+
+            saveData,
+            sync,
+            add,
+            addChange,
+            removeChange,
+            setChangeIn,
+            setChangeOut,
+            moveChangeUp,
+            moveChangeDown,
+        };
     },
-};
+});
 </script>

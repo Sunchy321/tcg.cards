@@ -24,20 +24,28 @@
     </div>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .hsdata-patch
-    width 20%
-    padding 10px 5px
+    width: 20%
+    padding: 10px 5px
 
 .load-button.is-updated
-    color green
-
+    color: green
 </style>
 
-<script>
-export default {
-    name: 'HsdataPatch',
+<script lang="ts">
+import { defineComponent, ref, computed } from 'vue';
 
+import controlSetup from 'setup/control';
+
+interface Progress {
+    type: 'load-patch';
+    version: string;
+    count: number;
+    total: number;
+}
+
+export default defineComponent({
     props: {
         version: {
             type:     String,
@@ -50,51 +58,59 @@ export default {
         },
     },
 
-    data: () => ({
-        progress: null,
-    }),
-    computed: {
-        progressValue() {
-            if (this.progress == null) {
+    emits: ['load-data'],
+
+    setup(props, { emit }) {
+        const { controlWs } = controlSetup();
+
+        const progress = ref<Progress|null>(null);
+
+        const progressValue = computed(() => {
+            if (progress.value == null) {
                 return 0;
             } else {
-                return this.progress.count / this.progress.total;
+                return progress.value.count / progress.value.total;
             }
-        },
+        });
 
-        progressLabel() {
-            if (this.progress == null) {
+        const progressLabel = computed(() => {
+            if (progress.value == null) {
                 return '';
             } else {
-                return this.progress.count + '/' + this.progress.total;
+                return `${progress.value.count}/${progress.value.total}`;
             }
-        },
-    },
+        });
 
-    methods: {
-        loadPatch() {
-            const ws = this.controlWs('/hearthstone/hsdata/load-patch', { version: this.version });
+        const loadPatch = () => {
+            const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.version });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
                     if (data.error) {
-                        this.error = data;
                         console.error(data);
                     } else {
-                        const progress = JSON.parse(data);
-                        this.progress = progress;
+                        const prog = JSON.parse(data) as Progress;
+                        progress.value = prog;
                     }
                 };
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    this.progress = null;
-                    this.$emit('load-data');
+                    progress.value = null;
+                    emit('load-data');
 
-                    resolve();
+                    resolve(undefined);
                 };
             });
-        },
+        };
+
+        return {
+            progress,
+            progressValue,
+            progressLabel,
+
+            loadPatch,
+        };
     },
-};
+});
 </script>

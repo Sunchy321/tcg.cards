@@ -8,7 +8,7 @@
             :ratio="745/1040"
             native-context-menu
         >
-            <template v-slot:error>
+            <template #error>
                 <div class="card-not-found">
                     <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
                 </div>
@@ -17,57 +17,76 @@
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .image
-    width calc(100% / 8)
+    width: calc(100% / 8)
 </style>
 
-<script>
-import page from 'src/mixins/page';
+<script lang="ts">
+import { defineComponent, ref, computed, onMounted } from 'vue';
 
-import { imageBase } from 'src/boot/backend';
+import { useStore } from 'src/store';
+import { useI18n } from 'vue-i18n';
 
-export default {
-    name: 'ImageWall',
+import pageSetup from 'setup/page';
 
-    mixins: [page],
+import { imageBase, apiGet } from 'boot/backend';
 
-    data: () => ({
-        data: [],
-    }),
+export default defineComponent({
+    setup() {
+        const store = useStore();
+        const i18n = useI18n();
 
-    computed: {
-        title() { return this.$t('magic.image-wall'); },
+        const { set, lang, type } = pageSetup({
+            title: () => i18n.t('magic.iamge-wall'),
 
-        set() { return this.$route.query.set; },
-        lang() { return this.$route.query.lang || this.$store.getters['magic/locale']; },
-        type() { return this.$route.query.type || 'png'; },
+            params: {
+                set: {
+                    type:     'string',
+                    bind:     'query',
+                    readonly: true,
+                },
+                lang: {
+                    type:     'string',
+                    bind:     'query',
+                    readonly: true,
+                    default:  () => store.getters['magic/locale'],
+                },
+                type: {
+                    type:     'enum',
+                    bind:     'query',
+                    values:   ['png'],
+                    readonly: true,
+                },
+            },
+        });
 
-        urls() {
-            return this.data.map(name => {
+        const data = ref<string[]>([]);
+
+        const urls = computed(() => {
+            return data.value.map(name => {
                 const [number, part] = name.split('-');
 
                 if (part != null) {
-                    return `http://${imageBase}/magic/card?lang=${this.lang}&set=${this.set}&number=${number}&part=${part}`; ;
+                    return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
                 } else {
-                    return `http://${imageBase}/magic/card?lang=${this.lang}&set=${this.set}&number=${number}`;
+                    return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
                 }
             });
-        },
-    },
+        });
 
-    mounted() {
-        this.loadData();
-    },
-
-    methods: {
-        async loadData() {
-            const { data } = await this.apiGet('/magic/card/image-all', {
-                set: this.set, lang: this.lang, type: this.type,
+        const loadData = async () => {
+            const { data: result } = await apiGet<string[]>('/magic/set/{props.set}/image-all', {
+                lang: lang.value,
+                type: type.value,
             });
 
-            this.data = data;
-        },
+            data.value = result;
+        };
+
+        onMounted(loadData);
+
+        return { urls };
     },
-};
+});
 </script>

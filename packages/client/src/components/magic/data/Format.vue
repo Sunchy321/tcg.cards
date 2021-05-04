@@ -32,76 +32,93 @@
     </div>
 </template>
 
-<script>
-import DateInput from 'components/DateInput';
+<script lang="ts">
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 
-export default {
+import controlSetup from 'setup/control';
+
+import DateInput from 'components/DateInput.vue';
+
+import { apiGet } from 'boot/backend';
+
+interface Format {
+    formatId: string;
+    localization: { lang: string, name: string }[];
+    sets: string[],
+    banlist: { card: string, status: string, date: string, source?: string }[],
+    birthday?: string;
+    deathdate?: string;
+}
+
+export default defineComponent({
     name: 'DataFormat',
 
     components: { DateInput },
 
-    data: () => ({
-        formats: [],
-        format:  null,
+    setup() {
+        const { controlPost } = controlSetup();
 
-        data: null,
-    }),
+        const formats = ref<string[]>([]);
+        const format = ref<string|null>(null);
+        const data = ref<Format|null>(null);
 
-    computed: {
-        birthday: {
+        const birthday = computed({
             get() {
-                return this.data?.birthday;
+                return data.value?.birthday ?? '';
             },
-            set(newValue) {
-                if (this.data != null) {
-                    this.$set(this.data, 'birthday', newValue);
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.birthday = newValue;
                 }
             },
-        },
+        });
 
-        deathdate: {
+        const deathdate = computed({
             get() {
-                return this.data?.deathdate;
+                return data.value?.deathdate ?? '';
             },
-            set(newValue) {
-                if (this.data != null) {
-                    this.$set(this.data, 'deathdate', newValue);
+            set(newValue: string) {
+                if (data.value != null) {
+                    data.value.deathdate = newValue;
                 }
             },
-        },
-    },
+        });
 
-    watch: {
-        format() {
-            this.loadFormat();
-        },
-    },
+        const loadData = async () => {
+            const { data } = await apiGet<string[]>('/magic/format');
 
-    mounted() {
-        this.loadData();
-    },
+            formats.value = data;
 
-    methods: {
-        async loadData() {
-            const { data } = await this.apiGet('/magic/format');
-
-            this.formats = data;
-
-            if (this.format == null) {
-                this.format = this.formats[0];
+            if (format.value == null) {
+                format.value = formats.value[0];
             }
-        },
+        };
 
-        async loadFormat() {
-            const { data } = await this.apiGet('/magic/format/' + this.format);
+        const loadFormat = async () => {
+            if (format.value != null) {
+                const { data: result } = await apiGet<Format>(`/magic/format/${format.value}`);
 
-            this.data = data;
-        },
+                data.value = result;
+            }
+        };
 
-        async saveFormat() {
-            await this.controlPost('/magic/format/save', { data: this.data });
-            await this.loadFormat();
-        },
+        const saveFormat = async () => {
+            await controlPost('/magic/format/save', { data: data.value });
+            await loadFormat();
+        };
+
+        watch(format, loadFormat);
+        onMounted(loadData);
+
+        return {
+            formats,
+            format,
+            birthday,
+            deathdate,
+
+            saveFormat,
+        };
     },
-};
+
+});
 </script>

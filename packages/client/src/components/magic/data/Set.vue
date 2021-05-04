@@ -33,15 +33,15 @@
                 dense outline
                 :options="tapStyleOption"
             >
-                <template v-slot:old1>
+                <template #old1>
                     <magic-symbol value="T" :type="['tap:old1']" />
                 </template>
 
-                <template v-slot:old2>
+                <template #old2>
                     <magic-symbol value="T" :type="['tap:old2']" />
                 </template>
 
-                <template v-slot:modern>
+                <template #modern>
                     <magic-symbol value="T" />
                 </template>
             </q-btn-toggle>
@@ -52,11 +52,11 @@
                 dense outline
                 :options="whiteStyleOption"
             >
-                <template v-slot:old>
+                <template #old>
                     <magic-symbol value="W" :type="['white:old']" />
                 </template>
 
-                <template v-slot:modern>
+                <template #modern>
                     <magic-symbol value="W" />
                 </template>
             </q-btn-toggle>
@@ -78,10 +78,10 @@
                 <q-checkbox
                     :value="l.isOfficialName"
                     :disable="l.name == null"
-                    @input="v => toggleIsWotcName(l.lang, v)"
+                    @input="toggleIsWotcName(l.lang)"
                 />
-                <q-input :value="l.name" class="col" dense outlined @input="v => assignName(l.lang, v)" />
-                <q-input :value="l.link" class="col" dense outlined @input="v => assignLink(l.lang, v)" />
+                <q-input :value="l.name" class="col" dense outlined @input="assignName(l.lang)" />
+                <q-input :value="l.link" class="col" dense outlined @input="assignLink(l.lang)" />
                 <q-btn
                     type="a" :href="l.link" target="_blank"
                     :disable="l.link == null"
@@ -93,11 +93,54 @@
     </div>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 
-import MagicSymbol from 'components/magic/Symbol';
+import { useRouter, useRoute } from 'vue-router';
+import { useStore } from 'src/store';
 
-const linkMap = {
+import controlSetup from 'setup/control';
+
+import MagicSymbol from 'components/magic/Symbol.vue';
+
+import { apiGet } from 'src/boot/backend';
+
+interface SetLocalization {
+    lang: string,
+    name?: string,
+    isOfficialName?: boolean,
+    link?: string,
+}
+
+interface Set {
+    setId: string,
+
+    scryfall: {
+        id: string,
+        code: string,
+    },
+
+    mtgoCode?: string,
+    tcgplayerId?: number,
+
+    block?: string,
+    parent?: string,
+
+    localization: SetLocalization[],
+
+    setType: string,
+    isDigital: boolean,
+    isFoilOnly: boolean,
+    isNonfoilOnly: boolean,
+    symbolStyle: string[],
+
+    releaseDate?: string,
+
+    cardCount: number,
+    printedSize?: number,
+}
+
+const linkMap: Record<string, string> = {
     en:  'en',
     de:  'de',
     es:  'es',
@@ -111,7 +154,7 @@ const linkMap = {
     zht: 'zh-hant',
 };
 
-function makeSymbolStyle(tap, white, flat) {
+function makeSymbolStyle(tap: string, white: string, flat: boolean) {
     const result = [];
 
     if (tap !== 'modern') {
@@ -129,231 +172,202 @@ function makeSymbolStyle(tap, white, flat) {
     return result;
 }
 
-export default {
-    name: 'Set',
-
+export default defineComponent({
     components: { MagicSymbol },
 
-    data: () => ({
-        set:         [],
-        data:        null,
-        filteredSet: [],
-    }),
+    setup() {
+        const router = useRouter();
+        const route = useRoute();
+        const store = useStore();
 
-    computed: {
-        id: {
-            get() {
-                return this.$route.query.id ?? this.set[0];
-            },
-            set(newValue) {
-                this.$router.push({
+        const { controlPost } = controlSetup();
+
+        const set = ref<string[]>([]);
+        const data = ref<Set|null>(null);
+        const filteredSet = ref<string[]>([]);
+
+        const id = computed({
+            get() { return route.query.id as string ?? set.value[0]; },
+            set(newValue: string) {
+                void router.replace({
                     query: {
-                        ...this.$route.query,
+                        ...route.query,
                         id: newValue,
                     },
                 });
             },
-        },
+        });
 
-        localization() {
-            return this.$store.getters['magic/locales'].map(l => this.data?.localization?.find(v => v.lang === l) ?? {
-                lang: l,
-                name: null,
-                link: null,
-            });
-        },
+        const localization = computed(() => store.getters['magic/locales'].map(
+            l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l },
+        ));
 
-        localizationColumns() {
-            return [
-                { name: 'lang', label: 'Lang', field: 'lang' },
-                { name: 'name', label: 'Name', field: 'name' },
-                { name: 'link', label: 'Link', field: 'link' },
-            ];
-        },
+        const symbolStyle = computed(() => data.value?.symbolStyle ?? []);
 
-        symbolStyle() { return this.data?.symbolStyle ?? []; },
-
-        tapStyle: {
+        const tapStyle = computed({
             get() {
-                if (this.symbolStyle.includes('tap:old1')) {
+                if (symbolStyle.value.includes('tap:old1')) {
                     return 'old1';
-                } else if (this.symbolStyle.includes('tap:old2')) {
+                } else if (symbolStyle.value.includes('tap:old2')) {
                     return 'old2';
                 } else {
                     return 'modern';
                 }
             },
-            set(newValue) {
-                if (this.data == null) {
+            set(newValue: string) {
+                if (data.value == null) {
                     return;
                 }
 
-                this.data.symbolStyle = makeSymbolStyle(newValue, this.whiteStyle, this.flat);
+                data.value.symbolStyle = makeSymbolStyle(newValue, whiteStyle.value, flat.value);
             },
-        },
+        });
 
-        tapStyleOption() {
-            return [
-                { value: 'old1', slot: 'old1' },
-                { value: 'old2', slot: 'old2' },
-                { value: 'modern', slot: 'modern' },
-            ];
-        },
+        const tapStyleOption = [
+            { value: 'old1', slot: 'old1' },
+            { value: 'old2', slot: 'old2' },
+            { value: 'modern', slot: 'modern' },
+        ];
 
-        whiteStyle: {
+        const whiteStyle = computed({
             get() {
-                if (this.symbolStyle.includes('white:old')) {
+                if (symbolStyle.value.includes('white:old')) {
                     return 'old';
                 } else {
                     return 'modern';
                 }
             },
-            set(newValue) {
-                if (this.data == null) {
+            set(newValue: string) {
+                if (data.value == null) {
                     return;
                 }
 
-                this.data.symbolStyle = makeSymbolStyle(this.tapStyle, newValue, this.flat);
+                data.value.symbolStyle = makeSymbolStyle(tapStyle.value, newValue, flat.value);
             },
-        },
+        });
 
-        whiteStyleOption() {
-            return [
-                { value: 'old', slot: 'old' },
-                { value: 'modern', slot: 'modern' },
-            ];
-        },
+        const whiteStyleOption = [
+            { value: 'old', slot: 'old' },
+            { value: 'modern', slot: 'modern' },
+        ];
 
-        flat: {
+        const flat = computed({
             get() {
-                return this.symbolStyle.includes('flat');
+                return symbolStyle.value.includes('flat');
             },
-            set(newValue) {
-                if (this.data == null) {
+            set(newValue: boolean) {
+                if (data.value == null) {
                     return;
                 }
-                this.data.symbolStyle = makeSymbolStyle(this.tapStyle, this.whiteStyle, newValue);
+                data.value.symbolStyle = makeSymbolStyle(tapStyle.value, whiteStyle.value, newValue);
             },
-        },
-    },
+        });
 
-    watch: {
-        set() {
-            this.filteredSet = this.set;
-        },
+        const loadList = async () => {
+            const { data: sets } = await apiGet<string[]>('/magic/set');
 
-        id() {
-            this.loadData();
-        },
-    },
+            set.value = sets;
 
-    mounted() {
-        this.loadList();
-    },
-
-    methods: {
-        async loadList() {
-            const { data: set } = await this.apiGet('/magic/set');
-
-            this.set = set;
-
-            if (this.data == null) {
-                this.loadData();
+            if (data.value == null) {
+                void loadData();
             }
-        },
+        };
 
-        async loadData() {
-            if (this.data != null) {
-                this.save();
+        const loadData = async () => {
+            if (data.value != null) {
+                await save();
             }
 
-            const { data } = await this.apiGet('/magic/set/' + this.id);
+            const { data: result } = await apiGet<Set>('/magic/set/' + id.value);
 
-            this.data = data;
-        },
+            data.value = result;
+        };
 
-        filterFn(val, update) {
+        const filterFn = (val: string, update: (cb: () => void) => void) => {
             if (val === '') {
                 update(() => {
-                    this.filteredSet = this.set;
+                    filteredSet.value = set.value;
                 });
             } else {
                 update(() => {
-                    this.filteredSet = this.set.filter(s => s.includes(val));
+                    filteredSet.value = set.value.filter(s => s.includes(val));
                 });
             }
-        },
+        };
 
-        assignName(lang, name) {
-            if (this.data == null) {
+        const assignName = (lang: string) => (name: string) => {
+            if (data.value == null) {
                 return;
             }
 
-            const loc = this.data.localization.find(l => l.lang === lang);
+            const loc = data.value.localization.find(l => l.lang === lang);
 
             if (loc == null) {
-                this.data.localization = [...this.data.localization, { lang, name, isOfficialName: true }];
+                data.value.localization = [...data.value.localization, { lang, name, isOfficialName: true }];
             } else {
                 if (loc.name == null) {
-                    this.$set(loc, 'isOfficialName', true);
+                    loc.isOfficialName = true;
                 }
 
-                this.$set(loc, 'name', name);
+                loc.name = name;
             }
-        },
+        };
 
-        assignLink(lang, link) {
-            if (this.data == null) {
+        const assignLink = (lang: string) => (link: string) => {
+            if (data.value == null) {
                 return;
             }
 
-            const loc = this.data.localization.find(l => l.lang === lang);
+            const loc = data.value.localization.find(l => l.lang === lang);
 
             if (loc == null) {
-                this.data.localization = [...this.data.localization, { lang, link }];
+                data.value.localization = [
+                    ...data.value.localization,
+                    { lang, name: '', link },
+                ];
             } else {
-                this.$set(loc, 'link', link);
+                loc.link = link;
             }
-        },
+        };
 
-        toggleIsWotcName(lang) {
-            if (this.data == null) {
+        const toggleIsWotcName = (lang: string) => () => {
+            if (data.value == null) {
                 return;
             }
 
-            const loc = this.data.localization.find(l => l.lang === lang);
+            const loc = data.value.localization.find(l => l.lang === lang);
 
             if (loc != null) {
-                this.$set(loc, 'isOfficialName', !loc.isOfficialName);
+                loc.isOfficialName = !loc.isOfficialName;
             }
-        },
+        };
 
-        fillLink() {
-            if (this.data == null) {
+        const fillLink = () => {
+            if (data.value == null) {
                 return;
             }
 
-            const loc = this.data.localization.find(l => l.lang === 'en');
+            const loc = data.value.localization.find(l => l.lang === 'en');
 
             if (loc != null && loc.link != null) {
-                for (const l of this.localization) {
+                for (const l of localization.value) {
                     if (l.link == null || l.link === '') {
-                        this.assignLink(l.lang, loc.link.replace('/en/', '/' + linkMap[l.lang] + '/'));
+                        assignLink(l.lang)(loc.link.replace('/en/', '/' + linkMap[l.lang] + '/'));
                     }
                 }
             }
-        },
+        };
 
-        prettify() {
-            if (this.data == null) {
+        const prettify = () => {
+            if (data.value == null) {
                 return;
             }
 
-            this.data.localization = this.data.localization.filter(l =>
+            data.value.localization = data.value.localization.filter(l =>
                 (l.name != null && l.name !== '') || (l.link != null && l.link !== ''),
             );
 
-            for (const l of this.data.localization) {
+            for (const l of data.value.localization) {
                 if (l.name === '') {
                     delete l.name;
                     delete l.isOfficialName;
@@ -363,19 +377,41 @@ export default {
                     delete l.link;
                 }
             }
-        },
+        };
 
-        async save() {
-            if (this.data != null) {
-                this.prettify();
+        const save = async () => {
+            if (data.value != null) {
+                prettify();
 
-                await this.controlPost('/magic/set/save', { data: this.data });
+                await controlPost('/magic/set/save', { data: data.value });
             }
-        },
+        };
+
+        watch(set, () => { filteredSet.value = set.value; });
+        watch(id, loadData);
+        onMounted(loadList);
+
+        return {
+            id,
+            localization,
+            symbolStyle,
+
+            tapStyle,
+            whiteStyle,
+            flat,
+
+            tapStyleOption,
+            whiteStyleOption,
+
+            filteredSet,
+
+            save,
+            fillLink,
+            filterFn,
+            toggleIsWotcName,
+            assignName,
+            assignLink,
+        };
     },
-};
+});
 </script>
-
-<style>
-
-</style>

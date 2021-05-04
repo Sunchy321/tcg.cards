@@ -6,23 +6,23 @@
 
                 <app-title />
 
-                <template v-for="(p, k) in paramDetails">
+                <template v-for="(p, k) in params">
                     <q-btn-dropdown
-                        v-if="p.type === 'array'"
+                        v-if="p.type === 'enum'"
                         :key="k"
                         flat dense
-                        :label="p.label || p.value"
+                        :label="paramLabel(p, p.value)"
                     >
                         <q-list link style="width: 150px">
                             <q-item
-                                v-for="o in p.option" :key="o.value || o"
+                                v-for="o in p.values" :key="o"
                                 v-close-popup
 
                                 clickable
-                                @click="commitParam(k, o.value || o)"
+                                @click="commitParam(k, o)"
                             >
                                 <q-item-section>
-                                    {{ o.label || o }}
+                                    {{ paramLabel(p, o) }}
                                 </q-item-section>
                             </q-item>
                         </q-list>
@@ -52,7 +52,7 @@
                 </q-btn-dropdown>
 
                 <q-btn
-                    v-for="a in actions" :key="a.action"
+                    v-for="a in actionsWithIcon" :key="a.action"
                     :icon="a.icon"
                     flat dense round
                     @click="commitAction(a.action)"
@@ -80,80 +80,107 @@
     </q-layout>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .code
-    color #777
-    width 40px
+    color: #777
+    width: 40px
 </style>
 
-<script>
-import basic from '../mixins/basic';
+<script lang="ts">
+import { defineComponent, computed } from 'vue';
+import { useRoute } from 'vue-router';
+import { useStore } from 'src/store';
 
-import AppTitle from 'components/Title';
+import basicSetup from 'setup/basic';
 
-export default {
-    name: 'Main',
+import AppTitle from 'components/Title.vue';
 
+export default defineComponent({
     components: { AppTitle },
 
-    mixins: [basic],
+    setup() {
+        const route = useRoute();
+        const store = useStore();
+        const { game, user, isAdmin } = basicSetup();
 
-    computed: {
-        homePath() {
-            if (this.game && this.$route.path !== '/' + this.game) {
-                return '/' + this.game;
+        const homePath = computed(() => {
+            if (game.value != null && route.path !== '/' + game.value) {
+                return '/' + game.value;
             } else {
                 return '/';
             }
-        },
+        });
 
-        dataPath() {
-            if (this.isAdmin && this.game != null) {
-                return `/${this.game}/data`;
+        const dataPath = computed(() => {
+            if (isAdmin.value && game.value != null) {
+                return `/${game.value}/data`;
             } else {
                 return null;
             }
-        },
+        });
 
-        gameLocale: {
+        const gameLocale = computed({
             get() {
-                if (this.game != null) {
-                    return this.$store.getters[`${this.game}/locale`];
+                if (game.value != null) {
+                    return store.getters[`${game.value}/locale` as const];
                 } else {
                     return null;
                 }
             },
-            set(newValue) { this.$store.commit(`${this.game}/locale`, newValue); },
-        },
+            set(newValue) {
+                if (game.value != null) {
+                    store.commit(`${game.value}/locale`, newValue);
+                }
+            },
+        });
 
-        gameLocales() {
-            if (this.game != null) {
-                return this.$store.getters[`${this.game}/locales`];
+        const gameLocales = computed(() => {
+            if (game.value != null) {
+                return store.getters[`${game.value}/locales` as const];
             } else {
                 return [];
             }
-        },
-
-        paramDetails() { return this.$store.getters.paramDetails; },
-        actions() { return this.$store.getters.actions; },
-    },
-
-    mounted() {
-        this.$store.subscribe(async ({ type, payload }) => {
-            if (type === 'event') {
-                this.$refs.main['event/' + payload.type](payload);
-            }
         });
-    },
 
-    methods: {
-        commitParam(key, value) {
-            this.$store.commit('param', { key, value });
-        },
+        const params = computed(() => store.getters.params);
+        const actionsWithIcon = computed(() => store.getters.actions.filter(a => a.icon != null));
 
-        commitAction(action) {
-            this.$refs.main['action/' + action]();
-        },
+        const paramLabel = (p: any, v: string) => {
+            if (p.label) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                return p.label(v) as string;
+            } else {
+                return v;
+            }
+        };
+
+        const commitParam = (key: any, value: any) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            store.commit('param', { key, value });
+        };
+
+        const commitAction = (action: string) => {
+            void store.dispatch('action', action);
+        };
+
+        return {
+            game,
+            user,
+            isAdmin,
+
+            homePath,
+            dataPath,
+            gameLocale,
+            gameLocales,
+
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            params: params as any,
+            actionsWithIcon,
+
+            paramLabel,
+            commitParam,
+            commitAction,
+        };
     },
-};
+});
 </script>

@@ -7,7 +7,7 @@
                 emit-value map-options
                 :options="crOptions"
             >
-                <template v-slot:option="scope">
+                <template #option="scope">
                     <q-item
                         v-bind="scope.itemProps"
                         v-on="scope.itemEvents"
@@ -73,15 +73,15 @@
                     :filter="contentFilter"
                     :rows-per-page-options="[0]"
                 >
-                    <template v-slot:top-right>
+                    <template #top-right>
                         <q-input v-model="contentFilter" borderless dense debounce="300">
-                            <template v-slot:append>
+                            <template #append>
                                 <q-icon name="mdi-magnify" />
                             </template>
                         </q-input>
                     </template>
 
-                    <template v-slot:body="props">
+                    <template #body="props">
                         <q-tr :props="props">
                             <q-td key="id" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.id }}
@@ -90,8 +90,8 @@
                                         :value="props.row.id"
                                         dense
                                         autofocus counter
-                                        @focus="e => e.target.select()"
-                                        @change="e => props.row.id = e.target.value"
+                                        @focus="focus"
+                                        @change="inputChange(props.row, 'id')"
                                     />
                                 </q-popup-edit>
                             </q-td>
@@ -122,28 +122,28 @@
                     :filter="glossaryFilter"
                     :rows-per-page-options="[0]"
                 >
-                    <template v-slot:top-right>
+                    <template #top-right>
                         <q-input v-model="glossaryFilter" borderless dense debounce="300">
-                            <template v-slot:append>
+                            <template #append>
                                 <q-icon name="mdi-magnify" />
                             </template>
                         </q-input>
                     </template>
 
-                    <template v-slot:body="props">
+                    <template #body="props">
                         <q-tr :props="props">
                             <q-td key="ids" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.ids.join(', ') }}
                                 <q-popup-edit
                                     :value="props.row.ids.join(', ')"
-                                    @input="v => props.row.ids = v.split(', ')"
+                                    @input="editInputSplit(props.row, 'ids')"
                                 >
                                     <q-input
                                         :value="props.row.ids.join(', ')"
                                         dense
                                         autofocus counter
-                                        @focus="e => e.target.select()"
-                                        @change="e => props.row.ids = e.target.value.split(', ')"
+                                        @focus="focus"
+                                        @change="inputChangeSplit(props.row, 'ids')"
                                     />
                                 </q-popup-edit>
                             </q-td>
@@ -151,14 +151,14 @@
                                 {{ props.row.words.join(', ') }}
                                 <q-popup-edit
                                     :value="props.row.words.join(', ')"
-                                    @input="v => props.row.words = v.split(', ')"
+                                    @input="editInputSplit(props.row, 'words')"
                                 >
                                     <q-input
                                         :value="props.row.words.join(', ')"
                                         dense
                                         autofocus counter
-                                        @focus="e => e.target.select()"
-                                        @change="e => props.row.words = e.target.value.split(', ')"
+                                        @focus="focus"
+                                        @change="inputChangeSplit(props.row, 'words')"
                                     />
                                 </q-popup-edit>
                             </q-td>
@@ -175,157 +175,210 @@
     </div>
 </template>
 
-<style lang="stylus" scoped>
-
+<style lang="sass" scoped>
 .error
-    color $negative
-
+    color: $negative
 </style>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+
+import { useRouter, useRoute } from 'vue-router';
+
+import controlSetup from 'setup/control';
+
 import { last } from 'lodash';
 
-export default {
-    name: 'CR',
+import { apiGet } from 'src/boot/backend';
 
-    data: () => ({
-        cr:   [],
-        txt:  [],
-        data: null,
-        tab:  'content',
+interface CRContent {
+    id: string;
+    depth: number;
+    index: string;
+    text: string;
+    examples?: string[];
+    cards?: { text:string, id:string }[]
+}
 
-        contentFilter:  '',
-        glossaryFilter: '',
-    }),
+interface CRGlossary {
+    words: string[];
+    ids: string[];
+    text: string;
+}
 
-    computed: {
-        date: {
+interface CR {
+    date: string;
+    intro: string;
+    contents: CRContent[];
+    glossary: CRGlossary[];
+    credits: string;
+    csi?: string;
+}
+
+export default defineComponent({
+    name: 'DataCR',
+
+    setup() {
+        const router = useRouter();
+        const route = useRoute();
+
+        const { controlGet, controlPost } = controlSetup();
+
+        const cr = ref<string[]>([]);
+        const txt = ref<string[]>([]);
+        const data = ref<CR|null>(null);
+        const tab = ref('content');
+
+        const contentFilter = ref('');
+        const glossaryFilter = ref('');
+
+        const date = computed({
             get() {
-                return this.$route.query.date ?? last(this.cr);
+                return route.query.date as string ?? last(cr.value);
             },
-            set(newValue) {
-                this.$router.push({
-                    query: {
-                        ...this.$route.query,
-                        date: newValue,
-                    },
-                });
+            set(newValue: string) {
+                void router.push({ query: { ...route.query, date: newValue } });
             },
-        },
+        });
 
-        crOptions() {
-            return this.txt.map(d => ({
+        const crOptions = computed(() => {
+            return txt.value.map(d => ({
                 value:   d,
                 label:   d,
-                hasData: this.cr.includes(d),
+                hasData: cr.value.includes(d),
             }));
-        },
+        });
 
-        contents() { return this.data?.contents ?? []; },
-        glossary() { return this.data?.glossary ?? []; },
+        const contents = computed(() => { return data.value?.contents ?? []; });
+        const glossary = computed(() => { return data.value?.glossary ?? []; });
 
-        contentTitle() {
-            if (this.data != null) {
-                return `Contents (${this.data.date})`;
+        const contentTitle = computed(() => {
+            if (data.value != null) {
+                return `Contents (${data.value.date})`;
             } else {
                 return 'Contents';
             }
-        },
+        });
 
-        contentColumns() {
-            return [
-                { name: 'id', label: 'ID', field: 'id' },
-                { name: 'depth', label: 'Depth', field: 'depth' },
-                { name: 'index', label: 'Index', field: 'index' },
-                { name: 'text', label: 'Text', field: 'text', align: 'left' },
-            ];
-        },
+        const contentColumns = [
+            { name: 'id', label: 'ID', field: 'id' },
+            { name: 'depth', label: 'Depth', field: 'depth' },
+            { name: 'index', label: 'Index', field: 'index' },
+            { name: 'text', label: 'Text', field: 'text', align: 'left' },
+        ];
 
-        duplicatedID() {
-            const ids = this.contents.map(c => c.id);
+        const duplicatedID = computed(() => {
+            const ids = contents.value.map(c => c.id);
 
-            const count = { };
+            const count: Record<string, number> = { };
 
             for (const id of ids) {
-                count[id] = (count[id] || 0) + 1;
+                count[id] = (count[id] ?? 0) + 1;
             }
 
             return Object.keys(count).filter(id => count[id] > 1);
-        },
+        });
 
-        glossaryTitle() {
-            if (this.data != null) {
-                return `Glossary (${this.data.date})`;
+        const glossaryTitle = computed(() => {
+            if (data.value != null) {
+                return `Glossary (${data.value.date})`;
             } else {
                 return 'Glossary';
             }
-        },
+        });
 
-        glossaryColumns() {
-            return [
-                { name: 'ids', label: 'IDs', field: 'ids' },
-                { name: 'words', label: 'Words', field: 'words' },
-                { name: 'text', label: 'Text', field: 'text', align: 'left' },
-            ];
-        },
+        const glossaryColumns = [
+            { name: 'ids', label: 'IDs', field: 'ids' },
+            { name: 'words', label: 'Words', field: 'words' },
+            { name: 'text', label: 'Text', field: 'text', align: 'left' },
+        ];
+
+        const loadData = async () => {
+            if (date.value != null && cr.value.includes(date.value)) {
+                const { data: result } = await apiGet<CR>('/magic/cr/' + date.value);
+
+                data.value = result;
+            }
+        };
+
+        const loadList = async () => {
+            const { data: crResult } = await apiGet<string[]>('/magic/cr');
+            const { data: txtResult } = await controlGet<string[]>('/magic/cr/list');
+
+            cr.value = crResult;
+            txt.value = txtResult;
+
+            if (data.value == null) {
+                void loadData();
+            }
+        };
+
+        const parse = async () => {
+            if (date.value != null && !cr.value.includes(date.value)) {
+                const { data:result } = await controlGet<CR>('/magic/cr/parse', { date: date.value });
+
+                data.value = result;
+            }
+        };
+
+        const save = async () => {
+            if (data.value != null) {
+                await controlPost('/magic/cr/save', { data: data.value });
+
+                void loadList();
+            }
+        };
+
+        const reparse = async () => {
+            if (date.value != null && cr.value.includes(date.value)) {
+                const { data: result } = await controlGet<CR>('/magic/cr/reparse', { date: date.value });
+
+                data.value = result;
+            }
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        const focus = (e: any) => { e.target.select(); };
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const inputChange = (o: any, k: any) => (e: any) => { o[k] = e.target.value; };
+
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+        const inputChangeSplit = (o: any, k: any) => (e: any) => { o[k] = e.target.value.split(', '); };
+
+        const editInputSplit = (o: any, k: any) => (v: string) => { o[k] = v.split(', '); };
+
+        watch(date, loadData);
+        onMounted(loadList);
+
+        return {
+            date,
+            cr,
+            tab,
+            contentFilter,
+
+            contents,
+            contentTitle,
+            contentColumns,
+            glossary,
+            glossaryTitle,
+            glossaryColumns,
+            glossaryFilter,
+
+            duplicatedID,
+
+            crOptions,
+
+            loadData,
+            save,
+            parse,
+            reparse,
+
+            focus,
+            inputChange,
+            inputChangeSplit,
+            editInputSplit,
+        };
     },
-
-    watch: {
-        date() {
-            if (this.cr.includes(this.date)) {
-                this.loadData();
-            }
-        },
-    },
-
-    mounted() {
-        this.loadList();
-    },
-
-    methods: {
-        async loadList() {
-            const { data: cr } = await this.apiGet('/magic/cr');
-            const { data: txt } = await this.controlGet('/magic/cr/list');
-
-            this.cr = cr;
-            this.txt = txt;
-
-            if (this.data == null) {
-                this.loadData();
-            }
-        },
-
-        async loadData() {
-            if (this.date != null && this.cr.includes(this.date)) {
-                const { data } = await this.apiGet('/magic/cr/' + this.date);
-
-                this.data = data;
-            }
-        },
-
-        async parse() {
-            if (this.date != null && !this.cr.includes(this.date)) {
-                const { data } = await this.controlGet('/magic/cr/parse', { date: this.date });
-
-                this.data = data;
-            }
-        },
-
-        async save() {
-            if (this.data != null) {
-                await this.controlPost('/magic/cr/save', { data: this.data });
-
-                this.loadList();
-            }
-        },
-
-        async reparse() {
-            if (this.date != null && this.cr.includes(this.date)) {
-                const { data } = await this.controlGet('/magic/cr/reparse', { date: this.date });
-
-                this.data = data;
-            }
-        },
-    },
-};
+});
 </script>

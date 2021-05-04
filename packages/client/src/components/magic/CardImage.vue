@@ -7,8 +7,8 @@
             class="image"
             :class="[
                 `layout-${layout}`,
-                `part-${truePart}`,
-                { rotated: trueRotate }
+                `part-${realPart}`,
+                { rotated: realRotate }
             ]"
         >
             <q-img
@@ -18,7 +18,7 @@
                 :ratio="745/1040"
                 native-context-menu
             >
-                <template v-slot:error>
+                <template #error>
                     <div class="not-found">
                         <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
                     </div>
@@ -32,7 +32,7 @@
                 :ratio="745/1040"
                 native-context-menu
             >
-                <template v-slot:error>
+                <template #error>
                     <div class="not-found">
                         <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
                     </div>
@@ -46,7 +46,7 @@
             color="white"
             outline dense round
             icon="mdi-rotate-right"
-            @click.prevent.stop="trueRotate = !trueRotate"
+            @click.prevent.stop="realRotate = !realRotate"
         />
 
         <q-btn
@@ -55,7 +55,7 @@
             color="white"
             outline dense round
             icon="mdi-rotate-3d-variant"
-            @click.prevent.stop="truePart = { 1:0, 0:1 }[truePart]"
+            @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
         />
 
         <q-btn
@@ -64,7 +64,7 @@
             color="white"
             outline dense round
             icon="mdi-autorenew"
-            @click.prevent.stop="truePart = { 1:0, 0:1 }[truePart]"
+            @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
         />
 
         <q-btn
@@ -73,150 +73,140 @@
             color="white"
             outline dense round
             icon="mdi-rotate-right"
-            @click.prevent.stop="truePart = { 1:0, 0:1 }[truePart]"
+            @click.prevent.stop="realPart = realPart === 1 ? 0 : 1"
         />
     </div>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .card-image
-    position relative
+    position: relative
 
-    padding-bottom calc(100% / (745/1040))
+    padding-bottom: calc(100% / (745/1040))
 
 .image
-    position absolute
+    position: absolute
 
-    top 0
-    left 0
-    bottom 0
-    right 0
+    top: 0
+    left: 0
+    bottom: 0
+    right: 0
 
-    transition transform 0.5s
+    transition: transform 0.5s
 
     &.rotated
-        transform rotate(90deg) scale(745/1040)
+        transform: rotate(90deg) scale(745/1040)
 
     &.layout-flip.part-1
-        transform rotate(180deg)
+        transform: rotate(180deg)
 
     &.layout-aftermath.part-1
-        transform rotate(-90deg) scale(745/1040)
+        transform: rotate(-90deg) scale(745/1040)
 
-    &.layout-transform
+    &.layout-transform,
     &.layout-modal_dfc
-        transform-style preserve-3d
+        transform-style: preserve-3d
 
         & .front
         & .back
-            position absolute
-            top 0
-            left 0
+            position: absolute
+            top: 0
+            left: 0
 
-            backface-visibility hidden
+            backface-visibility: hidden
 
         & .front
-            transform rotateY(0deg)
+            transform: rotateY(0deg)
 
         & .back
-            transform rotateY(180deg)
+            transform: rotateY(180deg)
 
         &.part-1
-            transform rotateY(180deg)
+            transform: rotateY(180deg)
 
 .not-found
-    width 100%
-    background-color transparent !important
-    padding 0 !important
+    width: 100%
+    background-color: transparent !important
+    padding: 0 !important
 
 .control
-    position absolute
+    position: absolute
 
-    top 50%
-    right 5%
-    transform translateY(-50%)
+    top: 50%
+    right: 5%
+    transform: translateY(-50%)
 
 </style>
 
-<script>
+<script lang="ts">
+import { PropType, defineComponent, ref, computed, watch } from 'vue';
+
 import { imageBase } from 'boot/backend';
 
-export default {
+export default defineComponent({
     props: {
         lang:   { type: String, default: null },
         set:    { type: String, default: null },
         number: { type: String, default: null },
         part:   { type: Number, default: null },
         layout: { type: String, default: null },
-        rotate: { type: Boolean, default: null },
+        rotate: { type: Boolean as PropType<boolean|null>, default: null },
     },
 
-    data: () => ({
-        visible:     null,
-        innerPart:   0,
-        innerRotate: null,
-    }),
+    emits: ['update:part', 'update:rotate'],
 
-    computed: {
-        truePart: {
+    setup(props, { emit }) {
+        const visible = ref<boolean|null>(null);
+        const innerPart = ref(0);
+        const innerRotate = ref<boolean|null>(null);
+
+        const realPart = computed({
+            get() { return props.part ?? innerPart.value; },
+            set(newValue: number) {
+                innerPart.value = newValue;
+                emit('update:part', newValue);
+            },
+        });
+
+        const defaultRotate = computed(() => ['split', 'planar'].includes(props.layout));
+
+        const realRotate = computed({
             get() {
-                return this.part || this.innerPart;
+                return props.rotate ?? innerRotate.value ?? defaultRotate.value;
             },
-            set(newValue) {
-                this.innerPart = newValue;
-                this.$emit('part', newValue);
+            set(newValue: boolean | null) {
+                innerRotate.value = newValue;
+                emit('update:rotate', newValue);
             },
-        },
+        });
 
-        defaultRotate() {
-            return ['split', 'planar'].includes(this.layout);
-        },
+        const rotatable = computed(() => ['split', 'planar'].includes(props.layout));
 
-        trueRotate: {
-            get() {
-                return this.rotate ?? this.innerRotate ?? this.defaultRotate;
-            },
-            set(newValue) {
-                this.innerRotate = newValue;
-                this.$emit('rotate');
-            },
-        },
+        const turnable = computed(() => ['transform', 'modal_dfc'].includes(props.layout));
 
-        rotatable() {
-            return ['split', 'planar'].includes(this.layout);
-        },
-
-        turnable() {
-            return ['transform', 'modal_dfc'].includes(this.layout);
-        },
-
-        imageUrls() {
-            switch (this.layout) {
+        const imageUrls = computed(() => {
+            switch (props.layout) {
             case 'transform':
             case 'modal_dfc':
             case 'art_series':
                 return [
-                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=0`,
-                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}&part=1`,
+                    `http://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
+                    `http://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
                 ];
             default:
                 return [
-                    `http://${imageBase}/magic/card?auto-locale&lang=${this.lang}&set=${this.set}&number=${this.number}`,
+                    `http://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}`,
                 ];
             }
-        },
-    },
+        });
 
-    watch: {
-        layout() {
-            this.resetRotate();
-        },
-    },
+        watch(() => props.layout, () => {
+            innerRotate.value = null;
+        });
 
-    methods: {
-        resetRotate() {
-            this.innerRotate = null;
-        },
+        return {
+            visible, realPart, realRotate, rotatable, turnable, imageUrls,
+        };
     },
-};
+});
 </script>

@@ -2,10 +2,10 @@
     <div>
         <div class="header column items-center q-pa-lg q-mb-md">
             <div class="name">
-                {{ user.username }}
+                {{ user?.username }}
             </div>
             <div class="role">
-                {{ $t('user.role.' + user.role) }}
+                {{ $t('user.role.' + user?.role) }}
             </div>
         </div>
         <div class="action flex">
@@ -14,28 +14,37 @@
     </div>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .header
-    border-radius 5px
-    background-color lighten($primary, 20%)
-    color white
+    border-radius: 5px
+    background-color: lighten($primary, 20%)
+    color: white
 
 .name
-    font-size 120%
+    font-size: 120%
 </style>
 
-<script>
-import basic from 'src/mixins/basic';
+<script lang="ts">
+import { defineComponent } from 'vue';
 
-export default {
+import { useStore } from 'src/store';
+import basicSetup from 'setup/basic';
+
+export default defineComponent({
     name: 'Profile',
 
-    mixins: [basic],
+    setup() {
+        const store = useStore();
+        const basic = basicSetup();
 
-    methods: {
-        async logout() {
-            this.$store.dispatch('user/logout');
-        },
+        const logout = () => {
+            void store.dispatch('user/logout');
+        };
+
+        return {
+            user: basic.user,
+            logout,
+        };
     },
-};
+});
 </script>

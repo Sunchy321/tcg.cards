@@ -2,12 +2,12 @@
     <q-page class="row">
         <q-tree
             v-if="menu != null"
+            v-model:selected="selected"
+            v-model:expanded="expanded"
             class="menu col-2 scroll"
             no-connectors
             :nodes="menu"
             node-key="id"
-            :selected.sync="selected"
-            :expanded.sync="expanded"
         />
         <div v-if="data != null" class="detail col scroll q-pa-md">
             <div
@@ -26,91 +26,162 @@
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .menu, .detail
-    height calc(100vh - 50px)
+    height: calc(100vh - 50px)
 
 .depth-0
-    font-size 200%
-    margin-bottom 30px
+    font-size: 200%
+    margin-bottom: 30px
 
 .depth-1
-    font-size 150%
-    margin-bottom 20px
+    font-size: 150%
+    margin-bottom: 20px
 
 .depth-2
-    margin-bottom 15px
+    margin-bottom: 15px
 
 .depth-3
-    margin-bottom 15px
+    margin-bottom: 15px
 
 .example-icon
-    margin-right 10px
-    color $primary
+    margin-right: 10px
+    color: $primary
 
 </style>
 
-<script>
-import page from 'src/mixins/page';
-import magic from 'src/mixins/magic';
+<script lang="ts">
+import { defineComponent, ref, computed, watch, onUpdated, onMounted, nextTick } from 'vue';
 
-import MagicText from 'components/magic/Text';
+import { useRouter, useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+
+import pageSetup from 'setup/page';
+
+import MagicText from 'components/magic/Text.vue';
 
 import { last } from 'lodash';
 import { scroll } from 'quasar';
+import { apiGet } from 'boot/backend';
 
-export default {
-    name: 'CR',
+interface Content {
+    id: string;
+    depth: number;
+    index: string;
+    text: string;
+    examples?: string[];
+    cards?: { text:string, id:string }[]
+}
 
+interface Glossary {
+    words: string[];
+    ids: string[];
+    text: string;
+}
+
+interface CR {
+    date: string;
+    intro: string;
+    contents: Content[];
+    glossary: Glossary[];
+    credits: string;
+    csi?: string;
+}
+
+interface Menu {
+    id: string;
+    label: string;
+    children?: Menu[];
+}
+
+interface ContentItem {
+    id: string;
+    depth: number;
+    index?: string;
+    text: string;
+    examples?: string[];
+    cards?: { text:string, id:string }[]
+}
+
+export default defineComponent({
     components: { MagicText },
 
-    mixins: [page, magic],
+    setup() {
+        const router = useRouter();
+        const route = useRoute();
+        const i18n = useI18n();
 
-    data: () => ({
-        list:     [],
-        data:     null,
-        selected: null,
-        expanded: [],
-    }),
+        const list = ref<string[]>([]);
+        const data = ref<CR|null>(null);
+        const selected = ref<string|null>(null);
+        const expanded = ref([]);
 
-    computed: {
-        pageOptions() {
-            return {
-                params: {
-                    date: this.list,
+        const { date } = pageSetup({
+            title: () => i18n.t('magic.cr.$self'),
+
+            actions: [
+                {
+                    icon:   'mdi-vector-difference',
+                    action: 'diff',
+                    handler() {
+                        const index = list.value.indexOf(date.value);
+
+                        if (index === -1) {
+                            return;
+                        }
+
+                        if (index === list.value.length - 1) {
+                            void router.push({
+                                name:  'magic/cr/diff',
+                                query: {
+                                    from: date.value,
+                                    to:   list.value[list.value.length - 2],
+                                },
+                            });
+                        } else {
+                            void router.push({
+                                name:  'magic/cr/diff',
+                                query: {
+                                    from: list.value[index + 1],
+                                    to:   date.value,
+                                },
+                            });
+                        }
+                    },
                 },
-                actions: [
-                    { icon: 'mdi-vector-difference', action: 'diff' },
-                ],
-            };
-        },
+            ],
 
-        title() { return this.$t('magic.cr.$self'); },
+            params: {
+                date: {
+                    type:   'enum',
+                    bind:   'query',
+                    values: () => list.value,
+                },
+            },
+        });
 
-        date() { return this.$route.query.date; },
-
-        menu() {
-            if (this.data == null) {
+        const menu = computed(() => {
+            if (data.value == null) {
                 return null;
             }
 
-            const menu = [];
+            const menu: Menu[] = [];
 
-            const contents = this.data.contents
-                .filter(c => c.example == null && /\w$/.test(c.text));
+            const contents = data.value.contents
+                .filter(c => c.examples == null && /\w$/.test(c.text));
 
-            const contentMenu = [];
+            const contentMenu: Menu[] = [];
 
             menu.push({
                 id:    'intro',
-                label: this.$t('magic.cr.intro'),
+                label: i18n.t('magic.cr.intro'),
             });
 
-            function insert(menu, item, depth) {
+            function insert(menu: Menu[], item: Content, depth: number) {
                 if (depth === 0) {
                     menu.push({ id: item.id, label: item.text });
                 } else {
-                    const lastMenu = last(menu);
+                    const lastMenu = last(menu)!;
 
                     if (lastMenu.children == null) { lastMenu.children = []; }
                     insert(lastMenu.children, item, depth - 1);
@@ -124,27 +195,27 @@ export default {
             menu.push(
                 {
                     id:    'glossary',
-                    label: this.$t('magic.cr.glossary'),
+                    label: i18n.t('magic.cr.glossary'),
                 },
                 {
                     id:    'credits',
-                    label: this.$t('magic.cr.credits'),
+                    label: i18n.t('magic.cr.credits'),
                 },
             );
 
-            if (this.data.csi) {
+            if (data.value.csi) {
                 menu.push({
                     id:    'csi',
-                    label: this.$t('magic.cr.csi'),
+                    label: i18n.t('magic.cr.csi'),
                 });
             }
 
             return menu;
-        },
+        });
 
-        item: {
+        const item = computed({
             get() {
-                const hash = this.$route.hash;
+                const hash = route.hash;
 
                 if (hash.startsWith('#')) {
                     const id = hash.slice(1);
@@ -153,23 +224,23 @@ export default {
                         return id;
                     }
 
-                    if (this.data?.contents?.some(c => c.id === id)) {
+                    if (data.value?.contents?.some(c => c.id === id)) {
                         return id;
                     }
                 }
 
                 return 'intro';
             },
-            set(newValue) {
-                this.$router.push({
-                    hash:  newValue,
-                    query: this.$route.query,
+            set(newValue: string) {
+                void router.push({
+                    hash:  '#' + newValue,
+                    query: route.query,
                 });
             },
-        },
+        });
 
-        chapter() {
-            switch (this.item) {
+        const chapter = computed(() => {
+            switch (item.value) {
             case 'intro':
             case 'intro.title':
                 return 'intro';
@@ -183,37 +254,34 @@ export default {
             case 'csi.title':
                 return 'csi';
             default:
-                return this.data?.contents?.find(c => c.id === this.item)?.index[0];
+                return data.value?.contents?.find(c => c.id === item.value)?.index[0];
             }
-        },
+        });
 
-        chapterContent() {
-            switch (this.chapter) {
+        const chapterContent = computed((): ContentItem[] => {
+            switch (chapter.value) {
             case 'intro':
                 return [
                     {
                         id:    'intro.title',
                         depth: 0,
-                        text:  this.$t('magic.cr.intro'),
+                        text:  i18n.t('magic.cr.intro'),
                     },
                     {
                         id:    'intro',
                         depth: 2,
-                        text:  this.data?.intro,
+                        text:  data.value!.intro,
                     },
                 ];
-            default:
-                return this.data?.contents
-                    ?.filter(c => c.index.startsWith(this.chapter)) ??
-                    [];
+
             case 'glossary':
                 return [
                     {
                         id:    'glossary.title',
                         depth: 0,
-                        text:  this.$t('magic.cr.glossary'),
+                        text:  i18n.t('magic.cr.glossary'),
                     },
-                    ...(this.data?.glossary ?? []).map(g => ({
+                    ...(data.value?.glossary ?? []).map(g => ({
                         id:    'g:' + g.ids.join(','),
                         depth: 2,
                         text:  g.words.join(', ') + '\n' + g.text,
@@ -224,12 +292,12 @@ export default {
                     {
                         id:    'credits.title',
                         depth: 0,
-                        text:  this.$t('magic.cr.credits'),
+                        text:  i18n.t('magic.cr.credits'),
                     },
                     {
                         id:    'credits',
                         depth: 2,
-                        text:  this.data?.credits,
+                        text:  data.value!.credits,
                     },
                 ];
             case 'csi':
@@ -237,97 +305,70 @@ export default {
                     {
                         id:    'csi.title',
                         depth: 0,
-                        text:  this.$t('magic.cr.csi'),
+                        text:  i18n.t('magic.cr.csi'),
                     },
                     {
                         id:    'csi',
                         depth: 2,
-                        text:  this.data?.csi,
+                        text:  data.value!.csi!,
                     },
                 ];
+            default:
+                return data.value?.contents
+                    ?.filter(c => c.index.startsWith(chapter.value!)) ??
+                    [];
             }
-        },
-    },
+        });
 
-    watch: {
-        '$store.getters.params.date'() {
-            const date = this.$store.getters.params.date;
+        // methods
+        const loadList = async() => {
+            const { data } = await apiGet<string[]>('/magic/cr');
 
-            if (date !== this.date && date != null) {
-                this.$router.push({ name: 'magic/cr', query: { date } });
+            list.value = data;
+        };
+
+        const loadData = async() => {
+            selected.value = null;
+
+            if (date.value != null) {
+                const { data: crResult } = await apiGet<CR>('/magic/cr/' + date.value);
+                data.value = crResult;
             }
-        },
+        };
 
-        date: {
-            immediate: true,
-            handler() {
-                this.selected = null;
-                this.loadData();
-            },
-        },
+        // watch
+        watch(date, loadData, { immediate: true });
 
-        selected() {
-            if (this.selected != null && this.selected !== this.item) {
-                this.item = this.selected;
-                this.selected = null;
+        watch(selected, () => {
+            if (selected.value != null && selected.value !== item.value) {
+                item.value = selected.value;
+                selected.value = null;
             }
-        },
-    },
+        });
 
-    updated() {
-        this.$nextTick(() => {
-            const elem = document.getElementById(this.item);
+        onUpdated(async () => {
+            await nextTick();
+
+            const elem = document.getElementById(item.value);
+
             if (elem != null) {
                 const target = scroll.getScrollTarget(elem);
                 const offset = elem.offsetTop - elem.scrollHeight;
-                scroll.setScrollPosition(target, offset, 500);
+                scroll.setHorizontalScrollPosition(target, offset, 500);
             }
         });
+
+        onMounted(loadList);
+
+        return {
+            data,
+            selected,
+            expanded,
+
+            menu,
+            chapterContent,
+        };
     },
 
-    mounted() {
-        this.loadList();
-    },
-
-    methods: {
-        async loadList() {
-            const { data } = await this.apiGet('/magic/cr');
-
-            this.list = data;
-        },
-
-        async loadData() {
-            if (this.date != null) {
-                const { data } = await this.apiGet('/magic/cr/' + this.date);
-                this.data = data;
-            }
-        },
-
-        'action/diff'() {
-            const index = this.list.indexOf(this.date);
-
-            if (index === -1) {
-                return;
-            }
-
-            if (index === this.list.length - 1) {
-                this.$router.push({
-                    name:  'magic/cr/diff',
-                    query: {
-                        from: this.date,
-                        to:   this.list[this.list.length - 2],
-                    },
-                });
-            } else {
-                this.$router.push({
-                    name:  'magic/cr/diff',
-                    query: {
-                        from: this.list[index + 1],
-                        to:   this.date,
-                    },
-                });
-            }
-        },
-    },
-};
+});
 </script>

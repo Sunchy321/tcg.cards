@@ -1,7 +1,7 @@
 <template>
     <div class="q-pa-md">
         <div class="title row items-center q-mb-lg">
-            <div class="q-mr-sm">{{ $t('magic.format.' + id) }}</div>
+            <div class="q-mr-sm">{{ $t('magic.format.' + format) }}</div>
             <div>{{ birthAndDeath }}</div>
 
             <div class="col-grow" />
@@ -44,106 +44,135 @@
                     :class="'magic-banlist-status-' + status"
                 />
                 <div class="date">{{ effectiveDate }}</div>
-                <card-avatar :id="card" :pauper="id === 'pauper'" />
+                <card-avatar :id="card" :pauper="format === 'pauper'" />
             </div>
         </grid>
     </div>
 </template>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .title
-    font-size 24px
+    font-size: 24px
 
 .set
-    padding 5px
+    padding: 5px
 
 .banlist
-    flex-wrap nowrap
+    flex-wrap: nowrap
 
     & > .date
-        flex-shrink 0
+        flex-shrink: 0
 
 .date
-    color grey
+    color: grey
 </style>
 
-<script>
-import page from 'src/mixins/page';
-import magic from 'src/mixins/magic';
+<script lang="ts">
+import { defineComponent, ref, computed, watch } from 'vue';
 
-import Grid from 'components/Grid';
+import { useRouter, useRoute } from 'vue-router';
+import { useStore } from 'src/store';
+import { useI18n } from 'vue-i18n';
 
-import DateInput from 'components/DateInput';
-import CardAvatar from 'components/magic/CardAvatar';
+import pageSetup from 'setup/page';
+
+import Grid from 'components/Grid.vue';
+import DateInput from 'components/DateInput.vue';
+import CardAvatar from 'components/magic/CardAvatar.vue';
+
+import { apiGet } from 'boot/backend';
 
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
 const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
 
-export default {
-    name: 'Format',
+interface FormatChange {
+    type: 'format';
+    date: string;
+    in: string[];
+    out: string[];
+}
 
+interface BanlistChange {
+    type: 'banlist';
+    date: string;
+    source?: string;
+    status: string;
+    card: string;
+}
+
+interface Data {
+    birthday?: string;
+    deathdate?: string;
+
+    sets?: string[]
+    banlist?: BanlistChange[]
+}
+
+type TimelineItem = FormatChange | BanlistChange;
+
+export default defineComponent({
     components: { Grid, DateInput, CardAvatar },
 
-    mixins: [page, magic],
+    setup() {
+        const router = useRouter();
+        const route = useRoute();
+        const store = useStore();
+        const i18n = useI18n();
 
-    data: () => ({
-        data:     null,
-        timeline: [],
-    }),
+        const formats = computed(() => { return store.getters['magic/data']?.formats ?? []; });
 
-    computed: {
-        pageOptions() {
-            return {
-                params: {
-                    format: this.formats.map(f => ({
-                        value: f,
-                        label: this.$t('magic.format.' + f),
-                    })),
+        const { format } = pageSetup({
+            title: () => i18n.t('magic.ui.format.$self'),
+
+            params: {
+                format: {
+                    type:   'enum',
+                    bind:   'params',
+                    key:    'id',
+                    values: formats,
+                    label:  (v: string) => i18n.t(`magic.format.${v}`),
                 },
-            };
-        },
+            },
+        });
 
-        title() { return this.$t('magic.ui.format.$self'); },
+        const data = ref<Data|null>(null);
+        const timeline = ref<TimelineItem[]>([]);
 
-        date: {
-            get() { return this.$route.query.date; },
-            set(newValue) {
+        const date = computed({
+            get() { return route.query.date as string; },
+            set(newValue?: string | null) {
                 if (newValue != null) {
-                    this.$router.replace({ query: { date: newValue } });
+                    void router.replace({ query: { date: newValue } });
                 } else {
-                    this.$router.replace({ query: { } });
+                    void router.replace({ query: { } });
                 }
             },
-        },
+        });
 
-        dateFrom() { return (this.data?.birthday ?? this.$store.getters['magic/data'].birthday); },
-        dateTo() { return (this.data?.deathdate ?? new Date().toLocaleDateString('en-CA')); },
+        const dateFrom = computed(() => { return data.value?.birthday ?? store.getters['magic/data'].birthday; });
+        const dateTo = computed(() => { return data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'); });
 
-        formats() { return this.$store.getters['magic/data']?.formats ?? []; },
-
-        id() { return this.$route.params.id; },
-
-        birthAndDeath() {
-            if (this.data?.birthday != null) {
-                if (this.data?.deathdate != null) {
-                    return this.data.birthday + ' ~ ' + this.data.deathdate;
+        const birthAndDeath = computed(() => {
+            if (data.value?.birthday != null) {
+                if (data.value?.deathdate != null) {
+                    return data.value.birthday + ' ~ ' + data.value.deathdate;
                 } else {
-                    return this.data.birthday + ' ~';
+                    return data.value.birthday + ' ~';
                 }
             } else {
                 return '';
             }
-        },
+        });
 
-        sets() {
-            if (this.date == null || !['standard', 'pioneer', 'modern', 'extended', 'brawl'].includes(this.id)) {
-                return this.data?.sets ?? [];
+        const sets = computed(() => {
+            if (date.value == null || !['standard', 'pioneer', 'modern', 'extended', 'brawl'].includes(format.value)) {
+                return data.value?.sets ?? [];
             } else {
-                let result = [];
+                let result: string[] = [];
 
-                for (const c of this.timeline) {
+                for (const c of timeline.value) {
                     if (c.type === 'format') {
-                        if (c.date > this.date) {
+                        if (c.date > date.value) {
                             break;
                         }
 
@@ -155,17 +184,17 @@ export default {
 
                 return result;
             }
-        },
+        });
 
-        banlist() {
-            if (this.date == null) {
-                return this.data?.banlist ?? [];
+        const banlist = computed(() => {
+            if (date.value == null) {
+                return data.value?.banlist ?? [];
             } else {
-                let result = [];
+                let result: BanlistChange[] = [];
 
-                for (const c of this.timeline) {
+                for (const c of timeline.value) {
                     if (c.type === 'banlist') {
-                        if (c.date > this.date) {
+                        if (c.date > date.value) {
                             break;
                         }
 
@@ -197,12 +226,12 @@ export default {
 
                 return result;
             }
-        },
+        });
 
-        timelineEvents() {
+        const timelineEvents = computed(() => {
             const result = [];
 
-            for (const t of this.timeline) {
+            for (const t of timeline.value) {
                 const v = result.find(r => r.date === t.date);
 
                 if (v != null) {
@@ -218,43 +247,19 @@ export default {
             }
 
             return result;
-        },
+        });
 
-    },
+        const loadData = async() => {
+            const { data: dataResult } = await apiGet<Data>('/magic/format/' + format.value);
 
-    watch: {
-        '$store.getters.params.format'() {
-            const format = this.$store.getters.params.format;
+            data.value = dataResult;
 
-            if (format !== this.id && format != null) {
-                this.$router.push({ name: 'magic/format', params: { id: format } });
-            }
-        },
+            const { data: timelineResult } = await apiGet<TimelineItem[]>(`/magic/format/${format.value}/timeline`);
 
-        id: {
-            immediate: true,
-            handler() {
-                if (this.$store.getters.params.format !== this.id) {
-                    this.$store.commit('param', { key: 'format', value: this.id });
-                }
+            timeline.value = timelineResult;
+        };
 
-                this.loadData();
-            },
-        },
-    },
-
-    methods: {
-        async loadData() {
-            const { data } = await this.apiGet('/magic/format/' + this.id);
-
-            this.data = data;
-
-            const { data:timeline } = await this.apiGet(`/magic/format/${this.id}/timeline`);
-
-            this.timeline = timeline;
-        },
-
-        statusIcon(status, card) {
+        const statusIcon = (status: string, card: string) => {
             switch (status) {
             case 'banned':
                 return 'mdi-close-circle-outline';
@@ -277,29 +282,49 @@ export default {
                     return 'mdi-help-circle-outline';
                 }
             }
-        },
+        };
 
-        toPrevDate() {
-            const currDate = this.date ?? new Date().toLocaleDateString('en-CA');
+        const toPrevDate = () => {
+            const currDate = date.value ?? new Date().toLocaleDateString('en-CA');
 
-            for (const { date } of this.timelineEvents.slice().reverse()) {
-                if (date < currDate) {
-                    this.date = date;
+            for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
+                if (dateValue < currDate) {
+                    date.value = dateValue;
                     return;
                 }
             }
-        },
+        };
 
-        toNextDate() {
-            const currDate = this.date ?? new Date().toLocaleDateString('en-CA');
+        const toNextDate = () => {
+            const currDate = date.value ?? new Date().toLocaleDateString('en-CA');
 
-            for (const { date } of this.timelineEvents) {
-                if (date > currDate) {
-                    this.date = date;
+            for (const { date: dateValue } of timelineEvents.value) {
+                if (dateValue > currDate) {
+                    date.value = dateValue;
                     return;
                 }
             }
-        },
+        };
+
+        watch(format, loadData, { immediate: true });
+
+        return {
+            format,
+            date,
+
+            dateFrom,
+            dateTo,
+
+            birthAndDeath,
+            timelineEvents,
+            sets,
+            banlist,
+
+            statusIcon,
+            toPrevDate,
+            toNextDate,
+        };
     },
-};
+
+});
 </script>

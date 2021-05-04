@@ -3,7 +3,10 @@
         <router-link :to="link" target="_blank">
             <span v-if="name != null">{{ name }}</span>
             <span v-else class="code">{{ id }}</span>
-            <q-tooltip v-if="imageVersion != null" content-class="card-popover">
+            <q-tooltip
+                v-if="profile != null && imageVersion != null"
+                content-class="card-popover"
+            >
                 <card-image
                     class="card-image-popover"
                     :lang="imageVersion.lang"
@@ -16,80 +19,74 @@
     </div>
 </template>
 
-<style lang="stylus">
-
-.card-popover
-    background-color transparent !important
-    padding 0 !important
+<style lang="sass">
+.card-popover, [content-class=card-popover]
+    background-color: transparent !important
+    padding: 0 !important
 
 .card-image-popover
-    width 250px
-
+    width: 250px
 </style>
 
-<script>
-import { getProfile } from 'src/common/magic/card';
+<script lang="ts">
+import { defineComponent, ref, computed, watch } from 'vue';
 
-import CardImage from './CardImage';
+import { useStore } from 'src/store';
 
-export default {
+import CardImage from './CardImage.vue';
+
+import { CardProfile, getProfile } from 'src/common/magic/card';
+
+export default defineComponent({
     components: { CardImage },
 
     props: {
-        id: {
-            type:     String,
-            required: true,
-        },
-
-        pauper: {
-            type:    Boolean,
-            default: false,
-        },
+        id:     { type: String, required: true },
+        pauper: { type: Boolean, default: false },
     },
 
-    data: () => ({
-        profile: null,
-    }),
+    setup(props) {
+        const store = useStore();
 
-    computed: {
-        link() {
-            return '/magic/card/' + this.id;
-        },
+        const profile = ref<CardProfile|null>(null);
 
-        name() {
-            if (this.profile == null) {
+        const link = computed(() => {
+            return '/magic/card/' + props.id;
+        });
+
+        const name = computed(() => {
+            if (profile.value == null) {
                 return null;
             }
 
-            const locales = this.$store.getters['magic/locales'];
-
-            const locale = this.$store.getters['magic/locale'];
+            const locales = store.getters['magic/locales'];
+            const locale = store.getters['magic/locale'];
             const defauleLocale = locales[0];
 
-            return this.profile.parts.map(p =>
+            return profile.value.parts.map(p =>
                 p.localization.find(l => l.lang === locale)?.name ??
                 p.localization.find(l => l.lang === defauleLocale)?.name ?? '',
             ).join(' // ');
-        },
+        });
 
-        imageVersion() {
-            if (this.profile == null || this.profile.versions == null) {
+        const imageVersion = computed(() => {
+            if (profile.value == null || profile.value.versions == null) {
                 return null;
             }
 
-            if (this.pauper) {
-                const versions = this.profile.versions.filter(v => v.rarity === 'common');
+            if (props.pauper) {
+                const versions = profile.value.versions.filter(v => v.rarity === 'common');
 
-                const locales = this.$store.getters['magic/locales'];
-
-                const locale = this.$store.getters['magic/locale'];
+                const locales = store.getters['magic/locales'];
+                const locale = store.getters['magic/locale'];
                 const defauleLocale = locales[0];
 
                 const localeVersion = versions.filter(v => v.lang === locale);
 
                 if (localeVersion.length > 0) {
                     return localeVersion.sort((a, b) =>
-                        a.releaseDate > b.releaseDate ? -1
+                        a.releaseDate > b.releaseDate
+                            ? -1
                             : a.releaseDate < b.releaseDate ? 1 : 0,
                     )[0];
                 }
@@ -98,31 +95,33 @@ export default {
 
                 if (defaultVersion.length > 0) {
                     return defaultVersion.sort((a, b) =>
-                        a.releaseDate > b.releaseDate ? -1
+                        a.releaseDate > b.releaseDate
+                            ? -1
                             : a.releaseDate < b.releaseDate ? 1 : 0,
                     )[0];
                 }
 
                 if (versions.length > 0) {
                     return versions.sort((a, b) =>
-                        a.releaseDate > b.releaseDate ? -1
+                        a.releaseDate > b.releaseDate
+                            ? -1
                             : a.releaseDate < b.releaseDate ? 1 : 0,
                     )[0];
                 }
             }
 
-            const versions = this.profile.versions;
+            const versions = profile.value.versions;
 
-            const locales = this.$store.getters['magic/locales'];
-
-            const locale = this.$store.getters['magic/locale'];
+            const locales = store.getters['magic/locales'];
+            const locale = store.getters['magic/locale'];
             const defauleLocale = locales[0];
 
             const localeVersion = versions.filter(v => v.lang === locale);
 
             if (localeVersion.length > 0) {
                 return localeVersion.sort((a, b) =>
-                    a.releaseDate > b.releaseDate ? -1
+                    a.releaseDate > b.releaseDate
+                        ? -1
                         : a.releaseDate < b.releaseDate ? 1 : 0,
                 )[0];
             }
@@ -131,40 +130,43 @@ export default {
 
             if (defaultVersion.length > 0) {
                 return defaultVersion.sort((a, b) =>
-                    a.releaseDate > b.releaseDate ? -1
+                    a.releaseDate > b.releaseDate
+                        ? -1
                         : a.releaseDate < b.releaseDate ? 1 : 0,
                 )[0];
             }
 
             return versions.slice().sort((a, b) =>
-                a.releaseDate > b.releaseDate ? -1
+                a.releaseDate > b.releaseDate
+                    ? -1
                     : a.releaseDate < b.releaseDate ? 1 : 0,
             )[0];
-        },
-    },
+        });
 
-    watch: {
-        id: {
-            immediate: true,
-            handler() {
-                this.loadData();
-            },
-        },
-    },
-
-    methods: {
-        async loadData() {
-            const { local, remote } = getProfile(this.id);
+        const loadData = async () => {
+            const { local, remote } = getProfile(props.id);
 
             const localData = await local;
 
-            this.profile = localData;
+            if (localData != null) {
+                profile.value = localData;
+            }
 
             const remoteData = await remote;
 
-            this.profile = remoteData;
-        },
+            if (remoteData != null) {
+                profile.value = remoteData;
+            }
+        };
 
+        watch(() => props.id, loadData, { immediate: true });
+
+        return {
+            profile,
+            name,
+            link,
+            imageVersion,
+        };
     },
-};
+});
 </script>

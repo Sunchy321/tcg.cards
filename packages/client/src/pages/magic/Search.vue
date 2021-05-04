@@ -8,7 +8,7 @@
             <span v-if="data != null" class="code q-mr-md">{{ total }}</span>
 
             <q-pagination
-                :value="page"
+                :model-value="page"
                 class="code"
                 :max="pageCount"
                 :input="true"
@@ -16,165 +16,169 @@
             />
         </div>
         <div class="result q-py-md">
-            <div ref="card-panel" class="card-panel flex justify-center q-gutter-md">
-                <q-resize-observer @resize="calcCardPanelInfo" />
+            <grid
+                v-slot="{ cardId, setId, number, lang, layout }"
+                :value="cards" :item-width="200" item-key="cardId"
+            >
                 <router-link
-                    v-for="c in cards" :key="c.cardId"
-                    :to="`/magic/card/${c.cardId}?set=${c.setId}&number=${c.number}&lang=${c.lang}`"
-                    :style="{ width: cardPanelInfo.itemWidth + 'px' }"
+                    :key="cardId"
+                    :to="`/magic/card/${cardId}?set=${setId}&number=${number}&lang=${lang}`"
                 >
                     <card-image
-                        :set="c.setId"
-                        :number="c.number"
-                        :lang="c.lang"
-                        :layout="c.layout"
+                        :set="setId"
+                        :number="number"
+                        :lang="lang"
+                        :layout="layout"
                     />
                 </router-link>
-
-                <template v-if="cardPanelInfo.placeholder > 0">
-                    <div
-                        v-for="i in cardPanelInfo.placeholder" :key="i"
-                        class="placeholder"
-                        :style="{ width: cardPanelInfo.itemWidth + 'px' }"
-                    />
-                </template>
-            </div>
+            </grid>
         </div>
     </q-page>
 </template>
 
-<style lang="stylus" scoped>
-
+<style lang="sass" scoped>
 .controller
-    height 50px
+    height: 50px
 
-    position fixed
-    top 50px
-    left 0
-    right 0
+    position: fixed
+    top: 50px
+    left: 0
+    right: 0
 
-    background-color lighten($primary, 20%)
+    background-color: lighten($primary, 20%)
 
-    z-index 10
+    z-index: 10
 
-    & >>> *
-        color white !important
+    &:deep(*)
+        color: white !important
 
 .result
-    margin-top 50px
+    margin-top: 50px
+    margin-left: 50px
+    margi-right: 50px
 
+.card-panel
+    justify-content: center !important
 </style>
 
-<script>
-import page from 'src/mixins/page';
-import magic from 'src/mixins/magic';
+<script lang="ts">
+import { defineComponent, ref, computed, watch } from 'vue';
 
-import CardImage from 'components/magic/CardImage';
+import { useStore } from 'src/store';
+import { useI18n } from 'vue-i18n';
 
-import routeComputed from 'src/route-computed';
+import pageSetup from 'setup/page';
 
-export default {
+import Grid from 'components/Grid.vue';
+import CardImage from 'components/magic/CardImage.vue';
+
+import { apiGet } from 'boot/backend';
+
+interface QueryParam {
+    type: 'string' | 'regex',
+    value: string
+}
+
+interface QueryItem {
+    type: string,
+    op: string,
+    param: QueryParam
+}
+
+interface QueryResult {
+    onlyId: false,
+    total: number,
+    cards: { cardId: string, set: string, number: string, lang: string, layout: string }[]
+}
+
+interface SearchResult {
+    text: string;
+    commands: QueryItem[];
+    queries: any[];
+    errors: { type: string; value: string, query?: string }[];
+    result: QueryResult | null
+}
+
+export default defineComponent({
     name: 'Search',
 
-    components: { CardImage },
+    components: { Grid, CardImage },
 
-    mixins: [page, magic],
+    setup() {
+        const store = useStore();
+        const i18n = useI18n();
 
-    data: () => ({
-        data:      null,
-        searching: false,
+        const data = ref<SearchResult|null>(null);
+        const searching = ref(false);
 
-        cardPanelInfo: {
-            itemWidth:   0,
-            itemPerLine: 5,
-            placeholder: 0,
-        },
-    }),
+        const { q, page, pageSize } = pageSetup({
+            title:     () => i18n.t('ui.search'),
+            titleType: 'input',
 
-    computed: {
-        pageOptions() {
-            return {
-                title: 'input',
-            };
-        },
-
-        title() { return this.$t('ui.search'); },
-
-        q() { return this.$route.query.q; },
-
-        cards() { return this.data?.result?.cards || []; },
-        total() { return this.data?.result?.total || 0; },
-
-        page:     routeComputed('page', { number: true, default: 1 }),
-        pageSize: routeComputed('page-size', { number: true, default: 100 }),
-
-        pageCount() { return Math.ceil(this.total / this.pageSize); },
-    },
-
-    watch: {
-        $route: {
-            immediate: true,
-            handler() {
-                this.search();
+            params: {
+                q: {
+                    type:     'string',
+                    bind:     'query',
+                    readonly: true,
+                },
+                page: {
+                    type:    'number',
+                    bind:    'query',
+                    default: 1,
+                },
+                pageSize: {
+                    type:    'number',
+                    bind:    'query',
+                    default: 100,
+                },
             },
-        },
+        });
 
-        cards() {
-            this.calcCardPanelInfo();
-        },
-    },
+        const cards = computed(() => { return data.value?.result?.cards || []; });
+        const total = computed(() => { return data.value?.result?.total || 0; });
 
-    methods: {
-        async search() {
-            if (this.searching) {
+        const pageCount = computed(() => { return Math.ceil(total.value / pageSize.value); });
+
+        const search = async () => {
+            if (searching.value) {
                 return;
             }
 
-            this.searching = true;
+            searching.value = true;
 
-            const { data } = await this.apiGet('/magic/search', {
-                q:        this.q,
-                locale:   this.$store.getters['magic/locale'],
-                page:     this.page,
-                pageSize: this.pageSize,
+            const { data: result } = await apiGet<SearchResult>('/magic/search', {
+                q:        q.value,
+                locale:   store.getters['magic/locale'],
+                page:     page.value,
+                pageSize: pageSize.value,
             });
 
-            this.data = data;
+            data.value = result;
 
-            this.searching = false;
-        },
+            searching.value = false;
+        };
 
-        changePage(newPage) {
-            if (this.page !== newPage) {
-                this.page = newPage;
-                this.search();
+        const changePage = (newPage: number) => {
+            if (page.value !== newPage) {
+                page.value = newPage;
+                void search();
             }
-        },
+        };
 
-        calcCardPanelInfo() {
-            const panel = this.$refs['card-panel'];
+        watch(q, search, { immediate: true });
 
-            if (panel == null) {
-                return;
-            }
+        return {
+            searching,
 
-            const margin = 16;
-            const panelWidth = panel.clientWidth;
-            const maxItemWidth = panelWidth - 2 * margin;
+            data,
+            total,
+            page,
+            pageCount,
+            cards,
 
-            const itemWidth = maxItemWidth < 200 ? maxItemWidth : 200;
-            const itemPerLine = panel ? Math.floor((panelWidth - margin) / (itemWidth + margin)) : 5;
-
-            const placeholder = this.cards.length % itemPerLine === 0
-                ? 0
-                : itemPerLine - (this.cards.length % itemPerLine);
-
-            this.cardPanelInfo = { itemWidth, itemPerLine, placeholder };
-        },
+            changePage,
+        };
     },
-};
+
+});
 </script>
-
-<style>
-
-</style>
