@@ -12,13 +12,14 @@
                 class="code"
                 :max="pageCount"
                 :input="true"
-                @input="changePage"
+                @update:model-value="changePage"
             />
         </div>
         <div class="result q-py-md">
             <grid
                 v-slot="{ cardId, setId, number, lang, layout }"
                 :value="cards" :item-width="200" item-key="cardId"
+                item-class="q-pb-sm"
             >
                 <router-link
                     :key="cardId"
@@ -55,7 +56,7 @@
 .result
     margin-top: 50px
     margin-left: 50px
-    margi-right: 50px
+    margin-right: 50px
 
 .card-panel
     justify-content: center !important
@@ -68,6 +69,7 @@ import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
+import magicSetup from 'setup/magic';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/magic/CardImage.vue';
@@ -108,6 +110,8 @@ export default defineComponent({
         const store = useStore();
         const i18n = useI18n();
 
+        const { search } = magicSetup();
+
         const data = ref<SearchResult|null>(null);
         const searching = ref(false);
 
@@ -132,6 +136,18 @@ export default defineComponent({
                     default: 100,
                 },
             },
+
+            actions: [
+                {
+                    action:  'search',
+                    handler: search,
+                },
+            ],
+        });
+
+        const searchText = computed({
+            get() { return store.getters.search; },
+            set(newValue: string) { store.commit('search', newValue); },
         });
 
         const cards = computed(() => { return data.value?.result?.cards || []; });
@@ -139,7 +155,9 @@ export default defineComponent({
 
         const pageCount = computed(() => { return Math.ceil(total.value / pageSize.value); });
 
-        const search = async () => {
+        const doSearch = async () => {
+            searchText.value = q.value;
+
             if (searching.value) {
                 return;
             }
@@ -161,11 +179,10 @@ export default defineComponent({
         const changePage = (newPage: number) => {
             if (page.value !== newPage) {
                 page.value = newPage;
-                void search();
             }
         };
 
-        watch(q, search, { immediate: true });
+        watch([q, page, pageSize], doSearch, { immediate: true });
 
         return {
             searching,

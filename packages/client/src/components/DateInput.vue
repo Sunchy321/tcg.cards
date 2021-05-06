@@ -1,23 +1,22 @@
 <template>
     <q-input
-        :value="value"
+        :model-value="modelValue"
         :dense="dense"
         :outlined="outlined"
         :clearable="clearable"
-        @input="input"
-        @change="change"
+        @update:model-value="input"
     >
         <template #append>
             <q-icon name="mdi-calendar" class="cursor-pointer">
                 <q-popup-proxy ref="dateProxy">
                     <q-date
-                        :value="value"
+                        :model-value="modelValue"
                         mask="YYYY-MM-DD"
                         minimal
                         :events="realEvents.map(e => e.date)"
                         :event-color="eventColor"
                         v-bind="dateAttrs"
-                        @input="dateInput"
+                        @update:model-value="dateInput"
                     />
                 </q-popup-proxy>
             </q-icon>
@@ -30,7 +29,7 @@ import { PropType, defineComponent, ref, computed } from 'vue';
 
 export default defineComponent({
     props: {
-        value: { type: String, default: undefined },
+        modelValue: { type: String as PropType<string|null>, default: undefined },
 
         dense:     { type: Boolean, default: false },
         outlined:  { type: Boolean, default: false },
@@ -41,7 +40,7 @@ export default defineComponent({
         dateTo:   { type: String, default: undefined },
     },
 
-    emits: ['input', 'change'],
+    emits: ['update:modelValue'],
 
     setup(props, { emit }) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -93,29 +92,24 @@ export default defineComponent({
         const input = (v: string) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             dateProxy.value.hide();
-            emit('input', v);
-        };
-
-        const change = (v: string) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            dateProxy.value.hide();
-            emit('change', v);
+            emit('update:modelValue', v);
         };
 
         const dateInput = (v: string) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             dateProxy.value.hide();
-            emit('input', v);
-            emit('change', v);
+            emit('update:modelValue', v);
         };
 
         return {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            dateProxy,
+
             realEvents,
             dateAttrs,
 
             eventColor,
             input,
-            change,
             dateInput,
         };
     },

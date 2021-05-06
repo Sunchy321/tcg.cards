@@ -1,5 +1,5 @@
 <template>
-    <div class="q-pa-md">
+    <q-page class="q-pa-md">
         <div class="title row items-center q-mb-lg">
             <div class="q-mr-sm">{{ $t('magic.format.' + format) }}</div>
             <div>{{ birthAndDeath }}</div>
@@ -47,7 +47,7 @@
                 <card-avatar :id="card" :pauper="format === 'pauper'" />
             </div>
         </grid>
-    </div>
+    </q-page>
 </template>
 
 <style lang="sass" scoped>
@@ -140,7 +140,7 @@ export default defineComponent({
 
         const date = computed({
             get() { return route.query.date as string; },
-            set(newValue?: string | null) {
+            set(newValue: string | null) {
                 if (newValue != null) {
                     void router.replace({ query: { date: newValue } });
                 } else {

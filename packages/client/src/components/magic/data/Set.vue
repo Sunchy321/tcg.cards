@@ -76,12 +76,22 @@
                     {{ l.lang }}
                 </div>
                 <q-checkbox
-                    :value="l.isOfficialName"
+                    :model-value="l.isOfficialName"
                     :disable="l.name == null"
-                    @input="toggleIsWotcName(l.lang)"
+                    @update:model-value="toggleIsWotcName(l.lang)"
                 />
-                <q-input :value="l.name" class="col" dense outlined @input="assignName(l.lang)" />
-                <q-input :value="l.link" class="col" dense outlined @input="assignLink(l.lang)" />
+                <q-input
+                    :model-value="l.name"
+                    class="col"
+                    dense outlined
+                    @update:model-value="v => assignName(l.lang, v)"
+                />
+                <q-input
+                    :model-value="l.link"
+                    class="col"
+                    dense outlined
+                    @update:model-value="v => assignLink(l.lang, v)"
+                />
                 <q-btn
                     type="a" :href="l.link" target="_blank"
                     :disable="l.link == null"
@@ -295,7 +305,7 @@ export default defineComponent({
             }
         };
 
-        const assignName = (lang: string) => (name: string) => {
+        const assignName = (lang: string, name: string) => {
             if (data.value == null) {
                 return;
             }
@@ -313,7 +323,7 @@ export default defineComponent({
             }
         };
 
-        const assignLink = (lang: string) => (link: string) => {
+        const assignLink = (lang: string, link: string) => {
             if (data.value == null) {
                 return;
             }
@@ -352,7 +362,7 @@ export default defineComponent({
             if (loc != null && loc.link != null) {
                 for (const l of localization.value) {
                     if (l.link == null || l.link === '') {
-                        assignLink(l.lang)(loc.link.replace('/en/', '/' + linkMap[l.lang] + '/'));
+                        assignLink(l.lang, loc.link.replace('/en/', `/${linkMap[l.lang]}/`));
                     }
                 }
             }

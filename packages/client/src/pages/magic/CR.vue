@@ -119,6 +119,14 @@ export default defineComponent({
         const { date } = pageSetup({
             title: () => i18n.t('magic.cr.$self'),
 
+            params: {
+                date: {
+                    type:   'enum',
+                    bind:   'query',
+                    values: () => list.value,
+                },
+            },
+
             actions: [
                 {
                     icon:   'mdi-vector-difference',
@@ -150,14 +158,6 @@ export default defineComponent({
                     },
                 },
             ],
-
-            params: {
-                date: {
-                    type:   'enum',
-                    bind:   'query',
-                    values: () => list.value,
-                },
-            },
         });
 
         const menu = computed(() => {

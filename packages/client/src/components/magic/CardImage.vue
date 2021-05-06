@@ -81,8 +81,8 @@
 <style lang="sass" scoped>
 .card-image
     position: relative
-
     padding-bottom: calc(100% / (745/1040))
+    perspective: 1000px
 
 .image
     position: absolute
@@ -95,20 +95,19 @@
     transition: transform 0.5s
 
     &.rotated
-        transform: rotate(90deg) scale(745/1040)
+        transform: rotate(90deg) scale(calc(745/1040))
 
     &.layout-flip.part-1
         transform: rotate(180deg)
 
     &.layout-aftermath.part-1
-        transform: rotate(-90deg) scale(745/1040)
+        transform: rotate(-90deg) scale(calc(745/1040))
 
     &.layout-transform,
     &.layout-modal_dfc
         transform-style: preserve-3d
 
-        & .front
-        & .back
+        & .front, & .back
             position: absolute
             top: 0
             left: 0
@@ -122,7 +121,7 @@
             transform: rotateY(180deg)
 
         &.part-1
-            transform: rotateY(180deg)
+            transform: rotateY(-180deg)
 
 .not-found
     width: 100%

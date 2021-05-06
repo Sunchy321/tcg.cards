@@ -63,8 +63,8 @@ export interface Action {
 export interface Option {
     title?: Value<string>;
     titleType?: 'text' | 'input';
+    params?: Record<string, Parameter<any>>;
     actions?: Action[];
-    params?: Record<string, Parameter<any>>
 }
 
 export type ParamObject<T, R extends boolean> = ParameterBase<T, R> & {

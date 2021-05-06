@@ -531,16 +531,24 @@ export default defineComponent({
 
         const partIcon = computed(() => {
             switch (layout.value) {
+            case 'flip':
+                if (partIndex.value === 0) {
+                    return 'mdi-circle-half-full mdi-rotate-90';
+                } else {
+                    return 'mdi-circle-half-full mdi-rotate-270';
+                }
             case 'split':
                 if (partIndex.value === 0) {
                     return 'mdi-circle-half-full';
                 } else {
                     return 'mdi-circle-half-full mdi-flip-h';
                 }
-            case 'multipart':
-                return 'mdi-text-box-multiple';
             default:
-                return null;
+                if (partCount.value > 1) {
+                    return 'mdi-text-box-multiple';
+                } else {
+                    return null;
+                }
             }
         });
 

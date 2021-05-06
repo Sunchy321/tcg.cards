@@ -87,7 +87,7 @@
                                 {{ props.row.id }}
                                 <q-popup-edit v-model="props.row.id">
                                     <q-input
-                                        :value="props.row.id"
+                                        :model-value="props.row.id"
                                         dense
                                         autofocus counter
                                         @focus="focus"
@@ -135,11 +135,11 @@
                             <q-td key="ids" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.ids.join(', ') }}
                                 <q-popup-edit
-                                    :value="props.row.ids.join(', ')"
-                                    @input="editInputSplit(props.row, 'ids')"
+                                    :model-value="props.row.ids.join(', ')"
+                                    @update:model-value="editInputSplit(props.row, 'ids')"
                                 >
                                     <q-input
-                                        :value="props.row.ids.join(', ')"
+                                        :model-value="props.row.ids.join(', ')"
                                         dense
                                         autofocus counter
                                         @focus="focus"
@@ -150,11 +150,11 @@
                             <q-td key="words" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.words.join(', ') }}
                                 <q-popup-edit
-                                    :value="props.row.words.join(', ')"
-                                    @input="editInputSplit(props.row, 'words')"
+                                    :model-value="props.row.words.join(', ')"
+                                    @update:model-value="editInputSplit(props.row, 'words')"
                                 >
                                     <q-input
-                                        :value="props.row.words.join(', ')"
+                                        :model-value="props.row.words.join(', ')"
                                         dense
                                         autofocus counter
                                         @focus="focus"

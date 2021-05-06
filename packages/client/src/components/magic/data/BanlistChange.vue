@@ -88,10 +88,10 @@
             </div>
             <div v-for="(c, i) in changes" :key="'change-' + i" class="row q-gutter-sm">
                 <q-input
-                    :value="c.card"
+                    :model-value="c.card"
                     class="col"
                     dense
-                    @input="modifyChangeCard(c)"
+                    @update:model-value="modifyChangeCard(c)"
                 />
                 <q-select
                     v-model="c.format"

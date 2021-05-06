@@ -16,6 +16,8 @@ export default {
     },
 
     'format': {
+        '$self': 'Format',
+
         'standard': 'Standard',
         'historic': 'Historic',
         'pioneer':  'Pioneer',

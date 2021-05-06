@@ -21,9 +21,9 @@
 
             <q-input
                 class="col-grow"
-                :value="c.in.join(', ')"
+                :model-value="c.in.join(', ')"
                 dense
-                @input="setChangeIn(c)"
+                @update:model-value="setChangeIn(c)"
             >
                 <template #prepend>
                     <q-icon name="mdi-plus" />
@@ -32,9 +32,9 @@
 
             <q-input
                 class="col-grow"
-                :value="c.out.join(', ')"
+                :model-value="c.out.join(', ')"
                 dense
-                @input="setChangeOut(c)"
+                @update:model-value="setChangeOut(c)"
             >
                 <template #prepend>
                     <q-icon name="mdi-minus" />

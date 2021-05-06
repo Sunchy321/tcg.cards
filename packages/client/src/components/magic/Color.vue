@@ -45,7 +45,7 @@ export default defineComponent({
                 case 1:
                     return h('circle', {
                         r:    50,
-                        cy:   59,
+                        cy:   50,
                         cx:   50,
                         fill: colors[0],
                     });
