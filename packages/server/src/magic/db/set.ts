@@ -4,7 +4,7 @@ import conn from './db';
 
 interface ISetLocalization {
     lang: string,
-    name: string,
+    name?: string,
     isOfficialName: boolean,
     link?: string,
 }

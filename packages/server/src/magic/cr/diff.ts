@@ -5,7 +5,7 @@ import { last, zip } from 'lodash';
 
 type TextChange = string | [string, string]
 
-type ContentChange = {
+interface ContentChange {
     id: string
     type?: 'add' | 'remove' | 'move'
     index: [string | undefined, string | undefined]
@@ -14,14 +14,14 @@ type ContentChange = {
     examples: TextChange[][]
 }
 
-type GlossaryChange = {
+interface GlossaryChange {
     ids: string[]
     words: string[],
     type?: 'add' | 'remove' | 'move'
     text?: TextChange[]
 }
 
-type Change = {
+interface Change {
     intro: TextChange[]
     contents: ContentChange[]
     glossary: GlossaryChange[]

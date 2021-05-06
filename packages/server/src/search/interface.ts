@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type QueryParam = {
+export interface QueryParam {
     type: 'string' | 'regex',
     value: string
 }
 
-export type QueryItem = {
+export interface QueryItem {
     type: string,
     op: string,
     param: QueryParam
 }
 
-export type QueryCommand = {
+export interface QueryCommand {
     name: string;
     short?: string;
     query: (arg: {
@@ -21,7 +21,7 @@ export type QueryCommand = {
     }) => any;
 }
 
-export type QueryModel<T> = {
+export interface QueryModel<T> {
     commands: QueryCommand[],
     aggregate: (query: any, options: Record<string, string>) => Promise<T>;
-};
+}

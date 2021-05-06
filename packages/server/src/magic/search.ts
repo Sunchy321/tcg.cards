@@ -249,7 +249,7 @@ export default {
                         langIsLocale:  { $eq: ['$lang', locale] },
                         langIsEnglish: { $eq: ['$lang', 'en'] },
                     })
-                    .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
+                    .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, number: 1 })
                     .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
                     .replaceRoot('data');
             }
@@ -284,6 +284,7 @@ export default {
 
             aggregate.skip((page - 1) * pageSize);
             aggregate.limit(pageSize);
+            aggregate.project({ _id: 0 });
 
             const cards = await aggregate;
 
