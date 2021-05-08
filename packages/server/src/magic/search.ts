@@ -76,6 +76,14 @@ export default {
         {
             name:  '',
             query: ({ param }) => {
+                if (typeof param === 'string' && /^\d+\/\d+/.test(param)) {
+                    const [power, toughness] = param.split('/');
+
+                    return {
+                        parts: { $elemMatch: { power, toughness } },
+                    };
+                }
+
                 if (
                     (typeof param === 'string' && /^\{[^}]+\}$/.test(param)) ||
                     (typeof param !== 'string' && /^\\\{[^}]+\\\}$/.test(param.source))
@@ -204,7 +212,7 @@ export default {
             query: ({ param, op }) => textQuery('parts.flavorText', param, op, false),
         },
         {
-            name:  ' rarity',
+            name:  'rarity',
             short: 'r',
             query: ({ param, op }) => {
                 if (param instanceof RegExp) {
@@ -284,7 +292,12 @@ export default {
 
             aggregate.skip((page - 1) * pageSize);
             aggregate.limit(pageSize);
-            aggregate.project({ _id: 0 });
+            aggregate.project({
+                _id:          0,
+                __v:          0,
+                langIsLocale: 0,
+                langIsEn:     0,
+            });
 
             const cards = await aggregate;
 

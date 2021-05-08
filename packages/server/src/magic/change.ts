@@ -2,8 +2,10 @@ import Format from '@/magic/db/format';
 import Set from '@/magic/db/set';
 import { BanlistStatus } from './banlist/interface';
 import FormatChange from '@/magic/db/format-change';
-import BanlistChange from '@/magic/db/banlist-change';
+import BanlistChange, { IBanlistChange } from '@/magic/db/banlist-change';
 import Card from './db/card';
+
+type Element<T> = T extends (infer E)[] ? E : never;
 
 interface IFormatChangeItem {
     _id: string;
@@ -20,16 +22,20 @@ interface IBanlistChangeItem {
     type: 'banlist';
     date: string;
     category: string;
-    source?: string;
+    group?: string;
     format: string;
     card: string;
-    status: string;
+    status: BanlistStatus;
     effectiveDate: {
         tabletop?: string;
         online?: string;
         arena?: string;
     },
     link: string[];
+}
+
+function cmp<T>(a: T, b: T): number {
+    return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export async function getChanges(
@@ -53,24 +59,27 @@ export async function getChanges(
         banlistAggregate.match({ 'changes.format': id });
     }
 
-    const banlistChanges = await banlistAggregate;
+    const banlistChanges = (await banlistAggregate) as (
+        Omit<IBanlistChange, 'changes'> & {
+            _id: string,
+            changes: Element<IBanlistChange['changes']>
+        }
+    )[];
 
     for (const v of banlistChanges) {
         const card = v.changes.card;
 
-        if (
-            v.changes.detail?.length > 0 && !(card.startsWith('#{clone') && keepClone)
-        ) {
+        if (v.changes.detail != null && !(card.startsWith('#{clone') && keepClone)) {
             for (const d of v.changes.detail) {
                 result.push({
                     _id:           v._id,
                     type:          'banlist',
                     date:          v.date,
                     category:      v.category,
-                    source:        card.startsWith('#{clone') ? 'clone' : card.slice(1),
+                    group:         card.startsWith('#{clone') ? d.group : card.slice(1),
                     format:        v.changes.format,
                     card:          d.card,
-                    status:        d.status ?? v.changes.status,
+                    status:        d.status ?? v.changes.status!,
                     effectiveDate: {
                         tabletop: d.date ?? v.changes.effectiveDate ?? v.effectiveDate?.tabletop,
                         online:   d.date ?? v.changes.effectiveDate ?? v.effectiveDate?.online,
@@ -81,23 +90,23 @@ export async function getChanges(
             }
 
             continue;
+        } else {
+            result.push({
+                _id:           v._id,
+                type:          'banlist',
+                date:          v.date,
+                category:      v.category,
+                format:        v.changes.format,
+                card,
+                status:        v.changes.status!,
+                effectiveDate: {
+                    tabletop: v.changes.effectiveDate ?? v.effectiveDate?.tabletop,
+                    online:   v.changes.effectiveDate ?? v.effectiveDate?.online,
+                    arena:    v.changes.effectiveDate ?? v.effectiveDate?.arena,
+                },
+                link: v.link,
+            });
         }
-
-        result.push({
-            _id:           v._id,
-            type:          'banlist',
-            date:          v.date,
-            category:      v.category,
-            format:        v.changes.format,
-            card,
-            status:        v.changes.status,
-            effectiveDate: {
-                tabletop: v.changes.effectiveDate ?? v.effectiveDate?.tabletop,
-                online:   v.changes.effectiveDate ?? v.effectiveDate?.online,
-                arena:    v.changes.effectiveDate ?? v.effectiveDate?.arena,
-            },
-            link: v.link,
-        });
     }
 
     const formatAggregate = FormatChange.aggregate()
@@ -200,7 +209,7 @@ export async function syncChange(): Promise<void> {
                     return true;
                 });
 
-            // brawl sets follows standard
+            // brawl sets follows standard. birthday is hardcoded
             if (formats.includes('standard') && !formats.includes('brawl') && c.date >= '2018-03-22') {
                 formats.push('brawl');
             }
@@ -281,19 +290,13 @@ export async function syncChange(): Promise<void> {
                 continue;
             }
 
+            // clones from other format
             if (c.card.startsWith('#{clone')) {
-                const m = /^#\{clone:(.*)\}/.exec(c.card)!;
-
-                const srcFormats = m[1].split(',');
+                const srcFormats = /^#\{clone:(.*)\}/.exec(c.card)![1].split(',');
 
                 const co = (await BanlistChange.findOne({
                     date:    c.date,
-                    changes: {
-                        $elemMatch: {
-                            card:   c.card,
-                            format: c.format,
-                        },
-                    },
+                    changes: { $elemMatch: { card: c.card, format: c.format } },
                 }))!;
 
                 const ci = co.changes.find(ch => ch.card === c.card && ch.format === c.format)!;
@@ -307,26 +310,19 @@ export async function syncChange(): Promise<void> {
                                 card:   b.card,
                                 status: c.status ?? b.status,
                                 date:   c.date,
-                                source: b.source,
+                                group:  b.group,
                             });
 
                             ci.detail.push({
                                 card:   b.card,
                                 status: c.status ?? b.status,
+                                group:  b.group,
                             });
                         }
                     }
                 }
 
-                ci.detail.sort((a, b) => {
-                    if (a.card < b.card) {
-                        return -1;
-                    } else if (a.card > b.card) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                });
+                ci.detail.sort((a, b) => cmp(a.card, b.card));
 
                 await co.save();
             } else {
@@ -343,11 +339,12 @@ export async function syncChange(): Promise<void> {
                             card:   c.card,
                             status: c.status!,
                             date:   c.date,
-                            source: c.source,
+                            group:  c.group,
                         });
                     } else {
                         b.status = c.status!;
                         b.date = c.date;
+                        b.group = c.group;
                     }
                 }
                 }
@@ -360,9 +357,9 @@ export async function syncChange(): Promise<void> {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status) -
                     banlistStatusOrder.indexOf(b.status);
-            } else if (a.source !== b.source) {
-                return banlistSourceOrder.indexOf(a.source ?? null) -
-                    banlistSourceOrder.indexOf(b.source ?? null);
+            } else if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null) -
+                    banlistSourceOrder.indexOf(b.group ?? null);
             } else {
                 return a.card < b.card ? -1 : 1;
             }
