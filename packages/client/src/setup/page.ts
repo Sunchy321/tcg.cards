@@ -14,6 +14,7 @@ interface ParameterBase<T, R> {
     bind: OptionType;
     readonly?: R;
     key?: string;
+    inTitle?: boolean;
 }
 
 export interface EnumParameter<R extends boolean> extends ParameterBase<'enum', R> {
@@ -120,7 +121,7 @@ export default function<O extends Option>(option: O): Result<O> {
         } else {
             props[k] = computed({
                 get: () => store.getters.paramValues[k],
-                set: (value: any) => store.dispatch('param', { key: k, value }),
+                set: (value: any) => store.commit('param', { key: k, value }),
             });
         }
     }

@@ -6,7 +6,7 @@
 
                 <app-title />
 
-                <template v-for="(p, k) in params">
+                <template v-for="(p, k) in paramsInTitle">
                     <q-btn-dropdown
                         v-if="p.type === 'enum'"
                         :key="k"
@@ -95,6 +95,8 @@ import basicSetup from 'setup/basic';
 
 import AppTitle from 'components/Title.vue';
 
+import { pickBy } from 'lodash';
+
 export default defineComponent({
     components: { AppTitle },
 
@@ -142,7 +144,7 @@ export default defineComponent({
             }
         });
 
-        const params = computed(() => store.getters.params);
+        const paramsInTitle = computed(() => pickBy(store.getters.params, v => v.inTitle));
         const actionsWithIcon = computed(() => store.getters.actions.filter(a => a.icon != null));
 
         const paramLabel = (p: any, v: string) => {
@@ -174,7 +176,7 @@ export default defineComponent({
             gameLocales,
 
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            params: params as any,
+            paramsInTitle: paramsInTitle as any,
             actionsWithIcon,
 
             paramLabel,

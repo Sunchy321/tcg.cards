@@ -121,9 +121,10 @@ export default defineComponent({
 
             params: {
                 date: {
-                    type:   'enum',
-                    bind:   'query',
-                    values: () => list.value,
+                    type:    'enum',
+                    bind:    'query',
+                    inTitle: true,
+                    values:  () => list.value,
                 },
             },
 

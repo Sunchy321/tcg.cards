@@ -191,13 +191,13 @@
 </template>
 
 <style lang="sass" scoped>
-*:v-deep(.text-add)
+* ::v-deep .text-add
     background-color: $green-2
 
-*:v-deep(.text-remove)
+* ::v-deep .text-remove
     background-color: $red-2
 
-*:v-deep(.text-move)
+* ::v-deep .text-move
     background-color: $amber-2
 
 .depth-0

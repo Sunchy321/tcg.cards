@@ -49,7 +49,7 @@ export function param(state: State, { key, value }: { key: string, value: any })
 
     switch (param.bind) {
     case 'params':
-        void router.push({ params: { ...route.params, [realKey]: value } });
+        void router.push({ params: { ...route.params, [realKey]: value }, query: route.query });
         break;
     case 'query':
         void router.push({ query: { ...route.query, [realKey]: value } });

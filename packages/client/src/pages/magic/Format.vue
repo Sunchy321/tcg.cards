@@ -5,9 +5,9 @@
             <div>{{ birthAndDeath }}</div>
 
             <q-select
-                v-model="sortBy"
-                class="q-ml-sm"
-                :options="sortByOptions"
+                v-model="order"
+                class="q-ml-xl"
+                :options="orderOptions"
                 dense outlined
                 emit-value map-options
             />
@@ -139,25 +139,30 @@ export default defineComponent({
 
         const formats = computed(() => { return store.getters['magic/data']?.formats ?? []; });
 
-        const { format } = pageSetup({
+        const { format, order } = pageSetup({
             title: () => i18n.t('magic.ui.format.$self'),
 
             params: {
                 format: {
+                    type:    'enum',
+                    bind:    'params',
+                    key:     'id',
+                    inTitle: true,
+                    values:  formats,
+                    label:   (v: string) => i18n.t(`magic.format.${v}`),
+                },
+                order: {
                     type:   'enum',
-                    bind:   'params',
-                    key:    'id',
-                    values: formats,
-                    label:  (v: string) => i18n.t(`magic.format.${v}`),
+                    bind:   'query',
+                    values: ['name', 'date'],
                 },
             },
         });
 
         const data = ref<Data|null>(null);
         const timeline = ref<TimelineItem[]>([]);
-        const sortBy = ref<'name'|'date'>('name');
 
-        const sortByOptions = ['name', 'date'].map(v => ({
+        const orderOptions = ['name', 'date'].map(v => ({
             value: v,
             label: i18n.t('magic.ui.format.sort-by.' + v),
         }));
@@ -241,7 +246,7 @@ export default defineComponent({
                 }
             })();
 
-            switch (sortBy.value) {
+            switch (order.value) {
             case 'name':
                 result.sort((a, b) => {
                     if (a.status !== b.status) {
@@ -345,9 +350,9 @@ export default defineComponent({
         return {
             format,
             date,
-            sortBy,
+            order,
 
-            sortByOptions,
+            orderOptions,
 
             dateFrom,
             dateTo,

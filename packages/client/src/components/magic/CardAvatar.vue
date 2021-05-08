@@ -1,8 +1,8 @@
 <template>
     <div>
         <router-link :to="link" target="_blank">
-            <span v-if="name != null">{{ name }}</span>
-            <span v-else class="code">{{ id }}</span>
+            <span v-if="showId" class="code">{{ id }}</span>
+            <span v-else>{{ name ?? '' }}</span>
             <q-tooltip
                 v-if="profile != null && imageVersion != null"
                 content-class="card-popover"
@@ -48,6 +48,7 @@ export default defineComponent({
     setup(props) {
         const store = useStore();
 
+        const showId = ref(false);
         const profile = ref<CardProfile|null>(null);
 
         const link = computed(() => {
@@ -157,11 +158,16 @@ export default defineComponent({
             if (remoteData != null) {
                 profile.value = remoteData;
             }
+
+            if (profile.value == null) {
+                showId.value = true;
+            }
         };
 
         watch(() => props.id, loadData, { immediate: true });
 
         return {
+            showId,
             profile,
             name,
             link,
