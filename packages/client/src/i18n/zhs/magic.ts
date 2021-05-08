@@ -53,11 +53,20 @@ export default {
 
     'ui': {
         format: {
-            $self:      '赛制',
-            timeline:   '时间线',
-            ante:       '赌博牌',
-            conspiracy: '诡局',
-            legendary:  '传奇',
+            '$self':    '赛制',
+            'timeline': '时间线',
+
+            'source': {
+                ante:       '赌博牌',
+                conspiracy: '诡局',
+                legendary:  '传奇',
+                offensive:  '冒犯性牌',
+            },
+
+            'sort-by': {
+                name: '名称',
+                date: '日期',
+            },
         },
     },
 };

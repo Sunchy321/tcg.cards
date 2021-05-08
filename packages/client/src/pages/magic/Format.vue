@@ -4,6 +4,14 @@
             <div class="q-mr-sm">{{ $t('magic.format.' + format) }}</div>
             <div>{{ birthAndDeath }}</div>
 
+            <q-select
+                v-model="sortBy"
+                class="q-ml-sm"
+                :options="sortByOptions"
+                dense outlined
+                emit-value map-options
+            />
+
             <div class="col-grow" />
 
             <q-btn
@@ -83,11 +91,13 @@ import CardAvatar from 'components/magic/CardAvatar.vue';
 import { apiGet } from 'boot/backend';
 
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
-const banlistSourceOrder = ['ante', 'conspiracy', 'legendary', null];
+const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
 
 interface FormatChange {
     type: 'format';
     date: string;
+    category: string;
+    format: string;
     in: string[];
     out: string[];
 }
@@ -95,9 +105,17 @@ interface FormatChange {
 interface BanlistChange {
     type: 'banlist';
     date: string;
-    source?: string;
-    status: string;
+    category: string;
+    group?: string;
+    format: string;
     card: string;
+    status: string;
+    effectiveDate: {
+        tabletop?: string;
+        online?: string;
+        arena?: string;
+    },
+    link: string[];
 }
 
 interface Data {
@@ -137,6 +155,12 @@ export default defineComponent({
 
         const data = ref<Data|null>(null);
         const timeline = ref<TimelineItem[]>([]);
+        const sortBy = ref<'name'|'date'>('name');
+
+        const sortByOptions = ['name', 'date'].map(v => ({
+            value: v,
+            label: i18n.t('magic.ui.format.sort-by.' + v),
+        }));
 
         const date = computed({
             get() { return route.query.date as string; },
@@ -187,45 +211,55 @@ export default defineComponent({
         });
 
         const banlist = computed(() => {
-            if (date.value == null) {
-                return data.value?.banlist ?? [];
-            } else {
-                let result: BanlistChange[] = [];
+            const result = (() => {
+                if (date.value == null) {
+                    return data.value?.banlist ?? [];
+                } else {
+                    let result: BanlistChange[] = [];
 
-                for (const c of timeline.value) {
-                    if (c.type === 'banlist') {
-                        if (c.date > date.value) {
-                            break;
-                        }
+                    for (const c of timeline.value) {
+                        if (c.type === 'banlist') {
+                            if (c.date > date.value) {
+                                break;
+                            }
 
-                        if (c.status === 'legal' || c.status === 'unavailable') {
-                            result = result.filter(v => v.card !== c.card);
-                        } else {
-                            const sameIndex = result.findIndex(b => b.card === c.card);
-
-                            if (sameIndex === -1) {
-                                result.push(c);
+                            if (c.status === 'legal' || c.status === 'unavailable') {
+                                result = result.filter(v => v.card !== c.card);
                             } else {
-                                result.splice(sameIndex, 1, c);
+                                const sameIndex = result.findIndex(b => b.card === c.card);
+
+                                if (sameIndex === -1) {
+                                    result.push(c);
+                                } else {
+                                    result.splice(sameIndex, 1, c);
+                                }
                             }
                         }
                     }
-                }
 
+                    return result;
+                }
+            })();
+
+            switch (sortBy.value) {
+            case 'name':
                 result.sort((a, b) => {
                     if (a.status !== b.status) {
                         return banlistStatusOrder.indexOf(a.status) -
-                    banlistStatusOrder.indexOf(b.status);
-                    } else if (a.source !== b.source) {
-                        return banlistSourceOrder.indexOf(a.source ?? null) -
-                    banlistSourceOrder.indexOf(b.source ?? null);
+                                banlistStatusOrder.indexOf(b.status);
+                    } else if (a.group !== b.group) {
+                        return banlistSourceOrder.indexOf(a.group ?? null) -
+                                banlistSourceOrder.indexOf(b.group ?? null);
                     } else {
                         return a.card < b.card ? -1 : 1;
                     }
                 });
-
-                return result;
+                break;
+            case 'date':
+                result.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
             }
+
+            return result;
         });
 
         const timelineEvents = computed(() => {
@@ -311,6 +345,9 @@ export default defineComponent({
         return {
             format,
             date,
+            sortBy,
+
+            sortByOptions,
 
             dateFrom,
             dateTo,

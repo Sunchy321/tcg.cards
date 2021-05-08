@@ -24,6 +24,7 @@
                 <router-link
                     :key="cardId"
                     :to="`/magic/card/${cardId}?set=${setId}&number=${number}&lang=${lang}`"
+                    target="_blank"
                 >
                     <card-image
                         :set="setId"
@@ -156,7 +157,9 @@ export default defineComponent({
         const pageCount = computed(() => { return Math.ceil(total.value / pageSize.value); });
 
         const doSearch = async () => {
-            searchText.value = q.value;
+            if (q.value !== '') {
+                searchText.value = q.value;
+            }
 
             if (searching.value) {
                 return;
@@ -171,9 +174,11 @@ export default defineComponent({
                 pageSize: pageSize.value,
             });
 
-            data.value = result;
+            if (result.text === q.value) {
+                data.value = result;
 
-            searching.value = false;
+                searching.value = false;
+            }
         };
 
         const changePage = (newPage: number) => {

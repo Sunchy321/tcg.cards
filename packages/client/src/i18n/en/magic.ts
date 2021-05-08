@@ -62,11 +62,20 @@ export default {
 
     'ui': {
         format: {
-            $self:      'Format',
-            timeline:   'Timeline',
-            ante:       'Ante',
-            conspiracy: 'Conspiracy',
-            legendary:  'Legendary',
+            '$self':    'Format',
+            'timeline': 'Timeline',
+
+            'source': {
+                ante:       'Ante',
+                conspiracy: 'Conspiracy',
+                legendary:  'Legendary',
+                offensive:  'Offensive',
+            },
+
+            'sort-by': {
+                name: 'Name',
+                date: 'Date',
+            },
         },
     },
 };

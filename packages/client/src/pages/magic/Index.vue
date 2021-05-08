@@ -4,13 +4,13 @@
             v-model="searchText"
             class="main-input q-ma-xl"
             filled
-            @keypress.enter="doSearch"
+            @keypress.enter="search"
         >
             <template #append>
                 <q-btn
                     icon="mdi-magnify"
                     flat dense round
-                    @click="doSearch"
+                    @click="search"
                 />
             </template>
         </q-input>
@@ -75,12 +75,8 @@ export default defineComponent({
             set(newValue: string) { store.commit('search', newValue); },
         });
 
-        const doSearch = () => {
-            store.commit('event', { type: 'search' });
-        };
-
         return {
-            searchText, doSearch,
+            searchText, search,
         };
     },
 
