@@ -179,6 +179,8 @@ export async function syncChange(): Promise<void> {
 
     const formatMap = Object.fromEntries(formats.map(f => [f.formatId, f]));
 
+    const brawlBirthday = formatMap.brawl.birthday!;
+
     const changes = await getChanges(null, { keepClone: true });
 
     for (const f in formatMap) {
@@ -193,24 +195,17 @@ export async function syncChange(): Promise<void> {
                 ? [c.format!]
                 : formatWithSet.filter(f => {
                     const format = formatMap[f]!;
-
-                    if (c.date > new Date().toLocaleDateString('en-CA')) {
-                        return false;
-                    }
-
-                    if (format.birthday != null && c.date < format.birthday) {
-                        return false;
-                    }
-
-                    if (format.deathdate != null && c.date > format.deathdate) {
-                        return false;
-                    }
-
+                    // the change don't become effective now
+                    if (c.date > new Date().toLocaleDateString('en-CA')) { return false; }
+                    // the change is before the format exists
+                    if (format.birthday != null && c.date < format.birthday) { return false; }
+                    // the change is after the format died
+                    if (format.deathdate != null && c.date > format.deathdate) { return false; }
                     return true;
                 });
 
-            // brawl sets follows standard. birthday is hardcoded
-            if (formats.includes('standard') && !formats.includes('brawl') && c.date >= '2018-03-22') {
+            // brawl sets follows standard
+            if (formats.includes('standard') && !formats.includes('brawl') && c.date >= brawlBirthday) {
                 formats.push('brawl');
             }
 
@@ -264,6 +259,8 @@ export async function syncChange(): Promise<void> {
                                 });
                             }
                         }
+
+                        await banlistChange.save();
                     } else {
                         await BanlistChange.create({
                             date:     c.date,
