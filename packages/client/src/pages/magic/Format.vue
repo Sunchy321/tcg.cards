@@ -78,7 +78,6 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue';
 
-import { useRouter, useRoute } from 'vue-router';
 import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
 
@@ -132,14 +131,12 @@ export default defineComponent({
     components: { Grid, DateInput, CardAvatar },
 
     setup() {
-        const router = useRouter();
-        const route = useRoute();
         const store = useStore();
         const i18n = useI18n();
 
         const formats = computed(() => { return store.getters['magic/data']?.formats ?? []; });
 
-        const { format, order } = pageSetup({
+        const { format, date, order } = pageSetup({
             title: () => i18n.t('magic.ui.format.$self'),
 
             params: {
@@ -150,6 +147,10 @@ export default defineComponent({
                     inTitle: true,
                     values:  formats,
                     label:   (v: string) => i18n.t(`magic.format.${v}`),
+                },
+                date: {
+                    type: 'date',
+                    bind: 'query',
                 },
                 order: {
                     type:   'enum',
@@ -166,17 +167,6 @@ export default defineComponent({
             value: v,
             label: i18n.t('magic.ui.format.sort-by.' + v),
         }));
-
-        const date = computed({
-            get() { return route.query.date as string; },
-            set(newValue: string | null) {
-                if (newValue != null) {
-                    void router.replace({ query: { date: newValue } });
-                } else {
-                    void router.replace({ query: { } });
-                }
-            },
-        });
 
         const dateFrom = computed(() => { return data.value?.birthday ?? store.getters['magic/data'].birthday; });
         const dateTo = computed(() => { return data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'); });

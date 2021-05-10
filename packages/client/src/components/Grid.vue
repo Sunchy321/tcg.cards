@@ -69,7 +69,7 @@ export default defineComponent({
             placeholder.value = reminder === 0 ? 0 : itemPerLine.value - reminder;
         }
 
-        watch(props.value, calcGridInfo, { immediate: true });
+        watch(() => props.value.length, calcGridInfo, { immediate: true });
 
         return {
             root,

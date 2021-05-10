@@ -34,23 +34,32 @@ export interface NumberParameter<R extends boolean> extends ParameterBase<'numbe
     default?: Value<number>;
 }
 
+export interface DateParameter<R extends boolean> extends ParameterBase<'date', R> {
+    type: 'date';
+    default?: Value<string>;
+}
+
 type ValueTypeMap = {
     enum: string;
     string: string;
+    date: string;
     number: number;
 };
 
 export type ValueType<T> = T extends keyof ValueTypeMap ? ValueTypeMap[T] : never;
 
 export type Parameter<R extends boolean> =
-    EnumParameter<R> | StringParameter<R> | NumberParameter<R>;
+    EnumParameter<R> | StringParameter<R> | NumberParameter<R> | DateParameter<R>;
 
 export function getDefault(param: Parameter<any>): Value<any> {
-    if (param.type === 'enum') {
+    switch (param.type) {
+    case 'enum':
         return value(param.default) ?? value(param.values)[0];
-    } else if (param.type === 'string') {
+    case 'string':
         return value(param.default) ?? '';
-    } else { // is number
+    case 'date':
+        return value(param.default) ?? new Date().toLocaleDateString('en-CA');
+    case 'number':
         return value(param.default) ?? 0;
     }
 }

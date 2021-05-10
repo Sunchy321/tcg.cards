@@ -5,8 +5,9 @@
         <q-input
             v-if="titleType === 'input'"
             v-model="search"
-            class="title-input" dense dark
-            standout
+            class="title-input"
+            dense dark standout
+            clearable
             @keypress="keyboardSearch"
         >
             <template #append>

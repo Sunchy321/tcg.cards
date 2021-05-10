@@ -45,14 +45,26 @@ export function param(state: State, { key, value }: { key: string, value: any })
         return;
     }
 
+    switch (param.type) {
+    case 'number':
+        if (Number.isNaN(Number.parseInt(value))) {
+            return;
+        }
+    }
+
     const realKey = param.key ?? key;
 
     switch (param.bind) {
     case 'params':
-        void router.push({ params: { ...route.params, [realKey]: value }, query: route.query });
+        void router.push({
+            params: { ...route.params, [realKey]: value ?? undefined },
+            query:  route.query,
+        });
         break;
     case 'query':
-        void router.push({ query: { ...route.query, [realKey]: value } });
+        void router.push({
+            query: { ...route.query, [realKey]: value ?? undefined },
+        });
         break;
     case 'props':
         param.value = value;
