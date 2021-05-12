@@ -43,7 +43,7 @@
         </div>
 
         <grid
-            v-slot="{ status, card, date: effectiveDate }"
+            v-slot="{ status, card, date: effectiveDate, group }"
             :value="banlist" :item-width="300" item-key="card"
         >
             <div class="banlist row items-center q-gutter-sm">
@@ -53,6 +53,7 @@
                 />
                 <div class="date">{{ effectiveDate }}</div>
                 <card-avatar :id="card" :pauper="format === 'pauper'" />
+                <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
             </div>
         </grid>
     </q-page>
@@ -73,6 +74,9 @@
 
 .date
     color: grey
+
+.group
+    font-variant: small-caps
 </style>
 
 <script lang="ts">
@@ -251,7 +255,23 @@ export default defineComponent({
                 });
                 break;
             case 'date':
-                result.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+                result.sort((a, b) => {
+                    if (a.date < b.date) {
+                        return -1;
+                    } else if (a.date > b.date) {
+                        return 1;
+                    }
+
+                    if (a.status !== b.status) {
+                        return banlistStatusOrder.indexOf(a.status) -
+                                banlistStatusOrder.indexOf(b.status);
+                    } else if (a.group !== b.group) {
+                        return banlistSourceOrder.indexOf(a.group ?? null) -
+                                banlistSourceOrder.indexOf(b.group ?? null);
+                    } else {
+                        return a.card < b.card ? -1 : 1;
+                    }
+                });
             }
 
             return result;
@@ -313,6 +333,15 @@ export default defineComponent({
             }
         };
 
+        const groupShort = (group: string) => {
+            switch (group) {
+            case 'ante': return 'ante';
+            case 'legendary': return 'leg.';
+            case 'conspiracy': return 'cons.';
+            case 'offensive': return 'off.';
+            }
+        };
+
         const toPrevDate = () => {
             const currDate = date.value ?? new Date().toLocaleDateString('en-CA');
 
@@ -353,6 +382,7 @@ export default defineComponent({
             banlist,
 
             statusIcon,
+            groupShort,
             toPrevDate,
             toNextDate,
         };
