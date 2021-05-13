@@ -2,7 +2,12 @@
     <q-layout view="hHh Lpr fFf">
         <q-header elevated>
             <q-toolbar>
-                <q-btn icon="mdi-home" flat dense round :to="homePath" />
+                <q-btn
+                    :class="{ 'convert-white': homeIcon.startsWith('img:') }"
+                    :icon="homeIcon"
+                    flat dense round
+                    :to="homePath"
+                />
 
                 <app-title />
 
@@ -81,6 +86,9 @@
 </template>
 
 <style lang="sass" scoped>
+.convert-white
+    filter: invert(99%) sepia(70%) saturate(62%) hue-rotate(350deg) brightness(114%) contrast(100%)
+
 .code
     color: #777
     width: 40px
@@ -106,11 +114,35 @@ export default defineComponent({
         const { game, user, isAdmin } = basicSetup();
 
         const homePath = computed(() => {
-            if (game.value != null && route.path !== '/' + game.value) {
-                return '/' + game.value;
-            } else {
+            if (game.value == null) {
                 return '/';
             }
+
+            if (route.path === `/${game.value}`) {
+                return '/';
+            }
+
+            if (route.path === `/${game.value}/`) {
+                return '/';
+            }
+
+            return `/${game.value}`;
+        });
+
+        const homeIcon = computed(() => {
+            if (game.value == null) {
+                return 'mdi-home';
+            }
+
+            if (route.path === `/${game.value}`) {
+                return 'mdi-home';
+            }
+
+            if (route.path === `/${game.value}/`) {
+                return 'mdi-home';
+            }
+
+            return `img:${game.value}/logo.svg`;
         });
 
         const dataPath = computed(() => {
@@ -172,6 +204,7 @@ export default defineComponent({
 
             homePath,
             dataPath,
+            homeIcon,
             gameLocale,
             gameLocales,
 

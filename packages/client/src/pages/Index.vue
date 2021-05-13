@@ -9,7 +9,8 @@
             class="tcg-item"
             @click="$router.push('/' + g)"
         >
-            {{ fullName(g) }}
+            <q-icon :name="`img:${g}/logo.svg`" />
+            <span class="q-ml-sm">{{ fullName(g) }}</span>
         </q-btn>
     </q-page>
 </template>
