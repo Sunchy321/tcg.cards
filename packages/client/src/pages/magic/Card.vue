@@ -22,9 +22,10 @@
                     <div class="name-line row items-center">
                         <q-btn
                             v-if="partIcon != null"
-                            class="q-mr-sm"
+                            class="part-icon q-mr-sm"
+                            :class="partIcon.class || ''"
                             flat round dense
-                            :icon="partIcon"
+                            :icon="`img:${partIcon.src}`"
                             @click="switchPart"
                         />
 
@@ -98,10 +99,7 @@
 
             <div v-if="relatedCards.length > 0" class="related-card-block">
                 <div v-for="r in relatedCards" :key="r.cardId" class="related-card">
-                    {{ r.cardId }}
-                    <!-- <router-link :to="r.route"> -->
-                    <!-- {{ r.name }} -->
-                    <!-- </router-link> -->
+                    <card-avatar :id="r.cardId" />
                 </div>
             </div>
 
@@ -174,6 +172,16 @@
     border: 1px solid $primary
     border-radius: 5px
 
+.part-icon
+    &.flip-1, &.split_arena-1
+        transform: rotate(180deg)
+
+    &.split-1
+        transform: rotateY(180deg)
+
+    &.aftermath-1
+        transform: rotate(90deg)
+
 .name
     display: inline
 
@@ -244,6 +252,7 @@ import basicSetup from 'setup/basic';
 import magicSetup from 'setup/magic';
 import pageSetup from 'setup/page';
 
+import CardAvatar from 'components/magic/CardAvatar.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import MagicColor from 'components/magic/Color.vue';
 import MagicText from 'components/magic/Text.vue';
@@ -323,7 +332,7 @@ interface Card {
 }
 
 export default defineComponent({
-    components: { CardImage, MagicColor, MagicText, MagicSymbol },
+    components: { CardAvatar, CardImage, MagicColor, MagicText, MagicSymbol },
 
     setup() {
         const router = useRouter();
@@ -532,23 +541,25 @@ export default defineComponent({
         const partIcon = computed(() => {
             switch (layout.value) {
             case 'flip':
-                if (partIndex.value === 0) {
-                    return 'mdi-circle-half-full mdi-rotate-90';
-                } else {
-                    return 'mdi-circle-half-full mdi-rotate-270';
-                }
             case 'split':
-                if (partIndex.value === 0) {
-                    return 'mdi-circle-half-full';
-                } else {
-                    return 'mdi-circle-half-full mdi-flip-h';
-                }
+            case 'aftermath':
+            case 'split_arena':
+                return {
+                    src:   `magic/part-icon/${layout.value}.svg`,
+                    class: `${layout.value}-${partIndex.value}`,
+                };
+            case 'transform':
+            case 'modal_dfc':
+            case 'adventure':
+                return {
+                    src: `magic/part-icon/${layout.value}-${partIndex.value}.svg`,
+                };
+            case 'multipart':
+                return {
+                    src: 'magic/part-icon/multipart.svg',
+                };
             default:
-                if (partCount.value > 1) {
-                    return 'mdi-text-box-multiple';
-                } else {
-                    return null;
-                }
+                return null;
             }
         });
 
