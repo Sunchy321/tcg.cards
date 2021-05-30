@@ -434,8 +434,8 @@ export default defineComponent({
                     numbers,
                     rarity,
                     iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
-                    name:    currVersion.name[store.getters.locale] ??
-                        currVersion.name[store.getters.locales[0]] ?? s,
+                    name:    currVersion.name[store.getters['magic/locale']] ??
+                        currVersion.name[store.getters['magic/locales'][0]] ?? s,
                     symbolStyle: currVersion.symbolStyle,
                 };
             });
@@ -597,7 +597,7 @@ export default defineComponent({
         const toEditor = () => {
             if (basic.isAdmin) {
                 void router.push({
-                    path:  '/magic/data',
+                    name:  'magic/data',
                     query: {
                         tab:    'card',
                         id:     id.value,

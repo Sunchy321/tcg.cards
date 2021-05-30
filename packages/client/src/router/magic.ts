@@ -9,6 +9,7 @@ const routes = [
             },
             {
                 path:      'data',
+                name:      'magic/data',
                 component: () => import('pages/magic/Data.vue'),
                 meta:      {
                     admin: true,
@@ -16,7 +17,10 @@ const routes = [
             },
             {
                 path:     'format',
-                redirect: 'format/standard',
+                redirect: {
+                    name:   'magic/format',
+                    params: { id: 'standard' },
+                },
             },
             {
                 path:      'format/:id',
@@ -32,6 +36,11 @@ const routes = [
                 path:      'search',
                 name:      'magic/search',
                 component: () => import('pages/magic/Search.vue'),
+            },
+            {
+                path:      'advanced-search',
+                name:      'magic/advanced-search',
+                component: () => import('pages/magic/AdvancedSearch.vue'),
             },
             {
                 path:      'image-wall',

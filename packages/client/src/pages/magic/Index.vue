@@ -3,7 +3,7 @@
         <q-input
             v-model="searchText"
             class="main-input q-ma-xl"
-            filled
+            filled clearable
             @keypress.enter="search"
         >
             <template #append>
@@ -15,14 +15,23 @@
             </template>
         </q-input>
         <div class="links q-pa-xl q-gutter-md row ">
-            <div class="col column" />
+            <div class="col column">
+                <q-btn
+                    class="link"
+                    flat
+                    icon="mdi-magnify"
+                    :label="$t('magic.ui.advanced-search.$self')"
+                    to="/magic/advanced-search"
+                />
+            </div>
+
             <div class="col column">
                 <q-btn
                     class="link"
                     flat
                     icon="mdi-text-box-outline"
                     :label="$t('magic.format.$self')"
-                    to="/magic/format/standard"
+                    to="/magic/format"
                 />
             </div>
             <div class="col column">

@@ -43,7 +43,7 @@
         </div>
 
         <grid
-            v-slot="{ status, card, date: effectiveDate, group }"
+            v-slot="{ status, card, date: effectiveDate, group, link }"
             :value="banlist" :item-width="300" item-key="card"
         >
             <div class="banlist row items-center q-gutter-sm">
@@ -51,7 +51,8 @@
                     :name="statusIcon(status, card)"
                     :class="'magic-banlist-status-' + status"
                 />
-                <div class="date">{{ effectiveDate }}</div>
+                <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
+                <div v-else class="date">{{ effectiveDate }}</div>
                 <card-avatar :id="card" :pauper="format === 'pauper'" />
                 <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
             </div>

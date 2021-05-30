@@ -9,13 +9,8 @@ const colorMap: Record<string, string> = {
     G: '#006B47',
 };
 
-const toPart: Record<string, string[]> = {
-    '':  [],
-    'W': ['W'],
-    'U': ['U'],
-    'B': ['B'],
-    'R': ['R'],
-    'G': ['G'],
+const toPart: Record<string, string> = {
+    WRG: 'RGW',
 };
 
 export default defineComponent({
@@ -30,7 +25,7 @@ export default defineComponent({
         return () => {
             const value = props.value;
 
-            const colors = toPart[value].map(v => colorMap[v]);
+            const colors = (toPart[value] ?? value).split('').map(v => colorMap[v]);
 
             const elems = (() => {
                 switch (colors.length) {
@@ -52,8 +47,27 @@ export default defineComponent({
                 case 2:
                     return [
                         h('path', {
-                            d:    'M35.35534,35.35534',
+                            d:    'M50,50,14.64,85.36A50,50,0,0,1,85.36,14.64Z',
                             fill: colors[0],
+                        }),
+                        h('path', {
+                            d:    'M50,50,85.36,14.64A50,50,0,0,1,14.64,85.36Z',
+                            fill: colors[1],
+                        }),
+                    ];
+                case 3:
+                    return [
+                        h('path', {
+                            d:    'M50,50,93.3,25A50,50,0,0,1,50,100Z',
+                            fill: colors[0],
+                        }),
+                        h('path', {
+                            d:    'M50,50v50A50,50,0,0,1,6.69,25Z',
+                            fill: colors[1],
+                        }),
+                        h('path', {
+                            d:    'M50,50,6.7,25a50,50,0,0,1,86.6,0Z',
+                            fill: colors[2],
                         }),
                     ];
                 }

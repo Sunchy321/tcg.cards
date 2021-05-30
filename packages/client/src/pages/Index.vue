@@ -1,23 +1,47 @@
 <template>
-    <q-page class="q-pa-md">
+    <q-page class="main q-pa-md">
         <q-btn
             v-for="g in games"
             :key="g"
             no-caps
             flat
             align="left"
-            class="tcg-item"
+            class="tcg-item q-card"
             @click="$router.push('/' + g)"
         >
-            <q-icon :name="`img:${g}/logo.svg`" />
-            <span class="q-ml-sm">{{ fullName(g) }}</span>
+            <div class="tcg-item-card">
+                <q-img class="tcg-icon" :src="`${g}/logo.svg`" />
+                <span class="tcg-label">{{ fullName(g) }}</span>
+            </div>
         </q-btn>
     </q-page>
 </template>
 
 <style lang="sass" scoped>
+.main
+    display: flex
+    justify-content: center
+
 .tcg-item
-    width: 25%
+    width: 200px
+    height: 250px
+    margin: 8px
+
+.tcg-item-card
+    width: 100%
+    height: 100%
+
+    display: flex
+    flex-direction: column
+    justify-content: space-around
+    align-items: center
+
+    padding-top: 30px
+    padding-bottom: 30px
+
+.tcg-icon
+    width: 60%
+    height: 60%
 </style>
 
 <script lang="ts">

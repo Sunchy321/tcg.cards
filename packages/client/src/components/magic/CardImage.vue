@@ -160,7 +160,7 @@ export default defineComponent({
         const innerRotate = ref<boolean|null>(null);
 
         const realPart = computed({
-            get() { return props.part ?? innerPart.value; },
+            get() { return innerPart.value; },
             set(newValue: number) {
                 innerPart.value = newValue;
                 emit('update:part', newValue);
@@ -170,9 +170,7 @@ export default defineComponent({
         const defaultRotate = computed(() => ['split', 'planar'].includes(props.layout));
 
         const realRotate = computed({
-            get() {
-                return props.rotate ?? innerRotate.value ?? defaultRotate.value;
-            },
+            get() { return innerRotate.value ?? defaultRotate.value; },
             set(newValue: boolean | null) {
                 innerRotate.value = newValue;
                 emit('update:rotate', newValue);
@@ -199,9 +197,19 @@ export default defineComponent({
             }
         });
 
-        watch(() => props.layout, () => {
-            innerRotate.value = null;
-        });
+        watch(() => props.layout, () => { innerRotate.value = null; });
+
+        watch(() => props.part, () => {
+            if (props.part != null) {
+                innerPart.value = props.part;
+            }
+        }, { immediate: true });
+
+        watch(() => props.rotate, () => {
+            if (props.rotate != null) {
+                innerRotate.value = props.rotate;
+            }
+        }, { immediate: true });
 
         return {
             visible, realPart, realRotate, rotatable, turnable, imageUrls,

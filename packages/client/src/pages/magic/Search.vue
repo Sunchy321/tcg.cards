@@ -1,7 +1,9 @@
 <template>
     <q-page>
         <div class="controller flex items-center shadow-4 q-px-md">
-            <q-icon v-show="searching" name="mdi-autorenew mdi-spin" size="sm" />
+            <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
+
+            <span>{{ q }}</span>
 
             <div class="col-grow" />
 
@@ -17,20 +19,20 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, setId, number, lang, layout }"
+                v-slot="{ cardId, setId, number, lang, layout, partIndex }"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
                 <router-link
                     :key="cardId"
-                    :to="`/magic/card/${cardId}?set=${setId}&number=${number}&lang=${lang}`"
-                    target="_blank"
+                    :to="`/magic/card/${cardId}?set=${setId}&number=${number}&lang=${lang}&part=${partIndex}`"
                 >
                     <card-image
                         :set="setId"
                         :number="number"
                         :lang="lang"
                         :layout="layout"
+                        :part="partIndex"
                     />
                 </router-link>
             </grid>
@@ -190,6 +192,7 @@ export default defineComponent({
         watch([q, page, pageSize], doSearch, { immediate: true });
 
         return {
+            q,
             searching,
 
             data,

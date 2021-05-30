@@ -9,7 +9,7 @@
                 </template>
             </q-img>
         </div>
-        <div class="col">
+        <div class="col q-gutter-sm">
             <div class="q-mb-md">
                 <q-input v-model="search" class="q-mr-md" dense @keypress.enter="doSearch">
                     <template #append>
@@ -45,6 +45,8 @@
             </div>
 
             <div class="id-line row items-center">
+                <div class="db-id code q-mr-md">{{ dbId == null ? 'null' : 'id' }}</div>
+
                 <q-input
                     v-if="unlock"
                     v-model="id"
@@ -52,13 +54,14 @@
                     dense outlined
                 />
 
-                <div v-else class="id code">
-                    {{ id }}
+                <div v-else class="id code">{{ id }}</div>
+
+                <div v-if="unlock" class="info flex items-center q-mx-md">
+                    <q-input v-model="lang" style="width: 120px;" outlined dense />
+                    {{ `:${set},${number}` }}
                 </div>
 
-                <div class="info q-mx-md">
-                    {{ info }}
-                </div>
+                <div v-else class="info q-mx-md">{{ info }}</div>
 
                 <q-select
                     v-model="layout"
@@ -74,6 +77,12 @@
                 />
 
                 <div class="col-grow" />
+
+                <q-btn
+                    label="New"
+                    dense flat
+                    @click="newData"
+                />
 
                 <q-btn
                     :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'"
@@ -152,6 +161,23 @@
                 label="Related Cards"
                 outlined dense
             />
+
+            <div class="flex items-center">
+                <array-input
+                    v-model="multiverseId"
+                    class="col-grow"
+                    label="Multiverse ID"
+                    is-number
+                    outlined dense
+                />
+
+                <q-btn
+                    icon="mdi-magnify"
+                    class="q-ml-sm"
+                    flat dense round
+                    @click="loadGatherer"
+                />
+            </div>
         </div>
     </div>
 </template>
@@ -181,7 +207,7 @@ table
         width: 250px
 
 .rotate
-    transform: rotate(90deg) scale(745/1040)
+    transform: rotate(90deg) scale(calc(745/1040))
 
 @media screen and (max-width: 1000px)
     .card-image
@@ -200,6 +226,8 @@ import controlSetup from 'setup/control';
 import { escapeRegExp } from 'lodash';
 
 import { imageBase, apiGet } from 'boot/backend';
+
+import ArrayInput from 'components/ArrayInput.vue';
 
 interface Part {
     cost: string[];
@@ -271,6 +299,19 @@ interface Card {
 
     relatedCards: RelatedCard[];
 
+    scryfall: {
+        oracleId: string,
+        cardId?: string,
+        face?: 'front'|'back'
+    },
+
+    arenaId?: number,
+    mtgoId?: number,
+    mtgoFoilId?: number,
+    multiverseId: number[],
+    tcgPlayerId?: number,
+    cardMarketId?: number,
+
     partIndex?: number;
     total?: number;
     result?: {
@@ -281,6 +322,8 @@ interface Card {
 export default defineComponent({
     name: 'DataCard',
 
+    components: { ArrayInput },
+
     setup() {
         const router = useRouter();
         const route = useRoute();
@@ -288,7 +331,7 @@ export default defineComponent({
 
         const { controlGet, controlPost } = controlSetup();
 
-        const data = ref<Card|null>(null);
+        const data = ref<(Card & { _id?: string })|null>(null);
         const unlock = ref(false);
         const replaceFrom = ref('');
         const replaceTo = ref('');
@@ -319,6 +362,8 @@ export default defineComponent({
             return true;
         });
 
+        const dbId = computed(() => data.value?._id);
+
         const id = computed({
             get() { return data.value?.cardId ?? route.query.id as string; },
             set(newValue: string) {
@@ -328,7 +373,11 @@ export default defineComponent({
             },
         });
 
-        const lang = computed(() => data.value?.lang ?? route.query.lang as string);
+        const lang = computed({
+            get() { return data.value?.lang ?? route.query.lang as string; },
+            set(newValue: string) { if (hasData.value) { data.value!.lang = newValue; } },
+        });
+
         const set = computed(() => data.value?.setId ?? route.query.set as string);
         const number = computed(() => data.value?.number ?? route.query.number as string);
 
@@ -437,6 +486,15 @@ export default defineComponent({
             },
         });
 
+        const multiverseId = computed({
+            get() { return data.value?.multiverseId ?? []; },
+            set(newValue: number[]) {
+                if (data.value != null) {
+                    data.value.multiverseId = newValue;
+                }
+            },
+        });
+
         const imageUrl = computed(() => {
             if (!hasData.value) {
                 return null;
@@ -457,18 +515,30 @@ export default defineComponent({
                 return;
             }
 
+            unifiedTypeline.value = unifiedTypeline.value
+                .replace(/ *～ *-? */, '～')
+                .replace(/ *― *-? */, '―')
+                .replace(/ *: *-? */, ' : ');
+            printedTypeline.value = printedTypeline.value
+                .replace(/ *～ *-? */, '～')
+                .replace(/ *― *-? */, '―')
+                .replace(/ *: *-? */, ' : ');
+
+            unifiedText.value = unifiedText.value.replace(/~~/g, unifiedName.value);
+            printedText.value = printedText.value.replace(/~~/g, printedName.value);
+
             if (lang.value === 'zhs' || lang.value === 'zht') {
                 unifiedTypeline.value = unifiedTypeline.value.replace(/~/g, '～').replace(/\//g, '／');
                 printedTypeline.value = printedTypeline.value.replace(/~/g, '～').replace(/\//g, '／');
-                unifiedText.value = unifiedText.value.replace(/~/g, '～').replace(/\/\//g, '／');
-                printedText.value = printedText.value.replace(/~/g, '～').replace(/\/\//g, '／');
+                unifiedText.value = unifiedText.value.replace(/~/g, '～').replace(/\/\//g, '／').trim();
+                printedText.value = printedText.value.replace(/~/g, '～').replace(/\/\//g, '／').trim();
 
                 if (flavor.value != null) {
                     flavor.value = flavor.value.replace(/~/g, '～');
                 }
             } else {
-                unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ');
-                printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ');
+                unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ').trim();
+                printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ').trim();
             }
 
             unifiedText.value = unifiedText.value.trim().replace(/[●•] ?/g, '• ');
@@ -479,19 +549,18 @@ export default defineComponent({
                     unifiedText.value = unifiedText.value
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
                         .replace(/\(/g, '（')
-                        .replace(/\)/g, '）');
+                        .replace(/\)/g, '）')
+                        .replace(/;/g, '；');
                 }
 
                 if (!/[a-wyz](?![/}])/.test(printedText.value)) {
                     printedText.value = printedText.value
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
                         .replace(/\(/g, '（')
-                        .replace(/\)/g, '）');
+                        .replace(/\)/g, '）')
+                        .replace(/;/g, '；');
                 }
             }
-
-            unifiedTypeline.value = unifiedTypeline.value.replace(/ *～ *-? */, '～');
-            printedTypeline.value = printedTypeline.value.replace(/ *～ *-? */, '～');
         };
 
         const prettify = () => {
@@ -504,12 +573,24 @@ export default defineComponent({
                     printedName.value = unifiedName.value;
                 }
 
+                if (oracleName.value !== printedName.value && oracleName.value === unifiedName.value) {
+                    unifiedName.value = printedName.value;
+                }
+
                 if (oracleTypeline.value !== unifiedTypeline.value && oracleTypeline.value === printedTypeline.value) {
                     printedTypeline.value = unifiedTypeline.value;
                 }
 
+                if (oracleTypeline.value !== printedTypeline.value && oracleTypeline.value === unifiedTypeline.value) {
+                    unifiedTypeline.value = printedTypeline.value;
+                }
+
                 if (oracleText.value !== unifiedText.value && oracleText.value === printedText.value) {
                     printedText.value = unifiedText.value;
+                }
+
+                if (oracleText.value !== printedText.value && oracleText.value === unifiedText.value) {
+                    unifiedText.value = printedText.value;
                 }
             }
 
@@ -530,6 +611,53 @@ export default defineComponent({
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value)) {
                 printedText.value = '';
+            }
+        };
+
+        const newData = () => {
+            if (data.value != null) {
+                delete data.value._id;
+                delete data.value.scryfall.cardId;
+
+                delete data.value.arenaId;
+                delete data.value.mtgoId;
+                delete data.value.mtgoFoilId;
+                data.value.multiverseId = [];
+                delete data.value.tcgPlayerId;
+                delete data.value.cardMarketId;
+
+                unlock.value = true;
+            }
+        };
+
+        const loadGatherer = async () => {
+            if (!hasData.value) {
+                return;
+            }
+
+            const { data: result } = (await controlGet('/magic/card/parse-gatherer', {
+                id:     multiverseId.value.join(','),
+                set:    set.value,
+                number: number.value,
+                lang:   lang.value,
+            })) as { data:Partial<Card> };
+
+            for (let i = 0; i < data.value!.parts.length; ++i) {
+                const part = data.value!.parts[i];
+
+                if (part.printed.name === part.oracle.name) {
+                    part.printed.name = result.parts![i].printed.name;
+                }
+
+                if (part.printed.typeline === part.oracle.typeline) {
+                    part.printed.typeline = result.parts![i].printed.typeline;
+                }
+
+                if (part.printed.text === part.oracle.text) {
+                    part.printed.text = result.parts![i].printed.text;
+                }
+
+                part.flavorText = result.parts![i].flavorText;
             }
         };
 
@@ -597,7 +725,11 @@ export default defineComponent({
             partIndex,
             total,
 
+            dbId,
             id,
+            lang,
+            set,
+            number,
             info,
             layout,
             oracleName,
@@ -611,12 +743,15 @@ export default defineComponent({
             printedText,
             flavor,
             relatedCards,
+            multiverseId,
             imageUrl,
 
             layoutOptions,
             partOptions,
 
+            newData,
             doUpdate,
+            loadGatherer,
             prettify,
             loadData,
             doSearch,

@@ -355,7 +355,7 @@ export default defineComponent({
             if (elem != null) {
                 const target = scroll.getScrollTarget(elem);
                 const offset = elem.offsetTop - elem.scrollHeight;
-                scroll.setHorizontalScrollPosition(target, offset, 500);
+                scroll.setVerticalScrollPosition(target, offset, 500);
             }
         });
 

@@ -23,7 +23,7 @@
                 class="col-grow"
                 :model-value="c.in.join(', ')"
                 dense
-                @update:model-value="setChangeIn(c)"
+                @update:model-value="v => setChangeIn(c, v)"
             >
                 <template #prepend>
                     <q-icon name="mdi-plus" />
@@ -34,7 +34,7 @@
                 class="col-grow"
                 :model-value="c.out.join(', ')"
                 dense
-                @update:model-value="setChangeOut(c)"
+                @update:model-value="v => setChangeOut(c, v)"
             >
                 <template #prepend>
                     <q-icon name="mdi-minus" />
@@ -53,13 +53,13 @@
                 flat dense
                 icon="mdi-arrow-down"
                 :disable="i === changes.length - 1"
-                @click="moveChangeDown(i)"
+                @click="() => moveChangeDown(i)"
             />
             <q-btn
                 size="sm"
                 flat dense
                 icon="mdi-minus"
-                @click="removeChange(i)"
+                @click="() => removeChange(i)"
             />
         </div>
     </div>
@@ -159,7 +159,7 @@ export default defineComponent({
 
         const saveData = async () => {
             await controlPost('/magic/format/change/save', {
-                data: formatChange,
+                data: formatChange.value,
             });
 
             await loadData();
@@ -198,15 +198,15 @@ export default defineComponent({
             changes.value.splice(i, 1);
         };
 
-        const setChangeIn = (c: FormatChangeDetail) => (v: string) => {
+        const setChangeIn = (c: FormatChangeDetail, v: string) => {
             c.in = v.split(',').map(s => s.trim()).filter(s => s !== '');
         };
 
-        const setChangeOut = (c: FormatChangeDetail) => (v: string) => {
+        const setChangeOut = (c: FormatChangeDetail, v: string) => {
             c.out = v.split(',').map(s => s.trim()).filter(s => s !== '');
         };
 
-        const moveChangeUp = (i :number) => {
+        const moveChangeUp = (i: number) => {
             if (i !== 0) {
                 const curr = changes.value[i];
                 const prev = changes.value[i - 1];
@@ -216,7 +216,7 @@ export default defineComponent({
             }
         };
 
-        const moveChangeDown = (i :number) => {
+        const moveChangeDown = (i: number) => {
             if (i !== changes.value.length - 1) {
                 const curr = changes.value[i];
                 const next = changes.value[i + 1];
