@@ -61,7 +61,25 @@ export default {
     },
 
     'ui': {
-        format: {
+        'advanced-search': {
+            '$self':          'Advanced Search',
+            'name':           'Name',
+            'cost':           'Mana Cost',
+            'type':           'Type',
+            'text':           'Text',
+            'color':          'Color',
+            'color-identity': 'Color Identity',
+
+            'color-option': {
+                'include': 'including',
+                'exact':   'exact',
+                'at-most': 'at most',
+            },
+
+            'search': 'Search',
+        },
+
+        'format': {
             '$self':    'Format',
             'timeline': 'Timeline',
 

@@ -9,7 +9,7 @@ export default {
     'card': {
         'text-mode': {
             oracle:  'Oracle',
-            unified: '一致描述',
+            unified: '统一描述',
             printed: '牌面描述',
         },
     },
@@ -52,7 +52,25 @@ export default {
     },
 
     'ui': {
-        format: {
+        'advanced-search': {
+            '$self':          '高级搜索',
+            'name':           '名称',
+            'cost':           '法术力费用',
+            'type':           '类别',
+            'text':           '描述',
+            'color':          '颜色',
+            'color-identity': '标识色',
+
+            'color-option': {
+                'include': '包含',
+                'exact':   '正好',
+                'at-most': '至多',
+            },
+
+            'search': '搜索',
+        },
+
+        'format': {
             '$self':    '赛制',
             'timeline': '时间线',
 
