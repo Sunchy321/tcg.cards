@@ -12,7 +12,7 @@
         "paths": {
             "*": ["@types/*"],
             "@/*": ["./*"],
-            "@config": ["../config"],
+            "@static": ["./static"],
             "@data/*": ["../data/*"]
         }
     },

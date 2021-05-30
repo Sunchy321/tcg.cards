@@ -1,24 +1,24 @@
 import { Connection, createConnection, set } from 'mongoose';
 
-import { database } from '@config';
+import { mongodb } from '@static';
 
 set('useCreateIndex', true);
 
 export function connect(dbName: string): Connection {
-    const ip = database.ip;
-    const dbInfo = database?.dbInfo?.[dbName];
+    const host = mongodb.host;
+    const dbInfo = mongodb.database[dbName];
 
     let conn: Connection;
 
-    if (dbInfo?.user && dbInfo?.password) {
-        conn = createConnection(`mongodb://${ip}/${dbName}`, {
+    if (dbInfo != null) {
+        conn = createConnection(`mongodb://${host}/${dbName}`, {
             user:               dbInfo.user,
             pass:               dbInfo.password,
             useNewUrlParser:    true,
             useUnifiedTopology: true,
         });
     } else {
-        conn = createConnection(`mongodb://${ip}/${dbName}`, {
+        conn = createConnection(`mongodb://${host}/${dbName}`, {
             useNewUrlParser:    true,
             useUnifiedTopology: true,
         });

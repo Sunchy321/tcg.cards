@@ -12,10 +12,10 @@ import { join } from 'path';
 import { omit, partition } from 'lodash';
 import { diff } from 'deep-diff';
 
-import { data } from '@config';
+import { dataPath } from '@static';
 import { Document } from 'mongoose';
 
-const bulkPath = join(data, 'magic/scryfall');
+const bulkPath = join(dataPath, 'magic/scryfall');
 
 async function* convertJson<T>(gen: AsyncGenerator<string>): AsyncGenerator<T> {
     for await (const line of gen) {

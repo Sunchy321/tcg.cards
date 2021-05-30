@@ -14,7 +14,7 @@ import * as path from 'path';
 import { js2xml, xml2js } from 'xml-js';
 import { castArray, last } from 'lodash';
 
-import { data } from '@config';
+import { dataPath } from '@static';
 import * as logger from '@/logger';
 
 import {
@@ -36,7 +36,7 @@ import {
 } from '@data/hearthstone/hsdata-map';
 
 const remoteUrl = 'https://github.com/HearthSim/hsdata';
-const localPath = path.join(data, 'hearthstone', 'hsdata');
+const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
 
 function hasData(): boolean {
     return fs.existsSync(path.join(localPath, '.git'));

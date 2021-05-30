@@ -2,6 +2,7 @@
 .thumbs.db
 node_modules
 
+/public
 /dist
 
-config.*
+config.json

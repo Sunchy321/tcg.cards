@@ -1,7 +1,7 @@
 import { createLogger, format, transports } from 'winston';
 import { TransformableInfo } from 'logform';
 
-import { log } from '@config';
+import { logPath } from '@static';
 
 function formatter(info: TransformableInfo) {
     const level = info.level[0];
@@ -17,7 +17,7 @@ export const main = createLogger({
     format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
-            filename: log + '/main.log',
+            filename: logPath + '/main.log',
         }),
     ],
 });
@@ -27,7 +27,7 @@ export const data = createLogger({
     format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
-            filename: log + '/data.log',
+            filename: logPath + '/data.log',
         }),
     ],
 });
@@ -37,7 +37,7 @@ export const user = createLogger({
     format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
-            filename: log + '/user.log',
+            filename: logPath + '/user.log',
         }),
     ],
 });

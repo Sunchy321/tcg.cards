@@ -220,7 +220,7 @@ router.get('/need-edit',
     },
 );
 
-import { asset } from '@config';
+import { assetPath } from '@static';
 import { existsSync, renameSync } from 'fs';
 
 router.get('/rename', async ctx => {
@@ -234,9 +234,9 @@ router.get('/rename', async ctx => {
     for (const c of cards) {
         const name = c.parts[0].oracle.name;
 
-        const oldPath = `${asset}/magic/card/large/${set}/zhs/${name.replace(':', '')}.full.jpg`;
-        const oldPathWithNumber = `${asset}/magic/card/large/${set}/zhs/${name.replace(':', '')}.${c.number}.full.jpg`;
-        const newPath = `${asset}/magic/card/large/${set}/zhs/${c.number}.jpg`;
+        const oldPath = `${assetPath}/magic/card/large/${set}/zhs/${name.replace(':', '')}.full.jpg`;
+        const oldPathWithNumber = `${assetPath}/magic/card/large/${set}/zhs/${name.replace(':', '')}.${c.number}.full.jpg`;
+        const newPath = `${assetPath}/magic/card/large/${set}/zhs/${c.number}.jpg`;
 
         if (existsSync(newPath)) {
             continue;

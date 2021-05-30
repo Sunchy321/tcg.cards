@@ -10,9 +10,9 @@ import Task from '@/common/task';
 import { IStatus } from '../interface';
 import { IBulkData, IBulkList } from './interface';
 
-import { data } from '@config';
+import { dataPath } from '@static';
 
-const bulkPath = join(data, 'magic/scryfall');
+const bulkPath = join(dataPath, 'magic/scryfall');
 
 export default class BulkSaver extends Task<IStatus> {
     saver?: FileSaver;

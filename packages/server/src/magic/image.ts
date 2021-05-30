@@ -1,13 +1,13 @@
 import { join } from 'path';
 
-import { asset } from '@config';
+import { assetPath } from '@static';
 
 export function cardImageBase(
     type: string,
     set: string,
     lang: string,
 ): string {
-    return join(asset, 'magic', 'card', type, set, lang);
+    return join(assetPath, 'magic', 'card', type, set, lang);
 }
 
 export function cardImagePath(
@@ -28,10 +28,10 @@ export function cardImagePath(
     }
 }
 
-export const defaultIconPath = join(asset, 'magic', 'set', 'icon', 'default.svg');
+export const defaultIconPath = join(assetPath, 'magic', 'set', 'icon', 'default.svg');
 
 export function setIconBase(set: string): string {
-    return join(asset, 'magic', 'set', 'icon', set);
+    return join(assetPath, 'magic', 'set', 'icon', set);
 }
 
 export function setIconPath(set: string, rarity: string, ext: string): string {

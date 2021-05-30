@@ -6,7 +6,7 @@ import { join } from 'path';
 import { last, zip } from 'lodash';
 import { toIdentifier } from '../util';
 
-import { data } from '@config';
+import { dataPath } from '@static';
 
 function parseContentLine(text: string) {
     let m: RegExpExecArray | null;
@@ -78,7 +78,7 @@ function parseGlossary(texts: string[]) {
 }
 
 export async function parse(date: string): Promise<ICR> {
-    const path = join(data, 'magic', 'cr', 'data', date + '.txt');
+    const path = join(dataPath, 'magic', 'cr', 'data', date + '.txt');
 
     if (!existsSync(path)) {
         throw new Error(`cr ${date} doesn't exist`);

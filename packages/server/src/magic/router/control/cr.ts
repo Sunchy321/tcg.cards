@@ -7,27 +7,27 @@ import { parse, reparse } from '@/magic/cr/parse';
 import { readdirSync } from 'fs';
 import { join } from 'path';
 
-import { data } from '@config';
+import { dataPath } from '@static';
 
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/cr');
 
 router.get('/list', async ctx => {
-    const dir = join(data, 'magic', 'cr', 'data');
+    const dir = join(dataPath, 'magic', 'cr', 'data');
 
     ctx.body = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 });
 
 router.get('/txt', async ctx => {
-    const dir = join(data, 'magic', 'cr', 'txt');
+    const dir = join(dataPath, 'magic', 'cr', 'txt');
 
     ctx.body = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 });
 
 router.get('/parse',
     async ctx => {
-        const dir = join(data, 'magic', 'cr', 'data');
+        const dir = join(dataPath, 'magic', 'cr', 'data');
 
         const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
@@ -39,7 +39,7 @@ router.get('/parse',
 
 router.get('/reparse',
     async ctx => {
-        const dir = join(data, 'magic', 'cr', 'data');
+        const dir = join(dataPath, 'magic', 'cr', 'data');
 
         const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 

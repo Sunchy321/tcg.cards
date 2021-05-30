@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 
 import conn from './db';
 
-import { jwtSecretKey } from '@config';
+import { config } from '@static';
 
 interface IUserInfo {
     username: string;
@@ -236,14 +236,14 @@ UserSchema.statics.findByUsername = async function(this: UserModel, username: st
 };
 
 UserSchema.statics.toJwtToken = function(this: UserModel, user: IUser) {
-    return jwt.sign(user.info(), jwtSecretKey, {
+    return jwt.sign(user.info(), config.jwtSecretKey, {
         expiresIn: '7d',
     });
 };
 
 UserSchema.statics.fromJwtToken = async function(this: UserModel, token: string) {
     try {
-        const payload = jwt.verify(token, jwtSecretKey) as IUserInfo;
+        const payload = jwt.verify(token, config.jwtSecretKey) as IUserInfo;
 
         return this.findByUsername(payload.username);
     } catch (e) {

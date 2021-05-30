@@ -6,7 +6,7 @@ import { ICard, Locale } from './interface';
 import blzApi from './api';
 import Patch from '../db/patch';
 
-import { asset } from '@config';
+import { assetPath } from '@static';
 import FileSaver from '@/common/save-file';
 
 const localeMap: Record<Locale, string> = {
@@ -103,7 +103,7 @@ export class ImageGetter extends Task<IImageStatus> {
                     this.todoTasks.push({
                         name: `${e.cardId}/${l}: normal`,
                         uri:  c.image[l as Locale],
-                        path: `${asset}/hearthstone/card/constructed/normal/${localeMap[l as Locale]}/${e.cardId}.png`,
+                        path: `${assetPath}/hearthstone/card/constructed/normal/${localeMap[l as Locale]}/${e.cardId}.png`,
                     });
                 }
 
@@ -111,7 +111,7 @@ export class ImageGetter extends Task<IImageStatus> {
                     this.todoTasks.push({
                         name: `${e.cardId}/${l}: gold`,
                         uri:  c.imageGold[l as Locale],
-                        path: `${asset}/hearthstone/card/constructed/gold/${localeMap[l as Locale]}/${e.cardId}.png`,
+                        path: `${assetPath}/hearthstone/card/constructed/gold/${localeMap[l as Locale]}/${e.cardId}.png`,
                     });
                 }
             }
@@ -163,7 +163,7 @@ export class ImageGetter extends Task<IImageStatus> {
                         this.todoTasks.push({
                             name: `${e.cardId}/${l}: bg-normal`,
                             uri:  c.battlegrounds.image[l as Locale],
-                            path: `${asset}/hearthstone/card/battlegrounds/normal/${localeMap[l as Locale]}/${e.cardId}.png`,
+                            path: `${assetPath}/hearthstone/card/battlegrounds/normal/${localeMap[l as Locale]}/${e.cardId}.png`,
                         });
                     }
 
@@ -171,7 +171,7 @@ export class ImageGetter extends Task<IImageStatus> {
                         this.todoTasks.push({
                             name: `${e.cardId}/${l}: bg-gold`,
                             uri:  c.battlegrounds.imageGold[l as Locale],
-                            path: `${asset}/hearthstone/card/battlegrounds/gold/${localeMap[l as Locale]}/${e.cardId}.png`,
+                            path: `${assetPath}/hearthstone/card/battlegrounds/gold/${localeMap[l as Locale]}/${e.cardId}.png`,
                         });
                     }
                 }
