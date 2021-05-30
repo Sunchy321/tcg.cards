@@ -4,7 +4,7 @@ query =
     }
 
 singleQuery
-    = type:type op:(':' / '!:' / '=' / '>' / '<' / '>=' / '<=' / '!=') param:param {
+    = type:type op:(':' / '!:' / '=' / '>=' / '<=' / '>' / '<' / '!=') param:param {
         return { type, op, param }
     }
     / param:param { return { param } }
@@ -16,7 +16,7 @@ type
 param = string / regex / rawString
 
 id =
-    [A-Za-z] [A-Za-z0-9]* { return text() }
+    [-.A-Za-z] [-.A-Za-z0-9]* { return text() }
 
 rawString =
     [^ ]+ { return { type: 'string', value: text() } }

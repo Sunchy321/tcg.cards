@@ -12,8 +12,8 @@ export interface QueryItem {
 }
 
 export interface QueryCommand {
-    name: string;
-    short?: string;
+    id: string;
+    alt?: string[];
     query: (arg: {
         param: string|RegExp,
         op?: string,

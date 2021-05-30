@@ -11,7 +11,6 @@ const parser = pegjs.generate(
 export type SearchResult<T> = {
     text: string;
     commands: QueryItem[];
-    queries: any[];
     errors: { type: string; value: string, query?: string }[];
     result: T | null
 }
@@ -35,8 +34,8 @@ export class Searcher<T> {
         this.model = model;
     }
 
-    async search(text: string, options: Record<string, string>): Promise<SearchResult<T>> {
-        text = text.trim();
+    async search(origText: string, options: Record<string, string>): Promise<SearchResult<T>> {
+        const text = origText.trim();
 
         const commands: QueryItem[] = text !== '' ? parser.parse(text) : [];
 
@@ -62,7 +61,7 @@ export class Searcher<T> {
             }
 
             if (c.type == null) {
-                const mc = this.model.commands.find(co => co.name === '');
+                const mc = this.model.commands.find(co => co.id === '');
 
                 if (mc == null) {
                     errors.push({ type: 'command/unknown', value: '' });
@@ -72,11 +71,11 @@ export class Searcher<T> {
                 try {
                     queries.push(mc.query({ param, options }));
                 } catch (e) {
-                    errors.push({ type: e.type, value: e.value, query: mc.name });
+                    errors.push({ type: e.type, value: e.value, query: mc.id });
                 }
             } else {
                 const mc = this.model.commands.find(
-                    co => co.name === c.type || co.short === c.type,
+                    co => co.id === c.type || (co.alt != null && co.alt.includes(c.type)),
                 );
 
                 if (mc == null) {
@@ -87,7 +86,7 @@ export class Searcher<T> {
                 try {
                     queries.push(mc.query({ param, op: c.op, options }));
                 } catch (e) {
-                    errors.push({ type: e.type, value: e.value, query: mc.name });
+                    errors.push({ type: e.type, value: e.value, query: mc.id });
                 }
             }
         }
@@ -95,9 +94,8 @@ export class Searcher<T> {
         const result = queries.length > 0 ? await this.model.aggregate(queries, options) : null;
 
         return {
-            text,
+            text: origText,
             commands,
-            queries,
             errors,
             result,
         };

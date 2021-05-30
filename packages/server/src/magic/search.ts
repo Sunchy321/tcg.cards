@@ -2,7 +2,7 @@ import { QueryModel } from '@/search/interface';
 import { QueryError } from '@/search';
 import Card from '@/magic/db/card';
 
-import { escapeRegExp } from 'lodash';
+import { escapeRegExp, flatten } from 'lodash';
 
 function parseOption(text: string | undefined, defaultValue: number): number {
     if (text == null) {
@@ -18,7 +18,11 @@ function parseOption(text: string | undefined, defaultValue: number): number {
     return num;
 }
 
-function simpleQuery(key: string, param: string|RegExp, op:string|undefined) {
+function simpleQuery(
+    key: string,
+    param: string | RegExp,
+    op: string | undefined,
+) {
     if (typeof param !== 'string') {
         throw new QueryError({
             type:  'regex/disabled',
@@ -41,18 +45,34 @@ function simpleQuery(key: string, param: string|RegExp, op:string|undefined) {
     }
 }
 
-function textQuery(key: string, param: string|RegExp, op: string|undefined, multiline = true) {
-    const regexSource = typeof param === 'string' ? escapeRegExp(param) : param.source;
+function textQuery(
+    key: string,
+    param: string | RegExp,
+    op: string | undefined,
+    multiline = true,
+) {
+    const regexSource =
+        typeof param === 'string' ? escapeRegExp(param) : param.source;
 
     switch (op) {
     case ':':
-        return { [key]: new RegExp(regexSource, multiline ? 'mi' : 'i') };
+        return {
+            [key]: new RegExp(regexSource, multiline ? 'mi' : 'i'),
+        };
     case '!:':
-        return { [key]: { $not: new RegExp(regexSource, multiline ? 'mi' : 'i') } };
+        return {
+            [key]: {
+                $not: new RegExp(regexSource, multiline ? 'mi' : 'i'),
+            },
+        };
     case '=':
-        return { [key]: new RegExp('^' + regexSource + '$', 'i') };
+        return {
+            [key]: new RegExp('^' + regexSource + '$', 'i'),
+        };
     case '!=':
-        return { [key]: { $not: new RegExp('^' + regexSource + '$', 'i') } };
+        return {
+            [key]: { $not: new RegExp('^' + regexSource + '$', 'i') },
+        };
     default:
         throw new QueryError({
             type:  'operator/unsupported',
@@ -61,45 +81,362 @@ function textQuery(key: string, param: string|RegExp, op: string|undefined, mult
     }
 }
 
-export type QueryResult = {
-    onlyId: false,
-    total: number,
-    cards: { cardId: string, set: string, number: string, lang: string, layout: string }[]
-} | {
-    onlyId: true,
-    total: number,
-    cards: string[]
+function numberQuery(
+    key: string,
+    param: string | RegExp,
+    op: string | undefined,
+) {
+    if (param instanceof RegExp) {
+        throw new QueryError({
+            type:  'regex/disabled',
+            value: op || '',
+        });
+    }
+
+    const number = Number.parseInt(param);
+
+    if (Number.isNaN(number)) {
+        throw new QueryError({
+            type:  'number/nan',
+            value: op || '',
+        });
+    }
+
+    switch (op) {
+    case '=':
+        return { [key]: { $eq: number } };
+    case '!=':
+        return { [key]: { $ne: number } };
+    case '>':
+        return { [key]: { $gt: number } };
+    case '>=':
+        return { [key]: { $gte: number } };
+    case '<':
+        return { [key]: { $lt: number } };
+    case '<=':
+        return { [key]: { $lte: number } };
+    default:
+        throw new QueryError({
+            type:  'operator/unsupported',
+            value: op || '',
+        });
+    }
 }
+
+function colorQuery(
+    key: string,
+    param: string | RegExp,
+    op: string | undefined,
+) {
+    if (param instanceof RegExp) {
+        throw new QueryError({
+            type:  'regex/disabled',
+            value: op || '',
+        });
+    }
+
+    const text = param.toLowerCase();
+
+    // count of color
+    if (/^\d+$/.test(text) || text === 'c' || text === 'colorless') {
+        const count = text === 'c' || text === 'colorless' ? 0 : Number.parseInt(text);
+
+        switch (op) {
+        case '=':
+            return { [key]: new RegExp(`^.{${count}}$`) };
+        case '!=':
+            return { [key]: { $not: new RegExp(`^.{${count}}$`) } };
+        case '>':
+            return { [key]: new RegExp(`^.{${count + 1},}$`) };
+        case '>=':
+            return { [key]: new RegExp(`^.{${count},}$`) };
+        case '<':
+            return { [key]: new RegExp(`^.{0,${count - 1}}$`) };
+        case '<=':
+            return { [key]: new RegExp(`^.{0,${count}}$`) };
+        default:
+            throw new QueryError({
+                type:  'operator/unsupported',
+                value: op || '',
+            });
+        }
+    }
+
+    const colors = (() => {
+        switch (text) {
+        case 'white':
+            return ['W'];
+        case 'blue':
+            return ['U'];
+        case 'black':
+            return ['B'];
+        case 'red':
+            return ['R'];
+        case 'green':
+            return ['G'];
+        }
+
+        const chars = text.toUpperCase().split('');
+
+        if (chars.some((c) => !['W', 'U', 'B', 'R', 'G'].includes(c))) {
+            throw new QueryError({
+                type:  'color/unsupported',
+                value: op || '',
+            });
+        }
+
+        return ['W', 'U', 'B', 'R', 'G'].filter((c) => chars.includes(c));
+    })();
+
+    switch (op) {
+    case ':':
+    case '>=':
+        return {
+            [key]: new RegExp(
+                `^${['W', 'U', 'B', 'R', 'G']
+                    .map((c) => (colors.includes(c) ? c : c + '?'))
+                    .join('')}$`,
+            ),
+        };
+    case '!:':
+        return {
+            [key]: {
+                $not: new RegExp(
+                    `^${['W', 'U', 'B', 'R', 'G']
+                        .map((c) => (colors.includes(c) ? c : c + '?'))
+                        .join('')}$`,
+                ),
+            },
+        };
+    case '=':
+        return {
+            [key]: new RegExp(
+                `^${['W', 'U', 'B', 'R', 'G'].map((c) =>
+                    colors.includes(c) ? c : '',
+                ).join('')}$`,
+            ),
+        };
+    case '!=':
+        return {
+            [key]: {
+                $not: new RegExp(
+                    `^${['W', 'U', 'B', 'R', 'G'].map((c) =>
+                        colors.includes(c) ? c : '',
+                    ).join('')}$`,
+                ),
+            },
+        };
+    case '>':
+        return {
+            [key]: new RegExp(
+                `^(?=.{${colors.length + 1}})${[
+                    'W',
+                    'U',
+                    'B',
+                    'R',
+                    'G',
+                ].map((c) => (colors.includes(c) ? c : c + '?')).join('')}$`,
+            ),
+        };
+    case '<':
+        return {
+            [key]: new RegExp(
+                `^(?!.{${colors.length}})${['W', 'U', 'B', 'R', 'G'].map(
+                    (c) => (colors.includes(c) ? c + '?' : ''),
+                ).join('')}$`,
+            ),
+        };
+    case '<=':
+        return {
+            [key]: new RegExp(
+                `^${['W', 'U', 'B', 'R', 'G'].map((c) =>
+                    colors.includes(c) ? c + '?' : '',
+                ).join('')}$`,
+            ),
+        };
+    default:
+        throw new QueryError({
+            type:  'operator/unsupported',
+            value: op || '',
+        });
+    }
+}
+
+function costQuery(
+    param: string | RegExp,
+    op: string | undefined,
+) {
+    if (param instanceof RegExp) {
+        throw new QueryError({
+            type:  'regex/disabled',
+            value: op || '',
+        });
+    }
+
+    if (param === 'null') {
+        switch (op) {
+        case ':':
+        case '=':
+            return {
+                parts: { $elemMatch: { cost: { $exists: false } } },
+            };
+        case '!:':
+        case '!=':
+        case '>':
+            return {
+                parts: { $elemMatch: { cost: { $exists: true } } },
+            };
+        default:
+            throw new QueryError({
+                type:  'operator/unsupported',
+                value: op || '',
+            });
+        }
+    }
+
+    const costs = param
+        .toUpperCase()
+        .split(/\{([^{}]*)\}|(\d{2,})|(.(?:\/.)?)/)
+        .filter(v => v !== '' && v != null);
+
+    const costMap: Record<string, number> = {};
+
+    for (const c of costs) {
+        if (/^\d+$/.test(c)) {
+            costMap[''] = (costMap[''] ?? 0) + Number.parseInt(c);
+        } else {
+            costMap[c] = (costMap[c] ?? 0) + 1;
+        }
+    }
+
+    switch (op) {
+    case ':':
+        return Object.fromEntries(
+            Object.entries(costMap)
+                .map(([k, v]) => ['parts.__costMap.' + k, k === '' ? v : { $gte: v }]),
+        );
+    case '!:':
+        return {
+            $or: flatten(
+                Object.entries(costMap)
+                    .map(([k, v]) => [
+                        { ['parts.__costMap.' + k]: { $lt: v } },
+                        { ['parts.__costMap.' + k]: { $exists: false } },
+                    ]),
+            ),
+        };
+    case '=':
+        return { 'parts.__costMap': costMap };
+    case '!=':
+        return { 'parts.__costMap': { $ne: costMap } };
+    case '>=':
+        return Object.fromEntries(
+            Object.entries(costMap)
+                .map(([k, v]) => ['parts.__costMap.' + k, { $gte: v }]),
+        );
+    case '>':
+        return {
+            $and: [
+                Object.fromEntries(
+                    Object.entries(costMap)
+                        .map(([k, v]) => ['parts.__costMap.' + k, { $gte: v }]),
+                ),
+                { 'parts.__costMap': { $ne: costMap } },
+            ],
+        };
+    case '<':
+    case '<=': {
+        const symbols = Object.keys(costMap).filter(v => v !== '');
+
+        // a cost {0} always less than any other cost
+        symbols.push('0');
+
+        if (costMap[''] != null) {
+            symbols.push(
+                '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+                '1000000',
+            );
+        }
+
+        return {
+            $and: [
+                { 'parts.cost': { $exists: true } },
+
+                // cost can only contains specific symbol
+                { 'parts.cost': { $not: { $elemMatch: { $nin: symbols } } } },
+
+                // symbol count restriction
+                ...Object.entries(costMap).map(([k, v]) => ({
+                    $or: [
+                        { ['parts.__costMap.' + k]: { $lte: v } },
+                        { ['parts.__costMap.' + k]: { $exists: false } },
+                    ],
+                })),
+
+                ...op === '<' ? [{ 'parts.__costMap': { $ne: costMap } }] : [],
+            ],
+        };
+    }
+    default:
+        throw new QueryError({
+            type:  'operator/unsupported',
+            value: op || '',
+        });
+    }
+}
+
+export type QueryResult =
+    | {
+          onlyId: false;
+          total: number;
+          cards: {
+              cardId: string;
+              set: string;
+              number: string;
+              lang: string;
+              layout: string;
+          }[];
+      }
+    | {
+          onlyId: true;
+          total: number;
+          cards: string[];
+      };
 
 export default {
     commands: [
         {
-            name:  '',
+            id:    '',
             query: ({ param }) => {
-                if (typeof param === 'string' && /^\d+\/\d+/.test(param)) {
-                    const [power, toughness] = param.split('/');
+                if (typeof param === 'string') {
+                    // search stats
+                    if (/^[+-0-9*]+\/[+-0-9*]+$/.test(param)) {
+                        const [power, toughness] = param.split('/');
 
-                    return {
-                        parts: { $elemMatch: { power, toughness } },
-                    };
-                }
+                        return {
+                            parts: { $elemMatch: { power, toughness } },
+                        };
+                    }
 
-                if (
-                    (typeof param === 'string' && /^\{[^}]+\}$/.test(param)) ||
-                    (typeof param !== 'string' && /^\\\{[^}]+\\\}$/.test(param.source))
-                ) {
-                    return {
-                        $or: [
-                            textQuery('parts.oracle.text', param, ':'),
-                            textQuery('parts.unified.text', param, ':'),
-                            textQuery('parts.printed.text', param, ':'),
-                            {
-                                'parts.cost': typeof param === 'string'
-                                    ? param.slice(1, -1).toUpperCase()
-                                    : new RegExp('^' + param.source.slice(2, -2).toUpperCase() + '$'),
-                            },
-                        ],
-                    };
+                    // search loyalty
+                    if (/^\[[^]+\]$/.test(param)) {
+                        const loyalty = param.slice(1, -1);
+
+                        return { 'parts.loyalty': loyalty };
+                    }
+
+                    // search mana
+                    if (/^(\{[^}]+\})+$/.test(param)) {
+                        return {
+                            $or: [
+                                textQuery('parts.oracle.text', param, ':'),
+                                textQuery('parts.unified.text', param, ':'),
+                                textQuery('parts.printed.text', param, ':'),
+                                costQuery(param, ':'),
+                            ],
+                        };
+                    }
                 }
 
                 return {
@@ -107,47 +444,71 @@ export default {
                         textQuery('parts.oracle.name', param, ':'),
                         textQuery('parts.unified.name', param, ':'),
                         textQuery('parts.printed.name', param, ':'),
-                        textQuery('parts.oracle.text', param, ':'),
-                        textQuery('parts.unified.text', param, ':'),
-                        textQuery('parts.printed.text', param, ':'),
                     ],
                 };
             },
         },
         {
-            name:  'layout',
+            id:    'layout',
             query: ({ param, op }) => simpleQuery('layout', param, op),
         },
         {
-            name:  'set',
-            short: 's',
+            id:    'set',
+            alt:   ['expansion', 's', 'e'],
             query: ({ param, op }) => simpleQuery('setId', param, op),
         },
         {
-            name:  'lang',
-            short: 'l',
+            id:    'lang',
+            alt:   ['l'],
             query: ({ param, op }) => simpleQuery('lang', param, op),
         },
         {
-            name:  'name.oracle',
-            short: 'on',
+            id:    'cost',
+            alt:   ['mana', 'mana-cost', 'm'],
+            query: ({ param, op }) => costQuery(param, op),
+        },
+        {
+            id:    'mana-value',
+            alt:   ['mv', 'cmc'],
+            query: ({ param, op }) => numberQuery('manaValue', param, op),
+        },
+        {
+            id:    'color',
+            alt:   ['c'],
+            query: ({ param, op }) => colorQuery('parts.color', param, op),
+        },
+        {
+            id:    'color-identity',
+            alt:   ['cd'],
+            query: ({ param, op }) => colorQuery('colorIdentity', param, op),
+        },
+        {
+            id:    'color-indicator',
+            alt:   ['ci'],
+            query: ({ param, op }) => colorQuery('parts.colorIndicator', param, op),
+        },
+        {
+            id:    'name.oracle',
+            alt:   ['on'],
             query: ({ param, op }) => textQuery('parts.oracle.name', param, op),
         },
         {
-            name:  'name.unified',
-            short: 'un',
-            query: ({ param, op }) => textQuery('parts.unified.name', param, op),
+            id:    'name.unified',
+            alt:   ['un'],
+            query: ({ param, op }) =>
+                textQuery('parts.unified.name', param, op),
         },
         {
-            name:  'name.printed',
-            short: 'pn',
-            query: ({ param, op }) => textQuery('parts.printed.name', param, op),
+            id:    'name.printed',
+            alt:   ['pn'],
+            query: ({ param, op }) =>
+                textQuery('parts.printed.name', param, op),
         },
         {
-            name:  'name',
-            short: 'n',
+            id:    'name',
+            alt:   ['n'],
             query: ({ param, op }) => ({
-                $or: [
+                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
                     textQuery('parts.oracle.name', param, op),
                     textQuery('parts.unified.name', param, op),
                     textQuery('parts.printed.name', param, op),
@@ -155,51 +516,28 @@ export default {
             }),
         },
         {
-            name:  'text.oracle',
-            short: 'ox',
-            query: ({ param, op }) => textQuery('parts.oracle.text', param, op),
+            id:    'type.oracle',
+            alt:   ['ot'],
+            query: ({ param, op }) =>
+                textQuery('parts.oracle.typeline', param, op),
         },
         {
-            name:  'text.unified',
-            short: 'ux',
-            query: ({ param, op }) => textQuery('parts.unified.text', param, op),
+            id:    'type.unified',
+            alt:   ['ut'],
+            query: ({ param, op }) =>
+                textQuery('parts.unified.typeline', param, op),
         },
         {
-            name:  'text.printed',
-            short: 'px',
-            query: ({ param, op }) => textQuery('parts.printed.text', param, op),
+            id:    'type.printed',
+            alt:   ['pt'],
+            query: ({ param, op }) =>
+                textQuery('parts.printed.typeline', param, op),
         },
         {
-            name:  'text',
-            short: 'x',
+            id:    'type',
+            alt:   ['t'],
             query: ({ param, op }) => ({
-                $or: [
-                    textQuery('parts.oracle.text', param, op),
-                    textQuery('parts.unified.text', param, op),
-                    textQuery('parts.printed.text', param, op),
-                ],
-            }),
-        },
-        {
-            name:  'type.oracle',
-            short: 'ot',
-            query: ({ param, op }) => textQuery('parts.oracle.typeline', param, op),
-        },
-        {
-            name:  'type.unified',
-            short: 'ut',
-            query: ({ param, op }) => textQuery('parts.unified.typeline', param, op),
-        },
-        {
-            name:  'type.printed',
-            short: 'pt',
-            query: ({ param, op }) => textQuery('parts.printed.typeline', param, op),
-        },
-        {
-            name:  'type',
-            short: 't',
-            query: ({ param, op }) => ({
-                $or: [
+                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
                     textQuery('parts.oracle.typeline', param, op),
                     textQuery('parts.unified.typeline', param, op),
                     textQuery('parts.printed.typeline', param, op),
@@ -207,13 +545,52 @@ export default {
             }),
         },
         {
-            name:  'flavor',
-            short: 'fv',
-            query: ({ param, op }) => textQuery('parts.flavorText', param, op, false),
+            id:    'text.oracle',
+            alt:   ['ox'],
+            query: ({ param, op }) => textQuery('parts.oracle.text', param, op),
         },
         {
-            name:  'rarity',
-            short: 'r',
+            id:    'text.unified',
+            alt:   ['ux'],
+            query: ({ param, op }) =>
+                textQuery('parts.unified.text', param, op),
+        },
+        {
+            id:    'text.printed',
+            alt:   ['px'],
+            query: ({ param, op }) =>
+                textQuery('parts.printed.text', param, op),
+        },
+        {
+            id:    'text',
+            alt:   ['x'],
+            query: ({ param, op }) => ({
+                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
+                    textQuery('parts.oracle.text', param, op),
+                    textQuery('parts.unified.text', param, op),
+                    textQuery('parts.printed.text', param, op),
+                ],
+            }),
+        },
+        {
+            id:    'text.oracle-or-unified',
+            alt:   ['o'],
+            query: ({ param, op }) => ({
+                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
+                    textQuery('parts.oracle.text', param, op),
+                    textQuery('parts.unified.text', param, op),
+                ],
+            }),
+        },
+        {
+            id:    'flavor-text',
+            alt:   ['flavor', 'ft'],
+            query: ({ param, op }) =>
+                textQuery('parts.flavorText', param, op, false),
+        },
+        {
+            id:    'rarity',
+            alt:   ['r'],
             query: ({ param, op }) => {
                 if (param instanceof RegExp) {
                     throw new QueryError({
@@ -222,12 +599,15 @@ export default {
                     });
                 }
 
-                const rarity = ({
-                    c: 'common',
-                    u: 'uncommon',
-                    r: 'rare',
-                    m: 'mythic',
-                } as Record<string, string>)[param] || param;
+                const rarity =
+                    (
+                        {
+                            c: 'common',
+                            u: 'uncommon',
+                            r: 'rare',
+                            m: 'mythic',
+                        } as Record<string, string>
+                    )[param] || param;
 
                 return simpleQuery('rarity', rarity, op);
             },
@@ -244,7 +624,13 @@ export default {
         const pageSize = parseOption(o['page-size'], 100);
         const locale = o.locale || 'en';
 
-        const aggregate = Card.aggregate().allowDiskUse(true).match({ $and: q });
+        const aggregate = Card.aggregate().allowDiskUse(true);
+
+        if (!dev && !onlyId) {
+            aggregate.unwind({ path: '$parts', includeArrayIndex: 'partIndex' });
+        }
+
+        aggregate.match({ $and: q });
 
         if (!dev && !onlyId) {
             switch (groupBy) {
@@ -254,28 +640,35 @@ export default {
             default:
                 aggregate
                     .addFields({
-                        langIsLocale:  { $eq: ['$lang', locale] },
-                        langIsEnglish: { $eq: ['$lang', 'en'] },
+                        langIsLocale:     { $eq: ['$lang', locale] },
+                        langIsEnglish:    { $eq: ['$lang', 'en'] },
+                        frameEffectCount: { $size: '$frameEffects' },
                     })
-                    .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, number: 1 })
+                    .sort({
+                        langIsLocale:     -1,
+                        langIsEnglish:    -1,
+                        releaseDate:      -1,
+                        frameEffectCount: 1,
+                        number:           1,
+                    })
                     .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
                     .replaceRoot('data');
             }
         }
 
-        const total = (
-            await Card.aggregate(aggregate.pipeline())
-                .allowDiskUse(true)
-                .group({ _id: null, count: { $sum: 1 } })
-        )[0]?.count ?? 0;
+        const total =
+            (
+                await Card.aggregate(aggregate.pipeline())
+                    .allowDiskUse(true)
+                    .group({ _id: null, count: { $sum: 1 } })
+            )[0]?.count ?? 0;
 
         if (onlyId) {
             const result = await aggregate.group({ _id: '$cardId' });
 
-            return { total, cards: result.map(v => v._id) };
+            return { total, cards: result.map((v) => v._id) };
         } else if (dev) {
-            const cards = await Card.aggregate(aggregate.pipeline())
-                .limit(1);
+            const cards = await Card.aggregate(aggregate.pipeline()).limit(1);
 
             return { ...cards[0], total };
         } else {
