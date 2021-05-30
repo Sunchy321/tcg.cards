@@ -55,7 +55,9 @@ export function parseTypeline(typeline: string): IType {
 }
 
 export function convertColor(color: Colors): string {
-    return color.join('');
+    return color
+        .sort((a, b) => ['W', 'U', 'B', 'R', 'G'].indexOf(a) - ['W', 'U', 'B', 'R', 'G'].indexOf(b))
+        .join('');
 }
 
 export function convertLegality(l: Legalities): Record<string, string> {

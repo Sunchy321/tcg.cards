@@ -5,8 +5,9 @@ import { DefaultState, Context } from 'koa';
 import Card, { ICard } from '@/magic/db/card';
 import { Aggregate } from 'mongoose';
 
-import { omitBy } from 'lodash';
+import parseGatherer from '@/magic/gatherer/parse';
 
+import { omit, omitBy } from 'lodash';
 import { textWithParen } from '@data/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -56,32 +57,34 @@ router.post('/update',
 
         if (old != null) {
             await old.replaceOne(data);
+        } else {
+            await Card.create(omit(data, ['_id', '__v']) as ICard);
+        }
 
-            if (data.cardId === old.cardId) {
-                for (let i = 0; i < data.parts.length; ++i) {
-                    const part = data.parts[i];
+        if (old == null || data.cardId === old.cardId) {
+            for (let i = 0; i < data.parts.length; ++i) {
+                const part = data.parts[i];
 
-                    await Card.updateMany(
-                        { cardId: data.cardId },
-                        { $set: { [`parts.${i}.oracle`]: part.oracle } },
-                    );
+                await Card.updateMany(
+                    { cardId: data.cardId },
+                    { $set: { [`parts.${i}.oracle`]: part.oracle } },
+                );
 
-                    await Card.updateMany(
-                        { cardId: data.cardId, lang: data.lang },
-                        { $set: { [`parts.${i}.unified`]: part.unified } },
-                    );
-                }
+                await Card.updateMany(
+                    { cardId: data.cardId, lang: data.lang },
+                    { $set: { [`parts.${i}.unified`]: part.unified } },
+                );
+            }
 
+            if (data.relatedCards.every(r => r.version == null)) {
                 await Card.updateMany(
                     { cardId: data.cardId },
                     { relatedCards: data.relatedCards },
                 );
             }
-
-            ctx.status = 200;
-        } else {
-            ctx.status = 404;
         }
+
+        ctx.status = 200;
     },
 );
 
@@ -253,6 +256,23 @@ router.get('/rename', async ctx => {
     }
 
     ctx.body = { missed, renamed };
+});
+
+router.get('/parse-gatherer', async ctx => {
+    const mid = ctx.query.id as string;
+    const set = ctx.query.set as string;
+    const number = ctx.query.number as string;
+    const lang = ctx.query.lang as string;
+
+    const mids = mid.split(',').map(v => v.trim());
+
+    if (mids.length >= 1 && mids.length <= 2) {
+        const result = await parseGatherer(mids, set, number, lang);
+
+        if (result != null) {
+            ctx.body = result;
+        }
+    }
 });
 
 export default router;

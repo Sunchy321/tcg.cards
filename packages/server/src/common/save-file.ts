@@ -11,7 +11,7 @@ interface ISaveFileOption {
 export default class FileSaver extends Task<Progress> {
     url: string;
     path: string;
-    override = false;
+    override: boolean;
 
     request?: RequestProgress;
 
@@ -21,9 +21,7 @@ export default class FileSaver extends Task<Progress> {
         this.url = url;
         this.path = path;
 
-        if (option.override != null) {
-            this.override = option.override;
-        }
+        this.override = option.override ?? false;
     }
 
     async startImpl(): Promise<string | void> {

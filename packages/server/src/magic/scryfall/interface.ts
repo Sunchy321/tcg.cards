@@ -77,7 +77,7 @@ export interface RawCard {
     lang: string,
     mtgo_id?: number,
     mtgo_foil_id?: number,
-    multiverse_ids?: number[],
+    multiverse_ids: number[],
     tcgplayer_id?: number,
     cardmarket_id?: number,
     object: 'card',

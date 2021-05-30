@@ -9,11 +9,12 @@ export interface ICard {
     setId: string,
     number: string,
 
-    cmc: number,
+    manaValue: number,
     colorIdentity: string,
 
     parts: {
         cost?: string[],
+        __costMap?: Record<string, number>,
         color?: string,
         colorIndicator?: string,
 
@@ -98,15 +99,15 @@ export interface ICard {
     },
 
     scryfall: {
-        cardId: string,
         oracleId: string,
+        cardId?: string,
         face?: 'front'|'back'
     },
 
     arenaId?: number,
     mtgoId?: number,
     mtgoFoilId?: number,
-    multiverseId?: number[],
+    multiverseId: number[],
     tcgPlayerId?: number,
     cardMarketId?: number,
 
@@ -122,13 +123,14 @@ const CardSchema = new Schema({
     setId:  String,
     number: String,
 
-    cmc:           Number,
+    manaValue:     Number,
     colorIdentity: String,
 
     parts: [{
         _id: false,
 
         cost:           { type: [String], default: undefined },
+        __costMap:      Object,
         color:          String,
         colorIndicator: String,
 

@@ -26,8 +26,22 @@ type NSCard = Omit<ISCard, 'card_faces' | keyof NCardFace> & {
     face?: 'front'|'back'
 }
 
-function splitCost(cost : string) {
+function splitCost(cost: string) {
     return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
+}
+
+function toCostMap(cost: string) {
+    const result: Record<string, number> = {};
+
+    for (const c of splitCost(cost)) {
+        if (/^\d+$/.test(c)) {
+            result[''] = Number.parseInt(c);
+        } else {
+            result[c] = (result[c] ?? 0) + 1;
+        }
+    }
+
+    return result;
 }
 
 function extractCardFace(card: ISCard): NCardFace[] {
@@ -188,11 +202,12 @@ function toCard(data: NSCard): ICard {
         setId:  data.set_id,
         number: data.collector_number,
 
-        cmc:           data.cmc,
+        manaValue:     data.cmc,
         colorIdentity: convertColor(data.color_identity),
 
         parts: data.card_faces.map(f => ({
-            cost: f.mana_cost != null ? splitCost(f.mana_cost) : undefined,
+            cost:      f.mana_cost != null && f.mana_cost !== '' ? splitCost(f.mana_cost) : undefined,
+            __costMap: f.mana_cost != null && f.mana_cost !== '' ? toCostMap(f.mana_cost) : undefined,
 
             color:          convertColor(f.colors),
             colorIndicator: f.color_indicator != null
@@ -398,6 +413,26 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
             break;
         case 'card_faces':
             switch (d.path![2]) {
+            case 'name':
+                if (card.parts[d.path![1]].oracle.name !== data.parts[d.path![1]].oracle.name) {
+                    card.parts[d.path![1]].oracle.name = data.parts[d.path![1]].oracle.name;
+                    card.__tags.oracleUpdated = true;
+
+                    if (card.lang === 'en') {
+                        card.parts[d.path![1]].unified.name = data.parts[d.path![1]].oracle.name;
+                    }
+                }
+                break;
+            case 'type_line':
+                if (card.parts[d.path![1]].oracle.typeline !== data.parts[d.path![1]].oracle.typeline) {
+                    card.parts[d.path![1]].oracle.typeline = data.parts[d.path![1]].oracle.typeline;
+                    card.__tags.oracleUpdated = true;
+
+                    if (card.lang === 'en') {
+                        card.parts[d.path![1]].unified.typeline = data.parts[d.path![1]].oracle.typeline;
+                    }
+                }
+                break;
             case 'oracle_text':
                 if (card.parts[d.path![1]].oracle.text !== data.parts[d.path![1]].oracle.text) {
                     card.parts[d.path![1]].oracle.text = data.parts[d.path![1]].oracle.text;
@@ -413,6 +448,26 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
         case 'color_indicator':
             if (card.parts[0].colorIndicator !== data.parts[0].colorIndicator) {
                 card.parts[0].colorIndicator = data.parts[0].colorIndicator;
+            }
+            break;
+        case 'name':
+            if (card.parts[0].oracle.name !== data.parts[0].oracle.name) {
+                card.parts[0].oracle.name = data.parts[0].oracle.name;
+                card.__tags.oracleUpdated = true;
+
+                if (card.lang === 'en') {
+                    card.parts[0].unified.name = data.parts[0].oracle.name;
+                }
+            }
+            break;
+        case 'type_line':
+            if (card.parts[0].oracle.typeline !== data.parts[0].oracle.typeline) {
+                card.parts[0].oracle.typeline = data.parts[0].oracle.typeline;
+                card.__tags.oracleUpdated = true;
+
+                if (card.lang === 'en') {
+                    card.parts[0].unified.typeline = data.parts[0].oracle.typeline;
+                }
             }
             break;
         case 'oracle_text':
@@ -441,6 +496,35 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                 card.legalities = data.legalities;
             }
             break;
+        case 'arenaId':
+            if (card.arenaId !== data.arenaId) {
+                card.arenaId = data.arenaId;
+            }
+            break;
+        case 'mtgoId':
+            if (card.mtgoId !== data.mtgoId) {
+                card.mtgoId = data.mtgoId;
+            }
+            break;
+        case 'mtgoFoilId':
+            if (card.mtgoFoilId !== data.mtgoFoilId) {
+                card.mtgoFoilId = data.mtgoFoilId;
+            }
+            break;
+        case 'multiverseId':
+            if (card.multiverseId !== data.multiverseId) {
+                card.multiverseId = data.multiverseId;
+            }
+            break;
+        case 'tcgPlayerId':
+            if (card.tcgPlayerId !== data.tcgPlayerId) {
+                card.tcgPlayerId = data.tcgPlayerId;
+            }
+            break;
+        case 'cardMarketId':
+            if (card.cardMarketId !== data.cardMarketId) {
+                card.cardMarketId = data.cardMarketId;
+            }
         }
     }
 }

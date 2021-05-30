@@ -25,8 +25,11 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
     }
 
     aggregate
-        .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
-        .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
+        .addFields({
+            langIsEnglish:    { $eq: ['$lang', 'en'] },
+            frameEffectCount: { $size: '$frameEffects' },
+        })
+        .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, frameEffectCount: 1 })
         .limit(1);
 
     return aggregate as unknown as Promise<ICard[]>;
