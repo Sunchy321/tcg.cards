@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 const configPath = process.env.NODE_ENV === 'production'
-    ? join(__dirname, 'config.json')
+    ? join(__dirname, process.argv[2])
     : join(__dirname, '../config.json');
 
 export interface Database {
@@ -20,6 +20,7 @@ export interface Config {
     appKey: string;
     jwtSecretKey: string;
 
+    client: string;
     asset: string;
     data: string;
     log: string;
@@ -31,9 +32,9 @@ export const config = JSON.parse(readFileSync(configPath).toString()) as Config;
 
 export const mongodb = config.mongodb;
 
-export const publicPath = process.env.NODE_ENV === 'production'
-    ? join(__dirname, 'public/dist')
-    : join(__dirname, '../public/dist');
+export const clientPath = process.env.NODE_ENV === 'production'
+    ? join(__dirname, config.client)
+    : join(__dirname, '..', config.client);
 
 export const assetPath = process.env.NODE_ENV === 'production'
     ? join(__dirname, config.asset)

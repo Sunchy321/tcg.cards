@@ -16,7 +16,7 @@ import img from '@/image';
 import user from '@/user/router';
 import control from '@/control';
 
-import { config, publicPath } from '@static';
+import { config, clientPath } from '@static';
 
 const port = process.env.NODE_ENV === 'production' ? 80 : 8889;
 
@@ -34,7 +34,7 @@ app
     .use(subdomain('image', img))
     .use(subdomain('user', user))
     .use(subdomain('control', control))
-    .use(koaStatic(publicPath));
+    .use(koaStatic(clientPath));
 
 app.listen(port, () => {
     console.log(join(__dirname, 'public/dist'));

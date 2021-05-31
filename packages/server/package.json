@@ -4,7 +4,8 @@
     "description": "Card Server",
     "main": "app.ts",
     "scripts": {
-        "dev": "npx nodemon --inspect src/app.ts"
+        "dev": "npx nodemon --inspect src/app.ts",
+        "build": "tsc -p tsconfig.json && tscpaths -p tsconfig.json -s . -o ./dist"
     },
     "repository": {
         "type": "git",
@@ -52,6 +53,7 @@
         "express": "^4.17.1",
         "ts-node": "^9.1.1",
         "tsconfig-paths": "^3.9.0",
+        "tscpaths": "^0.0.9",
         "typescript": "^4.1.3",
         "webpack": "^4.44.2",
         "webpack-cli": "^3.3.12",
@@ -76,11 +78,11 @@
         "lodash": "^4.17.20",
         "mime-types": "^2.1.27",
         "mongoose": "^5.11.8",
-        "nodegit": "^0.27.0",
         "pegjs": "^0.10.0",
         "request": "^2.88.2",
         "request-progress": "^3.0.0",
         "request-promise-native": "^1.0.9",
+        "simple-git": "^2.39.0",
         "winston": "^3.3.3",
         "xml-js": "^1.6.11"
     }

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-
-import { Clone, Commit, Repository, Reset, Revwalk, TransferProgress } from 'nodegit';
+import git, { SimpleGitProgressEvent, ResetMode } from 'simple-git';
 
 import { XCardDefs, XEntity, XLocStringTag, XTag } from './interface';
 
@@ -59,54 +58,25 @@ const langMap: Record<string, string> = {
     zhTW: 'zht',
 };
 
-export class DataGetter extends Task<TransferProgress & { type: 'get' }> {
+export class DataGetter extends Task<SimpleGitProgressEvent & { type: 'get' }> {
     async startImpl(): Promise<void> {
         if (!fs.existsSync(localPath)) {
             fs.mkdirSync(localPath, { recursive: true });
         }
 
+        const repo = git({
+            baseDir:  localPath,
+            progress: p => {
+                this.emit('progress', { type: 'git', ...p });
+            },
+        });
+
         if (!fs.existsSync(path.join(localPath, '.git'))) {
-            await Clone.clone(remoteUrl, localPath, {
-                fetchOpts: {
-                    callbacks: {
-                        transferProgress: (progress: any) => {
-                            this.emit('progress', {
-                                type:            'git',
-                                totalObjects:    progress.totalObjects(),
-                                indexedObjects:  progress.indexedObjects(),
-                                receivedObjects: progress.receivedObjects(),
-                                localObjects:    progress.localObjects(),
-                                totalDeltas:     progress.totalDeltas(),
-                                indexedDeltas:   progress.indexedDeltas(),
-                                receivedBytes:   progress.receivedBytes(),
-                            });
-                        },
-                    },
-                },
-            });
+            await repo.clone(remoteUrl);
 
             logger.data.info('Hsdata has been cloned', { category: 'hsdata' });
         } else {
-            const repo = await Repository.open(localPath);
-
-            await repo.fetchAll({
-                callbacks: {
-                    transferProgress: (progress: any) => {
-                        this.emit('progress', {
-                            type:            'git',
-                            totalObjects:    progress.totalObjects(),
-                            indexedObjects:  progress.indexedObjects(),
-                            receivedObjects: progress.receivedObjects(),
-                            localObjects:    progress.localObjects(),
-                            totalDeltas:     progress.totalDeltas(),
-                            indexedDeltas:   progress.indexedDeltas(),
-                            receivedBytes:   progress.receivedBytes(),
-                        });
-                    },
-                },
-            });
-
-            await repo.mergeBranches('master', 'origin/master');
+            await repo.pull();
 
             logger.data.info('Hsdata has been pulled', { category: 'hsdata' });
         }
@@ -125,35 +95,44 @@ const messagePrefix = 'Update to patch';
 
 export class DataLoader extends Task<ILoaderStatus> {
     async startImpl(): Promise<void> {
-        const repo = await Repository.open(localPath);
+        const repo = git({
+            baseDir:  localPath,
+            progress: p => {
+                this.emit('progress', { type: 'git', ...p });
+            },
+        });
 
-        const walker = Revwalk.create(repo);
+        /// TODO: move nodgit to simple-git
 
-        walker.pushHead();
+        // const commits = repo.
 
-        const commits: Commit[] = await walker.getCommitsUntil((c: Commit) =>
-            c.message().startsWith(messagePrefix),
-        );
+        // const walker = Revwalk.create(repo);
 
-        let count = 0;
-        const total = commits.length - 1;
+        // walker.pushHead();
 
-        for (const c of commits.slice(0, -1)) {
-            const version = c.message().slice(messagePrefix.length).trim();
-            const number = parseInt(last(version.split('.'))!);
-            const sha = c.sha();
+        // const commits: Commit[] = await walker.getCommitsUntil((c: Commit) =>
+        //     c.message().startsWith(messagePrefix),
+        // );
 
-            const patch = await Patch.findOne({ version });
+        // let count = 0;
+        // const total = commits.length - 1;
 
-            if (patch == null) {
-                const newPatch = new Patch({ version, number, sha });
+        // for (const c of commits.slice(0, -1)) {
+        //     const version = c.message().slice(messagePrefix.length).trim();
+        //     const number = parseInt(last(version.split('.'))!);
+        //     const sha = c.sha();
 
-                await newPatch.save();
-                ++count;
+        //     const patch = await Patch.findOne({ version });
 
-                this.emit('progress', { type: 'load', count, total });
-            }
-        }
+        //     if (patch == null) {
+        //         const newPatch = new Patch({ version, number, sha });
+
+        //         await newPatch.save();
+        //         ++count;
+
+        //         this.emit('progress', { type: 'load', count, total });
+        //     }
+        // }
     }
 
     stopImpl(): void { /* no-op */ }
@@ -252,11 +231,20 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         await Entity.deleteMany({ version: this.version });
 
-        const repo = await Repository.open(localPath);
+        const repo = git({
+            baseDir:  localPath,
+            progress: p => {
+                this.emit('progress', { type: 'git', ...p });
+            },
+        });
 
-        const commit = await repo.getCommit(patch.sha);
+        // TODO: move nodegit to simple-git
 
-        await Reset.reset(repo, commit, Reset.TYPE.HARD, {});
+        // const commit = await repo.commit(patch.sha);
+
+        // repo.reset(ResetMode.HARD, [commit.branch]);
+
+        // await Reset.reset(repo, commit, Reset.TYPE.HARD, {});
 
         const text = fs
             .readFileSync(path.join(localPath, 'CardDefs.xml'))
