@@ -214,7 +214,7 @@
 .depth-3
     margin-bottom: 15px
 
-* ::v-deep .example-icon
+*:deep(.example-icon)
     margin-right: 10px
     color: $primary
 </style>

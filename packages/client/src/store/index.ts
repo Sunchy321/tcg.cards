@@ -18,7 +18,7 @@ const store = createStore<CoreModule['state']>({
     mutations: core.mutations,
     actions:   core.actions,
     modules:   { user, ...games },
-    plugins:   [createLogger()],
+    plugins:   process.env.DEV ? [createLogger()] : [],
     strict:    !!process.env.DEV,
 }) as Store;
 

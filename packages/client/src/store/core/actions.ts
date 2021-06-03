@@ -4,6 +4,7 @@ import { State } from './state';
 
 import { LocalStorage } from 'quasar';
 import { apiGet } from 'boot/backend';
+import { locales } from './getters';
 
 async function loadData(data: any, { commit, dispatch }: ActionContext<State, any>) {
     const games = data.games as string[];
@@ -17,11 +18,23 @@ async function loadData(data: any, { commit, dispatch }: ActionContext<State, an
     await dispatch('user/refresh');
 }
 
+const localeMap: Record<string, string> = {
+    'zh-CN': 'zhs',
+};
+
 export async function boot(context: ActionContext<State, any>) {
     const locale = LocalStorage.getItem('locale');
 
     if (locale != null) {
         context.commit('locale', locale);
+    } else {
+        const navLang = navigator.language;
+
+        if (localeMap[navLang] != null) {
+            context.commit('locale', localeMap[navLang]);
+        } else if (locales().includes(navLang.split('-')[0])) {
+            context.commit('locale', navLang.split('-')[0]);
+        }
     }
 
     const localData = LocalStorage.getItem('data');

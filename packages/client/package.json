@@ -1,6 +1,6 @@
 {
   "name": "card-client",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A Card Client",
   "productName": "Client",
   "author": "Sunchy321 <sunchy321@qq.com>",
@@ -39,7 +39,8 @@
     "eslint-plugin-node": "^11.0.0",
     "eslint-plugin-promise": "^4.3.1",
     "eslint-plugin-vue": "^7.9.0",
-    "eslint-webpack-plugin": "^2.5.4"
+    "eslint-webpack-plugin": "^2.5.4",
+    "node-polyfill-webpack-plugin": "^1.1.2"
   },
   "engines": {
     "node": ">= 10.18.1",

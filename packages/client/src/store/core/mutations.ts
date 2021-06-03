@@ -8,6 +8,8 @@ import { LocalStorage } from 'quasar';
 
 import router from 'src/router';
 
+import { locales } from './getters';
+
 type StateWithRoute = State & { readonly route: RouteLocationNormalizedLoaded };
 
 export function games(state: State, newValue: string[]) {
@@ -15,8 +17,10 @@ export function games(state: State, newValue: string[]) {
 }
 
 export function locale(state: State, newValue: string) {
-    LocalStorage.set('locale', newValue);
-    state.locale = newValue;
+    if (locales().includes(newValue)) {
+        LocalStorage.set('locale', newValue);
+        state.locale = newValue;
+    }
 }
 
 export function search(state: State, newValue: string) {

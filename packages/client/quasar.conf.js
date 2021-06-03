@@ -64,8 +64,12 @@ module.exports = function (/* ctx */) {
             // "chain" is a webpack-chain object https://github.com/neutrinojs/webpack-chain
             chainWebpack (chain) {
                 chain
+                    .plugin('node-polyfill')
+                    .use(require('node-polyfill-webpack-plugin'));
+
+                chain
                     .plugin('eslint-webpack-plugin')
-                    .use(ESLintPlugin, [{ extensions: ['js', 'vue'] }]);
+                    .use(require('eslint-webpack-plugin'), [{ extensions: ['js', 'vue'] }]);
 
                 chain
                     .resolve
