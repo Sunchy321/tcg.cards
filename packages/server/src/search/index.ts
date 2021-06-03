@@ -1,11 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import pegjs from 'pegjs';
 import { readFileSync } from 'fs';
+import { join } from 'path';
 
 import { QueryItem, QueryModel } from './interface';
 
+import { dataPath } from '@/static';
+
 const parser = pegjs.generate(
-    readFileSync('./src/search/syntax.pegjs').toString(),
+    readFileSync(join(dataPath, 'syntax.pegjs')).toString(),
 );
 
 export type SearchResult<T> = {

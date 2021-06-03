@@ -117,6 +117,7 @@ const CardSchema = new Schema({
     games:             { type: [String], default: undefined },
     highres_image:     Boolean,
     illustration_id:   String,
+    image_status:      String,
     image_uris:        {},
     prices:            {},
     printed_name:      String,

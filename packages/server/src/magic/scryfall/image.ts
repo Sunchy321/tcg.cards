@@ -45,6 +45,7 @@ export class ImageGetter extends Task<IImageStatus> {
     async startImpl(): Promise<void> {
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
+            .match({ image_status: { $in: ['lowres', 'highres_scan'] } })
             .group({
                 _id:   { set: '$set_id', lang: '$lang' },
                 infos: {

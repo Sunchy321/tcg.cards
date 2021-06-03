@@ -130,6 +130,7 @@ export interface RawCard {
     games: Game[],
     highres_image: boolean,
     illustration_id?: UUID,
+    image_status: string;
     image_uris?: Record<string, URI>,
     prices: Record<string, string>,
     printed_name?: string,

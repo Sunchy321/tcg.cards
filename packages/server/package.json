@@ -1,6 +1,6 @@
 {
     "name": "card-server",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "description": "Card Server",
     "main": "app.ts",
     "scripts": {
@@ -28,6 +28,7 @@
         "@types/koa__router": "^8.0.3",
         "@types/koa-logger": "^3.1.1",
         "@types/koa-passport": "^4.0.2",
+        "@types/koa-send": "^4.1.2",
         "@types/koa-session": "^5.10.3",
         "@types/koa-static": "^4.0.1",
         "@types/lodash": "^4.14.165",
@@ -73,6 +74,7 @@
         "koa-easy-ws": "^1.3.0",
         "koa-jwt": "^4.0.0",
         "koa-logger": "^3.2.1",
+        "koa-send": "^5.0.1",
         "koa-session": "^6.1.0",
         "koa-static": "^5.0.0",
         "lodash": "^4.17.20",
