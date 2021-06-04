@@ -43,6 +43,11 @@ const routes = [
                 component: () => import('pages/magic/AdvancedSearch.vue'),
             },
             {
+                path:      'search-docs',
+                name:      'magic/search-docs',
+                component: () => import('pages/magic/SearchDocs.vue'),
+            },
+            {
                 path:      'image-wall',
                 component: () => import('pages/magic/ImageWall.vue'),
             },

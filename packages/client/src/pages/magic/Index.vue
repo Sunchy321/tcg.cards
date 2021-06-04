@@ -18,16 +18,27 @@
             <div class="col column">
                 <q-btn
                     class="link"
+                    type="a"
                     flat
                     icon="mdi-magnify"
                     :label="$t('magic.ui.advanced-search.$self')"
                     to="/magic/advanced-search"
+                />
+
+                <q-btn
+                    class="link"
+                    type="a"
+                    flat
+                    icon="mdi-information"
+                    :label="$t('magic.ui.search-docs.$self')"
+                    to="/magic/search-docs"
                 />
             </div>
 
             <div class="col column">
                 <q-btn
                     class="link"
+                    type="a"
                     flat
                     icon="mdi-text-box-outline"
                     :label="$t('magic.format.$self')"
@@ -37,6 +48,7 @@
             <div class="col column">
                 <q-btn
                     class="link"
+                    type="a"
                     flat
                     icon="mdi-book-open-variant"
                     :label="$t('magic.cr.$self')"

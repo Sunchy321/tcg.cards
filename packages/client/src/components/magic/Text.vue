@@ -42,7 +42,7 @@ export default defineComponent({
             const result: (string | VNode)[] = [];
 
             for (const node of defaultSlot) {
-                if (typeof node.children === 'string') {
+                if (typeof node.children === 'string' && typeof node.type === 'symbol') {
                     const pieces = node.children.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
 
                     for (const p of pieces) {

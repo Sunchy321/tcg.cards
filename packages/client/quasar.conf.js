@@ -26,7 +26,7 @@ module.exports = function (/* ctx */) {
             'backend',
             'notify',
             'utility',
-            'sync',
+            'plugins',
         ],
 
         // https://v1.quasar.dev/quasar-cli/quasar-conf-js#Property%3A-css
