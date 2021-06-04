@@ -123,6 +123,8 @@ function numberQuery(
     }
 }
 
+const colorEnums = 'WUBRGOP'.split('');
+
 function colorQuery(
     key: string,
     param: string | RegExp,
@@ -137,9 +139,35 @@ function colorQuery(
 
     const text = param.toLowerCase();
 
+    if (text === 'c' || text === 'colorless') {
+        switch (op) {
+        case ':':
+            return { [key]: '' };
+        case '!:':
+            return { [key]: { $ne: '' } };
+        default:
+            throw new QueryError({
+                type:  'operator/unsupported',
+                value: op || '',
+            });
+        }
+    } else if (text === 'm' || text === 'multicolor') {
+        switch (op) {
+        case ':':
+            return { [key]: /../ };
+        case '!:':
+            return { [key]: { $not: /../ } };
+        default:
+            throw new QueryError({
+                type:  'operator/unsupported',
+                value: op || '',
+            });
+        }
+    }
+
     // count of color
-    if (/^\d+$/.test(text) || text === 'c' || text === 'colorless') {
-        const count = text === 'c' || text === 'colorless' ? 0 : Number.parseInt(text);
+    if (/^\d+$/.test(text)) {
+        const count = Number.parseInt(text);
 
         switch (op) {
         case '=':
@@ -174,84 +202,113 @@ function colorQuery(
             return ['R'];
         case 'green':
             return ['G'];
+        case 'gold':
+            return ['O'];
+        case 'pink':
+            return ['P'];
+        case 'azorius':
+            return ['W', 'U'];
+        case 'dimir':
+            return ['U', 'B'];
+        case 'rakdos':
+            return ['B', 'R'];
+        case 'gruul':
+            return ['R', 'G'];
+        case 'selesyna':
+            return ['W', 'G'];
+        case 'orzhov':
+            return ['W', 'B'];
+        case 'izzet':
+            return ['U', 'R'];
+        case 'golgari':
+            return ['B', 'G'];
+        case 'boros':
+            return ['W', 'R'];
+        case 'simic':
+            return ['U', 'G'];
+        case 'bant':
+            return ['W', 'U', 'G'];
+        case 'esper':
+            return ['W', 'U', 'B'];
+        case 'grixis':
+            return ['U', 'B', 'R'];
+        case 'jund':
+            return ['B', 'R', 'G'];
+        case 'naya':
+            return ['W', 'R', 'G'];
+        case 'mardu':
+            return ['W', 'B', 'R'];
+        case 'temur':
+            return ['U', 'R', 'G'];
+        case 'abzan':
+            return ['W', 'B', 'G'];
+        case 'jeskai':
+            return ['W', 'U', 'R'];
+        case 'sultai':
+            return ['U', 'B', 'G'];
+        case 'chaos':
+            return ['U', 'B', 'R', 'G'];
+        case 'aggression':
+            return ['W', 'B', 'R', 'G'];
+        case 'altruism':
+            return ['W', 'U', 'R', 'G'];
+        case 'growth':
+            return ['W', 'U', 'B', 'G'];
+        case 'artifice':
+            return ['W', 'U', 'B', 'R'];
         }
 
         const chars = text.toUpperCase().split('');
 
-        if (chars.some((c) => !['W', 'U', 'B', 'R', 'G'].includes(c))) {
+        if (chars.some(c => !colorEnums.includes(c))) {
             throw new QueryError({
                 type:  'color/unsupported',
                 value: op || '',
             });
         }
 
-        return ['W', 'U', 'B', 'R', 'G'].filter((c) => chars.includes(c));
+        return colorEnums.filter(c => chars.includes(c));
     })();
 
     switch (op) {
     case ':':
     case '>=':
         return {
-            [key]: new RegExp(
-                `^${['W', 'U', 'B', 'R', 'G']
-                    .map((c) => (colors.includes(c) ? c : c + '?'))
-                    .join('')}$`,
-            ),
+            [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : c + '?')).join('')}$`),
         };
     case '!:':
         return {
             [key]: {
-                $not: new RegExp(
-                    `^${['W', 'U', 'B', 'R', 'G']
-                        .map((c) => (colors.includes(c) ? c : c + '?'))
-                        .join('')}$`,
-                ),
+                $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : c + '?')).join('')}$`),
             },
         };
     case '=':
         return {
-            [key]: new RegExp(
-                `^${['W', 'U', 'B', 'R', 'G'].map((c) =>
-                    colors.includes(c) ? c : '',
-                ).join('')}$`,
-            ),
+            [key]: new RegExp(`^${colorEnums.map(c => colors.includes(c) ? c : '').join('')}$`),
         };
     case '!=':
         return {
             [key]: {
-                $not: new RegExp(
-                    `^${['W', 'U', 'B', 'R', 'G'].map((c) =>
-                        colors.includes(c) ? c : '',
-                    ).join('')}$`,
-                ),
+                $not: new RegExp(`^${colorEnums.map(c => colors.includes(c) ? c : '').join('')}$`),
             },
         };
     case '>':
         return {
             [key]: new RegExp(
-                `^(?=.{${colors.length + 1}})${[
-                    'W',
-                    'U',
-                    'B',
-                    'R',
-                    'G',
-                ].map((c) => (colors.includes(c) ? c : c + '?')).join('')}$`,
+                `^(?=.{${colors.length + 1}})${colorEnums.map(c => (colors.includes(c) ? c : c + '?')).join('')}$`,
             ),
         };
     case '<':
         return {
             [key]: new RegExp(
-                `^(?!.{${colors.length}})${['W', 'U', 'B', 'R', 'G'].map(
-                    (c) => (colors.includes(c) ? c + '?' : ''),
-                ).join('')}$`,
+                `^(?!.{${colors.length}})${colorEnums.map(c => (colors.includes(c) ? c + '?' : '')).join('')}$`,
             ),
         };
     case '<=':
         return {
             [key]: new RegExp(
-                `^${['W', 'U', 'B', 'R', 'G'].map((c) =>
-                    colors.includes(c) ? c + '?' : '',
-                ).join('')}$`,
+                `^${colorEnums.map(c => colors.includes(c) ? c + '?' : '').join('')}$`,
+
             ),
         };
     default:
@@ -276,13 +333,10 @@ function costQuery(
     if (param === 'null') {
         switch (op) {
         case ':':
-        case '=':
             return {
                 parts: { $elemMatch: { cost: { $exists: false } } },
             };
         case '!:':
-        case '!=':
-        case '>':
             return {
                 parts: { $elemMatch: { cost: { $exists: true } } },
             };
@@ -411,11 +465,12 @@ export default {
             query: ({ param }) => {
                 if (typeof param === 'string') {
                     // search stats
-                    if (/^[+-0-9*]+\/[+-0-9*]+$/.test(param)) {
+                    if (/^[^/]+\/[^/]+$/.test(param)) {
                         const [power, toughness] = param.split('/');
 
                         return {
-                            parts: { $elemMatch: { power, toughness } },
+                            'parts.power':     power,
+                            'parts.toughness': toughness,
                         };
                     }
 
@@ -456,6 +511,11 @@ export default {
             id:    'set',
             alt:   ['expansion', 's', 'e'],
             query: ({ param, op }) => simpleQuery('setId', param, op),
+        },
+        {
+            id:    'number',
+            alt:   ['n'],
+            query: ({ param, op }) => simpleQuery('number', param, op),
         },
         {
             id:    'lang',
