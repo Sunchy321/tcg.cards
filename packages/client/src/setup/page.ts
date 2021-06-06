@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Ref, ComputedRef, computed, watch } from 'vue';
 
+import { mapValues } from 'lodash';
+
 import { useStore } from 'src/store';
 
 export type Value<T> = T | Ref<T> | (() => T);
@@ -103,22 +105,16 @@ export function value<T>(value: Value<T>): T {
     }
 }
 
-function action<T>(value: Value<T>, action: (value: T) => void) {
-    if (value instanceof Function) {
-        watch(value, () => action(value()), { immediate: true });
-    } else if (isRef(value)) {
-        watch(value, () => action(value.value), { immediate: true });
-    } else {
-        action(value);
-    }
-}
-
 export default function<O extends Option>(option: O): Result<O> {
     const store = useStore();
 
     store.commit('titleType', option.titleType ?? 'text');
 
-    action(option.title ?? '', v => store.commit('title', v));
+    watch(
+        () => value(option.title ?? ''),
+        title => store.commit('title', title),
+        { immediate: true },
+    );
 
     const props: Record<string, Ref<any>> = { };
 
@@ -135,7 +131,24 @@ export default function<O extends Option>(option: O): Result<O> {
         }
     }
 
-    store.commit('params', option.params ?? { });
+    watch(
+        () => mapValues(option.params ?? {}, param => {
+            if (param.type === 'enum') {
+                return {
+                    ...param,
+                    default: value(param.default),
+                    values:  value(param.values),
+                };
+            } else {
+                return {
+                    ...param,
+                    default: value(param.default),
+                };
+            }
+        }),
+        params => store.commit('params', params),
+        { immediate: true });
+
     store.commit('actions', option.actions ?? []);
 
     return props as Result<O>;
