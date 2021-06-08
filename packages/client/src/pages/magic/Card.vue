@@ -1,71 +1,68 @@
 <template>
-    <q-page class="row q-pa-md">
-        <div class="col">
-            <div class="row">
-                <div class="col-4">
-                    <card-image
-                        v-if="data != null"
-                        v-model:part="partIndex"
-                        v-model:rotate="rotate"
-                        :lang="lang"
-                        :set="set"
-                        :number="number"
-                        :layout="layout"
-                    />
+    <q-page class="main q-pa-md">
+        <div class="image-column">
+            <card-image
+                v-if="data != null"
+                v-model:part="partIndex"
+                v-model:rotate="rotate"
+                :lang="lang"
+                :set="set"
+                :number="number"
+                :layout="layout"
+            />
 
-                    <div class="artist-line">
-                        {{ artist }}
-                    </div>
-                </div>
-
-                <div class="col q-px-md">
-                    <div class="name-line row items-center">
-                        <q-btn
-                            v-if="partIcon != null"
-                            class="part-icon q-mr-sm"
-                            :class="partIcon.class || ''"
-                            flat round dense
-                            :icon="`img:${partIcon.src}`"
-                            @click="switchPart"
-                        />
-
-                        <div class="name" :lang="lang">
-                            {{ name }}
-                        </div>
-
-                        <div class="col-grow" />
-
-                        <div
-                            v-if="cost != null"
-                            class="mana-cost"
-                        >
-                            <magic-symbol
-                                v-for="(s, i) in cost" :key="i"
-                                :value="s"
-                                :type="costStyles"
-                            />
-                        </div>
-                    </div>
-                    <div class="stats-line">
-                        <magic-color
-                            v-if="colorIndicator != null"
-                            class="color-indicator"
-                            :value="colorIndicator"
-                        />
-                        <span class="typeline" :lang="lang">{{ typeline }}</span>
-                        <span v-if="stats != null" class="other-stats">{{ stats }}</span>
-                    </div>
-                    <div class="ability-line" :lang="lang">
-                        <magic-text :symbol="symbolStyle">{{ text }}</magic-text>
-                    </div>
-                    <div v-if="flavor != null" class="flavor-line" :lang="lang">
-                        <magic-text :symbol="symbolStyle">{{ flavor }}</magic-text>
-                    </div>
-                </div>
+            <div class="artist-line">
+                {{ artist }}
             </div>
         </div>
-        <div class="col-3">
-            <div class="text-mode row">
+
+        <div class="info-column">
+            <div class="name-line row items-center">
+                <q-btn
+                    v-if="partIcon != null"
+                    class="part-icon q-mr-sm"
+                    :class="partIcon.class || ''"
+                    flat round dense
+                    :icon="`img:${partIcon.src}`"
+                    @click="switchPart"
+                />
+
+                <div class="name" :lang="lang">
+                    {{ name }}
+                </div>
+
+                <div class="col-grow" />
+
+                <div
+                    v-if="cost != null"
+                    class="mana-cost"
+                >
+                    <magic-symbol
+                        v-for="(s, i) in cost" :key="i"
+                        :value="s"
+                        :type="costStyles"
+                    />
+                </div>
+            </div>
+            <div class="stats-line">
+                <magic-color
+                    v-if="colorIndicator != null"
+                    class="color-indicator"
+                    :value="colorIndicator"
+                />
+                <span class="typeline" :lang="lang">{{ typeline }}</span>
+                <span v-if="stats != null" class="other-stats">{{ stats }}</span>
+            </div>
+            <div class="ability-line" :lang="lang">
+                <magic-text :symbol="symbolStyle">{{ text }}</magic-text>
+            </div>
+            <div v-if="flavor != null" class="flavor-line" :lang="lang">
+                <magic-text :symbol="symbolStyle">{{ flavor }}</magic-text>
+            </div>
+        </div>
+
+        <div class="version-column">
+            <div class="text-mode row no-wrap">
                 <q-btn
                     v-if="isAdmin"
                     icon="mdi-file-edit"
@@ -132,6 +129,43 @@
 </template>
 
 <style lang="sass" scoped>
+.main
+    display: flex
+    flex-wrap: wrap
+
+@media (max-width: 599px)
+    .image-column
+        flex: 0 0 100%
+
+    .info-column
+        flex: 0 0 100%
+        padding: 16px 0
+
+    .version-column
+        flex: 0 0 100%
+
+@media (min-width: 600px) and (max-width: 1023px)
+    .image-column
+        flex: 0 0 350px
+
+    .info-column
+        flex: 0 0 calc(100% - 350px)
+        padding-left: 16px
+
+    .version-column
+        flex: 0 0 100%
+
+@media (min-width: 1023px)
+    .image-column
+        flex: 0 0 350px
+
+    .info-column
+        flex: 1 1 0px
+        padding: 0 16px
+
+    .version-column
+        flex: 0 0 300px
+
 .image-button
     margin-top: 20px
     text-align: center
@@ -141,9 +175,14 @@
     text-align: center
 
 .name-line
-    font-size: 200%
     display: flex
     align-items: center
+
+    @media (max-width: 599px)
+        font-size: 150%
+
+    @media (min-width: 600px)
+        font-size: 200%
 
 .stats-line
     margin-top: 10px

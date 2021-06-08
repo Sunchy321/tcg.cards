@@ -8,6 +8,7 @@
                 target="_blank"
                 :to="link"
                 icon="mdi-link"
+                size="xs"
                 flat dense round
             />
         </div>

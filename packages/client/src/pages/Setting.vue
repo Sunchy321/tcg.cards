@@ -1,6 +1,6 @@
 <template>
     <q-page class="row">
-        <aside class="left-panel col-3 column items-strech q-pa-md">
+        <aside class="left-panel column items-strech q-pa-md">
             <component :is="user == null ? 'user-login' : 'user-profile'" />
 
             <q-tabs v-model="tab" class="left-tabs" vertical>

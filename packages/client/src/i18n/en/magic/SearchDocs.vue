@@ -13,7 +13,7 @@
             </div>
         </div>
         <div class="item row">
-            <div class="col-6 desc">
+            <div class="desc">
                 <div class="title">Default</div>
                 <magic-text class="content">
                     <code>P/T</code> searches for cards with power <code>P</code> and toughness <code>T</code>. <br>
@@ -22,7 +22,7 @@
                     Otherwise, <code>arg</code> is same as <code>name:arg</code>.
                 </magic-text>
             </div>
-            <div class="col-6 self-start flex items-start">
+            <div class="examples">
                 <search-example query="2/3">
                     <magic-text>
                         Cards with power 2 and toughness 3
@@ -46,7 +46,7 @@
             </div>
         </div>
         <div class="item row">
-            <div class="col-6 desc">
+            <div class="desc">
                 <div class="title">Name, type, and text</div>
                 <magic-text class="content">
                     <code>name</code> and <code>n</code> search for name. <code>type</code> and <code>t</code> search for type. <code>text</code> and <code>x</code> search for card text. None of them supports comparison operators. If a regular expression is used as argument, the multiline mode and ignore case mode is on.<br>
@@ -54,7 +54,7 @@
                     <code>o</code> is the combination of <code>text.oracle</code> and <code>text.unified</code>.
                 </magic-text>
             </div>
-            <div class="col-6 self-start flex items-start">
+            <div class="examples">
                 <search-example query="on=&quot;colossal Dreadmaw&quot;">
                     <magic-text>
                         Cards with Oracle name Colossal Dreadmaw
@@ -73,7 +73,7 @@
             </div>
         </div>
         <div class="item row">
-            <div class="col-6 desc">
+            <div class="desc">
                 <div class="title">Colors</div>
                 <magic-text class="content">
                     <code>color</code> and <code>c</code> search for color. <code>color-indicator</code> and <code>ci</code> search for color indicator. <code>color-identity</code> and <code>cd</code> search for color identity. None of them supports regex args. Arguments are case insensitive. <br>
@@ -130,7 +130,7 @@
                     </table>
                 </magic-text>
             </div>
-            <div class="col-6 self-start flex items-start">
+            <div class="examples">
                 <search-example query="c:c">
                     <magic-text>
                         Colorless cards
@@ -159,7 +159,7 @@
             </div>
         </div>
         <div class="item row">
-            <div class="col-6 desc">
+            <div class="desc">
                 <div class="title">Mana cost and mana value</div>
                 <magic-text class="content">
                     <code>cost</code>, <code>mana</code>, <code>mana-cost</code>, and <code>m</code> search for mana cost. None of them supports regex args. <br>
@@ -168,7 +168,7 @@
                     <code>mana-value</code>, <code>mv</code>, and <code>cmc</code> search for mana value. All of them don't support regex args but supports all operators.
                 </magic-text>
             </div>
-            <div class="col-6 self-start flex items-start">
+            <div class="examples">
                 <search-example query="m=0">
                     <magic-text>
                         Cards with mana cost {0}
@@ -192,7 +192,7 @@
             </div>
         </div>
         <div class="item row">
-            <div class="col-6 desc">
+            <div class="desc">
                 <div class="title">Simple properties</div>
                 <magic-text class="content">
                     <code>set</code>, <code>expansion</code>, <code>s</code>, and <code>e</code> search for set. <code>number</code> and <code>n</code> search for number. <code>lang</code> and <code>l</code> search for language. <code>layout</code> searches for layout. <br>
@@ -200,7 +200,7 @@
                     <code>flavor-text</code> and <code>ft</code> search for flavor text. It works like <code>text</code>.
                 </magic-text>
             </div>
-            <div class="col-6 self-start flex items-start">
+            <div class="examples">
                 <search-example query="s:fut">
                     <magic-text>
                         Cards in Future Sight
@@ -229,7 +229,7 @@
             </div>
         </div>
         <div class="item row">
-            <div class="col-6 desc">
+            <div class="desc">
                 <div class="title">Rarity</div>
                 <magic-text class="content">
                     <code>rarity</code> and <code>r</code> search for rarity. The shorthands of rarities are listed below. Notice that the mythic rare rarity use keyword <code>mythic</code>, not <code>mythic rare</code>.
@@ -243,7 +243,7 @@
                     </table>
                 </magic-text>
             </div>
-            <div class="col-6 self-start flex items-start">
+            <div class="examples">
                 <search-example query="r:m">
                     <magic-text>
                         Mythic rare cards
@@ -254,36 +254,7 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.item
-    margin: 8px
-    padding: 20px
-
-    border-top: 1px grey solid
-
-.title
-    font-size: 200%
-
-    margin-bottom: 8px
-
-.desc
-    padding-right: 5px
-
-code
-    color: #555
-
-table
-    width: 100%
-
-.example
-    flex-basis: 48%
-
-    margin: 2px
-    padding: 10px
-
-    border: 1px grey solid
-    border-radius: 10px
-</style>
+<style lang="sass" scoped src="../../search-docs.sass"/>
 
 <script lang="ts">
 import { defineComponent } from 'vue';

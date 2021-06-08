@@ -253,36 +253,7 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.item
-    margin: 8px
-    padding: 20px
-
-    border-top: 1px grey solid
-
-.title
-    font-size: 200%
-
-    margin-bottom: 8px
-
-.desc
-    padding-right: 5px
-
-code
-    color: #555
-
-table
-    width: 100%
-
-.example
-    flex-basis: 48%
-
-    margin: 2px
-    padding: 10px
-
-    border: 1px grey solid
-    border-radius: 10px
-</style>
+<style lang="sass" scoped src="../../search-docs.sass"/>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
