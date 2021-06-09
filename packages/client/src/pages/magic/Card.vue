@@ -306,7 +306,7 @@ import { apiGet, imageBase } from 'boot/backend';
 interface Card {
     cardId: string;
 
-    setId: string;
+    set: string;
     number: string;
     lang: string;
 
@@ -428,7 +428,7 @@ export default defineComponent({
         const sets = computed(() => uniq(versions.value.map(v => v.set)));
 
         const set = computed({
-            get() { return data.value?.setId ?? route.query.set as string; },
+            get() { return data.value?.set ?? route.query.set as string; },
             set(newValue: string) { void router.replace({ query: { ...omit(route.query, 'number'), set: newValue } }); },
         });
 

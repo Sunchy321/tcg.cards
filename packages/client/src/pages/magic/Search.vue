@@ -19,16 +19,16 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, setId, number, lang, layout, partIndex }"
+                v-slot="{ cardId, set, number, lang, layout, partIndex }"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
                 <router-link
                     :key="cardId"
-                    :to="`/magic/card/${cardId}?set=${setId}&number=${number}&lang=${lang}&part=${partIndex}`"
+                    :to="`/magic/card/${cardId}?set=${set}&number=${number}&lang=${lang}&part=${partIndex}`"
                 >
                     <card-image
-                        :set="setId"
+                        :set="set"
                         :number="number"
                         :lang="lang"
                         :layout="layout"

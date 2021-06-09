@@ -276,9 +276,9 @@ interface RelatedCard {
 interface Card {
     cardId: string;
 
-    setId: string;
-    number: string;
     lang: string;
+    set: string;
+    number: string;
 
     layout: string;
 
@@ -378,7 +378,7 @@ export default defineComponent({
             set(newValue: string) { if (hasData.value) { data.value!.lang = newValue; } },
         });
 
-        const set = computed(() => data.value?.setId ?? route.query.set as string);
+        const set = computed(() => data.value?.set ?? route.query.set as string);
         const number = computed(() => data.value?.number ?? route.query.number as string);
 
         const info = computed(() => {
