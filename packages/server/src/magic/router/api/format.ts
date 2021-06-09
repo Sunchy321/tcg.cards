@@ -13,6 +13,18 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/format');
 
 router.get('/', async ctx => {
+    const { id } = ctx.query;
+
+    if (id != null) {
+        const format = await Format.findOne({ formatId: id });
+
+        if (format != null) {
+            ctx.body = format.toJSON();
+        }
+
+        return;
+    }
+
     const ids = await Format.find().distinct('formatId') as string[];
 
     ctx.body = ids.sort((a, b) => {
@@ -35,28 +47,20 @@ router.get('/', async ctx => {
     });
 });
 
-router.get('/:id', async ctx => {
-    const format = await Format.findOne({ formatId: ctx.params.id });
+router.get('/timeline', async ctx => {
+    const { id } = ctx.query;
 
-    if (format == null) {
-        ctx.status = 404;
+    if (id == null) {
         return;
     }
-
-    ctx.body = format.toJSON();
-});
-
-router.get('/:id/timeline', async ctx => {
-    const id = ctx.params.id;
 
     const format = await Format.findOne({ formatId: id });
 
     if (format == null) {
-        ctx.status = 404;
         return;
     }
 
-    const changes = await getChanges(ctx.params.id);
+    const changes = await getChanges(id);
 
     ctx.body = changes.map(c => omit(c, '_id'));
 });

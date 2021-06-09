@@ -3,20 +3,38 @@ import { DefaultState, Context } from 'koa';
 
 import CR from '@/magic/db/cr';
 
+import { diff } from '@/magic/cr/diff';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/cr');
 
 router.get('/', async ctx => {
-    ctx.body = (await CR.find().distinct('date') as string[]).sort((a, b) => a > b ? -1 : a < b ? 1 : 0);
+    const { date } = ctx.query;
+
+    if (date != null) {
+        const menu = await CR.findOne({ date });
+
+        if (menu != null) {
+            ctx.body = menu.toJSON();
+        }
+
+        return;
+    }
+
+    const crs = await CR.find().distinct('date') as string[];
+
+    ctx.body = crs.sort((a, b) => a > b ? -1 : a < b ? 1 : 0);
 });
 
-router.get('/:date', async ctx => {
-    const menu = await CR.findOne({ date: ctx.params.date });
+router.get('/diff', async ctx => {
+    const { from, to } = ctx.query;
 
-    if (menu != null) {
-        ctx.body = menu.toJSON();
+    if (from == null || to == null) {
+        return;
     }
+
+    ctx.body = await diff(from, to);
 });
 
 export default router;
