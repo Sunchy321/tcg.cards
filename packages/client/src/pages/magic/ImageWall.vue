@@ -76,7 +76,8 @@ export default defineComponent({
         });
 
         const loadData = async () => {
-            const { data: result } = await apiGet<string[]>('/magic/set/{props.set}/image-all', {
+            const { data: result } = await apiGet<string[]>('/magic/set/image-all', {
+                id:   set.value,
                 lang: lang.value,
                 type: type.value,
             });

@@ -295,7 +295,9 @@ export default defineComponent({
 
         const loadData = async () => {
             if (date.value != null && cr.value.includes(date.value)) {
-                const { data: result } = await apiGet<CR>('/magic/cr/' + date.value);
+                const { data: result } = await apiGet<CR>('/magic/cr', {
+                    date: date.value,
+                });
 
                 data.value = result;
             }

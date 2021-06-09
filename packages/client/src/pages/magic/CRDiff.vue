@@ -300,7 +300,7 @@ export default defineComponent({
         };
 
         const loadData = async () => {
-            const { data: result } = await apiGet<Change>('/magic/cr-diff', {
+            const { data: result } = await apiGet<Change>('/magic/cr/diff', {
                 from: from.value,
                 to:   to.value,
             });

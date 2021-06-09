@@ -96,7 +96,9 @@ export default defineComponent({
 
         const loadFormat = async () => {
             if (format.value != null) {
-                const { data: result } = await apiGet<Format>(`/magic/format/${format.value}`);
+                const { data: result } = await apiGet<Format>('/magic/format', {
+                    id: format.value,
+                });
 
                 data.value = result;
             }

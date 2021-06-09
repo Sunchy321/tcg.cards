@@ -288,7 +288,9 @@ export default defineComponent({
                 await save();
             }
 
-            const { data: result } = await apiGet<Set>('/magic/set/' + id.value);
+            const { data: result } = await apiGet<Set>('/magic/set', {
+                id: id.value,
+            });
 
             data.value = result;
         };

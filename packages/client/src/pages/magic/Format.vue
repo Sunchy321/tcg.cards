@@ -300,11 +300,15 @@ export default defineComponent({
         });
 
         const loadData = async() => {
-            const { data: dataResult } = await apiGet<Data>('/magic/format/' + format.value);
+            const { data: dataResult } = await apiGet<Data>('/magic/format', {
+                id: format.value,
+            });
 
             data.value = dataResult;
 
-            const { data: timelineResult } = await apiGet<TimelineItem[]>(`/magic/format/${format.value}/timeline`);
+            const { data: timelineResult } = await apiGet<TimelineItem[]>('/magic/format/timeline', {
+                id: format.value,
+            });
 
             timeline.value = timelineResult;
         };

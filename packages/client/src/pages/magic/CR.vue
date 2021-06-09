@@ -332,7 +332,10 @@ export default defineComponent({
             selected.value = null;
 
             if (date.value != null) {
-                const { data: crResult } = await apiGet<CR>('/magic/cr/' + date.value);
+                const { data: crResult } = await apiGet<CR>('/magic/cr', {
+                    date: date.value,
+                });
+
                 data.value = crResult;
             }
         };
