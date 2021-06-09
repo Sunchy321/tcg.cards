@@ -199,7 +199,7 @@ function toCard(data: NSCard): ICard {
         cardId: getId(data),
 
         lang:   data.lang,
-        setId:  data.set_id,
+        set:    data.set_id,
         number: data.collector_number,
 
         manaValue:     data.cmc,
@@ -319,14 +319,14 @@ function toCard(data: NSCard): ICard {
 
 function deleteImage(data: ICard) {
     for (const type of ['png', 'border_crop', 'art_crop', 'large', 'normal', 'small']) {
-        const path = cardImagePath(type, data.setId, data.lang, data.number);
+        const path = cardImagePath(type, data.set, data.lang, data.number);
 
         if (existsSync(path)) {
             unlinkSync(path);
         }
 
         for (let i = 0; i < data.parts.length; ++i) {
-            const path = cardImagePath(type, data.setId, data.lang, data.number, i);
+            const path = cardImagePath(type, data.set, data.lang, data.number, i);
 
             if (existsSync(path)) {
                 unlinkSync(path);
@@ -400,9 +400,10 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
 
         switch (d.path![0]) {
         case 'set_id':
-            if (card.setId !== data.setId) {
+            if (card.set !== data.set) {
                 deleteImage(card);
-                card.setId = data.setId;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (card as any).set = data.set;
             }
             break;
         case 'collector_number':

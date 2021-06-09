@@ -1,4 +1,4 @@
-import { Schema, Document } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import conn from './db';
 
@@ -6,7 +6,7 @@ export interface ICard {
     cardId: string,
 
     lang: string,
-    setId: string,
+    set: string,
     number: string,
 
     manaValue: number,
@@ -116,11 +116,11 @@ export interface ICard {
     }
 }
 
-const CardSchema = new Schema({
+const CardSchema = new Schema<ICard>({
     cardId: String,
 
     lang:   String,
-    setId:  String,
+    set:    String,
     number: String,
 
     manaValue:     Number,
@@ -239,6 +239,6 @@ const CardSchema = new Schema({
     },
 });
 
-const Card = conn.model<ICard & Document>('card', CardSchema);
+const Card = conn.model<ICard>('card', CardSchema);
 
 export default Card;

@@ -47,7 +47,7 @@ interface UserModel extends Model<IUser> {
     fromJwtToken(token: string): Promise<IUser>
 }
 
-const UserSchema = new Schema({
+const UserSchema = new Schema<IUser>({
     username: {
         type:     String,
         required: true,

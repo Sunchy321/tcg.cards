@@ -234,7 +234,7 @@ export async function syncChange(): Promise<void> {
                 const banlistRemoved: string[] = [];
 
                 for (const b of fo.banlist) {
-                    const sets = await Card.find({ cardId: b.card, setId: { $in: setIds } }).distinct('setId');
+                    const sets = await Card.find({ cardId: b.card, set: { $in: setIds } }).distinct('set');
 
                     const setInFormat = sets.filter(s => fo.sets.includes(s));
 

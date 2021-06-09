@@ -19,7 +19,7 @@ export interface IEntity {
     dbfId: number;
     slug?: string;
 
-    setId: string;
+    set: string;
 
     name: { lang: string; value: string }[];
     text: { lang: string; value: string }[];
@@ -77,7 +77,7 @@ const EntitySchema = new Schema({
     dbfId:  Number,
     slug:   String,
 
-    setId: String,
+    set: String,
 
     name:               [{ _id: false, lang: String, value: String }],
     text:               [{ _id: false, lang: String, value: String }],

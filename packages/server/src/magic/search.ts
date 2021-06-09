@@ -510,7 +510,7 @@ export default {
         {
             id:    'set',
             alt:   ['expansion', 's', 'e'],
-            query: ({ param, op }) => simpleQuery('setId', param, op),
+            query: ({ param, op }) => simpleQuery('set', param, op),
         },
         {
             id:    'number',

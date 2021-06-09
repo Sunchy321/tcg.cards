@@ -12,7 +12,7 @@ export const tags: Record<string, ITag> = {
     47:   { index: 'attack' },
     48:   { index: 'cost' },
     114:  { index: 'elite', bool: true },
-    183:  { index: 'setId', enum: 'set' },
+    183:  { index: 'set', enum: 'set' },
     184:  { index: 'text' },
     185:  { index: 'name' },
     187:  { index: 'durability' },

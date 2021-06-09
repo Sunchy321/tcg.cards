@@ -18,7 +18,7 @@ router.prefix('/card');
 function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
     const aggregate = Card.aggregate().allowDiskUse(true);
 
-    aggregate.match(omitBy({ cardId: id, setId: set, number }, v => v == null));
+    aggregate.match(omitBy({ cardId: id, set, number }, v => v == null));
 
     if (lang != null) {
         aggregate.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
@@ -35,22 +35,29 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
     return aggregate as unknown as Promise<ICard[]>;
 }
 
+interface Version {
+    lang: string;
+    set: string;
+    number: string;
+    rarity: string;
+}
+
 router.get('/', async ctx => {
     const { id, lang, set, number } = ctx.query;
 
     const cards = await find(id, lang, set, number);
-    const versions = await Card.aggregate()
+    const versions = await Card.aggregate<Version>()
         .match({ cardId: id })
         .sort({ releaseDate: -1 })
-        .project('-_id lang setId number rarity');
+        .project('-_id lang set number rarity');
 
     if (cards.length !== 0) {
         const { relatedCards, ...data } = cards[0];
         const result: any = omit(data, ['_id', '__v']);
 
-        result.versions = versions.map(v => ({ ...v, set: v.setId, setId: undefined }));
+        result.versions = versions;
 
-        const sets = await Set.find({ setId: { $in: uniq(versions.map(v => v.setId)) } });
+        const sets = await Set.find({ setId: { $in: uniq(versions.map(v => v.set)) } });
 
         for (const v of result.versions) {
             const s = sets.find(s => s.setId === v.set);
@@ -142,7 +149,7 @@ router.get('/profile', async ctx => {
 
         profile.versions.push({
             lang:        c.lang,
-            set:         c.setId,
+            set:         c.set,
             number:      c.number,
             rarity:      c.rarity,
             releaseDate: c.releaseDate,

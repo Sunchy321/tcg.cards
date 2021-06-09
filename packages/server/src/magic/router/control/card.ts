@@ -17,7 +17,7 @@ router.prefix('/card');
 function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
     const aggregate = Card.aggregate().allowDiskUse(true);
 
-    aggregate.match(omitBy({ cardId: id, setId: set, number }, v => v == null));
+    aggregate.match(omitBy({ cardId: id, set, number }, v => v == null));
 
     if (lang != null) {
         aggregate.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
@@ -33,9 +33,9 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
 
 router.get('/raw',
     async ctx => {
-        const { id: cardId, lang, set: setId, number } = ctx.query;
+        const { id: cardId, lang, set, number } = ctx.query;
 
-        const card = await Card.findOne({ cardId, lang, setId, number });
+        const card = await Card.findOne({ cardId, lang, set, number });
 
         if (card != null) {
             ctx.body = card.toJSON();
@@ -226,7 +226,7 @@ import { existsSync, renameSync } from 'fs';
 router.get('/rename', async ctx => {
     const { set } = ctx.query;
 
-    const cards = await Card.find({ setId: set, lang: 'zhs' });
+    const cards = await Card.find({ set, lang: 'zhs' });
 
     const renamed = [];
     const missed = [];

@@ -9,7 +9,7 @@ export interface IPatch {
     isUpdated: boolean;
 }
 
-const PatchSchema = new Schema({
+const PatchSchema = new Schema<IPatch>({
     version: String,
     number:  Number,
     sha:     String,
