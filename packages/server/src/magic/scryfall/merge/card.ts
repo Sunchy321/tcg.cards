@@ -44,6 +44,10 @@ function toCostMap(cost: string) {
     return result;
 }
 
+function purifyText(text: string|undefined) {
+    return text?.replace(/\{½\}/g, '{H1}');
+}
+
 function extractCardFace(card: ISCard): NCardFace[] {
     if (card.card_faces != null) {
         return card.card_faces.map(f => {
@@ -224,19 +228,19 @@ function toCard(data: NSCard): ICard {
 
             oracle: {
                 name:     f.name,
-                text:     f.oracle_text,
+                text:     purifyText(f.oracle_text),
                 typeline: f.type_line,
             },
 
             unified: {
                 name:     f.printed_name || f.name,
-                text:     f.printed_text || f.oracle_text,
+                text:     purifyText(f.printed_text || f.oracle_text),
                 typeline: (f.printed_type_line || f.type_line).replace(/ ～/, '～'),
             },
 
             printed: {
                 name:     f.printed_name || f.name,
-                text:     f.printed_text || f.oracle_text,
+                text:     purifyText(f.printed_text || f.oracle_text),
                 typeline: (f.printed_type_line || f.type_line).replace(/ ～/, '～'),
             },
 
