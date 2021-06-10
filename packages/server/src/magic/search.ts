@@ -93,7 +93,7 @@ function numberQuery(
         });
     }
 
-    const number = Number.parseInt(param);
+    const number = Number.parseFloat(param);
 
     if (Number.isNaN(number)) {
         throw new QueryError({
@@ -350,7 +350,7 @@ function costQuery(
 
     const costs = param
         .toUpperCase()
-        .split(/\{([^{}]*)\}|(\d{2,})|(.(?:\/.)?)/)
+        .split(/\{([^{}]*)\}|(\d{2,})|(H[WR1])|(.(?:\/.)?)/)
         .filter(v => v !== '' && v != null);
 
     const costMap: Record<string, number> = {};
