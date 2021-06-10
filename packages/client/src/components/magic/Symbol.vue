@@ -15,7 +15,7 @@
     &.cost
         margin-right: 1px
 
-        &.cost-shadow
+        &.cost-shadow:not(.icon-HW):not(.icon-HR)
             margin-right: 3px
             border-radius: 100px
             box-shadow: -2px 2px 0 rgba(0,0,0,0.85)
@@ -23,7 +23,7 @@
     &.cost.mini
         font-size: 50%
 
-        &.cost-shadow
+        &.cost-shadow:not(.icon-HW):not(.icon-HR)
             margin-right: 2px
             box-shadow: -1px 1px 0 rgba(0,0,0,0.85)
 </style>
