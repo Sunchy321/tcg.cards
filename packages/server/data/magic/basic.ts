@@ -30,7 +30,7 @@ export const symbols = [
     'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',
     'W/U', 'U/B', 'B/R', 'R/G', 'G/W', 'W/B', 'U/R', 'B/G', 'R/W', 'G/U',
     '2/W', '2/U', '2/B', '2/R', '2/G', 'W/P', 'U/P', 'B/P', 'R/P', 'G/P',
-    'T', 'Q', 'S', 'E', 'INF', '1/2', 'HW', 'HR',
+    'T', 'Q', 'S', 'E', 'INF', 'H1', 'HW', 'HR',
     'P', 'E', 'A',
     'PW', 'CHAOS', '100', '100000',
 ];
