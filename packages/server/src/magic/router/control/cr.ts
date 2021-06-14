@@ -25,44 +25,38 @@ router.get('/txt', async ctx => {
     ctx.body = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 });
 
-router.get('/parse',
-    async ctx => {
-        const dir = join(dataPath, 'magic', 'cr', 'data');
+router.get('/parse', async ctx => {
+    const dir = join(dataPath, 'magic', 'cr', 'data');
 
-        const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+    const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
-        if (dataList.includes(ctx.query.date)) {
-            ctx.body = await parse(ctx.query.date);
-        }
-    },
-);
+    if (dataList.includes(ctx.query.date)) {
+        ctx.body = await parse(ctx.query.date);
+    }
+});
 
-router.get('/reparse',
-    async ctx => {
-        const dir = join(dataPath, 'magic', 'cr', 'data');
+router.get('/reparse', async ctx => {
+    const dir = join(dataPath, 'magic', 'cr', 'data');
 
-        const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
+    const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
-        if (dataList.includes(ctx.query.date)) {
-            ctx.body = await reparse(ctx.query.date);
-        }
-    },
-);
+    if (dataList.includes(ctx.query.date)) {
+        ctx.body = await reparse(ctx.query.date);
+    }
+});
 
-router.post('/save',
-    async ctx => {
-        const data = ctx.request.body.data as ICR;
+router.post('/save', async ctx => {
+    const data = ctx.request.body.data as ICR;
 
-        const cr = await CR.findOne({ date: data.date });
+    const cr = await CR.findOne({ date: data.date });
 
-        if (cr != null) {
-            await cr.replaceOne(data);
-        } else {
-            await CR.create(data);
-        }
+    if (cr != null) {
+        await cr.replaceOne(data);
+    } else {
+        await CR.create(data);
+    }
 
-        ctx.status = 200;
-    },
-);
+    ctx.status = 200;
+});
 
 export default router;

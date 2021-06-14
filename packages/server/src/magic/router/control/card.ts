@@ -31,62 +31,65 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
     return aggregate as unknown as Promise<ICard[]>;
 }
 
-router.get('/raw',
-    async ctx => {
-        const { id: cardId, lang, set, number } = ctx.query;
+router.get('/raw', async ctx => {
+    const { id: cardId, lang, set, number } = ctx.query;
 
-        const card = await Card.findOne({ cardId, lang, set, number });
+    const card = await Card.findOne({ cardId, lang, set, number });
 
-        if (card != null) {
-            ctx.body = card.toJSON();
-        } else {
-            ctx.status = 404;
+    if (card != null) {
+        ctx.body = card.toJSON();
+    } else {
+        ctx.status = 404;
+    }
+});
+
+router.post('/update', async ctx => {
+    const data: ICard & { _id: string } = ctx.request.body.data;
+
+    for (const p of data.parts) {
+        if (p.flavorText === '') {
+            delete p.flavorText;
         }
-    },
-);
+    }
 
-router.post('/update',
-    async ctx => {
-        const data: ICard & { _id: string } = ctx.request.body.data;
+    const old = await Card.findById(data._id);
 
-        if (data?.__tags?.oracleUpdated) {
-            data.__tags.oracleUpdated = false;
-        }
+    if (old != null) {
+        await old.replaceOne(data);
+    } else {
+        await Card.create(omit(data, ['_id', '__v']) as ICard);
+    }
 
-        const old = await Card.findById(data._id);
+    if (old == null || data.cardId === old.cardId) {
+        for (let i = 0; i < data.parts.length; ++i) {
+            const part = data.parts[i];
 
-        if (old != null) {
-            await old.replaceOne(data);
-        } else {
-            await Card.create(omit(data, ['_id', '__v']) as ICard);
-        }
+            await Card.updateMany(
+                { cardId: data.cardId },
+                { $set: { [`parts.${i}.oracle`]: part.oracle } },
+            );
 
-        if (old == null || data.cardId === old.cardId) {
-            for (let i = 0; i < data.parts.length; ++i) {
-                const part = data.parts[i];
-
-                await Card.updateMany(
-                    { cardId: data.cardId },
-                    { $set: { [`parts.${i}.oracle`]: part.oracle } },
-                );
-
-                await Card.updateMany(
-                    { cardId: data.cardId, lang: data.lang },
-                    { $set: { [`parts.${i}.unified`]: part.unified } },
-                );
-            }
-
-            if (data.relatedCards.every(r => r.version == null)) {
-                await Card.updateMany(
-                    { cardId: data.cardId },
-                    { relatedCards: data.relatedCards },
-                );
-            }
+            await Card.updateMany(
+                { cardId: data.cardId, lang: data.lang },
+                { $set: { [`parts.${i}.unified`]: part.unified } },
+            );
         }
 
-        ctx.status = 200;
-    },
-);
+        if (data.relatedCards.every(r => r.version == null)) {
+            await Card.updateMany(
+                { cardId: data.cardId },
+                { relatedCards: data.relatedCards },
+            );
+        }
+
+        await Card.updateMany(
+            { cardId: data.cardId },
+            { '__tags.oracleUpdated': false },
+        );
+    }
+
+    ctx.status = 200;
+});
 
 interface INeedEditResult {
     _id: { id: string, lang: string, part: number }
@@ -190,35 +193,33 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
     }),
 };
 
-router.get('/need-edit',
-    async ctx => {
-        const getter = needEditGetters[ctx.query.type];
+router.get('/need-edit', async ctx => {
+    const getter = needEditGetters[ctx.query.type];
 
-        if (getter == null) {
-            ctx.status = 404;
-            return;
-        }
+    if (getter == null) {
+        ctx.status = 404;
+        return;
+    }
 
-        const result = await getter(ctx.query.lang);
+    const result = await getter(ctx.query.lang);
 
-        if (result.length > 0) {
-            const cards = await find(result[0]._id.id, ctx.query.lang);
+    if (result.length > 0) {
+        const cards = await find(result[0]._id.id, ctx.query.lang);
 
-            if (cards.length > 0) {
-                ctx.body = {
-                    ...cards[0],
-                    partIndex: result[0]._id.part,
-                    total:     result.length,
-                    result:    result[0],
-                };
-            } else {
-                ctx.body = null;
-            }
+        if (cards.length > 0) {
+            ctx.body = {
+                ...cards[0],
+                partIndex: result[0]._id.part,
+                total:     result.length,
+                result:    result[0],
+            };
         } else {
             ctx.body = null;
         }
-    },
-);
+    } else {
+        ctx.body = null;
+    }
+});
 
 import { assetPath } from '@static';
 import { existsSync, renameSync } from 'fs';
