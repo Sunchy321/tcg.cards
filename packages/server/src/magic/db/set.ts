@@ -2,7 +2,7 @@ import { Schema, Document } from 'mongoose';
 
 import conn from './db';
 
-interface ISetLocalization {
+export interface SetLocalization {
     lang: string,
     name?: string,
     isOfficialName: boolean,
@@ -12,18 +12,15 @@ interface ISetLocalization {
 export interface ISet {
     setId: string,
 
-    scryfall: {
-        id: string,
-        code: string,
-    },
-
-    mtgoCode?: string,
-    tcgplayerId?: number,
-
     block?: string,
     parent?: string,
 
-    localization: ISetLocalization[],
+    printedSize?: number,
+    cardCount: number,
+    langs: string[],
+    rarities: string[],
+
+    localization: SetLocalization[],
 
     setType: string,
     isDigital: boolean,
@@ -33,23 +30,25 @@ export interface ISet {
 
     releaseDate?: string,
 
-    cardCount: number,
-    printedSize?: number,
+    scryfall: {
+        id: string,
+        code: string,
+    },
+
+    mtgoCode?: string,
+    tcgplayerId?: number,
+
 }
 
 export const SetSchema = new Schema({
     setId: String,
 
-    scryfall: {
-        id:   String,
-        code: String,
-    },
-
-    mtgoCode:    String,
-    tcgplayerId: Number,
-
     block:  String,
     parent: String,
+
+    printedSize: Number,
+    cardCount:   Number,
+    langs:       Array,
 
     localization: [{
         _id:            false,
@@ -67,8 +66,13 @@ export const SetSchema = new Schema({
 
     releaseDate: String,
 
-    cardCount:   Number,
-    printedSize: Number,
+    scryfall: {
+        id:   String,
+        code: String,
+    },
+
+    mtgoCode:    String,
+    tcgplayerId: Number,
 }, {
     toJSON: {
         transform(doc, ret) {

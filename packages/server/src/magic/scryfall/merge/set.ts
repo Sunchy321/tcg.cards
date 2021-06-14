@@ -16,16 +16,13 @@ async function mergeWith(data: IScryfallSet) {
         const object: ISet = {
             setId: data.code,
 
-            scryfall: {
-                id:   data.set_id,
-                code: data.code,
-            },
-
-            mtgoCode:    data.mtgo_code,
-            tcgplayerId: data.tcgplayer_id,
-
             block:  data.block_code,
             parent: data.parent_set_code,
+
+            cardCount:   data.card_count,
+            printedSize: data.printed_size,
+            langs:       [],
+            rarities:    [],
 
             localization: [{
                 lang:           'en',
@@ -41,8 +38,14 @@ async function mergeWith(data: IScryfallSet) {
 
             releaseDate: data.released_at,
 
-            cardCount:   data.card_count,
-            printedSize: data.printed_size,
+            scryfall: {
+                id:   data.set_id,
+                code: data.code,
+            },
+
+            mtgoCode:    data.mtgo_code,
+            tcgplayerId: data.tcgplayer_id,
+
         };
 
         await Set.create(object);
@@ -55,7 +58,6 @@ async function mergeWith(data: IScryfallSet) {
         set.releaseDate = data.released_at;
         set.block = data.block_code;
         set.parent = data.parent_set_code;
-        set.cardCount = data.card_count;
         set.printedSize = data.printed_size;
         set.isDigital = data.digital;
         set.isFoilOnly = data.foil_only;

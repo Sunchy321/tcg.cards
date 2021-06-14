@@ -1,10 +1,12 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Set from '@/magic/db/set';
+import Set, { SetLocalization } from '@/magic/db/set';
+
+import { existsSync, readdirSync } from 'fs';
+import { omit } from 'lodash';
 
 import { cardImageBase } from '@/magic/image';
-import { existsSync, readdirSync } from 'fs';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -14,16 +16,49 @@ router.get('/', async ctx => {
     const { id } = ctx.query;
 
     if (id != null) {
-        const set = await Set.findOne({ setId: ctx.params.id });
+        const set = await Set.findOne({ setId: id });
 
         if (set != null) {
-            ctx.body = set.toJSON();
+            const json = set.toJSON();
+
+            ctx.body = {
+                ...json,
+                localization: Object.fromEntries(json.localization.map(l => [l.lang, omit(l, ['lang'])])),
+            };
         }
 
         return;
     }
 
     ctx.body = await Set.find().sort({ releaseDate: 1 }).distinct('setId');
+});
+
+interface SetProfile {
+    setId: string,
+    parent?: string,
+    localization: Record<string, Omit<SetLocalization, 'lang'>>,
+    setType: string,
+    releaseDate?: string,
+}
+
+router.get('/profile', async ctx => {
+    const ids = (ctx.query.id ?? '').split(',');
+
+    const sets = await Set.find({ setId: { $in: ids } });
+
+    const result: Record<string, SetProfile> = {};
+
+    for (const s of sets) {
+        result[s.setId] = {
+            setId:        s.setId,
+            parent:       s.parent,
+            localization: Object.fromEntries(s.toJSON().localization.map(l => [l.lang, omit(l, ['lang'])])),
+            setType:      s.setType,
+            releaseDate:  s.releaseDate,
+        };
+    }
+
+    ctx.body = result;
 });
 
 router.get('/image-all', async ctx => {
