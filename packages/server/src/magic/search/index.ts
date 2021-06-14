@@ -54,8 +54,8 @@ export default {
                         const [power, toughness] = param.split('/');
 
                         return {
-                            'parts.power':     power,
-                            'parts.toughness': toughness,
+                            ...statsQuery('parts.power', power, '='),
+                            ...statsQuery('parts.toughness', toughness, '='),
                         };
                     }
 
