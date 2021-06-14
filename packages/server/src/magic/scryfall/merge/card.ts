@@ -436,6 +436,12 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                     if (card.lang === 'en') {
                         card.parts[d.path![1]].unified.typeline = data.parts[d.path![1]].oracle.typeline;
                     }
+
+                    const type = parseTypeline(data.parts[d.path![1]].oracle.typeline);
+
+                    card.parts[d.path![1]].typeMain = type.typeMain;
+                    card.parts[d.path![1]].typeSuper = type.typeSuper;
+                    card.parts[d.path![1]].typeSub = type.typeSub;
                 }
                 break;
             case 'oracle_text':
@@ -473,6 +479,12 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                 if (card.lang === 'en') {
                     card.parts[0].unified.typeline = data.parts[0].oracle.typeline;
                 }
+
+                const type = parseTypeline(data.parts[0].oracle.typeline);
+
+                card.parts[0].typeMain = type.typeMain;
+                card.parts[0].typeSuper = type.typeSuper;
+                card.parts[0].typeSub = type.typeSub;
             }
             break;
         case 'oracle_text':
@@ -636,10 +648,6 @@ export class CardMerger extends Task<IStatus> {
                 }
 
                 ++count;
-            }
-
-            for (const c of cardsToInsert) {
-                c.__tags.oracleUpdated = true;
             }
 
             await Card.insertMany(cardsToInsert);
