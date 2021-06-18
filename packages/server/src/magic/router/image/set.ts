@@ -10,30 +10,59 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/set');
 
 router.get('/icon', async ctx => {
-    const { set, rarity } = ctx.query;
+    const { set, rarity, 'auto-adjust': autoAdjust } = ctx.query;
 
     if (set == null || rarity == null) {
         ctx.status = 404;
         return;
     }
 
-    let path;
+    const svgPath = setIconPath(set, rarity, 'svg');
 
-    if ((path = setIconPath(set, rarity, 'svg'), existsSync(path))) {
-        ctx.response.set('content-type', mime.lookup(path) as string);
-        ctx.body = createReadStream(path);
+    if (existsSync(svgPath)) {
+        ctx.response.set('content-type', mime.lookup(svgPath) as string);
+        ctx.body = createReadStream(svgPath);
         return;
-    } else if ((path = setIconPath(set, rarity, 'jpg'), ctx.query['auto-adjust'] != null && existsSync(path))) {
-        ctx.response.set('content-type', mime.lookup(path) as string);
-        ctx.body = createReadStream(path);
+    }
+
+    // try jpg icon
+    const jpgPath = setIconPath(set, rarity, 'jpg');
+
+    if (existsSync(jpgPath)) {
+        ctx.response.set('content-type', mime.lookup(jpgPath) as string);
+        ctx.body = createReadStream(jpgPath);
         return;
-    } else if ((path = setIconPath(set, 'default', 'svg'), ctx.query['auto-adjust'] != null && existsSync(path))) {
-        ctx.response.set('content-type', mime.lookup(path) as string);
-        ctx.body = createReadStream(path);
+    }
+
+    if (autoAdjust == null) {
+        ctx.status = 404;
         return;
-    } else if ((path = defaultIconPath, ctx.query['auto-adjust'] != null && existsSync(path))) {
-        ctx.response.set('content-type', mime.lookup(path) as string);
-        ctx.body = createReadStream(path);
+    }
+
+    // try set default icon
+    const defaultPath = setIconPath(set, 'default', 'svg');
+
+    if (existsSync(defaultPath)) {
+        ctx.response.set('content-type', mime.lookup(defaultPath) as string);
+        ctx.body = createReadStream(defaultPath);
+        return;
+    }
+
+    // if set don't have a default icon while requiring a default icon, try common icon
+    if (rarity === 'default') {
+        const commonPath = setIconPath(set, 'common', 'svg');
+
+        if (existsSync(commonPath)) {
+            ctx.response.set('content-type', mime.lookup(commonPath) as string);
+            ctx.body = createReadStream(commonPath);
+            return;
+        }
+    }
+
+    // use magic icon as a fallback icon
+    if (existsSync(defaultIconPath)) {
+        ctx.response.set('content-type', mime.lookup(defaultIconPath) as string);
+        ctx.body = createReadStream(defaultIconPath);
         return;
     }
 

@@ -6,6 +6,8 @@ import Card from '@/magic/db/card';
 
 import { uniq } from 'lodash';
 
+import { extendedLocales } from '@data/magic/basic';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/set');
@@ -36,26 +38,42 @@ router.post('/save', async ctx => {
     ctx.status = 200;
 });
 
+const rarities = [
+    'common',
+    'uncommon',
+    'rare',
+    'mythic',
+    'special',
+];
+
 router.post('/calc', async ctx => {
-    const { id } = ctx.query;
+    // const { id } = ctx.request.body;
 
-    if (id == null) {
-        return;
+    // if (id == null) {
+    //     return;
+    // }
+
+    // const set = await Set.findOne({ setId: id });
+
+    // if (set == null) {
+    //     return;
+    // }
+
+    const sets = await Set.find();
+
+    for (const set of sets) {
+        const id = set.setId;
+
+        const cards = await Card.find({ set: id });
+
+        set.cardCount = uniq(cards.map(c => c.number)).length;
+        set.langs = uniq(cards.map(c => c.lang)).sort((a, b) => extendedLocales.indexOf(a) - extendedLocales.indexOf(b));
+        set.rarities = uniq(cards.map(c => c.rarity)).sort((a, b) => rarities.indexOf(a) - rarities.indexOf(b));
+
+        await set.save();
     }
 
-    const set = await Set.findOne({ setId: id });
-
-    if (set == null) {
-        return;
-    }
-
-    const cards = await Card.find({ set: id });
-
-    set.cardCount = uniq(cards.map(c => c.number)).length;
-    set.langs = uniq(cards.map(c => c.lang));
-    set.rarities = uniq(cards.map(c => c.rarity));
-
-    await set.save();
+    ctx.status = 200;
 });
 
 export default router;

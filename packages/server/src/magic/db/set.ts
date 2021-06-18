@@ -49,6 +49,7 @@ export const SetSchema = new Schema({
     printedSize: Number,
     cardCount:   Number,
     langs:       Array,
+    rarities:    Array,
 
     localization: [{
         _id:            false,
