@@ -59,6 +59,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
 
+import { useRouter, useRoute } from 'vue-router';
+
 import contorlSetup from 'setup/control';
 
 interface Progress {
@@ -69,9 +71,11 @@ interface Progress {
 
 export default defineComponent({
     setup() {
+        const router = useRouter();
+        const route = useRoute();
+
         const { controlWs } = contorlSetup();
 
-        const type = ref('png');
         const progress = ref<Progress|null>(null);
 
         const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
@@ -79,6 +83,11 @@ export default defineComponent({
         const typeOptions = types.map(t => ({
             value: t, label: t,
         }));
+
+        const type = computed({
+            get() { return route.query.type as string ?? 'large'; },
+            set(newValue: string) { void router.replace({ query: { type: newValue } }); },
+        });
 
         const status = computed(() => progress.value?.status ?? {});
 

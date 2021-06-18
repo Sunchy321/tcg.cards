@@ -19,43 +19,54 @@
                 <q-btn
                     class="link"
                     type="a"
-                    flat
+                    to="/magic/advanced-search"
                     icon="mdi-magnify"
                     :label="$t('magic.ui.advanced-search.$self')"
-                    to="/magic/advanced-search"
+                    flat
+                    :stack="$q.screen.xs"
                 />
 
                 <q-btn
                     class="link"
                     type="a"
-                    flat
+                    to="/magic/search-docs"
                     icon="mdi-information"
                     :label="$t('magic.ui.search-docs.$self')"
-                    to="/magic/search-docs"
+                    flat
+                    :stack="$q.screen.xs"
                 />
             </div>
-
             <div class="col column">
                 <q-btn
                     class="link"
                     type="a"
-                    flat
-                    icon="mdi-text-box-outline"
-                    :label="$t('magic.format.$self')"
                     to="/magic/format"
+                    icon="mdi-text-box-outline"
+                    :label="$t('magic.ui.format.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
+                <q-btn
+                    class="link"
+                    type="a"
+                    to="/magic/set"
+                    icon="mdi-cards-outline"
+                    :label="$t('magic.ui.set.$self')"
+                    flat
+                    :stack="$q.screen.xs"
                 />
             </div>
             <div class="col column">
                 <q-btn
                     class="link"
                     type="a"
-                    flat
+                    to="/magic/cr"
                     icon="mdi-book-open-variant"
                     :label="$t('magic.cr.$self')"
-                    to="/magic/cr"
+                    flat
+                    :stack="$q.screen.xs"
                 />
             </div>
-            <div class="col column" />
         </div>
     </q-page>
 </template>

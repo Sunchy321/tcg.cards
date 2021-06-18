@@ -91,7 +91,7 @@
                     :model-value="c.card"
                     class="col"
                     dense
-                    @update:model-value="modifyChangeCard(c)"
+                    @update:model-value="v => modifyChangeCard(c, v)"
                 />
                 <q-select
                     v-model="c.format"
@@ -446,7 +446,7 @@ export default defineComponent({
             }
         };
 
-        const modifyChangeCard = (c: BanlistChangeItem) => (v: string) => {
+        const modifyChangeCard = (c: BanlistChangeItem, v: string) => {
             if (v.startsWith('#')) {
                 c.card = v;
             } else {

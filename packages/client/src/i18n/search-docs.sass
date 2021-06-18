@@ -26,7 +26,11 @@
         flex: 1 0 0
 
 .title
-    font-size: 200%
+    @media (max-width: 599px)
+        font-size: 150%
+
+    @media (min-width: 600px)
+        font-size: 200%
 
     margin-bottom: 8px
 

@@ -14,11 +14,15 @@
             <div class="col-grow" />
 
             <q-btn
+                label="Calc Field"
+                outline
+                @click="calcField"
+            />
+            <q-btn
                 label="Fill link"
                 outline
                 @click="fillLink"
             />
-
             <q-btn
                 icon="mdi-upload"
                 flat dense round
@@ -78,7 +82,7 @@
                 <q-checkbox
                     :model-value="l.isOfficialName"
                     :disable="l.name == null"
-                    @update:model-value="toggleIsWotcName(l.lang)"
+                    @update:model-value="() => toggleIsWotcName(l.lang)"
                 />
                 <q-input
                     :model-value="l.name"
@@ -190,7 +194,7 @@ export default defineComponent({
         const route = useRoute();
         const store = useStore();
 
-        const { controlPost } = controlSetup();
+        const { controlGet, controlPost } = controlSetup();
 
         const set = ref<string[]>([]);
         const data = ref<Set|null>(null);
@@ -288,7 +292,7 @@ export default defineComponent({
                 await save();
             }
 
-            const { data: result } = await apiGet<Set>('/magic/set', {
+            const { data: result } = await controlGet<Set>('/magic/set/raw', {
                 id: id.value,
             });
 
@@ -317,7 +321,7 @@ export default defineComponent({
             if (loc == null) {
                 data.value.localization = [...data.value.localization, { lang, name, isOfficialName: true }];
             } else {
-                if (loc.name == null) {
+                if (loc.name == null || loc.name === '') {
                     loc.isOfficialName = true;
                 }
 
@@ -342,7 +346,7 @@ export default defineComponent({
             }
         };
 
-        const toggleIsWotcName = (lang: string) => () => {
+        const toggleIsWotcName = (lang: string) => {
             if (data.value == null) {
                 return;
             }
@@ -399,6 +403,10 @@ export default defineComponent({
             }
         };
 
+        const calcField = async () => {
+            await controlPost('/magic/set/calc', { id: id.value });
+        };
+
         watch(set, () => { filteredSet.value = set.value; });
         watch(id, loadData);
         onMounted(loadList);
@@ -423,6 +431,7 @@ export default defineComponent({
             toggleIsWotcName,
             assignName,
             assignLink,
+            calcField,
         };
     },
 });

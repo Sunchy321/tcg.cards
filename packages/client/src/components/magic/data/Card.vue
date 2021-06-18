@@ -154,6 +154,7 @@
             </table>
 
             <q-input v-model="flavor" label="Flavor" outlined type="textarea" />
+            <q-input v-model="flavorName" label="Flavor Name" outlined dense />
 
             <q-input
                 v-model="relatedCards"
@@ -259,7 +260,8 @@ interface Part {
         text: string;
     };
 
-    flavorText: string;
+    flavorText?: string;
+    flavorName?: string,
     artist: string;
 }
 
@@ -457,6 +459,7 @@ export default defineComponent({
         const printedText = partField2('printed', 'text');
 
         const flavor = partField1('flavorText', '');
+        const flavorName = partField1('flavorName', '');
 
         const relatedCards = computed({
             get() {
@@ -519,6 +522,7 @@ export default defineComponent({
                 .replace(/ *～ *-? */, '～')
                 .replace(/ *― *-? */, '―')
                 .replace(/ *: *-? */, ' : ');
+
             printedTypeline.value = printedTypeline.value
                 .replace(/ *～ *-? */, '～')
                 .replace(/ *― *-? */, '―')
@@ -534,7 +538,12 @@ export default defineComponent({
                 printedText.value = printedText.value.replace(/~/g, '～').replace(/\/\//g, '／').trim();
 
                 if (flavor.value != null) {
-                    flavor.value = flavor.value.replace(/~/g, '～');
+                    flavor.value = flavor.value
+                        .replace(/~/g, '～')
+                        .replace(/(?<!\.)\.\.\.(?!\.)/g, '…')
+                        .replace(/」 ?～/g, '」\n～')
+                        .replace(/。 ?～/g, '。\n～')
+                        .replace(/([，。！？：；]) /g, (m, m1: string) => m1);
                 }
             } else {
                 unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ').trim();
@@ -742,6 +751,7 @@ export default defineComponent({
             printedTypeline,
             printedText,
             flavor,
+            flavorName,
             relatedCards,
             multiverseId,
             imageUrl,

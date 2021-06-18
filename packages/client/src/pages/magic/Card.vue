@@ -65,10 +65,10 @@
             <div class="text-mode row no-wrap">
                 <q-btn
                     v-if="isAdmin"
+                    :to="editorLink"
                     icon="mdi-file-edit"
                     class="q-mr-sm"
                     dense flat round
-                    @click="toEditor"
                 />
 
                 <q-btn-toggle
@@ -378,7 +378,7 @@ export default defineComponent({
         const route = useRoute();
         const store = useStore();
         const i18n = useI18n();
-        const basic = basicSetup();
+        const { isAdmin } = basicSetup();
 
         const { search, random } = magicSetup();
 
@@ -618,6 +618,18 @@ export default defineComponent({
             }
         });
 
+        const editorLink = computed(() => ({
+            name:  'magic/data',
+            query: {
+                tab:    'Card',
+                id:     id.value,
+                lang:   lang.value,
+                set:    set.value,
+                number: number.value,
+                part:   partIndex.value,
+            },
+        }));
+
         // methods
         const loadData = async() => {
             const query = omitBy({
@@ -631,22 +643,6 @@ export default defineComponent({
 
             rotate.value = null;
             data.value = result;
-        };
-
-        const toEditor = () => {
-            if (basic.isAdmin) {
-                void router.push({
-                    name:  'magic/data',
-                    query: {
-                        tab:    'card',
-                        id:     id.value,
-                        lang:   lang.value,
-                        set:    set.value,
-                        number: number.value,
-                        part:   partIndex.value,
-                    },
-                });
-            }
         };
 
         const switchPart = () => {
@@ -679,7 +675,7 @@ export default defineComponent({
         });
 
         return {
-            isAdmin: basic.isAdmin,
+            isAdmin,
 
             data,
             rotate,
@@ -702,6 +698,7 @@ export default defineComponent({
             partIcon,
             symbolStyle,
             costStyles,
+            editorLink,
 
             setInfos,
             langInfos,
@@ -710,7 +707,6 @@ export default defineComponent({
             textMode,
 
             switchPart,
-            toEditor,
         };
     },
 });

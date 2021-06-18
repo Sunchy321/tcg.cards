@@ -3,11 +3,10 @@
         <q-btn
             v-for="g in games"
             :key="g"
+            :to="`/${g}`"
             no-caps
-            flat
-            align="left"
-            class="tcg-item q-card"
-            @click="$router.push('/' + g)"
+            outline
+            class="tcg-item"
         >
             <div class="tcg-item-card">
                 <q-img class="tcg-icon" :src="`${g}/logo.svg`" />
