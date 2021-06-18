@@ -39,7 +39,16 @@ export default {
         'pauper': '纯铁',
 
         'two_head_giant': '双头巨人',
+    },
 
+    'rarity': {
+        $self: '稀有度',
+
+        common:   '普通',
+        uncommon: '非普通',
+        rare:     '稀有',
+        mythic:   '秘稀',
+        special:  '特殊',
     },
 
     'image-wall': '图片墙',

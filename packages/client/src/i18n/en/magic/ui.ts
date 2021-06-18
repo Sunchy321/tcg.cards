@@ -37,4 +37,8 @@ export default {
             date: 'Date',
         },
     },
+
+    'set': {
+        $self: 'Set',
+    },
 };

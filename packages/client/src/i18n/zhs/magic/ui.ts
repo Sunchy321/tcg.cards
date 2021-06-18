@@ -37,4 +37,8 @@ export default {
             date: '日期',
         },
     },
+
+    'set': {
+        $self: '系列',
+    },
 };

@@ -28,6 +28,16 @@ const routes = [
                 component: () => import('pages/magic/Format.vue'),
             },
             {
+                path:      'set',
+                name:      'magic/sets',
+                component: () => import('pages/magic/Sets.vue'),
+            },
+            {
+                path:      'set/:id',
+                name:      'magic/set',
+                component: () => import('pages/magic/Set.vue'),
+            },
+            {
                 path:      'card/:id',
                 name:      'magic/card',
                 component: () => import('pages/magic/Card.vue'),

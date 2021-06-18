@@ -50,6 +50,16 @@ export default {
         'tribal':             'Tribal',
     },
 
+    'rarity': {
+        $self: 'Rarity',
+
+        common:   'Common',
+        uncommon: 'Uncommon',
+        rare:     'Rare',
+        mythic:   'Mythic Rare',
+        special:  'Special',
+    },
+
     'image-wall': 'Image Wall',
 
     'cr': {
