@@ -1,51 +1,33 @@
-.item
-    margin: 8px
-    padding: 20px
+table
+    width: 100%
 
-    border-top: 1px grey solid
+    border-collapse: collapse
 
-.desc
-    @media (max-width: 599px)
-        flex: 0 0 100%
+    & th, & td
+        padding: 4px
 
-    @media (min-width: 600px)
-        flex: 1 0 0
+        text-align: center
 
-.examples
-    padding-left: 5px
-
-    display: flex
-    flex-wrap: wrap
-    align-items: flex-start
-    align-self: flex-start
-
-    @media (max-width: 599px)
-        flex: 0 0 100%
-
-    @media (min-width: 600px)
-        flex: 1 0 0
-
-.title
-    @media (max-width: 599px)
-        font-size: 150%
-
-    @media (min-width: 600px)
-        font-size: 200%
-
-    margin-bottom: 8px
+        border: 1px #CCC solid
 
 code
     color: #555
 
-table
-    width: 100%
+    .var
+        text-decoration: underline
+
+    .regex
+        color: $red-5
+
+    .string
+        color: $blue-5
+
+    .number
+        color: $green-5
 
 .example
     margin: 2px
     padding: 10px
-
-    border: 1px grey solid
-    border-radius: 10px
 
     @media (max-width: 599px)
         flex: 0 0 100%

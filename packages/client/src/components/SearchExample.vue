@@ -13,13 +13,8 @@
             />
         </div>
         <slot />
-    </div></template>
-
-<style lang="sass" scoped>
-.example
-    border: 1px black solid
-    border-radius: 10px
-</style>
+    </div>
+</template>
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
