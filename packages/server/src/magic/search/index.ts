@@ -99,7 +99,7 @@ export default {
         },
         {
             id:    'number',
-            alt:   ['n'],
+            alt:   ['num'],
             query: ({ param, op }) => simpleQuery('number', param, op),
         },
         {
@@ -261,6 +261,7 @@ export default {
                             u: 'uncommon',
                             r: 'rare',
                             m: 'mythic',
+                            s: 'special',
                         } as Record<string, string>
                     )[param] || param;
 
