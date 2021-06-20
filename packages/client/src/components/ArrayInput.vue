@@ -33,7 +33,7 @@ export default defineComponent({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         watch(() => props.modelValue, () => {
             text.value = props.modelValue.join(', ');
-        });
+        }, { immediate: true });
 
         const textChanged = computed(() => text.value !== props.modelValue.join(', '));
 

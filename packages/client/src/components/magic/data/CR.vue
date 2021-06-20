@@ -65,7 +65,7 @@
                 <q-table
                     style="height: 500px"
                     :title="contentTitle"
-                    :data="contents"
+                    :rows="contents"
                     :columns="contentColumns"
                     row-key="id"
                     virtual-scroll
@@ -86,12 +86,11 @@
                             <q-td key="id" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.id }}
                                 <q-popup-edit v-model="props.row.id">
-                                    <q-input
-                                        :model-value="props.row.id"
+                                    <deferred-input
+                                        v-model="props.row.id"
                                         dense
                                         autofocus counter
                                         @focus="focus"
-                                        @change="inputChange(props.row, 'id')"
                                     />
                                 </q-popup-edit>
                             </q-td>
@@ -114,7 +113,7 @@
                 <q-table
                     style="height: 500px"
                     :title="glossaryTitle"
-                    :data="glossary"
+                    :rows="glossary"
                     :columns="glossaryColumns"
                     row-key="id"
                     virtual-scroll
@@ -134,31 +133,22 @@
                         <q-tr :props="props">
                             <q-td key="ids" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.ids.join(', ') }}
-                                <q-popup-edit
-                                    :model-value="props.row.ids.join(', ')"
-                                    @update:model-value="editInputSplit(props.row, 'ids')"
-                                >
-                                    <q-input
-                                        :model-value="props.row.ids.join(', ')"
-                                        dense
-                                        autofocus counter
+                                <q-popup-edit v-model="props.row.ids">
+                                    <array-input
+                                        v-model="props.row.ids"
+                                        dense autofocus counter
                                         @focus="focus"
-                                        @change="inputChangeSplit(props.row, 'ids')"
                                     />
                                 </q-popup-edit>
                             </q-td>
                             <q-td key="words" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.words.join(', ') }}
-                                <q-popup-edit
-                                    :model-value="props.row.words.join(', ')"
-                                    @update:model-value="editInputSplit(props.row, 'words')"
-                                >
-                                    <q-input
-                                        :model-value="props.row.words.join(', ')"
+                                <q-popup-edit v-model="props.row.words">
+                                    <array-input
+                                        v-model="props.row.words"
                                         dense
                                         autofocus counter
                                         @focus="focus"
-                                        @change="inputChangeSplit(props.row, 'words')"
                                     />
                                 </q-popup-edit>
                             </q-td>
@@ -186,6 +176,9 @@ import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 import controlSetup from 'setup/control';
+
+import DeferredInput from 'components/DeferredInput.vue';
+import ArrayInput from 'components/ArrayInput.vue';
 
 import { last } from 'lodash';
 
@@ -217,6 +210,8 @@ interface CR {
 
 export default defineComponent({
     name: 'DataCR',
+
+    components: { ArrayInput, DeferredInput },
 
     setup() {
         const router = useRouter();
@@ -342,14 +337,6 @@ export default defineComponent({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const focus = (e: any) => { e.target.select(); };
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const inputChange = (o: any, k: any) => (e: any) => { o[k] = e.target.value; };
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-        const inputChangeSplit = (o: any, k: any) => (e: any) => { o[k] = e.target.value.split(', '); };
-
-        const editInputSplit = (o: any, k: any) => (v: string) => { o[k] = v.split(', '); };
-
         watch(date, loadData);
         onMounted(loadList);
 
@@ -377,9 +364,6 @@ export default defineComponent({
             reparse,
 
             focus,
-            inputChange,
-            inputChangeSplit,
-            editInputSplit,
         };
     },
 });
