@@ -9,7 +9,7 @@ import textQuery from './text';
 import numberQuery from './number';
 import colorQuery from './color';
 import costQuery from './cost';
-import statsQuery from './stats';
+import halfNumberQuery from './half-number';
 
 function parseOption(text: string | undefined, defaultValue: number): number {
     if (text == null) {
@@ -54,8 +54,8 @@ export default {
                         const [power, toughness] = param.split('/');
 
                         return {
-                            ...statsQuery('parts.power', power, '='),
-                            ...statsQuery('parts.toughness', toughness, '='),
+                            ...halfNumberQuery('parts.power', power, '='),
+                            ...halfNumberQuery('parts.toughness', toughness, '='),
                         };
                     }
 
@@ -83,7 +83,6 @@ export default {
                     $or: [
                         textQuery('parts.oracle.name', param, ':'),
                         textQuery('parts.unified.name', param, ':'),
-                        textQuery('parts.printed.name', param, ':'),
                     ],
                 };
             },
@@ -135,12 +134,16 @@ export default {
         {
             id:    'power',
             alt:   ['pow'],
-            query: ({ param, op }) => statsQuery('parts.power', param, op),
+            query: ({ param, op }) => halfNumberQuery('parts.power', param, op),
         },
         {
             id:    'toughness',
             alt:   ['tou'],
-            query: ({ param, op }) => statsQuery('parts.toughness', param, op),
+            query: ({ param, op }) => halfNumberQuery('parts.toughness', param, op),
+        },
+        {
+            id:    'loyalty',
+            query: ({ param, op }) => halfNumberQuery('parts.loyalty', param, op),
         },
         {
             id:    'name.oracle',
@@ -150,14 +153,12 @@ export default {
         {
             id:    'name.unified',
             alt:   ['un'],
-            query: ({ param, op }) =>
-                textQuery('parts.unified.name', param, op),
+            query: ({ param, op }) => textQuery('parts.unified.name', param, op),
         },
         {
             id:    'name.printed',
             alt:   ['pn'],
-            query: ({ param, op }) =>
-                textQuery('parts.printed.name', param, op),
+            query: ({ param, op }) => textQuery('parts.printed.name', param, op),
         },
         {
             id:    'name',
@@ -173,20 +174,17 @@ export default {
         {
             id:    'type.oracle',
             alt:   ['ot'],
-            query: ({ param, op }) =>
-                textQuery('parts.oracle.typeline', param, op),
+            query: ({ param, op }) => textQuery('parts.oracle.typeline', param, op),
         },
         {
             id:    'type.unified',
             alt:   ['ut'],
-            query: ({ param, op }) =>
-                textQuery('parts.unified.typeline', param, op),
+            query: ({ param, op }) => textQuery('parts.unified.typeline', param, op),
         },
         {
             id:    'type.printed',
             alt:   ['pt'],
-            query: ({ param, op }) =>
-                textQuery('parts.printed.typeline', param, op),
+            query: ({ param, op }) => textQuery('parts.printed.typeline', param, op),
         },
         {
             id:    'type',
@@ -207,14 +205,12 @@ export default {
         {
             id:    'text.unified',
             alt:   ['ux'],
-            query: ({ param, op }) =>
-                textQuery('parts.unified.text', param, op),
+            query: ({ param, op }) => textQuery('parts.unified.text', param, op),
         },
         {
             id:    'text.printed',
             alt:   ['px'],
-            query: ({ param, op }) =>
-                textQuery('parts.printed.text', param, op),
+            query: ({ param, op }) => textQuery('parts.printed.text', param, op),
         },
         {
             id:    'text',
@@ -240,8 +236,7 @@ export default {
         {
             id:    'flavor-text',
             alt:   ['flavor', 'ft'],
-            query: ({ param, op }) =>
-                textQuery('parts.flavorText', param, op, false),
+            query: ({ param, op }) => textQuery('parts.flavorText', param, op, false),
         },
         {
             id:    'rarity',

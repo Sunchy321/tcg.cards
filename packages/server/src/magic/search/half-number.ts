@@ -13,13 +13,15 @@ function toStatsList(numbers: number[]) {
         // Augment cards with stats +X/+Y
         if (n > 0 && Number.isInteger(n)) {
             result.push('+' + n);
+        } else if (n === 0) {
+            result.push('+0', '-0');
         }
     }
 
     return result;
 }
 
-export default function statsQuery(
+export default function halfNumberQuery(
     key: string,
     param: string | RegExp,
     op: string | undefined,
@@ -29,6 +31,11 @@ export default function statsQuery(
             type:  'regex/disabled',
             value: '',
         });
+    }
+
+    // special case for [X]
+    if (param === 'x') {
+        param = param.toUpperCase();
     }
 
     const num = Number(param);
@@ -43,7 +50,7 @@ export default function statsQuery(
     switch (op) {
     case ':':
         if (param === '*') {
-            return { [key]: { $nin: statsNumber } };
+            return { [key]: { $exists: true, $nin: toStatsList(statsNumber) } };
         } else {
             throw new QueryError({
                 type:  'operator/unsupported',
@@ -52,7 +59,7 @@ export default function statsQuery(
         }
     case '!:':
         if (param === '*') {
-            return { [key]: { $in: statsNumber } };
+            return { [key]: { $in: toStatsList(statsNumber) } };
         } else {
             throw new QueryError({
                 type:  'operator/unsupported',
@@ -69,7 +76,7 @@ export default function statsQuery(
         if (Number.isNaN(num)) {
             return { [key]: { $ne: param } };
         } else {
-            return { [key]: { $nin: equal } };
+            return { [key]: { $exists: true, $nin: equal } };
         }
     case '>':
         if (Number.isNaN(num)) {
