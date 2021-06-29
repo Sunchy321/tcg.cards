@@ -20,8 +20,10 @@ export default function colorQuery(
     if (text === 'c' || text === 'colorless') {
         switch (op) {
         case ':':
+        case '=':
             return { [key]: '' };
         case '!:':
+        case '!=':
             return { [key]: { $ne: '' } };
         default:
             throw new QueryError({
