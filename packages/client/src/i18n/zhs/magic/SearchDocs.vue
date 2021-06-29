@@ -76,7 +76,7 @@
                 <td :colspan="2">匹配颜色。参数忽略大小写。</td>
             </tr>
             <tr>
-                <td><code>:c</code><br><code>:colorless</code></td>
+                <td><code>:c</code><br><code>=c</code><br><code>:colorless</code><br><code>=colorless</code></td>
                 <td>无色牌。</td>
                 <td><example query="c:c">无色牌</example></td>
             </tr>
