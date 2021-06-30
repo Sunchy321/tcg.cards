@@ -239,6 +239,11 @@ export default {
             query: ({ param, op }) => textQuery('parts.flavorText', param, op, false),
         },
         {
+            id:    'flavor-name',
+            alt:   ['fn'],
+            query: ({ param, op }) => textQuery('parts.flavorName', param, op),
+        },
+        {
             id:    'rarity',
             alt:   ['r'],
             query: ({ param, op }) => {
