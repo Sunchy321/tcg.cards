@@ -51,7 +51,7 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onUpdated, onMounted, nextTick } from 'vue';
+import { defineComponent, ref, computed, watch, onMounted, nextTick } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -92,15 +92,6 @@ interface Menu {
     id: string;
     label: string;
     children?: Menu[];
-}
-
-interface ContentItem {
-    id: string;
-    depth: number;
-    index?: string;
-    text: string;
-    examples?: string[];
-    cards?: { text:string, id:string }[]
 }
 
 export default defineComponent({
@@ -204,7 +195,7 @@ export default defineComponent({
                 },
             );
 
-            if (data.value.csi) {
+            if (data.value?.csi != null) {
                 menu.push({
                     id:    'csi',
                     label: i18n.t('magic.cr.csi'),
@@ -214,29 +205,76 @@ export default defineComponent({
             return menu;
         });
 
+        const indexRegex = /^(\d|\d\d\d|\d\d\d\.\d+[a-z]?)$/;
+
+        const simpleItems = [
+            'intro', 'intro.title',
+            'glossary',
+            'credits', 'credits.title',
+            'csi', 'csi.title',
+        ];
+
         const item = computed({
             get() {
-                const hash = route.hash;
+                const hash = route.hash.startsWith('#') ? route.hash.slice(1) : null;
 
-                if (hash.startsWith('#')) {
-                    const id = hash.slice(1);
-
-                    if (['intro', 'glossary', 'credits', 'csi'].includes(id)) {
-                        return id;
+                if (hash != null) {
+                    // simple items
+                    if (simpleItems.includes(hash)) {
+                        return hash;
                     }
 
-                    if (data.value?.contents?.some(c => c.id === id)) {
-                        return id;
+                    // glossary items
+                    if (hash.startsWith('g:')) {
+                        const glossaryId = hash.slice(2);
+
+                        if (data.value?.glossary?.some(g => glossaryId === g.ids.join(','))) {
+                            return hash;
+                        }
+                    }
+
+                    // content items
+                    if (data.value?.contents?.some(c => c.id === hash)) {
+                        return hash;
+                    }
+
+                    const item = data.value?.contents.find(c => c.index.replace(/\.$/, '') === hash);
+
+                    if (item != null) {
+                        return item.id;
                     }
                 }
 
                 return 'intro';
             },
             set(newValue: string) {
-                void router.push({
-                    hash:  '#' + newValue,
-                    query: route.query,
-                });
+                // simple or glossary item only have one style
+                if (simpleItems.includes(newValue) || newValue.startsWith('g:')) {
+                    void router.push({
+                        hash:  '#' + newValue,
+                        query: route.query,
+                    });
+                    return;
+                }
+
+                const oldItem = data.value?.contents?.find(v => v.id === item.value);
+                const newItem = data.value?.contents?.find(v => v.id === newValue);
+
+                if (newItem == null) {
+                    return;
+                }
+
+                if (oldItem == null || !route.hash.startsWith('#') || indexRegex.test(route.hash.slice(1))) {
+                    void router.push({
+                        hash:  '#' + newItem.index.replace(/\.$/, ''),
+                        query: route.query,
+                    });
+                } else {
+                    void router.push({
+                        hash:  '#' + newItem.id,
+                        query: route.query,
+                    });
+                }
             },
         });
 
@@ -246,7 +284,6 @@ export default defineComponent({
             case 'intro.title':
                 return 'intro';
             case 'glossary':
-            case 'glossary.title':
                 return 'glossary';
             case 'credits':
             case 'credits.title':
@@ -255,11 +292,15 @@ export default defineComponent({
             case 'csi.title':
                 return 'csi';
             default:
-                return data.value?.contents?.find(c => c.id === item.value)?.index[0];
+                if (item.value.startsWith('g:')) {
+                    return 'glossary';
+                } else {
+                    return data.value?.contents?.find(c => c.id === item.value)?.index[0];
+                }
             }
         });
 
-        const chapterContent = computed((): ContentItem[] => {
+        const chapterContent = computed((): (Omit<Content, 'index'> & { index?: Content['index'] })[] => {
             switch (chapter.value) {
             case 'intro':
                 return [
@@ -278,7 +319,7 @@ export default defineComponent({
             case 'glossary':
                 return [
                     {
-                        id:    'glossary.title',
+                        id:    'glossary',
                         depth: 0,
                         text:  i18n.t('magic.cr.glossary'),
                     },
@@ -322,13 +363,13 @@ export default defineComponent({
         });
 
         // methods
-        const loadList = async() => {
+        const loadList = async () => {
             const { data } = await apiGet<string[]>('/magic/cr');
 
             list.value = data;
         };
 
-        const loadData = async() => {
+        const loadData = async () => {
             selected.value = null;
 
             if (date.value != null) {
@@ -337,6 +378,18 @@ export default defineComponent({
                 });
 
                 data.value = crResult;
+            }
+        };
+
+        const scrollIntoItem = async () => {
+            await nextTick();
+
+            const elem = document.getElementById(item.value);
+
+            if (elem != null) {
+                const target = scroll.getScrollTarget(elem);
+                const offset = elem.offsetTop - elem.scrollHeight;
+                scroll.setVerticalScrollPosition(target, offset, 500);
             }
         };
 
@@ -350,17 +403,7 @@ export default defineComponent({
             }
         });
 
-        onUpdated(async () => {
-            await nextTick();
-
-            const elem = document.getElementById(item.value);
-
-            if (elem != null) {
-                const target = scroll.getScrollTarget(elem);
-                const offset = elem.offsetTop - elem.scrollHeight;
-                scroll.setVerticalScrollPosition(target, offset, 500);
-            }
-        });
+        watch(item, scrollIntoItem, { immediate: true });
 
         onMounted(loadList);
 
