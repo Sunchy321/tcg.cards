@@ -60,7 +60,7 @@ router.post('/update', async ctx => {
         await Card.create(omit(data, ['_id', '__v']) as ICard);
     }
 
-    if (old == null || data.cardId === old.cardId) {
+    if (old == null || (data.cardId === old.cardId && data.lang === old.lang)) {
         for (let i = 0; i < data.parts.length; ++i) {
             const part = data.parts[i];
 
