@@ -27,6 +27,10 @@
                     @click="switchPart"
                 />
 
+                <div v-if="flavorName != null" class="flavor-name" :lang="lang">
+                    {{ flavorName }}
+                </div>
+
                 <div class="name" :lang="lang">
                     {{ name }}
                 </div>
@@ -224,6 +228,12 @@
 .name
     display: inline
 
+    .flavor-name + &
+        margin-left: 8px
+
+        font-size: 80%
+        color: grey
+
 .mana-cost
     display: inline-flex
     align-items: center
@@ -342,7 +352,8 @@ interface Card {
             text: string;
         };
 
-        flavorText: string;
+        flavorText?: string;
+        flavorName?: string;
         artist: string;
     }[];
 
@@ -573,6 +584,7 @@ export default defineComponent({
         const text = computed(() => part.value?.[textMode.value]?.text);
 
         const flavor = computed(() => part.value?.flavorText);
+        const flavorName = computed(() => part.value?.flavorName);
         const artist = computed(() => part.value?.artist);
 
         const relatedCards = computed(() => data.value?.relatedCards ?? []);
@@ -692,6 +704,7 @@ export default defineComponent({
             typeline,
             text,
             flavor,
+            flavorName,
             artist,
             relatedCards,
 

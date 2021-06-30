@@ -220,6 +220,11 @@
                 <td><example query="ft:阿司魔拉诺马尔迪卡带斯提纳酷达卡">风味文字包含阿司魔拉诺马尔迪卡带斯提纳酷达卡的牌</example></td>
             </tr>
             <tr>
+                <td :colspan="2"><code>flavor-name</code>，<code>fn</code></td>
+                <td>匹配风味名称。它与<code>name</code>的运作方式类似，但不支持前缀后缀。</td>
+                <td><example query="fn:哥斯拉">风味名称包含哥斯拉的牌</example></td>
+            </tr>
+            <tr>
                 <td><code>rarity</code>，<code>r</code></td>
                 <td>
                     <code>:<span class="var rarity">rarity</span></code><br>
