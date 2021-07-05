@@ -38,7 +38,7 @@ void set.open();
 async function getRemote(args: [string][]): Promise<SetProfile[]> {
     const ids = args.map(a => a[0]);
 
-    const { data } = await api.get<Record<string, SetProfile>>('/magic/set/profile', { params: { id: ids.join(',') } });
+    const { data } = await api.get<Record<string, SetProfile>>('/magic/set/profile', { params: { ids: ids.join(',') } });
 
     const result = [];
 

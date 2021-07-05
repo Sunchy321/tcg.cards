@@ -45,7 +45,7 @@ void card.open();
 async function getRemote(args: [string][]): Promise<CardProfile[]> {
     const ids = args.map(a => a[0]);
 
-    const { data } = await api.get<Record<string, CardProfile>>('/magic/card/profile', { params: { id: ids.join(',') } });
+    const { data } = await api.get<Record<string, CardProfile>>('/magic/card/profile', { params: { ids: ids.join(',') } });
 
     const result = [];
 
