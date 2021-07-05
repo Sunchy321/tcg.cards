@@ -119,6 +119,7 @@ export async function getChanges(
                     { 'changes.format': id },
                     {
                         'changes.category': 'release',
+                        'changes.format':   { $exists: false },
                         'date':             format?.deathdate != null
                             ? { $gte: format?.birthday, $lte: format?.deathdate }
                             : { $gte: format?.birthday },
@@ -131,12 +132,18 @@ export async function getChanges(
                 $or: [
                     { 'changes.format': 'brawl' },
                     {
-                        'changes.category': 'rotation',
-                        'changes.format':   'standard',
+                        'changes.category': 'release',
+                        'changes.format':   { $exists: false },
                         'date':             { $gte: format?.birthday },
                     },
                     {
                         'changes.category': 'release',
+                        'changes.format':   'standard',
+                        'date':             { $gte: format?.birthday },
+                    },
+                    {
+                        'changes.category': 'rotation',
+                        'changes.format':   'standard',
                         'date':             { $gte: format?.birthday },
                     },
                 ],
@@ -191,9 +198,17 @@ export async function syncChange(): Promise<void> {
     for (const c of changes) {
         if (c.type === 'format') {
             // format change
-            const formats = c.category !== 'release'
-                ? [c.format!]
-                : formatWithSet.filter(f => {
+            const formats = (() => {
+                if (c.category !== 'release') {
+                    return [c.format!];
+                }
+
+                // released to specific format, such as MH1, HA1
+                if (c.format != null) {
+                    return [c.format!];
+                }
+
+                return formatWithSet.filter(f => {
                     const format = formatMap[f]!;
                     // the change don't become effective now
                     if (c.date > new Date().toLocaleDateString('en-CA')) { return false; }
@@ -203,14 +218,22 @@ export async function syncChange(): Promise<void> {
                     if (format.deathdate != null && c.date > format.deathdate) { return false; }
                     return true;
                 });
+            })();
 
-            // brawl sets follows standard
             if (formats.includes('standard') && !formats.includes('brawl') && c.date >= brawlBirthday) {
                 formats.push('brawl');
             }
 
+            if (formats.includes('historic') && !formats.includes('historic_brawl')) {
+                formats.push('historic_brawl');
+            }
+
             for (const f of formats) {
                 const fo = formatMap[f]!;
+
+                if (fo.sets == null) {
+                    fo.sets = [];
+                }
 
                 for (const i of c.in) {
                     if (fo.sets.includes(i)) {
@@ -236,7 +259,7 @@ export async function syncChange(): Promise<void> {
                 for (const b of fo.banlist) {
                     const sets = await Card.find({ cardId: b.card, set: { $in: setIds } }).distinct('set');
 
-                    const setInFormat = sets.filter(s => fo.sets.includes(s));
+                    const setInFormat = sets.filter(s => fo.sets!.includes(s));
 
                     if (setInFormat.every(s => c.out.includes(s))) {
                         banlistRemoved.push(b.card);
@@ -350,6 +373,10 @@ export async function syncChange(): Promise<void> {
     }
 
     for (const f in formatMap) {
+        if (formatMap[f].sets?.length === 0) {
+            formatMap[f].sets = undefined;
+        }
+
         formatMap[f].banlist.sort((a, b) => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status) -

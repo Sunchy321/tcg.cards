@@ -2,6 +2,16 @@ import { Schema } from 'mongoose';
 
 import conn from './db';
 
+export type CardType =
+    'normal' |
+    'token' |
+    'auxiliary' |
+    'minigame' |
+    'art' |
+    'decklist' |
+    'player' |
+    'advertisement'
+
 export interface ICard {
     cardId: string,
 
@@ -66,6 +76,7 @@ export interface ICard {
     keywords: string[],
     producedMana?: string,
 
+    cardType: CardType,
     layout: string,
     frame: string,
     frameEffects: string[],
@@ -186,6 +197,7 @@ const CardSchema = new Schema<ICard>({
     keywords:     [String],
     producedMana: { type: [String], default: undefined },
 
+    cardType:     String,
     layout:       String,
     frame:        String,
     frameEffects: [String],

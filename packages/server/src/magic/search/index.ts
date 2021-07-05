@@ -268,6 +268,54 @@ export default {
                 return simpleQuery('rarity', rarity, op);
             },
         },
+        {
+            id:    'format',
+            alt:   ['f'],
+            query: ({ param, op }) => {
+                if (param instanceof RegExp) {
+                    throw new QueryError({
+                        type:  'regex/disabled',
+                        value: '',
+                    });
+                }
+
+                if (param.includes(',')) {
+                    const [format, status] = param.split(',');
+
+                    switch (op) {
+                    case ':':
+                        return {
+                            ['legalities.' + format]: status,
+                        };
+                    case '!:':
+                        return {
+                            ['legalities.' + format]: { $ne: status },
+                        };
+                    default:
+                        throw new QueryError({
+                            type:  'operator/unsupported',
+                            value: op || '',
+                        });
+                    }
+                } else {
+                    switch (op) {
+                    case ':':
+                        return {
+                            ['legalities.' + param]: { $in: ['legal', 'restricted'] },
+                        };
+                    case '!:':
+                        return {
+                            ['legalities.' + param]: { $nin: ['legal', 'restricted'] },
+                        };
+                    default:
+                        throw new QueryError({
+                            type:  'operator/unsupported',
+                            value: op || '',
+                        });
+                    }
+                }
+            },
+        },
     ],
 
     aggregate: async (q, o) => {

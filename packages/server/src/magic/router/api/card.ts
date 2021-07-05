@@ -30,7 +30,15 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
             frameEffectCount: { $size: '$frameEffects' },
         })
         .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, frameEffectCount: 1 })
-        .limit(1);
+        .limit(1)
+        .project({
+            '_id':              0,
+            'parts.__costMap':  0,
+            '__tags':           0,
+            'langIsLocale':     0,
+            'langIsEnglish':    0,
+            'frameEffectCount': 0,
+        });
 
     return aggregate as unknown as Promise<ICard[]>;
 }

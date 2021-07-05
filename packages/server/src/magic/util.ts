@@ -60,18 +60,20 @@ export function convertColor(color: Colors): string {
         .join('');
 }
 
-export function convertLegality(l: Legalities): Record<string, string> {
+export function convertLegality(legalities: Legalities): Record<string, string> {
     const result: Record<string, string> = {};
 
-    for (const k in l) {
-        switch (l[k]) {
+    for (const sFormat in legalities) {
+        const format = sFormat === 'duel' ? 'duelcommander' : sFormat;
+
+        switch (legalities[sFormat]) {
         case 'legal':
         case 'banned':
         case 'restricted':
-            result[k] = l[k];
+            result[format] = legalities[sFormat];
             break;
         case 'not_legal':
-            result[k] = 'unavailable';
+            result[format] = 'unavailable';
         }
     }
 

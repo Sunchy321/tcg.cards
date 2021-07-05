@@ -2,7 +2,7 @@
 import Task from '@/common/task';
 
 import ScryfallCard, { ICard as ISCard, ICardBase as ISCardBase } from '../../db/scryfall/card';
-import Card, { ICard } from '../../db/card';
+import Card, { ICard, CardType } from '../../db/card';
 
 import { CardFace, Colors, IStatus } from '../interface';
 import { Document } from 'mongoose';
@@ -257,6 +257,10 @@ function toCard(data: NSCard): ICard {
         producedMana: data.produced_mana != null
             ? convertColor(data.produced_mana)
             : undefined,
+
+        cardType: ((): CardType => {
+            return 'normal';
+        })(),
 
         layout: (() => {
             if (data.layout === 'split') {

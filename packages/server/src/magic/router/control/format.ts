@@ -4,10 +4,15 @@ import { DefaultState, Context } from 'koa';
 import Format from '@/magic/db/format';
 import FormatChange from '@/magic/db/format-change';
 import BanlistChange from '@/magic/db/banlist-change';
+import Card from '@/magic/db/card';
+import ScryfallCard from '@/magic/db/scryfall/card';
 
 import { syncChange } from '@/magic/change';
 import parseBanlist from '@/magic/banlist/parse';
 import { getWizardsBanlist } from '@/magic/banlist/get';
+import { CardData, getLegality, checkLegality } from '@/magic/banlist/legality';
+
+import { formats as formatList } from '@data/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -97,6 +102,80 @@ router.post('/banlist/change/save', async ctx => {
         await BanlistChange.findByIdAndUpdate(data._id, data, { useFindAndModify: false });
     }
 
+    ctx.status = 200;
+});
+
+// Assign card legality
+router.post('/assign-legality', async ctx => {
+    const cards = await Card.aggregate<CardData>([
+        {
+            $group: {
+                _id: '$cardId',
+
+                cardType:   { $first: '$cardType' },
+                legalities: { $first: '$legalities' },
+
+                parts: {
+                    $first: {
+                        $map: {
+                            input: '$parts',
+                            as:    'parts',
+                            in:    {
+                                typeMain: '$$parts.typeMain',
+                            },
+                        },
+                    },
+                },
+
+                versions: {
+                    $addToSet: {
+                        set:         '$set',
+                        rarity:      '$rarity',
+                        releaseDate: '$releaseDate',
+                    },
+                },
+
+                scryfall: {
+                    $first: '$scryfall.oracleId',
+                },
+            },
+        },
+    ]);
+
+    const formats = await Format.find();
+
+    formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
+
+    const wrongs = [];
+
+    for (const c of cards) {
+        const result = await getLegality(c, formats);
+
+        const scryfall = await ScryfallCard.findOne({ oracle_id: c.scryfall });
+
+        if (scryfall != null) {
+            const check = checkLegality(c, result, scryfall.legalities);
+
+            if (check != null) {
+                wrongs.push({
+                    cardId:   c._id,
+                    format:   check,
+                    data:     result[check],
+                    scryfall: scryfall.legalities[check],
+                });
+
+                if (wrongs.length >= 10) {
+                    break;
+                } else {
+                    continue;
+                }
+            }
+        }
+
+        await Card.updateMany({ cardId: c._id }, { legalities: result });
+    }
+
+    ctx.body = wrongs;
     ctx.status = 200;
 });
 
