@@ -15,7 +15,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 router.get('/', async ctx => {
-    const { lang = 'en', set, number, partString } = mapValues(ctx.query, toSingle);
+    const { lang = 'en', set, number, part: partString } = mapValues(ctx.query, toSingle);
 
     if (set == null || number == null) {
         ctx.status = 400;
