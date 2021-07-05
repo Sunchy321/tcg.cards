@@ -2,7 +2,9 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import { createReadStream, existsSync } from 'fs';
+import { mapValues } from 'lodash';
 import mime from 'mime-types';
+import { toSingle } from '@/common/request-helper';
 import { defaultIconPath, setIconPath } from '@/magic/image';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -10,7 +12,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/set');
 
 router.get('/icon', async ctx => {
-    const { set, rarity, 'auto-adjust': autoAdjust } = ctx.query;
+    const { set, rarity, 'auto-adjust': autoAdjust } = mapValues(ctx.query, toSingle);
 
     if (set == null || rarity == null) {
         ctx.status = 404;

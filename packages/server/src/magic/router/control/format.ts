@@ -10,6 +10,7 @@ import ScryfallCard from '@/magic/db/scryfall/card';
 import { syncChange } from '@/magic/change';
 import parseBanlist from '@/magic/banlist/parse';
 import { getWizardsBanlist } from '@/magic/banlist/get';
+import { toSingle } from '@/common/request-helper';
 import { CardData, getLegality, checkLegality } from '@/magic/banlist/legality';
 
 import { formats as formatList } from '@data/magic/basic';
@@ -87,7 +88,12 @@ router.get('/banlist/change', async ctx => {
 
 // Parse a banlist change from url
 router.get('/banlist/change/parse', async ctx => {
-    const url = ctx.query.url;
+    if (ctx.query.url == null) {
+        ctx.status = 400;
+        return;
+    }
+
+    const url = toSingle(ctx.query.url);
 
     ctx.body = await parseBanlist(url);
 });

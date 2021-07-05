@@ -4,7 +4,8 @@ import { DefaultState, Context } from 'koa';
 import Set, { SetLocalization } from '@/magic/db/set';
 
 import { existsSync, readdirSync } from 'fs';
-import { omit } from 'lodash';
+import { mapValues, omit } from 'lodash';
+import { toSingle, toMultiple } from '@/common/request-helper';
 
 import { cardImageBase } from '@/magic/image';
 
@@ -13,7 +14,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/set');
 
 router.get('/', async ctx => {
-    const { id } = ctx.query;
+    const { id } = mapValues(ctx.query, toSingle);
 
     if (id != null) {
         const set = await Set.findOne({ setId: id });
@@ -42,7 +43,12 @@ interface SetProfile {
 }
 
 router.get('/profile', async ctx => {
-    const ids = (ctx.query.id ?? '').split(',');
+    const ids = toMultiple(ctx.query.ids ?? '');
+
+    if (ids == null) {
+        ctx.status = 400;
+        return;
+    }
 
     const sets = await Set.find({ setId: { $in: ids } });
 
@@ -62,10 +68,10 @@ router.get('/profile', async ctx => {
 });
 
 router.get('/image-all', async ctx => {
-    const { id, lang, type } = ctx.query;
+    const { id, lang, type } = mapValues(ctx.query, toSingle);
 
-    if (lang == null || type == null) {
-        ctx.status = 404;
+    if (id == null || lang == null || type == null) {
+        ctx.status = 400;
         return;
     }
 

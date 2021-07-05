@@ -6,7 +6,8 @@ import Card, { ICard } from '@/magic/db/card';
 import Set from '@/magic/db/set';
 import { Searcher } from '@/search';
 
-import { omit, omitBy, random, uniq } from 'lodash';
+import { mapValues, omit, omitBy, random, uniq } from 'lodash';
+import { toSingle, toMultiple } from '@/common/request-helper';
 
 import model from '@/magic/search';
 import { auxSetType } from '@data/magic/special';
@@ -51,7 +52,12 @@ interface Version {
 }
 
 router.get('/', async ctx => {
-    const { id, lang, set, number } = ctx.query;
+    const { id, lang, set, number } = mapValues(ctx.query, toSingle);
+
+    if (id == null) {
+        ctx.status = 400;
+        return;
+    }
 
     const cards = await find(id, lang, set, number);
     const versions = await Card.aggregate<Version>()
@@ -93,9 +99,9 @@ router.get('/', async ctx => {
 const searcher = new Searcher(model);
 
 router.get('/random', async ctx => {
-    const q = ctx.query.q;
+    const q = toSingle(ctx.query.q ?? '');
 
-    const cardIds = q != null && q !== ''
+    const cardIds = q !== ''
         ? (await searcher.search(q, { 'only-id': '' })).result?.cards as string[]
         : await Card.distinct('cardId');
 
@@ -124,7 +130,12 @@ interface CardProfile {
 }
 
 router.get('/profile', async ctx => {
-    const ids = (ctx.query.id ?? '').split(',');
+    const ids = toMultiple(ctx.query.ids ?? '');
+
+    if (ids.length === 0) {
+        ctx.status = 400;
+        return;
+    }
 
     const cards = await Card.find({ cardId: { $in: ids } });
 

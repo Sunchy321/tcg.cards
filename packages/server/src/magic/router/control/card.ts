@@ -7,7 +7,8 @@ import { Aggregate } from 'mongoose';
 
 import parseGatherer from '@/magic/gatherer/parse';
 
-import { omit, omitBy } from 'lodash';
+import { omit, omitBy, mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@data/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -32,7 +33,7 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
 }
 
 router.get('/raw', async ctx => {
-    const { id: cardId, lang, set, number } = ctx.query;
+    const { id: cardId, lang, set, number } = mapValues(ctx.query, toSingle);
 
     const card = await Card.findOne({ cardId, lang, set, number });
 
@@ -194,17 +195,19 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
 };
 
 router.get('/need-edit', async ctx => {
-    const getter = needEditGetters[ctx.query.type];
+    const { type, lang } = mapValues(ctx.query, toSingle);
+
+    const getter = needEditGetters[type];
 
     if (getter == null) {
         ctx.status = 404;
         return;
     }
 
-    const result = await getter(ctx.query.lang);
+    const result = await getter(lang);
 
     if (result.length > 0) {
-        const cards = await find(result[0]._id.id, ctx.query.lang);
+        const cards = await find(result[0]._id.id, lang);
 
         if (cards.length > 0) {
             ctx.body = {

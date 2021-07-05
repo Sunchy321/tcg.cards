@@ -4,7 +4,8 @@ import { DefaultState, Context } from 'koa';
 import Set, { ISet } from '@/magic/db/set';
 import Card from '@/magic/db/card';
 
-import { uniq } from 'lodash';
+import { mapValues, uniq } from 'lodash';
+import { toSingle } from '@/common/request-helper';
 
 import { extendedLocales } from '@data/magic/basic';
 
@@ -13,7 +14,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/set');
 
 router.get('/raw', async ctx => {
-    const { id: setId } = ctx.query;
+    const { id: setId } = mapValues(ctx.query, toSingle);
 
     const set = await Set.findOne({ setId });
 

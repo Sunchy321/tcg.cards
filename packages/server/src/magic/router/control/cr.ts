@@ -6,6 +6,8 @@ import CR, { ICR } from '@/magic/db/cr';
 import { parse, reparse } from '@/magic/cr/parse';
 import { readdirSync } from 'fs';
 import { join } from 'path';
+import { mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
 
 import { dataPath } from '@static';
 
@@ -26,22 +28,36 @@ router.get('/txt', async ctx => {
 });
 
 router.get('/parse', async ctx => {
+    const date = mapValues(ctx.query, toSingle).date;
+
+    if (date == null) {
+        ctx.status = 400;
+        return;
+    }
+
     const dir = join(dataPath, 'magic', 'cr', 'data');
 
     const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
-    if (dataList.includes(ctx.query.date)) {
-        ctx.body = await parse(ctx.query.date);
+    if (dataList.includes(date)) {
+        ctx.body = await parse(date);
     }
 });
 
 router.get('/reparse', async ctx => {
+    const date = mapValues(ctx.query, toSingle).date;
+
+    if (date == null) {
+        ctx.status = 400;
+        return;
+    }
+
     const dir = join(dataPath, 'magic', 'cr', 'data');
 
     const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
-    if (dataList.includes(ctx.query.date)) {
-        ctx.body = await reparse(ctx.query.date);
+    if (dataList.includes(date)) {
+        ctx.body = await reparse(date);
     }
 });
 

@@ -6,6 +6,8 @@ import websocket from '@/middlewares/websocket';
 
 import { DataGetter, DataLoader, PatchLoader } from '@/hearthstone/hsdata';
 
+import { toSingle } from '@/common/request-helper';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/hsdata');
@@ -37,12 +39,12 @@ router.get('/load-patch',
     async ctx => {
         const ws = await ctx.ws();
 
-        const version = ctx.query.version;
-
-        if (version == null) {
-            ctx.status = 401;
+        if (ctx.query.version == null) {
+            ctx.status = 400;
             ws.close();
         } else {
+            const version = toSingle(ctx.query.version);
+
             if (patchLoaders[version] == null) {
                 patchLoaders[version] = new PatchLoader(version);
             }

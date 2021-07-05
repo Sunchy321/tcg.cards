@@ -5,6 +5,9 @@ import websocket from '@/middlewares/websocket';
 
 import { ImageGetter } from '../../scryfall/image';
 
+import { mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/image');
@@ -16,10 +19,10 @@ router.get('/get',
     async ctx => {
         const ws = await ctx.ws();
 
-        const type = ctx.query.type;
+        const type = mapValues(ctx.query, toSingle).type;
 
         if (type == null) {
-            ctx.status = 401;
+            ctx.status = 400;
             ws.close();
         } else {
             if (imageGetters[type] == null) {

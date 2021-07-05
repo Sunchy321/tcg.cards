@@ -5,6 +5,9 @@ import { createReadStream, existsSync } from 'fs';
 import mime from 'mime-types';
 import { cardImagePath } from '@/magic/image';
 
+import { mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
+
 import { locales } from '@data/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -12,10 +15,17 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 router.get('/', async ctx => {
-    const { lang = 'en', set, number, part } = ctx.query;
+    const { lang = 'en', set, number, partString } = mapValues(ctx.query, toSingle);
 
     if (set == null || number == null) {
-        ctx.status = 404;
+        ctx.status = 400;
+        return;
+    }
+
+    const part = partString != null ? Number.parseInt(partString) : undefined;
+
+    if (partString != null && Number.isNaN(part)) {
+        ctx.status = 400;
         return;
     }
 

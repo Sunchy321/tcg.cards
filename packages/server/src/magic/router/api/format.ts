@@ -3,7 +3,8 @@ import { DefaultState, Context } from 'koa';
 
 import Format from '@/magic/db/format';
 
-import { omit } from 'lodash';
+import { omit, mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
 
 import { formats } from '@/../data/magic/basic';
 import { getChanges } from '@/magic/change';
@@ -13,7 +14,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/format');
 
 router.get('/', async ctx => {
-    const { id } = ctx.query;
+    const { id } = mapValues(ctx.query, toSingle);
 
     if (id != null) {
         const format = await Format.findOne({ formatId: id });
@@ -48,7 +49,7 @@ router.get('/', async ctx => {
 });
 
 router.get('/timeline', async ctx => {
-    const { id } = ctx.query;
+    const { id } = mapValues(ctx.query, toSingle);
 
     if (id == null) {
         return;

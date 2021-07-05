@@ -3,6 +3,8 @@ import { DefaultState, Context } from 'koa';
 
 import CR from '@/magic/db/cr';
 
+import { mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
 import { diff } from '@/magic/cr/diff';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -10,7 +12,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/cr');
 
 router.get('/', async ctx => {
-    const { date } = ctx.query;
+    const { date } = mapValues(ctx.query, toSingle);
 
     if (date != null) {
         const menu = await CR.findOne({ date });
@@ -28,7 +30,7 @@ router.get('/', async ctx => {
 });
 
 router.get('/diff', async ctx => {
-    const { from, to } = ctx.query;
+    const { from, to } = mapValues(ctx.query, toSingle);
 
     if (from == null || to == null) {
         return;

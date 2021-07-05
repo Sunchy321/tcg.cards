@@ -16,6 +16,9 @@ import { CardMerger } from '@/magic/scryfall/merge/card';
 import { RulingMerger } from '@/magic/scryfall/merge/ruling';
 import { SetMerger } from '@/magic/scryfall/merge/set';
 
+import { mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/scryfall');
@@ -52,7 +55,7 @@ router.get('/bulk/load',
     async ctx => {
         const ws = await ctx.ws();
 
-        const file = ctx.query.file;
+        const file = mapValues(ctx.query, toSingle).file;
 
         if (file == null) {
             ctx.status = 401;

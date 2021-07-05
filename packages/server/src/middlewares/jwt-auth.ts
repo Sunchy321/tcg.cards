@@ -11,11 +11,12 @@ declare module 'koa' {
 
 function getJwtToken(ctx: Context): string | undefined {
     const auth = ctx.header.authentication;
-    if (auth != null) {
+
+    if (typeof auth === 'string') {
         if (auth.startsWith('Bearer ')) {
             return auth.slice(7).trim();
         }
-    } else if (ctx.query.jwt != null) {
+    } else if (typeof ctx.query.jwt === 'string') {
         return ctx.query.jwt;
     }
 }
