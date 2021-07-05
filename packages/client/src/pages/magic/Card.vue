@@ -11,7 +11,7 @@
                 :layout="layout"
             />
 
-            <div class="artist-line">
+            <div class="artist">
                 {{ artist }}
             </div>
         </div>
@@ -57,12 +57,22 @@
                 <span class="typeline" :lang="lang">{{ typeline }}</span>
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
-            <div class="ability-line" :lang="lang">
+            <div class="ability" :lang="lang">
                 <magic-text :symbol="symbolStyle">{{ text }}</magic-text>
             </div>
-            <div v-if="flavor != null" class="flavor-line" :lang="lang">
+            <div v-if="flavor != null" class="flavor-text" :lang="lang">
                 <magic-text :symbol="symbolStyle">{{ flavor }}</magic-text>
             </div>
+            <grid
+                v-slot="[f, s]"
+                :value="Object.entries(legalities)" :item-width="160"
+                class="legalities"
+            >
+                <div class="flex items-center no-wrap">
+                    <banlist-icon class="q-mr-sm" :status="s" />
+                    <span style="white-space: nowrap;"> {{ $t('magic.format.'+f) }}</span>
+                </div>
+            </grid>
         </div>
 
         <div class="version-column">
@@ -111,7 +121,8 @@
                         <div v-ripple class="flex no-wrap items-center" @click="set = i.set">
                             <span class="code q-mr-sm">{{ i.set }}</span>
                             <span class="set-name">{{ i.name }}</span>
-                            <img class="set-icon q-ml-sm" :src="i.iconUrl">
+                            <img class="set-icon q-mx-sm" :src="i.iconUrl">
+                            <span class="rarity">{{ i.rarity[0] }}</span>
                         </div>
                         <div>
                             <q-btn
@@ -174,7 +185,7 @@
     margin-top: 20px
     text-align: center
 
-.artist-line
+.artist
     margin-top: 20px
     text-align: center
 
@@ -193,12 +204,15 @@
     display: flex
     align-items: center
 
-.ability-line
+.ability
     margin-top: 30px
 
-.flavor-line
+.flavor-text
     margin-top: 20px
     font-style: italic
+
+.legalities
+    margin-top: 20px
 
 .lang-line
     margin-top: 10px
@@ -288,6 +302,11 @@
 
 .set-icon
     height: 1em
+
+.rarity
+    text-transform: uppercase
+    font-weight: 500
+    line-height: 0
 </style>
 
 <script lang="ts">
@@ -301,17 +320,22 @@ import basicSetup from 'setup/basic';
 import magicSetup from 'setup/magic';
 import pageSetup from 'setup/page';
 
+import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import MagicColor from 'components/magic/Color.vue';
 import MagicText from 'components/magic/Text.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
+import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
 import { TextMode, textModes } from 'src/store/games/magic';
 
 import { omit, omitBy, uniq } from 'lodash';
 
 import { apiGet, imageBase } from 'boot/backend';
+
+type BanlistStatus =
+    'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';
 
 interface Card {
     cardId: string;
@@ -379,10 +403,12 @@ interface Card {
             number: string;
         }
     }[];
+
+    legalities: Record<string, BanlistStatus>;
 }
 
 export default defineComponent({
-    components: { CardAvatar, CardImage, MagicColor, MagicText, MagicSymbol },
+    components: { Grid, CardAvatar, CardImage, MagicColor, MagicText, MagicSymbol, BanlistIcon },
 
     setup() {
         const router = useRouter();
@@ -588,6 +614,7 @@ export default defineComponent({
         const artist = computed(() => part.value?.artist);
 
         const relatedCards = computed(() => data.value?.relatedCards ?? []);
+        const legalities = computed(() => data.value?.legalities ?? {});
 
         const partIcon = computed(() => {
             switch (layout.value) {
@@ -707,6 +734,7 @@ export default defineComponent({
             flavorName,
             artist,
             relatedCards,
+            legalities,
 
             partIcon,
             symbolStyle,

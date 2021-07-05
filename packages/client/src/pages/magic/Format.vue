@@ -14,26 +14,28 @@
 
             <div class="col-grow" />
 
-            <q-btn
-                icon="mdi-arrow-left-circle"
-                flat dense round
-                @click="toPrevDate"
-            />
+            <div class="flex items-center">
+                <q-btn
+                    icon="mdi-arrow-left-circle"
+                    flat dense round
+                    @click="toPrevDate"
+                />
 
-            <date-input
-                v-model="date"
-                class="q-mx-sm"
-                dense outlined clearable
-                :date-from="dateFrom"
-                :date-to="dateTo"
-                :events="timelineEvents"
-            />
+                <date-input
+                    v-model="date"
+                    class="q-mx-sm"
+                    dense outlined clearable
+                    :date-from="dateFrom"
+                    :date-to="dateTo"
+                    :events="timelineEvents"
+                />
 
-            <q-btn
-                icon="mdi-arrow-right-circle"
-                flat dense round
-                @click="toNextDate"
-            />
+                <q-btn
+                    icon="mdi-arrow-right-circle"
+                    flat dense round
+                    @click="toNextDate"
+                />
+            </div>
         </div>
 
         <div class="row q-mb-md">
@@ -47,10 +49,7 @@
             :value="banlist" :item-width="300" item-key="card"
         >
             <div class="banlist row items-center q-gutter-sm">
-                <q-icon
-                    :name="statusIcon(status, card)"
-                    :class="'magic-banlist-status-' + status"
-                />
+                <banlist-icon :status="status" />
                 <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                 <div v-else class="date">{{ effectiveDate }}</div>
                 <card-avatar :id="card" :pauper="format === 'pauper'" />
@@ -91,6 +90,7 @@ import pageSetup from 'setup/page';
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
+import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
 import { apiGet } from 'boot/backend';
 
@@ -133,7 +133,7 @@ interface Data {
 type TimelineItem = FormatChange | BanlistChange;
 
 export default defineComponent({
-    components: { Grid, DateInput, CardAvatar },
+    components: { Grid, DateInput, CardAvatar, BanlistIcon },
 
     setup() {
         const store = useStore();
@@ -313,31 +313,6 @@ export default defineComponent({
             timeline.value = timelineResult;
         };
 
-        const statusIcon = (status: string, card: string) => {
-            switch (status) {
-            case 'banned':
-                return 'mdi-close-circle-outline';
-            case 'suspended':
-                return 'mdi-minus-circle-outline';
-            case 'banned_as_commander':
-                return 'mdi-progress-close';
-            case 'banned_as_companion':
-                return 'mdi-heart-circle-outline';
-            case 'restricted':
-                return 'mdi-alert-circle-outline';
-            case 'legal':
-                return 'mdi-check-circle-outline';
-            case 'unavailable':
-                return 'mdi-cancel';
-            case undefined:
-                if (card.startsWith('#{clone:')) {
-                    return 'mdi-content-copy';
-                } else {
-                    return 'mdi-help-circle-outline';
-                }
-            }
-        };
-
         const groupShort = (group: string) => {
             switch (group) {
             case 'ante': return 'ante';
@@ -386,7 +361,6 @@ export default defineComponent({
             sets,
             banlist,
 
-            statusIcon,
             groupShort,
             toPrevDate,
             toNextDate,

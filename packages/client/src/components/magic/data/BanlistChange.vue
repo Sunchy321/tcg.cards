@@ -40,6 +40,7 @@
             <div class="col-grow" />
 
             <q-btn label="sync" flat dense @click="sync" />
+            <q-btn label="assign" flat dense @click="assign" />
             <q-btn icon="mdi-plus" flat dense round @click="newChange" />
             <q-btn v-if="data != null" icon="mdi-upload" flat dense round @click="saveChange" />
         </div>
@@ -136,12 +137,15 @@
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 
+import { useRouter } from 'vue-router';
+
 import controlSetup from 'setup/control';
 
 import DateInput from 'components/DateInput.vue';
 
 import { deburr, last } from 'lodash';
 
+/// *** eslint cannot recognize type imported from vue file ***
 type BanlistStatus =
     'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';
 
@@ -150,7 +154,7 @@ interface BanlistChangeItem {
     format: string;
     status?: BanlistStatus;
     effectiveDate?: string;
-    detail?: { card: string, date?: string, status?: string }[];
+    detail?: { card: string, date?: string, status?: BanlistStatus }[];
 }
 
 interface BanlistChange {
@@ -193,6 +197,8 @@ export default defineComponent({
     components: { DateInput },
 
     setup() {
+        const router = useRouter();
+
         const { controlGet, controlPost } = controlSetup();
 
         const url = ref('');
@@ -406,12 +412,28 @@ export default defineComponent({
             }
         };
 
+        const assign = async () => {
+            const { data } = await controlPost<{
+                cardId: string
+            }[]>('/magic/format/assign-legality');
+
+            if (data != null) {
+                console.log(data);
+
+                data.forEach(v => {
+                    const route = router.resolve('/magic/card/' + v.cardId);
+
+                    window.open(route.href, '_blank');
+                });
+            }
+        };
+
         const addChange = () => {
             if (changes.value.length !== 0) {
                 changes.value.push({
                     card:   '',
                     format: last(changes.value)!.format,
-                    status: last(changes.value)!.status,
+                    status: last(changes.value)!.status ?? 'banned',
                 });
             } else {
                 changes.value.push({
@@ -475,6 +497,7 @@ export default defineComponent({
             changes,
 
             sync,
+            assign,
             parseUrl,
             newChange,
             saveChange,

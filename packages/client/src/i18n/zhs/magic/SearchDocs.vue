@@ -230,8 +230,23 @@
                     <code>:<span class="var rarity">rarity</span></code><br>
                     <code>=<span class="var rarity">rarity</span></code>
                 </td>
-                <td>稀有度为<code class="var rarity">rarity</code>的牌。可用的稀有度单词见下表。</td>
+                <td>稀有度为<code class="var rarity">rarity</code>的牌。稀有度单词见下表。</td>
                 <td><example query="r:m">秘稀牌</example></td>
+            </tr>
+            <tr>
+                <td :rowspan="2"><code>format</code>，<code>f</code></td>
+                <td>
+                    <code>:<span class="var">format</span></code>
+                </td>
+                <td>在赛制<code class="var">format</code>中可用的牌。这包括限用牌。</td>
+                <td><example query="f:pauper">纯铁赛制可用的牌</example></td>
+            </tr>
+            <tr>
+                <td>
+                    <code>:<span class="var">format</span>,<span class="var">status</span></code>
+                </td>
+                <td>在赛制<code class="var">format</code>中可用性为<code class="var">status</code>的牌。可用性见下表。</td>
+                <td><example query="f:vintage,banned">特选赛制禁用的牌</example></td>
             </tr>
         </table>
 
@@ -296,6 +311,28 @@
                 <td><code>mythic</code>（秘稀） = <code>m</code></td>
                 <td><code>special</code>（特殊） = <code>s</code></td>
             </tr>
+        </table>
+
+        <table class="q-mt-md">
+            <caption>可用性列表</caption>
+            <tbody>
+                <tr>
+                    <td><code>legal</code>（可用）</td>
+                    <td><code>restricted</code>（限用）</td>
+                    <td><code>suspended</code>（暂缓使用）</td>
+                    <td><code>banned</code>（禁用）</td>
+                </tr>
+                <tr>
+                    <td><code>banned_as_commander</code>（禁止用作指挥官）</td>
+                    <td><code>banned_as_companion</code>（禁止用作行侣）</td>
+                    <td><code>unavailable</code>（不可用）</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <td :colspan="3">
+                    其中禁用和不可用的区别在于，不可用牌通常是由于牌张不满足赛制本身的要求（系列、稀有度等）而不能使用；禁用牌通常满足这些条件，但被明确宣告为不能使用。
+                </td>
+            </tfoot>
         </table>
     </q-page>
 </template>

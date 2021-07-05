@@ -17,29 +17,27 @@
 
         <div v-for="(c, i) in changes" :key="'change-' + i" class="row items-center q-gutter-sm">
             <q-select v-model="c.category" :options="['release', 'rotation', 'initial', 'other']" dense />
-            <q-select v-model="c.format" :options="[null, ...formatList]" dense />
+            <q-select v-model="c.format" :options="[undefined, ...formatList]" dense />
 
-            <q-input
+            <array-input
+                v-model="c.in"
                 class="col-grow"
-                :model-value="c.in.join(', ')"
                 dense
-                @update:model-value="v => setChangeIn(c, v)"
             >
                 <template #prepend>
                     <q-icon name="mdi-plus" />
                 </template>
-            </q-input>
+            </array-input>
 
-            <q-input
+            <array-input
+                v-model="c.out"
                 class="col-grow"
-                :model-value="c.out.join(', ')"
                 dense
-                @update:model-value="v => setChangeOut(c, v)"
             >
                 <template #prepend>
                     <q-icon name="mdi-minus" />
                 </template>
-            </q-input>
+            </array-input>
 
             <q-btn
                 size="sm"
@@ -70,6 +68,7 @@ import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 
 import controlSetup from 'setup/control';
 
+import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 
 interface FormatChangeDetail {
@@ -87,7 +86,7 @@ interface FormatChange {
 export default defineComponent({
     name: 'DataFormatChange',
 
-    components: { DateInput },
+    components: { ArrayInput, DateInput },
 
     setup() {
         const { controlGet, controlPost } = controlSetup();
@@ -188,7 +187,6 @@ export default defineComponent({
         const addChange = () => {
             changes.value.push({
                 category: 'release',
-                format:   '',
                 in:       [],
                 out:      [],
             });

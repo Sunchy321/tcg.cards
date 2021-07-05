@@ -3,7 +3,14 @@
         v-model="text"
         :color="textChanged ? 'positive' : null"
         @keypress.enter="updateValue"
-    />
+    >
+        <template #prepend>
+            <slot name="prepend" />
+        </template>
+        <template #append>
+            <slot name="append" />
+        </template>
+    </q-input>
 </template>
 
 <style lang="sass" scoped>

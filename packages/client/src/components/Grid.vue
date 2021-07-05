@@ -55,8 +55,7 @@ export default defineComponent({
                 return;
             }
 
-            // magic number
-            const margin = 16;
+            const margin = 0;
 
             const panelWidth = root.value.clientWidth;
             const contentWidth = panelWidth - 2 * margin;
