@@ -60,8 +60,8 @@
             <div class="ability" :lang="lang">
                 <magic-text :symbol="symbolStyle">{{ text }}</magic-text>
             </div>
-            <div v-if="flavor != null" class="flavor-text" :lang="lang">
-                <magic-text :symbol="symbolStyle">{{ flavor }}</magic-text>
+            <div v-if="flavorText != null" class="flavor-text" :lang="lang">
+                <magic-text :symbol="symbolStyle">{{ flavorText }}</magic-text>
             </div>
             <grid
                 v-slot="[f, s]"
@@ -73,6 +73,13 @@
                     <span style="white-space: nowrap;"> {{ $t('magic.format.'+f) }}</span>
                 </div>
             </grid>
+            <div v-if="rulings.length>0" class="rulings">
+                <div v-for="(r, i) in rulings" :key="i">
+                    <magic-text>
+                        {{ r.date }}: {{ r.text }}
+                    </magic-text>
+                </div>
+            </div>
         </div>
 
         <div class="version-column">
@@ -212,6 +219,9 @@
     font-style: italic
 
 .legalities
+    margin-top: 20px
+
+.rulings
     margin-top: 20px
 
 .lang-line
@@ -402,6 +412,12 @@ interface Card {
             set: string;
             number: string;
         }
+    }[];
+
+    rulings: {
+        source: string,
+        date: string,
+        text: string,
     }[];
 
     legalities: Record<string, BanlistStatus>;
@@ -609,11 +625,12 @@ export default defineComponent({
         const typeline = computed(() => part.value?.[textMode.value]?.typeline);
         const text = computed(() => part.value?.[textMode.value]?.text);
 
-        const flavor = computed(() => part.value?.flavorText);
+        const flavorText = computed(() => part.value?.flavorText);
         const flavorName = computed(() => part.value?.flavorName);
         const artist = computed(() => part.value?.artist);
 
         const relatedCards = computed(() => data.value?.relatedCards ?? []);
+        const rulings = computed(() => data.value?.rulings ?? []);
         const legalities = computed(() => data.value?.legalities ?? {});
 
         const partIcon = computed(() => {
@@ -730,10 +747,11 @@ export default defineComponent({
             colorIndicator,
             typeline,
             text,
-            flavor,
+            flavorText,
             flavorName,
             artist,
             relatedCards,
+            rulings,
             legalities,
 
             partIcon,

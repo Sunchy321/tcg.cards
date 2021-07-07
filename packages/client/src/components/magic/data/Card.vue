@@ -153,7 +153,7 @@
                 </tr>
             </table>
 
-            <q-input v-model="flavor" label="Flavor" outlined type="textarea" />
+            <q-input v-model="flavorText" autogrow label="Flavor Text" outlined type="textarea" />
             <q-input v-model="flavorName" label="Flavor Name" outlined dense />
 
             <q-input
@@ -458,7 +458,7 @@ export default defineComponent({
         const printedTypeline = partField2('printed', 'typeline');
         const printedText = partField2('printed', 'text');
 
-        const flavor = partField1('flavorText', '');
+        const flavorText = partField1('flavorText', '');
         const flavorName = partField1('flavorName', '');
 
         const relatedCards = computed({
@@ -537,8 +537,8 @@ export default defineComponent({
                 unifiedText.value = unifiedText.value.replace(/~/g, '～').replace(/\/\//g, '／').trim();
                 printedText.value = printedText.value.replace(/~/g, '～').replace(/\/\//g, '／').trim();
 
-                if (flavor.value != null) {
-                    flavor.value = flavor.value
+                if (flavorText.value != null) {
+                    flavorText.value = flavorText.value
                         .replace(/~/g, '～')
                         .replace(/(?<!\.)\.\.\.(?!\.)/g, '…')
                         .replace(/」 ?～/g, '」\n～')
@@ -750,7 +750,7 @@ export default defineComponent({
             printedName,
             printedTypeline,
             printedText,
-            flavor,
+            flavorText,
             flavorName,
             relatedCards,
             multiverseId,

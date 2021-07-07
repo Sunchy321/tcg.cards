@@ -4,11 +4,8 @@
         :color="textChanged ? 'positive' : null"
         @keypress.enter="updateValue"
     >
-        <template #prepend>
-            <slot name="prepend" />
-        </template>
-        <template #append>
-            <slot name="append" />
+        <template v-for="(_, slot) of $slots" #[slot]="scope">
+            <slot :name="slot" v-bind="scope" />
         </template>
     </q-input>
 </template>
