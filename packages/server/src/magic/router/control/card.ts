@@ -7,7 +7,7 @@ import { Aggregate } from 'mongoose';
 
 import parseGatherer from '@/magic/gatherer/parse';
 
-import { omit, omitBy, mapValues } from 'lodash';
+import { omit, omitBy, mapValues, isEqual, sortBy } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@data/magic/special';
 
@@ -79,7 +79,33 @@ router.post('/update', async ctx => {
         if (data.relatedCards.every(r => r.version == null)) {
             await Card.updateMany(
                 { cardId: data.cardId },
-                { relatedCards: data.relatedCards },
+                { relatedCards: sortBy(data.relatedCards, ['relation', 'cardId']) },
+            );
+        }
+
+        for (const r of data.relatedCards) {
+            // don't consider non-token, non-emblem relation
+            if (!['token', 'emblem'].includes(r.relation)) {
+                continue;
+            }
+
+            // already added this entry
+            if (old != null && old.relatedCards.some(ro => isEqual(r, ro))) {
+                continue;
+            }
+
+            const related = await Card.findOne({ cardId: r.cardId });
+
+            // no such token or already added this entry
+            if (related == null || related.relatedCards.some(r => r.relation === 'source' && r.cardId === data.cardId)) {
+                continue;
+            }
+
+            const newRelatedCards = [...related.relatedCards, { relation: 'source', cardId: data.cardId }];
+
+            await Card.updateMany(
+                { cardId: r.cardId },
+                { relatedCards: sortBy(newRelatedCards, ['relation', 'cardId']) },
             );
         }
 

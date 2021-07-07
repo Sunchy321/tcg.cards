@@ -73,6 +73,12 @@ export interface ICard {
         }
     }[],
 
+    rulings: {
+        source: string,
+        date: string,
+        text: string,
+    }[],
+
     keywords: string[],
     producedMana?: string,
 
@@ -192,6 +198,13 @@ const CardSchema = new Schema<ICard>({
             },
             default: undefined,
         },
+    }],
+
+    rulings: [{
+        _id:    false,
+        source: String,
+        date:   String,
+        text:   String,
     }],
 
     keywords:     [String],

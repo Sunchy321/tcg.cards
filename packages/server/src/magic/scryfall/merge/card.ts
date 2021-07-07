@@ -252,6 +252,7 @@ function toCard(data: NSCard): ICard {
         })),
 
         relatedCards: [],
+        rulings:      [],
 
         keywords:     data.keywords,
         producedMana: data.produced_mana != null

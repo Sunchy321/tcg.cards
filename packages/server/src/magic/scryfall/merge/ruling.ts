@@ -1,12 +1,32 @@
 import Task from '@/common/task';
 
 import ScryfallRuling, { IRuling as IScryfallRuling } from '../../db/scryfall/ruling';
-import Card, { ICard } from '../../db/card';
+import Card from '../../db/card';
 
 import { IStatus } from '../interface';
 
+import { cloneDeep } from 'lodash';
+
 async function mergeWith(data: IScryfallRuling) {
-    // TODO
+    const card = await Card.findOne({ 'scryfall.oracleId': data.oracle_id });
+
+    if (card == null) {
+        return;
+    }
+
+    const rulings = cloneDeep(card.rulings);
+
+    if (rulings.some(r => r.source === data.source && r.date === data.published_at && r.text === data.comment)) {
+        return;
+    }
+
+    rulings.push({
+        source: data.source,
+        date:   data.published_at,
+        text:   data.comment,
+    });
+
+    await Card.updateMany({ cardId: card.cardId }, { rulings });
 }
 
 export class RulingMerger extends Task<IStatus> {
