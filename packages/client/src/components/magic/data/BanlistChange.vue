@@ -1,5 +1,20 @@
 <template>
     <div class="q-pa-md">
+        <div v-if="progress != null" class="row items-center">
+            <div class="q-mr-sm">
+                {{ progressLabel }}
+            </div>
+
+            <q-linear-progress
+                rounded
+                color="primary"
+                :indeterminate="progressValue == null"
+                :value="progressValue"
+                size="15px"
+                class="flex-grow"
+            />
+        </div>
+
         <q-input
             v-model="url"
             dense
@@ -134,6 +149,25 @@
     </div>
 </template>
 
+<style lang="sass">
+.banlist-status-banned,
+.banlist-status-suspended,
+.banlist-status-banned_as_commander,
+.banlist-status-banned_as_companion,
+.color-negative
+    color: #F33
+
+.banlist-status-restricted
+    color: #EA0
+
+.banlist-status-legal,
+.color-positive
+    color: #0A0
+
+.banlist-status-unavailable
+    color: #777
+</style>
+
 <script lang="ts">
 import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 
@@ -182,6 +216,25 @@ interface BanlistChangeProfile {
     date: string;
 }
 
+interface Status {
+    amount: {
+        count: number;
+        total: number;
+    };
+
+    time: {
+        elapsed: number;
+        remaining: number;
+    };
+
+    wrongs: {
+        cardId: string;
+        format: string;
+        data: string;
+        scryfall: string;
+    }[]
+}
+
 function toIdentifier(text: string) {
     return deburr(text)
         .trim()
@@ -189,6 +242,30 @@ function toIdentifier(text: string) {
         .replace(' // ', '____')
         .replace('/', '____')
         .replace(/[^a-z0-9]/g, '_');
+}
+
+function formatTime(time: number) {
+    let result = '';
+
+    time = Math.floor(time / 1000);
+
+    result = `${time % 60}`;
+
+    time = Math.floor(time / 60);
+
+    result = `${time % 60}:${result}`;
+
+    time = Math.floor(time / 60);
+
+    result = `${time % 60}:${result}`;
+
+    time = Math.floor(time / 24);
+
+    if (time > 0) {
+        result = `${time} ${result}`;
+    }
+
+    return result;
 }
 
 export default defineComponent({
@@ -199,7 +276,41 @@ export default defineComponent({
     setup() {
         const router = useRouter();
 
-        const { controlGet, controlPost } = controlSetup();
+        const { controlGet, controlPost, controlWs } = controlSetup();
+
+        const progress = ref<Status|null>(null);
+
+        const progressValue = computed(() => {
+            const prog = progress.value;
+
+            if (prog != null && prog.amount.total != null) {
+                return prog.amount.count / prog.amount.total;
+            } else {
+                return null;
+            }
+        });
+
+        const progressLabel = computed(() => {
+            const prog = progress.value;
+
+            if (prog != null) {
+                let result = '';
+
+                result += prog.amount.count;
+
+                if (prog.amount.total != null) {
+                    result += `/${prog.amount.total}`;
+                }
+
+                if (prog.time != null) {
+                    result += ` (${formatTime(prog.time.remaining)})`;
+                }
+
+                return result;
+            } else {
+                return '';
+            }
+        });
 
         const url = ref('');
 
@@ -270,7 +381,7 @@ export default defineComponent({
             'unavailable',
         ].map(v => ({
             icon:  statusIcon(v),
-            class: 'magic-banlist-status-' + v,
+            class: 'banlist-status-' + v,
             value: v,
         }));
 
@@ -413,19 +524,32 @@ export default defineComponent({
         };
 
         const assign = async () => {
-            const { data } = await controlPost<{
-                cardId: string
-            }[]>('/magic/format/assign-legality');
+            const ws = controlWs('/magic/format/assign-legality');
 
-            if (data != null) {
-                console.log(data);
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    progress.value = JSON.parse(data) as Status;
+                };
 
-                data.forEach(v => {
-                    const route = router.resolve('/magic/card/' + v.cardId);
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    const wrongs = progress.value?.wrongs ?? [];
 
-                    window.open(route.href, '_blank');
-                });
-            }
+                    if (wrongs.length > 0) {
+                        console.log(wrongs);
+
+                        wrongs.forEach(v => {
+                            const route = router.resolve('/magic/card/' + v.cardId);
+
+                            window.open(route.href, '_blank');
+                        });
+                    }
+
+                    progress.value = null;
+
+                    resolve(undefined);
+                };
+            });
         };
 
         const addChange = () => {
@@ -480,6 +604,10 @@ export default defineComponent({
         onMounted(loadData);
 
         return {
+            progress,
+            progressValue,
+            progressLabel,
+
             formatList,
             statusList,
 
