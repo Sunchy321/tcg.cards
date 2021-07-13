@@ -1,7 +1,7 @@
 <template>
     <div class="q-pa-md row">
         <div class="card-image col-3 q-mr-md">
-            <q-img :src="imageUrl" :ratio="745/1040" native-context-menu :class="{ rotate }">
+            <q-img :src="imageUrl" :ratio="745/1040" native-context-menu :class="{ rotate, aftermath }">
                 <template #error>
                     <div class="card-not-found">
                         <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
@@ -210,6 +210,9 @@ table
 .rotate
     transform: rotate(90deg) scale(calc(745/1040))
 
+.aftermath
+    transform: rotate(-90deg) scale(calc(745/1040))
+
 @media screen and (max-width: 1000px)
     .card-image
         display: none
@@ -412,7 +415,8 @@ export default defineComponent({
         });
 
         const layoutOptions = ['normal', 'split', 'multipart'];
-        const rotate = computed(() => ['split'].includes(layout.value));
+        const rotate = computed(() => ['split', 'planar'].includes(layout.value));
+        const aftermath = computed(() => layout.value === 'aftermath' && partIndex.value === 1);
         const partCount = computed(() => data.value?.parts?.length ?? 0);
 
         const partOptions = computed(() => {
@@ -727,6 +731,7 @@ export default defineComponent({
         return {
             unlock,
             rotate,
+            aftermath,
             replaceFrom,
             replaceTo,
             search,

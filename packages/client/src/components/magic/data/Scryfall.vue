@@ -164,7 +164,7 @@ interface Database {
     set: number;
 }
 
-interface Progress{
+interface Progress {
     method: 'get' | 'load' | 'merge',
     type: 'card' | 'ruling' | 'set' | 'image',
 
