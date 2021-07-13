@@ -1,8 +1,12 @@
+import Card, { ICard, CardType } from '@/magic/db/card';
+import ScryfallCard, { ICard as IScryfallCard } from '@/magic/db/scryfall/card';
+import Format, { IFormat } from '@/magic/db/format';
 
-import { ICard, CardType } from '@/magic/db/card';
-import { IFormat } from '@/magic/db/format';
-
+import Task from '@/common/task';
 import { Legalities } from '@/magic/scryfall/interface';
+
+import { formats as formatList } from '@data/magic/basic';
+import { toGenerator, toBucket } from '@/common/to-bucket';
 
 export interface CardData {
     _id: string;
@@ -251,4 +255,120 @@ export function checkLegality(data: CardData, legality: ICard['legalities'], scr
             return f;
         }
     }
+}
+
+interface Status {
+    amount: {
+        count: number;
+        total: number;
+    };
+
+    time: {
+        elapsed: number;
+        remaining: number;
+    };
+
+    wrongs: {
+        cardId: string;
+        format: string;
+        data: string;
+        scryfall: string;
+    }[]
+}
+
+export class LegalityAssigner extends Task<Status> {
+    async startImpl(): Promise<void> {
+        const allCards = await Card.aggregate<CardData>([
+            {
+                $group: {
+                    _id: '$cardId',
+
+                    cardType:   { $first: '$cardType' },
+                    legalities: { $first: '$legalities' },
+
+                    parts: {
+                        $first: {
+                            $map: {
+                                input: '$parts',
+                                as:    'parts',
+                                in:    {
+                                    typeMain: '$$parts.typeMain',
+                                },
+                            },
+                        },
+                    },
+
+                    versions: {
+                        $addToSet: {
+                            set:         '$set',
+                            rarity:      '$rarity',
+                            releaseDate: '$releaseDate',
+                        },
+                    },
+
+                    scryfall: {
+                        $first: '$scryfall.oracleId',
+                    },
+                },
+            },
+        ]);
+
+        let count = 0;
+        const total = allCards.length;
+
+        const formats = await Format.find();
+
+        formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
+
+        const wrongs: Status['wrongs'] = [];
+
+        const start = Date.now();
+
+        this.intervalProgress(500, function () {
+            const elapsed = Date.now() - start;
+
+            return {
+                amount: { total, count },
+
+                time: {
+                    elapsed,
+                    remaining: elapsed / count * (total - count),
+                },
+
+                wrongs,
+            };
+        });
+
+        for (const cards of toBucket<CardData>(toGenerator(allCards), 500)) {
+            const scryfalls = await ScryfallCard.aggregate<IScryfallCard>()
+                .match({ oracle_id: { $in: cards.map(c => c.scryfall) } })
+                .group({ _id: '$oracle_id', data: { $first: '$$ROOT' } })
+                .replaceRoot('data');
+
+            for (const c of cards) {
+                const result = await getLegality(c, formats);
+
+                const scryfall = scryfalls.find(s => s.oracle_id === c.scryfall);
+
+                if (scryfall != null) {
+                    const check = checkLegality(c, result, scryfall.legalities);
+
+                    if (check != null) {
+                        wrongs.push({
+                            cardId:   c._id,
+                            format:   check,
+                            data:     result[check],
+                            scryfall: scryfall.legalities[check],
+                        });
+                    }
+                }
+
+                await Card.updateMany({ cardId: c._id }, { legalities: result });
+
+                ++count;
+            }
+        }
+    }
+
+    stopImpl(): void { /* no-op */ }
 }
