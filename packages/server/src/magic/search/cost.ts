@@ -3,6 +3,8 @@ import { QueryError } from '@/search';
 
 import { flatten } from 'lodash';
 
+import { specificManaSymbols } from '@data/magic/basic';
+
 export default function costQuery(
     param: string | RegExp,
     op: string | undefined,
@@ -17,13 +19,9 @@ export default function costQuery(
     if (param === 'null') {
         switch (op) {
         case ':':
-            return {
-                parts: { $elemMatch: { cost: { $exists: false } } },
-            };
+            return { 'parts.cost': { $exists: false } };
         case '!:':
-            return {
-                parts: { $elemMatch: { cost: { $exists: true } } },
-            };
+            return { 'parts.cost': { $exists: true } };
         default:
             throw new QueryError({
                 type:  'operator/unsupported',
@@ -37,26 +35,39 @@ export default function costQuery(
         .split(/\{([^{}]*)\}|(\d{2,})|(H[WR1])|(.(?:\/.)?)/)
         .filter(v => v !== '' && v != null);
 
-    const costMap: Record<string, number> = {};
+    const costMap = Object.fromEntries(
+        ['', ...specificManaSymbols].map(s => [s, 0]),
+    );
 
     for (const c of costs) {
         if (/^\d+$/.test(c)) {
-            costMap[''] = (costMap[''] ?? 0) + Number.parseInt(c);
+            costMap[''] += Number.parseInt(c);
         } else {
-            costMap[c] = (costMap[c] ?? 0) + 1;
+            costMap[c]++;
         }
     }
+
+    const notEqual = Object.entries(costMap)
+        .map(([k, v]) => {
+            if (v !== 0) {
+                return { ['parts.__costMap.' + k]: { $ne: v } };
+            } else {
+                return { ['parts.__costMap.' + k]: { $exists: true, $ne: 0 } };
+            }
+        });
 
     switch (op) {
     case ':':
         return Object.fromEntries(
             Object.entries(costMap)
+                .filter(e => e[1] !== 0)
                 .map(([k, v]) => ['parts.__costMap.' + k, k === '' ? v : { $gte: v }]),
         );
     case '!:':
         return {
             $or: flatten(
                 Object.entries(costMap)
+                    .filter(e => e[1] !== 0)
                     .map(([k, v]) => [
                         { ['parts.__costMap.' + k]: { $lt: v } },
                         { ['parts.__costMap.' + k]: { $exists: false } },
@@ -64,12 +75,21 @@ export default function costQuery(
             ),
         };
     case '=':
-        return { 'parts.__costMap': costMap };
+        return Object.fromEntries(
+            Object.entries(costMap)
+                .map(([k, v]) => ['parts.__costMap.' + k, v]),
+        );
     case '!=':
-        return { 'parts.__costMap': { $ne: costMap } };
+        return {
+            $or: [
+                { 'parts.cost': { $exists: false } },
+                ...notEqual,
+            ],
+        };
     case '>=':
         return Object.fromEntries(
             Object.entries(costMap)
+                .filter(e => e[1] !== 0)
                 .map(([k, v]) => ['parts.__costMap.' + k, { $gte: v }]),
         );
     case '>':
@@ -77,45 +97,35 @@ export default function costQuery(
             $and: [
                 Object.fromEntries(
                     Object.entries(costMap)
+                        .filter(e => e[1] !== 0)
                         .map(([k, v]) => ['parts.__costMap.' + k, { $gte: v }]),
                 ),
-                { 'parts.__costMap': { $ne: costMap } },
+                { $or: notEqual },
             ],
         };
-    case '<':
-    case '<=': {
-        const symbols = Object.keys(costMap).filter(v => v !== '');
-
-        // a cost {0} always less than any other cost
-        symbols.push('0');
-
-        if (costMap[''] != null) {
-            symbols.push(
-                '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
-                '1000000',
-            );
-        }
-
+    case '<=':
         return {
-            $and: [
-                { 'parts.cost': { $exists: true } },
-
-                // cost can only contains specific symbol
-                { 'parts.cost': { $not: { $elemMatch: { $nin: symbols } } } },
-
-                // symbol count restriction
-                ...Object.entries(costMap).map(([k, v]) => ({
+            $and: Object.entries(costMap)
+                .map(([k, v]) => ({
                     $or: [
                         { ['parts.__costMap.' + k]: { $lte: v } },
                         { ['parts.__costMap.' + k]: { $exists: false } },
                     ],
                 })),
-
-                ...op === '<' ? [{ 'parts.__costMap': { $ne: costMap } }] : [],
+        };
+    case '<':
+        return {
+            $and: [
+                ...Object.entries(costMap)
+                    .map(([k, v]) => ({
+                        $or: [
+                            { ['parts.__costMap.' + k]: { $lte: v } },
+                            { ['parts.__costMap.' + k]: { $exists: false } },
+                        ],
+                    })),
+                { $or: notEqual },
             ],
         };
-    }
     default:
         throw new QueryError({
             type:  'operator/unsupported',
