@@ -134,14 +134,6 @@ export default defineComponent({
                 return 'mdi-home';
             }
 
-            if (route.path === `/${game.value}`) {
-                return 'mdi-home';
-            }
-
-            if (route.path === `/${game.value}/`) {
-                return 'mdi-home';
-            }
-
             return `img:${game.value}/logo.svg`;
         });
 

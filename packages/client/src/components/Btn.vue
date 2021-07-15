@@ -1,6 +1,5 @@
 <template>
     <q-btn
-        :color="actualColor"
         :icon="icon"
         v-bind="{ ...$props, color: actualColor }"
         @click="(...args) => onEvent('click', ...args)"
