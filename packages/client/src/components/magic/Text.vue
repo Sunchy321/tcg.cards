@@ -34,9 +34,10 @@ export default defineComponent({
         const store = useStore();
 
         const symbols = store.getters['magic/data'].symbols || [];
-        const symbolType = props.symbol ?? [];
 
         return () => {
+            const symbolType = props.symbol ?? [];
+
             const defaultSlot = slots.default!();
 
             const result: (string | VNode)[] = [];
