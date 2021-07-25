@@ -526,8 +526,8 @@ export default defineComponent({
                     numbers,
                     rarity,
                     iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
-                    name:    currVersion.name[store.getters['magic/locale']] ??
-                        currVersion.name[store.getters['magic/locales'][0]] ?? s,
+                    name:    currVersion.name?.[store.getters['magic/locale']] ??
+                        currVersion.name?.[store.getters['magic/locales'][0]] ?? s,
                     symbolStyle: currVersion.symbolStyle,
                 };
             });

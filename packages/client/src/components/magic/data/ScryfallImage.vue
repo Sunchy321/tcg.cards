@@ -18,6 +18,8 @@
         <div v-if="progress != null" class="q-my-md row justify-center">
             {{ progress.current.set }}:{{ progress.current.lang }}
             {{ progress.overall.count }}/{{ progress.overall.total }}
+
+            ({{ progress.failed }})
         </div>
 
         <div v-if="progress != null">
@@ -67,6 +69,7 @@ interface Progress {
     overall: { count: number, total: number }
     current: { set: string, lang: string; }
     status: Record<string, string>
+    failed: number;
 }
 
 export default defineComponent({
@@ -91,19 +94,7 @@ export default defineComponent({
 
         const status = computed(() => progress.value?.status ?? {});
 
-        const statusKey = computed(() => {
-            return Object.keys(status.value).sort((a, b) => {
-                const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a)![1];
-                const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b)![1];
-
-                const len = Math.max(ma.length, mb.length);
-
-                const pa = ma.padStart(len, '0');
-                const pb = mb.padStart(len, '0');
-
-                return pa < pb ? -1 : pa > pb ? 1 : 0;
-            });
-        });
+        const statusKey = computed(() => Object.keys(status.value));
 
         const getImage = async() => {
             progress.value = null;

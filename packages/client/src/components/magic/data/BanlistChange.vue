@@ -538,7 +538,7 @@ export default defineComponent({
                     if (wrongs.length > 0) {
                         console.log(wrongs);
 
-                        wrongs.forEach(v => {
+                        wrongs.slice(0, 10).forEach(v => {
                             const route = router.resolve('/magic/card/' + v.cardId);
 
                             window.open(route.href, '_blank');
