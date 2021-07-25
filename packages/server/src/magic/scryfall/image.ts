@@ -22,6 +22,7 @@ interface IImageStatus {
     overall: { count: number, total: number }
     current: { set: string, lang: string; }
     status: Record<string, string>
+    failed: number;
 }
 
 export class ImageGetter extends Task<IImageStatus> {
@@ -32,6 +33,7 @@ export class ImageGetter extends Task<IImageStatus> {
     projCount = 0;
     projTotal: number;
     total: number;
+    failed = 0;
     todoTasks: IImageTask[] = [];
     taskMap: Record<string, [IImageTask, FileSaver]> = {};
     statusMap: Record<string, string> = {};
@@ -47,7 +49,7 @@ export class ImageGetter extends Task<IImageStatus> {
             .allowDiskUse(true)
             .match({ image_status: { $in: ['lowres', 'highres_scan'] } })
             .group({
-                _id:   { set: '$set_id', lang: '$lang' },
+                _id:   { set: '$set', lang: '$lang' },
                 infos: {
                     $push: {
                         number:    '$collector_number',
@@ -55,7 +57,9 @@ export class ImageGetter extends Task<IImageStatus> {
                         partsUris: '$card_faces.image_uris',
                     },
                 },
-            });
+            })
+            .addFields({ langIsEn: { $eq: ['$_id.lang', 'en'] } })
+            .sort({ 'langIsEn': -1, '_id.lang': 1 });
 
         const total = await Card.aggregate(aggregate.pipeline()).allowDiskUse(true).count('total');
 
@@ -71,6 +75,7 @@ export class ImageGetter extends Task<IImageStatus> {
                 overall: { count: this.projCount, total: this.projTotal },
                 current: { set: this.set, lang: this.lang },
                 status:  this.statusMap,
+                failed:  this.failed,
             };
         });
 
@@ -88,7 +93,17 @@ export class ImageGetter extends Task<IImageStatus> {
             this.taskMap = {};
             this.statusMap = {};
 
-            for (const info of proj.infos) {
+            for (const info of proj.infos.sort((a, b) => {
+                const ma = /^(.*?)(?:-\d|[ab★])?$/.exec(a.number)![1];
+                const mb = /^(.*?)(?:-\d|[ab★])?$/.exec(b.number)![1];
+
+                const len = Math.max(ma.length, mb.length);
+
+                const pa = ma.padStart(len, '0');
+                const pb = mb.padStart(len, '0');
+
+                return pa < pb ? -1 : pa > pb ? 1 : 0;
+            })) {
                 if (info.uris != null) {
                     const name = info.number;
                     this.todoTasks.push({
@@ -166,8 +181,12 @@ export class ImageGetter extends Task<IImageStatus> {
     }
 
     private pushTask() {
-        while (this.working() < 15 && this.rest() > 0) {
-            const task = this.todoTasks.shift()!;
+        while (this.working() < 20 && this.rest() > 0) {
+            const randomIndex = Math.floor(Math.random() * this.todoTasks.length);
+
+            const task = this.todoTasks[randomIndex];
+
+            this.todoTasks.splice(randomIndex, 1);
 
             if (task != null) {
                 const savers = new FileSaver(task.uri, task.path);
@@ -180,16 +199,19 @@ export class ImageGetter extends Task<IImageStatus> {
                     if (this.rest() === 0 && this.working() === 0) {
                         this.emit('all-end');
                     }
-                }).on('error', err => {
+                }).on('error', () => {
+                    delete this.taskMap[task.name];
                     this.statusMap[task.name] = 'failed';
 
-                    for (const k in this.taskMap) {
-                        this.taskMap[k][1].stop();
-                        this.statusMap[k] = 'aborted';
-                    }
+                    ++this.failed;
 
-                    this.postIntervalProgress();
-                    this.emit('error', err);
+                    this.taskMap[task.name]?.[1]?.stop();
+
+                    this.pushTask();
+
+                    if (this.rest() === 0 && this.working() === 0) {
+                        this.emit('all-end');
+                    }
                 });
 
                 this.taskMap[task.name] = [task, savers];

@@ -8,8 +8,7 @@ import { Diff } from 'deep-diff';
 
 export type ICardBase = {
     card_id: UUID;
-    set_id: string;
-} & Omit<RawCard, 'object' | 'id' | 'set'>;
+} & Omit<RawCard, 'object' | 'id'>;
 
 export type ICard = ICardBase & {
     __file: string;
@@ -136,6 +135,7 @@ const CardSchema = new Schema({
     set_type:          String,
     set_uri:           String,
     set_id:            String,
+    set:               String,
     story_spotlight:   Boolean,
     textless:          Boolean,
     variation:         Boolean,

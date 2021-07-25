@@ -203,7 +203,7 @@ function toCard(data: NSCard): ICard {
         cardId: getId(data),
 
         lang:   data.lang,
-        set:    data.set_id,
+        set:    data.set,
         number: data.collector_number,
 
         manaValue:     data.cmc,
@@ -326,24 +326,6 @@ function toCard(data: NSCard): ICard {
     };
 }
 
-function deleteImage(data: ICard) {
-    for (const type of ['png', 'border_crop', 'art_crop', 'large', 'normal', 'small']) {
-        const path = cardImagePath(type, data.set, data.lang, data.number);
-
-        if (existsSync(path)) {
-            unlinkSync(path);
-        }
-
-        for (let i = 0; i < data.parts.length; ++i) {
-            const path = cardImagePath(type, data.set, data.lang, data.number, i);
-
-            if (existsSync(path)) {
-                unlinkSync(path);
-            }
-        }
-    }
-}
-
 const ignoreList: (keyof ISCardBase)[] = [
     'all_parts',
     'artist_ids',
@@ -408,16 +390,14 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
         }
 
         switch (d.path![0]) {
-        case 'set_id':
+        case 'set':
             if (card.set !== data.set) {
-                deleteImage(card);
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (card as any).set = data.set;
             }
             break;
         case 'collector_number':
             if (card.number !== data.number) {
-                deleteImage(card);
                 card.number = data.number;
             }
             break;
@@ -509,13 +489,23 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
             break;
         case 'highres_image':
             if (card.hasHighResImage !== data.hasHighResImage) {
-                deleteImage(card);
+                for (const type of ['png', 'border_crop', 'art_crop', 'large', 'normal', 'small']) {
+                    const path = cardImagePath(type, data.set, data.lang, data.number);
+
+                    if (existsSync(path)) {
+                        unlinkSync(path);
+                    }
+
+                    for (let i = 0; i < data.parts.length; ++i) {
+                        const path = cardImagePath(type, data.set, data.lang, data.number, i);
+
+                        if (existsSync(path)) {
+                            unlinkSync(path);
+                        }
+                    }
+                }
+
                 card.hasHighResImage = data.hasHighResImage;
-            }
-            break;
-        case 'legalities':
-            if (!isEqual(card.legalities, data.legalities)) {
-                card.legalities = data.legalities;
             }
             break;
         case 'arenaId':
@@ -622,6 +612,11 @@ export class CardMerger extends Task<IStatus> {
                             await oldCards[0].save();
                         }
                     } else {
+                        // Scryfall mowu is bugged. ignore.
+                        if (newCards[0].card_id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
+                            continue;
+                        }
+
                         throw new Error('mismatch object count');
                     }
                 } else if (newCards.length === 2) {

@@ -111,7 +111,7 @@ export default class BulkLoader extends Task<IStatus> {
 
     private async insertCards(rawJsons: RawCard[]) {
         const jsons = rawJsons.map(
-            ({ id, set, ...rest }) => ({ card_id: id, set_id: set, ...rest, __file: this.file } as ICard),
+            ({ id, ...rest }) => ({ card_id: id, ...rest, __file: this.file } as ICard),
         );
 
         const docs = await Card.find({ card_id: { $in: jsons.map(j => j.card_id) } });

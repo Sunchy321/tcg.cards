@@ -149,6 +149,7 @@ export interface RawCard {
     set_type: string,
     set_uri: URI,
     set: string,
+    set_id: string,
     story_spotlight: boolean,
     textless: boolean,
     variation: boolean,
