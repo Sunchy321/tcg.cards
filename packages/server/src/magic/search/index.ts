@@ -316,6 +316,13 @@ export default {
                 }
             },
         },
+
+        {
+            id:    'en-printed',
+            query: () => ({
+                '__tags.printed': true,
+            }),
+        },
     ],
 
     aggregate: async (q, o) => {
@@ -372,7 +379,7 @@ export default {
 
             return { total, cards: result.map((v) => v._id) };
         } else if (dev) {
-            const cards = await Card.aggregate(aggregate.pipeline()).limit(1);
+            const cards = await Card.aggregate(aggregate.pipeline()).sort({ releaseDate: 1 }).limit(1);
 
             return { ...cards[0], total };
         } else {
@@ -381,6 +388,9 @@ export default {
                 aggregate
                     .addFields({ firstPart: { $first: '$part' } })
                     .sort({ 'part.unified.name': sortDir });
+                break;
+            case 'date':
+                aggregate.sort({ releaseDate: sortDir });
                 break;
             case 'id':
             default:

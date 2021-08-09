@@ -53,6 +53,10 @@ router.post('/update', async ctx => {
         }
     }
 
+    if (data?.__tags?.printed) {
+        delete data.__tags.printed;
+    }
+
     const old = await Card.findById(data._id);
 
     if (old != null) {
@@ -110,7 +114,7 @@ router.post('/update', async ctx => {
         }
 
         await Card.updateMany(
-            { cardId: data.cardId },
+            { cardId: data.cardId, lang: data.lang },
             { '__tags.oracleUpdated': false },
         );
     }
@@ -226,7 +230,7 @@ router.get('/need-edit', async ctx => {
     const getter = needEditGetters[type];
 
     if (getter == null) {
-        ctx.status = 404;
+        ctx.status = 400;
         return;
     }
 

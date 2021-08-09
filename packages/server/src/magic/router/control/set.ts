@@ -48,24 +48,19 @@ const rarities = [
 ];
 
 router.post('/calc', async ctx => {
-    // const { id } = ctx.request.body;
-
-    // if (id == null) {
-    //     return;
-    // }
-
-    // const set = await Set.findOne({ setId: id });
-
-    // if (set == null) {
-    //     return;
-    // }
-
     const sets = await Set.find();
+
+    const allCards = await Card.aggregate<{
+            set: string,
+            number: string,
+            lang: string,
+            rarity: string
+    }>().project({ _id: 0, set: 1, number: 1, lang: 1, rarity: 1 });
 
     for (const set of sets) {
         const id = set.setId;
 
-        const cards = await Card.find({ set: id });
+        const cards = allCards.filter(c => c.set === id);
 
         set.cardCount = uniq(cards.map(c => c.number)).length;
         set.langs = uniq(cards.map(c => c.lang)).sort((a, b) => extendedLocales.indexOf(a) - extendedLocales.indexOf(b));

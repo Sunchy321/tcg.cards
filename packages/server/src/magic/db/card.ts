@@ -130,6 +130,7 @@ export interface ICard {
 
     __tags: {
         oracleUpdated: boolean
+        printed?: boolean
     }
 }
 

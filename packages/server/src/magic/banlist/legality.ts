@@ -63,7 +63,7 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
 
         // Casual card type
         if (data.parts.some(p => p.typeMain.some(t =>
-            ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem'].includes(t),
+            ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'].includes(t),
         ))) {
             result[f.formatId] = 'unavailable';
             continue;

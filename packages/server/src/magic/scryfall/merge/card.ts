@@ -260,6 +260,10 @@ function toCard(data: NSCard): ICard {
             : undefined,
 
         cardType: ((): CardType => {
+            if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line))) {
+                return 'token';
+            }
+
             return 'normal';
         })(),
 
