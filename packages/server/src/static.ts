@@ -22,7 +22,14 @@ export interface Config {
     data: string;
     log: string;
 
-    mongodb: MongoDB
+    mongodb: MongoDB,
+
+    hearthstone: {
+        blizzard: {
+            clientId: string;
+            clientSecret: string;
+        }
+    }
 }
 
 export const config = JSON.parse(readFileSync(configPath).toString()) as Config;
@@ -33,3 +40,5 @@ export const clientPath = config.client;
 export const assetPath = config.asset;
 export const logPath = config.log;
 export const dataPath = config.data;
+
+export const hearthstone = config.hearthstone;

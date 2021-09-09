@@ -1,9 +1,10 @@
 /* eslint-disable camelcase */
 import request from 'request-promise-native';
 
-const clientID = '3f377ff8bb8b4a17815aacd1a591dcae';
-// cSpell:disable
-const clientSecret = 'Y73lS6TGHEQ5ZITREmi1vLSpSgXv8KVT';
+import { hearthstone } from '@static';
+
+const clientID = hearthstone.blizzard.clientId;
+const clientSecret = hearthstone.blizzard.clientSecret;
 
 interface IBlizzardToken {
     access_token: string;
