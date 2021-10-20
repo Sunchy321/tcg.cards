@@ -75,10 +75,19 @@ export default function costQuery(
             ),
         };
     case '=':
-        return Object.fromEntries(
-            Object.entries(costMap)
-                .map(([k, v]) => ['parts.__costMap.' + k, v]),
-        );
+        return {
+            $and: Object.entries(costMap)
+                .map(([k, v]) => v === 0
+                    ? {
+                        $or: [
+                            { ['parts.__costMap.' + k]: 0 },
+                            { ['parts.__costMap.' + k]: { $exists: false } },
+                        ],
+                    }
+                    : { ['parts.__costMap.' + k]: v },
+
+                ),
+        };
     case '!=':
         return {
             $or: [

@@ -99,8 +99,7 @@ export interface ICard {
     isReprint: boolean,
     isStorySpotlight: boolean,
     isTextless: boolean,
-    hasFoil: boolean,
-    hasNonfoil: boolean,
+    finishes: string[],
     hasHighResImage: boolean,
 
     legalities: Record<string, string>,
@@ -228,8 +227,7 @@ const CardSchema = new Schema<ICard>({
     isReprint:        Boolean,
     isStorySpotlight: Boolean,
     isTextless:       Boolean,
-    hasFoil:          Boolean,
-    hasNonfoil:       Boolean,
+    finishes:         [String],
     hasHighResImage:  Boolean,
 
     legalities:     Object,

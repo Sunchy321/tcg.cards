@@ -1,6 +1,7 @@
 import Task from '@/common/task';
 
 import Card from '../db/scryfall/card';
+import Set from '../db/set';
 
 import FileSaver from '@/common/save-file';
 
@@ -45,6 +46,16 @@ export class ImageGetter extends Task<IImageStatus> {
     }
 
     async startImpl(): Promise<void> {
+        const setCodeMap: Record<string, string> = {};
+
+        const sets = await Set.find();
+
+        for (const set of sets) {
+            if (set.setId !== set.scryfall.code) {
+                setCodeMap[set.scryfall.code] = set.setId;
+            }
+        }
+
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
             .match({ image_status: { $in: ['lowres', 'highres_scan'] } })
@@ -86,7 +97,7 @@ export class ImageGetter extends Task<IImageStatus> {
 
             ++this.projCount;
 
-            this.set = proj._id.set;
+            this.set = setCodeMap[proj._id.set] ?? proj._id.set;
             this.lang = proj._id.lang;
 
             this.todoTasks = [];

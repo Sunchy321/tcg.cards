@@ -26,6 +26,7 @@ export type CardComponent = 'token'|'meld_part'|'meld_result'|'combo_piece';
 export type Color = 'W'|'U'|'B'|'R'|'G';
 export type Game = 'paper'|'arena'|'mtgo';
 export type Legality = 'legal'|'not_legal'|'restricted'|'banned';
+export type Finish = 'nonfoil'|'foil'|'etched'|'glossy';
 
 export type Colors = Color[];
 export type Legalities = Record<string, Legality>;
@@ -79,6 +80,7 @@ export interface RawCard {
     mtgo_foil_id?: number,
     multiverse_ids: number[],
     tcgplayer_id?: number,
+    tcgplayer_etched_id?: number,
     cardmarket_id?: number,
     object: 'card',
     oracle_id: UUID,
@@ -95,7 +97,6 @@ export interface RawCard {
     color_indicator?: Colors,
     colors?: Colors,
     edhrec_rank?: number,
-    foil: boolean,
     hand_modifier?: string,
     keywords: string[],
     layout: string,
@@ -104,7 +105,6 @@ export interface RawCard {
     loyalty?: string,
     mana_cost?: string,
     name: string,
-    nonfoil: boolean,
     oracle_text?: string,
     oversized: boolean,
     power?: string,
@@ -122,6 +122,7 @@ export interface RawCard {
     collector_number: string,
     content_warning?: boolean,
     digital: boolean,
+    finishes: Finish[],
     flavor_name?: string,
     flavor_text?: string,
     frame_effects: string[],

@@ -3,6 +3,7 @@ import Task from '@/common/task';
 
 import ScryfallCard, { ICard as ISCard, ICardBase as ISCardBase } from '../../db/scryfall/card';
 import Card, { ICard, CardType } from '../../db/card';
+import Set from '../../db/set';
 
 import { CardFace, Colors, IStatus } from '../interface';
 import { Document } from 'mongoose';
@@ -135,7 +136,7 @@ function getId(data: NSCard): string {
     const nameId = data.card_faces.map(f => toIdentifier(f.name)).join('____');
 
     if (data.layout === 'token') {
-        const { typeMain, typeSub } = parseTypeline(data.card_faces[0].type_line);
+        const { typeMain, typeSub } = parseTypeline(data.card_faces[0].type_line ?? '');
 
         if (typeSub == null) {
             if (typeMain.includes('card')) {
@@ -198,12 +199,12 @@ function getId(data: NSCard): string {
     }
 }
 
-function toCard(data: NSCard): ICard {
+function toCard(data: NSCard, setCodeMap: Record<string, string>): ICard {
     return {
         cardId: getId(data),
 
         lang:   data.lang,
-        set:    data.set,
+        set:    setCodeMap[data.set] ?? data.set,
         number: data.collector_number,
 
         manaValue:     data.cmc,
@@ -218,7 +219,7 @@ function toCard(data: NSCard): ICard {
                 ? convertColor(f.color_indicator)
                 : undefined,
 
-            ...parseTypeline(f.type_line),
+            ...parseTypeline(f.type_line ?? ''),
 
             power:        f.power,
             toughness:    f.toughness,
@@ -229,19 +230,19 @@ function toCard(data: NSCard): ICard {
             oracle: {
                 name:     f.name,
                 text:     purifyText(f.oracle_text),
-                typeline: f.type_line,
+                typeline: f.type_line ?? '',
             },
 
             unified: {
-                name:     f.printed_name || f.name,
-                text:     purifyText(f.printed_text || f.oracle_text),
-                typeline: (f.printed_type_line || f.type_line).replace(/ ～/, '～'),
+                name:     f.printed_name ?? f.name,
+                text:     purifyText(f.printed_text ?? f.oracle_text),
+                typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
             },
 
             printed: {
-                name:     f.printed_name || f.name,
-                text:     purifyText(f.printed_text || f.oracle_text),
-                typeline: (f.printed_type_line || f.type_line).replace(/ ～/, '～'),
+                name:     f.printed_name ?? f.name,
+                text:     purifyText(f.printed_text ?? f.oracle_text),
+                typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
             },
 
             scryfallIllusId: f.illustration_id,
@@ -260,7 +261,7 @@ function toCard(data: NSCard): ICard {
             : undefined,
 
         cardType: ((): CardType => {
-            if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line))) {
+            if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
                 return 'token';
             }
 
@@ -296,8 +297,7 @@ function toCard(data: NSCard): ICard {
         isReprint:        data.reprint,
         isStorySpotlight: data.story_spotlight,
         isTextless:       data.textless,
-        hasFoil:          data.foil,
-        hasNonfoil:       data.nonfoil,
+        finishes:         data.finishes,
         hasHighResImage:  data.highres_image,
 
         legalities:     convertLegality(data.legalities),
@@ -361,8 +361,7 @@ const assignMap: Partial<Record<keyof ISCardBase, keyof ICard>> = {
     reprint:         'isReprint',
     story_spotlight: 'isStorySpotlight',
     textless:        'isTextless',
-    foil:            'hasFoil',
-    nonfoil:         'hasNonfoil',
+    finishes:        'finishes',
 
     reserved: 'isReserved',
     booster:  'inBooster',
@@ -512,35 +511,6 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                 card.hasHighResImage = data.hasHighResImage;
             }
             break;
-        case 'arenaId':
-            if (card.arenaId !== data.arenaId) {
-                card.arenaId = data.arenaId;
-            }
-            break;
-        case 'mtgoId':
-            if (card.mtgoId !== data.mtgoId) {
-                card.mtgoId = data.mtgoId;
-            }
-            break;
-        case 'mtgoFoilId':
-            if (card.mtgoFoilId !== data.mtgoFoilId) {
-                card.mtgoFoilId = data.mtgoFoilId;
-            }
-            break;
-        case 'multiverseId':
-            if (card.multiverseId !== data.multiverseId) {
-                card.multiverseId = data.multiverseId;
-            }
-            break;
-        case 'tcgPlayerId':
-            if (card.tcgPlayerId !== data.tcgPlayerId) {
-                card.tcgPlayerId = data.tcgPlayerId;
-            }
-            break;
-        case 'cardMarketId':
-            if (card.cardMarketId !== data.cardMarketId) {
-                card.cardMarketId = data.cardMarketId;
-            }
         }
     }
 }
@@ -551,6 +521,16 @@ export class CardMerger extends Task<IStatus> {
     progressId?: NodeJS.Timeout;
 
     async startImpl(): Promise<void> {
+        const setCodeMap: Record<string, string> = {};
+
+        const sets = await Set.find();
+
+        for (const set of sets) {
+            if (set.setId !== set.scryfall.code) {
+                setCodeMap[set.scryfall.code] = set.setId;
+            }
+        }
+
         let count = 0;
 
         const files = await ScryfallCard.aggregate([
@@ -608,9 +588,9 @@ export class CardMerger extends Task<IStatus> {
                 if (newCards.length === 1) {
                     // a single card
                     if (oldCards.length === 0) {
-                        cardsToInsert.push(...newCards.map(toCard));
+                        cardsToInsert.push(...newCards.map(c => toCard(c, setCodeMap)));
                     } else if (oldCards.length === 1) {
-                        merge(oldCards[0], toCard(newCards[0]), newCards[0].__diff!);
+                        merge(oldCards[0], toCard(newCards[0], setCodeMap), newCards[0].__diff!);
 
                         if (oldCards[0].modifiedPaths().length > 0) {
                             await oldCards[0].save();
@@ -621,33 +601,33 @@ export class CardMerger extends Task<IStatus> {
                             continue;
                         }
 
-                        throw new Error('mismatch object count');
+                        console.log(`mismatch object count: ${newCards[0].card_id}`);
                     }
                 } else if (newCards.length === 2) {
                     if (oldCards.length === 0) {
-                        cardsToInsert.push(...newCards.map(toCard));
+                        cardsToInsert.push(...newCards.map(c => toCard(c, setCodeMap)));
                     } else if (oldCards.length === 1 || oldCards.length === 2) {
                         for (const n of newCards) {
                             if (n.face === 'front') {
                                 const front = oldCards.find(c => c.scryfall.face === 'front');
 
                                 if (front != null) {
-                                    merge(front, toCard(n), n.__diff!);
+                                    merge(front, toCard(n, setCodeMap), n.__diff!);
                                 } else {
-                                    cardsToInsert.push(toCard(n));
+                                    cardsToInsert.push(toCard(n, setCodeMap));
                                 }
                             } else {
                                 const back = oldCards.find(c => c.scryfall.face === 'back');
 
                                 if (back != null) {
-                                    merge(back, toCard(n), n.__diff!);
+                                    merge(back, toCard(n, setCodeMap), n.__diff!);
                                 } else {
-                                    cardsToInsert.push(toCard(n));
+                                    cardsToInsert.push(toCard(n, setCodeMap));
                                 }
                             }
                         }
                     } else {
-                        throw new Error('mismatch object count');
+                        console.log(`mismatch object count: ${newCards[0].card_id}, ${newCards[1].card_id}`);
                     }
                 }
 
