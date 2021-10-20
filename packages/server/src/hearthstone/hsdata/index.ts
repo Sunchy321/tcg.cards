@@ -10,31 +10,34 @@ import Task from '@/common/task';
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { js2xml, xml2js } from 'xml-js';
+import { xml2js } from 'xml-js';
 import { castArray, last } from 'lodash';
 
 import { dataPath } from '@static';
 import * as logger from '@/logger';
 
 import {
+    ITag,
     classes,
     factions,
     mechanics,
+    mercenaryRoles,
     multiClasses,
     playRequirements,
     puzzleTypes,
     raceBuckets,
     races,
     rarities,
-    referencedTags,
     sets,
+    spellSchools,
+    locTags,
     tags,
     types,
-    ITag,
     relatedEntities,
 } from '@data/hearthstone/hsdata-map';
+import { toBucket, toGenerator } from '@/common/to-bucket';
 
-const remoteUrl = 'https://github.com/HearthSim/hsdata';
+const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
 const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
 
 function hasData(): boolean {
@@ -76,7 +79,8 @@ export class DataGetter extends Task<SimpleGitProgressEvent & { type: 'get' }> {
 
             logger.data.info('Hsdata has been cloned', { category: 'hsdata' });
         } else {
-            await repo.pull();
+            await repo.fetch(['--all']);
+            await repo.reset(ResetMode.HARD, ['origin/master']);
 
             logger.data.info('Hsdata has been pulled', { category: 'hsdata' });
         }
@@ -102,37 +106,33 @@ export class DataLoader extends Task<ILoaderStatus> {
             },
         });
 
-        /// TODO: move nodgit to simple-git
+        const log = await repo.log();
+        const commits = log.all.filter(v => v.message.startsWith(messagePrefix));
 
-        // const commits = repo.
+        let count = 0;
+        const total = commits.length;
 
-        // const walker = Revwalk.create(repo);
+        for (const c of commits) {
+            const version = c.message.slice(messagePrefix.length).trim();
+            const number = parseInt(last(version.split('.'))!);
+            const hash = c.hash;
 
-        // walker.pushHead();
+            const patch = await Patch.findOne({ version });
 
-        // const commits: Commit[] = await walker.getCommitsUntil((c: Commit) =>
-        //     c.message().startsWith(messagePrefix),
-        // );
+            if (patch == null) {
+                const newPatch = new Patch({ version, number, hash });
 
-        // let count = 0;
-        // const total = commits.length - 1;
+                await newPatch.save();
+            } else {
+                patch.hash = hash;
 
-        // for (const c of commits.slice(0, -1)) {
-        //     const version = c.message().slice(messagePrefix.length).trim();
-        //     const number = parseInt(last(version.split('.'))!);
-        //     const sha = c.sha();
+                await patch.save();
+            }
 
-        //     const patch = await Patch.findOne({ version });
+            ++count;
 
-        //     if (patch == null) {
-        //         const newPatch = new Patch({ version, number, sha });
-
-        //         await newPatch.save();
-        //         ++count;
-
-        //         this.emit('progress', { type: 'load', count, total });
-        //     }
-        // }
+            this.emit('progress', { type: 'load', count, total });
+        }
     }
 
     stopImpl(): void { /* no-op */ }
@@ -170,6 +170,8 @@ function getValue(tag: XTag | XLocStringTag, info: ITag) {
                 return types[id];
             case 'race':
                 return races[id];
+            case 'spellSchool':
+                return spellSchools[id];
             case 'raceBucket':
                 return raceBuckets[id];
             case 'mechanic':
@@ -177,13 +179,15 @@ function getValue(tag: XTag | XLocStringTag, info: ITag) {
             case 'puzzleType':
                 return puzzleTypes[id];
             case 'referencedTag':
-                return referencedTags[id];
+                return mechanics[id];
             case 'playRequirement':
                 return playRequirements[id];
             case 'rarity':
                 return rarities[id];
             case 'faction':
                 return factions[id];
+            case 'mercenaryRole':
+                return mercenaryRoles[id];
             default:
                 throw new Error(`Unknown enum ${enumId}`);
             }
@@ -238,13 +242,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             },
         });
 
-        // TODO: move nodegit to simple-git
-
-        // const commit = await repo.commit(patch.sha);
-
-        // repo.reset(ResetMode.HARD, [commit.branch]);
-
-        // await Reset.reset(repo, commit, Reset.TYPE.HARD, {});
+        await repo.reset(ResetMode.HARD, [patch.hash]);
 
         const text = fs
             .readFileSync(path.join(localPath, 'CardDefs.xml'))
@@ -260,6 +258,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         const total = xml.CardDefs.Entity.length;
 
         const entities: IEntity[] = [];
+        const errorPath = path.join(dataPath, 'hearthstone', 'hsdata-error.txt');
+
+        fs.writeFileSync(errorPath, '');
 
         for (const e of xml.CardDefs.Entity) {
             try {
@@ -278,12 +279,19 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                 entities.push(entity as IEntity);
             } catch (err) {
-                this.emit('error', {
-                    message: err.message,
-                    entity:  js2xml(e),
-                });
+                fs.writeFileSync(
+                    errorPath,
+                    e._attributes.CardID + ': ' + err.message + '\n',
+                    { flag: 'a' },
+                );
             }
         }
+
+        fs.writeFileSync(
+            errorPath,
+            '-'.repeat(50),
+            { flag: 'a' },
+        );
 
         this.emit('progress', {
             type:    'load-patch',
@@ -298,7 +306,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
         }
 
-        await Entity.insertMany(entities);
+        for (const es of toBucket(toGenerator(entities), 500)) {
+            await Entity.insertMany(es);
+        }
 
         patch.isUpdated = true;
 
@@ -319,7 +329,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         result.referencedTags = [];
         result.relatedEntities = [];
 
-        const quest: { type ?: true | 'side', progress ?: number } = {};
+        const localization: Partial<IEntity['localization'][0]>[] = [];
+        const quest: Partial<IEntity['quest']> = { };
 
         for (const k in entity) {
             switch (k) {
@@ -329,10 +340,53 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 for (const t of castArray(entity[k])) {
                     const id = t._attributes.enumID;
 
+                    const locTag = locTags[id];
+
+                    if (locTag != null) {
+                        for (const k in t as XLocStringTag) {
+                            if (k === '_attributes') {
+                                continue;
+                            }
+
+                            const lang = langMap[k] ?? k.slice(2);
+                            const value = (t as any)[k]._text as string;
+
+                            const loc = localization.find(loc => loc.lang === lang);
+
+                            if (loc != null) {
+                                loc[locTag] = value;
+
+                                if (locTag === 'rawText') {
+                                    loc.text = value
+                                        .replace(/<\/?.>/g, '')
+                                        .replace(/[$#](\d+)/g, (_, m) => m);
+                                }
+                            } else {
+                                const newLoc = { lang, [locTag]: value } as Partial<IEntity['localization'][0]>;
+
+                                if (locTag === 'rawText') {
+                                    newLoc.text = value
+                                        .replace(/<\/?.>/g, '')
+                                        .replace(/\n/g, '');
+                                }
+
+                                localization.push(newLoc);
+                            }
+                        }
+
+                        continue;
+                    }
+
                     const tag = tags[id];
 
                     if (tag != null) {
                         const value = getValue(t, tag);
+
+                        if (value == null) {
+                            throw new Error(`Unknown tag ${
+                                tag.enum === true ? tag.index : tag.enum
+                            } of ${(t as XTag)._attributes.value}`);
+                        }
 
                         if (tag.array) {
                             if (result[tag.index] == null) {
@@ -356,7 +410,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     const relatedEntity = relatedEntities[id];
 
-                    if (relatedEntities != null) {
+                    if (relatedEntity != null) {
                         result.relatedEntities.push({
                             relation: relatedEntity,
                             cardId:   (t as XTag)._attributes.value,
@@ -377,30 +431,26 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     if (mechanic != null) {
                         switch (mechanic) {
-                        case 'windfury':
-                            if (value === 1) {
-                                result.mechanics.push(mechanic);
-                            } else if (value === 3) {
-                                result.mechanics.push('mega_windfury');
-                            } else {
-                                throw new Error(`Mechanic ${mechanic} with non-1 value`);
-                            }
-                            break;
                         case 'jade_golem':
                             result.referencedTags.push('jade_golem');
                             break;
                         case 'quest':
                             if (quest.type == null) {
-                                quest.type = true;
+                                quest.type = 'normal';
                             }
 
-                            result.mechanics.push('quest');
                             break;
                         case 'sidequest':
                             quest.type = 'side';
                             break;
                         case 'quest_progress':
                             quest.progress = value;
+                            break;
+                        case 'questline':
+                            quest.type = 'questline';
+                            break;
+                        case 'questline_part':
+                            quest.part = value;
                             break;
                         case 'puzzle_type':
                             result.mechanics[result.mechanics.indexOf('puzzle')!] = 'puzzle:' + puzzleTypes[value];
@@ -414,7 +464,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                                 throw new Error(`Mechanic ${mechanic} with non-1 value`);
                             }
                             break;
-
+                        case 'windfury':
                         case 'buff_attack_up':
                         case 'buff_cost_down':
                         case 'buff_cost_up':
@@ -424,15 +474,25 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case 'game_button':
                         case 'overload':
                         case 'spell_power':
+                        case 'darkmoon_prize':
+                        case 'lettuce_role':
+                        case '?1672':
+                        case '?lettuce_ability_summoned_minion':
+                        case 'lettuce_current_cooldown':
+                        case 'overload_owed':
                             result.mechanics.push(mechanic + ':' + value);
                             break;
-
                         case 'base_galakrond':
                         case 'hide_stats':
                         case 'hide_watermark':
+                        case 'poison':
+                        case 'dormant_visual':
+                        case 'advance_fight':
+                        case '?darkmoon_prize':
+                        case '?duels_passive':
+                        case '?1684':
                             result.mechanics.push(mechanic);
                             break;
-
                         default:
                             if (value === 1 || mechanic.startsWith('?')) {
                                 result.mechanics.push(mechanic);
@@ -440,14 +500,20 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                                 throw new Error(`Mechanic ${mechanic} with non-1 value`);
                             }
                         }
+
+                        continue;
+                    } else if (mechanic === null) {
+                        // explicitly ignored
+                        continue;
                     }
+
+                    throw new Error(`Unknown tag ${id}`);
                 }
 
                 const m = result.mechanics;
 
                 if (quest.type != null) {
-                    m[m.indexOf('quest')] =
-                        quest.type === 'side' ? `quest:side,${quest.progress}` : `quest:${quest.progress}`;
+                    result.quest = quest as IEntity['quest'];
                 }
 
                 if (
@@ -504,7 +570,13 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     const id = r._attributes.enumID;
 
                     try {
-                        const req = referencedTags[id];
+                        const req = mechanics[id];
+
+                        if (req === undefined) {
+                            throw new Error(`Unknown referenced tag ${id}`);
+                        } else if (req === null) {
+                            continue;
+                        }
 
                         const value = r._attributes.value;
 
@@ -544,6 +616,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 throw new Error(`Unknown key ${k}`);
             }
         }
+
+        result.localization = localization as IEntity['localization'];
 
         return result as IEntity;
     }

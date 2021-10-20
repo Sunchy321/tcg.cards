@@ -2,6 +2,8 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
+import { omit } from 'lodash';
+
 export interface IPlayRequirement {
     type: string;
     param: number;
@@ -21,9 +23,16 @@ export interface IEntity {
 
     set: string;
 
-    name: { lang: string; value: string }[];
-    text: { lang: string; value: string }[];
-    targetingArrowText: { lang: string; value: string }[];
+    localization: {
+        lang: string;
+        name: string;
+        text: string;
+        rawText: string;
+        targetText: string;
+        howToEarn: string;
+        howToEarnGolden: string;
+        flavor: string;
+    }[]
 
     classes: string[];
     cardType: string;
@@ -33,6 +42,8 @@ export interface IEntity {
     durability: number;
     armor: number;
     race: string;
+    spellSchool?: string;
+    quest?: { type: 'normal' | 'side' | 'questline', progress: number, part?: number };
 
     techLevel: number;
     inBobsTavern: boolean;
@@ -40,14 +51,13 @@ export interface IEntity {
     raceBucket: string;
     coin: number;
 
+    mercenaryRole: string;
+    colddown: number;
+
     collectible: boolean;
     elite: boolean;
     rarity: string;
 
-    howToEarn: { lang: string; value: string }[];
-    howToEarnGolden: { lang: string; value: string }[];
-
-    flavor: { lang: string; value: string }[];
     artist: string;
 
     faction: string;
@@ -79,18 +89,28 @@ const EntitySchema = new Schema({
 
     set: String,
 
-    name:               [{ _id: false, lang: String, value: String }],
-    text:               [{ _id: false, lang: String, value: String }],
-    targetingArrowText: [{ _id: false, lang: String, value: String }],
+    localization: [{
+        _id:             false,
+        lang:            String,
+        name:            String,
+        text:            String,
+        rawText:         String,
+        targetText:      String,
+        howToEarn:       String,
+        howToEarnGolden: String,
+        flavor:          String,
+    }],
 
-    classes:    [String],
-    cardType:   String,
-    cost:       Number,
-    attack:     Number,
-    health:     Number,
-    durability: Number,
-    armor:      Number,
-    race:       String,
+    classes:     [String],
+    cardType:    String,
+    cost:        Number,
+    attack:      Number,
+    health:      Number,
+    durability:  Number,
+    armor:       Number,
+    race:        String,
+    spellSchool: String,
+    quest:       { type: { type: String, progress: Number, part: Number } },
 
     techLevel:    Number,
     inBobsTavern: { type: Boolean, default: false },
@@ -98,14 +118,13 @@ const EntitySchema = new Schema({
     raceBucket:   String,
     coin:         Number,
 
+    mercenaryRole: String,
+    colddown:      Number,
+
     collectible: { type: Boolean, default: false },
     elite:       { type: Boolean, default: false },
     rarity:      String,
 
-    howToEarn:       [{ _id: false, lang: String, value: String }],
-    howToEarnGolden: [{ _id: false, lang: String, value: String }],
-
-    flavor: [{ _id: false, lang: String, value: String }],
     artist: String,
 
     faction: String,
@@ -142,6 +161,19 @@ const EntitySchema = new Schema({
     multipleClasses:   Number,
     deckOrder:         Number,
     overrideWatermark: String,
+}, {
+    toJSON: {
+        transform(doc, ret) {
+            delete ret._id;
+            delete ret.__v;
+
+            ret.localization = Object.fromEntries(
+                ret.localization.map((l: IEntity['localization'][0]) => [l.lang, omit(l, 'lang')]),
+            );
+
+            return ret;
+        },
+    },
 });
 
 const Entity = conn.model<IEntity & Document>('entity', EntitySchema);
