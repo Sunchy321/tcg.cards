@@ -5,14 +5,14 @@ import conn from './db';
 export interface IPatch {
     version: string;
     number: number;
-    sha: string;
+    hash: string;
     isUpdated: boolean;
 }
 
 const PatchSchema = new Schema<IPatch>({
     version: String,
     number:  Number,
-    sha:     String,
+    hash:    String,
 
     isUpdated: {
         type:    Boolean,

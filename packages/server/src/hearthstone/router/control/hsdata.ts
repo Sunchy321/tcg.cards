@@ -1,5 +1,4 @@
 import KoaRouter from '@koa/router';
-
 import { Context, DefaultState } from 'koa';
 
 import websocket from '@/middlewares/websocket';
