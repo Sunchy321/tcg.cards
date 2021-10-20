@@ -4,6 +4,13 @@
             <q-btn
                 class="q-mr-md"
                 flat dense round
+                icon="mdi-download"
+                @click="getHsdata"
+            />
+
+            <q-btn
+                class="q-mr-md"
+                flat dense round
                 icon="mdi-merge"
                 @click="loadHsdata"
             />
@@ -47,6 +54,8 @@ import controlSetup from 'setup/control';
 import HsdataPatch from './HsdataPatch.vue';
 
 import bytes from 'bytes';
+
+import { apiGet } from 'src/boot/backend';
 
 interface Patch {
     version: string;
@@ -120,7 +129,7 @@ export default defineComponent({
         });
 
         const loadData = async () => {
-            const { data } = await controlGet<Patch[]>('/hearthstone/patches');
+            const { data } = await apiGet<Patch[]>('/hearthstone/patches');
 
             patches.value = data;
         };

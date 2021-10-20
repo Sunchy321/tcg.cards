@@ -474,7 +474,7 @@ export default defineComponent({
             label: i18n.t('magic.card.text-mode.' + v),
         })));
 
-        // Data fields
+        // data fields
         const id = computed(() => data.value?.cardId ?? route.params.id as string);
         const versions = computed(() => data.value?.versions ?? []);
 

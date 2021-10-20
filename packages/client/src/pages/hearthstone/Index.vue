@@ -11,6 +11,7 @@
 import { defineComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
 
 export default defineComponent({
@@ -19,8 +20,17 @@ export default defineComponent({
     setup() {
         const i18n = useI18n();
 
+        const { random } = hearthstoneSetup();
+
         pageSetup({
-            title: () => i18n.t('hearthstone.$self'),
+            title:   () => i18n.t('hearthstone.$self'),
+            actions: [
+                {
+                    action:  'random',
+                    icon:    'mdi-shuffle-variant',
+                    handler: random,
+                },
+            ],
         });
     },
 });
