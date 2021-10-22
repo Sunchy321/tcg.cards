@@ -229,7 +229,7 @@ import controlSetup from 'setup/control';
 
 import { escapeRegExp } from 'lodash';
 
-import { imageBase, apiGet } from 'boot/backend';
+import { imageBase } from 'boot/backend';
 
 import ArrayInput from 'components/ArrayInput.vue';
 
@@ -444,10 +444,13 @@ export default defineComponent({
             F extends keyof Part,
             L extends keyof Part[F]
         >(firstKey: F, lastKey: L, defaultValue?: Part[F][L]) => computed({
-            get() { return (part.value?.[firstKey]?.[lastKey] ?? defaultValue)!; },
+            get(): Part[F][L] {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
+            },
             set(newValue: Part[F][L]) {
                 if (hasData.value) {
-                    part.value![firstKey][lastKey] = newValue;
+                    (part.value as any)![firstKey][lastKey] = newValue;
                 }
             },
         });
@@ -717,7 +720,7 @@ export default defineComponent({
                 await doUpdate();
             }
 
-            const { data: result } = await apiGet<{ result: Card }>('/magic/search', { q: search.value, dev: '' });
+            const { data: result } = await controlGet<{ result: Card }>('/magic/card/search', { q: search.value });
 
             if (partIndex.value !== 0) {
                 partIndex.value = 0;
