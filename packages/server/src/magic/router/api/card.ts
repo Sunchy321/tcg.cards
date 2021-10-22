@@ -4,12 +4,11 @@ import { DefaultState, Context } from 'koa';
 
 import Card, { ICard } from '@/magic/db/card';
 import Set from '@/magic/db/set';
-import { Searcher } from '@/search';
 
 import { mapValues, omit, omitBy, random, uniq } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
 
-import model from '@/magic/search';
+import searcher from '@/magic/search';
 import { auxSetType } from '@data/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -96,13 +95,11 @@ router.get('/', async ctx => {
     }
 });
 
-const searcher = new Searcher(model);
-
 router.get('/random', async ctx => {
     const q = toSingle(ctx.query.q ?? '');
 
     const cardIds = q !== ''
-        ? (await searcher.search(q, { 'only-id': '' })).result?.cards as string[]
+        ? (await searcher.searchId(q)).result ?? []
         : await Card.distinct('cardId');
 
     ctx.body = cardIds[random(cardIds.length - 1)] ?? '';

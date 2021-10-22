@@ -1,8 +1,7 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import { Searcher } from '@/search';
-import model from '@/magic/search';
+import searcher from '@/magic/search';
 
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
@@ -10,8 +9,6 @@ import { toSingle } from '@/common/request-helper';
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/search');
-
-const searcher = new Searcher(model);
 
 router.get('/', async ctx => {
     const { q } = mapValues(ctx.query, toSingle);

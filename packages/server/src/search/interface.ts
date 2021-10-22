@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export interface QueryParam {
+export interface Parameter {
     type: 'string' | 'regex',
     value: string
 }
 
-export interface QueryItem {
+export interface Item {
     type: string,
     op: string,
-    param: QueryParam
+    param: Parameter
 }
 
-export interface QueryCommand {
+export interface Command {
     id: string;
     alt?: string[];
     query: (arg: {
@@ -21,7 +21,29 @@ export interface QueryCommand {
     }) => any;
 }
 
-export interface QueryModel<T> {
-    commands: QueryCommand[],
-    aggregate: (query: any, options: Record<string, string>) => Promise<T>;
+export type Options = Record<string, string>
+
+export type DBQuery = any;
+
+export type Query<T> = (query: DBQuery, options: Options) => Promise<T>;
+
+export type Model = {
+    commands: Command[];
+    search: Query<any>;
 }
+
+export type Result<T> = {
+    text: string;
+    commands: Item[];
+    errors: { type: string; value: string, query?: string }[];
+    result: T | null
+};
+
+export type Searcher<M extends Model> ={
+    [K in keyof M as Exclude<K, 'commands'>]:
+        M[K] extends (...args: any) => infer R
+            ? R extends Promise<infer T>
+                ? (text: string, options?: Options) => Promise<Result<T>>
+                : (text: string, options?: Options) => Result<R>
+        : never;
+};

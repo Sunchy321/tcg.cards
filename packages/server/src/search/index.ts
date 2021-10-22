@@ -3,20 +3,14 @@ import pegjs from 'pegjs';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { QueryItem, QueryModel } from './interface';
+import { Searcher, Model, Item, Query } from './interface';
 
 import { dataPath } from '@/static';
+import { mapValues, omit } from 'lodash';
 
 const parser = pegjs.generate(
     readFileSync(join(dataPath, 'syntax.pegjs')).toString(),
 );
-
-export type SearchResult<T> = {
-    text: string;
-    commands: QueryItem[];
-    errors: { type: string; value: string, query?: string }[];
-    result: T | null
-}
 
 export class QueryError extends Error {
     type: string;
@@ -30,77 +24,74 @@ export class QueryError extends Error {
     }
 }
 
-export class Searcher<T> {
-    model: QueryModel<T>;
+export function createSearcher<M extends Model>(model: M): Searcher<M> {
+    return mapValues(
+        omit(model, 'commands'),
+        (queryFunc: Query<any>) => async (text: string, options: Record<string, string> = {}) => {
+            const trimmed = text.trim();
 
-    constructor(model: QueryModel<T>) {
-        this.model = model;
-    }
+            const commands: Item[] = trimmed !== '' ? parser.parse(trimmed) : [];
 
-    async search(origText: string, options: Record<string, string>): Promise<SearchResult<T>> {
-        const text = origText.trim();
+            const queries = [];
+            const errors = [];
 
-        const commands: QueryItem[] = text !== '' ? parser.parse(text) : [];
+            for (const c of commands) {
+                let param;
 
-        const queries = [];
-        const errors = [];
+                if (c.param.type === 'string') {
+                    param = c.param.value;
+                } else {
+                    try {
+                        param = new RegExp(c.param.value);
+                    } catch (e) {
+                        errors.push({
+                            type:  'regex/invalid',
+                            value: c.param.value,
+                        });
 
-        for (const c of commands) {
-            let param;
+                        continue;
+                    }
+                }
 
-            if (c.param.type === 'string') {
-                param = c.param.value;
-            } else {
-                try {
-                    param = new RegExp(c.param.value);
-                } catch (e) {
-                    errors.push({
-                        type:  'regex/invalid',
-                        value: c.param.value,
-                    });
+                if (c.type == null) {
+                    const mc = model.commands.find(co => co.id === '');
 
-                    continue;
+                    if (mc == null) {
+                        errors.push({ type: 'command/unknown', value: '' });
+                        continue;
+                    }
+
+                    try {
+                        queries.push(mc.query({ param, options }));
+                    } catch (e) {
+                        errors.push({ type: e.type, value: e.value, query: mc.id });
+                    }
+                } else {
+                    const mc = model.commands.find(
+                        co => co.id === c.type || (co.alt != null && co.alt.includes(c.type)),
+                    );
+
+                    if (mc == null) {
+                        errors.push({ type: 'command/unknown', value: c.type });
+                        continue;
+                    }
+
+                    try {
+                        queries.push(mc.query({ param, op: c.op, options }));
+                    } catch (e) {
+                        errors.push({ type: e.type, value: e.value, query: mc.id });
+                    }
                 }
             }
 
-            if (c.type == null) {
-                const mc = this.model.commands.find(co => co.id === '');
+            const result = queries.length > 0 ? await queryFunc(queries, options) : null;
 
-                if (mc == null) {
-                    errors.push({ type: 'command/unknown', value: '' });
-                    continue;
-                }
-
-                try {
-                    queries.push(mc.query({ param, options }));
-                } catch (e) {
-                    errors.push({ type: e.type, value: e.value, query: mc.id });
-                }
-            } else {
-                const mc = this.model.commands.find(
-                    co => co.id === c.type || (co.alt != null && co.alt.includes(c.type)),
-                );
-
-                if (mc == null) {
-                    errors.push({ type: 'command/unknown', value: c.type });
-                    continue;
-                }
-
-                try {
-                    queries.push(mc.query({ param, op: c.op, options }));
-                } catch (e) {
-                    errors.push({ type: e.type, value: e.value, query: mc.id });
-                }
-            }
-        }
-
-        const result = queries.length > 0 ? await this.model.aggregate(queries, options) : null;
-
-        return {
-            text: origText,
-            commands,
-            errors,
-            result,
-        };
-    }
+            return {
+                text: text,
+                commands,
+                errors,
+                result,
+            };
+        },
+    ) as unknown as Searcher<M>;
 }

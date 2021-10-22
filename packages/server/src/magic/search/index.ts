@@ -1,8 +1,8 @@
-import { QueryModel } from '@/search/interface';
+import { Command, DBQuery, Options } from '@/search/interface';
 
-import Card from '@/magic/db/card';
+import Card, { ICard } from '@/magic/db/card';
 
-import { QueryError } from '@/search';
+import { QueryError, createSearcher } from '@/search';
 
 import simpleQuery from './simple';
 import textQuery from './text';
@@ -25,25 +25,7 @@ function parseOption(text: string | undefined, defaultValue: number): number {
     return num;
 }
 
-export type QueryResult =
-    | {
-          onlyId: false;
-          total: number;
-          cards: {
-              cardId: string;
-              set: string;
-              number: string;
-              lang: string;
-              layout: string;
-          }[];
-      }
-    | {
-          onlyId: true;
-          total: number;
-          cards: string[];
-      };
-
-export default {
+const model = {
     commands: [
         {
             id:    '',
@@ -323,11 +305,9 @@ export default {
                 '__tags.printed': true,
             }),
         },
-    ],
+    ] as Command[],
 
-    aggregate: async (q, o) => {
-        const dev = o.dev != null;
-        const onlyId = o['only-id'] != null;
+    search: async (q: DBQuery, o: Options) => {
         const groupBy = o['group-by'] || 'card';
         const sortBy = o['sort-by'] || 'id';
         const sortDir = o['sort-dir'] === 'desc' ? -1 : 1;
@@ -335,36 +315,31 @@ export default {
         const pageSize = parseOption(o['page-size'], 100);
         const locale = o.locale || 'en';
 
-        const aggregate = Card.aggregate().allowDiskUse(true);
+        const aggregate = Card.aggregate()
+            .allowDiskUse(true)
+            .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
+            .match({ $and: q });
 
-        if (!dev && !onlyId) {
-            aggregate.unwind({ path: '$parts', includeArrayIndex: 'partIndex' });
-        }
-
-        aggregate.match({ $and: q });
-
-        if (!dev && !onlyId) {
-            switch (groupBy) {
-            case 'print':
-                break;
-            case 'card':
-            default:
-                aggregate
-                    .addFields({
-                        langIsLocale:     { $eq: ['$lang', locale] },
-                        langIsEnglish:    { $eq: ['$lang', 'en'] },
-                        frameEffectCount: { $size: '$frameEffects' },
-                    })
-                    .sort({
-                        langIsLocale:     -1,
-                        langIsEnglish:    -1,
-                        releaseDate:      -1,
-                        frameEffectCount: 1,
-                        number:           1,
-                    })
-                    .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
-                    .replaceRoot('data');
-            }
+        switch (groupBy) {
+        case 'print':
+            break;
+        case 'card':
+        default:
+            aggregate
+                .addFields({
+                    langIsLocale:     { $eq: ['$lang', locale] },
+                    langIsEnglish:    { $eq: ['$lang', 'en'] },
+                    frameEffectCount: { $size: '$frameEffects' },
+                })
+                .sort({
+                    langIsLocale:     -1,
+                    langIsEnglish:    -1,
+                    releaseDate:      -1,
+                    frameEffectCount: 1,
+                    number:           1,
+                })
+                .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
+                .replaceRoot('data');
         }
 
         const total =
@@ -374,41 +349,56 @@ export default {
                     .group({ _id: null, count: { $sum: 1 } })
             )[0]?.count ?? 0;
 
-        if (onlyId) {
-            const result = await aggregate.group({ _id: '$cardId' });
-
-            return { total, cards: result.map((v) => v._id) };
-        } else if (dev) {
-            const cards = await Card.aggregate(aggregate.pipeline()).sort({ releaseDate: 1 }).limit(1);
-
-            return { ...cards[0], total };
-        } else {
-            switch (sortBy) {
-            case 'name':
-                aggregate
-                    .addFields({ firstPart: { $first: '$part' } })
-                    .sort({ 'part.unified.name': sortDir });
-                break;
-            case 'date':
-                aggregate.sort({ releaseDate: sortDir });
-                break;
-            case 'id':
-            default:
-                aggregate.sort({ cardId: sortDir });
-            }
-
-            aggregate.skip((page - 1) * pageSize);
-            aggregate.limit(pageSize);
-            aggregate.project({
-                _id:          0,
-                __v:          0,
-                langIsLocale: 0,
-                langIsEn:     0,
-            });
-
-            const cards = await aggregate;
-
-            return { cards, total, page };
+        switch (sortBy) {
+        case 'name':
+            aggregate
+                .addFields({ firstPart: { $first: '$part' } })
+                .sort({ 'part.unified.name': sortDir });
+            break;
+        case 'date':
+            aggregate.sort({ releaseDate: sortDir });
+            break;
+        case 'id':
+        default:
+            aggregate.sort({ cardId: sortDir });
         }
+
+        aggregate.skip((page - 1) * pageSize);
+        aggregate.limit(pageSize);
+        aggregate.project({
+            _id:          0,
+            __v:          0,
+            langIsLocale: 0,
+            langIsEn:     0,
+        });
+
+        const cards = await aggregate;
+
+        return { cards, total, page };
     },
-} as QueryModel<QueryResult>;
+
+    dev: async (q: DBQuery) => {
+        const aggregate = Card.aggregate().allowDiskUse(true).match({ $and: q });
+
+        const total =
+            (
+                await Card.aggregate(aggregate.pipeline())
+                    .allowDiskUse(true)
+                    .group({ _id: null, count: { $sum: 1 } })
+            )[0]?.count ?? 0;
+
+        const cards = await Card.aggregate(aggregate.pipeline()).sort({ releaseDate: 1 }).limit(1);
+
+        return { ...cards[0], total } as ICard & { total: number };
+    },
+
+    searchId: async (q: DBQuery) => {
+        const result = await Card.aggregate().allowDiskUse(true).match({ $and: q }).group({ _id: '$cardId' });
+
+        return result.map(v => v._id) as string[];
+    },
+};
+
+const searcher = createSearcher(model);
+
+export default searcher;

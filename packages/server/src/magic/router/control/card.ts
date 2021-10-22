@@ -11,6 +11,8 @@ import { omit, omitBy, mapValues, isEqual, sortBy } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@data/magic/special';
 
+import searcher from '@/magic/search';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
@@ -42,6 +44,17 @@ router.get('/raw', async ctx => {
     } else {
         ctx.status = 404;
     }
+});
+
+router.get('/search', async ctx => {
+    const { q } = mapValues(ctx.query, toSingle);
+
+    if (q == null) {
+        ctx.status = 400;
+        return;
+    }
+
+    ctx.body = await searcher.dev(q);
 });
 
 router.post('/update', async ctx => {
