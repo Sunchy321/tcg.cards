@@ -1,6 +1,7 @@
 import { Command, DBQuery, Options } from '@/search/interface';
 
-import Card, { ICard } from '@/magic/db/card';
+import Card from '@/magic/db/card';
+import { Card as ICard } from '@interface/magic/card';
 
 import { QueryError, createSearcher } from '@/search';
 

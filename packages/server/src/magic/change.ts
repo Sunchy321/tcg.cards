@@ -1,9 +1,10 @@
 import Format from '@/magic/db/format';
 import Set from '@/magic/db/set';
-import { BanlistStatus } from './banlist/interface';
 import FormatChange from '@/magic/db/format-change';
-import BanlistChange, { IBanlistChange } from '@/magic/db/banlist-change';
+import BanlistChange from '@/magic/db/banlist-change';
 import Card from './db/card';
+
+import { BanlistChange as IBanlistChange, BanlistStatus } from '@interface/magic/banlist';
 
 type Element<T> = T extends (infer E)[] ? E : never;
 

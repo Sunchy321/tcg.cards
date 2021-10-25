@@ -2,10 +2,12 @@ import FileSaver from '@/common/save-file';
 import Task from '@/common/task';
 import { setIconPath } from '@/magic/image';
 
-import ScryfallSet, { ISet as IScryfallSet } from '../../db/scryfall/set';
-import Set, { ISet } from '../../db/set';
+import ScryfallSet, { ISet as IScryfallSet } from '@/magic/db/scryfall/set';
+import Set from '@/magic/db/set';
 
-import { IStatus } from '../interface';
+import { Set as ISet } from '@interface/magic/set';
+
+import { Status } from '../status';
 
 import { auxSetType } from '@/../data/magic/special';
 
@@ -67,7 +69,7 @@ async function mergeWith(data: IScryfallSet) {
     }
 }
 
-export class SetMerger extends Task<IStatus> {
+export class SetMerger extends Task<Status> {
     async startImpl(): Promise<void> {
         let count = 0;
 

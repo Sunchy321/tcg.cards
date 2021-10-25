@@ -3,7 +3,8 @@ import { Document, Schema } from 'mongoose';
 
 import conn from '../db';
 
-import { RawCard, UUID } from '../../scryfall/interface';
+import { UUID } from '@interface/magic/scryfall/basic';
+import { RawCard } from '@interface/magic/scryfall/card';
 import { Diff } from 'deep-diff';
 
 export type ICardBase = {
@@ -15,7 +16,7 @@ export type ICard = ICardBase & {
     __diff?: Diff<ICardBase, ICardBase>[];
 };
 
-const CardSchema = new Schema({
+const CardSchema = new Schema<ICard>({
     // Core Card Fields
     arena_id:            Number,
     card_id:             String,

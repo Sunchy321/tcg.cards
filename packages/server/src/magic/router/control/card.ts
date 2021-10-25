@@ -2,7 +2,9 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card, { ICard } from '@/magic/db/card';
+import Card from '@/magic/db/card';
+import { Card as ICard } from '@interface/magic/card';
+
 import { Aggregate } from 'mongoose';
 
 import parseGatherer from '@/magic/gatherer/parse';

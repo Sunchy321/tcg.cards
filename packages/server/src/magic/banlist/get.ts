@@ -1,4 +1,4 @@
-import { Banlist } from './interface';
+import { Banlist } from '@interface/magic/banlist';
 
 import request from 'request-promise-native';
 import cheerio from 'cheerio';

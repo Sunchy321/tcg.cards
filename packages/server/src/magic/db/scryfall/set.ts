@@ -3,11 +3,12 @@ import { Document, Schema } from 'mongoose';
 
 import conn from '../db';
 
-import { RawSet, UUID } from '../../scryfall/interface';
+import { UUID } from '@interface/magic/scryfall/basic';
+import { RawSet } from '@interface/magic/scryfall/set';
 
 export type ISet = { set_id: UUID } & Omit<RawSet, 'id'>;
 
-const SetSchema = new Schema({
+const SetSchema = new Schema<ISet>({
     set_id:          String,
     code:            String,
     mtgo_code:       String,

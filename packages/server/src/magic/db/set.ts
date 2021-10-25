@@ -2,45 +2,9 @@ import { Schema, Document } from 'mongoose';
 
 import conn from './db';
 
-export interface SetLocalization {
-    lang: string,
-    name?: string,
-    isOfficialName: boolean,
-    link?: string,
-}
+import { Set as ISet } from '@interface/magic/set';
 
-export interface ISet {
-    setId: string,
-
-    block?: string,
-    parent?: string,
-
-    printedSize?: number,
-    cardCount: number,
-    langs: string[],
-    rarities: string[],
-
-    localization: SetLocalization[],
-
-    setType: string,
-    isDigital: boolean,
-    isFoilOnly: boolean,
-    isNonfoilOnly: boolean,
-    symbolStyle: string[],
-
-    releaseDate?: string,
-
-    scryfall: {
-        id: string,
-        code: string,
-    },
-
-    mtgoCode?: string,
-    tcgplayerId?: number,
-
-}
-
-export const SetSchema = new Schema({
+export const SetSchema = new Schema<ISet>({
     setId: String,
 
     block:  String,

@@ -1,4 +1,4 @@
-import { IEntity } from '@/hearthstone/db/entity';
+import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 export interface ITag {
     index: keyof IEntity;

@@ -1,5 +1,5 @@
 import { deburr } from 'lodash';
-import { Colors, Legalities } from './scryfall/interface';
+import { Colors, Legalities } from '@interface/magic/scryfall/basic';
 
 export function toIdentifier(text: string): string {
     return deburr(text)

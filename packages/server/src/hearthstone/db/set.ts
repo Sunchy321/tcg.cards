@@ -18,7 +18,7 @@ export interface ISet {
     inWild: boolean;
 }
 
-const SetSchema = new Schema({
+const SetSchema = new Schema<ISet>({
     setId: String,
     dbfId: Number,
     slug:  String,

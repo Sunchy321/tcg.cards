@@ -1,7 +1,7 @@
 import Task from '@/common/task';
 
 import Entity from '../db/entity';
-import { ICard, Locale } from './interface';
+import { ICard, Locale } from '@interface/hearthstone/blizzard';
 
 import blzApi from './api';
 import Patch from '../db/patch';

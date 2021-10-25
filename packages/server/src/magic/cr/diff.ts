@@ -1,4 +1,5 @@
-import CR, { ICRContent, ICRGlossary } from '@/magic/db/cr';
+import CR from '@/magic/db/cr';
+import { Content, Glossary } from '@interface/magic/cr';
 
 import { diffArrays, diffWordsWithSpace } from 'diff';
 import { last, zip } from 'lodash';
@@ -164,7 +165,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
 
     contents = contents.filter(d => !contentMoved.includes(d.id!) || d.type !== 'remove');
 
-    const oldContentMap: Record<string, ICRContent> = {}, newContentMap: Record<string, ICRContent> = {};
+    const oldContentMap: Record<string, Content> = {}, newContentMap: Record<string, Content> = {};
 
     for (const c of from.contents) { oldContentMap[c.id] = c; }
     for (const c of to.contents) { newContentMap[c.id] = c; }
@@ -224,7 +225,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
 
     glossary = glossary.filter(d => !glossaryMoved.includes(d.ids!.join(' ')) || d.type !== 'remove');
 
-    const oldGlossaryMap: Record<string, ICRGlossary> = {}, newGlossaryMap: Record<string, ICRGlossary> = {};
+    const oldGlossaryMap: Record<string, Glossary> = {}, newGlossaryMap: Record<string, Glossary> = {};
 
     for (const g of from.glossary) { oldGlossaryMap[g.ids.join(' ')] = g; }
     for (const g of to.glossary) { newGlossaryMap[g.ids.join(' ')] = g; }

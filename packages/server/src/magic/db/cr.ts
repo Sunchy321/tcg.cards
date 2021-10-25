@@ -2,31 +2,9 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
-export interface ICRContent {
-    id: string;
-    depth: number;
-    index: string;
-    text: string;
-    examples?: string[];
-    cards?: { text:string, id:string }[]
-}
+import { CR as ICR } from '@interface/magic/cr';
 
-export interface ICRGlossary {
-    words: string[];
-    ids: string[];
-    text: string;
-}
-
-export interface ICR {
-    date: string;
-    intro: string;
-    contents: ICRContent[];
-    glossary: ICRGlossary[];
-    credits: string;
-    csi?: string;
-}
-
-const CRMenuSchema = new Schema({
+const CRMenuSchema = new Schema<ICR>({
     date:     String,
     intro:    String,
     contents: [{

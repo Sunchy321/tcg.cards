@@ -1,7 +1,7 @@
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
-import { ICard } from '../db/card';
+import { Card as ICard } from '@interface/magic/card';
 
 import FileSaver from '@/common/save-file';
 

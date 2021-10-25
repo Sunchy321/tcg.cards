@@ -1,5 +1,6 @@
 
-import CR, { ICR, ICRContent, ICRGlossary } from '@/magic/db/cr';
+import CR from '@/magic/db/cr';
+import { CR as ICR, Content, Glossary } from '@interface/magic/cr';
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -87,8 +88,8 @@ export async function parse(date: string): Promise<ICR> {
     const text = readFileSync(path).toString();
 
     let intro = '';
-    const contents: ICRContent[] = [];
-    const glossary: ICRGlossary[] = [];
+    const contents: Content[] = [];
+    const glossary: Glossary[] = [];
     let credits = '';
     let csi = '';
 
@@ -128,7 +129,7 @@ export async function parse(date: string): Promise<ICR> {
                 } else if (content.depth === 'example') {
                     last(contents)!.examples = [...last(contents)!.examples || [], content.text];
                 } else {
-                    contents.push(content as ICRContent);
+                    contents.push(content as Content);
                 }
             }
             break;

@@ -1,38 +1,10 @@
 import { Document, Schema } from 'mongoose';
 
-import { BanlistStatus } from '../banlist/interface';
-
 import conn from './db';
 
-export interface IBanlistChange {
-    date: string;
-    category: string;
+import { BanlistChange as IBanlistChange } from '@interface/magic/banlist';
 
-    effectiveDate?: {
-        tabletop?: string;
-        online?: string;
-        arena?: string;
-    };
-
-    nextDate?: string;
-
-    link: string[];
-
-    changes: {
-        card: string;
-        format: string;
-        status?: BanlistStatus;
-        effectiveDate?: string;
-        detail?: {
-            card: string,
-            date?: string,
-            status?: BanlistStatus,
-            group?: string
-        }[];
-    }[];
-}
-
-const BanlistChangeSchema = new Schema({
+const BanlistChangeSchema = new Schema<IBanlistChange>({
     date:     String,
     category: String,
 

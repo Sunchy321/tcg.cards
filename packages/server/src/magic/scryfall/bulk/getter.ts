@@ -7,14 +7,20 @@ import { join } from 'path';
 
 import Task from '@/common/task';
 
-import { IStatus } from '../interface';
-import { IBulkData, IBulkList } from './interface';
+import { IBulkData } from '@interface/magic/scryfall/bulk';
+
+import { Status } from '../status';
 
 import { dataPath } from '@static';
 
+interface IBulkList {
+    allCard: string[];
+    ruling: string[];
+}
+
 const bulkPath = join(dataPath, 'magic/scryfall');
 
-export default class BulkSaver extends Task<IStatus> {
+export default class BulkSaver extends Task<Status> {
     saver?: FileSaver;
 
     async startImpl(): Promise<void> {

@@ -2,7 +2,7 @@ import { parseWizardsBanlist, parseWizardsOldBanlist } from './wizards';
 import { parseDuelCommanderBanlist } from './duelcommander';
 import { parseMTGCommanderBanlist } from './mtgcommander';
 
-import { IBanlistChange } from '../../db/banlist-change';
+import { BanlistChange as IBanlistChange } from '@interface/magic/banlist';
 
 export default async function parseBanlist(url: string): Promise<IBanlistChange> {
     if (url.startsWith('https://magic.wizards.com/')) {

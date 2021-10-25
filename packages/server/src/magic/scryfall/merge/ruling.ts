@@ -1,9 +1,9 @@
 import Task from '@/common/task';
 
-import ScryfallRuling, { IRuling as IScryfallRuling } from '../../db/scryfall/ruling';
-import Card from '../../db/card';
+import ScryfallRuling, { IRuling as IScryfallRuling } from '@/magic/db/scryfall/ruling';
+import Card from '@/magic/db/card';
 
-import { IStatus } from '../interface';
+import { Status } from '../status';
 
 import { cloneDeep } from 'lodash';
 
@@ -29,7 +29,7 @@ async function mergeWith(data: IScryfallRuling) {
     await Card.updateMany({ cardId: card.cardId }, { rulings });
 }
 
-export class RulingMerger extends Task<IStatus> {
+export class RulingMerger extends Task<Status> {
     async startImpl(): Promise<void> {
         let count = 0;
 

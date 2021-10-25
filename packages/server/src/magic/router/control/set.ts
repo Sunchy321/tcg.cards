@@ -1,8 +1,10 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Set, { ISet } from '@/magic/db/set';
+import Set from '@/magic/db/set';
 import Card from '@/magic/db/card';
+
+import { Set as ISet } from '@interface/magic/set';
 
 import { mapValues, uniq } from 'lodash';
 import { toSingle } from '@/common/request-helper';

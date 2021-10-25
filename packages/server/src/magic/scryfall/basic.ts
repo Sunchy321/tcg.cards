@@ -1,6 +1,6 @@
 import request from 'request-promise-native';
 
-import { List } from './interface';
+import { List } from '@interface/magic/scryfall/basic';
 
 export async function* listOf<T>(url: string): AsyncGenerator<T[]> {
     let data: List<T>;

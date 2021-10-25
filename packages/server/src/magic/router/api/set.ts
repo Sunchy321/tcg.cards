@@ -1,7 +1,8 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Set, { SetLocalization } from '@/magic/db/set';
+import Set from '@/magic/db/set';
+import { SetLocalization } from '@interface/magic/set';
 
 import { existsSync, readdirSync } from 'fs';
 import { mapValues, omit } from 'lodash';

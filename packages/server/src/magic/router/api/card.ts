@@ -2,8 +2,10 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card, { ICard } from '@/magic/db/card';
+import Card from '@/magic/db/card';
 import Set from '@/magic/db/set';
+
+import { Card as ICard } from '@interface/magic/card';
 
 import { mapValues, omit, omitBy, random, uniq } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';

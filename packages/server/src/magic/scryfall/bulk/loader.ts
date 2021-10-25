@@ -1,12 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Task from '@/common/task';
 
-import Card, { ICard, ICardBase } from '../../db/scryfall/card';
-import Ruling, { IRuling } from '../../db/scryfall/ruling';
+import Card, { ICard, ICardBase } from '@/magic/db/scryfall/card';
+import Ruling, { IRuling } from '@/magic/db/scryfall/ruling';
 
-import { IStatus, RawCard, RawRuling } from '../interface';
+import { RawCard, RawRuling } from '@interface/magic/scryfall/card';
 
 import LineReader from '@/common/line-reader';
+import { Status } from '../status';
+
 import { toAsyncBucket } from '@/common/to-bucket';
 import { join } from 'path';
 import { omit, partition } from 'lodash';
@@ -33,7 +35,7 @@ async function* convertJson<T>(gen: AsyncGenerator<string>): AsyncGenerator<T> {
 
 const bucketSize = 500;
 
-export default class BulkLoader extends Task<IStatus> {
+export default class BulkLoader extends Task<Status> {
     type: 'card' | 'ruling';
     file: string;
     filePath: string;
@@ -60,7 +62,7 @@ export default class BulkLoader extends Task<IStatus> {
 
     async startImpl(): Promise<void> {
         this.intervalProgress(500, function () {
-            const prog: IStatus = {
+            const prog: Status = {
                 method: 'load',
                 type:   this.type,
 

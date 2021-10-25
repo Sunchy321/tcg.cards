@@ -1,0 +1,3 @@
+[submodule "interface"]
+	path = interface
+	url = git@github.com:Sunchy321/CardInterface.git

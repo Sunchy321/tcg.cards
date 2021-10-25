@@ -1,9 +1,11 @@
-import Card, { ICard, CardType } from '@/magic/db/card';
+import Card from '@/magic/db/card';
 import ScryfallCard, { ICard as IScryfallCard } from '@/magic/db/scryfall/card';
-import Format, { IFormat } from '@/magic/db/format';
+import Format from '@/magic/db/format';
 
 import Task from '@/common/task';
-import { Legalities } from '@/magic/scryfall/interface';
+import { Card as ICard, CardType } from '@interface/magic/card';
+import { Format as IFormat } from '@interface/magic/format';
+import { Legalities } from '@interface/magic/scryfall/basic';
 
 import { formats as formatList } from '@data/magic/basic';
 import { toGenerator, toBucket } from '@/common/to-bucket';

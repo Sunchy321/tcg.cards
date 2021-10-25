@@ -3,7 +3,7 @@ import { DefaultState, Context } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import { ImageGetter } from '../../scryfall/image';
+import { ImageGetter } from '@/magic/scryfall/image';
 
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';

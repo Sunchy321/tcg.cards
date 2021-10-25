@@ -1,7 +1,8 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import CR, { ICR } from '@/magic/db/cr';
+import CR from '@/magic/db/cr';
+import { CR as ICR } from '@interface/magic/cr';
 
 import { parse, reparse } from '@/magic/cr/parse';
 import { readdirSync } from 'fs';

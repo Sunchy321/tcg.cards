@@ -1,11 +1,10 @@
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
-import { IBanlistChange } from '../../db/banlist-change';
-import { BanlistStatus } from '../interface';
+import { BanlistChange as IBanlistChange, BanlistStatus } from '@interface/magic/banlist';
 
 import { parseDate, getLines } from './helper';
-import { toIdentifier } from '../../util';
+import { toIdentifier } from '@/magic/util';
 
 const monthMap: Record<string, string> = {
     Jan: '01',

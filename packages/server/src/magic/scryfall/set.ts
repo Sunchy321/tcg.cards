@@ -1,12 +1,14 @@
 
-import Set, { ISet } from '../db/scryfall/set';
+import Set, { ISet as IScryfallSet } from '../db/scryfall/set';
 
 import Task from '@/common/task';
 
-import { listOf } from './basic';
-import { IStatus, RawSet } from './interface';
+import { RawSet } from '@interface/magic/scryfall/set';
+import { Status } from './status';
 
-export class SetGetter extends Task<IStatus> {
+import { listOf } from './basic';
+
+export class SetGetter extends Task<Status> {
     async startImpl(): Promise<void> {
         await Set.deleteMany({});
 
@@ -16,7 +18,7 @@ export class SetGetter extends Task<IStatus> {
             const setData = sets.map(s => ({
                 set_id: s.id,
                 ...s,
-            } as ISet));
+            } as IScryfallSet));
 
             await Set.insertMany(setData);
 

@@ -1,7 +1,7 @@
 import Task from '@/common/task';
 import blzApi from './api';
 
-import { Locale, IMetadata, ISetGroup, ISpecialSetGroup } from './interface';
+import { Locale, IMetadata, ISetGroup, ISpecialSetGroup } from '@interface/hearthstone/blizzard';
 
 import Set, { ISet } from '../db/set';
 

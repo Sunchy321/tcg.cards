@@ -2,11 +2,13 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import git, { SimpleGitProgressEvent, ResetMode } from 'simple-git';
 
-import { XCardDefs, XEntity, XLocStringTag, XTag } from './interface';
+import { XCardDefs, XEntity, XLocStringTag, XTag } from '@interface/hearthstone/hsdata/xml';
 
 import Patch from '@/hearthstone/db/patch';
-import Entity, { IEntity, IPlayRequirement, IPower } from '@/hearthstone/db/entity';
+import Entity from '@/hearthstone/db/entity';
 import Task from '@/common/task';
+
+import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthstone/entity';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -530,7 +532,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 result.powers = [];
 
                 for (const p of castArray(entity[k])) {
-                    const power: Partial<IPower> = {};
+                    const power: Partial<Power> = {};
 
                     power.definition = p._attributes.definition;
 
@@ -548,17 +550,17 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                                 );
                             }
 
-                            const req: Partial<IPlayRequirement> = { type };
+                            const req: Partial<PlayRequirement> = { type };
 
                             if (param !== '') {
                                 req.param = parseInt(param);
                             }
 
-                            power.playRequirements.push(req as IPlayRequirement);
+                            power.playRequirements.push(req as PlayRequirement);
                         }
                     }
 
-                    result.powers.push(power as IPower);
+                    result.powers.push(power as Power);
                 }
 
                 break;

@@ -2,18 +2,9 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
-export interface IFormatChange {
-    date: string;
+import { FormatChange as IFormatChange } from '@interface/magic/format';
 
-    changes: {
-        category: string,
-        format?: string,
-        in: string[],
-        out: string[],
-    }[],
-}
-
-const IFormatChangeSchema = new Schema({
+const IFormatChangeSchema = new Schema<IFormatChange>({
     date: String,
 
     changes: {

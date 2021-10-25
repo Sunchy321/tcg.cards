@@ -2,16 +2,9 @@ import { Document, Schema } from 'mongoose';
 
 import conn from './db';
 
-export interface IFormat {
-    formatId: string;
-    localization: { lang: string, name: string }[];
-    sets?: string[],
-    banlist: { card: string, status: string, date: string, group?: string }[],
-    birthday?: string;
-    deathdate?: string;
-}
+import { Format as IFormat } from '@interface/magic/format';
 
-const FormatSchema = new Schema({
+const FormatSchema = new Schema<IFormat>({
     formatId: {
         type:     String,
         required: true,

@@ -1,13 +1,17 @@
 /* eslint-disable camelcase */
 import Task from '@/common/task';
 
-import ScryfallCard, { ICard as ISCard, ICardBase as ISCardBase } from '../../db/scryfall/card';
-import Card, { ICard, CardType } from '../../db/card';
-import Set from '../../db/set';
+import ScryfallCard, { ICard as ISCard, ICardBase as ISCardBase } from '@/magic/db/scryfall/card';
+import Card from '@/magic/db/card';
+import Set from '@/magic/db/set';
 
-import { CardFace, Colors, IStatus } from '../interface';
+import { Card as ICard, CardType } from '@interface/magic/card';
+import { Colors } from '@interface/magic/scryfall/basic';
+import { CardFace } from '@interface/magic/scryfall/card';
+
 import { Document } from 'mongoose';
 import { Diff } from 'deep-diff';
+import { Status } from '../status';
 
 import { toAsyncBucket } from '@/common/to-bucket';
 import { convertColor, parseTypeline, toIdentifier, convertLegality } from '@/magic/util';
@@ -517,7 +521,7 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
 
 const bucketSize = 500;
 
-export class CardMerger extends Task<IStatus> {
+export class CardMerger extends Task<Status> {
     progressId?: NodeJS.Timeout;
 
     async startImpl(): Promise<void> {
@@ -545,7 +549,7 @@ export class CardMerger extends Task<IStatus> {
         const start = Date.now();
 
         this.intervalProgress(500, function () {
-            const prog: IStatus = {
+            const prog: Status = {
                 method: 'merge',
                 type:   'card',
 

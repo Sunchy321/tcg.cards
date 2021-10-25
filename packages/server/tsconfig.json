@@ -13,7 +13,8 @@
             "*": ["@types/*"],
             "@/*": ["./*"],
             "@static": ["./static"],
-            "@data/*": ["../data/*"]
+            "@data/*": ["../data/*"],
+            "@interface/*": ["../interface/*"]
         }
     },
     "include": ["src/*"]
