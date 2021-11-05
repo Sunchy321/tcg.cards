@@ -60,33 +60,11 @@ import pageSetup from 'setup/page';
 
 import MagicText from 'components/magic/Text.vue';
 
+import { CR, Content } from 'interface/magic/cr';
+
 import { last } from 'lodash';
 import { scroll } from 'quasar';
 import { apiGet } from 'boot/backend';
-
-interface Content {
-    id: string;
-    depth: number;
-    index: string;
-    text: string;
-    examples?: string[];
-    cards?: { text:string, id:string }[]
-}
-
-interface Glossary {
-    words: string[];
-    ids: string[];
-    text: string;
-}
-
-interface CR {
-    date: string;
-    intro: string;
-    contents: Content[];
-    glossary: Glossary[];
-    credits: string;
-    csi?: string;
-}
 
 interface Menu {
     id: string;

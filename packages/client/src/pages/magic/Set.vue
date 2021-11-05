@@ -94,42 +94,12 @@ import { useStore } from 'src/store';
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
 
+import { Set as ISet } from 'interface/magic/set';
+
 import { apiGet, apiBase, imageBase } from 'boot/backend';
 
-interface SetLocalization {
-    name?: string,
-    isOfficialName: boolean,
-    link?: string,
-}
-
-interface Set {
-    setId: string,
-
-    block?: string,
-    parent?: string,
-
-    printedSize?: number,
-    cardCount: number,
-    langs: string[],
-    rarities: string[],
-
-    localization: Record<string, SetLocalization>,
-
-    setType: string,
-    isDigital: boolean,
-    isFoilOnly: boolean,
-    isNonfoilOnly: boolean,
-    symbolStyle: string[],
-
-    releaseDate?: string,
-
-    scryfall: {
-        id: string,
-        code: string,
-    },
-
-    mtgoCode?: string,
-    tcgplayerId?: number,
+type Set = Omit<ISet, 'localization'> & {
+    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>
 }
 
 export default defineComponent({

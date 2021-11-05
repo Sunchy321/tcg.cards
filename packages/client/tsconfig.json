@@ -12,7 +12,8 @@
             "pages/*": ["src/pages/*"],
             "assets/*": ["src/assets/*"],
             "boot/*": ["src/boot/*"],
-            "setup/*": ["src/setup/*"]
+            "setup/*": ["src/setup/*"],
+            "interface/*": ["interface/*"]
         }
     },
     "include": [

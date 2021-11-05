@@ -338,59 +338,14 @@ import MagicText from 'components/magic/Text.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
+import { Card } from 'interface/magic/card';
 import { TextMode, textModes } from 'src/store/games/magic';
 
 import { omit, omitBy, uniq } from 'lodash';
 
 import { apiGet, imageBase } from 'boot/backend';
 
-type BanlistStatus =
-    'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';
-
-interface Card {
-    cardId: string;
-
-    set: string;
-    number: string;
-    lang: string;
-
-    layout: string;
-
-    parts: {
-        cost: string[];
-
-        color: string;
-        colorIndicator?: string;
-
-        power?: string;
-        toughness?: string;
-        loyalty?: string;
-        handModifier?: string;
-        lifeModifier?: string;
-
-        oracle: {
-            name: string;
-            typeline: string;
-            text: string;
-        };
-
-        unified: {
-            name: string;
-            typeline: string;
-            text: string;
-        };
-
-        printed: {
-            name: string;
-            typeline: string;
-            text: string;
-        };
-
-        flavorText?: string;
-        flavorName?: string;
-        artist: string;
-    }[];
-
+type Data = Card & {
     versions: {
         lang: string;
         set: string;
@@ -403,24 +358,6 @@ interface Card {
         symbolStyle: string[];
         parent?: string;
     }[];
-
-    relatedCards: {
-        relation: string;
-        cardId: string;
-        version?: {
-            lang: string;
-            set: string;
-            number: string;
-        }
-    }[];
-
-    rulings: {
-        source: string,
-        date: string,
-        text: string,
-    }[];
-
-    legalities: Record<string, BanlistStatus>;
 }
 
 export default defineComponent({
@@ -435,7 +372,7 @@ export default defineComponent({
 
         const { search, random } = magicSetup();
 
-        const data = ref<Card|null>(null);
+        const data = ref<Data|null>(null);
         const rotate = ref<boolean|null>(null);
 
         pageSetup({
@@ -695,7 +632,7 @@ export default defineComponent({
                 number: route.query.number,
             }, v => v == null);
 
-            const { data: result } = await apiGet<Card>('/magic/card', query);
+            const { data: result } = await apiGet<Data>('/magic/card', query);
 
             rotate.value = null;
             data.value = result;
