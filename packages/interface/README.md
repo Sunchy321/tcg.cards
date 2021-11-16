@@ -1,0 +1,1 @@
+Common interfaces for tcg.cards server and client.

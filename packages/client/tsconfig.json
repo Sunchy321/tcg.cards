@@ -13,7 +13,7 @@
             "assets/*": ["src/assets/*"],
             "boot/*": ["src/boot/*"],
             "setup/*": ["src/setup/*"],
-            "interface/*": ["interface/*"]
+            "interface/*": ["node_modules/card-interface/*"]
         }
     },
     "include": [

@@ -1,0 +1,9 @@
+{
+  "name": "card-interface",
+  "version": "1.0.0",
+  "private": true,
+  "description": "tcg.cards common interfaces",
+  "author": "Sunchy321 <sunchy321@qq.com>",
+  "homepage": "",
+  "license": "MIT"
+}

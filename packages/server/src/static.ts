@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 
-const configPath = process.env.NODE_ENV === 'production' ? process.argv[2] : './config.json';
+const configPath = process.argv[2];
 
 export interface Database {
     user: string;
