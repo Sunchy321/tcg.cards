@@ -1,5 +1,5 @@
 import { createStore, useStore as vuexUseStore, createLogger } from 'vuex';
-import { InjectionKey } from 'vue';
+import type { InjectionKey } from 'vue';
 
 import { Store as CreateStore } from './interface';
 

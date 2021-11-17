@@ -64,7 +64,9 @@ export default defineComponent({
                     password: password.value,
                 });
             } catch (e) {
-                quasar.notify(i18n.t('user.' + camelCase(e.message)));
+                if (e instanceof Error) {
+                    quasar.notify(i18n.t('user.' + camelCase(e.message)));
+                }
             }
         };
 
@@ -75,7 +77,9 @@ export default defineComponent({
                     password: password.value,
                 });
             } catch (e) {
-                quasar.notify(i18n.t('user.' + camelCase(e.message)));
+                if (e instanceof Error) {
+                    quasar.notify(i18n.t('user.' + camelCase(e.message)));
+                }
             }
         };
 

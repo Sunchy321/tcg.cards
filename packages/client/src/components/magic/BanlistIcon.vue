@@ -25,7 +25,8 @@
 </style>
 
 <script lang="ts">
-import { PropType, defineComponent, computed } from 'vue';
+import type { PropType } from 'vue';
+import { defineComponent, computed } from 'vue';
 
 type BanlistStatus =
     'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';

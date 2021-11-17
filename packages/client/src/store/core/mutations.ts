@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { State } from './state';
 
-import { RouteLocationNormalizedLoaded } from 'vue-router';
+import type { RouteLocationNormalizedLoaded } from 'vue-router';
 import { ParamObject, Action } from 'setup/page';
 
 import { LocalStorage } from 'quasar';

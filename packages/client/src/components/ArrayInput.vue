@@ -1,7 +1,7 @@
 <template>
     <q-input
         v-model="text"
-        :color="textChanged ? 'positive' : null"
+        :color="textChanged ? 'positive' : undefined"
         @keypress.enter="updateValue"
     >
         <template v-for="(_, slot) of $slots" #[slot]="scope">
@@ -15,7 +15,8 @@
 </style>
 
 <script lang="ts">
-import { PropType, defineComponent, ref, computed, watch } from 'vue';
+import type { PropType } from 'vue';
+import { defineComponent, ref, computed, watch } from 'vue';
 
 export default defineComponent({
     props: {

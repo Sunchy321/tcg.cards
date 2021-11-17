@@ -7,7 +7,8 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
-import { QuasarLanguage, useQuasar } from 'quasar';
+import { useQuasar } from 'quasar';
+import type { QuasarLanguage } from 'quasar';
 import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
 

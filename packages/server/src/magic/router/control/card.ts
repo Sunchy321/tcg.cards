@@ -273,7 +273,12 @@ import { assetPath } from '@static';
 import { existsSync, renameSync } from 'fs';
 
 router.get('/rename', async ctx => {
-    const { set } = ctx.query;
+    const { set } = mapValues(ctx.query, toSingle);
+
+    if (set == null) {
+        ctx.status = 404;
+        return;
+    }
 
     const cards = await Card.find({ set, lang: 'zhs' });
 

@@ -1,4 +1,4 @@
-import { Store as VuexStore, GetterTree, MutationTree, ActionTree } from 'vuex';
+import type { Store as VuexStore, GetterTree, MutationTree, ActionTree } from 'vuex';
 
 // { a: T, b: U } to T | U
 type ObjectToUnion<T> = T[keyof T];

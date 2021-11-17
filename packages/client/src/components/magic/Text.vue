@@ -16,7 +16,8 @@
 </style>
 
 <script lang="ts">
-import { VNode, PropType, defineComponent, h } from 'vue';
+import type { VNode, PropType } from 'vue';
+import { defineComponent, h } from 'vue';
 
 import { useStore } from 'src/store';
 

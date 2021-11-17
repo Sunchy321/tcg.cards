@@ -1,4 +1,4 @@
-import { ActionContext } from 'vuex';
+import type { ActionContext } from 'vuex';
 import { State } from './state';
 
 import { user } from 'boot/backend';

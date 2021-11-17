@@ -1,5 +1,5 @@
 import { Module } from '../interface';
-import { Commit } from 'vuex';
+import type { Commit } from 'vuex';
 
 interface GameOptionNumber {
     type: 'number';

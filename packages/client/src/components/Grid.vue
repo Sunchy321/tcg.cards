@@ -18,7 +18,8 @@
 </template>
 
 <script lang="ts">
-import { PropType, defineComponent, ref, watch } from 'vue';
+import type { PropType } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
 
 export default defineComponent({
     props: {

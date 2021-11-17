@@ -1,0 +1,17 @@
+diff --git a/node_modules/mongoose/index.d.ts b/node_modules/mongoose/index.d.ts
+index 695fe60..304a5da 100644
+--- a/node_modules/mongoose/index.d.ts
++++ b/node_modules/mongoose/index.d.ts
+@@ -722,9 +722,9 @@ declare module 'mongoose' {
+     schema: Schema;
+ 
+     /** Sets the value of a path, or many paths. */
+-    set(path: string, val: any, options?: any): this;
+-    set(path: string, val: any, type: any, options?: any): this;
+-    set(value: any): this;
++    // set(path: string, val: any, options?: any): this;
++    // set(path: string, val: any, type: any, options?: any): this;
++    // set(value: any): this;
+ 
+     /** The return value of this method is used in calls to JSON.stringify(doc). */
+     toJSON(options?: ToObjectOptions): LeanDocument<this>;

@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { State } from './state';
 
-import { RouteLocationNormalizedLoaded } from 'vue-router';
+import type { RouteLocationNormalizedLoaded } from 'vue-router';
 
 import i18n from 'src/i18n';
 

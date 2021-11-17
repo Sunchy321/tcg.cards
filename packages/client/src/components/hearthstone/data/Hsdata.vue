@@ -90,13 +90,13 @@ export default defineComponent({
         const { controlGet, controlWs } = controlSetup();
 
         const patches = ref<Patch[]>([]);
-        const progress = ref<Progress|null>(null);
+        const progress = ref<Progress|undefined>(undefined);
 
         const progressValue = computed(() => {
             const prog = progress.value;
 
             if (prog == null) {
-                return null;
+                return undefined;
             }
 
             if (prog.type === 'get') {
@@ -108,7 +108,7 @@ export default defineComponent({
             } else if (prog.type === 'load') {
                 return prog.count / prog.total;
             } else {
-                return null;
+                return undefined;
             }
         });
 
@@ -144,7 +144,7 @@ export default defineComponent({
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    progress.value = null;
+                    progress.value = undefined;
                     void loadData();
 
                     resolve(undefined);
@@ -162,7 +162,7 @@ export default defineComponent({
 
                 ws.onerror = reject;
                 ws.onclose = () => {
-                    progress.value = null;
+                    progress.value = undefined;
                     void loadData();
 
                     resolve(undefined);

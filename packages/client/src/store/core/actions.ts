@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { ActionContext } from 'vuex';
+import type { ActionContext } from 'vuex';
 import { State } from './state';
 
 import { LocalStorage } from 'quasar';

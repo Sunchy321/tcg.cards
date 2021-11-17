@@ -29,7 +29,8 @@
 </style>
 
 <script lang="ts">
-import { PropType, defineComponent, h } from 'vue';
+import type { PropType } from 'vue';
+import { defineComponent, h } from 'vue';
 
 function calcActualValue(value: string, type: string[]) {
     if (type.includes('flat')) {

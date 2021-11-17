@@ -25,7 +25,10 @@
 </template>
 
 <script lang="ts">
-import { PropType, defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed } from 'vue';
+
+import type { PropType } from 'vue';
+import type { QInputProps, QDateProps } from 'quasar';
 
 export default defineComponent({
     props: {
@@ -89,13 +92,13 @@ export default defineComponent({
 
         const eventColor = (v: string) => realEvents.value.find(e => e.date === v)!.color;
 
-        const input = (v: string) => {
+        const input = (v: QInputProps['modelValue']) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             dateProxy.value.hide();
             emit('update:modelValue', v);
         };
 
-        const dateInput = (v: string) => {
+        const dateInput = (v: QDateProps['modelValue']) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             dateProxy.value.hide();
             emit('update:modelValue', v);

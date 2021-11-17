@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { Ref, ComputedRef, computed, watch } from 'vue';
+import { computed, watch } from 'vue';
+import type { Ref, ComputedRef } from 'vue';
 
 import { mapValues } from 'lodash';
 

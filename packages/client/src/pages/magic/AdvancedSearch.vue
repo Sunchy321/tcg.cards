@@ -154,7 +154,8 @@
 </style>
 
 <script lang="ts">
-import { Ref, defineComponent, ref } from 'vue';
+import type { Ref } from 'vue';
+import { defineComponent, ref } from 'vue';
 
 import pageSetup from 'setup/page';
 
