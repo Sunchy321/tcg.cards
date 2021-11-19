@@ -1,22 +1,8 @@
-<template>
-    <q-input
-        v-model="text"
-        :color="textChanged ? 'positive' : undefined"
-        @keypress.enter="updateValue"
-    >
-        <template v-for="(_, slot) of $slots" #[slot]="scope">
-            <slot :name="slot" v-bind="scope" />
-        </template>
-    </q-input>
-</template>
-
-<style lang="sass" scoped>
-
-</style>
-
 <script lang="ts">
 import type { PropType } from 'vue';
-import { defineComponent, ref, computed, watch } from 'vue';
+import { defineComponent, ref, computed, watch, h } from 'vue';
+
+import { QInput } from 'quasar';
 
 export default defineComponent({
     props: {
@@ -32,7 +18,7 @@ export default defineComponent({
 
     emits: ['update:modelValue'],
 
-    setup(props, { emit }) {
+    setup(props, { emit, slots }) {
         const text = ref('');
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -56,11 +42,18 @@ export default defineComponent({
             }
         };
 
-        return {
-            text,
-            textChanged,
-            updateValue,
+        const onKeypress = (event: KeyboardEvent) => {
+            if (event.key === 'Enter') {
+                updateValue();
+            }
         };
+
+        return () => h(QInput, {
+            'modelValue':          text.value,
+            'onUpdate:modelValue': (newValue: string) => { text.value = newValue; },
+            'color':               textChanged.value ? 'positive' : undefined,
+            'onKeypress':          onKeypress,
+        }, slots);
     },
 });
 </script>
