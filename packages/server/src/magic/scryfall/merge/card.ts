@@ -310,11 +310,13 @@ function toCard(data: NSCard, setCodeMap: Record<string, string>): ICard {
         contentWarning: data.content_warning,
         games:          data.games,
 
-        preview: data.preview != null ? {
-            date:   data.preview.previewed_at,
-            source: data.preview.source,
-            uri:    data.preview.source_uri,
-        } : undefined,
+        preview: data.preview != null
+            ? {
+                date:   data.preview.previewed_at,
+                source: data.preview.source,
+                uri:    data.preview.source_uri,
+            }
+            : undefined,
 
         scryfall: {
             cardId:   data.card_id,
@@ -347,6 +349,7 @@ const ignoreList: (keyof ISCardBase)[] = [
     'set_search_uri',
     'set_type',
     'set_uri',
+    'legalities',
 ];
 
 const assignMap: Partial<Record<keyof ISCardBase, keyof ICard>> = {
