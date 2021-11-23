@@ -28,15 +28,23 @@ interface IImageStatus {
 
 export class ImageGetter extends Task<IImageStatus> {
     type:string;
+
     set: string;
+
     lang: string;
 
     projCount = 0;
+
     projTotal: number;
+
     total: number;
+
     failed = 0;
+
     todoTasks: IImageTask[] = [];
+
     taskMap: Record<string, [IImageTask, FileSaver]> = {};
+
     statusMap: Record<string, string> = {};
 
     constructor(type: string) {
@@ -95,7 +103,7 @@ export class ImageGetter extends Task<IImageStatus> {
                 return;
             }
 
-            ++this.projCount;
+            this.projCount += 1;
 
             this.set = setCodeMap[proj._id.set] ?? proj._id.set;
             this.lang = proj._id.lang;
@@ -132,8 +140,8 @@ export class ImageGetter extends Task<IImageStatus> {
                 }
 
                 if (info.partsUris != null) {
-                    for (let i = 0; i < info.partsUris.length; ++i) {
-                        const name = info.number + '-' + i;
+                    for (let i = 0; i < info.partsUris.length; i += 1) {
+                        const name = `${info.number}-${i}`;
 
                         this.todoTasks.push({
                             name,
@@ -214,7 +222,7 @@ export class ImageGetter extends Task<IImageStatus> {
                     delete this.taskMap[task.name];
                     this.statusMap[task.name] = 'failed';
 
-                    ++this.failed;
+                    this.failed += 1;
 
                     this.taskMap[task.name]?.[1]?.stop();
 
@@ -228,10 +236,8 @@ export class ImageGetter extends Task<IImageStatus> {
                 this.taskMap[task.name] = [task, savers];
                 this.statusMap[task.name] = 'working';
                 savers.start();
-            } else {
-                if (this.rest() === 0 && this.working() === 0) {
-                    this.emit('all-end');
-                }
+            } else if (this.rest() === 0 && this.working() === 0) {
+                this.emit('all-end');
             }
         }
     }
@@ -239,8 +245,8 @@ export class ImageGetter extends Task<IImageStatus> {
     stopImpl(): void {
         this.todoTasks = [];
 
-        for (const k in this.taskMap) {
-            this.taskMap[k][1].stop();
+        for (const task of Object.values(this.taskMap)) {
+            task[1].stop();
         }
     }
 

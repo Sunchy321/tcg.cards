@@ -1,4 +1,5 @@
 <template>
+    <!-- eslint-disable max-len -->
     <q-page class="q-pa-md">
         <div class="brief">
             在下面的表格中，<code class="var regex">/regex/</code>指正则表达式，<code class="var string">string</code>指任何单引号字符串<code>'single'</code>、双引号字符串<code>"double"</code>或不含引号和空格的字符串<code>raw</code>。引号字符串中使用反斜杠作为转义字符。使用<code class="var param">param</code>指代上述两者之一。<code class="var number">number</code>为十进制数字。<br>

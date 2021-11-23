@@ -60,18 +60,18 @@ function parseDateText(
     switch (sTextDeburr) {
     case 'Announcement Date':
         result.date = parseDate(rest);
-        return;
+        return undefined;
     case 'Effective Date':
     case 'Tabletop Effective Date':
         result.effectiveDate!.tabletop = parseDate(rest);
-        return;
+        return undefined;
     case 'Magic Online Effective Date':
     case 'Magic OnlineEffective Date':
         result.effectiveDate!.online = parseDate(rest);
-        return;
+        return undefined;
     case 'MTG Arena Effective Date':
         result.effectiveDate!.arena = parseDate(rest);
-        return;
+        return undefined;
     case 'Next B&R Announcement':
     case 'Next Pioneer B&R Announcement':
     case 'Next Pioneer Banned Announcement':
@@ -81,6 +81,8 @@ function parseDateText(
         // Formats
         if (rest === '') {
             return formatMap[sText] || null;
+        } else {
+            return undefined;
         }
     }
 }
@@ -167,11 +169,11 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
         if (text.startsWith('The list of all banned and restricted cards, by format, is here')) {
             currFormat = null;
         } else if (isStrong(e[0])) {
-            const sText = (t => t.endsWith(':') ? t.slice(0, -1) : t)(
+            const sText = (t => (t.endsWith(':') ? t.slice(0, -1) : t))(
                 e.filter(isStrong).map(v => $(v).text()).join(''),
             );
 
-            const rest = text.replace(new RegExp(escapeRegExp(sText) + ':?'), '').trim();
+            const rest = text.replace(new RegExp(`${escapeRegExp(sText)}:?`), '').trim();
 
             const newFormat = parseDateText(sText, rest, result);
 
@@ -201,9 +203,9 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
     }
 
     if (
-        result.effectiveDate!.tabletop == null &&
-        result.effectiveDate!.online == null &&
-        result.effectiveDate!.arena == null
+        result.effectiveDate!.tabletop == null
+        && result.effectiveDate!.online == null
+        && result.effectiveDate!.arena == null
     ) {
         result.effectiveDate = undefined;
     }
@@ -232,11 +234,11 @@ export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChang
         const text = e.map(v => $(v).text()).join('').trim();
 
         if (isStrong(e[0])) {
-            const sText = (t => t.endsWith(':') ? t.slice(0, -1) : t)(
+            const sText = (t => (t.endsWith(':') ? t.slice(0, -1) : t))(
                 e.filter(isStrong).map(v => $(v).text().trim()).join(''),
             );
 
-            const rest = text.replace(new RegExp(escapeRegExp(sText) + ':?'), '').trim();
+            const rest = text.replace(new RegExp(`${escapeRegExp(sText)}:?`), '').trim();
 
             const newFormat = parseDateText(sText, rest, result);
 
@@ -255,7 +257,7 @@ export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChang
                             status: statusMap[s],
                         });
                         break;
-                    } else if (text.endsWith(s + '.')) {
+                    } else if (text.endsWith(`${s}.`)) {
                         result.changes!.push({
                             card:   toIdentifier(text.slice(0, -s.length - 1)),
                             format: currFormat,

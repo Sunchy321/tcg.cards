@@ -64,9 +64,7 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
         }
 
         // Casual card type
-        if (data.parts.some(p => p.typeMain.some(t =>
-            ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'].includes(t),
-        ))) {
+        if (data.parts.some(p => p.typeMain.some(t => ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'].includes(t)))) {
             result[f.formatId] = 'unavailable';
             continue;
         }
@@ -124,13 +122,11 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
 
         if (f.formatId === 'pauper') {
             // Some set are not checked
-            const pauperVersions = versions.filter(v =>
-                ![
-                    /* Sets only on MTGA */ 'ana', 'oana', 'anb',
-                    /* Foreign sets */ 'ren', 'rin',
-                    /* Promo sets */ 'wc97', 'wc98', 'wc99', 'wc00', 'wc01', 'wc02', 'wc03', 'wc04',
-                ].includes(v.set),
-            );
+            const pauperVersions = versions.filter(v => ![
+                /* Sets only on MTGA */ 'ana', 'oana', 'anb',
+                /* Foreign sets */ 'ren', 'rin',
+                /* Promo sets */ 'wc97', 'wc98', 'wc99', 'wc00', 'wc01', 'wc02', 'wc03', 'wc04',
+            ].includes(v.set));
 
             // I don't know why
             if (['assassin_s_blade'].includes(data._id)) {
@@ -140,8 +136,8 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
 
             // Some cards marked as common in Gatherer are uncommon in Scryfall data
             if (
-                !pauperVersions.some(v => v.rarity === 'common') &&
-                !['delif_s_cone'].includes(data._id)
+                !pauperVersions.some(v => v.rarity === 'common')
+                && !['delif_s_cone'].includes(data._id)
             ) {
                 result[f.formatId] = 'unavailable';
                 continue;
@@ -167,15 +163,15 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
     return result;
 }
 
-export function checkLegality(data: CardData, legality: ICard['legalities'], scryfall: Legalities): string | undefined {
-    for (const f in legality) {
+export function checkLegality(data: CardData, legalities: ICard['legalities'], scryfall: Legalities): string | undefined {
+    for (const f of Object.keys(legalities)) {
         const sLegality = (() => {
             const legality = f === 'duelcommander' ? scryfall.duel : scryfall[f];
 
             return legality === 'not_legal' ? 'unavailable' : legality;
         })();
 
-        if (sLegality != null && legality[f] !== sLegality) {
+        if (sLegality != null && legalities[f] !== sLegality) {
             if (data._id === 'gleemox') {
                 continue;
             }
@@ -203,7 +199,7 @@ export function checkLegality(data: CardData, legality: ICard['legalities'], scr
                 }
 
                 // Card banned as commander in duelcommander are marked as restricted by Scryfall.
-                if (legality[f] === 'banned_as_commander' && sLegality === 'restricted') {
+                if (legalities[f] === 'banned_as_commander' && sLegality === 'restricted') {
                     continue;
                 }
 
@@ -234,7 +230,7 @@ export function checkLegality(data: CardData, legality: ICard['legalities'], scr
                     // 'sheoldred__whispering_one',
                     'thought_scour',
                     'time_to_feed',
-                ].includes(data._id) && legality[f] === 'unavailable' && sLegality === 'banned') {
+                ].includes(data._id) && legalities[f] === 'unavailable' && sLegality === 'banned') {
                     continue;
                 }
             } else if (f === 'pauper') {
@@ -257,6 +253,8 @@ export function checkLegality(data: CardData, legality: ICard['legalities'], scr
             return f;
         }
     }
+
+    return undefined;
 }
 
 interface Status {
@@ -326,7 +324,7 @@ export class LegalityAssigner extends Task<Status> {
 
         const start = Date.now();
 
-        this.intervalProgress(500, function () {
+        this.intervalProgress(500, () => {
             const elapsed = Date.now() - start;
 
             return {
@@ -334,7 +332,7 @@ export class LegalityAssigner extends Task<Status> {
 
                 time: {
                     elapsed,
-                    remaining: elapsed / count * (total - count),
+                    remaining: (elapsed / count) * (total - count),
                 },
 
                 wrongs,
@@ -367,7 +365,7 @@ export class LegalityAssigner extends Task<Status> {
 
                 await Card.updateMany({ cardId: c._id }, { legalities: result });
 
-                ++count;
+                count += 1;
             }
         }
     }

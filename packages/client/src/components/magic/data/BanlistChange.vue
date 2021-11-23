@@ -107,7 +107,7 @@
                     :model-value="c.card"
                     class="col"
                     dense
-                    @update:model-value="v => modifyChangeCard(c, v)"
+                    @update:model-value="v => modifyChangeCard(c, v as string)"
                 />
                 <q-select
                     v-model="c.format"
@@ -120,7 +120,7 @@
                     v-model="c.status"
                     :options="statusList"
                     flat dense
-                    :toggle-color="null"
+                    :toggle-color="undefined"
                     color="white"
                     text-color="grey"
                 />
@@ -169,7 +169,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, watch, onMounted,
+} from 'vue';
 
 import { useRouter } from 'vue-router';
 
@@ -286,7 +288,7 @@ export default defineComponent({
             if (prog != null && prog.amount.total != null) {
                 return prog.amount.count / prog.amount.total;
             } else {
-                return null;
+                return undefined;
             }
         });
 
@@ -317,7 +319,7 @@ export default defineComponent({
         const changeList = ref<BanlistChangeProfile[]>([]);
         const selected = ref<BanlistChangeProfile|null>(null);
 
-        const data = ref<BanlistChange|null>(null);
+        const banlistChange = ref<BanlistChange|null>(null);
 
         const formatList = [
             'standard',
@@ -368,6 +370,8 @@ export default defineComponent({
                 } else {
                     return 'mdi-help-circle-outline';
                 }
+            default:
+                return '';
             }
         };
 
@@ -381,51 +385,51 @@ export default defineComponent({
             'unavailable',
         ].map(v => ({
             icon:  statusIcon(v),
-            class: 'banlist-status-' + v,
+            class: `banlist-status-${v}`,
             value: v,
         }));
 
         const category = computed({
             get() {
-                return data.value?.category ?? 'wotc';
+                return banlistChange.value?.category ?? 'wotc';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.category = newValue;
+                if (banlistChange.value != null) {
+                    banlistChange.value.category = newValue;
                 }
             },
         });
 
         const date = computed({
             get() {
-                return data.value?.date ?? '';
+                return banlistChange.value?.date ?? '';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.date = newValue;
+                if (banlistChange.value != null) {
+                    banlistChange.value.date = newValue;
                 }
             },
         });
 
         const nextDate = computed({
             get() {
-                return data.value?.nextDate ?? '';
+                return banlistChange.value?.nextDate ?? '';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.nextDate = newValue;
+                if (banlistChange.value != null) {
+                    banlistChange.value.nextDate = newValue;
                 }
             },
         });
 
         const eDateTable = computed({
             get() {
-                return data.value?.effectiveDate?.tabletop ?? '';
+                return banlistChange.value?.effectiveDate?.tabletop ?? '';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.effectiveDate = {
-                        ...data.value.effectiveDate ?? {},
+                if (banlistChange.value != null) {
+                    banlistChange.value.effectiveDate = {
+                        ...banlistChange.value.effectiveDate ?? {},
                         tabletop: newValue,
                     };
                 }
@@ -434,12 +438,12 @@ export default defineComponent({
 
         const eDateOnline = computed({
             get() {
-                return data.value?.effectiveDate?.online ?? '';
+                return banlistChange.value?.effectiveDate?.online ?? '';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.effectiveDate = {
-                        ...data.value.effectiveDate ?? {},
+                if (banlistChange.value != null) {
+                    banlistChange.value.effectiveDate = {
+                        ...banlistChange.value.effectiveDate ?? {},
                         online: newValue,
                     };
                 }
@@ -448,19 +452,19 @@ export default defineComponent({
 
         const eDateArena = computed({
             get() {
-                return data.value?.effectiveDate?.arena ?? '';
+                return banlistChange.value?.effectiveDate?.arena ?? '';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.effectiveDate = {
-                        ...data.value.effectiveDate ?? {},
+                if (banlistChange.value != null) {
+                    banlistChange.value.effectiveDate = {
+                        ...banlistChange.value.effectiveDate ?? {},
                         arena: newValue,
                     };
                 }
             },
         });
 
-        const changes = computed(() => data.value?.changes ?? []);
+        const changes = computed(() => banlistChange.value?.changes ?? []);
 
         const loadData = async () => {
             const { data } = await controlGet<BanlistChangeProfile[]>('/magic/format/banlist/change');
@@ -468,19 +472,19 @@ export default defineComponent({
             changeList.value = data;
 
             if (data.length > 0 && selected.value == null) {
-                selected.value = data[0];
+                [selected.value] = data;
             }
         };
 
         const loadChange = async () => {
             if (selected.value?.id != null) {
-                data.value = null;
+                banlistChange.value = null;
 
                 const { data: result } = await controlGet<BanlistChange>('/magic/format/banlist/change', {
                     id: selected.value.id,
                 });
 
-                data.value = result;
+                banlistChange.value = result;
             }
         };
 
@@ -491,16 +495,16 @@ export default defineComponent({
 
             changeList.value.unshift({ date: result.date });
             selected.value = { date: result.date };
-            data.value = result;
+            banlistChange.value = result;
         };
 
         const newChange = () => {
-            const date = new Date().toLocaleDateString('en-CA');
+            const todayDate = new Date().toLocaleDateString('en-CA');
 
-            changeList.value.unshift({ date });
-            selected.value = { date };
-            data.value = {
-                date,
+            changeList.value.unshift({ date: todayDate });
+            selected.value = { date: todayDate };
+            banlistChange.value = {
+                date:     todayDate,
                 link:     [],
                 category: 'wotc',
                 changes:  [],
@@ -509,7 +513,7 @@ export default defineComponent({
 
         const saveChange = async () => {
             await controlPost('/magic/format/banlist/change/save', {
-                data: data.value,
+                data: banlistChange.value,
             });
 
             void loadData();
@@ -539,7 +543,7 @@ export default defineComponent({
                         console.log(wrongs);
 
                         wrongs.slice(0, 10).forEach(v => {
-                            const route = router.resolve('/magic/card/' + v.cardId);
+                            const route = router.resolve(`/magic/card/${v.cardId}`);
 
                             window.open(route.href, '_blank');
                         });
@@ -614,7 +618,7 @@ export default defineComponent({
             url,
             changeList,
             selected,
-            data,
+            data: banlistChange,
 
             date,
             category,

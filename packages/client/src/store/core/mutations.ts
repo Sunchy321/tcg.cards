@@ -41,24 +41,26 @@ export function params(state: State, newValue: Record<any, ParamObject<any, bool
 }
 
 export function param(state: State, { key, value }: { key: string, value: any }) {
-    const route = (state as StateWithRoute).route;
+    const { route } = state as StateWithRoute;
 
-    const param = state.params?.[key];
+    const paramValue = state.params?.[key];
 
-    if (param == null || param.readonly) {
+    if (paramValue == null || paramValue.readonly) {
         return;
     }
 
-    switch (param.type) {
+    switch (paramValue.type) {
     case 'number':
-        if (Number.isNaN(Number.parseInt(value))) {
+        if (Number.isNaN(Number.parseInt(value, 10))) {
             return;
         }
+        break;
+    default:
     }
 
-    const realKey = param.key ?? key;
+    const realKey = paramValue.key ?? key;
 
-    switch (param.bind) {
+    switch (paramValue.bind) {
     case 'params':
         void router.push({
             params: { ...route.params, [realKey]: value ?? undefined },
@@ -71,10 +73,12 @@ export function param(state: State, { key, value }: { key: string, value: any })
         });
         break;
     case 'props':
-        param.value = value;
+        paramValue.value = value;
+        break;
+    default:
     }
 }
 
-export function actions(state: State, actions: Action[]) {
-    state.actions = actions;
+export function actions(state: State, actionList: Action[]) {
+    state.actions = actionList;
 }

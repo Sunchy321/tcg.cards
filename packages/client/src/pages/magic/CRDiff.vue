@@ -9,7 +9,7 @@
         </div>
 
         <q-splitter v-if="intro.length > 0" v-model="splitter" emit-immediately>
-            <template #before class="q-pa-sm">
+            <template #before>
                 <div class="q-pa-sm">
                     <div class="depth-0">
                         {{ $t('magic.cr.intro') }}
@@ -20,7 +20,7 @@
                     >{{ textValue(v, 'remove') }}</magic-text>
                 </div>
             </template>
-            <template #after class="q-pa-sm">
+            <template #after>
                 <div class="q-pa-sm">
                     <div class="depth-0">
                         {{ $t('magic.cr.intro') }}
@@ -36,7 +36,7 @@
         <hr v-if="intro.length > 0">
 
         <q-splitter v-for="c in contents" :key="c.id" v-model="splitter" emit-immediately>
-            <template #before class="q-pa-sm">
+            <template #before>
                 <div
                     v-if="c.type !== 'add'"
                     class="q-pa-sm"
@@ -58,7 +58,7 @@
                     </div>
                 </div>
             </template>
-            <template #after class="q-pa-sm">
+            <template #after>
                 <div
                     v-if="c.type !== 'remove'"
                     class="q-pa-sm"
@@ -85,20 +85,24 @@
         <hr v-if="glossary.length > 0">
 
         <q-splitter v-if="glossary.length > 0" v-model="splitter" emit-immediately>
-            <template #before class="q-pa-sm">
+            <template #before>
                 <div class="q-pa-sm depth-0">
                     {{ $t('magic.cr.glossary') }}
                 </div>
             </template>
-            <template #after class="q-pa-sm">
+            <template #after>
                 <div class="q-pa-sm depth-0">
                     {{ $t('magic.cr.glossary') }}
                 </div>
             </template>
         </q-splitter>
 
-        <q-splitter v-for="g in glossary" :key="'g:' + g.ids.join(' ')" v-model="splitter" emit-immediately>
-            <template #before class="q-pa-sm">
+        <q-splitter
+            v-for="g in glossary" :key="'g:' + g.ids.join(' ')"
+            v-model="splitter"
+            emit-immediately
+        >
+            <template #before>
                 <div
                     v-if="g.type !== 'add'"
                     class="q-pa-sm depth-2"
@@ -113,7 +117,7 @@
                     >{{ textValue(v, 'remove') }}</magic-text>
                 </div>
             </template>
-            <template #after class="q-pa-sm">
+            <template #after>
                 <div
                     v-if="g.type !== 'remove'"
                     class="q-pa-sm depth-2"
@@ -220,7 +224,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, watch, onMounted,
+} from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -268,7 +274,7 @@ export default defineComponent({
         const i18n = useI18n();
 
         const date = ref<string[]>([]);
-        const data = ref<Change|null>(null);
+        const crDiff = ref<Change|null>(null);
         const splitter = ref(50);
 
         pageSetup({
@@ -305,14 +311,14 @@ export default defineComponent({
                 to:   to.value,
             });
 
-            data.value = result;
+            crDiff.value = result;
         };
 
-        const intro = computed(() => { return data.value?.intro ?? []; });
-        const contents = computed(() => { return data.value?.contents ?? []; });
-        const glossary = computed(() => { return data.value?.glossary ?? []; });
-        const credits = computed(() => { return data.value?.credits ?? []; });
-        const csi = computed(() => { return data.value?.csi ?? []; });
+        const intro = computed(() => crDiff.value?.intro ?? []);
+        const contents = computed(() => crDiff.value?.contents ?? []);
+        const glossary = computed(() => crDiff.value?.glossary ?? []);
+        const credits = computed(() => crDiff.value?.credits ?? []);
+        const csi = computed(() => crDiff.value?.csi ?? []);
 
         watch([from, to], loadData, { immediate: true });
         onMounted(() => { void loadList(); void loadData(); });
@@ -321,7 +327,7 @@ export default defineComponent({
             if (typeof value === 'string') {
                 return '';
             } else {
-                return 'text-' + type;
+                return `text-${type}`;
             }
         };
 

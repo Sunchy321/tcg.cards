@@ -35,5 +35,5 @@ export function setIconBase(set: string): string {
 }
 
 export function setIconPath(set: string, rarity: string, ext: string): string {
-    return join(setIconBase(set), rarity + '.' + ext);
+    return join(setIconBase(set), `${rarity}.${ext}`);
 }

@@ -7,7 +7,9 @@ import Set from '@/magic/db/set';
 
 import { Card as ICard } from '@interface/magic/card';
 
-import { mapValues, omit, omitBy, random, uniq } from 'lodash';
+import {
+    mapValues, omit, omitBy, random, uniq,
+} from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
 
 import searcher from '@/magic/search';
@@ -31,7 +33,9 @@ function find(id: string, lang?: string, set?: string, number?: string): Promise
             langIsEnglish:    { $eq: ['$lang', 'en'] },
             frameEffectCount: { $size: '$frameEffects' },
         })
-        .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, frameEffectCount: 1 })
+        .sort({
+            langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, frameEffectCount: 1,
+        })
         .limit(1)
         .project({
             '_id':              0,
@@ -53,7 +57,9 @@ interface Version {
 }
 
 router.get('/', async ctx => {
-    const { id, lang, set, number } = mapValues(ctx.query, toSingle);
+    const {
+        id, lang, set, number,
+    } = mapValues(ctx.query, toSingle);
 
     if (id == null) {
         ctx.status = 400;

@@ -64,7 +64,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, watch, onMounted,
+} from 'vue';
 
 import controlSetup from 'setup/control';
 
@@ -152,7 +154,7 @@ export default defineComponent({
             formatChanges.value = data;
 
             if (selected.value == null || selected.value.label === '#') {
-                selected.value = formatChangeOptions.value[0];
+                [selected.value] = formatChangeOptions.value;
             }
         };
 
@@ -172,6 +174,14 @@ export default defineComponent({
             }
         };
 
+        const addChange = () => {
+            changes.value.push({
+                category: 'release',
+                in:       [],
+                out:      [],
+            });
+        };
+
         const add = async () => {
             if (selected.value?.label === '#') {
                 await saveData();
@@ -179,17 +189,9 @@ export default defineComponent({
 
             formatChanges.value.unshift({ date: '', changes: [] });
 
-            selected.value = formatChangeOptions.value[0];
+            [selected.value] = formatChangeOptions.value;
 
             addChange();
-        };
-
-        const addChange = () => {
-            changes.value.push({
-                category: 'release',
-                in:       [],
-                out:      [],
-            });
         };
 
         const removeChange = (i: number) => {

@@ -25,7 +25,7 @@
             >
                 <router-link
                     :key="cardId"
-                    :to="`/magic/card/${cardId}?set=${set}&number=${number}&lang=${lang}&part=${partIndex}`"
+                    :to="cardLink(cardId, set, number, lang, partIndex)"
                 >
                     <card-image
                         :set="set"
@@ -66,7 +66,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
@@ -153,10 +155,10 @@ export default defineComponent({
             set(newValue: string) { store.commit('search', newValue); },
         });
 
-        const cards = computed(() => { return data.value?.result?.cards || []; });
-        const total = computed(() => { return data.value?.result?.total || 0; });
+        const cards = computed(() => data.value?.result?.cards ?? []);
+        const total = computed(() => data.value?.result?.total ?? 0);
 
-        const pageCount = computed(() => { return Math.ceil(total.value / pageSize.value); });
+        const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
 
         const doSearch = async () => {
             if (q.value !== '') {
@@ -189,6 +191,14 @@ export default defineComponent({
             }
         };
 
+        const cardLink = (
+            cardId: string,
+            set: string,
+            number: string,
+            lang: string,
+            partIndex: string,
+        ) => `/magic/card/${cardId}?set=${set}&number=${number}&lang=${lang}&part=${partIndex}`;
+
         watch([q, page, pageSize], doSearch, { immediate: true });
 
         return {
@@ -202,6 +212,7 @@ export default defineComponent({
             cards,
 
             changePage,
+            cardLink,
         };
     },
 

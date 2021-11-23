@@ -2,13 +2,14 @@
     "compilerOptions": {
         "module": "CommonJS",
         "target": "ES2019",
+        "outDir": "./lib",
         "noImplicitAny": true,
-        "outDir": "./dist",
+        "declaration": true,
         "sourceMap": true,
         "strictNullChecks": true,
         "esModuleInterop": true,
         "lib": ["ES2019"],
         "baseUrl": "./src",
     },
-    "include": ["src/*"]
+    "include": ["src/*", "test"]
 }

@@ -5,7 +5,7 @@ import { mongodb } from '@static';
 set('useCreateIndex', true);
 
 export function connect(dbName: string): Connection {
-    const host = mongodb.host;
+    const { host } = mongodb;
     const dbInfo = mongodb.database[dbName];
 
     let conn: Connection;

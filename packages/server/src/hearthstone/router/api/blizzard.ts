@@ -32,7 +32,7 @@ router.get('/cardbacks', async ctx => {
 
     const result = data.cardBacks;
 
-    for (let i = 2; i <= data.pageCount; ++i) {
+    for (let i = 2; i <= data.pageCount; i += 1) {
         const newData = await blzApi<CardBackData>('/hearthstone/cardbacks', { page: i });
 
         result.push(...newData.cardBacks);

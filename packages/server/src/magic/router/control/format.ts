@@ -17,7 +17,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/format');
 
 router.post('/save', async ctx => {
-    const data = ctx.request.body.data;
+    const { data } = ctx.request.body;
 
     const format = await Format.findOne({ formatId: data.formatId });
 
@@ -45,7 +45,7 @@ router.get('/change', async ctx => {
 
 // Save format change
 router.post('/change/save', async ctx => {
-    const data = ctx.request.body.data;
+    const { data } = ctx.request.body;
 
     if (data._id == null) {
         await FormatChange.create(data);
@@ -73,7 +73,7 @@ router.get('/banlist/change', async ctx => {
             date: c.date,
         }));
     } else {
-        const id = ctx.query.id;
+        const { id } = ctx.query;
 
         const change = await BanlistChange.findById(id);
 
@@ -97,7 +97,7 @@ router.get('/banlist/change/parse', async ctx => {
 
 // Save banlist change
 router.post('/banlist/change/save', async ctx => {
-    const data = ctx.request.body.data;
+    const { data } = ctx.request.body;
 
     if (data._id == null) {
         await BanlistChange.create(data);
@@ -111,7 +111,8 @@ router.post('/banlist/change/save', async ctx => {
 const assigner = new LegalityAssigner();
 
 // Assign card legality
-router.get('/assign-legality',
+router.get(
+    '/assign-legality',
     websocket,
     async ctx => {
         assigner.bind(await ctx.ws());

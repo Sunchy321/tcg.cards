@@ -23,7 +23,7 @@ export default defineComponent({
 
     setup(props) {
         return () => {
-            const value = props.value;
+            const { value } = props;
 
             const colors = (toPart[value] ?? value).split('').map(v => colorMap[v]);
 
@@ -70,6 +70,8 @@ export default defineComponent({
                             fill: colors[2],
                         }),
                     ];
+                default:
+                    return [];
                 }
             })();
 

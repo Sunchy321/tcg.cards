@@ -14,7 +14,9 @@ const FormatSchema = new Schema<IFormat>({
     localization: [{ _id: false, lang: String, name: String }],
 
     sets:    { type: [String], default: undefined },
-    banlist: [{ _id: false, card: String, status: String, date: String, group: String }],
+    banlist: [{
+        _id: false, card: String, status: String, date: String, group: String,
+    }],
 
     birthday:  String,
     deathdate: String,

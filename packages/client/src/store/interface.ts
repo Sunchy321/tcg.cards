@@ -1,4 +1,6 @@
-import type { Store as VuexStore, GetterTree, MutationTree, ActionTree } from 'vuex';
+import type {
+    Store as VuexStore, GetterTree, MutationTree, ActionTree,
+} from 'vuex';
 
 // { a: T, b: U } to T | U
 type ObjectToUnion<T> = T[keyof T];
@@ -18,7 +20,8 @@ export type ConvertGetters<G> = {
     readonly [K in keyof G]: G[K] extends (...args: any) => infer R ? R : never;
 }
 
-// convert mutation and action k (s: State/ActionContext, payload: P) => V to commit/dispatch(k, payload: P) => V
+// convert mutation and action
+// k (s: State/ActionContext, payload: P) => V to commit/dispatch(k, payload: P) => V
 export type ConvertHandlers<T> = ObjectToUnion<AddType<T>>;
 
 export interface Module<

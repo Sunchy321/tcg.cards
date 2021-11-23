@@ -49,18 +49,15 @@ export default defineComponent({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const dateProxy = ref<any>(null);
 
-        const toQuasarDate = (v: string) => {
-            return v.replace(/-/g, '/');
-        };
+        const toQuasarDate = (v: string) => v.replace(/-/g, '/');
 
-        const realDateFrom = computed(() => props.dateFrom ? toQuasarDate(props.dateFrom) : props.dateFrom);
-        const realDateTo = computed(() => props.dateTo ? toQuasarDate(props.dateTo) : props.dateTo);
+        const realDateFrom = computed(() => (props.dateFrom ? toQuasarDate(props.dateFrom) : props.dateFrom));
+        const realDateTo = computed(() => (props.dateTo ? toQuasarDate(props.dateTo) : props.dateTo));
 
         const realEvents = computed(() => props.events?.map(v => ({
             date:  toQuasarDate(v.date),
             color: v.color,
-        })) ?? [],
-        );
+        })) ?? []);
 
         const dateAttrs = computed(() => {
             const result: Record<string, any> = {};

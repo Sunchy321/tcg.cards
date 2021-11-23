@@ -220,7 +220,9 @@ table
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, onMounted,
+} from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useStore } from 'src/store';
@@ -395,7 +397,7 @@ export default defineComponent({
         });
 
         const partIndex = computed({
-            get() { return data.value?.partIndex ?? parseInt(route.query.part as string) ?? 0; },
+            get() { return data.value?.partIndex ?? parseInt(route.query.part as string, 10) ?? 0; },
             set(newValue: number) {
                 if (hasData.value) {
                     data.value!.partIndex = newValue;
@@ -422,8 +424,8 @@ export default defineComponent({
         const partOptions = computed(() => {
             const result = [];
 
-            for (let i = 0; i < partCount.value; ++i) {
-                result.push({ value: i, label: i });
+            for (let i = 0; i < partCount.value; i += 1) {
+                result.push({ value: i, label: i.toString() });
             }
 
             return result;
@@ -444,16 +446,16 @@ export default defineComponent({
             F extends keyof Part,
             L extends keyof Part[F]
         >(firstKey: F, lastKey: L, defaultValue?: Part[F][L]) => computed({
-            get(): Part[F][L] {
+                get(): Part[F][L] {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
-            },
-            set(newValue: Part[F][L]) {
-                if (hasData.value) {
+                    return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
+                },
+                set(newValue: Part[F][L]) {
+                    if (hasData.value) {
                     (part.value as any)![firstKey][lastKey] = newValue;
-                }
-            },
-        });
+                    }
+                },
+            });
 
         const oracleName = partField2('oracle', 'name');
         const oracleTypeline = partField2('oracle', 'typeline');
@@ -484,6 +486,7 @@ export default defineComponent({
 
                 if (hasData.value) {
                     data.value!.relatedCards = parts.map(p => {
+                        // eslint-disable-next-line no-shadow
                         const [relation, cardId, lang, set, number] = p.split('|');
 
                         if (lang != null) {
@@ -507,7 +510,7 @@ export default defineComponent({
 
         const imageUrl = computed(() => {
             if (!hasData.value) {
-                return null;
+                return undefined;
             }
 
             switch (layout.value) {
@@ -658,22 +661,22 @@ export default defineComponent({
                 lang:   lang.value,
             })) as { data:Partial<Card> };
 
-            for (let i = 0; i < data.value!.parts.length; ++i) {
-                const part = data.value!.parts[i];
+            for (let i = 0; i < data.value!.parts.length; i += 1) {
+                const partData = data.value!.parts[i];
 
-                if (part.printed.name === part.oracle.name) {
-                    part.printed.name = result.parts![i].printed.name;
+                if (partData.printed.name === partData.oracle.name) {
+                    partData.printed.name = result.parts![i].printed.name;
                 }
 
-                if (part.printed.typeline === part.oracle.typeline) {
-                    part.printed.typeline = result.parts![i].printed.typeline;
+                if (partData.printed.typeline === partData.oracle.typeline) {
+                    partData.printed.typeline = result.parts![i].printed.typeline;
                 }
 
-                if (part.printed.text === part.oracle.text) {
-                    part.printed.text = result.parts![i].printed.text;
+                if (partData.printed.text === partData.oracle.text) {
+                    partData.printed.text = result.parts![i].printed.text;
                 }
 
-                part.flavorText = result.parts![i].flavorText;
+                partData.flavorText = result.parts![i].flavorText;
             }
         };
 

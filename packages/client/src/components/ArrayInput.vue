@@ -1,6 +1,7 @@
 <script lang="ts">
-import type { PropType } from 'vue';
-import { defineComponent, ref, computed, watch, h } from 'vue';
+import {
+    PropType, defineComponent, ref, computed, watch, h,
+} from 'vue';
 
 import { QInput } from 'quasar';
 
@@ -32,7 +33,7 @@ export default defineComponent({
             if (props.isNumber) {
                 const value = text.value
                     .split(',')
-                    .map(v => Number.parseInt(v.trim()));
+                    .map(v => Number.parseInt(v.trim(), 10));
 
                 if (value.every(v => !Number.isNaN(v))) {
                     emit('update:modelValue', value);

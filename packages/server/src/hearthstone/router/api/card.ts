@@ -23,7 +23,7 @@ router.get('/', async ctx => {
     const entity = (() => {
         if (version != null) {
             for (const e of entities) {
-                if (e.version === Number.parseInt(version)) {
+                if (e.version === Number.parseInt(version, 10)) {
                     return e;
                 }
             }

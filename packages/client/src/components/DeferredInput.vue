@@ -1,7 +1,7 @@
 <template>
     <q-input
         v-model="text"
-        :color="textChanged ? 'positive' : null"
+        :color="textChanged ? 'positive' : undefined"
         @keypress.enter="updateValue"
     />
 </template>
@@ -11,7 +11,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 export default defineComponent({
     props: {

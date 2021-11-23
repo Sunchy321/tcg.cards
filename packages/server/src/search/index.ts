@@ -3,7 +3,9 @@ import pegjs from 'pegjs';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-import { Searcher, Model, Item, Query } from './interface';
+import {
+    Searcher, Model, Item, Query,
+} from './interface';
 
 import { dataPath } from '@/static';
 import { mapValues, omit } from 'lodash';
@@ -14,6 +16,7 @@ const parser = pegjs.generate(
 
 export class QueryError extends Error {
     type: string;
+
     value: string;
 
     constructor(arg: { type: string, value:string }) {
@@ -87,7 +90,7 @@ export function createSearcher<M extends Model>(model: M): Searcher<M> {
             const result = queries.length > 0 ? await queryFunc(queries, options) : null;
 
             return {
-                text: text,
+                text,
                 commands,
                 errors,
                 result,

@@ -1,4 +1,6 @@
-import { createWriteStream, existsSync, mkdirSync, statSync, unlinkSync } from 'fs';
+import {
+    createWriteStream, existsSync, mkdirSync, statSync, unlinkSync,
+} from 'fs';
 import request from 'request';
 import progress, { Progress, RequestProgress } from 'request-progress';
 
@@ -10,7 +12,9 @@ interface ISaveFileOption {
 
 export default class FileSaver extends Task<Progress> {
     url: string;
+
     path: string;
+
     override: boolean;
 
     request?: RequestProgress;
@@ -31,7 +35,7 @@ export default class FileSaver extends Task<Progress> {
             mkdirSync(dir, { recursive: true });
         }
 
-        if (existsSync(dir + '/.no-auto-save')) {
+        if (existsSync(`${dir}/.no-auto-save`)) {
             return 'auto_save_disabled';
         }
 

@@ -12,7 +12,7 @@ async function loadData(data: any, { commit, dispatch }: ActionContext<State, an
     commit('games', games);
 
     for (const g of games) {
-        void dispatch(g + '/init', data[g]);
+        void dispatch(`${g}/init`, data[g]);
     }
 
     await dispatch('user/refresh');
@@ -51,7 +51,7 @@ export async function boot(context: ActionContext<State, any>) {
 }
 
 export function action(context: ActionContext<State, any>, type: string) {
-    const actions = context.state.actions;
+    const { actions } = context.state;
 
     for (const a of actions) {
         if (a.action === type) {

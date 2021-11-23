@@ -86,7 +86,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 import { useRoute } from 'vue-router';
 import { useStore } from 'src/store';
@@ -115,11 +117,11 @@ export default defineComponent({
 
         const name = computed(() => {
             if (data.value == null) {
-                return;
+                return '';
             }
 
-            return data.value.localization[store.getters['magic/locale']]?.name ??
-                 data.value.localization[store.getters['magic/locales'][0]]?.name;
+            return data.value.localization[store.getters['magic/locale']]?.name
+                 ?? data.value.localization[store.getters['magic/locales'][0]]?.name;
         });
 
         pageSetup({
@@ -136,11 +138,11 @@ export default defineComponent({
 
         const wotcLink = computed(() => {
             if (data.value == null) {
-                return;
+                return '';
             }
 
-            return data.value.localization[store.getters['magic/locale']]?.link ??
-                 data.value.localization[store.getters['magic/locales'][0]]?.link;
+            return data.value.localization[store.getters['magic/locale']]?.link
+                 ?? data.value.localization[store.getters['magic/locales'][0]]?.link;
         });
 
         const apiLink = computed(() => `http://${apiBase}/magic/set?id=${id.value}`);
@@ -156,8 +158,8 @@ export default defineComponent({
 
         const iconUrl = (rarity: string) => {
             if (
-                parent.value != null && setType.value != null &&
-                ['promo', 'token', 'memorabilia', 'funny'].includes(setType.value)
+                parent.value != null && setType.value != null
+                && ['promo', 'token', 'memorabilia', 'funny'].includes(setType.value)
             ) {
                 return `http://${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
             }

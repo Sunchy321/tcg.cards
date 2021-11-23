@@ -2,7 +2,7 @@ import { useRouter, useRoute } from 'vue-router';
 
 import { api } from 'boot/backend';
 
-export default function() {
+export default function hearthstoneSetup() {
     const router = useRouter();
     const route = useRoute();
 
@@ -12,7 +12,7 @@ export default function() {
         });
 
         if (id !== '') {
-            const q = route.query.q;
+            const { q } = route.query;
 
             void router.push({
                 name:   'hearthstone/card',

@@ -47,7 +47,7 @@ export default function colorQuery(
 
     // count of color
     if (/^\d+$/.test(text)) {
-        const count = Number.parseInt(text);
+        const count = Number.parseInt(text, 10);
 
         switch (op) {
         case '=':
@@ -136,6 +136,7 @@ export default function colorQuery(
             return ['W', 'U', 'B', 'G'];
         case 'artifice':
             return ['W', 'U', 'B', 'R'];
+        default:
         }
 
         const chars = text.toUpperCase().split('');
@@ -154,40 +155,40 @@ export default function colorQuery(
     case ':':
     case '>=':
         return {
-            [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : c + '?')).join('')}$`),
+            [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : `${c}?`)).join('')}$`),
         };
     case '!:':
         return {
             [key]: {
-                $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : c + '?')).join('')}$`),
+                $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : `${c}?`)).join('')}$`),
             },
         };
     case '=':
         return {
-            [key]: new RegExp(`^${colorEnums.map(c => colors.includes(c) ? c : '').join('')}$`),
+            [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : '')).join('')}$`),
         };
     case '!=':
         return {
             [key]: {
-                $not: new RegExp(`^${colorEnums.map(c => colors.includes(c) ? c : '').join('')}$`),
+                $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : '')).join('')}$`),
             },
         };
     case '>':
         return {
             [key]: new RegExp(
-                `^(?=.{${colors.length + 1}})${colorEnums.map(c => (colors.includes(c) ? c : c + '?')).join('')}$`,
+                `^(?=.{${colors.length + 1}})${colorEnums.map(c => (colors.includes(c) ? c : `${c}?`)).join('')}$`,
             ),
         };
     case '<':
         return {
             [key]: new RegExp(
-                `^(?!.{${colors.length}})${colorEnums.map(c => (colors.includes(c) ? c + '?' : '')).join('')}$`,
+                `^(?!.{${colors.length}})${colorEnums.map(c => (colors.includes(c) ? `${c}?` : '')).join('')}$`,
             ),
         };
     case '<=':
         return {
             [key]: new RegExp(
-                `^${colorEnums.map(c => colors.includes(c) ? c + '?' : '').join('')}$`,
+                `^${colorEnums.map(c => (colors.includes(c) ? `${c}?` : '')).join('')}$`,
 
             ),
         };

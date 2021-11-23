@@ -31,7 +31,7 @@
         </div>
 
         <div class="q-mb-sm">
-            <q-btn-toggle
+            <tap-btn-toggle
                 v-model="tapStyle"
                 class="q-mr-sm"
                 dense outline
@@ -48,9 +48,9 @@
                 <template #modern>
                     <magic-symbol value="T" />
                 </template>
-            </q-btn-toggle>
+            </tap-btn-toggle>
 
-            <q-btn-toggle
+            <white-btn-toggle
                 v-model="whiteStyle"
                 class="q-mr-sm"
                 dense outline
@@ -63,7 +63,7 @@
                 <template #modern>
                     <magic-symbol value="W" />
                 </template>
-            </q-btn-toggle>
+            </white-btn-toggle>
 
             <q-checkbox
                 v-model="flat"
@@ -88,13 +88,13 @@
                     :model-value="l.name"
                     class="col"
                     dense outlined
-                    @update:model-value="v => assignName(l.lang, v)"
+                    @update:model-value="v => assignName(l.lang, v as string)"
                 />
                 <q-input
                     :model-value="l.link"
                     class="col"
                     dense outlined
-                    @update:model-value="v => assignLink(l.lang, v)"
+                    @update:model-value="v => assignLink(l.lang, v as string)"
                 />
                 <q-btn
                     type="a" :href="l.link" target="_blank"
@@ -108,7 +108,15 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+/* eslint-disable no-use-before-define */
+import {
+    VNode, defineComponent, ref, computed, watch, onMounted,
+} from 'vue';
+
+import { QBtnToggle } from 'quasar';
+import type {
+    GlobalComponentConstructor, QSelectProps, QBtnToggleProps, QBtnToggleSlots,
+} from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useStore } from 'src/store';
@@ -118,6 +126,23 @@ import controlSetup from 'setup/control';
 import MagicSymbol from 'components/magic/Symbol.vue';
 
 import { apiGet } from 'src/boot/backend';
+
+interface TapBtnGroupSlots extends QBtnToggleSlots {
+    old1: () => VNode[];
+    old2: () => VNode[];
+    modern: () => VNode[];
+}
+
+interface WhiteBtnGroupSlots extends QBtnToggleSlots {
+    old: () => VNode[];
+    modern: () => VNode[];
+}
+
+const TapBtnToggle = QBtnToggle as
+    unknown as GlobalComponentConstructor<QBtnToggleProps, TapBtnGroupSlots>;
+
+const WhiteBtnToggle = QBtnToggle as
+    unknown as GlobalComponentConstructor<QBtnToggleProps, WhiteBtnGroupSlots>;
 
 interface SetLocalization {
     lang: string,
@@ -168,15 +193,15 @@ const linkMap: Record<string, string> = {
     zht: 'zh-hant',
 };
 
-function makeSymbolStyle(tap: string, white: string, flat: boolean) {
+function symbolStyleOf(tap: string, white: string, flat: boolean) {
     const result = [];
 
     if (tap !== 'modern') {
-        result.push('tap:' + tap);
+        result.push(`tap:${tap}`);
     }
 
     if (white !== 'modern') {
-        result.push('white:' + white);
+        result.push(`white:${white}`);
     }
 
     if (flat) {
@@ -187,7 +212,7 @@ function makeSymbolStyle(tap: string, white: string, flat: boolean) {
 }
 
 export default defineComponent({
-    components: { MagicSymbol },
+    components: { MagicSymbol, TapBtnToggle, WhiteBtnToggle },
 
     setup() {
         const router = useRouter();
@@ -233,7 +258,7 @@ export default defineComponent({
                     return;
                 }
 
-                data.value.symbolStyle = makeSymbolStyle(newValue, whiteStyle.value, flat.value);
+                data.value.symbolStyle = symbolStyleOf(newValue, whiteStyle.value, flat.value);
             },
         });
 
@@ -256,7 +281,7 @@ export default defineComponent({
                     return;
                 }
 
-                data.value.symbolStyle = makeSymbolStyle(tapStyle.value, newValue, flat.value);
+                data.value.symbolStyle = symbolStyleOf(tapStyle.value, newValue, flat.value);
             },
         });
 
@@ -273,7 +298,8 @@ export default defineComponent({
                 if (data.value == null) {
                     return;
                 }
-                data.value.symbolStyle = makeSymbolStyle(tapStyle.value, whiteStyle.value, newValue);
+
+                data.value.symbolStyle = symbolStyleOf(tapStyle.value, whiteStyle.value, newValue);
             },
         });
 
@@ -299,15 +325,17 @@ export default defineComponent({
             data.value = result;
         };
 
-        const filterFn = (val: string, update: (cb: () => void) => void) => {
+        const filterFn = (val: string, update: Parameters<NonNullable<QSelectProps['onFilter']>>[1]) => {
             if (val === '') {
-                update(() => {
-                    filteredSet.value = set.value;
-                });
+                update(
+                    () => { filteredSet.value = set.value; },
+                    () => { /* no-op */ },
+                );
             } else {
-                update(() => {
-                    filteredSet.value = set.value.filter(s => s.includes(val));
-                });
+                update(
+                    () => { filteredSet.value = set.value.filter(s => s.includes(val)); },
+                    () => { /* no-op */ },
+                );
             }
         };
 
@@ -379,8 +407,8 @@ export default defineComponent({
                 return;
             }
 
-            data.value.localization = data.value.localization.filter(l =>
-                (l.name != null && l.name !== '') || (l.link != null && l.link !== ''),
+            data.value.localization = data.value.localization.filter(
+                l => (l.name != null && l.name !== '') || (l.link != null && l.link !== ''),
             );
 
             for (const l of data.value.localization) {

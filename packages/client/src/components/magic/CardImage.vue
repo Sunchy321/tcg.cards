@@ -139,7 +139,9 @@
 
 <script lang="ts">
 import type { PropType } from 'vue';
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 import { imageBase } from 'boot/backend';
 

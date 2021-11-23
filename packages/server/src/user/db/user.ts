@@ -106,7 +106,7 @@ function passwordValidator(password: string) {
 }
 
 async function authenticate(user: IUser, password: string) {
-    const attemptsInterval = Math.pow(interval, Math.log(user.attempts + 1));
+    const attemptsInterval = interval ** Math.log(user.attempts + 1);
     const calculatedInterval = attemptsInterval < maxInterval ? attemptsInterval : maxInterval;
 
     if (Date.now() - user.lastLogin < calculatedInterval) {
@@ -146,7 +146,7 @@ async function authenticate(user: IUser, password: string) {
     }
 }
 
-UserSchema.methods.setPassword = function(this: IUser, password: string) {
+UserSchema.methods.setPassword = function (this: IUser, password: string) {
     if (password == null) {
         throw new Error('missing_password');
     }
@@ -162,7 +162,7 @@ UserSchema.methods.setPassword = function(this: IUser, password: string) {
     this.hash = hashBuffer.toString(encoding);
 };
 
-UserSchema.methods.changePassword = async function(this: IUser, oldPassword: string, newPassword: string) {
+UserSchema.methods.changePassword = async function (this: IUser, oldPassword: string, newPassword: string) {
     if (oldPassword == null || newPassword == null) {
         throw new Error('missing_password');
     }
@@ -172,7 +172,7 @@ UserSchema.methods.changePassword = async function(this: IUser, oldPassword: str
     await this.save();
 };
 
-UserSchema.methods.authenticate = function(this: IUser, password: string) {
+UserSchema.methods.authenticate = function (this: IUser, password: string) {
     if (this.salt == null) {
         throw new Error('incorrect_name_or_password');
     }
@@ -180,30 +180,30 @@ UserSchema.methods.authenticate = function(this: IUser, password: string) {
     authenticate(this, password);
 };
 
-UserSchema.methods.resetAttempts = async function(this: IUser) {
+UserSchema.methods.resetAttempts = async function (this: IUser) {
     this.attempts = 0;
     await this.save();
 };
 
-UserSchema.methods.info = function(this: IUser): IUserInfo {
+UserSchema.methods.info = function (this: IUser): IUserInfo {
     return {
         username: this.username,
         role:     this.role,
     };
 };
 
-UserSchema.methods.isAdmin = function(this: IUser): boolean {
+UserSchema.methods.isAdmin = function (this: IUser): boolean {
     return this.role === 'admin';
 };
 
-UserSchema.methods.profile = function(this: IUser): IUserProfile {
+UserSchema.methods.profile = function (this: IUser): IUserProfile {
     return {
         username: this.username,
         role:     this.role,
     };
 };
 
-UserSchema.statics.authenticate = async function(this: UserModel, username: string, password: string) {
+UserSchema.statics.authenticate = async function (this: UserModel, username: string, password: string) {
     const user = await this.findByUsername(username);
 
     if (user == null) {
@@ -215,13 +215,14 @@ UserSchema.statics.authenticate = async function(this: UserModel, username: stri
     return user;
 };
 
-UserSchema.statics.register = async function(this: UserModel, username: string, password: string) {
+UserSchema.statics.register = async function (this: UserModel, username: string, password: string) {
     const oldUser = await this.findByUsername(username);
 
     if (oldUser != null) {
         throw new Error('user_already_exists');
     }
 
+    // eslint-disable-next-line no-use-before-define
     const user = new User({ username });
 
     user.setPassword(password);
@@ -231,17 +232,17 @@ UserSchema.statics.register = async function(this: UserModel, username: string, 
     return user;
 };
 
-UserSchema.statics.findByUsername = async function(this: UserModel, username: string) {
+UserSchema.statics.findByUsername = async function (this: UserModel, username: string) {
     return this.findOne({ username });
 };
 
-UserSchema.statics.toJwtToken = function(this: UserModel, user: IUser) {
+UserSchema.statics.toJwtToken = function (this: UserModel, user: IUser) {
     return jwt.sign(user.info(), config.jwtSecretKey, {
         expiresIn: '7d',
     });
 };
 
-UserSchema.statics.fromJwtToken = async function(this: UserModel, token: string) {
+UserSchema.statics.fromJwtToken = async function (this: UserModel, token: string) {
     try {
         const payload = jwt.verify(token, config.jwtSecretKey) as IUserInfo;
 

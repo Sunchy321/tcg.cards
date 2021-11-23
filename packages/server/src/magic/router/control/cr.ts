@@ -29,7 +29,7 @@ router.get('/txt', async ctx => {
 });
 
 router.get('/parse', async ctx => {
-    const date = mapValues(ctx.query, toSingle).date;
+    const { date } = mapValues(ctx.query, toSingle);
 
     if (date == null) {
         ctx.status = 400;
@@ -46,7 +46,7 @@ router.get('/parse', async ctx => {
 });
 
 router.get('/reparse', async ctx => {
-    const date = mapValues(ctx.query, toSingle).date;
+    const { date } = mapValues(ctx.query, toSingle);
 
     if (date == null) {
         ctx.status = 400;

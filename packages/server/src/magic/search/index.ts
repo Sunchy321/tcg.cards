@@ -17,7 +17,7 @@ function parseOption(text: string | undefined, defaultValue: number): number {
         return defaultValue;
     }
 
-    const num = Number.parseInt(text);
+    const num = Number.parseInt(text, 10);
 
     if (Number.isNaN(num)) {
         return defaultValue;
@@ -237,8 +237,7 @@ const model = {
                     });
                 }
 
-                const rarity =
-                    (
+                const rarity = (
                         {
                             c: 'common',
                             u: 'uncommon',
@@ -246,7 +245,7 @@ const model = {
                             m: 'mythic',
                             s: 'special',
                         } as Record<string, string>
-                    )[param] || param;
+                )[param] || param;
 
                 return simpleQuery('rarity', rarity, op);
             },
@@ -268,11 +267,11 @@ const model = {
                     switch (op) {
                     case ':':
                         return {
-                            ['legalities.' + format]: status,
+                            [`legalities.${format}`]: status,
                         };
                     case '!:':
                         return {
-                            ['legalities.' + format]: { $ne: status },
+                            [`legalities.${format}`]: { $ne: status },
                         };
                     default:
                         throw new QueryError({
@@ -284,11 +283,11 @@ const model = {
                     switch (op) {
                     case ':':
                         return {
-                            ['legalities.' + param]: { $in: ['legal', 'restricted'] },
+                            [`legalities.${param}`]: { $in: ['legal', 'restricted'] },
                         };
                     case '!:':
                         return {
-                            ['legalities.' + param]: { $nin: ['legal', 'restricted'] },
+                            [`legalities.${param}`]: { $nin: ['legal', 'restricted'] },
                         };
                     default:
                         throw new QueryError({
@@ -343,12 +342,11 @@ const model = {
                 .replaceRoot('data');
         }
 
-        const total =
-            (
-                await Card.aggregate(aggregate.pipeline())
-                    .allowDiskUse(true)
-                    .group({ _id: null, count: { $sum: 1 } })
-            )[0]?.count ?? 0;
+        const total = (
+            await Card.aggregate(aggregate.pipeline())
+                .allowDiskUse(true)
+                .group({ _id: null, count: { $sum: 1 } })
+        )[0]?.count ?? 0;
 
         switch (sortBy) {
         case 'name':
@@ -381,12 +379,11 @@ const model = {
     dev: async (q: DBQuery) => {
         const aggregate = Card.aggregate().allowDiskUse(true).match({ $and: q });
 
-        const total =
-            (
-                await Card.aggregate(aggregate.pipeline())
-                    .allowDiskUse(true)
-                    .group({ _id: null, count: { $sum: 1 } })
-            )[0]?.count ?? 0;
+        const total = (
+            await Card.aggregate(aggregate.pipeline())
+                .allowDiskUse(true)
+                .group({ _id: null, count: { $sum: 1 } })
+        )[0]?.count ?? 0;
 
         const cards = await Card.aggregate(aggregate.pipeline()).sort({ releaseDate: 1 }).limit(1);
 

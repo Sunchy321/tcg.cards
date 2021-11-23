@@ -19,23 +19,25 @@ function getJwtToken(ctx: Context): string | undefined {
     } else if (typeof ctx.query.jwt === 'string') {
         return ctx.query.jwt;
     }
+
+    return undefined;
 }
 
 export class JwtAuthOption {
     /**
      * unauthorized access will pass through instead of return 401.
      */
-    pass?: boolean = false
+    pass?: boolean = false;
 
     /**
      * need user to be admin
      */
-    admin?: boolean = false
+    admin?: boolean = false;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function jwtAuth(option: JwtAuthOption = { }): Middleware {
-    return async function(ctx: Context, next: Next): Promise<any> {
+    // eslint-disable-next-line consistent-return
+    return async function (ctx: Context, next: Next): Promise<any> {
         const token = getJwtToken(ctx);
 
         if (token != null) {
@@ -44,19 +46,15 @@ export default function jwtAuth(option: JwtAuthOption = { }): Middleware {
             if (user != null && (!option.admin || user.isAdmin())) {
                 ctx.state.user = user;
                 return next();
-            } else {
-                if (option.pass) {
-                    return next();
-                } else {
-                    ctx.status = 401;
-                }
-            }
-        } else {
-            if (option.pass) {
+            } else if (option.pass) {
                 return next();
             } else {
                 ctx.status = 401;
             }
+        } else if (option.pass) {
+            return next();
+        } else {
+            ctx.status = 401;
         }
     };
 }

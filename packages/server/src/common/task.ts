@@ -8,7 +8,9 @@ import WebSocket from 'ws';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 abstract class Task<T> extends EventEmitter {
     status: 'idle' | 'working' | 'error';
+
     private intervalProgressId?: NodeJS.Timeout;
+
     private intervalProgressFunc?: (this: this) => T;
 
     constructor() {
@@ -74,10 +76,11 @@ abstract class Task<T> extends EventEmitter {
     }
 
     protected abstract startImpl(): any;
+
     protected abstract stopImpl(): void;
 
     intervalProgress(ms: number, func: (this: this) => T): void {
-        const postProgress = function() {
+        const postProgress = function () {
             const prog = func.call(this) as T;
 
             this.emit('progress', prog);

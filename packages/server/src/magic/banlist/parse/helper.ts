@@ -19,7 +19,7 @@ export function parseDate(text: string): string {
     const m = /^(?:(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday), )?([a-z]+) (\d+)(?:st|nd|rd|th)?,? (\d+)( at 12 p.m. PT)?/i.exec(text.trim());
 
     if (m == null || monthMap[m[1]] == null) {
-        return '<' + text + '>';
+        return `<${text}>`;
     } else {
         let mainDate = `${m[3]}-${monthMap[m[1]]}-${m[2].padStart(2, '0')}`;
 
@@ -88,8 +88,8 @@ export function* getLines(div: cheerio.Cheerio, $: cheerio.Root): Generator<chee
                 break;
             case 'br':
                 if (
-                    result.length > 1 ||
-                    (result.length === 1 && result[0].tagName !== 'strong')
+                    result.length > 1
+                    || (result.length === 1 && result[0].tagName !== 'strong')
                 ) {
                     yield result;
                     result.splice(0, result.length);

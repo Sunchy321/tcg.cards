@@ -1,4 +1,4 @@
-
+/* eslint-disable no-cond-assign */
 import CR from '@/magic/db/cr';
 import { CR as ICR, Content, Glossary } from '@interface/magic/cr';
 
@@ -16,7 +16,7 @@ function parseContentLine(text: string) {
         // 1. Concepts
         return {
             text:  text.slice(m[0].length),
-            id:    '~' + m[1],
+            id:    `~${m[1]}`,
             depth: 0,
             index: m[1],
         };
@@ -24,7 +24,7 @@ function parseContentLine(text: string) {
         // 101. The Magic Golden Rules
         return {
             text:  text.slice(m[0].length),
-            id:    '~' + m[1],
+            id:    `~${m[1]}`,
             depth: 1,
             index: m[1],
         };
@@ -32,7 +32,7 @@ function parseContentLine(text: string) {
         // 101.1. xxxxx
         return {
             text:  text.slice(m[0].length),
-            id:    '~' + m[1],
+            id:    `~${m[1]}`,
             depth: 2,
             index: m[1],
         };
@@ -40,7 +40,7 @@ function parseContentLine(text: string) {
         // 101.1a xxxxxx
         return {
             text:  text.slice(m[0].length),
-            id:    '~' + m[1],
+            id:    `~${m[1]}`,
             depth: 3,
             index: m[1],
         };
@@ -79,7 +79,7 @@ function parseGlossary(texts: string[]) {
 }
 
 export async function parse(date: string): Promise<ICR> {
-    const path = join(dataPath, 'magic', 'cr', 'data', date + '.txt');
+    const path = join(dataPath, 'magic', 'cr', 'data', `${date}.txt`);
 
     if (!existsSync(path)) {
         throw new Error(`cr ${date} doesn't exist`);
@@ -108,7 +108,7 @@ export async function parse(date: string): Promise<ICR> {
             if (l === 'Contents') {
                 mode = 'menu';
             } else {
-                intro += '\n' + l;
+                intro += `\n${l}`;
             }
             break;
         case 'menu':
@@ -125,7 +125,7 @@ export async function parse(date: string): Promise<ICR> {
                 const content = parseContentLine(l);
 
                 if (content.depth === 'append') {
-                    last(contents)!.text += '\n' + content.text;
+                    last(contents)!.text += `\n${content.text}`;
                 } else if (content.depth === 'example') {
                     last(contents)!.examples = [...last(contents)!.examples || [], content.text];
                 } else {
@@ -150,11 +150,13 @@ export async function parse(date: string): Promise<ICR> {
             if (l === 'Customer Service Information' || l === 'Questions?') {
                 mode = 'csi';
             } else {
-                credits += '\n' + l;
+                credits += `\n${l}`;
             }
             break;
         case 'csi':
-            csi += '\n' + l;
+            csi += `\n${l}`;
+            break;
+        default:
         }
     }
 

@@ -142,7 +142,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, onMounted,
+} from 'vue';
 
 import controlSetup from 'setup/control';
 
@@ -222,7 +224,7 @@ export default defineComponent({
             if (prog != null && prog.amount.total != null) {
                 return prog.amount.count / prog.amount.total;
             } else {
-                return null;
+                return undefined;
             }
         });
 
@@ -262,7 +264,7 @@ export default defineComponent({
             }
         });
 
-        const loadData = async() => {
+        const loadData = async () => {
             const { data } = await controlGet<{
                 bulk: BulkList,
                 scryfall: Scryfall,
@@ -292,7 +294,7 @@ export default defineComponent({
             });
         };
 
-        const loadBulk = async(file: string) => {
+        const loadBulk = async (file: string) => {
             const ws = controlWs('/magic/scryfall/bulk/load', { file });
 
             return new Promise((resolve, reject) => {
@@ -310,7 +312,7 @@ export default defineComponent({
             });
         };
 
-        const getSet = async() => {
+        const getSet = async () => {
             const ws = controlWs('/magic/scryfall/set/get');
 
             return new Promise((resolve, reject) => {
@@ -328,7 +330,7 @@ export default defineComponent({
             });
         };
 
-        const mergeCard = async() => {
+        const mergeCard = async () => {
             const ws = controlWs('/magic/scryfall/card/merge');
 
             return new Promise((resolve, reject) => {
@@ -346,7 +348,7 @@ export default defineComponent({
             });
         };
 
-        const mergeRuling = async() => {
+        const mergeRuling = async () => {
             const ws = controlWs('/magic/scryfall/ruling/merge');
 
             return new Promise((resolve, reject) => {
@@ -364,7 +366,7 @@ export default defineComponent({
             });
         };
 
-        const mergeSet = async() => {
+        const mergeSet = async () => {
             const ws = controlWs('/magic/scryfall/set/merge');
 
             return new Promise((resolve, reject) => {

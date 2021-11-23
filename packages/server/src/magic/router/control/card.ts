@@ -9,37 +9,46 @@ import { Aggregate } from 'mongoose';
 
 import parseGatherer from '@/magic/gatherer/parse';
 
-import { omit, omitBy, mapValues, isEqual, sortBy } from 'lodash';
+import {
+    omit, omitBy, mapValues, isEqual, sortBy,
+} from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@data/magic/special';
 
 import searcher from '@/magic/search';
+
+import { assetPath } from '@static';
+import { existsSync, renameSync } from 'fs';
 
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
 
 function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
-    const aggregate = Card.aggregate().allowDiskUse(true);
+    const agg = Card.aggregate().allowDiskUse(true);
 
-    aggregate.match(omitBy({ cardId: id, set, number }, v => v == null));
+    agg.match(omitBy({ cardId: id, set, number }, v => v == null));
 
     if (lang != null) {
-        aggregate.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
+        agg.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
     }
 
-    aggregate
+    agg
         .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
         .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
         .limit(1);
 
-    return aggregate as unknown as Promise<ICard[]>;
+    return agg as unknown as Promise<ICard[]>;
 }
 
 router.get('/raw', async ctx => {
-    const { id: cardId, lang, set, number } = mapValues(ctx.query, toSingle);
+    const {
+        id: cardId, lang, set, number,
+    } = mapValues(ctx.query, toSingle);
 
-    const card = await Card.findOne({ cardId, lang, set, number });
+    const card = await Card.findOne({
+        cardId, lang, set, number,
+    });
 
     if (card != null) {
         ctx.body = card.toJSON();
@@ -60,7 +69,7 @@ router.get('/search', async ctx => {
 });
 
 router.post('/update', async ctx => {
-    const data: ICard & { _id: string } = ctx.request.body.data;
+    const { data } = ctx.request.body;
 
     for (const p of data.parts) {
         if (p.flavorText === '') {
@@ -81,7 +90,7 @@ router.post('/update', async ctx => {
     }
 
     if (old == null || (data.cardId === old.cardId && data.lang === old.lang)) {
-        for (let i = 0; i < data.parts.length; ++i) {
+        for (let i = 0; i < data.parts.length; i += 1) {
             const part = data.parts[i];
 
             await Card.updateMany(
@@ -95,7 +104,7 @@ router.post('/update', async ctx => {
             );
         }
 
-        if (data.relatedCards.every(r => r.version == null)) {
+        if (data.relatedCards.every((r: ICard['relatedCards'][0]) => r.version == null)) {
             await Card.updateMany(
                 { cardId: data.cardId },
                 { relatedCards: sortBy(data.relatedCards, ['relation', 'cardId']) },
@@ -148,38 +157,38 @@ type AggregateOption = {
 }
 
 function aggregate({ lang, match, post }: AggregateOption) {
-    const aggregate = Card.aggregate().allowDiskUse(true);
+    const agg = Card.aggregate().allowDiskUse(true);
 
     if (match != null) {
-        aggregate.match(match);
+        agg.match(match);
     }
 
     if (lang != null) {
-        aggregate.match({ lang: lang });
+        agg.match({ lang });
     }
 
-    aggregate
+    agg
         .sort({ releaseDate: -1 })
         .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
         .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
 
     if (match != null) {
-        aggregate.match(match);
+        agg.match(match);
     }
 
     if (post != null) {
-        post(aggregate);
+        post(agg);
     } else {
-        aggregate.group({ _id: '$info' });
+        agg.group({ _id: '$info' });
     }
 
-    return aggregate;
+    return agg;
 }
 
 const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult[]>> = {
-    'inconsistent-oracle': async lang => await aggregate({
+    'inconsistent-oracle': async lang => aggregate({
         lang,
-        post: aggregate => aggregate
+        post: agg => agg
             .group({
                 _id:           '$info',
                 colorIdentity: { $addToSet: '$colorIdentity' },
@@ -205,9 +214,9 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
             }),
     }),
 
-    'inconsistent-unified': async lang => await aggregate({
+    'inconsistent-unified': async lang => aggregate({
         lang,
-        post: aggregate => aggregate
+        post: agg => agg
             .group({
                 _id:      '$info',
                 name:     { $addToSet: '$parts.unified.name' },
@@ -223,7 +232,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
             }),
     }),
 
-    'parentheses': async lang => await aggregate({
+    'parentheses': async lang => aggregate({
         lang,
         match: {
             'cardId':             { $nin: textWithParen },
@@ -231,7 +240,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
         },
     }),
 
-    'token': async () => await aggregate({
+    'token': async () => aggregate({
         match: {
             'cardId':          { $not: /!/ },
             'parts.typeSuper': 'token',
@@ -269,9 +278,6 @@ router.get('/need-edit', async ctx => {
     }
 });
 
-import { assetPath } from '@static';
-import { existsSync, renameSync } from 'fs';
-
 router.get('/rename', async ctx => {
     const { set } = mapValues(ctx.query, toSingle);
 
@@ -286,7 +292,7 @@ router.get('/rename', async ctx => {
     const missed = [];
 
     for (const c of cards) {
-        const name = c.parts[0].oracle.name;
+        const { name } = c.parts[0].oracle;
 
         const oldPath = `${assetPath}/magic/card/large/${set}/zhs/${name.replace(':', '')}.full.jpg`;
         const oldPathWithNumber = `${assetPath}/magic/card/large/${set}/zhs/${name.replace(':', '')}.${c.number}.full.jpg`;

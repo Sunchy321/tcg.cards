@@ -14,7 +14,9 @@ import { Diff } from 'deep-diff';
 import { Status } from '../status';
 
 import { toAsyncBucket } from '@/common/to-bucket';
-import { convertColor, parseTypeline, toIdentifier, convertLegality } from '@/magic/util';
+import {
+    convertColor, parseTypeline, toIdentifier, convertLegality,
+} from '@/magic/util';
 import { cardImagePath } from '@/magic/image';
 import { existsSync, unlinkSync } from 'fs';
 import { isEqual } from 'lodash';
@@ -40,7 +42,7 @@ function toCostMap(cost: string) {
 
     for (const c of splitCost(cost)) {
         if (/^\d+$/.test(c)) {
-            result[''] = Number.parseInt(c);
+            result[''] = Number.parseInt(c, 10);
         } else {
             result[c] = (result[c] ?? 0) + 1;
         }
@@ -101,7 +103,7 @@ function splitDFT(card: NSCard): NSCard[] {
             {
                 ...card,
                 color_identity:   card.card_faces[0].colors,
-                collector_number: card.collector_number + '-0',
+                collector_number: `${card.collector_number}-0`,
                 layout:           'token',
                 card_faces:       [card.card_faces[0]],
                 face:             'front',
@@ -109,7 +111,7 @@ function splitDFT(card: NSCard): NSCard[] {
             {
                 ...card,
                 color_identity:   card.card_faces[1].colors,
-                collector_number: card.collector_number + '-1',
+                collector_number: `${card.collector_number}-1`,
                 layout:           'token',
                 card_faces:       [card.card_faces[1]],
                 face:             'back',
@@ -146,21 +148,21 @@ function getId(data: NSCard): string {
             if (typeMain.includes('card')) {
                 return nameId;
             } else {
-                return nameId + '!';
+                return `${nameId}!`;
             }
         } else {
             let baseId = typeSub.join('_');
 
             if (
-                nameId !== baseId ||
-                ['gold', 'clue', 'treasure', 'food'].includes(baseId)
+                nameId !== baseId
+                || ['gold', 'clue', 'treasure', 'food'].includes(baseId)
             ) {
-                return nameId + '!';
+                return `${nameId}!`;
             }
 
             const face = data.card_faces[0];
 
-            baseId += '!' + (face.colors.length > 0 ? face.colors.join('').toLowerCase() : 'c');
+            baseId += `!${face.colors.length > 0 ? face.colors.join('').toLowerCase() : 'c'}`;
 
             if (face.power && face.toughness) {
                 baseId += `!${face.power}${face.toughness}`;
@@ -402,7 +404,6 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
         switch (d.path![0]) {
         case 'set':
             if (card.set !== data.set) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (card as any).set = data.set;
             }
             break;
@@ -449,6 +450,7 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                     }
                 }
                 break;
+            default:
             }
             break;
         case 'color_indicator':
@@ -500,17 +502,17 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
         case 'highres_image':
             if (card.hasHighResImage !== data.hasHighResImage) {
                 for (const type of ['png', 'border_crop', 'art_crop', 'large', 'normal', 'small']) {
-                    const path = cardImagePath(type, data.set, data.lang, data.number);
+                    const basePath = cardImagePath(type, data.set, data.lang, data.number);
 
-                    if (existsSync(path)) {
-                        unlinkSync(path);
+                    if (existsSync(basePath)) {
+                        unlinkSync(basePath);
                     }
 
-                    for (let i = 0; i < data.parts.length; ++i) {
-                        const path = cardImagePath(type, data.set, data.lang, data.number, i);
+                    for (let i = 0; i < data.parts.length; i += 1) {
+                        const partPath = cardImagePath(type, data.set, data.lang, data.number, i);
 
-                        if (existsSync(path)) {
-                            unlinkSync(path);
+                        if (existsSync(partPath)) {
+                            unlinkSync(partPath);
                         }
                     }
                 }
@@ -518,6 +520,7 @@ function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
                 card.hasHighResImage = data.hasHighResImage;
             }
             break;
+        default:
         }
     }
 }
@@ -551,7 +554,7 @@ export class CardMerger extends Task<Status> {
 
         const start = Date.now();
 
-        this.intervalProgress(500, function () {
+        this.intervalProgress(500, () => {
             const prog: Status = {
                 method: 'merge',
                 type:   'card',
@@ -563,7 +566,7 @@ export class CardMerger extends Task<Status> {
 
             prog.time = {
                 elapsed,
-                remaining: elapsed / count * (total - count),
+                remaining: (elapsed / count) * (total - count),
             };
 
             return prog;
@@ -638,7 +641,7 @@ export class CardMerger extends Task<Status> {
                     }
                 }
 
-                ++count;
+                count += 1;
             }
 
             await Card.insertMany(cardsToInsert);

@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { GameOption, GameOptions, GameModule, GameState, GameGetters, GameMutations, GameActions } from './interface';
+import {
+    GameOption, GameOptions, GameModule, GameState, GameGetters, GameMutations, GameActions,
+} from './interface';
 
 import { LocalStorage } from 'quasar';
 
@@ -37,7 +38,7 @@ export function createModule<
     } as GameMutations<D, S>;
 
     const actions = {
-        init ({ commit, rootGetters }, data) {
+        init({ commit, rootGetters }, data) {
             const locale = LocalStorage.getItem(`${game}/locale`);
 
             if (locale != null) {
@@ -54,7 +55,7 @@ export function createModule<
 
             commit('locales', data.locales);
 
-            for (const k in options) {
+            for (const k of Object.keys(options)) {
                 const value = LocalStorage.getItem(`${game}/${k}`);
 
                 if (value != null) {
@@ -66,15 +67,14 @@ export function createModule<
         },
     } as GameActions<D, S>;
 
-    for (const k in options) {
-        const option = options[k];
+    for (const k of Object.keys(options)) {
+        const option = (options as any)[k];
 
-        // avoid type check
-        state[k] = defaultValue(option) as any;
-        getters[k] = ((state: S) => state[k]) as any;
-        mutations[k] = ((state: S, newValue: any) => {
+        (state as any)[k] = defaultValue(option) as any;
+        (getters as any)[k] = ((s: S) => (s as any)[k]) as any;
+        (mutations as any)[k] = ((s: S, newValue: any) => {
             LocalStorage.set(`${game}/${k}`, newValue);
-            state[k] = newValue;
+            (s as any)[k] = newValue;
         }) as any;
     }
 

@@ -96,7 +96,7 @@ export default defineComponent({
 
         const statusKey = computed(() => Object.keys(status.value));
 
-        const getImage = async() => {
+        const getImage = async () => {
             progress.value = null;
 
             const ws = controlWs('/magic/image/get', { type: type.value });

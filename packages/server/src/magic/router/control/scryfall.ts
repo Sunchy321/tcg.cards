@@ -40,7 +40,8 @@ router.get('/', async ctx => {
 
 const bulkGetter = new BulkGetter();
 
-router.get('/bulk/get',
+router.get(
+    '/bulk/get',
     websocket,
     async ctx => {
         bulkGetter.bind(await ctx.ws());
@@ -50,12 +51,13 @@ router.get('/bulk/get',
 
 const bulkLoaders: Record<string, BulkLoader> = { };
 
-router.get('/bulk/load',
+router.get(
+    '/bulk/load',
     websocket,
     async ctx => {
         const ws = await ctx.ws();
 
-        const file = mapValues(ctx.query, toSingle).file;
+        const { file } = mapValues(ctx.query, toSingle);
 
         if (file == null) {
             ctx.status = 401;
@@ -75,7 +77,8 @@ router.get('/bulk/load',
 
 const setGetter = new SetGetter();
 
-router.get('/set/get',
+router.get(
+    '/set/get',
     websocket,
     async ctx => {
         setGetter.bind(await ctx.ws());
@@ -85,7 +88,8 @@ router.get('/set/get',
 
 const setMerger = new SetMerger();
 
-router.get('/set/merge',
+router.get(
+    '/set/merge',
     websocket,
     async ctx => {
         setMerger.bind(await ctx.ws());
@@ -95,7 +99,8 @@ router.get('/set/merge',
 
 const cardMerger = new CardMerger();
 
-router.get('/card/merge',
+router.get(
+    '/card/merge',
     websocket,
     async ctx => {
         cardMerger.bind(await ctx.ws());
@@ -105,7 +110,8 @@ router.get('/card/merge',
 
 const rulingMerger = new RulingMerger();
 
-router.get('/ruling/merge',
+router.get(
+    '/ruling/merge',
     websocket,
     async ctx => {
         rulingMerger.bind(await ctx.ws());

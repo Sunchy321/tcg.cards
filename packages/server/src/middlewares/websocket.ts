@@ -1,13 +1,13 @@
 import { Context, Next } from 'koa';
-import WebSocket from 'ws';
+import ws from 'ws';
 
 declare module 'koa' {
     interface DefaultContext {
-        ws: () => Promise<WebSocket>
+        ws: () => Promise<ws>
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line consistent-return
 export default function websocket(ctx: Context, next: Next): any {
     if (ctx.ws != null) {
         return next();

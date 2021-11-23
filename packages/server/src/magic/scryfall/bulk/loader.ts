@@ -37,13 +37,19 @@ const bucketSize = 500;
 
 export default class BulkLoader extends Task<Status> {
     type: 'card' | 'ruling';
+
     file: string;
+
     filePath: string;
+
     lineReader: LineReader;
 
     startTime?: number;
+
     count = 0;
+
     updated = 0;
+
     total = 0;
 
     constructor(fileName: string) {
@@ -56,7 +62,7 @@ export default class BulkLoader extends Task<Status> {
         }
 
         this.file = fileName;
-        this.filePath = join(bulkPath, fileName + '.json');
+        this.filePath = join(bulkPath, `${fileName}.json`);
         this.lineReader = new LineReader(this.filePath);
     }
 
@@ -81,7 +87,7 @@ export default class BulkLoader extends Task<Status> {
 
                 prog.time = {
                     elapsed,
-                    remaining: elapsed / this.count * (this.total - this.count),
+                    remaining: (elapsed / this.count) * (this.total - this.count),
                 };
             }
 
@@ -90,7 +96,7 @@ export default class BulkLoader extends Task<Status> {
 
         for await (const line of this.lineReader.get()) {
             if (line !== '[' && line !== ']') {
-                ++this.total;
+                this.total += 1;
             }
         }
 

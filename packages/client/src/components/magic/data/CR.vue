@@ -171,7 +171,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, watch, onMounted,
+} from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 
@@ -236,16 +238,14 @@ export default defineComponent({
             },
         });
 
-        const crOptions = computed(() => {
-            return txt.value.map(d => ({
-                value:   d,
-                label:   d,
-                hasData: cr.value.includes(d),
-            }));
-        });
+        const crOptions = computed(() => txt.value.map(d => ({
+            value:   d,
+            label:   d,
+            hasData: cr.value.includes(d),
+        })));
 
-        const contents = computed(() => { return data.value?.contents ?? []; });
-        const glossary = computed(() => { return data.value?.glossary ?? []; });
+        const contents = computed(() => data.value?.contents ?? []);
+        const glossary = computed(() => data.value?.glossary ?? []);
 
         const contentTitle = computed(() => {
             if (data.value != null) {
@@ -259,7 +259,9 @@ export default defineComponent({
             { name: 'id', label: 'ID', field: 'id' },
             { name: 'depth', label: 'Depth', field: 'depth' },
             { name: 'index', label: 'Index', field: 'index' },
-            { name: 'text', label: 'Text', field: 'text', align: 'left' },
+            {
+                name: 'text', label: 'Text', field: 'text', align: 'left',
+            },
         ];
 
         const duplicatedID = computed(() => {
@@ -285,7 +287,9 @@ export default defineComponent({
         const glossaryColumns = [
             { name: 'ids', label: 'IDs', field: 'ids' },
             { name: 'words', label: 'Words', field: 'words' },
-            { name: 'text', label: 'Text', field: 'text', align: 'left' },
+            {
+                name: 'text', label: 'Text', field: 'text', align: 'left',
+            },
         ];
 
         const loadData = async () => {

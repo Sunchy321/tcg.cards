@@ -123,7 +123,10 @@
 
             <div class="set-block">
                 <div v-for="i in setInfos" :key="i.set" class="set-line">
-                    <div v-if="i.langs.includes(lang)" class="set-dot" :class="{ current: i.set === set }" />
+                    <div
+                        v-if="i.langs.includes(lang)"
+                        class="set-dot" :class="{ current: i.set === set }"
+                    />
                     <div>
                         <div v-ripple class="flex no-wrap items-center" @click="set = i.set">
                             <span class="code q-mr-sm">{{ i.set }}</span>
@@ -320,7 +323,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
 import { useStore } from 'src/store';
@@ -361,7 +366,9 @@ type Data = Card & {
 }
 
 export default defineComponent({
-    components: { Grid, CardAvatar, CardImage, MagicColor, MagicText, MagicSymbol, BanlistIcon },
+    components: {
+        Grid, CardAvatar, CardImage, MagicColor, MagicText, MagicSymbol, BanlistIcon,
+    },
 
     setup() {
         const router = useRouter();
@@ -374,6 +381,13 @@ export default defineComponent({
 
         const data = ref<Data|null>(null);
         const rotate = ref<boolean|null>(null);
+
+        const textMode = computed({
+            get() { return store.getters['magic/textMode']; },
+            set(newValue: TextMode) {
+                store.commit('magic/textMode', newValue);
+            },
+        });
 
         pageSetup({
             title: () => {
@@ -399,16 +413,9 @@ export default defineComponent({
             ],
         });
 
-        const textMode = computed({
-            get() { return store.getters['magic/textMode']; },
-            set(newValue: TextMode) {
-                store.commit('magic/textMode', newValue);
-            },
-        });
-
         const textModeOptions = computed(() => textModes.map(v => ({
             value: v,
-            label: i18n.t('magic.card.text-mode.' + v),
+            label: i18n.t(`magic.card.text-mode.${v}`),
         })));
 
         // data fields
@@ -422,53 +429,65 @@ export default defineComponent({
             set(newValue: string) { void router.replace({ query: { ...omit(route.query, 'number'), set: newValue } }); },
         });
 
-        const setInfos = computed(() => {
-            return sets.value.map(s => {
-                const setVersions = versions.value.filter(v => v.set === s);
-
-                const numbers = [];
-
-                for (const v of setVersions) {
-                    const n = numbers.find(n => n.number === v.number);
-
-                    if (n != null) {
-                        n.langs.push(v.lang);
-                    } else {
-                        numbers.push({ number: v.number, langs: [v.lang] });
-                    }
-                }
-
-                numbers.sort((a, b) => {
-                    const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a.number)![1];
-                    const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b.number)![1];
-
-                    const len = Math.max(ma.length, mb.length);
-
-                    const pa = ma.padStart(len, '0');
-                    const pb = mb.padStart(len, '0');
-
-                    return pa < pb ? -1 : pa > pb ? 1 : 0;
-                });
-
-                const currVersion = (
-                    s === set.value ? setVersions.find(v => v.number === number.value) : null
-                ) ?? setVersions[0];
-
-                const rarity = currVersion.rarity;
-                const iconSet = currVersion.parent ?? s;
-
-                return {
-                    set:     s,
-                    langs:   uniq(setVersions.map(v => v.lang)),
-                    numbers,
-                    rarity,
-                    iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
-                    name:    currVersion.name?.[store.getters['magic/locale']] ??
-                        currVersion.name?.[store.getters['magic/locales'][0]] ?? s,
-                    symbolStyle: currVersion.symbolStyle,
-                };
-            });
+        const number = computed({
+            get() { return data.value?.number ?? route.query.number as string; },
+            set(newValue: string) {
+                void router.replace({ query: { ...route.query, number: newValue } });
+            },
         });
+
+        const partIndex = computed({
+            get() { return parseInt(route.query.part as string ?? '0', 10); },
+            set(newValue: number) {
+                void router.replace({ query: { ...route.query, part: newValue } });
+            },
+        });
+
+        const setInfos = computed(() => sets.value.map(s => {
+            const setVersions = versions.value.filter(v => v.set === s);
+
+            const numbers = [];
+
+            for (const v of setVersions) {
+                const currNumber = numbers.find(n => n.number === v.number);
+
+                if (currNumber != null) {
+                    currNumber.langs.push(v.lang);
+                } else {
+                    numbers.push({ number: v.number, langs: [v.lang] });
+                }
+            }
+
+            numbers.sort((a, b) => {
+                const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a.number)![1];
+                const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b.number)![1];
+
+                const len = Math.max(ma.length, mb.length);
+
+                const pa = ma.padStart(len, '0');
+                const pb = mb.padStart(len, '0');
+
+                return pa < pb ? -1 : pa > pb ? 1 : 0;
+            });
+
+            const currVersion = (
+                s === set.value ? setVersions.find(v => v.number === number.value) : null
+            ) ?? setVersions[0];
+
+            const { rarity } = currVersion;
+            const iconSet = currVersion.parent ?? s;
+
+            return {
+                set:     s,
+                langs:   uniq(setVersions.map(v => v.lang)),
+                numbers,
+                rarity,
+                iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
+                name:    currVersion.name?.[store.getters['magic/locale']]
+                        ?? currVersion.name?.[store.getters['magic/locales'][0]] ?? s,
+                symbolStyle: currVersion.symbolStyle,
+            };
+        }));
 
         const langs = computed(() => {
             const locales = store.getters['magic/locales'];
@@ -482,12 +501,10 @@ export default defineComponent({
                     } else {
                         return 1;
                     }
+                } else if (idxb === -1) {
+                    return -1;
                 } else {
-                    if (idxb === -1) {
-                        return -1;
-                    } else {
-                        return idxa - idxb;
-                    }
+                    return idxa - idxb;
                 }
             });
         });
@@ -495,22 +512,22 @@ export default defineComponent({
         const lang = computed({
             get() { return data.value?.lang ?? route.query.lang as string ?? store.getters['magic/locale']; },
             set(newValue: string) {
-                const info = setInfos.value.find(i => i.set === set.value);
+                const exactInfo = setInfos.value.find(i => i.set === set.value);
 
-                if (info == null) {
+                if (exactInfo == null) {
                     return;
                 }
 
-                if (info.langs.includes(newValue)) {
+                if (exactInfo.langs.includes(newValue)) {
                     void router.replace({ query: { ...route.query, lang: newValue } });
                 } else {
-                    const info = setInfos.value.find(i => i.langs.includes(newValue));
+                    const sameLangInfo = setInfos.value.find(i => i.langs.includes(newValue));
 
-                    if (info != null) {
+                    if (sameLangInfo != null) {
                         void router.replace({
                             query: {
                                 ...route.query,
-                                set:    info.set,
+                                set:    sameLangInfo.set,
                                 number: undefined,
                                 lang:   newValue,
                             },
@@ -520,25 +537,13 @@ export default defineComponent({
             },
         });
 
-        const langInfos = computed(() => {
-            return langs.value.map(l => ({
-                lang:    l,
-                exist:   versions.value.filter(v => v.set === set.value).some(v => v.lang === l),
-                current: l === lang.value,
-            }));
-        });
-
-        const number = computed({
-            get() { return data.value?.number ?? route.query.number as string; },
-            set(newValue: string) { void router.replace({ query: { ...route.query, number: newValue } }); },
-        });
+        const langInfos = computed(() => langs.value.map(l => ({
+            lang:    l,
+            exist:   versions.value.filter(v => v.set === set.value).some(v => v.lang === l),
+            current: l === lang.value,
+        })));
 
         const partCount = computed(() => data.value?.parts?.length ?? 1);
-
-        const partIndex = computed({
-            get() { return parseInt(route.query.part as string ?? '0'); },
-            set(newValue: number) { void router.replace({ query: { ...route.query, part: newValue } }); },
-        });
 
         const part = computed(() => data.value?.parts?.[partIndex.value]);
 
@@ -624,7 +629,7 @@ export default defineComponent({
         }));
 
         // methods
-        const loadData = async() => {
+        const loadData = async () => {
             const query = omitBy({
                 id:     route.params.id,
                 lang:   route.query.lang ?? store.getters['magic/locale'],
@@ -642,14 +647,21 @@ export default defineComponent({
             if (partIndex.value === partCount.value - 1) {
                 partIndex.value = 0;
             } else {
-                partIndex.value = partIndex.value + 1;
+                partIndex.value += 1;
             }
         };
 
         // watches
         watch(
-            [() => route.params.id, () => route.query.lang, () => route.query.set, () => route.query.number],
-            loadData, { immediate: true },
+            [
+                () => route.params.id,
+                () => route.query.lang,
+                () => route.query.set,
+                () => route.query.number,
+            ],
+            loadData,
+
+            { immediate: true },
         );
 
         watch(() => store.getters['magic/locale'], loadData);

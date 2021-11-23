@@ -29,7 +29,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 import { useStore } from 'src/store';
 
@@ -51,9 +53,7 @@ export default defineComponent({
         const showId = ref(false);
         const profile = ref<CardProfile|null>(null);
 
-        const link = computed(() => {
-            return '/magic/card/' + props.id;
-        });
+        const link = computed(() => `/magic/card/${props.id}`);
 
         const name = computed(() => {
             if (profile.value == null) {
@@ -62,12 +62,10 @@ export default defineComponent({
 
             const locales = store.getters['magic/locales'];
             const locale = store.getters['magic/locale'];
-            const defauleLocale = locales[0];
+            const defaultLocale = locales[0];
 
-            return profile.value.parts.map(p =>
-                p.localization.find(l => l.lang === locale)?.name ??
-                p.localization.find(l => l.lang === defauleLocale)?.name ?? '',
-            ).join(' // ');
+            return profile.value.parts.map(p => p.localization.find(l => l.lang === locale)?.name
+                ?? p.localization.find(l => l.lang === defaultLocale)?.name ?? '').join(' // ');
         });
 
         const imageVersion = computed(() => {
@@ -85,33 +83,27 @@ export default defineComponent({
                 const localeVersion = versions.filter(v => v.lang === locale);
 
                 if (localeVersion.length > 0) {
-                    return localeVersion.sort((a, b) =>
-                        a.releaseDate > b.releaseDate
-                            ? -1
-                            : a.releaseDate < b.releaseDate ? 1 : 0,
-                    )[0];
+                    return localeVersion.sort((a, b) => (a.releaseDate > b.releaseDate
+                        ? -1
+                        : a.releaseDate < b.releaseDate ? 1 : 0))[0];
                 }
 
                 const defaultVersion = versions.filter(v => v.lang === defauleLocale);
 
                 if (defaultVersion.length > 0) {
-                    return defaultVersion.sort((a, b) =>
-                        a.releaseDate > b.releaseDate
-                            ? -1
-                            : a.releaseDate < b.releaseDate ? 1 : 0,
-                    )[0];
+                    return defaultVersion.sort((a, b) => (a.releaseDate > b.releaseDate
+                        ? -1
+                        : a.releaseDate < b.releaseDate ? 1 : 0))[0];
                 }
 
                 if (versions.length > 0) {
-                    return versions.sort((a, b) =>
-                        a.releaseDate > b.releaseDate
-                            ? -1
-                            : a.releaseDate < b.releaseDate ? 1 : 0,
-                    )[0];
+                    return versions.sort((a, b) => (a.releaseDate > b.releaseDate
+                        ? -1
+                        : a.releaseDate < b.releaseDate ? 1 : 0))[0];
                 }
             }
 
-            const versions = profile.value.versions;
+            const { versions } = profile.value;
 
             const locales = store.getters['magic/locales'];
             const locale = store.getters['magic/locale'];
@@ -120,28 +112,22 @@ export default defineComponent({
             const localeVersion = versions.filter(v => v.lang === locale);
 
             if (localeVersion.length > 0) {
-                return localeVersion.sort((a, b) =>
-                    a.releaseDate > b.releaseDate
-                        ? -1
-                        : a.releaseDate < b.releaseDate ? 1 : 0,
-                )[0];
+                return localeVersion.sort((a, b) => (a.releaseDate > b.releaseDate
+                    ? -1
+                    : a.releaseDate < b.releaseDate ? 1 : 0))[0];
             }
 
             const defaultVersion = versions.filter(v => v.lang === defauleLocale);
 
             if (defaultVersion.length > 0) {
-                return defaultVersion.sort((a, b) =>
-                    a.releaseDate > b.releaseDate
-                        ? -1
-                        : a.releaseDate < b.releaseDate ? 1 : 0,
-                )[0];
+                return defaultVersion.sort((a, b) => (a.releaseDate > b.releaseDate
+                    ? -1
+                    : a.releaseDate < b.releaseDate ? 1 : 0))[0];
             }
 
-            return versions.slice().sort((a, b) =>
-                a.releaseDate > b.releaseDate
-                    ? -1
-                    : a.releaseDate < b.releaseDate ? 1 : 0,
-            )[0];
+            return versions.slice().sort((a, b) => (a.releaseDate > b.releaseDate
+                ? -1
+                : a.releaseDate < b.releaseDate ? 1 : 0))[0];
         });
 
         const loadData = async () => {

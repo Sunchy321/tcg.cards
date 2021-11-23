@@ -3,7 +3,7 @@ import { useStore } from 'src/store';
 
 import { api } from 'boot/backend';
 
-export default function() {
+export default function magicSetup() {
     const router = useRouter();
     const route = useRoute();
     const store = useStore();
@@ -25,7 +25,7 @@ export default function() {
         });
 
         if (id !== '') {
-            const q = route.query.q;
+            const { q } = route.query;
 
             void router.push({
                 name:   'magic/card',

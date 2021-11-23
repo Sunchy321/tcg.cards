@@ -34,11 +34,9 @@ export interface Config {
 
 export const config = JSON.parse(readFileSync(configPath).toString()) as Config;
 
-export const mongodb = config.mongodb;
+export const { mongodb, hearthstone } = config;
 
 export const clientPath = config.client;
 export const assetPath = config.asset;
 export const logPath = config.log;
 export const dataPath = config.data;
-
-export const hearthstone = config.hearthstone;

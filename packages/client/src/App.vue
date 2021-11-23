@@ -31,11 +31,11 @@ export default defineComponent({
             if (type === 'locale') {
                 i18n.locale.value = locale;
 
-                const qLocaleId = quasarLocaleMap[locale] ??
-                    locale.replace(/[A-Z]/, t => '-' + t.toLowerCase());
+                const qLocaleId = quasarLocaleMap[locale]
+                    ?? locale.replace(/[A-Z]/, t => `-${t.toLowerCase()}`);
 
                 const qLocale = (
-                    await import('quasar/lang/' + qLocaleId)
+                    await import(`quasar/lang/${qLocaleId}`)
                 ) as { default: QuasarLanguage };
 
                 quasar.lang.set(qLocale.default);

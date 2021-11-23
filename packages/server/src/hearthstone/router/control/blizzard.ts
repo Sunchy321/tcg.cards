@@ -13,7 +13,8 @@ router.prefix('/blizzard');
 
 const metadataGetter = new MetadataGetter();
 
-router.get('/get-metadata',
+router.get(
+    '/get-metadata',
     websocket,
     async ctx => {
         metadataGetter.bind(await ctx.ws());
@@ -23,7 +24,8 @@ router.get('/get-metadata',
 
 const cardGetter = new CardGetter();
 
-router.get('/get-card',
+router.get(
+    '/get-card',
     websocket,
     async ctx => {
         cardGetter.bind(await ctx.ws());
@@ -33,7 +35,8 @@ router.get('/get-card',
 
 const imageGetter = new ImageGetter();
 
-router.get('/get-image',
+router.get(
+    '/get-image',
     websocket,
     async ctx => {
         imageGetter.bind(await ctx.ws());

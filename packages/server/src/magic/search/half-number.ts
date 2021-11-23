@@ -12,7 +12,7 @@ function toStatsList(numbers: number[]) {
 
         // Augment cards with stats +X/+Y
         if (n > 0 && Number.isInteger(n)) {
-            result.push('+' + n);
+            result.push(`+${n}`);
         } else if (n === 0) {
             result.push('+0', '-0');
         }

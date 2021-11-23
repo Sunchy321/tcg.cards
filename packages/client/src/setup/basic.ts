@@ -3,14 +3,14 @@ import { useRoute } from 'vue-router';
 
 import { useStore } from 'src/store';
 
-export default function() {
+export default function basicSetup() {
     const route = useRoute();
     const store = useStore();
 
     const games = computed(() => store.state.games ?? []);
 
     const game = computed(() => {
-        const path = route.path;
+        const { path } = route;
         const firstPart = path.split('/').filter(v => v !== '')[0];
         return games.value.includes(firstPart)
             ? firstPart as 'magic' | 'hearthstone'
@@ -22,5 +22,7 @@ export default function() {
 
     const meta = computed(() => route.meta);
 
-    return { games, game, user, isAdmin, meta };
+    return {
+        games, game, user, isAdmin, meta,
+    };
 }

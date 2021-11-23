@@ -48,7 +48,7 @@ export default defineComponent({
         const titleType = computed(() => store.getters.titleType);
 
         watch(() => route.query.q, () => {
-            const q = route.query.q;
+            const { q } = route.query;
 
             if (q != null && q !== '') {
                 search.value = q as string;

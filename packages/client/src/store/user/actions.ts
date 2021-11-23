@@ -19,7 +19,7 @@ export async function refresh({ commit, getters }: ActionContext<State, any>) {
     if (token != null) {
         const { data } = await user.get<UserOrError>('/refresh', {
             headers: {
-                Authentication: 'Bearer ' + token,
+                Authentication: `Bearer ${token}`,
             },
         });
 
@@ -51,6 +51,8 @@ function passwordValidator(password: string) {
     if (!/[^0-9a-zA-Z]/.test(password)) {
         return 'password_no_special_character';
     }
+
+    return undefined;
 }
 
 export async function register(

@@ -49,7 +49,9 @@ interface IImageTask {
 
 export class ImageGetter extends Task<IImageStatus> {
     todoTasks: IImageTask[] = [];
+
     taskMap: Record<string, [IImageTask, FileSaver]> = {};
+
     statusMap: Record<string, string> = {};
 
     async startImpl(): Promise<void> {
@@ -59,19 +61,17 @@ export class ImageGetter extends Task<IImageStatus> {
         let count = 0;
         let total = 0;
 
-        this.intervalProgress(500, function() {
-            return {
-                method: 'get',
-                type:   'image',
-                count,
-                total,
-            };
-        });
+        this.intervalProgress(500, () => ({
+            method: 'get',
+            type:   'image',
+            count,
+            total,
+        }));
 
         do {
             data = await blzApi('/hearthstone/cards', {
                 collectible: '0,1',
-                page:        page,
+                page,
                 pageSize:    200,
             });
 
@@ -99,7 +99,7 @@ export class ImageGetter extends Task<IImageStatus> {
                     continue;
                 }
 
-                for (const l in c.image) {
+                for (const l of Object.keys(c.image)) {
                     this.todoTasks.push({
                         name: `${e.cardId}/${l}: normal`,
                         uri:  c.image[l as Locale],
@@ -107,7 +107,7 @@ export class ImageGetter extends Task<IImageStatus> {
                     });
                 }
 
-                for (const l in c.imageGold) {
+                for (const l of Object.keys(c.imageGold)) {
                     this.todoTasks.push({
                         name: `${e.cardId}/${l}: gold`,
                         uri:  c.imageGold[l as Locale],
@@ -120,7 +120,7 @@ export class ImageGetter extends Task<IImageStatus> {
 
             count += data.cards.length;
 
-            ++page;
+            page += 1;
         } while (data.page < data.pageCount);
 
         page = 1;
@@ -129,7 +129,7 @@ export class ImageGetter extends Task<IImageStatus> {
             data = await blzApi('/hearthstone/cards', {
                 collectible: '0,1',
                 gameMode:    'battlegrounds',
-                page:        page,
+                page,
                 pageSize:    200,
             });
 
@@ -159,7 +159,7 @@ export class ImageGetter extends Task<IImageStatus> {
                 }
 
                 if (c.battlegrounds != null) {
-                    for (const l in c.battlegrounds.image) {
+                    for (const l of Object.keys(c.battlegrounds.image)) {
                         this.todoTasks.push({
                             name: `${e.cardId}/${l}: bg-normal`,
                             uri:  c.battlegrounds.image[l as Locale],
@@ -167,7 +167,7 @@ export class ImageGetter extends Task<IImageStatus> {
                         });
                     }
 
-                    for (const l in c.battlegrounds.imageGold) {
+                    for (const l of Object.keys(c.battlegrounds.imageGold)) {
                         this.todoTasks.push({
                             name: `${e.cardId}/${l}: bg-gold`,
                             uri:  c.battlegrounds.imageGold[l as Locale],
@@ -181,7 +181,7 @@ export class ImageGetter extends Task<IImageStatus> {
 
             count += data.cards.length;
 
-            ++page;
+            page += 1;
         } while (data.page < data.pageCount);
     }
 
@@ -228,7 +228,7 @@ export class ImageGetter extends Task<IImageStatus> {
                 }).on('error', err => {
                     this.statusMap[task.name] = 'failed';
 
-                    for (const k in this.taskMap) {
+                    for (const k of Object.keys(this.taskMap)) {
                         this.taskMap[k][1].stop();
                         this.statusMap[k] = 'aborted';
                     }
@@ -240,10 +240,8 @@ export class ImageGetter extends Task<IImageStatus> {
                 this.taskMap[task.name] = [task, savers];
                 this.statusMap[task.name] = 'working';
                 savers.start();
-            } else {
-                if (this.rest() === 0 && this.working() === 0) {
-                    this.emit('all-end');
-                }
+            } else if (this.rest() === 0 && this.working() === 0) {
+                this.emit('all-end');
             }
         }
     }
@@ -251,8 +249,8 @@ export class ImageGetter extends Task<IImageStatus> {
     stopImpl(): void {
         this.todoTasks = [];
 
-        for (const k in this.taskMap) {
-            this.taskMap[k][1].stop();
+        for (const task of Object.values(this.taskMap)) {
+            task[1].stop();
         }
     }
 }

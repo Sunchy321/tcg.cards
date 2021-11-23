@@ -25,7 +25,9 @@ const BanlistChangeSchema = new Schema<IBanlistChange>({
         status:        String,
         effectiveDate: String,
         detail:        {
-            type:    [{ _id: false, card: String, date: String, status: String, group: String }],
+            type: [{
+                _id: false, card: String, date: String, status: String, group: String,
+            }],
             default: undefined,
         },
     }],

@@ -48,7 +48,7 @@ export async function getChanges(
     const format = await Format.findOne(id ? { formatId: id } : {});
 
     if (id != null && format == null) {
-        throw new Error('Unknown format ' + id);
+        throw new Error(`Unknown format ${id}`);
     }
 
     const result: (IFormatChangeItem | IBanlistChangeItem)[] = [];
@@ -68,7 +68,7 @@ export async function getChanges(
     )[];
 
     for (const v of banlistChanges) {
-        const card = v.changes.card;
+        const { card } = v.changes;
 
         if (v.changes.detail != null && !(card.startsWith('#{clone') && keepClone)) {
             for (const d of v.changes.detail) {
@@ -191,15 +191,15 @@ export async function syncChange(): Promise<void> {
 
     const changes = await getChanges(null, { keepClone: true });
 
-    for (const f in formatMap) {
-        formatMap[f].sets = [];
-        formatMap[f].banlist = [];
+    for (const format of Object.values(formatMap)) {
+        format.sets = [];
+        format.banlist = [];
     }
 
     for (const c of changes) {
         if (c.type === 'format') {
             // format change
-            const formats = (() => {
+            const changedFormats = (() => {
                 if (c.category !== 'release') {
                     return [c.format!];
                 }
@@ -221,15 +221,15 @@ export async function syncChange(): Promise<void> {
                 });
             })();
 
-            if (formats.includes('standard') && !formats.includes('brawl') && c.date >= brawlBirthday) {
-                formats.push('brawl');
+            if (changedFormats.includes('standard') && !changedFormats.includes('brawl') && c.date >= brawlBirthday) {
+                changedFormats.push('brawl');
             }
 
-            if (formats.includes('historic') && !formats.includes('historic_brawl')) {
-                formats.push('historic_brawl');
+            if (changedFormats.includes('historic') && !changedFormats.includes('historic_brawl')) {
+                changedFormats.push('historic_brawl');
             }
 
-            for (const f of formats) {
+            for (const f of changedFormats) {
                 const fo = formatMap[f]!;
 
                 if (fo.sets == null) {
@@ -373,23 +373,23 @@ export async function syncChange(): Promise<void> {
         }
     }
 
-    for (const f in formatMap) {
-        if (formatMap[f].sets?.length === 0) {
-            formatMap[f].sets = undefined;
+    for (const format of Object.values(formatMap)) {
+        if (format.sets?.length === 0) {
+            format.sets = undefined;
         }
 
-        formatMap[f].banlist.sort((a, b) => {
+        format.banlist.sort((a, b) => {
             if (a.status !== b.status) {
-                return banlistStatusOrder.indexOf(a.status) -
-                    banlistStatusOrder.indexOf(b.status);
+                return banlistStatusOrder.indexOf(a.status)
+                    - banlistStatusOrder.indexOf(b.status);
             } else if (a.group !== b.group) {
-                return banlistSourceOrder.indexOf(a.group ?? null) -
-                    banlistSourceOrder.indexOf(b.group ?? null);
+                return banlistSourceOrder.indexOf(a.group ?? null)
+                    - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
                 return a.card < b.card ? -1 : 1;
             }
         });
 
-        await formatMap[f].save();
+        await format.save();
     }
 }

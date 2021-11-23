@@ -61,13 +61,11 @@ function diffString(lhs: string, rhs: string): TextChange[] {
                 diffs.push(d.value);
             } else if (typeof lastDiff === 'string') {
                 diffs[diffs.length - 1] += d.value;
+            } else if (d.value === ' ') {
+                lastDiff[0] += d.value;
+                lastDiff[1] += d.value;
             } else {
-                if (d.value === ' ') {
-                    lastDiff[0] += d.value;
-                    lastDiff[1] += d.value;
-                } else {
-                    diffs.push(d.value);
-                }
+                diffs.push(d.value);
             }
         }
     }
@@ -81,25 +79,26 @@ function diffString(lhs: string, rhs: string): TextChange[] {
                 if (i === diffs.length - 1) {
                     diffs.push(' ');
                 } else if (typeof diffs[i + 1] === 'string') {
-                    diffs[i + 1] = ' ' + diffs[i + 1];
+                    diffs[i + 1] = ` ${diffs[i + 1]}`;
                 }
             }
 
             if (i !== 0 && i !== diffs.length - 1) {
-                const prev = diffs[i - 1], next = diffs[i + 1];
+                const prev = diffs[i - 1]; const
+                    next = diffs[i + 1];
 
                 if (typeof prev === 'string' && typeof next === 'string') {
                     if (prev.endsWith('{') && next.startsWith('}')) {
-                        d[0] = '{' + d[0] + '}';
-                        d[1] = '{' + d[1] + '}';
+                        d[0] = `{${d[0]}}`;
+                        d[1] = `{${d[1]}}`;
 
                         diffs[i - 1] = prev.slice(0, -1);
                         diffs[i + 1] = next.slice(1);
                     } else if (prev.endsWith('{') && d[0].endsWith('{') && d[1] === '') {
-                        d[0] = '{' + d[0].slice(0, -1);
+                        d[0] = `{${d[0].slice(0, -1)}`;
 
                         diffs[i - 1] = prev.slice(0, -1);
-                        diffs[i + 1] = '{' + next;
+                        diffs[i + 1] = `{${next}`;
                     }
                 }
             }
@@ -134,7 +133,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
     const to = await CR.findOne({ date: toDate });
 
     if (from == null || to == null) {
-        return;
+        return undefined;
     }
 
     const intro = diffString(from.intro, to.intro);
@@ -153,9 +152,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
         }
     }
 
-    const contentMoved = contents.filter(d =>
-        d.type === 'remove' && contents.some(e => e.id === d.id && e.type === 'add'),
-    ).map(d => d.id!);
+    const contentMoved = contents.filter(d => d.type === 'remove' && contents.some(e => e.id === d.id && e.type === 'add')).map(d => d.id!);
 
     for (const d of contents) {
         if (contentMoved.includes(d.id!) && d.type === 'add') {
@@ -165,7 +162,8 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
 
     contents = contents.filter(d => !contentMoved.includes(d.id!) || d.type !== 'remove');
 
-    const oldContentMap: Record<string, Content> = {}, newContentMap: Record<string, Content> = {};
+    const oldContentMap: Record<string, Content> = {}; const
+        newContentMap: Record<string, Content> = {};
 
     for (const c of from.contents) { oldContentMap[c.id] = c; }
     for (const c of to.contents) { newContentMap[c.id] = c; }
@@ -186,17 +184,15 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
             .map(([l, r]) => diffString(l || '', r || ''));
     }
 
-    contents = contents.filter(d =>
-        d.type != null ||
-        (d.text && isChanged(d.text)) ||
-        (d.examples && d.examples.some(isChanged)),
-    );
+    contents = contents.filter(d => d.type != null
+        || (d.text && isChanged(d.text))
+        || (d.examples && d.examples.some(isChanged)));
 
     for (const d of contents) {
         if (
-            !isChanged(d.text!) &&
-            d.type == null &&
-            (d.examples == null || d.examples.every(d => !isChanged(d)))
+            !isChanged(d.text!)
+            && d.type == null
+            && (d.examples == null || d.examples.every(d => !isChanged(d)))
         ) { delete d.text; }
         if (d.examples && d.examples.every(d => !isChanged(d))) { delete d.examples; }
     }
@@ -213,9 +209,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
         }
     }
 
-    const glossaryMoved = glossary.filter(d =>
-        d.type === 'remove' && glossary.some(e => e.ids?.join(' ') === d.ids?.join(' ') && e.type === 'add'),
-    ).map(d => d.ids!.join(' '));
+    const glossaryMoved = glossary.filter(d => d.type === 'remove' && glossary.some(e => e.ids?.join(' ') === d.ids?.join(' ') && e.type === 'add')).map(d => d.ids!.join(' '));
 
     for (const d of glossary) {
         if (glossaryMoved.includes(d.ids!.join(' ')) && d.type === 'add') {
@@ -225,7 +219,8 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
 
     glossary = glossary.filter(d => !glossaryMoved.includes(d.ids!.join(' ')) || d.type !== 'remove');
 
-    const oldGlossaryMap: Record<string, Glossary> = {}, newGlossaryMap: Record<string, Glossary> = {};
+    const oldGlossaryMap: Record<string, Glossary> = {}; const
+        newGlossaryMap: Record<string, Glossary> = {};
 
     for (const g of from.glossary) { oldGlossaryMap[g.ids.join(' ')] = g; }
     for (const g of to.glossary) { newGlossaryMap[g.ids.join(' ')] = g; }

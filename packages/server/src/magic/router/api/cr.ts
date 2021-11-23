@@ -26,7 +26,7 @@ router.get('/', async ctx => {
 
     const crs = await CR.find().distinct('date') as string[];
 
-    ctx.body = crs.sort((a, b) => a > b ? -1 : a < b ? 1 : 0);
+    ctx.body = crs.sort((a, b) => (a > b ? -1 : a < b ? 1 : 0));
 });
 
 router.get('/diff', async ctx => {

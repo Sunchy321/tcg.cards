@@ -1,4 +1,3 @@
-
 export function* toGenerator<T>(arr: T[]): Generator<T> {
     for (const v of arr) {
         yield v;

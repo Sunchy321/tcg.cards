@@ -21,7 +21,7 @@ export default defineComponent({
     setup() {
         const store = useStore();
 
-        const component = computed(() => 'SearchDocs' + capitalize(store.getters.locale));
+        const component = computed(() => `SearchDocs${capitalize(store.getters.locale)}`);
 
         return { component };
     },

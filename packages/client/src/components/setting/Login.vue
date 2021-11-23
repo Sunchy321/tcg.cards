@@ -65,7 +65,7 @@ export default defineComponent({
                 });
             } catch (e) {
                 if (e instanceof Error) {
-                    quasar.notify(i18n.t('user.' + camelCase(e.message)));
+                    quasar.notify(i18n.t(`user.${camelCase(e.message)}`));
                 }
             }
         };
@@ -78,7 +78,7 @@ export default defineComponent({
                 });
             } catch (e) {
                 if (e instanceof Error) {
-                    quasar.notify(i18n.t('user.' + camelCase(e.message)));
+                    quasar.notify(i18n.t(`user.${camelCase(e.message)}`));
                 }
             }
         };

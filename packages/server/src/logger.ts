@@ -5,7 +5,7 @@ import { logPath } from '@static';
 
 function formatter(info: TransformableInfo) {
     const level = info.level[0];
-    const tag = info.category != null ? level + '/' + info.category : level;
+    const tag = info.category != null ? `${level}/${info.category}` : level;
 
     return `${info.timestamp} ${tag.padEnd(10, ' ').toUpperCase()} ${
         info.message
@@ -17,7 +17,7 @@ export const main = createLogger({
     format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
-            filename: logPath + '/main.log',
+            filename: `${logPath}/main.log`,
         }),
     ],
 });
@@ -27,7 +27,7 @@ export const data = createLogger({
     format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
-            filename: logPath + '/data.log',
+            filename: `${logPath}/data.log`,
         }),
     ],
 });
@@ -37,7 +37,7 @@ export const user = createLogger({
     format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
-            filename: logPath + '/user.log',
+            filename: `${logPath}/user.log`,
         }),
     ],
 });

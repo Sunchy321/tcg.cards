@@ -13,7 +13,8 @@ router.prefix('/hsdata');
 
 const getter = new DataGetter();
 
-router.get('/get-data',
+router.get(
+    '/get-data',
     websocket,
     async ctx => {
         getter.bind(await ctx.ws());
@@ -23,7 +24,8 @@ router.get('/get-data',
 
 const loader = new DataLoader();
 
-router.get('/load-data',
+router.get(
+    '/load-data',
     websocket,
     async ctx => {
         loader.bind(await ctx.ws());
@@ -33,7 +35,8 @@ router.get('/load-data',
 
 const patchLoaders: Record<string, PatchLoader> = { };
 
-router.get('/load-patch',
+router.get(
+    '/load-patch',
     websocket,
     async ctx => {
         const ws = await ctx.ws();

@@ -9,7 +9,11 @@
                 <div v-if="parent != null" style="width: 16px" />
                 <span class="name q-mr-sm">{{ nameOf(localization) ?? setId }}</span>
                 <span class="id code q-mr-sm">{{ setId }}</span>
-                <img v-if="iconUrl(setId, setType, parent) != null" class="icon" :src="iconUrl(setId, setType, parent)">
+                <img
+                    v-if="iconUrl(setId, setType, parent) != null"
+                    class="icon"
+                    :src="iconUrl(setId, setType, parent)"
+                >
                 <span class="col-grow" />
                 <q-btn
                     type="a"
@@ -53,7 +57,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, watch, onMounted,
+} from 'vue';
 
 import { useRouter } from 'vue-router';
 import { useStore } from 'src/store';
@@ -83,7 +89,9 @@ export default defineComponent({
                 return [];
             }
 
-            return sets.value.filter(s => profiles.value[s] != null && profiles.value[s].parent == null);
+            return sets.value.filter(
+                s => profiles.value[s] != null && profiles.value[s].parent == null,
+            );
         });
 
         const profileList = computed(() => {
@@ -115,9 +123,9 @@ export default defineComponent({
                 const children = sets.value.filter(so => profiles.value[so]?.parent === s);
 
                 for (const c of children) {
-                    const profile = profiles.value[c];
+                    const childProfile = profiles.value[c];
 
-                    list.push(profile);
+                    list.push(childProfile);
                 }
             }
 
@@ -130,10 +138,11 @@ export default defineComponent({
             sets.value = data;
         };
 
-        const loadProfile = async(sets: string[]) => {
-            const locals = [], remotes = [];
+        const loadProfile = async (setList: string[]) => {
+            const locals = []; const
+                remotes = [];
 
-            for (const s of sets) {
+            for (const s of setList) {
                 const { local, remote } = getProfile(s);
 
                 locals.push(local);
@@ -168,9 +177,8 @@ export default defineComponent({
             });
         };
 
-        const nameOf = (localization: Record<string, SetLocalization>) =>
-            localization[store.getters['magic/locale']]?.name ??
-            localization[store.getters['magic/locales'][0]]?.name;
+        const nameOf = (localization: Record<string, SetLocalization>) => localization[store.getters['magic/locale']]?.name
+            ?? localization[store.getters['magic/locales'][0]]?.name;
 
         const iconUrl = (set: string, setType: string, parent?: string) => {
             if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(setType)) {

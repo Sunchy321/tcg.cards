@@ -57,7 +57,9 @@ router.post('/calc', async ctx => {
             number: string,
             lang: string,
             rarity: string
-    }>().project({ _id: 0, set: 1, number: 1, lang: 1, rarity: 1 });
+    }>().project({
+        _id: 0, set: 1, number: 1, lang: 1, rarity: 1,
+    });
 
     for (const set of sets) {
         const id = set.setId;
@@ -65,8 +67,10 @@ router.post('/calc', async ctx => {
         const cards = allCards.filter(c => c.set === id);
 
         set.cardCount = uniq(cards.map(c => c.number)).length;
-        set.langs = uniq(cards.map(c => c.lang)).sort((a, b) => extendedLocales.indexOf(a) - extendedLocales.indexOf(b));
-        set.rarities = uniq(cards.map(c => c.rarity)).sort((a, b) => rarities.indexOf(a) - rarities.indexOf(b));
+        set.langs = uniq(cards.map(c => c.lang))
+            .sort((a, b) => extendedLocales.indexOf(a) - extendedLocales.indexOf(b));
+        set.rarities = uniq(cards.map(c => c.rarity))
+            .sort((a, b) => rarities.indexOf(a) - rarities.indexOf(b));
 
         await set.save();
     }

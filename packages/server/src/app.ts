@@ -34,20 +34,22 @@ app
     .use(subdomain('image', img))
     .use(subdomain('user', user))
     .use(subdomain('control', control))
+    // eslint-disable-next-line consistent-return
     .use(async (ctx, next) => {
         if (ctx.subdomains.length === 0) {
-            return await koaStatic(clientPath, {
+            return koaStatic(clientPath, {
                 maxAge: 1000 * 60 * 60 * 24 * 365,
             })(ctx, next);
         }
     })
+    // eslint-disable-next-line consistent-return
     .use(async ctx => {
         if (ctx.subdomains.length === 0) {
-            return await send(ctx, 'index.html', { root: clientPath });
+            return send(ctx, 'index.html', { root: clientPath });
         }
     });
 
 app.listen(port, () => {
-    main.info('Server is running at ' + port, { category: 'server' });
-    console.log('Server is running at ' + port);
+    main.info(`Server is running at ${port}`, { category: 'server' });
+    console.log(`Server is running at ${port}`);
 });

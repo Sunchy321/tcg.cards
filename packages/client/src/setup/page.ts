@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { computed, watch } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 
@@ -54,16 +52,32 @@ export type ValueType<T> = T extends keyof ValueTypeMap ? ValueTypeMap[T] : neve
 export type Parameter<R extends boolean> =
     EnumParameter<R> | StringParameter<R> | NumberParameter<R> | DateParameter<R>;
 
+function isRef<T>(value: Value<T>): value is Ref<T> {
+    return (value as any)?.value != null;
+}
+
+export function valueOf<T>(value: Value<T>): T {
+    if (value instanceof Function) {
+        return value();
+    } else if (isRef(value)) {
+        return value.value;
+    } else {
+        return value;
+    }
+}
+
 export function getDefault(param: Parameter<any>): Value<any> {
     switch (param.type) {
     case 'enum':
-        return value(param.default) ?? value(param.values)[0];
+        return valueOf(param.default) ?? valueOf(param.values)[0];
     case 'string':
-        return value(param.default) ?? '';
+        return valueOf(param.default) ?? '';
     case 'date':
-        return value(param.default) ?? new Date().toLocaleDateString('en-CA');
+        return valueOf(param.default) ?? new Date().toLocaleDateString('en-CA');
     case 'number':
-        return value(param.default) ?? 0;
+        return valueOf(param.default) ?? 0;
+    default:
+        return undefined;
     }
 }
 
@@ -92,36 +106,20 @@ export type Result<O extends Option> = {
         : never;
 }
 
-function isRef<T>(value: Value<T>): value is Ref<T> {
-    return (value as any)?.value != null;
-}
-
-export function value<T>(value: Value<T>): T {
-    if (value instanceof Function) {
-        return value();
-    } else if (isRef(value)) {
-        return value.value;
-    } else {
-        return value;
-    }
-}
-
-export default function<O extends Option>(option: O): Result<O> {
+export default function pageSetup<O extends Option>(option: O): Result<O> {
     const store = useStore();
 
     store.commit('titleType', option.titleType ?? 'text');
 
     watch(
-        () => value(option.title ?? ''),
+        () => valueOf(option.title ?? ''),
         title => store.commit('title', title),
         { immediate: true },
     );
 
     const props: Record<string, Ref<any>> = { };
 
-    for (const k in option.params ?? {}) {
-        const param = (option.params ?? {})[k];
-
+    for (const [k, param] of Object.entries(option.params ?? {})) {
         if (param.readonly) {
             props[k] = computed(() => store.getters.paramValues[k]);
         } else {
@@ -137,18 +135,19 @@ export default function<O extends Option>(option: O): Result<O> {
             if (param.type === 'enum') {
                 return {
                     ...param,
-                    default: value(param.default),
-                    values:  value(param.values),
+                    default: valueOf(param.default),
+                    values:  valueOf(param.values),
                 };
             } else {
                 return {
                     ...param,
-                    default: value(param.default),
+                    default: valueOf(param.default),
                 };
             }
         }),
         params => store.commit('params', params),
-        { immediate: true });
+        { immediate: true },
+    );
 
     store.commit('actions', option.actions ?? []);
 

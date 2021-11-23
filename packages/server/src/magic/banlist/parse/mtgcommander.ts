@@ -63,8 +63,8 @@ export async function parseMTGCommanderBanlist(url: string): Promise<IBanlistCha
         let mStatus = null;
 
         for (const s of Object.keys(statusMap)) {
-            // tslint:disable-next-line: no-conditional-assignment
-            if ((mStatus = new RegExp(s + '\\.?$', 'i').exec(text)) != null) {
+            // eslint-disable-next-line no-cond-assign
+            if ((mStatus = new RegExp(`${s}\\.?$`, 'i').exec(text)) != null) {
                 const id = toIdentifier(text.slice(0, -mStatus[0].length));
 
                 if (id.length <= 80) {
@@ -103,9 +103,9 @@ export async function parseMTGCommanderBanlist(url: string): Promise<IBanlistCha
     }
 
     if (
-        result.effectiveDate!.tabletop == null &&
-        result.effectiveDate!.online == null &&
-        result.effectiveDate!.arena == null
+        result.effectiveDate!.tabletop == null
+        && result.effectiveDate!.online == null
+        && result.effectiveDate!.arena == null
     ) {
         result.effectiveDate = undefined;
     }

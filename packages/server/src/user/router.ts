@@ -40,7 +40,7 @@ router.post('/login', async ctx => {
 });
 
 router.get('/refresh', jwtAuth({ pass: true }), async ctx => {
-    const user = ctx.state.user;
+    const { user } = ctx.state;
 
     if (user != null) {
         ctx.body = { token: User.toJwtToken(user) };
@@ -50,7 +50,7 @@ router.get('/refresh', jwtAuth({ pass: true }), async ctx => {
 });
 
 router.get('/profile', jwtAuth(), async ctx => {
-    const user = ctx.state.user;
+    const { user } = ctx.state;
 
     ctx.body = user.profile();
 });

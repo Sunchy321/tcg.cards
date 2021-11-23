@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import git, { SimpleGitProgressEvent, ResetMode } from 'simple-git';
 
-import { XCardDefs, XEntity, XLocStringTag, XTag } from '@interface/hearthstone/hsdata/xml';
+import {
+    XCardDefs, XEntity, XLocStringTag, XTag,
+} from '@interface/hearthstone/hsdata/xml';
 
 import Patch from '@/hearthstone/db/patch';
 import Entity from '@/hearthstone/db/entity';
@@ -116,8 +116,8 @@ export class DataLoader extends Task<ILoaderStatus> {
 
         for (const c of commits) {
             const version = c.message.slice(messagePrefix.length).trim();
-            const number = parseInt(last(version.split('.'))!);
-            const hash = c.hash;
+            const number = Number.parseInt(last(version.split('.'))!, 10);
+            const { hash } = c;
 
             const patch = await Patch.findOne({ version });
 
@@ -131,7 +131,7 @@ export class DataLoader extends Task<ILoaderStatus> {
                 await patch.save();
             }
 
-            ++count;
+            count += 1;
 
             this.emit('progress', { type: 'load', count, total });
         }
@@ -148,63 +148,61 @@ function getValue(tag: XTag | XLocStringTag, info: ITag) {
                 lang:  langMap[v[0]] || v[0].slice(2),
                 value: v[1]._text,
             }));
-    } else {
-        if (info.bool) {
-            const value = tag._attributes.value;
+    } else if (info.bool) {
+        const { value } = tag._attributes;
 
-            if (value !== '1') {
-                throw new Error(`Tag ${info.index} with non-1 value`);
-            } else {
-                return true;
-            }
-        } else if (info.enum) {
-            const enumId = info.enum === true ? info.index : info.enum;
-            const id = tag._attributes.value;
-
-            switch (enumId) {
-            case 'set':
-                return sets[id];
-            case 'class':
-                return classes[id];
-            case 'multiClass':
-                return multiClasses[id];
-            case 'type':
-                return types[id];
-            case 'race':
-                return races[id];
-            case 'spellSchool':
-                return spellSchools[id];
-            case 'raceBucket':
-                return raceBuckets[id];
-            case 'mechanic':
-                return mechanics[id];
-            case 'puzzleType':
-                return puzzleTypes[id];
-            case 'referencedTag':
-                return mechanics[id];
-            case 'playRequirement':
-                return playRequirements[id];
-            case 'rarity':
-                return rarities[id];
-            case 'faction':
-                return factions[id];
-            case 'mercenaryRole':
-                return mercenaryRoles[id];
-            default:
-                throw new Error(`Unknown enum ${enumId}`);
-            }
+        if (value !== '1') {
+            throw new Error(`Tag ${info.index} with non-1 value`);
         } else {
-            switch (tag._attributes.type as string) {
-            case 'Int':
-                return parseInt(tag._attributes.value);
-            case 'String':
-                return tag._text!;
-            case 'Card':
-                // use hsdata attribute here
-                return tag._attributes.cardID!;
-            default:
-                throw new Error(`New object type ${tag._attributes.type}`);
-            }
+            return true;
+        }
+    } else if (info.enum) {
+        const enumId = info.enum === true ? info.index : info.enum;
+        const id = tag._attributes.value;
+
+        switch (enumId) {
+        case 'set':
+            return sets[id];
+        case 'class':
+            return classes[id];
+        case 'multiClass':
+            return multiClasses[id];
+        case 'type':
+            return types[id];
+        case 'race':
+            return races[id];
+        case 'spellSchool':
+            return spellSchools[id];
+        case 'raceBucket':
+            return raceBuckets[id];
+        case 'mechanic':
+            return mechanics[id];
+        case 'puzzleType':
+            return puzzleTypes[id];
+        case 'referencedTag':
+            return mechanics[id];
+        case 'playRequirement':
+            return playRequirements[id];
+        case 'rarity':
+            return rarities[id];
+        case 'faction':
+            return factions[id];
+        case 'mercenaryRole':
+            return mercenaryRoles[id];
+        default:
+            throw new Error(`Unknown enum ${enumId}`);
+        }
+    } else {
+        switch (tag._attributes.type as string) {
+        case 'Int':
+            return Number.parseInt(tag._attributes.value, 10);
+        case 'String':
+            return tag._text!;
+        case 'Card':
+            // use hsdata attribute here
+            return tag._attributes.cardID!;
+        default:
+            throw new Error(`New object type ${tag._attributes.type}`);
         }
     }
 }
@@ -221,7 +219,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
     constructor(version: string) {
         super();
-        this.version = parseInt(last(version.split('.'))!);
+        this.version = Number.parseInt(last(version.split('.'))!, 10);
     }
 
     async startImpl(): Promise<void> {
@@ -268,7 +266,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             try {
                 const entity = this.convert(e);
 
-                ++count;
+                count += 1;
 
                 if (count % 500 === 0) {
                     this.emit('progress', {
@@ -283,7 +281,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             } catch (err) {
                 fs.writeFileSync(
                     errorPath,
-                    e._attributes.CardID + ': ' + err.message + '\n',
+                    `${e._attributes.CardID}: ${err.message}\n`,
                     { flag: 'a' },
                 );
             }
@@ -324,7 +322,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         result.version = this.version;
         result.cardId = entity._attributes.CardID;
-        result.dbfId = parseInt(entity._attributes.ID);
+        result.dbfId = Number.parseInt(entity._attributes.ID, 10);
 
         result.classes = [];
         result.mechanics = [];
@@ -334,7 +332,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         const localization: Partial<IEntity['localization'][0]>[] = [];
         const quest: Partial<IEntity['quest']> = { };
 
-        for (const k in entity) {
+        for (const k of Object.keys(entity)) {
             switch (k) {
             case '_attributes':
                 break;
@@ -345,7 +343,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     const locTag = locTags[id];
 
                     if (locTag != null) {
-                        for (const k in t as XLocStringTag) {
+                        for (const k of Object.keys(t as XLocStringTag)) {
                             if (k === '_attributes') {
                                 continue;
                             }
@@ -353,7 +351,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             const lang = langMap[k] ?? k.slice(2);
                             const value = (t as any)[k]._text as string;
 
-                            const loc = localization.find(loc => loc.lang === lang);
+                            const loc = localization.find(l => l.lang === lang);
 
                             if (loc != null) {
                                 loc[locTag] = value;
@@ -423,13 +421,13 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     const mechanic = mechanics[id];
 
-                    const type = t._attributes.type;
+                    const { type } = t._attributes;
 
                     if (type !== 'Int' && type !== 'Card') {
                         throw new Error(`Incorrect type ${type} of mechanic ${mechanic}`);
                     }
 
-                    const value = parseInt((t as XTag)._attributes.value);
+                    const value = Number.parseInt((t as XTag)._attributes.value, 10);
 
                     if (mechanic != null) {
                         switch (mechanic) {
@@ -455,7 +453,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             quest.part = value;
                             break;
                         case 'puzzle_type':
-                            result.mechanics[result.mechanics.indexOf('puzzle')!] = 'puzzle:' + puzzleTypes[value];
+                            result.mechanics[result.mechanics.indexOf('puzzle')!] = `puzzle:${puzzleTypes[value]}`;
                             break;
                         case 'drag_minion':
                             if (value === 1) {
@@ -482,7 +480,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case '?lettuce_ability_summoned_minion':
                         case 'lettuce_current_cooldown':
                         case 'overload_owed':
-                            result.mechanics.push(mechanic + ':' + value);
+                            result.mechanics.push(`${mechanic}:${value}`);
                             break;
                         case 'base_galakrond':
                         case 'hide_stats':
@@ -519,8 +517,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 }
 
                 if (
-                    m.includes('cant_be_targeted_by_spells') &&
-                    m.includes('cant_be_targeted_by_hero_powers')
+                    m.includes('cant_be_targeted_by_spells')
+                    && m.includes('cant_be_targeted_by_hero_powers')
                 ) {
                     m[m.indexOf('cant_be_targeted_by_spells')] = 'elusive';
                     m.splice(m.indexOf('cant_be_targeted_by_hero_powers'), 1);
@@ -542,7 +540,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         for (const r of castArray(p.PlayRequirement)) {
                             const type = playRequirements[r._attributes.enumID];
 
-                            const param = r._attributes.param;
+                            const { param } = r._attributes;
 
                             if (type == null) {
                                 throw new Error(
@@ -553,7 +551,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             const req: Partial<PlayRequirement> = { type };
 
                             if (param !== '') {
-                                req.param = parseInt(param);
+                                req.param = Number.parseInt(param, 10);
                             }
 
                             power.playRequirements.push(req as PlayRequirement);
@@ -580,7 +578,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             continue;
                         }
 
-                        const value = r._attributes.value;
+                        const { value } = r._attributes;
 
                         if (value !== '1') {
                             switch (req) {

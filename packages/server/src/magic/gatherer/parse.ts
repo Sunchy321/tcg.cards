@@ -1,3 +1,4 @@
+/* eslint-disable no-use-before-define */
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
@@ -13,7 +14,9 @@ type PartialCard = Omit<Partial<ICard>, 'parts'> & {
 
 export default async function parseGatherer(
     mids: string[],
-    set: string, number: string, lang: string,
+    set: string,
+    number: string,
+    lang: string,
 ): Promise<PartialCard> {
     await saveGathererImage(mids, set, number, lang);
     return parseGathererDetail(mids);
@@ -33,13 +36,13 @@ function getText($: cheerio.Root, elem: cheerio.Cheerio) {
 
     const contents = elem.contents();
 
-    for (let i = 0; i < contents.length; ++i) {
+    for (let i = 0; i < contents.length; i += 1) {
         const e = contents[i];
 
         if (e.type === 'text') {
             result += e.data;
         } else if (e.type === 'tag' && e.name === 'div') {
-            result += getText($, $(e)) + '\n';
+            result += `${getText($, $(e))}\n`;
         } else if (e.type === 'tag' && e.name === 'img') {
             result += `{${imgAltMap[e.attribs.alt] ?? e.attribs.alt}}`;
         } else {

@@ -3,6 +3,7 @@ import readline from 'readline';
 
 export default class LineReader {
     file: string;
+
     stream: fs.ReadStream;
 
     constructor(file: string) {

@@ -37,12 +37,11 @@ export function parseTypeline(typeline: string): IType {
 
     const mainWord = main.toLowerCase().split(' ').map(w => typeMainMap[w] || w);
 
-    const typeSub =
-        sub != null
-            ? mainWord.includes('plane')
-                ? [toIdentifier(sub)]
-                : sub.split(' ').map(toIdentifier)
-            : undefined;
+    const typeSub = sub != null
+        ? mainWord.includes('plane')
+            ? [toIdentifier(sub)]
+            : sub.split(' ').map(toIdentifier)
+        : undefined;
 
     const typeSuper = mainWord.filter(w => superList.includes(w));
     const typeMain = mainWord.filter(w => !superList.includes(w));
@@ -63,7 +62,7 @@ export function convertColor(color: Colors): string {
 export function convertLegality(legalities: Legalities): Record<string, string> {
     const result: Record<string, string> = {};
 
-    for (const sFormat in legalities) {
+    for (const sFormat of Object.keys(legalities)) {
         const format = sFormat === 'duel' ? 'duelcommander' : sFormat;
 
         switch (legalities[sFormat]) {
@@ -74,6 +73,8 @@ export function convertLegality(legalities: Legalities): Record<string, string> 
             break;
         case 'not_legal':
             result[format] = 'unavailable';
+            break;
+        default:
         }
     }
 

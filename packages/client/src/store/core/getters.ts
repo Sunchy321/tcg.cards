@@ -18,17 +18,8 @@ export function title(state: State) { return state.title; }
 export function titleType(state: State) { return state.titleType; }
 export function actions(state: State) { return state.actions; }
 
-export function params(state: State) {
-    const values = paramValues(state);
-
-    return mapValues(state.params, (param, key) => ({
-        ...param,
-        value: values[key],
-    }));
-}
-
 export function paramValues(state: State) {
-    const route = (state as StateWithRoute).route;
+    const { route } = state as StateWithRoute;
 
     return mapValues(state.params, (param, key) => {
         const defaultValue = getDefault(param);
@@ -44,7 +35,7 @@ export function paramValues(state: State) {
             }
 
             if (param.type === 'number') {
-                const num = Number.parseInt(result);
+                const num = Number.parseInt(result, 10);
 
                 if (Number.isNaN(num)) {
                     return defaultValue;
@@ -63,7 +54,7 @@ export function paramValues(state: State) {
             }
 
             if (param.type === 'number') {
-                const num = Number.parseInt(result);
+                const num = Number.parseInt(result, 10);
 
                 if (Number.isNaN(num)) {
                     return defaultValue;
@@ -76,6 +67,17 @@ export function paramValues(state: State) {
         }
         case 'props':
             return param.value ?? defaultValue;
+        default:
+            return undefined;
         }
     });
+}
+
+export function params(state: State) {
+    const values = paramValues(state);
+
+    return mapValues(state.params, (param, key) => ({
+        ...param,
+        value: values[key],
+    }));
 }

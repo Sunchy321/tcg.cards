@@ -34,7 +34,7 @@ import { defineComponent, h } from 'vue';
 
 function calcActualValue(value: string, type: string[]) {
     if (type.includes('flat')) {
-        return value + ',flat';
+        return `${value},flat`;
     }
 
     switch (value) {
@@ -76,14 +76,14 @@ export default defineComponent({
 
     setup(props) {
         return () => {
-            const value = props.value;
-            const type = props.type;
+            const { value } = props;
+            const { type } = props;
 
             const actualValue = calcActualValue(value, type);
 
             const src = `magic/symbols.svg#icon-${actualValue}`;
 
-            let klass = 'magic-symbol icon-' + actualValue;
+            let klass = `magic-symbol icon-${actualValue}`;
 
             if (type.includes('cost')) {
                 klass += ' cost';

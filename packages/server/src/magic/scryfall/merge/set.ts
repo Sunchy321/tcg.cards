@@ -93,7 +93,7 @@ export class SetMerger extends Task<Status> {
                 await saver.start();
             }
 
-            ++count;
+            count += 1;
 
             const elapsed = Date.now() - start;
 
@@ -105,7 +105,7 @@ export class SetMerger extends Task<Status> {
 
                 time: {
                     elapsed,
-                    remaining: elapsed / count * (total - count),
+                    remaining: (elapsed / count) * (total - count),
                 },
             });
         }

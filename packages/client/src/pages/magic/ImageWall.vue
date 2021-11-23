@@ -23,7 +23,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, onMounted,
+} from 'vue';
 
 import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
@@ -63,17 +65,15 @@ export default defineComponent({
 
         const data = ref<string[]>([]);
 
-        const urls = computed(() => {
-            return data.value.map(name => {
-                const [number, part] = name.split('-');
+        const urls = computed(() => data.value.map(name => {
+            const [number, part] = name.split('-');
 
-                if (part != null) {
-                    return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
-                } else {
-                    return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
-                }
-            });
-        });
+            if (part != null) {
+                return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
+            } else {
+                return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
+            }
+        }));
 
         const loadData = async () => {
             const { data: result } = await apiGet<string[]>('/magic/set/image-all', {

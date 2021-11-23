@@ -1,4 +1,3 @@
-
 import Set, { ISet as IScryfallSet } from '../db/scryfall/set';
 
 import Task from '@/common/task';

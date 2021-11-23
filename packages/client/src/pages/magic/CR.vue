@@ -51,7 +51,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted, nextTick } from 'vue';
+import {
+    defineComponent, ref, computed, watch, onMounted, nextTick,
+} from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -81,7 +83,7 @@ export default defineComponent({
         const i18n = useI18n();
 
         const list = ref<string[]>([]);
-        const data = ref<CR|null>(null);
+        const cr = ref<CR|null>(null);
         const selected = ref<string|null>(null);
         const expanded = ref([]);
 
@@ -131,27 +133,27 @@ export default defineComponent({
         });
 
         const menu = computed(() => {
-            if (data.value == null) {
+            if (cr.value == null) {
                 return null;
             }
 
-            const menu: Menu[] = [];
+            const menuResult: Menu[] = [];
 
-            const contents = data.value.contents
+            const contents = cr.value.contents
                 .filter(c => c.examples == null && /\w$/.test(c.text));
 
             const contentMenu: Menu[] = [];
 
-            menu.push({
+            menuResult.push({
                 id:    'intro',
                 label: i18n.t('magic.cr.intro'),
             });
 
-            function insert(menu: Menu[], item: Content, depth: number) {
+            function insert(menuToInsert: Menu[], item: Content, depth: number) {
                 if (depth === 0) {
-                    menu.push({ id: item.id, label: item.text });
+                    menuToInsert.push({ id: item.id, label: item.text });
                 } else {
-                    const lastMenu = last(menu)!;
+                    const lastMenu = last(menuToInsert)!;
 
                     if (lastMenu.children == null) { lastMenu.children = []; }
                     insert(lastMenu.children, item, depth - 1);
@@ -160,9 +162,9 @@ export default defineComponent({
 
             for (const c of contents) { insert(contentMenu, c, c.depth); }
 
-            menu.push(...contentMenu);
+            menuResult.push(...contentMenu);
 
-            menu.push(
+            menuResult.push(
                 {
                     id:    'glossary',
                     label: i18n.t('magic.cr.glossary'),
@@ -173,14 +175,14 @@ export default defineComponent({
                 },
             );
 
-            if (data.value?.csi != null) {
-                menu.push({
+            if (cr.value?.csi != null) {
+                menuResult.push({
                     id:    'csi',
                     label: i18n.t('magic.cr.csi'),
                 });
             }
 
-            return menu;
+            return menuResult;
         });
 
         const indexRegex = /^(\d|\d\d\d|\d\d\d\.\d+[a-z]?)$/;
@@ -206,20 +208,20 @@ export default defineComponent({
                     if (hash.startsWith('g:')) {
                         const glossaryId = hash.slice(2);
 
-                        if (data.value?.glossary?.some(g => glossaryId === g.ids.join(','))) {
+                        if (cr.value?.glossary?.some(g => glossaryId === g.ids.join(','))) {
                             return hash;
                         }
                     }
 
                     // content items
-                    if (data.value?.contents?.some(c => c.id === hash)) {
+                    if (cr.value?.contents?.some(c => c.id === hash)) {
                         return hash;
                     }
 
-                    const item = data.value?.contents.find(c => c.index.replace(/\.$/, '') === hash);
+                    const itemValue = cr.value?.contents.find(c => c.index.replace(/\.$/, '') === hash);
 
-                    if (item != null) {
-                        return item.id;
+                    if (itemValue != null) {
+                        return itemValue.id;
                     }
                 }
 
@@ -229,14 +231,14 @@ export default defineComponent({
                 // simple or glossary item only have one style
                 if (simpleItems.includes(newValue) || newValue.startsWith('g:')) {
                     void router.push({
-                        hash:  '#' + newValue,
+                        hash:  `#${newValue}`,
                         query: route.query,
                     });
                     return;
                 }
 
-                const oldItem = data.value?.contents?.find(v => v.id === item.value);
-                const newItem = data.value?.contents?.find(v => v.id === newValue);
+                const oldItem = cr.value?.contents?.find(v => v.id === item.value);
+                const newItem = cr.value?.contents?.find(v => v.id === newValue);
 
                 if (newItem == null) {
                     return;
@@ -244,12 +246,12 @@ export default defineComponent({
 
                 if (oldItem == null || !route.hash.startsWith('#') || indexRegex.test(route.hash.slice(1))) {
                     void router.push({
-                        hash:  '#' + newItem.index.replace(/\.$/, ''),
+                        hash:  `#${newItem.index.replace(/\.$/, '')}`,
                         query: route.query,
                     });
                 } else {
                     void router.push({
-                        hash:  '#' + newItem.id,
+                        hash:  `#${newItem.id}`,
                         query: route.query,
                     });
                 }
@@ -273,7 +275,7 @@ export default defineComponent({
                 if (item.value.startsWith('g:')) {
                     return 'glossary';
                 } else {
-                    return data.value?.contents?.find(c => c.id === item.value)?.index[0];
+                    return cr.value?.contents?.find(c => c.id === item.value)?.index[0];
                 }
             }
         });
@@ -290,7 +292,7 @@ export default defineComponent({
                     {
                         id:    'intro',
                         depth: 2,
-                        text:  data.value!.intro,
+                        text:  cr.value!.intro,
                     },
                 ];
 
@@ -301,10 +303,10 @@ export default defineComponent({
                         depth: 0,
                         text:  i18n.t('magic.cr.glossary'),
                     },
-                    ...(data.value?.glossary ?? []).map(g => ({
-                        id:    'g:' + g.ids.join(','),
+                    ...(cr.value?.glossary ?? []).map(g => ({
+                        id:    `g:${g.ids.join(',')}`,
                         depth: 2,
-                        text:  g.words.join(', ') + '\n' + g.text,
+                        text:  `${g.words.join(', ')}\n${g.text}`,
                     })),
                 ];
             case 'credits':
@@ -317,7 +319,7 @@ export default defineComponent({
                     {
                         id:    'credits',
                         depth: 2,
-                        text:  data.value!.credits,
+                        text:  cr.value!.credits,
                     },
                 ];
             case 'csi':
@@ -330,13 +332,13 @@ export default defineComponent({
                     {
                         id:    'csi',
                         depth: 2,
-                        text:  data.value!.csi!,
+                        text:  cr.value!.csi!,
                     },
                 ];
             default:
-                return data.value?.contents
-                    ?.filter(c => c.index.startsWith(chapter.value!)) ??
-                    [];
+                return cr.value?.contents
+                    ?.filter(c => c.index.startsWith(chapter.value!))
+                    ?? [];
             }
         });
 
@@ -355,7 +357,7 @@ export default defineComponent({
                     date: date.value,
                 });
 
-                data.value = crResult;
+                cr.value = crResult;
             }
         };
 
@@ -386,7 +388,7 @@ export default defineComponent({
         onMounted(loadList);
 
         return {
-            data,
+            data: cr,
             selected,
             expanded,
 

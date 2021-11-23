@@ -80,7 +80,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
@@ -133,13 +135,15 @@ interface Data {
 type TimelineItem = FormatChange | BanlistChange;
 
 export default defineComponent({
-    components: { Grid, DateInput, CardAvatar, BanlistIcon },
+    components: {
+        Grid, DateInput, CardAvatar, BanlistIcon,
+    },
 
     setup() {
         const store = useStore();
         const i18n = useI18n();
 
-        const formats = computed(() => { return store.getters['magic/data']?.formats ?? []; });
+        const formats = computed(() => store.getters['magic/data']?.formats ?? []);
 
         const { format, date, order } = pageSetup({
             title: () => i18n.t('magic.ui.format.$self'),
@@ -170,18 +174,18 @@ export default defineComponent({
 
         const orderOptions = ['name', 'date'].map(v => ({
             value: v,
-            label: i18n.t('magic.ui.format.sort-by.' + v),
+            label: i18n.t(`magic.ui.format.sort-by.${v}`),
         }));
 
-        const dateFrom = computed(() => { return data.value?.birthday ?? store.getters['magic/data'].birthday; });
-        const dateTo = computed(() => { return data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'); });
+        const dateFrom = computed(() => data.value?.birthday ?? store.getters['magic/data'].birthday);
+        const dateTo = computed(() => data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'));
 
         const birthAndDeath = computed(() => {
             if (data.value?.birthday != null) {
                 if (data.value?.deathdate != null) {
-                    return data.value.birthday + ' ~ ' + data.value.deathdate;
+                    return `${data.value.birthday} ~ ${data.value.deathdate}`;
                 } else {
-                    return data.value.birthday + ' ~';
+                    return `${data.value.birthday} ~`;
                 }
             } else {
                 return '';
@@ -211,7 +215,7 @@ export default defineComponent({
         });
 
         const banlist = computed(() => {
-            const result = (() => {
+            const banlistItems = (() => {
                 if (date.value == null) {
                     return data.value?.banlist ?? [];
                 } else {
@@ -243,20 +247,20 @@ export default defineComponent({
 
             switch (order.value) {
             case 'name':
-                result.sort((a, b) => {
+                banlistItems.sort((a, b) => {
                     if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status) -
-                                banlistStatusOrder.indexOf(b.status);
+                        return banlistStatusOrder.indexOf(a.status)
+                                - banlistStatusOrder.indexOf(b.status);
                     } else if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null) -
-                                banlistSourceOrder.indexOf(b.group ?? null);
+                        return banlistSourceOrder.indexOf(a.group ?? null)
+                                - banlistSourceOrder.indexOf(b.group ?? null);
                     } else {
                         return a.card < b.card ? -1 : 1;
                     }
                 });
                 break;
             case 'date':
-                result.sort((a, b) => {
+                banlistItems.sort((a, b) => {
                     if (a.date < b.date) {
                         return -1;
                     } else if (a.date > b.date) {
@@ -264,18 +268,20 @@ export default defineComponent({
                     }
 
                     if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status) -
-                                banlistStatusOrder.indexOf(b.status);
+                        return banlistStatusOrder.indexOf(a.status)
+                                - banlistStatusOrder.indexOf(b.status);
                     } else if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null) -
-                                banlistSourceOrder.indexOf(b.group ?? null);
+                        return banlistSourceOrder.indexOf(a.group ?? null)
+                                - banlistSourceOrder.indexOf(b.group ?? null);
                     } else {
                         return a.card < b.card ? -1 : 1;
                     }
                 });
+                break;
+            default:
             }
 
-            return result;
+            return banlistItems;
         });
 
         const timelineEvents = computed(() => {
@@ -299,7 +305,7 @@ export default defineComponent({
             return result;
         });
 
-        const loadData = async() => {
+        const loadData = async () => {
             const { data: dataResult } = await apiGet<Data>('/magic/format', {
                 id: format.value,
             });
@@ -319,6 +325,7 @@ export default defineComponent({
             case 'legendary': return 'leg.';
             case 'conspiracy': return 'cons.';
             case 'offensive': return 'off.';
+            default: return '';
             }
         };
 

@@ -33,7 +33,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onMounted } from 'vue';
+import {
+    defineComponent, ref, computed, watch, onMounted,
+} from 'vue';
 
 import controlSetup from 'setup/control';
 
@@ -58,28 +60,28 @@ export default defineComponent({
     setup() {
         const { controlPost } = controlSetup();
 
-        const formats = ref<string[]>([]);
-        const format = ref<string|null>(null);
-        const data = ref<Format|null>(null);
+        const formatList = ref<string[]>([]);
+        const formatId = ref<string|null>(null);
+        const format = ref<Format|null>(null);
 
         const birthday = computed({
             get() {
-                return data.value?.birthday ?? '';
+                return format.value?.birthday ?? '';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.birthday = newValue;
+                if (format.value != null) {
+                    format.value.birthday = newValue;
                 }
             },
         });
 
         const deathdate = computed({
             get() {
-                return data.value?.deathdate ?? '';
+                return format.value?.deathdate ?? '';
             },
             set(newValue: string) {
-                if (data.value != null) {
-                    data.value.deathdate = newValue;
+                if (format.value != null) {
+                    format.value.deathdate = newValue;
                 }
             },
         });
@@ -87,34 +89,34 @@ export default defineComponent({
         const loadData = async () => {
             const { data } = await apiGet<string[]>('/magic/format');
 
-            formats.value = data;
+            formatList.value = data;
 
-            if (format.value == null) {
-                format.value = formats.value[0];
+            if (formatId.value == null) {
+                [formatId.value] = formatList.value;
             }
         };
 
         const loadFormat = async () => {
-            if (format.value != null) {
+            if (formatId.value != null) {
                 const { data: result } = await apiGet<Format>('/magic/format', {
-                    id: format.value,
+                    id: formatId.value,
                 });
 
-                data.value = result;
+                format.value = result;
             }
         };
 
         const saveFormat = async () => {
-            await controlPost('/magic/format/save', { data: data.value });
+            await controlPost('/magic/format/save', { data: format.value });
             await loadFormat();
         };
 
-        watch(format, loadFormat);
+        watch(formatId, loadFormat);
         onMounted(loadData);
 
         return {
-            formats,
-            format,
+            formats: formatList,
+            format:  formatId,
             birthday,
             deathdate,
 

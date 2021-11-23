@@ -44,7 +44,7 @@ export class RulingMerger extends Task<Status> {
 
             await mergeWith(ruling);
 
-            ++count;
+            count += 1;
 
             const elapsed = Date.now() - start;
 
@@ -59,7 +59,7 @@ export class RulingMerger extends Task<Status> {
 
                 time: {
                     elapsed,
-                    remaining: elapsed / count * (total - count),
+                    remaining: (elapsed / count) * (total - count),
                 },
             });
         }

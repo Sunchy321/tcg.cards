@@ -4,39 +4,39 @@ import { controlBase, control } from 'boot/backend';
 
 import { join } from 'path';
 
-export default function() {
+export default function controlSetup() {
     const store = useStore();
 
-    const controlGet = function<T>(url: string, params: Record<string, any> = { }) {
+    function controlGet<T>(url: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         if (token != null) {
             return control.get<T>(url, {
                 headers: {
-                    Authentication: 'Bearer ' + token,
+                    Authentication: `Bearer ${token}`,
                 },
                 params,
             });
         } else {
             return control.get<T>(url, { params });
         }
-    };
+    }
 
-    const controlPost = function<T>(url: string, params: Record<string, any> = { }) {
+    function controlPost<T>(url: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         if (token != null) {
             return control.post<T>(url, params, {
                 headers: {
-                    Authentication: 'Bearer ' + token,
+                    Authentication: `Bearer ${token}`,
                 },
             });
         } else {
             return control.post<T>(url, params);
         }
-    };
+    }
 
-    const controlWs = function(url: string, params: Record<string, any> = { }) {
+    function controlWs(url: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         params = params || {};
@@ -51,7 +51,7 @@ export default function() {
                 ).join('&')
             }`);
         }
-    };
+    }
 
     return { controlGet, controlPost, controlWs };
 }

@@ -9,8 +9,7 @@ export default function textQuery(
     op: string | undefined,
     multiline = true,
 ) {
-    const regexSource =
-        typeof param === 'string' ? escapeRegExp(param) : param.source;
+    const regexSource = typeof param === 'string' ? escapeRegExp(param) : param.source;
 
     switch (op) {
     case ':':
@@ -25,11 +24,11 @@ export default function textQuery(
         };
     case '=':
         return {
-            [key]: new RegExp('^' + regexSource + '$', 'i'),
+            [key]: new RegExp(`^${regexSource}$`, 'i'),
         };
     case '!=':
         return {
-            [key]: { $not: new RegExp('^' + regexSource + '$', 'i') },
+            [key]: { $not: new RegExp(`^${regexSource}$`, 'i') },
         };
     default:
         throw new QueryError({

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { QueryError } from '@/search';
 
 import { flatten } from 'lodash';
@@ -41,18 +40,18 @@ export default function costQuery(
 
     for (const c of costs) {
         if (/^\d+$/.test(c)) {
-            costMap[''] += Number.parseInt(c);
+            costMap[''] += Number.parseInt(c, 10);
         } else {
-            costMap[c]++;
+            costMap[c] += 1;
         }
     }
 
     const notEqual = Object.entries(costMap)
         .map(([k, v]) => {
             if (v !== 0) {
-                return { ['parts.__costMap.' + k]: { $ne: v } };
+                return { [`parts.__costMap.${k}`]: { $ne: v } };
             } else {
-                return { ['parts.__costMap.' + k]: { $exists: true, $ne: 0 } };
+                return { [`parts.__costMap.${k}`]: { $exists: true, $ne: 0 } };
             }
         });
 
@@ -61,7 +60,7 @@ export default function costQuery(
         return Object.fromEntries(
             Object.entries(costMap)
                 .filter(e => e[1] !== 0)
-                .map(([k, v]) => ['parts.__costMap.' + k, k === '' ? v : { $gte: v }]),
+                .map(([k, v]) => [`parts.__costMap.${k}`, k === '' ? v : { $gte: v }]),
         );
     case '!:':
         return {
@@ -69,24 +68,22 @@ export default function costQuery(
                 Object.entries(costMap)
                     .filter(e => e[1] !== 0)
                     .map(([k, v]) => [
-                        { ['parts.__costMap.' + k]: { $lt: v } },
-                        { ['parts.__costMap.' + k]: { $exists: false } },
+                        { [`parts.__costMap.${k}`]: { $lt: v } },
+                        { [`parts.__costMap.${k}`]: { $exists: false } },
                     ]),
             ),
         };
     case '=':
         return {
             $and: Object.entries(costMap)
-                .map(([k, v]) => v === 0
+                .map(([k, v]) => (v === 0
                     ? {
                         $or: [
-                            { ['parts.__costMap.' + k]: 0 },
-                            { ['parts.__costMap.' + k]: { $exists: false } },
+                            { [`parts.__costMap.${k}`]: 0 },
+                            { [`parts.__costMap.${k}`]: { $exists: false } },
                         ],
                     }
-                    : { ['parts.__costMap.' + k]: v },
-
-                ),
+                    : { [`parts.__costMap.${k}`]: v })),
         };
     case '!=':
         return {
@@ -99,7 +96,7 @@ export default function costQuery(
         return Object.fromEntries(
             Object.entries(costMap)
                 .filter(e => e[1] !== 0)
-                .map(([k, v]) => ['parts.__costMap.' + k, { $gte: v }]),
+                .map(([k, v]) => [`parts.__costMap.${k}`, { $gte: v }]),
         );
     case '>':
         return {
@@ -107,7 +104,7 @@ export default function costQuery(
                 Object.fromEntries(
                     Object.entries(costMap)
                         .filter(e => e[1] !== 0)
-                        .map(([k, v]) => ['parts.__costMap.' + k, { $gte: v }]),
+                        .map(([k, v]) => [`parts.__costMap.${k}`, { $gte: v }]),
                 ),
                 { $or: notEqual },
             ],
@@ -117,8 +114,8 @@ export default function costQuery(
             $and: Object.entries(costMap)
                 .map(([k, v]) => ({
                     $or: [
-                        { ['parts.__costMap.' + k]: { $lte: v } },
-                        { ['parts.__costMap.' + k]: { $exists: false } },
+                        { [`parts.__costMap.${k}`]: { $lte: v } },
+                        { [`parts.__costMap.${k}`]: { $exists: false } },
                     ],
                 })),
         };
@@ -128,8 +125,8 @@ export default function costQuery(
                 ...Object.entries(costMap)
                     .map(([k, v]) => ({
                         $or: [
-                            { ['parts.__costMap.' + k]: { $lte: v } },
-                            { ['parts.__costMap.' + k]: { $exists: false } },
+                            { [`parts.__costMap.${k}`]: { $lte: v } },
+                            { [`parts.__costMap.${k}`]: { $exists: false } },
                         ],
                     })),
                 { $or: notEqual },

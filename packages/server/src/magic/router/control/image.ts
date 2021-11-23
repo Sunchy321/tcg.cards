@@ -14,12 +14,13 @@ router.prefix('/image');
 
 const imageGetters: Record<string, ImageGetter> = { };
 
-router.get('/get',
+router.get(
+    '/get',
     websocket,
     async ctx => {
         const ws = await ctx.ws();
 
-        const type = mapValues(ctx.query, toSingle).type;
+        const { type } = mapValues(ctx.query, toSingle);
 
         if (type == null) {
             ctx.status = 400;

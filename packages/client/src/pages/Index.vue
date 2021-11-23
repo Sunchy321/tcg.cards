@@ -61,10 +61,10 @@ export default defineComponent({
         pageSetup({ });
 
         const fullName = (g: string) => {
-            if (i18n.te(g + '.$selfFull')) {
-                return i18n.t(g + '.$selfFull');
+            if (i18n.te(`${g}.$selfFull`)) {
+                return i18n.t(`${g}.$selfFull`);
             } else {
-                return i18n.t(g + '.$self');
+                return i18n.t(`${g}.$self`);
             }
         };
 

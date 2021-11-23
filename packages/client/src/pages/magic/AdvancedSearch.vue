@@ -181,7 +181,7 @@ export default defineComponent({
 
         const selectOptions = ['include', 'exact', 'at-most'].map(v => ({
             value: v,
-            label: i18n.t('magic.ui.advanced-search.color-option.' + v),
+            label: i18n.t(`magic.ui.advanced-search.color-option.${v}`),
         }));
 
         const name = ref('');
@@ -194,7 +194,7 @@ export default defineComponent({
 
         const newCost = () => {
             if (costInput.value !== '') {
-                const symbols = store.getters['magic/data'].symbols;
+                const { symbols } = store.getters['magic/data'];
 
                 const values = costInput.value
                     .toUpperCase()
@@ -246,29 +246,25 @@ export default defineComponent({
         //     null -> no query
         //     [] -> colorless
         //     [A, B] -> with color
-        const colorChecker = (ref: Ref<string[]|null>) => (color: string, value: boolean) => {
+        const colorChecker = (colorRef: Ref<string[]|null>) => (color: string, value: boolean) => {
             if (color === 'C') {
                 if (value) {
-                    ref.value = [];
+                    colorRef.value = [];
                 } else {
-                    ref.value = null;
+                    colorRef.value = null;
                 }
-            } else {
-                if (value) {
-                    if (ref.value == null) {
-                        ref.value = [color];
-                    } else if (!ref.value.includes(color)) {
-                        ref.value = ['W', 'U', 'B', 'R', 'G'].filter(
-                            c => ref.value!.includes(c) || color === c,
-                        );
-                    }
-                } else {
-                    if (ref.value != null) {
-                        const value = ref.value.filter(c => c !== color);
+            } else if (value) {
+                if (colorRef.value == null) {
+                    colorRef.value = [color];
+                } else if (!colorRef.value.includes(color)) {
+                    colorRef.value = ['W', 'U', 'B', 'R', 'G'].filter(
+                        c => colorRef.value!.includes(c) || color === c,
+                    );
+                }
+            } else if (colorRef.value != null) {
+                const colorValue = colorRef.value.filter(c => c !== color);
 
-                        ref.value = value.length === 0 ? null : value;
-                    }
-                }
+                colorRef.value = colorValue.length === 0 ? null : colorValue;
             }
         };
 
@@ -280,20 +276,20 @@ export default defineComponent({
         const colorIdentities = ref<string[]|null>(null);
         const checkColorIdentity = colorChecker(colorIdentities);
 
-        const addQuestionMark = (text: string) => {
-            if (text.startsWith('/') && text.endsWith('/')) {
-                return text;
+        const escapeText = (textToEscape: string) => {
+            if (textToEscape.startsWith('/') && textToEscape.endsWith('/')) {
+                return textToEscape;
             }
 
-            if (text.includes(' ')) {
-                if (text.includes('"')) {
-                    return `'${text.replace(/'/g, '\\\'')}'`;
+            if (textToEscape.includes(' ')) {
+                if (textToEscape.includes('"')) {
+                    return `'${textToEscape.replace(/'/g, '\\\'')}'`;
                 } else {
-                    return `"${text}"`;
+                    return `"${textToEscape}"`;
                 }
             }
 
-            return text;
+            return textToEscape;
         };
 
         const doSearch = () => {
@@ -303,7 +299,7 @@ export default defineComponent({
             let query = '';
 
             if (name.value !== '') {
-                query += ` n:${addQuestionMark(name.value)}`;
+                query += ` n:${escapeText(name.value)}`;
             }
 
             if (cost.value.length > 0) {
@@ -318,14 +314,16 @@ export default defineComponent({
                     break;
                 case 'at-most':
                     query += ` m<=${costQuery}`;
+                    break;
+                default:
                 }
             }
 
             for (const type of types.value) {
                 if (type.include) {
-                    query += ` t:${addQuestionMark(type.value)}`;
+                    query += ` t:${escapeText(type.value)}`;
                 } else {
-                    query += ` t!:${addQuestionMark(type.value)}`;
+                    query += ` t!:${escapeText(type.value)}`;
                 }
             }
 
@@ -341,6 +339,8 @@ export default defineComponent({
                     break;
                 case 'at-most':
                     query += ` c<=${q}`;
+                    break;
+                default:
                 }
             }
 
@@ -356,11 +356,13 @@ export default defineComponent({
                     break;
                 case 'at-most':
                     query += ` cd<=${q}`;
+                    break;
+                default:
                 }
             }
 
             if (text.value !== '') {
-                query += ` x:${addQuestionMark(text.value)}`;
+                query += ` x:${escapeText(text.value)}`;
             }
 
             if (query === '') {

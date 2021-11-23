@@ -28,14 +28,12 @@ export class CardGetter extends Task<ICardStatus> {
         let count = 0;
         let total = 0;
 
-        this.intervalProgress(500, function() {
-            return {
-                method: 'get',
-                type:   'card',
-                count,
-                total,
-            };
-        });
+        this.intervalProgress(500, () => ({
+            method: 'get',
+            type:   'card',
+            count,
+            total,
+        }));
 
         do {
             if (this.status === 'idle') {
@@ -44,7 +42,7 @@ export class CardGetter extends Task<ICardStatus> {
 
             data = await blzApi('/hearthstone/cards', {
                 collectible: '0,1',
-                page:        page,
+                page,
                 pageSize:    200,
             });
 
@@ -88,10 +86,10 @@ export class CardGetter extends Task<ICardStatus> {
 
                 await entity.save();
 
-                ++count;
+                count += 1;
             }
 
-            ++page;
+            page += 1;
         } while (data.pageCount !== data.page);
     }
 

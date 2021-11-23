@@ -146,7 +146,9 @@
 </style>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import {
+    defineComponent, ref, computed, watch,
+} from 'vue';
 
 import { useRoute } from 'vue-router';
 import { useStore } from 'src/store';
@@ -243,16 +245,14 @@ export default defineComponent({
 
         const { random } = hearthstoneSetup();
 
+        const data = ref<Entity | null>(null);
+
+        // data fields
+        const name = computed(() => data.value?.localization[store.getters['hearthstone/locale']]?.name
+                ?? data.value?.localization[store.getters['hearthstone/locales'][0]]?.name);
+
         pageSetup({
-            title: () => {
-                // if (data.value == null) {
-                //     return '';
-                // }
-
-                // return data.value.parts.map(p => p[textMode.value].name).join(' // ');
-
-                return '';
-            },
+            title: () => name.value ?? '',
 
             titleType: 'input',
 
@@ -263,14 +263,6 @@ export default defineComponent({
                     handler: random,
                 },
             ],
-        });
-
-        const data = ref<Entity | null>(null);
-
-        // data fields
-        const name = computed(() => {
-            return data.value?.localization[store.getters['hearthstone/locale']]?.name ??
-                data.value?.localization[store.getters['hearthstone/locales'][0]]?.name;
         });
 
         const hasCost = computed(() => {
@@ -300,21 +292,15 @@ export default defineComponent({
             return null;
         });
 
-        const text = computed(() => {
-            return data.value?.localization[store.getters['hearthstone/locale']]?.text ??
-                data.value?.localization[store.getters['hearthstone/locales'][0]]?.text;
-        });
+        const text = computed(() => data.value?.localization[store.getters['hearthstone/locale']]?.text
+                ?? data.value?.localization[store.getters['hearthstone/locales'][0]]?.text);
 
-        const mechanics = computed(() =>
-            (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')),
-        );
+        const mechanics = computed(() => (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')));
 
-        const referencedTags = computed(() =>
-            (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')),
-        );
+        const referencedTags = computed(() => (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')));
 
         // methods
-        const loadData = async() => {
+        const loadData = async () => {
             const query = omitBy({
                 id:     route.params.id,
                 number: route.query.version,
@@ -329,16 +315,18 @@ export default defineComponent({
             if (m.includes(':')) {
                 const [id, arg] = m.split(':');
 
-                return i18n.t('hearthstone.card.mechanic.' + id) + ':' + arg;
+                return `${i18n.t(`hearthstone.card.mechanic.${id}`)}:${arg}`;
             } else {
-                return i18n.t('hearthstone.card.mechanic.' + m);
+                return i18n.t(`hearthstone.card.mechanic.${m}`);
             }
         };
 
         // watches
         watch(
             [() => route.params.id, () => route.query.version],
-            loadData, { immediate: true },
+            loadData,
+
+            { immediate: true },
         );
 
         return {

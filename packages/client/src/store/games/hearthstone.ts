@@ -6,6 +6,6 @@ interface Data {
     locales: string[];
 }
 
-export type Module = GameModule<Data, { }>;
+export type Module = GameModule<Data, unknown>;
 
-export default createModule<Data, { }>('hearthstone', { });
+export default createModule<Data, unknown>('hearthstone', { });
