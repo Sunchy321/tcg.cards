@@ -63,38 +63,14 @@
 
                 <div v-else class="info q-mx-md">{{ info }}</div>
 
-                <q-select
-                    v-model="layout"
-                    class="q-mr-md"
-                    :options="layoutOptions"
-                    dense
-                />
-
-                <q-btn-toggle
-                    v-model="partIndex"
-                    :options="partOptions"
-                    outline dense
-                />
+                <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" dense />
+                <q-btn-toggle v-model="partIndex" :options="partOptions" outline dense />
 
                 <div class="col-grow" />
 
-                <q-btn
-                    label="New"
-                    dense flat
-                    @click="newData"
-                />
-
-                <q-btn
-                    :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'"
-                    dense flat round
-                    @click="unlock = !unlock"
-                />
-
-                <q-btn
-                    icon="mdi-upload"
-                    dense flat round
-                    @click="doUpdate"
-                />
+                <q-btn label="New" dense flat @click="newData" />
+                <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
+                <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
             <table>
@@ -103,24 +79,14 @@
                         Oracle
                     </td>
                     <td class="name">
-                        <q-input v-if="unlock" v-model="oracleName" outlined type="textarea" dense />
-                        <div v-else>
-                            {{ oracleName }}
-                        </div>
+                        <q-input v-model="oracleName" :disable="unlock" outlined type="textarea" dense />
                     </td>
                     <td class="typeline">
-                        <q-input v-if="unlock" v-model="oracleTypeline" outlined type="textarea" dense />
-                        <div v-else>
-                            {{ oracleTypeline }}
-                        </div>
+                        <q-input v-model="oracleTypeline" :disable="unlock" outlined type="textarea" dense />
+
                     </td>
                     <td class="text">
-                        <q-input v-if="unlock" v-model="oracleText" outlined type="textarea" dense />
-                        <div v-else>
-                            <div v-for="(t, i) in (oracleText || '').split('\n')" :key="i">
-                                {{ t }}
-                            </div>
-                        </div>
+                        <q-input v-model="oracleText" :disable="unlock" outlined type="textarea" dense />
                     </td>
                 </tr>
                 <tr>
