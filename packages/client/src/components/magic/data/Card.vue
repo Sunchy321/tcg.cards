@@ -79,11 +79,10 @@
                         Oracle
                     </td>
                     <td class="name">
-                        <q-input v-model="oracleName" :disable="!unlock" outlined type="textarea" dense />
+                        <q-input v-model="oracleName" :disable="!unlock" outlined dense />
                     </td>
                     <td class="typeline">
-                        <q-input v-model="oracleTypeline" :disable="!unlock" outlined type="textarea" dense />
-
+                        <q-input v-model="oracleTypeline" :disable="!unlock" outlined dense />
                     </td>
                     <td class="text">
                         <q-input v-model="oracleText" :disable="!unlock" outlined type="textarea" dense />
