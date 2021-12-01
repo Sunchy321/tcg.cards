@@ -89,7 +89,7 @@ export default defineComponent({
     components: { HsdataPatch },
 
     setup() {
-        const { controlGet, controlWs } = controlSetup();
+        const { controlWs } = controlSetup();
 
         const patches = ref<Patch[]>([]);
         const progress = ref<Progress|undefined>(undefined);

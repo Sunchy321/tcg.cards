@@ -240,13 +240,13 @@ function toCard(data: NSCard, setCodeMap: Record<string, string>): ICard {
             },
 
             unified: {
-                name:     f.printed_name ?? f.name,
+                name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
                 text:     purifyText(f.printed_text ?? f.oracle_text),
                 typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
             },
 
             printed: {
-                name:     f.printed_name ?? f.name,
+                name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
                 text:     purifyText(f.printed_text ?? f.oracle_text),
                 typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
             },

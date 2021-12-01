@@ -35,7 +35,11 @@ const typeMainMap: Record<string, string> = {
 export function parseTypeline(typeline: string): IType {
     const [main, sub] = typeline.split('—').map(s => s.trim());
 
-    const mainWord = main.toLowerCase().split(' ').map(w => typeMainMap[w] || w);
+    const mainWord = main
+        .toLowerCase()
+        .split(' ')
+        .map(w => typeMainMap[w] || w)
+        .filter(w => w !== '');
 
     const typeSub = sub != null
         ? mainWord.includes('plane')

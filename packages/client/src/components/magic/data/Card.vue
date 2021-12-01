@@ -64,12 +64,20 @@
                 <div v-else class="info q-mx-md">{{ info }}</div>
 
                 <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" dense />
-                <q-btn-toggle v-model="partIndex" :options="partOptions" outline dense />
+                <q-btn-toggle v-model="partIndex" class="q-mr-md" :options="partOptions" outline dense />
+
+                <q-btn
+                    v-if="enPrinted"
+                    color="red" icon="mdi-alert-circle-outline"
+                    dense flat round
+                    @click="enPrinted = false"
+                />
 
                 <div class="col-grow" />
 
                 <q-btn label="New" dense flat @click="newData" />
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
+                <q-btn v-if="lang == 'en'" icon="mdi-arrow-down-bold" dense flat round @click="overwriteUnified" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
@@ -79,13 +87,13 @@
                         Oracle
                     </td>
                     <td class="name">
-                        <q-input v-model="oracleName" :disable="!unlock" outlined dense />
+                        <q-input v-model="oracleName" :readonly="!unlock" outlined dense />
                     </td>
                     <td class="typeline">
-                        <q-input v-model="oracleTypeline" :disable="!unlock" outlined dense />
+                        <q-input v-model="oracleTypeline" :readonly="!unlock" outlined dense />
                     </td>
                     <td class="text">
-                        <q-input v-model="oracleText" :disable="!unlock" outlined type="textarea" dense />
+                        <q-input v-model="oracleText" :readonly="!unlock" outlined type="textarea" dense />
                     </td>
                 </tr>
                 <tr>
@@ -186,7 +194,7 @@ table
 
 <script lang="ts">
 import {
-    defineComponent, ref, computed, onMounted,
+    defineComponent, ref, computed, onMounted, watch,
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
@@ -598,6 +606,16 @@ export default defineComponent({
             }
         };
 
+        const overwriteUnified = () => {
+            if (lang.value !== 'en') {
+                return;
+            }
+
+            unifiedName.value = oracleName.value;
+            unifiedTypeline.value = oracleTypeline.value;
+            unifiedText.value = oracleText.value.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+        };
+
         const newData = () => {
             if (data.value != null) {
                 delete data.value._id;
@@ -699,6 +717,49 @@ export default defineComponent({
 
         onMounted(loadData);
 
+        // dev only
+        const enPrinted = computed({
+            get(): boolean {
+                if (data.value == null) {
+                    return false;
+                }
+
+                const devData = data.value as any;
+
+                if (devData.__tags && devData.__tags.printed) {
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+            set(newValue: boolean) {
+                if (data.value == null) {
+                    return;
+                }
+
+                const devData = data.value as any;
+
+                if (newValue) {
+                    if (devData.__tags == null) {
+                        devData.__tags = { printed: true };
+                    } else {
+                        devData.__tags.printed = true;
+                    }
+                } else if (devData.__tags != null) {
+                    delete devData.__tags.printed;
+                }
+            },
+        });
+
+        watch(
+            [data, printedName, printedTypeline, printedText],
+            ([newValue], [oldValue]) => {
+                if (newValue === oldValue) {
+                    enPrinted.value = false;
+                }
+            },
+        );
+
         return {
             unlock,
             rotate,
@@ -739,8 +800,11 @@ export default defineComponent({
             doUpdate,
             loadGatherer,
             prettify,
+            overwriteUnified,
             loadData,
             doSearch,
+
+            enPrinted,
         };
     },
 });

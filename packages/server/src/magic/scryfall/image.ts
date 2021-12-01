@@ -66,7 +66,12 @@ export class ImageGetter extends Task<IImageStatus> {
 
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
-            .match({ image_status: { $in: ['lowres', 'highres_scan'] } })
+            .match({
+                $or: [
+                    { image_status: { $in: ['lowres', 'highres_scan'] } },
+                    { lang: 'en', image_status: { $in: ['placeholder'] } },
+                ],
+            })
             .group({
                 _id:   { set: '$set', lang: '$lang' },
                 infos: {

@@ -131,6 +131,7 @@ const CardSchema = new Schema<ICard>({
 
     __tags: {
         oracleUpdated: Boolean,
+        printed:       Boolean,
     },
 });
 

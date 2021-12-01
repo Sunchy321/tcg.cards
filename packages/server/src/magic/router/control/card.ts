@@ -5,7 +5,7 @@ import { DefaultState, Context } from 'koa';
 import Card from '@/magic/db/card';
 import { Card as ICard } from '@interface/magic/card';
 
-import { Aggregate } from 'mongoose';
+import { Aggregate, ObjectId } from 'mongoose';
 
 import parseGatherer from '@/magic/gatherer/parse';
 
@@ -69,16 +69,12 @@ router.get('/search', async ctx => {
 });
 
 router.post('/update', async ctx => {
-    const { data } = ctx.request.body;
+    const { data } = ctx.request.body as { data: ICard & { _id: ObjectId } };
 
     for (const p of data.parts) {
         if (p.flavorText === '') {
             delete p.flavorText;
         }
-    }
-
-    if (data?.__tags?.printed) {
-        delete data.__tags.printed;
     }
 
     const old = await Card.findById(data._id);
@@ -237,6 +233,8 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
         match: {
             'cardId':             { $nin: textWithParen },
             'parts.unified.text': /[(（].+[)）]/,
+            'parts.typeMain':     { $nin: ['dungeon', 'card'] },
+            'parts.typeMain.0':   { $exists: true },
         },
     }),
 
