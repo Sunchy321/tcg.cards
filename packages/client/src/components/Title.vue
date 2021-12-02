@@ -61,7 +61,7 @@ export default defineComponent({
             }
         };
 
-        const mouseSearch = () => store.dispatch('action', 'search');
+        const mouseSearch = async () => store.dispatch('action', 'search');
 
         return {
             search,

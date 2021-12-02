@@ -165,7 +165,7 @@ import { useI18n } from 'vue-i18n';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
 
-type SelectType = 'include' | 'exact' | 'at-most'
+type SelectType = 'at-most' | 'exact' | 'include';
 
 export default defineComponent({
     components: { MagicSymbol },
@@ -246,7 +246,7 @@ export default defineComponent({
         //     null -> no query
         //     [] -> colorless
         //     [A, B] -> with color
-        const colorChecker = (colorRef: Ref<string[]|null>) => (color: string, value: boolean) => {
+        const colorChecker = (colorRef: Ref<string[] | null>) => (color: string, value: boolean) => {
             if (color === 'C') {
                 if (value) {
                     colorRef.value = [];
@@ -269,11 +269,11 @@ export default defineComponent({
         };
 
         const colorType = ref<SelectType>('include');
-        const colors = ref<string[]|null>(null);
+        const colors = ref<string[] | null>(null);
         const checkColor = colorChecker(colors);
 
         const colorIdentityType = ref<SelectType>('include');
-        const colorIdentities = ref<string[]|null>(null);
+        const colorIdentities = ref<string[] | null>(null);
         const checkColorIdentity = colorChecker(colorIdentities);
 
         const escapeText = (textToEscape: string) => {

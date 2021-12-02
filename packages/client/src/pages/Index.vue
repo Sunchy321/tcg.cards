@@ -56,7 +56,7 @@ export default defineComponent({
 
     setup() {
         const i18n = useI18n();
-        const basic = basicSetup();
+        const { games } = basicSetup();
 
         pageSetup({ });
 
@@ -69,7 +69,7 @@ export default defineComponent({
         };
 
         return {
-            games: basic.games,
+            games,
             fullName,
         };
     },

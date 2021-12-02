@@ -5,13 +5,13 @@ const colorEnums = 'WUBRGOP'.split('');
 
 export default function colorQuery(
     key: string,
-    param: string | RegExp,
+    param: RegExp | string,
     op: string | undefined,
 ) {
     if (param instanceof RegExp) {
         throw new QueryError({
             type:  'regex/disabled',
-            value: op || '',
+            value: op ?? '',
         });
     }
 
@@ -28,7 +28,7 @@ export default function colorQuery(
         default:
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         }
     } else if (text === 'm' || text === 'multicolor') {
@@ -40,7 +40,7 @@ export default function colorQuery(
         default:
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         }
     }
@@ -65,7 +65,7 @@ export default function colorQuery(
         default:
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         }
     }
@@ -144,7 +144,7 @@ export default function colorQuery(
         if (chars.some(c => !colorEnums.includes(c))) {
             throw new QueryError({
                 type:  'color/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         }
 
@@ -195,7 +195,7 @@ export default function colorQuery(
     default:
         throw new QueryError({
             type:  'operator/unsupported',
-            value: op || '',
+            value: op ?? '',
         });
     }
 }

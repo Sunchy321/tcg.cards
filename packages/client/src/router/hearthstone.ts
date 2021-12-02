@@ -1,15 +1,16 @@
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 const routes = [
     {
         path:      '/hearthstone',
-        component: () => import('layouts/Main.vue'),
+        component: async () => import('layouts/Main.vue'),
         children:  [
             {
                 path:      '',
-                component: () => import('pages/hearthstone/Index.vue'),
+                component: async () => import('pages/hearthstone/Index.vue'),
             },
             {
                 path:      'data',
-                component: () => import('pages/hearthstone/Data.vue'),
+                component: async () => import('pages/hearthstone/Data.vue'),
                 meta:      {
                     admin: true,
                 },
@@ -17,7 +18,7 @@ const routes = [
             {
                 path:      'card/:id',
                 name:      'hearthstone/card',
-                component: () => import('pages/hearthstone/Card.vue'),
+                component: async () => import('pages/hearthstone/Card.vue'),
             },
         ],
     },

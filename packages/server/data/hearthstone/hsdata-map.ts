@@ -4,7 +4,7 @@ export interface ITag {
     index: keyof IEntity;
     bool?: true;
     array?: true;
-    enum?: true | string;
+    enum?: string | true;
 }
 
 export const locTags: Record<string, keyof IEntity['localization'][0]> = {

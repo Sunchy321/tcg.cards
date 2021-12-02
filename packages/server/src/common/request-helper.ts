@@ -1,4 +1,4 @@
-export function toSingle(param: string | string[]): string {
+export function toSingle(param: string[] | string): string {
     if (typeof param === 'string') {
         return param;
     } else {
@@ -6,7 +6,7 @@ export function toSingle(param: string | string[]): string {
     }
 }
 
-export function toMultiple(param: string | string[]): string[] {
+export function toMultiple(param: string[] | string): string[] {
     if (typeof param === 'string') {
         return param.split(',');
     } else {

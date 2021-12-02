@@ -92,9 +92,9 @@ export class DataGetter extends Task<SimpleGitProgressEvent & { type: 'get' }> {
 }
 
 export interface ILoaderStatus {
-    type: 'load',
-    count: number,
-    total: number
+    type: 'load';
+    count: number;
+    total: number;
 }
 
 const messagePrefix = 'Update to patch';
@@ -140,7 +140,7 @@ export class DataLoader extends Task<ILoaderStatus> {
     stopImpl(): void { /* no-op */ }
 }
 
-function getValue(tag: XTag | XLocStringTag, info: ITag) {
+function getValue(tag: XLocStringTag | XTag, info: ITag) {
     if (tag._attributes.type === 'LocString') {
         return Object.entries(tag)
             .filter(v => v[0] !== '_attributes')
@@ -156,7 +156,7 @@ function getValue(tag: XTag | XLocStringTag, info: ITag) {
         } else {
             return true;
         }
-    } else if (info.enum) {
+    } else if (info.enum != null) {
         const enumId = info.enum === true ? info.index : info.enum;
         const id = tag._attributes.value;
 
@@ -302,7 +302,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         for (const e of entities) {
             for (const r of e.relatedEntities) {
-                r.cardId = entities.find(e => e.dbfId.toString() === r.cardId)?.cardId || '';
+                r.cardId = entities.find(e => e.dbfId.toString() === r.cardId)?.cardId ?? '';
             }
         }
 

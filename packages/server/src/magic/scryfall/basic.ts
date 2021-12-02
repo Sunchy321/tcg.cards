@@ -10,7 +10,7 @@ export async function* listOf<T>(url: string): AsyncGenerator<T[]> {
 
         yield data.data;
 
-        if (data.has_more && data.next_page) {
+        if (data.has_more && data.next_page != null) {
             url = data.next_page;
         }
     } while (data.has_more);

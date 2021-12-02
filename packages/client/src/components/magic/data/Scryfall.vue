@@ -167,8 +167,8 @@ interface Database {
 }
 
 interface Progress {
-    method: 'get' | 'load' | 'merge',
-    type: 'card' | 'ruling' | 'set' | 'image',
+    method: 'get' | 'load' | 'merge';
+    type: 'card' | 'image' | 'ruling' | 'set';
 
     amount: {
         updated?: number;
@@ -216,12 +216,12 @@ export default defineComponent({
         const scryfall = ref<Scryfall>({ card: 0, ruling: 0, set: 0 });
         const database = ref<Database>({ card: 0, set: 0 });
 
-        const progress = ref<Progress|null>(null);
+        const progress = ref<Progress | null>(null);
 
         const progressValue = computed(() => {
             const prog = progress.value;
 
-            if (prog != null && prog.amount.total != null) {
+            if (prog?.amount?.total != null) {
                 return prog.amount.count / prog.amount.total;
             } else {
                 return undefined;
@@ -266,9 +266,9 @@ export default defineComponent({
 
         const loadData = async () => {
             const { data } = await controlGet<{
-                bulk: BulkList,
-                scryfall: Scryfall,
-                database: Database
+                bulk: BulkList;
+                scryfall: Scryfall;
+                database: Database;
             }>('/magic/scryfall');
 
             bulk.value = data.bulk;

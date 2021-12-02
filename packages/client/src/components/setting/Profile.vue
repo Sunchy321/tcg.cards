@@ -35,14 +35,14 @@ export default defineComponent({
 
     setup() {
         const store = useStore();
-        const basic = basicSetup();
+        const { user } = basicSetup();
 
         const logout = () => {
             void store.dispatch('user/logout');
         };
 
         return {
-            user: basic.user,
+            user,
             logout,
         };
     },

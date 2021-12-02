@@ -20,7 +20,7 @@ interface IUserProfile {
 export interface IUser extends Document {
     username: string;
 
-    role: 'normal' | 'admin';
+    role: 'admin' | 'normal';
 
     salt: string;
     hash: string;
@@ -44,7 +44,7 @@ interface UserModel extends Model<IUser> {
     findByUsername(username: string): Promise<IUser>;
 
     toJwtToken(user: IUser): string;
-    fromJwtToken(token: string): Promise<IUser>
+    fromJwtToken(token: string): Promise<IUser>;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -222,7 +222,7 @@ UserSchema.statics.register = async function (this: UserModel, username: string,
         throw new Error('user_already_exists');
     }
 
-    // eslint-disable-next-line no-use-before-define
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const user = new User({ username });
 
     user.setPassword(password);

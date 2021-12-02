@@ -66,9 +66,9 @@ import { useRouter, useRoute } from 'vue-router';
 import contorlSetup from 'setup/control';
 
 interface Progress {
-    overall: { count: number, total: number }
-    current: { set: string, lang: string; }
-    status: Record<string, string>
+    overall: { count: number, total: number };
+    current: { set: string, lang: string };
+    status: Record<string, string>;
     failed: number;
 }
 
@@ -79,7 +79,7 @@ export default defineComponent({
 
         const { controlWs } = contorlSetup();
 
-        const progress = ref<Progress|null>(null);
+        const progress = ref<Progress | null>(null);
 
         const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
 

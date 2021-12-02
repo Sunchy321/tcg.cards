@@ -1,5 +1,5 @@
 export type BanlistStatus =
-    'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';
+    'banned_as_commander' | 'banned_as_companion' | 'banned' | 'legal' | 'restricted' | 'suspended' | 'unavailable';
 
 export type Banlist = Record<string, BanlistStatus>;
 
@@ -23,10 +23,10 @@ export interface BanlistChange {
         status?: BanlistStatus;
         effectiveDate?: string;
         detail?: {
-            card: string,
-            date?: string,
-            status?: BanlistStatus,
-            group?: string
+            card: string;
+            date?: string;
+            status?: BanlistStatus;
+            group?: string;
         }[];
     }[];
 }

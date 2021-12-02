@@ -78,12 +78,12 @@ interface TransferProgress {
 }
 
 interface LoaderProgress {
-    type: 'load',
-    count: number,
-    total: number
+    type: 'load';
+    count: number;
+    total: number;
 }
 
-type Progress = TransferProgress | LoaderProgress;
+type Progress = LoaderProgress | TransferProgress;
 
 export default defineComponent({
     components: { HsdataPatch },
@@ -92,7 +92,7 @@ export default defineComponent({
         const { controlWs } = controlSetup();
 
         const patches = ref<Patch[]>([]);
-        const progress = ref<Progress|undefined>(undefined);
+        const progress = ref<Progress | undefined>(undefined);
 
         const progressValue = computed(() => {
             const prog = progress.value;

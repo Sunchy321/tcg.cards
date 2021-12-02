@@ -19,7 +19,7 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
 
-function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
+async function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
     const aggregate = Card.aggregate().allowDiskUse(true);
 
     aggregate.match(omitBy({ cardId: id, set, number }, v => v == null));
@@ -122,8 +122,8 @@ interface CardProfile {
         localization: {
             lang: string;
             name: string;
-        }[]
-    }[],
+        }[];
+    }[];
 
     versions: {
         lang: string;
@@ -131,7 +131,7 @@ interface CardProfile {
         number: string;
         rarity: string;
         releaseDate: string;
-    }[],
+    }[];
 }
 
 router.get('/profile', async ctx => {

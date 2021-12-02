@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 
 function base(prod: string, dev: string) {
     return process.env.PROD ? prod : dev;
@@ -13,6 +13,6 @@ export const api = axios.create({ baseURL: `http://${apiBase}` });
 export const user = axios.create({ baseURL: `http://${userBase}` });
 export const control = axios.create({ baseURL: `http://${controlBase}` });
 
-export function apiGet<T>(url: string, params: Record<string, any> = {}) {
+export async function apiGet<T>(url: string, params: Record<string, any> = {}): Promise<AxiosResponse<T>> {
     return api.get<T>(url, { params });
 }

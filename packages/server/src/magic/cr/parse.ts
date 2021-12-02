@@ -127,7 +127,7 @@ export async function parse(date: string): Promise<ICR> {
                 if (content.depth === 'append') {
                     last(contents)!.text += `\n${content.text}`;
                 } else if (content.depth === 'example') {
-                    last(contents)!.examples = [...last(contents)!.examples || [], content.text];
+                    last(contents)!.examples = [...last(contents)!.examples ?? [], content.text];
                 } else {
                     contents.push(content as Content);
                 }

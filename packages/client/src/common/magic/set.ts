@@ -4,17 +4,17 @@ import debounce from 'debounce-promise';
 import { api } from 'boot/backend';
 
 export interface SetLocalization {
-    name?: string,
-    isOfficialName: boolean,
-    link?: string,
+    name?: string;
+    isOfficialName: boolean;
+    link?: string;
 }
 
 export interface SetProfile {
-    setId: string,
-    parent?: string,
-    localization: Record<string, SetLocalization>,
-    setType: string,
-    releaseDate?: string,
+    setId: string;
+    parent?: string;
+    localization: Record<string, SetLocalization>;
+    setType: string;
+    releaseDate?: string;
 }
 
 class Set extends Dexie {
@@ -56,7 +56,10 @@ async function getRemote(args: [string][]): Promise<SetProfile[]> {
 const debouncedGetRemote = debounce(getRemote, 100, { accumulate: true }) as
     unknown as (id: string) => Promise<SetProfile>;
 
-function getProfile(id: string) {
+function getProfile(id: string): {
+    local: Promise<SetProfile | undefined>;
+    remote: Promise<SetProfile>;
+} {
     const local = set.profile.get({ setId: id });
 
     const remote = debouncedGetRemote(id);

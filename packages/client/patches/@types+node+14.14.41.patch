@@ -1,0 +1,13 @@
+diff --git a/node_modules/@types/node/process.d.ts b/node_modules/@types/node/process.d.ts
+index 2babb16..c92bd1f 100755
+--- a/node_modules/@types/node/process.d.ts
++++ b/node_modules/@types/node/process.d.ts
+@@ -84,7 +84,7 @@ declare module 'process' {
+             }
+ 
+             // Alias for compatibility
+-            interface ProcessEnv extends Dict<string> {}
++            interface ProcessEnv extends Dict<any> {}
+ 
+             interface HRTime {
+                 (time?: [number, number]): [number, number];

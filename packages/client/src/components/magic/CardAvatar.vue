@@ -51,7 +51,7 @@ export default defineComponent({
         const store = useStore();
 
         const showId = ref(false);
-        const profile = ref<CardProfile|null>(null);
+        const profile = ref<CardProfile | null>(null);
 
         const link = computed(() => `/magic/card/${props.id}`);
 

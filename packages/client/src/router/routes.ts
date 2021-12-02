@@ -1,19 +1,20 @@
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import magic from './magic';
 import hearthstone from './hearthstone';
 
 const routes = [
     {
         path:      '/',
-        component: () => import('layouts/Main.vue'),
+        component: async () => import('layouts/Main.vue'),
         children:  [
             {
                 path:      '',
-                component: () => import('pages/Index.vue'),
+                component: async () => import('pages/Index.vue'),
             },
             {
                 path:      'setting',
                 name:      'setting',
-                component: () => import('pages/Setting.vue'),
+                component: async () => import('pages/Setting.vue'),
                 meta:      {
                     title: 'setting.$self',
                 },
@@ -26,7 +27,7 @@ const routes = [
 
     {
         path:      '/:pathMatch(.*)*',
-        component: () => import('pages/Error404.vue'),
+        component: async () => import('pages/Error404.vue'),
     },
 ];
 

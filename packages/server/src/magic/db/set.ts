@@ -48,6 +48,6 @@ export const SetSchema = new Schema<ISet>({
     },
 });
 
-const Set = conn.model<ISet & Document>('set', SetSchema);
+const Set = conn.model<Document & ISet>('set', SetSchema);
 
 export default Set;

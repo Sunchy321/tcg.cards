@@ -83,8 +83,8 @@ export default defineComponent({
         const i18n = useI18n();
 
         const list = ref<string[]>([]);
-        const cr = ref<CR|null>(null);
-        const selected = ref<string|null>(null);
+        const cr = ref<CR | null>(null);
+        const selected = ref<string | null>(null);
         const expanded = ref([]);
 
         const { date } = pageSetup({

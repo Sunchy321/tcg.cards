@@ -1,5 +1,10 @@
 import { parseLog } from '../src';
+import { readFileSync, existsSync } from 'fs';
 
-test('adds 1 + 2 to equal 3', () => {
-    expect(1 + 2).toBe(3);
+test('', () => {
+    if (existsSync('./Power.log')) {
+        const log = parseLog(readFileSync('./Power.log').toString());
+
+        console.log(log);
+    }
 });

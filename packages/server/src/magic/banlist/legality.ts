@@ -17,14 +17,14 @@ export interface CardData {
     legalities: ICard['legalities'];
 
     parts: {
-        typeMain: string[]
-    }[],
+        typeMain: string[];
+    }[];
 
     versions: {
         set: string;
         rarity: string;
         releaseDate: string;
-    }[],
+    }[];
 
     scryfall: ICard['scryfall']['oracleId'];
 }
@@ -273,7 +273,7 @@ interface Status {
         format: string;
         data: string;
         scryfall: string;
-    }[]
+    }[];
 }
 
 export class LegalityAssigner extends Task<Status> {

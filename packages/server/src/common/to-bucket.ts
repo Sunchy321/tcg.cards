@@ -24,8 +24,7 @@ export function* toBucket<T>(gen: Generator<T>, size: number): Generator<T[]> {
     }
 }
 
-export async function* toAsyncBucket<T>(gen: AsyncGenerator<T>, size: number)
-    : AsyncGenerator<T[]> {
+export async function* toAsyncBucket<T>(gen: AsyncGenerator<T>, size: number): AsyncGenerator<T[]> {
     const bucket = [];
 
     for await (const value of gen) {

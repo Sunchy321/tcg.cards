@@ -41,7 +41,7 @@ const BanlistChangeSchema = new Schema<IBanlistChange>({
     },
 });
 
-const BanlistChange = conn.model<IBanlistChange & Document>(
+const BanlistChange = conn.model<Document & IBanlistChange>(
     'banlist_change',
     BanlistChangeSchema,
 );

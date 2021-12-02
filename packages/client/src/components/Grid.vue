@@ -45,7 +45,7 @@ export default defineComponent({
     },
 
     setup(props) {
-        const root = ref<HTMLDivElement|null>(null);
+        const root = ref<HTMLDivElement | null>(null);
 
         const itemRealWidth = ref(0);
         const itemPerLine = ref(0);

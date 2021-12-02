@@ -5,7 +5,7 @@ import User, { IUser } from '@/user/db/user';
 
 declare module 'koa' {
     interface DefaultState {
-        user: IUser
+        user: IUser;
     }
 }
 
@@ -23,19 +23,22 @@ function getJwtToken(ctx: Context): string | undefined {
     return undefined;
 }
 
-export class JwtAuthOption {
+export interface JwtAuthOption {
     /**
      * unauthorized access will pass through instead of return 401.
      */
-    pass?: boolean = false;
+    pass?: boolean;
 
     /**
      * need user to be admin
      */
-    admin?: boolean = false;
+    admin?: boolean;
 }
 
 export default function jwtAuth(option: JwtAuthOption = { }): Middleware {
+    const pass = option.pass ?? false;
+    const admin = option.admin ?? false;
+
     // eslint-disable-next-line consistent-return
     return async function (ctx: Context, next: Next): Promise<any> {
         const token = getJwtToken(ctx);
@@ -43,15 +46,15 @@ export default function jwtAuth(option: JwtAuthOption = { }): Middleware {
         if (token != null) {
             const user = await User.fromJwtToken(token);
 
-            if (user != null && (!option.admin || user.isAdmin())) {
+            if (user != null && (!admin || user.isAdmin())) {
                 ctx.state.user = user;
                 return next();
-            } else if (option.pass) {
+            } else if (pass) {
                 return next();
             } else {
                 ctx.status = 401;
             }
-        } else if (option.pass) {
+        } else if (pass) {
             return next();
         } else {
             ctx.status = 401;

@@ -84,7 +84,7 @@ export default defineComponent({
     setup() {
         const { controlWs } = controlSetup();
 
-        const progress = ref<Progress|null>(null);
+        const progress = ref<Progress | null>(null);
         const metadata = ref(false);
 
         const progressValue = computed(() => {

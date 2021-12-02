@@ -22,7 +22,7 @@ const localeMap: Record<string, string> = {
     'zh-CN': 'zhs',
 };
 
-export async function boot(context: ActionContext<State, any>) {
+export async function boot(context: ActionContext<State, any>): Promise<void> {
     const locale = LocalStorage.getItem('locale');
 
     if (locale != null) {
@@ -50,7 +50,7 @@ export async function boot(context: ActionContext<State, any>) {
     await loadData(remoteData, context);
 }
 
-export function action(context: ActionContext<State, any>, type: string) {
+export function action(context: ActionContext<State, any>, type: string): void {
     const { actions } = context.state;
 
     for (const a of actions) {

@@ -46,8 +46,8 @@ import { apiGet } from 'boot/backend';
 interface Format {
     formatId: string;
     localization: { lang: string, name: string }[];
-    sets: string[],
-    banlist: { card: string, status: string, date: string, source?: string }[],
+    sets: string[];
+    banlist: { card: string, status: string, date: string, source?: string }[];
     birthday?: string;
     deathdate?: string;
 }
@@ -61,8 +61,8 @@ export default defineComponent({
         const { controlPost } = controlSetup();
 
         const formatList = ref<string[]>([]);
-        const formatId = ref<string|null>(null);
-        const format = ref<Format|null>(null);
+        const formatId = ref<string | null>(null);
+        const format = ref<Format | null>(null);
 
         const birthday = computed({
             get() {

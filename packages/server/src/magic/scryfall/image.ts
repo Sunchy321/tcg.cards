@@ -9,42 +9,33 @@ import { partition } from 'lodash';
 import { cardImagePath } from '@/magic/image';
 
 interface IImageProjection {
-    _id: { set: string, lang:string },
-    infos: { number: string, uris?: Record<string, string>, partsUris?: Record<string, string>[] }[]
+    _id: { set: string, lang: string };
+    infos: { number: string, uris?: Record<string, string>, partsUris?: Record<string, string>[] }[];
 }
 
 interface IImageTask {
-    name: string,
-    uri: string,
-    path: string
+    name: string;
+    uri: string;
+    path: string;
 }
 
 interface IImageStatus {
-    overall: { count: number, total: number }
-    current: { set: string, lang: string; }
-    status: Record<string, string>
+    overall: { count: number, total: number };
+    current: { set: string, lang: string };
+    status: Record<string, string>;
     failed: number;
 }
 
 export class ImageGetter extends Task<IImageStatus> {
-    type:string;
-
+    type: string;
     set: string;
-
     lang: string;
-
     projCount = 0;
-
     projTotal: number;
-
     total: number;
-
     failed = 0;
-
     todoTasks: IImageTask[] = [];
-
     taskMap: Record<string, [IImageTask, FileSaver]> = {};
-
     statusMap: Record<string, string> = {};
 
     constructor(type: string) {

@@ -239,7 +239,7 @@ interface Part {
     };
 
     flavorText?: string;
-    flavorName?: string,
+    flavorName?: string;
     artist: string;
 }
 
@@ -250,7 +250,7 @@ interface RelatedCard {
         lang: string;
         set: string;
         number: string;
-    }
+    };
 }
 
 interface Card {
@@ -280,22 +280,22 @@ interface Card {
     relatedCards: RelatedCard[];
 
     scryfall: {
-        oracleId: string,
-        cardId?: string,
-        face?: 'front'|'back'
-    },
+        oracleId: string;
+        cardId?: string;
+        face?: 'back' | 'front';
+    };
 
-    arenaId?: number,
-    mtgoId?: number,
-    mtgoFoilId?: number,
-    multiverseId: number[],
-    tcgPlayerId?: number,
-    cardMarketId?: number,
+    arenaId?: number;
+    mtgoId?: number;
+    mtgoFoilId?: number;
+    multiverseId: number[];
+    tcgPlayerId?: number;
+    cardMarketId?: number;
 
     partIndex?: number;
     total?: number;
     result?: {
-        _id: { id: string, lang: string, part: number }
+        _id: { id: string, lang: string, part: number };
     };
 }
 
@@ -311,7 +311,7 @@ export default defineComponent({
 
         const { controlGet, controlPost } = controlSetup();
 
-        const data = ref<(Card & { _id?: string })|null>(null);
+        const data = ref<(Card & { _id?: string }) | null>(null);
         const unlock = ref(false);
         const replaceFrom = ref('');
         const replaceTo = ref('');
@@ -417,18 +417,18 @@ export default defineComponent({
 
         const partField2 = <
             F extends keyof Part,
-            L extends keyof Part[F]
+            L extends keyof Part[F],
         >(firstKey: F, lastKey: L, defaultValue?: Part[F][L]) => computed({
-                get(): Part[F][L] {
+            get(): Part[F][L] {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                    return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
-                },
-                set(newValue: Part[F][L]) {
-                    if (hasData.value) {
+                return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
+            },
+            set(newValue: Part[F][L]) {
+                if (hasData.value) {
                     (part.value as any)![firstKey][lastKey] = newValue;
-                    }
-                },
-            });
+                }
+            },
+        });
 
         const oracleName = partField2('oracle', 'name');
         const oracleTypeline = partField2('oracle', 'typeline');
@@ -459,7 +459,7 @@ export default defineComponent({
 
                 if (hasData.value) {
                     data.value!.relatedCards = parts.map(p => {
-                        // eslint-disable-next-line no-shadow
+                        // eslint-disable-next-line @typescript-eslint/no-shadow
                         const [relation, cardId, lang, set, number] = p.split('|');
 
                         if (lang != null) {
@@ -642,7 +642,7 @@ export default defineComponent({
                 set:    set.value,
                 number: number.value,
                 lang:   lang.value,
-            })) as { data:Partial<Card> };
+            })) as { data: Partial<Card> };
 
             for (let i = 0; i < data.value!.parts.length; i += 1) {
                 const partData = data.value!.parts[i];
@@ -726,7 +726,7 @@ export default defineComponent({
 
                 const devData = data.value as any;
 
-                if (devData.__tags && devData.__tags.printed) {
+                if (devData?.__tags?.printed as boolean | undefined) {
                     return true;
                 } else {
                     return false;

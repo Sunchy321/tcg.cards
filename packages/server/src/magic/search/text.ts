@@ -5,7 +5,7 @@ import { escapeRegExp } from 'lodash';
 
 export default function textQuery(
     key: string,
-    param: string | RegExp,
+    param: RegExp | string,
     op: string | undefined,
     multiline = true,
 ) {
@@ -33,7 +33,7 @@ export default function textQuery(
     default:
         throw new QueryError({
             type:  'operator/unsupported',
-            value: op || '',
+            value: op ?? '',
         });
     }
 }

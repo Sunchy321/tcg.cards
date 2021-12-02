@@ -8,7 +8,7 @@ import user, { UserModule } from './user';
 
 import games, { Modules } from './games';
 
-export type Store = CreateStore<CoreModule['state'], CoreModule['getters'], CoreModule['mutations'], CoreModule['actions'], { user: UserModule } & Modules>;
+export type Store = CreateStore<CoreModule['state'], CoreModule['getters'], CoreModule['mutations'], CoreModule['actions'], Modules & { user: UserModule }>;
 
 export const storeKey: InjectionKey<Store> = Symbol('store');
 

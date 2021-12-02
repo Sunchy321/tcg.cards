@@ -29,7 +29,7 @@ import type { PropType } from 'vue';
 import { defineComponent, computed } from 'vue';
 
 type BanlistStatus =
-    'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';
+    'banned_as_commander' | 'banned_as_companion' | 'banned' | 'legal' | 'restricted' | 'suspended' | 'unavailable';
 
 export default defineComponent({
     props: {

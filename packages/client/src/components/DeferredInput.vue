@@ -36,7 +36,7 @@ export default defineComponent({
 
         const textChanged = computed(() => text.value !== props.modelValue);
 
-        const updateValue = () => emit('update:modelValue', text.value);
+        const updateValue = () => { emit('update:modelValue', text.value); };
 
         return {
             text,

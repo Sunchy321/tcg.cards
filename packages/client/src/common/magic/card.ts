@@ -5,15 +5,14 @@ import { api } from 'boot/backend';
 
 export interface CardProfile {
     cardId: string;
-
     layout: string;
 
     parts: {
         localization: {
             lang: string;
             name: string;
-        }[]
-    }[],
+        }[];
+    }[];
 
     versions: {
         lang: string;
@@ -21,12 +20,11 @@ export interface CardProfile {
         number: string;
         rarity: string;
         releaseDate: string;
-    }[],
+    }[];
 }
 
 class Card extends Dexie {
     profile: Table<CardProfile, string>;
-
     constructor() {
         super('magic/card/profile');
 
@@ -63,7 +61,7 @@ async function getRemote(args: [string][]): Promise<CardProfile[]> {
 const debouncedGetRemote = debounce(getRemote, 100, { accumulate: true }) as
     unknown as (id: string) => Promise<CardProfile>;
 
-function getProfile(id: string) {
+function getProfile(id: string): { local: Promise<CardProfile | undefined>, remote: Promise<CardProfile> } {
     const local = card.profile.get({ cardId: id });
 
     const remote = debouncedGetRemote(id);

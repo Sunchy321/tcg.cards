@@ -6,11 +6,11 @@ export type Timestamp = string;
 export type MimeType = string;
 export type Encoding = string;
 
-export type CardComponent = 'token'|'meld_part'|'meld_result'|'combo_piece';
-export type Color = 'W'|'U'|'B'|'R'|'G';
-export type Game = 'paper'|'arena'|'mtgo';
-export type Legality = 'legal'|'not_legal'|'restricted'|'banned';
-export type Finish = 'nonfoil'|'foil'|'etched'|'glossy';
+export type CardComponent = 'combo_piece' | 'meld_part' | 'meld_result' | 'token';
+export type Color = 'B' | 'G' | 'R' | 'U' | 'W';
+export type Game = 'arena' | 'mtgo' | 'paper';
+export type Legality = 'banned' | 'legal' | 'not_legal' | 'restricted';
+export type Finish = 'etched' | 'foil' | 'glossy' | 'nonfoil';
 
 export type Colors = Color[];
 export type Legalities = Record<string, Legality>;

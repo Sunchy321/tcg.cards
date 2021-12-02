@@ -3,11 +3,16 @@ import { useStore } from 'src/store';
 import { controlBase, control } from 'boot/backend';
 
 import { join } from 'path';
+import { AxiosResponse } from 'axios';
 
-export default function controlSetup() {
+export default function controlSetup(): {
+    controlGet: <T>(url: string, params?: Record<string, any>) => Promise<AxiosResponse<T>>;
+    controlPost: <T>(url: string, params?: Record<string, any>) => Promise<AxiosResponse<T>>;
+    controlWs: (url: string, params?: Record<string, any>) => WebSocket;
+} {
     const store = useStore();
 
-    function controlGet<T>(url: string, params: Record<string, any> = { }) {
+    async function controlGet<T>(url: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         if (token != null) {
@@ -22,7 +27,7 @@ export default function controlSetup() {
         }
     }
 
-    function controlPost<T>(url: string, params: Record<string, any> = { }) {
+    async function controlPost<T>(url: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         if (token != null) {
@@ -39,7 +44,6 @@ export default function controlSetup() {
     function controlWs(url: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
-        params = params || {};
         params = token != null ? { jwt: token, ...params } : params;
 
         if (Object.keys(params).length === 0) {

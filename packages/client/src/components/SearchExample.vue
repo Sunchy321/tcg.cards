@@ -32,7 +32,9 @@ export default defineComponent({
     setup(props) {
         const { game } = basicSetup();
 
-        const link = computed(() => `/${game.value!}/search?q=${props.query}`);
+        const link = computed(() => (game.value == null
+            ? '/'
+            : `/${game.value}/search?q=${props.query}`));
 
         return { link };
     },

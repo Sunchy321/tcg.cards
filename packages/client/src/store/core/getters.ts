@@ -3,22 +3,25 @@
 import { State } from './state';
 
 import type { RouteLocationNormalizedLoaded } from 'vue-router';
+import { Game } from '../games';
 
 import i18n from 'src/i18n';
 
 import { mapValues } from 'lodash';
-import { getDefault } from 'setup/page';
+import { Action, getDefault, ParamObject } from 'setup/page';
 
 type StateWithRoute = State & { readonly route: RouteLocationNormalizedLoaded };
 
-export function locales() { return Object.keys(i18n); }
-export function locale(state: State) { return state.locale; }
-export function search(state: State) { return state.search; }
-export function title(state: State) { return state.title; }
-export function titleType(state: State) { return state.titleType; }
-export function actions(state: State) { return state.actions; }
+export function games(): Game[] { return ['magic', 'hearthstone']; }
+export function game(state: State): Game | null { return state.game; }
+export function locales(): string[] { return Object.keys(i18n); }
+export function locale(state: State): string { return state.locale; }
+export function search(state: State): string { return state.search; }
+export function title(state: State): string { return state.title; }
+export function titleType(state: State): string { return state.titleType; }
+export function actions(state: State): Action[] { return state.actions; }
 
-export function paramValues(state: State) {
+export function paramValues(state: State): any {
     const { route } = state as StateWithRoute;
 
     return mapValues(state.params, (param, key) => {
@@ -73,7 +76,7 @@ export function paramValues(state: State) {
     });
 }
 
-export function params(state: State) {
+export function params(state: State): Record<string, ParamObject<any, boolean> & { value: any }> {
     const values = paramValues(state);
 
     return mapValues(state.params, (param, key) => ({

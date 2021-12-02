@@ -18,7 +18,7 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
-    if (to.meta.admin) {
+    if (to.meta.admin as boolean | null) {
         const isAdmin = store.getters['user/isAdmin'];
 
         if (!isAdmin) {
@@ -26,7 +26,7 @@ router.beforeEach((to, from, next) => {
         } else {
             next();
         }
-    } else if (to.meta.requireAuth) {
+    } else if (to.meta.requireAuth as boolean | null) {
         const user = store.getters['user/user'];
 
         if (user == null) {

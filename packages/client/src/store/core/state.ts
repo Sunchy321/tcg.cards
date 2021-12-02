@@ -1,7 +1,8 @@
 import { Action, ParamObject } from 'setup/page';
+import { Game } from '../games';
 
 export interface State {
-    games: string[];
+    game: Game | null;
     locale: string;
     search: string;
 
@@ -12,7 +13,7 @@ export interface State {
 }
 
 export default {
-    games:  [],
+    game:   null,
     locale: 'en',
     search: '',
 

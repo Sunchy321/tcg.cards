@@ -183,7 +183,7 @@ import { deburr, last } from 'lodash';
 
 /// *** eslint cannot recognize type imported from vue file ***
 type BanlistStatus =
-    'legal' | 'restricted' | 'suspended' | 'banned' | 'banned_as_commander' | 'banned_as_companion' | 'unavailable';
+    'banned_as_commander' | 'banned_as_companion' | 'banned' | 'legal' | 'restricted' | 'suspended' | 'unavailable';
 
 interface BanlistChangeItem {
     card: string;
@@ -234,7 +234,7 @@ interface Status {
         format: string;
         data: string;
         scryfall: string;
-    }[]
+    }[];
 }
 
 function toIdentifier(text: string) {
@@ -280,12 +280,12 @@ export default defineComponent({
 
         const { controlGet, controlPost, controlWs } = controlSetup();
 
-        const progress = ref<Status|null>(null);
+        const progress = ref<Status | null>(null);
 
         const progressValue = computed(() => {
             const prog = progress.value;
 
-            if (prog != null && prog.amount.total != null) {
+            if (prog?.amount?.total != null) {
                 return prog.amount.count / prog.amount.total;
             } else {
                 return undefined;
@@ -317,9 +317,9 @@ export default defineComponent({
         const url = ref('');
 
         const changeList = ref<BanlistChangeProfile[]>([]);
-        const selected = ref<BanlistChangeProfile|null>(null);
+        const selected = ref<BanlistChangeProfile | null>(null);
 
-        const banlistChange = ref<BanlistChange|null>(null);
+        const banlistChange = ref<BanlistChange | null>(null);
 
         const formatList = [
             'standard',

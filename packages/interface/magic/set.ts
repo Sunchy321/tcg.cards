@@ -1,37 +1,37 @@
 export interface SetLocalization {
-    lang: string,
-    name?: string,
-    isOfficialName: boolean,
-    link?: string,
+    lang: string;
+    name?: string;
+    isOfficialName: boolean;
+    link?: string;
 }
 
 export interface Set {
-    setId: string,
+    setId: string;
 
-    block?: string,
-    parent?: string,
+    block?: string;
+    parent?: string;
 
-    printedSize?: number,
-    cardCount: number,
-    langs: string[],
-    rarities: string[],
+    printedSize?: number;
+    cardCount: number;
+    langs: string[];
+    rarities: string[];
 
-    localization: SetLocalization[],
+    localization: SetLocalization[];
 
-    setType: string,
-    isDigital: boolean,
-    isFoilOnly: boolean,
-    isNonfoilOnly: boolean,
-    symbolStyle: string[],
+    setType: string;
+    isDigital: boolean;
+    isFoilOnly: boolean;
+    isNonfoilOnly: boolean;
+    symbolStyle: string[];
 
-    releaseDate?: string,
+    releaseDate?: string;
 
     scryfall: {
-        id: string,
-        code: string,
-    },
+        id: string;
+        code: string;
+    };
 
-    mtgoCode?: string,
-    tcgplayerId?: number,
+    mtgoCode?: string;
+    tcgplayerId?: number;
 
 }

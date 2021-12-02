@@ -42,16 +42,14 @@ interface IImageStatus {
 }
 
 interface IImageTask {
-    name: string,
-    uri: string,
-    path: string
+    name: string;
+    uri: string;
+    path: string;
 }
 
 export class ImageGetter extends Task<IImageStatus> {
     todoTasks: IImageTask[] = [];
-
     taskMap: Record<string, [IImageTask, FileSaver]> = {};
-
     statusMap: Record<string, string> = {};
 
     async startImpl(): Promise<void> {

@@ -13,7 +13,7 @@ interface UserOrError {
     error?: string;
 }
 
-export async function refresh({ commit, getters }: ActionContext<State, any>) {
+export async function refresh({ commit, getters }: ActionContext<State, any>): Promise<void> {
     const token = getters.token as string;
 
     if (token != null) {
@@ -58,7 +58,7 @@ function passwordValidator(password: string) {
 export async function register(
     { commit, getters }: ActionContext<State, any>,
     { username, password }: UserPassPair,
-) {
+): Promise<void> {
     if (getters.user != null) {
         throw new Error('already_logged_in');
     }
@@ -81,7 +81,7 @@ export async function register(
 export async function login(
     { commit, getters }: ActionContext<State, any>,
     { username, password }: UserPassPair,
-) {
+): Promise<void> {
     if (getters.user != null) {
         throw new Error('already_logged_in');
     }
@@ -95,6 +95,6 @@ export async function login(
     }
 }
 
-export function logout({ commit }: ActionContext<State, any>) {
+export function logout({ commit }: ActionContext<State, any>): void {
     commit('user', null);
 }

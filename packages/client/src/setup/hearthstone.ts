@@ -2,7 +2,9 @@ import { useRouter, useRoute } from 'vue-router';
 
 import { api } from 'boot/backend';
 
-export default function hearthstoneSetup() {
+export default function hearthstoneSetup(): {
+    random: () => Promise<void>;
+} {
     const router = useRouter();
     const route = useRoute();
 

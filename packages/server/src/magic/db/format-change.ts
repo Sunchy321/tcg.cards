@@ -18,6 +18,6 @@ const IFormatChangeSchema = new Schema<IFormatChange>({
     },
 });
 
-const FormatChange = conn.model<IFormatChange & Document>('format_change', IFormatChangeSchema);
+const FormatChange = conn.model<Document & IFormatChange>('format_change', IFormatChangeSchema);
 
 export default FormatChange;

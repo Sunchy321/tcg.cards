@@ -3,6 +3,7 @@ import { State } from './state';
 
 import type { RouteLocationNormalizedLoaded } from 'vue-router';
 import { ParamObject, Action } from 'setup/page';
+import { Game } from '../games';
 
 import { LocalStorage } from 'quasar';
 
@@ -12,35 +13,35 @@ import { locales } from './getters';
 
 type StateWithRoute = State & { readonly route: RouteLocationNormalizedLoaded };
 
-export function games(state: State, newValue: string[]) {
-    state.games = newValue;
+export function game(state: State, newValue: Game | null): void {
+    state.game = newValue;
 }
 
-export function locale(state: State, newValue: string) {
+export function locale(state: State, newValue: string): void {
     if (locales().includes(newValue)) {
         LocalStorage.set('locale', newValue);
         state.locale = newValue;
     }
 }
 
-export function search(state: State, newValue: string) {
+export function search(state: State, newValue: string): void {
     state.search = newValue;
 }
 
-export function title(state: State, newValue: string) {
+export function title(state: State, newValue: string): void {
     state.title = newValue;
     document.title = newValue;
 }
 
-export function titleType(state: State, newValue: string) {
+export function titleType(state: State, newValue: string): void {
     state.titleType = newValue;
 }
 
-export function params(state: State, newValue: Record<any, ParamObject<any, boolean>>) {
+export function params(state: State, newValue: Record<any, ParamObject<any, boolean>>): void {
     state.params = newValue;
 }
 
-export function param(state: State, { key, value }: { key: string, value: any }) {
+export function param(state: State, { key, value }: { key: string, value: any }): void {
     const { route } = state as StateWithRoute;
 
     const paramValue = state.params?.[key];
@@ -79,6 +80,6 @@ export function param(state: State, { key, value }: { key: string, value: any })
     }
 }
 
-export function actions(state: State, actionList: Action[]) {
+export function actions(state: State, actionList: Action[]): void {
     state.actions = actionList;
 }

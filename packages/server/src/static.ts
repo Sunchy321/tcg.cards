@@ -10,7 +10,7 @@ export interface Database {
 export interface MongoDB {
     host: string;
 
-    database: Record<string, Database>
+    database: Record<string, Database>;
 }
 
 export interface Config {
@@ -22,14 +22,14 @@ export interface Config {
     data: string;
     log: string;
 
-    mongodb: MongoDB,
+    mongodb: MongoDB;
 
     hearthstone: {
         blizzard: {
             clientId: string;
             clientSecret: string;
-        }
-    }
+        };
+    };
 }
 
 export const config = JSON.parse(readFileSync(configPath).toString()) as Config;

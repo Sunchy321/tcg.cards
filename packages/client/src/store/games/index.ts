@@ -1,10 +1,12 @@
 import magic, { Module as Magic } from './magic';
 import hearthstone, { Module as Hearthstone } from './hearthstone';
 
+export type Game = 'hearthstone' | 'magic';
+
 export type Modules = {
-    magic: Magic,
-    hearthstone: Hearthstone
-}
+    magic: Magic;
+    hearthstone: Hearthstone;
+};
 
 export default {
     magic,

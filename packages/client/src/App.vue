@@ -5,10 +5,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, watch } from 'vue';
 
 import { useQuasar } from 'quasar';
 import type { QuasarLanguage } from 'quasar';
+import { useRoute } from 'vue-router';
 import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
 
@@ -22,6 +23,7 @@ export default defineComponent({
 
     setup() {
         const quasar = useQuasar();
+        const route = useRoute();
         const store = useStore();
         const i18n = useI18n();
 
@@ -41,6 +43,22 @@ export default defineComponent({
                 quasar.lang.set(qLocale.default);
             }
         });
+
+        watch(
+            () => route.path,
+            (path) => {
+                if (path === '/') {
+                    store.commit('game', null);
+                } else {
+                    const firstPart = path.split('/').filter(v => v !== '')[0];
+
+                    if ((store.getters.games as string[]).includes(firstPart)) {
+                        store.commit('game', firstPart);
+                    }
+                }
+            },
+            { immediate: true },
+        );
 
         void store.dispatch('boot');
     },

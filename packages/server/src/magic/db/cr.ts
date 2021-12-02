@@ -34,6 +34,6 @@ const CRMenuSchema = new Schema<ICR>({
     },
 });
 
-const CR = conn.model<ICR & Document>('cr', CRMenuSchema);
+const CR = conn.model<Document & ICR>('cr', CRMenuSchema);
 
 export default CR;

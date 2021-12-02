@@ -237,30 +237,30 @@ import MagicText from 'components/magic/Text.vue';
 
 import { apiGet } from 'boot/backend';
 
-type TextChange = string | [string, string]
+type TextChange = string | [string, string];
 
 interface ContentChange {
-    id: string
-    type?: 'add' | 'remove' | 'move'
-    index: [string | undefined, string | undefined]
-    depth: [number | undefined, number | undefined]
-    text: TextChange[]
-    examples: TextChange[][]
+    id: string;
+    type?: 'add' | 'move' | 'remove';
+    index: [string | undefined, string | undefined];
+    depth: [number | undefined, number | undefined];
+    text: TextChange[];
+    examples: TextChange[][];
 }
 
 interface GlossaryChange {
-    ids: string[]
-    words: string[],
-    type?: 'add' | 'remove' | 'move'
-    text?: TextChange[]
+    ids: string[];
+    words: string[];
+    type?: 'add' | 'move' | 'remove';
+    text?: TextChange[];
 }
 
 interface Change {
-    intro: TextChange[]
-    contents: ContentChange[]
-    glossary: GlossaryChange[]
-    credits: TextChange[]
-    csi: TextChange[]
+    intro: TextChange[];
+    contents: ContentChange[];
+    glossary: GlossaryChange[];
+    credits: TextChange[];
+    csi: TextChange[];
 }
 
 export default defineComponent({
@@ -274,7 +274,7 @@ export default defineComponent({
         const i18n = useI18n();
 
         const date = ref<string[]>([]);
-        const crDiff = ref<Change|null>(null);
+        const crDiff = ref<Change | null>(null);
         const splitter = ref(50);
 
         pageSetup({

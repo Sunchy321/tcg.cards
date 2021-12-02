@@ -1,10 +1,10 @@
 /* eslint-disable camelcase */
 
-export type Locale = 'de_DE' |'en_US' |'es_ES' |'es_MX' |'fr_FR' |'it_IT' |'ja_JP' |'pt_BR' |'en_GB' |'pl_PL' |'ru_RU' |'ko_KR' |'zh_TW' |'zh_CN' |'th_TH';
+export type Locale = 'de_DE' | 'en_GB' | 'en_US' | 'es_ES' | 'es_MX' | 'fr_FR' | 'it_IT' | 'ja_JP' | 'ko_KR' | 'pl_PL' | 'pt_BR' | 'ru_RU' | 'th_TH' | 'zh_CN' | 'zh_TW';
 
 export type LocaleMap<T> = {
     [k in Locale]: T
-}
+};
 
 export interface ISet {
     id: number;
@@ -98,14 +98,14 @@ export interface IMetadata {
 
 export interface ICard {
     id: number;
-    collectible: 0|1;
+    collectible: 0 | 1;
     slug: string;
     classId: number;
     multiClassIds: number[];
     cardTypeId: number;
     cardSetId: number;
-    rarityId: number|null;
-    artistName: string|null;
+    rarityId: number | null;
+    artistName: string | null;
     health?: number;
     attack?: number;
     manaCost: number;
@@ -122,12 +122,12 @@ export interface ICard {
     duels?: {
         relevant: true;
         constructed: true;
-    }
+    };
     battlegrounds?: {
         tier?: number;
         hero: boolean;
         upgradeId?: number;
         image: LocaleMap<string>;
         imageGold: LocaleMap<string>;
-    }
+    };
 }

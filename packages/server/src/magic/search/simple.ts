@@ -3,7 +3,7 @@ import { QueryError } from '@/search';
 
 export default function simpleQuery(
     key: string,
-    param: string | RegExp,
+    param: RegExp | string,
     op: string | undefined,
 ) {
     if (typeof param !== 'string') {
@@ -23,7 +23,7 @@ export default function simpleQuery(
     default:
         throw new QueryError({
             type:  'operator/unsupported',
-            value: op || '',
+            value: op ?? '',
         });
     }
 }

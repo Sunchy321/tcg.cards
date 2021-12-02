@@ -152,15 +152,15 @@ export default defineComponent({
         number: { type: String, default: null },
         part:   { type: Number, default: null },
         layout: { type: String, default: null },
-        rotate: { type: Boolean as PropType<boolean|null>, default: null },
+        rotate: { type: Boolean as PropType<boolean | null>, default: null },
     },
 
     emits: ['update:part', 'update:rotate'],
 
     setup(props, { emit }) {
-        const visible = ref<boolean|null>(null);
+        const visible = ref<boolean | null>(null);
         const innerPart = ref(0);
-        const innerRotate = ref<boolean|null>(null);
+        const innerRotate = ref<boolean | null>(null);
 
         const realPart = computed({
             get() { return innerPart.value; },

@@ -1,3 +1,3 @@
 export interface Entity {
-    [key: string]: any
+    [key: string]: any;
 }

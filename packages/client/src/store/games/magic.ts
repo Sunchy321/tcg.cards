@@ -1,7 +1,7 @@
 import { createModule } from './game';
 import { GameModule } from './interface';
 
-export type TextMode = 'oracle' | 'unified' | 'printed'
+export type TextMode = 'oracle' | 'printed' | 'unified';
 export const textModes = ['oracle', 'unified', 'printed'];
 
 interface Data {
@@ -16,7 +16,7 @@ interface State {
     textMode: TextMode;
 }
 
-export type Module = GameModule<Data, State>
+export type Module = GameModule<Data, State>;
 
 export default createModule<Data, State>('magic', {
     textMode: {

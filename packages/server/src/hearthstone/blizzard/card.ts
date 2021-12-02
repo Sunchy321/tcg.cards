@@ -52,8 +52,8 @@ export class CardGetter extends Task<ICardStatus> {
 
             for (const c of data.cards) {
                 ids.push(c.id);
-                if (c.parentId) { ids.push(c.parentId); }
-                if (c.childIds) { ids.push(...c.childIds); }
+                if (c.parentId != null) { ids.push(c.parentId); }
+                if (c.childIds != null) { ids.push(...c.childIds); }
             }
 
             const patches = await Patch.find().sort({ number: -1 });

@@ -192,7 +192,7 @@ interface CRContent {
     index: string;
     text: string;
     examples?: string[];
-    cards?: { text:string, id:string }[]
+    cards?: { text: string, id: string }[];
 }
 
 interface CRGlossary {
@@ -223,7 +223,7 @@ export default defineComponent({
 
         const cr = ref<string[]>([]);
         const txt = ref<string[]>([]);
-        const data = ref<CR|null>(null);
+        const data = ref<CR | null>(null);
         const tab = ref('content');
 
         const contentFilter = ref('');

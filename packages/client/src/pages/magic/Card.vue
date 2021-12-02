@@ -363,7 +363,7 @@ type Data = Card & {
         symbolStyle: string[];
         parent?: string;
     }[];
-}
+};
 
 export default defineComponent({
     components: {
@@ -379,8 +379,8 @@ export default defineComponent({
 
         const { search, random } = magicSetup();
 
-        const data = ref<Data|null>(null);
-        const rotate = ref<boolean|null>(null);
+        const data = ref<Data | null>(null);
+        const rotate = ref<boolean | null>(null);
 
         const textMode = computed({
             get() { return store.getters['magic/textMode']; },
@@ -554,9 +554,18 @@ export default defineComponent({
             const p = part.value;
 
             if (p == null) { return undefined; }
-            if (p.power && p.toughness) { return `${p.power}/${p.toughness}`; }
-            if (p.loyalty) { return `[${p.loyalty}]`; }
-            if (p.handModifier && p.lifeModifier) { return `${p.handModifier};${p.lifeModifier}`; }
+
+            if (p.power != null && p.toughness != null) {
+                return `${p.power}/${p.toughness}`;
+            }
+
+            if (p.loyalty != null) {
+                return `[${p.loyalty}]`;
+            }
+
+            if (p.handModifier != null && p.lifeModifier != null) {
+                return `${p.handModifier};${p.lifeModifier}`;
+            }
 
             return undefined;
         });

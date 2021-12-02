@@ -22,16 +22,16 @@ import { existsSync, unlinkSync } from 'fs';
 import { isEqual } from 'lodash';
 
 type NCardFace = Omit<CardFace, 'colors'> & {
-    colors: Colors,
-    hand_modifier?: string,
-    life_modifier?: string,
-    flavor_name?: string,
-}
+    colors: Colors;
+    hand_modifier?: string;
+    life_modifier?: string;
+    flavor_name?: string;
+};
 
-type NSCard = Omit<ISCard, 'card_faces' | keyof NCardFace> & {
-    card_faces: NCardFace[],
-    face?: 'front'|'back'
-}
+type NSCard = Omit<ISCard, keyof NCardFace | 'card_faces'> & {
+    card_faces: NCardFace[];
+    face?: 'back' | 'front';
+};
 
 function splitCost(cost: string) {
     return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
@@ -51,7 +51,7 @@ function toCostMap(cost: string) {
     return result;
 }
 
-function purifyText(text: string|undefined) {
+function purifyText(text: string | undefined) {
     return text?.replace(/\{½\}/g, '{H1}');
 }
 
@@ -164,11 +164,11 @@ function getId(data: NSCard): string {
 
             baseId += `!${face.colors.length > 0 ? face.colors.join('').toLowerCase() : 'c'}`;
 
-            if (face.power && face.toughness) {
+            if (face.power != null && face.toughness != null) {
                 baseId += `!${face.power}${face.toughness}`;
             }
 
-            if (face.oracle_text) {
+            if (face.oracle_text != null) {
                 baseId += '!';
 
                 for (const line of face.oracle_text.toLowerCase().split('\n')) {
@@ -191,7 +191,7 @@ function getId(data: NSCard): string {
             }
 
             if (face.type_line.includes('Creature') && face.type_line.includes('Enchantment')) {
-                if (face.oracle_text) {
+                if (face.oracle_text != null) {
                     baseId += '!e';
                 } else {
                     baseId += '!!e';
@@ -384,7 +384,7 @@ const assignMap: Partial<Record<keyof ISCardBase, keyof ICard>> = {
     cardmarket_id:  'cardMarketId',
 };
 
-function merge(card: ICard & Document, data: ICard, diff: Diff<ISCardBase>[]) {
+function merge(card: Document & ICard, data: ICard, diff: Diff<ISCardBase>[]) {
     for (const d of diff) {
         if (ignoreList.includes(d.path![0])) {
             continue;

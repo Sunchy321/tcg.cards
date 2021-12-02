@@ -4,7 +4,7 @@ export type XTag = {
     _attributes: {
         enumID: string;
         name: string;
-        type: 'Int' | 'String' | 'Card';
+        type: 'Card' | 'Int' | 'String';
         value: string;
         cardID?: string;
     };
@@ -13,13 +13,13 @@ export type XTag = {
 };
 
 export type XLocStringTag = {
-    [key: string]: { _text: string };
-} & {
     _attributes: {
         enumID: string;
         name: string;
         type: 'LocString';
     };
+} & {
+    [key: string]: { _text: string };
 };
 
 export type XPlayRequirement = {
@@ -59,7 +59,7 @@ export type XEntity = {
         version: string;
     };
 
-    Tag?: ValueOrArray<XTag | XLocStringTag>;
+    Tag?: ValueOrArray<XLocStringTag | XTag>;
     Power?: ValueOrArray<XPower>;
     ReferencedTag?: ValueOrArray<XReferencedTag>;
     EntourageCard?: ValueOrArray<XEntourageCard>;

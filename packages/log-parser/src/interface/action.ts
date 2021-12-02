@@ -5,6 +5,6 @@ export interface Action {
 }
 
 export interface CreateGame {
-    game: Entity
-    players: [Entity, Entity]
+    game: Entity;
+    players: [Entity, Entity];
 }

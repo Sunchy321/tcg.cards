@@ -32,7 +32,7 @@ import type { QInputProps, QDateProps } from 'quasar';
 
 export default defineComponent({
     props: {
-        modelValue: { type: String as PropType<string|null>, default: undefined },
+        modelValue: { type: String as PropType<string | null>, default: undefined },
 
         dense:     { type: Boolean, default: false },
         outlined:  { type: Boolean, default: false },
@@ -51,8 +51,8 @@ export default defineComponent({
 
         const toQuasarDate = (v: string) => v.replace(/-/g, '/');
 
-        const realDateFrom = computed(() => (props.dateFrom ? toQuasarDate(props.dateFrom) : props.dateFrom));
-        const realDateTo = computed(() => (props.dateTo ? toQuasarDate(props.dateTo) : props.dateTo));
+        const realDateFrom = computed(() => (props.dateFrom != null ? toQuasarDate(props.dateFrom) : props.dateFrom));
+        const realDateTo = computed(() => (props.dateTo != null ? toQuasarDate(props.dateTo) : props.dateTo));
 
         const realEvents = computed(() => props.events?.map(v => ({
             date:  toQuasarDate(v.date),

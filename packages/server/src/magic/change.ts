@@ -31,7 +31,7 @@ interface IBanlistChangeItem {
         tabletop?: string;
         online?: string;
         arena?: string;
-    },
+    };
     link: string[];
 }
 
@@ -42,16 +42,16 @@ function cmp<T>(a: T, b: T): number {
 export async function getChanges(
     id: string | null,
     options: { keepClone?: boolean } = {},
-): Promise<(IFormatChangeItem | IBanlistChangeItem)[]> {
+): Promise<(IBanlistChangeItem | IFormatChangeItem)[]> {
     const keepClone = options.keepClone ?? false;
 
-    const format = await Format.findOne(id ? { formatId: id } : {});
+    const format = await Format.findOne(id != null ? { formatId: id } : {});
 
     if (id != null && format == null) {
         throw new Error(`Unknown format ${id}`);
     }
 
-    const result: (IFormatChangeItem | IBanlistChangeItem)[] = [];
+    const result: (IBanlistChangeItem | IFormatChangeItem)[] = [];
 
     const banlistAggregate = BanlistChange.aggregate()
         .unwind('changes');
@@ -62,8 +62,8 @@ export async function getChanges(
 
     const banlistChanges = (await banlistAggregate) as (
         Omit<IBanlistChange, 'changes'> & {
-            _id: string,
-            changes: Element<IBanlistChange['changes']>
+            _id: string;
+            changes: Element<IBanlistChange['changes']>;
         }
     )[];
 

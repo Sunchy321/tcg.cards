@@ -3,7 +3,7 @@ import ws from 'ws';
 
 declare module 'koa' {
     interface DefaultContext {
-        ws: () => Promise<ws>
+        ws: () => Promise<ws>;
     }
 }
 

@@ -5,10 +5,10 @@ import { mapValues } from 'lodash';
 
 import { useStore } from 'src/store';
 
-export type Value<T> = T | Ref<T> | (() => T);
+export type Value<T> = Ref<T> | T | (() => T);
 
 export type ParamType = 'enum' | 'string';
-export type OptionType = 'params' | 'query' | 'props'
+export type OptionType = 'params' | 'props' | 'query';
 
 interface ParameterBase<T, R> {
     type: T;
@@ -50,7 +50,7 @@ type ValueTypeMap = {
 export type ValueType<T> = T extends keyof ValueTypeMap ? ValueTypeMap[T] : never;
 
 export type Parameter<R extends boolean> =
-    EnumParameter<R> | StringParameter<R> | NumberParameter<R> | DateParameter<R>;
+    DateParameter<R> | EnumParameter<R> | NumberParameter<R> | StringParameter<R>;
 
 function isRef<T>(value: Value<T>): value is Ref<T> {
     return (value as any)?.value != null;
@@ -89,14 +89,14 @@ export interface Action {
 
 export interface Option {
     title?: Value<string>;
-    titleType?: 'text' | 'input';
+    titleType?: 'input' | 'text';
     params?: Record<string, Parameter<any>>;
     actions?: Action[];
 }
 
 export type ParamObject<T, R extends boolean> = ParameterBase<T, R> & {
     value: Ref<ValueType<T>>;
-}
+};
 
 export type Result<O extends Option> = {
     [K in keyof O['params']]: O['params'][K] extends ParameterBase<infer T, infer R>
@@ -104,7 +104,7 @@ export type Result<O extends Option> = {
             ? ComputedRef<ValueType<T>>
             : Ref<ValueType<T>>
         : never;
-}
+};
 
 export default function pageSetup<O extends Option>(option: O): Result<O> {
     const store = useStore();
@@ -113,19 +113,19 @@ export default function pageSetup<O extends Option>(option: O): Result<O> {
 
     watch(
         () => valueOf(option.title ?? ''),
-        title => store.commit('title', title),
+        title => { store.commit('title', title); },
         { immediate: true },
     );
 
     const props: Record<string, Ref<any>> = { };
 
     for (const [k, param] of Object.entries(option.params ?? {})) {
-        if (param.readonly) {
+        if (param.readonly != null && param.readonly === true) {
             props[k] = computed(() => store.getters.paramValues[k]);
         } else {
             props[k] = computed({
                 get: () => store.getters.paramValues[k],
-                set: (value: any) => store.commit('param', { key: k, value }),
+                set: (value: any) => { store.commit('param', { key: k, value }); },
             });
         }
     }
@@ -145,7 +145,7 @@ export default function pageSetup<O extends Option>(option: O): Result<O> {
                 };
             }
         }),
-        params => store.commit('params', params),
+        params => { store.commit('params', params); },
         { immediate: true },
     );
 

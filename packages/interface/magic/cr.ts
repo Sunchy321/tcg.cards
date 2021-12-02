@@ -4,7 +4,7 @@ export interface Content {
     index: string;
     text: string;
     examples?: string[];
-    cards?: { text:string, id:string }[]
+    cards?: { text: string, id: string }[];
 }
 
 export interface Glossary {

@@ -2,7 +2,7 @@ import { State } from './state';
 
 import { LocalStorage } from 'quasar';
 
-export function user(state: State, newValue: string) {
+export function user(state: State, newValue: string): void {
     if (newValue != null) {
         state.user = newValue;
         LocalStorage.set('user', newValue);

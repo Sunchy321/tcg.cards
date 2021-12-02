@@ -1,6 +1,6 @@
 export interface Status {
-    method: 'get' | 'load' | 'merge',
-    type: 'card' | 'ruling' | 'set' | 'image',
+    method: 'get' | 'load' | 'merge';
+    type: 'card' | 'image' | 'ruling' | 'set';
 
     amount: {
         updated?: number;

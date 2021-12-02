@@ -26,7 +26,7 @@ interface IPatchJSON {
 }
 
 interface IPatchMethods {
-    json(): IPatchJSON
+    json(): IPatchJSON;
 }
 
 PatchSchema.methods.json = function (this: IPatch): IPatchJSON {
@@ -36,6 +36,6 @@ PatchSchema.methods.json = function (this: IPatch): IPatchJSON {
     };
 };
 
-const Patch = conn.model<IPatch & IPatchMethods & Document>('patch', PatchSchema);
+const Patch = conn.model<Document & IPatch & IPatchMethods>('patch', PatchSchema);
 
 export default Patch;

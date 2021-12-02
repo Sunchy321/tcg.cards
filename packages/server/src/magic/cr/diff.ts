@@ -4,30 +4,30 @@ import { Content, Glossary } from '@interface/magic/cr';
 import { diffArrays, diffWordsWithSpace } from 'diff';
 import { last, zip } from 'lodash';
 
-type TextChange = string | [string, string]
+type TextChange = string | [string, string];
 
 interface ContentChange {
-    id: string
-    type?: 'add' | 'remove' | 'move'
-    index: [string | undefined, string | undefined]
-    depth: [number | undefined, number | undefined]
-    text: TextChange[]
-    examples: TextChange[][]
+    id: string;
+    type?: 'add' | 'move' | 'remove';
+    index: [string | undefined, string | undefined];
+    depth: [number | undefined, number | undefined];
+    text: TextChange[];
+    examples: TextChange[][];
 }
 
 interface GlossaryChange {
-    ids: string[]
-    words: string[],
-    type?: 'add' | 'remove' | 'move'
-    text?: TextChange[]
+    ids: string[];
+    words: string[];
+    type?: 'add' | 'move' | 'remove';
+    text?: TextChange[];
 }
 
 interface Change {
-    intro: TextChange[]
-    contents: ContentChange[]
-    glossary: GlossaryChange[]
-    credits: TextChange[]
-    csi: TextChange[]
+    intro: TextChange[];
+    contents: ContentChange[];
+    glossary: GlossaryChange[];
+    credits: TextChange[];
+    csi: TextChange[];
 }
 
 function diffString(lhs: string, rhs: string): TextChange[] {
@@ -138,7 +138,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
 
     const intro = diffString(from.intro, to.intro);
     const credits = diffString(from.credits, to.credits);
-    const csi = diffString(from.csi || '', to.csi || '');
+    const csi = diffString(from.csi ?? '', to.csi ?? '');
 
     let contents: Partial<ContentChange>[] = [];
 
@@ -179,14 +179,14 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
             d.type = 'move';
         }
 
-        d.text = diffString(oldItem?.text || '', newItem?.text || '');
-        d.examples = zip(oldItem?.examples || [], newItem?.examples || [])
-            .map(([l, r]) => diffString(l || '', r || ''));
+        d.text = diffString(oldItem?.text ?? '', newItem?.text ?? '');
+        d.examples = zip(oldItem?.examples ?? [], newItem?.examples ?? [])
+            .map(([l, r]) => diffString(l ?? '', r ?? ''));
     }
 
     contents = contents.filter(d => d.type != null
         || (d.text && isChanged(d.text))
-        || (d.examples && d.examples.some(isChanged)));
+        || (d?.examples?.some(isChanged)));
 
     for (const d of contents) {
         if (
@@ -194,7 +194,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
             && d.type == null
             && (d.examples == null || d.examples.every(d => !isChanged(d)))
         ) { delete d.text; }
-        if (d.examples && d.examples.every(d => !isChanged(d))) { delete d.examples; }
+        if (d?.examples?.every(d => !isChanged(d))) { delete d.examples; }
     }
 
     let glossary: Partial<GlossaryChange>[] = [];
@@ -229,8 +229,8 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
         const oldItem = oldGlossaryMap[g.ids!.join(' ')];
         const newItem = newGlossaryMap[g.ids!.join(' ')];
 
-        g.words = newItem?.words || oldItem?.words;
-        g.text = diffString(oldItem?.text || '', newItem?.text || '');
+        g.words = newItem?.words ?? oldItem?.words;
+        g.text = diffString(oldItem?.text ?? '', newItem?.text ?? '');
     }
 
     glossary = glossary.filter(d => d.type != null || (d.text && isChanged(d.text)));

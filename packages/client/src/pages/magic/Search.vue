@@ -82,28 +82,28 @@ import CardImage from 'components/magic/CardImage.vue';
 import { apiGet } from 'boot/backend';
 
 interface QueryParam {
-    type: 'string' | 'regex',
-    value: string
+    type: 'regex' | 'string';
+    value: string;
 }
 
 interface QueryItem {
-    type: string,
-    op: string,
-    param: QueryParam
+    type: string;
+    op: string;
+    param: QueryParam;
 }
 
 interface QueryResult {
-    onlyId: false,
-    total: number,
-    cards: { cardId: string, set: string, number: string, lang: string, layout: string }[]
+    onlyId: false;
+    total: number;
+    cards: { cardId: string, set: string, number: string, lang: string, layout: string }[];
 }
 
 interface SearchResult {
     text: string;
     commands: QueryItem[];
     queries: any[];
-    errors: { type: string; value: string, query?: string }[];
-    result: QueryResult | null
+    errors: { type: string, value: string, query?: string }[];
+    result: QueryResult | null;
 }
 
 export default defineComponent({
@@ -117,7 +117,7 @@ export default defineComponent({
 
         const { search } = magicSetup();
 
-        const data = ref<SearchResult|null>(null);
+        const data = ref<SearchResult | null>(null);
         const searching = ref(false);
 
         const { q, page, pageSize } = pageSetup({

@@ -3,7 +3,10 @@ import { useStore } from 'src/store';
 
 import { api } from 'boot/backend';
 
-export default function magicSetup() {
+export default function magicSetup(): {
+    search: () => void;
+    random: () => Promise<void>;
+} {
     const router = useRouter();
     const route = useRoute();
     const store = useStore();

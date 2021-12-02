@@ -7,7 +7,7 @@ import conn from '../db';
 
 export type IRuling = RawRuling & {
     file: string;
-}
+};
 
 const RulingSchema = new Schema<IRuling>({
     oracle_id:    String,
@@ -18,6 +18,6 @@ const RulingSchema = new Schema<IRuling>({
     file: String,
 });
 
-const Ruling = conn.model<IRuling & Document>('scryfall_ruling', RulingSchema);
+const Ruling = conn.model<Document & IRuling>('scryfall_ruling', RulingSchema);
 
 export default Ruling;

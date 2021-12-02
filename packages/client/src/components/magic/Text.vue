@@ -34,14 +34,14 @@ export default defineComponent({
     setup(props, { attrs, slots }) {
         const store = useStore();
 
-        const symbols = store.getters['magic/data'].symbols || [];
+        const { symbols } = store.getters['magic/data'];
 
         return () => {
             const symbolType = props.symbol ?? [];
 
             const defaultSlot = slots.default!();
 
-            const result: (string | VNode)[] = [];
+            const result: (VNode | string)[] = [];
 
             for (const node of defaultSlot) {
                 if (typeof node.children === 'string' && typeof node.type === 'symbol') {

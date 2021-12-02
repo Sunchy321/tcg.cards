@@ -37,19 +37,12 @@ const bucketSize = 500;
 
 export default class BulkLoader extends Task<Status> {
     type: 'card' | 'ruling';
-
     file: string;
-
     filePath: string;
-
     lineReader: LineReader;
-
     startTime?: number;
-
     count = 0;
-
     updated = 0;
-
     total = 0;
 
     constructor(fileName: string) {
@@ -124,7 +117,7 @@ export default class BulkLoader extends Task<Status> {
 
         const docs = await Card.find({ card_id: { $in: jsons.map(j => j.card_id) } });
 
-        const updated: [ICard, ICard & Document | null][] = jsons.map(json => {
+        const updated: [ICard, Document & ICard | null][] = jsons.map(json => {
             const doc = docs.find(j => j.card_id === json.card_id);
 
             if (doc == null) {
@@ -138,7 +131,7 @@ export default class BulkLoader extends Task<Status> {
 
             if (doc.__file === json.__file) {
                 // same file, keep diff unchanged
-                return [json, doc] as [ICard, ICard & Document];
+                return [json, doc] as [ICard, Document & ICard];
             }
 
             const oldJson = doc.toJSON();
@@ -148,7 +141,7 @@ export default class BulkLoader extends Task<Status> {
                 omit(json, ['file', 'diff']) as ICardBase,
             );
 
-            return [json, doc] as [ICard, ICard & Document];
+            return [json, doc] as [ICard, Document & ICard];
         }).filter(([json, doc]) => {
             if (doc == null) {
                 return true;

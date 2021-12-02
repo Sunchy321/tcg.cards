@@ -16,10 +16,9 @@ const parser = pegjs.generate(
 
 export class QueryError extends Error {
     type: string;
-
     value: string;
 
-    constructor(arg: { type: string, value:string }) {
+    constructor(arg: { type: string, value: string }) {
         super();
 
         this.type = arg.type;
@@ -71,7 +70,7 @@ export function createSearcher<M extends Model>(model: M): Searcher<M> {
                     }
                 } else {
                     const mc = model.commands.find(
-                        co => co.id === c.type || (co.alt != null && co.alt.includes(c.type)),
+                        co => co.id === c.type || (co?.alt?.includes(c.type) ?? false),
                     );
 
                     if (mc == null) {

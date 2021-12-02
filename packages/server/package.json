@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "Card Server",
     "scripts": {
+        "lint": "eslint ./src ./data --ext js,ts --cache --fix",
         "dev": "npx nodemon --inspect src/app.ts -- ../../../server-config.json",
         "build": "tsc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist",
         "postinstall": "patch-package"

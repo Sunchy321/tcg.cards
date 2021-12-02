@@ -238,13 +238,13 @@ const model = {
                 }
 
                 const rarity = (
-                        {
-                            c: 'common',
-                            u: 'uncommon',
-                            r: 'rare',
-                            m: 'mythic',
-                            s: 'special',
-                        } as Record<string, string>
+                    {
+                        c: 'common',
+                        u: 'uncommon',
+                        r: 'rare',
+                        m: 'mythic',
+                        s: 'special',
+                    } as Record<string, string>
                 )[param] || param;
 
                 return simpleQuery('rarity', rarity, op);
@@ -276,7 +276,7 @@ const model = {
                     default:
                         throw new QueryError({
                             type:  'operator/unsupported',
-                            value: op || '',
+                            value: op ?? '',
                         });
                     }
                 } else {
@@ -292,7 +292,7 @@ const model = {
                     default:
                         throw new QueryError({
                             type:  'operator/unsupported',
-                            value: op || '',
+                            value: op ?? '',
                         });
                     }
                 }

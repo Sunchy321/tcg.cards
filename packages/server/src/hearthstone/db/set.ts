@@ -34,6 +34,6 @@ const SetSchema = new Schema<ISet>({
     inWild:     { type: Boolean, default: false },
 });
 
-const Patch = conn.model<ISet & Document>('set', SetSchema);
+const Patch = conn.model<Document & ISet>('set', SetSchema);
 
 export default Patch;

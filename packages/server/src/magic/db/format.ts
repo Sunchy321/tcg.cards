@@ -30,6 +30,6 @@ const FormatSchema = new Schema<IFormat>({
     },
 });
 
-const Format = conn.model<IFormat & Document>('format', FormatSchema);
+const Format = conn.model<Document & IFormat>('format', FormatSchema);
 
 export default Format;

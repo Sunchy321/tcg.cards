@@ -7,11 +7,10 @@ import WebSocket from 'ws';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 abstract class Task<T> extends EventEmitter {
-    status: 'idle' | 'working' | 'error';
+    status: 'error' | 'idle' | 'working';
 
     private intervalProgressId?: NodeJS.Timeout;
-
-    private intervalProgressFunc?: (this: this) => T;
+    private intervalProgressFunc?: () => void;
 
     constructor() {
         super();
@@ -35,15 +34,15 @@ abstract class Task<T> extends EventEmitter {
 
     bind(ws: WebSocket): void {
         this
-            .on('progress', p => ws.send(JSON.stringify(p)))
+            .on('progress', p => { ws.send(JSON.stringify(p)); })
             .on('error', e => {
                 ws.send(JSON.stringify({ error: true, ...e }));
                 console.log(e);
                 ws.close();
             })
-            .on('end', () => ws.close());
+            .on('end', () => { ws.close(); });
 
-        ws.on('close', () => this.stop());
+        ws.on('close', () => { this.stop(); });
 
         this.start();
     }
@@ -69,7 +68,7 @@ abstract class Task<T> extends EventEmitter {
         }
     }
 
-    waitForEnd(): Promise<void> {
+    async waitForEnd(): Promise<void> {
         return new Promise((resolve, reject) => {
             this.on('end', resolve).on('error', reject);
         });
@@ -84,7 +83,7 @@ abstract class Task<T> extends EventEmitter {
             const prog = func.call(this) as T;
 
             this.emit('progress', prog);
-        }.bind(this);
+        }.bind(this) as () => void;
 
         this.intervalProgressFunc = postProgress;
         this.intervalProgressId = setInterval(postProgress, ms);

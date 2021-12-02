@@ -63,7 +63,7 @@ export default defineComponent({
     setup(props, { emit }) {
         const { controlWs } = controlSetup();
 
-        const progress = ref<Progress|null>(null);
+        const progress = ref<Progress | null>(null);
 
         const progressValue = computed(() => {
             if (progress.value == null) {
@@ -81,12 +81,12 @@ export default defineComponent({
             }
         });
 
-        const loadPatch = () => {
+        const loadPatch = async () => {
             const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.version });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
-                    if (data.error) {
+                    if (data.error != null) {
                         console.error(data);
                     } else {
                         const prog = JSON.parse(data) as Progress;

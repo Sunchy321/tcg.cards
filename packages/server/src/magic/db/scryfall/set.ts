@@ -6,7 +6,7 @@ import conn from '../db';
 import { UUID } from '@interface/magic/scryfall/basic';
 import { RawSet } from '@interface/magic/scryfall/set';
 
-export type ISet = { set_id: UUID } & Omit<RawSet, 'id'>;
+export type ISet = Omit<RawSet, 'id'> & { set_id: UUID };
 
 const SetSchema = new Schema<ISet>({
     set_id:          String,
@@ -30,6 +30,6 @@ const SetSchema = new Schema<ISet>({
     search_uri:      String,
 });
 
-const Set = conn.model<ISet & Document>('scryfall_set', SetSchema);
+const Set = conn.model<Document & ISet>('scryfall_set', SetSchema);
 
 export default Set;

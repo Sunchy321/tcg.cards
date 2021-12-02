@@ -5,13 +5,13 @@ import { flatten } from 'lodash';
 import { specificManaSymbols } from '@data/magic/basic';
 
 export default function costQuery(
-    param: string | RegExp,
+    param: RegExp | string,
     op: string | undefined,
-) {
+): any {
     if (param instanceof RegExp) {
         throw new QueryError({
             type:  'regex/disabled',
-            value: op || '',
+            value: op ?? '',
         });
     }
 
@@ -24,7 +24,7 @@ export default function costQuery(
         default:
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         }
     }
@@ -135,7 +135,7 @@ export default function costQuery(
     default:
         throw new QueryError({
             type:  'operator/unsupported',
-            value: op || '',
+            value: op ?? '',
         });
     }
 }

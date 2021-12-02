@@ -7,9 +7,9 @@ import { UUID } from '@interface/magic/scryfall/basic';
 import { RawCard } from '@interface/magic/scryfall/card';
 import { Diff } from 'deep-diff';
 
-export type ICardBase = {
+export type ICardBase = Omit<RawCard, 'id' | 'object'> & {
     card_id: UUID;
-} & Omit<RawCard, 'object' | 'id'>;
+};
 
 export type ICard = ICardBase & {
     __file: string;
@@ -153,6 +153,6 @@ const CardSchema = new Schema<ICard>({
     diff: {},
 }, { strict: false });
 
-const Card = conn.model<ICard & Document>('scryfall_card', CardSchema);
+const Card = conn.model<Document & ICard>('scryfall_card', CardSchema);
 
 export default Card;

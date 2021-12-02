@@ -1,38 +1,38 @@
 const path = require('path');
 
-const EmitAllPlugin = require('webpack-emit-all-plugin');
+const TsconfigPathPlugin = require('tsconfig-paths-webpack-plugin');
 const nodeExternals = require('webpack-node-externals');
 
 module.exports = {
-    entry: './src/app.ts',
+    entry:  './src/app.ts',
     output: {
-        path: path.resolve(__dirname, 'dist'),
-        filename: '[name].js',
+        path:              path.resolve(__dirname, 'dist'),
+        filename:          '[name].js',
         sourceMapFilename: '[name].js.map',
-        clean: true
+        clean:             true,
     },
-    target: 'node',
+    target:           'node',
     externalsPresets: { node: true },
-    externals: [nodeExternals()],
-    resolve: {
+    externals:        [nodeExternals()],
+    resolve:          {
         extensions: ['.ts', '.js'],
-        plugins: [new TsconfigPathPlugin()]
+        plugins:    [new TsconfigPathPlugin()],
     },
     module: {
         rules: [
             {
-                test: /\.ts/,
+                test:    /\.ts/,
                 exclude: /node_modules/,
-                use: [{
-                    loader: 'ts-loader'
-                }]
+                use:     [{
+                    loader: 'ts-loader',
+                }],
             },
             {
                 test: /\.pegjs/,
-                use: [{
-                    loader: 'pegjs-loader'
-                }]
-            }
-        ]
-    }
+                use:  [{
+                    loader: 'pegjs-loader',
+                }],
+            },
+        ],
+    },
 };

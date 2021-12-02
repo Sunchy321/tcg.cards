@@ -108,7 +108,7 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable no-use-before-define */
+/* eslint-disable @typescript-eslint/no-use-before-define */
 import {
     VNode, defineComponent, ref, computed, watch, onMounted,
 } from 'vue';
@@ -145,38 +145,38 @@ const WhiteBtnToggle = QBtnToggle as
     unknown as GlobalComponentConstructor<QBtnToggleProps, WhiteBtnGroupSlots>;
 
 interface SetLocalization {
-    lang: string,
-    name?: string,
-    isOfficialName?: boolean,
-    link?: string,
+    lang: string;
+    name?: string;
+    isOfficialName?: boolean;
+    link?: string;
 }
 
 interface Set {
-    setId: string,
+    setId: string;
 
     scryfall: {
-        id: string,
-        code: string,
-    },
+        id: string;
+        code: string;
+    };
 
-    mtgoCode?: string,
-    tcgplayerId?: number,
+    mtgoCode?: string;
+    tcgplayerId?: number;
 
-    block?: string,
-    parent?: string,
+    block?: string;
+    parent?: string;
 
-    localization: SetLocalization[],
+    localization: SetLocalization[];
 
-    setType: string,
-    isDigital: boolean,
-    isFoilOnly: boolean,
-    isNonfoilOnly: boolean,
-    symbolStyle: string[],
+    setType: string;
+    isDigital: boolean;
+    isFoilOnly: boolean;
+    isNonfoilOnly: boolean;
+    symbolStyle: string[];
 
-    releaseDate?: string,
+    releaseDate?: string;
 
-    cardCount: number,
-    printedSize?: number,
+    cardCount: number;
+    printedSize?: number;
 }
 
 const linkMap: Record<string, string> = {
@@ -222,7 +222,7 @@ export default defineComponent({
         const { controlGet, controlPost } = controlSetup();
 
         const set = ref<string[]>([]);
-        const data = ref<Set|null>(null);
+        const data = ref<Set | null>(null);
         const filteredSet = ref<string[]>([]);
 
         const id = computed({
@@ -393,7 +393,7 @@ export default defineComponent({
 
             const loc = data.value.localization.find(l => l.lang === 'en');
 
-            if (loc != null && loc.link != null) {
+            if (loc?.link != null) {
                 for (const l of localization.value) {
                     if (l.link == null || l.link === '') {
                         assignLink(l.lang, loc.link.replace('/en/', `/${linkMap[l.lang]}/`));

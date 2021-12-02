@@ -1,5 +1,5 @@
 module.exports = {
-    verbose: true,
+    verbose:   true,
     transform: {
         '^.+\\.ts?$': 'ts-jest',
     },

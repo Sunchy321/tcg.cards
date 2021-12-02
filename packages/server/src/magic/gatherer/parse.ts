@@ -10,17 +10,7 @@ import { cardImagePath } from '../image';
 
 type PartialCard = Omit<Partial<ICard>, 'parts'> & {
     parts?: ICard['parts'] extends (infer P)[] ? Partial<P>[] : never;
-}
-
-export default async function parseGatherer(
-    mids: string[],
-    set: string,
-    number: string,
-    lang: string,
-): Promise<PartialCard> {
-    await saveGathererImage(mids, set, number, lang);
-    return parseGathererDetail(mids);
-}
+};
 
 const imgAltMap: Record<string, string> = {
     White: 'W',
@@ -34,11 +24,7 @@ const imgAltMap: Record<string, string> = {
 function getText($: cheerio.Root, elem: cheerio.Cheerio) {
     let result = '';
 
-    const contents = elem.contents();
-
-    for (let i = 0; i < contents.length; i += 1) {
-        const e = contents[i];
-
+    for (const e of elem.contents()) {
         if (e.type === 'text') {
             result += e.data;
         } else if (e.type === 'tag' && e.name === 'div') {
@@ -130,4 +116,14 @@ async function saveGathererImage(mids: string[], set: string, number: string, la
 
         await Promise.all([saverFront.waitForEnd(), saverBack.waitForEnd()]);
     }
+}
+
+export default async function parseGatherer(
+    mids: string[],
+    set: string,
+    number: string,
+    lang: string,
+): Promise<PartialCard> {
+    await saveGathererImage(mids, set, number, lang);
+    return parseGathererDetail(mids);
 }

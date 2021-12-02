@@ -12,11 +12,8 @@ interface ISaveFileOption {
 
 export default class FileSaver extends Task<Progress> {
     url: string;
-
     path: string;
-
     override: boolean;
-
     request?: RequestProgress;
 
     constructor(url: string, path: string, option: ISaveFileOption = {}) {

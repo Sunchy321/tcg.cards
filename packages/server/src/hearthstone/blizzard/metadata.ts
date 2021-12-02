@@ -47,12 +47,12 @@ export class MetadataGetter extends Task<void> {
                 .map(([key, name]) => ({ lang: localeMap[key as Locale], name })),
 
             type:        s.type,
-            releaseDate: s.releastDate || undefined,
+            releaseDate: s.releastDate ?? undefined,
             cardCount:   [s.collectibleCount, s.nonCollectibleCount],
 
             group:      setGroups.find(g => g.cardSets.includes(s.slug))?.slug,
-            inStandard: standardGroup?.cardSets?.includes(s.slug) || false,
-            inWild:     wildGroup?.cardSets?.includes(s.slug) || false,
+            inStandard: standardGroup?.cardSets?.includes(s.slug) ?? false,
+            inWild:     wildGroup?.cardSets?.includes(s.slug) ?? false,
         }));
 
         const setSlugsExist = await Set.find({ slug: { $in: sets.map(s => s.slug) } }).distinct('slug');

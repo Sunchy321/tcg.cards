@@ -15,6 +15,7 @@
                     <q-btn-dropdown
                         v-if="p.type === 'enum'"
                         :key="k"
+                        model-value
                         flat dense
                         :label="paramLabel(p, p.value)"
                     >
@@ -37,6 +38,7 @@
                 <q-btn-dropdown
                     v-if="game != null"
                     flat dense
+                    model-value
                     :label="gameLocale"
                 >
                     <q-list link style="width: 150px">
@@ -96,7 +98,6 @@
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
-import { useRoute } from 'vue-router';
 import { useStore } from 'src/store';
 
 import basicSetup from 'setup/basic';
@@ -109,24 +110,15 @@ export default defineComponent({
     components: { AppTitle },
 
     setup() {
-        const route = useRoute();
         const store = useStore();
         const { game, user, isAdmin } = basicSetup();
 
         const homePath = computed(() => {
             if (game.value == null) {
                 return '/';
+            } else {
+                return `/${game.value}`;
             }
-
-            if (route.path === `/${game.value}`) {
-                return '/';
-            }
-
-            if (route.path === `/${game.value}/`) {
-                return '/';
-            }
-
-            return `/${game.value}`;
         });
 
         const homeIcon = computed(() => {
@@ -141,19 +133,19 @@ export default defineComponent({
             if (isAdmin.value && game.value != null) {
                 return `/${game.value}/data`;
             } else {
-                return null;
+                return undefined;
             }
         });
 
         const gameLocale = computed({
-            get() {
+            get(): string {
                 if (game.value != null) {
                     return store.getters[`${game.value}/locale` as const];
                 } else {
-                    return null;
+                    return 'en';
                 }
             },
-            set(newValue) {
+            set(newValue: string) {
                 if (game.value != null) {
                     store.commit(`${game.value}/locale`, newValue);
                 }
@@ -162,7 +154,7 @@ export default defineComponent({
 
         const gameLocales = computed(() => {
             if (game.value != null) {
-                return store.getters[`${game.value}/locales` as const];
+                return store.getters[`${game.value}/locales` as const] as string[];
             } else {
                 return [];
             }
@@ -172,7 +164,7 @@ export default defineComponent({
         const actionsWithIcon = computed(() => store.getters.actions.filter(a => a.icon != null));
 
         const paramLabel = (p: any, v: string) => {
-            if (p.label) {
+            if (p.label != null) {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 return p.label(v) as string;
             } else {

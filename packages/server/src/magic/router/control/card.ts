@@ -24,7 +24,7 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
 
-function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
+async function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
     const agg = Card.aggregate().allowDiskUse(true);
 
     agg.match(omitBy({ cardId: id, set, number }, v => v == null));
@@ -114,7 +114,7 @@ router.post('/update', async ctx => {
             }
 
             // already added this entry
-            if (old != null && old.relatedCards.some(ro => isEqual(r, ro))) {
+            if (old?.relatedCards.some(ro => isEqual(r, ro))) {
                 continue;
             }
 
@@ -143,14 +143,14 @@ router.post('/update', async ctx => {
 });
 
 interface INeedEditResult {
-    _id: { id: string, lang: string, part: number }
+    _id: { id: string, lang: string, part: number };
 }
 
 type AggregateOption = {
-    lang?: string,
-    match?: any,
+    lang?: string;
+    match?: any;
     post?: (arg: Aggregate<any[]>) => Aggregate<any[]>;
-}
+};
 
 function aggregate({ lang, match, post }: AggregateOption) {
     const agg = Card.aggregate().allowDiskUse(true);

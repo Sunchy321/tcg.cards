@@ -23,7 +23,7 @@ function toStatsList(numbers: number[]) {
 
 export default function halfNumberQuery(
     key: string,
-    param: string | RegExp,
+    param: RegExp | string,
     op: string | undefined,
 ) {
     if (typeof param !== 'string') {
@@ -54,7 +54,7 @@ export default function halfNumberQuery(
         } else {
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         }
     case '!:':
@@ -63,7 +63,7 @@ export default function halfNumberQuery(
         } else {
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         }
     case '=':
@@ -82,7 +82,7 @@ export default function halfNumberQuery(
         if (Number.isNaN(num)) {
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         } else {
             return { [key]: { $in: greater } };
@@ -91,7 +91,7 @@ export default function halfNumberQuery(
         if (Number.isNaN(num)) {
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         } else {
             return { [key]: { $in: [...greater, ...equal] } };
@@ -100,7 +100,7 @@ export default function halfNumberQuery(
         if (Number.isNaN(num)) {
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         } else {
             return { [key]: { $in: less } };
@@ -109,7 +109,7 @@ export default function halfNumberQuery(
         if (Number.isNaN(num)) {
             throw new QueryError({
                 type:  'operator/unsupported',
-                value: op || '',
+                value: op ?? '',
             });
         } else {
             return { [key]: { $in: [...less, ...equal] } };
@@ -117,7 +117,7 @@ export default function halfNumberQuery(
     default:
         throw new QueryError({
             type:  'operator/unsupported',
-            value: op || '',
+            value: op ?? '',
         });
     }
 }

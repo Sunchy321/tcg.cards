@@ -74,10 +74,10 @@ import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 
 interface FormatChangeDetail {
-    category: string,
-    format?: string,
-    in: string[],
-    out: string[],
+    category: string;
+    format?: string;
+    in: string[];
+    out: string[];
 }
 
 interface FormatChange {
@@ -93,9 +93,9 @@ export default defineComponent({
     setup() {
         const { controlGet, controlPost } = controlSetup();
 
-        const format = ref<string|null>(null);
+        const format = ref<string | null>(null);
         const formatChanges = ref<FormatChange[]>([]);
-        const selected = ref<{ label: string, value: FormatChange }|null>(null);
+        const selected = ref<{ label: string, value: FormatChange } | null>(null);
 
         const formatList = [
             'standard',

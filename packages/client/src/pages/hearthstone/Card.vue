@@ -199,7 +199,7 @@ export interface Entity {
     armor: number;
     race: string;
     spellSchool?: string;
-    quest?: { type: 'normal' | 'side' | 'questline', progress: number, part?: number };
+    quest?: { type: 'normal' | 'questline' | 'side', progress: number, part?: number };
 
     techLevel: number;
     inBobsTavern: boolean;

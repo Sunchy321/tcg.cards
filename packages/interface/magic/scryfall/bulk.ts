@@ -1,6 +1,8 @@
 /* eslint-disable camelcase */
 
-import { UUID, Timestamp, MimeType, Encoding } from './basic';
+import {
+    UUID, Timestamp, MimeType, Encoding,
+} from './basic';
 
 export interface IBulkData {
     object: 'bulk_data';

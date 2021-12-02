@@ -23,7 +23,7 @@ declare module 'request-progress' {
                  * The transferred payload size in bytes
                  */
                 transferred: number;
-            },
+            };
 
             time: {
                 /**
@@ -35,13 +35,13 @@ declare module 'request-progress' {
                  * The remaining seconds to finish (3 decimals)
                  */
                 remaining: number;
-            }
+            };
         }
 
         interface RequestProgress extends Request {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            on(event: string, listener: (...args: any[]) => void): this
-            on(event: 'progress', listener: (progress: Progress) => void): this
+            on(event: string, listener: (...args: any[]) => void): this;
+            on(event: 'progress', listener: (progress: Progress) => void): this;
         }
     }
 

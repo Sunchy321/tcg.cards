@@ -101,8 +101,8 @@ import { Set as ISet } from 'interface/magic/set';
 import { apiGet, apiBase, imageBase } from 'boot/backend';
 
 type Set = Omit<ISet, 'localization'> & {
-    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>
-}
+    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
+};
 
 export default defineComponent({
     setup() {
@@ -111,7 +111,7 @@ export default defineComponent({
 
         const { isAdmin } = basicSetup();
 
-        const data = ref<Set|null>(null);
+        const data = ref<Set | null>(null);
 
         const id = computed(() => route.params.id as string);
 

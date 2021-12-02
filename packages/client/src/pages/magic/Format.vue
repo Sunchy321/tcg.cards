@@ -120,7 +120,7 @@ interface BanlistChange {
         tabletop?: string;
         online?: string;
         arena?: string;
-    },
+    };
     link: string[];
 }
 
@@ -128,11 +128,11 @@ interface Data {
     birthday?: string;
     deathdate?: string;
 
-    sets?: string[]
-    banlist?: BanlistChange[]
+    sets?: string[];
+    banlist?: BanlistChange[];
 }
 
-type TimelineItem = FormatChange | BanlistChange;
+type TimelineItem = BanlistChange | FormatChange;
 
 export default defineComponent({
     components: {
@@ -169,7 +169,7 @@ export default defineComponent({
             },
         });
 
-        const data = ref<Data|null>(null);
+        const data = ref<Data | null>(null);
         const timeline = ref<TimelineItem[]>([]);
 
         const orderOptions = ['name', 'date'].map(v => ({

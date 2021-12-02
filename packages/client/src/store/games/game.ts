@@ -5,7 +5,7 @@ import {
 import { LocalStorage } from 'quasar';
 
 function defaultValue(option: GameOption) {
-    if (option.type === 'enum' && option.default) {
+    if (option.type === 'enum' && option.default != null) {
         return option.default;
     } else { // option.type === 'number';
         return 0;
@@ -13,7 +13,7 @@ function defaultValue(option: GameOption) {
 }
 
 export function createModule<
-    D extends { locales: string[] }, S
+    D extends { locales: string[] }, S,
 >(game: string, options: GameOptions<S>): GameModule<D, S> {
     const state = {
         locale:  'en',

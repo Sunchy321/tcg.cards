@@ -42,7 +42,7 @@ export default defineComponent({
     setup() {
         const i18n = useI18n();
 
-        const basic = basicSetup();
+        const { user } = basicSetup();
 
         pageSetup({
             title: () => i18n.t('setting.$self'),
@@ -60,7 +60,7 @@ export default defineComponent({
         });
 
         return {
-            user: basic.user,
+            user,
             tab,
             main,
         };

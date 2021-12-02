@@ -102,6 +102,6 @@ const EntitySchema = new Schema<IEntity>({
     },
 });
 
-const Entity = conn.model<IEntity & Document>('entity', EntitySchema);
+const Entity = conn.model<Document & IEntity>('entity', EntitySchema);
 
 export default Entity;
