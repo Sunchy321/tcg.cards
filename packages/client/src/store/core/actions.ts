@@ -4,14 +4,10 @@ import { State } from './state';
 
 import { LocalStorage } from 'quasar';
 import { apiGet } from 'boot/backend';
-import { locales } from './getters';
+import { games, locales } from './getters';
 
-async function loadData(data: any, { commit, dispatch }: ActionContext<State, any>) {
-    const games = data.games as string[];
-
-    commit('games', games);
-
-    for (const g of games) {
+async function loadData(data: any, { dispatch }: ActionContext<State, any>) {
+    for (const g of games()) {
         void dispatch(`${g}/init`, data[g]);
     }
 

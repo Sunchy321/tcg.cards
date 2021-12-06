@@ -16,7 +16,8 @@
   },
   "scripts": {
     "lint": "eslint --ext .js,.vue src",
-    "test": "echo \"No test specified\" && exit 0"
+    "test": "echo \"No test specified\" && exit 0",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@quasar/extras": "^1.9.6",

@@ -15,7 +15,7 @@
                     <q-btn-dropdown
                         v-if="p.type === 'enum'"
                         :key="k"
-                        model-value
+                        :model-value="false"
                         flat dense
                         :label="paramLabel(p, p.value)"
                     >
@@ -38,7 +38,7 @@
                 <q-btn-dropdown
                     v-if="game != null"
                     flat dense
-                    model-value
+                    :model-value="false"
                     :label="gameLocale"
                 >
                     <q-list link style="width: 150px">
