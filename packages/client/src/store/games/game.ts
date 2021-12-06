@@ -1,5 +1,5 @@
 import {
-    GameOption, GameOptions, GameModule, GameState, GameGetters, GameMutations, GameActions,
+    GameOption, GameOptions, GameState, GameGetters, GameMutations, GameActions, GameModule,
 } from './interface';
 
 import { LocalStorage } from 'quasar';

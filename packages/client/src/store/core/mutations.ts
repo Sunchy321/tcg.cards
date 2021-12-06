@@ -37,7 +37,7 @@ export function titleType(state: State, newValue: string): void {
     state.titleType = newValue;
 }
 
-export function params(state: State, newValue: Record<any, ParamObject<any, boolean>>): void {
+export function params(state: State, newValue: Record<string, ParamObject<any, boolean>>): void {
     state.params = newValue;
 }
 

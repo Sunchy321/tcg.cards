@@ -1,4 +1,4 @@
-import { Module } from '../interface';
+import { ModuleOptions } from '../typed-vuex/interface';
 import type { Commit } from 'vuex';
 
 interface GameOptionNumber {
@@ -52,5 +52,5 @@ export type GameActions<D, S> = {
     ) => Promise<void>;
 };
 
-export type GameModule<D extends { locales: string[] }, S>
-    = Module<true, GameState<D, S>, GameGetters<D, S>, GameMutations<D, S>, GameActions<D, S>>;
+export type GameModule<D, S> = ModuleOptions<
+GameState<D, S>, GameGetters<D, S>, GameMutations<D, S>, GameActions<D, S>, true>;

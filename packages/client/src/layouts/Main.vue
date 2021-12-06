@@ -58,12 +58,24 @@
                     </q-list>
                 </q-btn-dropdown>
 
-                <q-btn
-                    v-for="a in actionsWithIcon" :key="a.action"
-                    :icon="a.icon"
-                    flat dense round
-                    @click="commitAction(a.action)"
-                />
+                <template v-for="a in actionsWithIcon" :key="a.action">
+                    <uploader-btn
+                        v-if="a.popup && a.popup.type === 'file'"
+                        :icon="a.icon" flat dense
+                        round
+                        :url="a.popup.url"
+                        :accept="a.popup.accept"
+                        @uploading="commitAction(a.action, 'uploading', false)"
+                        @uploaded="commitAction(a.action, 'uploaded')"
+                        @failed="commitAction(a.action, 'failed')"
+                    />
+                    <q-btn
+                        v-else
+                        :icon="a.icon" flat dense
+                        round
+                        @click="commitAction(a.action)"
+                    />
+                </template>
 
                 <q-btn
                     v-if="isAdmin && game != null"
@@ -103,11 +115,12 @@ import { useStore } from 'src/store';
 import basicSetup from 'setup/basic';
 
 import AppTitle from 'components/Title.vue';
+import UploaderBtn from 'components/UploaderBtn.vue';
 
 import { pickBy } from 'lodash';
 
 export default defineComponent({
-    components: { AppTitle },
+    components: { AppTitle, UploaderBtn },
 
     setup() {
         const store = useStore();
@@ -140,7 +153,7 @@ export default defineComponent({
         const gameLocale = computed({
             get(): string {
                 if (game.value != null) {
-                    return store.getters[`${game.value}/locale` as const];
+                    return store.getters[`${game.value}/locale`];
                 } else {
                     return 'en';
                 }
@@ -154,7 +167,7 @@ export default defineComponent({
 
         const gameLocales = computed(() => {
             if (game.value != null) {
-                return store.getters[`${game.value}/locales` as const] as string[];
+                return store.getters[`${game.value}/locales`];
             } else {
                 return [];
             }
@@ -177,8 +190,8 @@ export default defineComponent({
             store.commit('param', { key, value });
         };
 
-        const commitAction = (action: string) => {
-            void store.dispatch('action', action);
+        const commitAction = (name: string, type = 'default', fallback = true) => {
+            store.dispatch('action', { name, type, fallback });
         };
 
         return {

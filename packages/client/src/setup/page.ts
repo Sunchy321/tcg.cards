@@ -81,10 +81,17 @@ export function getDefault(param: Parameter<any>): Value<any> {
     }
 }
 
+export type FilePopup = {
+    type: 'file';
+    url: string;
+    accept?: string;
+};
+
 export interface Action {
     action: string;
     icon?: string;
-    handler: () => void;
+    popup?: FilePopup;
+    handler: Record<string, () => void> | (() => void);
 }
 
 export interface Option {
@@ -95,7 +102,7 @@ export interface Option {
 }
 
 export type ParamObject<T, R extends boolean> = ParameterBase<T, R> & {
-    value: Ref<ValueType<T>>;
+    value?: Ref<ValueType<T>>;
 };
 
 export type Result<O extends Option> = {

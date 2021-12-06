@@ -38,7 +38,7 @@ export default defineComponent({
         const { user } = basicSetup();
 
         const logout = () => {
-            void store.dispatch('user/logout');
+            store.dispatch('user/logout');
         };
 
         return {

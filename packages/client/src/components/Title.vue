@@ -57,11 +57,11 @@ export default defineComponent({
 
         const keyboardSearch = (e: KeyboardEvent) => {
             if (e.key === 'Enter') {
-                void store.dispatch('action', 'search');
+                store.dispatch('action', { name: 'search' });
             }
         };
 
-        const mouseSearch = async () => store.dispatch('action', 'search');
+        const mouseSearch = async () => { store.dispatch('action', { name: 'search' }); };
 
         return {
             search,

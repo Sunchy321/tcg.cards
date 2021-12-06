@@ -12,6 +12,7 @@ import type { QuasarLanguage } from 'quasar';
 import { useRoute } from 'vue-router';
 import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
+import { Game } from './store/games';
 
 const quasarLocaleMap: Record<string, string> = {
     en:  'en-US',
@@ -27,10 +28,10 @@ export default defineComponent({
         const store = useStore();
         const i18n = useI18n();
 
-        store.subscribe(async ({ type, payload }) => {
-            const locale = payload as string;
+        store.subscribe(async mutation => {
+            if (mutation.type === 'locale') {
+                const locale = mutation.payload;
 
-            if (type === 'locale') {
                 i18n.locale.value = locale;
 
                 const qLocaleId = quasarLocaleMap[locale]
@@ -53,7 +54,7 @@ export default defineComponent({
                     const firstPart = path.split('/').filter(v => v !== '')[0];
 
                     if ((store.getters.games as string[]).includes(firstPart)) {
-                        store.commit('game', firstPart);
+                        store.commit('game', firstPart as unknown as Game);
                     }
                 }
             },

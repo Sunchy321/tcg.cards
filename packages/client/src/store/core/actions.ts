@@ -46,12 +46,30 @@ export async function boot(context: ActionContext<State, any>): Promise<void> {
     await loadData(remoteData, context);
 }
 
-export function action(context: ActionContext<State, any>, type: string): void {
+export interface CallAction {
+    name: string;
+    type?: string;
+    fallback?: boolean;
+}
+
+export function action(context: ActionContext<State, any>, callAction: CallAction): void {
+    const { name, type = 'default', fallback = false } = callAction;
+
     const { actions } = context.state;
 
     for (const a of actions) {
-        if (a.action === type) {
-            a.handler();
+        if (a.action === name) {
+            const { handler } = a;
+
+            if (typeof handler === 'function') {
+                if (type === 'default' || fallback) {
+                    handler();
+                }
+            } else if (handler[type] != null) {
+                handler[type]();
+            } else if (handler.default != null && fallback) {
+                handler.default();
+            }
         }
     }
 }

@@ -1,18 +1,14 @@
-import { createStore, useStore as vuexUseStore, createLogger } from 'vuex';
+import { useStore as vuexUseStore, createLogger } from 'vuex';
 import type { InjectionKey } from 'vue';
 
-import { Store as CreateStore } from './interface';
+import { createStore } from './typed-vuex';
 
-import core, { CoreModule } from './core';
-import user, { UserModule } from './user';
+import core from './core';
+import user from './user';
 
-import games, { Modules } from './games';
+import games from './games';
 
-export type Store = CreateStore<CoreModule['state'], CoreModule['getters'], CoreModule['mutations'], CoreModule['actions'], Modules & { user: UserModule }>;
-
-export const storeKey: InjectionKey<Store> = Symbol('store');
-
-const store = createStore<CoreModule['state']>({
+const store = createStore({
     state:     core.state,
     getters:   core.getters,
     mutations: core.mutations,
@@ -20,10 +16,14 @@ const store = createStore<CoreModule['state']>({
     modules:   { user, ...games },
     plugins:   process.env.DEV ? [createLogger()] : [],
     strict:    !!process.env.DEV,
-}) as Store;
+});
 
 export default store;
 
+export type Store = typeof store;
+
+export const storeKey: InjectionKey<Store> = Symbol('store');
+
 export function useStore(): Store {
-    return vuexUseStore(storeKey);
+    return vuexUseStore(storeKey) as unknown as Store;
 }
