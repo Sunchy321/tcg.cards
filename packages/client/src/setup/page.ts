@@ -91,7 +91,7 @@ export interface Action {
     action: string;
     icon?: string;
     popup?: FilePopup;
-    handler: Record<string, () => void> | (() => void);
+    handler: Record<string, (() => void) | ((payload: any) => void)> | (() => void) | ((payload: any) => void);
 }
 
 export interface Option {

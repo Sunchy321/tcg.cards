@@ -22,31 +22,35 @@
         </div>
 
         <div class="row q-gutter-md">
-            <q-list class="col" bordered separator>
-                <q-item v-for="f in bulk.allCard" :key="f">
-                    <q-item-section>{{ f }}</q-item-section>
-                    <q-item-section side>
-                        <q-btn
-                            flat dense round
-                            icon="mdi-import"
-                            @click="loadBulk(f)"
-                        />
-                    </q-item-section>
-                </q-item>
-            </q-list>
+            <div class="col flex justify-between items-center">
+                <q-select
+                    v-model="bulkAllCard"
+                    class="flex-grow"
+                    :options="bulk.allCard"
+                    dense outlined
+                />
 
-            <q-list class="col" bordered separator>
-                <q-item v-for="f in bulk.ruling" :key="f">
-                    <q-item-section>{{ f }}</q-item-section>
-                    <q-item-section side>
-                        <q-btn
-                            flat dense round
-                            icon="mdi-import"
-                            @click="loadBulk(f)"
-                        />
-                    </q-item-section>
-                </q-item>
-            </q-list>
+                <q-btn
+                    flat dense round
+                    icon="mdi-import"
+                    @click="loadBulk(bulkAllCard)"
+                />
+            </div>
+
+            <div class="col flex justify-between items-center">
+                <q-select
+                    v-model="bulkRuling"
+                    class="flex-grow"
+                    :options="bulk.ruling"
+                    dense outlined
+                />
+
+                <q-btn
+                    flat dense round
+                    icon="mdi-import"
+                    @click="loadBulk(bulkRuling)"
+                />
+            </div>
         </div>
 
         <div class="q-mt-xl q-mb-sm">
@@ -143,12 +147,13 @@
 
 <script lang="ts">
 import {
-    defineComponent, ref, computed, onMounted,
+    defineComponent, ref, computed, onMounted, watch,
 } from 'vue';
 
 import controlSetup from 'setup/control';
 
 import bytes from 'bytes';
+import { last } from 'lodash';
 
 interface BulkList {
     allCard: string[];
@@ -215,6 +220,9 @@ export default defineComponent({
         const bulk = ref<BulkList>({ allCard: [], ruling: [] });
         const scryfall = ref<Scryfall>({ card: 0, ruling: 0, set: 0 });
         const database = ref<Database>({ card: 0, set: 0 });
+
+        const bulkAllCard = ref<string>('');
+        const bulkRuling = ref<string>('');
 
         const progress = ref<Progress | null>(null);
 
@@ -386,10 +394,18 @@ export default defineComponent({
 
         onMounted(loadData);
 
+        watch(bulk, ({ allCard, ruling }) => {
+            bulkAllCard.value = last(allCard) ?? '';
+            bulkRuling.value = last(ruling) ?? '';
+        });
+
         return {
             bulk,
             scryfall,
             database,
+
+            bulkAllCard,
+            bulkRuling,
 
             progress,
             progressValue,

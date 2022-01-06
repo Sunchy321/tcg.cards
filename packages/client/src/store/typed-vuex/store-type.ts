@@ -12,7 +12,7 @@ type UnionToIntersection<U> =
 // { x: T, y: U } to T & U
 type ObjectToIntersection<T> = UnionToIntersection<ObjectToUnion<T>>;
 
-// (type: T, payload: S) => R | (type: U, payload: S) => R to T | U
+// (type: T) => R | (type: U) => R to T | U
 type TypeUnionWithoutPayload<U, R> = U extends (type: infer T) => R ? T : never;
 
 // (type: T, payload: S) => R | (type: U, payload: S) => R to T | U
@@ -20,7 +20,7 @@ type TypeUnionWithPayload<U, S, R> = U extends (type: any) => any
     ? never
     : U extends (type: infer T, payload: S) => R ? T : never;
 
-// { a: (type: T, payload: P) => R, b: (type: U, payload: P) => R }
+// { a: (type: T, payload: P) => R, b: (type: U, payload: P) => R } to
 // { a: (type: T | U, payload: P) => R, b: (type: T | U, payload: P) => R }
 type MergeWithPayload<T> = {
     [K in keyof T]: T[K] extends (first: any) => infer R
@@ -98,22 +98,4 @@ export type StoreType<Options> = Options extends StoreOptions<infer S, infer G, 
                 state: State<S, O>
             ) => any
         ) => (() => void);
-
-        dispatchRaw: Dispatches<A, O>;
-        dispatchMerged: MergeWithPayload<Dispatches<A, O>>;
-
-        commitRaw: Commits<M, O>;
-        commitMerged: MergeWithPayload<Commits<M, O>>;
-
-        mutationType: ObjectToUnion<{
-            [K in keyof Commits<M, O>]: Commits<M, O>[K] extends (type: infer T, payload: infer P) => any
-                ? { type: T, payload: P }
-                : never
-        }>;
-
-        mutationRaw: {
-            [K in keyof Commits<M, O>]: Commits<M, O>[K] extends (type: infer T, payload: infer P) => any
-                ? { type: T, payload: P }
-                : never
-        };
     } : never;

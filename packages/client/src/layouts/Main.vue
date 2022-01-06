@@ -21,11 +21,11 @@
                     >
                         <q-list link style="width: 150px">
                             <q-item
-                                v-for="o in p.values" :key="o"
+                                v-for="o in (p as any).values" :key="o"
                                 v-close-popup
 
                                 clickable
-                                @click="commitParam(k, o)"
+                                @click="commitParam(k as string, o)"
                             >
                                 <q-item-section>
                                     {{ paramLabel(p, o) }}
@@ -65,15 +65,15 @@
                         round
                         :url="a.popup.url"
                         :accept="a.popup.accept"
-                        @uploading="commitAction(a.action, 'uploading', false)"
-                        @uploaded="commitAction(a.action, 'uploaded')"
-                        @failed="commitAction(a.action, 'failed')"
+                        @uploading="v => commitAction({ name: a.action, type: 'uploading', fallback: false }, v)"
+                        @uploaded="v => commitAction({ name:a.action, type: 'uploaded' }, v)"
+                        @failed="v => commitAction({ name:a.action, type: 'failed' }, v)"
                     />
                     <q-btn
                         v-else
                         :icon="a.icon" flat dense
                         round
-                        @click="commitAction(a.action)"
+                        @click="commitAction({ name: a.action})"
                     />
                 </template>
 
@@ -116,6 +116,8 @@ import basicSetup from 'setup/basic';
 
 import AppTitle from 'components/Title.vue';
 import UploaderBtn from 'components/UploaderBtn.vue';
+
+import { Action } from 'src/store/core/actions';
 
 import { pickBy } from 'lodash';
 
@@ -185,13 +187,16 @@ export default defineComponent({
             }
         };
 
-        const commitParam = (key: any, value: any) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const commitParam = (key: string, value: any) => {
             store.commit('param', { key, value });
         };
 
-        const commitAction = (name: string, type = 'default', fallback = true) => {
-            store.dispatch('action', { name, type, fallback });
+        const commitAction = (action: Action, payload?: any) => {
+            if (payload != null) {
+                store.dispatch('action', { ...action, payload });
+            } else {
+                store.dispatch('action', action);
+            }
         };
 
         return {
@@ -205,8 +210,7 @@ export default defineComponent({
             gameLocale,
             gameLocales,
 
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            paramsInTitle: paramsInTitle as any,
+            paramsInTitle,
             actionsWithIcon,
 
             paramLabel,

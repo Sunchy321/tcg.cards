@@ -28,7 +28,7 @@ export default defineComponent({
     setup() {
         const tabs = Object.keys(components);
 
-        const params = pageSetup({
+        const { tab } = pageSetup({
             title: 'Data',
 
             params: {
@@ -42,7 +42,7 @@ export default defineComponent({
 
         return {
             tabs,
-            tab: params.tab,
+            tab,
         };
     },
 });

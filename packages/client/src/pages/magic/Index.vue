@@ -14,7 +14,7 @@
                 />
             </template>
         </q-input>
-        <div class="links q-pa-xl q-gutter-md row ">
+        <div class="links q-pa-xl q-gutter-md row">
             <div class="col column">
                 <q-btn
                     class="link"
