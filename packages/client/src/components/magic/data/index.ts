@@ -5,6 +5,7 @@ import Set from './Set.vue';
 import Format from './Format.vue';
 import FormatChange from './FormatChange.vue';
 import BanlistChange from './BanlistChange.vue';
+import Legality from './Legality.vue';
 import CR from './CR.vue';
 
 export default {
@@ -15,5 +16,6 @@ export default {
     Format,
     FormatChange,
     BanlistChange,
+    Legality,
     CR,
 };

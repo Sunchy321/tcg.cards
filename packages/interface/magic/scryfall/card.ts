@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 
 import {
-    UUID, URI, CardComponent, Colors, Finish, Game, Legalities,
+    UUID, URI, CardComponent, Colors, Finish, Game, Legalities, Layout,
 } from './basic';
 
 export interface Part {
@@ -63,7 +63,7 @@ export interface RawCard {
     edhrec_rank?: number;
     hand_modifier?: string;
     keywords: string[];
-    layout: string;
+    layout: Layout;
     legalities: Legalities;
     life_modifier?: string;
     loyalty?: string;

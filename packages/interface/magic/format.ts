@@ -1,8 +1,10 @@
+import { Legality } from './card';
+
 export interface Format {
     formatId: string;
     localization: { lang: string, name: string }[];
     sets?: string[];
-    banlist: { card: string, status: string, date: string, group?: string }[];
+    banlist: { card: string, status: Legality, date: string, group?: string }[];
     birthday?: string;
     deathdate?: string;
 }

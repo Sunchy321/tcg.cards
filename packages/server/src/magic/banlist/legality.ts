@@ -3,17 +3,19 @@ import ScryfallCard, { ICard as IScryfallCard } from '@/magic/db/scryfall/card';
 import Format from '@/magic/db/format';
 
 import Task from '@/common/task';
-import { Card as ICard, CardType } from '@interface/magic/card';
+import {
+    Card as ICard, Category, Legalities,
+} from '@interface/magic/card';
 import { Format as IFormat } from '@interface/magic/format';
-import { Legalities } from '@interface/magic/scryfall/basic';
 
 import { formats as formatList } from '@data/magic/basic';
 import { toGenerator, toBucket } from '@/common/to-bucket';
+import { convertLegality } from '../util';
 
 export interface CardData {
     _id: string;
 
-    cardType: CardType;
+    category: Category;
     legalities: ICard['legalities'];
 
     parts: {
@@ -22,12 +24,44 @@ export interface CardData {
 
     versions: {
         set: string;
+        number: string;
         rarity: string;
         releaseDate: string;
     }[];
 
     scryfall: ICard['scryfall']['oracleId'];
 }
+
+const setsInformal = [
+    /* Un-cards */ 'ugl', 'unh', 'punh', 'ust', 'pust', 'und',
+    /* Set including un-cards */ 'pal04', 'j17',
+    /* Test cards */ 'cmb1', 'cmb2',
+    /* Hydra game cards */ 'tfth', 'tbth', 'tdag', 'thp1', 'thp2', 'thp3',
+    /* Gift cards */'psdg', 'past', 'pmic', 'ppc1',
+    /* Funny gift cards */
+    'pcel',
+    'hho', 'h17',
+    'htr16', 'htr17', 'htr18', 'htr19', 'htr20',
+    'ptg',
+];
+
+const setsSpecial = ['plist', 'sld'];
+
+const setsOnlyOnMTGA = ['ana', 'oana', 'xana', 'anb', 'jmp21', 'y22'];
+
+const cardsNotInAlchemy = [
+    'alrund_s_epiphany',
+    'cosmos_elixir',
+    'demilich',
+    'druid_class',
+    'esika_s_chariot',
+    'faceless_haven',
+    'goldspan_dragon',
+    'luminarch_aspirant',
+    'omnath__locus_of_creation',
+    'phylath__world_sculptor',
+    'wizard_class',
+];
 
 export async function getLegality(data: CardData, formats: IFormat[]): Promise<ICard['legalities']> {
     const versions = data.versions.filter(v => v.releaseDate <= new Date().toLocaleDateString('en-CA'));
@@ -42,35 +76,28 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
         }
 
         // Non-card
-        if (['token', 'auxiliary', 'minigame', 'art', 'decklist', 'player', 'advertisement'].includes(data.cardType)) {
+        if (['token', 'auxiliary', 'minigame', 'art', 'decklist', 'player', 'advertisement'].includes(data.category)) {
             result[f.formatId] = 'unavailable';
             continue;
         }
 
-        if (versions.every(v => [
-            /* Un-cards */ 'ugl', 'unh', 'punh', 'ust', 'pust', 'und',
-            /* Set including un-cards */ 'pal04', 'j17',
-            /* Test cards */ 'cmb1',
-            /* Hydra game cards */ 'tfth', 'tbth', 'tdag', 'thp1', 'thp2', 'thp3',
-            /* Gift cards */'psdg', 'past', 'pmic', 'ppc1',
-            /* Funny gift cards */
-            'pcel',
-            'hho', 'h17',
-            'htr16', 'htr17', 'htr18', 'htr19',
-            'ptg',
-        ].includes(v.set))) {
+        const banlistItem = f.banlist.find(b => b.card === data._id);
+
+        if (banlistItem != null) {
+            result[f.formatId] = banlistItem.status;
+            continue;
+        }
+
+        if (
+            versions.every(v => [...setsInformal, ...setsSpecial].includes(v.set))
+            && versions.some(v => setsInformal.includes(v.set))
+        ) {
             result[f.formatId] = 'unavailable';
             continue;
         }
 
         // Casual card type
         if (data.parts.some(p => p.typeMain.some(t => ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'].includes(t)))) {
-            result[f.formatId] = 'unavailable';
-            continue;
-        }
-
-        // Cards only on MTGA
-        if (f.formatId !== 'historic' && versions.every(v => ['ana', 'oana', 'xana', 'anb'].includes(v.set))) {
             result[f.formatId] = 'unavailable';
             continue;
         }
@@ -82,9 +109,9 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
         }
 
         if (f.sets != null) {
-            const sets = versions.map(v => v.set).filter(s => {
+            const sets = versions.filter(({ set, number }) => {
                 // some cards not in MTGA
-                if (f.formatId === 'historic' && s === 'jmp') {
+                if (f.formatId === 'historic' && set === 'jmp') {
                     if ([
                         'ajani_s_chosen',
                         'angelic_arbiter',
@@ -109,10 +136,13 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
                     ].includes(data._id)) {
                         return false;
                     }
+                } else if (f.formatId === 'historic' && set === 'jmp21' && number.startsWith('999-')) {
+                    // Cards can only be conjured
+                    return false;
                 }
 
                 return true;
-            });
+            }).map(v => v.set);
 
             if (sets.every(v => !f.sets!.includes(v))) {
                 result[f.formatId] = 'unavailable';
@@ -123,7 +153,8 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
         if (f.formatId === 'pauper') {
             // Some set are not checked
             const pauperVersions = versions.filter(v => ![
-                /* Sets only on MTGA */ 'ana', 'oana', 'anb',
+                ...setsOnlyOnMTGA,
+                /* MO Promo set */ 'ppro',
                 /* Foreign sets */ 'ren', 'rin',
                 /* Promo sets */ 'wc97', 'wc98', 'wc99', 'wc00', 'wc01', 'wc02', 'wc03', 'wc04',
             ].includes(v.set));
@@ -144,10 +175,21 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
             }
         }
 
-        const banlistItem = f.banlist.find(b => b.card === data._id);
+        // Card not in online formats. Placed here for Omnath
+        if (['alchemy', 'historic'].includes(f.formatId) && cardsNotInAlchemy.includes(data._id)) {
+            result[f.formatId] = 'unavailable';
+            continue;
+        }
 
-        if (banlistItem != null) {
-            result[f.formatId] = banlistItem.status;
+        // Cards only in online formats
+        if (
+            !['alchemy', 'historic'].includes(f.formatId)
+            && (
+                versions.every(v => setsOnlyOnMTGA.includes(v.set))
+                || cardsNotInAlchemy.map(id => `a_${id}`).includes(data._id)
+            )
+        ) {
+            result[f.formatId] = 'unavailable';
             continue;
         }
 
@@ -163,15 +205,9 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
     return result;
 }
 
-export function checkLegality(data: CardData, legalities: ICard['legalities'], scryfall: Legalities): string | undefined {
+export function checkLegality(data: CardData, legalities: Legalities, scryfall: Legalities): string | undefined {
     for (const f of Object.keys(legalities)) {
-        const sLegality = (() => {
-            const legality = f === 'duelcommander' ? scryfall.duel : scryfall[f];
-
-            return legality === 'not_legal' ? 'unavailable' : legality;
-        })();
-
-        if (sLegality != null && legalities[f] !== sLegality) {
+        if (scryfall[f] != null && legalities[f] !== scryfall[f]) {
             if (data._id === 'gleemox') {
                 continue;
             }
@@ -195,11 +231,6 @@ export function checkLegality(data: CardData, legalities: ICard['legalities'], s
                     'daryl__hunter_of_walkers',
                     'lucille',
                 ].includes(data._id)) {
-                    continue;
-                }
-
-                // Card banned as commander in duelcommander are marked as restricted by Scryfall.
-                if (legalities[f] === 'banned_as_commander' && sLegality === 'restricted') {
                     continue;
                 }
 
@@ -230,7 +261,7 @@ export function checkLegality(data: CardData, legalities: ICard['legalities'], s
                     // 'sheoldred__whispering_one',
                     'thought_scour',
                     'time_to_feed',
-                ].includes(data._id) && legalities[f] === 'unavailable' && sLegality === 'banned') {
+                ].includes(data._id) && legalities[f] === 'unavailable' && scryfall[f] === 'banned') {
                     continue;
                 }
             } else if (f === 'pauper') {
@@ -283,7 +314,7 @@ export class LegalityAssigner extends Task<Status> {
                 $group: {
                     _id: '$cardId',
 
-                    cardType:   { $first: '$cardType' },
+                    category:   { $first: '$category' },
                     legalities: { $first: '$legalities' },
 
                     parts: {
@@ -301,6 +332,7 @@ export class LegalityAssigner extends Task<Status> {
                     versions: {
                         $addToSet: {
                             set:         '$set',
+                            number:      '$number',
                             rarity:      '$rarity',
                             releaseDate: '$releaseDate',
                         },
@@ -351,14 +383,16 @@ export class LegalityAssigner extends Task<Status> {
                 const scryfall = scryfalls.find(s => s.oracle_id === c.scryfall);
 
                 if (scryfall != null) {
-                    const check = checkLegality(c, result, scryfall.legalities);
+                    const sLegalities = convertLegality(scryfall.legalities);
+
+                    const check = checkLegality(c, result, sLegalities);
 
                     if (check != null) {
                         wrongs.push({
                             cardId:   c._id,
                             format:   check,
                             data:     result[check],
-                            scryfall: scryfall.legalities[check],
+                            scryfall: sLegalities[check],
                         });
                     }
                 }

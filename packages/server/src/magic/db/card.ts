@@ -81,7 +81,7 @@ const CardSchema = new Schema<ICard>({
     keywords:     [String],
     producedMana: { type: [String], default: undefined },
 
-    cardType:     String,
+    category:     String,
     layout:       String,
     frame:        String,
     frameEffects: [String],

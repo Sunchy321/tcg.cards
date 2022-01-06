@@ -1,5 +1,13 @@
-export type CardType =
-    'advertisement' | 'art' | 'auxiliary' | 'decklist' | 'minigame' | 'normal' | 'player' | 'token';
+export type Category =
+    'advertisement' | 'art' | 'auxiliary' | 'decklist' | 'default' | 'minigame' | 'player' | 'token';
+
+export type Legality =
+    'banned_as_commander' | 'banned_as_companion' | 'banned' | 'legal' | 'restricted' | 'suspended' | 'unavailable';
+
+export type Legalities = Record<string, Legality>;
+
+export type Layout =
+    'adventure' | 'aftermath' | 'augment' | 'class' | 'emblem' | 'flip' | 'host' | 'leveler' | 'meld' | 'minigame' | 'modal_dfc' | 'multipart' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'token' | 'transform' | 'vanguard';
 
 export interface Card {
     cardId: string;
@@ -71,8 +79,8 @@ export interface Card {
     keywords: string[];
     producedMana?: string;
 
-    cardType: CardType;
-    layout: string;
+    category: Category;
+    layout: Layout;
     frame: string;
     frameEffects: string[];
     borderColor: string;
@@ -91,7 +99,7 @@ export interface Card {
     finishes: string[];
     hasHighResImage: boolean;
 
-    legalities: Record<string, string>;
+    legalities: Legalities;
     isReserved: boolean;
     inBooster: boolean;
     contentWarning?: boolean;

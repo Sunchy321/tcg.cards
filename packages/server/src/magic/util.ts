@@ -1,5 +1,6 @@
 import { deburr } from 'lodash';
-import { Colors, Legalities } from '@interface/magic/scryfall/basic';
+import { Colors, Legalities as SLegalities } from '@interface/magic/scryfall/basic';
+import { Legalities } from '@interface/magic/card';
 
 export function toIdentifier(text: string): string {
     return deburr(text)
@@ -63,24 +64,13 @@ export function convertColor(color: Colors): string {
         .join('');
 }
 
-export function convertLegality(legalities: Legalities): Record<string, string> {
-    const result: Record<string, string> = {};
-
-    for (const sFormat of Object.keys(legalities)) {
-        const format = sFormat === 'duel' ? 'duelcommander' : sFormat;
-
-        switch (legalities[sFormat]) {
-        case 'legal':
-        case 'banned':
-        case 'restricted':
-            result[format] = legalities[sFormat];
-            break;
-        case 'not_legal':
-            result[format] = 'unavailable';
-            break;
-        default:
-        }
-    }
-
-    return result;
+export function convertLegality(legalities: SLegalities): Legalities {
+    return Object.fromEntries(
+        Object.entries(legalities).map(([k, v]) => [
+            k === 'duel' ? 'duelcommander' : k,
+            v === 'not_legal'
+                ? 'unavailable' : k === 'duel' && v === 'restricted'
+                    ? 'banned_as_commander' : v,
+        ]),
+    );
 }

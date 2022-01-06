@@ -5,7 +5,7 @@ import ScryfallCard, { ICard as ISCard, ICardBase as ISCardBase } from '@/magic/
 import Card from '@/magic/db/card';
 import Set from '@/magic/db/set';
 
-import { Card as ICard, CardType } from '@interface/magic/card';
+import { Card as ICard, Category } from '@interface/magic/card';
 import { Colors } from '@interface/magic/scryfall/basic';
 import { CardFace } from '@interface/magic/scryfall/card';
 
@@ -21,6 +21,10 @@ import { cardImagePath } from '@/magic/image';
 import { existsSync, unlinkSync } from 'fs';
 import { isEqual } from 'lodash';
 
+type ISCardNoArtSeries = Omit<ISCard, 'layout'> & {
+    layout: Exclude<ISCard['layout'], 'art_series'>;
+};
+
 type NCardFace = Omit<CardFace, 'colors'> & {
     colors: Colors;
     hand_modifier?: string;
@@ -28,10 +32,13 @@ type NCardFace = Omit<CardFace, 'colors'> & {
     flavor_name?: string;
 };
 
-type NSCard = Omit<ISCard, keyof NCardFace | 'card_faces'> & {
+type NCardBase = Omit<ISCard, keyof NCardFace | 'card_faces' | 'layout'> & {
     card_faces: NCardFace[];
     face?: 'back' | 'front';
 };
+
+type NCardFaceExtracted = NCardBase & { layout: ISCardNoArtSeries['layout'] };
+type NCardSplit = NCardBase & { layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'minigame' };
 
 function splitCost(cost: string) {
     return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
@@ -53,6 +60,10 @@ function toCostMap(cost: string) {
 
 function purifyText(text: string | undefined) {
     return text?.replace(/\{½\}/g, '{H1}');
+}
+
+function isMinigame(data: NCardBase) {
+    return data.set_name.endsWith('Minigames');
 }
 
 function extractCardFace(card: ISCard): NCardFace[] {
@@ -93,33 +104,43 @@ function extractCardFace(card: ISCard): NCardFace[] {
     }
 }
 
-function toNSCard(card: ISCard): NSCard {
+function toNSCard(card: ISCardNoArtSeries): NCardFaceExtracted {
     return { ...card, card_faces: extractCardFace(card) };
 }
 
-function splitDFT(card: NSCard): NSCard[] {
-    if (card.layout === 'double_faced_token') {
-        return [
-            {
-                ...card,
-                color_identity:   card.card_faces[0].colors,
-                collector_number: `${card.collector_number}-0`,
-                layout:           'token',
-                card_faces:       [card.card_faces[0]],
-                face:             'front',
-            },
-            {
-                ...card,
-                color_identity:   card.card_faces[1].colors,
-                collector_number: `${card.collector_number}-1`,
-                layout:           'token',
-                card_faces:       [card.card_faces[1]],
-                face:             'back',
-            },
-        ];
-    } else {
-        return [card];
+function splitDFT(card: NCardFaceExtracted): NCardSplit[] {
+    if (isMinigame(card)) {
+        return [{ ...card, layout: 'minigame' }];
     }
+
+    if (card.card_faces[0]?.name === 'Day' && card.card_faces[1]?.name === 'Night') {
+        return [{ ...card, layout: 'token' }];
+    }
+
+    if (card.layout === 'double_faced_token') {
+        if (card.set) {
+            return [
+                {
+                    ...card,
+                    color_identity:   card.card_faces[0].colors,
+                    collector_number: `${card.collector_number}-0`,
+                    layout:           'token',
+                    card_faces:       [card.card_faces[0]],
+                    face:             'front',
+                },
+                {
+                    ...card,
+                    color_identity:   card.card_faces[1].colors,
+                    collector_number: `${card.collector_number}-1`,
+                    layout:           'token',
+                    card_faces:       [card.card_faces[1]],
+                    face:             'back',
+                },
+            ];
+        }
+    }
+
+    return [card as NCardSplit];
 }
 
 const keywordMap: Record<string, string> = {
@@ -138,7 +159,7 @@ const keywordMap: Record<string, string> = {
     'prowess':      'p',
 };
 
-function getId(data: NSCard): string {
+function getId(data: NCardBase & { layout: string }): string {
     const nameId = data.card_faces.map(f => toIdentifier(f.name)).join('____');
 
     if (data.layout === 'token') {
@@ -200,12 +221,14 @@ function getId(data: NSCard): string {
 
             return baseId;
         }
+    } else if (isMinigame(data)) {
+        return toIdentifier(data.card_faces[0].name);
     } else {
         return nameId;
     }
 }
 
-function toCard(data: NSCard, setCodeMap: Record<string, string>): ICard {
+function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
     return {
         cardId: getId(data),
 
@@ -266,12 +289,14 @@ function toCard(data: NSCard, setCodeMap: Record<string, string>): ICard {
             ? convertColor(data.produced_mana)
             : undefined,
 
-        cardType: ((): CardType => {
+        category: ((): Category => {
             if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
                 return 'token';
+            } else if (isMinigame(data)) {
+                return 'minigame';
+            } else {
+                return 'default';
             }
-
-            return 'normal';
         })(),
 
         layout: (() => {
@@ -591,7 +616,7 @@ export class CardMerger extends Task<Status> {
                     continue;
                 }
 
-                const newCards = splitDFT(toNSCard(json));
+                const newCards = splitDFT(toNSCard(json as ISCardNoArtSeries));
 
                 const oldCards = cards.filter(c => c.scryfall.cardId === json.card_id);
 
