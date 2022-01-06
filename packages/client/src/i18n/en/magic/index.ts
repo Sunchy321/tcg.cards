@@ -21,6 +21,7 @@ export default {
         '$self': 'Format',
 
         'standard': 'Standard',
+        'alchemy':  'Alchemy',
         'historic': 'Historic',
         'pioneer':  'Pioneer',
         'modern':   'Modern',

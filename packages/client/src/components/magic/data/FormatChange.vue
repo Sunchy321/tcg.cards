@@ -99,6 +99,7 @@ export default defineComponent({
 
         const formatList = [
             'standard',
+            'alchemy',
             'historic',
             'pioneer',
             'modern',

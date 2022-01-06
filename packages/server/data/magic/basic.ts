@@ -47,6 +47,7 @@ export const symbols = [
 
 export const formats = [
     'standard',
+    'alchemy',
     'historic',
     'pioneer',
     'modern',

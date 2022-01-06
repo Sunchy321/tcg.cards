@@ -187,6 +187,7 @@ export async function syncChange(): Promise<void> {
 
     const formatMap = Object.fromEntries(formats.map(f => [f.formatId, f]));
 
+    const alchemyBirthday = formatMap.alchemy.birthday!;
     const brawlBirthday = formatMap.brawl.birthday!;
 
     const changes = await getChanges(null, { keepClone: true });
@@ -221,12 +222,26 @@ export async function syncChange(): Promise<void> {
                 });
             })();
 
-            if (changedFormats.includes('standard') && !changedFormats.includes('brawl') && c.date >= brawlBirthday) {
-                changedFormats.push('brawl');
+            if (changedFormats.includes('standard')) {
+                if (!changedFormats.includes('alchemy') && c.date >= alchemyBirthday) {
+                    changedFormats.push('alchemy');
+                }
+
+                if (!changedFormats.includes('brawl') && c.date >= brawlBirthday) {
+                    changedFormats.push('brawl');
+                }
             }
 
-            if (changedFormats.includes('historic') && !changedFormats.includes('historic_brawl')) {
-                changedFormats.push('historic_brawl');
+            if (changedFormats.includes('alchemy')) {
+                if (!changedFormats.includes('historic')) {
+                    changedFormats.push('historic');
+                }
+            }
+
+            if (changedFormats.includes('historic')) {
+                if (!changedFormats.includes('historic_brawl')) {
+                    changedFormats.push('historic_brawl');
+                }
             }
 
             for (const f of changedFormats) {
@@ -238,6 +253,11 @@ export async function syncChange(): Promise<void> {
 
                 for (const i of c.in) {
                     if (fo.sets.includes(i)) {
+                        // Alchemy initial, ignore duplicate
+                        if (['historic', 'historic_brawl'].includes(fo.formatId) && c.date === '2021-12-09') {
+                            continue;
+                        }
+
                         throw new Error(`In set ${i} is already in ${f}, date: ${c.date}`);
                     }
                 }

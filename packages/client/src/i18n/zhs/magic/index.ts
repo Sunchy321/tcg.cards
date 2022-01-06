@@ -20,6 +20,7 @@ export default {
         '$self': '赛制',
 
         'standard': '标准',
+        'alchemy':  '炼金',
         'historic': '史迹',
         'pioneer':  '先驱',
         'modern':   '近代',
