@@ -1,13 +1,14 @@
 <template>
     <div class="q-pa-md row">
         <div class="card-image col-3 q-mr-md">
-            <q-img :src="imageUrl" :ratio="745/1040" native-context-menu :class="{ rotate, aftermath }">
-                <template #error>
-                    <div class="card-not-found">
-                        <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
-                    </div>
-                </template>
-            </q-img>
+            <card-image
+                v-if="hasData"
+                v-model:part="partIndex"
+                :lang="lang"
+                :set="set"
+                :number="number"
+                :layout="layout"
+            />
         </div>
         <div class="col q-gutter-sm">
             <div class="q-mb-md">
@@ -180,12 +181,6 @@ table
     & .typeline
         width: 250px
 
-.rotate
-    transform: rotate(90deg) scale(calc(745/1040))
-
-.aftermath
-    transform: rotate(-90deg) scale(calc(745/1040))
-
 @media screen and (max-width: 1000px)
     .card-image
         display: none
@@ -204,9 +199,8 @@ import controlSetup from 'setup/control';
 
 import { escapeRegExp } from 'lodash';
 
-import { imageBase } from 'boot/backend';
-
 import ArrayInput from 'components/ArrayInput.vue';
+import CardImage from 'components/magic/CardImage.vue';
 
 interface Part {
     cost: string[];
@@ -302,7 +296,7 @@ interface Card {
 export default defineComponent({
     name: 'DataCard',
 
-    components: { ArrayInput },
+    components: { ArrayInput, CardImage },
 
     setup() {
         const router = useRouter();
@@ -390,8 +384,6 @@ export default defineComponent({
         });
 
         const layoutOptions = ['normal', 'split', 'multipart'];
-        const rotate = computed(() => ['split', 'planar'].includes(layout.value));
-        const aftermath = computed(() => layout.value === 'aftermath' && partIndex.value === 1);
         const partCount = computed(() => data.value?.parts?.length ?? 0);
 
         const partOptions = computed(() => {
@@ -479,21 +471,6 @@ export default defineComponent({
                     data.value.multiverseId = newValue;
                 }
             },
-        });
-
-        const imageUrl = computed(() => {
-            if (!hasData.value) {
-                return undefined;
-            }
-
-            switch (layout.value) {
-            case 'transform':
-            case 'modal_dfc':
-            case 'double_faced_token':
-                return `http://${imageBase}/magic/card?auto-locale&lang=${lang.value}&set=${set.value}&number=${number.value}&part=${partIndex.value}`;
-            default:
-                return `http://${imageBase}/magic/card?auto-locale&lang=${lang.value}&set=${set.value}&number=${number.value}`;
-            }
         });
 
         const defaultPrettify = () => {
@@ -761,9 +738,9 @@ export default defineComponent({
         );
 
         return {
+            hasData,
+
             unlock,
-            rotate,
-            aftermath,
             replaceFrom,
             replaceTo,
             search,
@@ -791,7 +768,6 @@ export default defineComponent({
             flavorName,
             relatedCards,
             multiverseId,
-            imageUrl,
 
             layoutOptions,
             partOptions,

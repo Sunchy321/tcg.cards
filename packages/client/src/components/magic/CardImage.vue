@@ -8,7 +8,7 @@
             :class="[
                 `layout-${layout}`,
                 `part-${realPart}`,
-                { rotated: realRotate }
+                { rotated: realRotate, turnable }
             ]"
         >
             <q-img
@@ -103,8 +103,7 @@
     &.layout-aftermath.part-1
         transform: rotate(-90deg) scale(calc(745/1040))
 
-    &.layout-transform,
-    &.layout-modal_dfc
+    &.turnable
         transform-style: preserve-3d
 
         & .front, & .back
@@ -166,7 +165,10 @@ export default defineComponent({
             get() { return innerPart.value; },
             set(newValue: number) {
                 innerPart.value = newValue;
-                emit('update:part', newValue);
+
+                if (props.layout !== 'reversible_card') {
+                    emit('update:part', newValue);
+                }
             },
         });
 
@@ -182,12 +184,13 @@ export default defineComponent({
 
         const rotatable = computed(() => ['split', 'planar'].includes(props.layout));
 
-        const turnable = computed(() => ['transform', 'modal_dfc'].includes(props.layout));
+        const turnable = computed(() => ['transform', 'modal_dfc', 'reversible_card'].includes(props.layout));
 
         const imageUrls = computed(() => {
             switch (props.layout) {
             case 'transform':
             case 'modal_dfc':
+            case 'reversible_card':
             case 'art_series':
                 return [
                     `http://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,

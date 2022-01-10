@@ -3,7 +3,6 @@
         <q-resize-observer @resize="calcGridInfo" />
         <div
             v-for="(v, i) in value" :key="itemKey ? v[itemKey] : i"
-            class="flex items-center"
             :class="itemClass"
             :style="{ width: itemRealWidth + 'px' }"
         >

@@ -160,10 +160,12 @@ const keywordMap: Record<string, string> = {
 };
 
 function getId(data: NCardBase & { layout: string }): string {
-    const nameId = data.card_faces.map(f => toIdentifier(f.name)).join('____');
+    const cardFaces = data.layout === 'reversible_card' ? [data.card_faces[0]] : data.card_faces;
+
+    const nameId = cardFaces.map(f => toIdentifier(f.name)).join('____');
 
     if (data.layout === 'token') {
-        const { typeMain, typeSub } = parseTypeline(data.card_faces[0].type_line ?? '');
+        const { typeMain, typeSub } = parseTypeline(cardFaces[0].type_line ?? '');
 
         if (typeSub == null) {
             if (typeMain.includes('card')) {
@@ -181,7 +183,7 @@ function getId(data: NCardBase & { layout: string }): string {
                 return `${nameId}!`;
             }
 
-            const face = data.card_faces[0];
+            const face = cardFaces[0];
 
             baseId += `!${face.colors.length > 0 ? face.colors.join('').toLowerCase() : 'c'}`;
 
@@ -222,13 +224,15 @@ function getId(data: NCardBase & { layout: string }): string {
             return baseId;
         }
     } else if (isMinigame(data)) {
-        return toIdentifier(data.card_faces[0].name);
+        return toIdentifier(cardFaces[0].name);
     } else {
         return nameId;
     }
 }
 
 function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
+    const cardFaces = data.layout === 'reversible_card' ? [data.card_faces[0]] : data.card_faces;
+
     return {
         cardId: getId(data),
 
@@ -239,7 +243,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         manaValue:     data.cmc,
         colorIdentity: convertColor(data.color_identity),
 
-        parts: data.card_faces.map(f => ({
+        parts: cardFaces.map(f => ({
             cost:      f.mana_cost != null && f.mana_cost !== '' ? splitCost(f.mana_cost) : undefined,
             __costMap: f.mana_cost != null && f.mana_cost !== '' ? toCostMap(f.mana_cost) : undefined,
 
@@ -274,11 +278,24 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
                 typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
             },
 
-            scryfallIllusId: f.illustration_id,
-            flavorName:      f.flavor_name,
-            flavorText:      f.flavor_text,
-            artist:          f.artist,
-            watermark:       f.watermark,
+            scryfallIllusId: (() => {
+                const illusId = f.illustration_id;
+
+                if (illusId == null) {
+                    return undefined;
+                }
+
+                if (data.layout === 'reversible_card') {
+                    return data.card_faces.map(f => f.illustration_id).filter(v => v != null) as string[];
+                } else {
+                    return [illusId];
+                }
+            })(),
+
+            flavorName: f.flavor_name,
+            flavorText: f.flavor_text,
+            artist:     f.artist,
+            watermark:  f.watermark,
         })),
 
         relatedCards: [],

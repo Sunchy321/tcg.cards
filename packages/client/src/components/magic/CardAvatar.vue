@@ -12,7 +12,7 @@
                     :lang="imageVersion.lang"
                     :set="imageVersion.set"
                     :number="imageVersion.number"
-                    :layout="profile.layout"
+                    :layout="imageVersion.layout"
                 />
             </q-tooltip>
         </router-link>
@@ -78,7 +78,7 @@ export default defineComponent({
 
                 const locales = store.getters['magic/locales'];
                 const locale = store.getters['magic/locale'];
-                const defauleLocale = locales[0];
+                const defaultLocale = locales[0];
 
                 const localeVersion = versions.filter(v => v.lang === locale);
 
@@ -88,7 +88,7 @@ export default defineComponent({
                         : a.releaseDate < b.releaseDate ? 1 : 0))[0];
                 }
 
-                const defaultVersion = versions.filter(v => v.lang === defauleLocale);
+                const defaultVersion = versions.filter(v => v.lang === defaultLocale);
 
                 if (defaultVersion.length > 0) {
                     return defaultVersion.sort((a, b) => (a.releaseDate > b.releaseDate

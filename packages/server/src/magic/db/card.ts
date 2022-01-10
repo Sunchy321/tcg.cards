@@ -50,7 +50,7 @@ const CardSchema = new Schema<ICard>({
             typeline: String,
         },
 
-        scryfallIllusId: String,
+        scryfallIllusId: { type: [String], default: undefined },
         flavorName:      String,
         flavorText:      String,
         artist:          String,

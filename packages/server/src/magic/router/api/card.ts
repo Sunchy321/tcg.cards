@@ -116,8 +116,6 @@ router.get('/random', async ctx => {
 interface CardProfile {
     cardId: string;
 
-    layout: string;
-
     parts: {
         localization: {
             lang: string;
@@ -130,6 +128,7 @@ interface CardProfile {
         set: string;
         number: string;
         rarity: string;
+        layout: string;
         releaseDate: string;
     }[];
 }
@@ -150,7 +149,6 @@ router.get('/profile', async ctx => {
         if (result[c.cardId] == null) {
             result[c.cardId] = {
                 cardId:   c.cardId,
-                layout:   c.layout,
                 parts:    [],
                 versions: [],
             };
@@ -176,6 +174,7 @@ router.get('/profile', async ctx => {
             set:         c.set,
             number:      c.number,
             rarity:      c.rarity,
+            layout:      c.layout,
             releaseDate: c.releaseDate,
         });
     }

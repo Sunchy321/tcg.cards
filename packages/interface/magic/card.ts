@@ -53,7 +53,7 @@ export interface Card {
             typeline: string;
         };
 
-        scryfallIllusId?: string;
+        scryfallIllusId?: string[];
         flavorName?: string;
         flavorText?: string;
         artist?: string;

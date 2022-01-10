@@ -46,7 +46,7 @@
 
         <grid
             v-slot="{ status, card, date: effectiveDate, group, link }"
-            :value="banlist" :item-width="300" item-key="card"
+            :value="banlist" :item-width="300" item-key="card" item-class="flex items-center"
         >
             <div class="banlist row items-center q-gutter-sm">
                 <banlist-icon :status="status" />

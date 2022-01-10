@@ -5,7 +5,6 @@ import { api } from 'boot/backend';
 
 export interface CardProfile {
     cardId: string;
-    layout: string;
 
     parts: {
         localization: {
@@ -19,6 +18,7 @@ export interface CardProfile {
         set: string;
         number: string;
         rarity: string;
+        layout: string;
         releaseDate: string;
     }[];
 }
