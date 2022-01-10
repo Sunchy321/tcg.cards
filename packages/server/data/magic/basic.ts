@@ -61,4 +61,5 @@ export const formats = [
     'brawl',
     'historic_brawl',
     'pauper',
+    'penny',
 ];

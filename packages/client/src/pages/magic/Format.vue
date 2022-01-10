@@ -323,7 +323,7 @@ export default defineComponent({
             switch (group) {
             case 'ante': return 'ante';
             case 'legendary': return 'leg.';
-            case 'conspiracy': return 'cons.';
+            case 'conspiracy': return 'consp.';
             case 'offensive': return 'off.';
             default: return '';
             }

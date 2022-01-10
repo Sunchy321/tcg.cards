@@ -8,9 +8,14 @@ import {
 } from '@interface/magic/card';
 import { Format as IFormat } from '@interface/magic/format';
 
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
+
 import { formats as formatList } from '@data/magic/basic';
 import { toGenerator, toBucket } from '@/common/to-bucket';
-import { convertLegality } from '../util';
+import { convertLegality, toIdentifier } from '../util';
+
+import { dataPath } from '@/static';
 
 export interface CardData {
     _id: string;
@@ -63,12 +68,18 @@ const cardsNotInAlchemy = [
     'wizard_class',
 ];
 
-export async function getLegality(data: CardData, formats: IFormat[]): Promise<ICard['legalities']> {
+async function getLegality(data: CardData, formats: IFormat[], pennyCards: string[]): Promise<ICard['legalities']> {
     const versions = data.versions.filter(v => v.releaseDate <= new Date().toLocaleDateString('en-CA'));
 
     const result: ICard['legalities'] = {};
 
     for (const f of formats) {
+        // Gleemox is banned by its text
+        if (data._id === 'gleemox') {
+            result[f.formatId] = 'banned';
+            continue;
+        }
+
         // This card is not released now
         if (versions.length === 0) {
             result[f.formatId] = 'unavailable';
@@ -78,6 +89,11 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
         // Non-card
         if (['token', 'auxiliary', 'minigame', 'art', 'decklist', 'player', 'advertisement'].includes(data.category)) {
             result[f.formatId] = 'unavailable';
+            continue;
+        }
+
+        if (f.formatId === 'penny') {
+            result[f.formatId] = pennyCards.includes(data._id) ? 'legal' : 'unavailable';
             continue;
         }
 
@@ -193,19 +209,13 @@ export async function getLegality(data: CardData, formats: IFormat[]): Promise<I
             continue;
         }
 
-        // Gleemox is banned by its text
-        if (data._id === 'gleemox') {
-            result[f.formatId] = 'banned';
-            continue;
-        }
-
         result[f.formatId] = 'legal';
     }
 
     return result;
 }
 
-export function checkLegality(data: CardData, legalities: Legalities, scryfall: Legalities): string | undefined {
+function checkLegality(data: CardData, legalities: Legalities, scryfall: Legalities): string | undefined {
     for (const f of Object.keys(legalities)) {
         if (scryfall[f] != null && legalities[f] !== scryfall[f]) {
             if (data._id === 'gleemox') {
@@ -307,8 +317,25 @@ interface Status {
     }[];
 }
 
+const pennyCardPath = join(dataPath, 'magic', 'penny');
+
 export class LegalityAssigner extends Task<Status> {
     async startImpl(): Promise<void> {
+        const formats = await Format.find();
+
+        formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
+
+        const pennyCardFiles = readdirSync(pennyCardPath).filter(f => /^\d+.txt$/.test(f));
+
+        const recentPennyFile = Math.max(...pennyCardFiles.map(f => Number.parseInt(f.slice(0, -4), 10)));
+
+        const pennyCards = readFileSync(join(pennyCardPath, `${recentPennyFile}.txt`))
+            .toString()
+            .split('\n')
+            .map(toIdentifier);
+
+        const wrongs: Status['wrongs'] = [];
+
         const allCards = await Card.aggregate<CardData>([
             {
                 $group: {
@@ -348,12 +375,6 @@ export class LegalityAssigner extends Task<Status> {
         let count = 0;
         const total = allCards.length;
 
-        const formats = await Format.find();
-
-        formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
-
-        const wrongs: Status['wrongs'] = [];
-
         const start = Date.now();
 
         this.intervalProgress(500, () => {
@@ -378,7 +399,7 @@ export class LegalityAssigner extends Task<Status> {
                 .replaceRoot('data');
 
             for (const c of cards) {
-                const result = await getLegality(c, formats);
+                const result = await getLegality(c, formats, pennyCards);
 
                 const scryfall = scryfalls.find(s => s.oracle_id === c.scryfall);
 
