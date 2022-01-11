@@ -33,6 +33,7 @@
                     'duelcommander',
                     'mtgcommander',
                     'leviathan_commander',
+                    'pauper_commander',
                     'initial',
                 ]"
             />
@@ -243,6 +244,8 @@ export default defineComponent({
             'historic_brawl',
 
             'pauper',
+            'penny',
+            'pauper_commander',
 
             'block/ice_age',
             'block/tempest',

@@ -38,8 +38,9 @@ export default {
         'brawl':               'Brawl',
         'historic_brawl':      'Historic Brawl',
 
-        'pauper': 'Pauper',
-        'penny':  'Penny Dreadful',
+        'pauper':           'Pauper',
+        'penny':            'Penny Dreadful',
+        'pauper_commander': 'Pauper Commander',
 
         'two_head_giant': 'Two Head Giant',
 

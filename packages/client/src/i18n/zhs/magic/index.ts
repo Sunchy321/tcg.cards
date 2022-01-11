@@ -37,7 +37,8 @@ export default {
         'brawl':               '争锋',
         'historic_brawl':      '史迹争锋',
 
-        'pauper': '纯铁',
+        'pauper':           '纯铁',
+        'pauper_commander': '纯铁指挥官',
 
         'two_head_giant': '双头巨人',
     },

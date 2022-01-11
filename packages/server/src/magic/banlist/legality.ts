@@ -69,38 +69,41 @@ const cardsNotInAlchemy = [
 ];
 
 async function getLegality(data: CardData, formats: IFormat[], pennyCards: string[]): Promise<ICard['legalities']> {
+    const cardId = data._id;
     const versions = data.versions.filter(v => v.releaseDate <= new Date().toLocaleDateString('en-CA'));
 
     const result: ICard['legalities'] = {};
 
     for (const f of formats) {
+        const { formatId } = f;
+
         // Gleemox is banned by its text
-        if (data._id === 'gleemox') {
-            result[f.formatId] = 'banned';
+        if (cardId === 'gleemox') {
+            result[formatId] = 'banned';
             continue;
         }
 
         // This card is not released now
         if (versions.length === 0) {
-            result[f.formatId] = 'unavailable';
+            result[formatId] = 'unavailable';
             continue;
         }
 
         // Non-card
         if (['token', 'auxiliary', 'minigame', 'art', 'decklist', 'player', 'advertisement'].includes(data.category)) {
-            result[f.formatId] = 'unavailable';
+            result[formatId] = 'unavailable';
             continue;
         }
 
-        if (f.formatId === 'penny') {
-            result[f.formatId] = pennyCards.includes(data._id) ? 'legal' : 'unavailable';
+        if (formatId === 'penny') {
+            result[formatId] = pennyCards.includes(cardId) ? 'legal' : 'unavailable';
             continue;
         }
 
-        const banlistItem = f.banlist.find(b => b.card === data._id);
+        const banlistItem = f.banlist.find(b => b.card === cardId);
 
         if (banlistItem != null) {
-            result[f.formatId] = banlistItem.status;
+            result[formatId] = banlistItem.status;
             continue;
         }
 
@@ -108,26 +111,26 @@ async function getLegality(data: CardData, formats: IFormat[], pennyCards: strin
             versions.every(v => [...setsInformal, ...setsSpecial].includes(v.set))
             && versions.some(v => setsInformal.includes(v.set))
         ) {
-            result[f.formatId] = 'unavailable';
+            result[formatId] = 'unavailable';
             continue;
         }
 
         // Casual card type
         if (data.parts.some(p => p.typeMain.some(t => ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'].includes(t)))) {
-            result[f.formatId] = 'unavailable';
+            result[formatId] = 'unavailable';
             continue;
         }
 
         // I don't know why
-        if (f.formatId === 'historic' && data._id === 'shorecomber_crab') {
-            result[f.formatId] = 'legal';
+        if (formatId === 'historic' && cardId === 'shorecomber_crab') {
+            result[formatId] = 'legal';
             continue;
         }
 
         if (f.sets != null) {
             const sets = versions.filter(({ set, number }) => {
                 // some cards not in MTGA
-                if (f.formatId === 'historic' && set === 'jmp') {
+                if (formatId === 'historic' && set === 'jmp') {
                     if ([
                         'ajani_s_chosen',
                         'angelic_arbiter',
@@ -149,10 +152,10 @@ async function getLegality(data: CardData, formats: IFormat[], pennyCards: strin
                         'sheoldred__whispering_one',
                         'thought_scour',
                         'time_to_feed',
-                    ].includes(data._id)) {
+                    ].includes(cardId)) {
                         return false;
                     }
-                } else if (f.formatId === 'historic' && set === 'jmp21' && number.startsWith('999-')) {
+                } else if (formatId === 'historic' && set === 'jmp21' && number.startsWith('999-')) {
                     // Cards can only be conjured
                     return false;
                 }
@@ -161,64 +164,106 @@ async function getLegality(data: CardData, formats: IFormat[], pennyCards: strin
             }).map(v => v.set);
 
             if (sets.every(v => !f.sets!.includes(v))) {
-                result[f.formatId] = 'unavailable';
+                result[formatId] = 'unavailable';
                 continue;
             }
         }
 
-        if (f.formatId === 'pauper') {
+        if (formatId === 'pauper') {
             // Some set are not checked
             const pauperVersions = versions.filter(v => ![
                 ...setsOnlyOnMTGA,
-                /* MO Promo set */ 'ppro',
+                /* MO Promo set */ 'ppro', 'prm',
                 /* Foreign sets */ 'ren', 'rin',
                 /* Promo sets */ 'wc97', 'wc98', 'wc99', 'wc00', 'wc01', 'wc02', 'wc03', 'wc04',
             ].includes(v.set));
 
-            // I don't know why
-            if (['assassin_s_blade'].includes(data._id)) {
-                result[f.formatId] = 'unavailable';
+            const hasCommon = (() => {
+                // I don't know why
+                if (['assassin_s_blade'].includes(cardId)) {
+                    return false;
+                }
+
+                // Some cards marked as common in Gatherer are uncommon in Scryfall data
+                if (['delif_s_cone'].includes(cardId)) {
+                    return true;
+                }
+
+                return pauperVersions.some(v => v.rarity === 'common');
+            })();
+
+            if (!hasCommon) {
+                result[formatId] = 'unavailable';
+                continue;
+            }
+        } else if (formatId === 'pauper_commander') {
+            // Some set are not checked
+            const pauperVersions = versions.filter(v => ![
+                /* MO Promo set */ 'ppro', 'prm',
+                /* Promo sets */ 'wc97', 'wc98', 'wc99', 'wc00', 'wc01', 'wc02', 'wc03', 'wc04',
+            ].includes(v.set));
+
+            const hasCommon = (() => {
+                // I don't know why
+                if (['assassin_s_blade'].includes(cardId)) {
+                    return false;
+                }
+
+                // Some cards marked as common in Gatherer are uncommon in Scryfall data
+                if (['delif_s_cone'].includes(cardId)) {
+                    return true;
+                }
+
+                return pauperVersions.some(v => v.rarity === 'common');
+            })();
+
+            const hasUncommon = (() => pauperVersions.some(v => v.rarity === 'uncommon'))();
+
+            const frontType = data.parts[0].typeMain;
+
+            const canBeCommander = frontType.includes('creature') && !frontType.includes('land');
+
+            if (frontType.includes('conspiracy')) {
+                result[formatId] = 'unavailable';
                 continue;
             }
 
-            // Some cards marked as common in Gatherer are uncommon in Scryfall data
-            if (
-                !pauperVersions.some(v => v.rarity === 'common')
-                && !['delif_s_cone'].includes(data._id)
-            ) {
-                result[f.formatId] = 'unavailable';
+            if (canBeCommander ? (!hasCommon && !hasUncommon) : !hasCommon) {
+                result[formatId] = 'unavailable';
                 continue;
             }
         }
 
         // Card not in online formats. Placed here for Omnath
-        if (['alchemy', 'historic'].includes(f.formatId) && cardsNotInAlchemy.includes(data._id)) {
-            result[f.formatId] = 'unavailable';
+        if (['alchemy', 'historic'].includes(formatId) && cardsNotInAlchemy.includes(cardId)) {
+            result[formatId] = 'unavailable';
             continue;
         }
 
         // Cards only in online formats
         if (
-            !['alchemy', 'historic'].includes(f.formatId)
+            !['alchemy', 'historic'].includes(formatId)
             && (
                 versions.every(v => setsOnlyOnMTGA.includes(v.set))
-                || cardsNotInAlchemy.map(id => `a_${id}`).includes(data._id)
+                || cardsNotInAlchemy.map(id => `a_${id}`).includes(cardId)
             )
         ) {
-            result[f.formatId] = 'unavailable';
+            result[formatId] = 'unavailable';
             continue;
         }
 
-        result[f.formatId] = 'legal';
+        result[formatId] = 'legal';
     }
 
     return result;
 }
 
 function checkLegality(data: CardData, legalities: Legalities, scryfall: Legalities): string | undefined {
+    const cardId = data._id;
+
     for (const f of Object.keys(legalities)) {
         if (scryfall[f] != null && legalities[f] !== scryfall[f]) {
-            if (data._id === 'gleemox') {
+            if (cardId === 'gleemox') {
                 continue;
             }
 
@@ -240,7 +285,7 @@ function checkLegality(data: CardData, legalities: Legalities, scryfall: Legalit
                     'rick__steadfast_leader',
                     'daryl__hunter_of_walkers',
                     'lucille',
-                ].includes(data._id)) {
+                ].includes(cardId)) {
                     continue;
                 }
 
@@ -271,22 +316,27 @@ function checkLegality(data: CardData, legalities: Legalities, scryfall: Legalit
                     // 'sheoldred__whispering_one',
                     'thought_scour',
                     'time_to_feed',
-                ].includes(data._id) && legalities[f] === 'unavailable' && scryfall[f] === 'banned') {
+                ].includes(cardId) && legalities[f] === 'unavailable' && scryfall[f] === 'banned') {
                     continue;
                 }
             } else if (f === 'pauper') {
                 // The change of pauper cause this banlist change. They should be unavailable and not banned.
-                if (['hada_freeblade'].includes(data._id)) {
+                if (['hada_freeblade'].includes(cardId)) {
                     continue;
                 }
 
-                // Pauper never explicitly banned conspiracy.
+                // Pauper never explicitly bans conspiracy.
                 if (data.parts[0].typeMain.includes('conspiracy')) {
+                    continue;
+                }
+            } else if (f === 'pauper_commander') {
+                // Ante and offensive cards are explicitly banned by Pauper Commander
+                if (['tempest_efreet', 'pradesh_gypsies', 'stone_throwing_devils'].includes(cardId)) {
                     continue;
                 }
             } else if (f === 'brawl') {
                 // Some MTGA only cards are marked as legal by Scryfall
-                if (['rampaging_brontodon'].includes(data._id)) {
+                if (['rampaging_brontodon'].includes(cardId)) {
                     continue;
                 }
             }
