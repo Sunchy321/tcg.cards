@@ -31,7 +31,7 @@
                     {{ flavorName }}
                 </div>
 
-                <div class="name" :lang="lang">
+                <div class="name" :lang="langWithMode">
                     {{ name }}
                 </div>
 
@@ -54,10 +54,10 @@
                     class="color-indicator"
                     :value="colorIndicator"
                 />
-                <span class="typeline" :lang="lang">{{ typeline }}</span>
+                <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
-            <div class="ability" :lang="lang">
+            <div class="ability" :lang="langWithMode">
                 <magic-text :symbol="symbolStyle">{{ text }}</magic-text>
             </div>
             <div v-if="flavorText != null" class="flavor-text" :lang="lang">
@@ -537,6 +537,8 @@ export default defineComponent({
             },
         });
 
+        const langWithMode = computed(() => (textMode.value === 'oracle' ? 'en' : lang.value));
+
         const langInfos = computed(() => langs.value.map(l => ({
             lang:    l,
             exist:   versions.value.filter(v => v.set === set.value).some(v => v.lang === l),
@@ -699,6 +701,7 @@ export default defineComponent({
             number,
             layout,
             partIndex,
+            langWithMode,
             name,
             cost,
             stats,
