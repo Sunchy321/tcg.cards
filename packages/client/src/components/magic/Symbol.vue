@@ -33,10 +33,6 @@ import type { PropType } from 'vue';
 import { defineComponent, h } from 'vue';
 
 function calcActualValue(value: string, type: string[]) {
-    if (type.includes('flat')) {
-        return `${value},flat`;
-    }
-
     switch (value) {
     case 'T':
         if (type.includes('tap:old1')) {
@@ -81,7 +77,9 @@ export default defineComponent({
 
             const actualValue = calcActualValue(value, type);
 
-            const src = `magic/symbols.svg#icon-${actualValue}`;
+            const src = type.includes('flat')
+                ? `magic/symbol-flat.svg#icon-${actualValue}`
+                : `magic/symbol.svg#icon-${actualValue}`;
 
             let klass = `magic-symbol icon-${actualValue}`;
 
