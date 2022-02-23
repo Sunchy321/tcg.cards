@@ -364,7 +364,17 @@ export default defineComponent({
         });
 
         const partIndex = computed({
-            get() { return data.value?.partIndex ?? parseInt(route.query.part as string, 10) ?? 0; },
+            get() {
+                if (data.value?.partIndex != null) {
+                    return data.value.partIndex;
+                }
+
+                if (route.query.part != null) {
+                    return parseInt(route.query.part as string, 10);
+                }
+
+                return 0;
+            },
             set(newValue: number) {
                 if (hasData.value) {
                     data.value!.partIndex = newValue;
