@@ -54,6 +54,41 @@ const setsSpecial = ['plist', 'sld'];
 
 const setsOnlyOnMTGA = ['ana', 'oana', 'xana', 'anb', 'jmp21', 'y22'];
 
+const cardsNotInJMP = [
+    'ajani_s_chosen',
+    'angelic_arbiter',
+    'ball_lightning',
+    'chain_lightning',
+    'draconic_roar',
+    'exhume',
+    'fa_adiyah_seer',
+    'flametongue_kavu',
+    'goblin_lore',
+    'lightning_bolt',
+    'mausoleum_turnkey',
+    'path_to_exile',
+    'read_the_runes',
+    'reanimate',
+    'rhystic_study',
+    'scourge_of_nel_toth',
+    'scrounging_bandar',
+    'sheoldred__whispering_one',
+    'thought_scour',
+    'time_to_feed',
+];
+
+const cardsNotInJMP21 = [
+    'assault_strobe',
+    'fog',
+    'force_spike',
+    'kraken_hatchling',
+    'ponder',
+    'regal_force',
+    'swords_to_plowshares',
+    'stormfront_pegasus',
+    'tropical_island',
+];
+
 const cardsNotInAlchemy = [
     'alrund_s_epiphany',
     'cosmos_elixir',
@@ -66,6 +101,19 @@ const cardsNotInAlchemy = [
     'omnath__locus_of_creation',
     'phylath__world_sculptor',
     'wizard_class',
+
+    'acererak_the_archlich',
+    'cloister_gargoyle',
+    'divide_by_zero',
+    'dungeon_descent',
+    'ellywick_tumblestrum',
+    'fates__reversal',
+    'find_the_path',
+    'hullbreaker_horror',
+    'lier__disciple_of_the_drowned',
+    'precipitous_drop',
+    'teferi__time_raveler',
+    'triumphant_adventurer',
 ];
 
 async function getLegality(data: CardData, formats: IFormat[], pennyCards: string[]): Promise<ICard['legalities']> {
@@ -128,36 +176,14 @@ async function getLegality(data: CardData, formats: IFormat[], pennyCards: strin
         }
 
         if (f.sets != null) {
-            const sets = versions.filter(({ set, number }) => {
+            const sets = versions.filter(({ set }) => {
                 // some cards not in MTGA
-                if (formatId === 'historic' && set === 'jmp') {
-                    if ([
-                        'ajani_s_chosen',
-                        'angelic_arbiter',
-                        'ball_lightning',
-                        'chain_lightning',
-                        'draconic_roar',
-                        'exhume',
-                        'fa_adiyah_seer',
-                        'flametongue_kavu',
-                        'goblin_lore',
-                        'lightning_bolt',
-                        'mausoleum_turnkey',
-                        'path_to_exile',
-                        'read_the_runes',
-                        'reanimate',
-                        'rhystic_study',
-                        'scourge_of_nel_toth',
-                        'scrounging_bandar',
-                        'sheoldred__whispering_one',
-                        'thought_scour',
-                        'time_to_feed',
-                    ].includes(cardId)) {
+                if (formatId === 'historic') {
+                    if (set === 'jmp' && cardsNotInJMP.includes(cardId)) {
+                        return false;
+                    } else if (set === 'jmp21' && cardsNotInJMP21.includes(cardId)) {
                         return false;
                     }
-                } else if (formatId === 'historic' && set === 'jmp21' && number.startsWith('999-')) {
-                    // Cards can only be conjured
-                    return false;
                 }
 
                 return true;
@@ -204,8 +230,10 @@ async function getLegality(data: CardData, formats: IFormat[], pennyCards: strin
             ].includes(v.set));
 
             const hasCommon = (() => {
-                // I don't know why
-                if (['assassin_s_blade'].includes(cardId)) {
+                if ([
+                    'assassin_s_blade', // I don't know why
+                    'swords_to_plowshares', // The common version is conjured by other cards
+                ].includes(cardId)) {
                     return false;
                 }
 
