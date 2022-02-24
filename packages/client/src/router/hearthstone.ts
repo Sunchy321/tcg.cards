@@ -20,6 +20,11 @@ const routes = [
                 name:      'hearthstone/card',
                 component: async () => import('pages/hearthstone/Card.vue'),
             },
+            {
+                path:      'log-parse',
+                name:      'hearthstone/log-parse',
+                component: async () => import('pages/hearthstone/LogParse.vue'),
+            },
         ],
     },
 ];

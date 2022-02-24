@@ -1,0 +1,9 @@
+GameState.DebugPrintGame
+GameState.DebugPrintOptions
+GameState.DebugPrintPowerList
+GameState.SendOption
+PowerProcessor.DoTaskListForCard
+PowerProcessor.EndCurrentTaskList
+PowerProcessor.PrepareHistoryForCurrentTaskList
+PowerTaskList.DebugDump
+PowerTaskList.DebugPrintPower

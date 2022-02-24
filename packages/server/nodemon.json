@@ -1,7 +1,12 @@
 {
     "verbose": true,
     "ext": "ts tsx pegjs",
-    "watch": ["src/", "data/", "interface/"],
+    "watch": [
+        "src/",
+        "data/",
+        "interface/",
+        "../log-parser/src"
+    ],
     "execMap": {
         "ts": "node -r ts-node/register -r tsconfig-paths/register"
     },

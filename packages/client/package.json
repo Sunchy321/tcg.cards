@@ -15,7 +15,7 @@
     "url": "https://github.com/Sunchy321/tcg.cards/issues"
   },
   "scripts": {
-    "lint": "eslint --ext .js,.vue src",
+    "lint": "eslint --ext .ts,.vue src",
     "test": "echo \"No test specified\" && exit 0",
     "postinstall": "patch-package"
   },

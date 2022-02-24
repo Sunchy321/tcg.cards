@@ -1,7 +1,11 @@
-import parser from './syntax.pegjs';
+import Parser from './parser';
+import transform from './transform';
+import compile from './compile';
 
 export function parseLog(text: string): any {
-    const result = parser.parse(text);
+    const lines = new Parser(text).parse();
+    const transformed = transform(lines);
+    const compiled = compile(transformed);
 
-    return result;
+    return compiled;
 }
