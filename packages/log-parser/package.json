@@ -1,32 +1,30 @@
 {
   "name": "hs-log-parser",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A parser for heathstone log",
   "author": "Sunchy321 <sunchy321@qq.com>",
   "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
   "license": "MIT",
-  "main": "src/index.ts",
+  "main": "lib/index.js",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Sunchy321/tcg.cards.git"
   },
   "scripts": {
-    "build": "webpack",
-    "test": "jest"
+    "build": "tsc",
+    "test": "jest",
+    "prepare": "npm run build"
   },
   "bugs": {
     "url": "https://github.com/Sunchy321/tcg.cards/issues"
   },
   "devDependencies": {
-    "@babel/core": "^7.16.0",
     "@types/jest": "^27.0.3",
-    "@types/lodash": "^4.14.177",
-    "babel-loader": "^8.2.3",
-    "webpack": "^5.64.2",
-    "webpack-cli": "^4.9.1"
+    "@types/lodash": "^4.14.177"
   },
   "dependencies": {
     "lodash": "^4.17.21",
     "peggy": "^1.2.0"
-  }
+  },
+  "files": ["lib/**/*"]
 }

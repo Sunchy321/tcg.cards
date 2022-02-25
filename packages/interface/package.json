@@ -1,8 +1,7 @@
 {
   "name": "card-interface",
   "version": "1.0.0",
-  "private": true,
-  "description": "tcg.cards common interfaces",
+  "description": "common interfaces for tcg.cards",
   "author": "Sunchy321 <sunchy321@qq.com>",
   "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
   "license": "MIT",
