@@ -52,7 +52,7 @@
                 <banlist-icon :status="status" />
                 <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                 <div v-else class="date">{{ effectiveDate }}</div>
-                <card-avatar :id="card" :pauper="format === 'pauper'" />
+                <card-avatar :id="card" class="avatar" :pauper="format === 'pauper'" />
                 <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
             </div>
         </grid>
@@ -71,6 +71,11 @@
 
     & > .date
         flex-shrink: 0
+
+    & > .avatar
+        white-space: nowrap
+        overflow: hidden
+        text-overflow: ellipsis
 
 .date
     color: grey
