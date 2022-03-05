@@ -1,5 +1,5 @@
 import Scryfall from './Scryfall.vue';
-import ScryfallImage from './ScryfallImage.vue';
+import Image from './Image.vue';
 import Card from './Card.vue';
 import Set from './Set.vue';
 import Format from './Format.vue';
@@ -10,7 +10,7 @@ import CR from './CR.vue';
 
 export default {
     Scryfall,
-    ScryfallImage,
+    Image,
     Card,
     Set,
     Format,

@@ -32,8 +32,9 @@
 
                 <q-btn
                     flat dense round
-                    icon="mdi-import"
-                    @click="loadBulk(bulkAllCard)"
+                    class="q-ml-sm"
+                    icon="mdi-merge"
+                    @click="loadCard(bulkAllCard)"
                 />
             </div>
 
@@ -47,71 +48,11 @@
 
                 <q-btn
                     flat dense round
-                    icon="mdi-import"
-                    @click="loadBulk(bulkRuling)"
+                    class="q-ml-sm"
+                    icon="mdi-merge"
+                    @click="loadRuling(bulkRuling)"
                 />
             </div>
-        </div>
-
-        <div class="q-mt-xl q-mb-sm">
-            Scryfall Data
-        </div>
-
-        <div class="row q-gutter-md">
-            <q-list class="col" bordered separator>
-                <q-item>
-                    <q-item-section>Card</q-item-section>
-                    <q-item-section side>
-                        <q-btn
-                            round dense flat
-                            icon="mdi-merge"
-                            @click="mergeCard"
-                        />
-                    </q-item-section>
-                    <q-item-section side>
-                        {{ scryfall.card }}
-                    </q-item-section>
-                </q-item>
-            </q-list>
-
-            <q-list class="col" bordered separator>
-                <q-item>
-                    <q-item-section>Ruling</q-item-section>
-                    <q-item-section side>
-                        <q-btn
-                            round dense flat
-                            icon="mdi-merge"
-                            @click="mergeRuling"
-                        />
-                    </q-item-section>
-                    <q-item-section side>
-                        {{ scryfall.ruling }}
-                    </q-item-section>
-                </q-item>
-            </q-list>
-
-            <q-list class="col" bordered separator>
-                <q-item>
-                    <q-item-section>Set</q-item-section>
-                    <q-item-section side>
-                        <q-btn
-                            round dense flat
-                            icon="mdi-download"
-                            @click="getSet"
-                        />
-                    </q-item-section>
-                    <q-item-section side>
-                        <q-btn
-                            round dense flat
-                            icon="mdi-merge"
-                            @click="mergeSet"
-                        />
-                    </q-item-section>
-                    <q-item-section side>
-                        {{ scryfall.set }}
-                    </q-item-section>
-                </q-item>
-            </q-list>
         </div>
 
         <div class="q-mt-xl q-mb-sm">
@@ -132,6 +73,13 @@
                     <q-item-section>Set</q-item-section>
                     <q-item-section side>
                         {{ database.set }}
+                    </q-item-section>
+                    <q-item-section side>
+                        <q-btn
+                            round dense flat
+                            icon="mdi-download"
+                            @click="getSet"
+                        />
                     </q-item-section>
                 </q-item>
             </q-list>
@@ -244,7 +192,7 @@ export default defineComponent({
 
                 result += `[${prog.method}] ${prog.type}: `;
 
-                if (prog.method === 'get' && prog.type !== 'image') {
+                if (prog.method === 'get' && !['set', 'image'].includes(prog.type)) {
                     result += bytes(prog.amount.count);
 
                     if (prog.amount.total != null) {
@@ -285,7 +233,7 @@ export default defineComponent({
         };
 
         const getBulk = async () => {
-            const ws = controlWs('/magic/scryfall/bulk/get');
+            const ws = controlWs('/magic/scryfall/get-bulk');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -302,8 +250,26 @@ export default defineComponent({
             });
         };
 
-        const loadBulk = async (file: string) => {
-            const ws = controlWs('/magic/scryfall/bulk/load', { file });
+        const loadCard = async (file: string) => {
+            const ws = controlWs('/magic/scryfall/load-card', { file });
+
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    progress.value = JSON.parse(data) as Progress;
+                };
+
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    progress.value = null;
+                    void loadData();
+
+                    resolve(undefined);
+                };
+            });
+        };
+
+        const loadRuling = async (file: string) => {
+            const ws = controlWs('/magic/scryfall/load-ruling', { file });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -321,61 +287,7 @@ export default defineComponent({
         };
 
         const getSet = async () => {
-            const ws = controlWs('/magic/scryfall/set/get');
-
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    progress.value = JSON.parse(data) as Progress;
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    void loadData();
-
-                    resolve(undefined);
-                };
-            });
-        };
-
-        const mergeCard = async () => {
-            const ws = controlWs('/magic/scryfall/card/merge');
-
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    progress.value = JSON.parse(data) as Progress;
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    void loadData();
-
-                    resolve(undefined);
-                };
-            });
-        };
-
-        const mergeRuling = async () => {
-            const ws = controlWs('/magic/scryfall/ruling/merge');
-
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    progress.value = JSON.parse(data) as Progress;
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    void loadData();
-
-                    resolve(undefined);
-                };
-            });
-        };
-
-        const mergeSet = async () => {
-            const ws = controlWs('/magic/scryfall/set/merge');
+            const ws = controlWs('/magic/scryfall/get-set');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -412,11 +324,9 @@ export default defineComponent({
             progressLabel,
 
             getBulk,
-            loadBulk,
-            mergeCard,
-            mergeRuling,
+            loadCard,
+            loadRuling,
             getSet,
-            mergeSet,
         };
     },
 });

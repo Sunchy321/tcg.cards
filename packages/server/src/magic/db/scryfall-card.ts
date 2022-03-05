@@ -1,22 +1,16 @@
 /* eslint-disable camelcase */
 import { Document, Schema } from 'mongoose';
 
-import conn from '../db';
+import conn from './db';
 
 import { UUID } from '@interface/magic/scryfall/basic';
 import { RawCard } from '@interface/magic/scryfall/card';
-import { Diff } from 'deep-diff';
 
-export type ICardBase = Omit<RawCard, 'id' | 'object'> & {
+export type ISCard = Omit<RawCard, 'id' | 'object'> & {
     card_id: UUID;
 };
 
-export type ICard = ICardBase & {
-    __file: string;
-    __diff?: Diff<ICardBase, ICardBase>[];
-};
-
-const CardSchema = new Schema<ICard>({
+const CardSchema = new Schema<ISCard>({
     // Core Card Fields
     arena_id:            Number,
     card_id:             String,
@@ -153,6 +147,6 @@ const CardSchema = new Schema<ICard>({
     diff: {},
 }, { strict: false });
 
-const Card = conn.model<Document & ICard>('scryfall_card', CardSchema);
+const Card = conn.model<Document & ISCard>('scryfall_card', CardSchema);
 
 export default Card;

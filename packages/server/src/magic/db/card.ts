@@ -2,7 +2,18 @@ import { Schema } from 'mongoose';
 
 import conn from './db';
 
-import { Card as ICard } from '@interface/magic/card';
+import { Card as ICardBase } from '@interface/magic/card';
+
+export type ICard = Omit<ICardBase, 'parts'> & {
+    parts: (ICardBase['parts'][0] & {
+        __costMap?: Record<string, number>;
+    })[];
+
+    __tags: {
+        oracleUpdated: boolean;
+        printed?: boolean;
+    };
+};
 
 const CardSchema = new Schema<ICard>({
     cardId: String,
@@ -100,6 +111,7 @@ const CardSchema = new Schema<ICard>({
     isTextless:       Boolean,
     finishes:         [String],
     hasHighResImage:  Boolean,
+    imageStatus:      String,
 
     legalities:     Object,
     isReserved:     Boolean,
@@ -117,9 +129,10 @@ const CardSchema = new Schema<ICard>({
     },
 
     scryfall: {
-        cardId:   String,
-        oracleId: String,
-        face:     String,
+        cardId:    String,
+        oracleId:  String,
+        face:      String,
+        imageUris: Array,
     },
 
     arenaId:      Number,

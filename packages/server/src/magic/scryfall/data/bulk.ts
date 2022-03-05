@@ -20,7 +20,7 @@ interface IBulkList {
 
 const bulkPath = join(dataPath, 'magic/scryfall');
 
-export default class BulkSaver extends Task<Status> {
+export default class BulkGetter extends Task<Status> {
     saver?: FileSaver;
 
     async startImpl(): Promise<void> {

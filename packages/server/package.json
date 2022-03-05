@@ -1,6 +1,6 @@
 {
     "name": "card-server",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Card Server",
     "scripts": {
         "lint": "eslint ./src ./data --ext js,ts --cache --fix",

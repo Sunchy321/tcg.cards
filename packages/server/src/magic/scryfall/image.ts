@@ -1,6 +1,6 @@
 import Task from '@/common/task';
 
-import Card from '../db/scryfall/card';
+import Card from '../db/card';
 import Set from '../db/set';
 
 import FileSaver from '@/common/save-file';
@@ -10,7 +10,7 @@ import { cardImagePath } from '@/magic/image';
 
 interface IImageProjection {
     _id: { set: string, lang: string };
-    infos: { number: string, uris?: Record<string, string>, partsUris?: Record<string, string>[] }[];
+    infos: { number: string, layout: string, uris: Record<string, string>[] }[];
 }
 
 interface IImageTask {
@@ -58,18 +58,19 @@ export class ImageGetter extends Task<IImageStatus> {
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
             .match({
-                $or: [
-                    { image_status: { $in: ['lowres', 'highres_scan'] } },
-                    { lang: 'en', image_status: { $in: ['placeholder'] } },
+                'scryfall.imageUris': { $exists: true },
+                '$or':                [
+                    { imageStatus: { $in: ['lowres', 'highres_scan'] } },
+                    { lang: 'en', imageStatus: { $in: ['placeholder'] } },
                 ],
             })
             .group({
                 _id:   { set: '$set', lang: '$lang' },
                 infos: {
                     $push: {
-                        number:    '$collector_number',
-                        uris:      '$image_uris',
-                        partsUris: '$card_faces.image_uris',
+                        number: '$number',
+                        layout: '$layout',
+                        uris:   '$scryfall.imageUris',
                     },
                 },
             })
@@ -119,29 +120,18 @@ export class ImageGetter extends Task<IImageStatus> {
 
                 return pa < pb ? -1 : pa > pb ? 1 : 0;
             })) {
-                if (info.uris != null) {
-                    const name = info.number;
-                    this.todoTasks.push({
-                        name,
-                        uri:  info.uris[this.type],
-                        path: cardImagePath(
-                            this.type,
-                            this.set,
-                            this.lang,
-                            info.number,
-                        ),
-                    });
-
-                    this.statusMap[name] = 'waiting';
-                }
-
-                if (info.partsUris != null) {
-                    for (let i = 0; i < info.partsUris.length; i += 1) {
+                if ([
+                    'double_faced',
+                    'modal_dfc',
+                    'reversible_card',
+                    'transform',
+                ].includes(info.layout)) {
+                    for (let i = 0; i < info.uris.length; i += 1) {
                         const name = `${info.number}-${i}`;
 
                         this.todoTasks.push({
                             name,
-                            uri:  info.partsUris[i][this.type],
+                            uri:  info.uris[i][this.type],
                             path: cardImagePath(
                                 this.type,
                                 this.set,
@@ -153,6 +143,20 @@ export class ImageGetter extends Task<IImageStatus> {
 
                         this.statusMap[name] = 'waiting';
                     }
+                } else {
+                    const name = info.number;
+                    this.todoTasks.push({
+                        name,
+                        uri:  info.uris[0][this.type],
+                        path: cardImagePath(
+                            this.type,
+                            this.set,
+                            this.lang,
+                            info.number,
+                        ),
+                    });
+
+                    this.statusMap[name] = 'waiting';
                 }
             }
 

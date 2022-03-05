@@ -6,15 +6,10 @@ import websocket from '@/middlewares/websocket';
 import Card from '@/magic/db/card';
 import Set from '@/magic/db/set';
 
-import ScryfallCard from '@/magic/db/scryfall/card';
-import ScryfallRuling from '@/magic/db/scryfall/ruling';
-import ScryfallSet from '@/magic/db/scryfall/set';
-
-import { BulkGetter, BulkLoader } from '@/magic/scryfall/bulk';
-import { SetGetter } from '@/magic/scryfall/set';
-import { CardMerger } from '@/magic/scryfall/merge/card';
-import { RulingMerger } from '@/magic/scryfall/merge/ruling';
-import { SetMerger } from '@/magic/scryfall/merge/set';
+import BulkGetter from '@/magic/scryfall/data/bulk';
+import CardLoader from '@/magic/scryfall/data/card';
+import RulingLoader from '@/magic/scryfall/data/ruling';
+import SetGetter from '@/magic/scryfall/data/set';
 
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
@@ -26,11 +21,6 @@ router.prefix('/scryfall');
 router.get('/', async ctx => {
     ctx.body = {
         bulk:     BulkGetter.data(),
-        scryfall: {
-            card:   await ScryfallCard.estimatedDocumentCount(),
-            ruling: await ScryfallRuling.estimatedDocumentCount(),
-            set:    await ScryfallSet.estimatedDocumentCount(),
-        },
         database: {
             card: await Card.estimatedDocumentCount(),
             set:  await Set.estimatedDocumentCount(),
@@ -41,7 +31,7 @@ router.get('/', async ctx => {
 const bulkGetter = new BulkGetter();
 
 router.get(
-    '/bulk/get',
+    '/get-bulk',
     websocket,
     async ctx => {
         bulkGetter.bind(await ctx.ws());
@@ -49,10 +39,10 @@ router.get(
     },
 );
 
-const bulkLoaders: Record<string, BulkLoader> = { };
+const cardLoader = new CardLoader();
 
 router.get(
-    '/bulk/load',
+    '/load-card',
     websocket,
     async ctx => {
         const ws = await ctx.ws();
@@ -63,12 +53,30 @@ router.get(
             ctx.status = 401;
             ws.close();
         } else {
-            if (bulkLoaders[file] == null) {
-                bulkLoaders[file] = new BulkLoader(file);
-            }
+            cardLoader.init(file);
+            cardLoader.bind(ws);
+        }
 
-            bulkLoaders[file].on('end', () => delete bulkLoaders[file]);
-            bulkLoaders[file].bind(ws);
+        ctx.status = 200;
+    },
+);
+
+const rulingLoader = new RulingLoader();
+
+router.get(
+    '/load-ruling',
+    websocket,
+    async ctx => {
+        const ws = await ctx.ws();
+
+        const { file } = mapValues(ctx.query, toSingle);
+
+        if (file == null) {
+            ctx.status = 401;
+            ws.close();
+        } else {
+            rulingLoader.init(file);
+            rulingLoader.bind(ws);
         }
 
         ctx.status = 200;
@@ -78,43 +86,10 @@ router.get(
 const setGetter = new SetGetter();
 
 router.get(
-    '/set/get',
+    '/get-set',
     websocket,
     async ctx => {
         setGetter.bind(await ctx.ws());
-        ctx.status = 200;
-    },
-);
-
-const setMerger = new SetMerger();
-
-router.get(
-    '/set/merge',
-    websocket,
-    async ctx => {
-        setMerger.bind(await ctx.ws());
-        ctx.status = 200;
-    },
-);
-
-const cardMerger = new CardMerger();
-
-router.get(
-    '/card/merge',
-    websocket,
-    async ctx => {
-        cardMerger.bind(await ctx.ws());
-        ctx.status = 200;
-    },
-);
-
-const rulingMerger = new RulingMerger();
-
-router.get(
-    '/ruling/merge',
-    websocket,
-    async ctx => {
-        rulingMerger.bind(await ctx.ws());
         ctx.status = 200;
     },
 );

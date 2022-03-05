@@ -21,7 +21,6 @@ export interface Card {
 
     parts: {
         cost?: string[];
-        __costMap?: Record<string, number>;
         color?: string;
         colorIndicator?: string;
 
@@ -98,6 +97,7 @@ export interface Card {
     isTextless: boolean;
     finishes: string[];
     hasHighResImage: boolean;
+    imageStatus: string;
 
     legalities: Legalities;
     isReserved: boolean;
@@ -115,6 +115,7 @@ export interface Card {
         oracleId: string;
         cardId?: string;
         face?: 'back' | 'front';
+        imageUris: Record<string, string>[];
     };
 
     arenaId?: number;
@@ -123,9 +124,4 @@ export interface Card {
     multiverseId: number[];
     tcgPlayerId?: number;
     cardMarketId?: number;
-
-    __tags: {
-        oracleUpdated: boolean;
-        printed?: boolean;
-    };
 }

@@ -1,5 +1,5 @@
 import Card from '@/magic/db/card';
-import ScryfallCard, { ICard as IScryfallCard } from '@/magic/db/scryfall/card';
+import SCard, { ISCard } from '@/magic/db/scryfall-card';
 import Format from '@/magic/db/format';
 
 import Task from '@/common/task';
@@ -471,7 +471,7 @@ export class LegalityAssigner extends Task<Status> {
         });
 
         for (const cards of toBucket<CardData>(toGenerator(allCards), 500)) {
-            const scryfalls = await ScryfallCard.aggregate<IScryfallCard>()
+            const scryfalls = await SCard.aggregate<ISCard>()
                 .match({ oracle_id: { $in: cards.map(c => c.scryfall) } })
                 .group({ _id: '$oracle_id', data: { $first: '$$ROOT' } })
                 .replaceRoot('data');

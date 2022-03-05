@@ -89,7 +89,7 @@ export interface RawCard {
     finishes: Finish[];
     flavor_name?: string;
     flavor_text?: string;
-    frame_effects: string[];
+    frame_effects?: string[];
     frame: string;
     full_art: boolean;
     games: Game[];

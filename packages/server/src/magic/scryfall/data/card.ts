@@ -1,28 +1,31 @@
 /* eslint-disable camelcase */
 import Task from '@/common/task';
 
-import ScryfallCard, { ICard as ISCard, ICardBase as ISCardBase } from '@/magic/db/scryfall/card';
-import Card from '@/magic/db/card';
+import Card, { ICard } from '@/magic/db/card';
+import SCard from '@/magic/db/scryfall-card';
 import Set from '@/magic/db/set';
 
-import { Card as ICard, Category } from '@interface/magic/card';
+import { Category } from '@interface/magic/card';
 import { Colors } from '@interface/magic/scryfall/basic';
-import { CardFace } from '@interface/magic/scryfall/card';
+import { CardFace, RawCard } from '@interface/magic/scryfall/card';
 
 import { Document } from 'mongoose';
-import { Diff } from 'deep-diff';
 import { Status } from '../status';
 
+import { join } from 'path';
+import { existsSync, unlinkSync } from 'fs';
+import { isEqual, omit } from 'lodash';
 import { toAsyncBucket } from '@/common/to-bucket';
+import LineReader from '@/common/line-reader';
 import {
     convertColor, parseTypeline, toIdentifier, convertLegality,
 } from '@/magic/util';
-import { cardImagePath } from '@/magic/image';
-import { existsSync, unlinkSync } from 'fs';
-import { isEqual } from 'lodash';
+import { bulkPath, convertJson } from './common';
 
-type ISCardNoArtSeries = Omit<ISCard, 'layout'> & {
-    layout: Exclude<ISCard['layout'], 'art_series'>;
+import { cardImagePath } from '@/magic/image';
+
+type RawCardNoArtSeries = Omit<RawCard, 'layout'> & {
+    layout: Exclude<RawCard['layout'], 'art_series'>;
 };
 
 type NCardFace = Omit<CardFace, 'colors'> & {
@@ -32,12 +35,12 @@ type NCardFace = Omit<CardFace, 'colors'> & {
     flavor_name?: string;
 };
 
-type NCardBase = Omit<ISCard, keyof NCardFace | 'card_faces' | 'layout'> & {
+type NCardBase = Omit<RawCard, keyof NCardFace | 'card_faces' | 'layout'> & {
     card_faces: NCardFace[];
     face?: 'back' | 'front';
 };
 
-type NCardFaceExtracted = NCardBase & { layout: ISCardNoArtSeries['layout'] };
+type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };
 type NCardSplit = NCardBase & { layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'minigame' };
 
 function splitCost(cost: string) {
@@ -66,7 +69,7 @@ function isMinigame(data: NCardBase) {
     return data.set_name.endsWith('Minigames');
 }
 
-function extractCardFace(card: ISCard): NCardFace[] {
+function extractCardFace(card: RawCard): NCardFace[] {
     if (card.card_faces != null) {
         return card.card_faces.map(f => {
             if (f.colors == null) {
@@ -104,7 +107,7 @@ function extractCardFace(card: ISCard): NCardFace[] {
     }
 }
 
-function toNSCard(card: ISCardNoArtSeries): NCardFaceExtracted {
+function toNSCard(card: RawCardNoArtSeries): NCardFaceExtracted {
     return { ...card, card_faces: extractCardFace(card) };
 }
 
@@ -331,7 +334,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         })(),
 
         frame:        data.frame,
-        frameEffects: data.frame_effects,
+        frameEffects: data.frame_effects ?? [],
         borderColor:  data.border_color,
         cardBack:     data.card_back_id,
         promoTypes:   data.promo_types,
@@ -347,6 +350,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         isTextless:       data.textless,
         finishes:         data.finishes,
         hasHighResImage:  data.highres_image,
+        imageStatus:      data.image_status,
 
         legalities:     convertLegality(data.legalities),
         isReserved:     data.reserved,
@@ -363,9 +367,10 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
             : undefined,
 
         scryfall: {
-            cardId:   data.card_id,
-            oracleId: data.oracle_id,
-            face:     data.face,
+            cardId:    data.id,
+            oracleId:  data.oracle_id,
+            face:      data.face,
+            imageUris: data.card_faces.map(v => v.image_uris ?? {}),
         },
         arenaId:      data.arena_id,
         mtgoId:       data.mtgo_id,
@@ -380,168 +385,203 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
     };
 }
 
-const ignoreList: (keyof ISCardBase)[] = [
-    'all_parts',
-    'artist_ids',
-    'edhrec_rank',
-    'image_uris',
-    'prices',
-    'related_uris',
-    'scryfall_set_uri',
-    'scryfall_uri',
-    'set_name',
-    'set_search_uri',
-    'set_type',
-    'set_uri',
-    'legalities',
-];
+function assign(card: Document & ICard, data: ICard, key: keyof ICard) {
+    if (!isEqual(card[key], data[key])) {
+        (card as any)[key] = data[key];
+    }
+}
 
-const assignMap: Partial<Record<keyof ISCardBase, keyof ICard>> = {
-    keywords: 'keywords',
+function assignPart(card: ICard['parts'][0], data: ICard['parts'][0], key: keyof ICard['parts'][0]) {
+    if (!isEqual(card[key], data[key])) {
+        (card as any)[key] = data[key];
+    }
+}
 
-    frame:         'frame',
-    frame_effects: 'frameEffects',
-    border_color:  'borderColor',
-    promo_types:   'promoTypes',
-    released_at:   'releaseDate',
+function merge(card: Document & ICard, data: ICard) {
+    for (const k of Object.keys(data) as (keyof ICard)[]) {
+        // eslint-disable-next-line default-case
+        switch (k) {
+        case 'cardId':
+            break;
 
-    digital:         'isDigital',
-    full_art:        'isFullArt',
-    oversized:       'isOversized',
-    promo:           'isPromo',
-    reprint:         'isReprint',
-    story_spotlight: 'isStorySpotlight',
-    textless:        'isTextless',
-    finishes:        'finishes',
-
-    reserved: 'isReserved',
-    booster:  'inBooster',
-    games:    'games',
-
-    arena_id:       'arenaId',
-    mtgo_id:        'mtgoId',
-    mtgo_foil_id:   'mtgoFoilId',
-    multiverse_ids: 'multiverseId',
-    tcgplayer_id:   'tcgPlayerId',
-    cardmarket_id:  'cardMarketId',
-};
-
-function merge(card: Document & ICard, data: ICard, diff: Diff<ISCardBase>[]) {
-    for (const d of diff) {
-        if (ignoreList.includes(d.path![0])) {
-            continue;
-        }
-
-        if (Object.keys(assignMap).includes(d.path![0])) {
-            const newKey = assignMap[d.path![0] as keyof ISCardBase]!;
-
-            if (!isEqual(card[newKey], data[newKey])) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (card as any)[newKey] = data[newKey];
-            }
-
-            continue;
-        }
-
-        switch (d.path![0]) {
+        case 'lang':
+            break;
         case 'set':
-            if (card.set !== data.set) {
-                (card as any).set = data.set;
-            }
+            assign(card, data, 'set');
             break;
-        case 'collector_number':
-            if (card.number !== data.number) {
-                card.number = data.number;
-            }
+        case 'number':
+            assign(card, data, 'number');
             break;
-        case 'card_faces':
-            switch (d.path![2]) {
-            case 'name':
-                if (card.parts[d.path![1]].oracle.name !== data.parts[d.path![1]].oracle.name) {
-                    card.parts[d.path![1]].oracle.name = data.parts[d.path![1]].oracle.name;
-                    card.__tags.oracleUpdated = true;
 
-                    if (card.lang === 'en') {
-                        card.parts[d.path![1]].unified.name = data.parts[d.path![1]].oracle.name;
+        case 'manaValue':
+            break;
+        case 'colorIdentity':
+            break;
+
+        case 'parts': {
+            if (card.parts.length !== data.parts.length) {
+                throw new Error(`parts count mismatch: ${card.cardId}`);
+            }
+
+            for (let i = 0; i < data.parts.length; i += 1) {
+                const cPart = card.parts[i];
+                const dPart = data.parts[i];
+
+                for (const l of Object.keys(dPart) as (keyof ICard['parts'][0])[]) {
+                    // eslint-disable-next-line default-case
+                    switch (l) {
+                    case 'cost':
+                    case '__costMap':
+                    case 'color':
+                        break;
+                    case 'colorIndicator':
+                        assignPart(cPart, dPart, 'colorIndicator');
+                        break;
+
+                    case 'typeSuper': {
+                        if (!isEqual(cPart.typeSuper, dPart.typeSuper)) {
+                            cPart.typeSuper = dPart.typeSuper;
+                        }
+                        break;
+                    }
+                    case 'typeMain': {
+                        if (!isEqual(cPart.typeMain, dPart.typeMain)) {
+                            cPart.typeMain = dPart.typeMain;
+                        }
+                        break;
+                    }
+                    case 'typeSub': {
+                        if (!isEqual(cPart.typeSub, dPart.typeSub)) {
+                            cPart.typeSub = dPart.typeSub;
+                        }
+                        break;
+                    }
+
+                    case 'power':
+                    case 'toughness':
+                    case 'loyalty':
+                    case 'handModifier':
+                    case 'lifeModifier':
+                        break;
+
+                    case 'oracle': {
+                        if (cPart.oracle.name !== dPart.oracle.name) {
+                            cPart.oracle.name = dPart.oracle.name;
+
+                            card.__tags.oracleUpdated = true;
+
+                            if (card.lang === 'en') {
+                                cPart.unified.name = dPart.oracle.name;
+                            }
+                        }
+
+                        if (cPart.oracle.typeline !== dPart.oracle.typeline) {
+                            cPart.oracle.typeline = dPart.oracle.typeline;
+
+                            card.__tags.oracleUpdated = true;
+
+                            if (card.lang === 'en') {
+                                cPart.unified.typeline = dPart.oracle.typeline;
+                            }
+                        }
+
+                        if (cPart.oracle.text !== dPart.oracle.text) {
+                            cPart.oracle.text = dPart.oracle.text;
+
+                            card.__tags.oracleUpdated = true;
+
+                            if (card.lang === 'en') {
+                                cPart.unified.text = dPart.oracle.text;
+                            }
+                        }
+
+                        break;
+                    }
+
+                    case 'unified':
+                    case 'printed':
+                        break;
+
+                    case 'scryfallIllusId':
+                        assignPart(cPart, dPart, 'scryfallIllusId');
+                        break;
+                    case 'flavorName':
+                        break;
+                    case 'flavorText':
+                        break;
+                    case 'artist':
+                        assignPart(cPart, dPart, 'artist');
+                        break;
+                    case 'watermark':
+                        break;
                     }
                 }
-                break;
-            case 'type_line':
-                if (card.parts[d.path![1]].oracle.typeline !== data.parts[d.path![1]].oracle.typeline) {
-                    card.parts[d.path![1]].oracle.typeline = data.parts[d.path![1]].oracle.typeline;
-                    card.__tags.oracleUpdated = true;
-
-                    if (card.lang === 'en') {
-                        card.parts[d.path![1]].unified.typeline = data.parts[d.path![1]].oracle.typeline;
-                    }
-
-                    const type = parseTypeline(data.parts[d.path![1]].oracle.typeline);
-
-                    card.parts[d.path![1]].typeMain = type.typeMain;
-                    card.parts[d.path![1]].typeSuper = type.typeSuper;
-                    card.parts[d.path![1]].typeSub = type.typeSub;
-                }
-                break;
-            case 'oracle_text':
-                if (card.parts[d.path![1]].oracle.text !== data.parts[d.path![1]].oracle.text) {
-                    card.parts[d.path![1]].oracle.text = data.parts[d.path![1]].oracle.text;
-                    card.__tags.oracleUpdated = true;
-
-                    if (card.lang === 'en') {
-                        card.parts[d.path![1]].unified.text = data.parts[d.path![1]].oracle.text;
-                    }
-                }
-                break;
-            default:
             }
-            break;
-        case 'color_indicator':
-            if (card.parts[0].colorIndicator !== data.parts[0].colorIndicator) {
-                card.parts[0].colorIndicator = data.parts[0].colorIndicator;
-            }
-            break;
-        case 'name':
-            if (card.parts[0].oracle.name !== data.parts[0].oracle.name) {
-                card.parts[0].oracle.name = data.parts[0].oracle.name;
-                card.__tags.oracleUpdated = true;
 
-                if (card.lang === 'en') {
-                    card.parts[0].unified.name = data.parts[0].oracle.name;
-                }
-            }
             break;
-        case 'type_line':
-            if (card.parts[0].oracle.typeline !== data.parts[0].oracle.typeline) {
-                card.parts[0].oracle.typeline = data.parts[0].oracle.typeline;
-                card.__tags.oracleUpdated = true;
+        }
 
-                if (card.lang === 'en') {
-                    card.parts[0].unified.typeline = data.parts[0].oracle.typeline;
-                }
-
-                const type = parseTypeline(data.parts[0].oracle.typeline);
-
-                card.parts[0].typeMain = type.typeMain;
-                card.parts[0].typeSuper = type.typeSuper;
-                card.parts[0].typeSub = type.typeSub;
-            }
+        case 'relatedCards':
             break;
-        case 'oracle_text':
-            if (card.parts[0].oracle.text !== data.parts[0].oracle.text) {
-                card.parts[0].oracle.text = data.parts[0].oracle.text;
-                card.__tags.oracleUpdated = true;
 
-                if (card.lang === 'en') {
-                    card.parts[0].unified.text = data.parts[0].oracle.text;
-                }
-            }
+        case 'rulings':
             break;
-        case 'artist':
-            if (card.parts[0].artist !== data.parts[0].artist) {
-                card.parts[0].artist = data.parts[0].artist;
-            }
+
+        case 'keywords':
+            assign(card, data, 'keywords');
             break;
-        case 'highres_image':
+
+        case 'producedMana':
+            break;
+
+        case 'category':
+        case 'layout':
+            break;
+        case 'frame':
+            assign(card, data, 'frame');
+            break;
+        case 'frameEffects':
+            assign(card, data, 'frameEffects');
+            break;
+        case 'borderColor':
+            assign(card, data, 'borderColor');
+            break;
+        case 'cardBack':
+            break;
+        case 'promoTypes':
+            assign(card, data, 'promoTypes');
+            break;
+        case 'rarity':
+            break;
+        case 'releaseDate':
+            assign(card, data, 'releaseDate');
+            break;
+
+        case 'isDigital':
+            assign(card, data, 'isDigital');
+            break;
+        case 'isFullArt':
+            assign(card, data, 'isFullArt');
+            break;
+        case 'isOversized':
+            assign(card, data, 'isOversized');
+            break;
+        case 'isPromo':
+            assign(card, data, 'isPromo');
+            break;
+        case 'isReprint':
+            assign(card, data, 'isReprint');
+            break;
+        case 'isStorySpotlight':
+            assign(card, data, 'isStorySpotlight');
+            break;
+        case 'isTextless':
+            assign(card, data, 'isTextless');
+            break;
+        case 'finishes':
+            assign(card, data, 'finishes');
+            break;
+        case 'hasHighResImage': {
             if (card.hasHighResImage !== data.hasHighResImage) {
                 for (const type of ['png', 'border_crop', 'art_crop', 'large', 'normal', 'small']) {
                     const basePath = cardImagePath(type, data.set, data.lang, data.number);
@@ -562,17 +602,73 @@ function merge(card: Document & ICard, data: ICard, diff: Diff<ISCardBase>[]) {
                 card.hasHighResImage = data.hasHighResImage;
             }
             break;
-        default:
+        }
+        case 'imageStatus':
+            assign(card, data, 'imageStatus');
+            break;
+
+        case 'legalities':
+            break;
+        case 'isReserved':
+            assign(card, data, 'isReserved');
+            break;
+        case 'inBooster':
+            assign(card, data, 'inBooster');
+            break;
+        case 'contentWarning':
+            assign(card, data, 'contentWarning');
+            break;
+        case 'games':
+            assign(card, data, 'games');
+            break;
+
+        case 'preview':
+            break;
+
+        case 'scryfall':
+            assign(card, data, 'scryfall');
+            break;
+
+        case 'arenaId':
+            assign(card, data, 'arenaId');
+            break;
+        case 'mtgoId':
+            assign(card, data, 'mtgoId');
+            break;
+        case 'mtgoFoilId':
+            assign(card, data, 'mtgoFoilId');
+            break;
+        case 'multiverseId':
+            assign(card, data, 'multiverseId');
+            break;
+        case 'tcgPlayerId':
+            assign(card, data, 'tcgPlayerId');
+            break;
+        case 'cardMarketId':
+            assign(card, data, 'cardMarketId');
+            break;
+
+        case '__tags':
+            break;
         }
     }
 }
 
 const bucketSize = 500;
 
-export class CardMerger extends Task<Status> {
-    progressId?: NodeJS.Timeout;
+export default class CardLoader extends Task<Status> {
+    file: string;
+    filePath: string;
+    lineReader: LineReader;
+
+    init(fileName: string): void {
+        this.file = fileName;
+        this.filePath = join(bulkPath, `${fileName}.json`);
+        this.lineReader = new LineReader(this.filePath);
+    }
 
     async startImpl(): Promise<void> {
+        // initialize set code map
         const setCodeMap: Record<string, string> = {};
 
         const sets = await Set.find();
@@ -583,22 +679,15 @@ export class CardMerger extends Task<Status> {
             }
         }
 
+        let total = 0;
         let count = 0;
 
-        const files = await ScryfallCard.aggregate([
-            { $group: { _id: '$__file' } },
-            { $sort: { _id: -1 } },
-        ]);
-
-        const lastFile = files[0]._id;
-
-        const total = await ScryfallCard.countDocuments({ __file: lastFile });
-
-        const start = Date.now();
+        // start timer
+        let start = Date.now();
 
         this.intervalProgress(500, () => {
             const prog: Status = {
-                method: 'merge',
+                method: 'load',
                 type:   'card',
 
                 amount: { total, count },
@@ -614,17 +703,33 @@ export class CardMerger extends Task<Status> {
             return prog;
         });
 
-        const query = ScryfallCard.find({ __file: lastFile }).lean();
+        // evaluate total card count
+        for await (const line of this.lineReader.get()) {
+            if (line !== '[' && line !== ']') {
+                total += 1;
+            }
+        }
+
+        this.lineReader.reset();
+
+        await SCard.deleteMany({});
+
+        start = Date.now();
 
         for await (const jsons of toAsyncBucket(
-            query as unknown as AsyncGenerator<ISCard>,
+            convertJson<RawCard>(this.lineReader.get()),
             bucketSize,
         )) {
             if (this.status === 'idle') {
                 return;
             }
 
-            const cards = await Card.find({ 'scryfall.cardId': { $in: jsons.map(j => j.card_id) } });
+            await SCard.insertMany(jsons.map(json => ({
+                ...omit(json, 'id'),
+                card_id: json.id,
+            })));
+
+            const cards = await Card.find({ 'scryfall.cardId': { $in: jsons.map(j => j.id) } });
 
             const cardsToInsert: ICard[] = [];
 
@@ -633,27 +738,27 @@ export class CardMerger extends Task<Status> {
                     continue;
                 }
 
-                const newCards = splitDFT(toNSCard(json as ISCardNoArtSeries));
+                const newCards = splitDFT(toNSCard(json as RawCardNoArtSeries));
 
-                const oldCards = cards.filter(c => c.scryfall.cardId === json.card_id);
+                const oldCards = cards.filter(c => c.scryfall.cardId === json.id);
 
                 if (newCards.length === 1) {
                     // a single card
                     if (oldCards.length === 0) {
                         cardsToInsert.push(...newCards.map(c => toCard(c, setCodeMap)));
                     } else if (oldCards.length === 1) {
-                        merge(oldCards[0], toCard(newCards[0], setCodeMap), newCards[0].__diff!);
+                        merge(oldCards[0], toCard(newCards[0], setCodeMap));
 
                         if (oldCards[0].modifiedPaths().length > 0) {
                             await oldCards[0].save();
                         }
                     } else {
                         // Scryfall mowu is bugged. ignore.
-                        if (newCards[0].card_id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
+                        if (newCards[0].id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
                             continue;
                         }
 
-                        console.log(`mismatch object count: ${newCards[0].card_id}`);
+                        console.log(`mismatch object count: ${newCards[0].id}`);
                     }
                 } else if (newCards.length === 2) {
                     if (oldCards.length === 0) {
@@ -664,7 +769,7 @@ export class CardMerger extends Task<Status> {
                                 const front = oldCards.find(c => c.scryfall.face === 'front');
 
                                 if (front != null) {
-                                    merge(front, toCard(n, setCodeMap), n.__diff!);
+                                    merge(front, toCard(n, setCodeMap));
                                 } else {
                                     cardsToInsert.push(toCard(n, setCodeMap));
                                 }
@@ -672,14 +777,14 @@ export class CardMerger extends Task<Status> {
                                 const back = oldCards.find(c => c.scryfall.face === 'back');
 
                                 if (back != null) {
-                                    merge(back, toCard(n, setCodeMap), n.__diff!);
+                                    merge(back, toCard(n, setCodeMap));
                                 } else {
                                     cardsToInsert.push(toCard(n, setCodeMap));
                                 }
                             }
                         }
                     } else {
-                        console.log(`mismatch object count: ${newCards[0].card_id}, ${newCards[1].card_id}`);
+                        console.log(`mismatch object count: ${newCards[0].id}, ${newCards[1].id}`);
                     }
                 }
 

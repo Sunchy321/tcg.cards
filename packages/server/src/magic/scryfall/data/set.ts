@@ -2,17 +2,19 @@ import FileSaver from '@/common/save-file';
 import Task from '@/common/task';
 import { setIconPath } from '@/magic/image';
 
-import ScryfallSet, { ISet as IScryfallSet } from '@/magic/db/scryfall/set';
 import Set from '@/magic/db/set';
 
 import { Set as ISet } from '@interface/magic/set';
+import { RawSet } from '@interface/magic/scryfall/set';
 
 import { Status } from '../status';
 
+import { listOf } from '../basic';
+
 import { auxSetType } from '@/../data/magic/special';
 
-async function mergeWith(data: IScryfallSet) {
-    const set = await Set.findOne({ 'scryfall.id': data.set_id });
+async function mergeWith(data: RawSet) {
+    const set = await Set.findOne({ 'scryfall.id': data.id });
 
     if (set == null) {
         const object: ISet = {
@@ -41,7 +43,7 @@ async function mergeWith(data: IScryfallSet) {
             releaseDate: data.released_at,
 
             scryfall: {
-                id:   data.set_id,
+                id:   data.id,
                 code: data.code,
             },
 
@@ -52,7 +54,7 @@ async function mergeWith(data: IScryfallSet) {
 
         await Set.create(object);
     } else {
-        set.scryfall.id = data.set_id;
+        set.scryfall.id = data.id;
         set.scryfall.code = data.code;
         set.mtgoCode = data.mtgo_code;
         set.tcgplayerId = data.tcgplayer_id;
@@ -69,45 +71,49 @@ async function mergeWith(data: IScryfallSet) {
     }
 }
 
-export class SetMerger extends Task<Status> {
+export default class SetGette extends Task<Status> {
     async startImpl(): Promise<void> {
         let count = 0;
+        let total = 0;
 
-        const total = await ScryfallSet.estimatedDocumentCount();
-
+        // start timer
         const start = Date.now();
 
-        for await (const set of await ScryfallSet.find()) {
-            if (this.status === 'idle') {
-                return;
-            }
+        this.intervalProgress(500, () => {
+            const prog: Status = {
+                method: 'get',
+                type:   'set',
 
-            await mergeWith(set);
-
-            if (!auxSetType.includes(set.set_type)) {
-                const saver = new FileSaver(
-                    set.icon_svg_uri,
-                    setIconPath(set.code, 'default', 'svg'),
-                );
-
-                await saver.start();
-            }
-
-            count += 1;
+                amount: { total, count },
+            };
 
             const elapsed = Date.now() - start;
 
-            this.emit('progress', {
-                method: 'merge',
-                type:   'set',
+            prog.time = {
+                elapsed,
+                remaining: (elapsed / count) * (total - count),
+            };
 
-                amount: { count, total },
+            return prog;
+        });
 
-                time: {
-                    elapsed,
-                    remaining: (elapsed / count) * (total - count),
-                },
-            });
+        for await (const sets of listOf<RawSet>('https://api.scryfall.com/sets')) {
+            total += sets.length;
+
+            for (const set of sets) {
+                await mergeWith(set);
+
+                if (!auxSetType.includes(set.set_type)) {
+                    const saver = new FileSaver(
+                        set.icon_svg_uri,
+                        setIconPath(set.code, 'default', 'svg'),
+                    );
+
+                    await saver.start();
+                }
+
+                count += 1;
+            }
         }
     }
 
