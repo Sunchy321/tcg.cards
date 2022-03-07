@@ -89,34 +89,12 @@ const cardsNotInJMP21 = [
     'tropical_island',
 ];
 
-const cardsNotInAlchemy = [
-    'alrund_s_epiphany',
-    'cosmos_elixir',
-    'demilich',
-    'druid_class',
-    'esika_s_chariot',
-    'faceless_haven',
-    'goldspan_dragon',
-    'luminarch_aspirant',
-    'omnath__locus_of_creation',
-    'phylath__world_sculptor',
-    'wizard_class',
-
-    'acererak_the_archlich',
-    'cloister_gargoyle',
-    'divide_by_zero',
-    'dungeon_descent',
-    'ellywick_tumblestrum',
-    'fates__reversal',
-    'find_the_path',
-    'hullbreaker_horror',
-    'lier__disciple_of_the_drowned',
-    'precipitous_drop',
-    'teferi__time_raveler',
-    'triumphant_adventurer',
-];
-
-async function getLegality(data: CardData, formats: IFormat[], pennyCards: string[]): Promise<ICard['legalities']> {
+async function getLegality(
+    data: CardData,
+    formats: IFormat[],
+    pennyCards: string[],
+    alchemyVariantCards: [string, string][],
+): Promise<ICard['legalities']> {
     const cardId = data._id;
     const versions = data.versions.filter(v => v.releaseDate <= new Date().toLocaleDateString('en-CA'));
 
@@ -144,7 +122,28 @@ async function getLegality(data: CardData, formats: IFormat[], pennyCards: strin
         }
 
         if (formatId === 'penny') {
-            result[formatId] = pennyCards.includes(cardId) ? 'legal' : 'unavailable';
+            result[formatId] = pennyCards.map(toIdentifier).includes(cardId) ? 'legal' : 'unavailable';
+            continue;
+        }
+
+        // Card not in online formats. Placed here for Omnath
+        if (
+            ['alchemy', 'historic'].includes(formatId)
+            && alchemyVariantCards.map(v => v[0]).includes(cardId)
+        ) {
+            result[formatId] = 'unavailable';
+            continue;
+        }
+
+        // Cards only in online formats
+        if (
+            !['alchemy', 'historic'].includes(formatId)
+            && (
+                versions.every(v => setsOnlyOnMTGA.includes(v.set))
+                || alchemyVariantCards.map(v => v[1]).includes(cardId)
+            )
+        ) {
+            result[formatId] = 'unavailable';
             continue;
         }
 
@@ -260,24 +259,6 @@ async function getLegality(data: CardData, formats: IFormat[], pennyCards: strin
                 result[formatId] = 'unavailable';
                 continue;
             }
-        }
-
-        // Card not in online formats. Placed here for Omnath
-        if (['alchemy', 'historic'].includes(formatId) && cardsNotInAlchemy.includes(cardId)) {
-            result[formatId] = 'unavailable';
-            continue;
-        }
-
-        // Cards only in online formats
-        if (
-            !['alchemy', 'historic'].includes(formatId)
-            && (
-                versions.every(v => setsOnlyOnMTGA.includes(v.set))
-                || cardsNotInAlchemy.map(id => `a_${id}`).includes(cardId)
-            )
-        ) {
-            result[formatId] = 'unavailable';
-            continue;
         }
 
         result[formatId] = 'legal';
@@ -396,6 +377,7 @@ interface Status {
 }
 
 const pennyCardPath = join(dataPath, 'magic', 'penny');
+const alchemyCardPath = join(dataPath, 'magic', 'alchemy.txt');
 
 export class LegalityAssigner extends Task<Status> {
     async startImpl(): Promise<void> {
@@ -409,8 +391,16 @@ export class LegalityAssigner extends Task<Status> {
 
         const pennyCards = readFileSync(join(pennyCardPath, `${recentPennyFile}.txt`))
             .toString()
+            .split('\n');
+
+        const alchemyVariantCards = readFileSync(alchemyCardPath)
+            .toString()
             .split('\n')
-            .map(toIdentifier);
+            .filter(v => v !== '')
+            .map(v => [
+                toIdentifier(v),
+                toIdentifier(v.split(' // ').map(n => `A-${n}`).join(' // ')),
+            ] as [string, string]);
 
         const wrongs: Status['wrongs'] = [];
 
@@ -477,7 +467,12 @@ export class LegalityAssigner extends Task<Status> {
                 .replaceRoot('data');
 
             for (const c of cards) {
-                const result = await getLegality(c, formats, pennyCards);
+                const result = await getLegality(
+                    c,
+                    formats,
+                    pennyCards,
+                    alchemyVariantCards,
+                );
 
                 const scryfall = scryfalls.find(s => s.oracle_id === c.scryfall);
 
