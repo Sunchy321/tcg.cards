@@ -2,11 +2,11 @@
     <q-page class="q-pa-md">
         <div class="sets">
             <div
-                v-for="{ setId, localization, setType, parent } in profileList" :key="setId"
+                v-for="{ setId, localization, setType, parent, indent } in profileList" :key="setId"
                 class="set flex items-center"
                 :class="{ 'is-primary': setType === 'core' || setType === 'expansion' }"
             >
-                <div v-if="parent != null" style="width: 16px" />
+                <div v-if="parent != null" :style="`width: ${16 * indent}px`" />
                 <span class="name q-mr-sm">{{ nameOf(localization) ?? setId }}</span>
                 <span class="id code q-mr-sm">{{ setId }}</span>
                 <img
@@ -70,6 +70,7 @@ import pageSetup from 'setup/page';
 import { apiGet, imageBase } from 'boot/backend';
 
 import { SetProfile, SetLocalization, getProfile } from 'src/common/magic/set';
+import { partition } from 'lodash';
 
 export default defineComponent({
     setup() {
@@ -84,50 +85,112 @@ export default defineComponent({
         const sets = ref<string[]>([]);
         const profiles = ref<Record<string, SetProfile>>({});
 
-        const indepSets = computed(() => {
-            if (Object.keys(profiles.value).length === 0) {
-                return [];
+        const profileList = computed(() => {
+            // Make a set list which parent occur before child.
+            let profilesDump = Object.values(profiles.value);
+
+            const profilesOrdered: SetProfile[] = [];
+
+            while (profilesDump.length > 0) {
+                const [profilesToInsert, profilesRest] = partition(profilesDump, p => {
+                    if (p.parent == null) {
+                        return true;
+                    }
+
+                    const parent = profilesOrdered.find(po => po.setId === p.parent);
+
+                    return parent != null;
+                });
+
+                profilesOrdered.push(...profilesToInsert);
+                profilesDump = profilesRest;
             }
 
-            return sets.value.filter(
-                s => profiles.value[s] != null && profiles.value[s].parent == null,
-            );
-        });
+            // Make a set map.
+            type SetMap = { profile: SetProfile, children?: SetMap[] };
 
-        const profileList = computed(() => {
-            const list: SetProfile[] = [];
+            const setMap: SetMap[] = [];
 
-            const sortedIndepSets = indepSets.value.slice().sort((a, b) => {
-                const pa = profiles.value[a];
-                const pb = profiles.value[b];
+            function insertSet(map: SetMap[], profile: SetProfile) {
+                if (profile.parent == null) {
+                    map.push({ profile });
+                    return true;
+                }
 
-                const ra = pa.releaseDate;
-                const rb = pb.releaseDate;
+                for (const set of map) {
+                    if (profile.parent === set.profile.setId) {
+                        if (set.children == null) {
+                            set.children = [];
+                        }
 
-                return ra == null
-                    ? (rb == null ? 0 : -1)
-                    : rb == null
-                        ? 1
-                        : ra < rb
-                            ? 1
-                            : ra > rb
-                                ? -1
-                                : 0;
-            });
+                        set.children.push({ profile });
 
-            for (const s of sortedIndepSets) {
-                const profile = profiles.value[s];
+                        return true;
+                    }
+                }
 
-                list.push(profile);
+                for (const set of map) {
+                    if (set.children != null) {
+                        if (insertSet(set.children, profile)) {
+                            return true;
+                        }
+                    }
+                }
 
-                const children = sets.value.filter(so => profiles.value[so]?.parent === s);
+                return false;
+            }
 
-                for (const c of children) {
-                    const childProfile = profiles.value[c];
-
-                    list.push(childProfile);
+            for (const profile of profilesOrdered) {
+                if (!insertSet(setMap, profile)) {
+                    console.log(
+                        profile.setId,
+                        profilesDump.findIndex(v => v.setId === profile.setId),
+                        profile.parent,
+                        profilesDump.findIndex(v => v.setId === profile.parent),
+                    );
                 }
             }
+
+            // Sort set map with release date.
+            function sortMap(map: SetMap[]) {
+                for (const set of map) {
+                    if (set.children != null) {
+                        sortMap(set.children);
+                    }
+                }
+
+                map.sort((a, b) => {
+                    const ra = a.profile.releaseDate;
+                    const rb = b.profile.releaseDate;
+
+                    return ra == null
+                        ? (rb == null ? 0 : -1)
+                        : rb == null
+                            ? 1
+                            : ra < rb
+                                ? 1
+                                : ra > rb
+                                    ? -1
+                                    : 0;
+                });
+            }
+
+            sortMap(setMap);
+
+            // Flatten map
+            const list: (SetProfile & { indent: number })[] = [];
+
+            function flatten(map: SetMap[], indent = 0) {
+                for (const set of map) {
+                    list.push({ ...set.profile, indent });
+
+                    if (set.children != null) {
+                        flatten(set.children, indent + 1);
+                    }
+                }
+            }
+
+            flatten(setMap);
 
             return list;
         });
