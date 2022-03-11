@@ -35,7 +35,7 @@ type NCardFace = Omit<CardFace, 'colors'> & {
     flavor_name?: string;
 };
 
-type NCardBase = Omit<RawCard, keyof NCardFace | 'card_faces' | 'layout'> & {
+type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'image_uris'> | 'card_faces' | 'layout'> & {
     card_faces: NCardFace[];
     face?: 'back' | 'front';
 };
@@ -85,7 +85,6 @@ function extractCardFace(card: RawCard): NCardFace[] {
             colors:            card.colors!,
             flavor_text:       card.flavor_text,
             illustration_id:   card.illustration_id,
-            image_uris:        card.image_uris,
             loyalty:           card.loyalty,
             mana_cost:         card.mana_cost!,
             name:              card.name,
@@ -370,7 +369,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
             cardId:    data.id,
             oracleId:  data.oracle_id,
             face:      data.face,
-            imageUris: data.card_faces.map(v => v.image_uris ?? {}),
+            imageUris: data.image_uris != null ? [data.image_uris] : data.card_faces.map(v => v.image_uris ?? {}),
         },
         arenaId:      data.arena_id,
         mtgoId:       data.mtgo_id,
