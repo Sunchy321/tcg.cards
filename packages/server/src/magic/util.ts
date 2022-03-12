@@ -18,15 +18,21 @@ interface IType {
 }
 
 const superList = [
-    'autobot',
-    'elemental',
-    'elite',
-    'hero',
+    // formal supertype
+    'basic',
     'legendary',
     'ongoing',
     'snow',
-    'token',
     'world',
+
+    'token',
+
+    // informal supertype
+    'elite',
+    'host',
+
+    // only on Trial and Error
+    'elemental',
 ];
 
 const typeMainMap: Record<string, string> = {
