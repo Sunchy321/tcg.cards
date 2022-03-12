@@ -2,6 +2,7 @@
 import request from 'request-promise-native';
 
 import { hearthstone } from '@static';
+import { URL, URLSearchParams } from 'url';
 
 const clientID = hearthstone.blizzard.clientId;
 const { clientSecret } = hearthstone.blizzard;
@@ -32,13 +33,13 @@ async function blzAuth(): Promise<string> {
 export default async function blzApi<T>(path: string, params?: Record<string, any>): Promise<T> {
     const auth = await blzAuth();
 
-    let uri = `https://us.api.blizzard.com/${path}`;
+    const url = new URL(path, 'https://us.api.blizzard.com');
 
     if (params != null) {
-        uri += `?${Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')}`;
+        url.search = new URLSearchParams(params).toString();
     }
 
-    const data = JSON.parse(await request.get(uri, { headers: { Authorization: auth } }));
+    const data = JSON.parse(await request.get(url.toString(), { headers: { Authorization: auth } }));
 
     return data;
 }

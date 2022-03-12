@@ -80,6 +80,38 @@
                     </magic-text>
                 </div>
             </div>
+
+            <div class="links flex q-gutter-md">
+                <q-btn
+                    v-if="scryfallLink != null"
+                    class="link"
+                    :href="scryfallLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
+                    Scryfall
+                </q-btn>
+
+                <q-btn
+                    v-if="gathererLink != null"
+                    class="link"
+                    :href="gathererLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
+                    Gatherer
+                </q-btn>
+
+                <q-btn
+                    v-if="jsonLink != null"
+                    class="link"
+                    :href="jsonLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
+                    JSON
+                </q-btn>
+            </div>
         </div>
 
         <div class="version-column">
@@ -227,6 +259,9 @@
 .rulings
     margin-top: 20px
 
+.links
+    margin-top: 30px
+
 .lang-line
     margin-top: 10px
 
@@ -272,6 +307,9 @@
 
 .other-stats
     margin-left: 15px
+
+.link
+    width: 150px
 
 .lang-selector
     display: inline
@@ -348,7 +386,7 @@ import { TextMode, textModes } from 'src/store/games/magic';
 
 import { omit, omitBy, uniq } from 'lodash';
 
-import { apiGet, imageBase } from 'boot/backend';
+import { apiGet, apiBase, imageBase } from 'boot/backend';
 
 type Data = Card & {
     versions: {
@@ -639,16 +677,56 @@ export default defineComponent({
             },
         }));
 
+        const scryfallLink = computed(() => {
+            const cardId = data.value?.scryfall?.cardId;
+
+            if (cardId == null) {
+                return null;
+            }
+
+            return `https://scryfall.com/card/${cardId}`;
+        });
+
+        const gathererLink = computed(() => {
+            const multiverseId = (() => {
+                const multiverseIds = data.value?.multiverseId;
+
+                if (multiverseIds == null) {
+                    return null;
+                }
+
+                if (layout.value === 'split') {
+                    return multiverseIds[0];
+                }
+
+                return multiverseIds[partIndex.value];
+            })();
+
+            if (multiverseId == null) {
+                return null;
+            }
+
+            return `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${multiverseId}&printed=true`;
+        });
+
+        const apiQuery = computed(() => omitBy({
+            id:     route.params.id as string,
+            lang:   route.query.lang as string ?? store.getters['magic/locale'],
+            set:    route.query.set as string,
+            number: route.query.number as string,
+        }, v => v == null));
+
+        const jsonLink = computed(() => {
+            const url = new URL('magic/card', `http://${apiBase}`);
+
+            url.search = new URLSearchParams(apiQuery.value).toString();
+
+            return url.toString();
+        });
+
         // methods
         const loadData = async () => {
-            const query = omitBy({
-                id:     route.params.id,
-                lang:   route.query.lang ?? store.getters['magic/locale'],
-                set:    route.query.set,
-                number: route.query.number,
-            }, v => v == null);
-
-            const { data: result } = await apiGet<Data>('/magic/card', query);
+            const { data: result } = await apiGet<Data>('/magic/card', apiQuery.value);
 
             rotate.value = null;
             data.value = result;
@@ -719,6 +797,9 @@ export default defineComponent({
             symbolStyle,
             costStyles,
             editorLink,
+            scryfallLink,
+            gathererLink,
+            jsonLink,
 
             setInfos,
             langInfos,

@@ -2,7 +2,6 @@ import { useStore } from 'src/store';
 
 import { controlBase, control } from 'boot/backend';
 
-import { join } from 'path';
 import { AxiosResponse } from 'axios';
 
 export default function controlSetup(): {
@@ -12,49 +11,47 @@ export default function controlSetup(): {
 } {
     const store = useStore();
 
-    async function controlGet<T>(url: string, params: Record<string, any> = { }) {
+    async function controlGet<T>(path: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         if (token != null) {
-            return control.get<T>(url, {
+            return control.get<T>(path, {
                 headers: {
                     Authentication: `Bearer ${token}`,
                 },
                 params,
             });
         } else {
-            return control.get<T>(url, { params });
+            return control.get<T>(path, { params });
         }
     }
 
-    async function controlPost<T>(url: string, params: Record<string, any> = { }) {
+    async function controlPost<T>(path: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         if (token != null) {
-            return control.post<T>(url, params, {
+            return control.post<T>(path, params, {
                 headers: {
                     Authentication: `Bearer ${token}`,
                 },
             });
         } else {
-            return control.post<T>(url, params);
+            return control.post<T>(path, params);
         }
     }
 
-    function controlWs(url: string, params: Record<string, any> = { }) {
+    function controlWs(path: string, params: Record<string, any> = { }) {
         const token = store?.getters?.['user/token'];
 
         params = token != null ? { jwt: token, ...params } : params;
 
-        if (Object.keys(params).length === 0) {
-            return new WebSocket(`ws://${join(controlBase, url)}`);
-        } else {
-            return new WebSocket(`ws://${join(controlBase, url)}?${
-                Object.entries(params).map(
-                    ([k, v]) => `${k}=${encodeURIComponent(v)}`,
-                ).join('&')
-            }`);
+        const url = new URL(path, `ws://${controlBase}`);
+
+        if (Object.keys(params).length !== 0) {
+            url.search = new URLSearchParams(params).toString();
         }
+
+        return new WebSocket(url.toString());
     }
 
     return { controlGet, controlPost, controlWs };
