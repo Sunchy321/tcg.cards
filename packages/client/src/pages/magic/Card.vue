@@ -161,7 +161,7 @@
                     />
                     <div>
                         <div v-ripple class="flex no-wrap items-center" @click="set = i.set">
-                            <span class="code q-mr-sm">{{ i.set }}</span>
+                            <span class="code q-mr-sm" :style="`width: ${setMaxWidth}ch;`">{{ i.set }}</span>
                             <span class="set-name">{{ i.name }}</span>
                             <img class="set-icon q-mx-sm" :src="i.iconUrl">
                             <span class="rarity">{{ i.rarity[0] }}</span>
@@ -466,6 +466,8 @@ export default defineComponent({
             get() { return data.value?.set ?? route.query.set as string; },
             set(newValue: string) { void router.replace({ query: { ...omit(route.query, 'number'), set: newValue } }); },
         });
+
+        const setMaxWidth = computed(() => Math.max(...sets.value.map(s => s.length)));
 
         const number = computed({
             get() { return data.value?.number ?? route.query.number as string; },
@@ -802,6 +804,7 @@ export default defineComponent({
             jsonLink,
 
             setInfos,
+            setMaxWidth,
             langInfos,
 
             textModeOptions,
