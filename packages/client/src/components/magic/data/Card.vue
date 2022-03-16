@@ -197,101 +197,23 @@ import { useStore } from 'src/store';
 
 import controlSetup from 'setup/control';
 
-import { escapeRegExp } from 'lodash';
-
 import ArrayInput from 'components/ArrayInput.vue';
 import CardImage from 'components/magic/CardImage.vue';
 
-interface Part {
-    cost: string[];
+import { Card, Layout } from 'interface/magic/card';
 
-    color: string;
-    colorIndicator?: string;
+import { escapeRegExp } from 'lodash';
 
-    power?: string;
-    toughness?: string;
-    loyalty?: string;
-    handModifier?: string;
-    lifeModifier?: string;
+type Part = Card['parts'][0];
 
-    oracle: {
-        name: string;
-        typeline: string;
-        text: string;
-    };
-
-    unified: {
-        name: string;
-        typeline: string;
-        text: string;
-    };
-
-    printed: {
-        name: string;
-        typeline: string;
-        text: string;
-    };
-
-    flavorText?: string;
-    flavorName?: string;
-    artist: string;
-}
-
-interface RelatedCard {
-    relation: string;
-    cardId: string;
-    version?: {
-        lang: string;
-        set: string;
-        number: string;
-    };
-}
-
-interface Card {
-    cardId: string;
-
-    lang: string;
-    set: string;
-    number: string;
-
-    layout: string;
-
-    parts: Part[];
-
-    versions: {
-        lang: string;
-        set: string;
-        number: string;
-
-        rarity: string;
-
-        // set info
-        name: Record<string, string>;
-        symbolStyle: string[];
-        parent?: string;
-    }[];
-
-    relatedCards: RelatedCard[];
-
-    scryfall: {
-        oracleId: string;
-        cardId?: string;
-        face?: 'back' | 'front';
-    };
-
-    arenaId?: number;
-    mtgoId?: number;
-    mtgoFoilId?: number;
-    multiverseId: number[];
-    tcgPlayerId?: number;
-    cardMarketId?: number;
-
+type CardData = Card & {
+    _id?: string;
     partIndex?: number;
     total?: number;
     result?: {
         _id: { id: string, lang: string, part: number };
     };
-}
+};
 
 export default defineComponent({
     name: 'DataCard',
@@ -305,7 +227,7 @@ export default defineComponent({
 
         const { controlGet, controlPost } = controlSetup();
 
-        const data = ref<(Card & { _id?: string }) | null>(null);
+        const data = ref<CardData | null>(null);
         const unlock = ref(false);
         const replaceFrom = ref('');
         const replaceTo = ref('');
@@ -386,7 +308,7 @@ export default defineComponent({
 
         const layout = computed({
             get() { return data.value?.layout ?? 'normal'; },
-            set(newValue: string) {
+            set(newValue: Layout) {
                 if (hasData.value) {
                     data.value!.layout = newValue;
                 }
@@ -498,8 +420,8 @@ export default defineComponent({
                 .replace(/ *― *-? */, '―')
                 .replace(/ *: *-? */, ' : ');
 
-            unifiedText.value = unifiedText.value.replace(/~~/g, unifiedName.value);
-            printedText.value = printedText.value.replace(/~~/g, printedName.value);
+            unifiedText.value = unifiedText.value!.replace(/~~/g, unifiedName.value);
+            printedText.value = printedText.value!.replace(/~~/g, printedName.value);
 
             if (lang.value === 'zhs' || lang.value === 'zht') {
                 unifiedTypeline.value = unifiedTypeline.value.replace(/~/g, '～').replace(/\//g, '／');
@@ -526,7 +448,8 @@ export default defineComponent({
             if (lang.value === 'zhs' || lang.value === 'zht') {
                 if (!/[a-wyz](?![/}])/.test(unifiedText.value)) {
                     unifiedText.value = unifiedText.value
-                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
+                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
+                        .replace(/<\/.>/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）')
                         .replace(/;/g, '；');
@@ -534,7 +457,8 @@ export default defineComponent({
 
                 if (!/[a-wyz](?![/}])/.test(printedText.value)) {
                     printedText.value = printedText.value
-                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—)/g, '')
+                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
+                        .replace(/<\/.>/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）')
                         .replace(/;/g, '；');
@@ -576,7 +500,7 @@ export default defineComponent({
             defaultPrettify();
 
             if (replaceFrom.value !== '') {
-                unifiedText.value = unifiedText.value.replace(
+                unifiedText.value = unifiedText.value!.replace(
                     new RegExp(escapeRegExp(replaceFrom.value), 'g'),
                     replaceTo.value,
                 );
@@ -586,9 +510,9 @@ export default defineComponent({
                 );
             }
 
-            unifiedText.value = unifiedText.value.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+            unifiedText.value = unifiedText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
 
-            if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value)) {
+            if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
                 printedText.value = '';
             }
         };
@@ -600,23 +524,30 @@ export default defineComponent({
 
             unifiedName.value = oracleName.value;
             unifiedTypeline.value = oracleTypeline.value;
-            unifiedText.value = oracleText.value.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+            unifiedText.value = oracleText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
         };
 
         const newData = () => {
-            if (data.value != null) {
-                delete data.value._id;
-                delete data.value.scryfall.cardId;
-
-                delete data.value.arenaId;
-                delete data.value.mtgoId;
-                delete data.value.mtgoFoilId;
-                data.value.multiverseId = [];
-                delete data.value.tcgPlayerId;
-                delete data.value.cardMarketId;
-
-                unlock.value = true;
+            if (data.value == null) {
+                return;
             }
+
+            delete data.value._id;
+
+            for (const p of data.value.parts) {
+                delete p.scryfallIllusId;
+            }
+
+            delete data.value.scryfall.cardId;
+            data.value.scryfall.imageUris = [];
+            delete data.value.arenaId;
+            delete data.value.mtgoId;
+            delete data.value.mtgoFoilId;
+            data.value.multiverseId = [];
+            delete data.value.tcgPlayerId;
+            delete data.value.cardMarketId;
+
+            unlock.value = true;
         };
 
         const loadGatherer = async () => {

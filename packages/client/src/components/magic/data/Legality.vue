@@ -128,7 +128,10 @@ export default defineComponent({
                     progress.value = JSON.parse(data) as Status;
                 };
                 ws.onerror = reject;
-                ws.onclose = resolve;
+                ws.onclose = () => {
+                    progress.value = null;
+                    resolve(undefined);
+                };
             });
         };
 
