@@ -51,7 +51,7 @@ router.get('/raw', async ctx => {
     });
 
     if (card != null) {
-        ctx.body = card.toJSON();
+        ctx.body = card.toObject();
     } else {
         ctx.status = 404;
     }
@@ -322,14 +322,10 @@ router.get('/parse-gatherer', async ctx => {
     const number = ctx.query.number as string;
     const lang = ctx.query.lang as string;
 
-    const mids = mid.split(',').map(v => v.trim());
+    const mids = mid.split(',').map(v => Number.parseInt(v.trim(), 10));
 
-    if (mids.length >= 1 && mids.length <= 2) {
-        const result = await parseGatherer(mids, set, number, lang);
-
-        if (result != null) {
-            ctx.body = result;
-        }
+    if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
+        await parseGatherer(mids, set, number, lang);
     }
 });
 

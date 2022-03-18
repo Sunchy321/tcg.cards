@@ -442,14 +442,13 @@ export default defineComponent({
                 printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ').trim();
             }
 
-            unifiedText.value = unifiedText.value.trim().replace(/[●•] ?/g, '• ');
-            printedText.value = printedText.value.trim().replace(/[●•] ?/g, '• ');
+            unifiedText.value = unifiedText.value.trim().replace(/[●•] ?/g, '• ').replace(/<\/?.>/g, '');
+            printedText.value = printedText.value.trim().replace(/[●•] ?/g, '• ').replace(/<\/?.>/g, '');
 
             if (lang.value === 'zhs' || lang.value === 'zht') {
                 if (!/[a-wyz](?![/}])/.test(unifiedText.value)) {
                     unifiedText.value = unifiedText.value
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
-                        .replace(/<\/.>/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）')
                         .replace(/;/g, '；');
@@ -458,7 +457,7 @@ export default defineComponent({
                 if (!/[a-wyz](?![/}])/.test(printedText.value)) {
                     printedText.value = printedText.value
                         .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
-                        .replace(/<\/.>/g, '')
+                        .replace(/<\/?.>/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）')
                         .replace(/;/g, '；');
@@ -555,30 +554,12 @@ export default defineComponent({
                 return;
             }
 
-            const { data: result } = (await controlGet('/magic/card/parse-gatherer', {
+            await controlGet('/magic/card/parse-gatherer', {
                 id:     multiverseId.value.join(','),
                 set:    set.value,
                 number: number.value,
                 lang:   lang.value,
-            })) as { data: Partial<Card> };
-
-            for (let i = 0; i < data.value!.parts.length; i += 1) {
-                const partData = data.value!.parts[i];
-
-                if (partData.printed.name === partData.oracle.name) {
-                    partData.printed.name = result.parts![i].printed.name;
-                }
-
-                if (partData.printed.typeline === partData.oracle.typeline) {
-                    partData.printed.typeline = result.parts![i].printed.typeline;
-                }
-
-                if (partData.printed.text === partData.oracle.text) {
-                    partData.printed.text = result.parts![i].printed.text;
-                }
-
-                partData.flavorText = result.parts![i].flavorText;
-            }
+            });
         };
 
         const doUpdate = async () => {
