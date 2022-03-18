@@ -45,12 +45,23 @@ export default defineComponent({
 
             for (const node of defaultSlot) {
                 if (typeof node.children === 'string' && typeof node.type === 'symbol') {
-                    const pieces = node.children.split(/(\n|\{[^}]+\})/).filter(v => v !== '');
+                    const pieces = node.children.split(/([\n☐]|\{[^}]+\})/).filter(v => v !== '');
 
                     for (const p of pieces) {
                         if (p === '\n') {
                             result.push(h('br'));
-                        } else if (p.startsWith('{') && p.endsWith('}')) {
+                            continue;
+                        }
+
+                        if (p === '☐') {
+                            result.push(h('input', {
+                                type:  'checkbox',
+                                style: 'transform: translateY(15%)',
+                            }));
+                            continue;
+                        }
+
+                        if (p.startsWith('{') && p.endsWith('}')) {
                             const content = p.slice(1, -1);
 
                             if (symbols.includes(content)) {
