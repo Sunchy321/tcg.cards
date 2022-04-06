@@ -277,7 +277,7 @@ export default class RulingLoader extends Task<Status> {
         total = Object.keys(rulingMap).length;
         count = 0;
 
-        for (const pairs of chunk(Object.entries(rulingMap), 20)) {
+        for (const pairs of chunk(Object.entries(rulingMap), chunkSize)) {
             // eslint-disable-next-line no-loop-func
             await Promise.all(pairs.map(async ([id, data]) => {
                 await assignRuling(id, data, cardNames);
