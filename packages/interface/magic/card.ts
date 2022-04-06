@@ -73,6 +73,7 @@ export interface Card {
         source: string;
         date: string;
         text: string;
+        cards: { id: string, text: string }[];
     }[];
 
     keywords: string[];

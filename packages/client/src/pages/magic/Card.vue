@@ -73,9 +73,9 @@
                     <span style="white-space: nowrap;"> {{ $t('magic.format.'+f) }}</span>
                 </div>
             </grid>
-            <div v-if="rulings.length>0" class="rulings">
+            <div v-if="rulings.length > 0" class="rulings">
                 <div v-for="(r, i) in rulings" :key="i">
-                    <magic-text>
+                    <magic-text :cards="r.cards" detect-url>
                         {{ r.date }}: {{ r.text }}
                     </magic-text>
                 </div>
@@ -711,23 +711,31 @@ export default defineComponent({
             return `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${multiverseId}&printed=true`;
         });
 
-        const apiQuery = computed(() => omitBy({
+        const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
             id:     route.params.id as string,
             lang:   route.query.lang as string ?? store.getters['magic/locale'],
             set:    route.query.set as string,
             number: route.query.number as string,
-        }, v => v == null));
+        }, v => v == null)));
 
         const jsonLink = computed(() => {
             const url = new URL('magic/card', `http://${apiBase}`);
 
-            url.search = new URLSearchParams(apiQuery.value).toString();
+            const query = apiQuery.value;
+
+            if (query != null) {
+                url.search = new URLSearchParams(query).toString();
+            }
 
             return url.toString();
         });
 
         // methods
         const loadData = async () => {
+            if (apiQuery.value == null) {
+                return;
+            }
+
             const { data: result } = await apiGet<Data>('/magic/card', apiQuery.value);
 
             rotate.value = null;

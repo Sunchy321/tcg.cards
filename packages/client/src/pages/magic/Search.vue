@@ -26,6 +26,7 @@
                 <router-link
                     :key="cardId"
                     :to="cardLink(cardId, set, number, lang, partIndex)"
+                    target="_blank"
                 >
                     <card-image
                         :set="set"

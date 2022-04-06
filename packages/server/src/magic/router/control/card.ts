@@ -5,6 +5,8 @@ import { DefaultState, Context } from 'koa';
 import Card from '@/magic/db/card';
 import { Card as ICard } from '@interface/magic/card';
 
+import { CardNameExtractor } from '@/magic/scryfall/data/ruling';
+
 import { Aggregate, ObjectId } from 'mongoose';
 
 import parseGatherer from '@/magic/gatherer/parse';
@@ -326,6 +328,34 @@ router.get('/parse-gatherer', async ctx => {
 
     if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
         await parseGatherer(mids, set, number, lang);
+    }
+});
+
+router.get('/extract-ruling-cards', async ctx => {
+    const cardNames = await Card.aggregate([
+        { $match: { category: 'default' } },
+        { $group: { _id: '$cardId', name: { $first: '$parts.oracle.name' } } },
+        { $project: { id: '$_id', name: 1 } },
+    ]) as { id: string, name: string[] }[];
+
+    const card = await Card.findOne({ cardId: ctx.query.id as string });
+
+    if (card != null) {
+        const cardsList = [];
+
+        for (const r of card.rulings) {
+            const cards = new CardNameExtractor(r.text, {
+                id: card.cardId, name: card.parts.map(p => p.oracle.name),
+            }, cardNames).extract();
+
+            cardsList.push(cards);
+
+            r.cards = cards;
+        }
+
+        await Card.updateMany({ cardId: card.cardId }, { rulings: card.rulings });
+
+        ctx.body = cardsList;
     }
 });
 

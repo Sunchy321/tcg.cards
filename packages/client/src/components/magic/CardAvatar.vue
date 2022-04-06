@@ -2,9 +2,9 @@
     <div>
         <router-link :to="link" target="_blank">
             <span v-if="showId" class="code">{{ id }}</span>
-            <span v-else>{{ name ?? '' }}</span>
+            <span v-else>{{ text ?? name ?? '' }}</span>
             <q-tooltip
-                v-if="profile != null && imageVersion != null"
+                v-if="profile != null && imageVersion != null && showTooltip"
                 content-class="card-popover"
             >
                 <card-image
@@ -33,6 +33,7 @@ import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
+import { useRoute } from 'vue-router';
 import { useStore } from 'src/store';
 
 import CardImage from './CardImage.vue';
@@ -45,15 +46,19 @@ export default defineComponent({
     props: {
         id:     { type: String, required: true },
         pauper: { type: Boolean, default: false },
+        text:   { type: String, default: undefined },
     },
 
     setup(props) {
+        const route = useRoute();
         const store = useStore();
 
         const showId = ref(false);
         const profile = ref<CardProfile | null>(null);
 
         const link = computed(() => `/magic/card/${props.id}`);
+
+        const showTooltip = computed(() => link.value !== route.path);
 
         const name = computed(() => {
             if (profile.value == null) {
@@ -107,7 +112,7 @@ export default defineComponent({
 
             const locales = store.getters['magic/locales'];
             const locale = store.getters['magic/locale'];
-            const defauleLocale = locales[0];
+            const defaultLocale = locales[0];
 
             const localeVersion = versions.filter(v => v.lang === locale);
 
@@ -117,7 +122,7 @@ export default defineComponent({
                     : a.releaseDate < b.releaseDate ? 1 : 0))[0];
             }
 
-            const defaultVersion = versions.filter(v => v.lang === defauleLocale);
+            const defaultVersion = versions.filter(v => v.lang === defaultLocale);
 
             if (defaultVersion.length > 0) {
                 return defaultVersion.sort((a, b) => (a.releaseDate > b.releaseDate
@@ -157,6 +162,7 @@ export default defineComponent({
             profile,
             name,
             link,
+            showTooltip,
             imageVersion,
         };
     },

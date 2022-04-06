@@ -79,6 +79,7 @@
                 <q-btn label="New" dense flat @click="newData" />
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
                 <q-btn v-if="lang == 'en'" icon="mdi-arrow-down-bold" dense flat round @click="overwriteUnified" />
+                <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
@@ -526,6 +527,14 @@ export default defineComponent({
             unifiedText.value = oracleText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
         };
 
+        const extractRulingCards = async () => {
+            const { data: cards } = await controlGet('/magic/card/extract-ruling-cards', {
+                id: id.value,
+            });
+
+            console.log(cards);
+        };
+
         const newData = () => {
             if (data.value == null) {
                 return;
@@ -699,6 +708,7 @@ export default defineComponent({
             loadGatherer,
             prettify,
             overwriteUnified,
+            extractRulingCards,
             loadData,
             doSearch,
 

@@ -87,6 +87,7 @@ const CardSchema = new Schema<ICard>({
         source: String,
         date:   String,
         text:   String,
+        cards:  [{ _id: false, id: String, text: String }],
     }],
 
     keywords:     [String],
