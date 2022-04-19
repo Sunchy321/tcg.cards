@@ -480,6 +480,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case '?lettuce_ability_summoned_minion':
                         case 'lettuce_current_cooldown':
                         case 'overload_owed':
+                        case 'the_rat_king_skill_activating_type':
+                        case 'entity_threshold_value':
                             result.mechanics.push(`${mechanic}:${value}`);
                             break;
                         case 'base_galakrond':
@@ -491,6 +493,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case '?darkmoon_prize':
                         case '?duels_passive':
                         case '?1684':
+                        case 'entity_threshold':
                             result.mechanics.push(mechanic);
                             break;
                         default:

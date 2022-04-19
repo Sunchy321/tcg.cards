@@ -44,6 +44,8 @@ export interface Entity {
     tripleCard: string;
     raceBucket: string;
     coin: number;
+    armorBucket: number;
+    buddy: string;
 
     mercenaryRole: string;
     colddown: number;

@@ -44,6 +44,8 @@ export const tags: Record<string, ITag> = {
     1635: { index: 'spellSchool', enum: true },
     1666: { index: 'mercenaryRole', enum: true },
     1669: { index: 'colddown' },
+    1723: { index: 'armorBucket' },
+    2130: { index: 'buddy' },
 };
 
 export const mechanics: Record<string, string | null> = {
@@ -72,6 +74,7 @@ export const mechanics: Record<string, string | null> = {
     247:  'cant_be_destroyed',
     251:  null, // attack_visual_type, ignore
     260:  'frozen',
+    264:  'cant_be_frozen',
     268:  null, // DevState, ignore
     292:  'armor',
     293:  'morph',
@@ -92,6 +95,7 @@ export const mechanics: Record<string, string | null> = {
     363:  'poisonous',
     367:  'ai_must_play',
     370:  'affected_by_spell_power',
+    373:  'immune_while_attacking',
     375:  'fantastic_treasure',
     377:  'topdeck',
     388:  'spare_part',
@@ -135,6 +139,7 @@ export const mechanics: Record<string, string | null> = {
     782:  'base_galakrond',
     783:  'dungeon_passive_buff',
     785:  'ghostly', // destroy if it is in your hand at end of turn
+    789:  'secret_deathrattle',
     791:  'rush',
     793:  null, // hero deck id, ignore
     818:  'secret_deathrattle',
@@ -274,6 +279,7 @@ export const mechanics: Record<string, string | null> = {
     1743: null, // trade cost, ignore
     1745: '?secret_exit', // only on Secret Exit
     1749: 'sigil',
+    1784: '?1784', // only on two cards
     1790: '?elistra_the_immortal', // only on Elistra the Immortal
     1816: '?bacon_shop_8_player_enchant', // only on BaconShop8PlayerEnchant
     1824: 'in_mini_set',
@@ -283,12 +289,16 @@ export const mechanics: Record<string, string | null> = {
     1870: null, // only in barren hunter puzzle
     1871: null, // only in barren hunter puzzle
     1872: null, // only in barren hunter puzzle
+    1880: '?1880',
     1900: '?unknown_1900', // some book of hero boss
     1910: '?unknown_1910', // some book of hero boss
     1911: '?unknown_1911', // some book of hero boss
+    1920: 'honorably_kill',
     1927: 'permanent', // permanent enchantments in battlegrounds
     1932: 'has_diamond',
     1935: '?learn_to_grow', // only on Learn to Grow
+    1937: 'current_spellpower_fire',
+    1938: 'current_spellpower_frost',
     1939: 'current_spellpower_nature',
     1944: 'non_keyword_poisonous',
     1945: 'spell_power_arcane',
@@ -299,28 +309,36 @@ export const mechanics: Record<string, string | null> = {
     1950: 'spell_power_shadow',
     1951: 'spell_power_fel',
     1954: null, // enraged tooltip
+    1956: '?1956',
     1958: 'advance_fight', // only in adventure
     1965: 'imp',
     1966: 'blood_gem',
     1968: '?duels_passive',
     1985: 'lettuce_start_of_combat_bonus',
     1993: 'questline_part',
+    2028: 'saidan',
+    2033: '?battlegrounds_hero_power_2',
     2038: 'battlegrounds_hero_skin',
     2044: '?darkmoon_prize', // only on Darkmoon Prize
     2049: 'battlegrounds_bob_skin',
+    2054: 'kazakusan_treasure',
     2088: 'coin_skin',
     2104: 'refresh',
     2105: '?stealer_of_souls', // only on Stealer of Souls
+    2108: 'target_arrow',
     2110: '?shifting', // only on Shifting
     2127: 'kurtrus_hero_power_advanced',
     2128: 'cariel_hero_power_advanced',
     2129: 'avenge',
     2132: '?2132',
+    2134: '?2134',
+    2138: 'spell_resistance_arcane',
     2139: 'spell_resistance_fire',
     2146: 'spell_weakness_fire',
     2147: 'spell_weakness_frost',
     2149: 'spell_weakness_holy',
     2150: 'spell_weakness_shadow',
+    2154: 'is_companion',
     2156: 'in_bobs_tavern', // enchantments works in bob's tavern
     2159: 'lettuce_attack', // unknown
     2165: '?unknown_2165', // only on Soulciologist Malicia and Elwynn Boar
@@ -335,9 +353,42 @@ export const mechanics: Record<string, string | null> = {
     2236: '?leapfrogger', // only on Leapfrogger
     2238: '?leapfrogger_golden', // only on Golden Leapfrogger
     2241: 'lettuce_start_of_combat',
+    2247: 'colossal',
+    2248: 'colossal_limb',
+    2266: '?battlegrounds_hero_power_4',
+    2270: 'eudoras_kanone', // only on Eudoras Kanone
+    2279: 'lettuce_alliance',
+    2280: 'lettuce_horde',
+    2311: 'objective',
+    2312: 'lettuce_refresh',
+    2322: 'lettuce_elves',
+    2329: 'objective_aura',
+    2330: 'the_rat_king_skill_activating_type',
+    2332: 'dredge',
+    2343: 'record_invocation',
+    2345: '?2345',
+    2355: 'whelp',
+    2369: 'revive',
+    2375: 'lettuce_return',
+    2376: '?battlegrounds_hero_power',
+    2383: '?2383',
+    2387: 'battlegrounds_out_of_rotation',
+    2388: 'allied',
+    2428: 'kazakus_golem',
+    2434: 'lettuce_healing_power',
+    2436: '?battleground_battlecry',
+    2455: 'battlegrounds_freeze',
+    2459: 'entity_threshold',
+    2460: 'entity_threshold_value',
+    2464: 'lettuce_spell_weakness',
+    2465: 'lettuce_spell_resistance',
+    2469: 'colossal_limb_on_left',
+    2474: 'battlegrounds_skip_turn',
+    2475: '?battlegrounds_hero_power_3',
 };
 
 export const relatedEntities: Record<string, string> = {
+    1078: 'display_mouse_over_card',
     1086: 'upgraded_power',
     1089: 'quest_reward',
     1132: 'alternate_mouse_over_card',
@@ -358,7 +409,8 @@ export const sets: Record<string, string> = {
     3:    'classic', // Classic
     4:    'hof', // Hall of Fame
     1635: 'legacy',
-    1637: 'core', // Core 2021
+    1637: 'core21', // Core 2021
+    1810: 'core22',
 
     12:   'naxx', // Curse of Naxxramas
     13:   'gvg', // Goblins vs Gnomes
@@ -366,7 +418,7 @@ export const sets: Record<string, string> = {
     15:   'tgt', // The Grand Tournament
     20:   'loe', // League of Explorers
     21:   'wog', // Whispers of the Old Gods
-    23:   'onk', // "One Night in Karazhan
+    23:   'onk', // One Night in Karazhan
     25:   'msg', // Mean Streets of Gadgetzan
     27:   'jug', // Journey to Un'Goro
     1001: 'kft', // Knights of the Frozen Throne
@@ -384,6 +436,8 @@ export const sets: Record<string, string> = {
     1466: 'mdf', // Madness at the Darkmoon Faire
     1525: 'fib', // Forged in the Barrens
     1578: 'uis', // United in Stormwind
+    1626: 'alv', // Altelac Valley
+    1658: 'tsc', // The Sunken City
 
     5:    'mission',
     16:   'credits',
@@ -444,6 +498,7 @@ export const types: Record<string, string> = {
     10: 'hero_power',
     22: 'move_minion_hover_target',
     23: 'mercenary_ability',
+    24: 'buddy_meter',
 };
 
 export const races: Record<string, string> = {
@@ -477,8 +532,11 @@ export const races: Record<string, string> = {
     43: 'quilboar',
     80: 'centaur',
     81: 'furbolg',
+    83: 'highelf',
     84: 'treant',
     88: 'halforc',
+    89: 'lock',
+    92: 'naga',
 };
 
 export const spellSchools: Record<string, string> = {

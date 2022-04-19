@@ -43,6 +43,8 @@ const EntitySchema = new Schema<IEntity>({
     tripleCard:   String,
     raceBucket:   String,
     coin:         Number,
+    armorBucket:  Number,
+    buddy:        String,
 
     mercenaryRole: String,
     colddown:      Number,
