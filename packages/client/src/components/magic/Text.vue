@@ -64,7 +64,7 @@ export default defineComponent({
                         '[\\n☐]',
                         '\\{[^}]+\\}',
                         ...props.cards.map(c => c.text),
-                        ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.]+'] : [],
+                        ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.]+[-a-zA-Z0-9/]'] : [],
                     ].join('|')})`);
 
                     const pieces = node.children.split(regex).filter(v => v !== '');

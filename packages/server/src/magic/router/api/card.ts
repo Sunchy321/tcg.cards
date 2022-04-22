@@ -90,6 +90,7 @@ router.get('/', async ctx => {
 
             v.name = Object.fromEntries(s.localization.map(l => [l.lang, l.name]));
             v.symbolStyle = s.symbolStyle;
+            v.doubleFacedIcon = s.doubleFacedIcon;
 
             if (auxSetType.includes(s.setType)) {
                 v.parent = s.parent;

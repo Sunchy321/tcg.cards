@@ -399,6 +399,7 @@ type Data = Card & {
         // set info
         name: Record<string, string>;
         symbolStyle: string[];
+        doubleFacedIcon?: string[];
         parent?: string;
     }[];
 };
@@ -525,7 +526,8 @@ export default defineComponent({
                 iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
                 name:    currVersion.name?.[store.getters['magic/locale']]
                         ?? currVersion.name?.[store.getters['magic/locales'][0]] ?? s,
-                symbolStyle: currVersion.symbolStyle,
+                symbolStyle:     currVersion.symbolStyle,
+                doubleFacedIcon: currVersion.doubleFacedIcon,
             };
         }));
 
@@ -626,6 +628,10 @@ export default defineComponent({
         const rulings = computed(() => data.value?.rulings ?? []);
         const legalities = computed(() => data.value?.legalities ?? {});
 
+        const doubleFacedIcon = computed(() => setInfos.value
+            .filter(v => v.doubleFacedIcon != null)[0]
+            ?.doubleFacedIcon);
+
         const partIcon = computed(() => {
             switch (layout.value) {
             case 'flip':
@@ -637,6 +643,15 @@ export default defineComponent({
                     class: `${layout.value}-${partIndex.value}`,
                 };
             case 'transform':
+                if (doubleFacedIcon.value != null) {
+                    return {
+                        src: `magic/part-icon/${layout.value}-${doubleFacedIcon.value[partIndex.value]}.svg`,
+                    };
+                } else {
+                    return {
+                        src: `magic/part-icon/${layout.value}-${partIndex.value}.svg`,
+                    };
+                }
             case 'modal_dfc':
             case 'adventure':
                 return {

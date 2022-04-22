@@ -39,6 +39,7 @@ export default {
 
         'pauper':           '纯铁',
         'pauper_commander': '纯铁指挥官',
+        'penny':            'Penny Dreadful',
 
         'two_head_giant': '双头巨人',
     },

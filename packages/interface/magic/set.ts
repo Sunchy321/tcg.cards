@@ -23,6 +23,7 @@ export interface Set {
     isFoilOnly: boolean;
     isNonfoilOnly: boolean;
     symbolStyle: string[];
+    doubleFacedIcon?: string[];
 
     releaseDate?: string;
 
