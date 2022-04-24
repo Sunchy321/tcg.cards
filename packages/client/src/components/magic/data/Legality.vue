@@ -89,8 +89,6 @@ export default defineComponent({
     components: { Grid, CardAvatar },
 
     setup() {
-        // const i18n = useI18n();
-
         const { controlWs } = controlSetup();
 
         const progress = ref<Status | null>(null);

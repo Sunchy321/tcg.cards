@@ -1,5 +1,4 @@
-import { createModule } from './game';
-import { GameModule } from './interface';
+import { defineGameStore } from './game';
 
 export type TextMode = 'oracle' | 'printed' | 'unified';
 export const textModes = ['oracle', 'unified', 'printed'];
@@ -16,9 +15,7 @@ interface State {
     textMode: TextMode;
 }
 
-export type Module = GameModule<Data, State>;
-
-export default createModule<Data, State>('magic', {
+export const useMagic = defineGameStore<'magic', Data, State>('magic', {
     textMode: {
         type:    'enum',
         values:  textModes,

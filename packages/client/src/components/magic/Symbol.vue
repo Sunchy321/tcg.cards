@@ -78,8 +78,8 @@ export default defineComponent({
             const actualValue = calcActualValue(value, type);
 
             const src = type.includes('flat')
-                ? `magic/symbol-flat.svg#icon-${actualValue}`
-                : `magic/symbol.svg#icon-${actualValue}`;
+                ? `/magic/symbol-flat.svg#icon-${actualValue}`
+                : `/magic/symbol.svg#icon-${actualValue}`;
 
             let klass = `magic-symbol icon-${actualValue}`;
 

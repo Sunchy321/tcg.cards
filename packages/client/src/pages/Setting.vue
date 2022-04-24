@@ -1,6 +1,6 @@
 <template>
     <q-page class="row">
-        <aside class="left-panel column items-strech q-pa-md">
+        <aside class="left-panel column items-stretch q-pa-md">
             <component :is="user == null ? 'user-login' : 'user-profile'" />
 
             <q-tabs v-model="tab" class="left-tabs" vertical>
@@ -65,17 +65,5 @@ export default defineComponent({
             main,
         };
     },
-
-    // mounted() {
-    //     this.$store.subscribe(async ({ type }) => {
-    //         const { redirect, admin } = this.$route.query;
-
-    //         if (type === 'user/user' && redirect != null) {
-    //             if (admin === undefined || this.$store.getters['user/isAdmin']) {
-    //                 void router.replace(redirect);
-    //             }
-    //         }
-    //     });
-    // },
 });
 </script>

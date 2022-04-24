@@ -91,7 +91,7 @@ import {
 } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
@@ -107,7 +107,7 @@ type Set = Omit<ISet, 'localization'> & {
 export default defineComponent({
     setup() {
         const route = useRoute();
-        const store = useStore();
+        const magic = useMagic();
 
         const { isAdmin } = basicSetup();
 
@@ -120,8 +120,8 @@ export default defineComponent({
                 return '';
             }
 
-            return data.value.localization[store.getters['magic/locale']]?.name
-                 ?? data.value.localization[store.getters['magic/locales'][0]]?.name;
+            return data.value.localization[magic.locale]?.name
+                 ?? data.value.localization[magic.locales[0]]?.name;
         });
 
         pageSetup({
@@ -141,8 +141,8 @@ export default defineComponent({
                 return '';
             }
 
-            return data.value.localization[store.getters['magic/locale']]?.link
-                 ?? data.value.localization[store.getters['magic/locales'][0]]?.link;
+            return data.value.localization[magic.locale]?.link
+                 ?? data.value.localization[magic.locales[0]]?.link;
         });
 
         const apiLink = computed(() => `http://${apiBase}/magic/set?id=${id.value}`);

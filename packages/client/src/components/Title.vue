@@ -32,20 +32,20 @@
 import { defineComponent, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useStore } from 'src/store';
+import { useCore } from 'store/core';
 
 export default defineComponent({
     setup() {
         const route = useRoute();
-        const store = useStore();
+        const core = useCore();
 
         const search = computed({
-            get() { return store.getters.search; },
-            set(newValue: string) { store.commit('search', newValue); },
+            get() { return core.search; },
+            set(newValue: string) { core.search = newValue; },
         });
 
-        const title = computed(() => store.getters.title);
-        const titleType = computed(() => store.getters.titleType);
+        const title = computed(() => core.title);
+        const titleType = computed(() => core.titleType);
 
         watch(() => route.query.q, () => {
             const { q } = route.query;
@@ -57,11 +57,11 @@ export default defineComponent({
 
         const keyboardSearch = (e: KeyboardEvent) => {
             if (e.key === 'Enter') {
-                store.dispatch('action', { name: 'search' });
+                core.invokeAction({ name: 'search' });
             }
         };
 
-        const mouseSearch = async () => { store.dispatch('action', { name: 'search' }); };
+        const mouseSearch = async () => { core.invokeAction({ name: 'search' }); };
 
         return {
             search,

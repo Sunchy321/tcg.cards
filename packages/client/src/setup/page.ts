@@ -3,7 +3,7 @@ import type { Ref, ComputedRef } from 'vue';
 
 import { mapValues } from 'lodash';
 
-import { useStore } from 'src/store';
+import { useCore } from 'store/core';
 
 export type Value<T> = Ref<T> | T | (() => T);
 
@@ -94,9 +94,11 @@ export interface Action {
     handler: Record<string, (() => void) | ((payload: any) => void)> | (() => void) | ((payload: any) => void);
 }
 
+export type TitleType = 'input' | 'text';
+
 export interface Option {
     title?: Value<string>;
-    titleType?: 'input' | 'text';
+    titleType?: TitleType;
     params?: Record<string, Parameter<any>>;
     actions?: Action[];
 }
@@ -114,13 +116,13 @@ export type Result<O extends Option> = {
 };
 
 export default function pageSetup<O extends Option>(option: O): Result<O> {
-    const store = useStore();
+    const core = useCore();
 
-    store.commit('titleType', option.titleType ?? 'text');
+    core.titleType = option.titleType ?? 'text';
 
     watch(
         () => valueOf(option.title ?? ''),
-        title => { store.commit('title', title); },
+        title => { core.title = title; },
         { immediate: true },
     );
 
@@ -128,11 +130,11 @@ export default function pageSetup<O extends Option>(option: O): Result<O> {
 
     for (const [k, param] of Object.entries(option.params ?? {})) {
         if (param.readonly != null && param.readonly === true) {
-            props[k] = computed(() => store.getters.paramValues[k]);
+            props[k] = computed(() => core.paramValues[k]);
         } else {
             props[k] = computed({
-                get: () => store.getters.paramValues[k],
-                set: (value: any) => { store.commit('param', { key: k, value }); },
+                get: () => core.paramValues[k],
+                set: (value: any) => { core.setParam(k, value); },
             });
         }
     }
@@ -152,11 +154,11 @@ export default function pageSetup<O extends Option>(option: O): Result<O> {
                 };
             }
         }),
-        params => { store.commit('params', params); },
+        params => { core.paramState = params; },
         { immediate: true },
     );
 
-    store.commit('actions', option.actions ?? []);
+    core.actions = option.actions ?? [];
 
     return props as Result<O>;
 }

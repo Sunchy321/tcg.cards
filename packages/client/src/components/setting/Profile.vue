@@ -27,19 +27,17 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 
-import { useStore } from 'src/store';
+import { useUser } from 'store/user';
 import basicSetup from 'setup/basic';
 
 export default defineComponent({
     name: 'Profile',
 
     setup() {
-        const store = useStore();
+        const userStore = useUser();
         const { user } = basicSetup();
 
-        const logout = () => {
-            store.dispatch('user/logout');
-        };
+        const logout = () => { userStore.logout(); };
 
         return {
             user,

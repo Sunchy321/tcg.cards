@@ -119,7 +119,7 @@ import type {
 } from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
 
@@ -217,7 +217,7 @@ export default defineComponent({
     setup() {
         const router = useRouter();
         const route = useRoute();
-        const store = useStore();
+        const magic = useMagic();
 
         const { controlGet, controlPost } = controlSetup();
 
@@ -237,7 +237,7 @@ export default defineComponent({
             },
         });
 
-        const localization = computed(() => store.getters['magic/locales'].map(
+        const localization = computed(() => magic.locales.map(
             l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l },
         ));
 

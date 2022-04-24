@@ -151,7 +151,7 @@ import {
 } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useStore } from 'src/store';
+import { useHearthstone } from 'store/games/hearthstone';
 import { useI18n } from 'vue-i18n';
 
 import hearthstoneSetup from 'setup/hearthstone';
@@ -240,7 +240,7 @@ export default defineComponent({
 
     setup() {
         const route = useRoute();
-        const store = useStore();
+        const heathstone = useHearthstone();
         const i18n = useI18n();
 
         const { random } = hearthstoneSetup();
@@ -248,8 +248,8 @@ export default defineComponent({
         const data = ref<Entity | null>(null);
 
         // data fields
-        const name = computed(() => data.value?.localization[store.getters['hearthstone/locale']]?.name
-                ?? data.value?.localization[store.getters['hearthstone/locales'][0]]?.name);
+        const name = computed(() => data.value?.localization[heathstone.locale]?.name
+                ?? data.value?.localization[heathstone.locales[0]]?.name);
 
         pageSetup({
             title: () => name.value ?? '',
@@ -292,8 +292,8 @@ export default defineComponent({
             return null;
         });
 
-        const text = computed(() => data.value?.localization[store.getters['hearthstone/locale']]?.text
-                ?? data.value?.localization[store.getters['hearthstone/locales'][0]]?.text);
+        const text = computed(() => data.value?.localization[heathstone.locale]?.text
+                ?? data.value?.localization[heathstone.locales[0]]?.text);
 
         const mechanics = computed(() => (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')));
 

@@ -89,7 +89,7 @@ import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -145,10 +145,10 @@ export default defineComponent({
     },
 
     setup() {
-        const store = useStore();
+        const magic = useMagic();
         const i18n = useI18n();
 
-        const formats = computed(() => store.getters['magic/data']?.formats ?? []);
+        const formats = computed(() => magic.data.formats ?? []);
 
         const { format, date, order } = pageSetup({
             title: () => i18n.t('magic.ui.format.$self'),
@@ -182,7 +182,7 @@ export default defineComponent({
             label: i18n.t(`magic.ui.format.sort-by.${v}`),
         }));
 
-        const dateFrom = computed(() => data.value?.birthday ?? store.getters['magic/data'].birthday);
+        const dateFrom = computed(() => data.value?.birthday ?? magic.data.birthday);
         const dateTo = computed(() => data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'));
 
         const birthAndDeath = computed(() => {

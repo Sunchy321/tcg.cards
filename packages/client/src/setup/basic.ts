@@ -1,9 +1,9 @@
 import { ComputedRef, computed } from 'vue';
 import { RouteMeta, useRoute } from 'vue-router';
 
-import { useStore } from 'src/store';
-import { User } from 'src/store/user/state';
-import { Game } from 'src/store/games';
+import { useCore } from 'store/core';
+import { User, useUser } from 'store/user';
+import { Game } from 'store/games';
 
 export default function basicSetup(): {
     games: ComputedRef<Game[]>;
@@ -13,12 +13,13 @@ export default function basicSetup(): {
     meta: ComputedRef<RouteMeta>;
 } {
     const route = useRoute();
-    const store = useStore();
+    const core = useCore();
+    const userStore = useUser();
 
-    const games = computed(() => store.getters.games);
-    const game = computed(() => store.state.game);
-    const user = computed(() => store.getters['user/user']);
-    const isAdmin = computed(() => store.getters['user/isAdmin']);
+    const games = computed(() => core.games);
+    const game = computed(() => core.game);
+    const user = computed(() => userStore.user);
+    const isAdmin = computed(() => userStore.isAdmin);
 
     const meta = computed(() => route.meta);
 

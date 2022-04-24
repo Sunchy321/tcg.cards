@@ -7,6 +7,7 @@ const i18n = createI18n({
     locale:             'en',
     fallbackLocale:     'en',
     silentFallbackWarn: true,
+    globalInjection:    true,
     messages,
 });
 

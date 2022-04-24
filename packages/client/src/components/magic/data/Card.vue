@@ -194,7 +194,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
 
@@ -224,7 +224,7 @@ export default defineComponent({
     setup() {
         const router = useRouter();
         const route = useRoute();
-        const store = useStore();
+        const magic = useMagic();
 
         const { controlGet, controlPost } = controlSetup();
 
@@ -589,7 +589,7 @@ export default defineComponent({
 
                 const { data: result } = await controlGet<Card>('/magic/card/need-edit', {
                     type: editType,
-                    lang: store.getters['magic/locale'],
+                    lang: magic.locale,
                 });
 
                 if (result != null) {
@@ -597,7 +597,7 @@ export default defineComponent({
                 } else {
                     data.value = null;
                 }
-            } else if (id.value && lang.value && set.value && number.value) {
+            } else if (id.value != null && lang.value != null && set.value != null && number.value != null) {
                 const { data: result } = await controlGet<Card>('/magic/card/raw', {
                     id:     id.value,
                     lang:   lang.value,

@@ -74,7 +74,7 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
 
-import { useStore } from 'src/store';
+import { useCore } from 'store/core';
 import { useI18n } from 'vue-i18n';
 
 import magicSetup from 'setup/magic';
@@ -82,7 +82,7 @@ import pageSetup from 'setup/page';
 
 export default defineComponent({
     setup() {
-        const store = useStore();
+        const core = useCore();
         const i18n = useI18n();
 
         const { search, random } = magicSetup();
@@ -103,8 +103,8 @@ export default defineComponent({
         });
 
         const searchText = computed({
-            get() { return store.getters.search; },
-            set(newValue: string) { store.commit('search', newValue); },
+            get() { return core.search; },
+            set(newValue: string) { core.search = newValue; },
         });
 
         return {

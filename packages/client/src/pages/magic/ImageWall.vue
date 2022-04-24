@@ -27,7 +27,7 @@ import {
     defineComponent, ref, computed, onMounted,
 } from 'vue';
 
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -36,11 +36,11 @@ import { imageBase, apiGet } from 'boot/backend';
 
 export default defineComponent({
     setup() {
-        const store = useStore();
+        const magic = useMagic();
         const i18n = useI18n();
 
         const { set, lang, type } = pageSetup({
-            title: () => i18n.t('magic.iamge-wall'),
+            title: () => i18n.t('magic.image-wall'),
 
             params: {
                 set: {
@@ -52,7 +52,7 @@ export default defineComponent({
                     type:     'string',
                     bind:     'query',
                     readonly: true,
-                    default:  () => store.getters['magic/locale'],
+                    default:  () => magic.locale,
                 },
                 type: {
                     type:     'enum',

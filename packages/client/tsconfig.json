@@ -1,5 +1,5 @@
 {
-    "extends": "@quasar/app/tsconfig-preset",
+    "extends": "@quasar/app-vite/tsconfig-preset",
     "compilerOptions": {
         "target": "ES2019",
         "baseUrl": ".",
@@ -13,11 +13,14 @@
             "assets/*": ["src/assets/*"],
             "boot/*": ["src/boot/*"],
             "setup/*": ["src/setup/*"],
+            "store/*": ["src/stores/*"],
             "interface/*": ["node_modules/card-interface/*"]
         }
     },
     "include": [
-        "src/**/*.ts",
-        "src/**/*.vue"
+      "src/**/*.ts",
+      "src/**/*.d.ts",
+      "src/**/*.tsx",
+      "src/**/*.vue"
     ]
 }

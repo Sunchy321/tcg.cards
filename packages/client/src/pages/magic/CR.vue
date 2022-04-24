@@ -51,6 +51,7 @@
 </style>
 
 <script lang="ts">
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import {
     defineComponent, ref, computed, watch, onMounted, nextTick,
 } from 'vue';

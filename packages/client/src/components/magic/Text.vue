@@ -23,7 +23,7 @@
 import type { VNode, PropType } from 'vue';
 import { defineComponent, h } from 'vue';
 
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 
 import Symbol from './Symbol.vue';
 import CardAvatar from './CardAvatar.vue';
@@ -47,9 +47,9 @@ export default defineComponent({
     },
 
     setup(props, { attrs, slots }) {
-        const store = useStore();
+        const magic = useMagic();
 
-        const { symbols } = store.getters['magic/data'];
+        const { symbols } = magic.data;
 
         return () => {
             const symbolType = props.symbol ?? [];

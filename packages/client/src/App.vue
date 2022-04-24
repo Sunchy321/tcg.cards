@@ -7,61 +7,34 @@
 <script lang="ts">
 import { defineComponent, watch } from 'vue';
 
-import { useQuasar } from 'quasar';
-import type { QuasarLanguage } from 'quasar';
 import { useRoute } from 'vue-router';
-import { useStore } from 'src/store';
-import { useI18n } from 'vue-i18n';
-import { Game } from './store/games';
-
-const quasarLocaleMap: Record<string, string> = {
-    en:  'en-US',
-    zhs: 'zh-CN',
-};
+import { useCore } from 'store/core';
 
 export default defineComponent({
     name: 'App',
 
     setup() {
-        const quasar = useQuasar();
         const route = useRoute();
-        const store = useStore();
-        const i18n = useI18n();
-
-        store.subscribe(async mutation => {
-            if (mutation.type === 'locale') {
-                const locale = mutation.payload;
-
-                i18n.locale.value = locale;
-
-                const qLocaleId = quasarLocaleMap[locale]
-                    ?? locale.replace(/[A-Z]/, t => `-${t.toLowerCase()}`);
-
-                const qLocale = (
-                    await import(`quasar/lang/${qLocaleId}`)
-                ) as { default: QuasarLanguage };
-
-                quasar.lang.set(qLocale.default);
-            }
-        });
+        const core = useCore();
 
         watch(
             () => route.path,
             (path) => {
                 if (path === '/') {
-                    store.commit('game', null);
+                    core.game = null;
                 } else {
                     const firstPart = path.split('/').filter(v => v !== '')[0];
 
-                    if ((store.getters.games as string[]).includes(firstPart)) {
-                        store.commit('game', firstPart as unknown as Game);
+                    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                    if (core.isGame(firstPart)) {
+                        core.game = firstPart;
                     }
                 }
             },
             { immediate: true },
         );
 
-        void store.dispatch('boot');
+        core.boot();
     },
 });
 </script>

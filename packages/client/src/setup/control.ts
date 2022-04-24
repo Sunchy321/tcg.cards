@@ -1,4 +1,5 @@
-import { useStore } from 'src/store';
+/* eslint-disable prefer-destructuring */
+import { useUser } from 'store/user';
 
 import { controlBase, control } from 'boot/backend';
 
@@ -9,10 +10,10 @@ export default function controlSetup(): {
     controlPost: <T>(url: string, params?: Record<string, any>) => Promise<AxiosResponse<T>>;
     controlWs: (url: string, params?: Record<string, any>) => WebSocket;
 } {
-    const store = useStore();
+    const user = useUser();
 
     async function controlGet<T>(path: string, params: Record<string, any> = { }) {
-        const token = store?.getters?.['user/token'];
+        const token = user.token;
 
         if (token != null) {
             return control.get<T>(path, {
@@ -27,7 +28,7 @@ export default function controlSetup(): {
     }
 
     async function controlPost<T>(path: string, params: Record<string, any> = { }) {
-        const token = store?.getters?.['user/token'];
+        const token = user.token;
 
         if (token != null) {
             return control.post<T>(path, params, {
@@ -41,7 +42,7 @@ export default function controlSetup(): {
     }
 
     function controlWs(path: string, params: Record<string, any> = { }) {
-        const token = store?.getters?.['user/token'];
+        const token = user.token;
 
         params = token != null ? { jwt: token, ...params } : params;
 

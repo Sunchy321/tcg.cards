@@ -160,7 +160,7 @@ import { defineComponent, ref } from 'vue';
 import pageSetup from 'setup/page';
 
 import { useRouter } from 'vue-router';
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
@@ -172,7 +172,7 @@ export default defineComponent({
 
     setup() {
         const router = useRouter();
-        const store = useStore();
+        const magic = useMagic();
         const i18n = useI18n();
 
         pageSetup({
@@ -194,7 +194,7 @@ export default defineComponent({
 
         const newCost = () => {
             if (costInput.value !== '') {
-                const { symbols } = store.getters['magic/data'];
+                const { symbols } = magic.data;
 
                 const values = costInput.value
                     .toUpperCase()

@@ -1,8 +1,8 @@
 diff --git a/node_modules/quasar/dist/types/index.d.ts b/node_modules/quasar/dist/types/index.d.ts
-index 44323cc..80375fd 100644
+index a24e437..72c66c4 100644
 --- a/node_modules/quasar/dist/types/index.d.ts
 +++ b/node_modules/quasar/dist/types/index.d.ts
-@@ -7014,7 +7014,7 @@ export interface QPaginationProps {
+@@ -6548,7 +6548,7 @@ export interface QPaginationProps {
     * Emitted when the component needs to change the model; Is also used by v-model
     * @param value New model value
     */

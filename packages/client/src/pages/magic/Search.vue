@@ -71,7 +71,8 @@ import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
-import { useStore } from 'src/store';
+import { useCore } from 'store/core';
+import { useMagic } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -113,7 +114,8 @@ export default defineComponent({
     components: { Grid, CardImage },
 
     setup() {
-        const store = useStore();
+        const core = useCore();
+        const magic = useMagic();
         const i18n = useI18n();
 
         const { search } = magicSetup();
@@ -152,8 +154,8 @@ export default defineComponent({
         });
 
         const searchText = computed({
-            get() { return store.getters.search; },
-            set(newValue: string) { store.commit('search', newValue); },
+            get() { return core.search; },
+            set(newValue: string) { core.search = newValue; },
         });
 
         const cards = computed(() => data.value?.result?.cards ?? []);
@@ -174,7 +176,7 @@ export default defineComponent({
 
             const { data: result } = await apiGet<SearchResult>('/magic/search', {
                 q:        q.value,
-                locale:   store.getters['magic/locale'],
+                locale:   magic.locale,
                 page:     page.value,
                 pageSize: pageSize.value,
             });

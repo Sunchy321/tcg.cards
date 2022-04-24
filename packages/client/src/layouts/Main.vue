@@ -65,15 +65,15 @@
                         round
                         :url="a.popup.url"
                         :accept="a.popup.accept"
-                        @uploading="v => commitAction({ name: a.action, type: 'uploading', fallback: false }, v)"
-                        @uploaded="v => commitAction({ name:a.action, type: 'uploaded' }, v)"
-                        @failed="v => commitAction({ name:a.action, type: 'failed' }, v)"
+                        @uploading="v => invokeAction({ name: a.action, type: 'uploading', fallback: false }, v)"
+                        @uploaded="v => invokeAction({ name:a.action, type: 'uploaded' }, v)"
+                        @failed="v => invokeAction({ name:a.action, type: 'failed' }, v)"
                     />
                     <q-btn
                         v-else
                         :icon="a.icon" flat dense
                         round
-                        @click="commitAction({ name: a.action})"
+                        @click="invokeAction({ name: a.action})"
                     />
                 </template>
 
@@ -110,14 +110,14 @@
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
-import { useStore } from 'src/store';
 
 import basicSetup from 'setup/basic';
 
+import { ActionInfo, useCore } from 'store/core';
+import { useGame } from 'store/games';
+
 import AppTitle from 'components/Title.vue';
 import UploaderBtn from 'components/UploaderBtn.vue';
-
-import { Action } from 'src/store/core/actions';
 
 import { pickBy } from 'lodash';
 
@@ -125,7 +125,7 @@ export default defineComponent({
     components: { AppTitle, UploaderBtn },
 
     setup() {
-        const store = useStore();
+        const core = useCore();
         const { game, user, isAdmin } = basicSetup();
 
         const homePath = computed(() => {
@@ -141,7 +141,7 @@ export default defineComponent({
                 return 'mdi-home';
             }
 
-            return `img:${game.value}/logo.svg`;
+            return `img:/${game.value}/logo.svg`;
         });
 
         const dataPath = computed(() => {
@@ -155,28 +155,28 @@ export default defineComponent({
         const gameLocale = computed({
             get(): string {
                 if (game.value != null) {
-                    return store.getters[`${game.value}/locale`];
+                    return useGame(game.value)().locale;
                 } else {
                     return 'en';
                 }
             },
             set(newValue: string) {
                 if (game.value != null) {
-                    store.commit(`${game.value}/locale`, newValue);
+                    useGame(game.value)().locale = newValue;
                 }
             },
         });
 
         const gameLocales = computed(() => {
             if (game.value != null) {
-                return store.getters[`${game.value}/locales`];
+                return useGame(game.value)().locales;
             } else {
                 return [];
             }
         });
 
-        const paramsInTitle = computed(() => pickBy(store.getters.params, v => v.inTitle));
-        const actionsWithIcon = computed(() => store.getters.actions.filter(a => a.icon != null));
+        const paramsInTitle = computed(() => pickBy(core.params, v => v.inTitle));
+        const actionsWithIcon = computed(() => core.actions.filter(a => a.icon != null));
 
         const paramLabel = (p: any, v: string) => {
             if (p.label != null) {
@@ -188,14 +188,14 @@ export default defineComponent({
         };
 
         const commitParam = (key: string, value: any) => {
-            store.commit('param', { key, value });
+            core.setParam(key, value);
         };
 
-        const commitAction = (action: Action, payload?: any) => {
+        const invokeAction = (action: ActionInfo, payload?: any) => {
             if (payload != null) {
-                store.dispatch('action', { ...action, payload });
+                core.invokeAction({ ...action, payload });
             } else {
-                store.dispatch('action', action);
+                core.invokeAction(action);
             }
         };
 
@@ -215,7 +215,7 @@ export default defineComponent({
 
             paramLabel,
             commitParam,
-            commitAction,
+            invokeAction,
         };
     },
 });

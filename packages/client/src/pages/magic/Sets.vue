@@ -62,7 +62,7 @@ import {
 } from 'vue';
 
 import { useRouter } from 'vue-router';
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -75,7 +75,7 @@ import { partition } from 'lodash';
 export default defineComponent({
     setup() {
         const router = useRouter();
-        const store = useStore();
+        const magic = useMagic();
         const i18n = useI18n();
 
         pageSetup({
@@ -240,8 +240,8 @@ export default defineComponent({
             });
         };
 
-        const nameOf = (localization: Record<string, SetLocalization>) => localization[store.getters['magic/locale']]?.name
-            ?? localization[store.getters['magic/locales'][0]]?.name;
+        const nameOf = (localization: Record<string, SetLocalization>) => localization[magic.locale]?.name
+            ?? localization[magic.locales[0]]?.name;
 
         const iconUrl = (set: string, setType: string, parent?: string) => {
             if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(setType)) {

@@ -39,9 +39,9 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 
-import { useStore } from 'src/store';
-import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
+import { useUser } from 'store/user';
 
 import { camelCase } from 'lodash';
 
@@ -50,7 +50,7 @@ export default defineComponent({
 
     setup() {
         const quasar = useQuasar();
-        const store = useStore();
+        const userStore = useUser();
         const i18n = useI18n();
 
         const username = ref('');
@@ -59,7 +59,7 @@ export default defineComponent({
 
         const register = () => {
             try {
-                void store.dispatch('user/register', {
+                userStore.register({
                     username: username.value,
                     password: password.value,
                 });
@@ -72,7 +72,7 @@ export default defineComponent({
 
         const login = () => {
             try {
-                void store.dispatch('user/login', {
+                userStore.login({
                     username: username.value,
                     password: password.value,
                 });

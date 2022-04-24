@@ -366,7 +366,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
-import { useStore } from 'src/store';
+import { useMagic, TextMode, textModes } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import basicSetup from 'setup/basic';
@@ -382,7 +382,6 @@ import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
 import { Card } from 'interface/magic/card';
-import { TextMode, textModes } from 'src/store/games/magic';
 
 import { omit, omitBy, uniq } from 'lodash';
 
@@ -412,7 +411,7 @@ export default defineComponent({
     setup() {
         const router = useRouter();
         const route = useRoute();
-        const store = useStore();
+        const magic = useMagic();
         const i18n = useI18n();
         const { isAdmin } = basicSetup();
 
@@ -422,10 +421,8 @@ export default defineComponent({
         const rotate = ref<boolean | null>(null);
 
         const textMode = computed({
-            get() { return store.getters['magic/textMode']; },
-            set(newValue: TextMode) {
-                store.commit('magic/textMode', newValue);
-            },
+            get() { return magic.textMode; },
+            set(newValue: TextMode) { magic.textMode = newValue; },
         });
 
         pageSetup({
@@ -524,15 +521,15 @@ export default defineComponent({
                 numbers,
                 rarity,
                 iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
-                name:    currVersion.name?.[store.getters['magic/locale']]
-                        ?? currVersion.name?.[store.getters['magic/locales'][0]] ?? s,
+                name:    currVersion.name?.[magic.locale]
+                        ?? currVersion.name?.[magic.locales[0]] ?? s,
                 symbolStyle:     currVersion.symbolStyle,
                 doubleFacedIcon: currVersion.doubleFacedIcon,
             };
         }));
 
         const langs = computed(() => {
-            const locales = store.getters['magic/locales'];
+            const { locales } = magic;
             return uniq(versions.value.map(v => v.lang)).sort((a, b) => {
                 const idxa = locales.indexOf(a);
                 const idxb = locales.indexOf(b);
@@ -552,7 +549,7 @@ export default defineComponent({
         });
 
         const lang = computed({
-            get() { return data.value?.lang ?? route.query.lang as string ?? store.getters['magic/locale']; },
+            get() { return data.value?.lang ?? route.query.lang as string ?? magic.locale; },
             set(newValue: string) {
                 const exactInfo = setInfos.value.find(i => i.set === set.value);
 
@@ -728,7 +725,7 @@ export default defineComponent({
 
         const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
             id:     route.params.id as string,
-            lang:   route.query.lang as string ?? store.getters['magic/locale'],
+            lang:   route.query.lang as string ?? magic.locale,
             set:    route.query.set as string,
             number: route.query.number as string,
         }, v => v == null)));
@@ -778,7 +775,7 @@ export default defineComponent({
             { immediate: true },
         );
 
-        watch(() => store.getters['magic/locale'], loadData);
+        watch(() => magic.locale, loadData);
 
         watch(id, () => {
             if (id.value === 'capital_offense') {

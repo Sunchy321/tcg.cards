@@ -29,12 +29,13 @@
 </style>
 
 <script lang="ts">
+/* eslint-disable prefer-destructuring */
 import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useStore } from 'src/store';
+import { useMagic } from 'store/games/magic';
 
 import CardImage from './CardImage.vue';
 
@@ -51,7 +52,7 @@ export default defineComponent({
 
     setup(props) {
         const route = useRoute();
-        const store = useStore();
+        const magic = useMagic();
 
         const showId = ref(false);
         const profile = ref<CardProfile | null>(null);
@@ -65,8 +66,8 @@ export default defineComponent({
                 return null;
             }
 
-            const locales = store.getters['magic/locales'];
-            const locale = store.getters['magic/locale'];
+            const locales = magic.locales;
+            const locale = magic.locale;
             const defaultLocale = locales[0];
 
             return profile.value.parts.map(p => p.localization.find(l => l.lang === locale)?.name
@@ -81,8 +82,8 @@ export default defineComponent({
             if (props.pauper) {
                 const versions = profile.value.versions.filter(v => v.rarity === 'common');
 
-                const locales = store.getters['magic/locales'];
-                const locale = store.getters['magic/locale'];
+                const locales = magic.locales;
+                const locale = magic.locale;
                 const defaultLocale = locales[0];
 
                 const localeVersion = versions.filter(v => v.lang === locale);
@@ -110,8 +111,8 @@ export default defineComponent({
 
             const { versions } = profile.value;
 
-            const locales = store.getters['magic/locales'];
-            const locale = store.getters['magic/locale'];
+            const locales = magic.locales;
+            const locale = magic.locale;
             const defaultLocale = locales[0];
 
             const localeVersion = versions.filter(v => v.lang === locale);

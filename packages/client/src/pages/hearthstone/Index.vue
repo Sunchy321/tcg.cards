@@ -63,8 +63,8 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
 
-import { useStore } from 'src/store';
 import { useI18n } from 'vue-i18n';
+import { useCore } from 'store/core';
 
 import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
@@ -73,7 +73,7 @@ export default defineComponent({
     name: 'Hearthstone',
 
     setup() {
-        const store = useStore();
+        const core = useCore();
         const i18n = useI18n();
 
         const { random } = hearthstoneSetup();
@@ -90,8 +90,8 @@ export default defineComponent({
         });
 
         const searchText = computed({
-            get() { return store.getters.search; },
-            set(newValue: string) { store.commit('search', newValue); },
+            get() { return core.search; },
+            set(newValue: string) { core.search = newValue; },
         });
 
         return {

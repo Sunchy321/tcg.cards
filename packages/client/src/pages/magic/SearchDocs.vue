@@ -5,7 +5,7 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
 
-import { useStore } from 'src/store';
+import { useCore } from 'store/core';
 
 import SearchDocsEn from 'src/i18n/en/magic/SearchDocs.vue';
 import SearchDocsZhs from 'src/i18n/zhs/magic/SearchDocs.vue';
@@ -19,9 +19,9 @@ export default defineComponent({
     },
 
     setup() {
-        const store = useStore();
+        const core = useCore();
 
-        const component = computed(() => `SearchDocs${capitalize(store.getters.locale)}`);
+        const component = computed(() => `SearchDocs${capitalize(core.locale)}`);
 
         return { component };
     },
