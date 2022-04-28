@@ -1,13 +1,13 @@
 {
     "compilerOptions": {
         "module": "CommonJS",
-        "target": "ES2019",
+        "target": "ES2020",
         "noImplicitAny": true,
         "outDir": "./dist",
         "sourceMap": true,
         "strictNullChecks": true,
         "esModuleInterop": true,
-        "lib": ["ES2019"],
+        "lib": ["ES2020"],
         "baseUrl": "./src",
         "paths": {
             "*": ["@types/*"],

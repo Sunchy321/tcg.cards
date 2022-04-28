@@ -6,7 +6,7 @@
             </div>
 
             <q-linear-progress
-                class="flex-grow"
+                class="col-grow"
                 rounded
                 color="primary"
                 :indeterminate="progressValue == null"
@@ -62,12 +62,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.flex-grow
-    flex-grow: 1
-    width: inherit
-</style>
-
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
 
@@ -91,7 +85,7 @@ export default defineComponent({
             const prog = progress.value;
 
             if (prog == null) {
-                return null;
+                return undefined;
             }
 
             return prog.count / prog.total;

@@ -187,13 +187,15 @@ function getId(data: NCardBase & { layout: string }): string {
 
             const face = cardFaces[0];
 
-            baseId += `!${face.colors.length > 0 ? face.colors.join('').toLowerCase() : 'c'}`;
+            const colors = convertColor(face.colors);
+
+            baseId += `!${colors.length > 0 ? colors.toLowerCase() : 'c'}`;
 
             if (face.power != null && face.toughness != null) {
                 baseId += `!${face.power}${face.toughness}`;
             }
 
-            if (face.oracle_text != null) {
+            if (face.oracle_text != null && face.oracle_text !== '') {
                 baseId += '!';
 
                 for (const line of face.oracle_text.toLowerCase().split('\n')) {

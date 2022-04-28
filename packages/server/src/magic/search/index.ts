@@ -305,6 +305,27 @@ const model = {
                 '__tags.printed': true,
             }),
         },
+        {
+            id:    'rc-none',
+            query: ({ param, op }) => {
+                if (param instanceof RegExp) {
+                    throw new QueryError({
+                        type:  'regex/disabled',
+                        value: op ?? '',
+                    });
+                }
+
+                switch (op) {
+                case ':':
+                    return { relatedCards: { $not: { $elemMatch: { relation: param } } } };
+                default:
+                    throw new QueryError({
+                        type:  'operator/unsupported',
+                        value: op ?? '',
+                    });
+                }
+            },
+        },
     ] as Command[],
 
     search: async (q: DBQuery, o: Options) => {
@@ -385,7 +406,7 @@ const model = {
                 .group({ _id: null, count: { $sum: 1 } })
         )[0]?.count ?? 0;
 
-        const cards = await Card.aggregate(aggregate.pipeline()).sort({ releaseDate: 1 }).limit(1);
+        const cards = await Card.aggregate(aggregate.pipeline()).sort({ releaseDate: -1, number: -1 }).limit(1);
 
         return { ...cards[0], total } as ICard & { total: number };
     },

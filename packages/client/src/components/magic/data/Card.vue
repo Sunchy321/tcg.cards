@@ -69,14 +69,22 @@
 
                 <q-btn
                     v-if="enPrinted"
+                    class="q-mr-md"
                     color="red" icon="mdi-alert-circle-outline"
                     dense flat round
                     @click="enPrinted = false"
                 />
 
+                <q-btn
+                    icon="mdi-link"
+                    dense flat round
+                    :to="cardLink"
+                    target="_blank"
+                />
+
                 <div class="col-grow" />
 
-                <q-btn label="New" dense flat @click="newData" />
+                <q-btn icon="mdi-new-box" dense flat round @click="newData" />
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
                 <q-btn v-if="lang == 'en'" icon="mdi-arrow-down-bold" dense flat round @click="overwriteUnified" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
@@ -85,58 +93,45 @@
 
             <table>
                 <tr>
-                    <td class="title">
-                        Oracle
-                    </td>
-                    <td class="name">
-                        <q-input v-model="oracleName" :readonly="!unlock" outlined dense />
-                    </td>
-                    <td class="typeline">
-                        <q-input v-model="oracleTypeline" :readonly="!unlock" outlined dense />
-                    </td>
-                    <td class="text">
-                        <q-input v-model="oracleText" :readonly="!unlock" outlined type="textarea" dense />
-                    </td>
+                    <th>Oracle</th>
+                    <th>Unified</th>
+                    <th>Printed</th>
                 </tr>
                 <tr>
-                    <td class="title">
-                        Unified
-                    </td>
-                    <td class="name">
-                        <q-input v-model="unifiedName" outlined dense />
-                    </td>
-                    <td class="typeline">
-                        <q-input v-model="unifiedTypeline" outlined dense />
-                    </td>
-                    <td class="text">
-                        <q-input v-model="unifiedText" outlined type="textarea" dense />
-                    </td>
+                    <td><q-input v-model="oracleName" :readonly="!unlock" outlined dense /></td>
+                    <td><q-input v-model="unifiedName" outlined dense /></td>
+                    <td><q-input v-model="printedName" outlined dense /></td>
                 </tr>
                 <tr>
-                    <td class="title">
-                        Printed
-                    </td>
-                    <td class="name">
-                        <q-input v-model="printedName" outlined dense />
-                    </td>
-                    <td class="typeline">
-                        <q-input v-model="printedTypeline" outlined dense />
-                    </td>
-                    <td class="text">
-                        <q-input v-model="printedText" outlined type="textarea" dense />
-                    </td>
+                    <td><q-input v-model="oracleTypeline" :readonly="!unlock" outlined dense /></td>
+                    <td><q-input v-model="unifiedTypeline" outlined dense /></td>
+                    <td><q-input v-model="printedTypeline" outlined dense /></td>
+                </tr>
+                <tr class="text">
+                    <td><q-input v-model="oracleText" :readonly="!unlock" outlined type="textarea" dense /></td>
+                    <td><q-input v-model="unifiedText" outlined type="textarea" dense /></td>
+                    <td><q-input v-model="printedText" outlined type="textarea" dense /></td>
                 </tr>
             </table>
 
             <q-input v-model="flavorText" autogrow label="Flavor Text" outlined type="textarea" />
             <q-input v-model="flavorName" label="Flavor Name" outlined dense />
 
-            <q-input
-                v-model="relatedCards"
-                debounce="500"
-                label="Related Cards"
-                outlined dense
-            />
+            <div class="flex items-center">
+                <q-input
+                    v-model="relatedCards"
+                    class="col-grow"
+                    debounce="500"
+                    label="Related Cards"
+                    outlined dense
+                />
+                <q-btn
+                    icon="mdi-card-plus-outline"
+                    class="q-ml-sm"
+                    flat dense round
+                    @click="guessToken"
+                />
+            </div>
 
             <div class="flex items-center">
                 <array-input
@@ -173,14 +168,8 @@
 table
     width: 100%
 
-    & .title
-        width: 50px
-
-    & .name
-        width: 150px
-
-    & .typeline
-        width: 250px
+    & .text:deep(textarea)
+        height: 200px
 
 @media screen and (max-width: 1000px)
     .card-image
@@ -203,7 +192,7 @@ import CardImage from 'components/magic/CardImage.vue';
 
 import { Card, Layout } from 'interface/magic/card';
 
-import { escapeRegExp } from 'lodash';
+import { deburr, escapeRegExp } from 'lodash';
 
 type Part = Card['parts'][0];
 
@@ -215,6 +204,60 @@ type CardData = Card & {
         _id: { id: string, lang: string, part: number };
     };
 };
+
+const colorMap: Record<string, string> = {
+    'white':           'w',
+    'blue':            'u',
+    'black':           'b',
+    'red':             'r',
+    'green':           'g',
+    'colorless':       'c',
+    'white and black': 'wb',
+    'white and blue':  'wu',
+    'blue and black':  'ub',
+    'blue and red':    'ur',
+    'black and red':   'br',
+    'black and green': 'bg',
+    'red and green':   'rg',
+    'red and white':   'wr',
+    'green and blue':  'ug',
+    'green and white': 'wg',
+};
+
+const keywordMap: Record<string, string> = {
+    'changeling':   'c',
+    'deathtouch':   'd',
+    'defender':     'e',
+    'first strike': 's',
+    'flying':       'f',
+    'haste':        'h',
+    'hexproof':     'x',
+    'lifelink':     'l',
+    'menace':       'm',
+    'reach':        'r',
+    'trample':      't',
+    'vigilance':    'v',
+    'prowess':      'p',
+};
+
+const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood'];
+
+const numberRegex = '(?:[a-z]+|a number of|(?:twice )?(?:X|that many))';
+
+const statsRegex = '(?:\\d+|X)/(?:\\d+|X)';
+const colorRegex = `(?:${Object.keys(colorMap).join('|')})`;
+const subtypeRegex = '[A-Z][a-z]+(?:-[A-Z][a-z]+)?';
+const subtypesRegex = `${subtypeRegex}(?: ${subtypeRegex})*`;
+const typeRegex = 'artifact|enchantment';
+const abilityRegex = '(?:[a-z]+|"[^"]+")';
+const abilitiesRegex = `${abilityRegex}(?: and ${abilityRegex})*`;
+
+const creatureRegex = `${numberRegex}(?: tapped)?(?: (${statsRegex}))? (${colorRegex}) (${subtypesRegex}) (?:(?:${typeRegex}) )?creature tokens?(?: with (${abilitiesRegex}))?`;
+
+const predefinedRegex = `${numberRegex} (${predefinedNames.join('|')}|colorless Clue artifact) tokens?`;
+
+const guessRegex = new RegExp(`[Cc]reates? (?:${creatureRegex}|${predefinedRegex})`, 'g');
+const predefinedCheckRegex = new RegExp(predefinedRegex);
 
 export default defineComponent({
     name: 'DataCard',
@@ -285,6 +328,16 @@ export default defineComponent({
                 return '';
             }
         });
+
+        const cardLink = computed(() => ({
+            name:   'magic/card',
+            params: { id: id.value },
+            query:  {
+                lang:   lang.value,
+                set:    set.value,
+                number: number.value,
+            },
+        }));
 
         const partIndex = computed({
             get() {
@@ -377,23 +430,47 @@ export default defineComponent({
                             : [relation, cardId]
                         ).join('|'),
                     )
-                    ?.join(', ') ?? '';
+                    ?.join('; ') ?? '';
             },
             set(newValue: string) {
-                const parts = newValue.split(/, */);
-
-                if (hasData.value) {
-                    data.value!.relatedCards = parts.map(p => {
-                        // eslint-disable-next-line @typescript-eslint/no-shadow
-                        const [relation, cardId, lang, set, number] = p.split('|');
-
-                        if (lang != null) {
-                            return { relation, cardId, version: { lang, set, number } };
-                        } else {
-                            return { relation, cardId };
-                        }
-                    });
+                if (!hasData.value) {
+                    return;
                 }
+
+                if (newValue === '') {
+                    data.value!.relatedCards = [];
+                    return;
+                }
+
+                const parts = newValue.split(/; */);
+
+                data.value!.relatedCards = parts.map(p => {
+                    // eslint-disable-next-line prefer-const, @typescript-eslint/no-shadow
+                    let [relation, cardId, lang, set, number] = p.split('|');
+
+                    if (relation.length === 1) {
+                        relation = {
+                            t: 'token',
+                            e: 'emblem',
+                            i: 'intext',
+                        }[relation] ?? relation;
+                    }
+
+                    if (relation === 'emblem' && cardId == null) {
+                        cardId = `${id.value}_emblem`;
+                    }
+
+                    cardId = deburr(cardId)
+                        .trim()
+                        .toLowerCase()
+                        .replace(/[^a-z0-9!*]/g, '_');
+
+                    if (lang != null) {
+                        return { relation, cardId, version: { lang, set, number } };
+                    } else {
+                        return { relation, cardId };
+                    }
+                });
             },
         });
 
@@ -535,6 +612,57 @@ export default defineComponent({
             console.log(cards);
         };
 
+        const guessToken = () => {
+            if (data.value == null) {
+                return;
+            }
+
+            for (const text of data.value.parts.map(p => p.oracle.text ?? '')) {
+                for (const m of text.matchAll(guessRegex)) {
+                    let tokenId = '';
+
+                    const mp = predefinedCheckRegex.exec(m[0]);
+
+                    if (mp != null) {
+                        if (mp[1] === 'colorless Clue artifact') {
+                            tokenId = 'clue!';
+                        } else {
+                            tokenId = `${mp[1].toLowerCase()}!`;
+                        }
+                    } else {
+                        tokenId += m[3].toLowerCase().replaceAll(/[ -]/g, '_');
+                        tokenId += `!${colorMap[m[2]]}`;
+
+                        if (m[1] == null) {
+                            tokenId += '!**';
+                        } else {
+                            tokenId += `!${m[1].split('/').map(v => (v === 'X' ? '*' : v)).join('')}`;
+                        }
+
+                        if (m[4] != null) {
+                            tokenId += `!${
+                                m[4].split('and')
+                                    .map(a => keywordMap[a.trim()] ?? 'a')
+                                    .join('')
+                            }`;
+                        }
+
+                        if (tokenId === 'eldrazi_scion!c!11' || tokenId === 'eldrazi_spawn!c!01') {
+                            tokenId += '!a';
+                        }
+                    }
+
+                    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                    if (data.value.relatedCards.every(r => r.cardId !== tokenId)) {
+                        data.value.relatedCards.push({
+                            relation: 'token',
+                            cardId:   tokenId,
+                        });
+                    }
+                }
+            }
+        };
+
         const newData = () => {
             if (data.value == null) {
                 return;
@@ -574,7 +702,8 @@ export default defineComponent({
         const doUpdate = async () => {
             defaultPrettify();
 
-            console.log(data.value?.cardId);
+            // eslint-disable-next-line no-restricted-globals
+            console.log(`${location.origin}${router.resolve(cardLink.value).href}`);
 
             await controlPost('/magic/card/update', {
                 data: data.value,
@@ -685,6 +814,7 @@ export default defineComponent({
             set,
             number,
             info,
+            cardLink,
             layout,
             oracleName,
             oracleTypeline,
@@ -709,6 +839,7 @@ export default defineComponent({
             prettify,
             overwriteUnified,
             extractRulingCards,
+            guessToken,
             loadData,
             doSearch,
 

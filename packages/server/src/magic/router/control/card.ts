@@ -102,14 +102,21 @@ router.post('/update', async ctx => {
             );
         }
 
-        if (data.relatedCards.every((r: ICard['relatedCards'][0]) => r.version == null)) {
+        const versions = await Card.find({ cardId: { $in: data.relatedCards.map(r => r.cardId) } });
+
+        const relatedCards = sortBy(
+            data.relatedCards.filter(r => versions.some(v => v.cardId === r.cardId)),
+            ['relation', 'cardId'],
+        ) as ICard['relatedCards'];
+
+        if (relatedCards.every(r => r.version == null)) {
             await Card.updateMany(
                 { cardId: data.cardId },
-                { relatedCards: sortBy(data.relatedCards, ['relation', 'cardId']) },
+                { relatedCards },
             );
         }
 
-        for (const r of data.relatedCards) {
+        for (const r of relatedCards) {
             // don't consider non-token, non-emblem relation
             if (!['token', 'emblem'].includes(r.relation)) {
                 continue;

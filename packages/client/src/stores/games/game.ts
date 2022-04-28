@@ -63,7 +63,7 @@ export function defineGameStore<
                 const value = LocalStorage.getItem(`${game}/${k}`);
 
                 if (value != null) {
-                    (states as any)[k] = value;
+                    (states as any)[k].value = value;
                 }
             }
 

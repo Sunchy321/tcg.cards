@@ -13,8 +13,9 @@ import { chunk } from 'lodash';
 import { convertJson, bulkPath } from './common';
 
 const firstWordBlacklist = [
-    'As',
     'After',
+    'Although',
+    'As',
     'For',
     'If',
     'Start',
@@ -28,11 +29,12 @@ const wordBlacklist = [
     'Ninja',
     'Plains',
     'Rebound',
+    'Return to Ravnica',
     'Swamp',
+    'Two-Headed Giant',
+    'Urza',
     'When',
     'X',
-    'Two-Headed Giant',
-    'Return to Ravnica',
 ];
 
 const lowercaseWords = [
@@ -60,7 +62,7 @@ const lowercaseWords = [
 const uppercaseWordRegex = '(?:[a-z]+-)?[A-Z][-A-Za-z’,]+';
 const nameWordRegex = `(?:${uppercaseWordRegex}|${lowercaseWords.join('|')})`;
 
-const wordSplitRegex = new RegExp(`\\b(${uppercaseWordRegex} (?:${nameWordRegex} )*${uppercaseWordRegex}|${uppercaseWordRegex})\\b`);
+const wordSplitRegex = new RegExp(`\\b(${uppercaseWordRegex} (?:${nameWordRegex} )*${uppercaseWordRegex}|${uppercaseWordRegex})\\b`, 'g');
 
 export class CardNameExtractor {
     text: string;
@@ -137,9 +139,9 @@ export class CardNameExtractor {
             return true;
         }
 
-        // Name and Name
+        // Name, Name, and Name
         const splitWords = word
-            .split(new RegExp(`\\b(${lowercaseWords.join('|')})\\b`));
+            .split(new RegExp(`\\b(${lowercaseWords.join('|')}|(?<=, ))\\b`));
 
         // [A of B] and [C of D]
         for (const [i, w] of [...splitWords.entries()].reverse()) {
@@ -150,7 +152,7 @@ export class CardNameExtractor {
                 break;
             }
 
-            if (lowercaseWords.includes(w)) {
+            if (lowercaseWords.includes(w) || w === '') {
                 if (this.tryMatch(headWord)) {
                     this.guess(tailWord);
                     return true;
@@ -171,8 +173,9 @@ export class CardNameExtractor {
     }
 
     extract(): { id: string, text: string }[] {
-        const words = this.text.split(wordSplitRegex)
-            .filter(v => wordSplitRegex.test(v));
+        const words = [...this.text.matchAll(wordSplitRegex)].map(m => m[0]);
+
+        // this.text.split(wordSplitRegex)
 
         for (const word of words) {
             this.guess(word);

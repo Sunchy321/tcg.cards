@@ -636,27 +636,27 @@ export default defineComponent({
             case 'aftermath':
             case 'split_arena':
                 return {
-                    src:   `magic/part-icon/${layout.value}.svg`,
+                    src:   `/magic/part-icon/${layout.value}.svg`,
                     class: `${layout.value}-${partIndex.value}`,
                 };
             case 'transform':
                 if (doubleFacedIcon.value != null) {
                     return {
-                        src: `magic/part-icon/${layout.value}-${doubleFacedIcon.value[partIndex.value]}.svg`,
+                        src: `/magic/part-icon/${layout.value}-${doubleFacedIcon.value[partIndex.value]}.svg`,
                     };
                 } else {
                     return {
-                        src: `magic/part-icon/${layout.value}-${partIndex.value}.svg`,
+                        src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`,
                     };
                 }
             case 'modal_dfc':
             case 'adventure':
                 return {
-                    src: `magic/part-icon/${layout.value}-${partIndex.value}.svg`,
+                    src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`,
                 };
             case 'multipart':
                 return {
-                    src: 'magic/part-icon/multipart.svg',
+                    src: '/magic/part-icon/multipart.svg',
                 };
             default:
                 return null;

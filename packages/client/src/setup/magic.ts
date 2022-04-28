@@ -1,4 +1,4 @@
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
 import { api } from 'boot/backend';
@@ -8,7 +8,6 @@ export default function magicSetup(): {
     random: () => Promise<void>;
 } {
     const router = useRouter();
-    const route = useRoute();
     const core = useCore();
 
     const search = () => {
@@ -28,12 +27,9 @@ export default function magicSetup(): {
         });
 
         if (id !== '') {
-            const { q } = route.query;
-
             void router.push({
                 name:   'magic/card',
                 params: { id },
-                query:  { q: q === '' ? undefined : q },
             });
         }
     };

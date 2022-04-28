@@ -1,8 +1,8 @@
 {
   "name": "card-client",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A Card Client",
-  "productName": "Client",
+  "productName": "TCG Card Database",
   "author": "Sunchy321 <sunchy321@qq.com>",
   "private": true,
   "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
@@ -40,6 +40,7 @@
   "devDependencies": {
     "@intlify/vite-plugin-vue-i18n": "^3.4.0",
     "@quasar/app-vite": "^1.0.0-alpha.0",
+    "@types/bytes": "^3.1.1",
     "@types/jsonwebtoken": "^8.5.8",
     "@types/lodash": "^4.14.182",
     "@types/node": "^12.20.21",

@@ -11,7 +11,7 @@
                 :indeterminate="progressValue == null"
                 :value="progressValue"
                 size="15px"
-                class="flex-grow"
+                class="col-grow"
             />
         </div>
 

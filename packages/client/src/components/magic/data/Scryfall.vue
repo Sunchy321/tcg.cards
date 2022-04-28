@@ -11,7 +11,7 @@
                 :indeterminate="progressValue == null"
                 :value="progressValue"
                 size="15px"
-                class="flex-grow"
+                class="col-grow"
             />
         </div>
 
@@ -25,7 +25,7 @@
             <div class="col flex justify-between items-center">
                 <q-select
                     v-model="bulkAllCard"
-                    class="flex-grow"
+                    class="col-grow"
                     :options="bulk.allCard"
                     dense outlined
                 />
@@ -41,7 +41,7 @@
             <div class="col flex justify-between items-center">
                 <q-select
                     v-model="bulkRuling"
-                    class="flex-grow"
+                    class="col-grow"
                     :options="bulk.ruling"
                     dense outlined
                 />
@@ -86,12 +86,6 @@
         </div>
     </div>
 </template>
-
-<style lang="sass" scoped>
-.flex-grow
-    flex-grow: 1
-    width: inherit
-</style>
 
 <script lang="ts">
 import {

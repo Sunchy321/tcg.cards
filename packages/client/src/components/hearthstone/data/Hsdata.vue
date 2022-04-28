@@ -21,7 +21,7 @@
 
             <q-linear-progress
                 v-if="progress != null"
-                class="flex-grow"
+                class="col-grow"
                 rounded
                 color="primary"
                 :indeterminate="progressValue == null"
@@ -39,12 +39,6 @@
         </div>
     </q-page>
 </template>
-
-<style lang="sass" scoped>
-.flex-grow
-    flex-grow: 1
-    width: inherit
-</style>
 
 <script lang="ts">
 import {

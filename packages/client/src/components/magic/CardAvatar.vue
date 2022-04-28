@@ -54,11 +54,12 @@ export default defineComponent({
         const route = useRoute();
         const magic = useMagic();
 
-        const showId = ref(false);
+        const innerShowId = ref(false);
         const profile = ref<CardProfile | null>(null);
 
         const link = computed(() => `/magic/card/${props.id}`);
 
+        const showId = computed(() => innerShowId.value || (profile.value == null && props.text == null));
         const showTooltip = computed(() => link.value !== route.path);
 
         const name = computed(() => {
@@ -152,7 +153,7 @@ export default defineComponent({
             }
 
             if (profile.value == null) {
-                showId.value = true;
+                innerShowId.value = true;
             }
         };
 

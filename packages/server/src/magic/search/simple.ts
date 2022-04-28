@@ -15,9 +15,11 @@ export default function simpleQuery(
 
     switch (op) {
     case ':':
+        return { [key]: { $in: param.split(',') } };
     case '=':
         return { [key]: param };
     case '!:':
+        return { [key]: { $nin: param.split(',') } };
     case '!=':
         return { [key]: { $ne: param } };
     default:
