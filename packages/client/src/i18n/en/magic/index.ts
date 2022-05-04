@@ -23,6 +23,7 @@ export default {
         'standard': 'Standard',
         'alchemy':  'Alchemy',
         'historic': 'Historic',
+        'explorer': 'Explorer',
         'pioneer':  'Pioneer',
         'modern':   'Modern',
         'extended': 'Extended',

@@ -17,6 +17,9 @@
 .card
     display: inline
     text-decoration: underline
+
+.emph
+    font-weight: italic
 </style>
 
 <script lang="ts">
@@ -36,14 +39,12 @@ export default defineComponent({
         },
 
         cards: {
-            type:    Array as PropType<{ id: string, text: string }[]>,
+            type:    Array as PropType<{ id: string, text: string, part?: number }[]>,
             default: () => [],
         },
 
-        detectUrl: {
-            type:    Boolean,
-            default: false,
-        },
+        detectUrl:  { type: Boolean, default: false },
+        detectEmph: { type: Boolean, default: false },
     },
 
     setup(props, { attrs, slots }) {
@@ -65,11 +66,12 @@ export default defineComponent({
                         '\\{[^}]+\\}',
                         ...props.cards.map(c => c.text),
                         ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.]+[-a-zA-Z0-9/]'] : [],
+                        ...props.detectEmph ? ['\\*[^*]+\\*'] : [],
                     ].join('|')})`);
 
                     const pieces = node.children.split(regex).filter(v => v !== '');
 
-                    const insertedCards: [string, string][] = [];
+                    const insertedCards: [string, string, number | undefined][] = [];
 
                     for (const p of pieces) {
                         if (p === '\n') {
@@ -112,24 +114,33 @@ export default defineComponent({
                             continue;
                         }
 
+                        if (props.detectEmph && p.startsWith('*') && p.endsWith('*')) {
+                            result.push(h('span', {
+                                class: 'emph',
+                            }, p.slice(1, -1)));
+
+                            continue;
+                        }
+
                         const card = props.cards.find(c => c.text === p);
 
-                        if (card != null && insertedCards.every(c => c[1] !== card.text)) {
-                            if (!insertedCards.some(c => c[0] === card.id)) {
+                        if (card != null && insertedCards.every(c => c[0] !== card.text)) {
+                            if (!insertedCards.some(c => c[1] === card.id && c[2] === card.part)) {
                                 result.push(h(CardAvatar, {
                                     class: `card ${attrs.class}`,
                                     id:    card.id,
+                                    part:  card.part,
                                     text:  card.text,
                                 }));
                             } else {
                                 result.push(h('span', {
                                     class: `card ${attrs.class}`,
                                     id:    card.id,
-
+                                    part:  card.part,
                                 }, card.text));
                             }
 
-                            insertedCards.push([card.id, card.text]);
+                            insertedCards.push([card.text, card.id, card.part]);
                             continue;
                         }
 

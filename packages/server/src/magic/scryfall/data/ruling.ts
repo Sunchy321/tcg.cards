@@ -19,6 +19,7 @@ const firstWordBlacklist = [
     'For',
     'If',
     'Start',
+    'What',
     'When',
 ];
 
@@ -69,7 +70,7 @@ export class CardNameExtractor {
     thisName: { id: string, name: string[] };
     cardNames: { id: string, name: string[] }[];
 
-    names: { id: string, text: string }[];
+    names: { id: string, text: string, part?: number }[];
 
     constructor(
         text: string,
@@ -93,15 +94,31 @@ export class CardNameExtractor {
             return false;
         }
 
-        if (this.thisName.name.includes(deburredWord)) {
-            this.names.push({ id: this.thisName.id, text: word });
+        const thisName = this.thisName.name;
+
+        if (thisName.includes(deburredWord)) {
+            if (thisName.length > 1) {
+                const part = thisName.indexOf(deburredWord);
+
+                this.names.push({ id: this.thisName.id, text: word, part });
+            } else {
+                this.names.push({ id: this.thisName.id, text: word });
+            }
+
             return true;
         }
 
         const cards = this.cardNames.filter(c => c.name.includes(deburredWord));
 
         if (cards.length === 1) {
-            this.names.push({ id: cards[0].id, text: word });
+            if (cards[0].name.length > 1) {
+                const part = cards[0].name.indexOf(deburredWord);
+
+                this.names.push({ id: cards[0].id, text: word, part });
+            } else {
+                this.names.push({ id: cards[0].id, text: word });
+            }
+
             return true;
         }
 

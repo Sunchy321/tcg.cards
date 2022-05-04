@@ -29,6 +29,7 @@
 </style>
 
 <script lang="ts">
+/* eslint-disable prefer-destructuring */
 import type { PropType } from 'vue';
 import { defineComponent, h } from 'vue';
 
@@ -72,16 +73,21 @@ export default defineComponent({
 
     setup(props) {
         return () => {
-            const { value } = props;
-            const { type } = props;
+            const rawValue = props.value;
+            const rawType = props.type;
 
-            const actualValue = calcActualValue(value, type);
+            const type = [
+                ...rawType.filter(t => t !== 'flat-cost'),
+                ...rawType.includes('flat-cost') && rawType.includes('cost') ? ['flat'] : [],
+            ];
+
+            const value = calcActualValue(rawValue, type);
 
             const src = type.includes('flat')
-                ? `/magic/symbol-flat.svg#icon-${actualValue}`
-                : `/magic/symbol.svg#icon-${actualValue}`;
+                ? `/magic/symbol-flat.svg#icon-${value}`
+                : `/magic/symbol.svg#icon-${value}`;
 
-            let klass = `magic-symbol icon-${actualValue}`;
+            let klass = `magic-symbol icon-${value}`;
 
             if (type.includes('cost')) {
                 klass += ' cost';

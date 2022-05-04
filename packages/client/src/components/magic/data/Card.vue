@@ -9,6 +9,16 @@
                 :number="number"
                 :layout="layout"
             />
+            <div class="history q-mt-md">
+                <div class="code text-center">{{ history.length }}</div>
+                <div
+                    v-for="h in history.slice(0, 5)"
+                    :key="`${h.id}|${h.set}|${h.number}|${h.lang}`"
+                    class="flex justify-center"
+                >
+                    <card-avatar :id="h.id" :version="h" />
+                </div>
+            </div>
         </div>
         <div class="col q-gutter-sm">
             <div class="q-mb-md">
@@ -22,7 +32,7 @@
                     </template>
                 </q-input>
             </div>
-            <div class="q-mb-md">
+            <div class="q-mb-md flex items-center">
                 <q-btn-group outline>
                     <q-btn outline label="oracle" @click="loadData('inconsistent-oracle')" />
                     <q-btn outline label="unified" @click="loadData('inconsistent-unified')" />
@@ -30,8 +40,7 @@
                     <q-btn outline label="token" @click="loadData('token')" />
                 </q-btn-group>
 
-                <span v-if="total != null" class="q-ml-md">{{ total }}
-                </span>
+                <span v-if="total != null" class="q-ml-md">{{ total }}</span>
 
                 <q-btn
                     class="q-mx-md"
@@ -45,8 +54,13 @@
                 <q-input v-model="replaceTo" class="inline-flex" dense />
             </div>
 
-            <div class="id-line row items-center">
-                <div class="db-id code q-mr-md">{{ dbId == null ? 'null' : 'id' }}</div>
+            <div class="id-line flex items-center">
+                <q-icon
+                    class="q-mr-md"
+                    :name="dbId == null ? 'mdi-database-remove': 'mdi-database-check'"
+                    :color="dbId == null ? 'red' : undefined"
+                    size="sm"
+                />
 
                 <q-input
                     v-if="unlock"
@@ -64,12 +78,20 @@
 
                 <div v-else class="info q-mx-md">{{ info }}</div>
 
-                <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" dense />
-                <q-btn-toggle v-model="partIndex" class="q-mr-md" :options="partOptions" outline dense />
+                <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" outlined dense />
+
+                <q-btn-toggle
+                    v-if="partCount > 1"
+                    v-model="partIndex"
+                    class="q-mr-md"
+                    :options="partOptions"
+                    outline dense
+                />
+
+                <div class="col-grow" />
 
                 <q-btn
                     v-if="enPrinted"
-                    class="q-mr-md"
                     color="red" icon="mdi-alert-circle-outline"
                     dense flat round
                     @click="enPrinted = false"
@@ -82,35 +104,62 @@
                     target="_blank"
                 />
 
-                <div class="col-grow" />
-
                 <q-btn icon="mdi-new-box" dense flat round @click="newData" />
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
-                <q-btn v-if="lang == 'en'" icon="mdi-arrow-down-bold" dense flat round @click="overwriteUnified" />
+                <q-btn v-if="lang == 'en'" icon="mdi-arrow-right-bold" dense flat round @click="overwriteUnified" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
             <table>
                 <tr>
-                    <th>Oracle</th>
+                    <th>
+                        Oracle
+                        <q-toggle
+                            v-if="oracleUpdated != null"
+                            v-model="showBeforeUpdate"
+                            icon="mdi-history"
+                            dense flat round
+                        />
+                    </th>
                     <th>Unified</th>
                     <th>Printed</th>
                 </tr>
                 <tr>
-                    <td><q-input v-model="oracleName" :readonly="!unlock" outlined dense /></td>
-                    <td><q-input v-model="unifiedName" outlined dense /></td>
-                    <td><q-input v-model="printedName" outlined dense /></td>
+                    <td>
+                        <q-input
+                            v-model="displayOracleName"
+                            tabindex="1" :readonly="!unlock"
+                            :filled="displayOracleName !== oracleName"
+                            outlined dense
+                        />
+                    </td>
+                    <td><q-input v-model="unifiedName" tabindex="2" outlined dense /></td>
+                    <td><q-input v-model="printedName" tabindex="3" outlined dense /></td>
                 </tr>
                 <tr>
-                    <td><q-input v-model="oracleTypeline" :readonly="!unlock" outlined dense /></td>
-                    <td><q-input v-model="unifiedTypeline" outlined dense /></td>
-                    <td><q-input v-model="printedTypeline" outlined dense /></td>
+                    <td>
+                        <q-input
+                            v-model="displayOracleTypeline"
+                            tabindex="1" :readonly="!unlock"
+                            :filled="displayOracleTypeline !== oracleTypeline"
+                            outlined dense
+                        />
+                    </td>
+                    <td><q-input v-model="unifiedTypeline" tabindex="2" outlined dense /></td>
+                    <td><q-input v-model="printedTypeline" tabindex="3" outlined dense /></td>
                 </tr>
                 <tr class="text">
-                    <td><q-input v-model="oracleText" :readonly="!unlock" outlined type="textarea" dense /></td>
-                    <td><q-input v-model="unifiedText" outlined type="textarea" dense /></td>
-                    <td><q-input v-model="printedText" outlined type="textarea" dense /></td>
+                    <td>
+                        <q-input
+                            v-model="displayOracleText"
+                            tabindex="1" :readonly="!unlock"
+                            :filled="displayOracleText !== oracleText"
+                            outlined type="textarea" dense
+                        />
+                    </td>
+                    <td><q-input v-model="unifiedText" tabindex="2" outlined type="textarea" dense /></td>
+                    <td><q-input v-model="printedText" tabindex="3" outlined type="textarea" dense /></td>
                 </tr>
             </table>
 
@@ -189,20 +238,35 @@ import controlSetup from 'setup/control';
 
 import ArrayInput from 'components/ArrayInput.vue';
 import CardImage from 'components/magic/CardImage.vue';
+import CardAvatar from '../CardAvatar.vue';
 
 import { Card, Layout } from 'interface/magic/card';
 
-import { deburr, escapeRegExp } from 'lodash';
+import { debounce, deburr, escapeRegExp } from 'lodash';
 
 type Part = Card['parts'][0];
 
 type CardData = Card & {
     _id?: string;
+    __tags?: {
+        oracleUpdated?: {
+            name?: string;
+            typeline?: string;
+            text?: string;
+        };
+    };
     partIndex?: number;
     total?: number;
     result?: {
         _id: { id: string, lang: string, part: number };
     };
+};
+
+type History = {
+    id: string;
+    set: string;
+    number: string;
+    lang: string;
 };
 
 const colorMap: Record<string, string> = {
@@ -262,7 +326,7 @@ const predefinedCheckRegex = new RegExp(predefinedRegex);
 export default defineComponent({
     name: 'DataCard',
 
-    components: { ArrayInput, CardImage },
+    components: { ArrayInput, CardImage, CardAvatar },
 
     setup() {
         const router = useRouter();
@@ -272,6 +336,7 @@ export default defineComponent({
         const { controlGet, controlPost } = controlSetup();
 
         const data = ref<CardData | null>(null);
+        const history = ref<History[]>([]);
         const unlock = ref(false);
         const replaceFrom = ref('');
         const replaceTo = ref('');
@@ -483,6 +548,71 @@ export default defineComponent({
             },
         });
 
+        const showBeforeUpdate = ref(false);
+
+        const oracleUpdated = computed(() => {
+            if (!hasData.value) {
+                return undefined;
+            }
+
+            const value = data.value?.__tags?.oracleUpdated;
+
+            if (value == null) {
+                return undefined;
+            }
+
+            if (value.name == null && value.typeline == null && value.text == null) {
+                return undefined;
+            }
+
+            return value;
+        });
+
+        const displayOracleName = computed({
+            get(): string {
+                if (showBeforeUpdate.value) {
+                    return oracleUpdated.value?.name ?? oracleName.value;
+                } else {
+                    return oracleName.value;
+                }
+            },
+            set(newValue: string) {
+                if (!showBeforeUpdate.value) {
+                    oracleName.value = newValue;
+                }
+            },
+        });
+
+        const displayOracleTypeline = computed({
+            get(): string {
+                if (showBeforeUpdate.value) {
+                    return oracleUpdated.value?.typeline ?? oracleTypeline.value;
+                } else {
+                    return oracleTypeline.value;
+                }
+            },
+            set(newValue: string) {
+                if (!showBeforeUpdate.value) {
+                    oracleTypeline.value = newValue;
+                }
+            },
+        });
+
+        const displayOracleText = computed({
+            get(): string | undefined {
+                if (showBeforeUpdate.value) {
+                    return oracleUpdated.value?.text ?? oracleText.value;
+                } else {
+                    return oracleText.value;
+                }
+            },
+            set(newValue: string | undefined) {
+                if (!showBeforeUpdate.value) {
+                    oracleText.value = newValue;
+                }
+            },
+        });
+
         const defaultPrettify = () => {
             if (!hasData.value) {
                 return;
@@ -510,7 +640,7 @@ export default defineComponent({
                 if (flavorText.value != null) {
                     flavorText.value = flavorText.value
                         .replace(/~/g, '～')
-                        .replace(/(?<!\.)\.\.\.(?!\.)/g, '…')
+                        .replace(/\.\.\./g, '…')
                         .replace(/」 ?～/g, '」\n～')
                         .replace(/。 ?～/g, '。\n～')
                         .replace(/([，。！？：；]) /g, (m, m1: string) => m1);
@@ -526,7 +656,7 @@ export default defineComponent({
             if (lang.value === 'zhs' || lang.value === 'zht') {
                 if (!/[a-wyz](?![/}])/.test(unifiedText.value)) {
                     unifiedText.value = unifiedText.value
-                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
+                        // .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）')
                         .replace(/;/g, '；');
@@ -534,7 +664,7 @@ export default defineComponent({
 
                 if (!/[a-wyz](?![/}])/.test(printedText.value)) {
                     printedText.value = printedText.value
-                        .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
+                        // .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
                         .replace(/<\/?.>/g, '')
                         .replace(/\(/g, '（')
                         .replace(/\)/g, '）')
@@ -699,16 +829,27 @@ export default defineComponent({
             });
         };
 
-        const doUpdate = async () => {
-            defaultPrettify();
+        const doUpdate = debounce(
+            async () => {
+                defaultPrettify();
 
-            // eslint-disable-next-line no-restricted-globals
-            console.log(`${location.origin}${router.resolve(cardLink.value).href}`);
+                history.value.unshift({
+                    id:     id.value,
+                    set:    set.value,
+                    number: number.value,
+                    lang:   lang.value,
+                });
 
-            await controlPost('/magic/card/update', {
-                data: data.value,
-            });
-        };
+                await controlPost('/magic/card/update', {
+                    data: data.value,
+                });
+            },
+            1000,
+            {
+                leading:  true,
+                trailing: false,
+            },
+        );
 
         const loadData = async (editType?: string, update = true) => {
             if (editType != null) {
@@ -789,9 +930,9 @@ export default defineComponent({
         });
 
         watch(
-            [data, printedName, printedTypeline, printedText],
-            ([newValue], [oldValue]) => {
-                if (newValue === oldValue) {
+            [data, partIndex, printedName, printedTypeline, printedText],
+            ([newValue, newIndex], [oldValue, oldIndex]) => {
+                if (newValue === oldValue && newIndex === oldIndex) {
                     enPrinted.value = false;
                 }
             },
@@ -800,11 +941,13 @@ export default defineComponent({
         return {
             hasData,
 
+            history,
             unlock,
             replaceFrom,
             replaceTo,
             search,
 
+            partCount,
             partIndex,
             total,
 
@@ -819,6 +962,11 @@ export default defineComponent({
             oracleName,
             oracleTypeline,
             oracleText,
+            oracleUpdated,
+            showBeforeUpdate,
+            displayOracleName,
+            displayOracleTypeline,
+            displayOracleText,
             unifiedName,
             unifiedTypeline,
             unifiedText,

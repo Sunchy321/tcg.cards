@@ -6,7 +6,7 @@ import FormatChange from '@/magic/db/format-change';
 import BanlistChange from '@/magic/db/banlist-change';
 
 import websocket from '@/middlewares/websocket';
-import { syncChange } from '@/magic/change';
+import { syncChange } from '@/magic/banlist/change';
 import parseBanlist from '@/magic/banlist/parse';
 import { getWizardsBanlist } from '@/magic/banlist/get';
 import { toSingle } from '@/common/request-helper';

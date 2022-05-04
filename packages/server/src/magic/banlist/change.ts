@@ -2,7 +2,7 @@ import Format from '@/magic/db/format';
 import Set from '@/magic/db/set';
 import FormatChange from '@/magic/db/format-change';
 import BanlistChange from '@/magic/db/banlist-change';
-import Card from './db/card';
+import Card from '@/magic/db/card';
 
 import { BanlistChange as IBanlistChange, BanlistStatus } from '@interface/magic/banlist';
 
@@ -177,7 +177,7 @@ export async function getChanges(
     return result;
 }
 
-const formatWithSet = ['standard', 'historic', 'pioneer', 'modern', 'extended', 'brawl'];
+const formatWithSet = ['standard', 'historic', 'explorer', 'pioneer', 'modern', 'extended', 'brawl'];
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
 const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
 

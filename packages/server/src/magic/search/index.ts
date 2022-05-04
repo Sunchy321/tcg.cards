@@ -406,7 +406,7 @@ const model = {
                 .group({ _id: null, count: { $sum: 1 } })
         )[0]?.count ?? 0;
 
-        const cards = await Card.aggregate(aggregate.pipeline()).sort({ releaseDate: -1, number: -1 }).limit(1);
+        const cards = await Card.aggregate(aggregate.pipeline()).sample(1);
 
         return { ...cards[0], total } as ICard & { total: number };
     },

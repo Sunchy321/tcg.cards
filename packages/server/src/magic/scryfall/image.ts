@@ -58,8 +58,8 @@ export class ImageGetter extends Task<IImageStatus> {
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
             .match({
-                'scryfall.imageUris': { $exists: true },
-                '$or':                [
+                'scryfall.imageUris.0': { $exists: true },
+                '$or':                  [
                     { imageStatus: { $in: ['lowres', 'highres_scan'] } },
                     { lang: 'en', imageStatus: { $in: ['placeholder'] } },
                 ],

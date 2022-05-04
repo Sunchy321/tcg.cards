@@ -22,6 +22,7 @@ export default {
         'standard': '标准',
         'alchemy':  '炼金',
         'historic': '史迹',
+        'explorer': '探险',
         'pioneer':  '先驱',
         'modern':   '近代',
         'extended': '扩充',

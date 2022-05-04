@@ -13,6 +13,7 @@
                     :set="imageVersion.set"
                     :number="imageVersion.number"
                     :layout="imageVersion.layout"
+                    :part="part"
                 />
             </q-tooltip>
         </router-link>
@@ -31,33 +32,49 @@
 <script lang="ts">
 /* eslint-disable prefer-destructuring */
 import {
-    defineComponent, ref, computed, watch,
+    defineComponent, ref, computed, watch, PropType,
 } from 'vue';
 
-import { useRoute } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useMagic } from 'store/games/magic';
 
 import CardImage from './CardImage.vue';
 
 import { CardProfile, getProfile } from 'src/common/magic/card';
 
+type Version = {
+    set: string;
+    number: string;
+    lang: string;
+};
+
 export default defineComponent({
     components: { CardImage },
 
     props: {
-        id:     { type: String, required: true },
-        pauper: { type: Boolean, default: false },
-        text:   { type: String, default: undefined },
+        id:      { type: String, required: true },
+        part:    { type: Number, default: undefined },
+        version: { type: Object as PropType<Version>, default: undefined },
+        pauper:  { type: Boolean, default: false },
+        text:    { type: String, default: undefined },
     },
 
     setup(props) {
+        const router = useRouter();
         const route = useRoute();
         const magic = useMagic();
 
         const innerShowId = ref(false);
         const profile = ref<CardProfile | null>(null);
 
-        const link = computed(() => `/magic/card/${props.id}`);
+        const link = computed(() => router.resolve({
+            name:   'magic/card',
+            params: { id: props.id },
+            query:  {
+                ...props.version,
+                ...props.part != null ? { part: props.part } : {},
+            },
+        }).href);
 
         const showId = computed(() => innerShowId.value || (profile.value == null && props.text == null));
         const showTooltip = computed(() => link.value !== route.path);
@@ -78,6 +95,16 @@ export default defineComponent({
         const imageVersion = computed(() => {
             if (profile.value == null || profile.value.versions == null) {
                 return null;
+            }
+
+            if (props.version != null) {
+                const matchedVersion = profile.value.versions.find(v => v.set === props.version?.set
+                    && v.number === props.version?.number
+                    && v.lang === props.version?.lang);
+
+                if (matchedVersion != null) {
+                    return matchedVersion;
+                }
             }
 
             if (props.pauper) {

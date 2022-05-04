@@ -101,6 +101,7 @@ export default defineComponent({
             'standard',
             'alchemy',
             'historic',
+            'explorer',
             'pioneer',
             'modern',
             'extended',

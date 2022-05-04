@@ -229,6 +229,7 @@ export default defineComponent({
             'standard',
             'historic',
             'pioneer',
+            'explorer',
             'modern',
             'extended',
             'legacy',

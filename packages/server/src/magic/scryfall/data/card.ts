@@ -380,9 +380,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         tcgPlayerId:  data.tcgplayer_id,
         cardMarketId: data.cardmarket_id,
 
-        __tags: {
-            oracleUpdated: false,
-        },
+        __tags: { },
     };
 }
 
@@ -467,9 +465,12 @@ function merge(card: Document & ICard, data: ICard) {
 
                     case 'oracle': {
                         if (cPart.oracle.name !== dPart.oracle.name) {
-                            cPart.oracle.name = dPart.oracle.name;
+                            if (card.__tags.oracleUpdated == null) {
+                                card.__tags.oracleUpdated = {};
+                            }
 
-                            card.__tags.oracleUpdated = true;
+                            card.__tags.oracleUpdated.name = cPart.oracle.name;
+                            cPart.oracle.name = dPart.oracle.name;
 
                             if (card.lang === 'en') {
                                 cPart.unified.name = dPart.oracle.name;
@@ -477,9 +478,12 @@ function merge(card: Document & ICard, data: ICard) {
                         }
 
                         if (cPart.oracle.typeline !== dPart.oracle.typeline) {
-                            cPart.oracle.typeline = dPart.oracle.typeline;
+                            if (card.__tags.oracleUpdated == null) {
+                                card.__tags.oracleUpdated = {};
+                            }
 
-                            card.__tags.oracleUpdated = true;
+                            card.__tags.oracleUpdated.typeline = cPart.oracle.typeline;
+                            cPart.oracle.typeline = dPart.oracle.typeline;
 
                             if (card.lang === 'en') {
                                 cPart.unified.typeline = dPart.oracle.typeline;
@@ -487,9 +491,12 @@ function merge(card: Document & ICard, data: ICard) {
                         }
 
                         if (cPart.oracle.text !== dPart.oracle.text) {
-                            cPart.oracle.text = dPart.oracle.text;
+                            if (card.__tags.oracleUpdated == null) {
+                                card.__tags.oracleUpdated = {};
+                            }
 
-                            card.__tags.oracleUpdated = true;
+                            card.__tags.oracleUpdated.text = cPart.oracle.text;
+                            cPart.oracle.text = dPart.oracle.text;
 
                             if (card.lang === 'en') {
                                 cPart.unified.text = dPart.oracle.text;
@@ -790,6 +797,12 @@ export default class CardLoader extends Task<Status> {
                 }
 
                 count += 1;
+            }
+
+            for (const card of cardsToInsert) {
+                if (card.lang === 'en') {
+                    card.__tags.printed = true;
+                }
             }
 
             await Card.insertMany(cardsToInsert);

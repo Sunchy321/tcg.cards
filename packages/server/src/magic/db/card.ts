@@ -10,7 +10,11 @@ export type ICard = Omit<ICardBase, 'parts'> & {
     })[];
 
     __tags: {
-        oracleUpdated: boolean;
+        oracleUpdated?: {
+            name?: string;
+            typeline?: string;
+            text?: string;
+        };
         printed?: boolean;
     };
 };
@@ -87,7 +91,9 @@ const CardSchema = new Schema<ICard>({
         source: String,
         date:   String,
         text:   String,
-        cards:  [{ _id: false, id: String, text: String }],
+        cards:  [{
+            _id: false, id: String, text: String, part: Number,
+        }],
     }],
 
     keywords:     [String],
@@ -144,8 +150,12 @@ const CardSchema = new Schema<ICard>({
     cardMarketId: Number,
 
     __tags: {
-        oracleUpdated: Boolean,
-        printed:       Boolean,
+        oracleUpdated: {
+            name:     String,
+            typeline: String,
+            text:     String,
+        },
+        printed: Boolean,
     },
 });
 

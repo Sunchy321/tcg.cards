@@ -50,6 +50,7 @@ export const formats = [
     'standard',
     'alchemy',
     'historic',
+    'explorer',
     'pioneer',
     'modern',
     'extended',

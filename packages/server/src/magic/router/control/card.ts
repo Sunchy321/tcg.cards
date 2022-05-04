@@ -2,8 +2,7 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card from '@/magic/db/card';
-import { Card as ICard } from '@interface/magic/card';
+import Card, { ICard } from '@/magic/db/card';
 
 import { CardNameExtractor } from '@/magic/scryfall/data/ruling';
 
@@ -144,7 +143,7 @@ router.post('/update', async ctx => {
 
         await Card.updateMany(
             { cardId: data.cardId, lang: data.lang },
-            { '__tags.oracleUpdated': false },
+            { $unset: { '__tags.oracleUpdated': 1 } },
         );
     }
 
@@ -214,7 +213,9 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                     { 'name.2': { $exists: true } },
                     { 'typeline.2': { $exists: true } },
                     { 'text.2': { $exists: true } },
-                    { __tags: { oracleUpdated: true } },
+                    { '__tags.oracleUpdated.name': { $exists: true } },
+                    { '__tags.oracleUpdated.typeline': { $exists: true } },
+                    { '__tags.oracleUpdated.text': { $exists: true } },
                 ],
             }),
     }),

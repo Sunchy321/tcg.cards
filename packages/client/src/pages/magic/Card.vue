@@ -44,7 +44,7 @@
                     <magic-symbol
                         v-for="(s, i) in cost" :key="i"
                         :value="s"
-                        :type="costStyles"
+                        :type="costStyle"
                     />
                 </div>
             </div>
@@ -58,10 +58,10 @@
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
             <div class="ability" :lang="langWithMode">
-                <magic-text :symbol="symbolStyle">{{ text }}</magic-text>
+                <magic-text :symbol="textSymbolStyle">{{ text }}</magic-text>
             </div>
             <div v-if="flavorText != null" class="flavor-text" :lang="lang">
-                <magic-text :symbol="symbolStyle">{{ flavorText }}</magic-text>
+                <magic-text :symbol="textSymbolStyle" detect-emph>{{ flavorText }}</magic-text>
             </div>
             <grid
                 v-slot="[f, s]"
@@ -133,18 +133,20 @@
                 />
             </div>
 
-            <div class="lang-line">
-                <q-btn
-                    v-for="i in langInfos" :key="i.lang"
-                    class="lang-selector"
-                    dense
-                    size="sm"
-                    :color="i.exist ? 'primary' : 'grey'"
-                    :outline="!i.current"
-                    :unelevated="i.current"
-                    :label="i.lang"
-                    @click="lang = i.lang"
-                />
+            <div class="lang-line flex justify-center">
+                <div class="col-auto">
+                    <q-btn
+                        v-for="i in langInfos" :key="i.lang"
+                        class="lang-selector"
+                        dense
+                        size="sm"
+                        :color="i.exist ? 'primary' : 'grey'"
+                        :outline="!i.current"
+                        :unelevated="i.current"
+                        :label="i.lang"
+                        @click="lang = i.lang"
+                    />
+                </div>
             </div>
 
             <div v-if="relatedCards.length > 0" class="related-card-block">
@@ -221,7 +223,7 @@
         padding: 0 16px
 
     .version-column
-        flex: 0 0 300px
+        flex: 0 0 320px
 
 .image-button
     margin-top: 20px
@@ -252,6 +254,9 @@
 .flavor-text
     margin-top: 20px
     font-style: italic
+
+    &:deep(.emph)
+        font-style: normal
 
 .legalities
     margin-top: 20px
@@ -671,13 +676,15 @@ export default defineComponent({
             }
         });
 
-        const costStyles = computed(() => {
+        const costStyle = computed(() => {
             if (id.value === 'b_f_m___big_furry_monster_') {
                 return [...symbolStyle.value, 'cost', 'mini'];
             } else {
                 return [...symbolStyle.value, 'cost'];
             }
         });
+
+        const textSymbolStyle = computed(() => symbolStyle.value);
 
         const editorLink = computed(() => ({
             name:  'magic/data',
@@ -817,7 +824,8 @@ export default defineComponent({
 
             partIcon,
             symbolStyle,
-            costStyles,
+            costStyle,
+            textSymbolStyle,
             editorLink,
             scryfallLink,
             gathererLink,
