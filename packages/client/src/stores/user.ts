@@ -72,6 +72,7 @@ export const useUser = defineStore('user', () => {
         }
     });
 
+    const loggedIn = computed(() => user.value != null);
     const isAdmin = computed(() => user.value?.role === 'admin');
 
     const refresh = async () => {
@@ -129,6 +130,7 @@ export const useUser = defineStore('user', () => {
     return {
         token,
         user,
+        loggedIn,
         isAdmin,
 
         refresh,

@@ -19,7 +19,7 @@
             </template>
         </q-input>
 
-        <div v-if="titleType === 'text'">{{ title }}</div>
+        <template v-if="titleType === 'text'">{{ title }}</template>
     </q-toolbar-title>
 </template>
 

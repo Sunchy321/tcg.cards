@@ -1,42 +1,28 @@
 <template>
-    <q-page class="row">
-        <q-tree
-            v-if="menu != null"
-            v-model:selected="selected"
-            v-model:expanded="expanded"
-            class="menu col-2 scroll"
-            no-connectors
-            :nodes="menu"
-            node-key="id"
-        />
-        <div v-if="data != null" class="detail col scroll q-pa-md">
-            <div
-                v-for="c in chapterContent"
-                :id="c.id" :key="c.id"
-                :class="`cr-item depth-${c.depth} ${c.id === itemId && highlightItem(c) ? 'curr-item' : ''}`"
-            >
-                <span v-if="c.index != null">{{ c.index + ' ' }}</span>
-                <magic-text :cards="c.cards" detect-cr>{{ c.text }}</magic-text>
+    <q-page class="content q-pa-md">
+        <div
+            v-for="c in chapterContent"
+            :id="c.id" :key="c.id"
+            :class="`cr-item depth-${c.depth} ${c.id === itemId && highlightItem(c) ? 'curr-item' : ''}`"
+        >
+            <span v-if="c.index != null">{{ c.index + ' ' }}</span>
+            <magic-text :cards="c.cards" detect-cr>{{ c.text }}</magic-text>
 
-                <div v-for="(e, i) in c.examples || []" :key="i" class="example">
-                    <q-icon name="mdi-chevron-right" class="example-icon" />
-                    <magic-text :cards="c.cards">{{ e }}</magic-text>
-                </div>
+            <div v-for="(e, i) in c.examples || []" :key="i" class="example">
+                <q-icon name="mdi-chevron-right" class="example-icon" />
+                <magic-text :cards="c.cards">{{ e }}</magic-text>
+            </div>
 
-                <div class="cr-tool flex items-center">
-                    <q-btn icon="mdi-content-copy" size="sm" flat dense round @click="copyItem(c)" />
-                    <q-btn icon="mdi-link" size="sm" :to="itemLink(c)" flat dense round />
-                    <div class="item-id q-ml-md code">{{ c.id }}</div>
-                </div>
+            <div class="cr-tool flex items-center">
+                <q-btn icon="mdi-content-copy" size="sm" flat dense round @click="copyItem(c)" />
+                <q-btn icon="mdi-link" size="sm" :to="itemLink(c)" flat dense round />
+                <div class="item-id q-ml-md code">{{ c.id }}</div>
             </div>
         </div>
     </q-page>
 </template>
 
 <style lang="sass" scoped>
-.menu, .detail
-    height: calc(100vh - 50px)
-
 .cr-item
     transition-duration: 0.3s
 
@@ -82,8 +68,10 @@
 <script lang="ts">
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import {
-    defineComponent, ref, computed, watch, onMounted, nextTick,
+    defineComponent, ref, computed, watch, onMounted, nextTick, PropType,
 } from 'vue';
+
+import { Menu } from 'layouts/WithMenu.vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -98,28 +86,32 @@ import { last } from 'lodash';
 import { scroll } from 'quasar';
 import copy from 'copy-to-clipboard';
 
-import { apiGet } from 'boot/backend';
+import modelWrapper from 'src/model-wrapper';
 
-interface Menu {
-    id: string;
-    label: string;
-    children?: Menu[];
-}
+import { apiGet } from 'boot/backend';
 
 type GeneralContent = Omit<Content, 'index'> & { index?: Content['index'] };
 
 export default defineComponent({
     components: { MagicText },
 
-    setup() {
+    props: {
+        selected: { type: String as PropType<string | null>, default: null },
+        expanded: { type: Array as PropType<string[]>, default: () => [] },
+    },
+
+    emits: ['update:menu', 'update:selected', 'update:expanded'],
+
+    setup(props, { emit }) {
         const router = useRouter();
         const route = useRoute();
         const i18n = useI18n();
 
         const list = ref<string[]>([]);
         const cr = ref<CR | null>(null);
-        const selected = ref<string | null>(null);
-        const expanded = ref([]);
+        const selected = modelWrapper('selected', props, emit);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const expanded = modelWrapper('expanded', props, emit);
 
         const { date } = pageSetup({
             title: () => i18n.t('magic.cr.$self'),
@@ -181,7 +173,7 @@ export default defineComponent({
 
         const menu = computed(() => {
             if (cr.value == null) {
-                return null;
+                return [];
             }
 
             const menuResult: Menu[] = [];
@@ -218,6 +210,8 @@ export default defineComponent({
 
             return menuResult;
         });
+
+        watch(menu, () => { emit('update:menu', menu.value); }, { immediate: true });
 
         const indexRegex = /^(\d|\d\d\d|\d\d\d\.\d+[a-z]?)$/;
 
@@ -315,6 +309,10 @@ export default defineComponent({
         });
 
         const chapterContent = computed((): GeneralContent[] => {
+            if (cr.value == null) {
+                return [];
+            }
+
             switch (chapter.value) {
             case 'intro':
                 return [
@@ -394,8 +392,6 @@ export default defineComponent({
 
         return {
             data: cr,
-            selected,
-            expanded,
 
             menu,
             chapterContent,
