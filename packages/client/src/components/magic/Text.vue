@@ -82,7 +82,7 @@ export default defineComponent({
                         if (p === '☐') {
                             result.push(h('input', {
                                 type:  'checkbox',
-                                style: 'transform: translateY(15%)',
+                                style: 'vertical-align: middle; transform: translateY(-10%)',
                             }));
                             continue;
                         }

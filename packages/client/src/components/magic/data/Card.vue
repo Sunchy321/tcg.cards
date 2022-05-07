@@ -831,6 +831,10 @@ export default defineComponent({
 
         const doUpdate = debounce(
             async () => {
+                if (!hasData.value) {
+                    return;
+                }
+
                 defaultPrettify();
 
                 history.value.unshift({

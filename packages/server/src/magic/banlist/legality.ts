@@ -10,6 +10,7 @@ import { Format as IFormat } from '@interface/magic/format';
 
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { isEqual } from 'lodash';
 
 import { formats as formatList } from '@data/magic/basic';
 import { toGenerator, toBucket } from '@/common/to-bucket';
@@ -52,7 +53,7 @@ const setsInformal = [
 
 const setsSpecial = ['plist', 'sld'];
 
-const setsOnlyOnMTGA = ['ana', 'oana', 'xana', 'anb', 'jmp21', 'y22'];
+const setsOnlyOnMTGA = ['ana', 'oana', 'xana', 'anb', 'jmp21', 'ymid', 'yneo'];
 
 const cardsNotInJMP = [
     'ajani_s_chosen',
@@ -89,12 +90,12 @@ const cardsNotInJMP21 = [
     'tropical_island',
 ];
 
-async function getLegality(
+function getLegality(
     data: CardData,
     formats: IFormat[],
     pennyCards: string[],
     alchemyVariantCards: [string, string][],
-): Promise<ICard['legalities']> {
+): ICard['legalities'] {
     const cardId = data._id;
     const versions = data.versions.filter(v => v.releaseDate <= new Date().toLocaleDateString('en-CA'));
 
@@ -174,10 +175,15 @@ async function getLegality(
             continue;
         }
 
+        if (formatId === 'alchemy' && cardId === 'a_blood_artist') {
+            result[formatId] = 'legal';
+            continue;
+        }
+
         if (f.sets != null) {
             const sets = versions.filter(({ set }) => {
                 // some cards not in MTGA
-                if (formatId === 'historic') {
+                if (['explorer', 'historic'].includes(formatId)) {
                     if (set === 'jmp' && cardsNotInJMP.includes(cardId)) {
                         return false;
                     } else if (set === 'jmp21' && cardsNotInJMP21.includes(cardId)) {
@@ -188,9 +194,22 @@ async function getLegality(
                 return true;
             }).map(v => v.set);
 
-            if (sets.every(v => !f.sets!.includes(v))) {
-                result[formatId] = 'unavailable';
-                continue;
+            if (formatId === 'explorer') {
+                const historic = formats.find(f => f.formatId === 'historic')!;
+                const pioneer = formats.find(f => f.formatId === 'pioneer')!;
+
+                if (
+                    sets.every(v => !historic.sets!.includes(v))
+                    || sets.every(v => !pioneer.sets!.includes(v))
+                ) {
+                    result[formatId] = 'unavailable';
+                    continue;
+                }
+            } else {
+                if (sets.every(v => !f.sets!.includes(v))) {
+                    result[formatId] = 'unavailable';
+                    continue;
+                }
             }
         }
 
@@ -348,6 +367,10 @@ function checkLegality(data: CardData, legalities: Legalities, scryfall: Legalit
                 if (['rampaging_brontodon'].includes(cardId)) {
                     continue;
                 }
+            } else if (f === 'alchemy') {
+                if (data.versions.some(v => v.set === 'snc')) {
+                    continue;
+                }
             }
 
             return f;
@@ -466,8 +489,9 @@ export class LegalityAssigner extends Task<Status> {
                 .group({ _id: '$oracle_id', data: { $first: '$$ROOT' } })
                 .replaceRoot('data');
 
-            for (const c of cards) {
-                const result = await getLegality(
+            // eslint-disable-next-line no-loop-func
+            await Promise.all(cards.map(async c => {
+                const result = getLegality(
                     c,
                     formats,
                     pennyCards,
@@ -491,10 +515,12 @@ export class LegalityAssigner extends Task<Status> {
                     }
                 }
 
-                await Card.updateMany({ cardId: c._id }, { legalities: result });
+                if (!isEqual(result, c.legalities)) {
+                    await Card.updateMany({ cardId: c._id }, { legalities: result });
+                }
 
                 count += 1;
-            }
+            }));
         }
     }
 

@@ -120,16 +120,15 @@ export default defineComponent({
         });
 
         const assign = async () => {
+            progress.value = null;
+
             const ws = controlWs('/magic/format/assign-legality');
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
                     progress.value = JSON.parse(data) as Status;
                 };
                 ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    resolve(undefined);
-                };
+                ws.onclose = resolve;
             });
         };
 
