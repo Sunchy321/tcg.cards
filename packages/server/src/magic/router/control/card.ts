@@ -4,9 +4,9 @@ import { DefaultState, Context } from 'koa';
 
 import Card, { ICard } from '@/magic/db/card';
 
-import { CardNameExtractor } from '@/magic/scryfall/data/ruling';
-
 import { Aggregate, ObjectId } from 'mongoose';
+
+import CardNameExtractor from '@/magic/extract-name';
 
 import parseGatherer from '@/magic/gatherer/parse';
 
@@ -340,30 +340,32 @@ router.get('/parse-gatherer', async ctx => {
 });
 
 router.get('/extract-ruling-cards', async ctx => {
-    const cardNames = await Card.aggregate([
-        { $match: { category: 'default' } },
-        { $group: { _id: '$cardId', name: { $first: '$parts.oracle.name' } } },
-        { $project: { id: '$_id', name: 1 } },
-    ]) as { id: string, name: string[] }[];
+    const cardNames = await CardNameExtractor.names();
 
-    const card = await Card.findOne({ cardId: ctx.query.id as string });
+    const ids = (ctx.query.id ?? '') as string;
 
-    if (card != null) {
-        const cardsList = [];
+    for (const id of ids.split(',')) {
+        const card = await Card.findOne({ cardId: id as string });
 
-        for (const r of card.rulings) {
-            const cards = new CardNameExtractor(r.text, {
-                id: card.cardId, name: card.parts.map(p => p.oracle.name),
-            }, cardNames).extract();
+        if (card != null) {
+            const cardsList = [];
 
-            cardsList.push(cards);
+            for (const r of card.rulings) {
+                const cards = new CardNameExtractor({
+                    text:     r.text,
+                    cardNames,
+                    thisName: { id: card.cardId, name: card.parts.map(p => p.oracle.name) },
+                }).extract();
 
-            r.cards = cards;
+                cardsList.push(cards);
+
+                r.cards = cards;
+            }
+
+            await Card.updateMany({ cardId: card.cardId }, { rulings: card.rulings });
+
+            ctx.body = cardsList;
         }
-
-        await Card.updateMany({ cardId: card.cardId }, { rulings: card.rulings });
-
-        ctx.body = cardsList;
     }
 });
 

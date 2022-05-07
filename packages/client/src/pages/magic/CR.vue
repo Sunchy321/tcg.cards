@@ -13,13 +13,20 @@
             <div
                 v-for="c in chapterContent"
                 :id="c.id" :key="c.id"
-                :class="`depth-${c.depth}`"
+                :class="`cr-item depth-${c.depth} ${c.id === itemId && highlightItem(c) ? 'curr-item' : ''}`"
             >
-                <magic-text>{{ c.index ? c.index + ' ' + c.text : c.text }}</magic-text>
+                <span v-if="c.index != null">{{ c.index + ' ' }}</span>
+                <magic-text :cards="c.cards" detect-cr>{{ c.text }}</magic-text>
 
                 <div v-for="(e, i) in c.examples || []" :key="i" class="example">
                     <q-icon name="mdi-chevron-right" class="example-icon" />
-                    <magic-text>{{ e }}</magic-text>
+                    <magic-text :cards="c.cards">{{ e }}</magic-text>
+                </div>
+
+                <div class="cr-tool flex items-center">
+                    <q-btn icon="mdi-content-copy" size="sm" flat dense round @click="copyItem(c)" />
+                    <q-btn icon="mdi-link" size="sm" :to="itemLink(c)" flat dense round />
+                    <div class="item-id q-ml-md code">{{ c.id }}</div>
                 </div>
             </div>
         </div>
@@ -30,19 +37,41 @@
 .menu, .detail
     height: calc(100vh - 50px)
 
-.depth-0
-    font-size: 200%
-    margin-bottom: 30px
+.cr-item
+    transition-duration: 0.3s
 
-.depth-1
-    font-size: 150%
-    margin-bottom: 20px
+    &.depth-0
+        font-size: 200%
+        margin-bottom: 20px
 
-.depth-2
-    margin-bottom: 15px
+    &.depth-1
+        font-size: 150%
+        margin-bottom: 10px
 
-.depth-3
-    margin-bottom: 15px
+    &.depth-2, &.depth-3
+        margin-bottom: 10px
+
+    & .cr-tool
+        display: none
+
+        color: grey
+
+    & .item-id
+        font-size: 12px
+
+    &:hover
+        margin-bottom: 5px
+        background-color: $grey-3
+
+    &:hover .cr-tool
+        display: flex
+        background-color: $grey-3
+
+    &.curr-item
+        border: 1px black solid
+        border-radius: 5px
+
+        padding: 2px
 
 .example-icon
     margin-right: 10px
@@ -67,6 +96,8 @@ import { CR, Content } from 'interface/magic/cr';
 
 import { last } from 'lodash';
 import { scroll } from 'quasar';
+import copy from 'copy-to-clipboard';
+
 import { apiGet } from 'boot/backend';
 
 interface Menu {
@@ -74,6 +105,8 @@ interface Menu {
     label: string;
     children?: Menu[];
 }
+
+type GeneralContent = Omit<Content, 'index'> & { index?: Content['index'] };
 
 export default defineComponent({
     components: { MagicText },
@@ -133,6 +166,19 @@ export default defineComponent({
             ],
         });
 
+        const contents = computed(() => cr.value?.contents ?? []);
+        const glossary = computed(() => cr.value?.glossary ?? []);
+
+        const itemInMenu = (item: Content) => /\w$/.test(item.text) && item.examples == null;
+
+        const highlightItem = (item: GeneralContent) => {
+            if (item.index != null) {
+                return !itemInMenu(item as Content);
+            } else {
+                return item.id.startsWith('g:');
+            }
+        };
+
         const menu = computed(() => {
             if (cr.value == null) {
                 return null;
@@ -140,15 +186,11 @@ export default defineComponent({
 
             const menuResult: Menu[] = [];
 
-            const contents = cr.value.contents
-                .filter(c => c.examples == null && /\w$/.test(c.text));
+            const contentInMenu = contents.value.filter(itemInMenu);
 
             const contentMenu: Menu[] = [];
 
-            menuResult.push({
-                id:    'intro',
-                label: i18n.t('magic.cr.intro'),
-            });
+            menuResult.push({ id: 'intro', label: i18n.t('magic.cr.intro') });
 
             function insert(menuToInsert: Menu[], item: Content, depth: number) {
                 if (depth === 0) {
@@ -161,26 +203,17 @@ export default defineComponent({
                 }
             }
 
-            for (const c of contents) { insert(contentMenu, c, c.depth); }
+            for (const c of contentInMenu) { insert(contentMenu, c, c.depth); }
 
             menuResult.push(...contentMenu);
 
             menuResult.push(
-                {
-                    id:    'glossary',
-                    label: i18n.t('magic.cr.glossary'),
-                },
-                {
-                    id:    'credits',
-                    label: i18n.t('magic.cr.credits'),
-                },
+                { id: 'glossary', label: i18n.t('magic.cr.glossary') },
+                { id: 'credits', label: i18n.t('magic.cr.credits') },
             );
 
             if (cr.value?.csi != null) {
-                menuResult.push({
-                    id:    'csi',
-                    label: i18n.t('magic.cr.csi'),
-                });
+                menuResult.push({ id: 'csi', label: i18n.t('magic.cr.csi') });
             }
 
             return menuResult;
@@ -195,7 +228,7 @@ export default defineComponent({
             'csi', 'csi.title',
         ];
 
-        const item = computed({
+        const itemId = computed({
             get() {
                 const hash = route.hash.startsWith('#') ? route.hash.slice(1) : null;
 
@@ -209,17 +242,17 @@ export default defineComponent({
                     if (hash.startsWith('g:')) {
                         const glossaryId = hash.slice(2);
 
-                        if (cr.value?.glossary?.some(g => glossaryId === g.ids.join(','))) {
+                        if (glossary.value.some(g => glossaryId === g.ids.join(','))) {
                             return hash;
                         }
                     }
 
                     // content items
-                    if (cr.value?.contents?.some(c => c.id === hash)) {
+                    if (contents.value.some(c => c.id === hash)) {
                         return hash;
                     }
 
-                    const itemValue = cr.value?.contents.find(c => c.index.replace(/\.$/, '') === hash);
+                    const itemValue = contents.value.find(c => c.index.replace(/\.$/, '') === hash);
 
                     if (itemValue != null) {
                         return itemValue.id;
@@ -238,8 +271,8 @@ export default defineComponent({
                     return;
                 }
 
-                const oldItem = cr.value?.contents?.find(v => v.id === item.value);
-                const newItem = cr.value?.contents?.find(v => v.id === newValue);
+                const oldItem = contents.value.find(v => v.id === itemId.value);
+                const newItem = contents.value.find(v => v.id === newValue);
 
                 if (newItem == null) {
                     return;
@@ -260,7 +293,7 @@ export default defineComponent({
         });
 
         const chapter = computed(() => {
-            switch (item.value) {
+            switch (itemId.value) {
             case 'intro':
             case 'intro.title':
                 return 'intro';
@@ -273,73 +306,39 @@ export default defineComponent({
             case 'csi.title':
                 return 'csi';
             default:
-                if (item.value.startsWith('g:')) {
+                if (itemId.value.startsWith('g:')) {
                     return 'glossary';
                 } else {
-                    return cr.value?.contents?.find(c => c.id === item.value)?.index[0];
+                    return contents.value.find(c => c.id === itemId.value)?.index[0];
                 }
             }
         });
 
-        const chapterContent = computed((): (Omit<Content, 'index'> & { index?: Content['index'] })[] => {
+        const chapterContent = computed((): GeneralContent[] => {
             switch (chapter.value) {
             case 'intro':
                 return [
-                    {
-                        id:    'intro.title',
-                        depth: 0,
-                        text:  i18n.t('magic.cr.intro'),
-                    },
-                    {
-                        id:    'intro',
-                        depth: 2,
-                        text:  cr.value!.intro,
-                    },
+                    { id: 'intro.title', depth: 0, text: i18n.t('magic.cr.intro') },
+                    { id: 'intro', depth: 2, text: cr.value!.intro },
                 ];
 
             case 'glossary':
                 return [
-                    {
-                        id:    'glossary',
-                        depth: 0,
-                        text:  i18n.t('magic.cr.glossary'),
-                    },
-                    ...(cr.value?.glossary ?? []).map(g => ({
-                        id:    `g:${g.ids.join(',')}`,
-                        depth: 2,
-                        text:  `${g.words.join(', ')}\n${g.text}`,
-                    })),
+                    { id: 'glossary', depth: 0, text: i18n.t('magic.cr.glossary') },
+                    ...glossary.value.map(g => ({ id: `g:${g.ids.join(',')}`, depth: 2, text: `${g.words.join(', ')}\n${g.text}` })),
                 ];
             case 'credits':
                 return [
-                    {
-                        id:    'credits.title',
-                        depth: 0,
-                        text:  i18n.t('magic.cr.credits'),
-                    },
-                    {
-                        id:    'credits',
-                        depth: 2,
-                        text:  cr.value!.credits,
-                    },
+                    { id: 'credits.title', depth: 0, text: i18n.t('magic.cr.credits') },
+                    { id: 'credits', depth: 2, text: cr.value!.credits },
                 ];
             case 'csi':
                 return [
-                    {
-                        id:    'csi.title',
-                        depth: 0,
-                        text:  i18n.t('magic.cr.csi'),
-                    },
-                    {
-                        id:    'csi',
-                        depth: 2,
-                        text:  cr.value!.csi!,
-                    },
+                    { id: 'csi.title', depth: 0, text: i18n.t('magic.cr.csi') },
+                    { id: 'csi', depth: 2, text: cr.value!.csi! },
                 ];
             default:
-                return cr.value?.contents
-                    ?.filter(c => c.index.startsWith(chapter.value!))
-                    ?? [];
+                return contents.value.filter(c => c.index.startsWith(chapter.value!));
             }
         });
 
@@ -365,7 +364,7 @@ export default defineComponent({
         const scrollIntoItem = async () => {
             await nextTick();
 
-            const elem = document.getElementById(item.value);
+            const elem = document.getElementById(itemId.value);
 
             if (elem != null) {
                 const target = scroll.getScrollTarget(elem);
@@ -374,17 +373,22 @@ export default defineComponent({
             }
         };
 
+        const itemLink = (item: GeneralContent) => ({ hash: `#${item.id}`, query: route.query });
+        const itemText = (item: GeneralContent) => (item.index != null ? `${item.index} ${item.text}` : item.text);
+
+        const copyItem = (item: GeneralContent) => copy(itemText(item) + (item.examples ?? []).map(v => `\n    ${v}`).join(''));
+
         // watch
         watch(date, loadData, { immediate: true });
 
         watch(selected, () => {
-            if (selected.value != null && selected.value !== item.value) {
-                item.value = selected.value;
+            if (selected.value != null && selected.value !== itemId.value) {
+                itemId.value = selected.value;
                 selected.value = null;
             }
         });
 
-        watch(item, scrollIntoItem, { immediate: true });
+        watch(itemId, scrollIntoItem, { immediate: true });
 
         onMounted(loadList);
 
@@ -395,6 +399,12 @@ export default defineComponent({
 
             menu,
             chapterContent,
+            itemId,
+
+            highlightItem,
+            itemLink,
+            itemText,
+            copyItem,
         };
     },
 

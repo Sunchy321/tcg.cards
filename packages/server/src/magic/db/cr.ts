@@ -14,7 +14,15 @@ const CRMenuSchema = new Schema<ICR>({
         depth:    Number,
         text:     String,
         examples: { type: [String], default: undefined },
-        cards:    { type: [{ _id: false, text: String, id: String }], default: undefined },
+        cards:    {
+            type: [{
+                _id:  false,
+                id:   String,
+                text: String,
+                part: Number,
+            }],
+            default: undefined,
+        },
     }],
     glossary: [{
         _id:   false,

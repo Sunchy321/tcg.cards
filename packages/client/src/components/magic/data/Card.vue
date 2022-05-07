@@ -742,6 +742,12 @@ export default defineComponent({
             console.log(cards);
         };
 
+        (window as any).extract = async (ids: string[]) => {
+            await controlGet('/magic/card/extract-ruling-cards', {
+                id: ids.join(','),
+            });
+        };
+
         const guessToken = () => {
             if (data.value == null) {
                 return;

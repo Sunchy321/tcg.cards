@@ -26,10 +26,13 @@
 import type { VNode, PropType } from 'vue';
 import { defineComponent, h } from 'vue';
 
+import { RouterLink, useRoute } from 'vue-router';
 import { useMagic } from 'store/games/magic';
 
 import Symbol from './Symbol.vue';
 import CardAvatar from './CardAvatar.vue';
+
+import { escapeRegExp } from 'lodash';
 
 export default defineComponent({
     props: {
@@ -45,9 +48,11 @@ export default defineComponent({
 
         detectUrl:  { type: Boolean, default: false },
         detectEmph: { type: Boolean, default: false },
+        detectCr:   { type: Boolean, default: false },
     },
 
     setup(props, { attrs, slots }) {
+        const route = useRoute();
         const magic = useMagic();
 
         const { symbols } = magic.data;
@@ -64,9 +69,10 @@ export default defineComponent({
                     const regex = new RegExp(`(${[
                         '[\\n☐]',
                         '\\{[^}]+\\}',
-                        ...props.cards.map(c => c.text),
+                        ...props.cards.map(c => escapeRegExp(c.text)),
                         ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.]+[-a-zA-Z0-9/]'] : [],
                         ...props.detectEmph ? ['\\*[^*]+\\*'] : [],
+                        ...props.detectCr ? ['\\d+(?:\\.\\d+[a-z]?)?'] : [],
                     ].join('|')})`);
 
                     const pieces = node.children.split(regex).filter(v => v !== '');
@@ -118,6 +124,17 @@ export default defineComponent({
                             result.push(h('span', {
                                 class: 'emph',
                             }, p.slice(1, -1)));
+
+                            continue;
+                        }
+
+                        if (props.detectCr && /^\d+(\.\d+[a-z]?)?$/.test(p)) {
+                            result.push(h(RouterLink, {
+                                to: {
+                                    query: route.query,
+                                    hash:  `#${p}`,
+                                },
+                            }, () => p));
 
                             continue;
                         }
