@@ -67,6 +67,11 @@ const routes = [
                 name:      'magic/cr/diff',
                 component: async () => import('pages/magic/CRDiff.vue'),
             },
+            {
+                path:      'cr/history',
+                name:      'magic/cr/history',
+                component: async () => import('pages/magic/CRHistory.vue'),
+            },
         ],
     },
     {

@@ -63,7 +63,8 @@ export default {
         glossary: '词汇表',
         credits:  '版权信息',
 
-        diff: '规则版本间差异',
+        diff:    '规则版本间差异',
+        history: '规则历史',
     },
 
     'ui': ui,

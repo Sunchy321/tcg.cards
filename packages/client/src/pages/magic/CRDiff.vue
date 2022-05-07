@@ -45,11 +45,11 @@
                     <magic-text :class="c.type ? `text-${c.type}` : ''">{{ c.index[0] + ' ' }}</magic-text>
 
                     <magic-text
-                        v-for="(v, i) in c.text || []" :key="i"
+                        v-for="(v, i) in c.text ?? []" :key="i"
                         :class="textClass(v, 'remove')"
                     >{{ textValue(v, 'remove') }}</magic-text>
 
-                    <div v-for="(e, i) in c.examples || []" :key="i" class="example">
+                    <div v-for="(e, i) in c.examples ?? []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
                             v-for="(v, j) in e" :key="j"
@@ -67,11 +67,11 @@
                     <magic-text :class="c.type ? `text-${c.type}` : ''">{{ c.index[1] + ' ' }}</magic-text>
 
                     <magic-text
-                        v-for="(v, i) in c.text || []" :key="i"
+                        v-for="(v, i) in c.text ?? []" :key="i"
                         :class="textClass(v, 'add')"
                     >{{ textValue(v, 'add') }}</magic-text>
 
-                    <div v-for="(e, i) in c.examples || []" :key="i" class="example">
+                    <div v-for="(e, i) in c.examples ?? []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
                             v-for="(v, j) in e" :key="j"
@@ -112,7 +112,7 @@
                     <br>
 
                     <magic-text
-                        v-for="(v, i) in g.text || []" :key="i"
+                        v-for="(v, i) in g.text ?? []" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
                     >{{ textValue(v, 'remove') }}</magic-text>
                 </div>
@@ -127,7 +127,7 @@
                     <br>
 
                     <magic-text
-                        v-for="(v, i) in g.text || []" :key="i"
+                        v-for="(v, i) in g.text ?? []" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
                     >{{ textValue(v, 'add') }}</magic-text>
                 </div>

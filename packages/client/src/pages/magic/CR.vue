@@ -16,6 +16,8 @@
             <div class="cr-tool flex items-center">
                 <q-btn icon="mdi-content-copy" size="sm" flat dense round @click="copyItem(c)" />
                 <q-btn icon="mdi-link" size="sm" :to="itemLink(c)" flat dense round />
+                <!-- eslint-disable-next-line max-len -->
+                <q-btn v-if="hasHistory(c)" icon="mdi-history" size="sm" :to="historyLink(c)" target="_blank" flat dense round />
                 <div class="item-id q-ml-md code">{{ c.id }}</div>
             </div>
         </div>
@@ -371,7 +373,10 @@ export default defineComponent({
             }
         };
 
+        const hasHistory = (item: GeneralContent) => !['intro.title', 'intro', 'glossary', 'credits.title', 'credits'].includes(item.id);
+
         const itemLink = (item: GeneralContent) => ({ hash: `#${item.id}`, query: route.query });
+        const historyLink = (item: GeneralContent) => ({ name: 'magic/cr/history', query: { id: item.id } });
         const itemText = (item: GeneralContent) => (item.index != null ? `${item.index} ${item.text}` : item.text);
 
         const copyItem = (item: GeneralContent) => copy(itemText(item) + (item.examples ?? []).map(v => `\n    ${v}`).join(''));
@@ -399,6 +404,8 @@ export default defineComponent({
 
             highlightItem,
             itemLink,
+            hasHistory,
+            historyLink,
             itemText,
             copyItem,
         };

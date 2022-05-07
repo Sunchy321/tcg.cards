@@ -73,7 +73,8 @@ export default {
         credits:  'Credits',
         csi:      'Customer Service Information',
 
-        diff: 'Differences between CR versions',
+        diff:    'CR Differences',
+        history: 'CR History',
     },
 
     'ui': ui,

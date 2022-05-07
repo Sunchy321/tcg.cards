@@ -108,6 +108,100 @@ function diffString(lhs: string, rhs: string): TextChange[] {
     return diffs;
 }
 
+type ThreeChange = {
+    type: 'add' | 'common' | 'dual' | 'remove';
+    value: string;
+};
+
+export function diffThreeString(prev: string, curr: string, next: string): ThreeChange[] {
+    const prevDiff = diffString(prev, curr);
+    const nextDiff = diffString(curr, next);
+
+    const diffs: ThreeChange[] = [];
+
+    while (prevDiff.length > 0 && nextDiff.length > 0) {
+        const lastPrev = prevDiff[0];
+        const lastNext = nextDiff[0];
+
+        if (lastPrev == null || lastNext == null) {
+            throw new Error('diff mismatch');
+        }
+
+        const lastPrevText = typeof lastPrev === 'string' ? lastPrev : lastPrev[1];
+        const lastNextText = typeof lastNext === 'string' ? lastNext : lastNext[0];
+
+        const length = Math.min(lastPrevText.length, lastNextText.length);
+
+        // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
+        if (lastPrevText.slice(0, length) !== lastNextText.slice(0, length)) {
+            throw new Error('diff mismatch');
+        }
+
+        const type = (() => {
+            if (typeof lastPrev === 'string') {
+                if (typeof lastNext === 'string') {
+                    return 'common';
+                } else {
+                    return 'remove';
+                }
+            } else {
+                if (typeof lastNext === 'string') {
+                    return 'add';
+                } else {
+                    return 'dual';
+                }
+            }
+        })();
+
+        const value = lastPrevText.slice(0, length);
+
+        if (length === lastPrevText.length) {
+            prevDiff.shift();
+        } else {
+            if (typeof lastPrev === 'string') {
+                prevDiff[0] = lastPrevText.slice(length);
+            } else {
+                prevDiff[0] = [lastPrev[0], lastPrevText.slice(length)];
+            }
+        }
+
+        if (length === lastNextText.length) {
+            nextDiff.shift();
+        } else {
+            if (typeof lastNext === 'string') {
+                nextDiff[0] = lastNextText.slice(length);
+            } else {
+                nextDiff[0] = [lastNextText.slice(length), lastNext[1]];
+            }
+        }
+
+        diffs.push({ type, value });
+    }
+
+    const mergedDiffs: ThreeChange[] = [];
+
+    for (const d of diffs) {
+        if (d.value === '') {
+            continue;
+        }
+
+        const lastDiff = last(mergedDiffs);
+
+        if (lastDiff == null) {
+            mergedDiffs.push(d);
+            continue;
+        }
+
+        if (lastDiff.type === d.type) {
+            lastDiff.value += d.value;
+        } else {
+            mergedDiffs.push(d);
+        }
+    }
+
+    return mergedDiffs;
+}
+
 function isChanged(change: TextChange[]) {
     if (change.length === 0) {
         return false;
@@ -162,8 +256,8 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
 
     contents = contents.filter(d => !contentMoved.includes(d.id!) || d.type !== 'remove');
 
-    const oldContentMap: Record<string, Content> = {}; const
-        newContentMap: Record<string, Content> = {};
+    const oldContentMap: Record<string, Content> = {};
+    const newContentMap: Record<string, Content> = {};
 
     for (const c of from.contents) { oldContentMap[c.id] = c; }
     for (const c of to.contents) { newContentMap[c.id] = c; }
