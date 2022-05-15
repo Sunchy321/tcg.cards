@@ -566,7 +566,7 @@ export default defineComponent({
 
             const profile = setProfiles.value[currVersion.set];
 
-            const iconSet = (auxSetType.includes(profile.setType) ? profile.parent : undefined) ?? s;
+            const iconSet = (auxSetType.includes(profile?.setType) ? profile?.parent : undefined) ?? s;
             const name = mapValues(profile?.localization ?? { }, loc => loc.name);
 
             return {
