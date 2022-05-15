@@ -167,7 +167,7 @@ export default defineComponent({
 
         const highlightItem = (item: GeneralContent) => {
             if (item.index != null) {
-                return !itemInMenu(item as Content);
+                return item.depth >= 1;
             } else {
                 return item.id.startsWith('g:');
             }

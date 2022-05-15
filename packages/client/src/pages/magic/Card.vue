@@ -165,7 +165,7 @@
                         <div v-ripple class="flex no-wrap items-center" @click="set = i.set">
                             <span class="code q-mr-sm" :style="`width: ${setMaxWidth}ch;`">{{ i.set }}</span>
                             <span class="set-name">{{ i.name }}</span>
-                            <img class="set-icon q-mx-sm" :src="i.iconUrl">
+                            <img class="set-icon q-mx-sm" :src="i.iconUrl" :alt="set">
                             <span class="rarity">{{ i.rarity[0] }}</span>
                         </div>
                         <div>

@@ -57,7 +57,7 @@ module.exports = configure((/* ctx */) => ({
         vueRouterMode: 'history', // available values: 'hash', 'history'
         // vueRouterBase,
         // vueDevtools,
-        // vueOptionsAPI: false,
+        vueOptionsAPI: false,
 
         // rebuildCache: true, // rebuilds Vite/linter/etc cache on startup
 
@@ -66,7 +66,7 @@ module.exports = configure((/* ctx */) => ({
         // env: {},
         // rawDefine: {}
         // ignorePublicFolder: true,
-        // minify: false,
+        // minify: 'esbuild',
         // polyfillModulePreload: true,
         // distDir
 
@@ -139,8 +139,6 @@ module.exports = configure((/* ctx */) => ({
                     require('rollup-plugin-node-polyfills')()
                 ]
             };
-
-            config.build.minify = false;
         }
     },
 

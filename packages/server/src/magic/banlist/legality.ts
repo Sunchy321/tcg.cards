@@ -483,14 +483,15 @@ export class LegalityAssigner extends Task<Status> {
             };
         });
 
+        const toUpdate: Record<string, Legalities> = {};
+
         for (const cards of toBucket<CardData>(toGenerator(allCards), 500)) {
             const scryfalls = await SCard.aggregate<ISCard>()
                 .match({ oracle_id: { $in: cards.map(c => c.scryfall) } })
                 .group({ _id: '$oracle_id', data: { $first: '$$ROOT' } })
                 .replaceRoot('data');
 
-            // eslint-disable-next-line no-loop-func
-            await Promise.all(cards.map(async c => {
+            for (const c of cards) {
                 const result = getLegality(
                     c,
                     formats,
@@ -516,11 +517,27 @@ export class LegalityAssigner extends Task<Status> {
                 }
 
                 if (!isEqual(result, c.legalities)) {
-                    await Card.updateMany({ cardId: c._id }, { legalities: result });
+                    toUpdate[c._id] = result;
                 }
 
                 count += 1;
-            }));
+            }
+        }
+
+        const updateGroup: [string[], Legalities][] = [];
+
+        for (const [id, legalities] of Object.entries(toUpdate)) {
+            const group = updateGroup.find(g => isEqual(g[1], legalities));
+
+            if (group != null) {
+                group[0].push(id);
+            } else {
+                updateGroup.push([[id], legalities]);
+            }
+        }
+
+        for (const [ids, legalities] of updateGroup) {
+            await Card.updateMany({ cardId: { $in: ids } }, { legalities });
         }
     }
 

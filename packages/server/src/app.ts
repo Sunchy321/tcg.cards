@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return */
 import Koa from 'koa';
 import cors from '@koa/cors';
 import send from 'koa-send';
@@ -5,6 +6,7 @@ import koaStatic from 'koa-static';
 import session from 'koa-session';
 import logger from 'koa-logger';
 import body from 'koa-body';
+import compress from 'koa-compress';
 import websocket from 'koa-easy-ws';
 
 import { main } from '@/logger';
@@ -34,7 +36,7 @@ app
     .use(subdomain('image', img))
     .use(subdomain('user', user))
     .use(subdomain('control', control))
-    // eslint-disable-next-line consistent-return
+    .use(compress({ threshold: 2048 }))
     .use(async (ctx, next) => {
         if (ctx.subdomains.length === 0) {
             return koaStatic(clientPath, {
@@ -42,7 +44,6 @@ app
             })(ctx, next);
         }
     })
-    // eslint-disable-next-line consistent-return
     .use(async ctx => {
         if (ctx.subdomains.length === 0) {
             return send(ctx, 'index.html', { root: clientPath });
