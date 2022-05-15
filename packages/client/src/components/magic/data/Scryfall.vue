@@ -114,8 +114,8 @@ interface Database {
 }
 
 interface Progress {
-    method: 'get' | 'load' | 'merge';
-    type: 'card' | 'image' | 'ruling' | 'set';
+    method: string;
+    type: string;
 
     amount: {
         updated?: number;

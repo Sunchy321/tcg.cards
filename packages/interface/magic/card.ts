@@ -73,7 +73,7 @@ export interface Card {
         source: string;
         date: string;
         text: string;
-        cards: { id: string, text: string, part?: number }[];
+        cards?: { id: string, text: string, part?: number }[];
     }[];
 
     keywords: string[];

@@ -125,6 +125,8 @@ import controlSetup from 'setup/control';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
 
+import { Set, SetLocalization } from 'interface/magic/set';
+
 import { apiGet } from 'src/boot/backend';
 
 interface TapBtnGroupSlots extends QBtnToggleSlots {
@@ -143,41 +145,6 @@ const TapBtnToggle = QBtnToggle as
 
 const WhiteBtnToggle = QBtnToggle as
     unknown as GlobalComponentConstructor<QBtnToggleProps, WhiteBtnGroupSlots>;
-
-interface SetLocalization {
-    lang: string;
-    name?: string;
-    isOfficialName?: boolean;
-    link?: string;
-}
-
-interface Set {
-    setId: string;
-
-    scryfall: {
-        id: string;
-        code: string;
-    };
-
-    mtgoCode?: string;
-    tcgplayerId?: number;
-
-    block?: string;
-    parent?: string;
-
-    localization: SetLocalization[];
-
-    setType: string;
-    isDigital: boolean;
-    isFoilOnly: boolean;
-    isNonfoilOnly: boolean;
-    symbolStyle: string[];
-
-    releaseDate?: string;
-
-    cardCount: number;
-    printedSize?: number;
-}
 
 const linkMap: Record<string, string> = {
     en:  'en',
@@ -238,7 +205,7 @@ export default defineComponent({
         });
 
         const localization = computed(() => magic.locales.map(
-            l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l },
+            l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
         ));
 
         const symbolStyle = computed(() => data.value?.symbolStyle ?? []);

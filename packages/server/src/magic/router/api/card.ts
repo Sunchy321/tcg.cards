@@ -3,17 +3,15 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import Card from '@/magic/db/card';
-import Set from '@/magic/db/set';
 
 import { Card as ICard } from '@interface/magic/card';
 
 import {
-    mapValues, omit, omitBy, random, uniq,
+    mapValues, omitBy, random,
 } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
 
 import searcher from '@/magic/search';
-import { auxSetType } from '@data/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -39,6 +37,7 @@ async function find(id: string, lang?: string, set?: string, number?: string): P
         .limit(1)
         .project({
             '_id':                0,
+            '__v':                0,
             'parts.__costMap':    0,
             '__tags':             0,
             'langIsLocale':       0,
@@ -74,32 +73,7 @@ router.get('/', async ctx => {
         .project('-_id lang set number rarity');
 
     if (cards.length !== 0) {
-        const { relatedCards, ...data } = cards[0];
-        const result: any = omit(data, ['_id', '__v']);
-
-        result.versions = versions;
-
-        const sets = await Set.find({ setId: { $in: uniq(versions.map(v => v.set)) } });
-
-        for (const v of result.versions) {
-            const s = sets.find(s => s.setId === v.set);
-
-            if (s == null) {
-                continue;
-            }
-
-            v.name = Object.fromEntries(s.localization.map(l => [l.lang, l.name]));
-            v.symbolStyle = s.symbolStyle;
-            v.doubleFacedIcon = s.doubleFacedIcon;
-
-            if (auxSetType.includes(s.setType)) {
-                v.parent = s.parent;
-            }
-        }
-
-        result.relatedCards = relatedCards;
-
-        ctx.body = result;
+        ctx.body = { ...cards[0], versions };
     } else {
         ctx.status = 404;
     }

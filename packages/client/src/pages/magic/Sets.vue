@@ -202,8 +202,8 @@ export default defineComponent({
         };
 
         const loadProfile = async (setList: string[]) => {
-            const locals = []; const
-                remotes = [];
+            const locals = [];
+            const remotes = [];
 
             for (const s of setList) {
                 const { local, remote } = getProfile(s);

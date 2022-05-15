@@ -14,6 +14,8 @@ export interface SetProfile {
     parent?: string;
     localization: Record<string, SetLocalization>;
     setType: string;
+    symbolStyle?: string[];
+    doubleFacedIcon?: string[];
     releaseDate?: string;
 }
 

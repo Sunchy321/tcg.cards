@@ -91,9 +91,12 @@ const CardSchema = new Schema<ICard>({
         source: String,
         date:   String,
         text:   String,
-        cards:  [{
-            _id: false, id: String, text: String, part: Number,
-        }],
+        cards:  {
+            type: [{
+                _id: false, id: String, text: String, part: Number,
+            }],
+            default: undefined,
+        },
     }],
 
     keywords:     [String],

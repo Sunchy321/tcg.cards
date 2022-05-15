@@ -23,11 +23,14 @@ export const SetSchema = new Schema<ISet>({
         link:           String,
     }],
 
-    setType:         String,
-    isDigital:       Boolean,
-    isFoilOnly:      Boolean,
-    isNonfoilOnly:   Boolean,
-    symbolStyle:     [String],
+    setType:       String,
+    isDigital:     Boolean,
+    isFoilOnly:    Boolean,
+    isNonfoilOnly: Boolean,
+    symbolStyle:   {
+        type:    [String],
+        default: undefined,
+    },
     doubleFacedIcon: { type: [String], default: undefined },
 
     releaseDate: String,

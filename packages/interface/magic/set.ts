@@ -1,7 +1,7 @@
 export interface SetLocalization {
     lang: string;
     name?: string;
-    isOfficialName: boolean;
+    isOfficialName?: boolean;
     link?: string;
 }
 
@@ -22,7 +22,7 @@ export interface Set {
     isDigital: boolean;
     isFoilOnly: boolean;
     isNonfoilOnly: boolean;
-    symbolStyle: string[];
+    symbolStyle?: string[];
     doubleFacedIcon?: string[];
 
     releaseDate?: string;

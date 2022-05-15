@@ -359,7 +359,11 @@ router.get('/extract-ruling-cards', async ctx => {
 
                 cardsList.push(cards);
 
-                r.cards = cards;
+                if (cards.length > 0) {
+                    r.cards = cards;
+                } else {
+                    delete r.cards;
+                }
             }
 
             await Card.updateMany({ cardId: card.cardId }, { rulings: card.rulings });

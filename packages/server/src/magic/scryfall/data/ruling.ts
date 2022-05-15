@@ -10,35 +10,39 @@ import CardNameExtractor from '@/magic/extract-name';
 import { Status } from '../status';
 
 import { join } from 'path';
-import { chunk } from 'lodash';
+import { isEqual } from 'lodash';
 import { convertJson, bulkPath } from './common';
 
-async function assignRuling(id: string, data: RawRuling[], cardNames: { id: string, name: string[] }[]) {
-    const card = await Card.findOne({ 'scryfall.oracleId': id });
+type OldData = {
+    cardId: string;
+    names: string[];
+    rulings: ICard['rulings'];
+};
 
-    if (card == null) {
-        return;
-    }
-
+async function assignRuling(
+    data: RawRuling[],
+    oldData: OldData,
+    cardNames: { id: string, name: string[] }[],
+) {
     const rulings = data.map(r => {
         const cards = new CardNameExtractor({
             text:     r.comment,
             cardNames,
-            thisName: { id: card.cardId, name: card.parts.map(p => p.oracle.name) },
+            thisName: { id: oldData.cardId, name: oldData.names },
         }).extract();
 
         return {
             source: r.source,
             date:   r.published_at,
             text:   r.comment,
-            cards,
+            ...cards.length > 0 ? { cards } : {},
         } as ICard['rulings'][0];
     });
 
-    await Card.updateMany({ cardId: card.cardId }, { rulings });
+    if (!isEqual(oldData.rulings, rulings)) {
+        await Card.updateMany({ cardId: oldData.cardId }, { rulings });
+    }
 }
-
-const chunkSize = 20;
 
 export default class RulingLoader extends Task<Status> {
     file: string;
@@ -54,6 +58,7 @@ export default class RulingLoader extends Task<Status> {
     async startImpl(): Promise<void> {
         const cardNames = await CardNameExtractor.names();
 
+        let method = 'load';
         let total = 0;
         let count = 0;
 
@@ -62,8 +67,8 @@ export default class RulingLoader extends Task<Status> {
 
         this.intervalProgress(500, () => {
             const prog: Status = {
-                method: 'load',
-                type:   'ruling',
+                method,
+                type: 'ruling',
 
                 amount: { total, count },
             };
@@ -101,16 +106,41 @@ export default class RulingLoader extends Task<Status> {
             count += 1;
         }
 
+        const oldRulingMap: Record<string, OldData> = {};
+
+        const dbData = await Card.aggregate([
+            {
+                $group: {
+                    _id:     '$scryfall.oracleId',
+                    cardId:  { $first: '$cardId' },
+                    names:   { $first: '$parts.oracle.name' },
+                    rulings: { $first: '$rulings' },
+                },
+            },
+        ]);
+
+        for (const data of dbData) {
+            oldRulingMap[data._id] = {
+                cardId:  data.cardId,
+                names:   data.names,
+                rulings: data.rulings,
+            };
+        }
+
+        method = 'assign';
         total = Object.keys(rulingMap).length;
         count = 0;
 
-        for (const pairs of chunk(Object.entries(rulingMap), chunkSize)) {
-            // eslint-disable-next-line no-loop-func
-            await Promise.all(pairs.map(async ([id, data]) => {
-                await assignRuling(id, data, cardNames);
+        for (const [oracleId, data] of Object.entries(rulingMap)) {
+            const oldData = oldRulingMap[oracleId];
 
-                count += 1;
-            }));
+            if (oldData == null) {
+                continue;
+            }
+
+            await assignRuling(data, oldData, cardNames);
+
+            count += 1;
         }
     }
 

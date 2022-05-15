@@ -388,25 +388,34 @@ import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
 import { Card } from 'interface/magic/card';
 
-import { omit, omitBy, uniq } from 'lodash';
+import {
+    mapValues, omit, omitBy, uniq,
+} from 'lodash';
 
 import { apiGet, apiBase, imageBase } from 'boot/backend';
+import { SetProfile, getProfile } from 'src/common/magic/set';
 
 type Data = Card & {
     versions: {
         lang: string;
         set: string;
         number: string;
-
         rarity: string;
-
-        // set info
-        name: Record<string, string>;
-        symbolStyle: string[];
-        doubleFacedIcon?: string[];
-        parent?: string;
     }[];
 };
+
+// NOTE: duplicated code.
+export const auxSetType = [
+    'promo',
+    'token',
+    'memorabilia',
+    'funny',
+    'masters',
+    'planechase',
+    'box',
+    'archenemy',
+    'expansion',
+];
 
 export default defineComponent({
     components: {
@@ -424,6 +433,10 @@ export default defineComponent({
 
         const data = ref<Data | null>(null);
         const rotate = ref<boolean | null>(null);
+        const setProfiles = ref<Record<string, SetProfile>>({});
+
+        (window as any).ref = ref;
+        (window as any).watch = watch;
 
         const textMode = computed({
             get() { return magic.textMode; },
@@ -464,6 +477,38 @@ export default defineComponent({
         const versions = computed(() => data.value?.versions ?? []);
 
         const sets = computed(() => uniq(versions.value.map(v => v.set)));
+
+        watch(sets, async values => {
+            const locals = [];
+            const remotes = [];
+
+            for (const s of values) {
+                const { local, remote } = getProfile(s);
+
+                locals.push(local);
+                remotes.push(remote);
+            }
+
+            const localResults = await Promise.all(locals);
+
+            const localProfiles: Record<string, SetProfile> = { };
+
+            for (const r of localResults.filter(v => v != null)) {
+                localProfiles[r!.setId] = r!;
+            }
+
+            setProfiles.value = localProfiles;
+
+            const remoteResults = await Promise.all(remotes);
+
+            const remoteProfiles: Record<string, SetProfile> = { };
+
+            for (const r of remoteResults.filter(v => v != null)) {
+                remoteProfiles[r.setId] = r!;
+            }
+
+            setProfiles.value = remoteProfiles;
+        }, { immediate: true });
 
         const set = computed({
             get() { return data.value?.set ?? route.query.set as string; },
@@ -518,18 +563,21 @@ export default defineComponent({
             ) ?? setVersions[0];
 
             const { rarity } = currVersion;
-            const iconSet = currVersion.parent ?? s;
+
+            const profile = setProfiles.value[currVersion.set];
+
+            const iconSet = (auxSetType.includes(profile.setType) ? profile.parent : undefined) ?? s;
+            const name = mapValues(profile?.localization ?? { }, loc => loc.name);
 
             return {
-                set:     s,
-                langs:   uniq(setVersions.map(v => v.lang)),
+                set:             s,
+                langs:           uniq(setVersions.map(v => v.lang)),
                 numbers,
                 rarity,
-                iconUrl: `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
-                name:    currVersion.name?.[magic.locale]
-                        ?? currVersion.name?.[magic.locales[0]] ?? s,
-                symbolStyle:     currVersion.symbolStyle,
-                doubleFacedIcon: currVersion.doubleFacedIcon,
+                iconUrl:         `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
+                name:            name?.[magic.locale] ?? name?.[magic.locales[0]] ?? '',
+                symbolStyle:     profile?.symbolStyle,
+                doubleFacedIcon: profile?.doubleFacedIcon,
             };
         }));
 
