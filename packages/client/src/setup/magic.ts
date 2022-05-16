@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { api } from 'boot/backend';
+import { apiGet } from 'boot/backend';
 
 export default function magicSetup(): {
     search: () => void;
@@ -22,7 +22,7 @@ export default function magicSetup(): {
     };
 
     const random = async () => {
-        const { data: id } = await api.get<string>('/magic/card/random', {
+        const { data: id } = await apiGet<string>('/magic/card/random', {
             params: { q: core.search },
         });
 

@@ -145,7 +145,7 @@ export default defineComponent({
                  ?? data.value.localization[magic.locales[0]]?.link;
         });
 
-        const apiLink = computed(() => `http://${apiBase}/magic/set?id=${id.value}`);
+        const apiLink = computed(() => `https://${apiBase}/magic/set?id=${id.value}`);
         const editorLink = computed(() => ({ name: 'magic/data', query: { tab: 'Set', id: id.value } }));
 
         const loadData = async () => {
@@ -161,10 +161,10 @@ export default defineComponent({
                 parent.value != null && setType.value != null
                 && ['promo', 'token', 'memorabilia', 'funny'].includes(setType.value)
             ) {
-                return `http://${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
+                return `https://${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
             }
 
-            return `http://${imageBase}/magic/set/icon?auto-adjust&set=${id.value}&rarity=${rarity}`;
+            return `https://${imageBase}/magic/set/icon?auto-adjust&set=${id.value}&rarity=${rarity}`;
         };
 
         watch(() => id.value, loadData, { immediate: true });

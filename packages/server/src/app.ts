@@ -1,6 +1,7 @@
 /* eslint-disable consistent-return */
 import Koa from 'koa';
 import cors from '@koa/cors';
+import sslify from 'koa-sslify';
 import send from 'koa-send';
 import koaStatic from 'koa-static';
 import session from 'koa-session';
@@ -8,6 +9,10 @@ import logger from 'koa-logger';
 import body from 'koa-body';
 import compress from 'koa-compress';
 import websocket from 'koa-easy-ws';
+
+import http from 'http';
+import https, { ServerOptions } from 'https';
+import { readFileSync } from 'fs';
 
 import { main } from '@/logger';
 
@@ -18,9 +23,9 @@ import img from '@/image';
 import user from '@/user/router';
 import control from '@/control';
 
-import { config, clientPath } from '@static';
-
-const port = process.env.NODE_ENV === 'production' ? 80 : 8889;
+import {
+    config, clientPath, httpsSecret, HttpsSecret,
+} from '@static';
 
 const app = new Koa();
 
@@ -29,6 +34,7 @@ app.keys = [config.appKey];
 app
     .use(session({}, app))
     .use(cors())
+    .use(sslify())
     .use(body({ multipart: true }))
     .use(logger())
     .use(websocket())
@@ -50,7 +56,30 @@ app
         }
     });
 
-app.listen(port, () => {
-    main.info(`Server is running at ${port}`, { category: 'server' });
-    console.log(`Server is running at ${port}`);
+const httpPort = process.env.NODE_ENV === 'production' ? 80 : 8787;
+
+http.createServer(app.callback()).listen(httpPort, () => {
+    main.info(`Server is running at ${httpPort}`, { category: 'server' });
+    console.log(`Server is running at ${httpPort}`);
+});
+
+const httpsPort = process.env.NODE_ENV === 'production' ? 443 : 8889;
+
+function createOption(option: HttpsSecret) {
+    return {
+        key:  readFileSync(option.key),
+        cert: readFileSync(option.cert),
+    } as ServerOptions;
+}
+
+const server = https.createServer(createOption(httpsSecret.default), app.callback());
+
+server.addContext('api.tcg.cards', createOption(httpsSecret.api));
+server.addContext('image.tcg.cards', createOption(httpsSecret.image));
+server.addContext('user.tcg.cards', createOption(httpsSecret.user));
+server.addContext('control.tcg.cards', createOption(httpsSecret.control));
+
+server.listen(httpsPort, () => {
+    main.info(`Server is running at ${httpsPort}`, { category: 'server' });
+    console.log(`Server is running at ${httpsPort}`);
 });

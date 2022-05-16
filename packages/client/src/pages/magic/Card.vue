@@ -574,7 +574,7 @@ export default defineComponent({
                 langs:           uniq(setVersions.map(v => v.lang)),
                 numbers,
                 rarity,
-                iconUrl:         `http://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
+                iconUrl:         `https://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
                 name:            name?.[magic.locale] ?? name?.[magic.locales[0]] ?? '',
                 symbolStyle:     profile?.symbolStyle,
                 doubleFacedIcon: profile?.doubleFacedIcon,
@@ -786,7 +786,7 @@ export default defineComponent({
         }, v => v == null)));
 
         const jsonLink = computed(() => {
-            const url = new URL('magic/card', `http://${apiBase}`);
+            const url = new URL('magic/card', `https://${apiBase}`);
 
             const query = apiQuery.value;
 

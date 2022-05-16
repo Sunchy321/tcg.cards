@@ -248,7 +248,7 @@ export default defineComponent({
                 return undefined;
             }
 
-            return `http://${imageBase}/magic/set/icon?auto-adjust&set=${set}&rarity=default`;
+            return `https://${imageBase}/magic/set/icon?auto-adjust&set=${set}&rarity=default`;
         };
 
         watch(sets, loadProfile);

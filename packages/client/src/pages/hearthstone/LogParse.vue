@@ -76,7 +76,7 @@ export default defineComponent({
                     icon:   'mdi-upload',
                     popup:  {
                         type:   'file',
-                        url:    `http://${apiBase}/hearthstone/log-parse`,
+                        url:    `https://${apiBase}/hearthstone/log-parse`,
                         accept: '.log',
                     },
                     handler: {

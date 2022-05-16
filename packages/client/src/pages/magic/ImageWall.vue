@@ -69,9 +69,9 @@ export default defineComponent({
             const [number, part] = name.split('-');
 
             if (part != null) {
-                return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
+                return `https://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
             } else {
-                return `http://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
+                return `https://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
             }
         }));
 

@@ -194,12 +194,12 @@ export default defineComponent({
             case 'double_faced':
             case 'art_series':
                 return [
-                    `http://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
-                    `http://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
+                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
+                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
                 ];
             default:
                 return [
-                    `http://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}`,
+                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}`,
                 ];
             }
         });
