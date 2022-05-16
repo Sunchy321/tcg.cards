@@ -1,25 +1,3 @@
-<template>
-    <div>
-        <router-link :to="link" target="_blank">
-            <span v-if="showId" class="code">{{ id }}</span>
-            <span v-else>{{ text ?? name ?? '' }}</span>
-            <q-tooltip
-                v-if="profile != null && imageVersion != null && showTooltip"
-                content-class="card-popover"
-            >
-                <card-image
-                    class="card-image-popover"
-                    :lang="imageVersion.lang"
-                    :set="imageVersion.set"
-                    :number="imageVersion.number"
-                    :layout="imageVersion.layout"
-                    :part="part"
-                />
-            </q-tooltip>
-        </router-link>
-    </div>
-</template>
-
 <style lang="sass">
 .card-popover, [content-class=card-popover]
     background-color: transparent !important
@@ -32,15 +10,16 @@
 <script lang="ts">
 /* eslint-disable prefer-destructuring */
 import {
-    defineComponent, ref, computed, watch, PropType,
+    PropType, defineComponent, ref, computed, watch, h,
 } from 'vue';
 
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter, useRoute, RouterLink } from 'vue-router';
 import { useMagic } from 'store/games/magic';
 
 import CardImage from './CardImage.vue';
 
 import { CardProfile, getProfile } from 'src/common/magic/card';
+import { QTooltip } from 'quasar';
 
 type Version = {
     set: string;
@@ -77,7 +56,7 @@ export default defineComponent({
         }).href);
 
         const showId = computed(() => innerShowId.value || (profile.value == null && props.text == null));
-        const showTooltip = computed(() => link.value !== route.path);
+        const onThisPage = computed(() => link.value === route.path);
 
         const name = computed(() => {
             if (profile.value == null) {
@@ -186,13 +165,32 @@ export default defineComponent({
 
         watch(() => props.id, loadData, { immediate: true });
 
-        return {
-            showId,
-            profile,
-            name,
-            link,
-            showTooltip,
-            imageVersion,
+        return () => {
+            const text = showId.value ? h('span', { class: 'code' }, props.id) : h('span', props.text ?? name.value ?? '');
+
+            if (onThisPage.value) {
+                return text;
+            } else {
+                const children = [text];
+
+                if (profile.value != null && imageVersion.value != null) {
+                    children.push(h(QTooltip, {
+                        'content-class': 'card-popover',
+                    }, [h(CardImage, {
+                        class:  'card-image-popover',
+                        lang:   imageVersion.value.lang,
+                        set:    imageVersion.value.set,
+                        number: imageVersion.value.number,
+                        layout: imageVersion.value.layout,
+                        part:   props.part,
+                    })]));
+                }
+
+                return h(RouterLink, {
+                    to:     link.value,
+                    target: '_blank',
+                }, children);
+            }
         };
     },
 });
