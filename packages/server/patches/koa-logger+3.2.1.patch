@@ -1,0 +1,40 @@
+diff --git a/node_modules/koa-logger/index.js b/node_modules/koa-logger/index.js
+index 26e6eaf..76f1546 100644
+--- a/node_modules/koa-logger/index.js
++++ b/node_modules/koa-logger/index.js
+@@ -30,6 +30,10 @@ const colorCodes = {
+   0: 'yellow'
+ }
+ 
++function subdomain(ctx) {
++  return ctx.subdomains.length > 0 ? ' [' + ctx.subdomains.join('.') + ']' : ' '
++}
++
+ /**
+  * Development logger.
+  */
+@@ -59,8 +63,10 @@ function dev (opts) {
+     const start = ctx[Symbol.for('request-received.startTime')] ? ctx[Symbol.for('request-received.startTime')].getTime() : Date.now()
+     print('  ' + chalk.gray('<--') +
+       ' ' + chalk.bold('%s') +
++      chalk.gray('%s') +
+       ' ' + chalk.gray('%s'),
+     ctx.method,
++    subdomain(ctx),
+     ctx.originalUrl)
+ 
+     try {
+@@ -132,11 +138,13 @@ function log (print, ctx, start, len, err, event) {
+ 
+   print('  ' + upstream +
+     ' ' + chalk.bold('%s') +
++    chalk.gray('%s') +
+     ' ' + chalk.gray('%s') +
+     ' ' + chalk[color]('%s') +
+     ' ' + chalk.gray('%s') +
+     ' ' + chalk.gray('%s'),
+   ctx.method,
++  subdomain(ctx),
+   ctx.originalUrl,
+   status,
+   time(start),
