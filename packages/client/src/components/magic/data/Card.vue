@@ -42,6 +42,8 @@
 
                 <span v-if="total != null" class="q-ml-md">{{ total }}</span>
 
+                <q-space />
+
                 <q-btn
                     class="q-mx-md"
                     outline
@@ -88,13 +90,20 @@
                     outline dense
                 />
 
-                <div class="col-grow" />
+                <q-space />
 
                 <q-btn
-                    v-if="enPrinted"
+                    v-if="devCounter"
+                    color="red" icon="mdi-hexagon-multiple-outline"
+                    dense flat round
+                    @click="devCounter = false"
+                />
+
+                <q-btn
+                    v-if="devPrinted"
                     color="red" icon="mdi-alert-circle-outline"
                     dense flat round
-                    @click="enPrinted = false"
+                    @click="devPrinted = false"
                 />
 
                 <q-btn
@@ -108,6 +117,7 @@
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
                 <q-btn v-if="lang == 'en'" icon="mdi-arrow-right-bold" dense flat round @click="overwriteUnified" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
+                <q-btn icon="mdi-refresh" dense flat round @click="() => loadData(undefined, false)" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
@@ -182,6 +192,8 @@
                 />
             </div>
 
+            <array-input v-model="counters" label="Counters" outlined dense />
+
             <div class="flex items-center">
                 <array-input
                     v-model="multiverseId"
@@ -210,6 +222,11 @@
     width: 100%
     background-color: transparent !important
     padding: 0 !important
+
+div.id
+    max-width: 35ch
+    overflow: hidden
+    text-overflow: ellipsis
 
 .q-input.id
     width: 300px
@@ -248,12 +265,10 @@ type Part = Card['parts'][0];
 
 type CardData = Card & {
     _id?: string;
-    __tags?: {
-        oracleUpdated?: {
-            name?: string;
-            typeline?: string;
-            text?: string;
-        };
+    __oracle?: {
+        name?: string;
+        typeline?: string;
+        text?: string;
     };
     partIndex?: number;
     total?: number;
@@ -539,6 +554,23 @@ export default defineComponent({
             },
         });
 
+        const counters = computed({
+            get() { return data.value?.counters ?? []; },
+            set(newValue: string[]) {
+                if (!hasData.value) {
+                    return;
+                }
+
+                data.value!.tags = data.value!.tags.filter(v => v !== 'dev:counter');
+
+                if (newValue.length === 0) {
+                    delete data.value?.counters;
+                } else {
+                    data.value!.counters = newValue.sort();
+                }
+            },
+        });
+
         const multiverseId = computed({
             get() { return data.value?.multiverseId ?? []; },
             set(newValue: number[]) {
@@ -555,7 +587,7 @@ export default defineComponent({
                 return undefined;
             }
 
-            const value = data.value?.__tags?.oracleUpdated;
+            const value = data.value?.__oracle;
 
             if (value == null) {
                 return undefined;
@@ -906,35 +938,48 @@ export default defineComponent({
         onMounted(loadData);
 
         // dev only
-        const enPrinted = computed({
+        const devPrinted = computed({
             get(): boolean {
                 if (data.value == null) {
                     return false;
                 }
 
-                const devData = data.value as any;
-
-                if (devData?.__tags?.printed as boolean | undefined) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return data.value.tags.includes('dev:printed');
             },
             set(newValue: boolean) {
                 if (data.value == null) {
                     return;
                 }
 
-                const devData = data.value as any;
+                if (newValue) {
+                    if (!data.value.tags.includes('dev:printed')) {
+                        data.value.tags.push('dev:printed');
+                    }
+                } else {
+                    data.value.tags = data.value.tags.filter(v => v !== 'dev:printed');
+                }
+            },
+        });
+
+        const devCounter = computed({
+            get(): boolean {
+                if (data.value == null) {
+                    return false;
+                }
+
+                return data.value.tags.includes('dev:counter');
+            },
+            set(newValue: boolean) {
+                if (data.value == null) {
+                    return;
+                }
 
                 if (newValue) {
-                    if (devData.__tags == null) {
-                        devData.__tags = { printed: true };
-                    } else {
-                        devData.__tags.printed = true;
+                    if (!data.value.tags.includes('dev:counter')) {
+                        data.value.tags.push('dev:counter');
                     }
-                } else if (devData.__tags != null) {
-                    delete devData.__tags.printed;
+                } else {
+                    data.value.tags = data.value.tags.filter(v => v !== 'dev:counter');
                 }
             },
         });
@@ -943,7 +988,7 @@ export default defineComponent({
             [data, partIndex, printedName, printedTypeline, printedText],
             ([newValue, newIndex], [oldValue, oldIndex]) => {
                 if (newValue === oldValue && newIndex === oldIndex) {
-                    enPrinted.value = false;
+                    devPrinted.value = false;
                 }
             },
         );
@@ -986,6 +1031,7 @@ export default defineComponent({
             flavorText,
             flavorName,
             relatedCards,
+            counters,
             multiverseId,
 
             layoutOptions,
@@ -1001,7 +1047,8 @@ export default defineComponent({
             loadData,
             doSearch,
 
-            enPrinted,
+            devPrinted,
+            devCounter,
         };
     },
 });

@@ -39,7 +39,6 @@ async function find(id: string, lang?: string, set?: string, number?: string): P
             '_id':                0,
             '__v':                0,
             'parts.__costMap':    0,
-            '__tags':             0,
             'langIsLocale':       0,
             'langIsEnglish':      0,
             'frameEffectCount':   0,

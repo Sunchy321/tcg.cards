@@ -305,10 +305,12 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         relatedCards: [],
         rulings:      [],
 
-        keywords:     data.keywords,
+        keywords:     data.keywords.map(v => toIdentifier(v)),
+        counters:     cardFaces.some(c => (c.oracle_text ?? '').includes('counter')) ? [] : undefined,
         producedMana: data.produced_mana != null
             ? convertColor(data.produced_mana)
             : undefined,
+        tags: [],
 
         category: ((): Category => {
             if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
@@ -379,8 +381,6 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         multiverseId: data.multiverse_ids,
         tcgPlayerId:  data.tcgplayer_id,
         cardMarketId: data.cardmarket_id,
-
-        __tags: { },
     };
 }
 
@@ -465,11 +465,11 @@ function merge(card: Document & ICard, data: ICard) {
 
                     case 'oracle': {
                         if (cPart.oracle.name !== dPart.oracle.name) {
-                            if (card.__tags.oracleUpdated == null) {
-                                card.__tags.oracleUpdated = {};
+                            if (card.__oracle == null) {
+                                card.__oracle = {};
                             }
 
-                            card.__tags.oracleUpdated.name = cPart.oracle.name;
+                            card.__oracle.name = cPart.oracle.name;
                             cPart.oracle.name = dPart.oracle.name;
 
                             if (card.lang === 'en') {
@@ -478,11 +478,11 @@ function merge(card: Document & ICard, data: ICard) {
                         }
 
                         if (cPart.oracle.typeline !== dPart.oracle.typeline) {
-                            if (card.__tags.oracleUpdated == null) {
-                                card.__tags.oracleUpdated = {};
+                            if (card.__oracle == null) {
+                                card.__oracle = {};
                             }
 
-                            card.__tags.oracleUpdated.typeline = cPart.oracle.typeline;
+                            card.__oracle.typeline = cPart.oracle.typeline;
                             cPart.oracle.typeline = dPart.oracle.typeline;
 
                             if (card.lang === 'en') {
@@ -491,11 +491,11 @@ function merge(card: Document & ICard, data: ICard) {
                         }
 
                         if (cPart.oracle.text !== dPart.oracle.text) {
-                            if (card.__tags.oracleUpdated == null) {
-                                card.__tags.oracleUpdated = {};
+                            if (card.__oracle == null) {
+                                card.__oracle = {};
                             }
 
-                            card.__tags.oracleUpdated.text = cPart.oracle.text;
+                            card.__oracle.text = cPart.oracle.text;
                             cPart.oracle.text = dPart.oracle.text;
 
                             if (card.lang === 'en') {
@@ -539,7 +539,9 @@ function merge(card: Document & ICard, data: ICard) {
             assign(card, data, 'keywords');
             break;
 
+        case 'counters':
         case 'producedMana':
+        case 'tags':
             break;
 
         case 'category':
@@ -656,7 +658,7 @@ function merge(card: Document & ICard, data: ICard) {
             assign(card, data, 'cardMarketId');
             break;
 
-        case '__tags':
+        case '__oracle':
             break;
         }
     }
@@ -801,7 +803,11 @@ export default class CardLoader extends Task<Status> {
 
             for (const card of cardsToInsert) {
                 if (card.lang === 'en') {
-                    card.__tags.printed = true;
+                    card.tags.push('dev:printed');
+                }
+
+                if (card.parts.some(p => p.oracle.text?.includes('counter'))) {
+                    card.tags.push('dev:counter');
                 }
             }
 

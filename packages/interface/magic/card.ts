@@ -77,7 +77,9 @@ export interface Card {
     }[];
 
     keywords: string[];
+    counters?: string[];
     producedMana?: string;
+    tags: string[];
 
     category: Category;
     layout: Layout;

@@ -78,6 +78,10 @@ router.post('/update', async ctx => {
         }
     }
 
+    if (data.counters?.length === 0) {
+        delete data.counters;
+    }
+
     const old = await Card.findById(data._id);
 
     if (old != null) {
@@ -89,17 +93,48 @@ router.post('/update', async ctx => {
     if (old == null || (data.cardId === old.cardId && data.lang === old.lang)) {
         for (let i = 0; i < data.parts.length; i += 1) {
             const part = data.parts[i];
+            const oldPart = old?.toObject().parts[i];
 
+            if (!isEqual(oldPart?.oracle, part.oracle)) {
+                await Card.updateMany(
+                    { cardId: data.cardId },
+                    { $set: { [`parts.${i}.oracle`]: part.oracle } },
+                );
+            }
+
+            if (!isEqual(oldPart?.unified, part.unified)) {
+                await Card.updateMany(
+                    { cardId: data.cardId, lang: data.lang },
+                    { $set: { [`parts.${i}.unified`]: part.unified } },
+                );
+            }
+        }
+
+        if (!isEqual(old?.toObject()?.counters, data.counters)) {
+            if (data.counters == null || data.counters.length === 0) {
+                await Card.updateMany(
+                    { cardId: data.cardId },
+                    { $unset: { counters: 0 } },
+                );
+            } else {
+                await Card.updateMany(
+                    { cardId: data.cardId },
+                    { $set: { counters: data.counters } },
+                );
+            }
+        }
+
+        if (!isEqual(old?.toObject()?.tags ?? [], data.tags)) {
             await Card.updateMany(
                 { cardId: data.cardId },
-                { $set: { [`parts.${i}.oracle`]: part.oracle } },
-            );
-
-            await Card.updateMany(
-                { cardId: data.cardId, lang: data.lang },
-                { $set: { [`parts.${i}.unified`]: part.unified } },
+                { $set: { tags: data.tags } },
             );
         }
+
+        await Card.updateMany(
+            { cardId: data.cardId, lang: data.lang },
+            { $unset: { __oracle: 1 } },
+        );
 
         const versions = await Card.find({ cardId: { $in: data.relatedCards.map(r => r.cardId) } });
 
@@ -140,11 +175,6 @@ router.post('/update', async ctx => {
                 { relatedCards: sortBy(newRelatedCards, ['relation', 'cardId']) },
             );
         }
-
-        await Card.updateMany(
-            { cardId: data.cardId, lang: data.lang },
-            { $unset: { '__tags.oracleUpdated': 1 } },
-        );
     }
 
     ctx.status = 200;
@@ -202,7 +232,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                 name:          { $addToSet: '$parts.oracle.name' },
                 typeline:      { $addToSet: '$parts.oracle.typeline' },
                 text:          { $addToSet: '$parts.oracle.text' },
-                __tags:        { $first: '$__tags' },
+                __oracle:      { $first: '$__oracle' },
             })
             .match({
                 $or: [
@@ -213,9 +243,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                     { 'name.2': { $exists: true } },
                     { 'typeline.2': { $exists: true } },
                     { 'text.2': { $exists: true } },
-                    { '__tags.oracleUpdated.name': { $exists: true } },
-                    { '__tags.oracleUpdated.typeline': { $exists: true } },
-                    { '__tags.oracleUpdated.text': { $exists: true } },
+                    { __oracle: { $exists: true } },
                 ],
             }),
     }),

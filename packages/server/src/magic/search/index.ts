@@ -12,6 +12,8 @@ import colorQuery from './color';
 import costQuery from './cost';
 import halfNumberQuery from './half-number';
 
+import { toIdentifier } from '../util';
+
 function parseOption(text: string | undefined, defaultValue: number): number {
     if (text == null) {
         return defaultValue;
@@ -68,6 +70,16 @@ const model = {
                         textQuery('parts.unified.name', param, ':'),
                     ],
                 };
+            },
+        },
+        {
+            id:    '#',
+            query: ({ param, op }) => {
+                if (op === ':') {
+                    return { tags: param };
+                } else {
+                    return { tags: { $ne: param } };
+                }
             },
         },
         {
@@ -298,13 +310,65 @@ const model = {
                 }
             },
         },
-
         {
-            id:    'en-printed',
-            query: () => ({
-                '__tags.printed': true,
-            }),
+            id:    'counter',
+            query: ({ param, op }) => {
+                if (param instanceof RegExp) {
+                    throw new QueryError({
+                        type:  'regex/disabled',
+                        value: '',
+                    });
+                }
+
+                param = toIdentifier(param);
+
+                switch (op) {
+                case ':':
+                    return {
+                        counters: param,
+                    };
+                case '!:':
+                    return {
+                        counters: { $ne: param },
+                    };
+                default:
+                    throw new QueryError({
+                        type:  'operator/unsupported',
+                        value: op ?? '',
+                    });
+                }
+            },
         },
+        {
+            id:    'keyword',
+            query: ({ param, op }) => {
+                if (param instanceof RegExp) {
+                    throw new QueryError({
+                        type:  'regex/disabled',
+                        value: '',
+                    });
+                }
+
+                param = toIdentifier(param);
+
+                switch (op) {
+                case ':':
+                    return {
+                        keywords: param,
+                    };
+                case '!:':
+                    return {
+                        keywords: { $ne: param },
+                    };
+                default:
+                    throw new QueryError({
+                        type:  'operator/unsupported',
+                        value: op ?? '',
+                    });
+                }
+            },
+        },
+
         {
             id:    'rc-none',
             query: ({ param, op }) => {

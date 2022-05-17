@@ -9,13 +9,10 @@ export type ICard = Omit<ICardBase, 'parts'> & {
         __costMap?: Record<string, number>;
     })[];
 
-    __tags: {
-        oracleUpdated?: {
-            name?: string;
-            typeline?: string;
-            text?: string;
-        };
-        printed?: boolean;
+    __oracle?: {
+        name?: string;
+        typeline?: string;
+        text?: string;
     };
 };
 
@@ -100,7 +97,9 @@ const CardSchema = new Schema<ICard>({
     }],
 
     keywords:     [String],
+    counters:     { type: [String], default: undefined },
     producedMana: { type: [String], default: undefined },
+    tags:         [String],
 
     category:     String,
     layout:       String,
@@ -152,13 +151,10 @@ const CardSchema = new Schema<ICard>({
     tcgPlayerId:  Number,
     cardMarketId: Number,
 
-    __tags: {
-        oracleUpdated: {
-            name:     String,
-            typeline: String,
-            text:     String,
-        },
-        printed: Boolean,
+    __oracle: {
+        name:     String,
+        typeline: String,
+        text:     String,
     },
 });
 
