@@ -52,7 +52,7 @@
 
             <span v-if="duplicatedID.length > 0" class="error">Duplicated ID {{ duplicatedID.join(', ') }}</span>
 
-            <div class="col-grow" />
+            <q-space />
 
             <q-tabs v-model="tab" dense>
                 <q-tab name="content" label="Content" />

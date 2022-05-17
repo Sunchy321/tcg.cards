@@ -30,6 +30,11 @@ export default defineComponent({
         const textChanged = computed(() => text.value !== props.modelValue.join(', '));
 
         const updateValue = () => {
+            if (text.value === '') {
+                emit('update:modelValue', []);
+                return;
+            }
+
             if (props.isNumber) {
                 const value = text.value
                     .split(',')

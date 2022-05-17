@@ -38,7 +38,7 @@
                 ]"
             />
 
-            <div class="col-grow" />
+            <q-space />
 
             <q-btn label="sync" flat dense @click="sync" />
             <q-btn icon="mdi-plus" flat dense round @click="newChange" />
@@ -77,7 +77,7 @@
                     @click="data?.link?.push('')"
                 />
             </div>
-            <q-input v-for="(l, i) in data.link" :key="l" v-model="data.link[i]" class="q-my-sm" dense />
+            <q-input v-for="(l, i) in data.link" :key="l" v-model="data!.link[i]" class="q-my-sm" dense />
             <div class="row items-center">
                 <q-icon name="mdi-card-bulleted-outline" size="sm" />
                 <q-btn

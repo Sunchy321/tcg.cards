@@ -171,25 +171,27 @@ export default defineComponent({
             if (onThisPage.value) {
                 return text;
             } else {
-                const children = [text];
-
-                if (profile.value != null && imageVersion.value != null) {
-                    children.push(h(QTooltip, {
-                        'content-class': 'card-popover',
-                    }, [h(CardImage, {
-                        class:  'card-image-popover',
-                        lang:   imageVersion.value.lang,
-                        set:    imageVersion.value.set,
-                        number: imageVersion.value.number,
-                        layout: imageVersion.value.layout,
-                        part:   props.part,
-                    })]));
-                }
-
                 return h(RouterLink, {
                     to:     link.value,
                     target: '_blank',
-                }, children);
+                }, () => {
+                    const children = [text];
+
+                    if (profile.value != null && imageVersion.value != null) {
+                        children.push(h(QTooltip, {
+                            'content-class': 'card-popover',
+                        }, () => [h(CardImage, {
+                            class:  'card-image-popover',
+                            lang:   imageVersion.value!.lang,
+                            set:    imageVersion.value!.set,
+                            number: imageVersion.value!.number,
+                            layout: imageVersion.value!.layout,
+                            part:   props.part,
+                        })]));
+                    }
+
+                    return children;
+                });
             }
         };
     },

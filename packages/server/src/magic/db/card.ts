@@ -96,10 +96,10 @@ const CardSchema = new Schema<ICard>({
         },
     }],
 
-    keywords:     [String],
-    counters:     { type: [String], default: undefined },
-    producedMana: { type: [String], default: undefined },
-    tags:         [String],
+    keywords:       [String],
+    counters:       { type: [String], default: undefined },
+    producibleMana: { type: [String], default: undefined },
+    tags:           [String],
 
     category:     String,
     layout:       String,

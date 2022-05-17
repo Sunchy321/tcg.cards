@@ -1,7 +1,6 @@
 import { Command, DBQuery, Options } from '@/search/interface';
 
 import Card from '@/magic/db/card';
-import { Card as ICard } from '@interface/magic/card';
 
 import { QueryError, createSearcher } from '@/search';
 
@@ -470,9 +469,9 @@ const model = {
                 .group({ _id: null, count: { $sum: 1 } })
         )[0]?.count ?? 0;
 
-        const cards = await Card.aggregate(aggregate.pipeline()).sample(1);
+        const cards = await Card.aggregate(aggregate.pipeline()).sample(100);
 
-        return { ...cards[0], total } as ICard & { total: number };
+        return { cards, total };
     },
 
     searchId: async (q: DBQuery) => {

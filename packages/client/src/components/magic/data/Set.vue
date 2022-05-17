@@ -11,7 +11,7 @@
                 @filter="filterFn"
             />
 
-            <div class="col-grow" />
+            <q-space />
 
             <q-btn
                 label="Calc Field"

@@ -7,7 +7,7 @@
                     {{ name }}
                 </div>
 
-                <div class="col-grow" />
+                <q-space />
 
                 <div v-if="hasCost" class="cost">
                     <!-- <img class="cost-image" :src="costImage">

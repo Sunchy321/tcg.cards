@@ -2,7 +2,7 @@
     <div class="q-pa-md row">
         <div class="card-image col-3 q-mr-md">
             <card-image
-                v-if="hasData"
+                v-if="data != null"
                 v-model:part="partIndex"
                 :lang="lang"
                 :set="set"
@@ -20,9 +20,9 @@
                 </div>
             </div>
         </div>
-        <div class="col q-gutter-sm">
+        <div class="col">
             <div class="q-mb-md">
-                <q-input v-model="search" class="q-mr-md" dense @keypress.enter="doSearch">
+                <q-input v-model="search" dense @keypress.enter="doSearch">
                     <template #append>
                         <q-btn
                             icon="mdi-magnify"
@@ -34,13 +34,13 @@
             </div>
             <div class="q-mb-md flex items-center">
                 <q-btn-group outline>
-                    <q-btn outline label="oracle" @click="loadData('inconsistent-oracle')" />
-                    <q-btn outline label="unified" @click="loadData('inconsistent-unified')" />
-                    <q-btn outline label="paren" @click="loadData('parentheses')" />
-                    <q-btn outline label="token" @click="loadData('token')" />
+                    <q-btn outline label="oracle" @click="loadGroup('oracle')" />
+                    <q-btn outline label="lang" @click="loadGroup('unified')" />
+                    <q-btn outline label="paren" @click="loadGroup('paren')" />
+                    <q-btn outline label="token" @click="loadGroup('token')" />
                 </q-btn-group>
 
-                <span v-if="total != null" class="q-ml-md">{{ total }}</span>
+                <span v-if="dataGroup != null" class="q-ml-md">{{ `${total} (${loaded})` }}</span>
 
                 <q-space />
 
@@ -93,17 +93,24 @@
                 <q-space />
 
                 <q-btn
-                    v-if="devCounter"
-                    color="red" icon="mdi-hexagon-multiple-outline"
-                    dense flat round
-                    @click="devCounter = false"
-                />
-
-                <q-btn
                     v-if="devPrinted"
                     color="red" icon="mdi-alert-circle-outline"
                     dense flat round
                     @click="devPrinted = false"
+                />
+
+                <q-btn
+                    v-if="devToken"
+                    color="red" icon="mdi-card-outline"
+                    dense flat round
+                    @click="devToken = false"
+                />
+
+                <q-btn
+                    v-if="devCounter"
+                    color="red" icon="mdi-hexagon-multiple-outline"
+                    dense flat round
+                    @click="devCounter = false"
                 />
 
                 <q-btn
@@ -117,7 +124,7 @@
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
                 <q-btn v-if="lang == 'en'" icon="mdi-arrow-right-bold" dense flat round @click="overwriteUnified" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
-                <q-btn icon="mdi-refresh" dense flat round @click="() => loadData(undefined, false)" />
+                <q-btn icon="mdi-refresh" dense flat round @click="loadData" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
@@ -173,42 +180,31 @@
                 </tr>
             </table>
 
-            <q-input v-model="flavorText" autogrow label="Flavor Text" outlined type="textarea" />
-            <q-input v-model="flavorName" label="Flavor Name" outlined dense />
+            <q-input v-model="flavorText" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea" />
 
-            <div class="flex items-center">
-                <q-input
-                    v-model="relatedCards"
-                    class="col-grow"
-                    debounce="500"
-                    label="Related Cards"
-                    outlined dense
-                />
-                <q-btn
-                    icon="mdi-card-plus-outline"
-                    class="q-ml-sm"
-                    flat dense round
-                    @click="guessToken"
-                />
+            <div class="flex q-mt-sm">
+                <q-input v-model="flavorName" class="col" label="Flavor Name" outlined dense />
+
+                <!-- eslint-disable-next-line max-len -->
+                <array-input v-model="multiverseId" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
+                    <template #append>
+                        <q-btn icon="mdi-magnify" flat dense round @click="loadGatherer" />
+                    </template>
+                </array-input>
             </div>
 
-            <array-input v-model="counters" label="Counters" outlined dense />
+            <div class="flex q-mt-sm">
+                <q-input v-model="relatedCards" class="col" debounce="500" label="Related Cards" outlined dense>
+                    <template #append>
+                        <q-btn icon="mdi-card-plus-outline" flat dense round @click="guessToken" />
+                    </template>
+                </q-input>
 
-            <div class="flex items-center">
-                <array-input
-                    v-model="multiverseId"
-                    class="col-grow"
-                    label="Multiverse ID"
-                    is-number
-                    outlined dense
-                />
-
-                <q-btn
-                    icon="mdi-magnify"
-                    class="q-ml-sm"
-                    flat dense round
-                    @click="loadGatherer"
-                />
+                <array-input v-model="counters" class="col q-ml-sm" label="Counters" outlined dense>
+                    <template #append>
+                        <q-btn icon="mdi-magnify" flat dense round @click="guessCounter" />
+                    </template>
+                </array-input>
             </div>
         </div>
     </div>
@@ -259,7 +255,11 @@ import CardAvatar from '../CardAvatar.vue';
 
 import { Card, Layout } from 'interface/magic/card';
 
-import { debounce, deburr, escapeRegExp } from 'lodash';
+import { AxiosResponse } from 'axios';
+
+import {
+    debounce, deburr, escapeRegExp, uniq,
+} from 'lodash';
 
 type Part = Card['parts'][0];
 
@@ -271,10 +271,12 @@ type CardData = Card & {
         text?: string;
     };
     partIndex?: number;
-    total?: number;
-    result?: {
-        _id: { id: string, lang: string, part: number };
-    };
+};
+
+type CardGroup = {
+    method: string;
+    cards: CardData[];
+    total: number;
 };
 
 type History = {
@@ -338,6 +340,26 @@ const predefinedRegex = `${numberRegex} (${predefinedNames.join('|')}|colorless 
 const guessRegex = new RegExp(`[Cc]reates? (?:${creatureRegex}|${predefinedRegex})`, 'g');
 const predefinedCheckRegex = new RegExp(predefinedRegex);
 
+const counterBlacklist = [
+    'a',
+    'all',
+    'and',
+    'each',
+    'had',
+    'has',
+    'have',
+    'more',
+    'no',
+    'of',
+    'the',
+    'those',
+    'with',
+    'X',
+    'another',
+    'moved',
+    'that',
+];
+
 export default defineComponent({
     name: 'DataCard',
 
@@ -350,7 +372,8 @@ export default defineComponent({
 
         const { controlGet, controlPost } = controlSetup();
 
-        const data = ref<CardData | null>(null);
+        const data = ref<CardData | undefined>(undefined);
+        const dataGroup = ref<CardGroup | undefined>(undefined);
         const history = ref<History[]>([]);
         const unlock = ref(false);
         const replaceFrom = ref('');
@@ -368,41 +391,27 @@ export default defineComponent({
             },
         });
 
-        const hasData = computed(() => {
-            if (data.value == null) {
-                return false;
-            }
-
-            const keys = Object.keys(data.value);
-
-            if (keys.length === 1 && keys[0] === 'total' && data.value.total === 0) {
-                return false;
-            }
-
-            return true;
-        });
-
         const dbId = computed(() => data.value?._id);
 
         const id = computed({
             get() { return data.value?.cardId ?? route.query.id as string; },
             set(newValue: string) {
-                if (hasData.value) {
-                    data.value!.cardId = newValue;
+                if (data.value != null) {
+                    data.value.cardId = newValue;
                 }
             },
         });
 
         const lang = computed({
             get() { return data.value?.lang ?? route.query.lang as string; },
-            set(newValue: string) { if (hasData.value) { data.value!.lang = newValue; } },
+            set(newValue: string) { if (data.value != null) { data.value.lang = newValue; } },
         });
 
         const set = computed(() => data.value?.set ?? route.query.set as string);
         const number = computed(() => data.value?.number ?? route.query.number as string);
 
         const info = computed(() => {
-            if (hasData.value) {
+            if (data.value != null) {
                 return `${lang.value}, ${set.value}:${number.value}`;
             } else {
                 return '';
@@ -432,19 +441,20 @@ export default defineComponent({
                 return 0;
             },
             set(newValue: number) {
-                if (hasData.value) {
-                    data.value!.partIndex = newValue;
+                if (data.value != null) {
+                    data.value.partIndex = newValue;
                 }
             },
         });
 
-        const total = computed(() => data.value?.total);
+        const loaded = computed(() => dataGroup.value?.cards.length);
+        const total = computed(() => dataGroup.value?.total);
 
         const layout = computed({
             get() { return data.value?.layout ?? 'normal'; },
             set(newValue: Layout) {
-                if (hasData.value) {
-                    data.value!.layout = newValue;
+                if (data.value != null) {
+                    data.value.layout = newValue;
                 }
             },
         });
@@ -467,7 +477,7 @@ export default defineComponent({
         const partField1 = <F extends keyof Part>(firstKey: F, defaultValue?: Part[F]) => computed({
             get() { return (part.value?.[firstKey] ?? defaultValue)!; },
             set(newValue: Part[F]) {
-                if (hasData.value) {
+                if (data.value != null) {
                     part.value![firstKey] = newValue;
                 }
             },
@@ -482,7 +492,7 @@ export default defineComponent({
                 return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
             },
             set(newValue: Part[F][L]) {
-                if (hasData.value) {
+                if (data.value != null) {
                     (part.value as any)![firstKey][lastKey] = newValue;
                 }
             },
@@ -513,18 +523,18 @@ export default defineComponent({
                     ?.join('; ') ?? '';
             },
             set(newValue: string) {
-                if (!hasData.value) {
+                if (data.value == null) {
                     return;
                 }
 
                 if (newValue === '') {
-                    data.value!.relatedCards = [];
+                    data.value.relatedCards = [];
                     return;
                 }
 
                 const parts = newValue.split(/; */);
 
-                data.value!.relatedCards = parts.map(p => {
+                data.value.relatedCards = parts.map(p => {
                     // eslint-disable-next-line prefer-const, @typescript-eslint/no-shadow
                     let [relation, cardId, lang, set, number] = p.split('|');
 
@@ -557,16 +567,18 @@ export default defineComponent({
         const counters = computed({
             get() { return data.value?.counters ?? []; },
             set(newValue: string[]) {
-                if (!hasData.value) {
+                if (data.value == null) {
                     return;
                 }
 
-                data.value!.tags = data.value!.tags.filter(v => v !== 'dev:counter');
+                newValue = uniq(newValue);
+
+                data.value.tags = data.value.tags.filter(v => v !== 'dev:counter');
 
                 if (newValue.length === 0) {
                     delete data.value?.counters;
                 } else {
-                    data.value!.counters = newValue.sort();
+                    data.value.counters = newValue.sort();
                 }
             },
         });
@@ -583,7 +595,7 @@ export default defineComponent({
         const showBeforeUpdate = ref(false);
 
         const oracleUpdated = computed(() => {
-            if (!hasData.value) {
+            if (data.value == null) {
                 return undefined;
             }
 
@@ -646,7 +658,7 @@ export default defineComponent({
         });
 
         const defaultPrettify = () => {
-            if (!hasData.value) {
+            if (data.value == null) {
                 return;
             }
 
@@ -706,7 +718,7 @@ export default defineComponent({
         };
 
         const prettify = () => {
-            if (!hasData.value) {
+            if (data.value == null) {
                 return;
             }
 
@@ -780,6 +792,145 @@ export default defineComponent({
             });
         };
 
+        const newData = () => {
+            if (data.value == null) {
+                return;
+            }
+
+            delete data.value._id;
+
+            for (const p of data.value.parts) {
+                delete p.scryfallIllusId;
+            }
+
+            delete data.value.scryfall.cardId;
+            data.value.scryfall.imageUris = [];
+            delete data.value.arenaId;
+            delete data.value.mtgoId;
+            delete data.value.mtgoFoilId;
+            data.value.multiverseId = [];
+            delete data.value.tcgPlayerId;
+            delete data.value.cardMarketId;
+
+            unlock.value = true;
+        };
+
+        const doUpdate = debounce(
+            async () => {
+                if (data.value == null) {
+                    return;
+                }
+
+                defaultPrettify();
+
+                history.value.unshift({
+                    id:     id.value,
+                    set:    set.value,
+                    number: number.value,
+                    lang:   lang.value,
+                });
+
+                await controlPost('/magic/card/update', {
+                    data: data.value,
+                });
+            },
+            1000,
+            {
+                leading:  true,
+                trailing: false,
+            },
+        );
+
+        const loadData = async () => {
+            if (id.value != null && lang.value != null && set.value != null && number.value != null) {
+                const { data: result } = await controlGet<Card>('/magic/card/raw', {
+                    id:     id.value,
+                    lang:   lang.value,
+                    set:    set.value,
+                    number: number.value,
+                });
+
+                data.value = result;
+            }
+        };
+
+        const loadGroup = async (method: string) => {
+            if (data.value != null) {
+                await doUpdate();
+            }
+
+            if (dataGroup.value != null && dataGroup.value.method === method && dataGroup.value.cards.length > 0) {
+                data.value = dataGroup.value.cards.shift();
+                dataGroup.value.total -= 1;
+                return;
+            }
+
+            let request: AxiosResponse<CardGroup>;
+
+            if (method.startsWith('search:')) {
+                request = await controlGet<CardGroup>('/magic/card/search', { q: search.value });
+            } else {
+                request = await controlGet<CardGroup>('/magic/card/need-edit', { method, lang: magic.locale });
+            }
+
+            const result = request.data;
+
+            if (result != null && result.total !== 0) {
+                dataGroup.value = result;
+                data.value = dataGroup.value.cards.shift();
+            } else {
+                dataGroup.value = undefined;
+                data.value = undefined;
+            }
+        };
+
+        const doSearch = async () => {
+            if (search.value === '') {
+                return;
+            }
+
+            loadGroup(`search:${search.value}`);
+        };
+
+        onMounted(loadData);
+
+        // dev only
+        const dev = (name: string) => computed({
+            get(): boolean {
+                if (data.value == null) {
+                    return false;
+                }
+
+                return data.value.tags.includes(`dev:${name}`);
+            },
+            set(newValue: boolean) {
+                if (data.value == null) {
+                    return;
+                }
+
+                if (newValue) {
+                    if (!data.value.tags.includes(`dev:${name}`)) {
+                        data.value.tags.push(`dev:${name}`);
+                    }
+                } else {
+                    data.value.tags = data.value.tags.filter(v => v !== `dev:${name}`);
+                }
+            },
+        });
+
+        const devPrinted = dev('printed');
+        const devToken = dev('token');
+        const devCounter = dev('counter');
+
+        watch(
+            [data, partIndex, printedName, printedTypeline, printedText],
+            ([newValue, newIndex], [oldValue, oldIndex]) => {
+                if (newValue === oldValue && newIndex === oldIndex) {
+                    devPrinted.value = false;
+                }
+            },
+        );
+
         const guessToken = () => {
             if (data.value == null) {
                 return;
@@ -820,7 +971,6 @@ export default defineComponent({
                         }
                     }
 
-                    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                     if (data.value.relatedCards.every(r => r.cardId !== tokenId)) {
                         data.value.relatedCards.push({
                             relation: 'token',
@@ -831,31 +981,28 @@ export default defineComponent({
             }
         };
 
-        const newData = () => {
+        const guessCounter = () => {
             if (data.value == null) {
                 return;
             }
 
-            delete data.value._id;
+            for (const text of data.value.parts.map(p => p.oracle.text ?? '')) {
+                const matches = text.matchAll(/(\b(?:first|double) strike|\b[a-z!]+|[+-]\d\/[+-]\d) counters?\b/g);
 
-            for (const p of data.value.parts) {
-                delete p.scryfallIllusId;
+                counters.value = [
+                    ...counters.value,
+                    ...[...matches]
+                        .map(m => m[1])
+                        .map(c => (/^[+-]\d\/[+-]\d$/.test(c)
+                            ? c
+                            : c.toLowerCase().replace(/[^a-z0-9]/g, '_')))
+                        .filter(c => !counterBlacklist.includes(c)),
+                ];
             }
-
-            delete data.value.scryfall.cardId;
-            data.value.scryfall.imageUris = [];
-            delete data.value.arenaId;
-            delete data.value.mtgoId;
-            delete data.value.mtgoFoilId;
-            data.value.multiverseId = [];
-            delete data.value.tcgPlayerId;
-            delete data.value.cardMarketId;
-
-            unlock.value = true;
         };
 
         const loadGatherer = async () => {
-            if (!hasData.value) {
+            if (data.value == null) {
                 return;
             }
 
@@ -867,134 +1014,11 @@ export default defineComponent({
             });
         };
 
-        const doUpdate = debounce(
-            async () => {
-                if (!hasData.value) {
-                    return;
-                }
-
-                defaultPrettify();
-
-                history.value.unshift({
-                    id:     id.value,
-                    set:    set.value,
-                    number: number.value,
-                    lang:   lang.value,
-                });
-
-                await controlPost('/magic/card/update', {
-                    data: data.value,
-                });
-            },
-            1000,
-            {
-                leading:  true,
-                trailing: false,
-            },
-        );
-
-        const loadData = async (editType?: string, update = true) => {
-            if (editType != null) {
-                if (hasData.value && update) {
-                    await doUpdate();
-                }
-
-                const { data: result } = await controlGet<Card>('/magic/card/need-edit', {
-                    type: editType,
-                    lang: magic.locale,
-                });
-
-                if (result != null) {
-                    data.value = result;
-                } else {
-                    data.value = null;
-                }
-            } else if (id.value != null && lang.value != null && set.value != null && number.value != null) {
-                const { data: result } = await controlGet<Card>('/magic/card/raw', {
-                    id:     id.value,
-                    lang:   lang.value,
-                    set:    set.value,
-                    number: number.value,
-                });
-
-                data.value = result;
-            }
-        };
-
-        const doSearch = async () => {
-            if (hasData.value && id.value != null) {
-                await doUpdate();
-            }
-
-            const { data: result } = await controlGet<{ result: Card }>('/magic/card/search', { q: search.value });
-
-            if (partIndex.value !== 0) {
-                partIndex.value = 0;
-            }
-
-            data.value = result.result;
-        };
-
-        onMounted(loadData);
-
-        // dev only
-        const devPrinted = computed({
-            get(): boolean {
-                if (data.value == null) {
-                    return false;
-                }
-
-                return data.value.tags.includes('dev:printed');
-            },
-            set(newValue: boolean) {
-                if (data.value == null) {
-                    return;
-                }
-
-                if (newValue) {
-                    if (!data.value.tags.includes('dev:printed')) {
-                        data.value.tags.push('dev:printed');
-                    }
-                } else {
-                    data.value.tags = data.value.tags.filter(v => v !== 'dev:printed');
-                }
-            },
-        });
-
-        const devCounter = computed({
-            get(): boolean {
-                if (data.value == null) {
-                    return false;
-                }
-
-                return data.value.tags.includes('dev:counter');
-            },
-            set(newValue: boolean) {
-                if (data.value == null) {
-                    return;
-                }
-
-                if (newValue) {
-                    if (!data.value.tags.includes('dev:counter')) {
-                        data.value.tags.push('dev:counter');
-                    }
-                } else {
-                    data.value.tags = data.value.tags.filter(v => v !== 'dev:counter');
-                }
-            },
-        });
-
-        watch(
-            [data, partIndex, printedName, printedTypeline, printedText],
-            ([newValue, newIndex], [oldValue, oldIndex]) => {
-                if (newValue === oldValue && newIndex === oldIndex) {
-                    devPrinted.value = false;
-                }
-            },
-        );
-
         return {
-            hasData,
+            data,
+            dataGroup,
+            loaded,
+            total,
 
             history,
             unlock,
@@ -1004,7 +1028,6 @@ export default defineComponent({
 
             partCount,
             partIndex,
-            total,
 
             dbId,
             id,
@@ -1043,12 +1066,15 @@ export default defineComponent({
             prettify,
             overwriteUnified,
             extractRulingCards,
-            guessToken,
             loadData,
+            loadGroup,
             doSearch,
 
             devPrinted,
+            devToken,
             devCounter,
+            guessToken,
+            guessCounter,
         };
     },
 });

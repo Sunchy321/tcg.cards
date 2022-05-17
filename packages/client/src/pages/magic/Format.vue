@@ -12,7 +12,7 @@
                 emit-value map-options
             />
 
-            <div class="col-grow" />
+            <q-space />
 
             <div class="flex items-center">
                 <q-btn

@@ -7,7 +7,7 @@
                 dense outlined
             />
 
-            <div class="col-grow" />
+            <q-space />
 
             <q-btn
                 icon="mdi-upload"

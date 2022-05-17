@@ -1,7 +1,5 @@
 <template>
     <q-toolbar-title>
-        <template v-if="titleType === 'title'" />
-
         <q-input
             v-if="titleType === 'input'"
             v-model="search"

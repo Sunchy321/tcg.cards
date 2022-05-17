@@ -4,14 +4,14 @@ import { DefaultState, Context } from 'koa';
 
 import Card, { ICard } from '@/magic/db/card';
 
-import { Aggregate, ObjectId } from 'mongoose';
+import { Aggregate, ObjectId, UpdateQuery } from 'mongoose';
 
 import CardNameExtractor from '@/magic/extract-name';
 
 import parseGatherer from '@/magic/gatherer/parse';
 
 import {
-    omit, omitBy, mapValues, isEqual, sortBy,
+    omit, mapValues, isEqual, sortBy,
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@data/magic/special';
@@ -24,23 +24,6 @@ import { existsSync, renameSync } from 'fs';
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
-
-async function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
-    const agg = Card.aggregate().allowDiskUse(true);
-
-    agg.match(omitBy({ cardId: id, set, number }, v => v == null));
-
-    if (lang != null) {
-        agg.addFields({ langIsLocale: { $eq: ['$lang', lang] } });
-    }
-
-    agg
-        .addFields({ langIsEnglish: { $eq: ['$lang', 'en'] } })
-        .sort({ langIsLocale: -1, langIsEnglish: -1, releaseDate: -1 })
-        .limit(1);
-
-    return agg as unknown as Promise<ICard[]>;
-}
 
 router.get('/raw', async ctx => {
     const {
@@ -66,7 +49,12 @@ router.get('/search', async ctx => {
         return;
     }
 
-    ctx.body = await searcher.dev(q);
+    const result = await searcher.dev(q);
+
+    ctx.body = {
+        method: `search:${q}`,
+        ...result.result,
+    };
 });
 
 router.post('/update', async ctx => {
@@ -91,50 +79,29 @@ router.post('/update', async ctx => {
     }
 
     if (old == null || (data.cardId === old.cardId && data.lang === old.lang)) {
+        const cardUpdate: UpdateQuery<ICard> = { };
+        const langUpdate: UpdateQuery<ICard> = { };
+
+        if (cardUpdate.$set == null) { cardUpdate.$set = {}; }
+        if (cardUpdate.$unset == null) { cardUpdate.$unset = {}; }
+        if (langUpdate.$set == null) { langUpdate.$set = {}; }
+        if (langUpdate.$unset == null) { langUpdate.$unset = {}; }
+
         for (let i = 0; i < data.parts.length; i += 1) {
             const part = data.parts[i];
-            const oldPart = old?.toObject().parts[i];
 
-            if (!isEqual(oldPart?.oracle, part.oracle)) {
-                await Card.updateMany(
-                    { cardId: data.cardId },
-                    { $set: { [`parts.${i}.oracle`]: part.oracle } },
-                );
-            }
-
-            if (!isEqual(oldPart?.unified, part.unified)) {
-                await Card.updateMany(
-                    { cardId: data.cardId, lang: data.lang },
-                    { $set: { [`parts.${i}.unified`]: part.unified } },
-                );
-            }
+            cardUpdate.$set[`parts.${i}.oracle`] = part.oracle;
+            langUpdate.$set[`parts.${i}.unified`] = part.unified;
         }
 
-        if (!isEqual(old?.toObject()?.counters, data.counters)) {
-            if (data.counters == null || data.counters.length === 0) {
-                await Card.updateMany(
-                    { cardId: data.cardId },
-                    { $unset: { counters: 0 } },
-                );
-            } else {
-                await Card.updateMany(
-                    { cardId: data.cardId },
-                    { $set: { counters: data.counters } },
-                );
-            }
+        if (data.counters == null || data.counters.length === 0) {
+            cardUpdate.$unset.counters = 0;
+        } else {
+            cardUpdate.$set.counters = data.counters;
         }
 
-        if (!isEqual(old?.toObject()?.tags ?? [], data.tags)) {
-            await Card.updateMany(
-                { cardId: data.cardId },
-                { $set: { tags: data.tags } },
-            );
-        }
-
-        await Card.updateMany(
-            { cardId: data.cardId, lang: data.lang },
-            { $unset: { __oracle: 1 } },
-        );
+        cardUpdate.$set.tags = data.tags;
+        langUpdate.$unset.__oracle = 0;
 
         const versions = await Card.find({ cardId: { $in: data.relatedCards.map(r => r.cardId) } });
 
@@ -144,10 +111,7 @@ router.post('/update', async ctx => {
         ) as ICard['relatedCards'];
 
         if (relatedCards.every(r => r.version == null)) {
-            await Card.updateMany(
-                { cardId: data.cardId },
-                { relatedCards },
-            );
+            cardUpdate.$set.relatedCards = relatedCards;
         }
 
         for (const r of relatedCards) {
@@ -175,6 +139,9 @@ router.post('/update', async ctx => {
                 { relatedCards: sortBy(newRelatedCards, ['relation', 'cardId']) },
             );
         }
+
+        await Card.updateMany({ cardId: data.cardId }, cardUpdate);
+        await Card.updateMany({ cardId: data.cardId, lang: data.lang }, langUpdate);
     }
 
     ctx.status = 200;
@@ -193,22 +160,15 @@ type AggregateOption = {
 function aggregate({ lang, match, post }: AggregateOption) {
     const agg = Card.aggregate().allowDiskUse(true);
 
-    if (match != null) {
-        agg.match(match);
-    }
-
-    if (lang != null) {
-        agg.match({ lang });
-    }
+    if (match != null) { agg.match(match); }
+    if (lang != null) { agg.match({ lang }); }
 
     agg
         .sort({ releaseDate: -1 })
         .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
         .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
 
-    if (match != null) {
-        agg.match(match);
-    }
+    if (match != null) { agg.match(match); }
 
     if (post != null) {
         post(agg);
@@ -220,7 +180,7 @@ function aggregate({ lang, match, post }: AggregateOption) {
 }
 
 const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult[]>> = {
-    'inconsistent-oracle': async lang => aggregate({
+    oracle: async lang => aggregate({
         lang,
         post: agg => agg
             .group({
@@ -232,23 +192,29 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                 name:          { $addToSet: '$parts.oracle.name' },
                 typeline:      { $addToSet: '$parts.oracle.typeline' },
                 text:          { $addToSet: '$parts.oracle.text' },
+                counters:      { $addToSet: '$counters' },
+                relatedCards:  { $addToSet: '$relatedCards' },
                 __oracle:      { $first: '$__oracle' },
             })
             .match({
                 $or: [
-                    { 'colorIdentity.2': { $exists: true } },
-                    { 'color.2': { $exists: true } },
-                    { 'power.2': { $exists: true } },
-                    { 'toughness.2': { $exists: true } },
-                    { 'name.2': { $exists: true } },
-                    { 'typeline.2': { $exists: true } },
-                    { 'text.2': { $exists: true } },
-                    { __oracle: { $exists: true } },
+                    { 'colorIdentity.1': { $exists: true } },
+                    { 'color.1': { $exists: true } },
+                    { 'power.1': { $exists: true } },
+                    { 'toughness.1': { $exists: true } },
+                    { 'name.1': { $exists: true } },
+                    { 'typeline.1': { $exists: true } },
+                    { 'text.1': { $exists: true } },
+                    { 'counters.1': { $exists: true } },
+                    { 'relatedCards.1': { $exists: true } },
+                    { '__oracle.name': { $exists: true } },
+                    { '__oracle.typeline': { $exists: true } },
+                    { '__oracle.text': { $exists: true } },
                 ],
             }),
     }),
 
-    'inconsistent-unified': async lang => aggregate({
+    unified: async lang => aggregate({
         lang,
         post: agg => agg
             .group({
@@ -266,7 +232,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
             }),
     }),
 
-    'parentheses': async lang => aggregate({
+    paren: async lang => aggregate({
         lang,
         match: {
             'cardId':             { $nin: textWithParen },
@@ -276,7 +242,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
         },
     }),
 
-    'token': async () => aggregate({
+    token: async () => aggregate({
         match: {
             'cardId':          { $not: /!/ },
             'parts.typeSuper': 'token',
@@ -285,9 +251,9 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
 };
 
 router.get('/need-edit', async ctx => {
-    const { type, lang } = mapValues(ctx.query, toSingle);
+    const { method, lang } = mapValues(ctx.query, toSingle);
 
-    const getter = needEditGetters[type];
+    const getter = needEditGetters[method];
 
     if (getter == null) {
         ctx.status = 400;
@@ -296,22 +262,27 @@ router.get('/need-edit', async ctx => {
 
     const result = await getter(lang);
 
-    if (result.length > 0) {
-        const cards = await find(result[0]._id.id, lang);
+    const cards = await Card.aggregate().allowDiskUse(true)
+        .match({ cardId: { $in: result.map(r => r._id.id) }, lang })
+        .sort({ releaseDate: -1 })
+        .group({ _id: '$cardId', card: { $first: '$$ROOT' } })
+        .sample(100);
 
-        if (cards.length > 0) {
-            ctx.body = {
-                ...cards[0],
-                partIndex: result[0]._id.part,
-                total:     result.length,
-                result:    result[0],
-            };
+    const resultCards = result.map(r => {
+        const card = cards.find(c => c._id === r._id.id);
+
+        if (card != null) {
+            return { ...card.card, partIndex: r._id.part };
         } else {
-            ctx.body = null;
+            return null;
         }
-    } else {
-        ctx.body = null;
-    }
+    }).filter(v => v != null);
+
+    ctx.body = {
+        method,
+        cards: resultCards,
+        total: result.length,
+    };
 });
 
 router.get('/rename', async ctx => {

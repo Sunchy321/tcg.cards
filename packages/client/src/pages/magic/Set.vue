@@ -2,7 +2,7 @@
     <q-page class="q-pa-md">
         <div class="flex items-center">
             <div class="name">{{ name }}</div>
-            <div class="col-grow" />
+            <q-space />
             <q-btn
                 v-if="wotcLink != null"
                 class="q-mr-sm"

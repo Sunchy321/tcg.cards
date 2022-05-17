@@ -305,12 +305,15 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         relatedCards: [],
         rulings:      [],
 
-        keywords:     data.keywords.map(v => toIdentifier(v)),
-        counters:     cardFaces.some(c => (c.oracle_text ?? '').includes('counter')) ? [] : undefined,
-        producedMana: data.produced_mana != null
+        keywords:       data.keywords.map(v => toIdentifier(v)),
+        counters:       cardFaces.some(c => (c.oracle_text ?? '').includes('counter')) ? [] : undefined,
+        producibleMana: data.produced_mana != null
             ? convertColor(data.produced_mana)
             : undefined,
-        tags: [],
+        tags: [
+            ...cardFaces.some(c => /\bcreates?\b/.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
+            ...cardFaces.some(c => /\bcounters?\b/.test(c.oracle_text ?? '')) ? ['dev:counter'] : [],
+        ],
 
         category: ((): Category => {
             if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
@@ -396,7 +399,7 @@ function assignPart(card: ICard['parts'][0], data: ICard['parts'][0], key: keyof
     }
 }
 
-function merge(card: Document & ICard, data: ICard) {
+async function merge(card: Document & ICard, data: ICard) {
     for (const k of Object.keys(data) as (keyof ICard)[]) {
         // eslint-disable-next-line default-case
         switch (k) {
@@ -540,8 +543,20 @@ function merge(card: Document & ICard, data: ICard) {
             break;
 
         case 'counters':
-        case 'producedMana':
+        case 'producibleMana':
+            break;
+
         case 'tags':
+            if (data.__oracle?.text != null) {
+                if (data.tags.includes('dev:token')) {
+                    card.tags.push('dev:token');
+                }
+
+                if (data.tags.includes('dev:counter')) {
+                    card.tags.push('dev:counter');
+                }
+            }
+
             break;
 
         case 'category':
@@ -659,8 +674,13 @@ function merge(card: Document & ICard, data: ICard) {
             break;
 
         case '__oracle':
+            assign(card, data, '__oracle');
             break;
         }
+    }
+
+    if (card.modifiedPaths().length > 0) {
+        await card.save();
     }
 }
 
@@ -758,10 +778,6 @@ export default class CardLoader extends Task<Status> {
                         cardsToInsert.push(...newCards.map(c => toCard(c, setCodeMap)));
                     } else if (oldCards.length === 1) {
                         merge(oldCards[0], toCard(newCards[0], setCodeMap));
-
-                        if (oldCards[0].modifiedPaths().length > 0) {
-                            await oldCards[0].save();
-                        }
                     } else {
                         // Scryfall mowu is bugged. ignore.
                         if (newCards[0].id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
@@ -804,10 +820,6 @@ export default class CardLoader extends Task<Status> {
             for (const card of cardsToInsert) {
                 if (card.lang === 'en') {
                     card.tags.push('dev:printed');
-                }
-
-                if (card.parts.some(p => p.oracle.text?.includes('counter'))) {
-                    card.tags.push('dev:counter');
                 }
             }
 

@@ -4,7 +4,7 @@
             <q-select v-model="format" :options="[null, ...formatList]" dense outlined />
             <q-select v-model="selected" :options="formatChangeOptions" dense outlined options-dense />
             <date-input v-model="date" dense />
-            <div class="col-grow" />
+            <q-space />
             <q-btn label="sync" flat dense @click="sync" />
             <q-btn icon="mdi-plus" flat dense round @click="add" />
             <q-btn v-if="formatChange != null" icon="mdi-upload" flat dense round @click="saveData" />

@@ -2,6 +2,7 @@ const path = require('path');
 
 module.exports = {
     parserOptions: {
+        ecmaVersion:         'latest',
         extraFileExtensions: ['.vue'],
         project:             path.join(__dirname, 'tsconfig.json'),
     },

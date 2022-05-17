@@ -35,7 +35,7 @@
                     {{ name }}
                 </div>
 
-                <div class="col-grow" />
+                <q-space />
 
                 <div
                     v-if="cost != null"
@@ -151,7 +151,7 @@
 
             <div v-if="relatedCards.length > 0" class="related-card-block">
                 <div v-for="r in relatedCards" :key="r.cardId" class="related-card">
-                    <card-avatar :id="r.cardId" />
+                    <card-avatar :id="r.cardId" :version="r.version" />
                 </div>
             </div>
 

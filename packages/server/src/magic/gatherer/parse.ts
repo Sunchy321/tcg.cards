@@ -179,9 +179,9 @@ export default async function parseGatherer(
 
     const versions = await parseVersion(mids[0]);
 
-    await Promise.all(versions.map(async v => {
+    for (const v of versions) {
         if (v.id == null) {
-            return;
+            continue;
         }
 
         const vMids = mids.map((_, index) => v.id! + index);
@@ -192,7 +192,7 @@ export default async function parseGatherer(
         const oldCard = await Card.findOne({ set, number: data.number, lang: v.lang });
 
         if (oldCard != null) {
-            return;
+            continue;
         }
 
         const newData = baseCard.toObject();
@@ -233,5 +233,5 @@ export default async function parseGatherer(
         delete newData.cardMarketId;
 
         new Card(newData).save();
-    }));
+    }
 }

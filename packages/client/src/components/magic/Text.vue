@@ -70,7 +70,7 @@ export default defineComponent({
                         '[\\n☐]',
                         '\\{[^}]+\\}',
                         ...props.cards.map(c => escapeRegExp(c.text)),
-                        ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.]+[-a-zA-Z0-9/]'] : [],
+                        ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.?=&]+[-a-zA-Z0-9/]'] : [],
                         ...props.detectEmph ? ['\\*[^*]+\\*'] : [],
                         ...props.detectCr ? ['\\d+(?:\\.\\d+[a-z]?)?'] : [],
                     ].join('|')})`);

@@ -49,7 +49,7 @@
                 @click="$emit('update:drawerOpen',!drawerOpen)"
             />
 
-            <div class="col-grow" />
+            <q-space />
 
             <header-params key="params" class="params" />
         </q-toolbar>

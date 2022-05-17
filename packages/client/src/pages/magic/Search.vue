@@ -5,7 +5,7 @@
 
             <span>{{ q }}</span>
 
-            <div class="col-grow" />
+            <q-space />
 
             <span v-if="data != null" class="code q-mr-md">{{ total }}</span>
 

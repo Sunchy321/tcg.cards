@@ -1,11 +1,11 @@
 <template>
     <q-page>
         <div class="row items-center q-gutter-md q-pa-md">
-            <div class="col-grow" />
+            <q-space />
             <q-select v-model="from" dense outlined :options="date" />
             <q-btn icon="mdi-vector-difference" flat dense round @click="loadData" />
             <q-select v-model="to" dense outlined :options="date" />
-            <div class="col-grow" />
+            <q-space />
         </div>
 
         <q-splitter v-if="intro.length > 0" v-model="splitter" emit-immediately>
