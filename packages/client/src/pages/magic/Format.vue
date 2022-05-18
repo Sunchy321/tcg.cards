@@ -6,7 +6,7 @@
 
             <q-space />
 
-            <div class="flex items-center">
+            <div v-if="!showTimeline" class="flex items-center">
                 <q-btn
                     icon="mdi-arrow-left-circle"
                     flat dense round

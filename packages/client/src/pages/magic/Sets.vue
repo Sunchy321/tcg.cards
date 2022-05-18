@@ -69,8 +69,8 @@ import pageSetup from 'setup/page';
 
 import { apiGet, imageBase } from 'boot/backend';
 
-import { SetProfile, SetLocalization, getProfile } from 'src/common/magic/set';
-import { partition } from 'lodash';
+import setProfile, { SetProfile, SetLocalization } from 'src/common/magic/set';
+import { isEqual, partition } from 'lodash';
 
 export default defineComponent({
     setup() {
@@ -202,35 +202,21 @@ export default defineComponent({
         };
 
         const loadProfile = async (setList: string[]) => {
-            const locals = [];
-            const remotes = [];
+            profiles.value = {};
+
+            const profileMap: Record<string, SetProfile> = { };
 
             for (const s of setList) {
-                const { local, remote } = getProfile(s);
+                setProfile.get(s, v => {
+                    if (!isEqual(v, profileMap[s])) {
+                        profileMap[s] = v;
 
-                locals.push(local);
-                remotes.push(remote);
+                        if (isEqual(setList.sort(), Object.keys(profileMap).sort())) {
+                            profiles.value = profileMap;
+                        }
+                    }
+                });
             }
-
-            const localResults = await Promise.all(locals);
-
-            const localProfiles: Record<string, SetProfile> = { };
-
-            for (const r of localResults.filter(v => v != null)) {
-                localProfiles[r!.setId] = r!;
-            }
-
-            profiles.value = localProfiles;
-
-            const remoteResults = await Promise.all(remotes);
-
-            const remoteProfiles: Record<string, SetProfile> = { };
-
-            for (const r of remoteResults.filter(v => v != null)) {
-                remoteProfiles[r.setId] = r!;
-            }
-
-            profiles.value = remoteProfiles;
         };
 
         const toDetail = (set: string) => {

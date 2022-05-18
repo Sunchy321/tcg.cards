@@ -15,7 +15,7 @@ import { useMagic } from 'store/games/magic';
 
 import CardImage from './CardImage.vue';
 
-import { SetProfile, getProfile } from 'src/common/magic/set';
+import setProfile, { SetProfile } from 'src/common/magic/set';
 
 export default defineComponent({
     components: { CardImage },
@@ -54,25 +54,10 @@ export default defineComponent({
             return localization[locale]?.name ?? localization[defaultLocale]?.name ?? props.id;
         });
 
-        const loadData = async () => {
-            const { local, remote } = getProfile(props.id);
-
-            const localData = await local;
-
-            if (localData != null) {
-                profile.value = localData;
-            }
-
-            const remoteData = await remote;
-
-            if (remoteData != null) {
-                profile.value = remoteData;
-            }
-
-            if (profile.value == null) {
-                innerShowId.value = true;
-            }
-        };
+        const loadData = async () => setProfile.get(
+            props.id,
+            v => { profile.value = v; },
+        ).catch(() => { innerShowId.value = true; });
 
         watch(() => props.id, loadData, { immediate: true });
 

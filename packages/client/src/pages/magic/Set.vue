@@ -98,6 +98,7 @@ import pageSetup from 'setup/page';
 
 import { Set as ISet } from 'interface/magic/set';
 
+import setProfile from 'src/common/magic/set';
 import { apiGet, apiBase, imageBase } from 'boot/backend';
 
 type Set = Omit<ISet, 'localization'> & {
@@ -154,6 +155,16 @@ export default defineComponent({
             });
 
             data.value = result;
+
+            setProfile.update({
+                setId:           result.setId,
+                parent:          result.parent,
+                localization:    result.localization,
+                setType:         result.setType,
+                symbolStyle:     result.symbolStyle,
+                doubleFacedIcon: result.doubleFacedIcon,
+                releaseDate:     result.releaseDate,
+            });
         };
 
         const iconUrl = (rarity: string) => {

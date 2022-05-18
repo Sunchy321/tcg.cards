@@ -18,7 +18,7 @@ import { useMagic } from 'store/games/magic';
 
 import CardImage from './CardImage.vue';
 
-import { CardProfile, getProfile } from 'src/common/magic/card';
+import cardProfile, { CardProfile } from 'src/common/magic/card';
 import { QTooltip } from 'quasar';
 
 type Version = {
@@ -143,25 +143,10 @@ export default defineComponent({
                 : a.releaseDate < b.releaseDate ? 1 : 0))[0];
         });
 
-        const loadData = async () => {
-            const { local, remote } = getProfile(props.id);
-
-            const localData = await local;
-
-            if (localData != null) {
-                profile.value = localData;
-            }
-
-            const remoteData = await remote;
-
-            if (remoteData != null) {
-                profile.value = remoteData;
-            }
-
-            if (profile.value == null) {
-                innerShowId.value = true;
-            }
-        };
+        const loadData = async () => cardProfile.get(
+            props.id,
+            v => { profile.value = v; },
+        ).catch(() => { innerShowId.value = true; });
 
         watch(() => props.id, loadData, { immediate: true });
 

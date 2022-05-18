@@ -392,8 +392,8 @@ import {
     mapValues, omit, omitBy, uniq,
 } from 'lodash';
 
+import setProfile, { SetProfile } from 'src/common/magic/set';
 import { apiGet, apiBase, imageBase } from 'boot/backend';
-import { SetProfile, getProfile } from 'src/common/magic/set';
 
 type Data = Card & {
     versions: {
@@ -479,35 +479,16 @@ export default defineComponent({
         const sets = computed(() => uniq(versions.value.map(v => v.set)));
 
         watch(sets, async values => {
-            const locals = [];
-            const remotes = [];
+            setProfiles.value = {};
 
             for (const s of values) {
-                const { local, remote } = getProfile(s);
-
-                locals.push(local);
-                remotes.push(remote);
+                setProfile.get(s, v => {
+                    setProfiles.value = {
+                        ...setProfiles.value,
+                        [s]: v,
+                    };
+                });
             }
-
-            const localResults = await Promise.all(locals);
-
-            const localProfiles: Record<string, SetProfile> = { };
-
-            for (const r of localResults.filter(v => v != null)) {
-                localProfiles[r!.setId] = r!;
-            }
-
-            setProfiles.value = localProfiles;
-
-            const remoteResults = await Promise.all(remotes);
-
-            const remoteProfiles: Record<string, SetProfile> = { };
-
-            for (const r of remoteResults.filter(v => v != null)) {
-                remoteProfiles[r.setId] = r!;
-            }
-
-            setProfiles.value = remoteProfiles;
         }, { immediate: true });
 
         const set = computed({
