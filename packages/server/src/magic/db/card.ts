@@ -100,6 +100,7 @@ const CardSchema = new Schema<ICard>({
     counters:       { type: [String], default: undefined },
     producibleMana: { type: [String], default: undefined },
     tags:           [String],
+    localTags:      [String],
 
     category:     String,
     layout:       String,

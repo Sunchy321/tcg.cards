@@ -895,7 +895,7 @@ export default defineComponent({
         onMounted(loadData);
 
         // dev only
-        const dev = (name: string) => computed({
+        const tag = (name: string) => computed({
             get(): boolean {
                 if (data.value == null) {
                     return false;
@@ -918,9 +918,32 @@ export default defineComponent({
             },
         });
 
-        const devPrinted = dev('printed');
-        const devToken = dev('token');
-        const devCounter = dev('counter');
+        const localTag = (name: string) => computed({
+            get(): boolean {
+                if (data.value == null) {
+                    return false;
+                }
+
+                return data.value.localTags.includes(`dev:${name}`);
+            },
+            set(newValue: boolean) {
+                if (data.value == null) {
+                    return;
+                }
+
+                if (newValue) {
+                    if (!data.value.localTags.includes(`dev:${name}`)) {
+                        data.value.localTags.push(`dev:${name}`);
+                    }
+                } else {
+                    data.value.localTags = data.value.localTags.filter(v => v !== `dev:${name}`);
+                }
+            },
+        });
+
+        const devPrinted = localTag('printed');
+        const devToken = tag('token');
+        const devCounter = tag('counter');
 
         watch(
             [data, partIndex, printedName, printedTypeline, printedText],

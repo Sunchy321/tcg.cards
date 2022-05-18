@@ -80,6 +80,7 @@ export interface Card {
     counters?: string[];
     producibleMana?: string;
     tags: string[];
+    localTags: string[];
 
     category: Category;
     layout: Layout;

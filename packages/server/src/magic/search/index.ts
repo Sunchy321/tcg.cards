@@ -75,9 +75,19 @@ const model = {
             id:    '#',
             query: ({ param, op }) => {
                 if (op === ':') {
-                    return { tags: param };
+                    return {
+                        $or: [
+                            { tags: param },
+                            { localTags: param },
+                        ],
+                    };
                 } else {
-                    return { tags: { $ne: param } };
+                    return {
+                        $and: [
+                            { tags: { $ne: param } },
+                            { localTags: { $ne: param } },
+                        ],
+                    };
                 }
             },
         },

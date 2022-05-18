@@ -314,6 +314,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
             ...cardFaces.some(c => /\bcreates?\b/.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
             ...cardFaces.some(c => /\bcounters?\b/.test(c.oracle_text ?? '')) ? ['dev:counter'] : [],
         ],
+        localTags: [],
 
         category: ((): Category => {
             if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
@@ -556,7 +557,9 @@ async function merge(card: Document & ICard, data: ICard) {
                     card.tags.push('dev:counter');
                 }
             }
+            break;
 
+        case 'localTags':
             break;
 
         case 'category':
@@ -819,7 +822,7 @@ export default class CardLoader extends Task<Status> {
 
             for (const card of cardsToInsert) {
                 if (card.lang === 'en') {
-                    card.tags.push('dev:printed');
+                    card.localTags.push('dev:printed');
                 }
             }
 
