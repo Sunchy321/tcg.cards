@@ -9,7 +9,7 @@
             <slot v-bind="v" />
         </div>
         <div
-            v-for="i in placeholder" :key="i"
+            v-for="i in placeholder" :key="'placeholder-' + i"
             class="placeholder"
             :class="itemClass"
             :style="{ width: itemRealWidth + 'px' }"

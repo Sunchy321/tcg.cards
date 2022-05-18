@@ -23,6 +23,8 @@ export default {
 
     'format': {
         '$self':    'Format',
+        'banlist':  'Banlist',
+        'set':      'Sets',
         'timeline': 'Timeline',
 
         'source': {

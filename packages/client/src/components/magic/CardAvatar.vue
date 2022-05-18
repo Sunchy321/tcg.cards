@@ -166,7 +166,9 @@ export default defineComponent({
         watch(() => props.id, loadData, { immediate: true });
 
         return () => {
-            const text = showId.value ? h('span', { class: 'code' }, props.id) : h('span', props.text ?? name.value ?? '');
+            const text = showId.value
+                ? h('span', { class: 'code' }, props.id)
+                : h('span', props.text ?? name.value ?? '');
 
             if (onThisPage.value) {
                 return text;

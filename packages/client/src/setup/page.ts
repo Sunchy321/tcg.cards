@@ -7,12 +7,9 @@ import { useCore } from 'store/core';
 
 export type Value<T> = Ref<T> | T | (() => T);
 
-export type ParamType = 'enum' | 'string';
-export type OptionType = 'params' | 'props' | 'query';
-
 interface ParameterBase<T, R> {
     type: T;
-    bind: OptionType;
+    bind: 'params' | 'props' | 'query';
     readonly?: R;
     key?: string;
     inTitle?: boolean;
@@ -40,6 +37,12 @@ export interface DateParameter<R extends boolean> extends ParameterBase<'date', 
     default?: Value<string>;
 }
 
+export interface BooleanParameter<R extends boolean> extends ParameterBase<'boolean', R> {
+    type: 'boolean';
+    default?: Value<boolean>;
+    icon?: [string, string];
+}
+
 type ValueTypeMap = {
     enum: string;
     string: string;
@@ -50,7 +53,7 @@ type ValueTypeMap = {
 export type ValueType<T> = T extends keyof ValueTypeMap ? ValueTypeMap[T] : never;
 
 export type Parameter<R extends boolean> =
-    DateParameter<R> | EnumParameter<R> | NumberParameter<R> | StringParameter<R>;
+    BooleanParameter<R> | DateParameter<R> | EnumParameter<R> | NumberParameter<R> | StringParameter<R>;
 
 function isRef<T>(value: Value<T>): value is Ref<T> {
     return (value as any)?.value != null;
@@ -76,6 +79,8 @@ export function getDefault(param: Parameter<any>): Value<any> {
         return valueOf(param.default) ?? new Date().toLocaleDateString('en-CA');
     case 'number':
         return valueOf(param.default) ?? 0;
+    case 'boolean':
+        return valueOf(param.default) ?? false;
     default:
         return undefined;
     }

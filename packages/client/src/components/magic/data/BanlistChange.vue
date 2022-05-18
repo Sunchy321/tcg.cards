@@ -134,25 +134,6 @@
     </div>
 </template>
 
-<style lang="sass">
-.banlist-status-banned,
-.banlist-status-suspended,
-.banlist-status-banned_as_commander,
-.banlist-status-banned_as_companion,
-.color-negative
-    color: #F33
-
-.banlist-status-restricted
-    color: #EA0
-
-.banlist-status-legal,
-.color-positive
-    color: #0A0
-
-.banlist-status-unavailable
-    color: #777
-</style>
-
 <script lang="ts">
 import {
     defineComponent, ref, computed, watch, onMounted,

@@ -12,7 +12,7 @@ import { Game, games as constGames, gameStores } from './games';
 
 import { QuasarLanguage, LocalStorage, useQuasar } from 'quasar';
 import { computed, ref, watch } from 'vue';
-import { mapValues } from 'lodash';
+import { mapValues, omit } from 'lodash';
 import { apiGet } from 'src/boot/backend';
 
 import i18nData from 'src/i18n';
@@ -118,6 +118,10 @@ export const useCore = defineStore('core', () => {
         case 'params': {
             const result = route.params[realKey] as string;
 
+            if (param.type === 'boolean') {
+                return result !== undefined;
+            }
+
             if (result == null) {
                 return defaultValue;
             }
@@ -136,6 +140,10 @@ export const useCore = defineStore('core', () => {
         }
         case 'query': {
             const result = route.query[realKey] as string;
+
+            if (param.type === 'boolean') {
+                return result !== undefined;
+            }
 
             if (result == null) {
                 return defaultValue;
@@ -189,15 +197,41 @@ export const useCore = defineStore('core', () => {
 
         switch (paramValue.bind) {
         case 'params':
-            void router.push({
-                params: { ...route.params, [realKey]: value ?? undefined },
-                query:  route.query,
-            });
+            if (paramValue.type === 'boolean') {
+                if (value === true) {
+                    void router.push({
+                        params: { ...route.params, [realKey]: null },
+                        query:  route.query,
+                    });
+                } else {
+                    void router.push({
+                        params: omit(route.params, [realKey]),
+                        query:  route.query,
+                    });
+                }
+            } else {
+                void router.push({
+                    params: { ...route.params, [realKey]: value ?? undefined },
+                    query:  route.query,
+                });
+            }
             break;
         case 'query':
-            void router.push({
-                query: { ...route.query, [realKey]: value ?? undefined },
-            });
+            if (paramValue.type === 'boolean') {
+                if (value === true) {
+                    void router.push({
+                        query: { ...route.query, [realKey]: null },
+                    });
+                } else {
+                    void router.push({
+                        query: omit(route.query, [realKey]),
+                    });
+                }
+            } else {
+                void router.push({
+                    query: { ...route.query, [realKey]: value ?? undefined },
+                });
+            }
             break;
         case 'props':
             paramState.value[key].value = value;

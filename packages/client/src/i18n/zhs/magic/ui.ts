@@ -23,6 +23,8 @@ export default {
 
     'format': {
         '$self':    '赛制',
+        'banlist':  '禁限牌表',
+        'set':      '可用系列',
         'timeline': '时间线',
 
         'source': {

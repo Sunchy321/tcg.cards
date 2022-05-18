@@ -1,9 +1,8 @@
 <template>
     <div class="display: contents">
-        <template v-for="(p, k) in paramsInTitle">
+        <template v-for="(p, k) in paramsInTitle" :key="k">
             <q-btn-dropdown
                 v-if="p.type === 'enum'"
-                :key="k"
                 :model-value="false"
                 flat dense
                 :label="paramLabel(p, p.value)"
@@ -22,6 +21,13 @@
                     </q-item>
                 </q-list>
             </q-btn-dropdown>
+
+            <q-btn
+                v-if="p.type === 'boolean'"
+                :icon="(p as any).icon[p.value ? 1:0]"
+                flat round dense
+                @click="commitParam(k as string, !p.value)"
+            />
         </template>
 
         <q-btn-dropdown

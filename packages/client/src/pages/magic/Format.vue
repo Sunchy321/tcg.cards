@@ -1,16 +1,8 @@
 <template>
     <q-page class="q-pa-md">
-        <div class="title row items-center q-mb-lg">
+        <div class="row items-center q-mb-lg text-h5">
             <div class="q-mr-sm">{{ $t('magic.format.' + format) }}</div>
             <div>{{ birthAndDeath }}</div>
-
-            <q-select
-                v-model="order"
-                class="q-ml-xl"
-                :options="orderOptions"
-                dense outlined
-                emit-value map-options
-            />
 
             <q-space />
 
@@ -38,24 +30,87 @@
             </div>
         </div>
 
-        <div class="row q-mb-md">
-            <div v-for="s in sets" :key="s" class="set code">
-                {{ s }}
+        <div v-if="showTimeline">
+            <div v-for="n in nodes" :key="n.date" class="q-my-md">
+                <div class="flex items-center q-mb-sm">
+                    <span class="text-h6">{{ n.date }}</span>
+                    <q-btn
+                        v-for="l in n.link"
+                        :key="l"
+                        class="q-ml-sm"
+                        icon="mdi-link"
+                        flat dense round
+                        :href="l"
+                        target="_blank"
+                    />
+                </div>
+
+                <grid
+                    v-if="n.format.length > 0"
+                    v-slot="{ set, type }"
+                    :value="n.format" :item-width="300" item-class="flex items-center"
+                >
+                    <div class="format flex items-center q-gutter-sm">
+                        <q-icon
+                            :name="type === 'in' ? 'mdi-plus' : 'mdi-minus'"
+                            :class="type === 'in' ? 'color-positive' : 'color-negative'"
+                        />
+                        <set-avatar :id="set" />
+                    </div>
+                </grid>
+
+                <grid
+                    v-if="n.banlist.length>0"
+                    v-slot="{ status, card, group }"
+                    :value="n.banlist" :item-width="300" item-key="card" item-class="flex items-center"
+                >
+                    <div class="banlist flex items-center q-gutter-sm">
+                        <banlist-icon :status="status" />
+                        <card-avatar :id="card" class="avatar" :pauper="format === 'pauper'" />
+                        <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
+                    </div>
+                </grid>
             </div>
         </div>
 
-        <grid
-            v-slot="{ status, card, date: effectiveDate, group, link }"
-            :value="banlist" :item-width="300" item-key="card" item-class="flex items-center"
-        >
-            <div class="banlist row items-center q-gutter-sm">
-                <banlist-icon :status="status" />
-                <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
-                <div v-else class="date">{{ effectiveDate }}</div>
-                <card-avatar :id="card" class="avatar" :pauper="format === 'pauper'" />
-                <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
+        <template v-else>
+            <div class="flex items-center q-mb-md">
+                <span class="text-h6">{{ $t('magic.ui.format.banlist') }}</span>
+
+                <q-select
+                    v-model="order"
+                    class="q-ml-md"
+                    :options="orderOptions"
+                    dense outlined
+                    emit-value map-options
+                />
             </div>
-        </grid>
+
+            <grid
+                v-slot="{ status, card, date: effectiveDate, group, link }"
+                :value="banlist" :item-width="300" item-key="card" item-class="flex items-center"
+            >
+                <div class="banlist flex items-center q-gutter-sm">
+                    <banlist-icon :status="status" />
+                    <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
+                    <div v-else class="date">{{ effectiveDate }}</div>
+                    <card-avatar :id="card" class="avatar" :pauper="format === 'pauper'" />
+                    <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
+                </div>
+            </grid>
+
+            <div v-if="sets.length > 0" class="flex q-my-md">
+                <span class="text-h6">{{ $t('magic.ui.format.set') }}</span>
+            </div>
+
+            <grid
+                v-if="sets.length > 0"
+                v-slot="{ id }"
+                :value="sets.map(id => ({ id }))" :item-width="300" item-class="flex items-center"
+            >
+                <set-avatar :id="id" />
+            </grid>
+        </template>
     </q-page>
 </template>
 
@@ -98,13 +153,13 @@ import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
+import SetAvatar from 'components/magic/SetAvatar.vue';
+
+import { uniq } from 'lodash';
 
 import { apiGet } from 'boot/backend';
 
-const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
-const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
-
-interface FormatChange {
+export interface FormatChange {
     type: 'format';
     date: string;
     category: string;
@@ -113,7 +168,7 @@ interface FormatChange {
     out: string[];
 }
 
-interface BanlistChange {
+export interface BanlistChange {
     type: 'banlist';
     date: string;
     category: string;
@@ -129,6 +184,15 @@ interface BanlistChange {
     link: string[];
 }
 
+export type TimelineItem = BanlistChange | FormatChange;
+
+export type TimelineNode = {
+    date: string;
+    link: string[];
+    format: { set: string, type: string }[];
+    banlist: { group?: string, card: string, status: string }[];
+};
+
 interface Data {
     birthday?: string;
     deathdate?: string;
@@ -137,11 +201,16 @@ interface Data {
     banlist?: BanlistChange[];
 }
 
-type TimelineItem = BanlistChange | FormatChange;
+export const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
+export const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
 
 export default defineComponent({
     components: {
-        Grid, DateInput, CardAvatar, BanlistIcon,
+        Grid,
+        DateInput,
+        CardAvatar,
+        BanlistIcon,
+        SetAvatar,
     },
 
     setup() {
@@ -150,7 +219,12 @@ export default defineComponent({
 
         const formats = computed(() => magic.data.formats ?? []);
 
-        const { format, date, order } = pageSetup({
+        const {
+            format,
+            timeline: showTimeline,
+            date,
+            order,
+        } = pageSetup({
             title: () => i18n.t('magic.ui.format.$self'),
 
             params: {
@@ -161,6 +235,12 @@ export default defineComponent({
                     inTitle: true,
                     values:  formats,
                     label:   (v: string) => i18n.t(`magic.format.${v}`),
+                },
+                timeline: {
+                    type:    'boolean',
+                    bind:    'query',
+                    inTitle: true,
+                    icon:    ['mdi-timeline-outline', 'mdi-timeline'],
                 },
                 date: {
                     type: 'date',
@@ -197,6 +277,76 @@ export default defineComponent({
             }
         });
 
+        const nodes = computed(() => {
+            const result: TimelineNode[] = [];
+
+            for (const v of timeline.value) {
+                const node = result.find(r => r.date === v.date);
+
+                if (v.type === 'format') {
+                    const formatValue = [
+                        ...v.in.map(s => ({ set: s, type: 'in' })),
+                        ...v.out.map(s => ({ set: s, type: 'out' })),
+                    ];
+
+                    if (node == null) {
+                        result.push({
+                            date:    v.date,
+                            link:    [],
+                            format:  formatValue,
+                            banlist: [],
+                        });
+                    } else {
+                        node.format.push(...formatValue);
+                    }
+                } else {
+                    const banlistValue = {
+                        group:  v.group,
+                        card:   v.card,
+                        status: v.status,
+                    };
+
+                    if (node == null) {
+                        result.push({
+                            date:    v.date,
+                            link:    v.link,
+                            format:  [],
+                            banlist: [banlistValue],
+                        });
+                    } else {
+                        node.link.push(...v.link);
+                        node.banlist.push(banlistValue);
+                    }
+                }
+            }
+
+            for (const v of result) {
+                v.link = uniq(v.link);
+
+                v.format.sort((a, b) => {
+                    if (a.type !== b.type) {
+                        return a.type === 'in' ? -1 : 1;
+                    } else {
+                        return a.set < b.set ? -1 : a.set > b.set ? 1 : 0;
+                    }
+                });
+
+                v.banlist.sort((a, b) => {
+                    if (a.status !== b.status) {
+                        return banlistStatusOrder.indexOf(a.status)
+                                - banlistStatusOrder.indexOf(b.status);
+                    } else if (a.group !== b.group) {
+                        return banlistSourceOrder.indexOf(a.group ?? null)
+                                - banlistSourceOrder.indexOf(b.group ?? null);
+                    } else {
+                        return a.card < b.card ? -1 : 1;
+                    }
+                });
+            }
+
+            return result;
+        });
+
         const sets = computed(() => {
             if (date.value == null || !['standard', 'pioneer', 'modern', 'extended', 'brawl'].includes(format.value)) {
                 return data.value?.sets ?? [];
@@ -211,6 +361,7 @@ export default defineComponent({
 
                         result.push(...c.in);
 
+                        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                         result = result.filter(s => !c.out.includes(s));
                     }
                 }
@@ -360,6 +511,7 @@ export default defineComponent({
 
         return {
             format,
+            showTimeline,
             date,
             order,
 
@@ -372,6 +524,7 @@ export default defineComponent({
             timelineEvents,
             sets,
             banlist,
+            nodes,
 
             groupShort,
             toPrevDate,
