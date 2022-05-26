@@ -5,7 +5,7 @@
     "scripts": {
         "lint": "eslint ./src ./data --ext js,ts --cache --fix",
         "dev": "npx nodemon --inspect src/app.ts -- ../../../server-config.json",
-        "build": "tsc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist",
+        "build": "tsc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist && cp src/search/syntax.pegjs dist/src/search/syntax.pegjs",
         "postinstall": "patch-package"
     },
     "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
