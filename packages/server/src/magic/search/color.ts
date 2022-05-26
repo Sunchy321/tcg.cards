@@ -1,47 +1,39 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import { QueryError } from '@/search';
+import { Command, command } from '@/search/command';
+import { QueryError } from '@/search/searcher';
 
 const colorEnums = 'WUBRGOP'.split('');
 
-export default function colorQuery(
+function query(
     key: string,
-    param: RegExp | string,
-    op: string | undefined,
+    param: string,
+    op: ':' | '<' | '<=' | '=' | '>' | '>=',
+    qual: '!'[],
 ) {
-    if (param instanceof RegExp) {
-        throw new QueryError({
-            type:  'regex/disabled',
-            value: op ?? '',
-        });
-    }
-
     const text = param.toLowerCase();
 
     if (text === 'c' || text === 'colorless') {
         switch (op) {
         case ':':
         case '=':
-            return { [key]: '' };
-        case '!:':
-        case '!=':
-            return { [key]: { $ne: '' } };
+            if (!qual.includes('!')) {
+                return { [key]: '' };
+            } else {
+                return { [key]: { $ne: '' } };
+            }
         default:
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         }
     } else if (text === 'm' || text === 'multicolor') {
         switch (op) {
         case ':':
-            return { [key]: /../ };
-        case '!:':
-            return { [key]: { $not: /../ } };
+            if (!qual.includes('!')) {
+                return { [key]: /../ };
+            } else {
+                return { [key]: { $not: /../ } };
+            }
         default:
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         }
     }
 
@@ -51,9 +43,11 @@ export default function colorQuery(
 
         switch (op) {
         case '=':
-            return { [key]: new RegExp(`^.{${count}}$`) };
-        case '!=':
-            return { [key]: { $not: new RegExp(`^.{${count}}$`) } };
+            if (!qual.includes('!')) {
+                return { [key]: new RegExp(`^.{${count}}$`) };
+            } else {
+                return { [key]: { $not: new RegExp(`^.{${count}}$`) } };
+            }
         case '>':
             return { [key]: new RegExp(`^.{${count + 1},}$`) };
         case '>=':
@@ -63,10 +57,7 @@ export default function colorQuery(
         case '<=':
             return { [key]: new RegExp(`^.{0,${count}}$`) };
         default:
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         }
     }
 
@@ -142,10 +133,7 @@ export default function colorQuery(
         const chars = text.toUpperCase().split('');
 
         if (chars.some(c => !colorEnums.includes(c))) {
-            throw new QueryError({
-                type:  'color/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         }
 
         return colorEnums.filter(c => chars.includes(c));
@@ -153,26 +141,31 @@ export default function colorQuery(
 
     switch (op) {
     case ':':
+        if (qual.includes('!')) {
+            return {
+                [key]: {
+                    $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : `${c}?`)).join('')}$`),
+                },
+            };
+        }
+        // fallthrough
     case '>=':
         return {
             [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : `${c}?`)).join('')}$`),
         };
-    case '!:':
-        return {
-            [key]: {
-                $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : `${c}?`)).join('')}$`),
-            },
-        };
+
     case '=':
-        return {
-            [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : '')).join('')}$`),
-        };
-    case '!=':
-        return {
-            [key]: {
-                $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : '')).join('')}$`),
-            },
-        };
+        if (!qual.includes('!')) {
+            return {
+                [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : '')).join('')}$`),
+            };
+        } else {
+            return {
+                [key]: {
+                    $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : '')).join('')}$`),
+                },
+            };
+        }
     case '>':
         return {
             [key]: new RegExp(
@@ -193,9 +186,25 @@ export default function colorQuery(
             ),
         };
     default:
-        throw new QueryError({
-            type:  'operator/unsupported',
-            value: op ?? '',
-        });
+        throw new QueryError({ type: 'invalid-query' });
     }
 }
+
+export default function color(config: {
+    id: string;
+    alt?: string[];
+    key?: string;
+}): Command<never, false, '<' | '<=' | '=' | '>' | '>=', '!'> {
+    const { id, alt, key } = config;
+
+    return command({
+        id,
+        alt,
+        allowRegex: false,
+        op:         ['=', '<', '<=', '>', '>='],
+
+        query: ({ param, op, qual }) => query(key ?? id, param, op, qual),
+    });
+}
+
+color.query = query;

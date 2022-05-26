@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import { QueryError } from '@/search';
+import { Command, command } from '@/search/command';
+import { QueryError } from '@/search/searcher';
+
 import { range } from 'lodash';
 
 const statsNumber = range(-10, 100, 0.5);
@@ -21,18 +22,12 @@ function toStatsList(numbers: number[]) {
     return result;
 }
 
-export default function halfNumberQuery(
+function query(
     key: string,
-    param: RegExp | string,
-    op: string | undefined,
+    param: string,
+    op: ':' | '<' | '<=' | '=' | '>' | '>=',
+    qual: '!'[],
 ) {
-    if (typeof param !== 'string') {
-        throw new QueryError({
-            type:  'regex/disabled',
-            value: '',
-        });
-    }
-
     // special case for [X]
     if (param === 'x') {
         param = param.toUpperCase();
@@ -50,74 +45,71 @@ export default function halfNumberQuery(
     switch (op) {
     case ':':
         if (param === '*') {
-            return { [key]: { $exists: true, $nin: toStatsList(statsNumber) } };
+            if (!qual.includes('!')) {
+                return { [key]: { $exists: true, $nin: toStatsList(statsNumber) } };
+            } else {
+                return { [key]: { $in: toStatsList(statsNumber) } };
+            }
         } else {
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
-        }
-    case '!:':
-        if (param === '*') {
-            return { [key]: { $in: toStatsList(statsNumber) } };
-        } else {
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         }
     case '=':
-        if (Number.isNaN(num)) {
-            return { [key]: param };
+        if (!qual.includes('!')) {
+            if (Number.isNaN(num)) {
+                return { [key]: param };
+            } else {
+                return { [key]: { $in: equal } };
+            }
         } else {
-            return { [key]: { $in: equal } };
-        }
-    case '!=':
-        if (Number.isNaN(num)) {
-            return { [key]: { $ne: param } };
-        } else {
-            return { [key]: { $exists: true, $nin: equal } };
+            if (Number.isNaN(num)) {
+                return { [key]: { $ne: param } };
+            } else {
+                return { [key]: { $exists: true, $nin: equal } };
+            }
         }
     case '>':
         if (Number.isNaN(num)) {
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         } else {
             return { [key]: { $in: greater } };
         }
     case '>=':
         if (Number.isNaN(num)) {
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         } else {
             return { [key]: { $in: [...greater, ...equal] } };
         }
     case '<':
         if (Number.isNaN(num)) {
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         } else {
             return { [key]: { $in: less } };
         }
     case '<=':
         if (Number.isNaN(num)) {
-            throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
-            });
+            throw new QueryError({ type: 'invalid-query' });
         } else {
             return { [key]: { $in: [...less, ...equal] } };
         }
     default:
-        throw new QueryError({
-            type:  'operator/unsupported',
-            value: op ?? '',
-        });
+        return 0;
     }
 }
+
+export default function halfNumber(config: {
+    id: string;
+    alt?: string[];
+    key?: string;
+}): Command<never, false, ':' | '<' | '<=' | '=' | '>' | '>=', '!'> {
+    const { id, alt, key } = config;
+
+    return command({
+        id,
+        alt,
+        op: [':', '=', '<', '<=', '>', '>='],
+
+        query: ({ param, op, qual }) => query(key ?? id, param, op, qual),
+    });
+}
+
+halfNumber.query = query;

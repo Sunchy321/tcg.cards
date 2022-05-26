@@ -1,30 +1,27 @@
-import { QueryError } from '@/search';
+import { Command, command } from '@/search/command';
+import { QueryError } from '@/search/searcher';
 
 import { flatten } from 'lodash';
 
 import { specificManaSymbols } from '@data/magic/basic';
 
-export default function costQuery(
-    param: RegExp | string,
-    op: string | undefined,
+function query(
+    param: string,
+    op: ':' | '<' | '<=' | '=' | '>' | '>=',
+    qual: '!'[],
 ): any {
-    if (param instanceof RegExp) {
-        throw new QueryError({
-            type:  'regex/disabled',
-            value: op ?? '',
-        });
-    }
-
     if (param === 'null') {
         switch (op) {
         case ':':
-            return { 'parts.cost': { $exists: false } };
-        case '!:':
-            return { 'parts.cost': { $exists: true } };
+            if (!qual.includes('!')) {
+                return { 'parts.cost': { $exists: false } };
+            } else {
+                return { 'parts.cost': { $exists: true } };
+            }
         default:
             throw new QueryError({
-                type:  'operator/unsupported',
-                value: op ?? '',
+                type:  'unsupported-operator',
+                value: { op, qual, param },
             });
         }
     }
@@ -57,41 +54,45 @@ export default function costQuery(
 
     switch (op) {
     case ':':
-        return Object.fromEntries(
-            Object.entries(costMap)
-                .filter(e => e[1] !== 0)
-                .map(([k, v]) => [`parts.__costMap.${k}`, k === '' ? v : { $gte: v }]),
-        );
-    case '!:':
-        return {
-            $or: flatten(
+        if (!qual.includes('!')) {
+            return Object.fromEntries(
                 Object.entries(costMap)
                     .filter(e => e[1] !== 0)
-                    .map(([k, v]) => [
-                        { [`parts.__costMap.${k}`]: { $lt: v } },
-                        { [`parts.__costMap.${k}`]: { $exists: false } },
-                    ]),
-            ),
-        };
-    case '=':
-        return {
-            $and: Object.entries(costMap)
-                .map(([k, v]) => (v === 0
-                    ? {
-                        $or: [
-                            { [`parts.__costMap.${k}`]: 0 },
+                    .map(([k, v]) => [`parts.__costMap.${k}`, k === '' ? v : { $gte: v }]),
+            );
+        } else {
+            return {
+                $or: flatten(
+                    Object.entries(costMap)
+                        .filter(e => e[1] !== 0)
+                        .map(([k, v]) => [
+                            { [`parts.__costMap.${k}`]: { $lt: v } },
                             { [`parts.__costMap.${k}`]: { $exists: false } },
-                        ],
-                    }
-                    : { [`parts.__costMap.${k}`]: v })),
-        };
-    case '!=':
-        return {
-            $or: [
-                { 'parts.cost': { $exists: false } },
-                ...notEqual,
-            ],
-        };
+                        ]),
+                ),
+            };
+        }
+    case '=':
+        if (!qual.includes('!')) {
+            return {
+                $and: Object.entries(costMap)
+                    .map(([k, v]) => (v === 0
+                        ? {
+                            $or: [
+                                { [`parts.__costMap.${k}`]: 0 },
+                                { [`parts.__costMap.${k}`]: { $exists: false } },
+                            ],
+                        }
+                        : { [`parts.__costMap.${k}`]: v })),
+            };
+        } else {
+            return {
+                $or: [
+                    { 'parts.cost': { $exists: false } },
+                    ...notEqual,
+                ],
+            };
+        }
     case '>=':
         return Object.fromEntries(
             Object.entries(costMap)
@@ -133,9 +134,22 @@ export default function costQuery(
             ],
         };
     default:
-        throw new QueryError({
-            type:  'operator/unsupported',
-            value: op ?? '',
-        });
+        throw new QueryError({ type: 'invalid-query' });
     }
 }
+
+export default function cost(config: {
+    id: string;
+    alt?: string[];
+}): Command<never, false, ':' | '<' | '<=' | '=' | '>' | '>=', '!'> {
+    const { id, alt } = config;
+
+    return command({
+        id,
+        alt,
+        allowRegex: false,
+        query:      ({ param, op, qual }) => query(param, op, qual),
+    });
+}
+
+cost.query = query;

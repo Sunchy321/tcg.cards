@@ -1,15 +1,15 @@
-import { Command, DBQuery, Options } from '@/search/interface';
+import {
+    DBQuery, Options, QueryError, createSearcher,
+} from '@/search/searcher';
+import { PostAction, command } from '@/search/command';
 
 import Card from '@/magic/db/card';
 
-import { QueryError, createSearcher } from '@/search';
+import * as builtin from '@/search/builtin';
 
-import simpleQuery from './simple';
-import textQuery from './text';
-import numberQuery from './number';
-import colorQuery from './color';
-import costQuery from './cost';
-import halfNumberQuery from './half-number';
+import color from './color';
+import cost from './cost';
+import halfNumber from './half-number';
 
 import { toIdentifier } from '../util';
 
@@ -27,9 +27,54 @@ function parseOption(text: string | undefined, defaultValue: number): number {
     return num;
 }
 
-const model = {
+const orderByCommand = command({
+    id:         'order',
+    postStep:   'order',
+    allowRegex: false,
+    op:         [':'],
+    qual:       [],
+
+    post: ({ param }) => {
+        param = param.toLowerCase();
+
+        const [type, dir] = (() => {
+            if (param.endsWith('+')) {
+                return [param.slice(0, -1), 1];
+            }
+
+            if (param.endsWith('-')) {
+                return [param.slice(0, -1), -1];
+            }
+
+            return [param, 1];
+        })();
+
+        return agg => {
+            switch (type) {
+            case 'name':
+                agg.sort({ 'part.unified.name': dir });
+                break;
+            case 'date':
+                agg.sort({ releaseDate: dir });
+                break;
+            case 'id':
+                agg.sort({ cardId: dir });
+                break;
+            case 'cmc':
+            case 'mv':
+            case 'cost':
+                agg.sort({ manaValue: dir });
+                break;
+            default:
+                throw new QueryError({ type: 'invalid-query' });
+            }
+        };
+    },
+});
+
+export default createSearcher({
     commands: [
-        {
+        command({
             id:    '',
             query: ({ param }) => {
                 if (typeof param === 'string') {
@@ -38,8 +83,8 @@ const model = {
                         const [power, toughness] = param.split('/');
 
                         return {
-                            ...halfNumberQuery('parts.power', power, '='),
-                            ...halfNumberQuery('parts.toughness', toughness, '='),
+                            ...halfNumber.query('parts.power', power, '=', []),
+                            ...halfNumber.query('parts.toughness', toughness, '=', []),
                         };
                     }
 
@@ -54,10 +99,10 @@ const model = {
                     if (/^(\{[^}]+\})+$/.test(param)) {
                         return {
                             $or: [
-                                textQuery('parts.oracle.text', param, ':'),
-                                textQuery('parts.unified.text', param, ':'),
-                                textQuery('parts.printed.text', param, ':'),
-                                costQuery(param, ':'),
+                                builtin.text.query('parts.oracle.text', param, ':', []),
+                                builtin.text.query('parts.unified.text', param, ':', []),
+                                builtin.text.query('parts.printed.text', param, ':', []),
+                                cost.query(param, ':', []),
                             ],
                         };
                     }
@@ -65,16 +110,18 @@ const model = {
 
                 return {
                     $or: [
-                        textQuery('parts.oracle.name', param, ':'),
-                        textQuery('parts.unified.name', param, ':'),
+                        builtin.text.query('parts.oracle.name', param, ':', []),
+                        builtin.text.query('parts.unified.name', param, ':', []),
                     ],
                 };
             },
-        },
-        {
-            id:    '#',
-            query: ({ param, op }) => {
-                if (op === ':') {
+        }),
+        command({
+            id:         '#',
+            allowRegex: false,
+            op:         [''],
+            query:      ({ param, qual }) => {
+                if (!qual.includes('!')) {
                     return {
                         $or: [
                             { tags: param },
@@ -90,174 +137,97 @@ const model = {
                     };
                 }
             },
-        },
-        {
-            id:    'layout',
-            query: ({ param, op }) => simpleQuery('layout', param, op),
-        },
-        {
-            id:    'set',
-            alt:   ['expansion', 's', 'e'],
-            query: ({ param, op }) => simpleQuery('set', param, op),
-        },
-        {
-            id:    'number',
-            alt:   ['num'],
-            query: ({ param, op }) => simpleQuery('number', param, op),
-        },
-        {
-            id:    'lang',
-            alt:   ['l'],
-            query: ({ param, op }) => simpleQuery('lang', param, op),
-        },
-        {
-            id:    'cost',
-            alt:   ['mana', 'mana-cost', 'm'],
-            query: ({ param, op }) => costQuery(param, op),
-        },
-        {
-            id:    'mana-value',
-            alt:   ['mv', 'cmc'],
-            query: ({ param, op }) => numberQuery('manaValue', param, op),
-        },
-        {
-            id:    'color',
-            alt:   ['c'],
-            query: ({ param, op }) => colorQuery('parts.color', param, op),
-        },
-        {
-            id:    'color-identity',
-            alt:   ['cd'],
-            query: ({ param, op }) => colorQuery('colorIdentity', param, op),
-        },
-        {
-            id:    'color-indicator',
-            alt:   ['ci'],
-            query: ({ param, op }) => colorQuery('parts.colorIndicator', param, op),
-        },
-        {
-            id:    'power',
-            alt:   ['pow'],
-            query: ({ param, op }) => halfNumberQuery('parts.power', param, op),
-        },
-        {
-            id:    'toughness',
-            alt:   ['tou'],
-            query: ({ param, op }) => halfNumberQuery('parts.toughness', param, op),
-        },
-        {
-            id:    'loyalty',
-            query: ({ param, op }) => halfNumberQuery('parts.loyalty', param, op),
-        },
-        {
-            id:    'name.oracle',
-            alt:   ['on'],
-            query: ({ param, op }) => textQuery('parts.oracle.name', param, op),
-        },
-        {
-            id:    'name.unified',
-            alt:   ['un'],
-            query: ({ param, op }) => textQuery('parts.unified.name', param, op),
-        },
-        {
-            id:    'name.printed',
-            alt:   ['pn'],
-            query: ({ param, op }) => textQuery('parts.printed.name', param, op),
-        },
-        {
+        }),
+        builtin.simple({ id: 'layout' }),
+        builtin.simple({ id: 'set', alt: ['expansion', 's', 'e'] }),
+        builtin.simple({ id: 'number', alt: ['num'] }),
+        builtin.simple({ id: 'lang', alt: ['l'] }),
+        cost({ id: 'cost', alt: ['mana', 'mana-cost', 'm'] }),
+        builtin.number({ id: 'mana-value', alt: ['mv', 'cmc'], key: 'manaValue' }),
+        color({ id: 'color', alt: ['c'], key: 'parts.color' }),
+        color({ id: 'color-identity', alt: ['cd'], key: 'colorIdentity' }),
+        color({ id: 'color-indicator', alt: ['ci'], key: 'parts.colorIndicator' }),
+        halfNumber({ id: 'power', alt: ['power'], key: 'parts.power' }),
+        halfNumber({ id: 'toughness', alt: ['tou'], key: 'parts.toughness' }),
+        halfNumber({ id: 'loyalty', alt: ['power'], key: 'parts.loyalty' }),
+        builtin.text({ id: 'name.oracle', alt: ['on'], key: 'parts.oracle.name' }),
+        builtin.text({ id: 'name.unified', alt: ['un'], key: 'parts.unified.name' }),
+        builtin.text({ id: 'name.printed', alt: ['pn'], key: 'parts.printed.name' }),
+        command({
             id:    'name',
             alt:   ['n'],
-            query: ({ param, op }) => ({
-                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
-                    textQuery('parts.oracle.name', param, op),
-                    textQuery('parts.unified.name', param, op),
-                    textQuery('parts.printed.name', param, op),
+            op:    [':', '='],
+            query: ({ param, op, qual }) => ({
+                [!qual.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query('parts.oracle.name', param, op, qual),
+                    builtin.text.query('parts.unified.name', param, op, qual),
+                    builtin.text.query('parts.printed.name', param, op, qual),
                 ],
             }),
-        },
-        {
-            id:    'type.oracle',
-            alt:   ['ot'],
-            query: ({ param, op }) => textQuery('parts.oracle.typeline', param, op),
-        },
-        {
-            id:    'type.unified',
-            alt:   ['ut'],
-            query: ({ param, op }) => textQuery('parts.unified.typeline', param, op),
-        },
-        {
-            id:    'type.printed',
-            alt:   ['pt'],
-            query: ({ param, op }) => textQuery('parts.printed.typeline', param, op),
-        },
-        {
+        }),
+        command({
+            id:    'name',
+            alt:   ['n'],
+            op:    [':', '='],
+            query: ({ param, op, qual }) => ({
+                [!qual.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query('parts.oracle.name', param, op, qual),
+                    builtin.text.query('parts.unified.name', param, op, qual),
+                    builtin.text.query('parts.printed.name', param, op, qual),
+                ],
+            }),
+        }),
+        builtin.text({ id: 'type.oracle', alt: ['ot'], key: 'parts.oracle.typeline' }),
+        builtin.text({ id: 'type.unified', alt: ['ut'], key: 'parts.unified.typeline' }),
+        builtin.text({ id: 'type.printed', alt: ['pt'], key: 'parts.printed.typeline' }),
+        command({
             id:    'type',
             alt:   ['t'],
-            query: ({ param, op }) => ({
-                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
-                    textQuery('parts.oracle.typeline', param, op),
-                    textQuery('parts.unified.typeline', param, op),
-                    textQuery('parts.printed.typeline', param, op),
+            op:    [':', '='],
+            query: ({ param, op, qual }) => ({
+                [!qual.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query('parts.oracle.typeline', param, op, qual),
+                    builtin.text.query('parts.unified.typeline', param, op, qual),
+                    builtin.text.query('parts.printed.typeline', param, op, qual),
                 ],
             }),
-        },
-        {
-            id:    'text.oracle',
-            alt:   ['ox'],
-            query: ({ param, op }) => textQuery('parts.oracle.text', param, op),
-        },
-        {
-            id:    'text.unified',
-            alt:   ['ux'],
-            query: ({ param, op }) => textQuery('parts.unified.text', param, op),
-        },
-        {
-            id:    'text.printed',
-            alt:   ['px'],
-            query: ({ param, op }) => textQuery('parts.printed.text', param, op),
-        },
-        {
+        }),
+        builtin.text({ id: 'text.oracle', alt: ['ox'], key: 'parts.oracle.text' }),
+        builtin.text({ id: 'text.unified', alt: ['ux'], key: 'parts.unified.text' }),
+        builtin.text({ id: 'text.printed', alt: ['px'], key: 'parts.printed.text' }),
+        command({
             id:    'text',
             alt:   ['x'],
-            query: ({ param, op }) => ({
-                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
-                    textQuery('parts.oracle.text', param, op),
-                    textQuery('parts.unified.text', param, op),
-                    textQuery('parts.printed.text', param, op),
+            op:    [':', '='],
+            query: ({ param, op, qual }) => ({
+                [!qual.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query('parts.oracle.text', param, op, qual),
+                    builtin.text.query('parts.unified.text', param, op, qual),
+                    builtin.text.query('parts.printed.text', param, op, qual),
                 ],
             }),
-        },
-        {
+        }),
+        command({
             id:    'text.oracle-or-unified',
             alt:   ['o'],
-            query: ({ param, op }) => ({
-                [op != null && ['!:', '!='].includes(op) ? '$and' : '$or']: [
-                    textQuery('parts.oracle.text', param, op),
-                    textQuery('parts.unified.text', param, op),
+            op:    [':', '='],
+            query: ({ param, op, qual }) => ({
+                [!qual.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query('parts.oracle.text', param, op, qual),
+                    builtin.text.query('parts.unified.text', param, op, qual),
                 ],
             }),
-        },
-        {
-            id:    'flavor-text',
-            alt:   ['flavor', 'ft'],
-            query: ({ param, op }) => textQuery('parts.flavorText', param, op, false),
-        },
-        {
-            id:    'flavor-name',
-            alt:   ['fn'],
-            query: ({ param, op }) => textQuery('parts.flavorName', param, op),
-        },
-        {
-            id:    'rarity',
-            alt:   ['r'],
-            query: ({ param, op }) => {
-                if (param instanceof RegExp) {
-                    throw new QueryError({
-                        type:  'regex/disabled',
-                        value: '',
-                    });
-                }
-
+        }),
+        builtin.text({
+            id: 'flavor-text', alt: ['flavor', 'ft'], key: 'parts.flavorText', multiline: false,
+        }),
+        builtin.text({ id: 'flavor-name', alt: ['fn'], key: 'parts.flavorName' }),
+        command({
+            id:         'rarity',
+            alt:        ['r'],
+            allowRegex: false,
+            op:         [':', '='],
+            query:      ({ param, op, qual }) => {
                 const rarity = (
                     {
                         c: 'common',
@@ -268,146 +238,74 @@ const model = {
                     } as Record<string, string>
                 )[param] || param;
 
-                return simpleQuery('rarity', rarity, op);
+                return builtin.simple.query('rarity', rarity, op, qual);
             },
-        },
-        {
-            id:    'format',
-            alt:   ['f'],
-            query: ({ param, op }) => {
-                if (param instanceof RegExp) {
-                    throw new QueryError({
-                        type:  'regex/disabled',
-                        value: '',
-                    });
-                }
-
+        }),
+        command({
+            id:         'format',
+            alt:        ['f'],
+            allowRegex: false,
+            op:         [':'],
+            query:      ({ param, qual }) => {
                 if (param.includes(',')) {
                     const [format, status] = param.split(',');
 
-                    switch (op) {
-                    case ':':
-                        return {
-                            [`legalities.${format}`]: status,
-                        };
-                    case '!:':
-                        return {
-                            [`legalities.${format}`]: { $ne: status },
-                        };
-                    default:
-                        throw new QueryError({
-                            type:  'operator/unsupported',
-                            value: op ?? '',
-                        });
+                    if (!qual.includes('!')) {
+                        return { [`legalities.${format}`]: status };
+                    } else {
+                        return { [`legalities.${format}`]: { $ne: status } };
                     }
                 } else {
-                    switch (op) {
-                    case ':':
+                    if (!qual.includes('!')) {
                         return {
                             [`legalities.${param}`]: { $in: ['legal', 'restricted'] },
                         };
-                    case '!:':
+                    } else {
                         return {
                             [`legalities.${param}`]: { $nin: ['legal', 'restricted'] },
                         };
-                    default:
-                        throw new QueryError({
-                            type:  'operator/unsupported',
-                            value: op ?? '',
-                        });
                     }
                 }
             },
-        },
-        {
-            id:    'counter',
-            query: ({ param, op }) => {
-                if (param instanceof RegExp) {
-                    throw new QueryError({
-                        type:  'regex/disabled',
-                        value: '',
-                    });
-                }
-
+        }),
+        command({
+            id:         'counter',
+            allowRegex: false,
+            op:         [':'],
+            query:      ({ param, qual }) => {
                 param = toIdentifier(param);
 
-                switch (op) {
-                case ':':
-                    return {
-                        counters: param,
-                    };
-                case '!:':
-                    return {
-                        counters: { $ne: param },
-                    };
-                default:
-                    throw new QueryError({
-                        type:  'operator/unsupported',
-                        value: op ?? '',
-                    });
+                if (!qual.includes('!')) {
+                    return { counters: param };
+                } else {
+                    return { counters: { $ne: param } };
                 }
             },
-        },
-        {
-            id:    'keyword',
-            query: ({ param, op }) => {
-                if (param instanceof RegExp) {
-                    throw new QueryError({
-                        type:  'regex/disabled',
-                        value: '',
-                    });
-                }
-
+        }),
+        command({
+            id:         'keyword',
+            allowRegex: false,
+            op:         [':'],
+            query:      ({ param, qual }) => {
                 param = toIdentifier(param);
 
-                switch (op) {
-                case ':':
-                    return {
-                        keywords: param,
-                    };
-                case '!:':
-                    return {
-                        keywords: { $ne: param },
-                    };
-                default:
-                    throw new QueryError({
-                        type:  'operator/unsupported',
-                        value: op ?? '',
-                    });
+                if (!qual.includes('!')) {
+                    return { keywords: param };
+                } else {
+                    return { keywords: { $ne: param } };
                 }
             },
-        },
+        }),
 
-        {
-            id:    'rc-none',
-            query: ({ param, op }) => {
-                if (param instanceof RegExp) {
-                    throw new QueryError({
-                        type:  'regex/disabled',
-                        value: op ?? '',
-                    });
-                }
+        orderByCommand,
+    ],
 
-                switch (op) {
-                case ':':
-                    return { relatedCards: { $not: { $elemMatch: { relation: param } } } };
-                default:
-                    throw new QueryError({
-                        type:  'operator/unsupported',
-                        value: op ?? '',
-                    });
-                }
-            },
-        },
-    ] as Command[],
-
-    search: async (q: DBQuery, o: Options) => {
-        const groupBy = o['group-by'] || 'card';
-        const sortBy = o['sort-by'] || 'id';
-        const sortDir = o['sort-dir'] === 'desc' ? -1 : 1;
+    search: async (q: DBQuery, p: PostAction[], o: Options) => {
+        const groupBy = o['group-by'] ?? 'card';
+        const orderBy = o['order-by'] ?? 'id+';
         const page = parseOption(o.page, 1);
         const pageSize = parseOption(o['page-size'], 100);
-        const locale = o.locale || 'en';
+        const locale = o.locale ?? 'en';
 
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
@@ -442,18 +340,12 @@ const model = {
                 .group({ _id: null, count: { $sum: 1 } })
         )[0]?.count ?? 0;
 
-        switch (sortBy) {
-        case 'name':
-            aggregate
-                .addFields({ firstPart: { $first: '$part' } })
-                .sort({ 'part.unified.name': sortDir });
-            break;
-        case 'date':
-            aggregate.sort({ releaseDate: sortDir });
-            break;
-        case 'id':
-        default:
-            aggregate.sort({ cardId: sortDir });
+        const orderAction = p.find(v => v.step === 'order');
+
+        if (orderAction != null) {
+            orderAction.action(aggregate);
+        } else {
+            orderByCommand.post!({ param: orderBy, op: ':', qual: [] })(aggregate);
         }
 
         aggregate.skip((page - 1) * pageSize);
@@ -485,12 +377,12 @@ const model = {
     },
 
     searchId: async (q: DBQuery) => {
-        const result = await Card.aggregate().allowDiskUse(true).match({ $and: q }).group({ _id: '$cardId' });
+        const result = await Card
+            .aggregate()
+            .allowDiskUse(true)
+            .match({ $and: q })
+            .group({ _id: '$cardId' });
 
         return result.map(v => v._id) as string[];
     },
-};
-
-const searcher = createSearcher(model);
-
-export default searcher;
+});
