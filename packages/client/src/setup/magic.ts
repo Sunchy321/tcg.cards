@@ -23,7 +23,7 @@ export default function magicSetup(): {
 
     const random = async () => {
         const { data: id } = await apiGet<string>('/magic/card/random', {
-            params: { q: core.search },
+            q: core.search,
         });
 
         if (id !== '') {

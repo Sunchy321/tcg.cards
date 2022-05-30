@@ -11,11 +11,11 @@ export function toIdentifier(text: string): string {
         .replace(/[^a-z0-9]/g, '_');
 }
 
-interface IType {
+type Type = {
     typeSuper?: string[];
     typeMain: string[];
     typeSub?: string[];
-}
+};
 
 const superList = [
     // formal supertype
@@ -39,7 +39,7 @@ const typeMainMap: Record<string, string> = {
     eaturecray: 'creature',
 };
 
-export function parseTypeline(typeline: string): IType {
+export function parseTypeline(typeline: string): Type {
     const [main, sub] = typeline.split('—').map(s => s.trim());
 
     const mainWord = main
@@ -87,4 +87,8 @@ export function convertLegality(legalities: SLegalities): Legalities {
             }[k]?.[v] ?? (v === 'not_legal' ? 'unavailable' : v),
         ]),
     );
+}
+
+export function force<T>(value: T): T {
+    return value;
 }

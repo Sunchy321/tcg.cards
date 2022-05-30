@@ -9,7 +9,7 @@ export type Legalities = Record<string, Legality>;
 export type Layout =
     'adventure' | 'aftermath' | 'augment' | 'class' | 'emblem' | 'flip' | 'host' | 'leveler' | 'meld' | 'minigame' | 'modal_dfc' | 'multipart' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'token' | 'transform' | 'vanguard';
 
-export interface Card {
+export type Card = {
     cardId: string;
 
     lang: string;
@@ -36,20 +36,20 @@ export interface Card {
 
         oracle: {
             name: string;
-            text?: string;
             typeline: string;
+            text?: string;
         };
 
         unified: {
             name: string;
-            text?: string;
             typeline: string;
+            text?: string;
         };
 
         printed: {
             name: string;
-            text?: string;
             typeline: string;
+            text?: string;
         };
 
         scryfallIllusId?: string[];

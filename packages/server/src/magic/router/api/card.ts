@@ -10,6 +10,7 @@ import {
     mapValues, omitBy, random,
 } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
+import { force } from '@/magic/util';
 
 import searcher from '@/magic/search';
 
@@ -17,7 +18,23 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
 
-async function find(id: string, lang?: string, set?: string, number?: string): Promise<ICard[]> {
+interface Version {
+    lang: string;
+    set: string;
+    number: string;
+    rarity: string;
+}
+
+router.get('/', async ctx => {
+    const {
+        id, lang, set, number,
+    } = mapValues(ctx.query, toSingle);
+
+    if (id == null) {
+        ctx.status = 400;
+        return;
+    }
+
     const aggregate = Card.aggregate().allowDiskUse(true);
 
     aggregate.match(omitBy({ cardId: id, set, number }, v => v == null));
@@ -45,34 +62,130 @@ async function find(id: string, lang?: string, set?: string, number?: string): P
             'scryfall.imageUris': 0,
         });
 
-    return aggregate as unknown as Promise<ICard[]>;
-}
+    const cards: ICard[] = await aggregate;
 
-interface Version {
-    lang: string;
-    set: string;
-    number: string;
-    rarity: string;
-}
-
-router.get('/', async ctx => {
-    const {
-        id, lang, set, number,
-    } = mapValues(ctx.query, toSingle);
-
-    if (id == null) {
-        ctx.status = 400;
-        return;
-    }
-
-    const cards = await find(id, lang, set, number);
     const versions = await Card.aggregate<Version>()
         .match({ cardId: id })
         .sort({ releaseDate: -1 })
         .project('-_id lang set number rarity');
 
     if (cards.length !== 0) {
-        ctx.body = { ...cards[0], versions };
+        const c = cards[0];
+
+        ctx.body = force<ICard & { versions: Version[] }>({
+            cardId: c.cardId,
+
+            lang:   c.lang,
+            set:    c.set,
+            number: c.number,
+
+            manaValue:     c.manaValue,
+            colorIdentity: c.colorIdentity,
+
+            parts: c.parts.map(p => ({
+                cost:           p.cost,
+                color:          p.color,
+                colorIndicator: p.colorIndicator,
+
+                typeSuper: p.typeSuper,
+                typeMain:  p.typeMain,
+                typeSub:   p.typeSub,
+
+                power:        p.power,
+                toughness:    p.toughness,
+                loyalty:      p.loyalty,
+                handModifier: p.handModifier,
+                lifeModifier: p.lifeModifier,
+
+                oracle: {
+                    name:     p.oracle.name,
+                    typeline: p.oracle.typeline,
+                    text:     p.oracle.text,
+                },
+
+                unified: {
+                    name:     p.unified.name,
+                    typeline: p.unified.typeline,
+                    text:     p.unified.text,
+                },
+
+                printed: {
+                    name:     p.printed.name,
+                    typeline: p.printed.typeline,
+                    text:     p.printed.text,
+                },
+
+                scryfallIllusId: p.scryfallIllusId,
+                flavorName:      p.flavorName,
+                flavorText:      p.flavorText,
+                artist:          p.artist,
+                watermark:       p.watermark,
+            })),
+
+            versions: versions.map(v => ({
+                lang:   v.lang,
+                set:    v.set,
+                number: v.number,
+                rarity: v.rarity,
+            })),
+
+            relatedCards: c.relatedCards.map(r => ({
+                relation: r.relation,
+                cardId:   r.cardId,
+                version:  r.version,
+            })),
+
+            rulings: c.rulings.map(r => ({
+                source: r.source,
+                date:   r.date,
+                text:   r.text,
+                cards:  r.cards,
+            })),
+
+            keywords:       c.keywords,
+            counters:       c.counters,
+            producibleMana: c.producibleMana,
+            tags:           c.tags,
+            localTags:      c.localTags,
+
+            category:     c.category,
+            layout:       c.layout,
+            frame:        c.frame,
+            frameEffects: c.frameEffects,
+            borderColor:  c.borderColor,
+            cardBack:     c.cardBack,
+            promoTypes:   c.promoTypes,
+            rarity:       c.rarity,
+            releaseDate:  c.releaseDate,
+
+            isDigital:        c.isDigital,
+            isFullArt:        c.isFullArt,
+            isOversized:      c.isOversized,
+            isPromo:          c.isPromo,
+            isReprint:        c.isReprint,
+            isStorySpotlight: c.isStorySpotlight,
+            isTextless:       c.isTextless,
+            finishes:         c.finishes,
+            hasHighResImage:  c.hasHighResImage,
+            imageStatus:      c.imageStatus,
+
+            legalities:     c.legalities,
+            isReserved:     c.isReserved,
+            inBooster:      c.inBooster,
+            contentWarning: c.contentWarning,
+            games:          c.games,
+
+            preview: c.preview,
+
+            scryfall: c.scryfall,
+
+            arenaId:      c.arenaId,
+            mtgoId:       c.mtgoId,
+            mtgoFoilId:   c.mtgoFoilId,
+            multiverseId: c.multiverseId,
+            tcgPlayerId:  c.tcgPlayerId,
+            cardMarketId: c.cardMarketId,
+        });
     } else {
         ctx.status = 404;
     }
