@@ -1,0 +1,15 @@
+diff --git a/node_modules/tst-reflect-transformer/dist/index.js b/node_modules/tst-reflect-transformer/dist/index.js
+index 19abdd9..31ee52c 100644
+--- a/node_modules/tst-reflect-transformer/dist/index.js
++++ b/node_modules/tst-reflect-transformer/dist/index.js
+@@ -6,8 +6,8 @@ const TransformerContext_1 = require("./contexts/TransformerContext");
+ const log_1 = require("./log");
+ function transform(program) {
+     TransformerContext_1.default.instance.init(program);
+-    log_1.log.log(log_1.LogLevel.Info, log_1.color.cyan, `using tsconfig '${TransformerContext_1.default.instance.config.tsConfigPath}'.`);
+-    log_1.log.log(log_1.LogLevel.Info, log_1.color.cyan, `detected root directory '${TransformerContext_1.default.instance.config.rootDir}'.`);
++    // log_1.log.log(log_1.LogLevel.Info, log_1.color.cyan, `using tsconfig '${TransformerContext_1.default.instance.config.tsConfigPath}'.`);
++    // log_1.log.log(log_1.LogLevel.Info, log_1.color.cyan, `detected root directory '${TransformerContext_1.default.instance.config.rootDir}'.`);
+     return (context) => {
+         return (node) => ts.visitNode(node, getVisitor(context, program));
+     };
