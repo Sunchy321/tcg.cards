@@ -184,7 +184,7 @@ export default defineComponent({
 
         const rotatable = computed(() => ['split', 'planar'].includes(props.layout));
 
-        const turnable = computed(() => ['transform', 'modal_dfc', 'reversible_card', 'double_faced'].includes(props.layout));
+        const turnable = computed(() => ['transform', 'modal_dfc', 'reversible_card', 'double_faced', 'minigame'].includes(props.layout));
 
         const imageUrls = computed(() => {
             switch (props.layout) {
@@ -193,6 +193,7 @@ export default defineComponent({
             case 'reversible_card':
             case 'double_faced':
             case 'art_series':
+            case 'minigame':
                 return [
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,

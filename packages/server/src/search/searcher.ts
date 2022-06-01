@@ -63,11 +63,28 @@ export function createSearcher<M extends Model>(model: M): Searcher<M> {
             const errors = [];
 
             for (const c of commands) {
+                const mc = model.commands.find(
+                    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+                    co => co.id === c.cmd || (co.alt != null && co.alt.includes(c.cmd)),
+                );
+
+                if (mc == null) {
+                    errors.push({ type: 'unknown-command', query: c });
+                    continue;
+                }
+
+                const allowRegex: boolean = (mc.allowRegex as boolean) ?? true;
+
                 let param;
 
                 if (c.param.type === 'string') {
                     param = c.param.value;
                 } else {
+                    if (!allowRegex) {
+                        errors.push({ type: 'invalid-regex', query: c });
+                        continue;
+                    }
+
                     try {
                         param = new RegExp(c.param.value);
                     } catch (e) {
@@ -80,23 +97,9 @@ export function createSearcher<M extends Model>(model: M): Searcher<M> {
                     }
                 }
 
-                const mc = model.commands.find(
-                    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
-                    co => co.id === c.cmd || (co.alt != null && co.alt.includes(c.cmd)),
-                );
-
-                if (mc == null) {
-                    errors.push({ type: 'unknown-command', query: c });
-                    continue;
-                }
-
-                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-                if (!mc.allowRegex) {
-                    errors.push({ type: 'invalid-regex', query: c });
-                }
-
                 if (mc.op != null && !mc.op.includes(c.op)) {
                     errors.push({ type: 'invalid-operator', query: c });
+                    continue;
                 }
 
                 if (mc.postStep == null) {

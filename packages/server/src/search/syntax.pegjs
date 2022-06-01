@@ -7,7 +7,7 @@ singleQuery
     = cmd:cmd op:op param:param {
         return { cmd, ...op, param }
     }
-    / qual:'!'? '#' param:rawString { return { cmf: '#', op: '', qual: qual != null ? ['!'] : [], param } }
+    / qual:'!'? '#' param:rawString { return { cmd: '#', op: '', qual: qual != null ? ['!'] : [], param } }
     / param:param { return { cmd: '', op: '', qual: [], param } }
 
 cmd

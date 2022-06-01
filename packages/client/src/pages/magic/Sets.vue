@@ -29,7 +29,7 @@
 
 <style lang="sass" scoped>
 .code
-    color: #555
+    color: #777
 
 .set
     padding: 4px 8px

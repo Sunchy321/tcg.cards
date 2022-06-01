@@ -144,14 +144,14 @@ export default defineComponent({
                         if (card != null && insertedCards.every(c => c[0] !== card.text)) {
                             if (!insertedCards.some(c => c[1] === card.id && c[2] === card.part)) {
                                 result.push(h(CardAvatar, {
-                                    class: `card ${attrs.class}`,
+                                    class: `card ${attrs.class ?? ''}`,
                                     id:    card.id,
                                     part:  card.part,
                                     text:  card.text,
                                 }));
                             } else {
                                 result.push(h('span', {
-                                    class: `card ${attrs.class}`,
+                                    class: `card ${attrs.class ?? ''}`,
                                     id:    card.id,
                                     part:  card.part,
                                 }, card.text));

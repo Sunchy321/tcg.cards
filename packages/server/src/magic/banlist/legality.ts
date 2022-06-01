@@ -13,7 +13,6 @@ import { join } from 'path';
 import { isEqual } from 'lodash';
 
 import { formats as formatList } from '@data/magic/basic';
-import { toGenerator, toBucket } from '@/common/to-bucket';
 import { convertLegality, toIdentifier } from '../util';
 
 import { dataPath } from '@/static';
@@ -22,7 +21,7 @@ export interface CardData {
     _id: string;
 
     category: Category;
-    legalities: ICard['legalities'];
+    legalities: ICard['legalities'][];
 
     parts: {
         typeMain: string[];
@@ -433,7 +432,7 @@ export class LegalityAssigner extends Task<Status> {
                     _id: '$cardId',
 
                     category:   { $first: '$category' },
-                    legalities: { $first: '$legalities' },
+                    legalities: { $addToSet: '$legalities' },
 
                     parts: {
                         $first: {
@@ -483,45 +482,44 @@ export class LegalityAssigner extends Task<Status> {
             };
         });
 
+        const scryfalls = await SCard.aggregate<Pick<ISCard, 'legalities' | 'oracle_id'>>()
+            .allowDiskUse(true)
+            .group({ _id: '$oracle_id', data: { $first: '$$ROOT' } })
+            .replaceRoot('data')
+            .project('-_id oracle_id legalities');
+
         const toUpdate: Record<string, Legalities> = {};
 
-        for (const cards of toBucket<CardData>(toGenerator(allCards), 500)) {
-            const scryfalls = await SCard.aggregate<ISCard>()
-                .match({ oracle_id: { $in: cards.map(c => c.scryfall) } })
-                .group({ _id: '$oracle_id', data: { $first: '$$ROOT' } })
-                .replaceRoot('data');
+        for (const c of allCards) {
+            const result = getLegality(
+                c,
+                formats,
+                pennyCards,
+                alchemyVariantCards,
+            );
 
-            for (const c of cards) {
-                const result = getLegality(
-                    c,
-                    formats,
-                    pennyCards,
-                    alchemyVariantCards,
-                );
+            const scryfall = scryfalls.find(s => s.oracle_id === c.scryfall);
 
-                const scryfall = scryfalls.find(s => s.oracle_id === c.scryfall);
+            if (scryfall != null) {
+                const sLegalities = convertLegality(scryfall.legalities);
 
-                if (scryfall != null) {
-                    const sLegalities = convertLegality(scryfall.legalities);
+                const check = checkLegality(c, result, sLegalities);
 
-                    const check = checkLegality(c, result, sLegalities);
-
-                    if (check != null) {
-                        wrongs.push({
-                            cardId:   c._id,
-                            format:   check,
-                            data:     result[check],
-                            scryfall: sLegalities[check],
-                        });
-                    }
+                if (check != null) {
+                    wrongs.push({
+                        cardId:   c._id,
+                        format:   check,
+                        data:     result[check],
+                        scryfall: sLegalities[check],
+                    });
                 }
-
-                if (!isEqual(result, c.legalities)) {
-                    toUpdate[c._id] = result;
-                }
-
-                count += 1;
             }
+
+            if (c.legalities.length > 1 || !isEqual(result, c.legalities[0])) {
+                toUpdate[c._id] = result;
+            }
+
+            count += 1;
         }
 
         const updateGroup: [string[], Legalities][] = [];

@@ -14,6 +14,8 @@ import sortKey from '@/common/sort-key';
 
 import searcher from '@/magic/search';
 
+import { extendedLocales } from '@data/magic/basic';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
@@ -23,6 +25,7 @@ type Version = {
     set: string;
     number: string;
     rarity: string;
+    releaseDate: string;
 };
 
 router.get('/', async ctx => {
@@ -67,10 +70,36 @@ router.get('/', async ctx => {
     const versions = await Card.aggregate<Version>()
         .match({ cardId: id })
         .sort({ releaseDate: -1 })
-        .project('-_id lang set number rarity');
+        .project('-_id lang set number rarity releaseDate');
+
+    versions.sort((a, b) => {
+        const ra = a.releaseDate;
+        const rb = b.releaseDate;
+
+        if (ra < rb) { return 1; }
+
+        if (ra > rb) { return -1; }
+
+        const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a.number)![1];
+        const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b.number)![1];
+
+        const len = Math.max(ma.length, mb.length);
+
+        const pa = ma.padStart(len, '0');
+        const pb = mb.padStart(len, '0');
+
+        if (pa < pb) { return -1; }
+        if (pa > pb) { return 1; }
+
+        return extendedLocales.indexOf(a.lang) - extendedLocales.indexOf(b.lang);
+    });
 
     if (cards.length !== 0) {
-        ctx.body = sortKey<ICard & { versions: Version[] }>({ ...cards[0], versions });
+        ctx.body = JSON.stringify(
+            sortKey<ICard & { versions: Version[] }>({ ...cards[0], versions }),
+            null,
+            2,
+        );
     } else {
         ctx.status = 404;
     }

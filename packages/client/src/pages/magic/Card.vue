@@ -57,10 +57,10 @@
                 <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
-            <div class="ability" :lang="langWithMode">
+            <div class="ability auto-align" :lang="langWithMode">
                 <magic-text :symbol="textSymbolStyle">{{ text }}</magic-text>
             </div>
-            <div v-if="flavorText != null" class="flavor-text" :lang="lang">
+            <div v-if="flavorText != null" class="flavor-text auto-align" :lang="lang">
                 <magic-text :symbol="textSymbolStyle" detect-emph>{{ flavorText }}</magic-text>
             </div>
             <grid
@@ -389,7 +389,7 @@ import BanlistIcon from 'components/magic/BanlistIcon.vue';
 import { Card } from 'interface/magic/card';
 
 import {
-    mapValues, omit, omitBy, uniq,
+    mapValues, omitBy, uniq,
 } from 'lodash';
 
 import setProfile, { SetProfile } from 'src/common/magic/set';
@@ -435,36 +435,9 @@ export default defineComponent({
         const rotate = ref<boolean | null>(null);
         const setProfiles = ref<Record<string, SetProfile>>({});
 
-        (window as any).ref = ref;
-        (window as any).watch = watch;
-
         const textMode = computed({
             get() { return magic.textMode; },
             set(newValue: TextMode) { magic.textMode = newValue; },
-        });
-
-        pageSetup({
-            title: () => {
-                if (data.value == null) {
-                    return '';
-                }
-
-                return data.value.parts.map(p => p[textMode.value].name).join(' // ');
-            },
-
-            titleType: 'input',
-
-            actions: [
-                {
-                    action:  'search',
-                    handler: search,
-                },
-                {
-                    action:  'random',
-                    icon:    'mdi-shuffle-variant',
-                    handler: random,
-                },
-            ],
         });
 
         const textModeOptions = computed(() => textModes.map(v => ({
@@ -493,7 +466,9 @@ export default defineComponent({
 
         const set = computed({
             get() { return data.value?.set ?? route.query.set as string; },
-            set(newValue: string) { void router.replace({ query: { ...omit(route.query, 'number'), set: newValue } }); },
+            set(newValue: string) {
+                void router.replace({ query: { ...route.query, number: undefined, set: newValue } });
+            },
         });
 
         const setMaxWidth = computed(() => Math.max(...sets.value.map(s => s.length)));
@@ -527,18 +502,6 @@ export default defineComponent({
                 }
             }
 
-            numbers.sort((a, b) => {
-                const ma = /^(.*?)(?:-\d|[ab])?$/.exec(a.number)![1];
-                const mb = /^(.*?)(?:-\d|[ab])?$/.exec(b.number)![1];
-
-                const len = Math.max(ma.length, mb.length);
-
-                const pa = ma.padStart(len, '0');
-                const pb = mb.padStart(len, '0');
-
-                return pa < pb ? -1 : pa > pb ? 1 : 0;
-            });
-
             const currVersion = (
                 s === set.value ? setVersions.find(v => v.number === number.value) : null
             ) ?? setVersions[0];
@@ -563,49 +526,55 @@ export default defineComponent({
         }));
 
         const langs = computed(() => {
-            const { locales } = magic;
-            return uniq(versions.value.map(v => v.lang)).sort((a, b) => {
-                const idxa = locales.indexOf(a);
-                const idxb = locales.indexOf(b);
+            const locales = magic.data.extendedLocales;
 
-                if (idxa === -1) {
-                    if (idxb === -1) {
-                        return a < b ? -1 : a > b ? 1 : 0;
-                    } else {
-                        return 1;
-                    }
-                } else if (idxb === -1) {
-                    return -1;
-                } else {
-                    return idxa - idxb;
-                }
-            });
+            return uniq(versions.value.map(v => v.lang))
+                .sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
         });
 
         const lang = computed({
             get() { return data.value?.lang ?? route.query.lang as string ?? magic.locale; },
             set(newValue: string) {
-                const exactInfo = setInfos.value.find(i => i.set === set.value);
+                const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
-                if (exactInfo == null) {
+                if (allowedVersions.length === 0) {
                     return;
                 }
 
-                if (exactInfo.langs.includes(newValue)) {
-                    void router.replace({ query: { ...route.query, lang: newValue } });
-                } else {
-                    const sameLangInfo = setInfos.value.find(i => i.langs.includes(newValue));
+                const exactVersion = allowedVersions.find(v => v.number === number.value);
 
-                    if (sameLangInfo != null) {
-                        void router.replace({
-                            query: {
-                                ...route.query,
-                                set:    sameLangInfo.set,
-                                number: undefined,
-                                lang:   newValue,
-                            },
-                        });
-                    }
+                if (exactVersion != null) {
+                    void router.replace({
+                        query: {
+                            ...route.query,
+                            lang: newValue,
+                        },
+                    });
+                    return;
+                }
+
+                const keepSetVersions = allowedVersions.filter(v => v.set === set.value);
+
+                if (keepSetVersions.length > 0) {
+                    void router.replace({
+                        query: {
+                            ...route.query,
+                            number: keepSetVersions[0].number,
+                            lang:   newValue,
+                        },
+                    });
+                    return;
+                }
+
+                if (allowedVersions.length > 0) {
+                    void router.replace({
+                        query: {
+                            ...route.query,
+                            set:    allowedVersions[0].set,
+                            number: undefined,
+                            lang:   newValue,
+                        },
+                    });
                 }
             },
         });
@@ -621,6 +590,34 @@ export default defineComponent({
         const partCount = computed(() => data.value?.parts?.length ?? 1);
 
         const part = computed(() => data.value?.parts?.[partIndex.value]);
+
+        pageSetup({
+            title: () => {
+                if (data.value == null) {
+                    return '';
+                }
+
+                if (lang.value === 'ph') {
+                    return data.value.parts.map(p => p.oracle.name).join(' // ');
+                } else {
+                    return data.value.parts.map(p => p[textMode.value].name).join(' // ');
+                }
+            },
+
+            titleType: 'input',
+
+            actions: [
+                {
+                    action:  'search',
+                    handler: search,
+                },
+                {
+                    action:  'random',
+                    icon:    'mdi-shuffle-variant',
+                    handler: random,
+                },
+            ],
+        });
 
         const layout = computed(() => data.value?.layout);
         const cost = computed(() => part.value?.cost);
