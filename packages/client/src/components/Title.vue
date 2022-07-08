@@ -1,6 +1,6 @@
 <template>
     <q-toolbar-title>
-        <q-input
+        <search-input
             v-if="titleType === 'input'"
             v-model="search"
             class="title-input"
@@ -15,7 +15,7 @@
                     @click="mouseSearch"
                 />
             </template>
-        </q-input>
+        </search-input>
 
         <template v-if="titleType === 'text'">{{ title }}</template>
     </q-toolbar-title>
@@ -32,7 +32,11 @@ import { defineComponent, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useCore } from 'store/core';
 
+import SearchInput from './SearchInput.vue';
+
 export default defineComponent({
+    components: { SearchInput },
+
     setup() {
         const route = useRoute();
         const core = useCore();

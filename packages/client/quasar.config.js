@@ -44,7 +44,7 @@ module.exports = configure((/* ctx */) => ({
 
     // https://github.com/quasarframework/quasar/tree/dev/extras
     extras: [
-        'mdi-v5',
+        'mdi-v6',
     ],
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#build
@@ -76,6 +76,7 @@ module.exports = configure((/* ctx */) => ({
         alias: {
             setup: path.join(__dirname, 'src/setup'),
             store: path.join(__dirname, 'src/stores'),
+            searcher: path.join(__dirname, 'node_modules/card-searcher/src'),
 
             util: 'rollup-plugin-node-polyfills/polyfills/util',
             // sys: 'util',
