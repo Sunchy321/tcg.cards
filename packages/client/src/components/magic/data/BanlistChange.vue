@@ -139,6 +139,8 @@ import {
     defineComponent, ref, computed, watch, onMounted,
 } from 'vue';
 
+import { useMagic } from 'store/games/magic';
+
 import controlSetup from 'setup/control';
 
 import DateInput from 'components/DateInput.vue';
@@ -197,6 +199,8 @@ export default defineComponent({
     components: { DateInput },
 
     setup() {
+        const magic = useMagic();
+
         const { controlGet, controlPost } = controlSetup();
 
         const url = ref('');
@@ -206,35 +210,7 @@ export default defineComponent({
 
         const banlistChange = ref<BanlistChange | null>(null);
 
-        const formatList = [
-            'standard',
-            'historic',
-            'pioneer',
-            'explorer',
-            'modern',
-            'extended',
-            'legacy',
-            'vintage',
-
-            'standard/arena',
-
-            'commander',
-            'duelcommander',
-            'leviathan_commander',
-            'commander1v1',
-            'brawl',
-            'historic_brawl',
-
-            'pauper',
-            'penny',
-            'pauper_commander',
-
-            'block/ice_age',
-            'block/tempest',
-            'block/urza',
-            'block/masques',
-            'block/mirrodin',
-        ];
+        const formatList = computed(() => magic.data.formats);
 
         const statusIcon = (status: string, card?: string) => {
             switch (status) {

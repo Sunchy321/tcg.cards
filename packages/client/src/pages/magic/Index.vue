@@ -1,6 +1,6 @@
 <template>
     <q-page>
-        <q-input
+        <search-input
             v-model="searchText"
             class="main-input q-ma-xl"
             filled clearable
@@ -13,7 +13,7 @@
                     @click="search"
                 />
             </template>
-        </q-input>
+        </search-input>
         <div class="links q-pa-xl q-gutter-md row">
             <div class="col column">
                 <q-btn
@@ -80,7 +80,11 @@ import { useI18n } from 'vue-i18n';
 import magicSetup from 'setup/magic';
 import pageSetup from 'setup/page';
 
+import SearchInput from 'components/SearchInput.vue';
+
 export default defineComponent({
+    components: { SearchInput },
+
     setup() {
         const core = useCore();
         const i18n = useI18n();

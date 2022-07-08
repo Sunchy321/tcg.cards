@@ -27,12 +27,12 @@
                     @click="switchPart"
                 />
 
-                <div v-if="flavorName != null" class="flavor-name" :lang="lang">
-                    {{ flavorName }}
-                </div>
-
                 <div class="name" :lang="langWithMode">
                     {{ name }}
+                </div>
+
+                <div v-if="flavorName != null" class="flavor-name" :lang="lang">
+                    {{ flavorName }}
                 </div>
 
                 <q-space />
@@ -292,14 +292,11 @@
     &.aftermath-1
         transform: rotate(90deg)
 
-.name
-    display: inline
+.flavor-name
+    margin-left: 8px
 
-    .flavor-name + &
-        margin-left: 8px
-
-        font-size: 80%
-        color: grey
+    font-size: 80%
+    color: grey
 
 .mana-cost
     display: inline-flex
