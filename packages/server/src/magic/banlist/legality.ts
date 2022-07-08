@@ -25,6 +25,7 @@ export interface CardData {
 
     parts: {
         typeMain: string[];
+        typeSub?: string[];
     }[];
 
     versions: {
@@ -52,7 +53,7 @@ const setsInformal = [
 
 const setsSpecial = ['plist', 'sld'];
 
-const setsOnlyOnMTGA = ['ana', 'oana', 'xana', 'anb', 'jmp21', 'ymid', 'yneo'];
+const setsOnlyOnMTGA = ['ana', 'oana', 'xana', 'anb', 'jmp21', 'ymid', 'yneo', 'ysnc', 'hbg'];
 
 const cardsNotInJMP = [
     'ajani_s_chosen',
@@ -89,7 +90,7 @@ const cardsNotInJMP21 = [
     'tropical_island',
 ];
 
-function getLegality(
+export function getLegality(
     data: CardData,
     formats: IFormat[],
     pennyCards: string[],
@@ -122,13 +123,13 @@ function getLegality(
         }
 
         if (formatId === 'penny') {
-            result[formatId] = pennyCards.map(toIdentifier).includes(cardId) ? 'legal' : 'unavailable';
+            result[formatId] = pennyCards.includes(cardId) ? 'legal' : 'unavailable';
             continue;
         }
 
         // Card not in online formats. Placed here for Omnath
         if (
-            ['alchemy', 'historic'].includes(formatId)
+            ['alchemy', 'historic', 'historic_brawl'].includes(formatId)
             && alchemyVariantCards.map(v => v[0]).includes(cardId)
         ) {
             result[formatId] = 'unavailable';
@@ -137,7 +138,7 @@ function getLegality(
 
         // Cards only in online formats
         if (
-            !['alchemy', 'historic'].includes(formatId)
+            !['alchemy', 'historic', 'historic_brawl'].includes(formatId)
             && (
                 versions.every(v => setsOnlyOnMTGA.includes(v.set))
                 || alchemyVariantCards.map(v => v[1]).includes(cardId)
@@ -174,9 +175,16 @@ function getLegality(
             continue;
         }
 
-        if (formatId === 'alchemy' && cardId === 'a_blood_artist') {
-            result[formatId] = 'legal';
-            continue;
+        if (formatId === 'alchemy') {
+            if (cardId === 'a_blood_artist') {
+                result[formatId] = 'legal';
+                continue;
+            }
+
+            if (cardId === 'arcane_signet') {
+                result[formatId] = 'unavailable';
+                continue;
+            }
         }
 
         if (f.sets != null) {
@@ -266,7 +274,8 @@ function getLegality(
 
             const frontType = data.parts[0].typeMain;
 
-            const canBeCommander = frontType.includes('creature') && !frontType.includes('land');
+            const canBeCommander = (frontType.includes('creature') && !frontType.includes('land'))
+                || (data.parts[0].typeSub?.includes('background'));
 
             if (frontType.includes('conspiracy')) {
                 result[formatId] = 'unavailable';
@@ -401,28 +410,36 @@ interface Status {
 const pennyCardPath = join(dataPath, 'magic', 'penny');
 const alchemyCardPath = join(dataPath, 'magic', 'alchemy.txt');
 
+export function getPennyCards(): string[] {
+    const pennyCardFiles = readdirSync(pennyCardPath).filter(f => /^\d+.txt$/.test(f));
+
+    const recentPennyFile = Math.max(...pennyCardFiles.map(f => Number.parseInt(f.slice(0, -4), 10)));
+
+    return readFileSync(join(pennyCardPath, `${recentPennyFile}.txt`))
+        .toString()
+        .split('\n')
+        .map(toIdentifier);
+}
+
+export function getAlchemyVariantCards(): [string, string][] {
+    return readFileSync(alchemyCardPath)
+        .toString()
+        .split('\n')
+        .filter(v => v !== '')
+        .map(v => [
+            toIdentifier(v),
+            toIdentifier(v.split(' // ').map(n => `A-${n}`).join(' // ')),
+        ] as [string, string]);
+}
+
 export class LegalityAssigner extends Task<Status> {
     async startImpl(): Promise<void> {
         const formats = await Format.find();
 
         formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
 
-        const pennyCardFiles = readdirSync(pennyCardPath).filter(f => /^\d+.txt$/.test(f));
-
-        const recentPennyFile = Math.max(...pennyCardFiles.map(f => Number.parseInt(f.slice(0, -4), 10)));
-
-        const pennyCards = readFileSync(join(pennyCardPath, `${recentPennyFile}.txt`))
-            .toString()
-            .split('\n');
-
-        const alchemyVariantCards = readFileSync(alchemyCardPath)
-            .toString()
-            .split('\n')
-            .filter(v => v !== '')
-            .map(v => [
-                toIdentifier(v),
-                toIdentifier(v.split(' // ').map(n => `A-${n}`).join(' // ')),
-            ] as [string, string]);
+        const pennyCards = getPennyCards();
+        const alchemyVariantCards = getAlchemyVariantCards();
 
         const wrongs: Status['wrongs'] = [];
 
@@ -441,6 +458,7 @@ export class LegalityAssigner extends Task<Status> {
                                 as:    'parts',
                                 in:    {
                                     typeMain: '$$parts.typeMain',
+                                    typeSub:  '$$parts.typeSub',
                                 },
                             },
                         },
@@ -484,9 +502,12 @@ export class LegalityAssigner extends Task<Status> {
 
         const scryfalls = await SCard.aggregate<Pick<ISCard, 'legalities' | 'oracle_id'>>()
             .allowDiskUse(true)
-            .group({ _id: '$oracle_id', data: { $first: '$$ROOT' } })
-            .replaceRoot('data')
-            .project('-_id oracle_id legalities');
+            .group({ _id: '$oracle_id', legalities: { $first: '$legalities' } })
+            .project({
+                _id:        0,
+                oracle_id:  '$_id',
+                legalities: 1,
+            });
 
         const toUpdate: Record<string, Legalities> = {};
 

@@ -3,23 +3,27 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import Card, { ICard } from '@/magic/db/card';
+import Format from '@/magic/db/format';
 
 import { Aggregate, ObjectId, UpdateQuery } from 'mongoose';
 
 import CardNameExtractor from '@/magic/extract-name';
 
-import parseGatherer from '@/magic/gatherer/parse';
-
+import { existsSync, renameSync } from 'fs';
 import {
     omit, mapValues, isEqual, sortBy,
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@data/magic/special';
+import {
+    CardData, getLegality, getPennyCards, getAlchemyVariantCards,
+} from '@/magic/banlist/legality';
+import parseGatherer from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
 
 import { assetPath } from '@static';
-import { existsSync, renameSync } from 'fs';
+import { formats as formatList } from '@data/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -42,14 +46,14 @@ router.get('/raw', async ctx => {
 });
 
 router.get('/search', async ctx => {
-    const { q } = mapValues(ctx.query, toSingle);
+    const { q, sample } = mapValues(ctx.query, toSingle);
 
     if (q == null) {
         ctx.status = 400;
         return;
     }
 
-    const result = await searcher.dev(q);
+    const result = await searcher.dev(q, { sample });
 
     ctx.body = {
         method: `search:${q}`,
@@ -251,9 +255,13 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
 };
 
 router.get('/need-edit', async ctx => {
-    const { method, lang } = mapValues(ctx.query, toSingle);
+    const { method, lang, sample: sampleText } = mapValues(ctx.query, toSingle);
 
     const getter = needEditGetters[method];
+
+    const sample = Number.isNaN(Number.parseInt(sampleText, 10))
+        ? 100
+        : Number.parseInt(sampleText, 10);
 
     if (getter == null) {
         ctx.status = 400;
@@ -266,7 +274,7 @@ router.get('/need-edit', async ctx => {
         .match({ cardId: { $in: result.map(r => r._id.id) }, lang })
         .sort({ releaseDate: -1 })
         .group({ _id: '$cardId', card: { $first: '$$ROOT' } })
-        .sample(100);
+        .sample(sample);
 
     const resultCards = result.map(r => {
         const card = cards.find(c => c._id === r._id.id);
@@ -326,16 +334,80 @@ router.get('/rename', async ctx => {
 });
 
 router.get('/parse-gatherer', async ctx => {
-    const mid = ctx.query.id as string;
-    const set = ctx.query.set as string;
-    const number = ctx.query.number as string;
-    const lang = ctx.query.lang as string;
+    const {
+        id: mid, set, number, lang,
+    } = mapValues(ctx.query, toSingle);
 
     const mids = mid.split(',').map(v => Number.parseInt(v.trim(), 10));
 
     if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
         await parseGatherer(mids, set, number, lang);
     }
+});
+
+router.get('/get-legality', async ctx => {
+    const { id } = mapValues(ctx.query, toSingle);
+
+    if (id == null) {
+        ctx.status = 401;
+        return;
+    }
+
+    const formats = await Format.find();
+
+    formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
+
+    const pennyCards = getPennyCards();
+    const alchemyVariantCards = getAlchemyVariantCards();
+
+    const cardData = await Card.aggregate<CardData>([
+        { $match: { cardId: id } },
+        {
+            $group: {
+                _id: '$cardId',
+
+                category:   { $first: '$category' },
+                legalities: { $addToSet: '$legalities' },
+
+                parts: {
+                    $first: {
+                        $map: {
+                            input: '$parts',
+                            as:    'parts',
+                            in:    {
+                                typeMain: '$$parts.typeMain',
+                                typeSub:  '$$parts.typeSub',
+                            },
+                        },
+                    },
+                },
+
+                versions: {
+                    $addToSet: {
+                        set:         '$set',
+                        number:      '$number',
+                        rarity:      '$rarity',
+                        releaseDate: '$releaseDate',
+                    },
+                },
+
+                scryfall: {
+                    $first: '$scryfall.oracleId',
+                },
+            },
+        },
+    ]);
+
+    const legalities = getLegality(
+        cardData[0],
+        formats,
+        pennyCards,
+        alchemyVariantCards,
+    );
+
+    await Card.updateMany({ cardId: id }, { legalities });
+
+    ctx.body = legalities;
 });
 
 router.get('/extract-ruling-cards', async ctx => {

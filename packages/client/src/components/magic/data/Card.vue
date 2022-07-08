@@ -123,7 +123,16 @@
                 <q-btn icon="mdi-new-box" dense flat round @click="newData" />
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
                 <q-btn v-if="lang == 'en'" icon="mdi-arrow-right-bold" dense flat round @click="overwriteUnified" />
+                <q-btn icon="mdi-scale-balance" dense flat round @click="getLegality" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
+
+                <q-btn
+                    icon="mdi-card-multiple-outline"
+                    :color="sample ? 'primary' : 'black'"
+                    dense flat round
+                    @click="sample = !sample"
+                />
+
                 <q-btn icon="mdi-refresh" dense flat round @click="loadData" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
@@ -378,6 +387,7 @@ export default defineComponent({
         const unlock = ref(false);
         const replaceFrom = ref('');
         const replaceTo = ref('');
+        const sample = ref(true);
 
         const search = computed({
             get() { return route.query.q as string ?? ''; },
@@ -511,6 +521,57 @@ export default defineComponent({
         const flavorText = partField1('flavorText', '');
         const flavorName = partField1('flavorName', '');
 
+        // dev only
+        const tag = (name: string) => computed({
+            get(): boolean {
+                if (data.value == null) {
+                    return false;
+                }
+
+                return data.value.tags.includes(`dev:${name}`);
+            },
+            set(newValue: boolean) {
+                if (data.value == null) {
+                    return;
+                }
+
+                if (newValue) {
+                    if (!data.value.tags.includes(`dev:${name}`)) {
+                        data.value.tags.push(`dev:${name}`);
+                    }
+                } else {
+                    data.value.tags = data.value.tags.filter(v => v !== `dev:${name}`);
+                }
+            },
+        });
+
+        const localTag = (name: string) => computed({
+            get(): boolean {
+                if (data.value == null) {
+                    return false;
+                }
+
+                return data.value.localTags.includes(`dev:${name}`);
+            },
+            set(newValue: boolean) {
+                if (data.value == null) {
+                    return;
+                }
+
+                if (newValue) {
+                    if (!data.value.localTags.includes(`dev:${name}`)) {
+                        data.value.localTags.push(`dev:${name}`);
+                    }
+                } else {
+                    data.value.localTags = data.value.localTags.filter(v => v !== `dev:${name}`);
+                }
+            },
+        });
+
+        const devPrinted = localTag('printed');
+        const devToken = tag('token');
+        const devCounter = tag('counter');
+
         const relatedCards = computed({
             get() {
                 return data.value?.relatedCards
@@ -564,6 +625,8 @@ export default defineComponent({
             },
         });
 
+        watch(relatedCards, () => { devToken.value = false; });
+
         const counters = computed({
             get() { return data.value?.counters ?? []; },
             set(newValue: string[]) {
@@ -573,7 +636,7 @@ export default defineComponent({
 
                 newValue = uniq(newValue);
 
-                data.value.tags = data.value.tags.filter(v => v !== 'dev:counter');
+                devCounter.value = false;
 
                 if (newValue.length === 0) {
                     delete data.value?.counters;
@@ -778,6 +841,14 @@ export default defineComponent({
             unifiedText.value = oracleText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
         };
 
+        const getLegality = async () => {
+            const { data: legalities } = await controlGet('/magic/card/get-legality', {
+                id: id.value,
+            });
+
+            console.log(legalities);
+        };
+
         const extractRulingCards = async () => {
             const { data: cards } = await controlGet('/magic/card/extract-ruling-cards', {
                 id: id.value,
@@ -867,13 +938,24 @@ export default defineComponent({
 
             let request: AxiosResponse<CardGroup>;
 
+            const sampleValue = sample.value ? 100 : 1;
+
             if (method.startsWith('search:')) {
-                request = await controlGet<CardGroup>('/magic/card/search', { q: search.value });
+                request = await controlGet<CardGroup>('/magic/card/search', {
+                    q:      search.value,
+                    sample: sampleValue,
+                });
             } else {
-                request = await controlGet<CardGroup>('/magic/card/need-edit', { method, lang: magic.locale });
+                request = await controlGet<CardGroup>('/magic/card/need-edit', {
+                    method,
+                    lang:   magic.locale,
+                    sample: sampleValue,
+                });
             }
 
             const result = request.data;
+
+            console.log(result);
 
             if (result != null && result.total !== 0) {
                 dataGroup.value = result;
@@ -884,6 +966,8 @@ export default defineComponent({
             }
         };
 
+        watch(sample, () => { dataGroup.value = undefined; });
+
         const doSearch = async () => {
             if (search.value === '') {
                 return;
@@ -893,57 +977,6 @@ export default defineComponent({
         };
 
         onMounted(loadData);
-
-        // dev only
-        const tag = (name: string) => computed({
-            get(): boolean {
-                if (data.value == null) {
-                    return false;
-                }
-
-                return data.value.tags.includes(`dev:${name}`);
-            },
-            set(newValue: boolean) {
-                if (data.value == null) {
-                    return;
-                }
-
-                if (newValue) {
-                    if (!data.value.tags.includes(`dev:${name}`)) {
-                        data.value.tags.push(`dev:${name}`);
-                    }
-                } else {
-                    data.value.tags = data.value.tags.filter(v => v !== `dev:${name}`);
-                }
-            },
-        });
-
-        const localTag = (name: string) => computed({
-            get(): boolean {
-                if (data.value == null) {
-                    return false;
-                }
-
-                return data.value.localTags.includes(`dev:${name}`);
-            },
-            set(newValue: boolean) {
-                if (data.value == null) {
-                    return;
-                }
-
-                if (newValue) {
-                    if (!data.value.localTags.includes(`dev:${name}`)) {
-                        data.value.localTags.push(`dev:${name}`);
-                    }
-                } else {
-                    data.value.localTags = data.value.localTags.filter(v => v !== `dev:${name}`);
-                }
-            },
-        });
-
-        const devPrinted = localTag('printed');
-        const devToken = tag('token');
-        const devCounter = tag('counter');
 
         watch(
             [data, partIndex, printedName, printedTypeline, printedText],
@@ -1048,6 +1081,7 @@ export default defineComponent({
             replaceFrom,
             replaceTo,
             search,
+            sample,
 
             partCount,
             partIndex,
@@ -1088,6 +1122,7 @@ export default defineComponent({
             loadGatherer,
             prettify,
             overwriteUnified,
+            getLegality,
             extractRulingCards,
             loadData,
             loadGroup,
