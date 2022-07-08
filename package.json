@@ -15,5 +15,9 @@
     "eslint-plugin-vue": "^8.1.1",
     "eslint-watch": "^8.0.0",
     "lerna": "^4.0.0"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "tst-reflect": "^0.7.4"
   }
 }

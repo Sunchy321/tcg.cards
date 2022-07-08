@@ -1,22 +1,27 @@
 {
-  "name": "card-renderer",
+  "name": "card-searcher",
   "version": "0.0.1",
-  "description": "card renderer for hearthstone",
+  "description": "common search function",
   "author": "Sunchy321 <sunchy321@qq.com>",
   "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
   "license": "MIT",
+  "private": true,
   "main": "src/index.ts",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Sunchy321/tcg.cards.git"
   },
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
   "bugs": {
     "url": "https://github.com/Sunchy321/tcg.cards/issues"
   },
-  "devDependencies": {
-    "eslint": "^8.3.0"
-  },
   "dependencies": {
+    "lodash": "^4.17.21",
     "tst-reflect": "^0.7.4"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.182"
   }
 }

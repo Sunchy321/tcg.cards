@@ -10,8 +10,7 @@ module.exports = {
     parserOptions: {
         parser:      '@typescript-eslint/parser',
         sourceType:  'module',
-        ecmaVersion: 2019,
-        // createDefaultProgram: true,
+        ecmaVersion: 2020,
     },
 
     ignorePatterns: ['**/dist', '**/lib'],
@@ -76,6 +75,13 @@ module.exports = {
             ignoreRegExpLiterals:   true,
             ignoreStrings:          true,
             ignoreTemplateLiterals: true,
+        }],
+
+        'generator-star-spacing': ['error', {
+            before:    false,
+            after:     true,
+            anonymous: 'neither',
+            method:    { before: false, after: false },
         }],
 
         'no-restricted-syntax': ['error', 'ForInStatement', 'LabeledStatement', 'WithStatement'],

@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "prepare": "npm run build"
+    "prepublish": "npm run build"
   },
   "bugs": {
     "url": "https://github.com/Sunchy321/tcg.cards/issues"
@@ -24,7 +24,10 @@
   },
   "dependencies": {
     "lodash": "^4.17.21",
-    "peggy": "^1.2.0"
+    "peggy": "^1.2.0",
+    "tst-reflect": "^0.7.4"
   },
-  "files": ["lib/**/*"]
+  "files": [
+    "lib/**/*"
+  ]
 }
