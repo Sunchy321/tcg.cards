@@ -16,7 +16,7 @@ import { convertJson, bulkPath } from './common';
 type OldData = {
     cardId: string;
     names: string[];
-    rulings: ICard['rulings'];
+    rulings: ICard['rulings'][];
 };
 
 async function assignRuling(
@@ -39,7 +39,7 @@ async function assignRuling(
         } as ICard['rulings'][0];
     });
 
-    if (!isEqual(oldData.rulings, rulings)) {
+    if (oldData.rulings.length > 1 || !isEqual(oldData.rulings[0], rulings)) {
         await Card.updateMany({ cardId: oldData.cardId }, { rulings });
     }
 }
@@ -114,7 +114,7 @@ export default class RulingLoader extends Task<Status> {
                     _id:     '$scryfall.oracleId',
                     cardId:  { $first: '$cardId' },
                     names:   { $first: '$parts.oracle.name' },
-                    rulings: { $first: '$rulings' },
+                    rulings: { $addToSet: '$rulings' },
                 },
             },
         ]);
