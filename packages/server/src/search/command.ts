@@ -1,4 +1,5 @@
 import { Aggregate } from 'mongoose';
+import { DBQuery } from './searcher';
 
 export type Operator = ':' | '' | '<' | '<=' | '=' | '>' | '>=';
 export type Qualifier = '!';
@@ -20,7 +21,7 @@ export type Command<P, AR, O, Q> = {
         param: AR extends false ? string : (RegExp | string);
         op: O;
         qual: Q[];
-    }) => any;
+    }) => DBQuery;
 
     post?: (ctx: {
         param: AR extends false ? string : (RegExp | string);

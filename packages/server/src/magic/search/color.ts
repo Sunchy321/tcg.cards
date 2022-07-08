@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { Command, command } from '@/search/command';
-import { QueryError } from '@/search/searcher';
+import { QueryError } from '@/search/error';
 
 const colorEnums = 'WUBRGOP'.split('');
 
@@ -194,14 +194,14 @@ export default function color(config: {
     id: string;
     alt?: string[];
     key?: string;
-}): Command<never, false, '<' | '<=' | '=' | '>' | '>=', '!'> {
+}): Command<never, false, ':' | '<' | '<=' | '=' | '>' | '>=', '!'> {
     const { id, alt, key } = config;
 
     return command({
         id,
         alt,
         allowRegex: false,
-        op:         ['=', '<', '<=', '>', '>='],
+        op:         [':', '=', '<', '<=', '>', '>='],
 
         query: ({ param, op, qual }) => query(key ?? id, param, op, qual),
     });

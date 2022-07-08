@@ -1,13 +1,23 @@
-query =
-    head:singleQuery tail:(ws singleQuery)* {
-        return [head, ...tail.map(t => t[1])]
+query = head:unary tail:(sep unary)* {
+    return {
+        type: 'multi',
+        seps: tail.map(v => v[0]),
+        value: [head, ...tail.map(t => t[1])]
     }
+}
 
-singleQuery
-    = cmd:cmd op:op param:param {
-        return { cmd, ...op, param }
-    }
-    / qual:'!'? '#' param:rawString { return { cmd: '#', op: '', qual: qual != null ? ['!'] : [], param } }
+sep
+    = ws? type:[&|] ws? { return type === '&' ? 'and' : 'or' }
+    / ws { return '' }
+
+unary
+    = [!-] primary:primary { return { type: 'not', value: primary } }
+    / primary:primary { return primary }
+
+primary
+    = '(' ws? query:query ws? ')' { return query }
+    / '#' param:rawString { return { cmd: '#', op: '', qual: [], param } }
+    / cmd:cmd op:op param:param { return { cmd, ...op, param } }
     / param:param { return { cmd: '', op: '', qual: [], param } }
 
 cmd
@@ -25,10 +35,10 @@ op =
     }
 
 id =
-    [-.A-Za-z_] [-.A-Za-z0-9_]* { return text() }
+    [A-Za-z_] [-.A-Za-z0-9_]* { return text() }
 
 rawString =
-    [^ ]+ { return { type: 'string', value: text() } }
+    [^ &|()]+ { return { type: 'string', value: text() } }
 
 string
     = '\'' content:([^\\'] / '\\' .)* '\'' {

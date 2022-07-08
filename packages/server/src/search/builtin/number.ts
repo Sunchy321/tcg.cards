@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { command, Command } from '../command';
-import { QueryError } from '@/search/searcher';
+import { QueryError } from '@/search/error';
 
 function query(
     key: string,

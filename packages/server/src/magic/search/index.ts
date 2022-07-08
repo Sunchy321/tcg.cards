@@ -1,7 +1,8 @@
 import {
-    DBQuery, Options, QueryError, createSearcher,
+    DBQuery, Options, createSearcher,
 } from '@/search/searcher';
 import { PostAction, command } from '@/search/command';
+import { QueryError } from '@/search/error';
 
 import Card from '@/magic/db/card';
 
@@ -310,7 +311,7 @@ export default createSearcher({
         const aggregate = Card.aggregate()
             .allowDiskUse(true)
             .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-            .match({ $and: q });
+            .match(q);
 
         switch (groupBy) {
         case 'print':
@@ -362,8 +363,12 @@ export default createSearcher({
         return { cards, total, page };
     },
 
-    dev: async (q: DBQuery) => {
-        const aggregate = Card.aggregate().allowDiskUse(true).match({ $and: q });
+    dev: async (q: DBQuery, p: PostAction[], o: Options) => {
+        const sample = Number.isNaN(Number.parseInt(o.sample, 10))
+            ? 100
+            : Number.parseInt(o.sample, 10);
+
+        const aggregate = Card.aggregate().allowDiskUse(true).match(q);
 
         const total = (
             await Card.aggregate(aggregate.pipeline())
@@ -371,7 +376,7 @@ export default createSearcher({
                 .group({ _id: null, count: { $sum: 1 } })
         )[0]?.count ?? 0;
 
-        const cards = await Card.aggregate(aggregate.pipeline()).sample(100);
+        const cards = await Card.aggregate(aggregate.pipeline()).sample(sample);
 
         return { cards, total };
     },
@@ -380,7 +385,7 @@ export default createSearcher({
         const result = await Card
             .aggregate()
             .allowDiskUse(true)
-            .match({ $and: q })
+            .match(q)
             .group({ _id: '$cardId' });
 
         return result.map(v => v._id) as string[];

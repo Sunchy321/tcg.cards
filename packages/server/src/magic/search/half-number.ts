@@ -1,5 +1,5 @@
 import { Command, command } from '@/search/command';
-import { QueryError } from '@/search/searcher';
+import { QueryError } from '@/search/error';
 
 import { range } from 'lodash';
 
