@@ -27,8 +27,14 @@
                     @click="switchPart"
                 />
 
+                <q-icon
+                    v-if="isArenaVariant"
+                    class="arena-variant q-mr-sm"
+                    name="img:/magic/arena.svg"
+                />
+
                 <div class="name" :lang="langWithMode">
-                    {{ name }}
+                    {{ realName }}
                 </div>
 
                 <div v-if="flavorName != null" class="flavor-name" :lang="lang">
@@ -37,10 +43,7 @@
 
                 <q-space />
 
-                <div
-                    v-if="cost != null"
-                    class="mana-cost"
-                >
+                <div v-if="cost != null" class="mana-cost">
                     <magic-symbol
                         v-for="(s, i) in cost" :key="i"
                         :value="s"
@@ -645,6 +648,22 @@ export default defineComponent({
         const typeline = computed(() => part.value?.[textMode.value]?.typeline);
         const text = computed(() => part.value?.[textMode.value]?.text);
 
+        const isArenaVariant = computed(() => name.value?.startsWith('A-'));
+
+        const realName = computed(() => {
+            const nameValue = name.value;
+
+            if (nameValue == null) {
+                return undefined;
+            }
+
+            if (nameValue.startsWith('A-')) {
+                return nameValue.slice(2);
+            }
+
+            return nameValue;
+        });
+
         const flavorText = computed(() => part.value?.flavorText);
         const flavorName = computed(() => part.value?.flavorName);
         const artist = computed(() => part.value?.artist);
@@ -833,6 +852,8 @@ export default defineComponent({
             partIndex,
             langWithMode,
             name,
+            isArenaVariant,
+            realName,
             cost,
             stats,
             colorIndicator,
