@@ -185,7 +185,6 @@ function aggregate({ lang, match, post }: AggregateOption) {
 
 const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult[]>> = {
     oracle: async lang => aggregate({
-        lang,
         post: agg => agg
             .group({
                 _id:           '$info',
@@ -201,6 +200,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                 __oracle:      { $first: '$__oracle' },
             })
             .match({
+                lang,
                 $or: [
                     { 'colorIdentity.1': { $exists: true } },
                     { 'color.1': { $exists: true } },
