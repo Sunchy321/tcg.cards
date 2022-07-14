@@ -203,7 +203,7 @@
             </div>
 
             <div class="flex q-mt-sm">
-                <q-input v-model="relatedCards" class="col" debounce="500" label="Related Cards" outlined dense>
+                <q-input v-model="relatedCardsString" class="col" debounce="500" label="Related Cards" outlined dense>
                     <template #append>
                         <q-btn icon="mdi-card-plus-outline" flat dense round @click="guessToken" />
                     </template>
@@ -574,7 +574,21 @@ export default defineComponent({
 
         const relatedCards = computed({
             get() {
-                return data.value?.relatedCards
+                return data.value?.relatedCards ?? [];
+            },
+            set(newValue: CardData['relatedCards']) {
+                if (data.value == null) {
+                    return;
+                }
+
+                data.value.relatedCards = newValue;
+                devToken.value = false;
+            },
+        });
+
+        const relatedCardsString = computed({
+            get() {
+                return relatedCards.value
                     ?.map(
                         ({ relation, cardId, version }) => (version != null
                             ? [relation, cardId, version.lang, version.set, version.number]
@@ -589,13 +603,14 @@ export default defineComponent({
                 }
 
                 if (newValue === '') {
-                    data.value.relatedCards = [];
+                    relatedCards.value = [];
+                    devToken.value = false;
                     return;
                 }
 
                 const parts = newValue.split(/; */);
 
-                data.value.relatedCards = parts.map(p => {
+                relatedCards.value = parts.map(p => {
                     // eslint-disable-next-line prefer-const, @typescript-eslint/no-shadow
                     let [relation, cardId, lang, set, number] = p.split('|');
 
@@ -622,10 +637,10 @@ export default defineComponent({
                         return { relation, cardId };
                     }
                 });
+
+                devToken.value = false;
             },
         });
-
-        watch(relatedCards, () => { devToken.value = false; });
 
         const counters = computed({
             get() { return data.value?.counters ?? []; },
@@ -955,8 +970,6 @@ export default defineComponent({
 
             const result = request.data;
 
-            console.log(result);
-
             if (result != null && result.total !== 0) {
                 dataGroup.value = result;
                 data.value = dataGroup.value.cards.shift();
@@ -991,6 +1004,8 @@ export default defineComponent({
             if (data.value == null) {
                 return;
             }
+
+            const relatedCardsCopy = [...relatedCards.value];
 
             for (const text of data.value.parts.map(p => p.oracle.text ?? '')) {
                 for (const m of text.matchAll(guessRegex)) {
@@ -1027,14 +1042,13 @@ export default defineComponent({
                         }
                     }
 
-                    if (data.value.relatedCards.every(r => r.cardId !== tokenId)) {
-                        data.value.relatedCards.push({
-                            relation: 'token',
-                            cardId:   tokenId,
-                        });
+                    if (relatedCardsCopy.every(r => r.cardId !== tokenId)) {
+                        relatedCardsCopy.push({ relation: 'token', cardId: tokenId });
                     }
                 }
             }
+
+            relatedCards.value = relatedCardsCopy;
         };
 
         const guessCounter = () => {
@@ -1110,7 +1124,7 @@ export default defineComponent({
             printedText,
             flavorText,
             flavorName,
-            relatedCards,
+            relatedCardsString,
             counters,
             multiverseId,
 
