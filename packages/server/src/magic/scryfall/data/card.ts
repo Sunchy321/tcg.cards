@@ -35,7 +35,7 @@ type NCardFace = Omit<CardFace, 'colors'> & {
     flavor_name?: string;
 };
 
-type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'image_uris'> | 'card_faces' | 'layout'> & {
+type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | 'oracle_id'> | 'card_faces' | 'layout'> & {
     card_faces: NCardFace[];
     face?: 'back' | 'front';
 };
@@ -311,7 +311,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
             ? convertColor(data.produced_mana)
             : undefined,
         tags: [
-            ...cardFaces.some(c => /\bcreates?\b/.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
+            ...cardFaces.some(c => /\bcreates?|embalm|eternalize\b/i.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
             ...cardFaces.some(c => /\bcounters?\b/.test(c.oracle_text ?? '')) ? ['dev:counter'] : [],
         ],
         localTags: [],
