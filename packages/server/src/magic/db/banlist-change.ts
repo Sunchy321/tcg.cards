@@ -1,4 +1,4 @@
-import { Document, Schema } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import conn from './db';
 
@@ -41,9 +41,6 @@ const BanlistChangeSchema = new Schema<IBanlistChange>({
     },
 });
 
-const BanlistChange = conn.model<Document & IBanlistChange>(
-    'banlist_change',
-    BanlistChangeSchema,
-);
+const BanlistChange = conn.model<IBanlistChange>('banlist_change', BanlistChangeSchema);
 
 export default BanlistChange;

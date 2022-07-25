@@ -1,4 +1,4 @@
-import { Schema, Document } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import conn from './db';
 
@@ -52,6 +52,6 @@ export const SetSchema = new Schema<ISet>({
     },
 });
 
-const Set = conn.model<Document & ISet>('set', SetSchema);
+const Set = conn.model<ISet>('set', SetSchema);
 
 export default Set;

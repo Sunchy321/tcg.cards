@@ -197,8 +197,8 @@ export default async function parseGatherer(
 
         const newData = baseCard.toObject();
 
-        delete newData._id;
-        delete newData.__v;
+        delete (newData as any)._id;
+        delete (newData as any).__v;
 
         newData.number = data.number;
         newData.lang = v.lang;

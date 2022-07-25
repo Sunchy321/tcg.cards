@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { Document, Schema } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import conn from './db';
 
@@ -21,7 +21,6 @@ const CardSchema = new Schema<ISCard>({
     tcgplayer_id:        Number,
     tcgplayer_etched_id: Number,
     cardmarket_id:       Number,
-    object:              String,
     oracle_id:           String,
     prints_search_uri:   String,
     ruling_uri:          String,
@@ -95,7 +94,6 @@ const CardSchema = new Schema<ISCard>({
 
     // Print Fields
     artist:            String,
-    artist_ids:        { type: [String], default: undefined },
     booster:           Boolean,
     border_color:      String,
     card_back_id:      String,
@@ -142,11 +140,8 @@ const CardSchema = new Schema<ISCard>({
         source_uri:   String,
         source:       String,
     },
-
-    file: String,
-    diff: {},
 }, { strict: false });
 
-const Card = conn.model<Document & ISCard>('scryfall_card', CardSchema);
+const Card = conn.model<ISCard>('scryfall_card', CardSchema);
 
 export default Card;

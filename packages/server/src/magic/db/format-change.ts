@@ -1,4 +1,4 @@
-import { Document, Schema } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import conn from './db';
 
@@ -18,6 +18,6 @@ const IFormatChangeSchema = new Schema<IFormatChange>({
     },
 });
 
-const FormatChange = conn.model<Document & IFormatChange>('format_change', IFormatChangeSchema);
+const FormatChange = conn.model<IFormatChange>('format_change', IFormatChangeSchema);
 
 export default FormatChange;

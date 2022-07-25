@@ -1,4 +1,4 @@
-import { Document, Schema } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import conn from './db';
 
@@ -30,6 +30,6 @@ const FormatSchema = new Schema<IFormat>({
     },
 });
 
-const Format = conn.model<Document & IFormat>('format', FormatSchema);
+const Format = conn.model<IFormat>('format', FormatSchema);
 
 export default Format;

@@ -1,4 +1,4 @@
-import { Document, Schema } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import conn from './db';
 
@@ -42,6 +42,6 @@ const CRMenuSchema = new Schema<ICR>({
     },
 });
 
-const CR = conn.model<Document & ICR>('cr', CRMenuSchema);
+const CR = conn.model<ICR>('cr', CRMenuSchema);
 
 export default CR;

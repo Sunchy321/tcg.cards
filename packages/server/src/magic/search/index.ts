@@ -38,7 +38,7 @@ const orderByCommand = command({
     post: ({ param }) => {
         param = param.toLowerCase();
 
-        const [type, dir] = (() => {
+        const [type, dir] = ((): [string, -1 | 1] => {
             if (param.endsWith('+')) {
                 return [param.slice(0, -1), 1];
             }
