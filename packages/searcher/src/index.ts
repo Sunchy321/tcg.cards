@@ -1,3 +1,2 @@
-import model from './model';
-
+import './model';
 import './helper';

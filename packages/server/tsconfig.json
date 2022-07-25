@@ -25,5 +25,8 @@
             { "transform": "tsc-progress" }
         ]
     },
-    "include": ["src/*"]
+    "include": [
+        "node_modules/card-searcher/src/**/*",
+        "src/*"
+    ]
 }
