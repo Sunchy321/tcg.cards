@@ -19,16 +19,18 @@
             <q-btn label="assign" flat dense @click="assign" />
         </div>
 
-        <grid
-            v-slot="{ cardId, format, data, scryfall }"
-            :value="progress?.wrongs ?? []" :item-width="400"
-            class="legalities"
-        >
-            <div class="q-ma-md">
-                <card-avatar :id="cardId" />
-                <div>{{ $t(`magic.format.${format}`) }} {{ data }} {{ scryfall }}</div>
-            </div>
-        </grid>
+        <div v-for="w in progress?.wrongs ?? []" :key="`${w.format}:${w.legality[0]}:${w.legality[1]}`" class="q-ma-md">
+            <div>{{ $t(`magic.format.${w.format}`) }} {{ w.legality[0] }} {{ w.legality[1] }}</div>
+
+            <grid
+                v-slot="{ id }"
+                :value="w.cards.map(id => ({ id }))" :item-width="400"
+                class="legalities"
+            >
+
+                <card-avatar :id="id" :key="id" />
+            </grid>
+        </div>
     </div>
 </template>
 
@@ -52,10 +54,9 @@ interface Status {
     };
 
     wrongs: {
-        cardId: string;
         format: string;
-        data: string;
-        scryfall: string;
+        legality: [string, string];
+        cards: string[];
     }[];
 }
 

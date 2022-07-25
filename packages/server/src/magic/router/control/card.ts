@@ -15,9 +15,7 @@ import {
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@data/magic/special';
-import {
-    CardData, getLegality, getPennyCards, getAlchemyVariantCards,
-} from '@/magic/banlist/legality';
+import { CardData, getLegality, getLegalityRules } from '@/magic/banlist/legality';
 import parseGatherer from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
@@ -357,8 +355,7 @@ router.get('/get-legality', async ctx => {
 
     formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
 
-    const pennyCards = getPennyCards();
-    const alchemyVariantCards = getAlchemyVariantCards();
+    const rules = getLegalityRules();
 
     const cardData = await Card.aggregate<CardData>([
         { $match: { cardId: id } },
@@ -398,12 +395,7 @@ router.get('/get-legality', async ctx => {
         },
     ]);
 
-    const legalities = getLegality(
-        cardData[0],
-        formats,
-        pennyCards,
-        alchemyVariantCards,
-    );
+    const legalities = getLegality(cardData[0], formats, rules);
 
     await Card.updateMany({ cardId: id }, { legalities });
 
