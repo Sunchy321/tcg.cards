@@ -15,16 +15,18 @@ export interface Part {
 
 export interface CardFace {
     artist?: string;
-    artist_id?: string;
+    // cmc?: string;
     color_indicator?: Colors;
     colors?: Colors;
     flavor_text?: string;
     illustration_id?: UUID;
     image_uris?: Record<string, URI>;
+    layout?: string;
     loyalty?: string;
     mana_cost: string;
     name: string;
     object: 'card_face';
+    // oracle_id?: UUID;
     oracle_text?: string;
     power?: string;
     printed_name?: string;
@@ -71,6 +73,7 @@ export interface RawCard {
     name: string;
     oracle_text?: string;
     oversized: boolean;
+    penny_rank?: number;
     power?: string;
     produced_mana?: Colors;
     reserved: boolean;
@@ -79,7 +82,6 @@ export interface RawCard {
 
     // Print Fields
     artist?: string;
-    artist_ids?: string[];
     booster: boolean;
     border_color: string;
     card_back_id: UUID;
@@ -119,6 +121,7 @@ export interface RawCard {
     textless: boolean;
     variation: boolean;
     variation_of?: UUID;
+    security_stamp?: string;
     watermark?: string;
 
     preview?: {

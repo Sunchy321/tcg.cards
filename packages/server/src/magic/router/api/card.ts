@@ -14,6 +14,8 @@ import sortKey from '@/common/sort-key';
 
 import searcher from '@/magic/search';
 
+import Parser from '@searcher/model/parser/parser';
+
 import { extendedLocales } from '@data/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -70,7 +72,14 @@ router.get('/', async ctx => {
     const versions = await Card.aggregate<Version>()
         .match({ cardId: id })
         .sort({ releaseDate: -1 })
-        .project('-_id lang set number rarity releaseDate');
+        .project({
+            _id:         0,
+            lang:        1,
+            set:         1,
+            number:      1,
+            rarity:      1,
+            releaseDate: 1,
+        });
 
     versions.sort((a, b) => {
         const ra = a.releaseDate;
@@ -182,6 +191,26 @@ router.get('/profile', async ctx => {
     }
 
     ctx.body = result;
+});
+
+router.get('/test', async ctx => {
+    const text = ctx.query.text as string ?? '';
+
+    const parser = new Parser(text);
+
+    try {
+        const expr = parser.parse();
+
+        ctx.body = expr;
+    } catch (e: any) {
+        ctx.body = {
+            text,
+            type:     e.type,
+            value:    e.value,
+            location: e.location,
+            tokens:   parser.tokens,
+        };
+    }
 });
 
 export default router;

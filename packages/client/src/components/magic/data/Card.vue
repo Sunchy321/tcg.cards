@@ -1046,6 +1046,10 @@ export default defineComponent({
                         relatedCardsCopy.push({ relation: 'token', cardId: tokenId });
                     }
                 }
+
+                if (/^(Embalm|Eternalize)/m.test(text)) {
+                    relatedCardsCopy.push({ relation: 'token', cardId: `${id.value}!` });
+                }
             }
 
             relatedCards.value = relatedCardsCopy;
