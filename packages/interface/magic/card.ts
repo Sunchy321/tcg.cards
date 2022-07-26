@@ -88,6 +88,7 @@ export type Card = {
     frameEffects: string[];
     borderColor: string;
     cardBack: string;
+    securityStamp?: string;
     promoTypes?: string[];
     rarity: string;
     releaseDate: string;
@@ -128,4 +129,4 @@ export type Card = {
     multiverseId: number[];
     tcgPlayerId?: number;
     cardMarketId?: number;
-}
+};

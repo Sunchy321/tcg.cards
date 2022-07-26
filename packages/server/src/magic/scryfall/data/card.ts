@@ -17,9 +17,7 @@ import { existsSync, unlinkSync } from 'fs';
 import { isEqual, omit } from 'lodash';
 import { toAsyncBucket } from '@/common/to-bucket';
 import LineReader from '@/common/line-reader';
-import {
-    convertColor, parseTypeline, toIdentifier, convertLegality,
-} from '@/magic/util';
+import { convertColor, parseTypeline, toIdentifier } from '@/magic/util';
 import { bulkPath, convertJson } from './common';
 
 import { cardImagePath } from '@/magic/image';
@@ -340,13 +338,14 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
             return data.layout;
         })(),
 
-        frame:        data.frame,
-        frameEffects: data.frame_effects ?? [],
-        borderColor:  data.border_color,
-        cardBack:     data.card_back_id,
-        promoTypes:   data.promo_types,
-        rarity:       data.rarity,
-        releaseDate:  data.released_at,
+        frame:         data.frame,
+        frameEffects:  data.frame_effects ?? [],
+        borderColor:   data.border_color,
+        cardBack:      data.card_back_id,
+        securityStamp: data.security_stamp,
+        promoTypes:    data.promo_types,
+        rarity:        data.rarity,
+        releaseDate:   data.released_at,
 
         isDigital:        data.digital,
         isFullArt:        data.full_art,
@@ -359,7 +358,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         hasHighResImage:  data.highres_image,
         imageStatus:      data.image_status,
 
-        legalities:     convertLegality(data.legalities),
+        legalities:     {},
         isReserved:     data.reserved,
         inBooster:      data.booster,
         contentWarning: data.content_warning,
@@ -574,6 +573,9 @@ async function merge(card: Document & ICard, data: ICard) {
             assign(card, data, 'borderColor');
             break;
         case 'cardBack':
+            break;
+        case 'securityStamp':
+            assign(card, data, 'securityStamp');
             break;
         case 'promoTypes':
             assign(card, data, 'promoTypes');
