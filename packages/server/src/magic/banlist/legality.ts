@@ -212,7 +212,8 @@ function testFilter(data: CardData, filter: LegalityRule['patterns'][0]): boolea
     if (filter.type === 'id') {
         return data._id === filter.value;
     } else {
-        return data.versions.some(v => v.set === filter.value);
+        return data.versions.some(v => v.set === filter.value)
+            && !['plains', 'island', 'swamp', 'mountain', 'forest'].includes(data._id);
     }
 }
 
@@ -313,24 +314,6 @@ export function getLegality(
             result[formatId] = 'unavailable';
             continue;
         }
-
-        // // I don't know why
-        // if (formatId === 'historic' && cardId === 'shorecomber_crab') {
-        //     result[formatId] = 'legal';
-        //     continue;
-        // }
-
-        // if (formatId === 'alchemy') {
-        //     if (cardId === 'a_blood_artist') {
-        //         result[formatId] = 'legal';
-        //         continue;
-        //     }
-
-        //     if (cardId === 'arcane_signet') {
-        //         result[formatId] = 'unavailable';
-        //         continue;
-        //     }
-        // }
 
         if (f.sets != null) {
             const sets = versions.map(v => v.set);
@@ -445,69 +428,6 @@ function legalityMatch(
     }
 
     return false;
-
-    // if (scryfall[f] != null && legalities[f] !== scryfall[f]) {
-    //     if (cardId === 'gleemox') {
-    //         continue;
-    //     }
-
-    //     if (f === 'duelcommander') {
-    //         if ([
-    //             // Duelcommander banned offensive cards explicitly but Scryfall marked them as legal.
-    //             'invoke_prejudice',
-    //             'cleanse',
-    //             'stone_throwing_devils',
-    //             'pradesh_gypsies',
-    //             'jihad',
-    //             'imprison',
-    //             'crusade',
-
-    //             // Walking Dead cards are on the contrary.
-    //             'negan__the_cold_blooded',
-    //             'glenn__the_voice_of_calm',
-    //             'michonne__ruthless_survivor',
-    //             'rick__steadfast_leader',
-    //             'daryl__hunter_of_walkers',
-    //             'lucille',
-    //         ].includes(cardId)) {
-    //             continue;
-    //         }
-
-    //         // Conspiracy are marked as not legal but they are actually banned.
-    //         if (data.parts[0].typeMain.includes('conspiracy')) {
-    //             continue;
-    //         }
-    //     } else if (f === 'historic') {
-    //         // These cards are not on MTGA at all.
-    //         if ([
-    //             'ajani_s_chosen',
-    //             'angelic_arbiter',
-    //             'ball_lightning',
-    //             'chain_lightning',
-    //             'draconic_roar',
-    //             'exhume',
-    //             'fa_adiyah_seer',
-    //             'flametongue_kavu',
-    //             'goblin_lore',
-    //             'lightning_bolt',
-    //             'mausoleum_turnkey',
-    //             'path_to_exile',
-    //             'read_the_runes',
-    //             'reanimate',
-    //             'rhystic_study',
-    //             'scourge_of_nel_toth',
-    //             'scrounging_bandar',
-    //             // 'sheoldred__whispering_one',
-    //             'thought_scour',
-    //             'time_to_feed',
-    //         ].includes(cardId) && legalities[f] === 'unavailable' && scryfall[f] === 'banned') {
-    //             continue;
-    //         }
-    //     } else if (f === 'brawl') {
-    //         // Some MTGA only cards are marked as legal by Scryfall
-    //         if (['rampaging_brontodon'].includes(cardId)) {
-    //             continue;
-    //         }
 }
 
 interface Status {
