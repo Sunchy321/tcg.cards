@@ -34,18 +34,20 @@ export const tags: Record<string, ITag> = {
     380:  { index: 'heroPower' },
     476:  { index: 'multipleClasses' },
     480:  { index: 'classes', enum: 'multiClass' },
+    997:  { index: 'deckSize' },
     1125: { index: 'deckOrder' },
     1282: { index: 'heroicHeroPower' },
     1429: { index: 'tripleCard' },
     1440: { index: 'techLevel' },
     1456: { index: 'inBobsTavern', bool: true },
-    1587: { index: 'coin' },
     1517: { index: 'overrideWatermark', enum: 'set' },
+    1587: { index: 'coin' },
     1635: { index: 'spellSchool', enum: true },
     1666: { index: 'mercenaryRole', enum: true },
     1669: { index: 'colddown' },
     1723: { index: 'armorBucket' },
     2130: { index: 'buddy' },
+    2703: { index: 'bannedRace', enum: 'race' },
 };
 
 export const mechanics: Record<string, string | null> = {
@@ -109,6 +111,7 @@ export const mechanics: Record<string, string | null> = {
     415:  'discover',
     424:  'ritual',
     426:  'functionally_dead',
+    436:  'cthun',
     441:  'jade_golem', // it should be a referenced tag
     443:  'choose_one',
     448:  'untouchable',
@@ -166,7 +169,6 @@ export const mechanics: Record<string, string | null> = {
     982:  'puzzle_type',
     992:  '?hall_of_fame',
     994:  'lackey',
-    997:  'special_deck',
     998:  'shudderwork',
     1016: 'treat_as_played_hero_card',
     1020: '?unknown_1020', // only on A Mother's Vow and Equip Kingsbane
@@ -212,6 +214,7 @@ export const mechanics: Record<string, string | null> = {
     1296: 'buff_cost_down',
     1297: 'buff_attack_up',
     1298: 'buff_cost_up',
+    1304: '?sire_denathrius',
     1333: 'outcast',
     1342: 'use_discover_visuals',
     1359: '?related_to_lackey',
@@ -245,6 +248,7 @@ export const mechanics: Record<string, string | null> = {
     1551: 'corrupted',
     1554: 'new_battlegrounds_hero',
     1557: 'start_of_combat_affect_right',
+    1561: 'skip_mulligan',
     1567: 'start_of_combat_affect_left', // only on 8 battlegrounds hero power
     1576: 'adjacent_battlecry',
     1584: 'cat',
@@ -269,7 +273,7 @@ export const mechanics: Record<string, string | null> = {
     1687: '?friendly_wager_1687', // only on Friendly Wager
     1692: '?friendly_wager_1692', // only on Friendly Wager
     1707: '?1707', // only on Jaina Proudmoore and Blink Fox
-    1719: 'transfromed_card_visual_type', // only on Corrupt cards
+    1719: 'transfromed_card_visual_type', // only on Corrupt and Infuse cards
     1720: 'tradable',
     1724: '?transfer_student_and_galakrond', // only on Transfer Student and Galakrond
     1725: 'questline',
@@ -322,6 +326,7 @@ export const mechanics: Record<string, string | null> = {
     2044: '?darkmoon_prize', // only on Darkmoon Prize
     2049: 'battlegrounds_bob_skin',
     2054: 'kazakusan_treasure',
+    2057: '?theotar__the_mad_duke',
     2088: 'coin_skin',
     2104: 'refresh',
     2105: '?stealer_of_souls', // only on Stealer of Souls
@@ -334,13 +339,20 @@ export const mechanics: Record<string, string | null> = {
     2134: '?2134',
     2138: 'spell_resistance_arcane',
     2139: 'spell_resistance_fire',
+    2140: 'spell_resistance_frost',
+    2141: 'spell_resistance_nature',
+    2142: 'spell_resistance_holy',
+    2143: 'spell_resistance_shadow',
+    2144: 'spell_resistance_fel',
     2146: 'spell_weakness_fire',
     2147: 'spell_weakness_frost',
+    2148: 'spell_weakness_nature',
     2149: 'spell_weakness_holy',
     2150: 'spell_weakness_shadow',
     2154: 'is_companion',
     2156: 'in_bobs_tavern', // enchantments works in bob's tavern
     2159: 'lettuce_attack', // unknown
+    2160: 'spell_combo',
     2165: '?unknown_2165', // only on Soulciologist Malicia and Elwynn Boar
     2168: 'lettuce_bounty_boss',
     2178: 'adventure',
@@ -353,6 +365,7 @@ export const mechanics: Record<string, string | null> = {
     2236: '?leapfrogger', // only on Leapfrogger
     2238: '?leapfrogger_golden', // only on Golden Leapfrogger
     2241: 'lettuce_start_of_combat',
+    2242: '?mercenaries_2242',
     2247: 'colossal',
     2248: 'colossal_limb',
     2266: '?battlegrounds_hero_power_4',
@@ -368,16 +381,21 @@ export const mechanics: Record<string, string | null> = {
     2343: 'record_invocation',
     2345: '?2345',
     2355: 'whelp',
+    2359: 'spellcraft',
     2369: 'revive',
     2375: 'lettuce_return',
     2376: '?battlegrounds_hero_power',
     2383: '?2383',
     2387: 'battlegrounds_out_of_rotation',
     2388: 'allied',
+    2423: 'one_turn_spell',
     2428: 'kazakus_golem',
+    2431: 'relic',
     2434: 'lettuce_healing_power',
     2436: '?battleground_battlecry',
     2455: 'battlegrounds_freeze',
+    2456: 'infuse',
+    2457: 'infused',
     2459: 'entity_threshold',
     2460: 'entity_threshold_value',
     2464: 'lettuce_spell_weakness',
@@ -385,6 +403,16 @@ export const mechanics: Record<string, string | null> = {
     2469: 'colossal_limb_on_left',
     2474: 'battlegrounds_skip_turn',
     2475: '?battlegrounds_hero_power_3',
+    2510: '?mercenaries_2510',
+    2514: 'one_turn_taunt',
+    2515: '?mercenaries_2515',
+    2560: '?2560',
+    2564: 'one_turn_divine_shield',
+    2570: 'bench',
+    2573: '?fathom_guard',
+    2594: 'one_turn_effect',
+    2608: '?mercenaries_2608',
+    2609: '?mercenaries_2609',
 };
 
 export const relatedEntities: Record<string, string> = {
@@ -402,6 +430,8 @@ export const relatedEntities: Record<string, string> = {
     2107: 'aranna_base',
     2125: 'hero_amalgam', // only on Cuddly Curator
     2153: 'aranna_advanced',
+    2359: 'spellcraft',
+    2519: 'upgraded_hero_power',
 };
 
 export const sets: Record<string, string> = {
@@ -416,7 +446,7 @@ export const sets: Record<string, string> = {
     13:   'gvg', // Goblins vs Gnomes
     14:   'brm', // Blackrock mountain
     15:   'tgt', // The Grand Tournament
-    20:   'loe', // League of Explorers
+    20:   'loe', // The League of Explorers
     21:   'wog', // Whispers of the Old Gods
     23:   'onk', // One Night in Karazhan
     25:   'msg', // Mean Streets of Gadgetzan
@@ -436,8 +466,9 @@ export const sets: Record<string, string> = {
     1466: 'mdf', // Madness at the Darkmoon Faire
     1525: 'fib', // Forged in the Barrens
     1578: 'uis', // United in Stormwind
-    1626: 'alv', // Altelac Valley
-    1658: 'tsc', // The Sunken City
+    1626: 'fav', // Fractured in Altelac Valley
+    1658: 'vsc', // Voyage to the Sunken City
+    1691: 'mcn', // Murder at the Castle Nathria
 
     5:    'mission',
     16:   'credits',
@@ -499,6 +530,7 @@ export const types: Record<string, string> = {
     22: 'move_minion_hover_target',
     23: 'mercenary_ability',
     24: 'buddy_meter',
+    39: 'location',
 };
 
 export const races: Record<string, string> = {
@@ -537,6 +569,9 @@ export const races: Record<string, string> = {
     88: 'halforc',
     89: 'lock',
     92: 'naga',
+    93: 'old_god',
+    94: 'pandaren',
+    95: 'gronn',
 };
 
 export const spellSchools: Record<string, string> = {
@@ -559,6 +594,7 @@ export const raceBuckets: Record<string, string> = {
     1596: 'pirate',
     1688: 'elemental',
     1845: 'quilboar',
+    2272: 'naga',
 };
 
 export const rarities: Record<string, string> = {

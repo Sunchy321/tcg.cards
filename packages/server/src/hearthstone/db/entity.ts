@@ -7,7 +7,7 @@ import { Entity as IEntity } from '@interface/hearthstone/entity';
 import { omit } from 'lodash';
 
 const EntitySchema = new Schema<IEntity>({
-    version: Number,
+    versions: [Number],
 
     cardId: String,
     dbfId:  Number,
@@ -45,6 +45,7 @@ const EntitySchema = new Schema<IEntity>({
     coin:         Number,
     armorBucket:  Number,
     buddy:        String,
+    bannedRace:   String,
 
     mercenaryRole: String,
     colddown:      Number,
@@ -89,6 +90,7 @@ const EntitySchema = new Schema<IEntity>({
     multipleClasses:   Number,
     deckOrder:         Number,
     overrideWatermark: String,
+    deckSize:          Number,
 }, {
     toJSON: {
         transform(doc, ret) {

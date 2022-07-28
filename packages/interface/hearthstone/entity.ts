@@ -9,7 +9,7 @@ export interface Power {
 }
 
 export interface Entity {
-    version: number;
+    versions: number[];
 
     cardId: string;
     dbfId: number;
@@ -46,6 +46,7 @@ export interface Entity {
     coin: number;
     armorBucket?: number;
     buddy?: string;
+    bannedRace?: string;
 
     mercenaryRole: string;
     colddown: number;
@@ -74,4 +75,5 @@ export interface Entity {
     multipleClasses: number;
     deckOrder: number;
     overrideWatermark: string;
+    deckSize?: number;
 }
