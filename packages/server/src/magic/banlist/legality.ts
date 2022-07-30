@@ -117,7 +117,6 @@ export function getLegalityRules(): LegalityRule[] {
 
             if (m != null) {
                 for (const f of m[1].split(',')) {
-                    // eslint-disable-next-line prefer-destructuring
                     status[f] = m[2] as Legality;
                 }
             } else {

@@ -1,4 +1,3 @@
-/* eslint-disable prefer-destructuring */
 import { useUser } from 'store/user';
 
 import { controlBase, control } from 'boot/backend';
@@ -13,7 +12,7 @@ export default function controlSetup(): {
     const user = useUser();
 
     async function controlGet<T>(path: string, params: Record<string, any> = { }) {
-        const token = user.token;
+        const { token } = user;
 
         if (token != null) {
             return control.get<T>(path, {
@@ -28,7 +27,7 @@ export default function controlSetup(): {
     }
 
     async function controlPost<T>(path: string, params: Record<string, any> = { }) {
-        const token = user.token;
+        const { token } = user;
 
         if (token != null) {
             return control.post<T>(path, params, {
@@ -42,7 +41,7 @@ export default function controlSetup(): {
     }
 
     function controlWs(path: string, params: Record<string, any> = { }) {
-        const token = user.token;
+        const { token } = user;
 
         params = token != null ? { jwt: token, ...params } : params;
 

@@ -8,7 +8,6 @@
 </style>
 
 <script lang="ts">
-/* eslint-disable prefer-destructuring */
 import {
     PropType, defineComponent, ref, computed, watch, h,
 } from 'vue';
@@ -63,8 +62,7 @@ export default defineComponent({
                 return null;
             }
 
-            const locales = magic.locales;
-            const locale = magic.locale;
+            const { locales, locale } = magic;
             const defaultLocale = locales[0];
 
             return profile.value.parts.map(p => p.localization.find(l => l.lang === locale)?.name
@@ -89,8 +87,7 @@ export default defineComponent({
             if (props.pauper) {
                 const versions = profile.value.versions.filter(v => v.rarity === 'common');
 
-                const locales = magic.locales;
-                const locale = magic.locale;
+                const { locales, locale } = magic;
                 const defaultLocale = locales[0];
 
                 const localeVersion = versions.filter(v => v.lang === locale);
@@ -118,8 +115,7 @@ export default defineComponent({
 
             const { versions } = profile.value;
 
-            const locales = magic.locales;
-            const locale = magic.locale;
+            const { locales, locale } = magic;
             const defaultLocale = locales[0];
 
             const localeVersion = versions.filter(v => v.lang === locale);

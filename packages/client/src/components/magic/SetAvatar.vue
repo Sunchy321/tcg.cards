@@ -5,7 +5,6 @@
 </style>
 
 <script lang="ts">
-/* eslint-disable prefer-destructuring */
 import {
     defineComponent, ref, computed, watch, h,
 } from 'vue';
@@ -45,11 +44,10 @@ export default defineComponent({
                 return null;
             }
 
-            const locales = magic.locales;
-            const locale = magic.locale;
+            const { locales, locale } = magic;
             const defaultLocale = locales[0];
 
-            const localization = profile.value.localization;
+            const { localization } = profile.value;
 
             return localization[locale]?.name ?? localization[defaultLocale]?.name ?? props.id;
         });

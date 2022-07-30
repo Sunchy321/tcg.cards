@@ -29,7 +29,6 @@
 </style>
 
 <script lang="ts">
-/* eslint-disable prefer-destructuring */
 import type { PropType } from 'vue';
 import { defineComponent, h } from 'vue';
 

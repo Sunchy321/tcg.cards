@@ -84,6 +84,11 @@ module.exports = {
             method:    { before: false, after: false },
         }],
 
+        'prefer-destructuring': ['warn', {
+            array: false,
+            object: true
+        }],
+
         'no-restricted-syntax': ['error', 'ForInStatement', 'LabeledStatement', 'WithStatement'],
 
         'import/extensions':            'off',
