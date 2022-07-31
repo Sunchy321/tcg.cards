@@ -372,33 +372,29 @@ export default defineComponent({
 
         const banlist = computed(() => {
             const banlistItems = (() => {
-                if (date.value == null) {
-                    return data.value?.banlist ?? [];
-                } else {
-                    let result: BanlistChange[] = [];
+                let result: BanlistChange[] = [];
 
-                    for (const c of timeline.value) {
-                        if (c.type === 'banlist') {
-                            if (c.date > date.value) {
-                                break;
-                            }
+                for (const c of timeline.value) {
+                    if (c.type === 'banlist') {
+                        if (c.date > date.value) {
+                            break;
+                        }
 
-                            if (c.status === 'legal' || c.status === 'unavailable') {
-                                result = result.filter(v => v.card !== c.card);
+                        if (c.status === 'legal' || c.status === 'unavailable') {
+                            result = result.filter(v => v.card !== c.card);
+                        } else {
+                            const sameIndex = result.findIndex(b => b.card === c.card);
+
+                            if (sameIndex === -1) {
+                                result.push(c);
                             } else {
-                                const sameIndex = result.findIndex(b => b.card === c.card);
-
-                                if (sameIndex === -1) {
-                                    result.push(c);
-                                } else {
-                                    result.splice(sameIndex, 1, c);
-                                }
+                                result.splice(sameIndex, 1, c);
                             }
                         }
                     }
-
-                    return result;
                 }
+
+                return result;
             })();
 
             switch (order.value) {

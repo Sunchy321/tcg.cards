@@ -123,7 +123,7 @@ export default defineComponent({
                     type:    'enum',
                     bind:    'query',
                     inTitle: true,
-                    values:  () => list.value,
+                    values:  list,
                 },
             },
 

@@ -84,14 +84,14 @@
 import { defineComponent, computed } from 'vue';
 
 import { useQuasar } from 'quasar';
-import { ActionInfo, useCore } from 'store/core';
+import { useCore } from 'store/core';
 import { useGame } from 'store/games';
+import { Parameter } from 'src/stores/core/params';
+import { ActionInfo } from 'src/stores/core/action';
 
 import basicSetup from 'setup/basic';
 
 import UploaderBtn from 'components/UploaderBtn.vue';
-
-import { pickBy } from 'lodash';
 
 export default defineComponent({
     components: { UploaderBtn },
@@ -156,7 +156,21 @@ export default defineComponent({
             }
         });
 
-        const paramsInTitle = computed(() => pickBy(core.params, v => v.inTitle));
+        const paramsInTitle = computed(() => {
+            const result: Record<string, Parameter & { value: any }> = {};
+
+            for (const k of Object.keys(core.paramOptions)) {
+                if (core.paramOptions[k].inTitle as boolean) {
+                    result[k] = {
+                        ...core.paramOptions[k],
+                        value: core.params[k],
+                    };
+                }
+            }
+
+            return result;
+        });
+
         const actionsWithIcon = computed(() => core.actions.filter(a => a.icon != null));
 
         const paramLabel = (p: any, v: string) => {
@@ -169,7 +183,10 @@ export default defineComponent({
         };
 
         const commitParam = (key: string, value: any) => {
-            core.setParam(key, value);
+            core.params = {
+                ...core.params,
+                [key]: value,
+            };
         };
 
         const invokeAction = (action: ActionInfo, payload?: any) => {
