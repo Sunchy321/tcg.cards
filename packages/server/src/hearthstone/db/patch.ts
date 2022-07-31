@@ -1,22 +1,26 @@
 import { Document, Schema } from 'mongoose';
 
+import { Patch as IPatch } from '@interface/hearthstone/patch';
+
 import conn from './db';
 
-export interface IPatch {
-    version: string;
-    number: number;
-    hash: string;
-    isUpdated: boolean;
-}
-
 const PatchSchema = new Schema<IPatch>({
-    version: String,
-    number:  Number,
-    hash:    String,
+    version:   String,
+    shortName: String,
+    number:    Number,
+    hash:      String,
 
     isUpdated: {
         type:    Boolean,
         default: false,
+    },
+}, {
+    toJSON: {
+        transform(doc, ret) {
+            delete ret._id;
+            delete ret.__v;
+            return ret;
+        },
     },
 });
 

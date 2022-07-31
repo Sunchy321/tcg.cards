@@ -13,7 +13,9 @@ import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthston
 import * as fs from 'fs';
 import * as path from 'path';
 import { xml2js } from 'xml-js';
-import { castArray, last } from 'lodash';
+import {
+    castArray, isEqual, last, omit,
+} from 'lodash';
 
 import { dataPath } from '@static';
 import * as logger from '@/logger';
@@ -37,7 +39,6 @@ import {
     types,
     relatedEntities,
 } from '@data/hearthstone/hsdata-map';
-import { toBucket, toGenerator } from '@/common/to-bucket';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
 const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
@@ -140,6 +141,63 @@ export class DataLoader extends Task<ILoaderStatus> {
     stopImpl(): void { /* no-op */ }
 }
 
+export interface IClearPatchStatus {
+    type: 'clear-patch';
+    version: string;
+    count: number;
+    total: number;
+}
+
+export class PatchClearer extends Task<IClearPatchStatus> {
+    version: number;
+
+    constructor(version: string) {
+        super();
+        this.version = Number.parseInt(last(version.split('.'))!, 10);
+    }
+
+    async startImpl(): Promise<void> {
+        if (!hasData()) {
+            return;
+        }
+
+        const patch = await Patch.findOne({ number: this.version });
+
+        if (patch == null) {
+            return;
+        }
+
+        let count = 0;
+        const total = await Entity.countDocuments({ versions: this.version });
+
+        this.intervalProgress(500, () => ({
+            type:    'clear-patch',
+            version: this.version.toString(),
+            count,
+            total,
+        }));
+
+        for await (const e of Entity.find({ versions: this.version })) {
+            if (e.versions.length > 1) {
+                e.versions = e.versions.filter(v => v !== this.version);
+                await e.save();
+            } else {
+                await e.delete();
+            }
+
+            count += 1;
+        }
+
+        patch.isUpdated = false;
+
+        await patch.save();
+
+        logger.data.info(`Patch ${this.version} has been removed`, { category: 'hsdata' });
+    }
+
+    stopImpl(): void { /* no-op */ }
+}
+
 function getValue(tag: XLocStringTag | XTag, info: ITag) {
     if (tag._attributes.type === 'LocString') {
         return Object.entries(tag)
@@ -233,8 +291,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             return;
         }
 
-        await Entity.deleteMany({ version: this.version });
-
         const repo = git({
             baseDir:  localPath,
             progress: p => {
@@ -254,9 +310,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             ignoreComment:     true,
         }) as { CardDefs: XCardDefs };
 
-        let count = 0;
-        const total = xml.CardDefs.Entity.length;
-
         const entities: IEntity[] = [];
         const errorPath = path.join(dataPath, 'hearthstone', 'hsdata-error.txt');
 
@@ -264,20 +317,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         for (const e of xml.CardDefs.Entity) {
             try {
-                const entity = this.convert(e);
-
-                count += 1;
-
-                if (count % 500 === 0) {
-                    this.emit('progress', {
-                        type:    'load-patch',
-                        version: this.version,
-                        count,
-                        total,
-                    });
-                }
-
-                entities.push(entity as IEntity);
+                entities.push(this.convert(e) as IEntity);
             } catch (err) {
                 fs.writeFileSync(
                     errorPath,
@@ -293,21 +333,26 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             { flag: 'a' },
         );
 
-        this.emit('progress', {
-            type:    'load-patch',
-            version: this.version,
-            count,
-            total,
-        });
-
         for (const e of entities) {
             for (const r of e.relatedEntities) {
                 r.cardId = entities.find(e => e.dbfId.toString() === r.cardId)?.cardId ?? '';
             }
         }
 
-        for (const es of toBucket(toGenerator(entities), 500)) {
-            await Entity.insertMany(es);
+        let count = 0;
+        const total = entities.length;
+
+        this.intervalProgress(500, () => ({
+            type:    'load-patch',
+            version: this.version.toString(),
+            count,
+            total,
+        }));
+
+        for (const e of entities) {
+            await this.save(e);
+
+            count += 1;
         }
 
         patch.isUpdated = true;
@@ -317,10 +362,10 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
     }
 
-    convert(entity: XEntity): IEntity {
+    private convert(entity: XEntity): IEntity {
         const result: Partial<IEntity> = { };
 
-        result.version = this.version;
+        result.versions = [this.version];
         result.cardId = entity._attributes.CardID;
         result.dbfId = Number.parseInt(entity._attributes.ID, 10);
 
@@ -482,6 +527,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case 'overload_owed':
                         case 'the_rat_king_skill_activating_type':
                         case 'entity_threshold_value':
+                        case 'transfromed_card_visual_type':
                             result.mechanics.push(`${mechanic}:${value}`);
                             break;
                         case 'base_galakrond':
@@ -494,6 +540,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case '?duels_passive':
                         case '?1684':
                         case 'entity_threshold':
+                        case 'one_turn_taunt':
+                        case '?sire_denathrius':
                             result.mechanics.push(mechanic);
                             break;
                         default:
@@ -623,6 +671,23 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         result.localization = localization as IEntity['localization'];
 
         return result as IEntity;
+    }
+
+    private async save(entity: IEntity): Promise<void> {
+        const eJson = omit(entity, ['versions']);
+        const oldData = await Entity.find({ cardId: entity.cardId });
+
+        for (const o of oldData) {
+            const oJson = omit(o.toJSON(), ['_id', '__v', 'versions']);
+
+            if (isEqual(oJson, eJson)) {
+                o.versions.push(entity.versions[0]);
+                await o.save();
+                return;
+            }
+        }
+
+        await Entity.create(entity);
     }
 
     stopImpl(): void { /* no-op */ }

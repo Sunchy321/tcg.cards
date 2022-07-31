@@ -3,7 +3,7 @@ import { Context, DefaultState } from 'koa';
 
 import Entity from '@/hearthstone/db/entity';
 
-import { mapValues, random } from 'lodash';
+import { flatten, mapValues, random } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -11,9 +11,16 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 router.get('/', async ctx => {
-    const { id, version } = mapValues(ctx.query, toSingle);
+    const { id, version: versionText } = mapValues(ctx.query, toSingle);
 
     if (id == null) {
+        ctx.status = 400;
+        return;
+    }
+
+    const version = versionText != null ? Number.parseInt(versionText, 10) : null;
+
+    if (versionText != null && Number.isNaN(version)) {
         ctx.status = 400;
         return;
     }
@@ -23,7 +30,7 @@ router.get('/', async ctx => {
     const entity = (() => {
         if (version != null) {
             for (const e of entities) {
-                if (e.version === Number.parseInt(version, 10)) {
+                if (e.versions.includes(version)) {
                     return e;
                 }
             }
@@ -34,17 +41,11 @@ router.get('/', async ctx => {
 
     ctx.body = {
         ...entity.toJSON(),
-        versions: entities.map(e => e.version),
+        versions: flatten(entities.map(e => e.versions)),
     };
 });
 
 router.get('/random', async ctx => {
-    // const q = toSingle(ctx.query.q ?? '');
-
-    // const cardIds = q !== ''
-    // ? (await searcher.search(q, { 'only-id': '' })).result?.cards as string[]
-    // : await Card.distinct('cardId');
-
     const entityIds = await Entity.distinct('cardId');
 
     ctx.body = entityIds[random(entityIds.length - 1)] ?? '';

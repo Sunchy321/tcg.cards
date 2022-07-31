@@ -1,6 +1,13 @@
 <template>
     <div class="hsdata-patch row items-center">
-        <div>{{ version }}</div>
+        <div class="version">{{ version }}</div>
+
+        <q-btn
+            class="clear-button"
+            flat round dense
+            icon="mdi-close"
+            @click="clearPatch"
+        />
 
         <q-btn
             class="load-button"
@@ -25,12 +32,12 @@
 </template>
 
 <style lang="sass" scoped>
-.hsdata-patch
-    width: 20%
-    padding: 10px 5px
+.version
+    width: 100px
 
 .load-button.is-updated
     color: green
+
 </style>
 
 <script lang="ts">
@@ -39,7 +46,7 @@ import { defineComponent, ref, computed } from 'vue';
 import controlSetup from 'setup/control';
 
 interface Progress {
-    type: 'load-patch';
+    type: 'clear-patch' | 'load-patch';
     version: string;
     count: number;
     total: number;
@@ -81,6 +88,29 @@ export default defineComponent({
             }
         });
 
+        const clearPatch = async () => {
+            const ws = controlWs('/hearthstone/hsdata/clear-patch', { version: props.version });
+
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    if (data.error != null) {
+                        console.error(data);
+                    } else {
+                        const prog = JSON.parse(data) as Progress;
+                        progress.value = prog;
+                    }
+                };
+
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    progress.value = null;
+                    emit('load-data');
+
+                    resolve(undefined);
+                };
+            });
+        };
+
         const loadPatch = async () => {
             const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.version });
 
@@ -109,6 +139,7 @@ export default defineComponent({
             progressValue,
             progressLabel,
 
+            clearPatch,
             loadPatch,
         };
     },

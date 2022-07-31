@@ -29,14 +29,13 @@
                 size="15px"
             />
         </div>
-        <div class="row justify-between">
+        <grid v-slot="p" :value="patches" :item-width="300">
             <hsdata-patch
-                v-for="p in patches"
                 :key="p.version"
                 v-bind="p"
                 @load-data="loadData"
             />
-        </div>
+        </grid>
     </q-page>
 </template>
 
@@ -47,6 +46,7 @@ import {
 
 import controlSetup from 'setup/control';
 
+import Grid from 'components/Grid.vue';
 import HsdataPatch from './HsdataPatch.vue';
 
 import bytes from 'bytes';
@@ -80,7 +80,7 @@ interface LoaderProgress {
 type Progress = LoaderProgress | TransferProgress;
 
 export default defineComponent({
-    components: { HsdataPatch },
+    components: { Grid, HsdataPatch },
 
     setup() {
         const { controlWs } = controlSetup();

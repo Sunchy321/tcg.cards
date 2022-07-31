@@ -3,7 +3,9 @@ import { Context, DefaultState } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import { DataGetter, DataLoader, PatchLoader } from '@/hearthstone/hsdata';
+import {
+    DataGetter, DataLoader, PatchLoader, PatchClearer,
+} from '@/hearthstone/hsdata';
 
 import { toSingle } from '@/common/request-helper';
 
@@ -30,6 +32,30 @@ router.get(
     async ctx => {
         loader.bind(await ctx.ws());
         ctx.status = 200;
+    },
+);
+
+const patchClearer: Record<string, PatchClearer> = { };
+
+router.get(
+    '/clear-patch',
+    websocket,
+    async ctx => {
+        const ws = await ctx.ws();
+
+        if (ctx.query.version == null) {
+            ctx.status = 400;
+            ws.close();
+        } else {
+            const version = toSingle(ctx.query.version);
+
+            if (patchClearer[version] == null) {
+                patchClearer[version] = new PatchClearer(version);
+            }
+
+            patchClearer[version].on('end', () => delete patchClearer[version]);
+            patchClearer[version].bind(ws);
+        }
     },
 );
 
