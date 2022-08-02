@@ -32,6 +32,8 @@
 import type { PropType } from 'vue';
 import { defineComponent, h } from 'vue';
 
+import { useQuasar } from 'quasar';
+
 function calcActualValue(value: string, type: string[]) {
     switch (value) {
     case 'T':
@@ -71,6 +73,8 @@ export default defineComponent({
     },
 
     setup(props) {
+        const quasar = useQuasar();
+
         return () => {
             const rawValue = props.value;
             const rawType = props.type;
@@ -82,9 +86,16 @@ export default defineComponent({
 
             const value = calcActualValue(rawValue, type);
 
-            const src = type.includes('flat')
-                ? `/magic/symbol-flat.svg#icon-${value}`
-                : `/magic/symbol.svg#icon-${value}`;
+            let src = type.includes('flat')
+                ? '/magic/symbol-flat.svg'
+                : '/magic/symbol.svg';
+
+            // force image reload for Safari
+            if (quasar.platform.is.safari) {
+                src += `?${Math.floor(Math.random() * 10000)}`;
+            }
+
+            src += `#icon-${value}`;
 
             let klass = `magic-symbol icon-${value}`;
 
