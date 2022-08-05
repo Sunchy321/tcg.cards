@@ -18,7 +18,8 @@
             "@static": ["./static"],
             "@data/*": ["../data/*"],
             "@interface/*": ["../node_modules/card-interface/*"],
-            "@searcher/*": ["../node_modules/card-searcher/src/*"]
+            "@searcher/*": ["../node_modules/card-searcher/src/*"],
+            "@renderer/*": ["../node_modules/card-renderer/src/*"]
         },
         "plugins": [
             { "transform": "tst-reflect-transformer" },

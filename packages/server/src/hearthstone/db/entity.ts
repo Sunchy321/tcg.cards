@@ -4,8 +4,6 @@ import conn from './db';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
-import { omit } from 'lodash';
-
 const EntitySchema = new Schema<IEntity>({
     versions: [Number],
 
@@ -25,6 +23,7 @@ const EntitySchema = new Schema<IEntity>({
         howToEarn:       String,
         howToEarnGolden: String,
         flavor:          String,
+        illusId:         String,
     }],
 
     classes:     [String],
@@ -96,10 +95,6 @@ const EntitySchema = new Schema<IEntity>({
         transform(doc, ret) {
             delete ret._id;
             delete ret.__v;
-
-            ret.localization = Object.fromEntries(
-                ret.localization.map((l: IEntity['localization'][0]) => [l.lang, omit(l, 'lang')]),
-            );
 
             return ret;
         },

@@ -6,7 +6,8 @@
         "data/",
         "../card-interface/",
         "../log-parser/src",
-        "../searcher/src"
+        "../searcher/src",
+        "../renderer/src"
     ],
     "execMap": {
         "ts": "node -r ts-node/register -r tsconfig-paths/register"
