@@ -5,7 +5,7 @@ export default {
         weapon:            '武器',
         hero:              '英雄',
         hero_power:        '英雄技能',
-        enchantment:       '状态',
+        enchantment:       '额外效果',
         mercenary_ability: '佣兵技能',
     },
 

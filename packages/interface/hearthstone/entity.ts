@@ -26,30 +26,31 @@ export interface Entity {
         howToEarn: string;
         howToEarnGolden: string;
         flavor: string;
+        illusId?: string;
     }[];
 
     classes: string[];
     cardType: string;
     cost: number;
-    attack: number;
-    health: number;
-    durability: number;
-    armor: number;
-    race: string;
+    attack?: number;
+    health?: number;
+    durability?: number;
+    armor?: number;
+    race?: string;
     spellSchool?: string;
     quest?: { type: 'normal' | 'questline' | 'side', progress: number, part?: number };
 
-    techLevel: number;
+    techLevel?: number;
     inBobsTavern: boolean;
-    tripleCard: string;
-    raceBucket: string;
-    coin: number;
+    tripleCard?: string;
+    raceBucket?: string;
+    coin?: number;
     armorBucket?: number;
     buddy?: string;
     bannedRace?: string;
 
-    mercenaryRole: string;
-    colddown: number;
+    mercenaryRole?: string;
+    colddown?: number;
 
     collectible: boolean;
     elite: boolean;
@@ -57,7 +58,7 @@ export interface Entity {
 
     artist: string;
 
-    faction: string;
+    faction?: string;
 
     mechanics: string[];
     referencedTags: string[];
@@ -67,8 +68,8 @@ export interface Entity {
     relatedEntities: { relation: string, cardId: string }[];
 
     entourages: string[];
-    heroPower: string;
-    heroicHeroPower: string;
+    heroPower?: string;
+    heroicHeroPower?: string;
     parentCard?: string;
     childrenCard?: string[];
 
