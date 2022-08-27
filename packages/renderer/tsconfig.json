@@ -12,7 +12,6 @@
         "baseUrl": "./src",
         "paths": {
             "*": ["@types/*"],
-            "@/*": ["./*"],
             "@interface/*": ["../node_modules/card-interface/*"],
         },
     },

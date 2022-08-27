@@ -10,6 +10,7 @@ export interface EntityRenderData {
     rawText: string;
     illusId?: string;
 
+    set: Entity['set'];
     classes: Entity['classes'];
     cardType: Entity['cardType'];
     cost?: Entity['cost'];
@@ -19,4 +20,22 @@ export interface EntityRenderData {
     armor?: Entity['armor'];
     race?: Entity['race'];
     spellSchool?: Entity['spellSchool'];
+
+    techLevel?: Entity['techLevel'];
+    inBobsTavern?: Entity['inBobsTavern'];
+    tripleCard?: Entity['tripleCard'];
+    raceBucket?: Entity['raceBucket'];
+    coin?: Entity['coin'];
+    armorBucket?: Entity['armorBucket'];
+    buddy?: Entity['buddy'];
+    bannedRace?: Entity['bannedRace'];
+
+    mercenaryRole?: Entity['mercenaryRole'];
+    colddown?: Entity['colddown'];
+
+    collectible: Entity['collectible'];
+    elite: Entity['elite'];
+    rarity?: Entity['rarity'];
+
+    mechanics: string[];
 }

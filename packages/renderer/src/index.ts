@@ -13,6 +13,26 @@ export function registerFonts(asset: string): void {
     registerFont(join(materialPath(asset), 'fonts', '文鼎隶书.ttf'), {
         family: '文鼎隶书',
     });
+
+    registerFont(join(materialPath(asset), 'fonts', 'BlizzardGlobal-BoldItalic.ttf'), {
+        family: 'BlizzardGlobal',
+        weight: 'bold',
+        style:  'italic',
+    });
+
+    registerFont(join(materialPath(asset), 'fonts', 'BlizzardGlobal-Italic.ttf'), {
+        family: 'BlizzardGlobal',
+        style:  'italic',
+    });
+
+    registerFont(join(materialPath(asset), 'fonts', 'BlizzardGlobal-Bold.ttf'), {
+        family: 'BlizzardGlobal',
+        weight: 'bold',
+    });
+
+    registerFont(join(materialPath(asset), 'fonts', 'BlizzardGlobal.ttf'), {
+        family: 'BlizzardGlobal',
+    });
 }
 
 export default async function renderEntity(

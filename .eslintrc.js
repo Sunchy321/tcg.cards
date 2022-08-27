@@ -85,8 +85,8 @@ module.exports = {
         }],
 
         'prefer-destructuring': ['warn', {
-            array: false,
-            object: true
+            array:  false,
+            object: true,
         }],
 
         'no-restricted-syntax': ['error', 'ForInStatement', 'LabeledStatement', 'WithStatement'],

@@ -1,25 +1,26 @@
 {
-  "name": "card-renderer",
-  "version": "0.0.1",
-  "description": "card renderer for hearthstone",
-  "author": "Sunchy321 <sunchy321@qq.com>",
-  "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
-  "license": "MIT",
-  "main": "src/index.ts",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Sunchy321/tcg.cards.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Sunchy321/tcg.cards/issues"
-  },
-  "devDependencies": {
-    "@types/node": "^18.6.3",
-    "eslint": "^8.3.0"
-  },
-  "dependencies": {
-    "canvas": "^2.9.3",
-    "card-interface": "^1.0.1",
-    "tst-reflect": "^0.7.4"
-  }
+	"name": "card-renderer",
+	"version": "0.0.1",
+	"description": "card renderer for hearthstone",
+	"author": "Sunchy321 <sunchy321@qq.com>",
+	"homepage": "https://github.com/Sunchy321/tcg.cards#readme",
+	"license": "MIT",
+	"main": "src/index.ts",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Sunchy321/tcg.cards.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Sunchy321/tcg.cards/issues"
+	},
+	"devDependencies": {
+    "@types/lodash": "^4.14.183",
+		"@types/node": "^18.6.3",
+		"eslint": "^8.3.0"
+	},
+	"dependencies": {
+		"canvas": "^2.9.3",
+		"lodash": "^4.17.21",
+		"tst-reflect": "^0.7.4"
+	}
 }

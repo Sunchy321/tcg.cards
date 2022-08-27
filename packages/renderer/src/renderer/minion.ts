@@ -3,13 +3,13 @@ import { CanvasRenderingContext2D, createCanvas, loadImage } from 'canvas';
 import { EntityRenderData } from '../interface';
 
 import { join } from 'path';
+import { sum } from 'lodash';
+
+import { renderRichText, RichTextOption } from '../rich-text/renderer';
 
 import { materialPath } from '../index';
 
-const size = {
-    image: { width: 470, height: 660 },
-    cost:  { width: 51, height: 74 },
-};
+const fullSize = { width: 470, height: 660 };
 
 const position = {
     background: {
@@ -24,13 +24,159 @@ const position = {
         coin:  { x: 27, y: 62 },
         speed: { x: 34, y: 57 },
     },
-    costNumber:   { x: 78, y: 48 },
-    attack:       { x: 19, y: 507 },
-    attackNumber: { x: 84, y: 520 },
-    health:       { x: 359, y: 512 },
-    healthNumber: { x: 397, y: 522 },
+    costNumber:   { x: 78, y: 105 },
+    flag:         { x: 33, y: 70 },
+    elite:        { x: 129, y: 22 },
+    rarityBase:   { x: 193, y: 375 },
+    rarity:       { x: 227, y: 385 },
     name:         { x: 63, y: 323 },
     nameText:     { x: 228, y: 351 },
+    desc:         { x: 73, y: 408 },
+    race:         { x: 129, y: 567 },
+    raceText:     { x: 237, y: 584 },
+    attack:       { x: 19, y: 507 },
+    attackNumber: { x: 84, y: 575 },
+    health:       { x: 359, y: 512 },
+    healthNumber: { x: 397, y: 577 },
+
+    watermark: {
+        'classic': { x: 186, y: 439 },
+        'hof':     { x: 172, y: 434 },
+        'legacy':  { x: 186, y: 439 },
+        'core21':  { x: 187, y: 451 },
+        'core22':  { x: 186, y: 444 },
+
+        'naxx':     { x: 172, y: 444 },
+        'gvg':      { x: 177, y: 439 },
+        'brm':      { x: 162, y: 450 },
+        'tgt':      { x: 185, y: 446 },
+        'loe':      { x: 174, y: 461 },
+        'wog':      { x: 190, y: 446 },
+        'onk':      { x: 200, y: 446 },
+        'msg':      { x: 167, y: 441 },
+        'jug':      { x: 188, y: 443 },
+        'kft':      { x: 198, y: 438 },
+        'knc':      { x: 203, y: 441 },
+        'tww':      { x: 170, y: 443 },
+        'tbp':      { x: 172, y: 444 },
+        'rkr':      { x: 165, y: 444 },
+        'ros':      { x: 170, y: 432 },
+        'sou':      { x: 171, y: 446 },
+        'dod':      { x: 166, y: 439 },
+        'gra':      { x: 167, y: 444 },
+        'aoo':      { x: 173, y: 444 },
+        'dhi':      { x: 193, y: 450 },
+        'sma':      { x: 162, y: 451 },
+        'mdf':      { x: 183, y: 446 },
+        'mdf-mini': { x: 171, y: 438 },
+        'fib':      { x: 193, y: 444 },
+        'fib-mini': { x: 177, y: 446 },
+        'uis':      { x: 191, y: 446 },
+        'uis-mini': { x: 180, y: 446 },
+        'fav':      { x: 198, y: 441 },
+        'fav-mini': { x: 181, y: 446 },
+        'vsc':      { x: 190, y: 446 },
+        'vsc-mini': { x: 181, y: 446 },
+        'mcn':      { x: 190, y: 447 },
+
+        'van': { x: 162, y: 451 },
+    } as Record<string, { x: number, y: number }>,
+};
+
+const raceMap: Record<string, Record<string, string>> = {
+    all: {
+        zhs: '全部',
+    },
+    beast: {
+        zhs: '野兽',
+    },
+    bloodelf: {
+        zhs: '血精灵',
+    },
+    centaur: {
+        zhs: '半人马',
+    },
+    demon: {
+        zhs: '恶魔',
+    },
+    draenei: {
+        zhs: '德莱尼',
+    },
+    dragon: {
+        zhs: '龙',
+    },
+    dwarf: {
+        zhs: '矮人',
+    },
+    egg: {
+        zhs: '卵',
+    },
+    elemental: {
+        zhs: '元素',
+    },
+    furbolg: {
+        zhs: '熊怪',
+    },
+    gnome: {
+        zhs: '侏儒',
+    },
+    goblin: {
+        zhs: '地精',
+    },
+    halforc: {
+        zhs: '半兽人',
+    },
+    human: {
+        zhs: '人类',
+    },
+    mech: {
+        zhs: '机械',
+    },
+    murloc: {
+        zhs: '鱼人',
+    },
+    naga: {
+        zhs: '纳迦',
+    },
+    nerubian: {
+        zhs: '蛛魔',
+    },
+    nightelf: {
+        zhs: '暗夜精灵',
+    },
+    ogre: {
+        zhs: '食人魔',
+    },
+    orc: {
+        zhs: '兽人',
+    },
+    pirate: {
+        zhs: '海盗',
+    },
+    quilboar: {
+        zhs: '野猪人',
+    },
+    scourge: {
+        zhs: '灾祸',
+    },
+    tauren: {
+        zhs: '牛头人',
+    },
+    totem: {
+        zhs: '图腾',
+    },
+    treant: {
+        zhs: '树人',
+    },
+    troll: {
+        zhs: '巨魔',
+    },
+    undead: {
+        zhs: '亡灵',
+    },
+    worgen: {
+        zhs: '狼人',
+    },
 };
 
 type ImageComponent = {
@@ -47,8 +193,8 @@ type TextComponent = {
     pos: { x: number, y: number };
 };
 
-type TextCurveComponent = {
-    type: 'text-curve';
+type CurveTextComponent = {
+    type: 'curve-text';
     text: string;
     font: string;
     size: number;
@@ -57,15 +203,16 @@ type TextCurveComponent = {
     curve: { x: number, y: number }[];
 };
 
+type RichTextComponent = Omit<RichTextOption, 'lang'> & { type: 'rich-text', text: string };
+
 type CustomComponent = {
     type: 'custom';
-    pos: { x: number, y: number };
-    action: (ctx: CanvasRenderingContext2D, pos: { x: number, y: number }) => void;
+    pos?: { x: number, y: number };
+    action: (ctx: CanvasRenderingContext2D, pos?: { x: number, y: number }) => void;
 };
 
-type Component = CustomComponent | ImageComponent | TextComponent | TextCurveComponent;
+type Component = CurveTextComponent | CustomComponent | ImageComponent | RichTextComponent | TextComponent;
 
-// Come from Sunwell
 function getPointOnCurve(curve: { x: number, y: number }[], t: number): { x: number, y: number, r: number } {
     const rX = 3 * (1 - t) ** 2 * (curve[1].x - curve[0].x)
         + 6 * (1 - t) * t * (curve[2].x - curve[1].x)
@@ -96,8 +243,8 @@ async function renderComponent(
         ctx.drawImage(image, c.pos.x, c.pos.y);
     } else if (c.type === 'text') {
         ctx.font = `${c.size}px "${c.font}"`;
-        ctx.textBaseline = 'ideographic';
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
         ctx.lineWidth = 5;
         ctx.strokeStyle = '#000';
@@ -105,7 +252,7 @@ async function renderComponent(
 
         ctx.fillStyle = '#fff';
         ctx.fillText(c.text, c.pos.x, c.pos.y);
-    } else if (c.type === 'text-curve') {
+    } else if (c.type === 'curve-text') {
         const panelWidth = 320;
         const fontCvs = createCanvas(panelWidth * 2, 112);
         const fontCtx = fontCvs.getContext('2d');
@@ -113,22 +260,22 @@ async function renderComponent(
         fontCtx.textBaseline = 'ideographic';
         fontCtx.textAlign = 'center';
 
-        let fontSize = c.size;
+        let { size } = c;
         let sizes = [];
 
         do {
-            fontSize -= 1;
+            size -= 1;
 
-            fontCtx.font = `${fontSize}px "${c.font}"`;
+            fontCtx.font = `${size}px "${c.font}"`;
 
             sizes = c.text.split('').map(w => fontCtx.measureText(w).width);
-        } while (sizes.reduce((a, b) => a + b, 0) > panelWidth && fontSize > 10);
+        } while (sum(sizes) > panelWidth && size > 10);
 
         const xCenter = c.middle * panelWidth;
-        const xSum = sizes.reduce((a, b) => a + b, 0);
+        const xSum = sum(sizes);
 
         for (let i = 0; i < c.text.length; i += 1) {
-            const dx = sizes.slice(0, i).reduce((a, b) => a + b, 0)
+            const dx = sum(sizes.slice(0, i))
                 + sizes[i] / 2
                 - xSum / 2;
 
@@ -149,6 +296,8 @@ async function renderComponent(
         }
 
         ctx.drawImage(fontCvs, c.pos.x - panelWidth / 2, c.pos.y - fontCvs.height / 2);
+    } else if (c.type === 'rich-text') {
+        renderRichText(ctx, c.text, { lang: 'zhs', ...c });
     } else {
         c.action(ctx, c.pos);
     }
@@ -195,7 +344,7 @@ function getCost(data: EntityRenderData): Component[] {
     return [
         {
             type:  'image',
-            image: join('minion', 'cost', `${data.costType}.png`),
+            image: join('cost', `${data.costType}.png`),
             pos:   position.cost[data.costType],
         },
 
@@ -209,9 +358,134 @@ function getCost(data: EntityRenderData): Component[] {
     ];
 }
 
-function getBanner(data: EntityRenderData): Component[ ] {
-    return [
+function getFlag(data: EntityRenderData): Component[ ] {
+    if (data.mechanics.includes('tradable')) {
+        return [{
+            type:  'image',
+            image: join('flag', 'tradeable.png'),
+            pos:   position.flag,
+        }];
+    }
 
+    return [];
+}
+
+function getElite(data: EntityRenderData): Component[] {
+    if (data.elite) {
+        return [{
+            type:  'image',
+            image: join('minion', 'elite.png'),
+            pos:   position.elite,
+        }];
+    } else {
+        return [];
+    }
+}
+
+function getName(data: EntityRenderData): Component[] {
+    return [
+        {
+            type:  'image',
+            image: join('minion', 'name.png'),
+            pos:   position.name,
+        },
+        {
+            type:   'curve-text',
+            text:   data.name,
+            font:   '文鼎隶书',
+            size:   35,
+            pos:    position.nameText,
+            middle: 0.55,
+            curve:  [{ x: 0, y: 62 }, { x: 69, y: 79 }, { x: 206, y: 10 }, { x: 322, y: 56 }],
+        },
+    ];
+}
+
+function getText(data: EntityRenderData): Component[] {
+    return [
+        {
+            type:  'image',
+            image: join('minion', 'text.png'),
+            pos:   position.desc,
+        },
+
+        ...position.watermark[data.set] != null ? [
+            {
+                type: 'custom',
+                action(ctx) {
+                    ctx.globalCompositeOperation = 'multiply';
+                },
+            },
+            {
+                type:  'image',
+                image: join('watermark', `${data.set}.png`),
+                pos:   {
+                    x: position.watermark[data.set].x,
+                    y: position.watermark[data.set].y - (data.race != null ? 10 : 0),
+                },
+            },
+            {
+                type: 'custom',
+                action(ctx) {
+                    ctx.globalCompositeOperation = 'source-over';
+                },
+            },
+        ] as Component[] : [],
+
+        {
+            type:      'rich-text',
+            text:      data.rawText ?? '',
+            font:      'BlizzardGlobal',
+            size:      30,
+            minSize:   20,
+            shape:     [{ x: 87, y: 434 }, { x: 388, y: 566 }],
+            underwear: { flip: false, width: 0.25, height: 0.35 },
+            color:     '#1E1710',
+        },
+    ];
+}
+
+function getRarity(data: EntityRenderData): Component[] {
+    if (data.rarity != null && data.rarity !== 'free') {
+        return [
+            {
+                type:  'image',
+                image: join('minion', 'rarity.png'),
+                pos:   position.rarityBase,
+            },
+            {
+                type:  'image',
+                image: join('rarity', `${data.rarity}.png`),
+                pos:   position.rarity,
+            },
+        ];
+    } else {
+        return [];
+    }
+}
+
+function getRace(data: EntityRenderData): Component[] {
+    if (data.race == null) {
+        return [];
+    }
+
+    const race = raceMap[data.race];
+
+    const raceText = race?.[data.lang] ?? race?.en ?? data.race;
+
+    return [
+        {
+            type:  'image',
+            image: join('minion', 'race.png'),
+            pos:   position.race,
+        },
+        {
+            type: 'text',
+            text: raceText,
+            font: '文鼎隶书',
+            size: 32,
+            pos:  position.raceText,
+        },
     ];
 }
 
@@ -244,37 +518,22 @@ function getStats(data: EntityRenderData): Component[] {
     ];
 }
 
-function getName(data: EntityRenderData): Component[] {
-    return [
-        {
-            type:  'image',
-            image: join('minion', 'name.png'),
-            pos:   position.name,
-        },
-        {
-            type:   'text-curve',
-            text:   data.name,
-            font:   '文鼎隶书',
-            size:   45,
-            pos:    position.nameText,
-            middle: 0.55,
-            curve:  [{ x: 0, y: 62 }, { x: 69, y: 79 }, { x: 206, y: 10 }, { x: 322, y: 56 }],
-        },
-    ];
-}
-
 export default async function renderMinion(
     data: EntityRenderData,
     asset: string,
 ): Promise<Buffer> {
-    const canvas = createCanvas(size.image.width, size.image.height);
+    const canvas = createCanvas(fullSize.width, fullSize.height);
 
     const components = [
         ...getBackground(data),
-        ...getBanner(data),
+        ...getFlag(data),
+        ...getElite(data),
         ...getCost(data),
-        ...getStats(data),
         ...getName(data),
+        ...getText(data),
+        ...getRarity(data),
+        ...getRace(data),
+        ...getStats(data),
     ];
 
     const ctx = canvas.getContext('2d');
