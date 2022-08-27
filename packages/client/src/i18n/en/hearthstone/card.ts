@@ -29,6 +29,7 @@ export default {
         human:     'Human',
         mech:      'Mech',
         murloc:    'Murloc',
+        naga:      'Naga',
         nerubian:  'Nerubian',
         nightelf:  'Nightelf',
         ogre:      'Ogre',

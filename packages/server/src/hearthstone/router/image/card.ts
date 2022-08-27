@@ -5,8 +5,8 @@ import { DefaultState, Context } from 'koa';
 import mime from 'mime-types';
 // import { cardImagePath } from '@/magic/image';
 
-// import { mapValues } from 'lodash';
-// import { toSingle } from '@/common/request-helper';
+import { mapValues } from 'lodash';
+import { toSingle } from '@/common/request-helper';
 
 // import { locales } from '@data/magic/basic';
 
@@ -23,95 +23,68 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 router.get('/', async ctx => {
-    // const {
-    //     lang = 'en', set, number, part: partString,
-    // } = mapValues(ctx.query, toSingle);
-
-    // if (set == null || number == null) {
-    //     ctx.status = 400;
-    //     return;
-    // }
-
-    // const part = partString != null ? Number.parseInt(partString, 10) : undefined;
-
-    // if (partString != null && Number.isNaN(part)) {
-    //     ctx.status = 400;
-    //     return;
-    // }
-
-    // const pngPath = cardImagePath('png', set, lang, number, part);
-    // const jpgPath = cardImagePath('large', set, lang, number, part);
-
-    // if (existsSync(pngPath)) {
-    //     ctx.response.set('content-type', mime.lookup(pngPath) as string);
-    //     ctx.body = createReadStream(pngPath);
-    //     return;
-    // } else if (existsSync(jpgPath)) {
-    //     ctx.response.set('content-type', mime.lookup(jpgPath) as string);
-    //     ctx.body = createReadStream(jpgPath);
-    //     return;
-    // }
-
-    // if (ctx.query['auto-locale'] != null) {
-    //     for (const l of locales) {
-    //         const otherPngPath = cardImagePath('png', set, l, number, part);
-    //         const otherJpgPath = cardImagePath('large', set, l, number, part);
-
-    //         if (existsSync(otherPngPath)) {
-    //             ctx.response.set('content-type', mime.lookup(otherPngPath) as string);
-    //             ctx.body = createReadStream(otherPngPath);
-    //             return;
-    //         } else if (existsSync(otherJpgPath)) {
-    //             ctx.response.set('content-type', mime.lookup(otherJpgPath) as string);
-    //             ctx.body = createReadStream(otherJpgPath);
-    //             return;
-    //         }
-    //     }
-    // }
-
-    ctx.status = 404;
-});
-
-router.get('/test', async ctx => {
-    ctx.response.set('content-type', mime.lookup('.png') as string);
+    const { id, lang } = mapValues(ctx.query, toSingle);
 
     registerFonts(assetPath);
 
-    const json = await (async () => {
-        if (ctx.query.id != null) {
-            const entity = await Entity.findOne({ cardId: ctx.query.id });
+    const entity = await Entity.findOne({ cardId: id });
 
-            return entity?.toObject() as IEntity;
-        } else {
-            const entities = await Entity.aggregate().match({ cardType: 'minion' }).sample(1);
-
-            return entities[0] as IEntity;
-        }
-    })();
-
-    if (json == null) {
+    if (entity == null) {
         ctx.status = 404;
         return;
     }
+
+    const json = entity.toObject() as IEntity;
 
     const localization = json.localization.find(l => l.lang === 'zhs')
         ?? json.localization.find(l => l.lang === 'en')
         ?? json.localization[0];
 
-    const data = await renderEntity({
-        cardType: 'minion',
-        variant:  'normal',
-        costType: 'mana',
+    try {
+        const data = await renderEntity({
+            cardType: 'minion',
+            variant:  'normal',
+            costType: 'mana',
 
-        classes: json.classes,
-        cost:    json.cost,
-        attack:  json.attack,
-        health:  json.health,
+            ...localization,
 
-        ...localization,
-    }, assetPath);
+            set:         json.set,
+            classes:     json.classes,
+            cost:        json.cost,
+            attack:      json.attack,
+            health:      json.health,
+            durability:  json.durability,
+            armor:       json.armor,
+            race:        json.race,
+            spellSchool: json.spellSchool,
 
-    ctx.body = data;
+            techLevel:     json.techLevel,
+            inBobsTavern:  json.inBobsTavern,
+            tripleCard:    json.tripleCard,
+            raceBucket:    json.raceBucket,
+            coin:          json.coin,
+            armorBucket:   json.armorBucket,
+            buddy:         json.buddy,
+            bannedRace:    json.bannedRace,
+            mercenaryRole: json.mercenaryRole,
+            colddown:      json.colddown,
+
+            collectible: json.collectible,
+            elite:       json.elite,
+            rarity:      json.rarity,
+
+            mechanics: json.mechanics,
+        }, assetPath);
+
+        ctx.response.set('content-type', mime.lookup('.png') as string);
+
+        ctx.body = data;
+    } catch (err) {
+        console.log(err.message);
+        console.log(json);
+    }
+
+    ctx.status = 404;
 });
 
 export default router;

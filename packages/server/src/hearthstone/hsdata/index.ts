@@ -670,6 +670,24 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         result.localization = localization as IEntity['localization'];
 
+        if (result.cardType === 'minion') {
+            if (result.attack != null && result.health == null) {
+                result.health = 0;
+            }
+
+            if (result.attack == null && result.health != null) {
+                result.attack = 0;
+            }
+        } else if (result.cardType === 'weapon') {
+            if (result.attack != null && result.durability == null) {
+                result.durability = 0;
+            }
+
+            if (result.attack == null && result.durability != null) {
+                result.attack = 0;
+            }
+        }
+
         return result as IEntity;
     }
 

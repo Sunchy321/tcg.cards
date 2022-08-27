@@ -11,8 +11,6 @@ const EntitySchema = new Schema<IEntity>({
     dbfId:  Number,
     slug:   String,
 
-    set: String,
-
     localization: [{
         _id:             false,
         lang:            String,
@@ -26,6 +24,7 @@ const EntitySchema = new Schema<IEntity>({
         illusId:         String,
     }],
 
+    set:         String,
     classes:     [String],
     cardType:    String,
     cost:        Number,

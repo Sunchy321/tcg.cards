@@ -15,8 +15,6 @@ export interface Entity {
     dbfId: number;
     slug?: string;
 
-    set: string;
-
     localization: {
         lang: string;
         name: string;
@@ -29,6 +27,7 @@ export interface Entity {
         illusId?: string;
     }[];
 
+    set: string;
     classes: string[];
     cardType: string;
     cost: number;
@@ -54,7 +53,7 @@ export interface Entity {
 
     collectible: boolean;
     elite: boolean;
-    rarity: string;
+    rarity?: string;
 
     artist: string;
 

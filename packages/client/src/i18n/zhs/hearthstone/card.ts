@@ -27,6 +27,7 @@ export default {
         human:     '人类',
         mech:      '机械',
         murloc:    '鱼人',
+        naga:      '纳迦',
         nerubian:  '蛛魔',
         nightelf:  '暗夜精灵',
         ogre:      '食人魔',
