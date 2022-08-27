@@ -1,6 +1,9 @@
 <template>
     <q-page class="main q-pa-md">
-        <div class="image-column" />
+        <div class="image-column">
+
+            <q-img :src="imageUrl" />
+        </div>
         <div class="info-column">
             <div class="name-line row items-center">
                 <div v-if="name != null" class="name">
@@ -157,90 +160,18 @@ import { useI18n } from 'vue-i18n';
 import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
 
+import { Entity } from 'interface/hearthstone/entity';
+
 import { omitBy } from 'lodash';
 
-import { apiGet } from 'boot/backend';
-
-export interface IPlayRequirement {
-    type: string;
-    param: number;
-}
-
-export interface IPower {
-    definition: string;
-    playRequirements: IPlayRequirement[];
-}
-
-export interface Entity {
-    version: number;
-
-    cardId: string;
-    dbfId: number;
-    slug?: string;
-
-    set: string;
-
-    localization: Record<string, {
-        name: string;
-        text: string;
-        rawText: string;
-        targetText: string;
-        howToEarn: string;
-        howToEarnGolden: string;
-        flavor: string;
-    }>;
-
-    classes: string[];
-    cardType: string;
-    cost: number;
-    attack: number;
-    health: number;
-    durability: number;
-    armor: number;
-    race: string;
-    spellSchool?: string;
-    quest?: { type: 'normal' | 'questline' | 'side', progress: number, part?: number };
-
-    techLevel: number;
-    inBobsTavern: boolean;
-    tripleCard: string;
-    raceBucket: string;
-    coin: number;
-
-    colddown: number;
-
-    collectible: boolean;
-    elite: boolean;
-    rarity: string;
-
-    artist: string;
-
-    faction: string;
-
-    mechanics: string[];
-    referencedTags: string[];
-
-    powers: IPower[];
-
-    relatedEntities: { relation: string, cardId: string }[];
-
-    entourages: string[];
-    heroPower: string;
-    heroicHeroPower: string;
-    parentCard?: string;
-    childrenCard?: string[];
-
-    multipleClasses: number;
-    deckOrder: number;
-    overrideWatermark: string;
-}
+import { apiGet, imageBase } from 'boot/backend';
 
 export default defineComponent({
     name: 'Card',
 
     setup() {
         const route = useRoute();
-        const heathstone = useHearthstone();
+        const hearthstone = useHearthstone();
         const i18n = useI18n();
 
         const { random } = hearthstoneSetup();
@@ -248,8 +179,21 @@ export default defineComponent({
         const data = ref<Entity | null>(null);
 
         // data fields
-        const name = computed(() => data.value?.localization[heathstone.locale]?.name
-                ?? data.value?.localization[heathstone.locales[0]]?.name);
+        const id = computed(() => data.value?.cardId ?? route.params.id);
+
+        const localization = computed(() => {
+            const loc = data.value?.localization;
+
+            if (loc == null) {
+                return undefined;
+            }
+
+            return loc.find(l => l.lang === hearthstone.locale)
+            ?? loc.find(l => l.lang === hearthstone.locales[0])
+            ?? loc[0];
+        });
+
+        const name = computed(() => localization.value?.name);
 
         pageSetup({
             title: () => name.value ?? '',
@@ -284,20 +228,21 @@ export default defineComponent({
             const c = data.value;
 
             if (c == null) { return null; }
-            if (c.attack && c.health) { return `${c.attack}/${c.health}`; }
-            if (c.attack && c.durability) { return `${c.attack}/${c.durability}`; }
-            if (c.armor) { return `[${c.armor}]`; }
-            if (c.colddown) { return `#${c.colddown}`; }
+            if (c.attack != null && c.health != null) { return `${c.attack}/${c.health}`; }
+            if (c.attack != null && c.durability != null) { return `${c.attack}/${c.durability}`; }
+            if (c.armor != null) { return `[${c.armor}]`; }
+            if (c.colddown != null) { return `#${c.colddown}`; }
 
             return null;
         });
 
-        const text = computed(() => data.value?.localization[heathstone.locale]?.text
-                ?? data.value?.localization[heathstone.locales[0]]?.text);
+        const text = computed(() => localization.value?.text);
 
         const mechanics = computed(() => (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')));
 
         const referencedTags = computed(() => (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')));
+
+        const imageUrl = computed(() => `https://${imageBase}/hearthstone/card?id=${id.value}&lang=${hearthstone.locale}`);
 
         // methods
         const loadData = async () => {
@@ -313,9 +258,9 @@ export default defineComponent({
 
         const mechanicText = (m: string) => {
             if (m.includes(':')) {
-                const [id, arg] = m.split(':');
+                const [mid, arg] = m.split(':');
 
-                return `${i18n.t(`hearthstone.card.mechanic.${id}`)}:${arg}`;
+                return `${i18n.t(`hearthstone.card.mechanic.${mid}`)}:${arg}`;
             } else {
                 return i18n.t(`hearthstone.card.mechanic.${m}`);
             }
@@ -340,6 +285,7 @@ export default defineComponent({
             text,
             mechanics,
             referencedTags,
+            imageUrl,
 
             mechanicText,
         };
