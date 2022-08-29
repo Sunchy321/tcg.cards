@@ -36,7 +36,7 @@ router.get('/', async ctx => {
 
     const json = entity.toObject() as IEntity;
 
-    const localization = json.localization.find(l => l.lang === 'zhs')
+    const localization = json.localization.find(l => l.lang === lang)
         ?? json.localization.find(l => l.lang === 'en')
         ?? json.localization[0];
 
@@ -45,6 +45,8 @@ router.get('/', async ctx => {
             cardType: 'minion',
             variant:  'normal',
             costType: 'mana',
+
+            cardId: json.cardId,
 
             ...localization,
 

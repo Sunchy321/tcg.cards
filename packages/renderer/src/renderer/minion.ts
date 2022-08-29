@@ -10,14 +10,15 @@ import { renderRichText, RichTextOption } from '../rich-text/renderer';
 import { materialPath } from '../index';
 
 const fullSize = { width: 470, height: 660 };
+const illusSize = { width: 334, height: 334 };
 
 const position = {
-    background: {
+    illustration: { x: 71, y: 55 },
+    background:   {
         full:  { x: 46, y: 48 },
         left:  { x: 46, y: 48 },
         right: { x: 236, y: 48 },
         split: { x: 228, y: 397 },
-
     },
     cost: {
         mana:  { x: 28, y: 61 },
@@ -183,6 +184,8 @@ type ImageComponent = {
     type: 'image';
     image: string;
     pos: { x: number, y: number };
+    size?: { width: number, height: number };
+    clip?: (ctx: CanvasRenderingContext2D) => void;
 };
 
 type TextComponent = {
@@ -240,7 +243,21 @@ async function renderComponent(
     if (c.type === 'image') {
         const image = await loadImage(c.image);
 
-        ctx.drawImage(image, c.pos.x, c.pos.y);
+        if (c.clip) {
+            ctx.save();
+            c.clip(ctx);
+            ctx.clip();
+        }
+
+        if (c.size != null) {
+            ctx.drawImage(image, c.pos.x, c.pos.y, c.size.width, c.size.height);
+        } else {
+            ctx.drawImage(image, c.pos.x, c.pos.y);
+        }
+
+        if (c.clip) {
+            ctx.restore();
+        }
     } else if (c.type === 'text') {
         ctx.font = `${c.size}px "${c.font}"`;
         ctx.textAlign = 'center';
@@ -303,18 +320,38 @@ async function renderComponent(
     }
 }
 
-function getBackground(data: EntityRenderData): Component[] {
+export default async function renderMinion(
+    data: EntityRenderData,
+    asset: string,
+): Promise<Buffer> {
+    const canvas = createCanvas(fullSize.width, fullSize.height);
+
+    const components: Component[] = [];
+
+    // illustration
+    components.push({
+        type:  'image',
+        image: join('..', 'card', 'illustration', `${data.cardId}.jpg`),
+        pos:   position.illustration,
+        size:  illusSize,
+        clip(ctx) {
+            ctx.ellipse(236, 223, 117, 160, 0, 0, 2 * Math.PI);
+        },
+    });
+
+    // background
     const backgroundPath = join('minion', 'background');
 
     switch (data.classes.length) {
     case 1:
-        return [{
+        components.push({
             type:  'image',
             image: join(backgroundPath, 'full', `${data.classes[0]}.png`),
             pos:   position.background.full,
-        }];
+        });
+        break;
     case 2:
-        return [
+        components.push(
             {
                 type:  'image',
                 image: join(backgroundPath, 'left', `${data.classes[0]}.png`),
@@ -330,60 +367,53 @@ function getBackground(data: EntityRenderData): Component[] {
                 image: join(backgroundPath, 'split.png'),
                 pos:   position.background.split,
             },
-        ];
+        );
+        break;
     default:
-        return [{
+        components.push({
             type:  'image',
             image: join(backgroundPath, 'full', 'neutral.png'),
             pos:   position.background.full,
-        }];
+        });
     }
-}
 
-function getCost(data: EntityRenderData): Component[] {
-    return [
-        {
-            type:  'image',
-            image: join('cost', `${data.costType}.png`),
-            pos:   position.cost[data.costType],
-        },
+    // cost
+    components.push({
+        type:  'image',
+        image: join('cost', `${data.costType}.png`),
+        pos:   position.cost[data.costType],
+    });
 
-        ...data.cost != null ? [{
+    if (data.cost != null) {
+        components.push({
             type: 'text',
             text: data.cost.toString(),
             font: '文鼎隶书',
             size: 114,
             pos:  position.costNumber,
-        }] as Component[] : [],
-    ];
-}
+        });
+    }
 
-function getFlag(data: EntityRenderData): Component[ ] {
+    // flag
     if (data.mechanics.includes('tradable')) {
-        return [{
+        components.push({
             type:  'image',
             image: join('flag', 'tradeable.png'),
             pos:   position.flag,
-        }];
+        });
     }
 
-    return [];
-}
-
-function getElite(data: EntityRenderData): Component[] {
+    // elite
     if (data.elite) {
-        return [{
+        components.push({
             type:  'image',
             image: join('minion', 'elite.png'),
             pos:   position.elite,
-        }];
-    } else {
-        return [];
+        });
     }
-}
 
-function getName(data: EntityRenderData): Component[] {
-    return [
+    // name
+    components.push(
         {
             type:  'image',
             image: join('minion', 'name.png'),
@@ -398,18 +428,17 @@ function getName(data: EntityRenderData): Component[] {
             middle: 0.55,
             curve:  [{ x: 0, y: 62 }, { x: 69, y: 79 }, { x: 206, y: 10 }, { x: 322, y: 56 }],
         },
-    ];
-}
+    );
 
-function getText(data: EntityRenderData): Component[] {
-    return [
-        {
-            type:  'image',
-            image: join('minion', 'text.png'),
-            pos:   position.desc,
-        },
+    // text
+    components.push({
+        type:  'image',
+        image: join('minion', 'text.png'),
+        pos:   position.desc,
+    });
 
-        ...position.watermark[data.set] != null ? [
+    if (position.watermark[data.set] != null) {
+        components.push(
             {
                 type: 'custom',
                 action(ctx) {
@@ -430,24 +459,23 @@ function getText(data: EntityRenderData): Component[] {
                     ctx.globalCompositeOperation = 'source-over';
                 },
             },
-        ] as Component[] : [],
+        );
+    }
 
-        {
-            type:      'rich-text',
-            text:      data.rawText ?? '',
-            font:      'BlizzardGlobal',
-            size:      30,
-            minSize:   20,
-            shape:     [{ x: 87, y: 434 }, { x: 388, y: 566 }],
-            underwear: { flip: false, width: 0.25, height: 0.35 },
-            color:     '#1E1710',
-        },
-    ];
-}
+    components.push({
+        type:      'rich-text',
+        text:      data.rawText ?? '',
+        font:      'BlizzardGlobal',
+        size:      30,
+        minSize:   20,
+        shape:     [{ x: 87, y: 434 }, { x: 388, y: 566 }],
+        underwear: { flip: false, width: 0.25, height: 0.35 },
+        color:     '#1E1710',
+    });
 
-function getRarity(data: EntityRenderData): Component[] {
+    // rarity
     if (data.rarity != null && data.rarity !== 'free') {
-        return [
+        components.push(
             {
                 type:  'image',
                 image: join('minion', 'rarity.png'),
@@ -458,39 +486,34 @@ function getRarity(data: EntityRenderData): Component[] {
                 image: join('rarity', `${data.rarity}.png`),
                 pos:   position.rarity,
             },
-        ];
-    } else {
-        return [];
-    }
-}
-
-function getRace(data: EntityRenderData): Component[] {
-    if (data.race == null) {
-        return [];
+        );
     }
 
-    const race = raceMap[data.race];
+    // race
+    if (data.race != null) {
+        const race = raceMap[data.race];
 
-    const raceText = race?.[data.lang] ?? race?.en ?? data.race;
+        const raceText = race?.[data.lang] ?? race?.en ?? data.race;
 
-    return [
-        {
-            type:  'image',
-            image: join('minion', 'race.png'),
-            pos:   position.race,
-        },
-        {
-            type: 'text',
-            text: raceText,
-            font: '文鼎隶书',
-            size: 32,
-            pos:  position.raceText,
-        },
-    ];
-}
+        components.push(
 
-function getStats(data: EntityRenderData): Component[] {
-    return [
+            {
+                type:  'image',
+                image: join('minion', 'race.png'),
+                pos:   position.race,
+            },
+            {
+                type: 'text',
+                text: raceText,
+                font: '文鼎隶书',
+                size: 32,
+                pos:  position.raceText,
+            },
+        );
+    }
+
+    // stats
+    components.push(
         {
             type:  'image',
             image: join('minion', 'attack.png'),
@@ -515,26 +538,7 @@ function getStats(data: EntityRenderData): Component[] {
             size: 106,
             pos:  position.healthNumber,
         }] as Component[] : [],
-    ];
-}
-
-export default async function renderMinion(
-    data: EntityRenderData,
-    asset: string,
-): Promise<Buffer> {
-    const canvas = createCanvas(fullSize.width, fullSize.height);
-
-    const components = [
-        ...getBackground(data),
-        ...getFlag(data),
-        ...getElite(data),
-        ...getCost(data),
-        ...getName(data),
-        ...getText(data),
-        ...getRarity(data),
-        ...getRace(data),
-        ...getStats(data),
-    ];
+    );
 
     const ctx = canvas.getContext('2d');
 

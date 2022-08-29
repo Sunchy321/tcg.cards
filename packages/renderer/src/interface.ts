@@ -4,6 +4,8 @@ export interface EntityRenderData {
     variant: 'diamond' | 'golden' | 'normal';
     costType: 'coin' | 'mana' | 'speed';
 
+    cardId: string;
+
     lang: string;
     name: string;
     text: string;
