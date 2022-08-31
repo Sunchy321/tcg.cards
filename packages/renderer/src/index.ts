@@ -2,7 +2,7 @@ import { EntityRenderData } from './interface';
 
 import { join } from 'path';
 
-import renderMinion from './renderer/minion';
+import renderMinion from './preset/minion';
 import { registerFont } from 'canvas';
 
 export function materialPath(asset: string): string {

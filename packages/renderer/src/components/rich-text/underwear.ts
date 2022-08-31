@@ -1,4 +1,4 @@
-import { getSize } from '../util';
+import { getSize } from '../../util';
 
 import { removeTag } from './remove-tag';
 

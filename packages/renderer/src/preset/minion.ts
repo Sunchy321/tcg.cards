@@ -5,7 +5,7 @@ import { EntityRenderData } from '../interface';
 import { join } from 'path';
 import { sum } from 'lodash';
 
-import { renderRichText, RichTextOption } from '../rich-text/renderer';
+import { renderRichText, RichTextOption } from '../components/rich-text';
 
 import { materialPath } from '../index';
 

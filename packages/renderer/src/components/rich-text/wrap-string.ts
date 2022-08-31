@@ -1,7 +1,7 @@
 import { toWords } from './to-words';
 import { removeTag } from './remove-tag';
 
-import { getLineCount, getSize } from '../util';
+import { getLineCount, getSize } from '../../util';
 
 import { UnderwearOption, isUnderwearNeeded, getFinalContainerWidth } from './underwear';
 

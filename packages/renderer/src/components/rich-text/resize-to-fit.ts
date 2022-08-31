@@ -1,6 +1,6 @@
 import { UnderwearOption } from './underwear';
 
-import { getSize } from '../util';
+import { getSize } from '../../util';
 
 import { wrapString } from './wrap-string';
 

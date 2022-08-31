@@ -1,6 +1,6 @@
 import { createCanvas } from 'canvas';
 
-import { removeTag } from './rich-text/remove-tag';
+import { removeTag } from './components/rich-text/remove-tag';
 
 export function getLineCount(text: string): number {
     return text.split('').filter(v => v === '\n').length + 1;

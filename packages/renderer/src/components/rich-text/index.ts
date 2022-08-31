@@ -1,6 +1,6 @@
 import { CanvasRenderingContext2D, createCanvas } from 'canvas';
 
-import { getLineSpacing, getSize } from '../util';
+import { getLineSpacing, getSize } from '../../util';
 
 import { wrapString } from './wrap-string';
 import { resizeToFit } from './resize-to-fit';
