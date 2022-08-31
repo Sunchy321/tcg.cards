@@ -6,11 +6,18 @@ export function getLineCount(text: string): number {
     return text.split('').filter(v => v === '\n').length + 1;
 }
 
+export function getLineSpacing(size: number): number {
+    if (size > 24) {
+        return 5;
+    } else {
+        return 3;
+    }
+}
+
 export function getSize(
     text: string,
     font: string,
     size: number,
-    lineSpacing: number,
     rich = true,
 ): { width: number, height: number } {
     const canvas = createCanvas(100, 100);
@@ -31,9 +38,7 @@ export function getSize(
 
         width = Math.max(measure.width, width);
 
-        // const lineHeight = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent;
-
-        height += height === 0 ? size : size + lineSpacing;
+        height += height === 0 ? size : size + getLineSpacing(size);
     }
 
     return { width, height };

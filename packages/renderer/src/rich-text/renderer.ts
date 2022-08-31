@@ -1,6 +1,6 @@
 import { CanvasRenderingContext2D, createCanvas } from 'canvas';
 
-import { getSize } from '../util';
+import { getLineSpacing, getSize } from '../util';
 
 import { wrapString } from './wrap-string';
 import { resizeToFit } from './resize-to-fit';
@@ -11,7 +11,7 @@ export type RichTextOption = {
     size: number;
     minSize: number;
     shape: [{ x: number, y: number }, { x: number, y: number }];
-    underwear?: { flip: boolean, width: number, height: number };
+    underwear: { flip: boolean, width: number, height: number };
     color: string;
 };
 
@@ -22,16 +22,16 @@ export function renderRichText(ctx: CanvasRenderingContext2D, text: string, opti
     const fullHeight = option.shape[1].y - option.shape[0].y;
 
     const size = resizeToFit(text, option.size, fullWidth, fullHeight, {
-        lang:    option.lang,
-        font:    option.font,
-        lineSpacing,
-        minSize: option.minSize,
-        shape:   option.shape,
+        lang:      option.lang,
+        font:      option.font,
+        minSize:   option.minSize,
+        shape:     option.shape,
+        underwear: option.underwear,
     });
 
     const wrapText = wrapString(text, { ...option, size });
 
-    const { width, height } = getSize(wrapText, option.font, size, lineSpacing);
+    const { width, height } = getSize(wrapText, option.font, size);
 
     const textCvs = createCanvas(width * 2, height * 2);
     const textCtx = textCvs.getContext('2d');
@@ -43,10 +43,10 @@ export function renderRichText(ctx: CanvasRenderingContext2D, text: string, opti
     let italic = false;
 
     for (const [i, l] of wrapText.split('\n').entries()) {
-        const lineWidth = getSize(l, option.font, size, lineSpacing).width;
+        const lineWidth = getSize(l, option.font, size).width;
 
         let xBase = (width - lineWidth) / 2;
-        const y = i * (size + lineSpacing) + size / 2;
+        const y = i * (size + getLineSpacing(size)) + size / 2;
 
         let tag = null;
 
@@ -74,7 +74,7 @@ export function renderRichText(ctx: CanvasRenderingContext2D, text: string, opti
             } else if (tag != null) {
                 tag += c;
             } else {
-                const charWidth = getSize(c, option.font, size, lineSpacing, false).width;
+                const charWidth = getSize(c, option.font, size, false).width;
 
                 const x = xBase + charWidth / 2;
 

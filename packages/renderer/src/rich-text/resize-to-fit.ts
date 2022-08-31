@@ -7,10 +7,9 @@ import { wrapString } from './wrap-string';
 export type ResizeToFitOption = {
     lang: string;
     font: string;
-    lineSpacing: number;
     minSize: number;
     shape: [{ x: number, y: number }, { x: number, y: number }];
-    underwear?: Omit<UnderwearOption, 'font' | 'size'>;
+    underwear: Omit<UnderwearOption, 'font' | 'size'>;
 };
 
 export function resizeToFit(
@@ -32,23 +31,25 @@ export function resizeToFit(
             underwear: option.underwear,
         });
 
-        ({ width, height } = getSize(wrapText, option.font, size, option.lineSpacing));
+        ({ width, height } = getSize(wrapText, option.font, size));
 
         if (height <= fullHeight && width <= fullWidth) {
             break;
         }
 
         tryCount += 1;
+
         if (tryCount >= 40) {
             break;
         }
 
-        size *= 0.95;
+        size = Math.floor(size * 0.95);
+
         if (size <= option.minSize) {
             size = option.minSize;
             break;
         }
     } while (size >= option.minSize);
 
-    return Math.floor(size);
+    return size;
 }

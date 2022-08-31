@@ -5,14 +5,12 @@ import { getLineCount, getSize } from '../util';
 
 import { UnderwearOption, isUnderwearNeeded, getFinalContainerWidth } from './underwear';
 
-import { lineSpacing } from './renderer';
-
 export type WrapStringOption = {
     lang: string;
     font: string;
     size: number;
     shape: [{ x: number, y: number }, { x: number, y: number }];
-    underwear?: Omit<UnderwearOption, 'font' | 'size'>;
+    underwear: Omit<UnderwearOption, 'font' | 'size'>;
 };
 
 function removeLineBreakTagsHardSpace(text: string): string {
@@ -71,7 +69,7 @@ export function wrapString(text: string, option: WrapStringOption): string {
 
         currLine += value;
 
-        const lineWidth = getSize(currLine, option.font, option.size, lineSpacing).width;
+        const lineWidth = getSize(currLine, option.font, option.size).width;
 
         const maxWidth = needUnderwear ? getFinalContainerWidth(removeTag(fullText), width, height, {
             flip:   option.underwear!.flip,

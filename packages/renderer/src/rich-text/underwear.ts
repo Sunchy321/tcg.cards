@@ -2,8 +2,6 @@ import { getSize } from '../util';
 
 import { removeTag } from './remove-tag';
 
-import { lineSpacing } from './renderer';
-
 export type UnderwearOption = {
     font: string;
     size: number;
@@ -27,7 +25,7 @@ export function isUnderwearNeeded(
 
             currLine += value;
 
-            if (getSize(currLine, option.font, option.size, lineSpacing).width >= width) {
+            if (getSize(currLine, option.font, option.size).width >= width) {
                 result = true;
                 break;
             }
@@ -51,7 +49,7 @@ export function getFinalContainerWidth(
 ): number {
     let result = fullWidth;
 
-    const { width, height } = getSize(text, option.font, option.size, lineSpacing);
+    const { width, height } = getSize(text, option.font, option.size);
 
     const underwearWidth = fullWidth * option.width;
     const underwearHeight = fullHeight * option.height;
