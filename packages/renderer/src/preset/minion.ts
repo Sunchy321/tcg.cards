@@ -466,7 +466,7 @@ export default async function renderMinion(
         type:      'rich-text',
         text:      data.rawText ?? '',
         font:      'BlizzardGlobal',
-        size:      30,
+        size:      31,
         minSize:   20,
         shape:     [{ x: 87, y: 434 }, { x: 388, y: 566 }],
         underwear: { flip: false, width: 0.25, height: 0.35 },
