@@ -2,8 +2,10 @@ import { EntityRenderData } from './interface';
 
 import { join } from 'path';
 
-import renderMinion from './preset/minion';
 import { registerFont } from 'canvas';
+
+import renderMinion from './preset/minion';
+import renderSpell from './preset/spell';
 
 export function materialPath(asset: string): string {
     return join(asset, 'hearthstone', 'material');
@@ -42,6 +44,8 @@ export default async function renderEntity(
     switch (data.cardType) {
     case 'minion':
         return renderMinion(data, asset);
+    case 'spell':
+        return renderSpell(data, asset);
     default:
         throw new Error('Unknown card type');
     }
