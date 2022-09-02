@@ -9,78 +9,85 @@ import { renderRichText, RichTextOption } from '../components/rich-text';
 
 import { materialPath } from '../index';
 
-const fullSize = { width: 470, height: 660 };
+const fullSize = { width: 490, height: 660 };
 const illusSize = { width: 334, height: 334 };
 
+const illusShape = {
+    x: 246, y: 223, rx: 117, ry: 160,
+};
+
+const nameCurve = [{ x: 10, y: 62 }, { x: 79, y: 79 }, { x: 216, y: 10 }, { x: 332, y: 56 }];
+const textShape = [{ x: 97, y: 434 }, { x: 398, y: 566 }] as RichTextComponent['shape'];
+
 const position = {
-    illustration: { x: 71, y: 55 },
+    illustration: { x: 91, y: 55 },
     background:   {
-        full:  { x: 46, y: 48 },
-        left:  { x: 46, y: 48 },
-        right: { x: 236, y: 48 },
-        split: { x: 228, y: 397 },
+        full:  { x: 56, y: 48 },
+        left:  { x: 56, y: 48 },
+        right: { x: 246, y: 48 },
+        split: { x: 238, y: 397 },
     },
     cost: {
-        mana:  { x: 28, y: 61 },
-        coin:  { x: 27, y: 62 },
-        speed: { x: 34, y: 57 },
+        mana:  { x: 38, y: 61 },
+        coin:  { x: 37, y: 62 },
+        speed: { x: 44, y: 57 },
     },
-    costNumber:   { x: 78, y: 105 },
-    flag:         { x: 33, y: 70 },
-    elite:        { x: 129, y: 22 },
-    rarityBase:   { x: 193, y: 375 },
-    rarity:       { x: 227, y: 385 },
-    name:         { x: 63, y: 323 },
-    nameText:     { x: 228, y: 351 },
-    desc:         { x: 73, y: 408 },
-    race:         { x: 129, y: 567 },
-    raceText:     { x: 237, y: 584 },
-    attack:       { x: 19, y: 507 },
-    attackNumber: { x: 84, y: 575 },
-    health:       { x: 359, y: 512 },
-    healthNumber: { x: 397, y: 577 },
+    costNumber:   { x: 88, y: 105 },
+    flag:         { x: 43, y: 70 },
+    elite:        { x: 139, y: 22 },
+    rarityBase:   { x: 203, y: 375 },
+    rarity:       { x: 237, y: 385 },
+    name:         { x: 73, y: 323 },
+    nameText:     { x: 238, y: 351 },
+    desc:         { x: 83, y: 408 },
+    race:         { x: 139, y: 567 },
+    raceText:     { x: 247, y: 584 },
+    attack:       { x: 29, y: 507 },
+    attackNumber: { x: 94, y: 575 },
+    health:       { x: 369, y: 512 },
+    healthNumber: { x: 407, y: 577 },
 
     watermark: {
-        'classic': { x: 186, y: 439 },
-        'hof':     { x: 172, y: 434 },
-        'legacy':  { x: 186, y: 439 },
-        'core21':  { x: 187, y: 451 },
-        'core22':  { x: 186, y: 444 },
+        'classic': { x: 196, y: 439 },
+        'hof':     { x: 182, y: 434 },
+        'legacy':  { x: 196, y: 439 },
+        'core21':  { x: 197, y: 451 },
+        'core22':  { x: 196, y: 444 },
 
-        'naxx':     { x: 172, y: 444 },
-        'gvg':      { x: 177, y: 439 },
-        'brm':      { x: 162, y: 450 },
-        'tgt':      { x: 185, y: 446 },
-        'loe':      { x: 174, y: 461 },
-        'wog':      { x: 190, y: 446 },
-        'onk':      { x: 200, y: 446 },
-        'msg':      { x: 167, y: 441 },
-        'jug':      { x: 188, y: 443 },
-        'kft':      { x: 198, y: 438 },
-        'knc':      { x: 203, y: 441 },
-        'tww':      { x: 170, y: 443 },
-        'tbp':      { x: 172, y: 444 },
-        'rkr':      { x: 165, y: 444 },
-        'ros':      { x: 170, y: 432 },
-        'sou':      { x: 171, y: 446 },
-        'dod':      { x: 166, y: 439 },
-        'gra':      { x: 167, y: 444 },
-        'aoo':      { x: 173, y: 444 },
-        'dhi':      { x: 193, y: 450 },
-        'sma':      { x: 162, y: 451 },
-        'mdf':      { x: 183, y: 446 },
-        'mdf-mini': { x: 171, y: 438 },
-        'fib':      { x: 193, y: 444 },
-        'fib-mini': { x: 177, y: 446 },
-        'uis':      { x: 191, y: 446 },
-        'uis-mini': { x: 180, y: 446 },
-        'fav':      { x: 198, y: 441 },
-        'fav-mini': { x: 181, y: 446 },
-        'vsc':      { x: 190, y: 446 },
-        'vsc-mini': { x: 181, y: 446 },
-        'mcn':      { x: 190, y: 447 },
+        'naxx':     { x: 182, y: 444 },
+        'gvg':      { x: 187, y: 439 },
+        'brm':      { x: 172, y: 450 },
+        'tgt':      { x: 195, y: 446 },
+        'loe':      { x: 184, y: 461 },
+        'wog':      { x: 200, y: 446 },
+        'onk':      { x: 210, y: 446 },
+        'msg':      { x: 177, y: 441 },
+        'jug':      { x: 198, y: 443 },
+        'kft':      { x: 208, y: 438 },
+        'knc':      { x: 213, y: 441 },
+        'tww':      { x: 180, y: 443 },
+        'tbp':      { x: 182, y: 444 },
+        'rkr':      { x: 175, y: 444 },
+        'ros':      { x: 180, y: 432 },
+        'sou':      { x: 181, y: 446 },
+        'dod':      { x: 176, y: 439 },
+        'gra':      { x: 177, y: 444 },
+        'aoo':      { x: 183, y: 444 },
+        'dhi':      { x: 203, y: 450 },
+        'sma':      { x: 172, y: 451 },
+        'mdf':      { x: 193, y: 446 },
+        'mdf-mini': { x: 181, y: 438 },
+        'fib':      { x: 203, y: 444 },
+        'fib-mini': { x: 187, y: 446 },
+        'uis':      { x: 201, y: 446 },
+        'uis-mini': { x: 190, y: 446 },
+        'fav':      { x: 208, y: 441 },
+        'fav-mini': { x: 191, y: 446 },
+        'vsc':      { x: 200, y: 446 },
+        'vsc-mini': { x: 191, y: 446 },
+        'mcn':      { x: 200, y: 447 },
 
-        'van': { x: 162, y: 451 },
+        'van': { x: 172, y: 451 },
     } as Record<string, { x: number, y: number }>,
 };
 
@@ -335,7 +342,7 @@ export default async function renderMinion(
         pos:   position.illustration,
         size:  illusSize,
         clip(ctx) {
-            ctx.ellipse(236, 223, 117, 160, 0, 0, 2 * Math.PI);
+            ctx.ellipse(illusShape.x, illusShape.y, illusShape.rx, illusShape.ry, 0, 0, 2 * Math.PI);
         },
     });
 
@@ -426,7 +433,7 @@ export default async function renderMinion(
             size:   35,
             pos:    position.nameText,
             middle: 0.55,
-            curve:  [{ x: 0, y: 62 }, { x: 69, y: 79 }, { x: 206, y: 10 }, { x: 322, y: 56 }],
+            curve:  nameCurve,
         },
     );
 
@@ -468,7 +475,7 @@ export default async function renderMinion(
         font:      'BlizzardGlobal',
         size:      31,
         minSize:   20,
-        shape:     [{ x: 87, y: 434 }, { x: 388, y: 566 }],
+        shape:     textShape,
         underwear: { flip: false, width: 0.25, height: 0.35 },
         color:     '#1E1710',
     });

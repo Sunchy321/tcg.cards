@@ -42,7 +42,7 @@ router.get('/', async ctx => {
 
     try {
         const data = await renderEntity({
-            cardType: 'minion',
+            cardType: json.cardType,
             variant:  'normal',
             costType: 'mana',
 
