@@ -224,7 +224,7 @@ export default async function renderMinion(
             },
             {
                 type:  'image',
-                image: join('watermark', `${data.set}.png`),
+                image: join('minion', 'watermark', `${data.set}.png`),
                 pos:   {
                     x: position.watermark[data.set].x,
                     y: position.watermark[data.set].y - (data.race != null ? 10 : 0),
@@ -260,7 +260,7 @@ export default async function renderMinion(
             },
             {
                 type:  'image',
-                image: join('rarity', `${data.rarity}.png`),
+                image: join('minion', 'rarity', `${data.rarity}.png`),
                 pos:   position.rarity,
             },
         );
