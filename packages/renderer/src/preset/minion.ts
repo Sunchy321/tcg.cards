@@ -19,7 +19,8 @@ const nameCurve = [{ x: 10, y: 62 }, { x: 79, y: 79 }, { x: 216, y: 10 }, { x: 3
 const textShape = [{ x: 97, y: 434 }, { x: 398, y: 566 }] as RichTextComponent['shape'];
 
 const position = {
-    illustration: { x: 91, y: 55 },
+    illustration: { x: 81, y: 55 },
+    illusShadow:  { x: 130, y: 64 },
     background:   {
         full:  { x: 56, y: 48 },
         left:  { x: 56, y: 48 },
@@ -107,6 +108,12 @@ export default async function renderMinion(
         clip(ctx) {
             ctx.ellipse(illusShape.x, illusShape.y, illusShape.rx, illusShape.ry, 0, 0, 2 * Math.PI);
         },
+    });
+
+    components.push({
+        type:  'image',
+        image: join('minion', 'illus-shadow.png'),
+        pos:   position.illusShadow,
     });
 
     // background
