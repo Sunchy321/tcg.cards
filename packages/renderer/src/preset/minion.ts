@@ -15,7 +15,7 @@ const illusShape = {
     x: 246, y: 223, rx: 117, ry: 160,
 };
 
-const nameCurve = [{ x: 10, y: 62 }, { x: 79, y: 79 }, { x: 216, y: 10 }, { x: 332, y: 56 }];
+const nameCurve = [{ x: 0, y: 88 }, { x: 98, y: 112 }, { x: 294, y: 13 }, { x: 460, y: 80 }];
 const textShape = [{ x: 97, y: 434 }, { x: 398, y: 566 }] as RichTextComponent['shape'];
 
 const position = {
@@ -38,7 +38,7 @@ const position = {
     rarityBase:   { x: 203, y: 375 },
     rarity:       { x: 237, y: 385 },
     name:         { x: 73, y: 323 },
-    nameText:     { x: 238, y: 351 },
+    nameText:     { x: 248, y: 355 },
     desc:         { x: 83, y: 408 },
     race:         { x: 139, y: 567 },
     raceText:     { x: 247, y: 584 },
