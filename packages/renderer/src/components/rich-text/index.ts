@@ -18,6 +18,16 @@ export type RichTextOption = {
 export const lineSpacing = 3;
 
 export function renderRichText(ctx: CanvasRenderingContext2D, text: string, option: RichTextOption): void {
+    // ctx.lineWidth = 1;
+    // ctx.beginPath();
+    // ctx.moveTo(option.shape[0].x, option.shape[0].y);
+    // ctx.lineTo(option.shape[0].x, option.shape[1].y);
+    // ctx.lineTo(option.shape[1].x, option.shape[1].y);
+    // ctx.lineTo(option.shape[1].x, option.shape[0].y);
+    // ctx.lineTo(option.shape[0].x, option.shape[0].y);
+    // ctx.closePath();
+    // ctx.stroke();
+
     const fullWidth = option.shape[1].x - option.shape[0].x;
     const fullHeight = option.shape[1].y - option.shape[0].y;
 
