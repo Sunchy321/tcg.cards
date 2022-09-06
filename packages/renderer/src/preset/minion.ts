@@ -12,7 +12,7 @@ const fullSize = { width: 490, height: 660 };
 const illusSize = { width: 334, height: 334 };
 
 const illusShape = {
-    x: 246, y: 223, rx: 117, ry: 160,
+    cx: 246, cy: 223, rx: 117, ry: 160,
 };
 
 const nameCurve = [{ x: 0, y: 88 }, { x: 98, y: 112 }, { x: 294, y: 13 }, { x: 460, y: 80 }];
@@ -106,7 +106,11 @@ export default async function renderMinion(
         pos:   position.illustration,
         size:  illusSize,
         clip(ctx) {
-            ctx.ellipse(illusShape.x, illusShape.y, illusShape.rx, illusShape.ry, 0, 0, 2 * Math.PI);
+            const {
+                cx, cy, rx, ry,
+            } = illusShape;
+
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
         },
     });
 
@@ -273,7 +277,6 @@ export default async function renderMinion(
         const raceText = race?.[data.lang] ?? race?.en ?? data.race;
 
         components.push(
-
             {
                 type:  'image',
                 image: join('minion', 'race.png'),
