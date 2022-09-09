@@ -158,23 +158,6 @@ export default async function renderMinion(
         });
     }
 
-    // cost
-    components.push({
-        type:  'image',
-        image: join('cost', `${data.costType}.png`),
-        pos:   position.cost[data.costType],
-    });
-
-    if (data.cost != null) {
-        components.push({
-            type: 'text',
-            text: data.cost.toString(),
-            font: '文鼎隶书',
-            size: 114,
-            pos:  position.costNumber,
-        });
-    }
-
     // flag
     if (data.mechanics.includes('tradable')) {
         components.push({
@@ -190,6 +173,23 @@ export default async function renderMinion(
             type:  'image',
             image: join('minion', 'elite.png'),
             pos:   position.elite,
+        });
+    }
+
+    // cost
+    components.push({
+        type:  'image',
+        image: join('cost', `${data.costType}.png`),
+        pos:   position.cost[data.costType],
+    });
+
+    if (data.cost != null) {
+        components.push({
+            type: 'text',
+            text: data.cost.toString(),
+            font: '文鼎隶书',
+            size: 114,
+            pos:  position.costNumber,
         });
     }
 

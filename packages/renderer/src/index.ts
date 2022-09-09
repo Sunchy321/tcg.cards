@@ -6,6 +6,7 @@ import { registerFont } from 'canvas';
 
 import renderMinion from './preset/minion';
 import renderSpell from './preset/spell';
+import renderWeapon from './preset/weapon';
 
 export function materialPath(asset: string): string {
     return join(asset, 'hearthstone', 'material');
@@ -46,6 +47,8 @@ export default async function renderEntity(
         return renderMinion(data, asset);
     case 'spell':
         return renderSpell(data, asset);
+    case 'weapon':
+        return renderWeapon(data, asset);
     default:
         throw new Error('Unknown card type');
     }

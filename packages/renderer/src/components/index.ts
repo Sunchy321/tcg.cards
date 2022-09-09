@@ -91,7 +91,7 @@ export async function renderComponent(ctx: CanvasRenderingContext2D, c: Componen
         ctx.fillText(c.text, c.pos.x, c.pos.y);
     } else if (c.type === 'curve-text') {
         const panelWidth = 460;
-        const fontCvs = createCanvas(panelWidth * 2, 160);
+        const fontCvs = createCanvas(panelWidth, 160);
         const fontCtx = fontCvs.getContext('2d');
 
         fontCtx.textBaseline = 'ideographic';
