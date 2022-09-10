@@ -35,7 +35,7 @@ const position = {
         mana: { x: 38, y: 61 },
         coin: { x: 37, y: 62 },
     },
-    costNumber: { x: 90, y: 105 },
+    costNumber: { x: 88, y: 105 },
     flag:       { x: 43, y: 70 },
     elite:      { x: 139, y: 49 },
     rarityBase: { x: 198, y: 379 },
