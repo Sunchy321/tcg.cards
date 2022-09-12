@@ -8,6 +8,7 @@ import renderMinion from './preset/minion';
 import renderSpell from './preset/spell';
 import renderWeapon from './preset/weapon';
 import renderHero from './preset/hero';
+import renderHeroPower from './preset/hero-power';
 
 export function materialPath(asset: string): string {
     return join(asset, 'hearthstone', 'material');
@@ -52,6 +53,8 @@ export default async function renderEntity(
         return renderWeapon(data, asset);
     case 'hero':
         return renderHero(data, asset);
+    case 'hero_power':
+        return renderHeroPower(data, asset);
     default:
         throw new Error('Unknown card type');
     }
