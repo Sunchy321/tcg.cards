@@ -330,7 +330,7 @@ const keywordMap: Record<string, string> = {
     'prowess':      'p',
 };
 
-const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood'];
+const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone'];
 
 const numberRegex = '(?:[a-z]+|a number of|(?:twice )?(?:X|that many))';
 
