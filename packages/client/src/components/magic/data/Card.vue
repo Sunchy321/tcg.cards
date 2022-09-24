@@ -953,7 +953,7 @@ export default defineComponent({
 
             let request: AxiosResponse<CardGroup>;
 
-            const sampleValue = sample.value ? 100 : 1;
+            const sampleValue = sample.value ? 20 : 1;
 
             if (method.startsWith('search:')) {
                 request = await controlGet<CardGroup>('/magic/card/search', {
