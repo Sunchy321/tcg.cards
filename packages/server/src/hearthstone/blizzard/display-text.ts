@@ -88,7 +88,7 @@ enum TextBuilderType {
     undatakahEnchant,
     spellDamageOnly,
     drustvarHorror,
-    hiddenCard,
+    hiddenEntity,
     scoreValueCountDown,
     scriptDataNum1Num2,
     poweredUpTargetingText,
@@ -162,7 +162,6 @@ function getDisplayText(
     case TextBuilderType.undatakahEnchant:
     case TextBuilderType.spellDamageOnly:
     case TextBuilderType.drustvarHorror:
-    case TextBuilderType.hiddenCard:
     case TextBuilderType.poweredUpTargetingText:
         return text;
     case TextBuilderType.kazakusPotion:
@@ -170,18 +169,19 @@ function getDisplayText(
     case TextBuilderType.alternateCardText:
     case TextBuilderType.playerTagThreshold:
     case TextBuilderType.entityTagThreshold:
+    case TextBuilderType.hiddenEntity:
     case TextBuilderType.referenceScriptDataNum1EntityPower:
         return text.split('@')[0];
     case TextBuilderType.jadeGolem:
     case TextBuilderType.jadeGolemTrigger:
-        return text.split('@')[1];
+        return text.split('@')[1] ?? text;
     case TextBuilderType.scriptDataNum1: {
         const dataNum1 = getTag(mechanics, 'data_num_1');
 
         if (dataNum1 === 0) {
             return text.split('@')[0];
         } else {
-            return text.replace('@', dataNum1.toString());
+            return text.replace(/@/g, dataNum1.toString());
         }
     }
     case TextBuilderType.galakrondCounter: {
@@ -192,7 +192,7 @@ function getDisplayText(
             ? strings.GALAKROND_ONCE
             : strings.GALAKROND_TWICE;
 
-        return text.replace('@', gameplayText);
+        return text.replace(/@/g, gameplayText);
     }
     case TextBuilderType.decorate: {
         return text.replace(/\{[01]\}/g, '0');
@@ -214,13 +214,15 @@ function getDisplayText(
     case TextBuilderType.scoreValueCountDown: {
         const scoreValue = getTag(mechanics, 'score_value_1');
 
-        return text.replace('@', scoreValue.toString());
+        return text.replace(/@/g, scoreValue.toString());
     }
     case TextBuilderType.scriptDataNum1Num2: {
         const dataNum1 = getTag(mechanics, 'data_num_1');
         const dataNum2 = getTag(mechanics, 'data_num_2');
 
-        return text.replace('{0}', dataNum1.toString()).replace('{1}', dataNum2.toString());
+        return text
+            .replace(/\{0\}/g, dataNum1.toString())
+            .replace(/\{1\}/g, dataNum2.toString());
     }
     case TextBuilderType.multipleAltTextScriptDataNums: {
         let subsText = text;
@@ -231,9 +233,12 @@ function getDisplayText(
             if (text.includes('{1}')) {
                 const dataNum2 = getTag(mechanics, 'data_num_2');
 
-                subsText = text.replace('{0}', dataNum1.toString()).replace('{1}', dataNum2.toString());
+                subsText = text
+                    .replace(/\{0\}/g, dataNum1.toString())
+                    .replace(/\{1\}/g, dataNum2.toString());
             } else {
-                subsText = text.replace('{0}', dataNum1.toString());
+                subsText = text
+                    .replace(/\{0\}/g, dataNum1.toString());
             }
         }
 

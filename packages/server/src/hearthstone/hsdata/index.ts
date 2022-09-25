@@ -675,7 +675,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
         }
 
-        if (errors.length != null) {
+        if (errors.length > 0) {
             throw errors;
         }
 
