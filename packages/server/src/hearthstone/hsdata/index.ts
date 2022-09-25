@@ -311,27 +311,28 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }) as { CardDefs: XCardDefs };
 
         const entities: IEntity[] = [];
+        const errors: string[] = [];
         const errorPath = path.join(dataPath, 'hearthstone', 'hsdata-error.txt');
-
-        fs.writeFileSync(errorPath, '');
 
         for (const e of xml.CardDefs.Entity) {
             try {
                 entities.push(this.convert(e) as IEntity);
-            } catch (err) {
-                fs.writeFileSync(
-                    errorPath,
-                    `${e._attributes.CardID}: ${err.message}\n`,
-                    { flag: 'a' },
-                );
+            } catch (errs) {
+                errors.push(...(errs as string[]).map(err => `${e._attributes.CardID}: ${err}\n`));
             }
         }
 
-        fs.writeFileSync(
-            errorPath,
-            '-'.repeat(50),
-            { flag: 'a' },
-        );
+        fs.writeFileSync(errorPath, '');
+
+        for (const e of errors) {
+            fs.writeFileSync(errorPath, e, { flag: 'a' });
+        }
+
+        fs.writeFileSync(errorPath, '-'.repeat(50), { flag: 'a' });
+
+        if (errors.length > 0) {
+            return;
+        }
 
         for (const e of entities) {
             for (const r of e.relatedEntities) {
@@ -364,6 +365,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
     private convert(entity: XEntity): IEntity {
         const result: Partial<IEntity> = { };
+        const errors: string[] = [];
 
         result.versions = [this.version];
         result.cardId = entity._attributes.CardID;
@@ -411,22 +413,26 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     const tag = tags[id];
 
                     if (tag != null) {
-                        const value = getValue(t, tag);
+                        try {
+                            const value = getValue(t, tag);
 
-                        if (value == null) {
-                            throw new Error(`Unknown tag ${
-                                tag.enum === true ? tag.index : tag.enum
-                            } of ${(t as XTag)._attributes.value}`);
-                        }
-
-                        if (tag.array) {
-                            if (result[tag.index] == null) {
-                                (result as any)[tag.index] = [];
+                            if (value == null) {
+                                errors.push(`Unknown tag ${
+                                    tag.enum === true ? tag.index : tag.enum
+                                } of ${(t as XTag)._attributes.value}`);
                             }
 
-                            (result as any)[tag.index].push(value);
-                        } else {
-                            (result as any)[tag.index] = value;
+                            if (tag.array) {
+                                if (result[tag.index] == null) {
+                                    (result as any)[tag.index] = [];
+                                }
+
+                                (result as any)[tag.index].push(value);
+                            } else {
+                                (result as any)[tag.index] = value;
+                            }
+                        } catch (e) {
+                            errors.push(e.message);
                         }
 
                         continue;
@@ -455,7 +461,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     const { type } = t._attributes;
 
                     if (type !== 'Int' && type !== 'Card') {
-                        throw new Error(`Incorrect type ${type} of mechanic ${mechanic}`);
+                        errors.push(`Incorrect type ${type} of mechanic ${mechanic}`);
                     }
 
                     const value = Number.parseInt((t as XTag)._attributes.value, 10);
@@ -492,7 +498,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             } else if (value === 2) {
                                 result.mechanics.push('drag_minion_to_sell');
                             } else {
-                                throw new Error(`Mechanic ${mechanic} with non-1 value`);
+                                errors.push(`Mechanic ${mechanic} with non-1 value`);
                             }
                             break;
                         case 'data_num_1':
@@ -519,6 +525,21 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case 'the_rat_king_skill_activating_type':
                         case 'entity_threshold_value':
                         case 'transfromed_card_visual_type':
+                        case 'quest_param_no_beast':
+                        case 'quest_param_no_demon':
+                        case 'quest_param_no_dragon':
+                        case 'quest_param_no_mech':
+                        case 'quest_param_no_murloc':
+                        case 'quest_param_no_pirate':
+                        case 'quest_param_no_elemental':
+                        case 'quest_param_no_quilboar':
+                        case 'quest_param_no_naga':
+                        case 'quest_lower_bound':
+                        case 'quest_upper_bound':
+                        case 'quest_adjustment':
+                        case 'quest_reward_adjustment':
+                        case 'quest_reward_rarity':
+                        case 'quest_reward_race':
                             result.mechanics.push(`${mechanic}:${value}`);
                             break;
                         case 'base_galakrond':
@@ -539,7 +560,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             if (value === 1 || mechanic.startsWith('?')) {
                                 result.mechanics.push(mechanic);
                             } else {
-                                throw new Error(`Mechanic ${mechanic} with non-1 value`);
+                                errors.push(`Mechanic ${mechanic} with non-1 value`);
                             }
                         }
 
@@ -549,7 +570,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         continue;
                     }
 
-                    throw new Error(`Unknown tag ${id}`);
+                    errors.push(`Unknown tag ${id}`);
                 }
 
                 const m = result.mechanics;
@@ -585,7 +606,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             const { param } = r._attributes;
 
                             if (type == null) {
-                                throw new Error(
+                                errors.push(
                                     `Unknown play requirements ${r._attributes.reqID}`,
                                 );
                             }
@@ -611,36 +632,31 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 for (const r of castArray(entity[k])) {
                     const id = r._attributes.enumID;
 
-                    try {
-                        const req = mechanics[id];
+                    const req = mechanics[id];
 
-                        if (req === undefined) {
-                            throw new Error(`Unknown referenced tag ${id}`);
-                        } else if (req === null) {
-                            continue;
-                        }
+                    if (req === undefined) {
+                        errors.push(`Unknown referenced tag ${id} <${r._attributes.name}>`);
+                    } else if (req === null) {
+                        continue;
+                    }
 
-                        const { value } = r._attributes;
+                    const { value } = r._attributes;
 
-                        if (value !== '1') {
-                            switch (req) {
-                            case 'windfury':
-                                if (value === '3') {
-                                    result.referencedTags.push('mega_windfury');
-                                    break;
-                                }
-                                // fallthrough
-                            default:
-                                throw new Error(
-                                    `Referenced tag ${id} with non-1 value`,
-                                );
+                    if (value !== '1') {
+                        switch (req) {
+                        case 'windfury':
+                            if (value === '3') {
+                                result.referencedTags.push('mega_windfury');
+                                break;
                             }
-                        } else {
-                            result.referencedTags.push(req);
+                            // fallthrough
+                        default:
+                            errors.push(
+                                `Referenced tag ${id} with non-1 value <${r._attributes.name}>`,
+                            );
                         }
-                    } catch (e) {
-                        e.message += ` <${r._attributes.name}>`;
-                        throw e;
+                    } else {
+                        result.referencedTags.push(req);
                     }
                 }
 
@@ -655,8 +671,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
 
             default:
-                throw new Error(`Unknown key ${k}`);
+                errors.push(`Unknown key ${k}`);
             }
+        }
+
+        if (errors.length != null) {
+            throw errors;
         }
 
         result.localization = localization as IEntity['localization'];
