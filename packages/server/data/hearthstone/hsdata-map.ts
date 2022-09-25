@@ -400,19 +400,46 @@ export const mechanics: Record<string, string | null> = {
     2460: 'entity_threshold_value',
     2464: 'lettuce_spell_weakness',
     2465: 'lettuce_spell_resistance',
+    2466: 'battlegrounds_quest',
+    2467: 'quest_reward_adjustment',
     2469: 'colossal_limb_on_left',
     2474: 'battlegrounds_skip_turn',
     2475: '?battlegrounds_hero_power_3',
+    2486: '?stasis_elemental',
+    2496: '?unlikely_duo',
     2510: '?mercenaries_2510',
     2514: 'one_turn_taunt',
     2515: '?mercenaries_2515',
     2560: '?2560',
     2564: 'one_turn_divine_shield',
     2570: 'bench',
+    2571: 'quest_reward_race',
     2573: '?fathom_guard',
+    2580: '?battlegrounds_quest_2580',
+    2581: 'quest_reward_infinity',
     2594: 'one_turn_effect',
     2608: '?mercenaries_2608',
     2609: '?mercenaries_2609',
+    2641: 'quest_reawd_in_game',
+    2642: 'quest_adjustment',
+    2643: 'quest_param_no_beast',
+    2644: 'quest_param_no_demon',
+    2645: 'quest_param_no_dragon',
+    2646: 'quest_param_no_mech',
+    2647: 'quest_param_no_murloc',
+    2648: 'quest_param_no_pirate',
+    2649: 'quest_param_no_elemental',
+    2650: 'quest_param_no_quilboar',
+    2651: 'quest_param_no_naga',
+    2653: 'quest_reward_rarity',
+    2674: 'quest_lower_bound',
+    2677: '?ghastly_mask',
+    2704: 'battlegrounds_stealth',
+    2711: '?first_mate_pip',
+    2727: 'quest_reward_start_of_combat',
+    2732: 'battlegrounds_quest_prepration',
+    2768: '?treasure_seeker_elise',
+    2795: 'quest_upper_bound',
 };
 
 export const relatedEntities: Record<string, string> = {
@@ -432,6 +459,7 @@ export const relatedEntities: Record<string, string> = {
     2153: 'aranna_advanced',
     2359: 'spellcraft',
     2519: 'upgraded_hero_power',
+    2673: 'quest_reward_card',
 };
 
 export const sets: Record<string, string> = {
@@ -531,6 +559,7 @@ export const types: Record<string, string> = {
     23: 'mercenary_ability',
     24: 'buddy_meter',
     39: 'location',
+    40: 'quest_reward',
 };
 
 export const races: Record<string, string> = {
