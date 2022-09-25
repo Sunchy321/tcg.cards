@@ -19,6 +19,7 @@ export interface Entity {
         lang: string;
         name: string;
         text: string;
+        displayText: string;
         rawText: string;
         targetText: string;
         howToEarn: string;

@@ -51,9 +51,9 @@ export const tags: Record<string, ITag> = {
 };
 
 export const mechanics: Record<string, string | null> = {
-    2:    null, // temp variable 1, ignore
-    3:    null, // temp variable 2, ignore
-    4:    null, // temp variable 3, ignore
+    2:    'data_num_1', // temp variable 1
+    3:    'data_num_2', // temp variable 2
+    4:    'data_env_1', // temp variable 3
     12:   'premium',
     32:   'trigger_visual',
     45:   'health',
@@ -115,8 +115,8 @@ export const mechanics: Record<string, string | null> = {
     441:  'jade_golem', // it should be a referenced tag
     443:  'choose_one',
     448:  'untouchable',
-    451:  null, // scoreValue1, ignore
-    453:  null, // scoreValue2, ignore
+    451:  'score_value_1', // scoreValue1
+    453:  'score_value_2', // scoreValue2
     456:  'cant_be_fatigued',
     457:  'auto_attack',
     462:  'quest', // use isQuest instead of mechanics

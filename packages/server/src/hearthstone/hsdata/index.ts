@@ -41,13 +41,13 @@ import {
 } from '@data/hearthstone/hsdata-map';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
-const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
+export const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
 
 function hasData(): boolean {
     return fs.existsSync(path.join(localPath, '.git'));
 }
 
-const langMap: Record<string, string> = {
+export const langMap: Record<string, string> = {
     deDE: 'de',
     enUS: 'en',
     esES: 'es',
@@ -400,22 +400,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                             if (loc != null) {
                                 loc[locTag] = value;
-
-                                if (locTag === 'rawText') {
-                                    loc.text = value
-                                        .replace(/<\/?.>/g, '')
-                                        .replace(/[$#](\d+)/g, (_, m) => m);
-                                }
                             } else {
-                                const newLoc = { lang, [locTag]: value } as Partial<IEntity['localization'][0]>;
-
-                                if (locTag === 'rawText') {
-                                    newLoc.text = value
-                                        .replace(/<\/?.>/g, '')
-                                        .replace(/\n/g, '');
-                                }
-
-                                localization.push(newLoc);
+                                localization.push({ lang, [locTag]: value });
                             }
                         }
 
@@ -509,6 +495,11 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                                 throw new Error(`Mechanic ${mechanic} with non-1 value`);
                             }
                             break;
+                        case 'data_num_1':
+                        case 'data_num_2':
+                        case 'data_env_1':
+                        case 'score_value_1':
+                        case 'score_value_2':
                         case 'windfury':
                         case 'buff_attack_up':
                         case 'buff_cost_down':
@@ -669,6 +660,22 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }
 
         result.localization = localization as IEntity['localization'];
+
+        for (const l of result.localization) {
+            if (l.rawText == null) {
+                l.rawText = '';
+            }
+
+            l.displayText = l.rawText;
+            l.text = l.rawText
+                .replace(/[$#](\d+)/g, (_, m) => m)
+                .replace(/<\/?.>|\[.\]/g, '');
+        }
+
+        // fix 0 issue
+        if (result.cost == null) {
+            result.cost = 0;
+        }
 
         if (result.cardType === 'minion') {
             if (result.attack != null && result.health == null) {

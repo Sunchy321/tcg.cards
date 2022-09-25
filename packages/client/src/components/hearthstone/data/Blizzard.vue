@@ -59,6 +59,26 @@
                 </q-item>
             </q-list>
         </div>
+
+        <div class="q-my-sm">
+            DBF Data
+        </div>
+
+        <div class="row q-gutter-md">
+            <q-list class="col" bordered separator>
+                <q-item>
+                    <q-item-section>Display Text</q-item-section>
+                    <q-item-section side>
+                        <q-btn
+                            round dense flat
+                            :icon="metadata ? 'mdi-autorenew mdi-spin' : 'mdi-import'"
+                            @click="getDisplayText"
+                        />
+                    </q-item-section>
+                </q-item>
+            </q-list>
+
+        </div>
     </div>
 </template>
 
@@ -150,6 +170,22 @@ export default defineComponent({
             });
         };
 
+        const getDisplayText = async () => {
+            const ws = controlWs('/hearthstone/blizzard/update-display-text');
+
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    progress.value = JSON.parse(data) as Progress;
+                };
+
+                ws.onerror = reject;
+                ws.onclose = () => {
+                    progress.value = null;
+                    resolve(undefined);
+                };
+            });
+        };
+
         return {
             progress,
             progressValue,
@@ -159,6 +195,7 @@ export default defineComponent({
             getMetadata,
             getCard,
             getImage,
+            getDisplayText,
         };
     },
 });

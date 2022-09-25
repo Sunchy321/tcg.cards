@@ -16,6 +16,7 @@ const EntitySchema = new Schema<IEntity>({
         lang:            String,
         name:            String,
         text:            String,
+        displayText:     String,
         rawText:         String,
         targetText:      String,
         howToEarn:       String,

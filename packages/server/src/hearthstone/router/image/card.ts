@@ -49,6 +49,7 @@ router.get('/', async ctx => {
             cardId: json.cardId,
 
             ...localization,
+            text: localization.displayText,
 
             set:         json.set,
             classes:     json.classes,
@@ -83,7 +84,6 @@ router.get('/', async ctx => {
         ctx.body = data;
     } catch (err) {
         console.log(err.message);
-        console.log(json);
     }
 
     ctx.status = 404;
