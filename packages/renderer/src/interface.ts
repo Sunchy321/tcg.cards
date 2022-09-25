@@ -9,7 +9,6 @@ export interface EntityRenderData {
     lang: string;
     name: string;
     text: string;
-    rawText: string;
     illusId?: string;
 
     set: Entity['set'];

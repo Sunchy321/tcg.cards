@@ -245,7 +245,7 @@ export default async function renderMinion(
 
     components.push({
         type:      'rich-text',
-        text:      data.rawText ?? '',
+        text:      data.text,
         font:      'BlizzardGlobal',
         size:      31,
         minSize:   20,
