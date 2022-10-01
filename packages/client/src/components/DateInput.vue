@@ -1,9 +1,6 @@
 <template>
     <q-input
         :model-value="modelValue"
-        :dense="dense"
-        :outlined="outlined"
-        :clearable="clearable"
         @update:model-value="input"
     >
         <template #append>
@@ -21,6 +18,10 @@
                 </q-popup-proxy>
             </q-icon>
         </template>
+
+        <template v-for="(slot, index) of Object.keys($slots)" :key="index" #[slot]>
+            <slot :name="slot" />
+        </template>
     </q-input>
 </template>
 
@@ -34,10 +35,6 @@ export default defineComponent({
     props: {
         modelValue: { type: String as PropType<string | null>, default: undefined },
 
-        dense:     { type: Boolean, default: false },
-        outlined:  { type: Boolean, default: false },
-        clearable: { type: Boolean, default: false },
-
         events:   { type: Array as PropType<{ date: string, color: string }[]>, default: () => [] },
         dateFrom: { type: String, default: undefined },
         dateTo:   { type: String, default: undefined },
@@ -46,7 +43,6 @@ export default defineComponent({
     emits: ['update:modelValue'],
 
     setup(props, { emit }) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const dateProxy = ref<any>(null);
 
         const toQuasarDate = (v: string) => v.replace(/-/g, '/');
@@ -90,19 +86,16 @@ export default defineComponent({
         const eventColor = (v: string) => realEvents.value.find(e => e.date === v)!.color;
 
         const input = (v: QInputProps['modelValue']) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             dateProxy.value.hide();
             emit('update:modelValue', v);
         };
 
         const dateInput = (v: QDateProps['modelValue']) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call
             dateProxy.value.hide();
             emit('update:modelValue', v);
         };
 
         return {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             dateProxy,
 
             realEvents,
