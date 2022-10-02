@@ -1,6 +1,7 @@
 import { deburr } from 'lodash';
 import { Colors, Legalities as SLegalities, Legality as SLegality } from '@interface/magic/scryfall/basic';
-import { Legalities, Legality } from '@interface/magic/card';
+import { Legalities } from '@interface/magic/card';
+import { Legality } from '@interface/magic/format-change';
 
 export function toIdentifier(text: string): string {
     return deburr(text)

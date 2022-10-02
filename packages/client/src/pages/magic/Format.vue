@@ -46,27 +46,27 @@
                 </div>
 
                 <grid
-                    v-if="n.format.length > 0"
-                    v-slot="{ set, type }"
-                    :value="n.format" :item-width="300" item-class="flex items-center"
+                    v-if="n.sets.length > 0"
+                    v-slot="{ id, status }"
+                    :value="n.sets" :item-width="300" item-class="flex items-center"
                 >
-                    <div class="format flex items-center q-gutter-sm">
+                    <div class="sets flex items-center q-gutter-sm">
                         <q-icon
-                            :name="type === 'in' ? 'mdi-plus' : 'mdi-minus'"
-                            :class="type === 'in' ? 'color-positive' : 'color-negative'"
+                            :name="status === 'in' ? 'mdi-plus' : 'mdi-minus'"
+                            :class="status === 'in' ? 'color-positive' : 'color-negative'"
                         />
-                        <set-avatar :id="set" />
+                        <set-avatar :id="id" />
                     </div>
                 </grid>
 
                 <grid
                     v-if="n.banlist.length>0"
-                    v-slot="{ status, card, group }"
+                    v-slot="{ id, status, group }"
                     :value="n.banlist" :item-width="300" item-key="card" item-class="flex items-center"
                 >
                     <div class="banlist flex items-center q-gutter-sm">
                         <banlist-icon :status="status" />
-                        <card-avatar :id="card" class="avatar" :pauper="format === 'pauper'" />
+                        <card-avatar :id="id" class="avatar" :pauper="format === 'pauper'" />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
                 </grid>
@@ -87,14 +87,14 @@
             </div>
 
             <grid
-                v-slot="{ status, card, date: effectiveDate, group, link }"
+                v-slot="{ id, status, date: effectiveDate, group, link }"
                 :value="banlist" :item-width="300" item-key="card" item-class="flex items-center"
             >
                 <div class="banlist flex items-center q-gutter-sm">
                     <banlist-icon :status="status" />
                     <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                     <div v-else class="date">{{ effectiveDate }}</div>
-                    <card-avatar :id="card" class="avatar" :pauper="format === 'pauper'" />
+                    <card-avatar :id="id" class="avatar" :pauper="format === 'pauper'" />
                     <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                 </div>
             </grid>
@@ -155,50 +155,28 @@ import CardAvatar from 'components/magic/CardAvatar.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 import SetAvatar from 'components/magic/SetAvatar.vue';
 
-import { uniq } from 'lodash';
+import { Format } from 'interface/magic/format';
+import { FormatChange, Legality } from 'interface/magic/format-change';
+
+import { last, uniq } from 'lodash';
 
 import { apiGet } from 'boot/backend';
 
-export interface FormatChange {
-    type: 'format';
+interface BanlistItem {
     date: string;
-    category: string;
-    format: string;
-    in: string[];
-    out: string[];
-}
+    link: string[];
 
-export interface BanlistChange {
-    type: 'banlist';
-    date: string;
-    category: string;
+    id: string;
+    status: Legality;
     group?: string;
-    format: string;
-    card: string;
-    status: string;
-    effectiveDate: {
-        tabletop?: string;
-        online?: string;
-        arena?: string;
-    };
-    link: string[];
 }
 
-export type TimelineItem = BanlistChange | FormatChange;
-
-export type TimelineNode = {
+interface TimelineNode {
     date: string;
     link: string[];
-    format: { set: string, type: string }[];
-    banlist: { group?: string, card: string, status: string }[];
-};
 
-interface Data {
-    birthday?: string;
-    deathdate?: string;
-
-    sets?: string[];
-    banlist?: BanlistChange[];
+    sets: { id: string, status: 'in' | 'out' }[];
+    banlist: { id: string, status: Legality, group?: string }[];
 }
 
 export const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
@@ -254,8 +232,8 @@ export default defineComponent({
             },
         });
 
-        const data = ref<Data | null>(null);
-        const timeline = ref<TimelineItem[]>([]);
+        const data = ref<Format | null>(null);
+        const changes = ref<FormatChange[]>([]);
 
         const orderOptions = ['name', 'date'].map(v => ({
             value: v,
@@ -280,54 +258,43 @@ export default defineComponent({
         const nodes = computed(() => {
             const result: TimelineNode[] = [];
 
-            for (const v of timeline.value) {
-                const node = result.find(r => r.date === v.date);
+            for (const c of changes.value) {
+                const node = (() => {
+                    const value = result.find(r => r.date === c.date);
 
-                if (v.type === 'format') {
-                    const formatValue = [
-                        ...v.in.map(s => ({ set: s, type: 'in' })),
-                        ...v.out.map(s => ({ set: s, type: 'out' })),
-                    ];
-
-                    if (node == null) {
+                    if (value != null) {
+                        return value;
+                    } else {
                         result.push({
-                            date:    v.date,
-                            link:    [],
-                            format:  formatValue,
+                            date:    c.date,
+                            link:    c.link ?? [],
+                            sets:    [],
                             banlist: [],
                         });
-                    } else {
-                        node.format.push(...formatValue);
-                    }
-                } else {
-                    const banlistValue = {
-                        group:  v.group,
-                        card:   v.card,
-                        status: v.status,
-                    };
 
-                    if (node == null) {
-                        result.push({
-                            date:    v.date,
-                            link:    v.link,
-                            format:  [],
-                            banlist: [banlistValue],
-                        });
-                    } else {
-                        node.link.push(...v.link);
-                        node.banlist.push(banlistValue);
+                        return last(result)!;
                     }
+                })();
+
+                if (c.type === 'set') {
+                    node.sets.push({ id: c.id, status: c.status as 'in' | 'out' });
+                } else {
+                    node.banlist.push({
+                        id:     c.id,
+                        status: c.status as Legality,
+                        group:  c.group,
+                    });
                 }
             }
 
             for (const v of result) {
                 v.link = uniq(v.link);
 
-                v.format.sort((a, b) => {
-                    if (a.type !== b.type) {
-                        return a.type === 'in' ? -1 : 1;
+                v.sets.sort((a, b) => {
+                    if (a.status !== b.status) {
+                        return a.status === 'in' ? -1 : 1;
                     } else {
-                        return a.set < b.set ? -1 : a.set > b.set ? 1 : 0;
+                        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
                     }
                 });
 
@@ -339,7 +306,7 @@ export default defineComponent({
                         return banlistSourceOrder.indexOf(a.group ?? null)
                                 - banlistSourceOrder.indexOf(b.group ?? null);
                     } else {
-                        return a.card < b.card ? -1 : 1;
+                        return a.id < b.id ? -1 : 1;
                     }
                 });
             }
@@ -348,47 +315,52 @@ export default defineComponent({
         });
 
         const sets = computed(() => {
-            if (date.value == null || !['standard', 'pioneer', 'modern', 'extended', 'brawl'].includes(format.value)) {
-                return data.value?.sets ?? [];
-            } else {
-                let result: string[] = [];
+            let result: string[] = [];
 
-                for (const c of timeline.value) {
-                    if (c.type === 'format') {
-                        if (c.date > date.value) {
-                            break;
-                        }
+            for (const c of changes.value) {
+                if (c.type === 'set') {
+                    if (c.date > date.value) {
+                        break;
+                    }
 
-                        result.push(...c.in);
-
-                        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-                        result = result.filter(s => !c.out.includes(s));
+                    if (c.status === 'in') {
+                        result.push(c.id);
+                    } else {
+                        result = result.filter(s => s !== c.id);
                     }
                 }
-
-                return result;
             }
+
+            return result;
         });
 
         const banlist = computed(() => {
             const banlistItems = (() => {
-                let result: BanlistChange[] = [];
+                let result: BanlistItem[] = [];
 
-                for (const c of timeline.value) {
-                    if (c.type === 'banlist') {
+                for (const c of changes.value) {
+                    if (c.type === 'card') {
                         if (c.date > date.value) {
                             break;
                         }
 
                         if (c.status === 'legal' || c.status === 'unavailable') {
-                            result = result.filter(v => v.card !== c.card);
+                            result = result.filter(v => v.id !== c.id);
                         } else {
-                            const sameIndex = result.findIndex(b => b.card === c.card);
+                            const sameIndex = result.findIndex(b => b.id === c.id);
+
+                            const value: BanlistItem = {
+                                date:   c.date,
+                                link:   c.link ?? [],
+                                id:     c.id,
+                                status: c.status as Legality,
+                                group:  c.group,
+                            };
 
                             if (sameIndex === -1) {
-                                result.push(c);
+                                result.push(value);
                             } else {
-                                result.splice(sameIndex, 1, c);
+                                result.splice(sameIndex, 1, value);
                             }
                         }
                     }
@@ -407,7 +379,7 @@ export default defineComponent({
                         return banlistSourceOrder.indexOf(a.group ?? null)
                                 - banlistSourceOrder.indexOf(b.group ?? null);
                     } else {
-                        return a.card < b.card ? -1 : 1;
+                        return a.id < b.id ? -1 : 1;
                     }
                 });
                 break;
@@ -426,7 +398,7 @@ export default defineComponent({
                         return banlistSourceOrder.indexOf(a.group ?? null)
                                 - banlistSourceOrder.indexOf(b.group ?? null);
                     } else {
-                        return a.card < b.card ? -1 : 1;
+                        return a.id < b.id ? -1 : 1;
                     }
                 });
                 break;
@@ -439,17 +411,17 @@ export default defineComponent({
         const timelineEvents = computed(() => {
             const result = [];
 
-            for (const t of timeline.value) {
-                const v = result.find(r => r.date === t.date);
+            for (const c of changes.value) {
+                const v = result.find(r => r.date === c.date);
 
                 if (v != null) {
-                    if (t.type === 'format') {
+                    if (c.type === 'set') {
                         v.color = 'cyan';
                     }
                 } else {
                     result.push({
-                        date:  t.date,
-                        color: t.type === 'format' ? 'cyan' : 'orange',
+                        date:  c.date,
+                        color: c.type === 'set' ? 'cyan' : 'orange',
                     });
                 }
             }
@@ -458,17 +430,17 @@ export default defineComponent({
         });
 
         const loadData = async () => {
-            const { data: dataResult } = await apiGet<Data>('/magic/format', {
+            const { data: formatResult } = await apiGet<Format>('/magic/format', {
                 id: format.value,
             });
 
-            data.value = dataResult;
+            data.value = formatResult;
 
-            const { data: timelineResult } = await apiGet<TimelineItem[]>('/magic/format/timeline', {
+            const { data: changesResult } = await apiGet<FormatChange[]>('/magic/format/changes', {
                 id: format.value,
             });
 
-            timeline.value = timelineResult;
+            changes.value = changesResult;
         };
 
         const groupShort = (group: string) => {

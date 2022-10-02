@@ -1,8 +1,7 @@
+import { Legality } from './format-change';
+
 export type Category =
     'advertisement' | 'art' | 'auxiliary' | 'decklist' | 'default' | 'minigame' | 'player' | 'token';
-
-export type Legality =
-    'banned_as_commander' | 'banned_as_companion' | 'banned' | 'legal' | 'restricted' | 'suspended' | 'unavailable';
 
 export type Legalities = Record<string, Legality>;
 

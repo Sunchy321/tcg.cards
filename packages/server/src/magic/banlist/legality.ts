@@ -3,10 +3,9 @@ import SCard, { ISCard } from '@/magic/db/scryfall-card';
 import Format from '@/magic/db/format';
 
 import Task from '@/common/task';
-import {
-    Card as ICard, Category, Legality, Legalities,
-} from '@interface/magic/card';
+import { Card as ICard, Category, Legalities } from '@interface/magic/card';
 import { Format as IFormat } from '@interface/magic/format';
+import { Legality } from '@interface/magic/format-change';
 
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -293,7 +292,7 @@ export function getLegality(
             continue;
         }
 
-        const banlistItem = f.banlist.find(b => b.card === cardId);
+        const banlistItem = f.banlist.find(b => b.id === cardId);
 
         if (banlistItem != null) {
             result[formatId] = banlistItem.status;

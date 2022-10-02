@@ -16,18 +16,28 @@
             />
         </div>
 
-        <div class="row items-center q-my-md q-gutter-md">
-            <span>Birthday</span>
+        <div class="row items-center q-mt-md">
+            <q-checkbox v-model="isEternal" label="Eternal" />
+
             <date-input
                 v-model="birthday"
-                dense
-            />
+                class="q-ml-md"
+                outlined dense
+            >
+                <template #before>
+                    <q-icon name="mdi-cake" />
+                </template>
+            </date-input>
 
-            <span>Deathdate</span>
             <date-input
                 v-model="deathdate"
-                dense
-            />
+                class="q-ml-md"
+                outlined dense
+            >
+                <template #before>
+                    <q-icon name="mdi-grave-stone" />
+                </template>
+            </date-input>
         </div>
     </div>
 </template>
@@ -41,16 +51,9 @@ import controlSetup from 'setup/control';
 
 import DateInput from 'components/DateInput.vue';
 
-import { apiGet } from 'boot/backend';
+import { Format } from 'interface/magic/format';
 
-interface Format {
-    formatId: string;
-    localization: { lang: string, name: string }[];
-    sets: string[];
-    banlist: { card: string, status: string, date: string, source?: string }[];
-    birthday?: string;
-    deathdate?: string;
-}
+import { apiGet } from 'boot/backend';
 
 export default defineComponent({
     name: 'DataFormat',
@@ -65,9 +68,7 @@ export default defineComponent({
         const format = ref<Format | null>(null);
 
         const birthday = computed({
-            get() {
-                return format.value?.birthday ?? '';
-            },
+            get() { return format.value?.birthday ?? ''; },
             set(newValue: string) {
                 if (format.value != null) {
                     format.value.birthday = newValue;
@@ -76,12 +77,19 @@ export default defineComponent({
         });
 
         const deathdate = computed({
-            get() {
-                return format.value?.deathdate ?? '';
-            },
+            get() { return format.value?.deathdate ?? ''; },
             set(newValue: string) {
                 if (format.value != null) {
                     format.value.deathdate = newValue;
+                }
+            },
+        });
+
+        const isEternal = computed({
+            get() { return format.value?.isEternal ?? false; },
+            set(newValue: boolean) {
+                if (format.value != null) {
+                    format.value.isEternal = newValue;
                 }
             },
         });
@@ -119,6 +127,7 @@ export default defineComponent({
             format:  formatId,
             birthday,
             deathdate,
+            isEternal,
 
             saveFormat,
         };

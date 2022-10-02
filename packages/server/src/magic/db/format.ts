@@ -15,11 +15,12 @@ const FormatSchema = new Schema<IFormat>({
 
     sets:    { type: [String], default: undefined },
     banlist: [{
-        _id: false, card: String, status: String, date: String, group: String,
+        _id: false, id: String, status: String, date: String, group: String,
     }],
 
     birthday:  String,
     deathdate: String,
+    isEternal: { type: Boolean, default: false },
 }, {
     toJSON: {
         transform(doc, ret) {

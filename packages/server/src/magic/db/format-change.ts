@@ -2,20 +2,18 @@ import { Schema } from 'mongoose';
 
 import conn from './db';
 
-import { FormatChange as IFormatChange } from '@interface/magic/format';
+import { FormatChange as IFormatChange } from '@interface/magic/format-change';
 
 const IFormatChangeSchema = new Schema<IFormatChange>({
-    date: String,
+    source: String,
+    date:   String,
+    format: String,
+    link:   { type: [String], default: undefined },
 
-    changes: {
-        type: [{
-            _id:      false,
-            category: String,
-            format:   String,
-            in:       [String],
-            out:      [String],
-        }],
-    },
+    type:   String,
+    id:     String,
+    status: String,
+    group:  String,
 });
 
 const FormatChange = conn.model<IFormatChange>('format_change', IFormatChangeSchema);
