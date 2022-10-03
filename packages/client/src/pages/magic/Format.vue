@@ -77,13 +77,19 @@
             <div class="flex items-center q-mb-md">
                 <span class="text-h6">{{ $t('magic.ui.format.banlist') }}</span>
 
-                <q-select
+                <q-btn-toggle
                     v-model="order"
                     class="q-ml-md"
                     :options="orderOptions"
-                    dense outlined
-                    emit-value map-options
-                />
+                    outline
+                >
+                    <template #name>
+                        <q-icon name="mdi-cards-outline" />
+                    </template>
+                    <template #date>
+                        <q-icon name="mdi-clock-outline" />
+                    </template>
+                </q-btn-toggle>
             </div>
 
             <grid
@@ -237,7 +243,7 @@ export default defineComponent({
 
         const orderOptions = ['name', 'date'].map(v => ({
             value: v,
-            label: i18n.t(`magic.ui.format.sort-by.${v}`),
+            slot:  v,
         }));
 
         const dateFrom = computed(() => data.value?.birthday ?? magic.data.birthday);

@@ -52,7 +52,10 @@ type ScryfallMismatch = {
     name: string;
     status: Record<string, [Legality, Legality]>;
 
-    cards: string[];
+    patterns: {
+        type: 'id' | 'set';
+        value: string;
+    }[];
 };
 
 const legalityPath = join(dataPath, 'magic', 'legality');
@@ -126,7 +129,6 @@ export function getLegalityRules(): LegalityRule[] {
                     });
                 } else {
                     patterns.push({
-
                         type:  'id',
                         value: toIdentifier(line),
                     });
@@ -182,7 +184,7 @@ function getScryfallMismatches(): ScryfallMismatch[] {
         const content = readFileSync(join(scryfallPath, f));
 
         const status: ScryfallMismatch['status'] = {};
-        const cards: ScryfallMismatch['cards'] = [];
+        const patterns: ScryfallMismatch['patterns'] = [];
 
         for (const line of content.toString().split('\n')) {
             if (line.trim() === '' || line.startsWith('#')) {
@@ -196,11 +198,21 @@ function getScryfallMismatches(): ScryfallMismatch[] {
                     status[f] = [m[2] as Legality, m[3] as Legality];
                 }
             } else {
-                cards.push(toIdentifier(line));
+                if (/^\(.*\)$/.test(line)) {
+                    patterns.push({
+                        type:  'set',
+                        value: line.slice(1, -1),
+                    });
+                } else {
+                    patterns.push({
+                        type:  'id',
+                        value: toIdentifier(line),
+                    });
+                }
             }
         }
 
-        result.push({ name: f, status, cards });
+        result.push({ name: f, status, patterns });
     }
 
     return result;
@@ -246,17 +258,17 @@ function testRules(data: CardData, format: string, rules: LegalityRule[]): Legal
 const nonCardCategories = ['token', 'auxiliary', 'minigame', 'art', 'decklist', 'player', 'advertisement'];
 const casualCardTypes = ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'];
 
-const setsInformal = getLegalitySets('informal');
-const setsSpecial = getLegalitySets('special');
-const setsOnlyOnMTGA = getLegalitySets('mtga');
-const setsPauperExclusive = [...setsOnlyOnMTGA, ...getLegalitySets('pauper-exclusive')];
-const setsPauperCommanderExclusive = getLegalitySets('pauper-commander-exclusive');
-
 export function getLegality(
     data: CardData,
     formats: IFormat[],
     rules: LegalityRule[],
 ): ICard['legalities'] {
+    const setsInformal = getLegalitySets('informal');
+    const setsSpecial = getLegalitySets('special');
+    const setsOnlyOnMTGA = getLegalitySets('mtga');
+    const setsPauperExclusive = [...setsOnlyOnMTGA, ...getLegalitySets('pauper-exclusive')];
+    const setsPauperCommanderExclusive = getLegalitySets('pauper-commander-exclusive');
+
     const cardId = data._id;
     const versions = data.versions.filter(v => v.releaseDate <= new Date().toLocaleDateString('en-CA'));
 
@@ -420,8 +432,14 @@ function legalityMatch(
             continue;
         }
 
-        if (status[0] === legality[0] && status[1] === legality[1] && m.cards.includes(data._id)) {
-            return true;
+        if (status[0] === legality[0] && status[1] === legality[1]) {
+            for (const p of m.patterns) {
+                if (p.type === 'id') {
+                    if (p.value === data._id) return true;
+                } else {
+                    if (data.versions.some(v => v.set === p.value)) return true;
+                }
+            }
         }
     }
 

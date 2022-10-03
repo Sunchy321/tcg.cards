@@ -456,7 +456,7 @@ export default defineComponent({
 
             await controlPost('/magic/format/announcement/save', { data });
 
-            void loadData();
+            await loadData();
         };
 
         const newAnnouncement = async () => {

@@ -20,7 +20,7 @@ import { toIdentifier } from '@/magic/util';
 
 import { dataPath } from '@/static';
 
-const formatWithSet = ['standard', 'historic', 'explorer', 'pioneer', 'modern', 'extended', 'brawl'];
+const formatWithSet = ['standard', 'alchemy', 'historic', 'explorer', 'pioneer', 'modern', 'extended'];
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
 const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
 
@@ -180,14 +180,16 @@ export class AnnouncementApplier {
         date: string,
         link: string[] | undefined,
     ): void {
-        this.changes.push({
-            source, date, format, link, type: 'set', id: set, status,
-        });
-
         const f = this.formatMap[format];
 
-        if (f == null || f.isEternal) {
+        if (f == null) {
             return;
+        }
+
+        if (!f.isEternal) {
+            this.changes.push({
+                source, date, format, link, type: 'set', id: set, status,
+            });
         }
 
         if (f.sets == null) {
@@ -210,15 +212,15 @@ export class AnnouncementApplier {
         date: string,
         link: string[] | undefined,
     ): void {
-        this.changes.push({
-            source, date, format, link, type: 'card', id: card, status, group,
-        });
-
         const f = this.formatMap[format];
 
         if (f == null) {
             return;
         }
+
+        this.changes.push({
+            source, date, format, link, type: 'card', id: card, status, group,
+        });
 
         if (f.banlist == null) {
             f.banlist = [];
@@ -252,25 +254,39 @@ export class AnnouncementApplier {
         const brawlBirthday = this.formatMap.brawl.birthday!;
 
         for (const f of Object.values(this.formatMap)) {
-            if (!f.isEternal) {
-                f.sets = [];
-            }
-
+            f.sets = [];
             f.banlist = [];
         }
 
         await FormatChange.deleteMany();
 
-        const pseudoAnnouncement = this.sets.filter(
-            s => !this.announcements.some(a => a.source === 'release' && a.changes.some(c => c.setIn?.includes(s.id))),
+        const pseudoReleaseAnnouncement = this.sets.filter(
+            s => !this.announcements.some(
+                a => a.changes.some(
+                    c => c.format === '#standard' && c.setIn?.includes(s.id),
+                ),
+            ),
         ).map(s => ({
             source:  'release',
             date:    s.releaseDate,
             changes: [{ format: '#eternal', setIn: [s.id] }],
         } as IFormatAnnouncement));
 
+        const pseudoInitialAnnouncement = Object.values(this.formatMap)
+            .filter(f => f.isEternal && f.birthday != null)
+            .map(f => ({
+                source:  'initial',
+                date:    f.birthday!,
+                changes: [{
+                    format: f.formatId,
+                    setIn:  this.sets.filter(s => s.releaseDate < f.birthday!).map(s => s.id),
+                }],
+            }) as IFormatAnnouncement);
+
         const allAnnouncements = [
-            ...this.announcements, ...pseudoAnnouncement,
+            ...this.announcements,
+            ...pseudoReleaseAnnouncement,
+            ...pseudoInitialAnnouncement,
         ].sort((a, b) => cmp(a.date, b.date));
 
         for (const a of allAnnouncements) {
@@ -287,23 +303,29 @@ export class AnnouncementApplier {
                 const formats = (() => {
                     switch (c.format) {
                     case '#alchemy':
-                        return ['alchemy'];
+                        return ['alchemy', 'historic'];
                     case '#standard':
-                        return [
-                            ...this.eternalFormats,
-                            ...formatWithSet.filter(f => {
-                                const format = this.formatMap[f]!;
-                                // the change don't become effective now
-                                if (date > new Date().toLocaleDateString('en-CA')) { return false; }
-                                // the change is before the format exists
-                                if (format.birthday != null && date < format.birthday) { return false; }
-                                // the change is after the format died
-                                if (format.deathdate != null && date > format.deathdate) { return false; }
-                                return true;
-                            }),
-                        ];
+                        return [...this.eternalFormats, ...formatWithSet].filter(f => {
+                            const format = this.formatMap[f]!;
+                            // the change don't become effective now
+                            if (date > new Date().toLocaleDateString('en-CA')) { return false; }
+                            // the change is before the format exists
+                            if (format.birthday != null && date < format.birthday) { return false; }
+                            // the change is after the format died
+                            if (format.deathdate != null && date > format.deathdate) { return false; }
+                            return true;
+                        });
                     case '#eternal':
-                        return [...this.eternalFormats];
+                        return [...this.eternalFormats].filter(f => {
+                            const format = this.formatMap[f]!;
+                            // the change don't become effective now
+                            if (date > new Date().toLocaleDateString('en-CA')) { return false; }
+                            // the change is before the format exists
+                            if (format.birthday != null && date < format.birthday) { return false; }
+                            // the change is after the format died
+                            if (format.deathdate != null && date > format.deathdate) { return false; }
+                            return true;
+                        });
                     default:
                         return [c.format];
                     }
@@ -316,12 +338,6 @@ export class AnnouncementApplier {
 
                     if (!formats.includes('brawl') && date >= brawlBirthday) {
                         formats.push('brawl');
-                    }
-                }
-
-                if (formats.includes('alchemy')) {
-                    if (!formats.includes('historic')) {
-                        formats.push('historic');
                     }
                 }
 
@@ -371,33 +387,31 @@ export class AnnouncementApplier {
                     continue;
                 }
 
-                if (!fo.isEternal) {
-                    if (fo.sets == null) {
-                        fo.sets = [];
-                    }
+                if (fo.sets == null) {
+                    fo.sets = [];
+                }
 
-                    // sets in
-                    for (const s of c.setIn) {
-                        if (fo.sets.includes(s)) {
-                            // Alchemy initial, ignore duplicate
-                            if (['historic', 'historic_brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
-                                continue;
-                            }
-
-                            throw new Error(`In set ${s} is already in ${c.format}, date: ${a.date}`);
+                // sets in
+                for (const s of c.setIn) {
+                    if (fo.sets.includes(s)) {
+                        // Alchemy initial, ignore duplicate
+                        if (['historic', 'historic_brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
+                            continue;
                         }
 
-                        this.setChange(s, 'in', c.format, a.source, date, a.link);
+                        throw new Error(`In set ${s} is already in ${c.format}, date: ${a.date}`);
                     }
 
-                    // sets out
-                    for (const s of c.setOut) {
-                        if (fo.sets == null || !fo.sets.includes(s)) {
-                            throw new Error(`Out set ${s} is not in ${c.format}, date: ${a.date}`);
-                        }
+                    this.setChange(s, 'in', c.format, a.source, date, a.link);
+                }
 
-                        this.setChange(s, 'out', c.format, a.source, date, a.link);
+                // sets out
+                for (const s of c.setOut) {
+                    if (fo.sets == null || !fo.sets.includes(s)) {
+                        throw new Error(`Out set ${s} is not in ${c.format}, date: ${a.date}`);
                     }
+
+                    this.setChange(s, 'out', c.format, a.source, date, a.link);
                 }
 
                 // banlist changes
@@ -487,7 +501,7 @@ export class AnnouncementApplier {
                 }
 
                 // banlist item rotated out
-                if (!fo.isEternal && c.setOut != null && c.setOut.length > 0) {
+                if (c.setOut != null && c.setOut.length > 0) {
                     for (const b of fo.banlist) {
                         const sets = this.cards.find(c => c.id === b.id)?.set ?? [];
 
@@ -504,7 +518,7 @@ export class AnnouncementApplier {
         await FormatChange.insertMany(this.changes);
 
         for (const format of Object.values(this.formatMap)) {
-            if (format.sets?.length === 0) {
+            if (format.isEternal || format.sets?.length === 0) {
                 format.sets = undefined;
             }
 
