@@ -376,7 +376,7 @@ export default createSearcher({
                 .group({ _id: null, count: { $sum: 1 } })
         )[0]?.count ?? 0;
 
-        const cards = await Card.aggregate(aggregate.pipeline()).sample(sample);
+        const cards = await Card.aggregate(aggregate.pipeline()).sample(sample).sort({ releaseDate: 1 });
 
         return { cards, total };
     },

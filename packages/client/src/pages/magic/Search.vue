@@ -164,9 +164,11 @@ export default defineComponent({
         const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
 
         const doSearch = async () => {
-            if (q.value !== '') {
-                searchText.value = q.value;
+            if (q.value == null || q.value === '') {
+                return;
             }
+
+            searchText.value = q.value;
 
             if (searching.value) {
                 return;

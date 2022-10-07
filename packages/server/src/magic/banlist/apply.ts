@@ -416,6 +416,8 @@ export class AnnouncementApplier {
 
                 // banlist changes
                 for (const b of c.banlist) {
+                    const banlistDate = b.effectiveDate ?? date;
+
                     if (b.id.startsWith('#{clone')) {
                         // clones from other format
                         const srcFormats = /^#\{clone:(.*)\}/.exec(b.id)![1].split(',');
@@ -437,7 +439,7 @@ export class AnnouncementApplier {
                         newChanges.sort((a, b) => cmp(a.id, b.id));
 
                         for (const n of newChanges) {
-                            this.cardChange(n.id, n.status, c.format, n.group, a.source, date, a.link);
+                            this.cardChange(n.id, n.status, c.format, n.group, a.source, banlistDate, a.link);
                         }
                     } else if (b.id.startsWith('#')) {
                         // card banned as a group
@@ -463,7 +465,7 @@ export class AnnouncementApplier {
                             const cards = this.detectGroup(group, c.format, fo.sets);
 
                             for (const v of cards) {
-                                this.cardChange(v, b.status, c.format, group, a.source, date, a.link);
+                                this.cardChange(v, b.status, c.format, group, a.source, banlistDate, a.link);
                             }
                         } else {
                             const index = this.groupWatcher.findIndex(g => g.id === group && g.format === c.format);
@@ -477,11 +479,11 @@ export class AnnouncementApplier {
                             const cardsRemoved = fo.banlist.filter(v => v.group === group).map(v => v.id);
 
                             for (const v of cardsRemoved) {
-                                this.cardChange(v, b.status, c.format, group, a.source, date, a.link);
+                                this.cardChange(v, b.status, c.format, group, a.source, banlistDate, a.link);
                             }
                         }
                     } else {
-                        this.cardChange(b.id, b.status, c.format, undefined, a.source, date, a.link);
+                        this.cardChange(b.id, b.status, c.format, undefined, a.source, banlistDate, a.link);
                     }
                 }
 

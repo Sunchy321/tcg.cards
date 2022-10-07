@@ -12,8 +12,8 @@
             <div class="history q-mt-md">
                 <div class="code text-center">{{ history.length }}</div>
                 <div
-                    v-for="h in history.slice(0, 5)"
-                    :key="`${h.id}|${h.set}|${h.number}|${h.lang}`"
+                    v-for="(h, i) in history.slice(0, 5)"
+                    :key="i"
                     class="flex justify-center"
                 >
                     <card-avatar :id="h.id" :version="h" />

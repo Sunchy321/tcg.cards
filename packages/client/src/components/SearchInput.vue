@@ -53,7 +53,7 @@ export default defineComponent({
 
     setup(props, { attrs, emit, slots }) {
         const result = computed(() => {
-            const parser = new Parser(props.modelValue);
+            const parser = new Parser(props.modelValue ?? '');
 
             try {
                 const expr = parser.parse();
@@ -70,9 +70,9 @@ export default defineComponent({
         });
 
         return () => {
-            const { error } = result.value;
+            const { tokens, error } = result.value;
 
-            const spans = result.value.tokens.map(v => {
+            const spans = tokens.map(v => {
                 if (error != null) {
                     if (
                         (v.location[0] <= error.location[0] && error.location[0] < v.location[1])
@@ -99,7 +99,7 @@ export default defineComponent({
             if (
                 error != null
                 && error.type !== 'empty-input'
-                && error.location[0] >= (last(result.value.tokens)?.location[1] ?? 0)
+                && error.location[0] >= (last(tokens)?.location[1] ?? 0)
             ) {
                 spans.push(h('span', { class: 'search-error' }, ' '));
             }
