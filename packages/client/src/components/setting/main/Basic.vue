@@ -47,14 +47,12 @@ export default defineComponent({
             set(newValue: string) { core.locale = newValue; },
         });
 
-        const locales = computed(() => core.locales);
-
         const localeOptions = computed(() => core.locales.map(l => ({
             value: l,
             label: i18n.t('lang.$self', '', { locale: l }),
         })));
 
-        return { locale, locales, localeOptions };
+        return { locale, localeOptions };
     },
 
 });

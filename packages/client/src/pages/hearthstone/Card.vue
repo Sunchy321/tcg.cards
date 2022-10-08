@@ -219,8 +219,6 @@ export default defineComponent({
 
         const cost = computed(() => data.value?.cost ?? 0);
 
-        const costImage = computed(() => 'hearthstone/mana.png');
-
         const type = computed(() => data.value?.cardType);
         const race = computed(() => data.value?.race);
 
@@ -278,7 +276,6 @@ export default defineComponent({
             name,
             hasCost,
             cost,
-            costImage,
             type,
             race,
             stats,

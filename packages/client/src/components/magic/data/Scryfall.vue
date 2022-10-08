@@ -307,7 +307,6 @@ export default defineComponent({
 
         return {
             bulk,
-            scryfall,
             database,
 
             bulkAllCard,

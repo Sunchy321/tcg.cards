@@ -83,15 +83,15 @@
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
 
-import { useQuasar } from 'quasar';
 import { useCore } from 'store/core';
 import { useGame } from 'store/games';
-import { Parameter } from 'src/stores/core/params';
-import { ActionInfo } from 'src/stores/core/action';
 
 import basicSetup from 'setup/basic';
 
 import UploaderBtn from 'components/UploaderBtn.vue';
+
+import { Parameter } from 'src/stores/core/params';
+import { ActionInfo } from 'src/stores/core/action';
 
 export default defineComponent({
     components: { UploaderBtn },
@@ -103,35 +103,8 @@ export default defineComponent({
     emits: ['update:drawerOpen'],
 
     setup() {
-        const quasar = useQuasar();
         const core = useCore();
-        const { game, user, isAdmin } = basicSetup();
-
-        const isMobile = computed(() => quasar.platform.is.mobile);
-
-        const homePath = computed(() => {
-            if (game.value == null) {
-                return '/';
-            } else {
-                return `/${game.value}`;
-            }
-        });
-
-        const homeIcon = computed(() => {
-            if (game.value == null) {
-                return 'mdi-home';
-            }
-
-            return `img:/${game.value}/logo.svg`;
-        });
-
-        const dataPath = computed(() => {
-            if (isAdmin.value && game.value != null) {
-                return `/${game.value}/data`;
-            } else {
-                return undefined;
-            }
-        });
+        const { game } = basicSetup();
 
         const gameLocale = computed({
             get(): string {
@@ -199,13 +172,6 @@ export default defineComponent({
 
         return {
             game,
-            user,
-            isAdmin,
-            isMobile,
-
-            homePath,
-            dataPath,
-            homeIcon,
             gameLocale,
             gameLocales,
 

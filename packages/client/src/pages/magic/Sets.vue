@@ -61,7 +61,6 @@ import {
     defineComponent, ref, computed, watch, onMounted,
 } from 'vue';
 
-import { useRouter } from 'vue-router';
 import { useMagic } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
@@ -74,7 +73,6 @@ import { isEqual, partition } from 'lodash';
 
 export default defineComponent({
     setup() {
-        const router = useRouter();
         const magic = useMagic();
         const i18n = useI18n();
 
@@ -219,13 +217,6 @@ export default defineComponent({
             }
         };
 
-        const toDetail = (set: string) => {
-            void router.push({
-                name:   'magic/set',
-                params: { id: set },
-            });
-        };
-
         const nameOf = (localization: Record<string, SetLocalization>) => localization[magic.locale]?.name
             ?? localization[magic.locales[0]]?.name;
 
@@ -244,7 +235,6 @@ export default defineComponent({
         return {
             profileList,
 
-            toDetail,
             nameOf,
             iconUrl,
         };

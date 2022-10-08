@@ -75,7 +75,6 @@ export default defineComponent({
             root,
 
             itemRealWidth,
-            itemPerLine,
             placeholder,
 
             calcGridInfo,

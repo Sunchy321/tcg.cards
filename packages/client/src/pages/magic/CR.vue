@@ -396,9 +396,6 @@ export default defineComponent({
         onMounted(loadList);
 
         return {
-            data: cr,
-
-            menu,
             chapterContent,
             itemId,
 
@@ -406,7 +403,6 @@ export default defineComponent({
             itemLink,
             hasHistory,
             historyLink,
-            itemText,
             copyItem,
         };
     },

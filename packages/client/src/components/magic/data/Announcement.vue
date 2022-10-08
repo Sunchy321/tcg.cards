@@ -484,7 +484,6 @@ export default defineComponent({
 
         return {
             announcementListWithLabel,
-            announcement,
             selected,
 
             dbId,

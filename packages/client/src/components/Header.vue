@@ -65,15 +65,11 @@
 import { defineComponent, ref, computed } from 'vue';
 
 import { useQuasar } from 'quasar';
-import { ActionInfo, useCore } from 'store/core';
-import { useGame } from 'store/games';
 
 import basicSetup from 'setup/basic';
 
 import AppTitle from 'components/Title.vue';
 import HeaderParams from 'components/HeaderParams.vue';
-
-import { pickBy } from 'lodash';
 
 export default defineComponent({
     components: { AppTitle, HeaderParams },
@@ -86,13 +82,10 @@ export default defineComponent({
 
     setup() {
         const quasar = useQuasar();
-        const core = useCore();
         const { game, user, isAdmin } = basicSetup();
 
         const isMobile = computed(() => quasar.platform.is.mobile);
         const showParams = ref(false);
-
-        const titleType = computed(() => core.titleType);
 
         const homePath = computed(() => {
             if (game.value == null) {
@@ -126,74 +119,17 @@ export default defineComponent({
             }
         });
 
-        const gameLocale = computed({
-            get(): string {
-                if (game.value != null) {
-                    return useGame(game.value)().locale;
-                } else {
-                    return 'en';
-                }
-            },
-            set(newValue: string) {
-                if (game.value != null) {
-                    useGame(game.value)().locale = newValue;
-                }
-            },
-        });
-
-        const gameLocales = computed(() => {
-            if (game.value != null) {
-                return useGame(game.value)().locales;
-            } else {
-                return [];
-            }
-        });
-
-        const paramsInTitle = computed(() => pickBy(core.params, v => v.inTitle));
-        const actionsWithIcon = computed(() => core.actions.filter(a => a.icon != null));
-
-        const paramLabel = (p: any, v: string) => {
-            if (p.label != null) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                return p.label(v) as string;
-            } else {
-                return v;
-            }
-        };
-
-        const commitParam = (key: string, value: any) => {
-            core.setParam(key, value);
-        };
-
-        const invokeAction = (action: ActionInfo, payload?: any) => {
-            if (payload != null) {
-                core.invokeAction({ ...action, payload });
-            } else {
-                core.invokeAction(action);
-            }
-        };
-
         return {
             game,
             user,
             isAdmin,
             isMobile,
             showParams,
-            titleType,
 
             homePath,
             dataPath,
             homeIcon,
             paramsIcon,
-            gameLocale,
-            gameLocales,
-
-            paramsInTitle,
-            actionsWithIcon,
-
-            paramLabel,
-            commitParam,
-            invokeAction,
         };
     },
 });

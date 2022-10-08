@@ -94,24 +94,10 @@ export default defineComponent({
             ],
         });
 
-        const showDate = (index: number) => {
-            if (index === 0) {
-                return true;
-            }
-
-            if (log.value[index].date !== log.value[index - 1].date) {
-                return true;
-            }
-
-            return false;
-        };
-
         const prettify = (value: any) => JSON.stringify(value, null, 4);
 
         return {
             log,
-
-            showDate,
 
             prettify,
         };

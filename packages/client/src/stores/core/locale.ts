@@ -33,22 +33,24 @@ export default function useLocale(): {
         get(): string {
             return localeState.value;
         },
-        async set(newValue: string) {
-            if (localeList.includes(newValue)) {
-                LocalStorage.set('locale', newValue);
-                localeState.value = newValue;
+        set(newValue: string) {
+            (async () => {
+                if (localeList.includes(newValue)) {
+                    LocalStorage.set('locale', newValue);
+                    localeState.value = newValue;
 
-                i18n.locale.value = newValue;
+                    i18n.locale.value = newValue;
 
-                const qLocaleId = quasarLocaleMap[newValue]
+                    const qLocaleId = quasarLocaleMap[newValue]
                     ?? newValue.replace(/[A-Z]/, t => `-${t.toLowerCase()}`);
 
-                const qLocaleImport = qLocales()[`/node_modules/quasar/lang/${qLocaleId}.mjs`];
+                    const qLocaleImport = qLocales()[`/node_modules/quasar/lang/${qLocaleId}.mjs`];
 
-                const qLocale = await qLocaleImport() as { default: QuasarLanguage };
+                    const qLocale = await qLocaleImport() as { default: QuasarLanguage };
 
-                quasar.lang.set(qLocale.default);
-            }
+                    quasar.lang.set(qLocale.default);
+                }
+            })();
         },
     });
 

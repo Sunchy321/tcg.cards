@@ -4,6 +4,7 @@
         "target": "ES2019",
         "baseUrl": ".",
         "jsx": "preserve",
+        "types": ["vite/client"],
         "paths": {
             "src/*": ["src/*"],
             "app/*": ["*"],

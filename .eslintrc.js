@@ -160,5 +160,6 @@ module.exports = {
 
         'vue/component-tags-order': ['error', { order: ['template', 'style', 'script'] }],
         'vue/html-indent':          ['warn', 4],
+        'vue/no-unused-properties': ['warn', { groups: ['setup'] }],
     },
 };

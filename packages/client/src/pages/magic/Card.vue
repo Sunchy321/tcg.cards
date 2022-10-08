@@ -851,7 +851,6 @@ export default defineComponent({
             layout,
             partIndex,
             langWithMode,
-            name,
             isArenaVariant,
             realName,
             cost,
@@ -867,7 +866,6 @@ export default defineComponent({
             legalities,
 
             partIcon,
-            symbolStyle,
             costStyle,
             textSymbolStyle,
             editorLink,
