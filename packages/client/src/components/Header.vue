@@ -1,12 +1,7 @@
 <template>
     <q-header class="header" elevated>
         <q-toolbar>
-            <q-btn
-                :class="{ 'convert-white': homeIcon.startsWith('img:') }"
-                :icon="homeIcon"
-                flat dense round
-                :to="homePath"
-            />
+            <home-button />
 
             <q-btn
                 v-if="drawerOpen != null && !(isMobile && showParams)"
@@ -68,11 +63,12 @@ import { useQuasar } from 'quasar';
 
 import basicSetup from 'setup/basic';
 
+import HomeButton from 'components/HomeButton.vue';
 import AppTitle from 'components/Title.vue';
 import HeaderParams from 'components/HeaderParams.vue';
 
 export default defineComponent({
-    components: { AppTitle, HeaderParams },
+    components: { HomeButton, AppTitle, HeaderParams },
 
     props: {
         drawerOpen: { type: Boolean, default: undefined },
@@ -86,22 +82,6 @@ export default defineComponent({
 
         const isMobile = computed(() => quasar.platform.is.mobile);
         const showParams = ref(false);
-
-        const homePath = computed(() => {
-            if (game.value == null) {
-                return '/';
-            } else {
-                return `/${game.value}`;
-            }
-        });
-
-        const homeIcon = computed(() => {
-            if (game.value == null) {
-                return 'mdi-home';
-            }
-
-            return `img:/${game.value}/logo.svg`;
-        });
 
         const paramsIcon = computed(() => {
             if (showParams.value) {
@@ -126,9 +106,7 @@ export default defineComponent({
             isMobile,
             showParams,
 
-            homePath,
             dataPath,
-            homeIcon,
             paramsIcon,
         };
     },
