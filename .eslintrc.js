@@ -15,7 +15,7 @@ module.exports = {
 
     ignorePatterns: ['**/dist', '**/lib'],
 
-    plugins: ['@typescript-eslint', 'vue', 'jest'],
+    plugins: ['@typescript-eslint', 'vue'],
 
     extends: [
         'airbnb-base',
