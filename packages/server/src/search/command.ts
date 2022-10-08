@@ -32,7 +32,7 @@ export type Command<P, AR, O, Q> = {
 
 export function command<
     P extends string,
-    AR extends boolean,
+    AR extends false,
     O extends Operator,
     Q extends Qualifier,
 >(cmd: Command<P, AR, O, Q>): Command<P, AR, O, Q> {

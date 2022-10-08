@@ -205,6 +205,7 @@ importers:
       '@types/mime-types': ^2.1.0
       '@types/node': ^14.14.14
       '@types/pegjs': ^0.10.2
+      '@types/request': ^2.48.8
       '@types/request-promise-native': ^1.0.17
       '@types/ws': ^7.4.0
       '@typescript-eslint/eslint-plugin': ^5.39.0
@@ -320,6 +321,7 @@ importers:
       '@types/mime-types': 2.1.1
       '@types/node': 14.18.31
       '@types/pegjs': 0.10.3
+      '@types/request': 2.48.8
       '@types/request-promise-native': 1.0.18
       '@types/ws': 7.4.7
       '@typescript-eslint/eslint-plugin': 5.39.0_cfd7h3iktziq6hcwahu2qxhjhy
@@ -1187,7 +1189,7 @@ packages:
     resolution: {integrity: sha512-whjk1EDJPcAR2kYHRbFl/lKeeKYTi05A15K9bnLInCVroNDCtXce57xKdI0/rQaA3K+6q0eFyUBPmqfSndUZdQ==}
     dependencies:
       '@types/caseless': 0.12.2
-      '@types/node': 14.18.31
+      '@types/node': 18.8.3
       '@types/tough-cookie': 4.0.2
       form-data: 2.5.1
     dev: true
