@@ -81,7 +81,7 @@ module.exports = {
             before:    false,
             after:     true,
             anonymous: 'neither',
-            method:    { before: false, after: false },
+            method:    { before: false, after: true },
         }],
 
         'prefer-destructuring': ['warn', {

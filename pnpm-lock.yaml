@@ -192,6 +192,7 @@ importers:
       '@types/diff': ^4.0.2
       '@types/jsonwebtoken': ^8.5.0
       '@types/koa': ^2.11.4
+      '@types/koa-bodyparser': ^4.3.8
       '@types/koa-compress': ^4.0.3
       '@types/koa-logger': ^3.1.1
       '@types/koa-passport': ^4.0.2
@@ -308,6 +309,7 @@ importers:
       '@types/diff': 4.0.2
       '@types/jsonwebtoken': 8.5.9
       '@types/koa': 2.13.5
+      '@types/koa-bodyparser': 4.3.8
       '@types/koa-compress': 4.0.3
       '@types/koa-logger': 3.1.2
       '@types/koa-passport': 4.0.3
@@ -1041,6 +1043,12 @@ packages:
 
   /@types/keygrip/1.0.2:
     resolution: {integrity: sha512-GJhpTepz2udxGexqos8wgaBx4I/zWIDPh/KOGEwAqtuGDkOUJu5eFvwmdBX4AmB8Odsr+9pHCQqiAqDL/yKMKw==}
+    dev: true
+
+  /@types/koa-bodyparser/4.3.8:
+    resolution: {integrity: sha512-/Tk3xdaj/3y9VZ6K8z9fQ8myZOR2EEfwrlkbO4SjzLizRZaDFARSA8OGAC3B9lhC1R4wG0nCrTdd6o0NL2jrEQ==}
+    dependencies:
+      '@types/koa': 2.13.5
     dev: true
 
   /@types/koa-compose/3.2.5:

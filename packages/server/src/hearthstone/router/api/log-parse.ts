@@ -9,27 +9,27 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/log-parse');
 
 router.post('/', async ctx => {
-    if (ctx.request.files == null) { return; }
+    // if (ctx.request.files == null) { return; }
 
-    const fileNames = Object.keys(ctx.request.files);
+    // const fileNames = Object.keys(ctx.request.files);
 
-    if (fileNames.length !== 1) { return; }
+    // if (fileNames.length !== 1) { return; }
 
-    const file = ctx.request.files[fileNames[0]];
+    // const file = ctx.request.files[fileNames[0]];
 
-    if (Array.isArray(file)) { return; }
+    // if (Array.isArray(file)) { return; }
 
-    const { path } = file;
+    // const { path } = file;
 
-    const text = readFileSync(path).toString();
+    // const text = readFileSync(path).toString();
 
-    try {
-        ctx.body = parseLog(text);
-    } catch (err) {
-        console.error(err.message);
-        ctx.status = 400;
-        ctx.body = err.message;
-    }
+    // try {
+    //     ctx.body = parseLog(text);
+    // } catch (err) {
+    //     console.error(err.message);
+    //     ctx.status = 400;
+    //     ctx.body = err.message;
+    // }
 });
 
 export default router;
