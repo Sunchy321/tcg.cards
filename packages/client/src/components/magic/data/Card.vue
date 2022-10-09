@@ -619,6 +619,7 @@ export default defineComponent({
                             t: 'token',
                             e: 'emblem',
                             i: 'intext',
+                            s: 'specialization',
                         }[relation] ?? relation;
                     }
 

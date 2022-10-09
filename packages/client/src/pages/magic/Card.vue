@@ -153,8 +153,9 @@
             </div>
 
             <div v-if="relatedCards.length > 0" class="related-card-block">
-                <div v-for="r in relatedCards" :key="r.cardId" class="related-card">
-                    <card-avatar :id="r.cardId" :version="r.version" />
+                <div v-for="r in relatedCards" :key="r.cardId" class="related-card q-pl-md">
+                    <q-icon :name="relationIcon(r.relation)" />
+                    <card-avatar :id="r.cardId" class="q-ml-sm" :version="r.version" />
                 </div>
             </div>
 
@@ -323,6 +324,7 @@
 
 .related-card
     padding: 5px
+    padding-left: 8px
 
     &:not(:first-child)
         border-top: 1px solid $primary
@@ -811,6 +813,17 @@ export default defineComponent({
             }
         };
 
+        const relationIcon = (relation: string) => ({
+            emblem:         'mdi-shield-outline',
+            intext:         'mdi-card-search-outline',
+            meld:           'mdi-circle-half-full',
+            specialization: 'mdi-arrow-decision mdi-rotate-90',
+            spellbook:      'mdi-book-open-page-variant-outline',
+            source:         'mdi-file-tree-outline',
+            stick_on:       'mdi-card-multiple',
+            token:          'mdi-shape-outline',
+        })[relation] ?? 'mdi-cards-outline';
+
         // watches
         watch(
             [
@@ -881,6 +894,7 @@ export default defineComponent({
             textMode,
 
             switchPart,
+            relationIcon,
         };
     },
 });

@@ -118,7 +118,7 @@ router.post('/update', async ctx => {
 
         for (const r of relatedCards) {
             // don't consider non-token, non-emblem relation
-            if (!['token', 'emblem'].includes(r.relation)) {
+            if (!['token', 'emblem', 'specialization'].includes(r.relation)) {
                 continue;
             }
 
