@@ -309,10 +309,16 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
             ? convertColor(data.produced_mana)
             : undefined,
         tags: [
+            ...data.reserved ? ['reserved'] : [],
             ...cardFaces.some(c => /\bcreates?|embalm|eternalize\b/i.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
             ...cardFaces.some(c => /\bcounters?\b/.test(c.oracle_text ?? '')) ? ['dev:counter'] : [],
         ],
-        localTags: [],
+        localTags: [
+            ...data.full_art ? ['full-art'] : [],
+            ...data.oversized ? ['oversized'] : [],
+            ...data.story_spotlight ? ['story-spotlight'] : [],
+            ...data.textless ? ['textless'] : [],
+        ],
 
         category: ((): Category => {
             if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
@@ -347,19 +353,14 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         rarity:        data.rarity,
         releaseDate:   data.released_at,
 
-        isDigital:        data.digital,
-        isFullArt:        data.full_art,
-        isOversized:      data.oversized,
-        isPromo:          data.promo,
-        isReprint:        data.reprint,
-        isStorySpotlight: data.story_spotlight,
-        isTextless:       data.textless,
-        finishes:         data.finishes,
-        hasHighResImage:  data.highres_image,
-        imageStatus:      data.image_status,
+        isDigital:       data.digital,
+        isPromo:         data.promo,
+        isReprint:       data.reprint,
+        finishes:        data.finishes,
+        hasHighResImage: data.highres_image,
+        imageStatus:     data.image_status,
 
         legalities:     {},
-        isReserved:     data.reserved,
         inBooster:      data.booster,
         contentWarning: data.content_warning,
         games:          data.games,
@@ -396,6 +397,16 @@ function assign(card: Document & ICard, data: ICard, key: keyof ICard) {
 function assignPart(card: ICard['parts'][0], data: ICard['parts'][0], key: keyof ICard['parts'][0]) {
     if (!isEqual(card[key], data[key])) {
         (card as any)[key] = data[key];
+    }
+}
+
+function assignSet(card: string[], data: string[], tag: string) {
+    if (data.includes(tag) && !card.includes(tag)) {
+        card.push(tag);
+    }
+
+    if (!data.includes(tag) && card.includes(tag)) {
+        card.splice(card.indexOf(tag), 1);
     }
 }
 
@@ -547,18 +558,16 @@ async function merge(card: Document & ICard, data: ICard) {
             break;
 
         case 'tags':
-            if (data.__oracle?.text != null) {
-                if (data.tags.includes('dev:token')) {
-                    card.tags.push('dev:token');
-                }
-
-                if (data.tags.includes('dev:counter')) {
-                    card.tags.push('dev:counter');
-                }
-            }
+            assignSet(card.tags, data.tags, 'reserved');
+            assignSet(card.tags, data.tags, 'dev:counted');
+            assignSet(card.tags, data.tags, 'dev:counted');
             break;
 
         case 'localTags':
+            assignSet(card.localTags, data.localTags, 'full-art');
+            assignSet(card.localTags, data.localTags, 'oversized');
+            assignSet(card.localTags, data.localTags, 'story-spotlight');
+            assignSet(card.localTags, data.localTags, 'textless');
             break;
 
         case 'category':
@@ -589,23 +598,11 @@ async function merge(card: Document & ICard, data: ICard) {
         case 'isDigital':
             assign(card, data, 'isDigital');
             break;
-        case 'isFullArt':
-            assign(card, data, 'isFullArt');
-            break;
-        case 'isOversized':
-            assign(card, data, 'isOversized');
-            break;
         case 'isPromo':
             assign(card, data, 'isPromo');
             break;
         case 'isReprint':
             assign(card, data, 'isReprint');
-            break;
-        case 'isStorySpotlight':
-            assign(card, data, 'isStorySpotlight');
-            break;
-        case 'isTextless':
-            assign(card, data, 'isTextless');
             break;
         case 'finishes':
             assign(card, data, 'finishes');
@@ -637,9 +634,6 @@ async function merge(card: Document & ICard, data: ICard) {
             break;
 
         case 'legalities':
-            break;
-        case 'isReserved':
-            assign(card, data, 'isReserved');
             break;
         case 'inBooster':
             assign(card, data, 'inBooster');

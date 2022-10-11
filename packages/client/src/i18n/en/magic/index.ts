@@ -76,6 +76,14 @@ export default {
         banned_as_companion: 'Banned as Companion',
     },
 
+    'tag': {
+        'reserved':        'Reserved',
+        'full-art':        'Full Art',
+        'oversized':       'Oversized',
+        'story-spotlight': 'Story Spotlight',
+        'textless':        'Textless',
+    },
+
     'image-wall': 'Image Wall',
 
     'cr': {

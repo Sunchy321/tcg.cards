@@ -67,6 +67,14 @@ export default {
         banned_as_companion: '禁止用作行侣',
     },
 
+    'tag': {
+        'reserved':        '不重印',
+        'full-art':        '全画',
+        'oversized':       '大尺寸',
+        'story-spotlight': '故事焦点',
+        'textless':        '无文字',
+    },
+
     'image-wall': '图片墙',
 
     'cr': {

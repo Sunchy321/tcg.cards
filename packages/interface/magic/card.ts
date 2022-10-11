@@ -93,18 +93,13 @@ export type Card = {
     releaseDate: string;
 
     isDigital: boolean;
-    isFullArt: boolean;
-    isOversized: boolean;
     isPromo: boolean;
     isReprint: boolean;
-    isStorySpotlight: boolean;
-    isTextless: boolean;
     finishes: string[];
     hasHighResImage: boolean;
     imageStatus: string;
 
     legalities: Legalities;
-    isReserved: boolean;
     inBooster: boolean;
     contentWarning?: boolean;
     games: string[];

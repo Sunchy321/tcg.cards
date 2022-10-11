@@ -66,6 +66,26 @@
             <div v-if="flavorText != null" class="flavor-text auto-align" :lang="lang">
                 <magic-text :symbol="textSymbolStyle" detect-emph>{{ flavorText }}</magic-text>
             </div>
+            <div v-if="tags.length + localTags.length > 0" class="tag-list">
+                <q-chip
+                    v-for="t in tags"
+                    :key="'tag-' + t"
+                    class="q-mr-sm q-ma-none"
+                    square
+                    size="12px"
+                    color="primary"
+                    text-color="white"
+                > {{ $t('magic.tag.' + t) }} </q-chip>
+                <q-chip
+                    v-for="t in localTags"
+                    :key="'tag-' + t"
+                    class="q-mr-sm q-ma-none"
+                    square
+                    size="12px"
+                    color="secondary"
+                    text-color="white"
+                > {{ $t('magic.tag.' + t) }} </q-chip>
+            </div>
             <grid
                 v-slot="[f, s]"
                 :value="Object.entries(legalities)" :item-width="160"
@@ -262,10 +282,7 @@
     &:deep(.emph)
         font-style: normal
 
-.legalities
-    margin-top: 20px
-
-.rulings
+.tag-list, .legalities, .rulings
     margin-top: 20px
 
 .links
@@ -674,6 +691,9 @@ export default defineComponent({
         const rulings = computed(() => data.value?.rulings ?? []);
         const legalities = computed(() => data.value?.legalities ?? {});
 
+        const tags = computed(() => data.value?.tags?.filter(v => !v.startsWith('dev:')) ?? []);
+        const localTags = computed(() => data.value?.localTags?.filter(v => !v.startsWith('dev:')) ?? []);
+
         const doubleFacedIcon = computed(() => setInfos.value
             .filter(v => v.doubleFacedIcon != null)[0]
             ?.doubleFacedIcon);
@@ -877,6 +897,8 @@ export default defineComponent({
             relatedCards,
             rulings,
             legalities,
+            tags,
+            localTags,
 
             partIcon,
             costStyle,
