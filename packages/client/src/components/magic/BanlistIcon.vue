@@ -2,7 +2,11 @@
     <q-icon
         :name="icon"
         :class="'banlist-status-' + status"
-    />
+    >
+        <q-tooltip>
+            {{ $t('magic.legality.' + status) }}
+        </q-tooltip>
+    </q-icon>
 </template>
 
 <script lang="ts">

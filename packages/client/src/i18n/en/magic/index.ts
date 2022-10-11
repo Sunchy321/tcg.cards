@@ -64,6 +64,18 @@ export default {
         special:  'Special',
     },
 
+    'legality': {
+        $self: 'Legality',
+
+        legal:               'Legal',
+        banned:              'Banned',
+        suspended:           'Suspended',
+        restricted:          'Restricted',
+        unavailable:         'Unavailable',
+        banned_as_commander: 'Banned as Commander',
+        banned_as_companion: 'Banned as Companion',
+    },
+
     'image-wall': 'Image Wall',
 
     'cr': {

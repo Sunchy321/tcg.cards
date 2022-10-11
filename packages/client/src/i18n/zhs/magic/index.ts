@@ -55,6 +55,18 @@ export default {
         special:  '特殊',
     },
 
+    'legality': {
+        $self: '可用性',
+
+        legal:               '可用',
+        banned:              '禁止',
+        suspended:           '暂缓',
+        restricted:          '限制',
+        unavailable:         '不可用',
+        banned_as_commander: '禁止用作指挥官',
+        banned_as_companion: '禁止用作行侣',
+    },
+
     'image-wall': '图片墙',
 
     'cr': {
