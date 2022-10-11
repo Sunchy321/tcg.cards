@@ -37,7 +37,7 @@ app
     .use(session({}, app))
     .use(cors())
     .use(sslify())
-    .use(body({ multipart: true }))
+    .use(body({ multipart: true, jsonLimit: 2 * 1024 * 1024 }))
     .use(logger())
     .use(websocket())
     .use(subdomain('api', api))
