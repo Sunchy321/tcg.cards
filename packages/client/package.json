@@ -16,8 +16,7 @@
   },
   "scripts": {
     "lint": "eslint --ext .ts,.vue src",
-    "test": "echo \"No test specified\" && exit 0",
-    "postinstall": "patch-package"
+    "test": "echo \"No test specified\" && exit 0"
   },
   "dependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.1.1",

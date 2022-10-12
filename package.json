@@ -1,0 +1,10 @@
+{
+	"pnpm": {
+		"patchedDependencies": {
+			"@types/koa-bodyparser@4.3.8": "patches/@types__koa-bodyparser@4.3.8.patch",
+			"rollup-plugin-node-polyfills@0.2.1": "patches/rollup-plugin-node-polyfills@0.2.1.patch",
+			"jws@3.2.2": "patches/jws@3.2.2.patch",
+			"jsonwebtoken@8.5.1": "patches/jsonwebtoken@8.5.1.patch"
+		}
+	}
+}
