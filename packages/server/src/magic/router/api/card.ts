@@ -14,7 +14,7 @@ import sortKey from '@/common/sort-key';
 
 import searcher from '@/magic/search';
 
-import Parser from '@searcher/model/parser/parser';
+import Parser from '@searcher/parser/parser';
 
 import { extendedLocales } from '@data/magic/basic';
 

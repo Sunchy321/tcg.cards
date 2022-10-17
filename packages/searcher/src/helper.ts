@@ -1,5 +1,5 @@
-import Parser from './model/parser/parser';
-import { Token } from './model/parser/lexer';
+import Parser from './parser/parser';
+import { Token } from './parser/lexer';
 
 export default function tokenize(text: string): Token[] {
     const expr = new Parser(text).parseQuery();

@@ -1,5 +1,5 @@
 import { last } from 'lodash';
-import SearchError from '../error';
+import SearchError from './error';
 import Lexer, { defaultOption, Token } from './lexer';
 
 export type ParserError = {

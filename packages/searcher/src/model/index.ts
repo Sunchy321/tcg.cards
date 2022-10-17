@@ -1,6 +1,12 @@
-import './parser/lexer';
-import './parser/parser';
+export type CommandType =  'text' | 'number' | 'enum' | CommandType[] | 'numberlike';
 
-export default function model(): void {
+export type Command = {
+    id: string;
+    alt?: string[];
+    type: CommandType
+}
 
+export type Model = {
+    game: string;
+    commands: Command[]
 }
