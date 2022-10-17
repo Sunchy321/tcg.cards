@@ -10,11 +10,17 @@ export default {
     },
 
     'card': {
+        '$self': 'Card',
+
         'text-mode': {
             oracle:  'Oracle',
             unified: 'Unified',
             printed: 'Printed',
         },
+    },
+
+    'set': {
+        $self: 'Set',
     },
 
     'format': {
@@ -97,5 +103,5 @@ export default {
         history: 'CR History',
     },
 
-    'ui': ui,
+    ui,
 };

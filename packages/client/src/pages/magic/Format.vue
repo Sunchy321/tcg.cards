@@ -209,7 +209,7 @@ export default defineComponent({
             date,
             order,
         } = pageSetup({
-            title: () => i18n.t('magic.ui.format.$self'),
+            title: () => i18n.t('magic.format.$self'),
 
             params: {
                 format: {

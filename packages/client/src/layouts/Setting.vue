@@ -9,7 +9,7 @@
                 <q-tab name="basic" :label="$t('setting.basic')" />
                 <q-tab
                     v-for="g in games" :key="g"
-                    :name="g" :label="$t(`${g}.$self`)"
+                    :name="g" :label="fullName(g)"
                 />
             </q-tabs>
         </q-drawer>
@@ -88,12 +88,22 @@ export default defineComponent({
             },
         });
 
+        const fullName = (g: string) => {
+            if (i18n.te(`${g}.$selfFull`)) {
+                return i18n.t(`${g}.$selfFull`);
+            } else {
+                return i18n.t(`${g}.$self`);
+            }
+        };
+
         return {
             user,
             games,
             tab,
 
             drawerOpen,
+
+            fullName,
         };
     },
 });

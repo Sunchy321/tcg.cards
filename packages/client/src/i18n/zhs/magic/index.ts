@@ -9,11 +9,17 @@ export default {
     },
 
     'card': {
+        '$self': '卡牌',
+
         'text-mode': {
             oracle:  'Oracle',
             unified: '统一描述',
             printed: '牌面描述',
         },
+    },
+
+    'set': {
+        $self: '系列',
     },
 
     'format': {
@@ -87,5 +93,5 @@ export default {
         history: '规则历史',
     },
 
-    'ui': ui,
+    ui,
 };

@@ -1,4 +1,9 @@
 export default {
+    'setting': {
+        cache: '缓存',
+        clear: '清除',
+    },
+
     'advanced-search': {
         '$self':          '高级搜索',
         'name':           '名称',
@@ -22,7 +27,6 @@ export default {
     },
 
     'format': {
-        '$self':    '赛制',
         'banlist':  '禁限牌表',
         'set':      '可用系列',
         'timeline': '时间线',
@@ -38,9 +42,5 @@ export default {
             name: '名称',
             date: '日期',
         },
-    },
-
-    'set': {
-        $self: '系列',
     },
 };

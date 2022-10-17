@@ -1,4 +1,9 @@
 export default {
+    'setting': {
+        cache: 'Cache',
+        clear: 'Clear',
+    },
+
     'advanced-search': {
         '$self':          'Advanced Search',
         'name':           'Name',
@@ -22,7 +27,6 @@ export default {
     },
 
     'format': {
-        '$self':    'Format',
         'banlist':  'Banlist',
         'set':      'Sets',
         'timeline': 'Timeline',
@@ -38,9 +42,5 @@ export default {
             name: 'Name',
             date: 'Date',
         },
-    },
-
-    'set': {
-        $self: 'Set',
     },
 };

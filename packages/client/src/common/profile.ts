@@ -22,6 +22,13 @@ class Database<T> extends Dexie {
     }
 }
 
+interface Profile<T> {
+    get: (id: string, callback: (value: T) => void) => Promise<void>;
+    update: (value: T) => Promise<void>;
+    count: () => Promise<number>;
+    clear: () => Promise<void>;
+}
+
 const debounceGap = 100;
 const expireTime = 24 * 60 * 60 * 1000;
 
@@ -29,10 +36,7 @@ export default function makeProfile<T>(
     dbName: string,
     indexKey: IndexType<T>,
     remoteUrl: string,
-): {
-        get: (id: string, callback: (value: T) => void) => Promise<void>;
-        update: (value: T) => Promise<void>;
-    } {
+): Profile<T> {
     const db = new Database<T>(dbName, indexKey);
 
     void db.open();
@@ -86,5 +90,10 @@ export default function makeProfile<T>(
         }
     };
 
-    return { get, update };
+    const count = async () => db.profile.count();
+    const clear = async () => db.profile.clear();
+
+    return {
+        get, update, count, clear,
+    };
 }

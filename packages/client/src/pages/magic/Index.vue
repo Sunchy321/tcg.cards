@@ -42,7 +42,7 @@
                     type="a"
                     to="/magic/format"
                     icon="mdi-text-box-outline"
-                    :label="$t('magic.ui.format.$self')"
+                    :label="$t('magic.format.$self')"
                     flat
                     :stack="$q.screen.xs"
                 />
@@ -51,7 +51,7 @@
                     type="a"
                     to="/magic/set"
                     icon="mdi-cards-outline"
-                    :label="$t('magic.ui.set.$self')"
+                    :label="$t('magic.set.$self')"
                     flat
                     :stack="$q.screen.xs"
                 />

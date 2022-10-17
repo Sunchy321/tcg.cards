@@ -77,7 +77,7 @@ export default defineComponent({
         const i18n = useI18n();
 
         pageSetup({
-            title: () => i18n.t('magic.ui.set.$self'),
+            title: () => i18n.t('magic.set.$self'),
         });
 
         const sets = ref<string[]>([]);
