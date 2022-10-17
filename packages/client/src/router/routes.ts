@@ -9,15 +9,30 @@ const routes = [
         children:  [
             {
                 path:      '',
+                name:      '',
                 component: async () => import('pages/Index.vue'),
             },
+        ],
+    },
+
+    {
+        path:      '/setting',
+        component: async () => import('layouts/Setting.vue'),
+        children:  [
             {
-                path:      'setting',
+                path:      '',
                 name:      'setting',
-                component: async () => import('pages/Setting.vue'),
-                meta:      {
-                    title: 'setting.$self',
-                },
+                component: async () => import('pages/setting/Basic.vue'),
+            },
+            {
+                path:      'magic',
+                name:      'setting/magic',
+                component: async () => import('pages/setting/Magic.vue'),
+            },
+            {
+                path:      'hearthstone',
+                name:      'setting/hearthstone',
+                component: async () => import('pages/setting/Hearthstone.vue'),
             },
         ],
     },
@@ -27,6 +42,7 @@ const routes = [
 
     {
         path:      '/:pathMatch(.*)*',
+        name:      'error',
         component: async () => import('pages/Error404.vue'),
     },
 ];

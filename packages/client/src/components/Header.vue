@@ -32,7 +32,7 @@
             <q-btn
                 :icon="user != null ? 'mdi-cog' : 'mdi-cog-outline'"
                 flat dense round
-                :to="{ name: 'setting' }"
+                :to="settingPath"
             />
 
         </q-toolbar>
@@ -93,9 +93,17 @@ export default defineComponent({
 
         const dataPath = computed(() => {
             if (isAdmin.value && game.value != null) {
-                return `/${game.value}/data`;
+                return { name: `${game.value}/data` };
             } else {
                 return undefined;
+            }
+        });
+
+        const settingPath = computed(() => {
+            if (game.value != null) {
+                return { name: `setting/${game.value}` };
+            } else {
+                return { name: 'setting' };
             }
         });
 
@@ -107,6 +115,7 @@ export default defineComponent({
             showParams,
 
             dataPath,
+            settingPath,
             paramsIcon,
         };
     },

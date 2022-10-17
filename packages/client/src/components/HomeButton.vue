@@ -1,6 +1,7 @@
 <template>
     <q-btn
         flat dense round
+        :to="homePath"
         @mousedown.left.prevent.stop="start"
         @touchstart.prevent.stop="start"
         @keydown.enter.prevent.stop="start"
@@ -122,6 +123,7 @@ export default defineComponent({
 
         return {
             homeIcon,
+            homePath,
 
             holdTime,
             showTime,

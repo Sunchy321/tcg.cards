@@ -1,5 +1,5 @@
 <template>
-    <article>
+    <q-page class="q-pa-md">
         <div class="row items-center">
             {{ $t('setting.lang') }}
             <q-select
@@ -22,7 +22,7 @@
                 </template>
             </q-select>
         </div>
-    </article>
+    </q-page>
 </template>
 
 <style lang="sass" scoped>

@@ -10,6 +10,8 @@ import { defineComponent, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useCore } from 'store/core';
 
+import { Game } from './stores/games';
+
 export default defineComponent({
     name: 'App',
 
@@ -18,16 +20,25 @@ export default defineComponent({
         const core = useCore();
 
         watch(
-            () => route.path,
-            (path) => {
-                if (path === '/') {
+            () => route.name?.toString(),
+            (name) => {
+                if (name == null || name === '') {
                     core.game = null;
-                } else {
-                    const firstPart = path.split('/').filter(v => v !== '')[0];
+                } else if (name.startsWith('setting')) {
+                    const game = name.split('/')[1];
 
-                    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                    if (core.isGame(game)) {
+                        core.game = game as Game;
+                    } else {
+                        core.game = null;
+                    }
+                } else {
+                    const firstPart = name.split('/').filter(v => v !== '')[0];
+
                     if (core.isGame(firstPart)) {
                         core.game = firstPart;
+                    } else {
+                        core.game = null;
                     }
                 }
             },

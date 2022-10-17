@@ -6,10 +6,12 @@ const routes = [
         children:  [
             {
                 path:      '',
+                name:      'hearthstone',
                 component: async () => import('pages/hearthstone/Index.vue'),
             },
             {
                 path:      'data',
+                name:      'hearthstone/data',
                 component: async () => import('pages/hearthstone/Data.vue'),
                 meta:      {
                     admin: true,

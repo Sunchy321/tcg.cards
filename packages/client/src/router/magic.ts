@@ -6,6 +6,7 @@ const routes = [
         children:  [
             {
                 path:      '',
+                name:      'magic',
                 component: async () => import('pages/magic/Index.vue'),
             },
             {
