@@ -43,7 +43,7 @@ export const symbols = [
     ...manaSymbols,
     'T', 'Q',
     'P', 'E', 'A',
-    'PW', 'CHAOS',
+    'PW', 'CHAOS', 'TK',
 ];
 
 export const formats = [

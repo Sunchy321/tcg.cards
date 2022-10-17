@@ -3,6 +3,9 @@
     height: 1em
     width: 1em
 
+    &.icon-TK
+        width: 0.80em
+
     &.icon-100
         width: 1.88em
 
