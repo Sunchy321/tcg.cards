@@ -170,10 +170,6 @@ export default defineComponent({
 
             searchText.value = q.value;
 
-            if (searching.value) {
-                return;
-            }
-
             searching.value = true;
 
             const { data: result } = await apiGet<SearchResult>('/magic/search', {

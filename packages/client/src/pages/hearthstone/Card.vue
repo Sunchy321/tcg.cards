@@ -27,13 +27,27 @@
                 {{ text }}
             </div>
             <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="mechanics">
-                <div v-for="m in mechanics" :key="m" class="mechanic">
+                <q-chip
+                    v-for="m in mechanics" :key="m"
+                    class="q-mr-sm q-ma-none"
+                    square
+                    size="12px"
+                    color="primary"
+                    text-color="white"
+                >
                     {{ mechanicText(m) }}
-                </div>
+                </q-chip>
 
-                <div v-for="r in referencedTags" :key="r" class="referenced-tag">
+                <q-chip
+                    v-for="r in referencedTags" :key="r"
+                    class="q-mr-sm q-ma-none"
+                    square
+                    size="12px"
+                    color="secondary"
+                    text-color="white"
+                >
                     {{ mechanicText(r) }}
-                </div>
+                </q-chip>
             </div>
         </div>
         <div class="version-column" />
@@ -140,12 +154,6 @@
     border-style: solid
     border-radius: 5px
 
-.mechanic
-    border-color: $primary
-
-.referenced-tag
-    border-color: $secondary
-
 </style>
 
 <script lang="ts">
@@ -236,7 +244,9 @@ export default defineComponent({
 
         const text = computed(() => localization.value?.text);
 
-        const mechanics = computed(() => (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')));
+        const mechanics = computed(() => (data.value?.mechanics ?? []).filter(
+            v => !v.startsWith('?') && !v.startsWith('data_num'),
+        ));
 
         const referencedTags = computed(() => (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')));
 

@@ -33,6 +33,7 @@ export default {
         nerubian:  'Nerubian',
         nightelf:  'Nightelf',
         ogre:      'Ogre',
+        old_god:   'Old God',
         orc:       'Orc',
         pirate:    'Pirate',
         quilboar:  'Quilboar',
