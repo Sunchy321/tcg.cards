@@ -15,10 +15,12 @@ import {
 import { useRouter, useRoute, RouterLink } from 'vue-router';
 import { useMagic } from 'store/games/magic';
 
+import { QTooltip } from 'quasar';
 import CardImage from './CardImage.vue';
 
 import cardProfile, { CardProfile } from 'src/common/magic/card';
-import { QTooltip } from 'quasar';
+
+import { pick } from 'lodash';
 
 type Version = {
     set: string;
@@ -49,7 +51,7 @@ export default defineComponent({
             name:   'magic/card',
             params: { id: props.id },
             query:  {
-                ...props.version,
+                ...pick(props.version, ['set', 'number', 'lang']),
                 ...props.part != null ? { part: props.part } : {},
             },
         }).href);

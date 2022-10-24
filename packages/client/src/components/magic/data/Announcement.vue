@@ -76,115 +76,98 @@
             </date-input>
         </div>
 
-        <div class="q-mt-md">
-            <q-icon name="mdi-link" size="sm" />
-            <q-btn
-                class="q-ml-sm"
-                flat dense round
-                icon="mdi-plus"
-                @click="link = [...link, '']"
-            />
-        </div>
+        <list
+            v-model="link"
+            class="q-mt-md"
+            item-class="q-mt-sm"
+            @insert="link = [...link, '']"
+        >
+            <template #title>
+                <q-icon name="mdi-link" size="sm" />
+            </template>
 
-        <div class="q-mt-sm">
-            <div v-for="(l, i) in link" :key="'link-' + i" class="flex items-center q-mb-sm">
-                <q-input v-model="link[i]" class="col-grow q-mr-sm" outlined dense />
-                <q-btn icon="mdi-minus" flat dense round @click="link = [...link.slice(0, i), ...link.slice(i + 1)]" />
-            </div>
-        </div>
-
-        <div class="q-mt-md">
-            <q-icon name="mdi-text-box-outline" size="sm" />
-            <q-btn
-                class="q-ml-sm"
-                flat dense round
-                icon="mdi-plus"
-                @click="changes = [...changes, { format: '', setIn: [], setOut: [], banlist: [] }]"
-            />
-        </div>
-
-        <div v-for="c in changes" :key="'change-' + c.format" class="format q-mt-sm q-pa-sm">
-            <div class="flex items-center">
-                <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
-            </div>
-
-            <div class="flex q-mt-sm">
-                <array-input
-                    class="col-grow"
-                    :model-value="c.setIn ?? []"
-                    outlined dense
-                    @update:model-value="v => c.setIn = v"
-                >
-                    <template #prepend>
-                        <q-icon name="mdi-plus" />
-                    </template>
-                </array-input>
-
-                <array-input
-                    class="col-grow q-ml-sm"
-                    :model-value="c.setOut ?? []"
-                    outlined dense
-                    @update:model-value="v => c.setOut = v"
-                >
-                    <template #prepend>
-                        <q-icon name="mdi-minus" />
-                    </template>
-                </array-input>
-            </div>
-
-            <div class="q-mt-sm">
-                <q-icon name="mdi-card-bulleted-outline" size="sm" />
-                <q-btn
-                    class="q-ml-sm"
-                    flat dense round
-                    icon="mdi-plus"
-                    @click="c.banlist = addBanlist(c.banlist ?? [])"
-                />
-            </div>
-
-            <div
-                v-for="(b, i) in c.banlist ?? []" :key="'banlist-' + i"
-                class="flex items-center q-mt-sm"
-            >
+            <template #summary="{ value, update }">
                 <q-input
-                    class="col-grow q-mr-sm"
-                    :model-value="b.id"
+                    class="col-grow"
                     outlined dense
-                    @update:model-value="v => b.id = adjustId(v as string)"
+                    :model-value="value"
+                    @update:model-value="update"
                 />
-                <q-btn-toggle
-                    v-model="b.status"
-                    :options="statusOptions"
-                    flat dense
-                    :toggle-color="undefined"
-                    color="white"
-                    text-color="grey"
-                />
-                <q-btn
-                    icon="mdi-arrow-up"
-                    :disable="i === 0"
-                    flat dense round
-                    @click="c.banlist = moveUpBanlist(c.banlist ?? [], i)"
-                />
-                <q-btn
-                    icon="mdi-arrow-down"
-                    :disable="i === changes.length - 1"
-                    flat dense round
-                    @click="c.banlist = moveDownBanlist(c.banlist ?? [], i)"
-                />
-                <q-btn
-                    icon="mdi-minus"
-                    flat dense round
-                    @click="c.banlist = removeBanlist(c.banlist ?? [], i)"
-                />
-            </div>
-        </div>
+            </template>
+        </list>
+
+        <list
+            v-model="changes"
+            class="change-list q-mt-md"
+            item-class="change q-mt-sm q-pa-sm"
+            @insert="changes = [...changes, { format: '', setIn: [], setOut: [], banlist: [] }]"
+        >
+            <template #title>
+                <q-icon name="mdi-text-box-outline" size="sm" />
+            </template>
+            <template #summary="{ value: c }">
+                <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
+            </template>
+            <template #body="{ value: c }">
+                <div class="flex q-mt-sm">
+                    <array-input
+                        class="col-grow"
+                        :model-value="c.setIn ?? []"
+                        outlined dense
+                        @update:model-value="v => c.setIn = v"
+                    >
+                        <template #prepend>
+                            <q-icon name="mdi-plus" />
+                        </template>
+                    </array-input>
+
+                    <array-input
+                        class="col-grow q-ml-sm"
+                        :model-value="c.setOut ?? []"
+                        outlined dense
+                        @update:model-value="v => c.setOut = v"
+                    >
+                        <template #prepend>
+                            <q-icon name="mdi-minus" />
+                        </template>
+                    </array-input>
+                </div>
+
+                <list
+                    class="q-mt-sm"
+                    item-class="q-mt-sm"
+                    :model-value="c.banlist ?? []"
+                    @update:model-value="b => c.banlist = b"
+                    @insert="c.banlist = addBanlist(c.banlist ?? [])"
+                >
+                    <template #title>
+                        <q-icon name="mdi-card-bulleted-outline" size="sm" />
+                    </template>
+                    <template #summary="{ value: b }">
+                        <q-input
+                            class="col-grow q-mr-sm"
+                            :model-value="b.id"
+                            outlined dense
+                            @update:model-value="v => b.id = adjustId(v as string)"
+                        />
+                        <q-btn-toggle
+                            v-model="b.status"
+                            :options="statusOptions"
+                            flat dense
+                            :toggle-color="undefined"
+                            color="white"
+                            text-color="grey"
+                        />
+                    </template>
+                </list>
+            </template>
+        </list>
     </div>
 </template>
 
 <style lang="sass" scoped>
 
-.format
+.change-list :deep(.change)
     border: 1px grey solid
     border-radius: 5px
 
@@ -199,6 +182,7 @@ import { useMagic } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
 
+import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 
@@ -275,7 +259,7 @@ const toIdentifier = (text: string) => deburr(text)
 export default defineComponent({
     name: 'DataAnnouncement',
 
-    components: { ArrayInput, DateInput },
+    components: { ArrayInput, DateInput, List },
 
     setup() {
         const magic = useMagic();
@@ -393,16 +377,6 @@ export default defineComponent({
             },
         ];
 
-        const removeBanlist = (banlist: FormatAnnouncementBanlist, i: number) => [
-            ...banlist.slice(0, i), ...banlist.slice(i + 1),
-        ];
-
-        const moveUpBanlist = (banlist: FormatAnnouncementBanlist, i: number) => (i === 0 ? banlist
-            : [...banlist.slice(0, i - 1), banlist[i], banlist[i - 1], ...banlist.slice(i + 1)]);
-
-        const moveDownBanlist = (banlist: FormatAnnouncementBanlist, i: number) => (i === banlist.length - 1 ? banlist
-            : [...banlist.slice(0, i), banlist[i + 1], banlist[i], ...banlist.slice(i + 2)]);
-
         const loadData = async () => {
             const { data } = await controlGet<FormatAnnouncementProfile[]>('/magic/format/announcement');
 
@@ -505,9 +479,6 @@ export default defineComponent({
             applyAnnouncements,
             adjustId,
             addBanlist,
-            removeBanlist,
-            moveUpBanlist,
-            moveDownBanlist,
         };
     },
 });

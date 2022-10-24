@@ -3,7 +3,7 @@
         <div class="text-h5">{{ $t('magic.ui.setting.cache') }}</div>
 
         <div class="flex q-my-md">
-            <q-card class="card">
+            <q-card class="card q-ma-md">
                 <q-card-section class="text-h6">
                     {{ $t('magic.card.$self') }}
                 </q-card-section>
@@ -21,7 +21,7 @@
                 </q-card-actions>
             </q-card>
 
-            <q-card class="card q-ml-md">
+            <q-card class="card q-ma-md">
                 <q-card-section class="text-h6">
                     {{ $t('magic.set.$self') }}
                 </q-card-section>
@@ -46,8 +46,8 @@
 <style lang="sass">
 
 .card
-    max-width: 250px
-    flex-basis: 250px
+    max-width: 150px
+    flex-basis: 150px
 
 </style>
 
