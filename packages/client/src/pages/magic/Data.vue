@@ -18,7 +18,7 @@ import { defineComponent } from 'vue';
 
 import pageSetup from 'setup/page';
 
-import components from 'components/magic/data';
+import components from './data';
 
 export default defineComponent({
     name: 'Data',

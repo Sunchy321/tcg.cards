@@ -211,7 +211,7 @@ import controlSetup from 'setup/control';
 import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
-import EntityEssentialComponent from 'components/hearthstone/EntityEssential.vue';
+import EntityEssentialComponent from 'components/hearthstone/data/EntityEssential.vue';
 
 import { FormatAnnouncement, EntityEssential } from 'interface/hearthstone/format-change';
 

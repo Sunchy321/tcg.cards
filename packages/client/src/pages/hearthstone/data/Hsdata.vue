@@ -47,7 +47,7 @@ import {
 import controlSetup from 'setup/control';
 
 import Grid from 'components/Grid.vue';
-import HsdataPatch from './HsdataPatch.vue';
+import HsdataPatch from 'components/hearthstone/data/HsdataPatch.vue';
 
 import bytes from 'bytes';
 
