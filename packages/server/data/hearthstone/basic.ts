@@ -14,3 +14,15 @@ export const locales = [
     'zhs',
     'zht',
 ];
+
+export const modes = [
+    'standard',
+    'wild',
+    'classic',
+    'battlegrounds',
+    'mercenaries',
+    'arena',
+    'duel',
+    'tavern_brawl',
+    'adventure',
+];
