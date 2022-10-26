@@ -4,15 +4,13 @@ import conn from './db';
 
 import { FormatAnnouncement as IFormatAnnouncement } from '@interface/hearthstone/format-change';
 
-import { entityEssential } from './entity';
-
 const IFormatAnnouncementSchema = new Schema<IFormatAnnouncement>({
-    source: String,
-    date:   String,
-
+    source:        String,
+    date:          String,
     effectiveDate: String,
-
-    link: { type: [String], default: undefined },
+    link:          { type: [String], default: undefined },
+    version:       Number,
+    lastVersion:   Number,
 
     changes: [{
         _id:     false,
@@ -27,14 +25,15 @@ const IFormatAnnouncementSchema = new Schema<IFormatAnnouncement>({
             }],
             default: undefined,
         },
-        adjust: {
+        adjustment: {
             type: [{
-                _id:    false,
-                status: String,
-                from:   entityEssential,
-                to:     entityEssential,
-                entity: [entityEssential],
+                _id:     false,
+                id:      String,
+                status:  String,
+                detail:  [{ _id: false, part: String, status: String }],
+                related: { type: [String], default: undefined },
             }],
+            default: undefined,
         },
     }],
 });

@@ -45,6 +45,41 @@ router.get('/', async ctx => {
     };
 });
 
+router.get('/name', async ctx => {
+    const { name, version: versionText } = mapValues(ctx.query, toSingle);
+
+    if (name == null) {
+        ctx.status = 400;
+        return;
+    }
+
+    const version = versionText != null ? Number.parseInt(versionText, 10) : null;
+
+    if (versionText != null && Number.isNaN(version)) {
+        ctx.status = 400;
+        return;
+    }
+
+    const entities = await Entity.find({ 'localization.name': name }).sort({ version: -1 });
+
+    const entity = (() => {
+        if (version != null) {
+            for (const e of entities) {
+                if (e.versions.includes(version)) {
+                    return e;
+                }
+            }
+        }
+
+        return entities[0];
+    })();
+
+    ctx.body = {
+        ...entity.toJSON(),
+        versions: flatten(entities.map(e => e.versions)),
+    };
+});
+
 router.get('/random', async ctx => {
     const entityIds = await Entity.distinct('cardId');
 

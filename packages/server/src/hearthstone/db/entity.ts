@@ -4,50 +4,6 @@ import conn from './db';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
-export const entityEssential = {
-    cardId: String,
-
-    localization: [{
-        lang:        String,
-        name:        String,
-        text:        String,
-        displayText: String,
-        rawText:     String,
-    }],
-
-    set:         String,
-    classes:     [String],
-    cardType:    String,
-    cost:        Number,
-    attack:      Number,
-    health:      Number,
-    durability:  Number,
-    armor:       Number,
-    race:        String,
-    spellSchool: String,
-    quest:       { type: String, progress: Number, part: Number },
-
-    techLevel:   Number,
-    raceBucket:  String,
-    armorBucket: Number,
-    buddy:       String,
-    bannedRace:  String,
-
-    mercenaryRole: String,
-    colddown:      Number,
-
-    collectible: Boolean,
-    elite:       Boolean,
-    rarity:      String,
-
-    faction: String,
-
-    mechanics:      [String],
-    referencedTags: [String],
-
-    heroPower: String,
-};
-
 const EntitySchema = new Schema<IEntity>({
     versions: [Number],
 

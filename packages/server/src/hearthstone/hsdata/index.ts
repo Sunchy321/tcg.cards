@@ -468,6 +468,13 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     if (mechanic != null) {
                         switch (mechanic) {
+                        case 'premium':
+                            if (value === 1) {
+                                result.mechanics.push('premium');
+                            } else {
+                                result.mechanics.push(`premium:${value}`);
+                            }
+                            break;
                         case 'jade_golem':
                             result.referencedTags.push('jade_golem');
                             break;

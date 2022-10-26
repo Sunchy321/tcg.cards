@@ -47,6 +47,20 @@
                     <q-icon name="mdi-cards-outline" />
                 </template>
             </date-input>
+
+            <q-space />
+
+            <q-input v-model="lastVersion" outlined dense clearable>
+                <template #before>
+                    <q-icon name="mdi-history" />
+                </template>
+            </q-input>
+
+            <q-input v-model="version" class="q-ml-md" outlined dense>
+                <template #before>
+                    <q-icon name="mdi-cards-outline" />
+                </template>
+            </q-input>
         </div>
 
         <list
@@ -117,9 +131,10 @@
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
                     </template>
                     <template #summary="{ value: b }">
-                        <q-input
+                        <entity-input
                             v-model="b.id"
                             class="col-grow q-mr-sm"
+                            :version="version"
                             outlined dense
                         />
                         <q-btn-toggle
@@ -136,19 +151,45 @@
                 <list
                     class="q-mt-sm"
                     item-class="q-mt-sm"
-                    :model-value="c.adjust ?? []"
-                    @update:model-value="a => c.adjust = a"
-                    @insert="c.adjust = addAdjust(c.adjust)"
+                    :model-value="c.adjustment ?? []"
+                    @update:model-value="a => c.adjustment = a"
+                    @insert="c.adjustment = addAdjustment(c.adjustment)"
                 >
                     <template #title>
                         <q-icon name="mdi-compare" size="sm" />
                     </template>
                     <template #summary="{ value: a }">
-                        <entity-essential v-model="a.from" name="From" />
-                        <q-icon name="mdi-arrow-right-thin" size="md" />
-                        <entity-essential v-model="a.to" name="To" />
+                        <entity-input
+                            v-model="a.id"
+                            class="col-grow q-mr-sm"
+                            :version="version"
+                            outlined dense
+                        />
 
-                        <div class="col-grow" />
+                        <q-btn
+                            class="q-mr-sm"
+                            icon="mdi-calculator"
+                            flat dense round
+                            @click="calcStatus(a)"
+                        />
+
+                        <q-btn
+                            class="q-mr-sm"
+                            icon="mdi-plus"
+                            flat round dense
+                            @click="() => addEntity(a)"
+                        />
+
+                        <q-chip
+                            v-for="d of a.detail" :key="d.part"
+                            class="flex items-center q-mr-sm"
+                            square
+                            :icon="statusIcon(d.status)"
+                            :color="statusColor(d.status)"
+                            text-color="white"
+                            :clickable="d.part === 'text'"
+                            @click="d.status = nextStatus(d.status)"
+                        >{{ d.part }}</q-chip>
 
                         <q-btn-toggle
                             v-model="a.status"
@@ -160,29 +201,17 @@
                         />
                     </template>
                     <template #body="{ value: a }">
-                        <div class="q-mt-sm">
-                            <q-btn
-                                icon="mdi-plus"
-                                flat round dense
-                                @click="() => addEntity(a)"
-                            />
+                        <div v-if="a.related?.length > 0" class="flex items-center q-mt-sm">
+                            <q-icon name="mdi-cards-outline" size="sm" />
 
-                            <entity-essential
-                                v-for="(e, i) in a.entity"
-                                :key="e?.cardId ?? ''"
-                                class="q-ml-sm"
-                                :model-value="e"
-                                @update:model-value="v => a.entity[i] = e"
-                            >
-                                <template #append>
-                                    <q-btn
-                                        icon="mdi-minus"
-                                        flat round dense
-                                        size="sm"
-                                        @click="a.entity.splice(i, 1)"
-                                    />
-                                </template>
-                            </entity-essential>
+                            <entity-input
+                                v-for="(r, i) in a.related" :key="i"
+                                class="col-grow q-ml-sm"
+                                :version="version"
+                                outlined dense
+                                :model-value="r"
+                                @update:model-value="v => a.related[i] = v"
+                            />
                         </div>
                     </template>
                 </list>
@@ -211,14 +240,20 @@ import controlSetup from 'setup/control';
 import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
-import EntityEssentialComponent from 'components/hearthstone/data/EntityEssential.vue';
+import EntityInput from 'src/components/hearthstone/data/EntityInput.vue';
 
-import { FormatAnnouncement, EntityEssential } from 'interface/hearthstone/format-change';
+import { Entity } from 'interface/hearthstone/entity';
+import { FormatAnnouncement } from 'interface/hearthstone/format-change';
 
-import { cloneDeep, last } from 'lodash';
+import { last } from 'lodash';
+import { apiGet } from 'src/boot/backend';
 
-type FormatAnnouncementBanlist = Required<FormatAnnouncement['changes'][0]>['banlist'];
-type FormatAnnouncementAdjust = Required<FormatAnnouncement['changes'][0]>['adjust'];
+type EntityNumberKey = {
+    [K in keyof Required<Entity>]: Required<Entity>[K] extends number ? K : never;
+}[keyof Entity];
+
+type Banlist = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
+type Adjustment = Required<FormatAnnouncement['changes'][0]>['adjustment'][0];
 
 interface FormatAnnouncementProfile {
     id?: string;
@@ -245,6 +280,19 @@ const statusIcon = (status: string) => {
     }
 };
 
+const statusColor = (status: string) => {
+    switch (status) {
+    case 'buff':
+        return 'positive';
+    case 'nerf':
+        return 'negative';
+    case 'adjust':
+        return 'warning';
+    default:
+        return 'grey';
+    }
+};
+
 const banlistOptions = ['legal', 'banned', 'unavailable'].map(v => ({
     icon:  statusIcon(v),
     class: `banlist-status-${v}`,
@@ -257,23 +305,6 @@ const adjustOptions = ['nerf', 'buff', 'adjust'].map(v => ({
     value: v,
 }));
 
-const defaultEntityEssential: EntityEssential = {
-    cardId: '',
-
-    localization: [],
-
-    set:      '',
-    classes:  [],
-    cardType: 'minion',
-    cost:     0,
-
-    collectible: true,
-    elite:       false,
-
-    mechanics:      [],
-    referencedTags: [],
-};
-
 export default defineComponent({
     name: 'DataAnnouncement',
 
@@ -281,7 +312,7 @@ export default defineComponent({
         ArrayInput,
         DateInput,
         List,
-        EntityEssential: EntityEssentialComponent,
+        EntityInput,
     },
 
     setup() {
@@ -297,6 +328,7 @@ export default defineComponent({
             date:    '',
             source:  'blizzard',
             link:    [],
+            version: 0,
             changes: [],
         });
 
@@ -321,6 +353,20 @@ export default defineComponent({
             },
         });
 
+        const version = computed({
+            get() { return announcement.value?.version; },
+            set(newValue: number) {
+                announcement.value.version = newValue;
+            },
+        });
+
+        const lastVersion = computed({
+            get() { return announcement.value?.lastVersion; },
+            set(newValue: number | undefined) {
+                announcement.value.lastVersion = newValue;
+            },
+        });
+
         const link = computed({
             get() { return announcement.value?.link ?? []; },
             set(newValue: string[]) { announcement.value.link = newValue; },
@@ -333,7 +379,93 @@ export default defineComponent({
             },
         });
 
-        const addBanlist = (banlist: FormatAnnouncementBanlist) => [
+        const getStatus = (oldValue: number, newValue: number, prefer: 'greater' | 'lesser') => {
+            if (oldValue == null || newValue == null || oldValue === newValue) {
+                return null;
+            }
+
+            if (prefer === 'greater') {
+                return newValue > oldValue ? 'buff' : 'nerf';
+            } else {
+                return newValue > oldValue ? 'nerf' : 'buff';
+            }
+        };
+
+        const addDetail = <K extends EntityNumberKey>(
+            array: Adjustment['detail'],
+            key: K,
+            oldValue: Entity,
+            newValue: Entity,
+            prefer: 'greater' | 'lesser',
+        ) => {
+            const oldField = oldValue[key];
+            const newField = newValue[key];
+
+            if (oldField == null || newField == null) {
+                return;
+            }
+
+            const value = getStatus(oldField, newField, prefer);
+
+            if (value != null) {
+                array.push({ part: key, status: value });
+            }
+        };
+
+        const nextStatus = (status: 'adjust' | 'buff' | 'nerf') => {
+            switch (status) {
+            case 'nerf': return 'buff';
+            case 'buff': return 'adjust';
+            default: return 'nerf';
+            }
+        };
+
+        const calcStatus = async (a: Adjustment) => {
+            if (lastVersion.value == null) {
+                return;
+            }
+
+            const { data: oldData } = await apiGet<Entity>('/hearthstone/card', {
+                id:      a.id,
+                version: lastVersion.value,
+            });
+
+            const { data: newData } = await apiGet<Entity>('/hearthstone/card', {
+                id:      a.id,
+                version: version.value,
+            });
+
+            const newDetail: Adjustment['detail'] = [];
+
+            addDetail(newDetail, 'cost', oldData, newData, 'lesser');
+            addDetail(newDetail, 'attack', oldData, newData, 'greater');
+            addDetail(newDetail, 'health', oldData, newData, 'greater');
+            addDetail(newDetail, 'durability', oldData, newData, 'greater');
+            addDetail(newDetail, 'armor', oldData, newData, 'greater');
+            addDetail(newDetail, 'techLevel', oldData, newData, 'lesser');
+            addDetail(newDetail, 'armorBucket', oldData, newData, 'greater');
+
+            const oldLoc = oldData.localization.find(l => l.lang === 'en') ?? oldData.localization[0];
+            const newLoc = newData.localization.find(l => l.lang === 'en') ?? newData.localization[0];
+
+            if (oldLoc.text !== newLoc.text) {
+                newDetail.push({ part: 'text', status: 'nerf' });
+            }
+
+            a.detail = newDetail;
+
+            if (newDetail.length > 0) {
+                if (newDetail.every(d => d.status === 'nerf')) {
+                    a.status = 'nerf';
+                } else if (newDetail.every(d => d.status === 'buff')) {
+                    a.status = 'buff';
+                } else {
+                    a.status = 'adjust';
+                }
+            }
+        };
+
+        const addBanlist = (banlist: Banlist[]) => [
             ...banlist,
             {
                 id:     '',
@@ -341,21 +473,22 @@ export default defineComponent({
             },
         ];
 
-        const addAdjust = (adjust: FormatAnnouncementAdjust) => [
-            ...adjust,
+        const addAdjustment = (adjustment: Adjustment[]) => [
+            ...adjustment,
             {
-                from:    last(adjust)?.from ?? cloneDeep(defaultEntityEssential),
-                to:      last(adjust)?.to ?? cloneDeep(defaultEntityEssential),
+                id:      '',
+                status:  last(adjustment)?.status ?? 'nerf',
+                detail:  [],
                 related: [],
             },
         ];
 
-        const addEntity = (adjust: FormatAnnouncementAdjust[0]) => {
-            if (adjust.entity == null) {
-                adjust.entity = [];
+        const addEntity = (adjustment: Adjustment) => {
+            if (adjustment.related == null) {
+                adjustment.related = [];
             }
 
-            adjust.entity.push(cloneDeep(defaultEntityEssential));
+            adjustment.related.push('');
         };
 
         const loadData = async () => {
@@ -408,8 +541,14 @@ export default defineComponent({
                     delete c.banlist;
                 }
 
-                if (c.adjust?.length === 0) {
-                    delete c.adjust;
+                if (c.adjustment?.length === 0) {
+                    delete c.adjustment;
+                } else if (c.adjustment != null) {
+                    for (const a of c.adjustment) {
+                        if (a.related?.length === 0) {
+                            delete a.related;
+                        }
+                    }
                 }
             }
 
@@ -428,6 +567,7 @@ export default defineComponent({
             announcement.value = {
                 source:  'blizzard',
                 date:    todayDate,
+                version: 0,
                 changes: [],
             };
         };
@@ -448,18 +588,24 @@ export default defineComponent({
             dbId,
             date,
             effectiveDate,
+            version,
+            lastVersion,
             link,
             changes,
 
             modes,
             banlistOptions,
             adjustOptions,
+            nextStatus,
+            calcStatus,
+            statusIcon,
+            statusColor,
 
             newAnnouncement,
             saveAnnouncement,
             applyAnnouncements,
             addBanlist,
-            addAdjust,
+            addAdjustment,
             addEntity,
         };
     },

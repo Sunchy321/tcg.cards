@@ -1,67 +1,26 @@
 export type Legality = 'banned' | 'legal' | 'unavailable';
-export type Adjust = 'adjust' | 'buff' | 'nerf';
+export type Adjustment = 'adjust' | 'buff' | 'nerf';
 
 export type Banlist = Record<string, Legality>;
-
-export interface EntityEssential {
-    cardId: string;
-
-    localization: {
-        lang: string;
-        name: string;
-        text: string;
-        displayText: string;
-        rawText: string;
-    }[];
-
-    set: string;
-    classes: string[];
-    cardType: string;
-    cost: number;
-    attack?: number;
-    health?: number;
-    durability?: number;
-    armor?: number;
-    race?: string;
-    spellSchool?: string;
-    quest?: { type: 'normal' | 'questline' | 'side', progress: number, part?: number };
-
-    techLevel?: number;
-    raceBucket?: string;
-    armorBucket?: number;
-    buddy?: string;
-    bannedRace?: string;
-
-    mercenaryRole?: string;
-    colddown?: number;
-
-    collectible: boolean;
-    elite: boolean;
-    rarity?: string;
-
-    mechanics: string[];
-    referencedTags: string[];
-
-    heroPower?: string;
-}
 
 export interface FormatAnnouncement {
     source: string;
     date: string;
     effectiveDate?: string;
     link?: string[];
+    version: number;
+    lastVersion?: number;
 
     changes: {
         format: string;
         setIn?: string[];
         setOut?: string[];
         banlist?: { id: string, status: Legality }[];
-        adjust?: {
-            status: Adjust;
-            detail: { part: string, status: Adjust }[];
-            from: EntityEssential;
-            to: EntityEssential;
-            related?: EntityEssential[];
+        adjustment?: {
+            id: string;
+            status: Adjustment;
+            detail: { part: string, status: Adjustment }[];
+            related?: string[];
         }[];
     }[];
 }
@@ -71,12 +30,15 @@ export interface FormatChange {
     date: string;
     format: string;
     link?: string[];
+    version: number;
+    lastVersion?: number;
     type: 'card' | 'set';
     id: string;
-    status: Adjust | Legality | 'in' | 'out';
-    entity?: EntityEssential;
-    adjust: {
-        from?: EntityEssential;
-        to?: EntityEssential;
+    status: Adjustment | Legality | 'in' | 'out';
+    adjustment: {
+        id: string;
+        detail: { part: string, status: Adjustment }[];
+        from: number;
+        to: number;
     }[];
 }

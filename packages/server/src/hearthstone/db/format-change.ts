@@ -16,9 +16,10 @@ const IFormatChangeSchema = new Schema<IFormatChange>({
     id:     String,
     status: String,
     entity: entityEssential,
-    adjust: {
+    adjustment: {
         type: [{
             _id: false,
+            detail: {type:[{part:String,status:String}]},
             from: entityEssential,
             to: entityEssential
         }],
