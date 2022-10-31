@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { xml2js } from 'xml-js';
 import {
-    castArray, isEqual, last, omit,
+    castArray, isEqual, last, omit, uniq,
 } from 'lodash';
 
 import { dataPath } from '@static';
@@ -39,6 +39,7 @@ import {
     types,
     relatedEntities,
 } from '@data/hearthstone/hsdata-map';
+import { toBucket, toGenerator } from '@/common/to-bucket';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
 export const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
@@ -177,7 +178,9 @@ export class PatchClearer extends Task<IClearPatchStatus> {
             total,
         }));
 
-        for await (const e of Entity.find({ versions: this.version })) {
+        const entities = await Entity.find({ versions: this.version });
+
+        for (const e of entities) {
             if (e.versions.length > 1) {
                 e.versions = e.versions.filter(v => v !== this.version);
                 await e.save();
@@ -350,10 +353,31 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             total,
         }));
 
-        for (const e of entities) {
-            await this.save(e);
+        for (const jsons of toBucket(toGenerator(entities), 500)) {
+            const oldData = await Entity.find({ cardId: { $in: jsons.map(j => j.cardId) } });
 
-            count += 1;
+            for (const e of jsons) {
+                const eJson = omit(new Entity(e).toJSON(), ['versions']);
+
+                let saved = false;
+
+                for (const o of oldData.filter(o => o.cardId === e.cardId)) {
+                    const oJson = omit(o.toJSON(), ['versions']);
+
+                    if (isEqual(oJson, eJson)) {
+                        o.versions = uniq([...o.versions, e.versions[0]]).sort((a, b) => a - b);
+                        await o.save();
+                        saved = true;
+                        break;
+                    }
+                }
+
+                if (!saved) {
+                    await Entity.create(e);
+                }
+
+                count += 1;
+            }
         }
 
         patch.isUpdated = true;
@@ -365,6 +389,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
     private convert(entity: XEntity): IEntity {
         const result: Partial<IEntity> = { };
+        const masters: string[] = [];
         const errors: string[] = [];
 
         result.versions = [this.version];
@@ -608,7 +633,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         power.playRequirements = [];
 
                         for (const r of castArray(p.PlayRequirement)) {
-                            const type = playRequirements[r._attributes.enumID];
+                            const type = playRequirements[r._attributes.reqID];
 
                             const { param } = r._attributes;
 
@@ -671,9 +696,28 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
             case 'EntourageCard': {
                 result.entourages = castArray(entity[k]).map(
-                    v => v._attributes.CardID,
+                    v => v._attributes.cardID,
                 );
 
+                break;
+            }
+            case 'MasterPower': {
+                for (const m of castArray(entity[k])) {
+                    masters.push(m._text);
+                }
+                break;
+            }
+            case 'TriggeredPowerHistoryInfo': {
+                for (const t of castArray(entity[k])) {
+                    const index = Number.parseInt(t._attributes.effectIndex, 10);
+                    const inHistory = t._attributes.showInHistory;
+
+                    const p = result.powers?.[index];
+
+                    if (p != null) {
+                        p.showInHistory = inHistory === 'True';
+                    }
+                }
                 break;
             }
 
@@ -684,6 +728,16 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         if (errors.length > 0) {
             throw errors;
+        }
+
+        if (result.powers != null && masters.length > 0) {
+            for (const m of masters) {
+                for (const p of result.powers) {
+                    if (p.definition === m) {
+                        p.isMaster = true;
+                    }
+                }
+            }
         }
 
         result.localization = localization as IEntity['localization'];
@@ -723,23 +777,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }
 
         return result as IEntity;
-    }
-
-    private async save(entity: IEntity): Promise<void> {
-        const eJson = omit(entity, ['versions']);
-        const oldData = await Entity.find({ cardId: entity.cardId });
-
-        for (const o of oldData) {
-            const oJson = omit(o.toJSON(), ['_id', '__v', 'versions']);
-
-            if (isEqual(oJson, eJson)) {
-                o.versions.push(entity.versions[0]);
-                await o.save();
-                return;
-            }
-        }
-
-        await Entity.create(entity);
     }
 
     stopImpl(): void { /* no-op */ }

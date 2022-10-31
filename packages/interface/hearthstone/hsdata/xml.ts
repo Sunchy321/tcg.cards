@@ -24,7 +24,6 @@ export type XLocStringTag = {
 
 export type XPlayRequirement = {
     _attributes: {
-        enumID: string;
         reqID: string;
         param: string;
     };
@@ -48,7 +47,18 @@ export type XReferencedTag = {
 
 export type XEntourageCard = {
     _attributes: {
-        CardID: string;
+        cardID: string;
+    };
+};
+
+export type XMasterPower = {
+    _text: string;
+};
+
+export type XTriggeredPowerHistoryInfo = {
+    _attributes: {
+        effectIndex: string;
+        showInHistory: string;
     };
 };
 
@@ -59,10 +69,12 @@ export type XEntity = {
         version: string;
     };
 
+    MasterPower?: ValueOrArray<XMasterPower>;
     Tag?: ValueOrArray<XLocStringTag | XTag>;
     Power?: ValueOrArray<XPower>;
     ReferencedTag?: ValueOrArray<XReferencedTag>;
     EntourageCard?: ValueOrArray<XEntourageCard>;
+    TriggeredPowerHistoryInfo?: ValueOrArray<XTriggeredPowerHistoryInfo>;
 };
 
 export type XCardDefs = {

@@ -5,6 +5,8 @@ export interface PlayRequirement {
 
 export interface Power {
     definition: string;
+    isMaster?: boolean;
+    showInHistory?: boolean;
     playRequirements: PlayRequirement[];
 }
 
@@ -21,9 +23,10 @@ export interface Entity {
         text: string;
         displayText: string;
         rawText: string;
-        targetText: string;
-        howToEarn: string;
-        howToEarnGolden: string;
+        targetText?: string;
+        textInPlay?: string,
+        howToEarn?: string;
+        howToEarnGolden?: string;
         flavor: string;
         illusId?: string;
     }[];
@@ -77,4 +80,5 @@ export interface Entity {
     deckOrder: number;
     overrideWatermark: string;
     deckSize?: number;
+    localizationNotes?: string
 }

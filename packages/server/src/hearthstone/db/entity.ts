@@ -19,6 +19,7 @@ const EntitySchema = new Schema<IEntity>({
         displayText:     String,
         rawText:         String,
         targetText:      String,
+        textInPlay:      String,
         howToEarn:       String,
         howToEarnGolden: String,
         flavor:          String,
@@ -60,19 +61,25 @@ const EntitySchema = new Schema<IEntity>({
     mechanics:      [String],
     referencedTags: [String],
 
-    powers: [{
-        _id:              false,
-        definition:       String,
-        playRequirements: {
-            type: [
-                {
-                    _id:     false,
-                    reqType: String,
-                    param:   Number,
-                },
-            ],
-        },
-    }],
+    powers: {
+        type: [{
+            _id:              false,
+            definition:       String,
+            isMaster:         Boolean,
+            showInHistory:    Boolean,
+            playRequirements: {
+                type: [
+                    {
+                        _id:     false,
+                        reqType: String,
+                        param:   Number,
+                    },
+                ],
+                default: undefined,
+            },
+        }],
+        default: undefined,
+    },
 
     relatedEntities: [{
         _id:      false,
@@ -90,6 +97,7 @@ const EntitySchema = new Schema<IEntity>({
     deckOrder:         Number,
     overrideWatermark: String,
     deckSize:          Number,
+    localizationNotes: String,
 }, {
     toJSON: {
         transform(doc, ret) {
