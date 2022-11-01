@@ -8,6 +8,7 @@ const IFormatAnnouncementSchema = new Schema<IFormatAnnouncement>({
     source:        String,
     date:          String,
     effectiveDate: String,
+    name:          String,
     link:          { type: [String], default: undefined },
     version:       Number,
     lastVersion:   Number,

@@ -48,15 +48,21 @@
                 </template>
             </date-input>
 
+            <q-input v-model="name" class="q-ml-md" outlined dense>
+                <template #before>
+                    <q-icon name="mdi-account-outline" />
+                </template>
+            </q-input>
+
             <q-space />
 
-            <q-input v-model="lastVersion" outlined dense clearable>
+            <q-input v-model="lastVersion" outlined dense clearable type="number">
                 <template #before>
                     <q-icon name="mdi-history" />
                 </template>
             </q-input>
 
-            <q-input v-model="version" class="q-ml-md" outlined dense>
+            <q-input v-model="version" class="q-ml-md" outlined dense type="number">
                 <template #before>
                     <q-icon name="mdi-cards-outline" />
                 </template>
@@ -134,6 +140,7 @@
                         <entity-input
                             v-model="b.id"
                             class="col-grow q-mr-sm"
+                            :mode="c.format"
                             :version="version"
                             outlined dense
                         />
@@ -162,8 +169,16 @@
                         <entity-input
                             v-model="a.id"
                             class="col-grow q-mr-sm"
+                            :mode="c.format"
                             :version="version"
                             outlined dense
+                        />
+
+                        <q-btn
+                            class="q-mr-sm"
+                            icon="mdi-cards-outline"
+                            flat round dense
+                            @click="() => addRelated(a)"
                         />
 
                         <q-btn
@@ -177,18 +192,19 @@
                             class="q-mr-sm"
                             icon="mdi-plus"
                             flat round dense
-                            @click="() => addEntity(a)"
+                            @click="() => addDetail(a)"
                         />
 
                         <q-chip
-                            v-for="d of a.detail" :key="d.part"
+                            v-for="(d, i) of a.detail" :key="d.part"
                             class="flex items-center q-mr-sm"
-                            square
+                            square removable
                             :icon="statusIcon(d.status)"
                             :color="statusColor(d.status)"
                             text-color="white"
                             :clickable="d.part === 'text'"
                             @click="d.status = nextStatus(d.status)"
+                            @remove="a.detail.splice(i, 1)"
                         >{{ d.part }}</q-chip>
 
                         <q-btn-toggle
@@ -207,11 +223,20 @@
                             <entity-input
                                 v-for="(r, i) in a.related" :key="i"
                                 class="col-grow q-ml-sm"
+                                :mode="c.format"
                                 :version="version"
                                 outlined dense
                                 :model-value="r"
                                 @update:model-value="v => a.related[i] = v"
-                            />
+                            >
+                                <template #append>
+                                    <q-btn
+                                        icon="mdi-minus"
+                                        flat round dense
+                                        @click="a.related.splice(i, 1)"
+                                    />
+                                </template>
+                            </entity-input>
                         </div>
                     </template>
                 </list>
@@ -233,6 +258,7 @@ import {
     defineComponent, ref, computed, watch, onMounted, toRaw,
 } from 'vue';
 
+import { useQuasar } from 'quasar';
 import { useHearthstone } from 'store/games/hearthstone';
 
 import controlSetup from 'setup/control';
@@ -259,6 +285,7 @@ interface FormatAnnouncementProfile {
     id?: string;
     source: string;
     date: string;
+    name: string;
 }
 
 const statusIcon = (status: string) => {
@@ -316,17 +343,19 @@ export default defineComponent({
     },
 
     setup() {
+        const { dialog } = useQuasar();
         const hearthstone = useHearthstone();
 
         const { controlGet, controlPost } = controlSetup();
 
-        const modes = computed(() => ['#standard', ...hearthstone.data.modes]);
+        const modes = computed(() => ['#hearthstone', ...hearthstone.data.modes]);
         const announcementList = ref<FormatAnnouncementProfile[]>([]);
         const selected = ref<FormatAnnouncementProfile | null>(null);
 
         const announcement = ref<FormatAnnouncement>({
             date:    '',
             source:  'blizzard',
+            name:    '',
             link:    [],
             version: 0,
             changes: [],
@@ -334,7 +363,7 @@ export default defineComponent({
 
         const announcementListWithLabel = computed(() => announcementList.value.map(a => ({
             value: a,
-            label: `${a.date} - ${a.source}`,
+            label: `${a.name} [${a.date}] - ${a.source}`,
         })));
 
         const dbId = computed(() => (announcement.value as any)?._id);
@@ -350,6 +379,13 @@ export default defineComponent({
             get() { return announcement.value?.effectiveDate ?? ''; },
             set(newValue: string) {
                 announcement.value.effectiveDate = newValue;
+            },
+        });
+
+        const name = computed({
+            get() { return announcement.value?.name ?? ''; },
+            set(newValue: string) {
+                announcement.value.name = newValue;
             },
         });
 
@@ -391,7 +427,7 @@ export default defineComponent({
             }
         };
 
-        const addDetail = <K extends EntityNumberKey>(
+        const pushDetail = <K extends EntityNumberKey>(
             array: Adjustment['detail'],
             key: K,
             oldValue: Entity,
@@ -401,11 +437,7 @@ export default defineComponent({
             const oldField = oldValue[key];
             const newField = newValue[key];
 
-            if (oldField == null || newField == null) {
-                return;
-            }
-
-            const value = getStatus(oldField, newField, prefer);
+            const value = getStatus(oldField ?? 0, newField ?? 0, prefer);
 
             if (value != null) {
                 array.push({ part: key, status: value });
@@ -420,8 +452,40 @@ export default defineComponent({
             }
         };
 
+        const addDetail = (a: Adjustment) => {
+            dialog({
+                title:  'Part',
+                prompt: {
+                    model: '',
+                },
+                cancel:     true,
+                persistent: true,
+            }).onOk(part => {
+                dialog({
+                    title:   'Status',
+                    options: {
+                        type:  'radio',
+                        model: 'nerf',
+                        items: [
+                            { label: 'Nerf', value: 'nerf', color: 'negative' },
+                            { label: 'Buff', value: 'buff', color: 'positive' },
+                            { label: 'Adjust', value: 'adjust', color: 'warning' },
+                        ],
+                    },
+                    cancel:     true,
+                    persistent: true,
+                }).onOk(status => {
+                    if (a.detail == null) {
+                        a.detail = [];
+                    }
+
+                    a.detail.push({ part, status });
+                });
+            });
+        };
+
         const calcStatus = async (a: Adjustment) => {
-            if (lastVersion.value == null) {
+            if (lastVersion.value == null || a.id == null || a.id === '') {
                 return;
             }
 
@@ -437,19 +501,41 @@ export default defineComponent({
 
             const newDetail: Adjustment['detail'] = [];
 
-            addDetail(newDetail, 'cost', oldData, newData, 'lesser');
-            addDetail(newDetail, 'attack', oldData, newData, 'greater');
-            addDetail(newDetail, 'health', oldData, newData, 'greater');
-            addDetail(newDetail, 'durability', oldData, newData, 'greater');
-            addDetail(newDetail, 'armor', oldData, newData, 'greater');
-            addDetail(newDetail, 'techLevel', oldData, newData, 'lesser');
-            addDetail(newDetail, 'armorBucket', oldData, newData, 'greater');
+            pushDetail(newDetail, 'cost', oldData, newData, 'lesser');
+            pushDetail(newDetail, 'attack', oldData, newData, 'greater');
+            pushDetail(newDetail, 'health', oldData, newData, 'greater');
+            pushDetail(newDetail, 'durability', oldData, newData, 'greater');
+            pushDetail(newDetail, 'armor', oldData, newData, 'greater');
+            pushDetail(newDetail, 'techLevel', oldData, newData, 'lesser');
+            pushDetail(newDetail, 'armorBucket', oldData, newData, 'greater');
+            pushDetail(newDetail, 'colddown', oldData, newData, 'lesser');
 
             const oldLoc = oldData.localization.find(l => l.lang === 'en') ?? oldData.localization[0];
             const newLoc = newData.localization.find(l => l.lang === 'en') ?? newData.localization[0];
 
             if (oldLoc.text !== newLoc.text) {
                 newDetail.push({ part: 'text', status: 'nerf' });
+            }
+
+            if (oldData.race !== newData.race) {
+                newDetail.push({ part: 'race', status: 'adjust' });
+            }
+
+            if (oldData.spellSchool !== newData.spellSchool) {
+                newDetail.push({ part: 'spell-school', status: 'adjust' });
+            }
+
+            const rarities = ['common', 'rare', 'epic', 'legendary'];
+
+            const oldRarity = rarities.indexOf(oldData.rarity ?? '');
+            const newRarity = rarities.indexOf(newData.rarity ?? '');
+
+            if (oldRarity !== -1 && newRarity !== -1) {
+                if (newRarity > oldRarity) {
+                    newDetail.push({ part: 'rarity', status: 'nerf' });
+                } else if (newRarity < oldRarity) {
+                    newDetail.push({ part: 'rarity', status: 'buff' });
+                }
             }
 
             a.detail = newDetail;
@@ -466,7 +552,7 @@ export default defineComponent({
         };
 
         const addBanlist = (banlist: Banlist[]) => [
-            ...banlist,
+            ...banlist ?? [],
             {
                 id:     '',
                 status: last(banlist)?.status ?? 'banned',
@@ -474,7 +560,7 @@ export default defineComponent({
         ];
 
         const addAdjustment = (adjustment: Adjustment[]) => [
-            ...adjustment,
+            ...adjustment ?? [],
             {
                 id:      '',
                 status:  last(adjustment)?.status ?? 'nerf',
@@ -483,7 +569,7 @@ export default defineComponent({
             },
         ];
 
-        const addEntity = (adjustment: Adjustment) => {
+        const addRelated = (adjustment: Adjustment) => {
             if (adjustment.related == null) {
                 adjustment.related = [];
             }
@@ -567,6 +653,7 @@ export default defineComponent({
             announcement.value = {
                 source:  'blizzard',
                 date:    todayDate,
+                name:    '',
                 version: 0,
                 changes: [],
             };
@@ -588,6 +675,7 @@ export default defineComponent({
             dbId,
             date,
             effectiveDate,
+            name,
             version,
             lastVersion,
             link,
@@ -606,7 +694,8 @@ export default defineComponent({
             applyAnnouncements,
             addBanlist,
             addAdjustment,
-            addEntity,
+            addDetail,
+            addRelated,
         };
     },
 });

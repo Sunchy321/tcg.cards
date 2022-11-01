@@ -2,8 +2,12 @@ import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 
 import Entity from '@/hearthstone/db/entity';
+import { Entity as IEntity } from '@interface/hearthstone/entity';
 
-import { flatten, mapValues, random } from 'lodash';
+import {
+    flatten, mapValues, omit, random,
+} from 'lodash';
+
 import { toSingle } from '@/common/request-helper';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -25,7 +29,13 @@ router.get('/', async ctx => {
         return;
     }
 
-    const entities = await Entity.find({ cardId: id }).sort({ version: -1 });
+    const query: any = { cardId: id, cardType: { $ne: 'enchantment' } };
+
+    if (version != null) {
+        query.versions = version;
+    }
+
+    const entities = await Entity.find(query).sort({ version: -1 });
 
     const entity = (() => {
         if (version != null) {
@@ -60,24 +70,27 @@ router.get('/name', async ctx => {
         return;
     }
 
-    const entities = await Entity.find({ 'localization.name': name }).sort({ version: -1 });
+    const query: any = { 'localization.name': name, 'cardType': { $ne: 'enchantment' } };
 
-    const entity = (() => {
-        if (version != null) {
-            for (const e of entities) {
-                if (e.versions.includes(version)) {
-                    return e;
-                }
-            }
-        }
+    if (version != null) {
+        query.versions = version;
+    }
 
-        return entities[0];
-    })();
+    const entities = await Entity.aggregate<{ _id: string, data: IEntity[] }>()
+        .match(query)
+        .sort({ version: -1 })
+        .group({ _id: '$cardId', data: { $push: '$$ROOT' } });
 
-    ctx.body = {
-        ...entity.toJSON(),
-        versions: flatten(entities.map(e => e.versions)),
-    };
+    ctx.body = entities.map(v => {
+        const entity = (
+            version != null ? v.data.filter(d => d.versions.includes(version)) : v.data
+        )[0];
+
+        return {
+            ...omit(entity, ['_id', '__v']),
+            versions: flatten(v.data.map(e => e.versions)),
+        };
+    });
 });
 
 router.get('/random', async ctx => {

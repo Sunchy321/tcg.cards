@@ -7,6 +7,7 @@ export interface FormatAnnouncement {
     source: string;
     date: string;
     effectiveDate?: string;
+    name: string;
     link?: string[];
     version: number;
     lastVersion?: number;

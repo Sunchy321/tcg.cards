@@ -10,7 +10,7 @@
             />
         </div>
 
-        <div v-for="(v, i) in modelValue" :key="i" :class="itemClass">
+        <div v-for="(v, i) in modelValue" :key="itemKey ? v[itemKey] : i" :class="itemClass">
             <div :class="summaryClass" class="flex items-center">
                 <slot name="summary" v-bind="{ value: v, index: i, update: (v: any) => update(v, i) }" />
                 <q-btn
@@ -48,6 +48,10 @@ export default defineComponent({
         modelValue: {
             type:     Array as PropType<any[]>,
             required: true,
+        },
+        itemKey: {
+            type:    String,
+            default: undefined,
         },
         titleClass:   { type: String, default: '' },
         itemClass:    { type: String, default: '' },

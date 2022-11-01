@@ -38,6 +38,7 @@ router.get('/announcement', async ctx => {
             id:     c._id,
             source: c.source,
             date:   c.date,
+            name:   c.name,
         }));
     } else {
         const announcement = await FormatAnnouncement.findById(id);
