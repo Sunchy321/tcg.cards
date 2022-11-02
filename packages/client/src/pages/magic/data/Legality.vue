@@ -39,8 +39,8 @@ import { defineComponent, ref, computed } from 'vue';
 
 import controlSetup from 'src/setup/control';
 
-import Grid from 'src/components/Grid.vue';
-import CardAvatar from '../CardAvatar.vue';
+import Grid from 'components/Grid.vue';
+import CardAvatar from 'components/magic/CardAvatar.vue';
 
 interface Status {
     amount: {

@@ -260,7 +260,7 @@ import controlSetup from 'setup/control';
 
 import ArrayInput from 'components/ArrayInput.vue';
 import CardImage from 'components/magic/CardImage.vue';
-import CardAvatar from '../CardAvatar.vue';
+import CardAvatar from 'components/magic/CardAvatar.vue';
 
 import { Card, Layout } from 'interface/magic/card';
 
