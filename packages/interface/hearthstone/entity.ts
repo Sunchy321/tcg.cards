@@ -11,7 +11,7 @@ export interface Power {
 }
 
 export interface Entity {
-    versions: number[];
+    version: number[];
 
     cardId: string;
     dbfId: number;
@@ -24,7 +24,7 @@ export interface Entity {
         displayText: string;
         rawText: string;
         targetText?: string;
-        textInPlay?: string,
+        textInPlay?: string;
         howToEarn?: string;
         howToEarnGolden?: string;
         flavor: string;
@@ -80,5 +80,5 @@ export interface Entity {
     deckOrder: number;
     overrideWatermark: string;
     deckSize?: number;
-    localizationNotes?: string
+    localizationNotes?: string;
 }

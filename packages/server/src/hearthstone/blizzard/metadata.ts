@@ -5,7 +5,9 @@ import {
     Locale, IMetadata, ISetGroup, ISpecialSetGroup,
 } from '@interface/hearthstone/blizzard';
 
-import Set, { ISet } from '../db/set';
+import { Set as ISet } from '@interface/hearthstone/set';
+
+import Set from '../db/set';
 
 const localeMap: Record<Locale, string> = {
     de_DE: 'de',
@@ -33,9 +35,6 @@ export class MetadataGetter extends Task<void> {
     async startImpl(): Promise<void> {
         const metadata = await blzApi<IMetadata>('/hearthstone/metadata');
 
-        const standardGroup = metadata.setGroups.find(s => s.slug === 'standard');
-        const wildGroup = metadata.setGroups.find(s => s.slug === 'wild');
-
         const setGroups = metadata.setGroups.filter(isNormalGroup);
 
         const sets: ISet[] = metadata.sets.map(s => ({
@@ -46,20 +45,32 @@ export class MetadataGetter extends Task<void> {
                 .entries(s.name)
                 .map(([key, name]) => ({ lang: localeMap[key as Locale], name })),
 
-            type:        s.type,
+            setType:     s.type,
             releaseDate: s.releastDate ?? undefined,
             cardCount:   [s.collectibleCount, s.nonCollectibleCount],
 
-            group:      setGroups.find(g => g.cardSets.includes(s.slug))?.slug,
-            inStandard: standardGroup?.cardSets?.includes(s.slug) ?? false,
-            inWild:     wildGroup?.cardSets?.includes(s.slug) ?? false,
+            group: setGroups.find(g => g.cardSets.includes(s.slug))?.slug,
         }));
 
-        const setSlugsExist = await Set.find({ slug: { $in: sets.map(s => s.slug) } }).distinct('slug');
+        const setExist = await Set.find({ slug: { $in: sets.map(s => s.slug) } });
 
-        const setNonexist = sets.filter(s => !setSlugsExist.includes(s.slug));
+        const setNonexist = sets.filter(s => !setExist.some(so => so.slug === s.slug));
 
         await Set.insertMany(setNonexist);
+
+        for (const s of setExist) {
+            const sn = sets.find(so => so.slug === s.slug);
+
+            if (sn == null) {
+                return;
+            }
+
+            s.dbfId = sn.dbfId;
+
+            s.releaseDate = sn.releaseDate;
+            s.cardCount = sn.cardCount;
+            s.group = sn.group;
+        }
     }
 
     stopImpl(): void { /* no-op */ }

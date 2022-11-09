@@ -5,7 +5,7 @@ import { DefaultState, Context } from 'koa';
 import mime from 'mime-types';
 // import { cardImagePath } from '@/magic/image';
 
-import { mapValues } from 'lodash';
+import { flatten, mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
 // import { locales } from '@data/magic/basic';
@@ -23,11 +23,28 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 router.get('/', async ctx => {
-    const { id, lang } = mapValues(ctx.query, toSingle);
+    const { id, lang, version: versionText } = mapValues(ctx.query, toSingle);
+
+    const version = versionText != null ? Number.parseInt(versionText, 10) : null;
+
+    if (Number.isNaN(version)) {
+        ctx.status = 400;
+        return;
+    }
 
     registerFonts(assetPath);
 
-    const entity = await Entity.findOne({ cardId: id });
+    const query: any = { cardId: id };
+
+    if (version != null) {
+        query.version = version;
+    }
+
+    const entities = await Entity.find(query);
+
+    const entityVersion = version ?? Math.max(...flatten(entities.map(e => e.version)));
+
+    const entity = entities.find(e => e.version.includes(entityVersion));
 
     if (entity == null) {
         ctx.status = 404;
@@ -84,9 +101,8 @@ router.get('/', async ctx => {
         ctx.body = data;
     } catch (err) {
         console.log(err.message);
+        ctx.status = 404;
     }
-
-    ctx.status = 404;
 });
 
 export default router;

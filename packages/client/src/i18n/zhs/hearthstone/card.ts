@@ -146,6 +146,7 @@ export default {
         inspire:                         '激励',
         invisible_deathrattle:           '不可见亡语',
         invoke:                          '祈求',
+        is_companion:                    '酒馆战棋伙伴',
         jade_golem:                      '青玉魔像', // it should be a referenced tag
         kingsbane_1:                     '弑君1', // only on kingsbane
         kingsbane_2:                     '弑君2', // only on kingsbane
@@ -178,7 +179,7 @@ export default {
         piece_of_cthun:                  'piece_of_cthun',
         poison:                          'poison',
         poisonous:                       '剧毒',
-        premium:                         'premium',
+        premium:                         '金色',
         puzzle_type:                     'puzzle_type',
         puzzle:                          'puzzle',
         random_deck:                     'random_deck',
@@ -211,15 +212,17 @@ export default {
         spell_weakness_fire:             '火焰虚弱',
         spell_weakness_frost:            '冰霜虚弱',
         spell_weakness_holy:             '神圣虚弱',
+        spell_weakness_nature:           '自然虚弱',
         spell_weakness_shadow:           '暗影虚弱',
         spellburst:                      '法术迸发',
+        spellcraft:                      '塑造法术',
         start_dormant:                   '起始休眠',
         start_of_combat_1:               'start_of_combat_1',
         start_of_combat_2:               'start_of_combat_2', // only on 8 battlegrounds hero power
         start_of_combat_3:               'start_of_combat_3',
         start_of_combat_affect_left:     'start_of_combat_affect_left', // only on 8 battlegrounds hero power
         start_of_combat_affect_right:    'start_of_combat_affect_right',
-        start_of_game:                   'start_of_game',
+        start_of_game:                   '对战开始时',
         stealth:                         '潜行',
         studies:                         '研习',
         summoned:                        'summoned', // only on Mind Controlling

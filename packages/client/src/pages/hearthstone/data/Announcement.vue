@@ -99,7 +99,9 @@
                 <q-icon name="mdi-text-box-outline" size="sm" />
             </template>
             <template #summary="{ value: c }">
-                <q-select v-model="c.format" class="col-grow" :options="modes" outlined dense />
+                <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
+
+                <date-input v-model="c.effectiveDate" class="q-ml-md" outlined dense />
             </template>
             <template #body="{ value: c }">
                 <div class="flex q-mt-sm">
@@ -140,7 +142,7 @@
                         <entity-input
                             v-model="b.id"
                             class="col-grow q-mr-sm"
-                            :mode="c.format"
+                            :format="c.format"
                             :version="version"
                             outlined dense
                         />
@@ -169,7 +171,7 @@
                         <entity-input
                             v-model="a.id"
                             class="col-grow q-mr-sm"
-                            :mode="c.format"
+                            :format="c.format"
                             :version="version"
                             outlined dense
                         />
@@ -223,7 +225,7 @@
                             <entity-input
                                 v-for="(r, i) in a.related" :key="i"
                                 class="col-grow q-ml-sm"
-                                :mode="c.format"
+                                :format="c.format"
                                 :version="version"
                                 outlined dense
                                 :model-value="r"
@@ -266,7 +268,7 @@ import controlSetup from 'setup/control';
 import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
-import EntityInput from 'src/components/hearthstone/data/EntityInput.vue';
+import EntityInput from 'components/hearthstone/data/EntityInput.vue';
 
 import { Entity } from 'interface/hearthstone/entity';
 import { FormatAnnouncement } from 'interface/hearthstone/format-change';
@@ -294,6 +296,10 @@ const statusIcon = (status: string) => {
         return 'mdi-close-circle-outline';
     case 'legal':
         return 'mdi-check-circle-outline';
+    case 'banned_in_deck':
+        return 'mdi-progress-close';
+    case 'banned_in_card_pool':
+        return 'mdi-minus-circle-outline';
     case 'unavailable':
         return 'mdi-cancel';
     case 'nerf':
@@ -320,7 +326,9 @@ const statusColor = (status: string) => {
     }
 };
 
-const banlistOptions = ['legal', 'banned', 'unavailable'].map(v => ({
+const banlistOptions = [
+    'legal', 'banned', 'banned_in_deck', 'banned_in_card_pool', 'unavailable',
+].map(v => ({
     icon:  statusIcon(v),
     class: `banlist-status-${v}`,
     value: v,
@@ -348,7 +356,7 @@ export default defineComponent({
 
         const { controlGet, controlPost } = controlSetup();
 
-        const modes = computed(() => ['#hearthstone', ...hearthstone.data.modes]);
+        const formats = computed(() => ['#hearthstone', ...hearthstone.data.formats]);
         const announcementList = ref<FormatAnnouncementProfile[]>([]);
         const selected = ref<FormatAnnouncementProfile | null>(null);
 
@@ -681,7 +689,7 @@ export default defineComponent({
             link,
             changes,
 
-            modes,
+            formats,
             banlistOptions,
             adjustOptions,
             nextStatus,

@@ -1,4 +1,4 @@
-export type Legality = 'banned' | 'legal' | 'unavailable';
+export type Legality = 'banned_in_card_pool' | 'banned_in_deck' | 'banned' | 'legal' | 'unavailable';
 export type Adjustment = 'adjust' | 'buff' | 'nerf';
 
 export type Banlist = Record<string, Legality>;
@@ -14,6 +14,7 @@ export interface FormatAnnouncement {
 
     changes: {
         format: string;
+        effectiveDate?: string;
         setIn?: string[];
         setOut?: string[];
         banlist?: { id: string, status: Legality }[];
@@ -33,13 +34,11 @@ export interface FormatChange {
     link?: string[];
     version: number;
     lastVersion?: number;
-    type: 'card' | 'set';
+    type: 'adjustment' | 'banlist' | 'set';
     id: string;
     status: Adjustment | Legality | 'in' | 'out';
-    adjustment: {
-        id: string;
+    adjustment?: {
+        id?: string;
         detail: { part: string, status: Adjustment }[];
-        from: number;
-        to: number;
     }[];
 }

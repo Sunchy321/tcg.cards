@@ -1,8 +1,9 @@
 import { defineGameStore } from './game';
 
 interface Data {
+    birthday: string;
     locales: string[];
-    modes: string[];
+    formats: string[];
 }
 
 export const useHearthstone = defineGameStore<'hearthstone', Data, unknown>('hearthstone', { });

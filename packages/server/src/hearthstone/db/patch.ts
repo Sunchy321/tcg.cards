@@ -1,4 +1,4 @@
-import { Document, Schema } from 'mongoose';
+import { Schema } from 'mongoose';
 
 import { Patch as IPatch } from '@interface/hearthstone/patch';
 
@@ -24,22 +24,6 @@ const PatchSchema = new Schema<IPatch>({
     },
 });
 
-interface IPatchJSON {
-    version: string;
-    isUpdated: boolean;
-}
-
-interface IPatchMethods {
-    json(): IPatchJSON;
-}
-
-PatchSchema.methods.json = function (this: IPatch): IPatchJSON {
-    return {
-        version:   this.version,
-        isUpdated: this.isUpdated,
-    };
-};
-
-const Patch = conn.model<Document & IPatch & IPatchMethods>('patch', PatchSchema);
+const Patch = conn.model<IPatch>('patch', PatchSchema);
 
 export default Patch;

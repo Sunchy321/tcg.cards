@@ -15,6 +15,13 @@
                 @click="loadHsdata"
             />
 
+            <q-btn
+                class="q-mr-md"
+                flat round dense
+                icon="mdi-import"
+                @click="loadPatches"
+            />
+
             <div v-if="progress != null" class="q-mr-sm">
                 {{ progressLabel }}
             </div>
@@ -29,10 +36,12 @@
                 size="15px"
             />
         </div>
-        <grid v-slot="p" :value="patches" :item-width="300">
+        <grid v-slot="{ version, number, isUpdated }" :value="patches" :item-width="300">
             <hsdata-patch
-                :key="p.version"
-                v-bind="p"
+                :key="number"
+                :version="version"
+                :number="number"
+                :is-updated="isUpdated"
                 @load-data="loadData"
             />
         </grid>
@@ -77,7 +86,14 @@ interface LoaderProgress {
     total: number;
 }
 
-type Progress = LoaderProgress | TransferProgress;
+interface PatchProgress {
+    type: 'clear-patch' | 'load-patch';
+    version: number;
+    count: number;
+    total: number;
+}
+
+type Progress = LoaderProgress | PatchProgress | TransferProgress;
 
 export default defineComponent({
     components: { Grid, HsdataPatch },
@@ -101,7 +117,7 @@ export default defineComponent({
                 } else {
                     return prog.receivedObjects / prog.totalObjects;
                 }
-            } else if (prog.type === 'load') {
+            } else if (prog.type === 'load' || prog.type === 'load-patch') {
                 return prog.count / prog.total;
             } else {
                 return undefined;
@@ -119,13 +135,15 @@ export default defineComponent({
                 return `${prog.indexedObjects}/${prog.receivedObjects}/${prog.totalObjects} (${bytes(prog.receivedBytes)})`;
             } else if (prog.type === 'load') {
                 return `${prog.count}/${prog.total}`;
+            } else if (prog.type === 'load-patch') {
+                return `${prog.version}: ${prog.count}/${prog.total}`;
             } else {
                 return null;
             }
         });
 
         const loadData = async () => {
-            const { data } = await apiGet<Patch[]>('/hearthstone/patches');
+            const { data } = await apiGet<Patch[]>('/hearthstone/patch');
 
             patches.value = data;
         };
@@ -166,6 +184,36 @@ export default defineComponent({
             });
         };
 
+        const loadPatches = async () => {
+            for (const p of patches.value) {
+                if (p.isUpdated) {
+                    continue;
+                }
+
+                const ws = controlWs('/hearthstone/hsdata/load-patch', { version: p.number });
+
+                await new Promise((resolve, reject) => {
+                    ws.onmessage = ({ data }) => {
+                        if (data.error != null) {
+                            console.error(data);
+                        } else {
+                            const prog = JSON.parse(data) as Progress;
+                            progress.value = prog;
+                        }
+                    };
+
+                    ws.onerror = reject;
+                    ws.onclose = () => {
+                        progress.value = undefined;
+
+                        resolve(undefined);
+                    };
+                });
+
+                await loadData();
+            }
+        };
+
         onMounted(loadData);
 
         return {
@@ -177,6 +225,7 @@ export default defineComponent({
             loadData,
             getHsdata,
             loadHsdata,
+            loadPatches,
         };
     },
 });

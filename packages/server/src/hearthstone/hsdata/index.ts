@@ -144,7 +144,7 @@ export class DataLoader extends Task<ILoaderStatus> {
 
 export interface IClearPatchStatus {
     type: 'clear-patch';
-    version: string;
+    version: number;
     count: number;
     total: number;
 }
@@ -152,9 +152,9 @@ export interface IClearPatchStatus {
 export class PatchClearer extends Task<IClearPatchStatus> {
     version: number;
 
-    constructor(version: string) {
+    constructor(version: number) {
         super();
-        this.version = Number.parseInt(last(version.split('.'))!, 10);
+        this.version = version;
     }
 
     async startImpl(): Promise<void> {
@@ -169,20 +169,20 @@ export class PatchClearer extends Task<IClearPatchStatus> {
         }
 
         let count = 0;
-        const total = await Entity.countDocuments({ versions: this.version });
+        const total = await Entity.countDocuments({ version: this.version });
 
         this.intervalProgress(500, () => ({
             type:    'clear-patch',
-            version: this.version.toString(),
+            version: this.version,
             count,
             total,
         }));
 
-        const entities = await Entity.find({ versions: this.version });
+        const entities = await Entity.find({ version: this.version });
 
         for (const e of entities) {
-            if (e.versions.length > 1) {
-                e.versions = e.versions.filter(v => v !== this.version);
+            if (e.version.length > 1) {
+                e.version = e.version.filter(v => v !== this.version);
                 await e.save();
             } else {
                 await e.delete();
@@ -270,7 +270,7 @@ function getValue(tag: XLocStringTag | XTag, info: ITag) {
 
 export interface ILoadPatchStatus {
     type: 'load-patch';
-    version: string;
+    version: number;
     count: number;
     total: number;
 }
@@ -278,9 +278,9 @@ export interface ILoadPatchStatus {
 export class PatchLoader extends Task<ILoadPatchStatus> {
     version: number;
 
-    constructor(version: string) {
+    constructor(version: number) {
         super();
-        this.version = Number.parseInt(last(version.split('.'))!, 10);
+        this.version = version;
     }
 
     async startImpl(): Promise<void> {
@@ -348,7 +348,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         this.intervalProgress(500, () => ({
             type:    'load-patch',
-            version: this.version.toString(),
+            version: this.version,
             count,
             total,
         }));
@@ -357,15 +357,15 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             const oldData = await Entity.find({ cardId: { $in: jsons.map(j => j.cardId) } });
 
             for (const e of jsons) {
-                const eJson = omit(new Entity(e).toJSON(), ['versions']);
+                const eJson = omit(new Entity(e).toJSON(), ['version']);
 
                 let saved = false;
 
                 for (const o of oldData.filter(o => o.cardId === e.cardId)) {
-                    const oJson = omit(o.toJSON(), ['versions']);
+                    const oJson = omit(o.toJSON(), ['version']);
 
                     if (isEqual(oJson, eJson)) {
-                        o.versions = uniq([...o.versions, e.versions[0]]).sort((a, b) => a - b);
+                        o.version = uniq([...o.version, e.version[0]]).sort((a, b) => a - b);
                         await o.save();
                         saved = true;
                         break;
@@ -392,7 +392,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         const masters: string[] = [];
         const errors: string[] = [];
 
-        result.versions = [this.version];
+        result.version = [this.version];
         result.cardId = entity._attributes.CardID;
         result.dbfId = Number.parseInt(entity._attributes.ID, 10);
 

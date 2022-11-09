@@ -145,7 +145,7 @@ export default defineComponent({
             type:     String,
             required: true,
         },
-        mode: {
+        format: {
             type:    String,
             default: undefined,
         },
@@ -188,7 +188,7 @@ export default defineComponent({
                 version: props.version,
             });
 
-            if (props.mode === 'mercenaries') {
+            if (props.format === 'mercenaries') {
                 if (data.some(d => mercenariesPreset.includes(d.cardId))) {
                     data = data.filter(d => mercenariesPreset.includes(d.cardId));
                 }

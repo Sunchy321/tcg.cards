@@ -18,13 +18,6 @@ const routes = [
                 },
             },
             {
-                path:     'format',
-                redirect: {
-                    name:   'magic/format',
-                    params: { id: 'standard' },
-                },
-            },
-            {
                 path:      'format/:id',
                 name:      'magic/format',
                 component: async () => import('pages/magic/Format.vue'),

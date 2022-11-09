@@ -18,6 +18,8 @@ const FormatSchema = new Schema<IFormat>({
         _id: false, id: String, status: String, date: String, group: String,
     }],
 
+    birthday:  String,
+    deathdate: String,
 }, {
     toJSON: {
         transform(doc, ret) {

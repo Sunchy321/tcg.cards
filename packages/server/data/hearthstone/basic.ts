@@ -1,3 +1,5 @@
+export const birthday = '2013-05-23';
+
 export const locales = [
     'en',
     'de',
@@ -15,7 +17,7 @@ export const locales = [
     'zht',
 ];
 
-export const modes = [
+export const formats = [
     'standard',
     'wild',
     'classic',

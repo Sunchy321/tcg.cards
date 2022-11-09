@@ -15,18 +15,16 @@ router.get('/', async ctx => {
 
     if (version == null) {
         const patches = await Patch.find().sort({ number: -1 });
-        ctx.body = patches.map(p => p.version);
+        ctx.body = patches.map(p => p.toJSON());
         return;
     }
 
-    if (version != null) {
-        const patch = await Patch.findOne({ version });
+    const patch = await Patch.findOne({ version });
 
-        if (patch != null) {
-            const json = patch.toJSON();
+    if (patch != null) {
+        const json = patch.toJSON();
 
-            ctx.body = json;
-        }
+        ctx.body = json;
     }
 });
 

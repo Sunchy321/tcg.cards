@@ -148,6 +148,7 @@ export default {
         inspire:                         'inspire',
         invisible_deathrattle:           'invisible_deathrattle',
         invoke:                          'invoke',
+        is_companion:                    'Battlegrounds Companion',
         jade_golem:                      'jade_golem', // it should be a referenced tag
         kingsbane_1:                     'kingsbane_1', // only on kingsbane
         kingsbane_2:                     'kingsbane_2', // only on kingsbane
@@ -213,8 +214,10 @@ export default {
         spell_weakness_fire:             'spell_weakness_fire',
         spell_weakness_frost:            'spell_weakness_frost',
         spell_weakness_holy:             'spell_weakness_holy',
+        spell_weakness_nature:           'Nature Weakness',
         spell_weakness_shadow:           'spell_weakness_shadow',
         spellburst:                      'spellburst',
+        spellcraft:                      'Spellcraft',
         start_dormant:                   'start_dormant',
         start_of_combat_1:               'start_of_combat_1',
         start_of_combat_2:               'start_of_combat_2', // only on 8 battlegrounds hero power

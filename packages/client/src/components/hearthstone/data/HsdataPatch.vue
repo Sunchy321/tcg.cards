@@ -47,7 +47,7 @@ import controlSetup from 'setup/control';
 
 interface Progress {
     type: 'clear-patch' | 'load-patch';
-    version: string;
+    version: number;
     count: number;
     total: number;
 }
@@ -56,6 +56,11 @@ export default defineComponent({
     props: {
         version: {
             type:     String,
+            required: true,
+        },
+
+        number: {
+            type:     Number,
             required: true,
         },
 
@@ -89,7 +94,7 @@ export default defineComponent({
         });
 
         const clearPatch = async () => {
-            const ws = controlWs('/hearthstone/hsdata/clear-patch', { version: props.version });
+            const ws = controlWs('/hearthstone/hsdata/clear-patch', { version: props.number });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
@@ -112,7 +117,7 @@ export default defineComponent({
         };
 
         const loadPatch = async () => {
-            const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.version });
+            const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.number });
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {

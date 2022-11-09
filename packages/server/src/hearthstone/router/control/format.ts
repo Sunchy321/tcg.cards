@@ -6,7 +6,7 @@ import websocket from '@/middlewares/websocket';
 import Format from '@/hearthstone/db/format';
 import FormatAnnouncement from '@/hearthstone/db/format-announcement';
 
-// import { AnnouncementApplier } from '@/magic/banlist/apply';
+import { AnnouncementApplier } from '@/hearthstone/banlist/apply';
 // import { LegalityAssigner } from '@/magic/banlist/legality';
 
 import { mapValues } from 'lodash';
@@ -64,13 +64,13 @@ router.post('/announcement/save', async ctx => {
     ctx.status = 200;
 });
 
-// const applier = new AnnouncementApplier();
+const applier = new AnnouncementApplier();
 
-// router.post('/announcement/apply', async ctx => {
-//     await applier.apply();
+router.post('/announcement/apply', async ctx => {
+    await applier.apply();
 
-//     ctx.status = 200;
-// });
+    ctx.status = 200;
+});
 
 // const assigner = new LegalityAssigner();
 

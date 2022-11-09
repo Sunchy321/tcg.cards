@@ -47,7 +47,14 @@ router.get(
             ctx.status = 400;
             ws.close();
         } else {
-            const version = toSingle(ctx.query.version);
+            const versionText = toSingle(ctx.query.version);
+
+            const version = Number.parseInt(versionText ?? '', 10);
+
+            if (Number.isNaN(version)) {
+                ctx.status = 400;
+                return;
+            }
 
             if (patchClearer[version] == null) {
                 patchClearer[version] = new PatchClearer(version);
@@ -71,7 +78,14 @@ router.get(
             ctx.status = 400;
             ws.close();
         } else {
-            const version = toSingle(ctx.query.version);
+            const versionText = toSingle(ctx.query.version);
+
+            const version = Number.parseInt(versionText ?? '', 10);
+
+            if (Number.isNaN(version)) {
+                ctx.status = 400;
+                return;
+            }
 
             if (patchLoaders[version] == null) {
                 patchLoaders[version] = new PatchLoader(version);

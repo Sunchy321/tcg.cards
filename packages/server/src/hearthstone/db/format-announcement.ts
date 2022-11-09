@@ -14,11 +14,12 @@ const IFormatAnnouncementSchema = new Schema<IFormatAnnouncement>({
     lastVersion:   Number,
 
     changes: [{
-        _id:     false,
-        format:  String,
-        setIn:   { type: [String], default: undefined },
-        setOut:  { type: [String], default: undefined },
-        banlist: {
+        _id:           false,
+        format:        String,
+        effectiveDate: String,
+        setIn:         { type: [String], default: undefined },
+        setOut:        { type: [String], default: undefined },
+        banlist:       {
             type: [{
                 _id:    false,
                 id:     String,

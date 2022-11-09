@@ -18,6 +18,11 @@ const routes = [
                 },
             },
             {
+                path:      'format/:id',
+                name:      'hearthstone/format',
+                component: async () => import('pages/hearthstone/Format.vue'),
+            },
+            {
                 path:      'card/:id',
                 name:      'hearthstone/card',
                 component: async () => import('pages/hearthstone/Card.vue'),

@@ -5,7 +5,7 @@ import conn from './db';
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 const EntitySchema = new Schema<IEntity>({
-    versions: [Number],
+    version: [Number],
 
     cardId: String,
     dbfId:  Number,

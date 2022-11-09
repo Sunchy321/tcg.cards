@@ -5,4 +5,6 @@ export interface Format {
     localization: { lang: string, name: string }[];
     sets?: string[];
     banlist: { id: string, status: Legality, date: string, group?: string }[];
+    birthday?: string;
+    deathdate?: string;
 }

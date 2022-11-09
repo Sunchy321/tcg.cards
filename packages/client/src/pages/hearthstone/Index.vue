@@ -26,16 +26,16 @@
                 /> -->
             </div>
             <div class="col column">
-                <!-- <q-btn
+                <q-btn
                     class="link"
                     type="a"
-                    to="/magic/format"
+                    :to="{ name: 'hearthstone/format', params: { id: 'standard' } }"
                     icon="mdi-text-box-outline"
-                    :label="$t('magic.ui.format.$self')"
+                    :label="$t('hearthstone.format.$self')"
                     flat
                     :stack="$q.screen.xs"
                 />
-                <q-btn
+                <!-- <q-btn
                     class="link"
                     type="a"
                     to="/magic/set"
@@ -46,15 +46,15 @@
                 /> -->
             </div>
             <div class="col column">
-                <q-btn
+                <!-- <q-btn
                     class="link"
                     type="a"
-                    to="/hearthstone/log-parse"
+                    :to="{ name: 'hearthstone/log-parse' }"
                     icon="mdi-text-box-search-outline"
                     :label="$t('hearthstone.ui.log-parse.$self')"
                     flat
                     :stack="$q.screen.xs"
-                />
+                /> -->
             </div>
         </div>
     </q-page>

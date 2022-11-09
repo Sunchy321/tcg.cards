@@ -1,7 +1,6 @@
 <template>
     <q-page class="main q-pa-md">
         <div class="image-column">
-
             <q-img :src="imageUrl" />
         </div>
         <div class="info-column">
@@ -24,7 +23,7 @@
                 <div v-if="stats != null" class="stats">{{ stats }}</div>
             </div>
             <div v-if="text != null" class="text">
-                {{ text }}
+                <hearthstone-text disable-newline>{{ text }}</hearthstone-text>
             </div>
             <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="mechanics">
                 <q-chip
@@ -49,8 +48,67 @@
                     {{ mechanicText(r) }}
                 </q-chip>
             </div>
+            <div class="links flex q-gutter-md">
+                <!-- <q-btn
+                    v-if="scryfallLink != null"
+                    class="link"
+                    :href="scryfallLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
+                    Scryfall
+                </q-btn>
+
+                <q-btn
+                    v-if="gathererLink != null"
+                    class="link"
+                    :href="gathererLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
+                    Gatherer
+                </q-btn> -->
+
+                <q-btn
+                    v-if="jsonLink != null"
+                    class="link"
+                    :href="jsonLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
+                    JSON
+                </q-btn>
+
+                <q-btn
+                    v-if="compareLink != null"
+                    class="link"
+                    :href="compareLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-vector-difference" size="14px" class="q-mr-sm" />
+                    Compare
+                </q-btn>
+            </div>
         </div>
-        <div class="version-column" />
+        <div class="version-column">
+            <div class="version-block">
+                <div v-for="(v, i) of versions" :key="i" class="version-line">
+                    <div
+                        class="version-dot"
+                        :class="{ current: v.includes(version) }"
+                    />
+                    <div v-ripple @click="version = v[0]">
+                        <template v-if="v.length === 1">
+                            <div>{{ v[0] }}</div>
+                        </template>
+                        <template v-else>
+                            <div>{{ v[0] }}</div>
+                            <div>{{ v[v.length - 1] }}</div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
     </q-page>
 </template>
 
@@ -110,33 +168,6 @@
 .text, .mechanics
     margin-top: 30px
 
-// .cost
-//     position: relative
-
-//     display: flex
-//     justify-content: center
-//     align-items: center
-
-//     height: 1.2em
-
-// .cost-image
-//     position: absolute
-
-//     height: 1.2em
-
-// .cost-text
-//     position: absolute
-
-//     z-index: 100
-
-//     transform: translateY(-5%)
-
-//     font-family: belwe-bold-bt
-//     font-size: 130%
-//     color: white
-//     -webkit-text-stroke: 1px black
-//     letter-spacing: -1px
-
 .type
     margin-right: 5px
 
@@ -154,6 +185,44 @@
     border-style: solid
     border-radius: 5px
 
+.links
+    margin-top: 30px
+
+.link
+    width: 150px
+
+.version-block
+    margin-top: 10px
+
+    border: 1px solid $primary
+    border-radius: 5px
+
+.version-line
+    position: relative
+    padding: 5px
+    padding-left: 10px
+
+    &:not(:first-child)
+        border-top: 1px solid $primary
+
+    cursor: pointer
+
+.version-dot
+    width: 10px
+    height: 10px
+    border-radius: 100px
+    border: 1px $primary solid
+
+    background-color: white
+
+    &.current
+        background-color: $primary
+
+    position: absolute
+    left: -5px
+    top: 50%
+    transform: translateY(-50%)
+
 </style>
 
 <script lang="ts">
@@ -161,33 +230,67 @@ import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
-import { useRoute } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useHearthstone } from 'store/games/hearthstone';
 import { useI18n } from 'vue-i18n';
 
 import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
 
+import HearthstoneText from 'components/hearthstone/Text.vue';
+
 import { Entity } from 'interface/hearthstone/entity';
 
 import { omitBy } from 'lodash';
 
-import { apiGet, imageBase } from 'boot/backend';
+import { apiBase, apiGet, imageBase } from 'boot/backend';
+
+type Data = Entity & {
+    versions: number[][];
+};
 
 export default defineComponent({
     name: 'Card',
 
+    components: {
+        HearthstoneText,
+    },
+
     setup() {
+        const router = useRouter();
         const route = useRoute();
         const hearthstone = useHearthstone();
         const i18n = useI18n();
 
         const { random } = hearthstoneSetup();
 
-        const data = ref<Entity | null>(null);
+        const data = ref<Data | null>(null);
 
         // data fields
         const id = computed(() => data.value?.cardId ?? route.params.id);
+
+        const versions = computed(() => data.value?.versions ?? []);
+
+        const version = computed({
+            get() {
+                const queryVersion = Number.parseInt(route.query.version as string, 10);
+
+                if (!Number.isNaN(queryVersion)) {
+                    if (data.value == null || versions.value.some(v => v.includes(queryVersion))) {
+                        return queryVersion;
+                    }
+                }
+
+                if (data.value != null) {
+                    return data.value.version[0];
+                }
+
+                return 0;
+            },
+            set(newValue: number) {
+                void router.replace({ query: { ...route.query, version: newValue } });
+            },
+        });
 
         const localization = computed(() => {
             const loc = data.value?.localization;
@@ -197,8 +300,8 @@ export default defineComponent({
             }
 
             return loc.find(l => l.lang === hearthstone.locale)
-            ?? loc.find(l => l.lang === hearthstone.locales[0])
-            ?? loc[0];
+                ?? loc.find(l => l.lang === hearthstone.locales[0])
+                ?? loc[0];
         });
 
         const name = computed(() => localization.value?.name);
@@ -242,24 +345,71 @@ export default defineComponent({
             return null;
         });
 
-        const text = computed(() => localization.value?.text);
+        const text = computed(() => localization.value?.displayText);
 
         const mechanics = computed(() => (data.value?.mechanics ?? []).filter(
-            v => !v.startsWith('?') && !v.startsWith('data_num'),
+            v => !v.startsWith('?') && !/_\d(:\d+)?$/.test(v),
         ));
 
         const referencedTags = computed(() => (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')));
 
-        const imageUrl = computed(() => `https://${imageBase}/hearthstone/card?id=${id.value}&lang=${hearthstone.locale}`);
+        const imageUrl = computed(() => {
+            if (version.value !== 0) {
+                return `https://${imageBase}/hearthstone/card?id=${id.value}&lang=${hearthstone.locale}&version=${version.value}`;
+            } else {
+                return `https://${imageBase}/hearthstone/card?id=${id.value}&lang=${hearthstone.locale}`;
+            }
+        });
+
+        const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
+            id:      route.params.id as string,
+            version: route.query.version as string,
+        }, v => v == null)));
+
+        const jsonLink = computed(() => {
+            const url = new URL('hearthstone/card', `https://${apiBase}`);
+
+            const query = apiQuery.value;
+
+            if (query != null) {
+                url.search = new URLSearchParams(query).toString();
+            }
+
+            return url.toString();
+        });
+
+        const compareLink = computed(() => {
+            if (versions.value.length < 2) {
+                return null;
+            }
+
+            const url = new URL('hearthstone/card/compare', `https://${apiBase}`);
+
+            const index = versions.value.findIndex(v => v.includes(version.value));
+
+            const anotherIndex = index === versions.value.length - 1 ? index - 1 : index + 1;
+
+            const anotherVersion = versions.value[anotherIndex];
+
+            const query = {
+                id: route.params.id,
+                lv: anotherVersion[0].toString(),
+                rv: version.value.toString(),
+            } as Record<string, string>;
+
+            url.search = new URLSearchParams(query).toString();
+
+            return url.toString();
+        });
 
         // methods
         const loadData = async () => {
             const query = omitBy({
-                id:     route.params.id,
-                number: route.query.version,
+                id:      route.params.id,
+                version: route.query.version,
             }, v => v == null);
 
-            const { data: result } = await apiGet<Entity>('/hearthstone/card', query);
+            const { data: result } = await apiGet<Data>('/hearthstone/card', query);
 
             data.value = result;
         };
@@ -283,6 +433,8 @@ export default defineComponent({
         );
 
         return {
+            versions,
+            version,
             name,
             hasCost,
             cost,
@@ -294,9 +446,12 @@ export default defineComponent({
             referencedTags,
             imageUrl,
 
+            jsonLink,
+            compareLink,
+
             mechanicText,
+
         };
     },
 });
-
 </script>

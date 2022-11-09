@@ -5,10 +5,10 @@ import Entity from '@/hearthstone/db/entity';
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 import {
-    flatten, mapValues, omit, random,
+    flatten, last, mapValues, omit, random, uniq,
 } from 'lodash';
 
-import { toSingle } from '@/common/request-helper';
+import { toMultiple, toSingle } from '@/common/request-helper';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -29,30 +29,39 @@ router.get('/', async ctx => {
         return;
     }
 
-    const query: any = { cardId: id, cardType: { $ne: 'enchantment' } };
+    const query: any = { cardId: id };
 
     if (version != null) {
-        query.versions = version;
+        query.version = version;
     }
 
     const entities = await Entity.find(query).sort({ version: -1 });
 
-    const entity = (() => {
-        if (version != null) {
-            for (const e of entities) {
-                if (e.versions.includes(version)) {
-                    return e;
-                }
-            }
+    const entity = entities.find(e => e.version.includes(version ?? 0)) ?? entities[0];
+
+    const buckets = entities.map(e => e.version);
+
+    const versions = [];
+
+    for (const v of flatten(buckets).sort((a, b) => b - a)) {
+        if (versions.length === 0) {
+            versions.push([v]);
+            continue;
         }
 
-        return entities[0];
-    })();
+        const u = last(last(versions))!;
 
-    ctx.body = {
-        ...entity.toJSON(),
-        versions: flatten(entities.map(e => e.versions)),
-    };
+        const lastBucket = buckets.findIndex(b => b.includes(u));
+        const thisBucket = buckets.findIndex(b => b.includes(v));
+
+        if (lastBucket !== thisBucket) {
+            versions.push([v]);
+        } else {
+            last(versions)!.push(v);
+        }
+    }
+
+    ctx.body = { ...entity.toJSON(), versions };
 });
 
 router.get('/name', async ctx => {
@@ -73,7 +82,7 @@ router.get('/name', async ctx => {
     const query: any = { 'localization.name': name, 'cardType': { $ne: 'enchantment' } };
 
     if (version != null) {
-        query.versions = version;
+        query.version = version;
     }
 
     const entities = await Entity.aggregate<{ _id: string, data: IEntity[] }>()
@@ -83,12 +92,12 @@ router.get('/name', async ctx => {
 
     ctx.body = entities.map(v => {
         const entity = (
-            version != null ? v.data.filter(d => d.versions.includes(version)) : v.data
+            version != null ? v.data.filter(d => d.version.includes(version)) : v.data
         )[0];
 
         return {
             ...omit(entity, ['_id', '__v']),
-            versions: flatten(v.data.map(e => e.versions)),
+            versions: v.data.map(e => e.version.sort((a, b) => a - b)),
         };
     });
 });
@@ -97,6 +106,155 @@ router.get('/random', async ctx => {
     const entityIds = await Entity.distinct('cardId');
 
     ctx.body = entityIds[random(entityIds.length - 1)] ?? '';
+});
+
+interface CardProfile {
+    cardId: string;
+
+    localization: {
+        lang: string;
+        name: string;
+    }[];
+
+    versions: number[][];
+}
+
+router.get('/profile', async ctx => {
+    const ids = toMultiple(ctx.query.ids ?? '');
+
+    if (ids.length === 0) {
+        ctx.status = 400;
+        return;
+    }
+
+    const fullEntities = await Entity.find({ cardId: { $in: ids } });
+
+    const result: Record<string, CardProfile> = {};
+
+    for (const id of ids) {
+        const entities = fullEntities.filter(e => e.cardId === id);
+
+        const buckets = entities.map(e => e.version);
+
+        const versions: number[][] = [];
+
+        for (const v of flatten(buckets).sort((a, b) => b - a)) {
+            if (versions.length === 0) {
+                versions.push([v]);
+                continue;
+            }
+
+            const u = last(last(versions))!;
+
+            const lastBucket = buckets.findIndex(b => b.includes(u));
+            const thisBucket = buckets.findIndex(b => b.includes(v));
+
+            if (lastBucket !== thisBucket) {
+                versions.push([v]);
+            } else {
+                last(versions)!.push(v);
+            }
+        }
+
+        const entity = entities.find(e => e.version.includes(versions[0][0])) ?? entities[0];
+
+        result[id] = {
+            cardId:       entity.cardId,
+            localization: entity.localization.map(l => ({ lang: l.lang, name: l.name })),
+            versions,
+        };
+    }
+
+    ctx.body = result;
+});
+
+function isEqual<T>(result: T): boolean {
+    if (Array.isArray(result)) {
+        return result.every(isEqual);
+    }
+
+    if (typeof result === 'object') {
+        return Object.keys(result as object).every(k => isEqual((result as any)[k]));
+    }
+
+    return result == null;
+}
+
+function compare<T>(lhs: T, rhs: T): any {
+    if (Array.isArray(lhs)) {
+        if (!Array.isArray(rhs)) {
+            return [lhs, rhs];
+        }
+
+        if (lhs.every(v => ['number', 'string'].includes(typeof v))) {
+            if (lhs.length !== rhs.length) {
+                return [lhs, rhs];
+            }
+
+            if (lhs.some((v, i) => v !== rhs[i])) {
+                return [lhs, rhs];
+            }
+
+            return undefined;
+        } else {
+            const length = Math.max(lhs.length, rhs.length);
+
+            const result: any[] = [];
+
+            for (let i = 0; i < length; i += 1) {
+                const r = compare((lhs as any)[i], (rhs as any)[i]);
+
+                if (r != null) {
+                    result[i] = r;
+                }
+            }
+
+            return isEqual(result) ? undefined : result;
+        }
+    }
+
+    if (typeof lhs === 'object') {
+        if (typeof rhs !== 'object') {
+            return [lhs, rhs];
+        }
+
+        const keys = uniq([...Object.keys(lhs as any), ...Object.keys(rhs as any)]);
+
+        const result: any = {};
+
+        for (const k of keys) {
+            const r = compare((lhs as any)[k], (rhs as any)[k]);
+
+            if (r != null) {
+                result[k] = r;
+            }
+        }
+
+        return isEqual(result) ? undefined : result;
+    }
+
+    return lhs === rhs ? undefined : [lhs, rhs];
+}
+
+router.get('/compare', async ctx => {
+    const { id, lv, rv } = mapValues(ctx.query, toSingle);
+
+    const lvm = Number.parseInt(lv, 10);
+    const rvm = Number.parseInt(rv, 10);
+
+    if (Number.isNaN(lvm) || Number.isNaN(rvm)) {
+        ctx.status = 400;
+        return;
+    }
+
+    const entities = await Entity.find({ cardId: id, version: { $in: [lvm, rvm] } }).sort({ version: 1 });
+
+    if (entities.length !== 2) {
+        ctx.status = 400;
+        return;
+    }
+
+    ctx.body = compare(entities[0].toJSON(), entities[1].toJSON()) ?? {};
 });
 
 export default router;
