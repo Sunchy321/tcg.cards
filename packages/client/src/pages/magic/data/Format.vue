@@ -100,7 +100,7 @@ export default defineComponent({
             formatList.value = data;
 
             if (formatId.value == null) {
-                [formatId.value] = formatList.value;
+                formatId.value = formatList.value[0];
             }
         };
 

@@ -19,7 +19,7 @@
                 <q-btn
                     class="link"
                     type="a"
-                    to="/magic/advanced-search"
+                    :to="{ name: 'magic/advanced-search' }"
                     icon="mdi-magnify"
                     :label="$t('magic.ui.advanced-search.$self')"
                     flat
@@ -29,7 +29,7 @@
                 <q-btn
                     class="link"
                     type="a"
-                    to="/magic/search-docs"
+                    :to="{ name: 'magic/search-docs' }"
                     icon="mdi-information"
                     :label="$t('magic.ui.search-docs.$self')"
                     flat
@@ -40,7 +40,7 @@
                 <q-btn
                     class="link"
                     type="a"
-                    to="/magic/format"
+                    :to="{ name: 'magic/format', params: { id: 'standard' } }"
                     icon="mdi-text-box-outline"
                     :label="$t('magic.format.$self')"
                     flat
@@ -49,7 +49,7 @@
                 <q-btn
                     class="link"
                     type="a"
-                    to="/magic/set"
+                    :to="{ name: 'magic/sets' }"
                     icon="mdi-cards-outline"
                     :label="$t('magic.set.$self')"
                     flat
@@ -60,7 +60,7 @@
                 <q-btn
                     class="link"
                     type="a"
-                    to="/magic/cr"
+                    :to="{ name: 'magic/cr' }"
                     icon="mdi-book-open-variant"
                     :label="$t('magic.cr.$self')"
                     flat

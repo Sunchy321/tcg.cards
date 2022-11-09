@@ -12,13 +12,9 @@ import {
 import { useRouter, useRoute, RouterLink } from 'vue-router';
 import { useMagic } from 'store/games/magic';
 
-import CardImage from './CardImage.vue';
-
 import setProfile, { SetProfile } from 'src/common/magic/set';
 
 export default defineComponent({
-    components: { CardImage },
-
     props: {
         id:   { type: String, required: true },
         text: { type: String, default: undefined },
