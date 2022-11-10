@@ -3,7 +3,7 @@ export type CommandType =  'text' | 'number' | 'enum' | CommandType[] | 'numberl
 export type Command = {
     id: string;
     alt?: string[];
-    type: CommandType
+    type?: CommandType
 }
 
 export type Model = {
