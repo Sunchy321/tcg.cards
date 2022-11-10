@@ -52,7 +52,7 @@ importers:
       patch-package: ^6.4.7
       pinia: ^2.0.11
       postcss: ^8.4.17
-      quasar: ^2.9.1
+      quasar: ^2.9.2
       rollup-plugin-node-polyfills: ^0.2.1
       tst-reflect: ^0.7.4
       typescript: ^4.5.4

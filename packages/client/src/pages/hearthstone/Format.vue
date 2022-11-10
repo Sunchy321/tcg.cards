@@ -33,6 +33,7 @@
         <div v-if="showTimeline">
             <div v-for="n in nodes" :key="n.date" class="q-my-md">
                 <div class="flex items-center q-mb-sm">
+                    <span class="text-h6 q-mr-md">{{ n.name }}</span>
                     <span class="text-h6">{{ n.date }}</span>
                     <q-btn
                         v-for="l in n.link"
@@ -200,6 +201,7 @@ interface BanlistItem {
 
 interface TimelineNode {
     date: string;
+    name: string;
     version: number;
     lastVersion?: number;
     link: string[];
@@ -306,6 +308,7 @@ export default defineComponent({
                     } else {
                         result.push({
                             date:        c.date,
+                            name:        c.name,
                             version:     c.version,
                             lastVersion: c.lastVersion,
                             link:        c.link ?? [],

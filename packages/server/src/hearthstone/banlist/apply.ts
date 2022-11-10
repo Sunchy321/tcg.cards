@@ -224,6 +224,7 @@ export class AnnouncementApplier {
         format: string,
         source: string,
         date: string,
+        name: string,
         link: string[] | undefined,
         version: number,
         lastVersion: number | undefined,
@@ -235,7 +236,7 @@ export class AnnouncementApplier {
         }
 
         this.changes.push({
-            source, date, format, link, type: 'set', id: set, status, version, lastVersion,
+            source, date, name, format, link, type: 'set', id: set, status, version, lastVersion,
         });
 
         if (f.sets == null) {
@@ -256,6 +257,7 @@ export class AnnouncementApplier {
         group: string | undefined,
         source: string,
         date: string,
+        name: string,
         link: string[] | undefined,
         version: number,
         lastVersion: number | undefined,
@@ -267,7 +269,7 @@ export class AnnouncementApplier {
         }
 
         this.changes.push({
-            source, date, format, link, type: 'banlist', id: card, status, version, lastVersion,
+            source, date, name, format, link, type: 'banlist', id: card, status, version, lastVersion,
         });
 
         if (f.banlist == null) {
@@ -312,8 +314,11 @@ export class AnnouncementApplier {
 
             const changes: IntermediateChange[] = [];
 
+            const sortChanges = a.changes
+                .sort((a, b) => Number(a.format.startsWith('#')) - Number(b.format.startsWith('#')));
+
             // expand format group #standard
-            for (const c of a.changes) {
+            for (const c of sortChanges) {
                 const date = c.effectiveDate ?? baseDate;
 
                 const formats = (() => {
@@ -340,7 +345,9 @@ export class AnnouncementApplier {
                     const fo = this.formatMap[f]!;
 
                     const adjustment = transformAdjustment(c.adjustment ?? [])
-                        .filter(j => fo.sets?.includes(this.getCardData(j.id, a.version).set));
+                        .filter(j => !c.format.startsWith('#')
+                            || j.id === 'HERO_02bp' // Shaman basic hero power
+                            || fo.sets?.includes(this.getCardData(j.id, a.version).set));
 
                     if (co == null) {
                         const change = {
@@ -392,7 +399,7 @@ export class AnnouncementApplier {
                         throw new Error(`In set ${s} is already in ${c.format}, date: ${a.date}`);
                     }
 
-                    this.setChange(s, 'in', c.format, a.source, date, a.link, a.version, a.lastVersion);
+                    this.setChange(s, 'in', c.format, a.source, date, a.name, a.link, a.version, a.lastVersion);
                 }
 
                 // sets out
@@ -401,7 +408,7 @@ export class AnnouncementApplier {
                         throw new Error(`Out set ${s} is not in ${c.format}, date: ${a.date}`);
                     }
 
-                    this.setChange(s, 'out', c.format, a.source, date, a.link, a.version, a.lastVersion);
+                    this.setChange(s, 'out', c.format, a.source, date, a.name, a.link, a.version, a.lastVersion);
                 }
 
                 // banlist changes
@@ -436,6 +443,7 @@ export class AnnouncementApplier {
                                 n.group,
                                 a.source,
                                 banlistDate,
+                                a.name,
                                 a.link,
                                 a.version,
                                 a.lastVersion,
@@ -472,6 +480,7 @@ export class AnnouncementApplier {
                                     group,
                                     a.source,
                                     banlistDate,
+                                    a.name,
                                     a.link,
                                     a.version,
                                     a.lastVersion,
@@ -496,6 +505,7 @@ export class AnnouncementApplier {
                                     group,
                                     a.source,
                                     banlistDate,
+                                    a.name,
                                     a.link,
                                     a.version,
                                     a.lastVersion,
@@ -510,6 +520,7 @@ export class AnnouncementApplier {
                             undefined,
                             a.source,
                             banlistDate,
+                            a.name,
                             a.link,
                             a.version,
                             a.lastVersion,
@@ -534,6 +545,7 @@ export class AnnouncementApplier {
                                 g.id,
                                 g.source,
                                 date,
+                                a.name,
                                 g.link,
                                 a.version,
                                 a.lastVersion,
@@ -546,7 +558,7 @@ export class AnnouncementApplier {
                 if (c.setOut != null && c.setOut.length > 0) {
                     for (const b of fo.banlist) {
                         if (c.setOut.includes(this.getCardData(b.id, a.version).set)) {
-                            this.banlistChange(b.id, 'unavailable', c.format, b.group, a.source, date, a.link, a.version, a.lastVersion);
+                            this.banlistChange(b.id, 'unavailable', c.format, b.group, a.source, date, a.name, a.link, a.version, a.lastVersion);
                         }
                     }
                 }
@@ -556,6 +568,7 @@ export class AnnouncementApplier {
                     this.changes.push({
                         source:      a.source,
                         date,
+                        name:        a.name,
                         format:      c.format,
                         link:        a.link,
                         version:     a.version,

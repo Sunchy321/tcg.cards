@@ -7,6 +7,7 @@ import { FormatChange as IFormatChange } from '@interface/hearthstone/format-cha
 const IFormatChangeSchema = new Schema<IFormatChange>({
     source:      String,
     date:        String,
+    name:        String,
     format:      String,
     link:        { type: [String], default: undefined },
     version:     Number,
@@ -17,8 +18,9 @@ const IFormatChangeSchema = new Schema<IFormatChange>({
     status:     String,
     adjustment: {
         type: [{
+            _id:    false,
             id:     String,
-            detail: [{ part: String, status: String }],
+            detail: [{ _id: false, part: String, status: String }],
         }],
         default: undefined,
     },

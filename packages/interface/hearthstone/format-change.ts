@@ -30,6 +30,7 @@ export interface FormatAnnouncement {
 export interface FormatChange {
     source: string;
     date: string;
+    name: string;
     format: string;
     link?: string[];
     version: number;
