@@ -224,26 +224,26 @@ export default async function renderHero(
     if (aText?.status === 'nerf') {
         components.push({
             type:  'image',
-            image: join('minion', 'effect', `${textPrefix}-nerf.png`),
+            image: join('hero', 'effect', `${textPrefix}-nerf.png`),
             pos:   position.adjustment.text.nerf!,
         });
     } else {
         components.push({
             type:  'image',
-            image: join('minion', 'text.png'),
+            image: join('hero', 'text.png'),
             pos:   position.desc,
         });
 
         if (aText?.status === 'buff') {
             components.push({
                 type:  'image',
-                image: join('minion', 'effect', `${textPrefix}-buff.png`),
+                image: join('hero', 'effect', `${textPrefix}-buff.png`),
                 pos:   position.adjustment.text.buff!,
             });
         } else if (aText?.status === 'adjust') {
             components.push({
                 type:  'image',
-                image: join('minion', 'effect', `${textPrefix}-adjust.png`),
+                image: join('hero', 'effect', `${textPrefix}-adjust.png`),
                 pos:   position.adjustment.text.adjust!,
             });
         }
@@ -341,20 +341,20 @@ export default async function renderHero(
         if (aArmor?.status === 'nerf') {
             components.push({
                 type:  'image',
-                image: join('minion', 'effect', 'armor-nerf.png'),
+                image: join('hero', 'effect', 'armor-nerf.png'),
                 pos:   position.adjustment.attack.nerf!,
             });
         } else {
             components.push({
                 type:  'image',
-                image: join('minion', 'armor.png'),
+                image: join('hero', 'armor.png'),
                 pos:   position.armor,
             });
 
             if (aArmor?.status === 'buff') {
                 components.push({
                     type:  'image',
-                    image: join('minion', 'effect', 'armor-buff.png'),
+                    image: join('hero', 'effect', 'armor-buff.png'),
                     pos:   position.adjustment.attack.buff!,
                 });
             }
