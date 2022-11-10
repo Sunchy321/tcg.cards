@@ -210,7 +210,7 @@ interface TimelineNode {
     adjustment: {
         id: string;
         status: Adjustment;
-        adjustment?: {
+        adjustment: {
             id?: string;
             detail: { part: string, status: Adjustment }[];
         }[];
@@ -329,7 +329,7 @@ export default defineComponent({
                     node.adjustment.push({
                         id:         c.id,
                         status:     c.status as Adjustment,
-                        adjustment: c.adjustment,
+                        adjustment: c.adjustment ?? [],
                     });
                 }
             }

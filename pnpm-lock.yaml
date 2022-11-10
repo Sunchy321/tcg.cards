@@ -149,6 +149,7 @@ importers:
       '@typescript-eslint/eslint-plugin': ^5.39.0
       '@typescript-eslint/parser': ^5.39.0
       canvas: ^2.9.3
+      card-interface: workspace:^1.1.0
       eslint: ^8.24.0
       eslint-config-airbnb-base: ^15.0.0
       eslint-plugin-import: ^2.26.0
@@ -159,6 +160,7 @@ importers:
       typescript: ^4.8.4
     dependencies:
       canvas: 2.10.1
+      card-interface: link:../interface
       lodash: 4.17.21
       tst-reflect: 0.7.9
     devDependencies:
@@ -229,9 +231,9 @@ importers:
       '@typescript-eslint/eslint-plugin': ^5.39.0
       '@typescript-eslint/parser': ^5.39.0
       async-stream-reader: ^1.2.0
-      card-interface: ^1.0.0
-      card-renderer: ^1.1.0
-      card-searcher: ^0.0.1
+      card-interface: workspace:^1.1.0
+      card-renderer: workspace:^1.1.0
+      card-searcher: workspace:^0.0.1
       cheerio: ^1.0.0-rc.3
       deep-diff: ^1.0.2
       diff: ^5.0.0

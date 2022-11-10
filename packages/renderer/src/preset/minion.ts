@@ -1,6 +1,7 @@
 import { createCanvas } from 'canvas';
 
 import { EntityRenderData } from '../interface';
+import { Adjustment } from '@interface/hearthstone/format-change';
 import { Component, RichTextComponent, renderComponent } from '../components';
 
 import { join } from 'path';
@@ -46,6 +47,29 @@ const position = {
     attackNumber: { x: 94, y: 575 },
     health:       { x: 369, y: 512 },
     healthNumber: { x: 407, y: 577 },
+
+    adjustment: {
+        cost: {
+            buff: { x: 24, y: 24 },
+            nerf: { x: 23, y: 45 },
+        },
+        attack: {
+            buff: { x: 16, y: 491 },
+            nerf: { x: 14, y: 493 },
+        },
+        health: {
+            buff: { x: 354, y: 470 },
+            nerf: { x: 355, y: 499 },
+        },
+        text: {
+            buff:   { x: 68, y: 372 },
+            nerf:   { x: 71, y: 399 },
+            adjust: { x: 69, y: 397 },
+        },
+        race: {
+            adjust: { x: 144, y: 561 },
+        },
+    } as Record<string, Partial<Record<Adjustment, { x: number, y: number }>>>,
 
     watermark: {
         'classic': { x: 196, y: 439 },
@@ -177,11 +201,29 @@ export default async function renderMinion(
     }
 
     // cost
-    components.push({
-        type:  'image',
-        image: join('cost', `${data.costType}.png`),
-        pos:   position.cost[data.costType],
-    });
+    const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
+
+    if (aCost?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('cost', 'effect', 'mana-nerf.png'),
+            pos:   position.adjustment.cost.nerf!,
+        });
+    } else {
+        components.push({
+            type:  'image',
+            image: join('cost', `${data.costType}.png`),
+            pos:   position.cost[data.costType],
+        });
+
+        if (aCost?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('cost', 'effect', 'mana-buff.png'),
+                pos:   position.adjustment.cost.buff!,
+            });
+        }
+    }
 
     if (data.cost != null) {
         components.push({
@@ -212,11 +254,35 @@ export default async function renderMinion(
     );
 
     // text
-    components.push({
-        type:  'image',
-        image: join('minion', 'text.png'),
-        pos:   position.desc,
-    });
+    const aText = (data.adjustment ?? []).find(a => a.part === 'text');
+
+    if (aText?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('minion', 'effect', 'text-nerf.png'),
+            pos:   position.adjustment.text.nerf!,
+        });
+    } else {
+        components.push({
+            type:  'image',
+            image: join('minion', 'text.png'),
+            pos:   position.desc,
+        });
+
+        if (aText?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('minion', 'effect', 'text-buff.png'),
+                pos:   position.adjustment.text.buff!,
+            });
+        } else if (aText?.status === 'adjust') {
+            components.push({
+                type:  'image',
+                image: join('minion', 'effect', 'text-adjust.png'),
+                pos:   position.adjustment.text.adjust!,
+            });
+        }
+    }
 
     if (position.watermark[data.set] != null) {
         components.push(
@@ -292,33 +358,84 @@ export default async function renderMinion(
         );
     }
 
+    const aRace = (data.adjustment ?? []).find(a => a.part === 'race');
+
+    if (aRace?.status === 'adjust') {
+        components.push({
+            type:  'image',
+            image: join('minion', 'effect', 'race-adjust.png'),
+            pos:   position.adjustment.race.adjust!,
+        });
+    }
+
     // stats
-    components.push(
-        {
+    const aAttack = (data.adjustment ?? []).find(a => a.part === 'attack');
+
+    if (aAttack?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('minion', 'effect', 'attack-nerf.png'),
+            pos:   position.adjustment.attack.nerf!,
+        });
+    } else {
+        components.push({
             type:  'image',
             image: join('minion', 'attack.png'),
             pos:   position.attack,
-        },
-        ...data.attack != null ? [{
+        });
+
+        if (aAttack?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('minion', 'effect', 'attack-buff.png'),
+                pos:   position.adjustment.attack.buff!,
+            });
+        }
+    }
+
+    if (data.attack != null) {
+        components.push({
             type: 'text',
             text: data.attack!.toString(),
             font: '文鼎隶书',
             size: 106,
             pos:  position.attackNumber,
-        }] as Component[] : [],
-        {
+        });
+    }
+
+    const aHealth = (data.adjustment ?? []).find(a => a.part === 'health');
+
+    if (aHealth?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('minion', 'effect', 'health-nerf.png'),
+            pos:   position.adjustment.health.nerf!,
+        });
+    } else {
+        components.push({
             type:  'image',
             image: join('minion', 'health.png'),
             pos:   position.health,
-        },
-        ...data.health != null ? [{
+        });
+
+        if (aHealth?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('minion', 'effect', 'health-buff.png'),
+                pos:   position.adjustment.health.buff!,
+            });
+        }
+    }
+
+    if (data.health != null) {
+        components.push({
             type: 'text',
             text: data.health!.toString(),
             font: '文鼎隶书',
             size: 106,
             pos:  position.healthNumber,
-        }] as Component[] : [],
-    );
+        });
+    }
 
     const ctx = canvas.getContext('2d');
 

@@ -1,6 +1,7 @@
 import { createCanvas } from 'canvas';
 
 import { EntityRenderData } from '../interface';
+import { Adjustment } from '@interface/hearthstone/format-change';
 import { Component, RichTextComponent, renderComponent } from '../components';
 
 import { join } from 'path';
@@ -39,6 +40,26 @@ const position = {
     attackNumber:     { x: 94, y: 579 },
     durability:       { x: 362, y: 528 },
     durabilityNumber: { x: 408, y: 577 },
+
+    adjustment: {
+        cost: {
+            buff: { x: 24, y: 24 },
+            nerf: { x: 23, y: 45 },
+        },
+        attack: {
+            buff: { x: 36, y: 511 },
+            nerf: { x: 33, y: 523 },
+        },
+        durability: {
+            buff: { x: 350, y: 512 },
+            nerf: { x: 348, y: 513 },
+        },
+        text: {
+            buff:   { x: 68, y: 392 },
+            nerf:   { x: 71, y: 394 },
+            adjust: { x: 69, y: 392 },
+        },
+    } as Record<string, Partial<Record<Adjustment, { x: number, y: number }>>>,
 
     watermark: {
         'classic': { x: 194, y: 434 },
@@ -168,11 +189,29 @@ export default async function renderWeapon(
     }
 
     // cost
-    components.push({
-        type:  'image',
-        image: join('cost', `${data.costType}.png`),
-        pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
-    });
+    const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
+
+    if (aCost?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('cost', 'effect', 'mana-nerf.png'),
+            pos:   position.adjustment.cost.nerf!,
+        });
+    } else {
+        components.push({
+            type:  'image',
+            image: join('cost', `${data.costType}.png`),
+            pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
+        });
+
+        if (aCost?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('cost', 'effect', 'mana-buff.png'),
+                pos:   position.adjustment.cost.buff!,
+            });
+        }
+    }
 
     if (data.cost != null) {
         components.push({
@@ -203,6 +242,28 @@ export default async function renderWeapon(
     );
 
     // text
+    const aText = (data.adjustment ?? []).find(a => a.part === 'text');
+
+    if (aText?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('weapon', 'effect', 'text-nerf.png'),
+            pos:   position.adjustment.text.nerf!,
+        });
+    } else if (aText?.status === 'buff') {
+        components.push({
+            type:  'image',
+            image: join('weapon', 'effect', 'text-buff.png'),
+            pos:   position.adjustment.text.buff!,
+        });
+    } else if (aText?.status === 'adjust') {
+        components.push({
+            type:  'image',
+            image: join('weapon', 'effect', 'text-adjust.png'),
+            pos:   position.adjustment.text.adjust!,
+        });
+    }
+
     if (position.watermark[data.set] != null) {
         components.push(
             {
@@ -253,32 +314,71 @@ export default async function renderWeapon(
     }
 
     // stats
-    components.push(
-        {
+    const aAttack = (data.adjustment ?? []).find(a => a.part === 'attack');
+
+    if (aAttack?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('weapon', 'effect', 'attack-nerf.png'),
+            pos:   position.adjustment.attack.nerf!,
+        });
+    } else {
+        components.push({
             type:  'image',
             image: join('weapon', 'attack.png'),
             pos:   position.attack,
-        },
-        ...data.attack != null ? [{
+        });
+
+        if (aAttack?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('weapon', 'effect', 'attack-buff.png'),
+                pos:   position.adjustment.attack.buff!,
+            });
+        }
+    }
+
+    if (data.attack != null) {
+        components.push({
             type: 'text',
             text: data.attack!.toString(),
             font: '文鼎隶书',
             size: 106,
             pos:  position.attackNumber,
-        }] as Component[] : [],
-        {
+        });
+    }
+
+    const aDurability = (data.adjustment ?? []).find(a => a.part === 'durability');
+
+    if (aDurability?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('weapon', 'effect', 'durability-nerf.png'),
+            pos:   position.adjustment.durability.nerf!,
+        });
+    } else {
+        components.push({
             type:  'image',
             image: join('weapon', 'durability.png'),
             pos:   position.durability,
-        },
-        ...data.durability != null ? [{
-            type: 'text',
-            text: data.durability!.toString(),
-            font: '文鼎隶书',
-            size: 106,
-            pos:  position.durabilityNumber,
-        }] as Component[] : [],
-    );
+        });
+
+        if (aDurability?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('weapon', 'effect', 'durability-buff.png'),
+                pos:   position.adjustment.durability.buff!,
+            });
+        }
+    }
+
+    components.push({
+        type: 'text',
+        text: data.durability!.toString(),
+        font: '文鼎隶书',
+        size: 106,
+        pos:  position.durabilityNumber,
+    });
 
     const ctx = canvas.getContext('2d');
 

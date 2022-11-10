@@ -1,6 +1,7 @@
 import { createCanvas } from 'canvas';
 
 import { EntityRenderData } from '../interface';
+import { Adjustment } from '@interface/hearthstone/format-change';
 import { Component, RichTextComponent, renderComponent } from '../components';
 
 import { join } from 'path';
@@ -45,6 +46,21 @@ const position = {
     desc:       { x: 80, y: 390 },
     school:     { x: 80, y: 540 },
     schoolText: { x: 247, y: 586 },
+
+    adjustment: {
+        cost: {
+            buff: { x: 24, y: 24 },
+            nerf: { x: 23, y: 45 },
+        },
+        text: {
+            buff:   { x: 81, y: 376 },
+            nerf:   { x: 98, y: 406 },
+            adjust: { x: 97, y: 406 },
+        },
+        school: {
+            adjust: { x: 144, y: 561 },
+        },
+    } as Record<string, Partial<Record<Adjustment, { x: number, y: number }>>>,
 
     watermark: {
         'classic': { x: 196, y: 446 },
@@ -187,11 +203,29 @@ export default async function renderSpell(
     }
 
     // cost
-    components.push({
-        type:  'image',
-        image: join('cost', `${data.costType}.png`),
-        pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
-    });
+    const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
+
+    if (aCost?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('cost', 'effect', 'mana-nerf.png'),
+            pos:   position.adjustment.cost.nerf!,
+        });
+    } else {
+        components.push({
+            type:  'image',
+            image: join('cost', `${data.costType}.png`),
+            pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
+        });
+
+        if (aCost?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('cost', 'effect', 'mana-buff.png'),
+                pos:   position.adjustment.cost.buff!,
+            });
+        }
+    }
 
     if (data.cost != null) {
         components.push({
@@ -222,11 +256,37 @@ export default async function renderSpell(
     );
 
     // text
-    components.push({
-        type:  'image',
-        image: join('spell', 'text.png'),
-        pos:   position.desc,
-    });
+    const aText = (data.adjustment ?? []).find(a => a.part === 'text');
+
+    const textPrefix = data.spellSchool != null ? 'text-school' : 'text';
+
+    if (aText?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('spell', 'effect', `${textPrefix}-nerf.png`),
+            pos:   position.adjustment.text.nerf!,
+        });
+    } else {
+        components.push({
+            type:  'image',
+            image: join('spell', 'text.png'),
+            pos:   position.desc,
+        });
+
+        if (aText?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('spell', 'effect', `${textPrefix}-buff.png`),
+                pos:   position.adjustment.text.buff!,
+            });
+        } else if (aText?.status === 'adjust') {
+            components.push({
+                type:  'image',
+                image: join('spell', 'effect', `${textPrefix}-adjust.png`),
+                pos:   position.adjustment.text.adjust!,
+            });
+        }
+    }
 
     // spell school
     if (data.spellSchool != null) {
@@ -234,6 +294,16 @@ export default async function renderSpell(
             type:  'image',
             image: join('spell', 'school.png'),
             pos:   position.school,
+        });
+    }
+
+    const aSchool = (data.adjustment ?? []).find(a => a.part === 'school');
+
+    if (aSchool?.status === 'adjust') {
+        components.push({
+            type:  'image',
+            image: join('minion', 'effect', 'school-adjust.png'),
+            pos:   position.adjustment.school.adjust!,
         });
     }
 

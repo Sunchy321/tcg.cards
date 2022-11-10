@@ -1,4 +1,5 @@
 import { Entity } from '@interface/hearthstone/entity';
+import { Adjustment } from '@interface/hearthstone/format-change';
 
 export interface EntityRenderData {
     variant: 'diamond' | 'golden' | 'normal';
@@ -39,4 +40,6 @@ export interface EntityRenderData {
     rarity?: Entity['rarity'];
 
     mechanics: string[];
+
+    adjustment?: { part: string, status: Adjustment }[];
 }

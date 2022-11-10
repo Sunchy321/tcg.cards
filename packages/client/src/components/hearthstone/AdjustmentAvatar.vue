@@ -90,22 +90,7 @@ export default defineComponent({
             }
 
             if (adjustment.length > 0) {
-                params.adjustment = adjustment.map(a => {
-                    const part = {
-                        cost:   'c',
-                        attack: 'a',
-                        health: 'h',
-                        text:   't',
-                    }[a.part] ?? a.part;
-
-                    const status = {
-                        buff:   '+',
-                        nerf:   '-',
-                        adjust: '*',
-                    }[a.status];
-
-                    return `${part}${status}`;
-                }).join('');
+                params.adjustment = adjustment.map(a => `${a.part}:${a.status}`).join(',');
             }
 
             url.search = new URLSearchParams(params).toString();

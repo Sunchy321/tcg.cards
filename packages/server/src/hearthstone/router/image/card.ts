@@ -1,18 +1,15 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-// import { createReadStream, existsSync } from 'fs';
 import mime from 'mime-types';
-// import { cardImagePath } from '@/magic/image';
 
 import { flatten, mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-// import { locales } from '@data/magic/basic';
-
 import Entity from '@/hearthstone/db/entity';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
+import { Adjustment } from 'card-interface/hearthstone/format-change';
 
 import renderEntity, { registerFonts } from '@renderer/index';
 
@@ -23,7 +20,9 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 router.get('/', async ctx => {
-    const { id, lang, version: versionText } = mapValues(ctx.query, toSingle);
+    const {
+        id, lang, version: versionText, adjustment: adjustmentText,
+    } = mapValues(ctx.query, toSingle);
 
     const version = versionText != null ? Number.parseInt(versionText, 10) : null;
 
@@ -31,6 +30,17 @@ router.get('/', async ctx => {
         ctx.status = 400;
         return;
     }
+
+    const adjustment = (adjustmentText ?? '')
+        .split(',')
+        .map(a => {
+            const p = a.split(':');
+
+            return {
+                part:   p[0],
+                status: (p[1] ?? 'nerf') as Adjustment,
+            };
+        });
 
     registerFonts(assetPath);
 
@@ -94,6 +104,8 @@ router.get('/', async ctx => {
             rarity:      json.rarity,
 
             mechanics: json.mechanics,
+
+            adjustment,
         }, assetPath);
 
         ctx.response.set('content-type', mime.lookup('.png') as string);

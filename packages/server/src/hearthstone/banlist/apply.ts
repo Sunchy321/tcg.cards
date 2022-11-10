@@ -31,7 +31,7 @@ type IntermediateChange = {
     adjustment: {
         id: string;
         status: Adjustment;
-        adjustment?: {
+        adjustment: {
             id?: string;
             detail: { part: string, status: Adjustment }[];
         }[];

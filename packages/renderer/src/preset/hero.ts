@@ -1,6 +1,7 @@
 import { createCanvas } from 'canvas';
 
 import { EntityRenderData } from '../interface';
+import { Adjustment } from '@interface/hearthstone/format-change';
 import { Component, RichTextComponent, renderComponent } from '../components';
 
 import { join } from 'path';
@@ -39,6 +40,22 @@ const position = {
     armor:        { x: 366, y: 531 },
     health:       { x: 369, y: 512 },
     armorNumber:  { x: 406, y: 575 },
+
+    adjustment: {
+        cost: {
+            buff: { x: 24, y: 24 },
+            nerf: { x: 23, y: 45 },
+        },
+        armor: {
+            buff: { x: 351, y: 508 },
+            nerf: { x: 351, y: 517 },
+        },
+        text: {
+            buff:   { x: 77, y: 373 },
+            nerf:   { x: 80, y: 386 },
+            adjust: { x: 80, y: 386 },
+        },
+    } as Record<string, Partial<Record<Adjustment, { x: number, y: number }>>>,
 
     watermark: {
         'classic': { x: 194, y: 434 },
@@ -164,11 +181,29 @@ export default async function renderHero(
     }
 
     // cost
-    components.push({
-        type:  'image',
-        image: join('cost', `${data.costType}.png`),
-        pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
-    });
+    const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
+
+    if (aCost?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('cost', 'effect', 'mana-nerf.png'),
+            pos:   position.adjustment.cost.nerf!,
+        });
+    } else {
+        components.push({
+            type:  'image',
+            image: join('cost', `${data.costType}.png`),
+            pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
+        });
+
+        if (aCost?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('cost', 'effect', 'mana-buff.png'),
+                pos:   position.adjustment.cost.buff!,
+            });
+        }
+    }
 
     if (data.cost != null) {
         components.push({
@@ -181,11 +216,38 @@ export default async function renderHero(
     }
 
     // text
-    components.push({
-        type:  'image',
-        image: join('hero', 'text.png'),
-        pos:   position.desc,
-    });
+    const aText = (data.adjustment ?? []).find(a => a.part === 'text');
+
+    const textPrefix = ['common', 'rare', 'epic', 'legendary'].includes(data.rarity ?? '')
+        ? 'text' : 'text-free';
+
+    if (aText?.status === 'nerf') {
+        components.push({
+            type:  'image',
+            image: join('minion', 'effect', `${textPrefix}-nerf.png`),
+            pos:   position.adjustment.text.nerf!,
+        });
+    } else {
+        components.push({
+            type:  'image',
+            image: join('minion', 'text.png'),
+            pos:   position.desc,
+        });
+
+        if (aText?.status === 'buff') {
+            components.push({
+                type:  'image',
+                image: join('minion', 'effect', `${textPrefix}-buff.png`),
+                pos:   position.adjustment.text.buff!,
+            });
+        } else if (aText?.status === 'adjust') {
+            components.push({
+                type:  'image',
+                image: join('minion', 'effect', `${textPrefix}-adjust.png`),
+                pos:   position.adjustment.text.adjust!,
+            });
+        }
+    }
 
     // rarity
     if (data.rarity != null && data.rarity !== 'free') {
@@ -274,12 +336,31 @@ export default async function renderHero(
     }
 
     if (data.armor != null) {
-        components.push(
-            {
+        const aArmor = (data.adjustment ?? []).find(a => a.part === 'armor');
+
+        if (aArmor?.status === 'nerf') {
+            components.push({
                 type:  'image',
-                image: join('hero', 'armor.png'),
+                image: join('minion', 'effect', 'armor-nerf.png'),
+                pos:   position.adjustment.attack.nerf!,
+            });
+        } else {
+            components.push({
+                type:  'image',
+                image: join('minion', 'armor.png'),
                 pos:   position.armor,
-            },
+            });
+
+            if (aArmor?.status === 'buff') {
+                components.push({
+                    type:  'image',
+                    image: join('minion', 'effect', 'armor-buff.png'),
+                    pos:   position.adjustment.attack.buff!,
+                });
+            }
+        }
+
+        components.push(
             {
                 type: 'text',
                 text: data.armor.toString(),
