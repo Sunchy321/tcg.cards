@@ -323,12 +323,6 @@ export default async function renderWeapon(
             pos:   position.adjustment.attack.nerf!,
         });
     } else {
-        components.push({
-            type:  'image',
-            image: join('weapon', 'attack.png'),
-            pos:   position.attack,
-        });
-
         if (aAttack?.status === 'buff') {
             components.push({
                 type:  'image',
@@ -336,6 +330,12 @@ export default async function renderWeapon(
                 pos:   position.adjustment.attack.buff!,
             });
         }
+
+        components.push({
+            type:  'image',
+            image: join('weapon', 'attack.png'),
+            pos:   position.attack,
+        });
     }
 
     if (data.attack != null) {
