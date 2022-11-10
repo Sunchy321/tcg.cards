@@ -222,6 +222,21 @@ export default async function renderHero(
         ? 'text' : 'text-free';
 
     if (aText?.status === 'nerf') {
+        if (data.rarity != null && data.rarity !== 'free') {
+            components.push(
+                {
+                    type:  'image',
+                    image: join('hero', 'rarity.png'),
+                    pos:   position.rarityBase,
+                },
+                {
+                    type:  'image',
+                    image: join('hero', 'rarity', `${data.rarity}.png`),
+                    pos:   position.rarity,
+                },
+            );
+        }
+
         components.push({
             type:  'image',
             image: join('hero', 'effect', `${textPrefix}-nerf.png`),
@@ -233,6 +248,21 @@ export default async function renderHero(
             image: join('hero', 'text.png'),
             pos:   position.desc,
         });
+
+        if (data.rarity != null && data.rarity !== 'free') {
+            components.push(
+                {
+                    type:  'image',
+                    image: join('hero', 'rarity.png'),
+                    pos:   position.rarityBase,
+                },
+                {
+                    type:  'image',
+                    image: join('hero', 'rarity', `${data.rarity}.png`),
+                    pos:   position.rarity,
+                },
+            );
+        }
 
         if (aText?.status === 'buff') {
             components.push({
@@ -247,22 +277,6 @@ export default async function renderHero(
                 pos:   position.adjustment.text.adjust!,
             });
         }
-    }
-
-    // rarity
-    if (data.rarity != null && data.rarity !== 'free') {
-        components.push(
-            {
-                type:  'image',
-                image: join('hero', 'rarity.png'),
-                pos:   position.rarityBase,
-            },
-            {
-                type:  'image',
-                image: join('hero', 'rarity', `${data.rarity}.png`),
-                pos:   position.rarity,
-            },
-        );
     }
 
     // name
@@ -342,7 +356,7 @@ export default async function renderHero(
             components.push({
                 type:  'image',
                 image: join('hero', 'effect', 'armor-nerf.png'),
-                pos:   position.adjustment.attack.nerf!,
+                pos:   position.adjustment.armor.nerf!,
             });
         } else {
             components.push({
@@ -355,7 +369,7 @@ export default async function renderHero(
                 components.push({
                     type:  'image',
                     image: join('hero', 'effect', 'armor-buff.png'),
-                    pos:   position.adjustment.attack.buff!,
+                    pos:   position.adjustment.armor.buff!,
                 });
             }
         }

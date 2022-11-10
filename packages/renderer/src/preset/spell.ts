@@ -261,6 +261,14 @@ export default async function renderSpell(
     const textPrefix = data.spellSchool != null ? 'text-school' : 'text';
 
     if (aText?.status === 'nerf') {
+        if (data.spellSchool != null) {
+            components.push({
+                type:  'image',
+                image: join('spell', 'school.png'),
+                pos:   position.school,
+            });
+        }
+
         components.push({
             type:  'image',
             image: join('spell', 'effect', `${textPrefix}-nerf.png`),
@@ -272,6 +280,14 @@ export default async function renderSpell(
             image: join('spell', 'text.png'),
             pos:   position.desc,
         });
+
+        if (data.spellSchool != null) {
+            components.push({
+                type:  'image',
+                image: join('spell', 'school.png'),
+                pos:   position.school,
+            });
+        }
 
         if (aText?.status === 'buff') {
             components.push({
@@ -289,14 +305,6 @@ export default async function renderSpell(
     }
 
     // spell school
-    if (data.spellSchool != null) {
-        components.push({
-            type:  'image',
-            image: join('spell', 'school.png'),
-            pos:   position.school,
-        });
-    }
-
     const aSchool = (data.adjustment ?? []).find(a => a.part === 'school');
 
     if (aSchool?.status === 'adjust') {
@@ -342,22 +350,6 @@ export default async function renderSpell(
         underwear: { flip: true, width: 0.26, height: 0.16 },
         color:     '#1E1710',
     });
-
-    // rarity
-    if (data.rarity != null && data.rarity !== 'free') {
-        components.push(
-            {
-                type:  'image',
-                image: join('spell', 'rarity.png'),
-                pos:   position.rarityBase,
-            },
-            {
-                type:  'image',
-                image: join('spell', 'rarity', `${data.rarity}.png`),
-                pos:   position.rarity,
-            },
-        );
-    }
 
     // spell school
     if (data.spellSchool != null) {

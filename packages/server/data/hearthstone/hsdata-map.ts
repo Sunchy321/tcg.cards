@@ -492,7 +492,7 @@ export const sets: Record<string, string> = {
     4:    'hof', // Hall of Fame
     1635: 'legacy',
     1637: 'core21', // Core 2021
-    1810: 'core22',
+    1810: 'core22', // Core 2022
 
     12:   'naxx', // Curse of Naxxramas
     13:   'gvg', // Goblins vs Gnomes

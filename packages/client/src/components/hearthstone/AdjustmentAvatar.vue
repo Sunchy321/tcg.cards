@@ -141,7 +141,7 @@ export default defineComponent({
                 if (profile.value != null) {
                     children.push(h(QTooltip, {
                         'content-class': 'adjustment-popover',
-                    }, () => [h('div', { class: 'flex items-center' }, [
+                    }, () => [h('div', { class: 'flex items-center flex-nowarp' }, [
                         [mainPart.value, ...relatedPart.value].map(urls => {
                             if (urls.length === 1) {
                                 return h(QImg, { class: 'adjustment-image-popover', src: urls[0] });

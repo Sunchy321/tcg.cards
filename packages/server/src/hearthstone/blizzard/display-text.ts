@@ -178,8 +178,10 @@ function getDisplayText(
     case TextBuilderType.scriptDataNum1: {
         const dataNum1 = getTag(mechanics, 'data_num_1');
 
-        if (dataNum1 === 0) {
-            return text.split('@')[0];
+        const parts = text.split('@');
+
+        if (parts.length === 3 && dataNum1 === 0) {
+            return `${parts[0]}${parts[1]}0${parts[2]}`;
         } else {
             return text.replace(/@/g, dataNum1.toString());
         }
