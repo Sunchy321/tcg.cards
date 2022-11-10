@@ -1,6 +1,6 @@
 <template>
     <div class="q-pa-md">
-        <div class="row items-center q-mb-md q-gutter-md">
+        <div class="row items-center q-mb-md">
             <q-select
                 v-model="id"
                 dense outlined
@@ -13,7 +13,7 @@
 
             <q-input
                 v-model="setId"
-                class="q-ml-ms"
+                class="q-ml-md"
                 outlined dense
             />
 
@@ -24,6 +24,13 @@
                 flat dense round
                 @click="save"
             />
+
+            <q-btn
+                icon="mdi-plus"
+                flat dense round
+                @click="newSet"
+            />
+
         </div>
 
         <div>
@@ -165,13 +172,26 @@ export default defineComponent({
         };
 
         const save = async () => {
-            if (data.value != null) {
+            if (data.value != null && data.value.setId !== '') {
                 prettify();
 
                 await controlPost('/hearthstone/set/save', { data: data.value });
 
                 await loadList();
             }
+        };
+
+        const newSet = async () => {
+            await save();
+
+            id.value = set.value[0];
+
+            data.value = {
+                setId:        '',
+                localization: [],
+                setType:      '',
+                cardCount:    [0, 0],
+            };
         };
 
         watch(set, () => { filteredSet.value = set.value; });
@@ -186,6 +206,7 @@ export default defineComponent({
             filteredSet,
 
             save,
+            newSet,
             filterFn,
             assignName,
         };

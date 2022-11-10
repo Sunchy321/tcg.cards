@@ -5,7 +5,7 @@ export interface SetLocalization {
 
 export interface Set {
     setId: string;
-    dbfId: number;
+    dbfId?: number;
     slug?: string;
 
     localization: SetLocalization[];

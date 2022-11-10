@@ -73,12 +73,18 @@
 
                 <grid
                     v-if="n.adjustment.length>0"
-                    v-slot="{ id, status, group }"
+                    v-slot="{ id, status, adjustment, group }"
                     :value="n.adjustment" :item-width="300" item-key="card" item-class="flex items-center"
                 >
                     <div class="adjustment flex items-center q-gutter-sm">
                         <status-icon :status="status" />
-                        <card-avatar :id="id" class="avatar" :version="n.version" />
+                        <adjustment-avatar
+                            :id="id"
+                            class="avatar"
+                            :version="n.version"
+                            :last-version="n.lastVersion ?? n.version"
+                            :adjustment="adjustment"
+                        />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
                 </grid>
@@ -172,6 +178,7 @@ import pageSetup from 'setup/page';
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
 import CardAvatar from 'components/hearthstone/CardAvatar.vue';
+import AdjustmentAvatar from 'components/hearthstone/AdjustmentAvatar.vue';
 import StatusIcon from 'components/hearthstone/StatusIcon.vue';
 import SetAvatar from 'components/hearthstone/SetAvatar.vue';
 
@@ -218,6 +225,7 @@ export default defineComponent({
         Grid,
         DateInput,
         CardAvatar,
+        AdjustmentAvatar,
         StatusIcon,
         SetAvatar,
     },

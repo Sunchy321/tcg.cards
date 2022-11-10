@@ -9,7 +9,7 @@
 
 <script lang="ts">
 import {
-    PropType, defineComponent, ref, computed, watch, h,
+    defineComponent, ref, computed, watch, h,
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
@@ -17,26 +17,15 @@ import { useHearthstone } from 'store/games/hearthstone';
 
 import { QTooltip, QImg } from 'quasar';
 
-import { Adjustment } from 'interface/hearthstone/format-change';
-
 import cardProfile, { CardProfile } from 'src/common/hearthstone/card';
 
 import { imageBase } from 'boot/backend';
 
-type PartAdjustment = {
-    part: string;
-    status: Adjustment;
-};
-
 export default defineComponent({
     props: {
-        id:         { type: String, required: true },
-        version:    { type: Number, default: undefined },
-        text:       { type: String, default: undefined },
-        adjustment: {
-            type:    Array as PropType<PartAdjustment[]>,
-            default: undefined,
-        },
+        id:      { type: String, required: true },
+        version: { type: Number, default: 0 },
+        text:    { type: String, default: undefined },
     },
 
     setup(props) {
@@ -76,11 +65,20 @@ export default defineComponent({
         });
 
         const imageUrl = computed(() => {
-            if (props.version != null && props.version !== 0) {
-                return `https://${imageBase}/hearthstone/card?id=${props.id}&lang=${hearthstone.locale}&version=${props.version}`;
-            } else {
-                return `https://${imageBase}/hearthstone/card?id=${props.id}&lang=${hearthstone.locale}`;
+            const url = new URL('/hearthstone/card', `https://${imageBase}`);
+
+            const params: any = { };
+
+            params.id = props.id;
+            params.lang = hearthstone.locale;
+
+            if (props.version !== 0) {
+                params.version = props.version;
             }
+
+            url.search = new URLSearchParams(params).toString();
+
+            return url.toString();
         });
 
         const loadData = async () => cardProfile.get(
