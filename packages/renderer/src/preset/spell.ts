@@ -48,9 +48,13 @@ const position = {
     schoolText: { x: 247, y: 586 },
 
     adjustment: {
-        cost: {
+        mana: {
             buff: { x: 24, y: 24 },
             nerf: { x: 23, y: 45 },
+        },
+        coin: {
+            buff: { x: 20, y: 46 },
+            nerf: { x: 22, y: 47 },
         },
         text: {
             buff:   { x: 81, y: 376 },
@@ -205,24 +209,38 @@ export default async function renderSpell(
     // cost
     const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
 
+    const costType = (() => {
+        if (data.format === 'battlegrounds') {
+            return 'coin';
+        } else if (data.format != null) {
+            return 'mana';
+        } else {
+            if (data.costType === 'speed') {
+                return 'mana';
+            }
+
+            return data.costType ?? 'mana';
+        }
+    })();
+
     if (aCost?.status === 'nerf') {
         components.push({
             type:  'image',
-            image: join('cost', 'effect', 'mana-nerf.png'),
-            pos:   position.adjustment.cost.nerf!,
+            image: join('cost', 'effect', `${costType}-nerf.png`),
+            pos:   position.adjustment[costType].nerf!,
         });
     } else {
         components.push({
             type:  'image',
-            image: join('cost', `${data.costType}.png`),
-            pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
+            image: join('cost', `${costType}.png`),
+            pos:   position.cost[costType],
         });
 
         if (aCost?.status === 'buff') {
             components.push({
                 type:  'image',
-                image: join('cost', 'effect', 'mana-buff.png'),
-                pos:   position.adjustment.cost.buff!,
+                image: join('cost', 'effect', `${costType}-buff.png`),
+                pos:   position.adjustment[costType].buff!,
             });
         }
     }

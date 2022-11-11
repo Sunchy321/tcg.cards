@@ -191,24 +191,38 @@ export default async function renderWeapon(
     // cost
     const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
 
+    const costType = (() => {
+        if (data.format === 'battlegrounds') {
+            return 'coin';
+        } else if (data.format != null) {
+            return 'mana';
+        } else {
+            if (data.costType === 'speed') {
+                return 'mana';
+            }
+
+            return data.costType ?? 'mana';
+        }
+    })();
+
     if (aCost?.status === 'nerf') {
         components.push({
             type:  'image',
-            image: join('cost', 'effect', 'mana-nerf.png'),
-            pos:   position.adjustment.cost.nerf!,
+            image: join('cost', 'effect', `${costType}-nerf.png`),
+            pos:   position.adjustment[costType].nerf!,
         });
     } else {
         components.push({
             type:  'image',
-            image: join('cost', `${data.costType}.png`),
-            pos:   position.cost[data.costType === 'speed' ? 'mana' : data.costType],
+            image: join('cost', `${costType}.png`),
+            pos:   position.cost[costType],
         });
 
         if (aCost?.status === 'buff') {
             components.push({
                 type:  'image',
-                image: join('cost', 'effect', 'mana-buff.png'),
-                pos:   position.adjustment.cost.buff!,
+                image: join('cost', 'effect', `${costType}-buff.png`),
+                pos:   position.adjustment[costType].buff!,
             });
         }
     }

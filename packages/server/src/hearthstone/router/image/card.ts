@@ -21,7 +21,7 @@ router.prefix('/card');
 
 router.get('/', async ctx => {
     const {
-        id, lang, version: versionText, adjustment: adjustmentText,
+        id, lang, version: versionText, adjustment: adjustmentText, format,
     } = mapValues(ctx.query, toSingle);
 
     const version = versionText != null ? Number.parseInt(versionText, 10) : null;
@@ -71,6 +71,7 @@ router.get('/', async ctx => {
         const data = await renderEntity({
             cardType: json.cardType,
             variant:  'normal',
+            format,
             costType: 'mana',
 
             cardId: json.cardId,

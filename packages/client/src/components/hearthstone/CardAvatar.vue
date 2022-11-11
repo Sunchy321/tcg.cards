@@ -23,7 +23,8 @@ import { imageBase } from 'boot/backend';
 
 export default defineComponent({
     props: {
-        id:      { type: String, required: true },
+        cardId:  { type: String, required: true },
+        format:  { type: String, default: undefined },
         version: { type: Number, default: 0 },
         text:    { type: String, default: undefined },
     },
@@ -38,7 +39,7 @@ export default defineComponent({
 
         const link = computed(() => router.resolve({
             name:   'hearthstone/card',
-            params: { id: props.id },
+            params: { id: props.cardId },
             query:  {
                 version: props.version,
             },
@@ -69,11 +70,15 @@ export default defineComponent({
 
             const params: any = { };
 
-            params.id = props.id;
+            params.id = props.cardId;
             params.lang = hearthstone.locale;
 
             if (props.version !== 0) {
                 params.version = props.version;
+            }
+
+            if (props.format != null) {
+                params.format = props.format;
             }
 
             url.search = new URLSearchParams(params).toString();
@@ -82,15 +87,15 @@ export default defineComponent({
         });
 
         const loadData = async () => cardProfile.get(
-            props.id,
+            props.cardId,
             v => { profile.value = v; },
         ).catch(() => { innerShowId.value = true; });
 
-        watch(() => props.id, loadData, { immediate: true });
+        watch(() => props.cardId, loadData, { immediate: true });
 
         return () => {
             const text = showId.value
-                ? h('span', { class: 'code' }, props.id)
+                ? h('span', { class: 'code' }, props.cardId)
                 : h('span', props.text ?? name.value ?? '');
 
             if (onThisPage.value) {

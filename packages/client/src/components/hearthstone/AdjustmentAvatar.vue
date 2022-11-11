@@ -33,7 +33,8 @@ type PartAdjustment = {
 
 export default defineComponent({
     props: {
-        id:          { type: String, required: true },
+        cardId:      { type: String, required: true },
+        format:      { type: String, default: undefined },
         version:     { type: Number, required: true },
         lastVersion: { type: Number, required: true },
         text:        { type: String, default: undefined },
@@ -52,7 +53,7 @@ export default defineComponent({
 
         const link = computed(() => router.resolve({
             name:   'hearthstone/card',
-            params: { id: props.id },
+            params: { id: props.cardId },
             query:  {
                 version: props.version,
             },
@@ -85,6 +86,10 @@ export default defineComponent({
             params.id = id;
             params.lang = hearthstone.locale;
 
+            if (props.format != null) {
+                params.format = props.format;
+            }
+
             if (version !== 0) {
                 params.version = version;
             }
@@ -103,12 +108,12 @@ export default defineComponent({
 
             if (adj == null) {
                 return [
-                    imageUrl(props.id, props.version, []),
+                    imageUrl(props.cardId, props.version, []),
                 ];
             } else {
                 return [
-                    imageUrl(props.id, props.lastVersion, []),
-                    imageUrl(props.id, props.version, adj.detail),
+                    imageUrl(props.cardId, props.lastVersion, []),
+                    imageUrl(props.cardId, props.version, adj.detail),
                 ];
             }
         });
@@ -121,15 +126,15 @@ export default defineComponent({
             ]));
 
         const loadData = async () => cardProfile.get(
-            props.id,
+            props.cardId,
             v => { profile.value = v; },
         ).catch(() => { innerShowId.value = true; });
 
-        watch(() => props.id, loadData, { immediate: true });
+        watch(() => props.cardId, loadData, { immediate: true });
 
         return () => {
             const text = showId.value
-                ? h('span', { class: 'code' }, props.id)
+                ? h('span', { class: 'code' }, props.cardId)
                 : h('span', props.text ?? name.value ?? '');
 
             return h(RouterLink, {

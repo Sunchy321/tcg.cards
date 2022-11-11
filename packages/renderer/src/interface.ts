@@ -3,7 +3,9 @@ import { Adjustment } from '@interface/hearthstone/format-change';
 
 export interface EntityRenderData {
     variant: 'diamond' | 'golden' | 'normal';
-    costType: 'coin' | 'mana' | 'speed';
+    costType?: 'coin' | 'mana' | 'speed';
+    format?: string;
+    adjustment?: { part: string, status: Adjustment }[];
 
     cardId: string;
 
@@ -40,6 +42,4 @@ export interface EntityRenderData {
     rarity?: Entity['rarity'];
 
     mechanics: string[];
-
-    adjustment?: { part: string, status: Adjustment }[];
 }

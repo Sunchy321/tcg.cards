@@ -33,6 +33,15 @@ const position = {
         coin:  { x: 37, y: 62 },
         speed: { x: 44, y: 57 },
     },
+    techLevel: {
+        base: { x: 38, y: 58 },
+        1:    { x: 78, y: 99 },
+        2:    { x: 62, y: 100 },
+        3:    { x: 62, y: 89 },
+        4:    { x: 62, y: 83 },
+        5:    { x: 59, y: 75 },
+        6:    { x: 59, y: 75 },
+    } as Record<number | 'base', { x: number, y: number }>,
     costNumber:   { x: 88, y: 105 },
     flag:         { x: 43, y: 70 },
     elite:        { x: 139, y: 22 },
@@ -52,6 +61,10 @@ const position = {
         cost: {
             buff: { x: 24, y: 24 },
             nerf: { x: 23, y: 45 },
+        },
+        techLevel: {
+            buff: { x: 24, y: 41 },
+            nerf: { x: 25, y: 43 },
         },
         attack: {
             buff: { x: 16, y: 491 },
@@ -201,38 +214,82 @@ export default async function renderMinion(
     }
 
     // cost
-    const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
+    if (data.format === 'battlegrounds') {
+        const aTechLevel = (data.adjustment ?? []).find(a => a.part === 'techLevel');
 
-    if (aCost?.status === 'nerf') {
-        components.push({
-            type:  'image',
-            image: join('cost', 'effect', 'mana-nerf.png'),
-            pos:   position.adjustment.cost.nerf!,
-        });
-    } else {
-        components.push({
-            type:  'image',
-            image: join('cost', `${data.costType}.png`),
-            pos:   position.cost[data.costType],
-        });
-
-        if (aCost?.status === 'buff') {
+        if (aTechLevel?.status === 'nerf') {
             components.push({
                 type:  'image',
-                image: join('cost', 'effect', 'mana-buff.png'),
-                pos:   position.adjustment.cost.buff!,
+                image: join('cost', 'effect', 'tech-level-nerf.png'),
+                pos:   position.adjustment.techLevel.nerf!,
+            });
+        } else {
+            components.push({
+                type:  'image',
+                image: join('cost', 'tech-level', 'base.png'),
+                pos:   position.techLevel.base,
+            });
+
+            if (aTechLevel?.status === 'buff') {
+                components.push({
+                    type:  'image',
+                    image: join('cost', 'effect', 'tech-level-buff.png'),
+                    pos:   position.adjustment.techLevel.buff!,
+                });
+            }
+        }
+
+        if (data.techLevel != null && data.techLevel >= 1 && data.techLevel <= 6) {
+            components.push({
+                type:  'image',
+                image: join('cost', 'tech-level', `${data.techLevel}.png`),
+                pos:   position.techLevel[data.techLevel],
             });
         }
-    }
+    } else {
+        const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
 
-    if (data.cost != null) {
-        components.push({
-            type: 'text',
-            text: data.cost.toString(),
-            font: '文鼎隶书',
-            size: 114,
-            pos:  position.costNumber,
-        });
+        const costType = (() => {
+            if (data.format === 'mercenaries') {
+                return 'speed';
+            } else if (data.format != null) {
+                return 'mana';
+            } else {
+                return data.costType ?? 'mana';
+            }
+        })();
+
+        if (aCost?.status === 'nerf') {
+            components.push({
+                type:  'image',
+                image: join('cost', 'effect', `${costType}-nerf.png`),
+                pos:   position.adjustment[costType].nerf!,
+            });
+        } else {
+            components.push({
+                type:  'image',
+                image: join('cost', `${costType}.png`),
+                pos:   position.cost[costType],
+            });
+
+            if (aCost?.status === 'buff') {
+                components.push({
+                    type:  'image',
+                    image: join('cost', 'effect', `${costType}-buff.png`),
+                    pos:   position.adjustment[costType].buff!,
+                });
+            }
+        }
+
+        if (data.cost != null) {
+            components.push({
+                type: 'text',
+                text: data.cost.toString(),
+                font: '文鼎隶书',
+                size: 114,
+                pos:  position.costNumber,
+            });
+        }
     }
 
     // name

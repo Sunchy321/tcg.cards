@@ -67,7 +67,7 @@
                 >
                     <div class="banlist flex items-center q-gutter-sm">
                         <status-icon :status="status" />
-                        <card-avatar :id="id" class="avatar" :version="n.version" />
+                        <card-avatar class="avatar" :card-id="id" :format="format" :version="n.version" />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
                 </grid>
@@ -80,8 +80,9 @@
                     <div class="adjustment flex items-center q-gutter-sm">
                         <status-icon :status="status" />
                         <adjustment-avatar
-                            :id="id"
                             class="avatar"
+                            :card-id="id"
+                            :format="format"
                             :version="n.version"
                             :last-version="n.lastVersion ?? n.version"
                             :adjustment="adjustment"
@@ -132,7 +133,7 @@
                     <status-icon :status="status" />
                     <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                     <div v-else class="date">{{ effectiveDate }}</div>
-                    <card-avatar :id="id" class="avatar" />
+                    <card-avatar class="avatar" :card-id="id" :format="format" />
                     <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                 </div>
             </grid>

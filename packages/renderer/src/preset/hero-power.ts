@@ -53,9 +53,23 @@ export default async function renderHeroPower(
     });
 
     // cost
+    const costType = (() => {
+        if (data.format === 'battlegrounds') {
+            return 'coin';
+        } else if (data.format != null) {
+            return 'mana';
+        } else {
+            if (data.costType === 'speed') {
+                return 'mana';
+            }
+
+            return data.costType ?? 'mana';
+        }
+    })();
+
     components.push({
         type:  'image',
-        image: join('hero-power', `frame-${data.costType}.png`),
+        image: join('hero-power', `frame-${costType}.png`),
         pos:   position.cost,
     });
 
