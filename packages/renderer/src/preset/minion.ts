@@ -58,9 +58,13 @@ const position = {
     healthNumber: { x: 407, y: 577 },
 
     adjustment: {
-        cost: {
+        mana: {
             buff: { x: 24, y: 24 },
             nerf: { x: 23, y: 45 },
+        },
+        coin: {
+            buff: { x: 20, y: 46 },
+            nerf: { x: 22, y: 47 },
         },
         techLevel: {
             buff: { x: 24, y: 41 },

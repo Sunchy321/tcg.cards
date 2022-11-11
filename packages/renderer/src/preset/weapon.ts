@@ -42,9 +42,13 @@ const position = {
     durabilityNumber: { x: 408, y: 577 },
 
     adjustment: {
-        cost: {
+        mana: {
             buff: { x: 24, y: 24 },
             nerf: { x: 23, y: 45 },
+        },
+        coin: {
+            buff: { x: 20, y: 46 },
+            nerf: { x: 22, y: 47 },
         },
         attack: {
             buff: { x: 36, y: 511 },

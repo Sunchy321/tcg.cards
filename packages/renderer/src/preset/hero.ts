@@ -42,9 +42,13 @@ const position = {
     armorNumber:  { x: 406, y: 575 },
 
     adjustment: {
-        cost: {
+        mana: {
             buff: { x: 24, y: 24 },
             nerf: { x: 23, y: 45 },
+        },
+        coin: {
+            buff: { x: 20, y: 46 },
+            nerf: { x: 22, y: 47 },
         },
         armor: {
             buff: { x: 351, y: 508 },
