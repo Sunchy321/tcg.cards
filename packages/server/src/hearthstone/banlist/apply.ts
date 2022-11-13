@@ -100,7 +100,56 @@ export class AnnouncementApplier {
     private formatMap: Record<string, Document & IFormat>;
 
     private sets: { id: string, releaseDate: string }[];
-    private standardSets: string[];
+
+    private cardList: Record<string, string[]> = {
+        c_thun: [
+            'OG_096',
+            'OG_131',
+            'OG_162',
+            'OG_188',
+            'OG_255',
+            'OG_280',
+            'OG_281',
+            'OG_282',
+            'OG_283',
+            'OG_284',
+            'OG_286',
+            'OG_293',
+            'OG_301',
+            'OG_302',
+            'OG_303',
+            'OG_321',
+            'OG_334',
+            'OG_339',
+        ],
+        odd_even: [
+            'GIL_130',
+            'GIL_530',
+            'GIL_692',
+            'GIL_826',
+            'GIL_837',
+            'GIL_838',
+        ],
+        invoke: [
+            'DRG_019',
+            'DRG_021',
+            'DRG_027',
+            'DRG_030',
+            'DRG_050',
+            'DRG_202',
+            'DRG_203',
+            'DRG_217',
+            'DRG_218',
+            'DRG_242',
+            'DRG_246',
+            'DRG_247',
+            'DRG_248',
+            'DRG_249',
+            'DRG_250',
+            'DRG_300',
+            'DRG_303',
+        ],
+    };
 
     private cards: {
         id: string;
@@ -130,14 +179,30 @@ export class AnnouncementApplier {
         this.formatMap = Object.fromEntries(formats.map(f => [f.formatId, f]));
 
         // load sets
-        const sets = await Set.find({ setType: { $in: ['core', 'expansion', 'draft_innovation', 'funny', 'alchemy', 'commander'] } });
+        const sets = await Set.find({ });
 
         this.sets = sets.map(s => ({ id: s.setId, releaseDate: s.releaseDate! }));
-        this.standardSets = sets.filter(s => ['core', 'expansion'].includes(s.setId)).map(s => s.setId);
+
+        // preload group entities
+        this.cardList.hero = await Entity.distinct('cardId', {
+            cardType:    'hero',
+            collectible: true,
+            cost:        { $gt: 0 },
+            cardId:      { $nin: ['EX1_323', 'CORE_EX1_323'] },
+        });
+
+        this.cardList.quest = await Entity.distinct('cardId', {
+            'quest.type':  { $in: ['normal', 'questline'] },
+            'collectible': true,
+        });
     }
 
     private async loadCard(): Promise<void> {
         const cards: string[] = [];
+
+        for (const k of Object.keys(this.cardList)) {
+            cards.push(...this.cardList[k]);
+        }
 
         for (const a of this.announcements) {
             for (const c of a.changes) {
@@ -197,9 +262,7 @@ export class AnnouncementApplier {
     }
 
     private getCardList(group: string): string[] {
-        switch (group) {
-        default: return [];
-        }
+        return this.cardList[group];
     }
 
     private detectGroup(group: string, format: string, sets?: string[]): string[] {
@@ -268,8 +331,10 @@ export class AnnouncementApplier {
             return;
         }
 
+        const realGroup = group != null && /^\[.*\]$/.test(group) ? undefined : group;
+
         this.changes.push({
-            source, date, name, format, link, type: 'banlist', id: card, status, version, lastVersion,
+            source, date, name, format, link, type: 'banlist', id: card, status, group: realGroup, version, lastVersion,
         });
 
         if (f.banlist == null) {
@@ -283,12 +348,12 @@ export class AnnouncementApplier {
 
             if (b == null) {
                 f.banlist.push({
-                    id: card, status, date, group,
+                    id: card, status, date, group: realGroup,
                 });
             } else {
                 b.status = status;
                 b.date = date;
-                b.group = group;
+                b.group = realGroup;
             }
         }
     }
@@ -555,7 +620,8 @@ export class AnnouncementApplier {
                 }
 
                 // banlist item rotated out
-                if (c.setOut != null && c.setOut.length > 0) {
+                // arena has too many rotates so its banlist won't rotate out
+                if (c.setOut != null && c.setOut.length > 0 && c.format !== 'arena') {
                     for (const b of fo.banlist) {
                         if (c.setOut.includes(this.getCardData(b.id, a.version).set)) {
                             this.banlistChange(b.id, 'unavailable', c.format, b.group, a.source, date, a.name, a.link, a.version, a.lastVersion);

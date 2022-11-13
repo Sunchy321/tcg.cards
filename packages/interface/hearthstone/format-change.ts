@@ -38,6 +38,7 @@ export interface FormatChange {
     type: 'adjustment' | 'banlist' | 'set';
     id: string;
     status: Adjustment | Legality | 'in' | 'out';
+    group?: string;
     adjustment?: {
         id?: string;
         detail: { part: string, status: Adjustment }[];

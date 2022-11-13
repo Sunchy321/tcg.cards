@@ -137,7 +137,6 @@
                     <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                 </div>
             </grid>
-
         </template>
     </q-page>
 </template>
@@ -208,11 +207,12 @@ interface TimelineNode {
     link: string[];
 
     sets: { id: string, status: 'in' | 'out' }[];
-    banlist: { id: string, status: Legality }[];
+    banlist: { id: string, status: Legality, group?: string }[];
 
     adjustment: {
         id: string;
         status: Adjustment;
+        group?: string;
         adjustment: {
             id?: string;
             detail: { part: string, status: Adjustment }[];
@@ -221,7 +221,7 @@ interface TimelineNode {
 }
 
 export const banlistStatusOrder = ['banned', 'banned_in_deck', 'banned_in_card_pool', 'legal', 'unavailable'];
-export const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
+export const banlistSourceOrder = ['c_thun', 'quest', 'hero', 'odd_even', 'invoke', null];
 
 export default defineComponent({
     components: {
@@ -328,12 +328,14 @@ export default defineComponent({
                     node.banlist.push({
                         id:     c.id,
                         status: c.status as Legality,
+                        group:  c.group,
                     });
                 } else {
                     node.adjustment.push({
                         id:         c.id,
                         status:     c.status as Adjustment,
                         adjustment: c.adjustment ?? [],
+                        group:      c.group,
                     });
                 }
             }
@@ -402,7 +404,7 @@ export default defineComponent({
                                 link:   c.link ?? [],
                                 id:     c.id,
                                 status: c.status as Legality,
-                                // group:  c.group,
+                                group:  c.group,
                             };
 
                             if (sameIndex === -1) {
@@ -493,11 +495,9 @@ export default defineComponent({
 
         const groupShort = (group: string) => {
             switch (group) {
-            case 'ante': return 'ante';
-            case 'legendary': return 'leg.';
-            case 'conspiracy': return 'consp.';
-            case 'offensive': return 'off.';
-            default: return '';
+            case 'c_thun': return 'c\'thun';
+            case 'odd_even': return 'odd/even';
+            default: return group;
             }
         };
 

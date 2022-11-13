@@ -202,6 +202,11 @@ export default defineComponent({
         };
 
         const search = async () => {
+            if (input.value.trim().startsWith('#')) {
+                emit('update:modelValue', input.value.trim());
+                return;
+            }
+
             const data = await getData(input.value, props.modelValue);
 
             if (Array.isArray(data)) {

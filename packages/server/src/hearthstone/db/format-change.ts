@@ -16,6 +16,7 @@ const IFormatChangeSchema = new Schema<IFormatChange>({
     type:       String,
     id:         String,
     status:     String,
+    group:      String,
     adjustment: {
         type: [{
             _id:    false,
