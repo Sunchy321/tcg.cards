@@ -35,7 +35,6 @@ export class AnnouncementApplier {
     private eternalFormats: string[];
 
     private sets: { id: string, releaseDate: string }[];
-    private standardSets: string[];
 
     private anteList: string[];
     private conspiracyList: string[];
@@ -75,7 +74,6 @@ export class AnnouncementApplier {
         const sets = await Set.find({ setType: { $in: ['core', 'expansion', 'draft_innovation', 'funny', 'alchemy', 'commander'] } });
 
         this.sets = sets.map(s => ({ id: s.setId, releaseDate: s.releaseDate! }));
-        this.standardSets = sets.filter(s => ['core', 'expansion'].includes(s.setId)).map(s => s.setId);
 
         // preload group cards
         this.anteList = fs.readFileSync(join(dataPath, 'magic', 'banlist', 'ante')).toString().split('\n').map(toIdentifier);

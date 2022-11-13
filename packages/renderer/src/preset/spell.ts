@@ -369,6 +369,22 @@ export default async function renderSpell(
         color:     '#1E1710',
     });
 
+    // rarity
+    if (data.rarity != null && data.rarity !== 'free') {
+        components.push(
+            {
+                type:  'image',
+                image: join('spell', 'rarity.png'),
+                pos:   position.rarityBase,
+            },
+            {
+                type:  'image',
+                image: join('spell', 'rarity', `${data.rarity}.png`),
+                pos:   position.rarity,
+            },
+        );
+    }
+
     // spell school
     if (data.spellSchool != null) {
         const school = spellSchoolMap[data.spellSchool];
