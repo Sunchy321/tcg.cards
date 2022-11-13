@@ -5,7 +5,7 @@
                 v-model="version"
                 dense outlined
                 input-debounce="0"
-                :options="patches"
+                :options="versions"
             />
 
             <q-space />
@@ -25,7 +25,7 @@
 
 <script lang="ts">
 import {
-    defineComponent, ref, computed, watch, onMounted,
+    defineComponent, ref, computed, onMounted,
 } from 'vue';
 
 import controlSetup from 'src/setup/control';
@@ -39,10 +39,9 @@ export default defineComponent({
     name: 'DataPatch',
 
     setup() {
-        const { controlGet, controlPost } = controlSetup();
+        const { controlPost } = controlSetup();
 
-        const patches = ref<string[]>([]);
-        const data = ref<Patch | null>(null);
+        const patches = ref<Patch[]>([]);
 
         const { version } = pageSetup({
             appendParam: true,
@@ -50,9 +49,21 @@ export default defineComponent({
                 version: {
                     type:    'string',
                     bind:    'query',
-                    default: () => patches.value[0],
+                    default: () => patches.value[0]?.number.toString() ?? 0,
                 },
             },
+        });
+
+        const versions = computed(() => patches.value.map(p => p.number.toString()));
+
+        const data = computed(() => {
+            const patch = patches.value.find(p => p.number.toString() === version.value);
+
+            if (patch != null) {
+                return patch;
+            } else {
+                return null;
+            }
         });
 
         const shortName = computed({
@@ -70,37 +81,16 @@ export default defineComponent({
             }
         };
 
-        const loadData = async () => {
-            if (version.value == null) {
-                return;
-            }
-
-            if (data.value != null) {
-                await save();
-            }
-
-            const { data: result } = await controlGet<Patch>('/hearthstone/patch/raw', {
-                version: version.value,
-            });
-
-            data.value = result;
-        };
-
         const loadList = async () => {
-            const { data: patchList } = await apiGet<string[]>('/hearthstone/patch');
+            const { data: patchList } = await apiGet<Patch[]>('/hearthstone/patch');
 
             patches.value = patchList;
-
-            if (data.value == null) {
-                void loadData();
-            }
         };
 
-        watch(version, loadData);
         onMounted(loadList);
 
         return {
-            patches,
+            versions,
             version,
 
             shortName,
