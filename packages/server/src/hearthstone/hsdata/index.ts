@@ -12,6 +12,7 @@ import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthston
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as yaml from 'yaml';
 import { xml2js } from 'xml-js';
 import {
     castArray, isEqual, last, omit, uniq,
@@ -20,25 +21,6 @@ import {
 import { dataPath } from '@static';
 import * as logger from '@/logger';
 
-import {
-    ITag,
-    classes,
-    factions,
-    mechanics,
-    mercenaryRoles,
-    multiClasses,
-    playRequirements,
-    puzzleTypes,
-    raceBuckets,
-    races,
-    rarities,
-    sets,
-    spellSchools,
-    locTags,
-    tags,
-    types,
-    relatedEntities,
-} from '@data/hearthstone/hsdata-map';
 import { toBucket, toGenerator } from '@/common/to-bucket';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
@@ -63,6 +45,58 @@ export const langMap: Record<string, string> = {
     thTH: 'th',
     zhCN: 'zhs',
     zhTW: 'zht',
+};
+
+export interface ITag {
+    index: keyof IEntity;
+    bool?: true;
+    array?: true;
+    enum?: string | true;
+}
+
+export const locTags: Record<string, keyof IEntity['localization'][0]> = {
+    184: 'rawText',
+    185: 'name',
+    252: 'textInPlay',
+    325: 'targetText',
+    351: 'flavor',
+    364: 'howToEarn',
+    365: 'howToEarnGolden',
+};
+
+export const tags: Record<string, ITag> = {
+    45:   { index: 'health' },
+    47:   { index: 'attack' },
+    48:   { index: 'cost' },
+    114:  { index: 'elite', bool: true },
+    183:  { index: 'set', enum: 'set' },
+    187:  { index: 'durability' },
+    199:  { index: 'classes', array: true, enum: 'class' },
+    200:  { index: 'race', enum: true },
+    201:  { index: 'faction', enum: true },
+    202:  { index: 'cardType', enum: 'type' },
+    203:  { index: 'rarity', enum: true },
+    292:  { index: 'armor' },
+    321:  { index: 'collectible', bool: true },
+    344:  { index: 'localizationNotes' },
+    342:  { index: 'artist' },
+    380:  { index: 'heroPower' },
+    476:  { index: 'multipleClasses' },
+    480:  { index: 'classes', enum: 'multiClass' },
+    997:  { index: 'deckSize' },
+    1125: { index: 'deckOrder' },
+    1282: { index: 'heroicHeroPower' },
+    1429: { index: 'tripleCard' },
+    1440: { index: 'techLevel' },
+    1456: { index: 'inBobsTavern', bool: true },
+    1517: { index: 'overrideWatermark', enum: 'set' },
+    1587: { index: 'coin' },
+    1635: { index: 'spellSchool', enum: true },
+    1666: { index: 'mercenaryRole', enum: true },
+    1669: { index: 'colddown' },
+    1723: { index: 'armorBucket' },
+    2130: { index: 'buddy' },
+    2703: { index: 'bannedRace', enum: 'race' },
 };
 
 export class DataGetter extends Task<SimpleGitProgressEvent & { type: 'get' }> {
@@ -201,73 +235,6 @@ export class PatchClearer extends Task<IClearPatchStatus> {
     stopImpl(): void { /* no-op */ }
 }
 
-function getValue(tag: XLocStringTag | XTag, info: ITag) {
-    if (tag._attributes.type === 'LocString') {
-        return Object.entries(tag)
-            .filter(v => v[0] !== '_attributes')
-            .map(v => ({
-                lang:  langMap[v[0]] || v[0].slice(2),
-                value: v[1]._text,
-            }));
-    } else if (info.bool) {
-        const { value } = tag._attributes;
-
-        if (value !== '1') {
-            throw new Error(`Tag ${info.index} with non-1 value`);
-        } else {
-            return true;
-        }
-    } else if (info.enum != null) {
-        const enumId = info.enum === true ? info.index : info.enum;
-        const id = tag._attributes.value;
-
-        switch (enumId) {
-        case 'set':
-            return sets[id];
-        case 'class':
-            return classes[id];
-        case 'multiClass':
-            return multiClasses[id];
-        case 'type':
-            return types[id];
-        case 'race':
-            return races[id];
-        case 'spellSchool':
-            return spellSchools[id];
-        case 'raceBucket':
-            return raceBuckets[id];
-        case 'mechanic':
-            return mechanics[id];
-        case 'puzzleType':
-            return puzzleTypes[id];
-        case 'referencedTag':
-            return mechanics[id];
-        case 'playRequirement':
-            return playRequirements[id];
-        case 'rarity':
-            return rarities[id];
-        case 'faction':
-            return factions[id];
-        case 'mercenaryRole':
-            return mercenaryRoles[id];
-        default:
-            throw new Error(`Unknown enum ${enumId}`);
-        }
-    } else {
-        switch (tag._attributes.type as string) {
-        case 'Int':
-            return Number.parseInt(tag._attributes.value, 10);
-        case 'String':
-            return tag._text!;
-        case 'Card':
-            // use hsdata attribute here
-            return tag._attributes.cardID!;
-        default:
-            throw new Error(`New object type ${tag._attributes.type}`);
-        }
-    }
-}
-
 export interface ILoadPatchStatus {
     type: 'load-patch';
     version: number;
@@ -278,9 +245,103 @@ export interface ILoadPatchStatus {
 export class PatchLoader extends Task<ILoadPatchStatus> {
     version: number;
 
+    data: Record<string, any> = { };
+
     constructor(version: number) {
         super();
         this.version = version;
+    }
+
+    private addData(name: string) {
+        const content = fs
+            .readFileSync(path.join(dataPath, 'hearthstone', 'hsdata-map', `${name}.yml`))
+            .toString();
+
+        const data = yaml.parse(content);
+
+        this.data[name] = data;
+
+        return data;
+    }
+
+    private getData<T>(name: string): Record<string, T> {
+        if (this.data[name] == null) {
+            return this.addData(name);
+        } else {
+            return this.data[name];
+        }
+    }
+
+    private getValue(tag: XLocStringTag | XTag, info: ITag) {
+        if (tag._attributes.type === 'LocString') {
+            return Object.entries(tag)
+                .filter(v => v[0] !== '_attributes')
+                .map(v => ({
+                    lang:  langMap[v[0]] || v[0].slice(2),
+                    value: v[1]._text,
+                }));
+        } else if (info.bool) {
+            const { value } = tag._attributes;
+
+            if (value !== '1') {
+                throw new Error(`Tag ${info.index} with non-1 value`);
+            } else {
+                return true;
+            }
+        } else if (info.enum != null) {
+            const enumId = info.enum === true ? info.index : info.enum;
+            const id = tag._attributes.value;
+
+            const filename = (() => {
+                switch (enumId) {
+                case 'set':
+                    return 'set';
+                case 'class':
+                    return 'class';
+                case 'multiClass':
+                    return 'multiclass';
+                case 'type':
+                    return 'type';
+                case 'race':
+                    return 'race';
+                case 'spellSchool':
+                    return 'spell-school';
+                case 'raceBucket':
+                    return 'race-bucket';
+                case 'mechanic':
+                case 'referencedTag':
+                    return 'mechanic';
+                case 'puzzleType':
+                    return 'puzzle-type';
+                case 'playRequirement':
+                    return 'play-requirement';
+                case 'rarity':
+                    return 'rarity';
+                case 'faction':
+                    return 'faction';
+                case 'mercenaryRole':
+                    return 'mercenary-role';
+                default:
+                    throw new Error(`Unknown enum ${enumId}`);
+                }
+            })();
+
+            const data = this.getData<any>(filename);
+
+            return data[id];
+        } else {
+            switch (tag._attributes.type as string) {
+            case 'Int':
+                return Number.parseInt(tag._attributes.value, 10);
+            case 'String':
+                return tag._text!;
+            case 'Card':
+                // use hsdata attribute here
+                return tag._attributes.cardID!;
+            default:
+                throw new Error(`New object type ${tag._attributes.type}`);
+            }
+        }
     }
 
     async startImpl(): Promise<void> {
@@ -439,7 +500,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     if (tag != null) {
                         try {
-                            const value = getValue(t, tag);
+                            const value = this.getValue(t, tag);
 
                             if (value == null) {
                                 errors.push(`Unknown tag ${
@@ -463,14 +524,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         continue;
                     }
 
-                    const raceBucket = raceBuckets[id];
+                    const raceBucket = this.getData<string>('race-bucket')[id];
 
                     if (raceBucket != null) {
                         result.raceBucket = raceBucket;
                         continue;
                     }
 
-                    const relatedEntity = relatedEntities[id];
+                    const relatedEntity = this.getData<string>('related-entity')[id];
 
                     if (relatedEntity != null) {
                         result.relatedEntities.push({
@@ -481,7 +542,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         continue;
                     }
 
-                    const mechanic = mechanics[id];
+                    const mechanic = this.getData<string>('mechanic')[id];
 
                     const { type } = t._attributes;
 
@@ -522,7 +583,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             quest.part = value;
                             break;
                         case 'puzzle_type':
-                            result.mechanics[result.mechanics.indexOf('puzzle')!] = `puzzle:${puzzleTypes[value]}`;
+                            result.mechanics[result.mechanics.indexOf('puzzle')!] = `puzzle:${this.getData<string>('puzzle-type')[value]}`;
                             break;
                         case 'drag_minion':
                             if (value === 1) {
@@ -633,7 +694,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         power.playRequirements = [];
 
                         for (const r of castArray(p.PlayRequirement)) {
-                            const type = playRequirements[r._attributes.reqID];
+                            const type = this.getData<string>('play-requirement')[r._attributes.reqID];
 
                             const { param } = r._attributes;
 
@@ -664,7 +725,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 for (const r of castArray(entity[k])) {
                     const id = r._attributes.enumID;
 
-                    const req = mechanics[id];
+                    const req = this.getData<string>('mechanic')[id];
 
                     if (req === undefined) {
                         errors.push(`Unknown referenced tag ${id} <${r._attributes.name}>`);
