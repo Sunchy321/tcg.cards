@@ -32,6 +32,7 @@ export type Card = {
         loyalty?: string;
         handModifier?: string;
         lifeModifier?: string;
+        attractionLights?: number[];
 
         oracle: {
             name: string;

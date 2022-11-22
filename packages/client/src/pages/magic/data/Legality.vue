@@ -17,6 +17,7 @@
 
         <div>
             <q-btn label="assign" flat dense @click="assign" />
+            <q-btn class="q-ml-sm" label="test" flat dense @click="test" />
         </div>
 
         <div v-for="w in progress?.wrongs ?? []" :key="`${w.format}:${w.legality[0]}:${w.legality[1]}`" class="q-ma-md">
@@ -133,8 +134,22 @@ export default defineComponent({
             });
         };
 
+        const test = async () => {
+            progress.value = null;
+
+            const ws = controlWs('/magic/format/test-legality');
+            return new Promise((resolve, reject) => {
+                ws.onmessage = ({ data }) => {
+                    progress.value = JSON.parse(data) as Status;
+                };
+                ws.onerror = reject;
+                ws.onclose = resolve;
+            });
+        };
+
         return {
             assign,
+            test,
             progress,
             progressValue,
             progressLabel,

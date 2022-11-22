@@ -195,11 +195,11 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                 text:          { $addToSet: '$parts.oracle.text' },
                 counters:      { $addToSet: '$counters' },
                 relatedCards:  { $addToSet: '$relatedCards' },
-                __oracle:      { $first: '$__oracle' },
+                __oracle:      { $addToSet: '$__oracle' },
             })
             .match({
-                lang,
-                $or: [
+                '_id.lang': lang,
+                '$or':      [
                     { 'colorIdentity.1': { $exists: true } },
                     { 'color.1': { $exists: true } },
                     { 'power.1': { $exists: true } },
@@ -381,10 +381,11 @@ router.get('/get-legality', async ctx => {
 
                 versions: {
                     $addToSet: {
-                        set:         '$set',
-                        number:      '$number',
-                        rarity:      '$rarity',
-                        releaseDate: '$releaseDate',
+                        set:           '$set',
+                        number:        '$number',
+                        rarity:        '$rarity',
+                        securityStamp: '$securityStamp',
+                        releaseDate:   '$releaseDate',
                     },
                 },
 

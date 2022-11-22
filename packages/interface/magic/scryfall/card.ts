@@ -15,7 +15,7 @@ export interface Part {
 
 export interface CardFace {
     artist?: string;
-    // cmc?: string;
+    cmc?: string;
     color_indicator?: Colors;
     colors?: Colors;
     flavor_text?: string;
@@ -26,7 +26,7 @@ export interface CardFace {
     mana_cost: string;
     name: string;
     object: 'card_face';
-    // oracle_id?: UUID;
+    oracle_id?: UUID;
     oracle_text?: string;
     power?: string;
     printed_name?: string;
@@ -82,6 +82,7 @@ export interface RawCard {
 
     // Print Fields
     artist?: string;
+    attraction_lights?: number[];
     booster: boolean;
     border_color: string;
     card_back_id: UUID;

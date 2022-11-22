@@ -344,7 +344,7 @@ const abilitiesRegex = `${abilityRegex}(?: and ${abilityRegex})*`;
 
 const creatureRegex = `${numberRegex}(?: tapped)?(?: (${statsRegex}))? (${colorRegex}) (${subtypesRegex}) (?:(?:${typeRegex}) )?creature tokens?(?: with (${abilitiesRegex}))?`;
 
-const predefinedRegex = `${numberRegex} (${predefinedNames.join('|')}|colorless Clue artifact) tokens?`;
+const predefinedRegex = `${numberRegex}(?: tapped)? (${predefinedNames.join('|')}|colorless Clue artifact) tokens?`;
 
 const guessRegex = new RegExp(`[Cc]reates? (?:${creatureRegex}|${predefinedRegex})`, 'g');
 const predefinedCheckRegex = new RegExp(predefinedRegex);

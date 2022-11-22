@@ -31,6 +31,7 @@ type NCardFace = Omit<CardFace, 'colors'> & {
     hand_modifier?: string;
     life_modifier?: string;
     flavor_name?: string;
+    attraction_lights?: number[];
 };
 
 type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | 'oracle_id'> | 'card_faces' | 'layout'> & {
@@ -96,8 +97,9 @@ function extractCardFace(card: RawCard): NCardFace[] {
             type_line:         card.type_line,
             watermark:         card.watermark,
 
-            hand_modifier: card.hand_modifier,
-            life_modifier: card.life_modifier,
+            hand_modifier:     card.hand_modifier,
+            life_modifier:     card.life_modifier,
+            attraction_lights: card.attraction_lights,
 
             flavor_name: card.flavor_name,
         }];
@@ -256,11 +258,12 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
 
             ...parseTypeline(f.type_line ?? ''),
 
-            power:        f.power,
-            toughness:    f.toughness,
-            loyalty:      f.loyalty,
-            handModifier: f.hand_modifier,
-            lifeModifier: f.life_modifier,
+            power:            f.power,
+            toughness:        f.toughness,
+            loyalty:          f.loyalty,
+            handModifier:     f.hand_modifier,
+            lifeModifier:     f.life_modifier,
+            attractionLights: f.attraction_lights,
 
             oracle: {
                 name:     f.name,
@@ -475,6 +478,7 @@ async function merge(card: Document & ICard, data: ICard) {
                     case 'loyalty':
                     case 'handModifier':
                     case 'lifeModifier':
+                    case 'attractionLights':
                         break;
 
                     case 'oracle': {

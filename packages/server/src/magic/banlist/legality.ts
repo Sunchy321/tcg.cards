@@ -31,6 +31,7 @@ export type CardData = {
         set: string;
         number: string;
         rarity: string;
+        securityStamp?: string;
         releaseDate: string;
     }[];
 
@@ -311,9 +312,11 @@ export function getLegality(
             continue;
         }
 
+        // Un-cards, gift cards, etc
         if (
-            versions.every(v => [...setsInformal, ...setsSpecial].includes(v.set))
-            && versions.some(v => setsInformal.includes(v.set))
+            versions.every(v => [...setsInformal, ...setsSpecial].includes(v.set)
+                || v.securityStamp === 'acorn')
+            && versions.some(v => setsInformal.includes(v.set) || v.securityStamp === 'acorn')
         ) {
             result[formatId] = 'unavailable';
             continue;
@@ -465,6 +468,8 @@ interface Status {
 }
 
 export class LegalityAssigner extends Task<Status> {
+    test = false;
+
     async startImpl(): Promise<void> {
         const formats = await Format.find();
 
@@ -497,10 +502,11 @@ export class LegalityAssigner extends Task<Status> {
 
                 versions: {
                     $addToSet: {
-                        set:         '$set',
-                        number:      '$number',
-                        rarity:      '$rarity',
-                        releaseDate: '$releaseDate',
+                        set:           '$set',
+                        number:        '$number',
+                        rarity:        '$rarity',
+                        securityStamp: '$securityStamp',
+                        releaseDate:   '$releaseDate',
                     },
                 },
 
@@ -578,20 +584,22 @@ export class LegalityAssigner extends Task<Status> {
             count += 1;
         }
 
-        const updateGroup: [string[], Legalities][] = [];
+        if (!this.test) {
+            const updateGroup: [string[], Legalities][] = [];
 
-        for (const [id, legalities] of Object.entries(toUpdate)) {
-            const group = updateGroup.find(g => isEqual(g[1], legalities));
+            for (const [id, legalities] of Object.entries(toUpdate)) {
+                const group = updateGroup.find(g => isEqual(g[1], legalities));
 
-            if (group != null) {
-                group[0].push(id);
-            } else {
-                updateGroup.push([[id], legalities]);
+                if (group != null) {
+                    group[0].push(id);
+                } else {
+                    updateGroup.push([[id], legalities]);
+                }
             }
-        }
 
-        for (const [ids, legalities] of updateGroup) {
-            await Card.updateMany({ cardId: { $in: ids } }, { legalities });
+            for (const [ids, legalities] of updateGroup) {
+                await Card.updateMany({ cardId: { $in: ids } }, { legalities });
+            }
         }
     }
 

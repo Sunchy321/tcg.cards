@@ -73,8 +73,16 @@ router.post('/announcement/apply', async ctx => {
 
 const assigner = new LegalityAssigner();
 
+// Test card legality
+router.get('/test-legality', websocket, async ctx => {
+    assigner.test = true;
+    assigner.bind(await ctx.ws());
+    ctx.status = 200;
+});
+
 // Assign card legality
 router.get('/assign-legality', websocket, async ctx => {
+    assigner.test = false;
     assigner.bind(await ctx.ws());
     ctx.status = 200;
 });

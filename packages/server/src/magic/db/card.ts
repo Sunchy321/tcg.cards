@@ -38,11 +38,12 @@ const CardSchema = new Schema<ICard>({
         typeMain:  [String],
         typeSub:   { type: [String], default: undefined },
 
-        power:        String,
-        toughness:    String,
-        loyalty:      String,
-        handModifier: String,
-        lifeModifier: String,
+        power:            String,
+        toughness:        String,
+        loyalty:          String,
+        handModifier:     String,
+        lifeModifier:     String,
+        attractionLights: { type: [Number], default: undefined },
 
         oracle: {
             name:     String,

@@ -199,6 +199,7 @@ interface FormatAnnouncementProfile {
 }
 
 const sources = [
+    'release',
     'wotc',
     'duelcommander',
     'mtgcommander',
