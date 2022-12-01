@@ -39,7 +39,8 @@ export interface Entity {
     health?: number;
     durability?: number;
     armor?: number;
-    race?: string;
+    rune?: string[];
+    race?: string[];
     spellSchool?: string;
     quest?: { type: 'normal' | 'questline' | 'side', progress: number, part?: number };
 

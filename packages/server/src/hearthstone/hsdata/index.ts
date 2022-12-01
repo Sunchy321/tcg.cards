@@ -15,7 +15,7 @@ import * as path from 'path';
 import * as yaml from 'yaml';
 import { xml2js } from 'xml-js';
 import {
-    castArray, isEqual, last, omit, uniq,
+    castArray, isEqual, last, omit, repeat, uniq,
 } from 'lodash';
 
 import { dataPath } from '@static';
@@ -52,6 +52,7 @@ export interface ITag {
     bool?: true;
     array?: true;
     enum?: string | true;
+    static?: IEntity[keyof IEntity];
 }
 
 export const locTags: Record<string, keyof IEntity['localization'][0]> = {
@@ -72,7 +73,7 @@ export const tags: Record<string, ITag> = {
     183:  { index: 'set', enum: 'set' },
     187:  { index: 'durability' },
     199:  { index: 'classes', array: true, enum: 'class' },
-    200:  { index: 'race', enum: true },
+    200:  { index: 'race', array: true, enum: true },
     201:  { index: 'faction', enum: true },
     202:  { index: 'cardType', enum: 'type' },
     203:  { index: 'rarity', enum: true },
@@ -473,6 +474,10 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 for (const t of castArray(entity[k])) {
                     const id = t._attributes.enumID;
 
+                    const { type } = t._attributes;
+
+                    const value = Number.parseInt((t as XTag)._attributes.value, 10);
+
                     const locTag = locTags[id];
 
                     if (locTag != null) {
@@ -482,14 +487,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             }
 
                             const lang = langMap[k] ?? k.slice(2);
-                            const value = (t as any)[k]._text as string;
+                            const text = (t as any)[k]._text as string;
 
                             const loc = localization.find(l => l.lang === lang);
 
                             if (loc != null) {
-                                loc[locTag] = value;
+                                loc[locTag] = text;
                             } else {
-                                localization.push({ lang, [locTag]: value });
+                                localization.push({ lang, [locTag]: text });
                             }
                         }
 
@@ -500,9 +505,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     if (tag != null) {
                         try {
-                            const value = this.getValue(t, tag);
+                            const tagValue = this.getValue(t, tag);
 
-                            if (value == null) {
+                            if (tagValue == null) {
                                 errors.push(`Unknown tag ${
                                     tag.enum === true ? tag.index : tag.enum
                                 } of ${(t as XTag)._attributes.value}`);
@@ -513,14 +518,36 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                                     (result as any)[tag.index] = [];
                                 }
 
-                                (result as any)[tag.index].push(value);
+                                (result as any)[tag.index].push(tagValue);
                             } else {
-                                (result as any)[tag.index] = value;
+                                (result as any)[tag.index] = tagValue;
                             }
                         } catch (e) {
                             errors.push(e.message);
                         }
 
+                        continue;
+                    }
+
+                    const rune = this.getData<string>('rune')[id];
+
+                    if (rune != null) {
+                        if (result.rune == null) {
+                            result.rune = [];
+                        }
+
+                        result.rune.push(repeat(rune, value));
+                        continue;
+                    }
+
+                    const dualRace = this.getData<string>('dual-race')[id];
+
+                    if (dualRace != null) {
+                        if (result.race == null) {
+                            result.race = [];
+                        }
+
+                        result.race.push(dualRace);
                         continue;
                     }
 
@@ -544,13 +571,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     const mechanic = this.getData<string>('mechanic')[id];
 
-                    const { type } = t._attributes;
-
                     if (type !== 'Int' && type !== 'Card') {
                         errors.push(`Incorrect type ${type} of mechanic ${mechanic}`);
                     }
-
-                    const value = Number.parseInt((t as XTag)._attributes.value, 10);
 
                     if (mechanic != null) {
                         switch (mechanic) {
@@ -633,6 +656,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case 'quest_reward_adjustment':
                         case 'quest_reward_rarity':
                         case 'quest_reward_race':
+                        case 'manathirst':
                             result.mechanics.push(`${mechanic}:${value}`);
                             break;
                         case 'base_galakrond':

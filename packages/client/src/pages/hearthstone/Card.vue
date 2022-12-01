@@ -19,7 +19,9 @@
             </div>
             <div class="stats-line">
                 <div v-if="type != null" class="type">{{ $t('hearthstone.card.type.' + type) }}</div>
-                <div v-if="race != null" class="race">{{ $t('hearthstone.card.race.' + race) }}</div>
+                <div v-if="race != null" class="race">
+                    {{ race.map(r => $t('hearthstone.card.race.' + r)).join('/') }}
+                </div>
                 <div v-if="stats != null" class="stats">{{ stats }}</div>
             </div>
             <div v-if="text != null" class="text">

@@ -34,7 +34,8 @@ const EntitySchema = new Schema<IEntity>({
     health:      Number,
     durability:  Number,
     armor:       Number,
-    race:        String,
+    rune:        { type: [String], default: undefined },
+    race:        { type: [String], default: undefined },
     spellSchool: String,
     quest:       { type: { type: String, progress: Number, part: Number } },
 

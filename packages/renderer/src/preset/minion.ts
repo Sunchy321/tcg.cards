@@ -399,7 +399,7 @@ export default async function renderMinion(
 
     // race
     if (data.race != null) {
-        const race = raceMap[data.race];
+        const race = raceMap[data.race[0]];
 
         const raceText = race?.[data.lang] ?? race?.en ?? data.race;
 
