@@ -273,7 +273,7 @@ import EntityInput from 'components/hearthstone/data/EntityInput.vue';
 import { Entity } from 'interface/hearthstone/entity';
 import { FormatAnnouncement } from 'interface/hearthstone/format-change';
 
-import { last } from 'lodash';
+import { isEqual, last } from 'lodash';
 import { apiGet } from 'src/boot/backend';
 
 type EntityNumberKey = {
@@ -525,7 +525,7 @@ export default defineComponent({
                 newDetail.push({ part: 'text', status: 'nerf' });
             }
 
-            if (oldData.race !== newData.race) {
+            if (!isEqual(oldData.race, newData.race)) {
                 newDetail.push({ part: 'race', status: 'adjust' });
             }
 

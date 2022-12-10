@@ -1,4 +1,4 @@
-import { Aggregate } from 'mongoose';
+import type { Aggregate } from 'mongoose';
 
 import { castArray } from 'lodash';
 

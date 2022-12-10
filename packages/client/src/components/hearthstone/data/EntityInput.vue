@@ -129,6 +129,7 @@ const mercenariesPreset = [
     'LT24_020H_01',
     'LT24_021H_01',
     'LT24_027H_01',
+    'LT25_001H_01',
     'SWL_01H_01',
     'SWL_06H_01',
     'SWL_10H_02',
