@@ -193,7 +193,6 @@ export default defineComponent({
             case 'reversible_card':
             case 'double_faced':
             case 'art_series':
-            case 'minigame':
                 return [
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,

@@ -121,10 +121,10 @@ export class ImageGetter extends Task<IImageStatus> {
                 return pa < pb ? -1 : pa > pb ? 1 : 0;
             })) {
                 if ([
-                    'double_faced',
+                    'transform',
                     'modal_dfc',
                     'reversible_card',
-                    'transform',
+                    'double_faced',
                 ].includes(info.layout)) {
                     for (let i = 0; i < info.uris.length; i += 1) {
                         const name = `${info.number}-${i}`;

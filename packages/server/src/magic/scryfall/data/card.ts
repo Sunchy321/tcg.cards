@@ -40,7 +40,9 @@ type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | '
 };
 
 type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };
-type NCardSplit = NCardBase & { layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'minigame' };
+type NCardSplit = NCardBase & {
+    layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced';
+};
 
 function splitCost(cost: string) {
     return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
@@ -112,7 +114,7 @@ function toNSCard(card: RawCardNoArtSeries): NCardFaceExtracted {
 
 function splitDFT(card: NCardFaceExtracted): NCardSplit[] {
     if (isMinigame(card)) {
-        return [{ ...card, layout: 'minigame' }];
+        return [{ ...card, layout: card.card_faces.length > 1 ? 'double_faced' : 'normal' }];
     }
 
     if (card.card_faces[0]?.name === 'Day' && card.card_faces[1]?.name === 'Night') {
