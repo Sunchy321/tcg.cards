@@ -52,8 +52,17 @@ async function parseGathererDetail(mids: number[]): Promise<ParsedGatherer> {
     const $ = cheerio.load(html);
 
     if ($('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_ctl01_nameRow').length === 0) {
-        // TODO
-        return { number: '', parts: [] };
+        return {
+            number: getText($, $('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_CardNumberValue')),
+            parts:  [
+                {
+                    name:       getText($, $('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_nameRow > .value')),
+                    typeline:   getText($, $('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_typeRow > .value')),
+                    text:       getText($, $('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_textRow > .value')),
+                    flavorText: getText($, $('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_flavorRow > .value')),
+                },
+            ],
+        };
     } else {
         const firstNumber = getText($, $('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_ctl01_numberRow > .value'));
 

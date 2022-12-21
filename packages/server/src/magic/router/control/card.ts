@@ -278,7 +278,7 @@ router.get('/need-edit', async ctx => {
         const card = cards.find(c => c._id === r._id.id);
 
         if (card != null) {
-            return { ...card.card, partIndex: r._id.part };
+            return { ...card.card, partIndex: r._id.part, result: { method, ...r } };
         } else {
             return null;
         }

@@ -215,6 +215,12 @@
                     </template>
                 </array-input>
             </div>
+
+            <div v-if="searchResult != null" class="q-mt-sm">
+                <div v-for="(v, k) in searchResult" :key="k">
+                    {{ k }}: {{ v }}
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -280,6 +286,10 @@ type CardData = Card & {
         text?: string;
     };
     partIndex?: number;
+    result?: {
+        method: string;
+        [key: string]: any;
+    };
 };
 
 type CardGroup = {
@@ -312,6 +322,8 @@ const colorMap: Record<string, string> = {
     'red and white':   'wr',
     'green and blue':  'ug',
     'green and white': 'wg',
+    'pink':            'p',
+    'gold':            'o',
 };
 
 const keywordMap: Record<string, string> = {
@@ -619,6 +631,7 @@ export default defineComponent({
                             t: 'token',
                             e: 'emblem',
                             i: 'intext',
+                            m: 'meld',
                             s: 'specialization',
                         }[relation] ?? relation;
                     }
@@ -630,7 +643,7 @@ export default defineComponent({
                     cardId = deburr(cardId)
                         .trim()
                         .toLowerCase()
-                        .replace(/[^a-z0-9!*]/g, '_');
+                        .replace(/[^a-z0-9!*+-]/g, '_');
 
                     if (lang != null) {
                         return { relation, cardId, version: { lang, set, number } };
@@ -734,6 +747,62 @@ export default defineComponent({
                     oracleText.value = newValue;
                 }
             },
+        });
+
+        const searchResult = computed(() => {
+            const result = data.value?.result;
+
+            if (result == null) {
+                return null;
+            }
+
+            if (result.method === 'oracle') {
+                return Object.fromEntries(
+                    Object.entries(result)
+                        .filter(([k, v]) => {
+                            switch (k) {
+                            case 'method':
+                            case '_id':
+                                return false;
+                            case '__oracle':
+                                return v.length > 0;
+                            default:
+                                return v.length > 1;
+                            }
+                        })
+                        .map(([k, v]) => {
+                            switch (k) {
+                            case 'relatedCards':
+                                return [
+                                    k,
+                                    v.map((e: Card['relatedCards']) => e.map(
+                                        ({ relation, cardId, version }) => (version != null
+                                            ? [relation, cardId, version.lang, version.set, version.number]
+                                            : [relation, cardId]
+                                        ).join('|'),
+                                    ).join('; ') ?? ''),
+                                ];
+                            default:
+                                return [k, v];
+                            }
+                        }),
+                );
+            } else if (result.method === 'unified') {
+                return Object.fromEntries(
+                    Object.entries(result)
+                        .filter(([k, v]) => {
+                            switch (k) {
+                            case 'method':
+                            case '_id':
+                                return false;
+                            default:
+                                return v.length > 1;
+                            }
+                        }),
+                );
+            }
+
+            return null;
         });
 
         const defaultPrettify = () => {
@@ -1132,6 +1201,7 @@ export default defineComponent({
             relatedCardsString,
             counters,
             multiverseId,
+            searchResult,
 
             layoutOptions,
             partOptions,
