@@ -1,6 +1,6 @@
 import { join } from 'path';
 
-import { assetPath } from '@static';
+import { assetPath } from '@/config';
 
 export function cardImageBase(
     type: string,

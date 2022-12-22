@@ -1,0 +1,17 @@
+status:
+  format:
+    - historic
+    - historic_brawl
+    - explorer
+  value: unavailable
+
+patterns:
+  - Assault Strobe
+  - Fog
+  - Force Spike
+  - Kraken Hatchling
+  - Ponder
+  - Regal Force
+  # Swords to Plowshares
+  - Stormfront Pegasus
+  - Tropical Island

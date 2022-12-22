@@ -8,7 +8,7 @@ import { cardImagePath } from '@/magic/image';
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import { locales } from '@data/magic/basic';
+import { locales } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 

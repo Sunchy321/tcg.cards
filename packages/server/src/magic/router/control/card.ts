@@ -14,14 +14,14 @@ import {
     omit, mapValues, isEqual, sortBy,
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
-import { textWithParen } from '@data/magic/special';
+import { textWithParen } from '@static/magic/special';
 import { CardData, getLegality, getLegalityRules } from '@/magic/banlist/legality';
 import parseGatherer from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
 
-import { assetPath } from '@static';
-import { formats as formatList } from '@data/magic/basic';
+import { assetPath } from '@/config';
+import { formats as formatList } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 

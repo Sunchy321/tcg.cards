@@ -6,7 +6,7 @@ import { ICard, Locale } from '@interface/hearthstone/blizzard';
 import blzApi from './api';
 import Patch from '../db/patch';
 
-import { assetPath } from '@static';
+import { assetPath } from '@/config';
 import FileSaver from '@/common/save-file';
 
 const localeMap: Record<Locale, string> = {

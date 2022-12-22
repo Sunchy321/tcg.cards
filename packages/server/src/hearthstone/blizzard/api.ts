@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import request from 'request-promise-native';
 
-import { hearthstone } from '@static';
+import { hearthstone } from '@/config';
 import { URL, URLSearchParams } from 'url';
 
 const clientID = hearthstone.blizzard.clientId;

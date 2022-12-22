@@ -9,12 +9,13 @@ import { Legality } from '@interface/magic/format-change';
 
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { isEqual } from 'lodash';
+import { castArray, isEqual } from 'lodash';
 
-import { formats as formatList } from '@data/magic/basic';
+import internalData from '@/internal-data';
 import { convertLegality, toIdentifier } from '../util';
 
-import { dataPath } from '@/static';
+import { dataPath } from '@/config';
+import { formats as formatList } from '@static/magic/basic';
 
 export type CardData = {
     _id: string;
@@ -38,6 +39,17 @@ export type CardData = {
     scryfall: ICard['scryfall']['oracleId'];
 };
 
+type ValueOrArray<T> = T | T[];
+
+type RuleYAML<T> = {
+    status: ValueOrArray<{
+        format: ValueOrArray<string>;
+        value: T;
+    }>;
+
+    patterns: (string | { set: string })[];
+};
+
 type LegalityRule = {
     name: string;
     status: Record<string, Legality>;
@@ -59,27 +71,14 @@ type ScryfallMismatch = {
     }[];
 };
 
-const legalityPath = join(dataPath, 'magic', 'legality');
-const rulePath = join(legalityPath, 'rules');
-const scryfallPath = join(legalityPath, 'scryfall-mismatch');
-const setPath = join(legalityPath, 'sets');
+// const rulePath = join(legalityPath, 'rules');
+// const scryfallPath = join(legalityPath, 'scryfall-mismatch');
+// const setPath = join(legalityPath, 'sets');
+// const alchemyCardPath = join(legalityPath, 'alchemy');
 const pennyCardPath = join(dataPath, 'magic', 'penny');
-const alchemyCardPath = join(legalityPath, 'alchemy');
 
 export function getLegalitySets(type: string): string[] {
-    const result = [];
-
-    const content = readFileSync(join(setPath, `${type}`)).toString();
-
-    for (const line of content.split('\n')) {
-        if (line.startsWith('#')) {
-            continue;
-        }
-
-        result.push(...line.split(',').map(v => v.trim()));
-    }
-
-    return result;
+    return internalData<string[]>(`magic.legality.set.${type}`);
 }
 
 export function getLegalityRules(): LegalityRule[] {
@@ -103,48 +102,39 @@ export function getLegalityRules(): LegalityRule[] {
         })),
     });
 
-    const files = readdirSync(rulePath);
+    const ruleList = internalData<string[]>('magic.legality.rule');
 
-    for (const f of files) {
-        const content = readFileSync(join(rulePath, f));
+    for (const r of ruleList) {
+        const yaml = internalData<RuleYAML<Legality>>(`magic.legality.rule.${r}`);
 
         const status: LegalityRule['status'] = {};
         const patterns: LegalityRule['patterns'] = [];
 
-        for (const line of content.toString().split('\n')) {
-            if (line.trim() === '' || line.startsWith('#')) {
-                continue;
-            }
-
-            const m = /^\[([a-z_,*]+):([a-z_]+)\]$/.exec(line);
-
-            if (m != null) {
-                for (const f of m[1].split(',')) {
-                    status[f] = m[2] as Legality;
-                }
-            } else {
-                if (/^\(.*\)$/.test(line)) {
-                    patterns.push({
-                        type:  'set',
-                        value: line.slice(1, -1),
-                    });
-                } else {
-                    patterns.push({
-                        type:  'id',
-                        value: toIdentifier(line),
-                    });
-                }
+        for (const s of castArray(yaml.status)) {
+            for (const f of castArray(s.format)) {
+                status[f] = s.value;
             }
         }
 
-        rules.push({ name: f, status, patterns });
+        for (const p of yaml.patterns) {
+            if (typeof p === 'string') {
+                patterns.push({
+                    type:  'id',
+                    value: toIdentifier(p),
+                });
+            } else {
+                patterns.push({
+                    type:  'set',
+                    value: p.set,
+                });
+            }
+        }
+
+        rules.push({ name: r, status, patterns });
     }
 
     // Alchemy Variant Cards
-    const alchemyCards = readFileSync(alchemyCardPath)
-        .toString()
-        .split('\n')
-        .filter(v => v !== '' && !v.startsWith('#'));
+    const alchemyCards = internalData<string[]>('magic.legality.alchemy');
 
     const alchemyFormats = ['alchemy', 'historic', 'historic_brawl'];
 
@@ -179,41 +169,35 @@ export function getLegalityRules(): LegalityRule[] {
 function getScryfallMismatches(): ScryfallMismatch[] {
     const result = [];
 
-    const files = readdirSync(scryfallPath);
+    const mismatches = internalData<string[]>('magic.legality.scryfall-mismatch');
 
-    for (const f of files) {
-        const content = readFileSync(join(scryfallPath, f));
+    for (const m of mismatches) {
+        const yaml = internalData<RuleYAML<[Legality, Legality]>>(`magic.legality.scryfall-mismatch.${m}`);
 
         const status: ScryfallMismatch['status'] = {};
         const patterns: ScryfallMismatch['patterns'] = [];
 
-        for (const line of content.toString().split('\n')) {
-            if (line.trim() === '' || line.startsWith('#')) {
-                continue;
-            }
-
-            const m = /^\[([a-z_,*]+):([a-z_]+),([a-z_]+)\]$/.exec(line);
-
-            if (m != null) {
-                for (const f of m[1].split(',')) {
-                    status[f] = [m[2] as Legality, m[3] as Legality];
-                }
-            } else {
-                if (/^\(.*\)$/.test(line)) {
-                    patterns.push({
-                        type:  'set',
-                        value: line.slice(1, -1),
-                    });
-                } else {
-                    patterns.push({
-                        type:  'id',
-                        value: toIdentifier(line),
-                    });
-                }
+        for (const s of castArray(yaml.status)) {
+            for (const f of castArray(s.format)) {
+                status[f] = s.value;
             }
         }
 
-        result.push({ name: f, status, patterns });
+        for (const p of yaml.patterns) {
+            if (typeof p === 'string') {
+                patterns.push({
+                    type:  'id',
+                    value: toIdentifier(p),
+                });
+            } else {
+                patterns.push({
+                    type:  'set',
+                    value: p.set,
+                });
+            }
+        }
+
+        result.push({ name: m, status, patterns });
     }
 
     return result;

@@ -3,7 +3,7 @@ import { QueryError } from '@/search/error';
 
 import { flatten } from 'lodash';
 
-import { specificManaSymbols } from '@data/magic/basic';
+import { specificManaSymbols } from '@static/magic/basic';
 
 function query(
     param: string,

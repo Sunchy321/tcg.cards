@@ -1,6 +1,6 @@
 import { Connection, createConnection } from 'mongoose';
 
-import { mongodb } from '@static';
+import { mongodb } from '@/config';
 
 export function connect(dbName: string): Connection {
     const { host } = mongodb;

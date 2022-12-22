@@ -9,7 +9,7 @@ import { Set as ISet } from '@interface/magic/set';
 import { mapValues, uniq } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import { extendedLocales } from '@data/magic/basic';
+import { extendedLocales } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 

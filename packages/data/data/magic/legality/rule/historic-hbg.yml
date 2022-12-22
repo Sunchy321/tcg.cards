@@ -1,0 +1,18 @@
+status:
+  format:
+    - alchemy
+    - historic
+    - historic_brawl
+  status: unavailable
+
+patterns:
+  - Hag of Ceaseless Torment
+  - Hag of Dark Duress
+  - Hag of Death's Legion
+  - Hag of Inner Weakness
+  - Hag of Mage's Doom
+  - Hag of Noxious Nightmares
+  - Hag of Scoured Thoughts
+  - Hag of Syphoned Breath
+  - Hag of Twisted Visions
+  # Lightning Bolt

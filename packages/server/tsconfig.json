@@ -15,9 +15,8 @@
         "paths": {
             "*": ["@types/*"],
             "@/*": ["./*"],
-            "@static": ["./static"],
-            "@data/*": ["../data/*"],
-            "@interface/*": ["../node_modules/card-interface/*"],
+            "@static/*": ["../node_modules/card-static/src/*"],
+            "@interface/*": ["../node_modules/card-interface/src/*"],
             "@searcher/*": ["../node_modules/card-searcher/src/*"],
             "@renderer/*": ["../node_modules/card-renderer/src/*"]
         },
@@ -27,6 +26,7 @@
         ]
     },
     "include": [
+        "node_modules/card-static/src/**/*",
         "node_modules/card-searcher/src/**/*",
         "node_modules/card-renderer/src/**/*",
         "src/*"

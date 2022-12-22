@@ -7,7 +7,7 @@ import { join } from 'path';
 import { last, zip } from 'lodash';
 import { toIdentifier } from '../util';
 
-import { dataPath } from '@static';
+import { dataPath } from '@/config';
 
 function parseContentLine(text: string) {
     let m: RegExpExecArray | null;

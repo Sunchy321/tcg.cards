@@ -4,7 +4,9 @@
     "watch": [
         "src/",
         "data/",
-        "../card-interface/",
+        "../interface/src",
+        "../static/src",
+        "../data/src",
         "../log-parser/src",
         "../searcher/src",
         "../renderer/src"

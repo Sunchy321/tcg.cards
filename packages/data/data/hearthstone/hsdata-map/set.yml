@@ -1,0 +1,52 @@
+2:    'basic' # Basic
+3:    'classic' # Classic
+4:    'hof' # Hall of Fame
+1635: 'legacy'
+1637: 'core21' # Core 2021
+1810: 'core22' # Core 2022
+
+12:   'naxx' # Curse of Naxxramas
+13:   'gvg' # Goblins vs Gnomes
+14:   'brm' # Blackrock mountain
+15:   'tgt' # The Grand Tournament
+20:   'loe' # The League of Explorers
+21:   'wog' # Whispers of the Old Gods
+23:   'onk' # One Night in Karazhan
+25:   'msg' # Mean Streets of Gadgetzan
+27:   'jug' # Journey to Un'Goro
+1001: 'kft' # Knights of the Frozen Throne
+1004: 'knc' # Kobolds and Catacombs
+1125: 'tww' # The Witchwood
+1127: 'tbp' # The Boomsday Project
+1129: 'rkr' # Rastakhan's Rumble
+1130: 'ros' # Rise of Shadows
+1158: 'sou' # Saviors of Uldum
+1347: 'dod' # Descent of Dragons
+1403: 'gra' # Galakrond's Awakening
+1414: 'aoo' # Ash of Outland
+1463: 'dhi' # Demon Hunter Initiate
+1443: 'sma' # Scholomance Academy
+1466: 'mdf' # Madness at the Darkmoon Faire
+1525: 'fib' # Forged in the Barrens
+1578: 'uis' # United in Stormwind
+1626: 'fav' # Fractured in Altelac Valley
+1658: 'vsc' # Voyage to the Sunken City
+1691: 'mcn' # Murder at the Castle Nathria
+1776: 'mlk' # March of the Lich King
+1869: 'poa' # Path of Arthas
+
+5:    'mission'
+7:    'none'
+8:    'unknown_8'
+11:   'promo'
+16:   'credits'
+17:   'skin' # Hero Skins
+18:   'tb' # Tavern Brawl containing cards used in this mode
+19:   'unknown_19'
+24:   'onk_reserve'
+1003: 'tb_1003'
+1143: 'tot' # Tavern of Time
+1439: 'wr' # Wild Returning
+1453: 'bgs' # Battlegrounds
+1646: 'van' # Vanilla
+1586: 'mercenaries' # Mercenaries

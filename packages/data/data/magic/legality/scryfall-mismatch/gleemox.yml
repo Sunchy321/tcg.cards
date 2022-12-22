@@ -1,0 +1,6 @@
+status:
+  format: '*'
+  value: [banned, unavailable]
+
+patterns:
+  - Gleemox

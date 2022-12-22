@@ -7,7 +7,7 @@ import git, { ResetMode } from 'simple-git';
 
 import { join } from 'path';
 
-import { dataPath } from '@static';
+import { dataPath } from '@/config';
 import { localPath as hsdataPath, langMap } from '../hsdata';
 
 interface ILocValue {

@@ -1,0 +1,9 @@
+status:
+  format:
+    - historic
+    - historic_brawl
+  value: legal
+
+patterns:
+  - A-Dragon's Rage Channeler
+  - A-Unholy Heat

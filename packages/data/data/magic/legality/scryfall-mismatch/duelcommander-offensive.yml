@@ -1,0 +1,8 @@
+status:
+  format: duelcommander
+  value: [banned, legal]
+
+patterns:
+  - Cleanse
+  - Invoke Prejudice
+  - Stone-Throwing Devils

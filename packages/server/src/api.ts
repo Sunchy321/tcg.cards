@@ -3,7 +3,7 @@ import KoaRouter from '@koa/router';
 import hearthstone from './hearthstone/router/api';
 import magic from './magic/router/api';
 
-import basic from '@data/basic';
+import basic from '@static/basic';
 
 const router = new KoaRouter();
 

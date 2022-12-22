@@ -12,16 +12,16 @@ import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthston
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as yaml from 'yaml';
 import { xml2js } from 'xml-js';
 import {
     castArray, isEqual, last, omit, repeat, uniq,
 } from 'lodash';
 
-import { dataPath } from '@static';
+import { dataPath } from '@/config';
 import * as logger from '@/logger';
 
 import { toBucket, toGenerator } from '@/common/to-bucket';
+import internalData from '@/internal-data';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
 export const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
@@ -254,23 +254,15 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
     }
 
     private addData(name: string) {
-        const content = fs
-            .readFileSync(path.join(dataPath, 'hearthstone', 'hsdata-map', `${name}.yml`))
-            .toString();
-
-        const data = yaml.parse(content);
-
-        this.data[name] = data;
-
-        return data;
+        this.data[name] = internalData(`hearthstone.hsdata-map.${name}`);
     }
 
     private getData<T>(name: string): Record<string, T> {
         if (this.data[name] == null) {
-            return this.addData(name);
-        } else {
-            return this.data[name];
+            this.addData(name);
         }
+
+        return this.data[name];
     }
 
     private getValue(tag: XLocStringTag | XTag, info: ITag) {

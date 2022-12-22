@@ -12,7 +12,7 @@ import { join } from 'path';
 import { isEqual, mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import { dataPath } from '@static';
+import { dataPath } from '@/config';
 
 const router = new KoaRouter<DefaultState, Context>();
 

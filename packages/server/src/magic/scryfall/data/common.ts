@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { dataPath } from '@/static';
+import { dataPath } from '@/config';
 
 export const bulkPath = join(dataPath, 'magic/scryfall');
 

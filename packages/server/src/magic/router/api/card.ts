@@ -16,7 +16,7 @@ import searcher from '@/magic/search';
 
 import Parser from '@searcher/parser/parser';
 
-import { extendedLocales } from '@data/magic/basic';
+import { extendedLocales } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 

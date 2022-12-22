@@ -13,12 +13,9 @@ import {
     Legality,
 } from '@interface/magic/format-change';
 
-import fs from 'fs';
-import { join } from 'path';
 import { cloneDeep } from 'lodash';
+import internalData from '@/internal-data';
 import { toIdentifier } from '@/magic/util';
-
-import { dataPath } from '@/static';
 
 const formatWithSet = ['standard', 'alchemy', 'historic', 'explorer', 'pioneer', 'modern', 'extended'];
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
@@ -76,8 +73,8 @@ export class AnnouncementApplier {
         this.sets = sets.map(s => ({ id: s.setId, releaseDate: s.releaseDate! }));
 
         // preload group cards
-        this.anteList = fs.readFileSync(join(dataPath, 'magic', 'banlist', 'ante')).toString().split('\n').map(toIdentifier);
-        this.offensiveList = fs.readFileSync(join(dataPath, 'magic', 'banlist', 'offensive')).toString().split('\n').map(toIdentifier);
+        this.anteList = internalData<string[]>('magic.banlist.ante').map(toIdentifier);
+        this.offensiveList = internalData<string[]>('magic.banlist.offensive').map(toIdentifier);
 
         // all conspiracy
         this.conspiracyList = await Card.distinct('cardId', { 'parts.typeMain': 'conspiracy' });

@@ -11,7 +11,7 @@ import { Status } from '../status';
 
 import { listOf } from '../basic';
 
-import { auxSetType } from '@/../data/magic/special';
+import { auxSetType } from '@static/magic/special';
 
 async function mergeWith(data: RawSet) {
     const set = await Set.findOne({ 'scryfall.id': data.id });

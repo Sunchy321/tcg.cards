@@ -34,6 +34,7 @@ export interface Config {
     asset: string;
     data: string;
     log: string;
+    internalData?: string;
 
     mongodb: MongoDB;
 
@@ -53,3 +54,4 @@ export const clientPath = config.client;
 export const assetPath = config.asset;
 export const logPath = config.log;
 export const dataPath = config.data;
+export const internalDataPath = config.internalData;

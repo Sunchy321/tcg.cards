@@ -7,7 +7,7 @@ import FormatChange from '@/hearthstone/db/format-change';
 import { omit, mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import { formats } from '@data/hearthstone/basic';
+import { formats } from '@static/hearthstone/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 

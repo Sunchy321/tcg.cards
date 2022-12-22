@@ -27,7 +27,7 @@ import control from '@/control';
 
 import {
     config, clientPath, httpsSecret, HttpsSecret, dataPath,
-} from '@static';
+} from '@/config';
 
 const app = new Koa();
 

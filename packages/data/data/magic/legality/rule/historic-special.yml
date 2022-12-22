@@ -1,0 +1,8 @@
+status:
+  format:
+    - historic
+    - historic_brawl
+  value: legal
+
+patterns:
+  - Shorecomber Crab

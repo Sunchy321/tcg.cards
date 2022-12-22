@@ -10,6 +10,9 @@
         "esModuleInterop": true,
         "lib": ["ES2020"],
         "baseUrl": "./src",
+        "paths": {
+            "@static/*": ["../node_modules/card-static/src/*"],
+        },
     },
-    "include": ["src/*", "data/*"]
+    "include": ["src/*"]
 }

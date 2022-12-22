@@ -11,7 +11,7 @@ import { IBulkData } from '@interface/magic/scryfall/bulk';
 
 import { Status } from '../status';
 
-import { dataPath } from '@static';
+import { dataPath } from '@/config';
 
 interface IBulkList {
     allCard: string[];

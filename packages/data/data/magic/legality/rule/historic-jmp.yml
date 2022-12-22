@@ -1,0 +1,28 @@
+status:
+  format:
+    - historic
+    - historic_brawl
+    - explorer
+  value: unavailable
+
+patterns:
+  - Ajani's Chosen
+  - Angelic Arbiter
+  - Ball Lightning
+  - Chain Lightning
+  - Draconic Roar
+  - Exhume
+  - Fa'adiyah Seer
+  - Flametongue Kavu
+  - Goblin Lore
+  # Lightning Bolt
+  - Mausoleum Turnkey
+  - Path to Exile
+  - Read the Runes
+  - Reanimate
+  - Rhystic Study
+  - Scourge of Nel Toth
+  - Scrounging Bandar
+  # Sheoldred, Whispering One
+  - Thought Scour
+  - Time to Feed

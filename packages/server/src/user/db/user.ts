@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 
 import conn from './db';
 
-import { config } from '@static';
+import { config } from '@/config';
 
 interface IUserInfo {
     username: string;

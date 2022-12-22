@@ -9,11 +9,11 @@ import { toSingle } from '@/common/request-helper';
 import Entity from '@/hearthstone/db/entity';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { Adjustment } from 'card-interface/hearthstone/format-change';
+import { Adjustment } from '@interface/hearthstone/format-change';
 
 import renderEntity, { registerFonts } from '@renderer/index';
 
-import { assetPath } from '@/static';
+import { assetPath } from '@/config';
 
 const router = new KoaRouter<DefaultState, Context>();
 

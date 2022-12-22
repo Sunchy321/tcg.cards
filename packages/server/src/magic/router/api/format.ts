@@ -7,7 +7,7 @@ import FormatChange from '@/magic/db/format-change';
 import { omit, mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import { formats } from '@data/magic/basic';
+import { formats } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
