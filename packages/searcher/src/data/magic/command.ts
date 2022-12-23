@@ -1,7 +1,7 @@
 import {
     allOperator, createCommand, defaultOperator, defaultQualifier,
 } from '../../command';
-import { QueryError } from 'command/error';
+import { QueryError } from '../../command/error';
 
 import * as builtin from '../../preset/builtin';
 import * as magic from './preset';

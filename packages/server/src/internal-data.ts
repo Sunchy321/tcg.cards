@@ -1,4 +1,4 @@
-import internalDataDetail from 'card-data';
+import internalDataDetail from '@data/index';
 
 import { dataPath, internalDataPath } from '@/config';
 

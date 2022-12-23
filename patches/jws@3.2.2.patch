@@ -1,17 +1,17 @@
 diff --git a/lib/data-stream.js b/lib/data-stream.js
-index 3535d31d9fb315ab94cff7ce2e0dc7e220b283fa..2ca8b8724ef8ad4945ab7de6cb15deea79e2c2ac 100644
+index 3535d31d9fb315ab94cff7ce2e0dc7e220b283fa..fb976299ead3fa75357a054958b2a508efe8e757 100644
 --- a/lib/data-stream.js
 +++ b/lib/data-stream.js
 @@ -1,6 +1,6 @@
  /*global module, process*/
  var Buffer = require('safe-buffer').Buffer;
 -var Stream = require('stream');
-+var Stream = require('stream').default;
++var Stream = require('stream').default || require('stream');
  var util = require('util');
  
  function DataStream(data) {
 diff --git a/lib/sign-stream.js b/lib/sign-stream.js
-index 6a7ee42f2632039611751c9202c9e5bd85daa063..fc386ba723ced40387c05b40080c49ec5a91e046 100644
+index 6a7ee42f2632039611751c9202c9e5bd85daa063..4de6b6ca852b5de8fb26a3f0992d6d002a98c61d 100644
 --- a/lib/sign-stream.js
 +++ b/lib/sign-stream.js
 @@ -2,7 +2,7 @@
@@ -19,12 +19,12 @@ index 6a7ee42f2632039611751c9202c9e5bd85daa063..fc386ba723ced40387c05b40080c49ec
  var DataStream = require('./data-stream');
  var jwa = require('jwa');
 -var Stream = require('stream');
-+var Stream = require('stream').default;
++var Stream = require('stream').default || require('stream');
  var toString = require('./tostring');
  var util = require('util');
  
 diff --git a/lib/verify-stream.js b/lib/verify-stream.js
-index 39f7c73e2829091acfaef2e64f4194d73196625a..6c7a4d9f993530f110ba90a5b2e2f6f6ea8161c1 100644
+index 39f7c73e2829091acfaef2e64f4194d73196625a..cf641ed46d10ae79ac8ea8712c24e7cb98f8d398 100644
 --- a/lib/verify-stream.js
 +++ b/lib/verify-stream.js
 @@ -2,7 +2,7 @@
@@ -32,7 +32,7 @@ index 39f7c73e2829091acfaef2e64f4194d73196625a..6c7a4d9f993530f110ba90a5b2e2f6f6
  var DataStream = require('./data-stream');
  var jwa = require('jwa');
 -var Stream = require('stream');
-+var Stream = require('stream').default;
++var Stream = require('stream').default || require('stream');
  var toString = require('./tostring');
  var util = require('util');
  var JWS_REGEX = /^[a-zA-Z0-9\-_]+?\.[a-zA-Z0-9\-_]+?\.([a-zA-Z0-9\-_]+)?$/;

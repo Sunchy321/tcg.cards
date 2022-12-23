@@ -8,7 +8,7 @@ patchedDependencies:
     hash: ykby2tytqi4o7jurpgsjr3nrze
     path: patches/rollup-plugin-node-polyfills@0.2.1.patch
   jws@3.2.2:
-    hash: olpuvy22agju2rem5iiajjczfm
+    hash: jq4qbue2kai6hbjxprxcvkia74
     path: patches/jws@3.2.2.patch
   jsonwebtoken@8.5.1:
     hash: ovqqqmgkkatdd4vk32vnav5vpy
@@ -5125,7 +5125,7 @@ packages:
     resolution: {integrity: sha512-XjwVfRS6jTMsqYs0EsuJ4LGxXV14zQybNd4L2r0UvbVnSF9Af8x7p5MzbJ90Ioz/9TI41/hTCvznF/loiSzn8w==}
     engines: {node: '>=4', npm: '>=1.4.28'}
     dependencies:
-      jws: 3.2.2_olpuvy22agju2rem5iiajjczfm
+      jws: 3.2.2_jq4qbue2kai6hbjxprxcvkia74
       lodash.includes: 4.3.0
       lodash.isboolean: 3.0.3
       lodash.isinteger: 4.0.4
@@ -5156,7 +5156,7 @@ packages:
       safe-buffer: 5.2.1
     dev: false
 
-  /jws/3.2.2_olpuvy22agju2rem5iiajjczfm:
+  /jws/3.2.2_jq4qbue2kai6hbjxprxcvkia74:
     resolution: {integrity: sha512-YHlZCB6lMTllWDtSPHz/ZXTsi8S00usEV6v1tjq8tOUZzw7DpSDWVXjXDre6ed1w/pd495ODpHZYSdkRTsa0HA==}
     dependencies:
       jwa: 1.4.1
