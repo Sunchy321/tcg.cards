@@ -2,4 +2,5 @@ status:
   format: alchemy
   value: [legal, unavailable]
 
-patterns: []
+patterns:
+  - set: anb

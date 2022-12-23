@@ -3,7 +3,7 @@ status:
     - alchemy
     - historic
     - historic_brawl
-  status: unavailable
+  value: unavailable
 
 patterns:
   - Hag of Ceaseless Torment

@@ -1,0 +1,17 @@
+status:
+  format:
+    - alchemy
+    - historic
+    - historic_brawl
+  value: unavailable
+
+patterns:
+  - Ancestral Recall
+  - Black Lotus
+  - Mox Emerald
+  - Mox Jet
+  - Mox Pearl
+  - Mox Ruby
+  - Mox Sapphire
+  - Time Walk
+  - Timetwister
