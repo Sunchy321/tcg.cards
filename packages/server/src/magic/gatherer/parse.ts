@@ -198,7 +198,12 @@ export default async function parseGatherer(
 
         await saveGathererImage(vMids, set, data.number, v.lang);
 
-        const oldCard = await Card.findOne({ set, number: data.number, lang: v.lang });
+        const oldCard = await Card.findOne({
+            $or: [
+                { set, number: data.number, lang: v.lang },
+                { multiverseId: { $in: vMids } },
+            ],
+        });
 
         if (oldCard != null) {
             continue;

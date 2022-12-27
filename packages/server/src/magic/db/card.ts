@@ -99,7 +99,7 @@ const CardSchema = new Schema<ICard>({
 
     keywords:       [String],
     counters:       { type: [String], default: undefined },
-    producibleMana: { type: [String], default: undefined },
+    producibleMana: String,
     tags:           [String],
     localTags:      [String],
 
@@ -128,6 +128,7 @@ const CardSchema = new Schema<ICard>({
 
     preview: {
         type: {
+            _id:    false,
             date:   String,
             source: String,
             uri:    String,

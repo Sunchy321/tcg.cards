@@ -1,5 +1,7 @@
 import { deburr } from 'lodash';
-import { Colors, Legalities as SLegalities, Legality as SLegality } from '@interface/magic/scryfall/basic';
+import {
+    Colors, Legalities as SLegalities, Legality as SLegality, Manas,
+} from '@interface/magic/scryfall/basic';
 import { Legalities } from '@interface/magic/card';
 import { Legality } from '@interface/magic/format-change';
 
@@ -68,6 +70,12 @@ export function parseTypeline(typeline: string): Type {
 export function convertColor(color: Colors): string {
     return color
         .sort((a, b) => ['W', 'U', 'B', 'R', 'G'].indexOf(a) - ['W', 'U', 'B', 'R', 'G'].indexOf(b))
+        .join('');
+}
+
+export function convertMana(mana: Manas): string {
+    return mana
+        .sort((a, b) => ['W', 'U', 'B', 'R', 'G', 'C'].indexOf(a) - ['W', 'U', 'B', 'R', 'G', 'C'].indexOf(b))
         .join('');
 }
 

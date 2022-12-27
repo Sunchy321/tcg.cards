@@ -559,7 +559,7 @@ export default defineComponent({
 
         const localTag = (name: string) => computed({
             get(): boolean {
-                if (data.value == null) {
+                if (data.value == null || data.value.localTags == null) {
                     return false;
                 }
 
@@ -568,6 +568,10 @@ export default defineComponent({
             set(newValue: boolean) {
                 if (data.value == null) {
                     return;
+                }
+
+                if (data.value.localTags == null) {
+                    data.value.localTags = [];
                 }
 
                 if (newValue) {
@@ -812,12 +816,12 @@ export default defineComponent({
 
             unifiedTypeline.value = unifiedTypeline.value
                 .replace(/ *～ *-? */, '～')
-                .replace(/ *― *-? */, '―')
+                .replace(/ *[―—] *-? */, ' — ')
                 .replace(/ *: *-? */, ' : ');
 
             printedTypeline.value = printedTypeline.value
                 .replace(/ *～ *-? */, '～')
-                .replace(/ *― *-? */, '―')
+                .replace(/ *[―—] *-? */, ' — ')
                 .replace(/ *: *-? */, ' : ');
 
             unifiedText.value = unifiedText.value!.replace(/~~/g, unifiedName.value);
@@ -842,8 +846,15 @@ export default defineComponent({
                 printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ').trim();
             }
 
-            unifiedText.value = unifiedText.value.trim().replace(/[●•] ?/g, '• ').replace(/<\/?.>/g, '');
-            printedText.value = printedText.value.trim().replace(/[●•] ?/g, '• ').replace(/<\/?.>/g, '');
+            unifiedText.value = unifiedText.value
+                .replace(/[ \n]$/mg, '')
+                .replace(/[●•] ?/g, '• ')
+                .replace(/<\/?.>/g, '');
+
+            printedText.value = printedText.value
+                .replace(/[ \n]$/mg, '')
+                .replace(/[●•] ?/g, '• ')
+                .replace(/<\/?.>/g, '');
 
             if (lang.value === 'zhs' || lang.value === 'zht') {
                 if (!/[a-wyz](?![/}])/.test(unifiedText.value)) {
@@ -909,7 +920,9 @@ export default defineComponent({
                 );
             }
 
-            unifiedText.value = unifiedText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+            if (lang.value !== 'ja') {
+                unifiedText.value = unifiedText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+            }
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
                 printedText.value = '';

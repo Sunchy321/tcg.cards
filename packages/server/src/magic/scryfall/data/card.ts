@@ -17,7 +17,9 @@ import { existsSync, unlinkSync } from 'fs';
 import { isEqual, omit } from 'lodash';
 import { toAsyncBucket } from '@/common/to-bucket';
 import LineReader from '@/common/line-reader';
-import { convertColor, parseTypeline, toIdentifier } from '@/magic/util';
+import {
+    convertColor, convertMana, parseTypeline, toIdentifier,
+} from '@/magic/util';
 import { bulkPath, convertJson } from './common';
 
 import { cardImagePath } from '@/magic/image';
@@ -311,7 +313,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
         keywords:       data.keywords.map(v => toIdentifier(v)),
         counters:       cardFaces.some(c => (c.oracle_text ?? '').includes('counter')) ? [] : undefined,
         producibleMana: data.produced_mana != null
-            ? convertColor(data.produced_mana)
+            ? convertMana(data.produced_mana)
             : undefined,
         tags: [
             ...data.reserved ? ['reserved'] : [],
@@ -822,7 +824,11 @@ export default class CardLoader extends Task<Status> {
             }
 
             for (const card of cardsToInsert) {
-                if (card.lang === 'en') {
+                if (
+                    card.lang === 'en'
+                    && card.parts.some(p => /[(（)）]/.test(p.oracle.text ?? '')
+                        || /[(（)）]/.test(p.printed.text ?? ''))
+                ) {
                     card.localTags.push('dev:printed');
                 }
             }

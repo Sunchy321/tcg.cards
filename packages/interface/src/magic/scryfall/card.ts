@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 
 import {
-    UUID, URI, CardComponent, Colors, Finish, Game, Legalities, Layout,
+    UUID, URI, CardComponent, Colors, Finish, Game, Legalities, Layout, Manas,
 } from './basic';
 
 export interface Part {
@@ -75,7 +75,7 @@ export interface RawCard {
     oversized: boolean;
     penny_rank?: number;
     power?: string;
-    produced_mana?: Colors;
+    produced_mana?: Manas;
     reserved: boolean;
     toughness?: string;
     type_line: string;
