@@ -356,7 +356,7 @@ export default defineComponent({
 
         const { controlGet, controlPost } = controlSetup();
 
-        const formats = computed(() => ['#hearthstone', ...hearthstone.data.formats]);
+        const formats = computed(() => ['#hearthstone', ...hearthstone.formats]);
         const announcementList = ref<FormatAnnouncementProfile[]>([]);
         const selected = ref<FormatAnnouncementProfile | null>(null);
 

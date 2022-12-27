@@ -267,7 +267,7 @@ export default defineComponent({
 
         const { controlGet, controlPost } = controlSetup();
 
-        const formats = computed(() => ['#alchemy', '#standard', ...magic.data.formats]);
+        const formats = computed(() => ['#alchemy', '#standard', ...magic.formats]);
         const announcementList = ref<FormatAnnouncementProfile[]>([]);
         const selected = ref<FormatAnnouncementProfile | null>(null);
 

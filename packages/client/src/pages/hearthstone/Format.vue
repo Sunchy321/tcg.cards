@@ -237,7 +237,7 @@ export default defineComponent({
         const hearthstone = useHearthstone();
         const i18n = useI18n();
 
-        const formats = computed(() => hearthstone.data.formats ?? []);
+        const formats = computed(() => hearthstone.formats);
 
         const {
             format,
@@ -282,7 +282,7 @@ export default defineComponent({
             slot:  v,
         }));
 
-        const dateFrom = computed(() => data.value?.birthday ?? hearthstone.data.birthday);
+        const dateFrom = computed(() => data.value?.birthday ?? hearthstone.birthday);
         const dateTo = computed(() => data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'));
 
         const birthAndDeath = computed(() => {

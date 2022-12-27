@@ -545,7 +545,7 @@ export default defineComponent({
         }));
 
         const langs = computed(() => {
-            const locales = magic.data.extendedLocales;
+            const locales = magic.extendedLocales;
 
             return uniq(versions.value.map(v => v.lang))
                 .sort((a, b) => locales.indexOf(a) - locales.indexOf(b));

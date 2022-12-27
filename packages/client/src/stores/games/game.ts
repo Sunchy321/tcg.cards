@@ -11,6 +11,8 @@ import {
 
 import { useCore } from '../core';
 
+import data, { Game } from 'static/index';
+
 function defaultValue(option: GameOption) {
     if (option.type === 'enum' && option.default != null) {
         return option.default;
@@ -20,15 +22,14 @@ function defaultValue(option: GameOption) {
 }
 
 export function defineGameStore<
-    G extends string, D extends { locales: string[] }, S,
->(game: G, options: GameOptions<S>): GameStoreDefinition<G, D, S> {
+    G extends Game, S,
+>(game: G, options: GameOptions<S>): GameStoreDefinition<G, S> {
     return defineStore(game, () => {
         const core = useCore();
 
         const locale = ref('en');
-        const data = ref<D | undefined>(undefined);
 
-        const locales = computed(() => data.value?.locales ?? ['en']);
+        const locales = computed(() => data[game].locales);
 
         const states = {} as { [K in keyof S]?: Ref<S[K]> };
 
@@ -44,7 +45,7 @@ export function defineGameStore<
             });
         }
 
-        const init = (gameData: D) => {
+        const init = () => {
             const gameLocale = LocalStorage.getItem(`${game}/locale`) as string;
 
             if (gameLocale != null) {
@@ -52,10 +53,10 @@ export function defineGameStore<
             } else {
                 const appLocale = core.locale;
 
-                if (gameData.locales.includes(appLocale)) {
+                if (locales.value.includes(appLocale)) {
                     locale.value = appLocale;
                 } else {
-                    locale.value = data.value?.locales[0] ?? 'en';
+                    locale.value = locales.value[0] ?? 'en';
                 }
             }
 
@@ -66,18 +67,15 @@ export function defineGameStore<
                     (states as any)[k].value = value;
                 }
             }
-
-            data.value = gameData as any;
         };
 
         return {
-            locale,
-            locales,
-            data,
+            ...data[game],
 
+            locale,
             ...states as { [K in keyof S]: Ref<S[K]> },
 
             init,
         };
-    }) as unknown as GameStoreDefinition<G, D, S>;
+    }) as unknown as GameStoreDefinition<G, S>;
 }

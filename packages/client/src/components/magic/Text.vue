@@ -55,8 +55,6 @@ export default defineComponent({
         const route = useRoute();
         const magic = useMagic();
 
-        const { symbols } = magic.data;
-
         return () => {
             const symbolType = props.symbol ?? [];
 
@@ -96,7 +94,7 @@ export default defineComponent({
                         if (p.startsWith('{') && p.endsWith('}')) {
                             const content = p.slice(1, -1);
 
-                            if (symbols.includes(content)) {
+                            if (magic.symbols.includes(content)) {
                                 result.push(h(Symbol, {
                                     class: attrs.class,
                                     value: content,

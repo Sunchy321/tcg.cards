@@ -3,12 +3,15 @@ import KoaRouter from '@koa/router';
 import hearthstone from './hearthstone/router/api';
 import magic from './magic/router/api';
 
-import basic from '@static/basic';
+import data, { games } from '@static/index';
 
 const router = new KoaRouter();
 
 router.get('/', async ctx => {
-    ctx.body = basic;
+    ctx.body = {
+        games,
+        ...data,
+    };
 });
 
 router.use(hearthstone.routes());

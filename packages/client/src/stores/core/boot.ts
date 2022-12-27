@@ -5,25 +5,11 @@ import { useUser } from '../user';
 
 import { gameStores } from '../games';
 
-import { apiGet } from 'src/boot/backend';
-
 import { localeList } from './locale';
 
 const localeMap: Record<string, string> = {
     'zh-CN': 'zhs',
 };
-
-async function loadData(data: any) {
-    for (const g of Object.keys(gameStores)) {
-        const store = (gameStores as any)[g]();
-
-        store.init(data[g]);
-    }
-
-    const userStore = useUser();
-
-    userStore.refresh();
-}
 
 export default function useBoot(locale: Ref<string>) {
     return async (): Promise<void> => {
@@ -41,16 +27,14 @@ export default function useBoot(locale: Ref<string>) {
             }
         }
 
-        const localData = LocalStorage.getItem('data');
+        for (const g of Object.keys(gameStores)) {
+            const store = (gameStores as any)[g]();
 
-        if (localData != null) {
-            await loadData(localData);
+            store.init();
         }
 
-        const { data: remoteData } = await apiGet<{ data: any }>('/');
+        const userStore = useUser();
 
-        LocalStorage.set('data', remoteData);
-
-        await loadData(remoteData);
+        userStore.refresh();
     };
 }

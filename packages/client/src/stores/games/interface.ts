@@ -1,5 +1,7 @@
 import { StoreDefinition } from 'pinia';
 
+import data, { Game } from 'static/index';
+
 interface GameOptionNumber {
     type: 'number';
 }
@@ -16,18 +18,17 @@ export type GameOptions<S> = {
     [K in keyof S]: GameOption;
 };
 
-export type GameState<D, S> = S & {
+export type GameState<S> = S & {
     locale: string;
-    data: D;
 };
 
-export type GameGetters = {
+export type GameGetters<G extends Game> = (typeof data)[G] & {
     locales: string[];
 };
 
-export type GameActions<D> = {
-    init: (data: D) => Promise<void>;
+export type GameActions = {
+    init: () => Promise<void>;
 };
 
-export type GameStoreDefinition<G extends string, D, S> =
-    StoreDefinition<G, GameState<D, S>, GameGetters, GameActions<D>>;
+export type GameStoreDefinition<G extends Game, S> =
+    StoreDefinition<G, GameState<S>, GameGetters<G>, GameActions>;

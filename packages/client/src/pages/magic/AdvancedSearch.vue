@@ -194,14 +194,12 @@ export default defineComponent({
 
         const newCost = () => {
             if (costInput.value !== '') {
-                const { symbols } = magic.data;
-
                 const values = costInput.value
                     .toUpperCase()
                     .split(/\{([^{}]*)\}|(\d{2,})|(.(?:\/.)?)/)
                     .filter(v => v !== '' && v != null);
 
-                const valuesInSymbol = values.filter(v => symbols.includes(v));
+                const valuesInSymbol = values.filter(v => magic.symbols.includes(v));
 
                 if (valuesInSymbol.length > 0) {
                     cost.value.push(...valuesInSymbol);

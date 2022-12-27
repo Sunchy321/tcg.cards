@@ -201,7 +201,7 @@ export default defineComponent({
         const magic = useMagic();
         const i18n = useI18n();
 
-        const formats = computed(() => magic.data.formats ?? []);
+        const formats = computed(() => magic.formats);
 
         const {
             format,
@@ -246,7 +246,7 @@ export default defineComponent({
             slot:  v,
         }));
 
-        const dateFrom = computed(() => data.value?.birthday ?? magic.data.birthday);
+        const dateFrom = computed(() => data.value?.birthday ?? magic.birthday);
         const dateTo = computed(() => data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'));
 
         const birthAndDeath = computed(() => {
