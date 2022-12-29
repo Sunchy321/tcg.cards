@@ -1,19 +1,4 @@
 <style lang="sass" scoped>
-.magic-symbol
-    transform: translateY(10%)
-
-    [lang=zhs] &, [lang=zht] &
-        transform: translateY(15%)
-        margin-left: 2px
-
-    [lang=zhs] & + span, [lang=zht] & + span
-        margin-left: 2px
-
-    [lang=zhs] & + &, [lang=zht] & + &,
-    [lang=zhs] &:first-child, [lang=zht] &:first-child,
-    br + &
-        margin-left: 0px !important
-
 .card
     display: inline
     text-decoration: underline

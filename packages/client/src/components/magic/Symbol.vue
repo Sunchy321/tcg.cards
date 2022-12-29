@@ -1,19 +1,22 @@
 <style lang="sass">
 .magic-symbol
-    height: 1em
-    width: 1em
+    font-family: magic-symbol
+    display: inline-block
 
-    &.icon-TK
-        width: 0.80em
+    &.tap-old1
+        font-feature-settings: 'ss01'
 
-    &.icon-100
-        width: 1.88em
+        &.white-old
+            font-feature-settings: 'ss01', 'ss03'
 
-    &.icon-1000000
-        width: 5.08em
+    &.tap-old2
+        font-feature-settings: 'ss02'
 
-    &.icon-CHAOS
-        width: 1.20em
+        &.white-old
+            font-feature-settings: 'ss02', 'ss03'
+
+    &.white-old
+        font-feature-settings: 'ss03'
 
     &.cost
         margin-right: 1px
@@ -35,29 +38,6 @@
 import type { PropType } from 'vue';
 import { defineComponent, h } from 'vue';
 
-import { useQuasar } from 'quasar';
-
-function calcActualValue(value: string, type: string[]) {
-    switch (value) {
-    case 'T':
-        if (type.includes('tap:old1')) {
-            return 'T,old1';
-        } else if (type.includes('tap:old2')) {
-            return 'T,old2';
-        } else {
-            return 'T';
-        }
-    case 'W':
-        if (type.includes('white:old')) {
-            return 'W,old';
-        } else {
-            return 'W';
-        }
-    default:
-        return value;
-    }
-}
-
 export default defineComponent({
     name: 'MagicSymbol',
 
@@ -76,10 +56,7 @@ export default defineComponent({
     },
 
     setup(props) {
-        const quasar = useQuasar();
-
         return () => {
-            const rawValue = props.value;
             const rawType = props.type;
 
             const type = [
@@ -87,38 +64,34 @@ export default defineComponent({
                 ...rawType.includes('flat-cost') && rawType.includes('cost') ? ['flat'] : [],
             ];
 
-            const value = calcActualValue(rawValue, type);
+            let klass = 'magic-symbol';
 
-            let src = type.includes('flat')
-                ? '/magic/symbol-flat.svg'
-                : '/magic/symbol.svg';
-
-            // force image reload for Safari
-            if (quasar.platform.is.safari) {
-                src += `?${Math.floor(Math.random() * 10000)}`;
+            if (type.includes('tap:old1')) {
+                klass += ' tap-old1';
             }
 
-            src += `#icon-${value}`;
+            if (type.includes('tap:old2')) {
+                klass += ' tap-old2';
+            }
 
-            let klass = `magic-symbol icon-${value}`;
+            if (type.includes('white:old')) {
+                klass += ' white-old';
+            }
 
             if (type.includes('cost')) {
                 klass += ' cost';
 
-                if (!type.includes('flat')) {
-                    klass += ' cost-shadow';
-                }
+                // TODO cost shadow
+                // if (!type.includes('flat')) {
+                // klass += ' cost-shadow';
+                // }
             }
 
             if (type.includes('mini')) {
                 klass += ' mini';
             }
 
-            return h('img', {
-                class: klass,
-                src,
-                alt:   `{${value}}`,
-            });
+            return h('span', { class: klass }, `{${props.value}}`);
         };
     },
 });
