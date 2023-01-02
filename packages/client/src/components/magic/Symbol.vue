@@ -1,37 +1,44 @@
 <style lang="sass">
+@function get-class($name, $prefix: '')
+    @if $name != null
+        @return '.#{$prefix}#{$name}'
+    @else
+        @return ''
+
+@function feature-setting($type, $tap, $white)
+    $feature: ()
+
+    @if $type == 'shadow'
+        $feature: append($feature, 'salt' 1, $separator: comma)
+    @else if $type == 'flat'
+        $feature: append($feature, 'salt' 2, $separator: comma)
+
+    @if $tap == 'old1'
+        $feature: append($feature, 'ss01', $separator: comma)
+    @else if $tap == 'old2'
+        $feature: append($feature, 'ss02', $separator: comma)
+
+    @if $white == 'old'
+        $feature: append($feature, 'ss03', $separator: comma)
+
+    @return $feature
+
 .magic-symbol
     font-family: magic-symbol
     display: inline-block
 
-    &.tap-old1
-        font-feature-settings: 'ss01'
-
-        &.white-old
-            font-feature-settings: 'ss01', 'ss03'
-
-    &.tap-old2
-        font-feature-settings: 'ss02'
-
-        &.white-old
-            font-feature-settings: 'ss02', 'ss03'
-
-    &.white-old
-        font-feature-settings: 'ss03'
+    @each $type in null, shadow, flat
+        @each $tap in null, old1, old2
+            @each $white in null, old
+                &#{get-class($type)}#{get-class($tap, 'tap-')}#{get-class($white, 'white-')}
+                    @if length(feature-setting($type, $tap, $white)) > 0
+                        font-feature-settings: feature-setting($type, $tap, $white)
 
     &.cost
         margin-right: 1px
 
-        &.cost-shadow:not(.icon-HW):not(.icon-HR)
-            margin-right: 3px
-            border-radius: 100px
-            box-shadow: -2px 2px 0 rgba(0,0,0,0.85)
-
-    &.cost.mini
+    &.mini
         font-size: 50%
-
-        &.cost-shadow:not(.icon-HW):not(.icon-HR)
-            margin-right: 2px
-            box-shadow: -1px 1px 0 rgba(0,0,0,0.85)
 </style>
 
 <script lang="ts">
@@ -66,6 +73,22 @@ export default defineComponent({
 
             let klass = 'magic-symbol';
 
+            if (type.includes('cost')) {
+                klass += ' cost';
+
+                if (!type.includes('flat')) {
+                    klass += ' shadow';
+                }
+            }
+
+            if (type.includes('flat')) {
+                klass += ' flat';
+            }
+
+            if (type.includes('mini')) {
+                klass += ' mini';
+            }
+
             if (type.includes('tap:old1')) {
                 klass += ' tap-old1';
             }
@@ -76,19 +99,6 @@ export default defineComponent({
 
             if (type.includes('white:old')) {
                 klass += ' white-old';
-            }
-
-            if (type.includes('cost')) {
-                klass += ' cost';
-
-                // TODO cost shadow
-                // if (!type.includes('flat')) {
-                // klass += ' cost-shadow';
-                // }
-            }
-
-            if (type.includes('mini')) {
-                klass += ' mini';
             }
 
             return h('span', { class: klass }, `{${props.value}}`);
