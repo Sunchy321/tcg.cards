@@ -2,9 +2,13 @@
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
+import Task from '@/common/task';
+
 import Card from '@/magic/db/card';
 
 import FileSaver from '@/common/save-file';
+
+import { uniq } from 'lodash';
 
 import { cardImagePath } from '../image';
 
@@ -17,6 +21,17 @@ const imgAltMap: Record<string, string> = {
     'Colorless':          'C',
     'Tap':                'T',
     'Variable Colorless': 'X',
+    'Green or Blue':      'G/U',
+    'Green or White':     'G/W',
+    'White or Blue':      'W/U',
+    'White or Black':     'W/B',
+    'Blue or Black':      'U/B',
+    'Blue or Red':        'U/R',
+    'Black or Red':       'B/R',
+    'Black or Green':     'B/G',
+    'Red or Green':       'R/G',
+    'Red or White':       'R/W',
+    'Snow':               'S',
 };
 
 function getText($: cheerio.Root, elem: cheerio.Cheerio) {
@@ -30,7 +45,7 @@ function getText($: cheerio.Root, elem: cheerio.Cheerio) {
         } else if (e.type === 'tag' && e.name === 'img') {
             result += `{${imgAltMap[e.attribs.alt] ?? e.attribs.alt}}`;
         } else {
-            result += $(e).text();
+            result += getText($, $(e));
         }
     }
 
@@ -120,15 +135,16 @@ async function saveGathererImage(mids: number[], set: string, number: string, la
 }
 
 const languageMap: Record<string, string> = {
+    'Chinese Simplified':  'zhs',
     'Chinese Traditional': 'zht',
-    'German':              'de',
+    'English':             'en',
     'French':              'fr',
+    'German':              'de',
     'Italian':             'it',
     'Japanese':            'ja',
     'Korean':              'ko',
     'Portuguese (Brazil)': 'pt',
     'Russian':             'ru',
-    'Chinese Simplified':  'zhs',
     'Spanish':             'es',
 };
 
@@ -248,4 +264,106 @@ export default async function parseGatherer(
 
         new Card(newData).save();
     }
+}
+
+interface GathererStatus {
+    method: string;
+    type: string;
+
+    amount: {
+        updated?: number;
+        count: number;
+        total?: number;
+    };
+
+    time?: {
+        elapsed: number;
+        remaining: number;
+    };
+}
+
+export class GathererGetter extends Task<GathererStatus> {
+    set: string;
+
+    constructor(set: string) {
+        super();
+
+        this.set = set;
+    }
+
+    async startImpl(): Promise<void> {
+        const cards = await Card.find({ 'set': this.set, 'multiverseId.0': { $exists: true } });
+
+        let cardList: {
+            cardId: string;
+            versions: {
+                lang: string;
+                number: string;
+                mids: number[];
+            }[];
+        } [] = [];
+
+        for (const c of cards) {
+            const item = cardList.find(v => v.cardId === c.cardId);
+
+            if (item != null) {
+                item.versions.push({
+                    lang:   c.lang,
+                    number: c.number,
+                    mids:   c.multiverseId,
+                });
+            } else {
+                cardList.push({
+                    cardId:   c.cardId,
+                    versions: [{
+                        lang:   c.lang,
+                        number: c.number,
+                        mids:   c.multiverseId,
+                    }],
+                });
+            }
+        }
+
+        const maxLang = Math.max(...cardList.map(c => uniq(c.versions.map(v => v.lang)).length));
+
+        cardList = cardList.filter(c => uniq(c.versions.map(v => v.lang)).length < maxLang);
+
+        const total = cardList.length;
+        let count = 0;
+
+        // start timer
+        const start = Date.now();
+
+        this.intervalProgress(500, () => {
+            const prog: GathererStatus = {
+                method: 'load',
+                type:   'card',
+
+                amount: { total, count },
+            };
+
+            const elapsed = Date.now() - start;
+
+            prog.time = {
+                elapsed,
+                remaining: (elapsed / count) * (total - count),
+            };
+
+            return prog;
+        });
+
+        for (const c of cardList) {
+            const version = c.versions.find(v => v.lang === 'en') ?? c.versions[0];
+
+            await parseGatherer(version.mids, this.set, version.number, version.lang);
+
+            count += 1;
+        }
+    }
+
+    stopImpl(): void {
+
+    }
+
+    equals(): boolean { return true; }
 }

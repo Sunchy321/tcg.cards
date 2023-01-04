@@ -13,10 +13,11 @@ import { existsSync, renameSync } from 'fs';
 import {
     omit, mapValues, isEqual, sortBy,
 } from 'lodash';
+import websocket from '@/middlewares/websocket';
 import { toSingle } from '@/common/request-helper';
 import { textWithParen } from '@static/magic/special';
 import { CardData, getLegality, getLegalityRules } from '@/magic/banlist/legality';
-import parseGatherer from '@/magic/gatherer/parse';
+import parseGatherer, { GathererGetter } from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
 
@@ -436,5 +437,31 @@ router.get('/extract-ruling-cards', async ctx => {
         }
     }
 });
+
+const gathererGetters: Record<string, GathererGetter> = { };
+
+router.get(
+    '/get-gatherer',
+    websocket,
+    async ctx => {
+        const ws = await ctx.ws();
+
+        const { set } = mapValues(ctx.query, toSingle);
+
+        if (set == null) {
+            ctx.status = 400;
+            ws.close();
+        } else {
+            if (gathererGetters[set] == null) {
+                gathererGetters[set] = new GathererGetter(set);
+            }
+
+            gathererGetters[set].on('end', () => delete gathererGetters[set]);
+            gathererGetters[set].bind(ws);
+        }
+
+        ctx.status = 200;
+    },
+);
 
 export default router;
