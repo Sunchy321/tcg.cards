@@ -52,7 +52,9 @@ export default defineComponent({
                     const regex = new RegExp(`(${[
                         '[\\n☐]',
                         '\\{[^}]+\\}',
-                        ...props.cards.map(c => escapeRegExp(c.text)),
+                        ...[...props.cards]
+                            .sort((a, b) => b.text.length - a.text.length)
+                            .map(c => `\\b${escapeRegExp(c.text)}(?=s|\\b)`),
                         ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.?=&]+[-a-zA-Z0-9/]'] : [],
                         ...props.detectEmph ? ['\\*[^*]+\\*'] : [],
                         ...props.detectCr ? ['\\d+(?:\\.\\d+[a-z]?)?'] : [],

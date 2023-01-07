@@ -91,16 +91,27 @@ export function getLegalityRules(): LegalityRule[] {
 
     const pennyCards = readFileSync(join(pennyCardPath, `${recentPennyFile}.txt`)).toString().split('\n');
 
-    rules.push({
-        name:      'penny',
-        status:    { penny: 'legal' },
-        exclusive: true,
+    rules.push(
+        {
+            name:   'gleemox',
+            status: { '*': 'banned' },
 
-        patterns: pennyCards.map(c => ({
-            type:  'id',
-            value: toIdentifier(c),
-        })),
-    });
+            patterns: [{
+                type:  'id',
+                value: 'gleemox',
+            }],
+        },
+        {
+            name:      'penny',
+            status:    { penny: 'legal' },
+            exclusive: true,
+
+            patterns: pennyCards.map(c => ({
+                type:  'id',
+                value: toIdentifier(c),
+            })),
+        },
+    );
 
     const ruleList = internalData<string[]>('magic.legality.rule');
 

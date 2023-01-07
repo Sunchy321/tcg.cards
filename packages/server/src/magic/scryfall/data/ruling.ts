@@ -11,6 +11,7 @@ import { Status } from '../status';
 
 import { join } from 'path';
 import { isEqual } from 'lodash';
+import internalData from '@/internal-data';
 import { convertJson, bulkPath } from './common';
 
 type OldData = {
@@ -44,6 +45,12 @@ async function assignRuling(
     }
 }
 
+export type SpellingMistakes = {
+    cardId: string;
+    text: string;
+    correction: string;
+}[];
+
 export default class RulingLoader extends Task<Status> {
     file: string;
     filePath: string;
@@ -57,6 +64,7 @@ export default class RulingLoader extends Task<Status> {
 
     async startImpl(): Promise<void> {
         const cardNames = await CardNameExtractor.names();
+        const spellingMistakes = internalData<SpellingMistakes>('magic.rulings.spelling-mistakes');
 
         let method = 'load';
         let total = 0;
@@ -136,6 +144,14 @@ export default class RulingLoader extends Task<Status> {
 
             if (oldData == null) {
                 continue;
+            }
+
+            for (const m of spellingMistakes) {
+                if (m.cardId === oldData.cardId) {
+                    for (const d of data) {
+                        d.comment = d.comment.replaceAll(m.text, m.correction);
+                    }
+                }
             }
 
             await assignRuling(data, oldData, cardNames);

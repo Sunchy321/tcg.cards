@@ -50,6 +50,12 @@
                 @click="reparse"
             />
 
+            <q-btn
+                label="All Reparse"
+                dense outline
+                @click="allReparse"
+            />
+
             <span v-if="duplicatedID.length > 0" class="error">Duplicated ID {{ duplicatedID.join(', ') }}</span>
 
             <q-space />
@@ -104,6 +110,13 @@
                                 <div class="scroll" style="max-height: 120px;">
                                     {{ props.row.text }}
                                 </div>
+                            </q-td>
+                            <q-td key="card" :props="props">
+                                <q-btn
+                                    icon="mdi-magnify"
+                                    flat dense round
+                                    @click="extractCard(props.row.id)"
+                                />
                             </q-td>
                         </q-tr>
                     </template>
@@ -260,8 +273,9 @@ export default defineComponent({
             { name: 'depth', label: 'Depth', field: 'depth' },
             { name: 'index', label: 'Index', field: 'index' },
             {
-                name: 'text', label: 'Text', field: 'text', align: 'left',
+                name: 'text', label: 'Text', field: 'text', align: 'left' as const,
             },
+            { name: 'card', label: 'Card', field: 'card' },
         ];
 
         const duplicatedID = computed(() => {
@@ -288,7 +302,7 @@ export default defineComponent({
             { name: 'ids', label: 'IDs', field: 'ids' },
             { name: 'words', label: 'Words', field: 'words' },
             {
-                name: 'text', label: 'Text', field: 'text', align: 'left',
+                name: 'text', label: 'Text', field: 'text', align: 'left' as const,
             },
         ];
 
@@ -338,6 +352,14 @@ export default defineComponent({
             }
         };
 
+        const allReparse = async () => {
+            await controlPost('/magic/cr/all-reparse');
+        };
+
+        const extractCard = async (id: string) => {
+            await controlGet('/magic/cr/extract-cardname', { date: date.value, id });
+        };
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-call
         const focus = (e: any) => { e.target.select(); };
 
@@ -366,6 +388,8 @@ export default defineComponent({
             save,
             parse,
             reparse,
+            allReparse,
+            extractCard,
 
             focus,
         };

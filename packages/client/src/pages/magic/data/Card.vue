@@ -814,64 +814,74 @@ export default defineComponent({
                 return;
             }
 
-            unifiedTypeline.value = unifiedTypeline.value
-                .replace(/ *～ *-? */, '～')
-                .replace(/ *[―—] *-? */, ' — ')
-                .replace(/ *: *-? */, ' : ');
+            for (const p of data.value.parts) {
+                p.unified.typeline = p.unified.typeline
+                    .replace(/\s/g, ' ')
+                    .replace(/ *～ *-? */, '～')
+                    .replace(/ *[―—] *-? */, ' — ')
+                    .replace(/ *: *-? */, ' : ');
 
-            printedTypeline.value = printedTypeline.value
-                .replace(/ *～ *-? */, '～')
-                .replace(/ *[―—] *-? */, ' — ')
-                .replace(/ *: *-? */, ' : ');
+                p.printed.typeline = p.printed.typeline
+                    .replace(/\s/g, ' ')
+                    .replace(/ *～ *-? */, '～')
+                    .replace(/ *[―—] *-? */, ' — ')
+                    .replace(/ *: *-? */, ' : ');
 
-            unifiedText.value = unifiedText.value!.replace(/~~/g, unifiedName.value);
-            printedText.value = printedText.value!.replace(/~~/g, printedName.value);
+                p.unified.text = p.unified.text!.replace(/~~/g, p.unified.name);
+                p.printed.text = p.printed.text!.replace(/~~/g, p.printed.name);
 
-            if (lang.value === 'zhs' || lang.value === 'zht') {
-                unifiedTypeline.value = unifiedTypeline.value.replace(/~/g, '～').replace(/\//g, '／');
-                printedTypeline.value = printedTypeline.value.replace(/~/g, '～').replace(/\//g, '／');
-                unifiedText.value = unifiedText.value.replace(/~/g, '～').replace(/\/\//g, '／').trim();
-                printedText.value = printedText.value.replace(/~/g, '～').replace(/\/\//g, '／').trim();
+                if (lang.value === 'zhs' || lang.value === 'zht') {
+                    p.unified.typeline = p.unified.typeline.replace(/~/g, '～').replace(/\//g, '／');
+                    p.printed.typeline = p.printed.typeline.replace(/~/g, '～').replace(/\//g, '／');
+                    p.unified.text = p.unified.text.replace(/~/g, '～').replace(/\/\//g, '／').trim();
+                    p.printed.text = p.printed.text.replace(/~/g, '～').replace(/\/\//g, '／').trim();
 
-                if (flavorText.value != null) {
-                    flavorText.value = flavorText.value
-                        .replace(/~/g, '～')
-                        .replace(/\.\.\./g, '…')
-                        .replace(/」 ?～/g, '」\n～')
-                        .replace(/。 ?～/g, '。\n～')
-                        .replace(/([，。！？：；]) /g, (m, m1: string) => m1);
-                }
-            } else {
-                unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ').trim();
-                printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ').trim();
-            }
-
-            unifiedText.value = unifiedText.value
-                .replace(/[ \n]$/mg, '')
-                .replace(/[●•] ?/g, '• ')
-                .replace(/<\/?.>/g, '');
-
-            printedText.value = printedText.value
-                .replace(/[ \n]$/mg, '')
-                .replace(/[●•] ?/g, '• ')
-                .replace(/<\/?.>/g, '');
-
-            if (lang.value === 'zhs' || lang.value === 'zht') {
-                if (!/[a-wyz](?![/}])/.test(unifiedText.value)) {
-                    unifiedText.value = unifiedText.value
-                        // .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
-                        .replace(/\(/g, '（')
-                        .replace(/\)/g, '）')
-                        .replace(/;/g, '；');
+                    if (p.flavorText != null) {
+                        p.flavorText = p.flavorText
+                            .replace(/~/g, '～')
+                            .replace(/\.\.\./g, '…')
+                            .replace(/」 ?～/g, '」\n～')
+                            .replace(/。 ?～/g, '。\n～')
+                            .replace(/([，。！？：；]) /g, (m, m1: string) => m1);
+                    }
+                } else {
+                    p.unified.typeline = p.unified.typeline.replace(/ - /g, ' — ').trim();
+                    p.printed.typeline = p.printed.typeline.replace(/ - /g, ' — ').trim();
                 }
 
-                if (!/[a-wyz](?![/}])/.test(printedText.value)) {
-                    printedText.value = printedText.value
+                p.unified.text = p.unified.text
+                    .replace(/[ \n]$/mg, '')
+                    .replace(/[●•‧] ?/g, '• ')
+                    .replace(/<\/?.>/g, '')
+                    .replace(/&lt;\/?.&gt;/g, '')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&.*?;/g, '');
+
+                p.printed.text = p.printed.text
+                    .replace(/[ \n]$/mg, '')
+                    .replace(/[●•‧] ?/g, '• ')
+                    .replace(/<\/?.>/g, '')
+                    .replace(/&lt;\/?.&gt;/g, '')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&.*?;/g, '');
+
+                if (lang.value === 'zhs' || lang.value === 'zht') {
+                    if (!/[a-wyz](?![/}])/.test(p.unified.text)) {
+                        p.unified.text = p.unified.text
                         // .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
-                        .replace(/<\/?.>/g, '')
-                        .replace(/\(/g, '（')
-                        .replace(/\)/g, '）')
-                        .replace(/;/g, '；');
+                            .replace(/\(/g, '（')
+                            .replace(/\)/g, '）')
+                            .replace(/;/g, '；');
+                    }
+
+                    if (!/[a-wyz](?![/}])/.test(p.printed.text)) {
+                        p.printed.text = p.printed.text
+                        // .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
+                            .replace(/<\/?.>/g, '')
+                            .replace(/\(/g, '（')
+                            .replace(/\)/g, '）')
+                            .replace(/;/g, '；');
+                    }
                 }
             }
         };
@@ -907,6 +917,10 @@ export default defineComponent({
                 }
             }
 
+            if (lang.value === 'ja') {
+                unifiedText.value = unifiedText.value!.replace(/ *<i>[(（][^)）]+[)）]<\/i> */g, '').trim();
+            }
+
             defaultPrettify();
 
             if (replaceFrom.value !== '') {
@@ -926,6 +940,16 @@ export default defineComponent({
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
                 printedText.value = '';
+            }
+
+            if (flavorText.value != null) {
+                if (['zhs', 'zht', 'ja'].includes(lang.value)) {
+                    flavorText.value = flavorText.value
+                        .replace(/<\/?.>/g, '');
+                } else {
+                    flavorText.value = flavorText.value
+                        .replace(/<\/?.>/g, '*');
+                }
             }
         };
 

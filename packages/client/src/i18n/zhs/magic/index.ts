@@ -44,8 +44,8 @@ export default {
         'brawl':               '争锋',
         'historic_brawl':      '史迹争锋',
 
-        'pauper':           '纯铁',
-        'pauper_commander': '纯铁指挥官',
+        'pauper':           '纯普',
+        'pauper_commander': '纯普指挥官',
         'penny':            'Penny Dreadful',
 
         'two_head_giant': '双头巨人',

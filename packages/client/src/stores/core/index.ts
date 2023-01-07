@@ -57,9 +57,14 @@ export const useCore = defineStore('core', () => {
     const { locales, locale } = useLocale();
 
     // page
-    const search = ref('');
+    const innerSearch = ref('');
     const title = ref('');
     const titleType = ref<TitleType>('text');
+
+    const search = computed({
+        get() { return innerSearch.value; },
+        set(newValue: string) { innerSearch.value = newValue ?? ''; },
+    });
 
     const setTitle = (titleOption: Value<string> | undefined) => {
         watch(

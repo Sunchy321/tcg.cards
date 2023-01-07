@@ -234,7 +234,8 @@ export default async function parseGatherer(
         newData.lang = v.lang;
 
         for (const [i, p] of newData.parts.entries()) {
-            const dPart = data.parts[i];
+            // fix meld card issue
+            const dPart = data.parts[i - newData.parts.length + data.parts.length];
 
             delete p.scryfallIllusId;
 

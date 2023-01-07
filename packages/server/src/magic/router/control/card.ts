@@ -15,7 +15,9 @@ import {
 } from 'lodash';
 import websocket from '@/middlewares/websocket';
 import { toSingle } from '@/common/request-helper';
-import { textWithParen } from '@static/magic/special';
+import internalData from '@/internal-data';
+
+import { SpellingMistakes } from '@/magic/scryfall/data/ruling';
 import { CardData, getLegality, getLegalityRules } from '@/magic/banlist/legality';
 import parseGatherer, { GathererGetter } from '@/magic/gatherer/parse';
 
@@ -23,6 +25,7 @@ import searcher from '@/magic/search';
 
 import { assetPath } from '@/config';
 import { formats as formatList } from '@static/magic/basic';
+import { textWithParen } from '@static/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -406,35 +409,46 @@ router.get('/get-legality', async ctx => {
 
 router.get('/extract-ruling-cards', async ctx => {
     const cardNames = await CardNameExtractor.names();
+    const spellingMistakes = internalData<SpellingMistakes>('magic.rulings.spelling-mistakes');
 
     const ids = (ctx.query.id ?? '') as string;
 
     for (const id of ids.split(',')) {
         const card = await Card.findOne({ cardId: id as string });
 
-        if (card != null) {
-            const cardsList = [];
+        if (card == null) {
+            continue;
+        }
 
-            for (const r of card.rulings) {
-                const cards = new CardNameExtractor({
-                    text:     r.text,
-                    cardNames,
-                    thisName: { id: card.cardId, name: card.parts.map(p => p.oracle.name) },
-                }).extract();
-
-                cardsList.push(cards);
-
-                if (cards.length > 0) {
-                    r.cards = cards;
-                } else {
-                    delete r.cards;
+        for (const m of spellingMistakes) {
+            if (m.cardId === card.cardId) {
+                for (const r of card.rulings) {
+                    r.text = r.text.replaceAll(m.text, m.correction);
                 }
             }
-
-            await Card.updateMany({ cardId: card.cardId }, { rulings: card.rulings });
-
-            ctx.body = cardsList;
         }
+
+        const cardsList = [];
+
+        for (const r of card.rulings) {
+            const cards = new CardNameExtractor({
+                text:     r.text,
+                cardNames,
+                thisName: { id: card.cardId, name: card.parts.map(p => p.oracle.name) },
+            }).extract();
+
+            cardsList.push(cards);
+
+            if (cards.length > 0) {
+                r.cards = cards;
+            } else {
+                r.cards = undefined;
+            }
+        }
+
+        await Card.updateMany({ cardId: card.cardId }, { rulings: card.rulings });
+
+        ctx.body = cardsList;
     }
 });
 

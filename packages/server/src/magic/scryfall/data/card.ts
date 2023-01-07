@@ -824,9 +824,16 @@ export default class CardLoader extends Task<Status> {
             }
 
             for (const card of cardsToInsert) {
-                if (
-                    card.lang === 'en'
-                    && card.parts.some(p => /[(（)）]/.test(p.oracle.text ?? '')
+                if (card.lang !== 'en') {
+                    continue;
+                }
+
+                if (card.set === 'plist') {
+                    card.localTags.push('dev:printed');
+                    continue;
+                }
+
+                if (card.parts.some(p => /[(（)）]/.test(p.oracle.text ?? '')
                         || /[(（)）]/.test(p.printed.text ?? ''))
                 ) {
                     card.localTags.push('dev:printed');

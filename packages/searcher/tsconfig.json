@@ -1,14 +1,14 @@
 {
     "compilerOptions": {
         "module": "CommonJS",
-        "target": "ES2020",
+        "target": "ES2021",
         "noImplicitAny": true,
         "rootDir": "src",
         "outDir": "./dist",
         "sourceMap": true,
         "strictNullChecks": true,
         "esModuleInterop": true,
-        "lib": ["ES2020"],
+        "lib": ["ES2021"],
         "baseUrl": "./src",
         "paths": {
             "@static/*": ["../node_modules/card-static/src/*"],
