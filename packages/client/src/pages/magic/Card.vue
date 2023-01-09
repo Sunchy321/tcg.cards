@@ -63,6 +63,18 @@
             <div class="ability auto-align" :lang="langWithMode">
                 <magic-text :symbol="textSymbolStyle">{{ text }}</magic-text>
             </div>
+            <div v-if="attractionLights != null" class="attraction-lights">
+                <div
+                    v-for="i in 6" :key="i"
+                    class="attraction-light"
+                    :class="{
+                        [`light-${i}`]: true,
+                        enabled: attractionLights.includes(i)
+                    }"
+                >
+                    {{ i }}
+                </div>
+            </div>
             <div v-if="flavorText != null" class="flavor-text auto-align" :lang="lang">
                 <magic-text :symbol="textSymbolStyle" detect-emph>{{ flavorText }}</magic-text>
             </div>
@@ -274,6 +286,43 @@
 
 .ability
     margin-top: 30px
+
+.attraction-lights
+    margin-top: 20px
+
+    & > *:not(:last-child)
+        margin-right: 5px
+
+.attraction-light
+    display: inline-flex
+    justify-content: center
+    align-items: center
+
+    height: 20px
+    width: 20px
+
+    background-color: #494947
+    border: 1.5px white solid
+    border-radius: 50%
+    box-shadow: -2px 1px 2px rgb(0 0 0 / 33%)
+
+    &.enabled
+        color: #FFF
+
+    &.light-2.enabled
+        background-color: #0A86A6
+
+    &.light-3.enabled
+        background-color: #7AC057
+
+    &.light-4.enabled
+        background-color: #B9B36A
+
+    &.light-5.enabled
+        background-color: #A83F81
+
+    &.light-6.enabled
+        background-color: #C77151
 
 .flavor-text
     margin-top: 20px
@@ -683,6 +732,8 @@ export default defineComponent({
             return nameValue;
         });
 
+        const attractionLights = computed(() => part.value?.attractionLights);
+
         const flavorText = computed(() => part.value?.flavorText);
         const flavorName = computed(() => part.value?.flavorName);
         const artist = computed(() => part.value?.artist);
@@ -891,6 +942,7 @@ export default defineComponent({
             colorIndicator,
             typeline,
             text,
+            attractionLights,
             flavorText,
             flavorName,
             artist,
