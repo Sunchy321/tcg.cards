@@ -58,14 +58,12 @@ function translate(
 
         for (const v of value) {
             if (v.dbQuery == null) {
-                continue;
+                post.push(...v.post);
             } else if (v.dbQuery[`$${query.type}`] != null) {
                 dbQuery.push(...v.dbQuery[`$${query.type}`]);
             } else {
                 dbQuery.push(v.dbQuery);
             }
-
-            post.push(...v.post);
         }
 
         if (dbQuery.length > 0) {

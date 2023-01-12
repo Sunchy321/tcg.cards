@@ -434,8 +434,10 @@ async function merge(card: Document & ICard, data: ICard) {
             break;
 
         case 'manaValue':
+            assign(card, data, 'manaValue');
             break;
         case 'colorIdentity':
+            assign(card, data, 'colorIdentity');
             break;
 
         case 'parts': {

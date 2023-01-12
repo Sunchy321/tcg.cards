@@ -216,7 +216,7 @@ const statusIcon = (status: string, card?: string) => {
     case 'suspended':
         return 'mdi-minus-circle-outline';
     case 'banned_as_commander':
-        return 'mdi-progress-close';
+        return 'mdi-crown-circle-outline';
     case 'banned_as_companion':
         return 'mdi-heart-circle-outline';
     case 'restricted':

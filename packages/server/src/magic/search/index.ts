@@ -243,6 +243,32 @@ export default createSearcher({
             },
         }),
         command({
+            id:         'release-date',
+            alt:        ['date'],
+            allowRegex: false,
+            op:         ['=', '<', '<=', '>', '>='],
+            query:      ({ param, op, qual }) => {
+                switch (op) {
+                case '=':
+                    if (!qual.includes('!')) {
+                        return { releaseDate: { $eq: param } };
+                    } else {
+                        return { releaseDate: { $ne: param } };
+                    }
+                case '>':
+                    return { releaseDate: { $gt: param } };
+                case '>=':
+                    return { releaseDate: { $gte: param } };
+                case '<':
+                    return { releaseDate: { $lt: param } };
+                case '<=':
+                    return { releaseDate: { $lte: param } };
+                default:
+                    throw new QueryError({ type: 'invalid-query' });
+                }
+            },
+        }),
+        command({
             id:         'format',
             alt:        ['f'],
             allowRegex: false,
@@ -377,8 +403,10 @@ export default createSearcher({
         )[0]?.count ?? 0;
 
         const cards = await Card.aggregate(aggregate.pipeline())
-            .sample(sample)
-            .sort({ releaseDate: 1 });
+            // .sample(sample)
+            // .sort({ releaseDate: 1 })
+            .sort({ releaseDate: -1 })
+            .limit(sample);
 
         return { cards, total };
     },

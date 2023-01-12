@@ -476,6 +476,7 @@ export class LegalityAssigner extends Task<Status> {
         const wrongs: Status['wrongs'] = [];
 
         const allCards = Card.aggregate<CardData>()
+            .addFields({ legalities: { $ifNull: ['$legalities', {}] } })
             .group({
                 _id: '$cardId',
 

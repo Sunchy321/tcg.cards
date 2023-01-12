@@ -210,60 +210,69 @@ export default async function parseGatherer(
         }
 
         const vMids = mids.map((_, index) => v.id! + index);
-        const data = await parseGathererDetail(vMids);
+        try {
+            const data = await parseGathererDetail(vMids);
 
-        await saveGathererImage(vMids, set, data.number, v.lang);
+            await saveGathererImage(vMids, set, data.number, v.lang);
 
-        const oldCard = await Card.findOne({
-            $or: [
-                { set, number: data.number, lang: v.lang },
-                { multiverseId: { $in: vMids } },
-            ],
-        });
+            const oldCard = await Card.findOne({
+                $or: [
+                    { set, number: data.number, lang: v.lang },
+                    { multiverseId: { $in: vMids } },
+                ],
+            });
 
-        if (oldCard != null) {
+            if (oldCard != null) {
+                continue;
+            }
+
+            const newData = baseCard.toObject();
+
+            delete (newData as any)._id;
+            delete (newData as any).__v;
+
+            newData.number = data.number;
+            newData.lang = v.lang;
+
+            for (const [i, p] of newData.parts.entries()) {
+            // fix meld card issue
+                const dPart = data.parts[i - newData.parts.length + data.parts.length];
+
+                delete p.scryfallIllusId;
+
+                p.unified.name = dPart.name;
+                p.unified.typeline = dPart.typeline;
+                p.unified.text = dPart.text;
+
+                p.printed.name = dPart.name;
+                p.printed.typeline = dPart.typeline;
+                p.printed.text = dPart.text;
+
+                if (dPart.flavorText !== '') {
+                    p.flavorText = dPart.flavorText;
+                } else {
+                    delete p.flavorText;
+                }
+            }
+
+            if (!newData.localTags.includes('dev:printed')) {
+                newData.localTags.push('dev:printed');
+            }
+
+            delete newData.scryfall.cardId;
+            newData.scryfall.imageUris = [];
+            delete newData.arenaId;
+            delete newData.mtgoId;
+            delete newData.mtgoFoilId;
+            newData.multiverseId = vMids;
+            delete newData.tcgPlayerId;
+            delete newData.cardMarketId;
+
+            new Card(newData).save();
+        } catch (e) {
+            console.log(e);
             continue;
         }
-
-        const newData = baseCard.toObject();
-
-        delete (newData as any)._id;
-        delete (newData as any).__v;
-
-        newData.number = data.number;
-        newData.lang = v.lang;
-
-        for (const [i, p] of newData.parts.entries()) {
-            // fix meld card issue
-            const dPart = data.parts[i - newData.parts.length + data.parts.length];
-
-            delete p.scryfallIllusId;
-
-            p.unified.name = dPart.name;
-            p.unified.typeline = dPart.typeline;
-            p.unified.text = dPart.text;
-
-            p.printed.name = dPart.name;
-            p.printed.typeline = dPart.typeline;
-            p.printed.text = dPart.text;
-
-            if (dPart.flavorText !== '') {
-                p.flavorText = dPart.flavorText;
-            } else {
-                delete p.flavorText;
-            }
-        }
-
-        delete newData.scryfall.cardId;
-        newData.scryfall.imageUris = [];
-        delete newData.arenaId;
-        delete newData.mtgoId;
-        delete newData.mtgoFoilId;
-        newData.multiverseId = vMids;
-        delete newData.tcgPlayerId;
-        delete newData.cardMarketId;
-
-        new Card(newData).save();
     }
 }
 

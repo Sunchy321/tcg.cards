@@ -883,6 +883,14 @@ export default defineComponent({
                             .replace(/;/g, '；');
                     }
                 }
+
+                if (lang.value !== 'ph') {
+                    p.unified.text = p.unified.text
+                        .replace(/^-(?!\d+\/-\d+)/mg, '−');
+
+                    p.printed.text = p.printed.text
+                        .replace(/^-(?!\d+\/-\d+)/mg, '−');
+                }
             }
         };
 

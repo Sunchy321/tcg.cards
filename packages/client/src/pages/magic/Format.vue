@@ -391,6 +391,11 @@ export default defineComponent({
                 break;
             case 'date':
                 banlistItems.sort((a, b) => {
+                    if (a.group !== b.group) {
+                        return banlistSourceOrder.indexOf(a.group ?? null)
+                                - banlistSourceOrder.indexOf(b.group ?? null);
+                    }
+
                     if (a.date < b.date) {
                         return -1;
                     } else if (a.date > b.date) {
@@ -400,9 +405,6 @@ export default defineComponent({
                     if (a.status !== b.status) {
                         return banlistStatusOrder.indexOf(a.status)
                                 - banlistStatusOrder.indexOf(b.status);
-                    } else if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
                     } else {
                         return a.id < b.id ? -1 : 1;
                     }

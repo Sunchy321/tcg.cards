@@ -570,6 +570,8 @@ export default defineComponent({
                 }
             }
 
+            numbers.sort((a, b) => (a.number < b.number ? -1 : a.number > b.number ? 1 : 0));
+
             const currVersion = (
                 s === set.value ? setVersions.find(v => v.number === number.value) : null
             ) ?? setVersions[0];
