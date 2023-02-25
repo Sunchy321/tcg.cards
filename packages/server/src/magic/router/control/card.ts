@@ -570,4 +570,41 @@ router.post('/accept-all-updation', async ctx => {
     ctx.body = 200;
 });
 
+router.get('/get-duplicate', async ctx => {
+    const duplicates = await Card.aggregate<{ _id: { set: string, number: string, lang: string } }>()
+        .group({
+            _id:   { set: '$set', number: '$number', lang: '$lang' },
+            count: { $sum: 1 },
+        })
+        .match({ count: { $gt: 1 } });
+
+    const first = duplicates[0]?._id;
+
+    if (first == null) {
+        ctx.body = {
+            total:  0,
+            values: [],
+        };
+
+        return;
+    }
+
+    const cards = await Card.find({ set: first.set, number: first.number, lang: first.lang });
+
+    ctx.body = {
+        total:  duplicates.length,
+        values: cards.map(c => c.toJSON()),
+    };
+});
+
+router.post('/resolve-duplicate', async ctx => {
+    const { data } = ctx.request.body as { data: ICard };
+
+    await Card.deleteMany({ set: data.set, number: data.number, lang: data.lang });
+
+    await Card.insertMany(data);
+
+    ctx.status = 200;
+});
+
 export default router;

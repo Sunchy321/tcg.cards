@@ -155,6 +155,15 @@ const CardSchema = new Schema<ICard>({
         typeline: String,
         text:     String,
     },
+}, {
+    toJSON: {
+        transform(doc, ret) {
+            delete ret._id;
+            delete ret.__v;
+
+            return ret;
+        },
+    },
 });
 
 const Card = conn.model<ICard>('card', CardSchema);
