@@ -2,16 +2,16 @@ export const birthday = '1993-08-05';
 
 export const locales = [
     'en',
+    'zhs',
+    'zht',
     'de',
-    'es',
     'fr',
     'it',
     'ja',
     'ko',
     'pt',
     'ru',
-    'zhs',
-    'zht',
+    'es',
 ];
 
 export const extendedLocales = [

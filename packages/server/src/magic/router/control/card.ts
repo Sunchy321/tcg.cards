@@ -163,14 +163,13 @@ type AggregateOption = {
     post?: (arg: Aggregate<any[]>) => Aggregate<any[]>;
 };
 
-function aggregate({ lang, match, post }: AggregateOption) {
+function aggregate({ lang, match, post }: AggregateOption): Aggregate<INeedEditResult[]> {
     const agg = Card.aggregate().allowDiskUse(true);
 
     if (match != null) { agg.match(match); }
     if (lang != null) { agg.match({ lang }); }
 
     agg
-        .sort({ releaseDate: -1 })
         .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
         .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
 
@@ -185,8 +184,8 @@ function aggregate({ lang, match, post }: AggregateOption) {
     return agg;
 }
 
-const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult[]>> = {
-    oracle: async lang => aggregate({
+const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResult[]>> = {
+    oracle: lang => aggregate({
         post: agg => agg
             .group({
                 _id:           '$info',
@@ -220,7 +219,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
             }),
     }),
 
-    unified: async lang => aggregate({
+    unified: lang => aggregate({
         lang,
         post: agg => agg
             .group({
@@ -228,6 +227,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
                 name:     { $addToSet: '$parts.unified.name' },
                 typeline: { $addToSet: '$parts.unified.typeline' },
                 text:     { $addToSet: '$parts.unified.text' },
+                date:     { $max: '$releaseDate' },
             })
             .match({
                 $or: [
@@ -238,7 +238,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
             }),
     }),
 
-    paren: async lang => aggregate({
+    paren: lang => aggregate({
         lang,
         match: {
             'cardId':             { $nin: textWithParen },
@@ -248,7 +248,7 @@ const needEditGetters: Record<string, (lang?: string) => Promise<INeedEditResult
         },
     }),
 
-    token: async () => aggregate({
+    token: () => aggregate({
         match: {
             'cardId':          { $not: /!/ },
             'parts.typeSuper': 'token',
@@ -270,19 +270,29 @@ router.get('/need-edit', async ctx => {
         return;
     }
 
-    const result = await getter(lang);
+    const total = (await getter(lang)).length;
+
+    if (total === 0) {
+        ctx.body = {
+            method,
+            cards: [],
+            total,
+        };
+        return;
+    }
+
+    const result = await getter(lang).sort({ date: -1 }).limit(sample);// .sample(sample);
 
     const cards = await Card.aggregate().allowDiskUse(true)
-        .match({ cardId: { $in: result.map(r => r._id.id) }, lang })
+        .match({ $or: result.map(r => ({ cardId: r._id.id, lang: r._id.lang })) })
         .sort({ releaseDate: -1 })
-        .group({ _id: '$cardId', card: { $first: '$$ROOT' } })
-        .sample(sample);
+        .group({ _id: { id: '$cardId', lang: '$lang' }, card: { $first: '$$ROOT' } });
 
     const resultCards = result.map(r => {
-        const card = cards.find(c => c._id === r._id.id);
+        const card = cards.find(c => c._id.id === r._id.id && c._id.lang === r._id.lang);
 
         if (card != null) {
-            return { ...card.card, partIndex: r._id.part, result: { method, ...r } };
+            return { ...card.card, partIndex: r._id.part, result: { method, ...omit(r, 'date') } };
         } else {
             return null;
         }
@@ -291,7 +301,7 @@ router.get('/need-edit', async ctx => {
     ctx.body = {
         method,
         cards: resultCards,
-        total: result.length,
+        total,
     };
 });
 

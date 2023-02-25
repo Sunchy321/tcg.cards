@@ -35,6 +35,7 @@ export default defineComponent({
         id:      { type: String, required: true },
         part:    { type: Number, default: undefined },
         version: { type: Object as PropType<Version>, default: undefined },
+        useLang: { type: Boolean, default: false },
         pauper:  { type: Boolean, default: false },
         text:    { type: String, default: undefined },
     },
@@ -46,6 +47,14 @@ export default defineComponent({
 
         const innerShowId = ref(false);
         const profile = ref<CardProfile | null>(null);
+
+        const locale = computed(() => {
+            if (props.useLang && props.version != null) {
+                return props.version.lang;
+            } else {
+                return magic.locale;
+            }
+        });
 
         const link = computed(() => router.resolve({
             name:   'magic/card',
@@ -64,10 +73,10 @@ export default defineComponent({
                 return null;
             }
 
-            const { locales, locale } = magic;
+            const { locales } = magic;
             const defaultLocale = locales[0];
 
-            return profile.value.parts.map(p => p.localization.find(l => l.lang === locale)?.name
+            return profile.value.parts.map(p => p.localization.find(l => l.lang === locale.value)?.name
                 ?? p.localization.find(l => l.lang === defaultLocale)?.name ?? '').join(' // ');
         });
 
@@ -89,10 +98,10 @@ export default defineComponent({
             if (props.pauper) {
                 const versions = profile.value.versions.filter(v => v.rarity === 'common');
 
-                const { locales, locale } = magic;
+                const { locales } = magic;
                 const defaultLocale = locales[0];
 
-                const localeVersion = versions.filter(v => v.lang === locale);
+                const localeVersion = versions.filter(v => v.lang === locale.value);
 
                 if (localeVersion.length > 0) {
                     return localeVersion.sort((a, b) => (a.releaseDate > b.releaseDate
@@ -117,10 +126,10 @@ export default defineComponent({
 
             const { versions } = profile.value;
 
-            const { locales, locale } = magic;
+            const { locales } = magic;
             const defaultLocale = locales[0];
 
-            const localeVersion = versions.filter(v => v.lang === locale);
+            const localeVersion = versions.filter(v => v.lang === locale.value);
 
             if (localeVersion.length > 0) {
                 return localeVersion.sort((a, b) => (a.releaseDate > b.releaseDate

@@ -16,7 +16,7 @@
                     :key="i"
                     class="flex justify-center"
                 >
-                    <card-avatar :id="h.id" :version="h" />
+                    <card-avatar :id="h.id" :version="h" use-lang />
                 </div>
             </div>
         </div>
@@ -33,6 +33,8 @@
                 </q-input>
             </div>
             <div class="q-mb-md flex items-center">
+                <q-select v-model="locale" class="q-mr-md" :options="locales" outlined dense />
+
                 <q-btn-group outline>
                     <q-btn outline label="oracle" @click="loadGroup('oracle')" />
                     <q-btn outline label="lang" @click="loadGroup('unified')" />
@@ -47,9 +49,19 @@
                 <q-btn
                     class="q-mx-md"
                     outline
-                    label="prettify"
+                    style="padding: 4px 8px"
                     @click="prettify"
-                />
+                >
+                    <q-btn
+                        flat round dense
+                        :icon="forcePrettify ? 'mdi-lock' : 'mdi-lock-open'"
+                        :color="forcePrettify ? 'primary' : 'black'"
+                        size="sm"
+                        class="q-mr-sm"
+                        @click.stop="forcePrettify = !forcePrettify"
+                    />
+                    Prettify
+                </q-btn>
 
                 <q-input v-model="replaceFrom" class="inline-flex" dense />
                 <q-icon name="mdi-arrow-right" class="q-mx-md" />
@@ -71,7 +83,15 @@
                     dense outlined
                 />
 
-                <div v-else class="id code">{{ id }}</div>
+                <q-btn
+                    v-else
+                    icon="mdi-identifier"
+                    :color="id == null ? 'red' : undefined"
+                    flat round dense
+                    @click="copyToClipboard(id)"
+                >
+                    <q-tooltip>{{ id }}</q-tooltip>
+                </q-btn>
 
                 <div v-if="unlock" class="info flex items-center q-mx-md">
                     <q-input v-model="lang" style="width: 120px;" outlined dense />
@@ -218,7 +238,10 @@
 
             <div v-if="searchResult != null" class="q-mt-sm">
                 <div v-for="(v, k) in searchResult" :key="k">
-                    {{ k }}: {{ v }}
+                    <div>{{ k }}</div>
+                    <ul>
+                        <li v-for="(e, i) in v" :key="i">{{ e }}</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -233,11 +256,6 @@
     width: 100%
     background-color: transparent !important
     padding: 0 !important
-
-div.id
-    max-width: 35ch
-    overflow: hidden
-    text-overflow: ellipsis
 
 .q-input.id
     width: 300px
@@ -256,13 +274,14 @@ table
 
 <script lang="ts">
 import {
-    defineComponent, ref, computed, onMounted, watch,
+    defineComponent, ref, computed, onMounted, watch, nextTick,
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useMagic } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
+import pageSetup from 'setup/page';
 
 import ArrayInput from 'components/ArrayInput.vue';
 import CardImage from 'components/magic/CardImage.vue';
@@ -275,6 +294,7 @@ import { AxiosResponse } from 'axios';
 import {
     debounce, deburr, escapeRegExp, uniq,
 } from 'lodash';
+import { copyToClipboard } from 'quasar';
 
 type Part = Card['parts'][0];
 
@@ -379,6 +399,7 @@ const counterBlacklist = [
     'another',
     'moved',
     'that',
+    'three',
 ];
 
 export default defineComponent({
@@ -399,7 +420,31 @@ export default defineComponent({
         const unlock = ref(false);
         const replaceFrom = ref('');
         const replaceTo = ref('');
-        const sample = ref(true);
+
+        const { locale, sample, 'force-prettify': forcePrettify } = pageSetup({
+            params: {
+                'locale': {
+                    type:    'enum',
+                    bind:    'query',
+                    values:  magic.locales,
+                    default: () => magic.locale,
+                },
+
+                'sample': {
+                    type:    'boolean',
+                    bind:    'query',
+                    default: true,
+                },
+
+                'force-prettify': {
+                    type:    'boolean',
+                    bind:    'query',
+                    default: false,
+                },
+            },
+
+            appendParam: true,
+        });
 
         const search = computed({
             get() { return route.query.q as string ?? ''; },
@@ -884,12 +929,22 @@ export default defineComponent({
                     }
                 }
 
-                if (lang.value !== 'ph') {
+                if (lang.value === 'de') {
                     p.unified.text = p.unified.text
-                        .replace(/^-(?!\d+\/-\d+)/mg, '−');
+                        .replace(/"/g, '“')
+                        .replace(/'/g, '‘');
 
                     p.printed.text = p.printed.text
-                        .replace(/^-(?!\d+\/-\d+)/mg, '−');
+                        .replace(/"/g, '“')
+                        .replace(/'/g, '‘');
+                }
+
+                if (lang.value !== 'ph') {
+                    p.unified.text = p.unified.text
+                        .replace(/^[-—](?!\d+\/-\d+)/mg, '−');
+
+                    p.printed.text = p.printed.text
+                        .replace(/^[-—](?!\d+\/-\d+)/mg, '−');
                 }
             }
         };
@@ -943,7 +998,9 @@ export default defineComponent({
             }
 
             if (lang.value !== 'ja') {
-                unifiedText.value = unifiedText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+                unifiedText.value = unifiedText.value!.replace(/ *[(（][^)）]+[)）](?!-) */g, '').trim();
+            } else {
+                // unifiedText.value = unifiedText.value!.replace(/(?<!エンチャント) *[(（][^)）]+[)）] */g, '').trim();
             }
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
@@ -1022,7 +1079,13 @@ export default defineComponent({
                     return;
                 }
 
-                defaultPrettify();
+                if (forcePrettify.value) {
+                    prettify();
+                } else {
+                    defaultPrettify();
+                }
+
+                await nextTick();
 
                 history.value.unshift({
                     id:     id.value,
@@ -1078,7 +1141,7 @@ export default defineComponent({
             } else {
                 request = await controlGet<CardGroup>('/magic/card/need-edit', {
                     method,
-                    lang:   magic.locale,
+                    lang:   locale.value,
                     sample: sampleValue,
                 });
             }
@@ -1210,11 +1273,14 @@ export default defineComponent({
             total,
 
             history,
+            locale,
+            locales: magic.locales,
             unlock,
             replaceFrom,
             replaceTo,
             search,
             sample,
+            forcePrettify,
 
             partCount,
             partIndex,
@@ -1261,6 +1327,8 @@ export default defineComponent({
             loadData,
             loadGroup,
             doSearch,
+
+            copyToClipboard,
 
             devPrinted,
             devToken,
