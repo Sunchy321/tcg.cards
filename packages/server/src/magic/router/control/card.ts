@@ -4,6 +4,7 @@ import { DefaultState, Context } from 'koa';
 
 import Card, { ICard } from '@/magic/db/card';
 import Format from '@/magic/db/format';
+import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
 
 import { Aggregate, ObjectId, UpdateQuery } from 'mongoose';
 
@@ -487,5 +488,86 @@ router.get(
         ctx.status = 200;
     },
 );
+
+router.get('/get-updation', async ctx => {
+    const updationTypes = await CardUpdation.aggregate<{ _id: string, count: number }>()
+        .group({ _id: '$key', count: { $sum: 1 } })
+        .sort({ count: 1 });
+
+    if (updationTypes.length === 0) {
+        ctx.body = {
+            total:   0,
+            key:     '',
+            current: 0,
+            values:  [],
+        };
+
+        return;
+    }
+
+    const key = updationTypes[0]._id;
+
+    const total = await CardUpdation.count();
+    const current = await CardUpdation.countDocuments({ key });
+
+    const updation = await CardUpdation.aggregate<ICardUpdation>().match({ key }).sample(50);
+
+    const cards = await Card.find({ 'scryfall.cardId': { $in: updation.map(v => v.scryfallId) } });
+
+    const values = updation.map(u => {
+        const c = cards.find(c => c.scryfall.cardId === u.scryfallId);
+
+        if (c == null) {
+            return u;
+        }
+
+        return {
+            ...u,
+            set:    c.set,
+            number: c.number,
+            lang:   c.lang,
+        };
+    });
+
+    ctx.body = {
+        total, key, current, values,
+    };
+});
+
+router.post('/commit-updation', async ctx => {
+    const { id, type } = ctx.request.body;
+
+    const updation = await CardUpdation.findById(id);
+
+    if (updation == null) {
+        return;
+    }
+
+    if (type === 'decline') {
+        const card = await Card.findOne({ 'scryfall.cardId': updation.scryfallId });
+
+        if (card != null) {
+            if (updation.key.startsWith('parts.')) {
+                (card.parts[updation.partIndex!] as any)[updation.key.slice(5)] = updation.oldValue;
+            } else {
+                (card as any)[updation.key] = updation.oldValue;
+            }
+
+            await card.save();
+        }
+    }
+
+    await updation.delete();
+
+    ctx.body = 200;
+});
+
+router.post('/accept-all-updation', async ctx => {
+    const { key } = ctx.request.body;
+
+    await CardUpdation.deleteMany({ key });
+
+    ctx.body = 200;
+});
 
 export default router;

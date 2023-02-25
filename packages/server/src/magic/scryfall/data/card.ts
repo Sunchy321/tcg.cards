@@ -4,6 +4,7 @@ import Task from '@/common/task';
 import Card, { ICard } from '@/magic/db/card';
 import SCard from '@/magic/db/scryfall-card';
 import Set from '@/magic/db/set';
+import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
 
 import { Category } from '@interface/magic/card';
 import { Colors } from '@interface/magic/scryfall/basic';
@@ -233,6 +234,12 @@ function getId(data: NCardBase & { layout: string }): string {
         }
     } else if (isMinigame(data)) {
         return toIdentifier(cardFaces[0].name);
+    } else if (/^\(Theme Color: (\{.\})+\)/.test(data.card_faces[0].oracle_text ?? '')) {
+        const m = /^\(Theme Color: ((?:\{.\})+)\)/.exec(data.card_faces[0].oracle_text ?? '');
+
+        const colors = m![1].toLowerCase().replace(/\{(.)\}/g, (_, v) => v);
+
+        return `${nameId}_${colors}`;
     } else {
         return nameId;
     }
@@ -395,14 +402,39 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
     };
 }
 
-function assign(card: Document & ICard, data: ICard, key: keyof ICard) {
+function assign(card: Document & ICard, data: ICard, key: keyof ICard, updation: ICardUpdation[]) {
     if (!isEqual(card[key], data[key])) {
+        updation.push({
+            cardId:     card.cardId,
+            scryfallId: card.scryfall.cardId!,
+            key,
+            oldValue:   card[key],
+            newValue:   data[key],
+        });
+
         (card as any)[key] = data[key];
     }
 }
 
-function assignPart(card: ICard['parts'][0], data: ICard['parts'][0], key: keyof ICard['parts'][0]) {
+function assignPart(
+    card: ICard['parts'][0],
+    data: ICard['parts'][0],
+    key: keyof ICard['parts'][0],
+    cardId: string,
+    scryfallId: string,
+    index: number,
+    updation: ICardUpdation[],
+) {
     if (!isEqual(card[key], data[key])) {
+        updation.push({
+            cardId,
+            scryfallId,
+            key:       `part.${key}`,
+            partIndex: index,
+            oldValue:  card[key],
+            newValue:  data[key],
+        });
+
         (card as any)[key] = data[key];
     }
 }
@@ -418,6 +450,8 @@ function assignSet(card: string[], data: string[], tag: string) {
 }
 
 async function merge(card: Document & ICard, data: ICard) {
+    const updation: ICardUpdation[] = [];
+
     for (const k of Object.keys(data) as (keyof ICard)[]) {
         // eslint-disable-next-line default-case
         switch (k) {
@@ -427,17 +461,17 @@ async function merge(card: Document & ICard, data: ICard) {
         case 'lang':
             break;
         case 'set':
-            assign(card, data, 'set');
+            assign(card, data, 'set', updation);
             break;
         case 'number':
-            assign(card, data, 'number');
+            assign(card, data, 'number', updation);
             break;
 
         case 'manaValue':
-            assign(card, data, 'manaValue');
+            assign(card, data, 'manaValue', updation);
             break;
         case 'colorIdentity':
-            assign(card, data, 'colorIdentity');
+            assign(card, data, 'colorIdentity', updation);
             break;
 
         case 'parts': {
@@ -457,7 +491,7 @@ async function merge(card: Document & ICard, data: ICard) {
                     case 'color':
                         break;
                     case 'colorIndicator':
-                        assignPart(cPart, dPart, 'colorIndicator');
+                        assignPart(cPart, dPart, 'colorIndicator', card.cardId, card.scryfall.cardId!, i, updation);
                         break;
 
                     case 'typeSuper': {
@@ -535,14 +569,14 @@ async function merge(card: Document & ICard, data: ICard) {
                         break;
 
                     case 'scryfallIllusId':
-                        assignPart(cPart, dPart, 'scryfallIllusId');
+                        assignPart(cPart, dPart, 'scryfallIllusId', card.cardId, card.scryfall.cardId!, i, updation);
                         break;
                     case 'flavorName':
                         break;
                     case 'flavorText':
                         break;
                     case 'artist':
-                        assignPart(cPart, dPart, 'artist');
+                        assignPart(cPart, dPart, 'artist', card.cardId, card.scryfall.cardId!, i, updation);
                         break;
                     case 'watermark':
                         break;
@@ -560,7 +594,7 @@ async function merge(card: Document & ICard, data: ICard) {
             break;
 
         case 'keywords':
-            assign(card, data, 'keywords');
+            assign(card, data, 'keywords', updation);
             break;
 
         case 'counters':
@@ -568,12 +602,32 @@ async function merge(card: Document & ICard, data: ICard) {
             break;
 
         case 'tags':
+            if (!isEqual(card[k], data[k])) {
+                updation.push({
+                    cardId:     card.cardId,
+                    scryfallId: card.scryfall.cardId!,
+                    key:        k,
+                    oldValue:   card[k],
+                    newValue:   data[k],
+                });
+            }
+
             assignSet(card.tags, data.tags, 'reserved');
             assignSet(card.tags, data.tags, 'dev:counted');
             assignSet(card.tags, data.tags, 'dev:counted');
             break;
 
         case 'localTags':
+            if (!isEqual(card[k], data[k])) {
+                updation.push({
+                    cardId:     card.cardId,
+                    scryfallId: card.scryfall.cardId!,
+                    key:        k,
+                    oldValue:   card[k],
+                    newValue:   data[k],
+                });
+            }
+
             assignSet(card.localTags, data.localTags, 'full-art');
             assignSet(card.localTags, data.localTags, 'oversized');
             assignSet(card.localTags, data.localTags, 'story-spotlight');
@@ -584,38 +638,38 @@ async function merge(card: Document & ICard, data: ICard) {
         case 'layout':
             break;
         case 'frame':
-            assign(card, data, 'frame');
+            assign(card, data, 'frame', updation);
             break;
         case 'frameEffects':
             break;
         case 'borderColor':
-            assign(card, data, 'borderColor');
+            assign(card, data, 'borderColor', updation);
             break;
         case 'cardBack':
             break;
         case 'securityStamp':
-            assign(card, data, 'securityStamp');
+            assign(card, data, 'securityStamp', updation);
             break;
         case 'promoTypes':
-            assign(card, data, 'promoTypes');
+            assign(card, data, 'promoTypes', updation);
             break;
         case 'rarity':
             break;
         case 'releaseDate':
-            assign(card, data, 'releaseDate');
+            assign(card, data, 'releaseDate', updation);
             break;
 
         case 'isDigital':
-            assign(card, data, 'isDigital');
+            assign(card, data, 'isDigital', updation);
             break;
         case 'isPromo':
-            assign(card, data, 'isPromo');
+            assign(card, data, 'isPromo', updation);
             break;
         case 'isReprint':
-            assign(card, data, 'isReprint');
+            assign(card, data, 'isReprint', updation);
             break;
         case 'finishes':
-            assign(card, data, 'finishes');
+            assign(card, data, 'finishes', updation);
             break;
         case 'hasHighResImage': {
             if (card.hasHighResImage !== data.hasHighResImage) {
@@ -640,49 +694,49 @@ async function merge(card: Document & ICard, data: ICard) {
             break;
         }
         case 'imageStatus':
-            assign(card, data, 'imageStatus');
+            assign(card, data, 'imageStatus', updation);
             break;
 
         case 'legalities':
             break;
         case 'inBooster':
-            assign(card, data, 'inBooster');
+            assign(card, data, 'inBooster', updation);
             break;
         case 'contentWarning':
-            assign(card, data, 'contentWarning');
+            assign(card, data, 'contentWarning', updation);
             break;
         case 'games':
-            assign(card, data, 'games');
+            assign(card, data, 'games', updation);
             break;
 
         case 'preview':
             break;
 
         case 'scryfall':
-            assign(card, data, 'scryfall');
+            assign(card, data, 'scryfall', updation);
             break;
 
         case 'arenaId':
-            assign(card, data, 'arenaId');
+            assign(card, data, 'arenaId', updation);
             break;
         case 'mtgoId':
-            assign(card, data, 'mtgoId');
+            assign(card, data, 'mtgoId', updation);
             break;
         case 'mtgoFoilId':
-            assign(card, data, 'mtgoFoilId');
+            assign(card, data, 'mtgoFoilId', updation);
             break;
         case 'multiverseId':
-            assign(card, data, 'multiverseId');
+            assign(card, data, 'multiverseId', updation);
             break;
         case 'tcgPlayerId':
-            assign(card, data, 'tcgPlayerId');
+            assign(card, data, 'tcgPlayerId', updation);
             break;
         case 'cardMarketId':
-            assign(card, data, 'cardMarketId');
+            assign(card, data, 'cardMarketId', updation);
             break;
 
         case '__oracle':
-            assign(card, data, '__oracle');
+            assign(card, data, '__oracle', updation);
             break;
         }
     }
@@ -690,6 +744,8 @@ async function merge(card: Document & ICard, data: ICard) {
     if (card.modifiedPaths().length > 0) {
         await card.save();
     }
+
+    await CardUpdation.insertMany(updation);
 }
 
 const bucketSize = 500;
@@ -778,7 +834,8 @@ export default class CardLoader extends Task<Status> {
 
                 const newCards = splitDFT(toNSCard(json as RawCardNoArtSeries));
 
-                const oldCards = cards.filter(c => c.scryfall.cardId === json.id);
+                const oldCards = cards.filter(c => c.scryfall.cardId === json.id
+                    || (c.set === json.set && c.number === json.collector_number && c.lang === json.lang));
 
                 if (newCards.length === 1) {
                     // a single card
