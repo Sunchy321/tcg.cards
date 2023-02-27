@@ -33,7 +33,7 @@
     </div>
 </template>
 
-<style lang="sass">
+<style lang="sass" scoped>
 
 .updation
     border: 1px solid grey
@@ -42,7 +42,7 @@
     max-width: 200px
     flex-basis: 200px
 
-.action .q-btn
+.action:deep(.q-btn)
     padding: 0
 
 </style>

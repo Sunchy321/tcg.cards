@@ -21,7 +21,7 @@
     </q-toolbar-title>
 </template>
 
-<style lang="sass">
+<style lang="sass" scoped>
 .title-input
     transition: 0.5s
 </style>

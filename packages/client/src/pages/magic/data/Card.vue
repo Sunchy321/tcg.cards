@@ -426,7 +426,7 @@ export default defineComponent({
                 'locale': {
                     type:    'enum',
                     bind:    'query',
-                    values:  magic.locales,
+                    values:  ['', ...magic.locales],
                     default: () => magic.locale,
                 },
 
@@ -1141,7 +1141,7 @@ export default defineComponent({
             } else {
                 request = await controlGet<CardGroup>('/magic/card/need-edit', {
                     method,
-                    lang:   locale.value,
+                    lang:   locale.value === '' ? null : locale.value,
                     sample: sampleValue,
                 });
             }
@@ -1225,7 +1225,7 @@ export default defineComponent({
                     }
                 }
 
-                if (/^(Embalm|Eternalize)/m.test(text)) {
+                if (/^(Embalm|Eternalize|Squad)/m.test(text)) {
                     relatedCardsCopy.push({ relation: 'token', cardId: `${id.value}!` });
                 }
             }
@@ -1274,7 +1274,7 @@ export default defineComponent({
 
             history,
             locale,
-            locales: magic.locales,
+            locales: ['', ...magic.locales],
             unlock,
             replaceFrom,
             replaceTo,

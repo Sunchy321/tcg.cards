@@ -21,7 +21,7 @@
     </q-layout>
 </template>
 
-<style lang="sass">
+<style lang="sass" scoped>
 
 .left-tabs
     height: unset

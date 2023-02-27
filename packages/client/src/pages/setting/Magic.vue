@@ -43,7 +43,7 @@
     </q-page>
 </template>
 
-<style lang="sass">
+<style lang="sass" scoped>
 
 .card
     max-width: 150px

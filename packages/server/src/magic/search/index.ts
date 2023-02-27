@@ -408,7 +408,10 @@ export default createSearcher({
             .sort({ releaseDate: -1 })
             .limit(sample);
 
-        return { cards, total };
+        return {
+            cards: cards.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId)),
+            total,
+        };
     },
 
     searchId: async (q: DBQuery) => {

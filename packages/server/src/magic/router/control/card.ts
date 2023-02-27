@@ -282,7 +282,7 @@ router.get('/need-edit', async ctx => {
         return;
     }
 
-    const result = await getter(lang).sort({ date: -1 }).limit(sample);// .sample(sample);
+    const result = await getter(lang).sort({ date: -1 }).limit(sample);
 
     const cards = await Card.aggregate().allowDiskUse(true)
         .match({ $or: result.map(r => ({ cardId: r._id.id, lang: r._id.lang })) })
