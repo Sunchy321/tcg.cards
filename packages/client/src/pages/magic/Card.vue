@@ -37,10 +37,6 @@
                     {{ realName }}
                 </div>
 
-                <div v-if="flavorName != null" class="flavor-name" :lang="lang">
-                    {{ flavorName }}
-                </div>
-
                 <q-space />
 
                 <div v-if="cost != null" class="mana-cost">
@@ -50,6 +46,9 @@
                         :type="costStyle"
                     />
                 </div>
+            </div>
+            <div v-if="flavorName != null" class="flavor-name" :lang="lang">
+                {{ flavorName }}
             </div>
             <div class="stats-line">
                 <magic-color
@@ -363,9 +362,7 @@
         transform: rotate(90deg)
 
 .flavor-name
-    margin-left: 8px
-
-    font-size: 80%
+    font-size: 120%
     color: grey
 
 .mana-cost
@@ -833,7 +830,7 @@ export default defineComponent({
                     return null;
                 }
 
-                if (layout.value === 'split') {
+                if (layout.value != null && ['split', 'adventure'].includes(layout.value)) {
                     return multiverseIds[0];
                 }
 

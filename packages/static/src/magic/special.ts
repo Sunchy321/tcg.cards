@@ -1,31 +1,3 @@
-export const textWithParen = [
-    'antoine_ruel_bio',
-    'bureaucracy',
-    'core_set_2019_checklist',
-    'dark_ascension_checklist',
-    'eldritch_moon_checklist',
-    'innistrad_checklist',
-    'jakub_slemr_bio',
-    'mark_le_pine_bio',
-    'nicolas_labarre_bio',
-    'rivals_of_ixalan_checklist',
-    'shadows_over_innistrad_checklist_2',
-    'svend_geertsen_bio',
-    'shadows_over_innistrad_checklist_1',
-    'ixalan_checklist',
-    'strictly_better_front',
-    'roil_royale_back',
-    'b_o_b___bevy_of_beebles_',
-    'base_race_back',
-    'magic_origins_checklist',
-    'metagamer',
-    'nerf_war',
-    'loopy_lobster',
-    'roil_royale__cont_d_',
-    'base_race__cont_d_',
-    'strictly_better',
-];
-
 export const auxSetType = [
     'promo',
     'token',
@@ -37,3 +9,52 @@ export const auxSetType = [
     'archenemy',
     'expansion',
 ];
+
+export const parenBlacklist = [
+    'abgerundet',
+
+    'またはその組み合わせ',
+    'または両方',
+    '端数切捨て',
+    '端数切り捨て',
+    '端数切り上げ',
+
+    'любой',
+    'или',
+    'их',
+    'ее',
+    'о',
+    'n',
+];
+
+export const parenPrefixBlacklist = [
+    'エンチャント',
+    'プロテクション',
+    '親和',
+    '献身',
+    '連繋',
+    '覇権',
+];
+
+export const commaBlacklist = [
+    'Enchant',
+    'Verzaubert',
+    '结附',
+    '結附',
+    'エンチャント',
+    'Encantar',
+
+    'Partner',
+    'Partenariat',
+    'Parceiro',
+    'Parceira',
+    'Партнер',
+    'Camarada',
+];
+
+export const commaSuffixBlacklist = [
+    'の共闘',
+];
+
+export const parenRegex = new RegExp(`(?<!${parenPrefixBlacklist.join('|')}) *[(（](?!-|(${parenBlacklist.join('|')})[)）])([^（()）]+|[^（()）]+[(（][^（()）]+[)）][^（()）]+)[)）](?!-) *`);
+export const commaRegex = new RegExp(`^(?!${commaBlacklist.join('|')}).+[,，、;；].+[^\\],，.。—～:"“»'」)）!！?？］〕](?<!${commaSuffixBlacklist.join('|')})$`, 'm');

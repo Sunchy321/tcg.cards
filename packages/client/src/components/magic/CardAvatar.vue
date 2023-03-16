@@ -160,7 +160,9 @@ export default defineComponent({
         return () => {
             const text = showId.value
                 ? h('span', { class: 'code' }, props.id)
-                : h('span', props.text ?? name.value ?? '');
+                : props.text != null
+                    ? h('span', props.text)
+                    : h('span', { lang: locale.value }, name.value ?? '');
 
             if (onThisPage.value) {
                 return text;

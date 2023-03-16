@@ -403,13 +403,11 @@ export default createSearcher({
         )[0]?.count ?? 0;
 
         const cards = await Card.aggregate(aggregate.pipeline())
-            // .sample(sample)
-            // .sort({ releaseDate: 1 })
-            .sort({ releaseDate: -1 })
+            .sort({ releaseDate: -1, cardId: 1 })
             .limit(sample);
 
         return {
-            cards: cards.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId)),
+            cards: cards.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId || e.lang !== v.lang)),
             total,
         };
     },

@@ -26,7 +26,7 @@ import searcher from '@/magic/search';
 
 import { assetPath } from '@/config';
 import { formats as formatList } from '@static/magic/basic';
-import { textWithParen } from '@static/magic/special';
+import { parenRegex, commaRegex } from '@static/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -179,7 +179,7 @@ function aggregate({ lang, match, post }: AggregateOption): Aggregate<INeedEditR
     if (post != null) {
         post(agg);
     } else {
-        agg.group({ _id: '$info' });
+        agg.group({ _id: '$info', date: { $max: '$releaseDate' } });
     }
 
     return agg;
@@ -200,6 +200,7 @@ const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResu
                 counters:      { $addToSet: '$counters' },
                 relatedCards:  { $addToSet: '$relatedCards' },
                 __oracle:      { $addToSet: '$__oracle' },
+                date:          { $max: '$releaseDate' },
             })
             .match({
                 '_id.lang': lang,
@@ -224,28 +225,57 @@ const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResu
         lang,
         post: agg => agg
             .group({
-                _id:      '$info',
-                name:     { $addToSet: '$parts.unified.name' },
-                typeline: { $addToSet: '$parts.unified.typeline' },
-                text:     { $addToSet: '$parts.unified.text' },
-                date:     { $max: '$releaseDate' },
+                _id:  '$info',
+                name: { $addToSet: '$parts.unified.name' },
+                type: { $addToSet: '$parts.unified.typeline' },
+                text: { $addToSet: '$parts.unified.text' },
+                date: { $max: '$releaseDate' },
             })
             .match({
                 $or: [
-                    { name: { $not: { $size: 1 } } },
-                    { typeline: { $not: { $size: 1 } } },
-                    { text: { $not: { $size: 1 } } },
+                    { 'name.1': { $exists: true } },
+                    { 'type.1': { $exists: true } },
+                    { 'text.1': { $exists: true } },
                 ],
+            })
+            .addFields({
+                nameCount: { $size: '$name' },
+                typeCount: { $size: '$type' },
+                textCount: { $size: '$text' },
+            })
+            .addFields({
+                unifiedIndicator: {
+                    $cond: {
+                        if:   { $gt: ['$nameCount', 1] },
+                        then: { $multiply: ['$nameCount', 10000] },
+                        else: {
+                            $cond: {
+                                if:   { $gt: ['$typeCount', 1] },
+                                then: { $multiply: ['$typeCount', 100] },
+                                else: '$textCount',
+                            },
+                        },
+                    },
+                },
             }),
     }),
 
     paren: lang => aggregate({
         lang,
         match: {
-            'cardId':             { $nin: textWithParen },
-            'parts.unified.text': /[(（].+[)）]/,
+            'cardId':             { $nin: internalData<string[]>('magic.special.with-paren') },
+            'parts.unified.text': parenRegex,
             'parts.typeMain':     { $nin: ['dungeon', 'card'] },
             'parts.typeMain.0':   { $exists: true },
+        },
+    }),
+
+    keyword: lang => aggregate({
+        lang,
+        match: {
+            'cardId':             { $nin: internalData<string[]>('magic.special.with-comma') },
+            'parts.unified.text': commaRegex,
+            'parts.typeMain':     { $nin: ['stickers', 'card'] },
         },
     }),
 
@@ -282,7 +312,13 @@ router.get('/need-edit', async ctx => {
         return;
     }
 
-    const result = await getter(lang).sort({ date: -1 }).limit(sample);
+    const result = await getter(lang)
+        .sort(
+            method === 'unified'
+                ? { 'unifiedIndicator': -1, 'date': -1, '_id.id': 1 }
+                : { 'date': -1, '_id.id': 1 },
+        )
+        .limit(sample);
 
     const cards = await Card.aggregate().allowDiskUse(true)
         .match({ $or: result.map(r => ({ cardId: r._id.id, lang: r._id.lang })) })

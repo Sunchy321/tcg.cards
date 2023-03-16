@@ -39,10 +39,8 @@
                     <q-btn outline label="oracle" @click="loadGroup('oracle')" />
                     <q-btn outline label="lang" @click="loadGroup('unified')" />
                     <q-btn outline label="paren" @click="loadGroup('paren')" />
-                    <q-btn outline label="token" @click="loadGroup('token')" />
+                    <q-btn outline label="keyword" @click="loadGroup('keyword')" />
                 </q-btn-group>
-
-                <span v-if="dataGroup != null" class="q-ml-md">{{ `${total} (${loaded})` }}</span>
 
                 <q-space />
 
@@ -62,6 +60,20 @@
                     />
                     Prettify
                 </q-btn>
+
+                <q-btn
+                    icon="mdi-alpha-u-circle-outline"
+                    :color="replaceUnified ? 'primary' : 'black'"
+                    dense flat round
+                    @click="replaceUnified = !replaceUnified"
+                />
+
+                <q-btn
+                    icon="mdi-alpha-p-circle-outline"
+                    :color="replacePrinted ? 'primary' : 'black'"
+                    dense flat round
+                    @click="replacePrinted = !replacePrinted"
+                />
 
                 <q-input v-model="replaceFrom" class="inline-flex" dense />
                 <q-icon name="mdi-arrow-right" class="q-mx-md" />
@@ -110,6 +122,10 @@
                     outline dense
                 />
 
+                <div>{{ releaseDate }}</div>
+
+                <span v-if="dataGroup != null" class="q-ml-md">{{ `${total} (${loaded})` }}</span>
+
                 <q-space />
 
                 <q-btn
@@ -145,6 +161,13 @@
                 <q-btn v-if="lang == 'en'" icon="mdi-arrow-right-bold" dense flat round @click="overwriteUnified" />
                 <q-btn icon="mdi-scale-balance" dense flat round @click="getLegality" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
+
+                <q-btn
+                    icon="mdi-ab-testing"
+                    :color="separateKeyword ? 'primary' : 'black'"
+                    dense flat round
+                    @click="separateKeyword = !separateKeyword"
+                />
 
                 <q-btn
                     icon="mdi-card-multiple-outline"
@@ -292,9 +315,12 @@ import { Card, Layout } from 'interface/magic/card';
 import { AxiosResponse } from 'axios';
 
 import {
-    debounce, deburr, escapeRegExp, uniq,
+    debounce, deburr, uniq, upperFirst,
 } from 'lodash';
+
 import { copyToClipboard } from 'quasar';
+
+import { parenRegex, commaRegex } from 'static/magic/special';
 
 type Part = Card['parts'][0];
 
@@ -418,28 +444,63 @@ export default defineComponent({
         const dataGroup = ref<CardGroup | undefined>(undefined);
         const history = ref<History[]>([]);
         const unlock = ref(false);
-        const replaceFrom = ref('');
-        const replaceTo = ref('');
 
-        const { locale, sample, 'force-prettify': forcePrettify } = pageSetup({
+        const {
+            locale,
+            sp: sample,
+            fp: forcePrettify,
+            sk: separateKeyword,
+            ru: replaceUnified,
+            rp: replacePrinted,
+            rf: replaceFrom,
+            rt: replaceTo,
+        } = pageSetup({
             params: {
-                'locale': {
+                locale: {
                     type:    'enum',
                     bind:    'query',
                     values:  ['', ...magic.locales],
                     default: () => magic.locale,
                 },
 
-                'sample': {
+                sp: {
                     type:    'boolean',
                     bind:    'query',
                     default: true,
                 },
 
-                'force-prettify': {
+                fp: {
                     type:    'boolean',
                     bind:    'query',
                     default: false,
+                },
+
+                sk: {
+                    type:    'boolean',
+                    bind:    'query',
+                    default: false,
+                },
+
+                ru: {
+                    type:    'boolean',
+                    bind:    'query',
+                    default: false,
+                },
+
+                rp: {
+                    type:    'boolean',
+                    bind:    'query',
+                    default: false,
+                },
+
+                rf: {
+                    type: 'string',
+                    bind: 'query',
+                },
+
+                rt: {
+                    type: 'string',
+                    bind: 'query',
                 },
             },
 
@@ -577,6 +638,8 @@ export default defineComponent({
 
         const flavorText = partField1('flavorText', '');
         const flavorName = partField1('flavorName', '');
+
+        const releaseDate = computed(() => data.value?.releaseDate);
 
         // dev only
         const tag = (name: string) => computed({
@@ -895,16 +958,16 @@ export default defineComponent({
                 }
 
                 p.unified.text = p.unified.text
-                    .replace(/[ \n]$/mg, '')
-                    .replace(/[●•‧] ?/g, '• ')
+                    .replace(/(\n|\s+)$|^\s+/mg, '')
+                    .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
                     .replace(/<\/?.>/g, '')
                     .replace(/&lt;\/?.&gt;/g, '')
                     .replace(/&amp;/g, '&')
                     .replace(/&.*?;/g, '');
 
                 p.printed.text = p.printed.text
-                    .replace(/[ \n]$/mg, '')
-                    .replace(/[●•‧] ?/g, '• ')
+                    .replace(/(\n|\s+)$|^\s+/mg, '')
+                    .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
                     .replace(/<\/?.>/g, '')
                     .replace(/&lt;\/?.&gt;/g, '')
                     .replace(/&amp;/g, '&')
@@ -939,12 +1002,41 @@ export default defineComponent({
                         .replace(/'/g, '‘');
                 }
 
-                if (lang.value !== 'ph') {
-                    p.unified.text = p.unified.text
-                        .replace(/^[-—](?!\d+\/-\d+)/mg, '−');
+                const symbolMap: Record<string, string> = {
+                    '-': '−',
+                    '—': '−',
+                    '－': '−',
+                    '−': '−',
 
-                    p.printed.text = p.printed.text
-                        .replace(/^[-—](?!\d+\/-\d+)/mg, '−');
+                    '＋': '+',
+                    '+': '+',
+                };
+
+                const numberMap: Record<string, string> = {
+                    '１': '1',
+                    '２': '2',
+                    '３': '3',
+                    '６': '6',
+                };
+
+                if (lang.value !== 'ph') {
+                    p.unified.text = p.unified.text.replace(
+                        /^([-—－−＋+])([1234567890X１２３６]+)(?!\/)/mg,
+                        (_: string, sym: string, num: string) => `${
+                            symbolMap[sym]
+                        }${
+                            num.split('').map(n => numberMap[n] ?? n).join('')
+                        }`,
+                    );
+
+                    p.printed.text = p.printed.text.replace(
+                        /^([-—－−＋+])([1234567890X１２３６]+)(?!\/)/mg,
+                        (_: string, sym: string, num: string) => `${
+                            symbolMap[sym]
+                        }${
+                            num.split('').map(n => numberMap[n] ?? n).join('')
+                        }`,
+                    );
                 }
             }
         };
@@ -987,20 +1079,38 @@ export default defineComponent({
             defaultPrettify();
 
             if (replaceFrom.value !== '') {
-                unifiedText.value = unifiedText.value!.replace(
-                    new RegExp(escapeRegExp(replaceFrom.value), 'g'),
-                    replaceTo.value,
-                );
-                unifiedTypeline.value = unifiedTypeline.value.replace(
-                    new RegExp(escapeRegExp(replaceFrom.value), 'g'),
-                    replaceTo.value,
-                );
+                if (replaceUnified.value) {
+                    unifiedText.value = unifiedText.value!.replace(
+                        new RegExp(replaceFrom.value, 'g'),
+                        replaceTo.value,
+                    );
+                    unifiedTypeline.value = unifiedTypeline.value.replace(
+                        new RegExp(replaceFrom.value, 'g'),
+                        replaceTo.value,
+                    );
+                }
+
+                if (replacePrinted.value) {
+                    printedText.value = printedText.value!.replace(
+                        new RegExp(replaceFrom.value, 'g'),
+                        replaceTo.value,
+                    );
+                    printedTypeline.value = printedTypeline.value.replace(
+                        new RegExp(replaceFrom.value, 'g'),
+                        replaceTo.value,
+                    );
+                }
             }
 
-            if (lang.value !== 'ja') {
-                unifiedText.value = unifiedText.value!.replace(/ *[(（][^)）]+[)）](?!-) */g, '').trim();
-            } else {
-                // unifiedText.value = unifiedText.value!.replace(/(?<!エンチャント) *[(（][^)）]+[)）] */g, '').trim();
+            unifiedText.value = unifiedText.value!
+                .replace(new RegExp(parenRegex.source, 'g'), '').trim();
+
+            if (separateKeyword.value) {
+                unifiedText.value = unifiedText.value
+                    .replace(
+                        new RegExp(commaRegex.source, 'mg'),
+                        l => l.split(/[,，、;；] */g).map(v => upperFirst(v)).join('\n'),
+                    );
             }
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
@@ -1131,7 +1241,7 @@ export default defineComponent({
 
             let request: AxiosResponse<CardGroup>;
 
-            const sampleValue = sample.value ? 20 : 1;
+            const sampleValue = sample.value ? 50 : 1;
 
             if (method.startsWith('search:')) {
                 request = await controlGet<CardGroup>('/magic/card/search', {
@@ -1157,7 +1267,7 @@ export default defineComponent({
             }
         };
 
-        watch(sample, () => { dataGroup.value = undefined; });
+        watch([sample, locale], () => { dataGroup.value = undefined; });
 
         const doSearch = async () => {
             if (search.value === '') {
@@ -1177,6 +1287,9 @@ export default defineComponent({
                 }
             },
         );
+
+        console.log('paren:', parenRegex);
+        console.log('comma:', commaRegex);
 
         const guessToken = () => {
             if (data.value == null) {
@@ -1276,11 +1389,14 @@ export default defineComponent({
             locale,
             locales: ['', ...magic.locales],
             unlock,
+            replaceUnified,
+            replacePrinted,
             replaceFrom,
             replaceTo,
             search,
             sample,
             forcePrettify,
+            separateKeyword,
 
             partCount,
             partIndex,
@@ -1309,6 +1425,7 @@ export default defineComponent({
             printedText,
             flavorText,
             flavorName,
+            releaseDate,
             relatedCardsString,
             counters,
             multiverseId,
