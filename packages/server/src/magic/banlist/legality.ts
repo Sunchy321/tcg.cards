@@ -266,7 +266,7 @@ export function getLegality(
     const setsPauperCommanderExclusive = getLegalitySets('pauper-commander-exclusive');
 
     const cardId = data._id;
-    const versions = data.versions.filter(v => v.releaseDate <= new Date().toLocaleDateString('en-CA'));
+    const versions = data.versions.filter(v => v.releaseDate <= new Date().toISOString().split('T')[0]);
 
     const result: ICard['legalities'] = {};
 

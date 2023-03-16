@@ -60,7 +60,7 @@ function getDefault(def: Parameter): any {
     case 'number':
         return 0;
     case 'date':
-        return new Date().toLocaleDateString('en-CA');
+        return new Date().toISOString().split('T')[0];
     default:
         return null;
     }

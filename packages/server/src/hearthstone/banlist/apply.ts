@@ -392,7 +392,7 @@ export class AnnouncementApplier {
                         return ['standard', 'wild', 'arena', 'duel'].filter(f => {
                             const format = this.formatMap[f]!;
                             // the change don't become effective now
-                            if (date > new Date().toLocaleDateString('en-CA')) { return false; }
+                            if (date > new Date().toISOString().split('T')[0]) { return false; }
                             // the change is before the format exists
                             if (format.birthday != null && date < format.birthday) { return false; }
                             // the change is after the format died

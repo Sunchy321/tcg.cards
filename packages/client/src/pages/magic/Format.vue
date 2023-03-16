@@ -247,7 +247,7 @@ export default defineComponent({
         }));
 
         const dateFrom = computed(() => data.value?.birthday ?? magic.birthday);
-        const dateTo = computed(() => data.value?.deathdate ?? new Date().toLocaleDateString('en-CA'));
+        const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
 
         const birthAndDeath = computed(() => {
             if (data.value?.birthday != null) {
@@ -462,7 +462,7 @@ export default defineComponent({
         };
 
         const toPrevDate = () => {
-            const currDate = date.value ?? new Date().toLocaleDateString('en-CA');
+            const currDate = date.value ?? new Date().toISOString().split('T')[0];
 
             for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
                 if (dateValue < currDate) {
@@ -473,7 +473,7 @@ export default defineComponent({
         };
 
         const toNextDate = () => {
-            const currDate = date.value ?? new Date().toLocaleDateString('en-CA');
+            const currDate = date.value ?? new Date().toISOString().split('T')[0];
 
             for (const { date: dateValue } of timelineEvents.value) {
                 if (dateValue > currDate) {

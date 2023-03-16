@@ -654,7 +654,7 @@ export default defineComponent({
         const newAnnouncement = async () => {
             await saveAnnouncement();
 
-            const todayDate = new Date().toLocaleDateString('en-CA');
+            const todayDate = new Date().toISOString().split('T')[0];
 
             selected.value = null;
 
