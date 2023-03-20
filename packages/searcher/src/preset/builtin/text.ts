@@ -26,23 +26,23 @@ function query(options: TextQueryOption): DBQuery {
     case ':':
         if (!qualifier.includes('!')) {
             return {
-                [key]: new RegExp(regexSource, multiline ? 'mi' : 'i'),
+                [key]: new RegExp(regexSource, multiline ? 'miu' : 'iu'),
             };
         } else {
             return {
                 [key]: {
-                    $not: new RegExp(regexSource, multiline ? 'mi' : 'i'),
+                    $not: new RegExp(regexSource, multiline ? 'miu' : 'iu'),
                 },
             };
         }
     case '=':
         if (!qualifier.includes('!')) {
             return {
-                [key]: new RegExp(`^${regexSource}$`, 'i'),
+                [key]: new RegExp(`^${regexSource}$`, 'iu'),
             };
         } else {
             return {
-                [key]: { $not: new RegExp(`^${regexSource}$`, 'i') },
+                [key]: { $not: new RegExp(`^${regexSource}$`, 'iu') },
             };
         }
     default:

@@ -494,13 +494,15 @@ export default defineComponent({
                 },
 
                 rf: {
-                    type: 'string',
-                    bind: 'query',
+                    type:    'string',
+                    bind:    'query',
+                    default: '',
                 },
 
                 rt: {
-                    type: 'string',
-                    bind: 'query',
+                    type:    'string',
+                    bind:    'query',
+                    default: '',
                 },
             },
 
@@ -958,7 +960,8 @@ export default defineComponent({
                 }
 
                 p.unified.text = p.unified.text
-                    .replace(/(\n|\s+)$|^\s+/mg, '')
+                    .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
+                    .replace(/\n{2,}/g, '\n')
                     .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
                     .replace(/<\/?.>/g, '')
                     .replace(/&lt;\/?.&gt;/g, '')
@@ -966,7 +969,8 @@ export default defineComponent({
                     .replace(/&.*?;/g, '');
 
                 p.printed.text = p.printed.text
-                    .replace(/(\n|\s+)$|^\s+/mg, '')
+                    .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
+                    .replace(/\n{2,}/g, '\n')
                     .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
                     .replace(/<\/?.>/g, '')
                     .replace(/&lt;\/?.&gt;/g, '')
@@ -1013,15 +1017,22 @@ export default defineComponent({
                 };
 
                 const numberMap: Record<string, string> = {
+                    '０': '0',
                     '１': '1',
                     '２': '2',
                     '３': '3',
+                    '４': '4',
+                    '５': '5',
                     '６': '6',
+                    '７': '7',
+                    '８': '8',
+                    '９': '9',
+                    'Ｘ': 'X',
                 };
 
                 if (lang.value !== 'ph') {
                     p.unified.text = p.unified.text.replace(
-                        /^([-—－−＋+])([1234567890X１２３６]+)(?!\/)/mg,
+                        /^([-—－−＋+])([0-9X０-９]+)(?!\/)/mg,
                         (_: string, sym: string, num: string) => `${
                             symbolMap[sym]
                         }${
@@ -1030,7 +1041,7 @@ export default defineComponent({
                     );
 
                     p.printed.text = p.printed.text.replace(
-                        /^([-—－−＋+])([1234567890X１２３６]+)(?!\/)/mg,
+                        /^([-—－−＋+])([0-9X０-９]+)(?!\/)/mg,
                         (_: string, sym: string, num: string) => `${
                             symbolMap[sym]
                         }${
@@ -1079,26 +1090,17 @@ export default defineComponent({
             defaultPrettify();
 
             if (replaceFrom.value !== '') {
+                const fromRegex = new RegExp(replaceFrom.value, 'ug');
+                const toValue = replaceTo.value.replace(/\\n/g, '\n');
+
                 if (replaceUnified.value) {
-                    unifiedText.value = unifiedText.value!.replace(
-                        new RegExp(replaceFrom.value, 'g'),
-                        replaceTo.value,
-                    );
-                    unifiedTypeline.value = unifiedTypeline.value.replace(
-                        new RegExp(replaceFrom.value, 'g'),
-                        replaceTo.value,
-                    );
+                    unifiedText.value = unifiedText.value!.replace(fromRegex, toValue);
+                    unifiedTypeline.value = unifiedTypeline.value.replace(fromRegex, toValue);
                 }
 
                 if (replacePrinted.value) {
-                    printedText.value = printedText.value!.replace(
-                        new RegExp(replaceFrom.value, 'g'),
-                        replaceTo.value,
-                    );
-                    printedTypeline.value = printedTypeline.value.replace(
-                        new RegExp(replaceFrom.value, 'g'),
-                        replaceTo.value,
-                    );
+                    printedText.value = printedText.value!.replace(fromRegex, toValue);
+                    printedTypeline.value = printedTypeline.value.replace(fromRegex, toValue);
                 }
             }
 
@@ -1106,11 +1108,10 @@ export default defineComponent({
                 .replace(new RegExp(parenRegex.source, 'g'), '').trim();
 
             if (separateKeyword.value) {
-                unifiedText.value = unifiedText.value
-                    .replace(
-                        new RegExp(commaRegex.source, 'mg'),
-                        l => l.split(/[,，、;；] */g).map(v => upperFirst(v)).join('\n'),
-                    );
+                unifiedText.value = unifiedText.value.replace(
+                    new RegExp(commaRegex.source, 'mg'),
+                    l => l.split(/[,，、;；] */g).map(v => upperFirst(v)).join('\n'),
+                );
             }
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
@@ -1277,7 +1278,12 @@ export default defineComponent({
             loadGroup(`search:${search.value}`);
         };
 
-        onMounted(loadData);
+        onMounted(async () => {
+            console.log('paren:', parenRegex);
+            console.log('comma:', commaRegex);
+
+            await loadData();
+        });
 
         watch(
             [data, partIndex, printedName, printedTypeline, printedText],
@@ -1287,9 +1293,6 @@ export default defineComponent({
                 }
             },
         );
-
-        console.log('paren:', parenRegex);
-        console.log('comma:', commaRegex);
 
         const guessToken = () => {
             if (data.value == null) {
