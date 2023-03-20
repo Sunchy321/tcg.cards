@@ -45,6 +45,7 @@ export default {
         'historic_brawl':      '史迹争锋',
 
         'pauper':           '纯普',
+        'oathbreaker':      '破誓人',
         'pauper_commander': '纯普指挥官',
         'penny':            'Penny Dreadful',
 

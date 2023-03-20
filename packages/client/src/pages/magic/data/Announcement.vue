@@ -204,6 +204,7 @@ const sources = [
     'duelcommander',
     'mtgcommander',
     'leviathan_commander',
+    'oathbreaker',
     'pauper_commander',
     'initial',
     'rotation',

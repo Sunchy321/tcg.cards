@@ -46,6 +46,7 @@ export default {
         'historic_brawl':      'Historic Brawl',
 
         'pauper':           'Pauper',
+        'oathbreaker':      'Oathbreaker',
         'penny':            'Penny Dreadful',
         'pauper_commander': 'Pauper Commander',
 
