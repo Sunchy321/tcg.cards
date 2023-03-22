@@ -20,7 +20,7 @@ import internalData from '@/internal-data';
 
 import { SpellingMistakes } from '@/magic/scryfall/data/ruling';
 import { CardData, getLegality, getLegalityRules } from '@/magic/banlist/legality';
-import parseGatherer, { GathererGetter } from '@/magic/gatherer/parse';
+import parseGatherer, { GathererGetter, saveGathererImage } from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
 
@@ -391,6 +391,18 @@ router.get('/parse-gatherer', async ctx => {
 
     if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
         await parseGatherer(mids, set, number, lang);
+    }
+});
+
+router.get('/save-gatherer-image', async ctx => {
+    const {
+        id: mid, set, number, lang,
+    } = mapValues(ctx.query, toSingle);
+
+    const mids = mid.split(',').map(v => Number.parseInt(v.trim(), 10));
+
+    if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
+        await saveGathererImage(mids, set, number, lang);
     }
 });
 

@@ -117,7 +117,11 @@ export default function useParams(): {
         ) as string;
 
         if (def.type === 'boolean') {
-            return result !== undefined;
+            if (def.default != null) {
+                return result !== undefined ? !def.default : def.default;
+            } else {
+                return result !== undefined;
+            }
         }
 
         if (result == null) {
@@ -168,19 +172,37 @@ export default function useParams(): {
             }
         } else {
             if (def.type === 'boolean') {
-                if (newValue === true) {
-                    void router.push({
-                        query: { ...route.query, [realKey]: null },
-                    });
+                if (def.default != null) {
+                    if (newValue !== def.default) {
+                        void router.push({
+                            query: { ...route.query, [realKey]: null },
+                        });
+                    } else {
+                        void router.push({
+                            query: omit(route.query, [realKey]),
+                        });
+                    }
                 } else {
+                    if (newValue === true) {
+                        void router.push({
+                            query: { ...route.query, [realKey]: null },
+                        });
+                    } else {
+                        void router.push({
+                            query: omit(route.query, [realKey]),
+                        });
+                    }
+                }
+            } else {
+                if (newValue === def.default) {
                     void router.push({
                         query: omit(route.query, [realKey]),
                     });
+                } else {
+                    void router.push({
+                        query: { ...route.query, [realKey]: newValue ?? undefined },
+                    });
                 }
-            } else {
-                void router.push({
-                    query: { ...route.query, [realKey]: newValue ?? undefined },
-                });
             }
         }
     };

@@ -567,7 +567,26 @@ export default defineComponent({
                 }
             }
 
-            numbers.sort((a, b) => (a.number < b.number ? -1 : a.number > b.number ? 1 : 0));
+            numbers.sort((a, b) => {
+                const matchA = /^(\d+)(\w*)$/.exec(a.number);
+                const matchB = /^(\d+)(\w*)$/.exec(b.number);
+
+                if (matchA == null) {
+                    if (matchB == null) {
+                        return a.number < b.number ? -1 : a.number > b.number ? 1 : 0;
+                    } else {
+                        return 1;
+                    }
+                } else if (matchB == null) {
+                    return -1;
+                }
+
+                const numA = Number.parseInt(matchA[1], 10);
+                const numB = Number.parseInt(matchB[1], 10);
+
+                return numA < numB ? -1 : numA > numB ? 1
+                    : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
+            });
 
             const currVersion = (
                 s === set.value ? setVersions.find(v => v.number === number.value) : null

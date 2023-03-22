@@ -106,7 +106,7 @@ async function parseGathererDetail(mids: number[]): Promise<ParsedGatherer> {
     }
 }
 
-async function saveGathererImage(mids: number[], set: string, number: string, lang: string) {
+export async function saveGathererImage(mids: number[], set: string, number: string, lang: string): Promise<void> {
     if (mids.length === 1) {
         const saver = new FileSaver(
             `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${mids[0]}&type=card`,

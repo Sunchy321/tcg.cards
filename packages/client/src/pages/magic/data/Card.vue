@@ -240,6 +240,7 @@
                 <!-- eslint-disable-next-line max-len -->
                 <array-input v-model="multiverseId" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
                     <template #append>
+                        <q-btn icon="mdi-image" flat dense round @click="saveGathererImage" />
                         <q-btn icon="mdi-magnify" flat dense round @click="loadGatherer" />
                     </template>
                 </array-input>
@@ -460,7 +461,7 @@ export default defineComponent({
                     type:    'enum',
                     bind:    'query',
                     values:  ['', ...magic.locales],
-                    default: () => magic.locale,
+                    default: '',
                 },
 
                 sp: {
@@ -565,14 +566,25 @@ export default defineComponent({
                 }
 
                 if (route.query.part != null) {
-                    return parseInt(route.query.part as string, 10);
+                    const result = parseInt(route.query.part as string, 10);
+
+                    if (result < (data.value?.parts?.length ?? 0)) {
+                        return result;
+                    }
                 }
 
                 return 0;
             },
             set(newValue: number) {
-                if (data.value != null) {
+                if (data.value?.partIndex != null) {
                     data.value.partIndex = newValue;
+                } else {
+                    router.replace({
+                        query: {
+                            ...route.query,
+                            part: newValue,
+                        },
+                    });
                 }
             },
         });
@@ -1009,7 +1021,9 @@ export default defineComponent({
                 const symbolMap: Record<string, string> = {
                     '-': '−',
                     '—': '−',
+                    '―': '−',
                     '－': '−',
+                    '–': '−',
                     '−': '−',
 
                     '＋': '+',
@@ -1032,22 +1046,22 @@ export default defineComponent({
 
                 if (lang.value !== 'ph') {
                     p.unified.text = p.unified.text.replace(
-                        /^([-—－−＋+])([0-9X０-９]+)(?!\/)/mg,
+                        /^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg,
                         (_: string, sym: string, num: string) => `${
                             symbolMap[sym]
                         }${
                             num.split('').map(n => numberMap[n] ?? n).join('')
                         }`,
-                    );
+                    ).replace(/^０(?=：)/mg, '0');
 
                     p.printed.text = p.printed.text.replace(
-                        /^([-—－−＋+])([0-9X０-９]+)(?!\/)/mg,
+                        /^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg,
                         (_: string, sym: string, num: string) => `${
                             symbolMap[sym]
                         }${
                             num.split('').map(n => numberMap[n] ?? n).join('')
                         }`,
-                    );
+                    ).replace(/^０(?=：)/mg, '0');
                 }
             }
         };
@@ -1091,16 +1105,18 @@ export default defineComponent({
 
             if (replaceFrom.value !== '') {
                 const fromRegex = new RegExp(replaceFrom.value, 'ug');
-                const toValue = replaceTo.value.replace(/\\n/g, '\n');
+                const toReplacer = (text: string, ...captures: string[]) => replaceTo.value
+                    .replace(/\\n/g, '\n')
+                    .replace(/\$(\d)/g, (_, num) => captures[Number.parseInt(num, 10) - 1]);
 
                 if (replaceUnified.value) {
-                    unifiedText.value = unifiedText.value!.replace(fromRegex, toValue);
-                    unifiedTypeline.value = unifiedTypeline.value.replace(fromRegex, toValue);
+                    unifiedText.value = unifiedText.value!.replace(fromRegex, toReplacer);
+                    unifiedTypeline.value = unifiedTypeline.value.replace(fromRegex, toReplacer);
                 }
 
                 if (replacePrinted.value) {
-                    printedText.value = printedText.value!.replace(fromRegex, toValue);
-                    printedTypeline.value = printedTypeline.value.replace(fromRegex, toValue);
+                    printedText.value = printedText.value!.replace(fromRegex, toReplacer);
+                    printedTypeline.value = printedTypeline.value.replace(fromRegex, toReplacer);
                 }
             }
 
@@ -1278,12 +1294,10 @@ export default defineComponent({
             loadGroup(`search:${search.value}`);
         };
 
-        onMounted(async () => {
-            console.log('paren:', parenRegex);
-            console.log('comma:', commaRegex);
+        console.log('paren:', parenRegex);
+        console.log('comma:', commaRegex);
 
-            await loadData();
-        });
+        onMounted(loadData);
 
         watch(
             [data, partIndex, printedName, printedTypeline, printedText],
@@ -1382,6 +1396,19 @@ export default defineComponent({
             });
         };
 
+        const saveGathererImage = async () => {
+            if (data.value == null) {
+                return;
+            }
+
+            await controlGet('/magic/card/save-gatherer-image', {
+                id:     multiverseId.value.join(','),
+                set:    set.value,
+                number: number.value,
+                lang:   lang.value,
+            });
+        };
+
         return {
             data,
             dataGroup,
@@ -1440,6 +1467,7 @@ export default defineComponent({
             newData,
             doUpdate,
             loadGatherer,
+            saveGathererImage,
             prettify,
             overwriteUnified,
             getLegality,
