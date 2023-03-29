@@ -11,7 +11,7 @@ import { join } from 'path';
 import { mapValues, omit } from 'lodash';
 import { QueryError } from './error';
 
-export type Options = Record<string, string>;
+export type Options = Record<string, any>;
 
 export type DBQuery = any | { '$and': DBQuery[] } | { '$or': DBQuery[] };
 

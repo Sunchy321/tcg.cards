@@ -10,28 +10,32 @@ function query(
     multiline = true,
 ) {
     const regexSource = typeof param === 'string' ? escapeRegExp(param) : param.source;
+    const flags = [
+        multiline ? 'm' : '',
+        typeof param === 'string' ? 'i' : '',
+    ].join('');
 
     switch (op) {
     case ':':
         if (!qual.includes('!')) {
             return {
-                [key]: new RegExp(regexSource, multiline ? 'mi' : 'i'),
+                [key]: { $regex: regexSource, $options: flags },
             };
         } else {
             return {
                 [key]: {
-                    $not: new RegExp(regexSource, multiline ? 'mi' : 'i'),
+                    $not: { $regex: regexSource, $options: flags },
                 },
             };
         }
     case '=':
         if (!qual.includes('!')) {
             return {
-                [key]: new RegExp(`^${regexSource}$`, 'i'),
+                [key]: { $regex: `^${regexSource}$`, $options: flags },
             };
         } else {
             return {
-                [key]: { $not: new RegExp(`^${regexSource}$`, 'i') },
+                [key]: { $not: { $regex: `^${regexSource}$`, $options: flags } },
             };
         }
     default:

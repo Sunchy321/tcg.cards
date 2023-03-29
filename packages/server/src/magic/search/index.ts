@@ -390,10 +390,6 @@ export default createSearcher({
     },
 
     dev: async (q: DBQuery, p: PostAction[], o: Options) => {
-        const sample = Number.isNaN(Number.parseInt(o.sample, 10))
-            ? 100
-            : Number.parseInt(o.sample, 10);
-
         const aggregate = Card.aggregate().allowDiskUse(true).match(q);
 
         const total = (
@@ -404,10 +400,10 @@ export default createSearcher({
 
         const cards = await Card.aggregate(aggregate.pipeline())
             .sort({ releaseDate: -1, cardId: 1 })
-            .limit(sample);
+            .limit(o.sample);
 
         return {
-            cards: cards.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId || e.lang !== v.lang)),
+            cards,
             total,
         };
     },

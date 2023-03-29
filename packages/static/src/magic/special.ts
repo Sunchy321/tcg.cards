@@ -12,12 +12,16 @@ export const auxSetType = [
 
 export const parenBlacklist = [
     'abgerundet',
+    'aufgerundet',
+    'aufgerundete',
+    'beides bis zum Ende des Zuges',
 
     'またはその組み合わせ',
     'または両方',
     '端数切捨て',
     '端数切り捨て',
     '端数切り上げ',
+    '１色または複数の色の組み合わせ',
 
     'любой',
     'или',
@@ -57,4 +61,4 @@ export const commaSuffixBlacklist = [
 ];
 
 export const parenRegex = new RegExp(`(?<!${parenPrefixBlacklist.join('|')}) *[(（](?!-|(${parenBlacklist.join('|')})[)）])([^（()）]+|[^（()）]+[(（][^（()）]+[)）][^（()）]+)[)）](?!-) *`);
-export const commaRegex = new RegExp(`^(?!${commaBlacklist.join('|')}).+[,，、;；].+[^\\],，.。—～:"“»'」)）!！?？］〕](?<!${commaSuffixBlacklist.join('|')})$`, 'm');
+export const commaRegex = new RegExp(`^(?!${commaBlacklist.join('|')}).+[,，、;；].+[^\\],，.。—～:"“»'」)!！?？］〕](?<!${commaSuffixBlacklist.join('|')})$`, 'm');

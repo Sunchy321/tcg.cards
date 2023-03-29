@@ -21,8 +21,10 @@
             </div>
         </div>
         <div class="col">
-            <div class="q-mb-md">
-                <q-input v-model="search" dense @keypress.enter="doSearch">
+            <div class="q-mb-md flex items-center">
+                <q-select v-model="filterBy" class="q-mr-md" :options="['none', 'lang', 'card']" outlined dense />
+
+                <q-input v-model="search" class="col-grow" dense @keypress.enter="doSearch">
                     <template #append>
                         <q-btn
                             icon="mdi-magnify"
@@ -450,6 +452,7 @@ export default defineComponent({
             locale,
             sp: sample,
             fp: forcePrettify,
+            fb: filterBy,
             sk: separateKeyword,
             ru: replaceUnified,
             rp: replacePrinted,
@@ -468,6 +471,13 @@ export default defineComponent({
                     type:    'boolean',
                     bind:    'query',
                     default: true,
+                },
+
+                fb: {
+                    type:    'enum',
+                    bind:    'query',
+                    values:  ['none', 'lang', 'card'],
+                    default: 'none',
                 },
 
                 fp: {
@@ -938,12 +948,14 @@ export default defineComponent({
 
             for (const p of data.value.parts) {
                 p.unified.typeline = p.unified.typeline
+                    .trim()
                     .replace(/\s/g, ' ')
                     .replace(/ *～ *-? */, '～')
                     .replace(/ *[―—] *-? */, ' — ')
                     .replace(/ *: *-? */, ' : ');
 
                 p.printed.typeline = p.printed.typeline
+                    .trim()
                     .replace(/\s/g, ' ')
                     .replace(/ *～ *-? */, '～')
                     .replace(/ *[―—] *-? */, ' — ')
@@ -972,6 +984,7 @@ export default defineComponent({
                 }
 
                 p.unified.text = p.unified.text
+                    .trim()
                     .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
                     .replace(/\n{2,}/g, '\n')
                     .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
@@ -981,6 +994,7 @@ export default defineComponent({
                     .replace(/&.*?;/g, '');
 
                 p.printed.text = p.printed.text
+                    .trim()
                     .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
                     .replace(/\n{2,}/g, '\n')
                     .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
@@ -1120,6 +1134,8 @@ export default defineComponent({
                 }
             }
 
+            defaultPrettify();
+
             unifiedText.value = unifiedText.value!
                 .replace(new RegExp(parenRegex.source, 'g'), '').trim();
 
@@ -1212,6 +1228,8 @@ export default defineComponent({
                     defaultPrettify();
                 }
 
+                devPrinted.value = false;
+
                 await nextTick();
 
                 history.value.unshift({
@@ -1250,7 +1268,7 @@ export default defineComponent({
                 await doUpdate();
             }
 
-            if (dataGroup.value != null && dataGroup.value.method === method && dataGroup.value.cards.length > 0) {
+            if (dataGroup.value != null && dataGroup.value.method === method && dataGroup.value.cards?.length > 0) {
                 data.value = dataGroup.value.cards.shift();
                 dataGroup.value.total -= 1;
                 return;
@@ -1262,14 +1280,16 @@ export default defineComponent({
 
             if (method.startsWith('search:')) {
                 request = await controlGet<CardGroup>('/magic/card/search', {
-                    q:      search.value,
-                    sample: sampleValue,
+                    'q':         search.value,
+                    'sample':    sampleValue,
+                    'filter-by': filterBy.value,
                 });
             } else {
                 request = await controlGet<CardGroup>('/magic/card/need-edit', {
                     method,
-                    lang:   locale.value === '' ? null : locale.value,
-                    sample: sampleValue,
+                    'lang':      locale.value === '' ? null : locale.value,
+                    'sample':    sampleValue,
+                    'filter-by': filterBy.value,
                 });
             }
 
@@ -1426,6 +1446,7 @@ export default defineComponent({
             search,
             sample,
             forcePrettify,
+            filterBy,
             separateKeyword,
 
             partCount,

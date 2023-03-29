@@ -49,18 +49,36 @@ router.get('/raw', async ctx => {
 });
 
 router.get('/search', async ctx => {
-    const { q, sample } = mapValues(ctx.query, toSingle);
+    const { q, sample: sampleText, 'filter-by': filterBy } = mapValues(ctx.query, toSingle);
 
     if (q == null) {
         ctx.status = 400;
         return;
     }
 
-    const result = await searcher.dev(q, { sample });
+    const sample = Number.isNaN(Number.parseInt(sampleText, 10))
+        ? 100
+        : Number.parseInt(sampleText, 10);
+
+    const result = await searcher.dev(q, {
+        sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
+    });
+
+    const cards = ((values: { cardId: string, lang: string }[]) => {
+        switch (filterBy) {
+        case 'card':
+            return values.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId));
+        case 'lang':
+            return values.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId || e.lang !== v.lang));
+        default:
+            return values;
+        }
+    })(result.result?.cards ?? []);
 
     ctx.body = {
         method: `search:${q}`,
-        ...result.result,
+        cards,
+        total:  result.result?.total ?? 0,
     };
 });
 

@@ -641,6 +641,7 @@ async function merge(card: Document & ICard, data: ICard) {
             assign(card, data, 'frame', updation);
             break;
         case 'frameEffects':
+            assign(card, data, 'frameEffects', updation);
             break;
         case 'borderColor':
             assign(card, data, 'borderColor', updation);
