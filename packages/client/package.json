@@ -24,6 +24,7 @@
     "@quasar/extras": "^1.0.0",
     "axios": "^0.21.1",
     "bytes": "^3.1.2",
+    "card-data": "workspace:^1.0.0",
     "card-interface": "workspace:^1.0.1",
     "card-searcher": "workspace:^0.0.1",
     "card-static": "workspace:^1.0.0",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@intlify/vite-plugin-vue-i18n": "^3.4.0",
     "@quasar/app-vite": "^1.0.0-alpha.0",
+    "@rollup/plugin-yaml": "^4.0.1",
     "@types/bytes": "^3.1.1",
     "@types/debounce-promise": "^3.1.4",
     "@types/jsonwebtoken": "^8.5.8",

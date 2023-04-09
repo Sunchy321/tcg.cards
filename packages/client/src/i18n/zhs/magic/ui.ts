@@ -43,4 +43,30 @@ export default {
             date: '日期',
         },
     },
+
+    'misc': {
+        '$self':   '杂项',
+        'symbol':  '符号',
+        'keyword': '关键字',
+
+        'symbol-style': {
+            normal: '普通',
+            shadow: '阴影',
+            flat:   '扁平',
+        },
+
+        'keyword-mode': {
+            simple:  '简略模式',
+            variant: '显示变种',
+            full:    '全部显示',
+        },
+
+        'keyword-type': {
+            keyword_ability: '关键字异能',
+            keyword_action:  '关键字动作',
+            ability_word:    '异能提示',
+            keyword_mtga:    'MTGA关键字',
+            keyword_un:      '银边关键字',
+        },
+    },
 };

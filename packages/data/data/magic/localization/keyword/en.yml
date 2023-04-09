@@ -1,0 +1,480 @@
+# keyword abilities
+absorb: Absorb
+affinity: Affinity
+affinity[artifact+creature]: Affinity for artifact creatures
+affinity[artifact]: Affinity for artifacts
+affinity[equipment]: Affinity for Equipment
+affinity[forest]: Affinity for Forests
+affinity[island]: Affinity for Islands
+affinity[mountain]: Affinity for Mountains
+affinity[plains]: Affinity for Plains
+affinity[swamp]: Affinity for Swamps
+affinity[token]: Affinity for tokens
+afflict: Afflict
+afterlife: Afterlife
+aftermath: Aftermath
+amplify: Amplify
+annihilator: Annihilator
+ascend: Ascend
+assist: Assist
+aura_swap: Aura Swap
+awaken: Awaken
+banding: Banding
+battle_cry: Battle Cry
+bestow: Bestow
+blitz: Blitz
+bloodthirst: Bloodthirst
+boast: Boast
+bushido: Bushido
+buyback: Buyback
+cascade: Cascade
+casualty: Casualty
+champion: Champion
+champion[creature]: Champion a creature
+champion[elemental]: Champion an Elemental
+champion[elf]: Champion an Elf
+champion[faerie]: Champion a Faerie
+champion[goblin]: Champion a Goblin
+champion[goblin|shaman]: Champion a Goblin or Shaman
+champion[kithkin]: Champion a Kithkin
+champion[merfolk]: Champion a Merfolk
+champion[treefolk|warrior]: Champion a Treefolk or Warrior
+changeling: Changeling
+cipher: Cipher
+cleave: Cleave
+companion: Companion
+compleated: Compleated
+conspire: Conspire
+convoke: Convoke
+crew: Crew
+cumulative_upkeep: Cumulative Upkeep
+cycling: Cycling
+cycling/land[artifact]: Artifact landcycling
+cycling/land[basic]: Basic landcycling
+cycling/land[forest]: Forestcycling
+cycling/land[island]: Islandcycling
+cycling/land[mountain]: Mountaincycling
+cycling/land[plains]: Plainscycling
+cycling/land[sliver]: Slivercycling
+cycling/land[swamp]: Swampcycling
+cycling/land[wizard]: Wizardcycling
+dash: Dash
+daybound: Daybound
+deathtouch: Deathtouch
+decayed: Decayed
+defender: Defender
+delve: Delve
+demonstrate: Demonstrate
+dethrone: Dethrone
+devoid: Devoid
+devour: Devour
+devour[artifact]: Devour artifact
+disturb: Disturb
+double_strike: Double Strike
+dredge: Dredge
+echo: Echo
+embalm: Embalm
+emerge: Emerge
+enchant: Enchant
+enchant[(artifact|creature){control:you}]: Enchant artifact or creature you control
+enchant[(creature|planeswalker){-control:you}]: Enchant creature or planeswalker you don't control
+enchant[(creature|planeswalker){control:opponent}]: Enchant creature or planeswalker an opponent controls
+enchant[(creature|planeswalker){control:you}]: Enchant creature or planeswalker you control
+enchant[artifact+creature]: Enchant artifact creature
+enchant[artifact]: Enchant artifact
+enchant[artifact{control:opponent}]: Enchant artifact an opponent controls
+enchant[artifact{control:you}]: Enchant artifact you control
+enchant[artifact|creature]: Enchant artifact or creature
+enchant[artifact|creature|planeswalker]: Enchant artifact, creature, or planeswalker
+enchant[artifact|enchantment]: Enchant artifact or enchantment
+enchant[card{creature}{in:graveyard}]: Enchant creature card in a graveyard
+enchant[card{instant}{in:graveyard}]: Enchant instant card in a graveyard
+enchant[creature]: Enchant creature
+enchant[creature{-black}]: Enchant nonblack creature
+enchant[creature{-control:you}]: Enchant creature you don't control
+enchant[creature{-flying}]: Enchant creature without flying
+enchant[creature{-wall}]: Enchant non-Wall creature
+enchant[creature{-wall}{control:you}]: Enchant non-Wall creature you control
+enchant[creature{attach:another aura}]: Enchant creature with another Aura attached to it
+enchant[creature{black}]: Enchant black creature
+enchant[creature{control:opponent}]: Enchant creature an opponent controls
+enchant[creature{control:you}]: Enchant creature you control
+enchant[creature{green}]: Enchant green creature
+enchant[creature{green|white}]: Enchant green or white creature
+enchant[creature{mana_value<=2}]: Enchant creature with mana value 2 or less
+enchant[creature{power<=3}]: Enchant creature with power 3 or less
+enchant[creature{red|green}]: Enchant red or green creature
+enchant[creature{tapped}]: Enchant tapped creature
+enchant[creature|enchantment]: Enchant creature or enchantment
+enchant[creature|land]: Enchant creature or land
+enchant[creature|land|planeswalker]: Enchant creature, land, or planeswalker
+enchant[creature|planeswalker]: Enchant creature or planeswalker
+enchant[creature|planeswalker|clue]: Enchant creature, planeswalker, or Clue
+enchant[creature|vehicle]: Enchant creature or Vehicle
+enchant[enchantment]: Enchant enchantment
+enchant[equipment]: Enchant Equipment
+enchant[forest]: Enchant Forest
+enchant[forest|plains]: Enchant Forest or Plains
+enchant[giant{control:you}]: Enchant Giant you control
+enchant[island]: Enchant Island
+enchant[land]: Enchant land
+enchant[land{-basic}]: Enchant nonbasic land
+enchant[land{basic}{control:you}]: Enchant basic land you control
+enchant[land{control:you}]: Enchant land you control
+enchant[land{snow}{control:you}]: Enchant snow land you control
+enchant[mountain]: Enchant Mountain
+enchant[mountain{control:you}]: Enchant Mountain you control
+enchant[opponent]: Enchant opponent
+enchant[permanent]: Enchant permanent
+enchant[permanent{-land}]: Enchant nonland permanent
+enchant[plains]: Enchant Plains
+enchant[player]: Enchant player
+enchant[swamp]: Enchant Swamp
+enchant[wall]: Enchant Wall
+encore: Encore
+enlist: Enlist
+entwine: Entwine
+epic: Epic
+equip: Equip
+equip[citizen]: Equip Citizen
+equip[commander]: Equip commander
+equip[creature{legendary}]: Equip legendary creature
+equip[knight]: Equip Knight
+equip[planeswalker]: Equip planeswalker
+equip[shaman|warlock|wizard]: Equip Shaman, Warlock, or Wizard
+equip[soldier]: Equip Soldier
+equip[token{creature}]: Equip creature token
+escalate: Escalate
+escape: Escape
+eternalize: Eternalize
+evoke: Evoke
+evolve: Evolve
+exalted: Exalted
+exploit: Exploit
+extort: Extort
+fabricate: Fabricate
+fading: Fading
+fear: Fear
+first_strike: First Strike
+flanking: Flanking
+flash: Flash
+flashback: Flashback
+flying: Flying
+for_mirrodin: For Mirrodin!
+forecast: Forecast
+foretell: Foretell
+fortify: Fortify
+frenzy: Frenzy
+fuse: Fuse
+graft: Graft
+gravestorm: Gravestorm
+haste: Haste
+haunt: Haunt
+hexproof: Hexproof
+hexproof[artifact]: Hexproof from artifacts
+hexproof[black]: Hexproof from black
+hexproof[blue]: Hexproof from blue
+hexproof[creature]: Hexproof from creatures
+hexproof[enchantment]: Hexproof from enchantments
+hexproof[color=1]: Hexproof from monocolored
+hexproof[planeswalker]: Hexproof from planeswalkers
+hexproof[white]: Hexproof from white
+hidden_agenda: Hidden Agenda
+hidden_agenda/double: Double Agenda
+hideaway: Hideaway
+horsemanship: Horsemanship
+improvise: Improvise
+indestructible: Indestructible
+infect: Infect
+ingest: Ingest
+intimidate: Intimidate
+jump_start: Jump-Start
+kicker: Kicker
+kicker/multi: Multikicker
+landwalk: Landwalk
+landwalk[-basic]: Nonbasic landwalk
+landwalk[artifact]: Artifact landwalk
+landwalk[desert]: Desertwalk
+landwalk[forest]: Forestwalk
+landwalk[island]: Islandwalk
+landwalk[legendary]: Legendary landwalk
+landwalk[mountain]: Mountainwalk
+landwalk[plains]: Plainswalk
+landwalk[snow+forest]: Snow forestwalk
+landwalk[snow+swamp]: Snow swampwalk
+landwalk[snow]: Snow landwalk
+landwalk[swamp]: Swampwalk
+level_up: Level Up
+lifelink: Lifelink
+living_metal: Living Metal
+living_weapon: Living Weapon
+madness: Madness
+melee: Melee
+menace: Menace
+mentor: Mentor
+miracle: Miracle
+modular: Modular
+more_than_meets_the_eye: More Than Meets the Eye
+morph: Morph
+morph/mega: Megamorph
+mutate: Mutate
+myriad: Myriad
+nightbound: Nightbound
+ninjutsu: Ninjutsu
+ninjutsu/commander: Commander ninjutsu
+offering: Offering
+offering[artifact]: Artifact offering
+offering[fox]: Fox offering
+offering[goblin]: Goblin offering
+offering[moonfolk]: Moonfolk offering
+offering[rat]: Rat offering
+offering[snake]: Snake offering
+outlast: Outlast
+overload: Overload
+partner: Partner
+partner/background: Choose a Background
+partner/friend: Friends forever
+persist: Persist
+phasing: Phasing
+poisonous: Poisonous
+protection: Protection
+protection[arcane]: Protection from Arcane
+protection[artifact]: Protection from artifacts
+protection[beast]: Protection from Beasts
+protection[black]: Protection from black
+protection[blue]: Protection from blue
+protection[cleric]: Protection from Clerics
+protection[color=1]: Protection from monocolored
+protection[color>0]: Protection from all colors
+protection[color>1]: Protection from multicolored
+protection[creature]: Protection from creatures
+protection[creature{-spirit}]: Protection from non-Spirit creatures
+protection[creature{god}]: Protection from God creatures
+protection[creature{legendary}]: Protection from legendary creatures
+protection[demon]: Protection from Demons
+protection[dragon]: Protection from Dragons
+protection[elf]: Protection from Elves
+protection[enchantment]: Protection from enchantments
+protection[goblin]: Protection from Goblins
+protection[green]: Protection from green
+protection[human]: Protection from Humans
+protection[instant]: Protection from instants
+protection[kavu]: Protection from Kavu
+protection[land]: Protection from lands
+protection[mana_value<=3]: Protection from mana value 3 or less
+protection[mana_value>=3]: Protection from mana value 3 or greater
+protection[permanents{counter:corruption}]: Protection from permanents with corruption counters on them
+protection[planeswalker]: Protection from planeswalkers
+protection[red]: Protection from red
+protection[robot]: Protection from Robots
+protection[snow]: Protection from snow
+protection[spell{color>=1}]: Protection from spells that are one or more colors
+protection[spirit]: Protection from Spirits
+protection[vampire]: Protection from Vampires
+protection[werewolf]: Protection from Werewolves
+protection[white]: Protection from white
+protection[wizard]: Protection from Wizards
+protection[zombie]: Protection from Zombies
+protection/everything: Protection from everything
+prototype: Prototype
+provoke: Provoke
+prowess: Prowess
+prowl: Prowl
+rampage: Rampage
+ravenous: Ravenous
+reach: Reach
+read_ahead: Read Ahead
+rebound: Rebound
+reconfigure: Reconfigure
+recover: Recover
+reinforce: Reinforce
+renown: Renown
+replicate: Replicate
+retrace: Retrace
+riot: Riot
+ripple: Ripple
+scavenge: Scavenge
+shadow: Shadow
+shroud: Shroud
+skulk: Skulk
+soulbond: Soulbond
+soulshift: Soulshift
+space_sculptor: Space Sculptor
+spectacle: Spectacle
+splice: Splice
+splice[arcane]: Splice onto Arcane
+splice[instant|sorcery]: Splice onto instant or sorcery
+split_second: Split Second
+squad: Squad
+storm: Storm
+sunburst: Sunburst
+surge: Surge
+suspend: Suspend
+totem_armor: Totem Armor
+toxic: Toxic
+training: Training
+trample: Trample
+trample/planeswalker: Trample over planeswalkers
+transfigure: Transfigure
+transmute: Transmute
+tribute: Tribute
+undaunted: Undaunted
+undying: Undying
+unearth: Unearth
+unleash: Unleash
+vanishing: Vanishing
+vigilance: Vigilance
+visit: Visit
+ward: Ward
+wither: Wither
+
+# keyword ability in digital cards
+double_team: Double team
+specialize: Specialize
+starting_intensity: Starting intensity
+
+# keyword ability in sliver border cards
+affinity[clown]: Affinity for Clowns
+aggressive: Aggressive
+alpha_strike: Alpha strike
+augment: Augment
+banding[dinosaur]: Bands with other Dinosaurs
+bank: Bank
+blurry: Blurry
+enchant[creature{two}]: Enchant two creatures
+enchant[graveyard{you}]: Enchant your graveyard
+enchant[library{you}: Enchant your library
+enchant[spell{instant|sorcery}{in:stack}]: Enchant instant or sorcery spell on the stack
+firstest_strike: Firstest strike
+four_faced: Four-faced
+interplanar: Interplanar
+just_a_second: Just a second
+knightlifelink: Knightlifelink
+landwalk[denim]: Denimwalk
+landwalk[snow+plains]: Snow plainswalk
+last_strike: Last strike
+legendary_partner: Legendary partner
+megalegendary: Megalegendary
+motivate: Motivate
+protection[black_borders]: Protection from black borders
+protection[common]: Protection from common
+protection[creature{modified}]: Protection from modified creatures
+protection[even_collector_number]: Protection from even collector numbers
+protection[homarid]: Protection from Homarids
+protection[loose_lip]: Protection from loose lips
+protection[odd_collector_number]: Protection from odd collector numbers
+protection[two_word_name]: Protection from two-word names
+protection[watermarks]: Protection from watermarks
+protection[wordy]: Protection from wordy
+rampage/art: Art rampage
+rangeling: Rangeling
+ransom: Ransom
+reflect: Reflect
+reverse_miracle: Reverse miracle
+scrycast: Scrycast
+spark: Spark
+spellmorph: Spellmorph
+squirrellink: Squirrellink
+super_haste: Super haste
+tasty: Tasty
+triple_strike: Triple strike
+upgrade: Upgrade
+
+# keyword actions
+abandon: Abandon
+activate: Activate
+adapt: Adapt
+amass: Amass
+assemble: Assemble
+attach: Attach
+bolster: Bolster
+cast: Cast
+clash: Clash
+connive: Connive
+convert: Convert
+counter: Counter
+create: Create
+destroy: Destroy
+detain: Detain
+discard: Discard
+double: Double
+exchange: Exchange
+exert: Exert
+exile: Exile
+explore: Explore
+fateseal: Fateseal
+fight: Fight
+goad: Goad
+investigate: Investigate
+learn: Learn
+manifest: Manifest
+meld: Meld
+mill: Mill
+monstrosity: Monstrosity
+open_an_attraction: Open an Attraction
+planeswalk_to: Planeswalk to
+planeswalk_away: Planeswalk away
+play: Play
+populate: Populate
+proliferate: Proliferate
+regenerate: Regenerate
+reveal: Reveal
+roll_to_visit: Roll to Visit
+sacrifice: Sacrifice
+scry: Scry
+search: Search
+set_in_motion: Set in Motion
+shuffle: Shuffle
+support: Support
+surveil: Surveil
+tap: Tap
+transform: Transform
+untap: Untap
+venture_into_the_dungeon: Venture into the Dungeon
+vote: Vote
+
+# ability words
+adamant: Adamant
+addendum: Addendum
+alliance: Alliance
+battalion: Battalion
+bloodrush: Bloodrush
+channel: Channel
+chroma: Chroma
+cohort: Cohort
+constellation: Constellation
+converge: Converge
+council_s_dilemma: Council\'s dilemma
+coven: Coven
+delirium: Delirium
+domain: Domain
+eminence: Eminence
+enrage: Enrage
+fateful_hour: Fateful hour
+ferocious: Ferocious
+formidable: Formidable
+grandeur: Grandeur
+hellbent: Hellbent
+heroic: Heroic
+imprint: Imprint
+inspired: Inspired
+join_forces: Join forces
+kinship: Kinship
+landfall: Landfall
+lieutenant: Lieutenant
+magecraft: Magecraft
+metalcraft: Metalcraft
+morbid: Morbid
+pack_tactics: Pack tactics
+parley: Parley
+radiance: Radiance
+raid: Raid
+rally: Rally
+revolt: Revolt
+spell_mastery: Spell mastery
+strive: Strive
+sweep: Sweep
+tempting_offer: Tempting offer
+threshold: Threshold
+undergrowth: Undergrowth
+will_of_the_council: Will of the council

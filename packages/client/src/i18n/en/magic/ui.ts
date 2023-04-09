@@ -43,4 +43,30 @@ export default {
             date: 'Date',
         },
     },
+
+    'misc': {
+        '$self':   'Miscellaneous',
+        'symbol':  'Symbols',
+        'keyword': 'Keyword',
+
+        'symbol-style': {
+            normal: 'Normal',
+            shadow: 'Shadow',
+            flat:   'Flat',
+        },
+
+        'keyword-mode': {
+            simple:  'Simple',
+            variant: 'Show Variants',
+            full:    'Show Full',
+        },
+
+        'keyword-type': {
+            keyword_ability: 'Keyword Abilities',
+            keyword_action:  'Keyword Actions',
+            ability_word:    'Ability Word',
+            keyword_mtga:    'MTGA Keywords',
+            keyword_un:      'Un-set keywords',
+        },
+    },
 };

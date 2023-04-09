@@ -1,0 +1,428 @@
+# keyword abilities
+absorb: Поглощение
+affinity: Родство
+affinity[artifact+creature]: Родство с артефактами существами
+affinity[artifact]: Родство с артефактами
+# affinity[equipment]:
+# affinity[forest]:
+# affinity[island]:
+# affinity[mountain]:
+# affinity[plains]:
+# affinity[swamp]:
+affinity[token]: Родство с фишками
+afflict: Страдание
+afterlife: Посмертие
+aftermath: Последствия
+# amplify:
+annihilator: Аннигилятор
+ascend: Возвышение
+# assist:
+# aura_swap:
+awaken: Пробуждение
+# banding:
+battle_cry: Боевой клич
+bestow: Дар
+blitz: Блиц
+bloodthirst: Кровожадность
+boast: Похвальба
+bushido: Бусидо
+buyback: Выкуп
+cascade: Каскад
+casualty: Потери
+champion: Заступитесь
+champion[creature]: Заступитесь за существо
+champion[elemental]: Заступитесь за Элементаля
+champion[elf]: Заступитесь за Эльфа
+champion[faerie]: Заступитесь за Фею
+champion[goblin]: Заступитесь за Гоблина
+champion[goblin|shaman]: Заступитесь за Гоблина или Шамана
+champion[kithkin]: Заступитесь за Кискена
+champion[merfolk]: Заступитесь за Мерфолка
+champion[treefolk|warrior]: Заступитесь за Лесовика или Воина
+changeling: Перевертыш
+cipher: Шифр
+cleave: Отсечение
+companion: Компаньон
+compleated: Завершение
+conspire: Заговор
+convoke: Созыв
+crew: Экипаж
+cumulative_upkeep: Накопительная поддержка
+cycling: Цикл
+cycling/land[artifact]: Цикл артефактов земель
+cycling/land[basic]: Цикл базовых земель
+cycling/land[forest]: Цикл Леса
+cycling/land[island]: Цикл Острова
+cycling/land[mountain]: Цикл Гор
+cycling/land[plains]: Цикл Равнин
+cycling/land[sliver]: Цикл Щепок
+cycling/land[swamp]: Цикл Болот
+cycling/land[wizard]: Цикл Чародеев
+dash: Рывок
+daybound: Созданье дня
+deathtouch: Смертельное касание
+decayed: Трупной
+defender: Защитник
+delve: Выкапывание
+demonstrate: Демонстрация
+# dethrone:
+devoid: Лишение
+devour: Пожирание
+devour[artifact]: Пожирание артефакта
+disturb: Разупокоение
+double_strike: Двойной удар
+dredge: Перетягивание
+echo: Эхо
+embalm: Бальзамирование
+emerge: Явление
+enchant: Зачаровать
+enchant[(artifact|creature){control:you}]: Зачаровать артефакт или существо под вашим контролем
+# enchant[(creature|planeswalker){-control:you}]:
+enchant[(creature|planeswalker){control:opponent}]: Зачаровать существо или planeswalker'а под контролем оппонента
+enchant[(creature|planeswalker){control:you}]: Зачаровать существо или planeswalker-а под вашим контролем
+# enchant[artifact+creature]:
+enchant[artifact]: Зачаровать артефакт
+# enchant[artifact{control:opponent}]:
+enchant[artifact{control:you}]: Зачаровать артефакт под вашим контролем
+enchant[artifact|creature]: Зачаровать артефакт или существо
+enchant[artifact|creature|planeswalker]: Зачаровать артефакт, существо или planeswalker'а
+# enchant[artifact|enchantment]:
+# enchant[card{creature}{in:graveyard}]:
+enchant[card{instant}{in:graveyard}]: Зачаруйте находящуюся на кладбище карту мгновенного заклинания
+enchant[creature]: Зачаровать существо
+enchant[creature{-black}]: Зачаровать нечерное существо
+enchant[creature{-control:you}]: Зачаровать существо не под вашим контролем
+enchant[creature{-flying}]: Зачаровать существо без Полета
+# enchant[creature{-wall}]:
+# enchant[creature{-wall}{control:you}]:
+enchant[creature{attach:another aura}]: Зачаровать существо, к которому прикреплена другая Аура
+# enchant[creature{black}]:
+enchant[creature{control:opponent}]: Зачаровать существо под контролем оппонента
+enchant[creature{control:you}]: Зачаровать существо под вашим контролем
+enchant[creature{green}]: Зачаровать зеленое существо
+# enchant[creature{green|white}]:
+# enchant[creature{mana_value<=2}]:
+enchant[creature{power<=3}]: Зачаровать существо с силой 3 или меньше
+enchant[creature{red|green}]: Зачаровать красное или зеленое существо
+enchant[creature{tapped}]: Зачаровать повернутое существо
+enchant[creature|enchantment]: Зачаровать существо или чары
+enchant[creature|land]: Зачаровать существо или землю
+enchant[creature|land|planeswalker]: Зачаровать существо, землю или planeswalker'а
+enchant[creature|planeswalker]: Зачаровать существо или planeswalker'а
+enchant[creature|planeswalker|clue]: Зачаровать существо, planeswalker'а или Улику
+enchant[creature|vehicle]: Зачаровать существо или Машину
+# enchant[enchantment]:
+enchant[equipment]: Зачаровать Снаряжение
+enchant[forest]: Зачаровать Лес
+enchant[forest|plains]: Зачаровать Лес или Равнину
+enchant[giant{control:you}]: Зачаровать Гиганта под вашим контролем
+# enchant[island]:
+enchant[land]: Зачаровать землю
+# enchant[land{-basic}]:
+# enchant[land{basic}{control:you}]:
+enchant[land{control:you}]: Зачаровать землю под вашим контролем
+enchant[land{snow}{control:you}]: Зачаровать снежную землю под вашим контролем
+enchant[mountain]: Зачаровать Гору
+enchant[mountain{control:you}]: Зачаровать Гору под вашим контролем
+enchant[opponent]: Зачаровать оппонента
+enchant[permanent]: Зачаровать перманент
+enchant[permanent{-land}]: Зачаровать не являющийся землей перманент
+# enchant[plains]:
+enchant[player]: Зачаровать игрока
+# enchant[swamp]:
+# enchant[wall]:
+# encore:
+# enlist:
+entwine: Сплетение
+# epic:
+equip: Снарядить
+equip[citizen]: Снарядить Гражданина
+# equip[commander]:
+equip[creature{legendary}]: Снарядить легендарное существо
+equip[knight]: Снарядить Рыцаря
+equip[planeswalker]: Снарядить planeswalker'а
+equip[shaman|warlock|wizard]: Снарядить Шамана, Колдуна или Чародея
+# equip[soldier]:
+equip[token{creature}]: Снарядить фишку существа
+escalate: Эскалация
+escape: Побег
+eternalize: Увековечивание
+evoke: Вызывание
+evolve: Эволюция
+exalted: Повышение
+exploit: Угнетение
+extort: Вымогательство
+fabricate: Производство
+# fading:
+fear: Страх
+first_strike: Первый удар
+flanking: Обход
+flash: Миг
+flashback: Воспоминание
+flying: Полет
+# for_mirrodin:
+forecast: Предвидение
+foretell: Пророчество
+fortify: Укрепить
+# frenzy:
+fuse: Слияние
+graft: Прививка
+# gravestorm:
+haste: Ускорение
+haunt: Преследование
+hexproof: Порчеустойчивость
+# hexproof[artifact]:
+hexproof[black]: Порчеустойчивость от черного
+hexproof[blue]: Порчеустойчивость от синего
+# hexproof[creature]:
+# hexproof[enchantment]:
+hexproof[color=1]: Порчеустойчивость от одноцветного
+hexproof[planeswalker]: Порчеустойчивость от planeswalker'ов
+hexproof[white]: Порчеустойчивость от белого
+# hidden_agenda:
+# hidden_agenda/double:
+hideaway: Укрытие
+# horsemanship:
+improvise: Импровизация
+indestructible: Неразрушимость
+infect: Инфекция
+ingest: Заглатывание
+intimidate: Устрашение
+jump_start: Импульс
+kicker: Усилитель
+kicker/multi: Мультиусилитель
+landwalk: Знание земель
+landwalk[-basic]: Знание небазовых земель
+landwalk[artifact]: Знание артефактов земель
+landwalk[desert]: Знание Пустынь
+landwalk[forest]: Знание Лесов
+landwalk[island]: Знание Островов
+# landwalk[legendary]:
+landwalk[mountain]: Знание Гор
+landwalk[plains]: Знание Равнин
+# landwalk[snow+forest]:
+# landwalk[snow+swamp]: !!
+landwalk[snow]: Знание снежных земель
+landwalk[swamp]: Знание Болот
+level_up: Повышение уровня
+lifelink: Цепь жизни
+# living_metal: !!
+living_weapon: Живое оружие
+madness: Бешенство
+melee: Потасовка
+menace: Угроза
+mentor: Наставник
+miracle: Чудо
+modular: Модульность
+# more_than_meets_the_eye: !!
+morph: Оборотень
+morph/mega: Мегаоборотень
+mutate: Мутация
+myriad: Бесчисленность
+nightbound: Созданье ночи
+ninjutsu: Ниндзюцу
+# ninjutsu/commander:
+# offering:
+# offering[artifact]:
+# offering[fox]:
+# offering[goblin]:
+# offering[moonfolk]:
+# offering[rat]:
+# offering[snake]:
+outlast: Стойкость
+overload: Перегрузка
+partner: Партнер
+partner/background: Выберите Предысторию
+# partner/friend:
+persist: Упорство
+# phasing:
+poisonous: Ядовитость
+protection: Защита
+# protection[arcane]:
+protection[artifact]: Защита от артефактов
+# protection[beast]:
+protection[black]: Защита от черного
+protection[blue]: Защита от синего
+# protection[cleric]:
+protection[color=1]: Защита от одноцветного
+# protection[color>0]: !!
+protection[color>1]: Защита от многоцветного
+protection[creature]: Защита от существ
+# protection[creature{-spirit}]:
+protection[creature{god}]: Защита от существ-Богов
+# protection[creature{legendary}]:
+protection[demon]: Защита от Демонов
+protection[dragon]: Защита от Драконов
+protection[elf]: Защита от Эльфов
+protection[enchantment]: Защита от чар
+protection[goblin]: Защита от Гоблинов
+protection[green]: Защита от зеленого
+protection[human]: Защита от объектов с типом Человек
+protection[instant]: Защита от мгновенных заклинаний
+# protection[kavu]:
+protection[land]: Защита от земель
+protection[mana_value<=3]: Защита от мановой ценности 3 или меньше
+protection[mana_value>=3]: Защита от конвертированной мана-стоимости 3 или больше
+protection[permanents{counter:corruption}]: Защита от перманентов с жетонами порчи на них
+protection[planeswalker]: Защита от planeswalker'ов
+protection[red]: Защита от красного
+protection[robot]: Защита от Роботов
+protection[snow]: Защита от снега
+protection[spell{color>=1}]: Защита от цветных заклинаний
+# protection[spirit]:
+protection[vampire]: Защита от Вампиров
+protection[werewolf]: Защита от Вервольфов
+protection[white]: Защита от белого
+# protection[wizard]:
+protection[zombie]: Защита от Зомби
+protection/everything: Защита от всего
+prototype: Прототип
+# provoke:
+prowess: Искусность
+prowl: Мародерство
+rampage: Ярость
+ravenous: Ненасытность
+reach: Захват
+# read_ahead:
+rebound: Отскок
+reconfigure: Реконфигурация
+recover: Возврат
+reinforce: Упрочнение
+renown: Прославленность
+replicate: Копия
+retrace: Возвращение
+riot: Беспорядки
+ripple: Рябь
+scavenge: Утилизация
+shadow: Тень
+shroud: Пелена
+skulk: Скрытность
+soulbond: Духовная связь
+# soulshift:
+# space_sculptor:
+spectacle: Зрелище
+# splice:
+# splice[arcane]:
+splice[instant|sorcery]: Сращивание с мгновенным заклинанием или волшебством
+split_second: Мгновение ока
+squad: Звено
+storm: Шторм
+# sunburst:
+surge: Всплеск
+suspend: Отсрочка
+totem_armor: Тотемная броня
+# toxic:
+training: Тренировка
+trample: Пробивной удар
+trample/planeswalker: Пробивной удар через planeswalker'ов
+transfigure: Преображение
+transmute: Трансмутация
+tribute: Дань
+undaunted: Неустрашимость
+undying: Нетленность
+unearth: Откопать
+unleash: Безудержность
+vanishing: Исчезновение
+vigilance: Бдительность
+# visit:
+ward: Оберег
+wither: Увядание
+
+# keyword actions
+# abandon:
+activate:
+adapt:
+amass: Скопище
+assemble:
+attach:
+bolster: Подмога
+cast:
+clash:
+connive:
+# convert: !!
+counter:
+create:
+destroy:
+detain:
+discard:
+double:
+exchange:
+exert:
+exile:
+explore:
+fateseal:
+fight:
+goad:
+investigate:
+learn: Выучите урок
+manifest:
+meld:
+mill:
+monstrosity: Чудовищность
+# open_an_attraction:
+planeswalk_to:
+planeswalk_away:
+play:
+populate: Используйте Заселение
+proliferate: Распространение
+regenerate:
+reveal:
+# roll_to_visit:
+sacrifice:
+scry: Предскажите
+search:
+# set_in_motion:
+shuffle:
+support: Содействие
+surveil:
+tap:
+transform:
+untap:
+venture_into_the_dungeon:
+vote:
+
+# ability words
+adamant: Твердость
+addendum: Приложение
+alliance: Альянс
+battalion: Батальон
+bloodrush: Прилив крови
+channel: Проводник
+chroma: Хроматичность
+cohort: Когорта
+constellation: Созвездие
+converge: Схождение
+council_s_dilemma: Дилемма совета
+coven: Шабаш
+delirium: Буйство
+domain: Владения
+# eminence
+enrage: Неистовство
+fateful_hour: Роковой час
+ferocious: Свирепость
+formidable: Внушительность
+grandeur: Сила духа
+hellbent: Безрассудство
+heroic: Героизм
+imprint: Отпечаток
+inspired: Одухотворение
+# join_forces
+kinship: Сходство
+landfall: Землепад
+lieutenant: Лейтенант
+magecraft: Чародейство
+metalcraft: Работа по металлу
+morbid: Болезненность
+pack_tactics: Тактика стаи
+parley: Переговоры
+radiance: Сияние
+raid: Набег
+rally: Сплочение
+revolt: Бунт
+spell_mastery: Мастерство заклинаний
+strive: Стремление
+# sweep
+tempting_offer: Заманчивое предложение
+threshold: Порог
+undergrowth: Тайный рост
+will_of_the_council: Воля совета

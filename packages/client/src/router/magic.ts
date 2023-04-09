@@ -66,6 +66,24 @@ const routes = [
                 name:      'magic/cr/history',
                 component: async () => import('pages/magic/CRHistory.vue'),
             },
+            {
+                path:      'misc',
+                name:      'magic/misc',
+                redirect:  { name: 'magic/misc/symbol' },
+                component: async () => import('pages/magic/Misc.vue'),
+                children:  [
+                    {
+                        path:      'symbol',
+                        name:      'magic/misc/symbol',
+                        component: async () => import('pages/magic/misc/Symbol.vue'),
+                    },
+                    {
+                        path:      'keyword',
+                        name:      'magic/misc/keyword',
+                        component: async () => import('pages/magic/misc/Keyword.vue'),
+                    },
+                ],
+            },
         ],
     },
     {

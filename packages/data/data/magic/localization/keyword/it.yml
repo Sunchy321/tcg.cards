@@ -1,0 +1,428 @@
+# keyword abilities
+absorb: Assorbire
+affinity: Affinità
+affinity[artifact+creature]: Affinità con le creature artefatto
+affinity[artifact]: Affinità con gli artefatti
+affinity[equipment]: Affinità con gli Equipaggiamenti
+affinity[forest]: Affinità con le Foreste
+affinity[island]: Affinità con le Isole
+affinity[mountain]: Affinità con le Montagne
+affinity[plains]: Affinità con le Pianure
+affinity[swamp]: Affinità con le Paludi
+affinity[token]: Affinità con le pedine
+afflict: Affliggere
+afterlife: Aldilà
+aftermath: Conseguenze
+amplify: Sviluppo
+annihilator: Annientatore
+ascend: Ascesa
+# assist:
+aura_swap: Scambio d'Aura
+awaken: Risveglio
+banding: Branco
+battle_cry: Grido di guerra
+bestow: Conferire
+blitz: Blitz
+bloodthirst: Sete di sangue
+boast: Vanto
+bushido: Bushido
+buyback: Riscatto
+cascade: Cascata
+casualty: Danno collaterale
+champion: Battersi
+champion[creature]: Battersi per una creatura
+champion[elemental]: Battersi per un Elementale
+champion[elf]: Battersi per un Elfo
+champion[faerie]: Battersi per uno Spiritello
+champion[goblin]: Battersi per un Goblin
+champion[goblin|shaman]: Battersi per un Goblin o uno Sciamano
+champion[kithkin]: Battersi per un Kithkin
+champion[merfolk]: Battersi per un Tritone
+champion[treefolk|warrior]: Battersi per un Guerriero o un Silvantropo
+changeling: Cangiante
+cipher: Cifrare
+cleave: Fendere
+companion: Compagno
+compleated: Completato
+conspire: Cospirare
+convoke: Convocazione
+crew: Manovrare
+cumulative_upkeep: Mantenimento cumulativo
+cycling: Ciclo
+cycling/land[artifact]: Cicloterra artefatto
+cycling/land[basic]: Cicloterra base
+cycling/land[forest]: Cicloforesta
+cycling/land[island]: Cicloisola
+cycling/land[mountain]: Ciclomontagna
+cycling/land[plains]: Ciclopianura
+cycling/land[sliver]: Ciclotramutante
+cycling/land[swamp]: Ciclopalude
+cycling/land[wizard]: Ciclomago
+dash: Accelerare
+daybound: Diurno
+deathtouch: Tocco letale
+decayed: Decomposto
+defender: Difensore
+delve: Esumare
+demonstrate: Dimostrare
+dethrone: Spodestare
+devoid: Vacuità
+devour: Divorare
+devour[artifact]: Divorare artefatti
+disturb: Disturbare
+double_strike: Doppio attacco
+dredge: Dragare
+echo: Eco
+embalm: Imbalsamare
+emerge: Emergere
+enchant: Incanta
+enchant[(artifact|creature){control:you}]: Incanta un artefatto o una creatura che controlli
+# enchant[(creature|planeswalker){-control:you}]:
+enchant[(creature|planeswalker){control:opponent}]: Incanta creatura o planeswalker controllati da un avversario
+enchant[(creature|planeswalker){control:you}]: Incanta creatura o planeswalker che controlli
+# enchant[artifact+creature]:
+enchant[artifact]: Incanta artefatto
+# enchant[artifact{control:opponent}]:
+enchant[artifact{control:you}]: Incanta artefatto che controlli
+enchant[artifact|creature]: Incanta artefatto o creatura
+enchant[artifact|creature|planeswalker]: Incanta artefatto, creatura o planeswalker
+# enchant[artifact|enchantment]:
+# enchant[card{creature}{in:graveyard}]:
+enchant[card{instant}{in:graveyard}]: Incanta carta istantaneo in un cimitero
+enchant[creature]: Incanta creatura
+enchant[creature{-black}]: Incanta creatura non nera
+enchant[creature{-control:you}]: Incanta creatura che non controlli
+enchant[creature{-flying}]: Incanta creatura senza volare
+# enchant[creature{-wall}]:
+# enchant[creature{-wall}{control:you}]:
+enchant[creature{attach:another aura}]: Incanta creatura con un'altra Aura assegnata ad essa
+# enchant[creature{black}]:
+enchant[creature{control:opponent}]: Incanta creatura controllata da un avversario
+enchant[creature{control:you}]: Incanta creatura che controlli
+enchant[creature{green}]: Incanta creatura verde
+# enchant[creature{green|white}]:
+# enchant[creature{mana_value<=2}]:
+enchant[creature{power<=3}]: Incanta creatura con forza pari o inferiore a
+enchant[creature{red|green}]: Incanta creatura rossa o verde
+enchant[creature{tapped}]: Incanta creatura TAPpata
+enchant[creature|enchantment]: Incanta creatura o incantesimo
+enchant[creature|land]: Incanta creatura o terra
+enchant[creature|land|planeswalker]: Incanta creatura, terra o planeswalker
+enchant[creature|planeswalker]: Incanta creatura o planeswalker
+enchant[creature|planeswalker|clue]: Incanta creatura, planeswalker o Indizio
+enchant[creature|vehicle]: Incanta creatura o Veicolo
+# enchant[enchantment]:
+enchant[equipment]: Incanta Equipaggiamento
+enchant[forest]: Incanta Foresta
+enchant[forest|plains]: Incanta Foresta o Pianura
+enchant[giant{control:you}]: Incanta Gigante che controlli
+enchant[island]: Incanta Isola
+enchant[land]: Incanta terra
+# enchant[land{-basic}]:
+enchant[land{basic}{control:you}]: Incanta una terra base che controlli
+enchant[land{control:you}]: Incanta una terra che controlli
+enchant[land{snow}{control:you}]: Incanta terra neve che controlli
+enchant[mountain]: Incanta Montagna
+enchant[mountain{control:you}]: Incanta Montagna che controlli
+enchant[opponent]: Incanta avversario
+enchant[permanent]: Incanta permanente
+enchant[permanent{-land}]: Incanta permanente non terra
+# enchant[plains]:
+enchant[player]: Incanta giocatore
+# enchant[swamp]:
+# enchant[wall]:
+encore: Bis
+enlist: Arruolare
+entwine: Intrecciare
+epic: Epopea
+equip: Equipaggiare
+equip[citizen]: Equipaggia Cittadino
+equip[commander]: Equipaggiare comandante
+equip[creature{legendary}]: Equipaggia creatura leggendaria
+equip[knight]: Equipaggia Cavaliere
+equip[planeswalker]: Equipaggia planeswalker
+equip[shaman|warlock|wizard]: Equipaggia Sciamano, Warlock o Mago
+equip[soldier]: Equipaggia Soldato
+equip[token{creature}]: Equipaggia pedina creatura
+escalate: Incrementare
+escape: Fuga
+eternalize: Eternare
+evoke: Apparire
+evolve: Evoluzione
+exalted: Esaltato
+exploit: Sfruttare
+extort: Estorsione
+fabricate: Fabbrica
+# fading: !!
+fear: Paura
+first_strike: Attacco improvviso
+flanking: Aggirare
+flash: Lampo
+flashback: Flashback
+flying: Volare
+for_mirrodin: Per Mirrodin!
+forecast: Previsione
+foretell: Predire
+fortify: Fortificare
+frenzy: Frenesia
+fuse: Fusione
+graft: Innesto
+gravestorm: Tempesta sepolcrale
+haste: Rapidità
+haunt: Tormentare
+hexproof: Anti-malocchio
+# hexproof[artifact]: !!
+hexproof[black]: Anti-malocchio dal nero
+hexproof[blue]: Anti-malocchio dal blu
+# hexproof[creature]: !!
+# hexproof[enchantment]: !!
+hexproof[color=1]: Anti-malocchio dal monocolore
+hexproof[planeswalker]: Anti-malocchio dai planeswalker
+hexproof[white]: Anti-malocchio dal bianco
+# hidden_agenda:
+# hidden_agenda/double:
+hideaway: Nascondiglio
+horsemanship: Cavalierato
+improvise: Improvvisare
+indestructible: Indistruttibile
+infect: Infettare
+ingest: Ingerire
+intimidate: Intimidire
+jump_start: Carica d'avvio
+kicker: Potenziamento
+kicker/multi: Multipotenziamento
+landwalk: Passa-terra
+landwalk[-basic]: Passa-terre non base
+landwalk[artifact]: Passa-terre artefatto
+landwalk[desert]: Passa-Deserti
+landwalk[forest]: Passa-Foreste
+landwalk[island]: Passa-Isole
+landwalk[legendary]: Passa-terre leggendarie
+landwalk[mountain]: Passa-Montagne
+landwalk[plains]: Passa-Pianure
+# landwalk[snow+forest]:
+# landwalk[snow+swamp]: !!
+landwalk[snow]: Passa-terre neve
+landwalk[swamp]: Passa-Paludi
+level_up: Aumentare di livello
+lifelink: Legame vitale
+# living_metal: !!
+living_weapon: Arma vivente
+madness: Follia
+melee: Mischia
+menace: Minacciare
+mentor: Mentore
+miracle: Miracolo
+modular: Modulare
+# more_than_meets_the_eye: !!
+morph: Metamorfosi
+morph/mega: Megamorfosi
+mutate: Mutazione
+myriad: Miriade
+nightbound: Notturno
+ninjutsu: Ninjutsu
+ninjutsu/commander: Ninjutsu del comandante
+offering: Obolo
+offering[artifact]: Obolo dell'artefatto
+offering[fox]: Obolo della Volpe
+offering[goblin]: Obolo del Goblin
+offering[moonfolk]: Obolo del Lunantropo
+offering[rat]: Obolo del Ratto
+offering[snake]: Obolo del Serpente
+outlast: Perdurare
+overload: Sovraccarico
+partner: Partner
+partner/background: Scegli un Background
+# partner/friend:
+persist: Persistere
+# phasing:
+poisonous: Avvelenare
+protection: Protezione
+protection[arcane]: Protezione dagli Arcani
+protection[artifact]: Protezione dagli artefatti
+protection[beast]: Protezione dalle Bestie
+protection[black]: Protezione dal nero
+protection[blue]: Protezione dal blu
+protection[cleric]: Protezione dai Chierici
+protection[color=1]: Protezione dai monocolore
+protection[color>0]: Protezione da tutti i colori
+protection[color>1]: Protezione dal multicolore
+protection[creature]: Protezione dalle creature
+protection[creature{-spirit}]: Protezione dalle creature non-Spirito
+protection[creature{god}]: Protezione dalle creature Dio
+# protection[creature{legendary}]: !!
+protection[demon]: Protezione da Demoni
+protection[dragon]: Protezione dai Draghi
+protection[elf]: Protezione dagli Elfi
+protection[enchantment]: Protezione dagli incantesimi
+protection[goblin]: Protezione dai Goblin
+protection[green]: Protezione dal verde
+protection[human]: Protezione dagli Umani
+protection[instant]: Protezione dagli istantanei
+protection[kavu]: Protection from Kavu
+protection[land]: Protezione dalle terre
+protection[mana_value<=3]: Protezione da valore di mana pari o inferiore a 3
+protection[mana_value>=3]: Protezione da costo di mana convertito pari o superiore a 3
+protection[permanents{counter:corruption}]: Protezione dai permanenti con segnalini corruzione
+protection[planeswalker]: Protezione dai planeswalker
+protection[red]: Protezione dal rosso
+protection[robot]: Protezione dai Robot
+protection[snow]: Protezione dalla neve
+protection[spell{color>=1}]: Protezione dalle magie colorate
+protection[spirit]: Protezione dagli Spiriti
+protection[vampire]: Protezione dai Vampiri
+protection[werewolf]: Protezione dai Mannari
+protection[white]: Protezione dal bianco
+protection[wizard]: Protezione dai Maghi
+protection[zombie]: Protezione dagli Zombie
+protection/everything: Protezione da tutto
+prototype: Prototipo
+provoke: Provocazione
+prowess: Prodezza
+prowl: Predatore
+rampage: Furia
+ravenous: Famelico
+reach: Raggiungere
+read_ahead: Saltare pagina
+rebound: Ripresa
+reconfigure: Riconfigurare
+recover: Recupero
+reinforce: Rinforzare
+renown: Rinomare
+replicate: Replicare
+retrace: Rievocare
+riot: Tumulto
+ripple: Propagazione
+scavenge: Mangiacarogne
+shadow: Ombra
+shroud: Velo
+skulk: Furtivo
+soulbond: Unione d'anime
+soulshift: Muta-anima
+# space_sculptor:
+spectacle: Spettacolo
+# splice:
+splice[arcane]: Unire nell'Arcano
+splice[instant|sorcery]: Unire a istantaneo o stregoneria
+split_second: Battibaleno
+squad: Squadra
+storm: Tempesta
+sunburst: Solarizzazione
+surge: Ondata
+suspend: Sospendere
+totem_armor: Armatura totem
+toxic: Tossico
+training: Addestramento
+trample: Travolgere
+trample/planeswalker: Travolgere i planeswalker
+transfigure: Trasfigurare
+transmute: Trasmutare
+tribute: Tributo
+undaunted: Impavido
+undying: Immortale
+unearth: Dissotterrare
+unleash: Scatenare
+vanishing: Evanescenza
+vigilance: Cautela
+# visit:
+ward: Egida
+wither: Avvizzire
+
+# keyword actions
+# abandon:
+activate:
+adapt:
+amass: Recluta
+assemble:
+attach:
+bolster: Sostieni
+cast:
+clash:
+connive:
+# convert: !!
+counter:
+create:
+destroy:
+detain:
+discard:
+double:
+exchange:
+exert:
+exile:
+explore:
+fateseal:
+fight:
+goad:
+investigate:
+learn: Apprendi
+manifest:
+meld:
+mill:
+monstrosity: Mostruosità
+# open_an_attraction:
+planeswalk_to:
+planeswalk_away:
+play:
+populate: Popola
+proliferate: Prolifera
+regenerate:
+reveal:
+# roll_to_visit:
+sacrifice:
+scry: Profetizza
+search:
+# set_in_motion:
+shuffle:
+support: Soccorri
+surveil:
+tap:
+transform:
+untap:
+venture_into_the_dungeon:
+vote:
+
+# ability words
+adamant: Adamantino
+addendum: Appendice
+alliance: Alleanza
+battalion: Battaglione
+bloodrush: Impeto sanguinario
+channel: Incanalare
+chroma: Cromia
+cohort: Coorte
+constellation: Costellazione
+converge: Convergenza
+council_s_dilemma: Dilemma del consiglio
+coven: Congrega
+delirium: Delirio
+domain: Dominio
+eminence: Preminenza
+enrage: Infuriare
+fateful_hour: Ora fatidica
+ferocious: Ferocia
+formidable: Formidabile
+grandeur: Magnificenza
+hellbent: Determinazione
+heroic: Eroismo
+imprint: Imprimere
+inspired: Ispirazione
+join_forces: Unire le forze
+kinship: Parentela
+landfall: Terraferma
+lieutenant: Tenente
+magecraft: Artemagica
+metalcraft: Metallurgia
+morbid: Morboso
+pack_tactics: Tattiche del Branco
+parley: Negoziato
+radiance: Radianza
+raid: Incursione
+rally: Radunare
+revolt: Rivolta
+spell_mastery: Arte magica
+strive: Sforzo
+sweep: Spazzar via
+tempting_offer: Tentazione allettante
+threshold: Soglia
+undergrowth: Crescita sotterranea
+will_of_the_council: Volontà del concilio

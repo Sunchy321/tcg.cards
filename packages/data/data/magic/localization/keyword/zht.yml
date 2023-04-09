@@ -1,0 +1,426 @@
+# keyword abilities
+absorb: 抵受
+affinity: 共鳴
+affinity[artifact+creature]: 神器生物共鳴
+affinity[artifact]: 神器共鳴
+# affinity[equipment]
+# affinity[forest]
+# affinity[island]
+# affinity[mountain]
+# affinity[plains]
+# affinity[swamp]
+affinity[token]: 衍生物共鳴
+afflict: 折磨
+afterlife: 往生
+aftermath: 餘響
+# amplify !!
+annihilator: 殲滅
+ascend: 登殿
+# assist
+# aura_swap
+awaken: 醒轉
+# banding: Banding
+battle_cry: 戰嚎
+bestow: 神授
+blitz: 急襲
+bloodthirst: 嗜血
+boast: 炫威
+bushido: 武士道
+buyback: 購回
+cascade: 傾曳
+casualty: 催命
+# champion: Champion
+# champion[creature]: Champion a creature
+# champion[elemental]: Champion an Elemental
+# champion[elf]: Champion an Elf
+# champion[faerie]: Champion a Faerie
+# champion[goblin]: Champion a Goblin
+# champion[goblin|shaman]: Champion a Goblin or Shaman
+# champion[kithkin]: Champion a Kithkin
+# champion[merfolk]: Champion a Merfolk
+# champion[treefolk|warrior]: Champion a Treefolk or Warrior
+changeling: 化形
+cipher: 暗碼
+cleave: 貫通
+companion: 行侶
+compleated: 完化
+# conspire: Conspire
+convoke: 召集
+crew: 搭載
+# cumulative_upkeep !!
+cycling: 循環
+cycling/land[artifact]: 循環神器地
+cycling/land[basic]: 循環基本地
+# cycling/land[forest] !!
+# cycling/land[island] !!
+cycling/land[mountain]: 循環山脈
+cycling/land[plains]: 循環平原
+cycling/land[sliver]: 循環裂片妖
+# cycling/land[swamp] !!
+cycling/land[wizard]: 循環魔法師
+dash: 掩襲
+daybound: 晝形
+deathtouch: 死觸
+decayed: 敗朽
+defender: 守軍
+delve: 掘穴
+demonstrate: 示範
+# dethrone: Dethrone
+devoid: 虛色
+devour: 吞噬
+devour[artifact]: 吞噬神器
+disturb: 驚擾
+double_strike: 連擊
+dredge: 發掘
+echo: 返響
+embalm: 遺存
+emerge: 化生
+enchant: 結附
+enchant[(artifact|creature){control:you}]: 結附於由你操控的神器或生物
+# enchant[(creature|planeswalker){-control:you}]: Enchant creature or planeswalker you don't control
+enchant[(creature|planeswalker){control:opponent}]: 結附於由對手操控的生物或鵬洛客
+enchant[(creature|planeswalker){control:you}]: 結附於由你操控的生物或鵬洛客
+# enchant[artifact+creature]: Enchant artifact creature
+enchant[artifact]: 結附於神器
+# enchant[artifact{control:opponent}]: Enchant artifact an opponent controls
+enchant[artifact{control:you}]: 結附於由你操控的神器
+enchant[artifact|creature]: 結附於神器或生物
+enchant[artifact|creature|planeswalker]: 結附於神器，生物或鵬洛客
+# enchant[card{creature}{in:graveyard}]: Enchant creature card in a graveyard
+# enchant[card{instant}{in:graveyard}]: Enchant instant card in a graveyard
+enchant[creature]: 結附於生物
+enchant[creature{-black}]: 結附於非黑色生物
+enchant[creature{-control:you}]: 結附於不由你操控的生物
+enchant[creature{-flying}]: 結附於不具飛行異能的生物
+# enchant[creature{-wall}]: Enchant non-Wall creature
+# enchant[creature{-wall}{control:you}]: Enchant non-Wall creature you control
+# enchant[creature{attach:another aura}]: Enchant creature with another Aura attached to it
+# enchant[creature{black}]: Enchant black creature
+enchant[creature{control:opponent}]: 結附於由對手操控的生物
+enchant[creature{control:you}]: 結附於由你操控的生物
+# enchant[creature{green}]: Enchant green creature
+# enchant[creature{green|white}]: Enchant green or white creature
+# enchant[creature{mana_value<=2}]: Enchant creature with mana value 2 or less
+enchant[creature{power<=3}]: 結附於力量小於或等於3的生物
+enchant[creature{red|green}]: 結附於紅色或綠色生物
+# enchant[creature{tapped}]: Enchant tapped creature
+enchant[creature|enchantment]: 結附於生物或結界
+enchant[creature|land]: 結附於生物或地
+enchant[creature|land|planeswalker]: 結附於生物，地或鵬洛客
+enchant[creature|planeswalker]: 結附於生物或鵬洛客
+enchant[creature|planeswalker|clue]: 結附於生物，鵬洛客或線索
+enchant[creature|vehicle]: 結附於生物或載具
+# enchant[enchantment]: Enchant enchantment
+enchant[equipment]: 結附於武具
+enchant[forest]: 結附於樹林
+# enchant[forest|plains]: Enchant Forest or Plains
+enchant[giant{control:you}]: 結附於由你操控的巨人
+# enchant[island]: Enchant Island
+enchant[land]: 結附於地
+# enchant[land{-basic}]: Enchant nonbasic land
+# enchant[land{basic}{control:you}]: Enchant basic land you control
+enchant[land{control:you}]: 結附於由你操控的地
+enchant[land{snow}{control:you}]: 結附於由你操控的雪境地
+enchant[mountain]: 結附於山脈
+enchant[mountain{control:you}]: 結附於由你操控的山脈
+enchant[opponent]: 結附於對手
+enchant[permanent]: 結附於永久物
+enchant[permanent{-land}]: 結附於非地永久物
+# enchant[plains]: Enchant Plains
+enchant[player]: 結附於玩家
+# enchant[swamp]: Enchant Swamp
+# enchant[wall]: Enchant Wall
+encore: 返場
+# enlist: Enlist
+entwine: 打包
+# epic: Epic
+equip: 佩帶
+equip[citizen]: 佩帶市民
+equip[commander]: 佩帶指揮官
+equip[creature{legendary}]: 佩帶傳奇生物
+equip[knight]: 佩帶騎士
+equip[planeswalker]: 佩帶鵬洛客
+equip[shaman|warlock|wizard]: 佩帶祭師，邪術師或魔法師
+# equip[soldier]: Equip Soldier
+equip[token{creature}]: 佩帶衍生生物
+escalate: 增效
+escape: 逸脫
+eternalize: 永生
+evoke: 呼魂
+evolve: 進化
+exalted: 頌威
+exploit: 搾取
+extort: 敲詐
+fabricate: 裝配
+# fading: Fading
+fear: 恐懼
+first_strike: 先攻
+flanking: 側面攻擊
+flash: 閃現
+flashback: 返照
+flying: 飛行
+# for_mirrodin:
+forecast: 預報
+foretell: 預示
+# fortify: Fortify
+# frenzy: Frenzy
+fuse: 融咒
+graft: 接殖
+# gravestorm: Gravestorm
+haste: 敏捷
+# haunt: Haunt
+hexproof: 辟邪
+hexproof[artifact]: 反神器辟邪
+hexproof[black]: 反黑辟邪
+hexproof[blue]: 反藍辟邪
+hexproof[creature]: 反生物辟邪
+hexproof[enchantment]: 反結界辟邪
+hexproof[color=1]: 反單色辟邪
+hexproof[planeswalker]: 反鵬洛客辟邪
+hexproof[white]: 反白辟邪
+# hidden_agenda: Hidden Agenda
+# hidden_agenda/double: Double Agenda
+hideaway: 掩蔽
+# horsemanship !!
+improvise: 拼造
+indestructible: 不滅
+infect: 侵染
+ingest: 攝食
+intimidate: 威嚇
+jump_start: 再起
+kicker: 增幅
+kicker/multi: 多重增幅
+landwalk: 地行者
+# landwalk[-basic]: Nonbasic landwalk
+landwalk[artifact]: 神器地行者
+landwalk[desert]: 沙漠行者
+landwalk[forest]: 樹林行者
+landwalk[island]: 海島行者
+# landwalk[legendary]: Legendary landwalk
+landwalk[mountain]: 山脈行者
+# landwalk[plains] !!
+# landwalk[snow+forest]: Snow forestwalk
+# landwalk[snow+swamp]: Snow swampwalk
+# landwalk[snow]: Snow landwalk
+landwalk[swamp]: 沼澤行者
+level_up: 升級
+lifelink: 繫命
+# living_metal: Living Metal
+living_weapon: 活化武器
+madness: 瘋魔
+melee: 亂鬥
+menace: 威懾
+mentor: 訓導
+miracle: 奇蹟
+modular: 套件
+# more_than_meets_the_eye: More Than Meets the Eye
+morph: 變身
+morph/mega: 威力變身
+mutate: 合變
+myriad: 繁影
+nightbound: 夜形
+ninjutsu: 忍術
+ninjutsu/commander: 指揮官忍術
+# offering: Offering
+# offering[artifact]: Artifact offering
+# offering[fox]: Fox offering
+# offering[goblin]: Goblin offering
+# offering[moonfolk]: Moonfolk offering
+# offering[rat]: Rat offering
+# offering[snake]: Snake offering
+outlast: 延生
+overload: 超載
+partner: 拍檔
+partner/background: 選擇身世
+# partner/friend: Friends forever
+persist: 拍檔
+# phasing: Phasing
+poisonous: 劇毒
+protection: 保護
+# protection[arcane]: Protection from Arcane
+protection[artifact]: 反神器保護
+# protection[beast]: Protection from Beasts
+protection[black]: 反黑保護
+protection[blue]: 反藍保護
+# protection[cleric]: Protection from Clerics
+# protection[color=1]: Protection from monocolored
+# protection[color>0]: Protection from all colors
+protection[color>1]: 反多色保護
+# protection[creature]: Protection from creatures
+# protection[creature{-spirit}]: Protection from non-Spirit creatures
+# protection[creature{god}]: Protection from God creatures
+# protection[creature{legendary}]: Protection from legendary creatures
+# protection[demon]: Protection from Demons
+protection[dragon]: 反龍保護
+# protection[elf]: Protection from Elves
+# protection[enchantment]: Protection from enchantments
+# protection[goblin]: Protection from Goblins
+protection[green]: 反綠保護
+protection[human]: 反人類保護
+protection[instant]: 反瞬間保護
+# protection[kavu]: Protection from Kavu
+# protection[land]: Protection from lands
+protection[mana_value<=3]: 反魔法力值等於或小於3保護
+# protection[mana_value>=3]: Protection from mana value 3 or greater
+protection[permanents{counter:corruption}]: 保護～反其上有腐化指示物的永久物
+protection[planeswalker]: 反鵬洛客保護
+protection[red]: 反紅保護
+protection[robot]: 反機器人保護
+# protection[snow]: Protection from snow
+# protection[spell{color>=1}]: Protection from spells that are one or more colors
+# protection[spirit]: Protection from Spirits
+protection[vampire]: 反吸血鬼保護
+protection[werewolf]: 反狼人保護
+protection[white]: 反白保護
+# protection[wizard]: Protection from Wizards
+# protection[zombie]: Protection from Zombies
+protection/everything: 反一切保護
+prototype: 試作
+# provoke !!
+prowess: 靈技
+# prowl: Prowl
+# rampage !!
+ravenous: 貪食
+reach: 延勢
+rebound: 彈回
+reconfigure: 重配
+# recover: Recover
+reinforce: 補強
+renown: 銘勇
+replicate: 覆誦
+retrace: 追溯
+riot: 起事
+# ripple: Ripple
+scavenge: 食腐
+shadow: 次元幽影
+shroud: 帷幕
+skulk: 潛匿
+soulbond: 魂繫
+# soulshift: Soulshift
+# space_sculptor: Space Sculptor
+spectacle: 揭幕
+splice: 通聯
+# splice[arcane]: Splice onto Arcane
+splice[instant|sorcery]: 通聯瞬間或巫術
+split_second: 轉瞬
+squad: 小隊
+storm: 風暴
+# sunburst:
+surge: 潮湧
+suspend: 延緩
+totem_armor: 替身甲
+# toxic:
+training: 見習
+trample: 踐踏
+trample/planeswalker: 踐踏鵬洛客
+# transfigure:
+transmute: 易質
+tribute: 致敬
+undaunted: 不屈
+undying: 不息
+unearth: 破墳
+unleash: 脫韁
+vanishing: 消逝
+vigilance: 警戒
+# visit: Visit
+ward: 守護
+# wither: Wither
+
+# keyword actions
+# abandon: Abandon
+activate: 起動
+adapt: 演化
+amass: 囤兵
+# assemble: Assemble
+attach: 貼附
+bolster: 振勵
+cast: 施放
+# clash: Clash
+connive: 籌謀
+# convert: Convert
+counter: 反擊
+create: 派出
+destroy:
+detain:
+discard:
+double:
+exchange:
+exert:
+exile:
+explore:
+fateseal:
+fight: 互鬥
+goad:
+investigate:
+learn: 溫習
+manifest:
+meld:
+mill:
+monstrosity: 蠻化
+# open_an_attraction:
+planeswalk_to:
+planeswalk_away:
+play:
+populate: 殖民
+proliferate: 增殖
+regenerate:
+reveal:
+# roll_to_visit:
+sacrifice:
+scry: 占卜
+search:
+# set_in_motion:
+shuffle:
+support: 支援
+surveil:
+tap:
+transform:
+untap:
+venture_into_the_dungeon:
+vote:
+
+# ability words
+adamant: 固色
+addendum: 附案
+alliance: 聯手
+battalion: 協戰
+bloodrush: 血激
+channel: 魂力
+# chroma
+cohort: 齊力
+constellation: 星彩
+converge: 聚輝
+council_s_dilemma: 議爭
+# coven
+delirium: 躁狂
+domain: 領土
+# eminence
+enrage: 激怒
+fateful_hour: 命懸一刻
+ferocious: 威猛
+formidable: 強橫
+# grandeur
+hellbent: 背水戰
+heroic: 勇行
+imprint: 壓印
+inspired: 啟悟
+# join_forces
+# kinship
+landfall: 地落
+lieutenant: 副官
+magecraft: 魔藝
+metalcraft: 金技
+morbid: 喪心
+pack_tactics: 集群戰術
+parley: 論爭
+# radiance
+raid: 突擊
+rally: 奮揚
+revolt: 反抗
+spell_mastery: 精熟咒語
+strive: 積力
+# sweep
+# tempting_offer
+threshold: 門檻
+undergrowth: 朽力
+will_of_the_council: 議定

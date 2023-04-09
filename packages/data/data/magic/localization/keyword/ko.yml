@@ -1,0 +1,428 @@
+# keyword abilities
+# absorb:
+affinity: 친화
+affinity[artifact+creature]: 마법물체 생물 친화
+affinity[artifact]: 마법물체 친화
+# affinity[equipment]:
+# affinity[forest]:
+# affinity[island]:
+# affinity[mountain]:
+# affinity[plains]:
+# affinity[swamp]:
+affinity[token]: 토큰 친화
+afflict: 통증
+afterlife: 사후세계
+aftermath: 여파
+# amplify:
+# annihilator:
+ascend: 승격
+# assist:
+# aura_swap:
+awaken: 각성
+# banding: !!
+battle_cry: 전투함성
+bestow: 권능
+blitz: 기습
+bloodthirst: 피굶주림
+boast: 과시
+bushido: 무사도
+buyback: 회수
+cascade: 연쇄
+casualty: 사상자
+# champion:
+# champion[creature]:
+# champion[elemental]:
+# champion[elf]:
+# champion[faerie]:
+# champion[goblin]:
+# champion[goblin|shaman]:
+# champion[kithkin]:
+# champion[merfolk]:
+# champion[treefolk|warrior]:
+changeling: 체인질링
+cipher: 암호문
+cleave: 쪼개기
+companion: 단짝
+compleated: 완성됨
+# conspire:
+convoke: 집합
+crew: 탑승
+# cumulative_upkeep: !!
+cycling: 순환
+cycling/land[artifact]: 마법물체 대지순환
+cycling/land[basic]: 기본 대지순환
+# cycling/land[forest]:
+# cycling/land[island]:
+# cycling/land[mountain]:
+cycling/land[plains]: 들순환
+# cycling/land[sliver]:
+# cycling/land[swamp]:
+cycling/land[wizard]: 마법사순환
+dash: 질주
+daybound: 낮 종속
+deathtouch: 치명타
+decayed: 부패
+defender: 수비태세
+delve: 파헤치기
+# demonstrate:
+# dethrone:
+devoid: 결여
+devour: 포식
+devour[artifact]: 마법물체 포식
+disturb: 소란
+double_strike: 이단공격
+dredge: 준설
+echo: 에코
+embalm: 방부처리
+emerge: 출현
+enchant: 부여
+enchant[(artifact|creature){control:you}]: 당신이 조종하는 마법물체 또는 생물에 부여
+# enchant[(creature|planeswalker){-control:you}]:
+enchant[(creature|planeswalker){control:opponent}]: 상대가 조종하는 생물 또는 플레인즈워커에게 부여
+enchant[(creature|planeswalker){control:you}]: 당신이 조종하는 생물 또는 플레인즈워커에게 부여
+# enchant[artifact+creature]:
+enchant[artifact]: 마법물체에 부여
+# enchant[artifact{control:opponent}]:
+enchant[artifact{control:you}]: 당신이 조종하는 마법물체에 부여
+enchant[artifact|creature]: 마법물체나 생물에게 부여
+enchant[artifact|creature|planeswalker]: 마법물체, 생물, 또는 플레인즈워커에 부여
+# enchant[artifact|enchantment]:
+# enchant[card{creature}{in:graveyard}]:
+# enchant[card{instant}{in:graveyard}]:
+enchant[creature]: 생물에게 부여
+enchant[creature{-black}]: 흑색이 아닌 생물에게 부여
+enchant[creature{-control:you}]: 당신이 조종하지 않는 생물에게 부여
+enchant[creature{-flying}]: 비행이 없는 생물에게 부여
+# enchant[creature{-wall}]:
+# enchant[creature{-wall}{control:you}]:
+# enchant[creature{attach:another aura}]:
+# enchant[creature{black}]:
+enchant[creature{control:opponent}]: 상대가 조종하는 생물에게 부여
+enchant[creature{control:you}]: 자신이 조종하는 생물에 부여
+# enchant[creature{green}]:
+# enchant[creature{green|white}]:
+# enchant[creature{mana_value<=2}]:
+enchant[creature{power<=3}]: 공격력이 3 이하인 생물에게 부여
+enchant[creature{red|green}]: 적색이나 녹색 생물에게 부여
+# enchant[creature{tapped}]:
+enchant[creature|enchantment]: 생물 또는 부여마법에 부여
+enchant[creature|land]: 생물 또는 대지에게 부여
+enchant[creature|land|planeswalker]: 생물, 대지 또는 플레인즈워커에게 부여
+enchant[creature|planeswalker]: 생물 또는 플레인즈워커에 부여
+# enchant[creature|planeswalker|clue]:
+enchant[creature|vehicle]: 생물 또는 탑승물에 부여
+# enchant[enchantment]:
+enchant[equipment]: 장비에 부여
+# enchant[forest]:
+# enchant[forest|plains]:
+enchant[giant{control:you}]: 당신이 조종하는 거인에게 부여
+# enchant[island]:
+enchant[land]: 대지에 부여
+# enchant[land{-basic}]:
+enchant[land{basic}{control:you}]: 당신이 조종하는 대지에 부여
+enchant[land{control:you}]: 당신이 조종하는 대지에 부여
+enchant[land{snow}{control:you}]: 당신이 조종하는 눈 대지에 부여
+enchant[mountain]: 산에 부여
+enchant[mountain{control:you}]: 당신이 조종하는 산에 부여
+enchant[opponent]: 상대에게 부여
+enchant[permanent]: 지속물에 부여
+enchant[permanent{-land}]: 대지가 아닌 지속물에 부여
+# enchant[plains]:
+enchant[player]: 플레이어에게 부여
+# enchant[swamp]:
+# enchant[wall]:
+# encore:
+# enlist:
+entwine: 엮어내기
+# epic:
+equip: 장착
+equip[citizen]: 시민에 장착
+# equip[commander]:
+equip[creature{legendary}]: 전설적 생물에 장착
+equip[knight]: 기사에 장착
+equip[planeswalker]: 플레인즈워커에 장착
+equip[shaman|warlock|wizard]: 주술사, 흑마법사 또는 마법사에게 장착
+# equip[soldier]:
+equip[token{creature}]: 생물 토큰에 장착
+escalate: 증가
+escape: 탈출
+eternalize: 영생화
+evoke: 환기
+evolve: 진화
+exalted: 고귀
+exploit: 수탈
+extort: 착취
+fabricate: 제작
+# fading: !!
+# fear:
+first_strike: 선제공격
+# flanking:
+flash: 섬광
+flashback: 회상
+flying: 비행
+# for_mirrodin:
+forecast: 예보
+foretell: 예고
+# fortify:
+# frenzy:
+fuse: 융합
+# graft:
+# gravestorm:
+haste: 신속
+# haunt:
+hexproof: 방호
+# hexproof[artifact]:
+hexproof[black]: 흑색으로부터 방호
+hexproof[blue]: 청색으로부터 방호
+# hexproof[creature]:
+# hexproof[enchantment]:
+hexproof[color=1]: 단색으로부터 방호
+hexproof[planeswalker]: 플레인즈워커로부터 방호
+hexproof[white]: 백색으로부터 방호
+# hidden_agenda:
+# hidden_agenda/double:
+hideaway: 은닉
+# horsemanship:
+improvise: 급조
+indestructible: 무적
+# infect:
+ingest: 섭식
+intimidate: 위협
+jump_start: 강제 시동
+kicker: 키커
+kicker/multi: 다중 키커
+# landwalk:
+# landwalk[-basic]:
+landwalk[artifact]: 마법물체 대지잠입을
+landwalk[desert]: 사막잠입
+landwalk[forest]: 숲잠입
+landwalk[island]: 섬잠입
+# landwalk[legendary]:
+# landwalk[mountain]:
+# landwalk[plains]:
+# landwalk[snow+forest]:
+# landwalk[snow+swamp]: !!
+# landwalk[snow]:
+landwalk[swamp]: 늪잠입
+level_up: 레벨업
+lifelink: 생명연결
+# living_metal: !!
+living_weapon: 생체병기
+madness: 광기
+# melee:
+menace: 호전적
+mentor: 지도
+miracle: 기적
+modular: 모듈
+# more_than_meets_the_eye: !!
+morph: 변이
+morph/mega: 대변이
+mutate: 돌연변이화
+myriad: 무수
+nightbound: 밤 종속
+ninjutsu: 인술
+# ninjutsu/commander:
+# offering:
+# offering[artifact]:
+# offering[fox]:
+# offering[goblin]:
+# offering[moonfolk]:
+# offering[rat]:
+# offering[snake]:
+outlast: 버티기
+overload: 과부하
+partner: 파트너
+partner/background: 배경을 선택한다
+# partner/friend:
+persist: 집요
+# phasing:
+# poisonous:
+protection: 보호
+# protection[arcane]:
+protection[artifact]: 마법물체로부터 보호
+# protection[beast]:
+protection[black]: 흑색으로부터 보호
+protection[blue]: 청색으로부터 보호
+# protection[cleric]:
+# protection[color=1]:
+# protection[color>0]: !!
+protection[color>1]: 다색으로부터 보호
+protection[creature]: 생물로부터 보호
+# protection[creature{-spirit}]:
+protection[creature{god}]: 신 생물들로부터 보호
+# protection[creature{legendary}]:
+protection[demon]: 악마와부터 보호
+protection[dragon]: 용으로부터 보호
+# protection[elf]:
+protection[enchantment]: 부여마법으로부터 보호
+# protection[goblin]:
+protection[green]: 녹색으로부터 보호
+protection[human]: 인간으로부터 보호
+protection[instant]: 순간마법으로부터 보호
+# protection[kavu]:
+# protection[land]:
+# protection[mana_value<=3]:
+# protection[mana_value>=3]:
+protection[permanents{counter:corruption}]: 타락 카운터가 놓여 있는 지속물들로부터 보호
+protection[planeswalker]: 플레인즈워커로부터 보호
+protection[red]: 적색으로부터 보호
+# protection[robot]:
+# protection[snow]:
+# protection[spell{color>=1}]:
+# protection[spirit]:
+protection[vampire]: 흡혈귀로부터 보호
+protection[werewolf]: 늑대인간으로부터 보호
+protection[white]: 백색으로부터 보호
+# protection[wizard]:
+protection[zombie]: 좀비로부터 보호
+protection/everything: 모든 것으로부터 보호
+prototype: 프로토타입
+# provoke:
+prowess: 기량
+# prowl:
+# rampage:
+# ravenous:
+reach: 대공
+# read_ahead:
+rebound: 반동
+reconfigure: 재구성
+# recover:
+reinforce: 보강
+renown: 명성
+replicate: 복제
+retrace: 회고
+riot: 폭동
+# ripple:
+scavenge: 섭취
+shadow: 그림자
+shroud: 은신
+skulk: 은폐
+soulbond: 영혼결속
+# soulshift:
+# space_sculptor:
+spectacle: 구경거리
+# splice:
+# splice[arcane]:
+splice[instant|sorcery]: 순간마법 또는 집중마법에 접합
+split_second: 찰나
+# squad:
+storm: 폭풍
+# sunburst:
+surge: 격동
+suspend: 유예
+totem_armor: 토템 갑옷
+# toxic:
+training: 훈련
+trample: 돌진
+trample/planeswalker: 플레인즈워커 너머로 돌진
+# transfigure:
+# transmute:
+tribute: 조공
+# undaunted:
+undying: 불사
+unearth: 발굴
+unleash: 속박해제
+vanishing: 소실
+vigilance: 경계
+# visit:
+ward: 보호진
+# wither:
+
+# keyword actions
+# abandon:
+activate:
+adapt:
+amass: 축적
+assemble:
+attach:
+bolster: 강화
+cast:
+clash:
+connive:
+# convert: !!
+counter:
+create:
+destroy:
+detain:
+discard:
+double:
+exchange:
+exert:
+exile:
+explore:
+fateseal:
+fight:
+goad:
+investigate:
+learn: 학습
+manifest:
+meld:
+mill:
+monstrosity: 괴수화
+# open_an_attraction:
+planeswalk_to:
+planeswalk_away:
+play:
+populate: 소집
+proliferate: 증식
+regenerate:
+reveal:
+# roll_to_visit:
+sacrifice:
+scry: 점술
+search:
+# set_in_motion:
+shuffle:
+support: 지원
+surveil:
+tap:
+transform:
+untap:
+venture_into_the_dungeon:
+vote:
+
+# ability words
+adamant: 단호
+addendum: 부록
+alliance: 연대
+battalion: 부대전
+bloodrush: 혈기
+channel: 영력
+# chroma
+cohort: 동료
+constellation: 성좌
+converge: 화합
+council_s_dilemma: 의회의 딜레마
+coven: 집회
+delirium: 섬망
+domain: 영토
+# eminence
+enrage: 격노
+fateful_hour: 운명의 시간
+ferocious: 흉포
+formidable: 강대
+# grandeur
+hellbent: 광분
+heroic: 영웅
+imprint: 각인
+inspired: 영감
+# join_forces
+# kinship
+landfall: 대지력
+# lieutenant
+magecraft: 마도제작술
+metalcraft: 금속조종술
+morbid: 사망
+pack_tactics: 무리 전술
+parley: 협상
+# radiance
+raid: 습격
+rally: 결집
+revolt: 봉기
+spell_mastery: 주문 숙련
+strive: 분투
+# sweep
+# tempting_offer
+threshold: 문턱
+undergrowth: 지하생장
+# will_of_the_council

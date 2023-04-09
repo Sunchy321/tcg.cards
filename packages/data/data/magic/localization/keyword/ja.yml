@@ -1,0 +1,428 @@
+# keyword abilities
+absorb: 吸収
+affinity: 親和
+affinity[artifact+creature]: 親和（アーティファクト・クリーチャー）
+affinity[artifact]: 親和（アーティファクト）
+affinity[equipment]: 親和（装備品）
+affinity[forest]: 親和（森）
+affinity[island]: 親和（島）
+affinity[mountain]: 親和（山）
+affinity[plains]: 親和（平地）
+affinity[swamp]: 親和（沼）
+affinity[token]: 親和（トークン）
+afflict: 加虐
+afterlife: 死後
+aftermath: 余波
+# amplify: !!
+annihilator: 滅殺
+ascend: 昇殿
+assist: 助力
+aura_swap: オーラ交換
+awaken: 覚醒
+# banding: !!
+battle_cry: 喊声
+bestow: 授与
+blitz: 奇襲
+bloodthirst: 狂喜
+boast: 誇示
+bushido: 武士道
+buyback: バイバック
+cascade: 続唱
+casualty: 犠牲
+champion: 覇権
+champion[creature]: 覇権（クリーチャー）
+champion[elemental]: 覇権（エレメンタル）
+champion[elf]: 覇権（エルフ）
+champion[faerie]: 覇権（フェアリー）
+champion[goblin]: 覇権（ゴブリン）
+champion[goblin|shaman]: 覇権（ゴブリンかシャーマン）
+champion[kithkin]: 覇権（キスキン）
+champion[merfolk]: 覇権（マーフォーク）
+champion[treefolk|warrior]: 覇権（ツリーフォークか戦士）
+changeling: 多相
+cipher: 暗号
+cleave: 切除
+companion: 相棒
+compleated: 完成化
+conspire: 共謀
+convoke: 召集
+crew: 搭乗
+cumulative_upkeep: 累加アップキープ
+cycling: サイクリング
+cycling/land[artifact]: アーティファクト・土地サイクリング
+cycling/land[basic]: 基本土地サイクリング
+cycling/land[forest]: 森サイクリング
+cycling/land[island]: 島サイクリング
+cycling/land[mountain]: 山サイクリング
+cycling/land[plains]: 平地サイクリング
+cycling/land[sliver]: スリヴァー・サイクリング
+cycling/land[swamp]: 沼サイクリング
+cycling/land[wizard]: ウィザード・サイクリング
+dash: 疾駆
+daybound: 日暮
+deathtouch: 接死
+decayed: 腐乱
+defender: 防衛
+delve: 探査
+demonstrate: 実演
+dethrone: 廃位
+devoid: 欠色
+devour: 貪食
+devour[artifact]: アーティファクトの貪食
+disturb: 降霊
+double_strike: 二段攻撃
+dredge: 発掘
+echo: エコー
+embalm: 不朽
+emerge: 現出
+enchant: エンチャント
+enchant[(artifact|creature){control:you}]: エンチャント（あなたがコントロールしているアーティファクトやクリーチャー）
+# enchant[(creature|planeswalker){-control:you}]:
+enchant[(creature|planeswalker){control:opponent}]: エンチャント（対戦相手がコントロールしているクリーチャーかプレインズウォーカー）
+enchant[(creature|planeswalker){control:you}]: エンチャント（あなたがコントロールしているクリーチャーかプレインズウォーカー）
+# enchant[artifact+creature]:
+enchant[artifact]: エンチャント（アーティファクト）
+# enchant[artifact{control:opponent}]:
+enchant[artifact{control:you}]: エンチャント（あなたがコントロールしているアーティファクト）
+enchant[artifact|creature]: エンチャント（アーティファクトやクリーチャー）
+enchant[artifact|creature|planeswalker]: エンチャント（アーティファクトやクリーチャーやプレインズウォーカー）
+# enchant[artifact|enchantment]:
+enchant[card{creature}{in:graveyard}]: エンチャント（墓地にあるクリーチャー・カード）
+enchant[card{instant}{in:graveyard}]: エンチャント（いずれかの墓地にあるインスタント・カード）
+enchant[creature]: エンチャント（クリーチャー）
+enchant[creature{-black}]: エンチャント（黒でないクリーチャー）
+enchant[creature{-control:you}]: エンチャント（あなたがコントロールしていないクリーチャー）
+enchant[creature{-flying}]: エンチャント（飛行を持たないクリーチャー）
+# enchant[creature{-wall}]:
+# enchant[creature{-wall}{control:you}]:
+enchant[creature{attach:another aura}]: エンチャント（他のオーラがつけられているクリーチャー）
+# enchant[creature{black}]:
+enchant[creature{control:opponent}]: エンチャント（対戦相手がコントロールしているクリーチャー）
+enchant[creature{control:you}]: エンチャント（あなたがコントロールしているクリーチャー）
+enchant[creature{green}]: エンチャント（緑のクリーチャー）
+# enchant[creature{green|white}]:
+# enchant[creature{mana_value<=2}]:
+enchant[creature{power<=3}]: エンチャント（パワーが３以下のクリーチャー）
+enchant[creature{red|green}]: エンチャント（赤か緑のクリーチャー）
+enchant[creature{tapped}]: エンチャント（タップ状態のクリーチャー）
+enchant[creature|enchantment]: エンチャント（クリーチャーかエンチャント）
+enchant[creature|land]: エンチャント（クリーチャーか土地）
+enchant[creature|land|planeswalker]: エンチャント（クリーチャーや土地やプレインズウォーカー）
+enchant[creature|planeswalker]: エンチャント（クリーチャーやプレインズウォーカー）
+enchant[creature|planeswalker|clue]: エンチャント（クリーチャーやプレインズウォーカーや手掛かり）
+enchant[creature|vehicle]: エンチャント（クリーチャーや機体）
+# enchant[enchantment]:
+enchant[equipment]: エンチャント（装備品）
+enchant[forest]: エンチャント（森）
+enchant[forest|plains]: エンチャント（森か平地）
+enchant[giant{control:you}]: エンチャント（あなたがコントロールしている巨人）
+enchant[island]: エンチャント（島）
+enchant[land]: エンチャント（土地）
+# enchant[land{-basic}]:
+enchant[land{basic}{control:you}]: エンチャント（あなたがコントロールしている基本土地）
+enchant[land{control:you}]: エンチャント（あなたがコントロールしている土地）
+enchant[land{snow}{control:you}]: エンチャント（あなたがコントロールしている氷雪土地）
+enchant[mountain]: エンチャント（山）
+enchant[mountain{control:you}]: エンチャント（あなたがコントロールする山）
+enchant[opponent]: エンチャント（対戦相手）
+enchant[permanent]: エンチャント（パーマネント）
+enchant[permanent{-land}]: エンチャント（土地でないパーマネント）
+# enchant[plains]:
+enchant[player]: エンチャント（プレイヤー）
+# enchant[swamp]:
+# enchant[wall]:
+encore: 再演
+enlist: 後援
+entwine: 双呪
+epic: 歴伝
+equip: 装備
+equip[citizen]: 市民に装備
+equip[commander]: 統率者に装備
+equip[creature{legendary}]: 伝説のクリーチャーに装備
+equip[knight]: 騎士に装備
+equip[planeswalker]: プレインズウォーカーに装備
+equip[shaman|warlock|wizard]: ウィザード、邪術師、シャーマンへの装備
+equip[soldier]: 兵士に装備
+equip[token{creature}]: クリーチャー・トークンに装備
+escalate: 増呪
+escape: 脱出
+eternalize: 永遠
+evoke: 想起
+evolve: 進化
+exalted: 賛美
+exploit: 濫用
+extort: 強請
+fabricate: 製造
+# fading: !!
+fear: 畏怖
+first_strike: 先制攻撃
+flanking: 側面攻撃
+flash: 瞬速
+flashback: フラッシュバック
+flying: 飛行
+for_mirrodin: ミラディンのために！
+forecast: 予見
+foretell: 予顕
+fortify: 城砦化
+frenzy: 激情
+fuse: 融合
+graft: 移植
+gravestorm: 墓地ストーム
+haste: 速攻
+haunt: 憑依
+hexproof: 呪禁
+# hexproof[artifact]: !!
+hexproof[black]: 黒からの呪禁
+hexproof[blue]: 青からの呪禁
+# hexproof[creature]: !!
+# hexproof[enchantment]: !!
+hexproof[color=1]: 単色からの呪禁
+hexproof[planeswalker]: プレインズウォーカーからの呪禁
+hexproof[white]: 白からの呪禁
+hidden_agenda: 秘策
+hidden_agenda/double: 両策
+hideaway: 秘匿
+horsemanship: 馬術
+improvise: 即席
+indestructible: 破壊不能
+infect: 感染
+ingest: 嚥下
+intimidate: 威嚇
+jump_start: 再活
+kicker: キッカー
+kicker/multi: 多重キッカー
+landwalk: 土地渡り
+landwalk[-basic]: 基本でない土地渡り
+landwalk[artifact]: アーティファクト・土地渡りを持つ
+landwalk[desert]: 砂漠渡り
+landwalk[forest]: 森渡り
+landwalk[island]: 島渡り
+landwalk[legendary]: 伝説の土地渡り
+landwalk[mountain]: 山渡り
+landwalk[plains]: 平地渡り
+# landwalk[snow+forest]:
+# landwalk[snow+swamp]: !!
+landwalk[snow]: 氷雪土地渡り
+landwalk[swamp]: 沼渡り
+level_up: Lvアップ
+lifelink: 絆魂
+# living_metal: !!
+living_weapon: 生体武器
+madness: マッドネス
+melee: 会戦
+menace: 威迫
+mentor: 教導
+miracle: 奇跡
+modular: 接合
+# more_than_meets_the_eye: !!
+morph: 変異
+morph/mega: 大変異
+mutate: 変容
+myriad: 無尽
+nightbound: 夜明
+ninjutsu: 忍術
+ninjutsu/commander: 上忍術
+offering: 献身
+offering[artifact]: 献身（アーティファクト）
+offering[fox]: 献身（狐）
+offering[goblin]: 献身（ゴブリン）
+offering[moonfolk]: 献身（ムーンフォーク）
+offering[rat]: 献身（ネズミ）
+offering[snake]: 献身（蛇）
+outlast: 長久
+overload: 超過
+partner: 共闘
+partner/background: 背景選択
+# partner/friend:
+persist: 頑強
+# phasing:
+poisonous: 有毒
+protection: プロテクション
+protection[arcane]: プロテクション（秘儀）
+protection[artifact]: プロテクション（アーティファクト）
+# protection[beast]: !!
+protection[black]: プロテクション（黒）
+protection[blue]: プロテクション（青）
+# protection[cleric]: !!
+protection[color=1]: プロテクション（単色）
+protection[color>0]: プロテクション（すべての色）
+protection[color>1]: プロテクション（多色）
+protection[creature]: プロテクション（クリーチャー）
+protection[creature{-spirit}]: プロテクション（スピリットでないクリーチャー）
+protection[creature{god}]: プロテクション（神・クリーチャー）
+# protection[creature{legendary}]: !!
+protection[demon]: プロテクション（デーモン）
+protection[dragon]: プロテクション（ドラゴン）
+protection[elf]: プロテクション（エルフ）
+protection[enchantment]: プロテクション（エンチャント）
+protection[goblin]: プロテクション（ゴブリン）
+protection[green]: プロテクション（緑）
+protection[human]: プロテクション（人間）
+protection[instant]: プロテクション（インスタント）
+# protection[kavu]: !!
+protection[land]: プロテクション（土地）
+protection[mana_value<=3]: プロテクション（マナ総量３以下）
+protection[mana_value>=3]: プロテクション（点数で見たマナ・コストが３以上）
+protection[permanents{counter:corruption}]: プロテクション（腐敗カウンターが置かれているパーマネント）
+protection[planeswalker]: プロテクション（プレインズウォーカー）
+protection[red]: プロテクション（赤）
+protection[robot]: プロテクション（ロボット）
+protection[snow]: プロテクション（氷雪）
+protection[spell{color>=1}]: プロテクション（有色の呪文）
+protection[spirit]: プロテクション（スピリット）
+protection[vampire]: プロテクション（吸血鬼）
+protection[werewolf]: プロテクション（狼男）
+protection[white]: プロテクション（白）
+protection[wizard]: プロテクション（ウィザード）
+protection[zombie]: プロテクション（ゾンビ）
+protection/everything: プロテクション（すべて）
+prototype: 試作
+# provoke: !!
+prowess: 果敢
+prowl: 徘徊
+rampage: ランページ
+ravenous: 貪欲
+reach: 到達
+read_ahead: 先読
+rebound: 反復
+reconfigure: 換装
+recover: 復活
+reinforce: 補強
+renown: 高名
+replicate: 複製
+retrace: 回顧
+riot: 暴動
+ripple: 波及
+scavenge: 活用
+shadow: シャドー
+shroud: 被覆
+skulk: 潜伏
+soulbond: 結魂
+soulshift: 転生
+# space_sculptor:
+spectacle: 絢爛
+splice: 連繋
+splice[arcane]: 連繋（秘儀）
+splice[instant|sorcery]: 連繋（インスタントかソーサリー）
+split_second: 刹那
+squad: 分隊
+storm: ストーム
+sunburst: 烈日
+surge: 怒濤
+suspend: 待機
+totem_armor: 族霊鎧
+toxic: 毒性
+training: 訓練
+trample: トランプル
+trample/planeswalker: プレインズウォーカー越えトランプル
+transfigure: 変形
+transmute: 変成
+tribute: 貢納
+undaunted: 不抜
+undying: 不死
+unearth: 蘇生
+unleash: 解鎖
+vanishing: 消失
+vigilance: 警戒
+# visit:
+ward: 護法
+wither: 萎縮
+
+# keyword actions
+# abandon:
+activate:
+adapt:
+amass: 動員
+assemble:
+attach:
+bolster: 鼓舞
+cast:
+clash:
+connive:
+# convert: !!
+counter:
+create:
+destroy:
+detain:
+discard:
+double:
+exchange:
+exert:
+exile:
+explore:
+fateseal:
+fight:
+goad:
+investigate:
+learn: 履修
+manifest:
+meld:
+mill:
+monstrosity: 怪物化
+# open_an_attraction:
+planeswalk_to:
+planeswalk_away:
+play:
+populate: 居住
+proliferate: 増殖
+regenerate:
+reveal:
+# roll_to_visit:
+sacrifice:
+scry: 占術
+search:
+# set_in_motion:
+shuffle:
+support: 支援
+surveil:
+tap:
+transform:
+untap:
+venture_into_the_dungeon:
+vote:
+
+# ability words
+adamant: 一徹
+addendum: 附則
+alliance: 団結
+battalion: 大隊
+bloodrush: 湧血
+channel: 魂力
+chroma: 彩色
+cohort: 盟友
+constellation: 星座
+converge: 収斂
+council_s_dilemma: 動議
+coven: 集会
+delirium: 昂揚
+domain: 版図
+eminence: 威光
+enrage: 激昂
+fateful_hour: 窮地
+ferocious: 獰猛
+formidable: 圧倒
+grandeur: 壮大
+hellbent: 暴勇
+heroic: 英雄的
+imprint: 刻印
+inspired: 神啓
+join_forces: 同調
+kinship: 族系
+landfall: 上陸
+lieutenant: 副官
+magecraft: 護法
+metalcraft: 金属術
+morbid: 陰鬱
+pack_tactics: 集団戦術
+parley: 協議
+radiance: 光輝
+raid: 強襲
+rally: 結集
+revolt: 紛争
+spell_mastery: 魔巧
+strive: 奮励
+sweep: 掃引
+tempting_offer: 誘引
+threshold: スレッショルド
+undergrowth: 宿根
+will_of_the_council: 議決
