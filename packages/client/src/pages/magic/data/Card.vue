@@ -1304,7 +1304,7 @@ export default defineComponent({
             }
         };
 
-        watch([sample, locale], () => { dataGroup.value = undefined; });
+        watch([sample, locale, filterBy], () => { dataGroup.value = undefined; });
 
         const doSearch = async () => {
             if (search.value === '') {

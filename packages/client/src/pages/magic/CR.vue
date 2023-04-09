@@ -163,7 +163,7 @@ export default defineComponent({
         const contents = computed(() => cr.value?.contents ?? []);
         const glossary = computed(() => cr.value?.glossary ?? []);
 
-        const itemInMenu = (item: Content) => /\w$/.test(item.text) && item.examples == null;
+        const itemInMenu = (item: Content) => /[a-z!]$/.test(item.text) && item.examples == null;
 
         const highlightItem = (item: GeneralContent) => {
             if (item.index != null) {

@@ -80,12 +80,22 @@ router.post('/all-reparse', async () => {
 router.post('/save', async ctx => {
     const data = ctx.request.body.data as ICR;
 
+    const oldData = await CR.findOne({ date: data.date });
+
     const cardNames = await CardNameExtrator.names();
 
     for (const c of data.contents) {
         if (c.examples == null && /\w$/.test(c.text)) {
             delete c.cards;
             continue;
+        }
+
+        if (oldData != null) {
+            const oldItem = oldData.contents.find(co => co.text === c.text);
+
+            if (oldItem != null) {
+                continue;
+            }
         }
 
         const blacklist = [];
@@ -120,10 +130,8 @@ router.post('/save', async ctx => {
         }
     }
 
-    const cr = await CR.findOne({ date: data.date });
-
-    if (cr != null) {
-        await cr.replaceOne(data);
+    if (oldData != null) {
+        await oldData.replaceOne(data);
     } else {
         await CR.create(data);
     }
