@@ -41,6 +41,7 @@ const CardSchema = new Schema<ICard>({
         power:            String,
         toughness:        String,
         loyalty:          String,
+        defense:          String,
         handModifier:     String,
         lifeModifier:     String,
         attractionLights: { type: [Number], default: undefined },

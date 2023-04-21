@@ -19,6 +19,7 @@ ascend: 登殿
 assist: 助力
 aura_swap: 灵气转换
 awaken: 醒转
+backup: 后援
 # banding
 battle_cry: 战嚎
 bestow: 神授
@@ -353,6 +354,7 @@ explore: 勘察
 fateseal: 论命
 fight: 互斗
 goad: 煽惑
+incubate: 抚育
 investigate: 探查
 learn: 温习
 manifest: 显化

@@ -613,7 +613,7 @@ router.post('/commit-updation', async ctx => {
         const card = await Card.findOne({ 'scryfall.cardId': updation.scryfallId });
 
         if (card != null) {
-            if (updation.key.startsWith('parts.')) {
+            if (updation.key.startsWith('part.')) {
                 (card.parts[updation.partIndex!] as any)[updation.key.slice(5)] = updation.oldValue;
             } else {
                 (card as any)[updation.key] = updation.oldValue;

@@ -19,7 +19,7 @@
                     type="a"
                     target="_blank"
                     :to="{ name: 'magic/set', params: { id: setId }}"
-                    icon="mdi-link"
+                    icon="mdi-menu-right"
                     flat dense round
                 />
             </div>

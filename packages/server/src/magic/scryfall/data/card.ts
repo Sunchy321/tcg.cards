@@ -87,6 +87,7 @@ function extractCardFace(card: RawCard): NCardFace[] {
             artist:            card.artist,
             color_indicator:   card.color_indicator,
             colors:            card.colors!,
+            defense:           card.defense,
             flavor_text:       card.flavor_text,
             illustration_id:   card.illustration_id,
             loyalty:           card.loyalty,
@@ -272,6 +273,7 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
             power:            f.power,
             toughness:        f.toughness,
             loyalty:          f.loyalty,
+            defense:          f.defense,
             handModifier:     f.hand_modifier,
             lifeModifier:     f.life_modifier,
             attractionLights: f.attraction_lights,
@@ -429,7 +431,7 @@ function assignPart(
         updation.push({
             cardId,
             scryfallId,
-            key:       `part.${key}`,
+            key:       `parts.${key}`,
             partIndex: index,
             oldValue:  card[key],
             newValue:  data[key],
@@ -461,17 +463,10 @@ async function merge(card: Document & ICard, data: ICard) {
         case 'lang':
             break;
         case 'set':
-            assign(card, data, 'set', updation);
-            break;
         case 'number':
-            assign(card, data, 'number', updation);
-            break;
-
         case 'manaValue':
-            assign(card, data, 'manaValue', updation);
-            break;
         case 'colorIdentity':
-            assign(card, data, 'colorIdentity', updation);
+            assign(card, data, k, updation);
             break;
 
         case 'parts': {
@@ -486,39 +481,27 @@ async function merge(card: Document & ICard, data: ICard) {
                 for (const l of Object.keys(dPart) as (keyof ICard['parts'][0])[]) {
                     // eslint-disable-next-line default-case
                     switch (l) {
-                    case 'cost':
                     case '__costMap':
+                    case 'flavorName':
+                    case 'flavorText':
+                        break;
+                    case 'cost':
                     case 'color':
-                        break;
                     case 'colorIndicator':
-                        assignPart(cPart, dPart, 'colorIndicator', card.cardId, card.scryfall.cardId!, i, updation);
-                        break;
-
-                    case 'typeSuper': {
-                        if (!isEqual(cPart.typeSuper, dPart.typeSuper)) {
-                            cPart.typeSuper = dPart.typeSuper;
-                        }
-                        break;
-                    }
-                    case 'typeMain': {
-                        if (!isEqual(cPart.typeMain, dPart.typeMain)) {
-                            cPart.typeMain = dPart.typeMain;
-                        }
-                        break;
-                    }
-                    case 'typeSub': {
-                        if (!isEqual(cPart.typeSub, dPart.typeSub)) {
-                            cPart.typeSub = dPart.typeSub;
-                        }
-                        break;
-                    }
-
+                    case 'typeSuper':
+                    case 'typeMain':
+                    case 'typeSub':
                     case 'power':
                     case 'toughness':
                     case 'loyalty':
+                    case 'defense':
                     case 'handModifier':
                     case 'lifeModifier':
                     case 'attractionLights':
+                    case 'scryfallIllusId':
+                    case 'artist':
+                    case 'watermark':
+                        assignPart(cPart, dPart, l, card.cardId, card.scryfall.cardId!, i, updation);
                         break;
 
                     case 'oracle': {
@@ -567,19 +550,6 @@ async function merge(card: Document & ICard, data: ICard) {
                     case 'unified':
                     case 'printed':
                         break;
-
-                    case 'scryfallIllusId':
-                        assignPart(cPart, dPart, 'scryfallIllusId', card.cardId, card.scryfall.cardId!, i, updation);
-                        break;
-                    case 'flavorName':
-                        break;
-                    case 'flavorText':
-                        break;
-                    case 'artist':
-                        assignPart(cPart, dPart, 'artist', card.cardId, card.scryfall.cardId!, i, updation);
-                        break;
-                    case 'watermark':
-                        break;
                     }
                 }
             }
@@ -594,11 +564,11 @@ async function merge(card: Document & ICard, data: ICard) {
             break;
 
         case 'keywords':
-            assign(card, data, 'keywords', updation);
+        case 'producibleMana':
+            assign(card, data, k, updation);
             break;
 
         case 'counters':
-        case 'producibleMana':
             break;
 
         case 'tags':
@@ -636,41 +606,23 @@ async function merge(card: Document & ICard, data: ICard) {
 
         case 'category':
         case 'layout':
-            break;
-        case 'frame':
-            assign(card, data, 'frame', updation);
-            break;
-        case 'frameEffects':
-            assign(card, data, 'frameEffects', updation);
-            break;
-        case 'borderColor':
-            assign(card, data, 'borderColor', updation);
-            break;
-        case 'cardBack':
-            break;
-        case 'securityStamp':
-            assign(card, data, 'securityStamp', updation);
-            break;
-        case 'promoTypes':
-            assign(card, data, 'promoTypes', updation);
-            break;
         case 'rarity':
             break;
+        case 'frame':
+        case 'frameEffects':
+        case 'borderColor':
+        case 'cardBack':
+        case 'securityStamp':
+        case 'promoTypes':
         case 'releaseDate':
-            assign(card, data, 'releaseDate', updation);
+            assign(card, data, k, updation);
             break;
 
         case 'isDigital':
-            assign(card, data, 'isDigital', updation);
-            break;
         case 'isPromo':
-            assign(card, data, 'isPromo', updation);
-            break;
         case 'isReprint':
-            assign(card, data, 'isReprint', updation);
-            break;
         case 'finishes':
-            assign(card, data, 'finishes', updation);
+            assign(card, data, k, updation);
             break;
         case 'hasHighResImage': {
             if (card.hasHighResImage !== data.hasHighResImage) {
@@ -701,39 +653,22 @@ async function merge(card: Document & ICard, data: ICard) {
         case 'legalities':
             break;
         case 'inBooster':
-            assign(card, data, 'inBooster', updation);
-            break;
         case 'contentWarning':
-            assign(card, data, 'contentWarning', updation);
-            break;
         case 'games':
-            assign(card, data, 'games', updation);
+            assign(card, data, k, updation);
             break;
 
         case 'preview':
             break;
 
         case 'scryfall':
-            assign(card, data, 'scryfall', updation);
-            break;
-
         case 'arenaId':
-            assign(card, data, 'arenaId', updation);
-            break;
         case 'mtgoId':
-            assign(card, data, 'mtgoId', updation);
-            break;
         case 'mtgoFoilId':
-            assign(card, data, 'mtgoFoilId', updation);
-            break;
         case 'multiverseId':
-            assign(card, data, 'multiverseId', updation);
-            break;
         case 'tcgPlayerId':
-            assign(card, data, 'tcgPlayerId', updation);
-            break;
         case 'cardMarketId':
-            assign(card, data, 'cardMarketId', updation);
+            assign(card, data, k, updation);
             break;
 
         case '__oracle':

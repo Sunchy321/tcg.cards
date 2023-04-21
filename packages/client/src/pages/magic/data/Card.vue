@@ -1228,8 +1228,6 @@ export default defineComponent({
                     defaultPrettify();
                 }
 
-                devPrinted.value = false;
-
                 await nextTick();
 
                 history.value.unshift({
@@ -1377,6 +1375,10 @@ export default defineComponent({
 
                 if (/^(Embalm|Eternalize|Squad)/m.test(text)) {
                     relatedCardsCopy.push({ relation: 'token', cardId: `${id.value}!` });
+                }
+
+                if (/\bincubates?\b/i.test(text)) {
+                    relatedCardsCopy.push({ relation: 'token', cardId: 'incubator!' });
                 }
             }
 

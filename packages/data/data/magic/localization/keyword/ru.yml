@@ -331,7 +331,7 @@ wither: Увядание
 # keyword actions
 # abandon:
 activate:
-adapt:
+adapt: Адаптируйте
 amass: Скопище
 assemble:
 attach:

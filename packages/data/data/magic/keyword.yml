@@ -327,6 +327,7 @@ keyword_ability:
   - more_than_meets_the_eye
   - for_mirrodin
   - toxic
+  - backup
 
 keyword_action:
   - activate
@@ -380,6 +381,7 @@ keyword_action:
   - open_an_attraction
   - roll_to_visit
   - convert
+  - incubate
 
 ability_word:
   - channel

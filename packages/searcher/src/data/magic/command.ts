@@ -154,6 +154,16 @@ export default {
         query: arg => magic.halfNumber.query({ key: 'parts.loyalty', ...arg }),
     }),
 
+    defense: createCommand({
+        id:         'defense',
+        alt:        'def',
+        pattern:    '<{{defense}}>',
+        operators:  allOperator,
+        qualifiers: defaultQualifier,
+
+        query: arg => magic.halfNumber.query({ key: 'parts.defense', ...arg }),
+    }),
+
     name: createCommand({
         id:        'name',
         alt:       'n',

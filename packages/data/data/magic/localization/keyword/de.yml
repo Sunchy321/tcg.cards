@@ -19,6 +19,7 @@ ascend: Aufstieg
 # assist
 aura_swap: Aurentausch
 awaken: Erwecken
+backup: Hilfestellung
 # banding !!
 battle_cry: Schlachtruf
 bestow: Göttergabe
@@ -331,7 +332,7 @@ wither: Verdorren
 # keyword actions
 # abandon:
 activate:
-adapt:
+adapt: Adaptieren
 amass: Aufmarsch
 assemble:
 attach:
@@ -353,6 +354,7 @@ explore:
 fateseal:
 fight:
 goad:
+incubate: Inkubieren
 investigate:
 learn: Lerne eine Lektion
 manifest:

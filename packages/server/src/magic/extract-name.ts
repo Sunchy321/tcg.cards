@@ -32,7 +32,7 @@ const word = `(?:${upper},?|${lowercaseWords.join('|')})`;
 
 const normalName = `(?:\\b${upper},?(?: ${word})* ${upper}|${upper}\\b)`;
 
-const nameRegex = `(?:${normalName}|\\b_{5,}\\b|B\\.F\\.M\\. \\(Big Furry Monster\\))`;
+const nameRegex = `(?:Celebr-8000|B\\.F\\.M\\. \\(Big Furry Monster\\))|\\b_{5,}\\b|${normalName}`;
 
 const phraseRegex = new RegExp(`${nameRegex}( */{1,2} *${nameRegex})*`, 'g');
 
@@ -63,7 +63,7 @@ export default class CardNameExtractor {
         for (const b of this.blacklist) {
             if (!this.cardNames.some(c => c.name.includes(b))) {
                 this.cardNames.push({
-                    id:   `pesudo:${b}`,
+                    id:   `pseudo:${b}`,
                     name: [b],
                 });
             }
@@ -194,7 +194,7 @@ export default class CardNameExtractor {
             this.guess(phrase);
         }
 
-        return this.names;
+        return this.names.filter(n => !n.id.startsWith('pseudo:'));
     }
 
     static async names(): Promise<{ id: string, name: string[] }[]> {

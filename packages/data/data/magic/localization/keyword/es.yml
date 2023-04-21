@@ -19,6 +19,7 @@ ascend: Ascender
 # assist:
 aura_swap: Cambio de aura
 awaken: Despertar
+backup: Respaldar
 # banding: !!
 battle_cry: Grito de batalla
 bestow: Concesión
@@ -332,7 +333,7 @@ wither: Debilitar
 # keyword actions
 # abandon:
 activate:
-adapt:
+adapt: Adaptar
 amass: Enrola
 assemble:
 attach:
@@ -354,6 +355,7 @@ explore:
 fateseal:
 fight:
 goad:
+incubate: Incuba
 investigate:
 learn: Aprende
 manifest:

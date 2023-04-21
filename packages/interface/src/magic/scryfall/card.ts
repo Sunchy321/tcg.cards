@@ -18,6 +18,7 @@ export interface CardFace {
     cmc?: string;
     color_indicator?: Colors;
     colors?: Colors;
+    defense?: string;
     flavor_text?: string;
     illustration_id?: UUID;
     image_uris?: Record<string, URI>;
@@ -62,6 +63,7 @@ export interface RawCard {
     color_identity: Colors;
     color_indicator?: Colors;
     colors?: Colors;
+    defense?: string;
     edhrec_rank?: number;
     hand_modifier?: string;
     keywords: string[];

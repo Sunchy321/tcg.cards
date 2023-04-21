@@ -19,6 +19,7 @@ ascend: Ascend
 assist: Assist
 aura_swap: Aura Swap
 awaken: Awaken
+backup: Backup
 banding: Banding
 battle_cry: Battle Cry
 bestow: Bestow
@@ -405,6 +406,7 @@ explore: Explore
 fateseal: Fateseal
 fight: Fight
 goad: Goad
+incubate: Incubate
 investigate: Investigate
 learn: Learn
 manifest: Manifest

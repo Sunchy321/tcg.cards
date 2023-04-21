@@ -721,6 +721,10 @@ export default defineComponent({
                 return `[${p.loyalty}]`;
             }
 
+            if (p.defense != null) {
+                return `<${p.defense}>`;
+            }
+
             if (p.handModifier != null && p.lifeModifier != null) {
                 return `${p.handModifier};${p.lifeModifier}`;
             }

@@ -90,10 +90,17 @@ export default createSearcher({
                     }
 
                     // search loyalty
-                    if (/^\[[^]+\]$/.test(param)) {
+                    if (/^\[.+\]$/.test(param)) {
                         const loyalty = param.slice(1, -1);
 
                         return { 'parts.loyalty': loyalty };
+                    }
+
+                    // search defense
+                    if (/^<.+>$/.test(param)) {
+                        const defense = param.slice(1, -1);
+
+                        return { 'parts.defense': defense };
                     }
 
                     // search mana

@@ -30,6 +30,7 @@ export type Card = {
         power?: string;
         toughness?: string;
         loyalty?: string;
+        defense?: string;
         handModifier?: string;
         lifeModifier?: string;
         attractionLights?: number[];
