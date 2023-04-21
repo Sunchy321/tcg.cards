@@ -172,7 +172,19 @@ export default defineComponent({
             },
         });
 
-        const defaultRotate = computed(() => ['split', 'planar'].includes(props.layout));
+        const rotatable = computed(() => ['split', 'planar'].includes(props.layout));
+
+        const defaultRotate = computed(() => {
+            if (rotatable.value) {
+                return true;
+            }
+
+            if (props.layout === 'battle') {
+                return realPart.value === 0;
+            }
+
+            return false;
+        });
 
         const realRotate = computed({
             get() { return innerRotate.value ?? defaultRotate.value; },
@@ -182,22 +194,23 @@ export default defineComponent({
             },
         });
 
-        const rotatable = computed(() => ['split', 'planar'].includes(props.layout));
-
-        const turnable = computed(() => ['transform', 'modal_dfc', 'reversible_card', 'double_faced', 'minigame'].includes(props.layout));
+        const turnable = computed(() => [
+            'transform',
+            'modal_dfc',
+            'minigame',
+            'reversible_card',
+            'double_faced',
+            'battle',
+            'art_series',
+        ].includes(props.layout));
 
         const imageUrls = computed(() => {
-            switch (props.layout) {
-            case 'transform':
-            case 'modal_dfc':
-            case 'reversible_card':
-            case 'double_faced':
-            case 'art_series':
+            if (turnable.value) {
                 return [
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
                 ];
-            default:
+            } else {
                 return [
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}`,
                 ];
