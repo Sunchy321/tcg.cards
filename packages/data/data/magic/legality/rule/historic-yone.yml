@@ -1,0 +1,9 @@
+status:
+  format:
+    - alchemy
+    - historic
+    - historic_brawl
+  value: unavailable
+
+patterns:
+  - Mox Opal

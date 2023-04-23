@@ -1,0 +1,6 @@
+status:
+  format: alchemy
+  value: [unavailable, legal]
+
+patterns:
+  - set: mul
