@@ -19,6 +19,7 @@ ascend: Возвышение
 # assist:
 # aura_swap:
 awaken: Пробуждение
+backup: Резерв
 # banding:
 battle_cry: Боевой клич
 bestow: Дар
@@ -353,6 +354,7 @@ explore:
 fateseal:
 fight:
 goad:
+incubate: Инкубируйте
 investigate:
 learn: Выучите урок
 manifest:

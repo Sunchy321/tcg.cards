@@ -32,6 +32,11 @@ const imgAltMap: Record<string, string> = {
     'Red or Green':       'R/G',
     'Red or White':       'R/W',
     'Snow':               'S',
+    'Phyrexian White':    'W/P',
+    'Phyrexian Blue':     'U/P',
+    'Phyrexian Black':    'B/P',
+    'Phyrexian Red':      'R/P',
+    'Phyrexian Green':    'G/P',
 };
 
 function getText($: cheerio.Root, elem: cheerio.Cheerio) {

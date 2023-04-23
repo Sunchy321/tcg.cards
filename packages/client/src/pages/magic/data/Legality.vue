@@ -20,8 +20,19 @@
             <q-btn class="q-ml-sm" label="test" flat dense @click="test" />
         </div>
 
-        <div v-for="w in progress?.wrongs ?? []" :key="`${w.format}:${w.legality[0]}:${w.legality[1]}`" class="q-ma-md">
-            <div>{{ $t(`magic.format.${w.format}`) }} {{ w.legality[0] }} {{ w.legality[1] }}</div>
+        <div
+            v-for="(w, i) in progress?.wrongs ?? []"
+            :key="`${w.format}:${w.legality[0]}:${w.legality[1]}`"
+            class="q-ma-md"
+        >
+            <div>
+                <span>{{ $t(`magic.format.${w.format}`) }} {{ w.legality[0] }} {{ w.legality[1] }}</span>
+                <q-btn
+                    flat round dense
+                    icon="mdi-close"
+                    @click="removeWrongs(i)"
+                />
+            </div>
 
             <grid
                 v-slot="{ id }"
@@ -32,8 +43,7 @@
                 <card-avatar :id="id" :key="id" />
             </grid>
         </div>
-    </div>
-</template>
+    </div></template>
 
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
@@ -147,12 +157,21 @@ export default defineComponent({
             });
         };
 
+        const removeWrongs = (i: number) => {
+            if (progress.value == null) {
+                return;
+            }
+
+            progress.value.wrongs.splice(i, 1);
+        };
+
         return {
             assign,
             test,
             progress,
             progressValue,
             progressLabel,
+            removeWrongs,
         };
     },
 });

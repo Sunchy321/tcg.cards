@@ -1228,6 +1228,8 @@ export default defineComponent({
                     defaultPrettify();
                 }
 
+                // devPrinted.value = false;
+
                 await nextTick();
 
                 history.value.unshift({

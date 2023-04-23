@@ -431,7 +431,7 @@ export default {
             return agg => {
                 switch (type) {
                 case 'name':
-                    agg.sort({ 'part.unified.name': dir });
+                    agg.sort({ 'parts.unified.name': dir });
                     break;
                 case 'date':
                     agg.sort({ releaseDate: dir });

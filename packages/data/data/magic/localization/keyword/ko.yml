@@ -19,6 +19,7 @@ ascend: 승격
 # assist:
 # aura_swap:
 awaken: 각성
+backup: 예비
 # banding: !!
 battle_cry: 전투함성
 bestow: 권능
@@ -353,6 +354,7 @@ explore:
 fateseal:
 fight:
 goad:
+incubate: 부화
 investigate:
 learn: 학습
 manifest:
