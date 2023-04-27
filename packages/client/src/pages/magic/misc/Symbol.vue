@@ -11,13 +11,13 @@
                 {0}
             </template>
             <template #normal>
-                <magic-symbol value="0" />
+                <magic-symbol value="{0}" />
             </template>
             <template #shadow>
-                <magic-symbol value="0" :type="['cost']" />
+                <magic-symbol value="{0}" :type="['cost']" />
             </template>
             <template #flat>
-                <magic-symbol value="0" :type="['flat']" />
+                <magic-symbol value="{0}" :type="['flat']" />
             </template>
         </q-btn-toggle>
 
@@ -30,7 +30,7 @@
                 >
                     <div v-if="s === ''" />
                     <div v-else-if="style === 'raw'">{{ '{' + s + '}' }}</div>
-                    <magic-symbol v-else :value="s" :type="type" />
+                    <magic-symbol v-else :value="`{${s}}`" :type="type" />
                 </span>
             </div>
         </div>

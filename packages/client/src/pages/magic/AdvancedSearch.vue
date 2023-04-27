@@ -15,7 +15,7 @@
             <span class="q-mx-sm">
                 <magic-symbol
                     v-for="(c, i) in cost" :key="i"
-                    :value="c"
+                    :value="`{${c}}`"
                     @click="() => removeCost(i)"
                 />
             </span>
@@ -74,7 +74,7 @@
                 @update:model-value="v => checkColor(c, v)"
             >
                 <div class="flex items-center">
-                    <magic-symbol class="magic-symbol" :value="c" />
+                    <magic-symbol class="magic-symbol" :value="`{${c}}`" />
                 </div>
             </q-checkbox>
 
@@ -83,7 +83,7 @@
                 @update:model-value="v => checkColor('C', v)"
             >
                 <div class="flex items-center">
-                    <magic-symbol class="magic-symbol" value="C" />
+                    <magic-symbol class="magic-symbol" value="{C}" />
                 </div>
             </q-checkbox>
         </div>
@@ -101,7 +101,7 @@
                 @update:model-value="v => checkColorIdentity(c, v)"
             >
                 <div class="flex items-center">
-                    <magic-symbol class="magic-symbol" :value="c" />
+                    <magic-symbol class="magic-symbol" :value="`{${c}}`" />
                 </div>
             </q-checkbox>
 
@@ -110,7 +110,7 @@
                 @update:model-value="v => checkColorIdentity('C', v)"
             >
                 <div class="flex items-center">
-                    <magic-symbol class="magic-symbol" value="C" />
+                    <magic-symbol class="magic-symbol" value="{C}" />
                 </div>
             </q-checkbox>
         </div>

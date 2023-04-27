@@ -42,7 +42,7 @@
                 <div v-if="cost != null" class="mana-cost">
                     <magic-symbol
                         v-for="(s, i) in cost" :key="i"
-                        :value="s"
+                        :value="`{${s}}`"
                         :type="costStyle"
                     />
                 </div>

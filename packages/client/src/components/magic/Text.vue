@@ -52,6 +52,7 @@ export default defineComponent({
                     const regex = new RegExp(`(${[
                         '[\\n☐]',
                         '\\{[^}]+\\}',
+                        '\\[(?:0|[+-](?:[1-9][0-9]*|X))\\]',
                         ...[...props.cards]
                             .sort((a, b) => b.text.length - a.text.length)
                             .map(c => `\\b${escapeRegExp(c.text)}(?=s|\\b)`),
@@ -84,7 +85,7 @@ export default defineComponent({
                             if (magic.symbols.includes(content)) {
                                 result.push(h(Symbol, {
                                     class: attrs.class,
-                                    value: content,
+                                    value: p,
                                     type:  symbolType,
                                 }));
                             } else {
@@ -92,6 +93,16 @@ export default defineComponent({
                                     class: attrs.class,
                                 }, p));
                             }
+
+                            continue;
+                        }
+
+                        if (p.startsWith('[') && p.endsWith(']')) {
+                            result.push(h(Symbol, {
+                                class: attrs.class,
+                                value: p,
+                                type:  symbolType,
+                            }));
 
                             continue;
                         }

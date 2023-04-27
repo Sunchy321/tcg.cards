@@ -1031,52 +1031,6 @@ export default defineComponent({
                         .replace(/"/g, '“')
                         .replace(/'/g, '‘');
                 }
-
-                const symbolMap: Record<string, string> = {
-                    '-': '−',
-                    '—': '−',
-                    '―': '−',
-                    '－': '−',
-                    '–': '−',
-                    '−': '−',
-
-                    '＋': '+',
-                    '+': '+',
-                };
-
-                const numberMap: Record<string, string> = {
-                    '０': '0',
-                    '１': '1',
-                    '２': '2',
-                    '３': '3',
-                    '４': '4',
-                    '５': '5',
-                    '６': '6',
-                    '７': '7',
-                    '８': '8',
-                    '９': '9',
-                    'Ｘ': 'X',
-                };
-
-                if (lang.value !== 'ph') {
-                    p.unified.text = p.unified.text.replace(
-                        /^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg,
-                        (_: string, sym: string, num: string) => `${
-                            symbolMap[sym]
-                        }${
-                            num.split('').map(n => numberMap[n] ?? n).join('')
-                        }`,
-                    ).replace(/^０(?=：)/mg, '0');
-
-                    p.printed.text = p.printed.text.replace(
-                        /^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg,
-                        (_: string, sym: string, num: string) => `${
-                            symbolMap[sym]
-                        }${
-                            num.split('').map(n => numberMap[n] ?? n).join('')
-                        }`,
-                    ).replace(/^０(?=：)/mg, '0');
-                }
             }
         };
 
@@ -1148,6 +1102,48 @@ export default defineComponent({
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
                 printedText.value = '';
+            }
+
+            const symbolMap: Record<string, string> = {
+                '-': '-',
+                '—': '-',
+                '―': '-',
+                '－': '-',
+                '–': '-',
+                '−': '-',
+
+                '＋': '+',
+                '+': '+',
+            };
+
+            const numberMap: Record<string, string> = {
+                '０': '0',
+                '１': '1',
+                '２': '2',
+                '３': '3',
+                '４': '4',
+                '５': '5',
+                '６': '6',
+                '７': '7',
+                '８': '8',
+                '９': '9',
+                'Ｘ': 'X',
+            };
+
+            const replacer = (v: string) => v.replace(
+                /^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg,
+                (_: string, sym: string, num: string) => `[${
+                    symbolMap[sym]
+                }${
+                    num.split('').map(n => numberMap[n] ?? n).join('')
+                }]`,
+            ).replace(/^[0０](?=[:：]| :)/mg, '[0]');
+
+            oracleText.value = replacer(oracleText.value!);
+            unifiedText.value = replacer(unifiedText.value);
+
+            if (printedTypeline.value !== 'Planeswalker Legend' && !['cmb1', 'cmb2'].includes(set.value)) {
+                printedText.value = replacer(printedText.value!);
             }
 
             if (flavorText.value != null) {

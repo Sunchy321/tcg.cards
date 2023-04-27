@@ -101,7 +101,7 @@ export default defineComponent({
                 klass += ' white-old';
             }
 
-            return h('span', { class: klass }, `{${props.value}}`);
+            return h('span', { class: klass }, props.value);
         };
     },
 });

@@ -38,15 +38,15 @@
                 :options="tapStyleOption"
             >
                 <template #old1>
-                    <magic-symbol value="T" :type="['tap:old1']" />
+                    <magic-symbol value="{T}" :type="['tap:old1']" />
                 </template>
 
                 <template #old2>
-                    <magic-symbol value="T" :type="['tap:old2']" />
+                    <magic-symbol value="{T}" :type="['tap:old2']" />
                 </template>
 
                 <template #modern>
-                    <magic-symbol value="T" />
+                    <magic-symbol value="{T}" />
                 </template>
             </tap-btn-toggle>
 
@@ -57,11 +57,11 @@
                 :options="whiteStyleOption"
             >
                 <template #old>
-                    <magic-symbol value="W" :type="['white:old']" />
+                    <magic-symbol value="{W}" :type="['white:old']" />
                 </template>
 
                 <template #modern>
-                    <magic-symbol value="W" />
+                    <magic-symbol value="{W}" />
                 </template>
             </white-btn-toggle>
 
