@@ -782,13 +782,14 @@ export default defineComponent({
                     class: `${layout.value}-${partIndex.value}`,
                 };
             case 'transform':
+            case 'transform_token':
                 if (doubleFacedIcon.value != null) {
                     return {
                         src: `/magic/part-icon/${layout.value}-${doubleFacedIcon.value[partIndex.value]}.svg`,
                     };
                 } else {
                     return {
-                        src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`,
+                        src: `/magic/part-icon/transform-${partIndex.value}.svg`,
                     };
                 }
             case 'modal_dfc':

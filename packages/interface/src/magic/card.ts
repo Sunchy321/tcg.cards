@@ -6,7 +6,7 @@ export type Category =
 export type Legalities = Record<string, Legality>;
 
 export type Layout =
-    'adventure' | 'aftermath' | 'augment' | 'class' | 'double_faced' | 'emblem' | 'flip' | 'host' | 'leveler' | 'meld' | 'modal_dfc' | 'multipart' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'token' | 'transform' | 'vanguard';
+    'adventure' | 'aftermath' | 'augment' | 'class' | 'double_faced' | 'emblem' | 'flip' | 'host' | 'leveler' | 'meld' | 'modal_dfc' | 'multipart' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'token' | 'transform_token' | 'transform' | 'vanguard';
 
 export type Card = {
     cardId: string;

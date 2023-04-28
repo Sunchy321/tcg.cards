@@ -197,6 +197,7 @@ export default defineComponent({
         const turnable = computed(() => [
             'transform',
             'modal_dfc',
+            'transform_token',
             'minigame',
             'reversible_card',
             'double_faced',

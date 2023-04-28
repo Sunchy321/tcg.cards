@@ -611,7 +611,7 @@ export default defineComponent({
             },
         });
 
-        const layoutOptions = ['normal', 'split', 'multipart', 'battle'];
+        const layoutOptions = ['normal', 'split', 'multipart', 'battle', 'transform_token'];
         const partCount = computed(() => data.value?.parts?.length ?? 0);
 
         const partOptions = computed(() => {

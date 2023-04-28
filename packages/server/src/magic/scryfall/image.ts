@@ -123,6 +123,7 @@ export class ImageGetter extends Task<IImageStatus> {
                 if ([
                     'transform',
                     'modal_dfc',
+                    'transform_token',
                     'reversible_card',
                     'double_faced',
                 ].includes(info.layout)) {
