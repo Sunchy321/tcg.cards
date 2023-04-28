@@ -207,7 +207,7 @@ landwalk[snow]: Traversée des terrains neigeux
 landwalk[swamp]: Traversée des marais
 level_up: Montée de niveau
 lifelink: Lien de vie
-# living_metal: !!
+living_metal: Métal vivant
 living_weapon: Arme vivante
 madness: Folie
 melee: Mêlée
@@ -215,7 +215,7 @@ menace: Menace
 mentor: Mentor
 miracle: Miracle
 modular: Modularité
-# more_than_meets_the_eye: !!
+more_than_meets_the_eye: Plus fort que les apparences
 morph: Mue
 morph/mega: Mégamue
 mutate: Mutation

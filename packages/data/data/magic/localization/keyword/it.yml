@@ -207,7 +207,7 @@ landwalk[snow]: Passa-terre neve
 landwalk[swamp]: Passa-Paludi
 level_up: Aumentare di livello
 lifelink: Legame vitale
-# living_metal: !!
+living_metal: Metallo vivo
 living_weapon: Arma vivente
 madness: Follia
 melee: Mischia
@@ -215,7 +215,7 @@ menace: Minacciare
 mentor: Mentore
 miracle: Miracolo
 modular: Modulare
-# more_than_meets_the_eye: !!
+more_than_meets_the_eye: More Than Meets the Eye
 morph: Metamorfosi
 morph/mega: Megamorfosi
 mutate: Mutazione

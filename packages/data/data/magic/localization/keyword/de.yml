@@ -207,7 +207,7 @@ landwalk[plains]: Ebenentarnung
 landwalk[swamp]: Sumpftarnung
 level_up: Stufe aufsteigen
 lifelink: Lebensverknüpfung
-# living_metal: !!
+living_metal: Lebendes Metall
 living_weapon: Lebende Waffe
 madness: Wahnsinn
 melee: Tumult
@@ -215,7 +215,7 @@ menace: Bedrohlich
 mentor: Mentor
 miracle: Mirakulum
 modular: Bausteine
-# more_than_meets_the_eye: !!
+more_than_meets_the_eye: Die Power der Verwandlung
 morph: Morph
 morph/mega: Megamorph
 mutate: Mutation

@@ -207,7 +207,7 @@ landwalk[snow]: 氷雪土地渡り
 landwalk[swamp]: 沼渡り
 level_up: Lvアップ
 lifelink: 絆魂
-# living_metal: !!
+living_metal: 金属生命体
 living_weapon: 生体武器
 madness: マッドネス
 melee: 会戦
@@ -215,7 +215,7 @@ menace: 威迫
 mentor: 教導
 miracle: 奇跡
 modular: 接合
-# more_than_meets_the_eye: !!
+more_than_meets_the_eye: 見た目以上のもの
 morph: 変異
 morph/mega: 大変異
 mutate: 変容

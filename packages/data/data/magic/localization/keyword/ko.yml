@@ -207,7 +207,7 @@ landwalk[island]: 섬잠입
 landwalk[swamp]: 늪잠입
 level_up: 레벨업
 lifelink: 생명연결
-# living_metal: !!
+living_metal: 생체 금속
 living_weapon: 생체병기
 madness: 광기
 # melee:
@@ -215,7 +215,7 @@ menace: 호전적
 mentor: 지도
 miracle: 기적
 modular: 모듈
-# more_than_meets_the_eye: !!
+more_than_meets_the_eye: 눈에 보이는 것보다 더 많은
 morph: 변이
 morph/mega: 대변이
 mutate: 돌연변이화
