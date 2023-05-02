@@ -94,6 +94,7 @@
                     v-if="unlock"
                     v-model="id"
                     class="id code"
+                    style="width: 200px;"
                     dense outlined
                 />
 
@@ -108,7 +109,7 @@
                 </q-btn>
 
                 <div v-if="unlock" class="info flex items-center q-mx-md">
-                    <q-input v-model="lang" style="width: 120px;" outlined dense />
+                    <q-input v-model="lang" style="width: 60px;" outlined dense />
                     {{ `:${set},${number}` }}
                 </div>
 

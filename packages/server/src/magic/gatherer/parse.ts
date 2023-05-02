@@ -341,7 +341,9 @@ export class GathererGetter extends Task<GathererStatus> {
 
         const maxLang = Math.max(...cardList.map(c => uniq(c.versions.map(v => v.lang)).length));
 
-        cardList = cardList.filter(c => uniq(c.versions.map(v => v.lang)).length < maxLang);
+        const filteredList = cardList.filter(c => uniq(c.versions.map(v => v.lang)).length < maxLang);
+
+        cardList = filteredList.length === 0 && maxLang === 1 ? cardList : filteredList;
 
         const total = cardList.length;
         let count = 0;

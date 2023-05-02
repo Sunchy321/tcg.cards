@@ -140,7 +140,7 @@ export default defineComponent({
 
                         if (index === list.value.length - 1) {
                             void router.push({
-                                name:  'magic/cr/diff',
+                                name:  'magic/rule/diff',
                                 query: {
                                     from: date.value,
                                     to:   list.value[list.value.length - 2],
@@ -148,7 +148,7 @@ export default defineComponent({
                             });
                         } else {
                             void router.push({
-                                name:  'magic/cr/diff',
+                                name:  'magic/rule/diff',
                                 query: {
                                     from: list.value[index + 1],
                                     to:   date.value,
@@ -376,7 +376,7 @@ export default defineComponent({
         const hasHistory = (item: GeneralContent) => !['intro.title', 'intro', 'glossary', 'credits.title', 'credits'].includes(item.id);
 
         const itemLink = (item: GeneralContent) => ({ hash: `#${item.id}`, query: route.query });
-        const historyLink = (item: GeneralContent) => ({ name: 'magic/cr/history', query: { id: item.id } });
+        const historyLink = (item: GeneralContent) => ({ name: 'magic/rule/history', query: { id: item.id } });
         const itemText = (item: GeneralContent) => (item.index != null ? `${item.index} ${item.text}` : item.text);
 
         const copyItem = (item: GeneralContent) => copy(itemText(item) + (item.examples ?? []).map(v => `\n    ${v}`).join(''));

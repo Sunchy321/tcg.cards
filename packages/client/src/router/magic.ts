@@ -57,13 +57,13 @@ const routes = [
                 component: async () => import('pages/magic/ImageWall.vue'),
             },
             {
-                path:      'cr/diff',
-                name:      'magic/cr/diff',
+                path:      'rule/diff',
+                name:      'magic/rule/diff',
                 component: async () => import('pages/magic/CRDiff.vue'),
             },
             {
-                path:      'cr/history',
-                name:      'magic/cr/history',
+                path:      'rule/history',
+                name:      'magic/rule/history',
                 component: async () => import('pages/magic/CRHistory.vue'),
             },
             {
@@ -91,8 +91,8 @@ const routes = [
         component: async () => import('layouts/WithMenu.vue'),
         children:  [
             {
-                path:      'cr',
-                name:      'magic/cr',
+                path:      'rule',
+                name:      'magic/rule',
                 component: async () => import('pages/magic/CR.vue'),
             },
         ],

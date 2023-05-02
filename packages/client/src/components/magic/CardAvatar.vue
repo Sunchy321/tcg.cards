@@ -95,59 +95,73 @@ export default defineComponent({
                 }
             }
 
-            if (props.pauper) {
-                const versions = profile.value.versions.filter(v => v.rarity === 'common');
+            const versions = [
+                // filter for pauper
+                (vs: CardProfile['versions']) => {
+                    if (props.pauper) {
+                        return vs.filter(v => v.rarity === 'common');
+                    } else {
+                        return vs;
+                    }
+                },
 
-                const { locales } = magic;
-                const defaultLocale = locales[0];
+                // filter for locale
+                (vs: CardProfile['versions']) => {
+                    const { locales } = magic;
+                    const defaultLocale = locales[0];
 
-                const localeVersion = versions.filter(v => v.lang === locale.value);
+                    const localeVersion = vs.filter(v => v.lang === locale.value);
 
-                if (localeVersion.length > 0) {
-                    return localeVersion.sort((a, b) => (a.releaseDate > b.releaseDate
-                        ? -1
-                        : a.releaseDate < b.releaseDate ? 1 : 0))[0];
+                    if (localeVersion.length > 0) {
+                        return localeVersion;
+                    }
+
+                    const defaultVersion = vs.filter(v => v.lang === defaultLocale);
+
+                    if (defaultVersion.length > 0) {
+                        return defaultVersion;
+                    }
+
+                    return vs.slice();
+                },
+            ].reduce((value, func) => func(value), profile.value.versions);
+
+            return versions.sort((a, b) => {
+                if (a.releaseDate > b.releaseDate) {
+                    return -1;
                 }
 
-                const defaultVersion = versions.filter(v => v.lang === defaultLocale);
-
-                if (defaultVersion.length > 0) {
-                    return defaultVersion.sort((a, b) => (a.releaseDate > b.releaseDate
-                        ? -1
-                        : a.releaseDate < b.releaseDate ? 1 : 0))[0];
+                if (a.releaseDate < b.releaseDate) {
+                    return 1;
                 }
 
-                if (versions.length > 0) {
-                    return versions.sort((a, b) => (a.releaseDate > b.releaseDate
-                        ? -1
-                        : a.releaseDate < b.releaseDate ? 1 : 0))[0];
+                const cmpNumber = ((a, b) => {
+                    const matchA = /^(\d+)(\w*)$/.exec(a.number);
+                    const matchB = /^(\d+)(\w*)$/.exec(b.number);
+
+                    if (matchA == null) {
+                        if (matchB == null) {
+                            return a.number < b.number ? -1 : a.number > b.number ? 1 : 0;
+                        } else {
+                            return 1;
+                        }
+                    } else if (matchB == null) {
+                        return -1;
+                    }
+
+                    const numA = Number.parseInt(matchA[1], 10);
+                    const numB = Number.parseInt(matchB[1], 10);
+
+                    return numA < numB ? -1 : numA > numB ? 1
+                        : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
+                })(a, b);
+
+                if (cmpNumber !== 0) {
+                    return cmpNumber;
                 }
-            }
 
-            const { versions } = profile.value;
-
-            const { locales } = magic;
-            const defaultLocale = locales[0];
-
-            const localeVersion = versions.filter(v => v.lang === locale.value);
-
-            if (localeVersion.length > 0) {
-                return localeVersion.sort((a, b) => (a.releaseDate > b.releaseDate
-                    ? -1
-                    : a.releaseDate < b.releaseDate ? 1 : 0))[0];
-            }
-
-            const defaultVersion = versions.filter(v => v.lang === defaultLocale);
-
-            if (defaultVersion.length > 0) {
-                return defaultVersion.sort((a, b) => (a.releaseDate > b.releaseDate
-                    ? -1
-                    : a.releaseDate < b.releaseDate ? 1 : 0))[0];
-            }
-
-            return versions.slice().sort((a, b) => (a.releaseDate > b.releaseDate
-                ? -1
-                : a.releaseDate < b.releaseDate ? 1 : 0))[0];
+                return 0;
+            })[0];
         });
 
         const loadData = async () => cardProfile.get(

@@ -122,7 +122,7 @@ export default defineComponent({
         }, { immediate: true });
 
         const versionLink = (version: string) => ({
-            name:  'magic/cr',
+            name:  'magic/rule',
             query: {
                 date: version,
             },

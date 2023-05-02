@@ -60,7 +60,7 @@
                 <q-btn
                     class="link"
                     type="a"
-                    :to="{ name: 'magic/cr' }"
+                    :to="{ name: 'magic/rule' }"
                     icon="mdi-book-open-variant"
                     :label="$t('magic.cr.$self')"
                     flat
