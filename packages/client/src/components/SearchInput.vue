@@ -1,5 +1,8 @@
 <style lang="sass" scoped>
 .search-input
+    &:deep(.q-field__control-container)
+        z-index: 0
+
     & span.q-field__native
         position: absolute
 
@@ -8,9 +11,19 @@
 
         height: 100%
 
-    &.q-field--highlighted
+        z-index: -1
+
+    &:deep(input.q-field__native)
+        color: transparent !important
+        caret-color: rgba(0, 0, 0, 0.87)
+
+    &.q-field--highlighted, &.q-field--filled
+
         & .search-error
             text-decoration: underline wavy red
+
+        & .token-id
+            color: black
 
         & .token-punc
             color: $indigo
