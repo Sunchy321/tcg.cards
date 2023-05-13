@@ -44,7 +44,7 @@ type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | '
 
 type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };
 type NCardSplit = NCardBase & {
-    layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced';
+    layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced' | 'transform_token';
 };
 
 function splitCost(cost: string) {
@@ -66,7 +66,44 @@ function toCostMap(cost: string) {
 }
 
 function purifyText(text: string | undefined) {
-    return text?.replace(/\{½\}/g, '{H1}');
+    if (text == null) {
+        return text;
+    }
+
+    const symbolMap: Record<string, string> = {
+        '-': '-',
+        '—': '-',
+        '―': '-',
+        '－': '-',
+        '–': '-',
+        '−': '-',
+
+        '＋': '+',
+        '+': '+',
+    };
+
+    const numberMap: Record<string, string> = {
+        '０': '0',
+        '１': '1',
+        '２': '2',
+        '３': '3',
+        '４': '4',
+        '５': '5',
+        '６': '6',
+        '７': '7',
+        '８': '8',
+        '９': '9',
+        'Ｘ': 'X',
+    };
+
+    const replacer = (_: string, sym: string, num: string) => `[${symbolMap[sym]}${num.split('').map(n => numberMap[n] ?? n).join('')}]`;
+
+    return text
+        .replace(/\{½\}/g, '{H1}')
+        .replace(/^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg, replacer)
+        .replace(/\[([-—―－–−＋+])([0-9X０-９Ｘ]+)\]/mg, replacer)
+        .replace(/^[0０](?=[:：]| :)/mg, '[0]')
+        .replace(/\[０\]/mg, '[0]');
 }
 
 function isMinigame(data: NCardBase) {
@@ -125,6 +162,10 @@ function splitDFT(card: NCardFaceExtracted): NCardSplit[] {
         return [{ ...card, layout: 'token' }];
     }
 
+    if (card.card_faces[0]?.name === 'Incubator') {
+        return [{ ...card, layout: 'transform_token' }];
+    }
+
     if (card.layout === 'double_faced_token') {
         if (card.set) {
             return [
@@ -172,7 +213,9 @@ function getId(data: NCardBase & { layout: string }): string {
 
     const nameId = cardFaces.map(f => toIdentifier(f.name)).join('____');
 
-    if (data.layout === 'token') {
+    if (data.card_faces[0]?.name === 'Incubator') {
+        return 'incubator!';
+    } else if (data.layout === 'token') {
         const { typeMain, typeSub } = parseTypeline(cardFaces[0].type_line ?? '');
 
         if (typeSub == null) {
@@ -355,6 +398,10 @@ function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
                         return 'split_arena';
                     }
                 }
+            }
+
+            if (data.card_faces[0].type_line.includes('Battle')) {
+                return 'battle';
             }
 
             return data.layout;

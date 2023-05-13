@@ -3,8 +3,12 @@
         <div class="q-mb-md">
             <span>{{ key }} {{ current }} / {{ total }}</span>
 
-            <q-btn outline dense class="q-ml-md" @click="commitAllUpdation">
+            <q-btn outline dense class="q-ml-md" @click="acceptAllUpdation">
                 Accept All
+            </q-btn>
+
+            <q-btn outline dense class="q-ml-md" @click="rejectAllUpdation">
+                Reject All
             </q-btn>
         </div>
 
@@ -14,8 +18,8 @@
             class="legalities"
         >
             <q-card class="q-ma-sm q-pa-sm updation">
-                <q-card-section>{{ u.oldValue }}</q-card-section>
-                <q-card-section>{{ u.newValue }}</q-card-section>
+                <q-card-section>{{ u.oldValue ?? '<null>' }}</q-card-section>
+                <q-card-section>{{ u.newValue ?? '<null>' }}</q-card-section>
 
                 <q-card-section>
                     <card-avatar
@@ -26,7 +30,7 @@
 
                 <q-card-actions class="action justify-between">
                     <q-btn icon="mdi-check" flat dense round @click="commitUpdation(u._id, 'accept')" />
-                    <q-btn icon="mdi-close" flat dense round @click="commitUpdation(u._id, 'decline')" />
+                    <q-btn icon="mdi-close" flat dense round @click="commitUpdation(u._id, 'reject')" />
                 </q-card-actions>
             </q-card>
         </grid>
@@ -107,11 +111,20 @@ export default defineComponent({
             await loadData();
         };
 
-        const commitAllUpdation = async () => {
+        const acceptAllUpdation = async () => {
             const first = values.value[0];
 
             if (first != null) {
                 await controlPost('/magic/card/accept-all-updation', { key: first.key });
+                await loadData();
+            }
+        };
+
+        const rejectAllUpdation = async () => {
+            const first = values.value[0];
+
+            if (first != null) {
+                await controlPost('/magic/card/reject-all-updation', { key: first.key });
                 await loadData();
             }
         };
@@ -125,7 +138,8 @@ export default defineComponent({
             values,
 
             commitUpdation,
-            commitAllUpdation,
+            acceptAllUpdation,
+            rejectAllUpdation,
         };
     },
 });

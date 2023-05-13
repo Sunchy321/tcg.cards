@@ -126,6 +126,7 @@ export class ImageGetter extends Task<IImageStatus> {
                     'transform_token',
                     'reversible_card',
                     'double_faced',
+                    'battle',
                 ].includes(info.layout)) {
                     for (let i = 0; i < info.uris.length; i += 1) {
                         const name = `${info.number}-${i}`;

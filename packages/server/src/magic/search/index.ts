@@ -150,6 +150,7 @@ export default createSearcher({
         builtin.simple({ id: 'set', alt: ['expansion', 's', 'e'] }),
         builtin.simple({ id: 'number', alt: ['num'] }),
         builtin.simple({ id: 'lang', alt: ['l'] }),
+        builtin.simple({ id: 'category', alt: ['cat'] }),
         cost({ id: 'cost', alt: ['mana', 'mana-cost', 'm'] }),
         builtin.number({ id: 'mana-value', alt: ['mv', 'cmc'], key: 'manaValue' }),
         color({ id: 'color', alt: ['c'], key: 'parts.color' }),

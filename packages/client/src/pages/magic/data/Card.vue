@@ -1131,20 +1131,21 @@ export default defineComponent({
                 'Ｘ': 'X',
             };
 
-            const replacer = (v: string) => v.replace(
-                /^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg,
-                (_: string, sym: string, num: string) => `[${
-                    symbolMap[sym]
-                }${
-                    num.split('').map(n => numberMap[n] ?? n).join('')
-                }]`,
-            ).replace(/^[0０](?=[:：]| :)/mg, '[0]');
+            const applyReplace = (v: string) => {
+                const replacer = (_: string, sym: string, num: string) => `[${symbolMap[sym]}${num.split('').map(n => numberMap[n] ?? n).join('')}]`;
 
-            oracleText.value = replacer(oracleText.value!);
-            unifiedText.value = replacer(unifiedText.value);
+                return v
+                    .replace(/^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg, replacer)
+                    .replace(/\[([-—―－–−＋+])([0-9X０-９Ｘ]+)\]/mg, replacer)
+                    .replace(/^[0０](?=[:：]| :)/mg, '[0]')
+                    .replace(/\[０\]/mg, '[0]');
+            };
+
+            oracleText.value = applyReplace(oracleText.value!);
+            unifiedText.value = applyReplace(unifiedText.value);
 
             if (printedTypeline.value !== 'Planeswalker Legend' && !['cmb1', 'cmb2'].includes(set.value)) {
-                printedText.value = replacer(printedText.value!);
+                printedText.value = applyReplace(printedText.value!);
             }
 
             if (flavorText.value != null) {

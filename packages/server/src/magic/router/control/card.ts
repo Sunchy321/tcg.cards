@@ -293,7 +293,7 @@ const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResu
         match: {
             'cardId':             { $nin: internalData<string[]>('magic.special.with-comma') },
             'parts.unified.text': commaRegex,
-            'parts.typeMain':     { $nin: ['stickers', 'card'] },
+            'parts.typeMain':     { $nin: ['dungeon', 'stickers', 'card'] },
         },
     }),
 
@@ -609,12 +609,12 @@ router.post('/commit-updation', async ctx => {
         return;
     }
 
-    if (type === 'decline') {
+    if (type === 'reject') {
         const card = await Card.findOne({ 'scryfall.cardId': updation.scryfallId });
 
         if (card != null) {
             if (updation.key.startsWith('parts.')) {
-                (card.parts[updation.partIndex!] as any)[updation.key.slice(5)] = updation.oldValue;
+                (card.parts[updation.partIndex!] as any)[updation.key.slice(6)] = updation.oldValue;
             } else {
                 (card as any)[updation.key] = updation.oldValue;
             }
@@ -630,6 +630,30 @@ router.post('/commit-updation', async ctx => {
 
 router.post('/accept-all-updation', async ctx => {
     const { key } = ctx.request.body;
+
+    await CardUpdation.deleteMany({ key });
+
+    ctx.body = 200;
+});
+
+router.post('/reject-all-updation', async ctx => {
+    const { key } = ctx.request.body;
+
+    const updations = await CardUpdation.find({ key });
+
+    for (const u of updations) {
+        const card = await Card.findOne({ 'scryfall.cardId': u.scryfallId });
+
+        if (card != null) {
+            if (u.key.startsWith('parts.')) {
+                (card.parts[u.partIndex!] as any)[u.key.slice(6)] = u.oldValue;
+            } else {
+                (card as any)[u.key] = u.oldValue;
+            }
+
+            await card.save();
+        }
+    }
 
     await CardUpdation.deleteMany({ key });
 

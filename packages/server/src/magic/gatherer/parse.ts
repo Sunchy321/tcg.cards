@@ -8,8 +8,6 @@ import Card from '@/magic/db/card';
 
 import FileSaver from '@/common/save-file';
 
-import { uniq } from 'lodash';
-
 import { cardImagePath } from '../image';
 
 const imgAltMap: Record<string, string> = {
@@ -209,10 +207,18 @@ export default async function parseGatherer(
 
     const versions = await parseVersion(mids[0]);
 
+    const cards = await Card.find({ multiverseId: { $in: versions.map(v => v.id).filter(v => v != null) } });
+
+    const versionsToParse = [];
+
     for (const v of versions) {
-        if (v.id == null) {
-            continue;
+        if (v.id != null && cards.every(c => !c.multiverseId.includes(v.id!))) {
+            versionsToParse.push(v);
         }
+    }
+
+    for (const [i, v] of versionsToParse.entries()) {
+        console.log(`${v.id}:${v.lang}, ${i}/${versionsToParse.length}`);
 
         const vMids = mids.map((_, index) => v.id! + index);
         try {
@@ -339,11 +345,17 @@ export class GathererGetter extends Task<GathererStatus> {
             }
         }
 
-        const maxLang = Math.max(...cardList.map(c => uniq(c.versions.map(v => v.lang)).length));
+        const filteredList = cardList.filter(c => {
+            const versionMap: Record<string, number> = { };
 
-        const filteredList = cardList.filter(c => uniq(c.versions.map(v => v.lang)).length < maxLang);
+            for (const v of c.versions) {
+                versionMap[v.lang] = (versionMap[v.lang] ?? 0) + 1;
+            }
 
-        cardList = filteredList.length === 0 && maxLang === 1 ? cardList : filteredList;
+            return Object.values(versionMap).some(count => count !== versionMap.en);
+        });
+
+        cardList = filteredList.length === 0 ? cardList : filteredList;
 
         const total = cardList.length;
         let count = 0;
@@ -369,7 +381,9 @@ export class GathererGetter extends Task<GathererStatus> {
             return prog;
         });
 
-        for (const c of cardList) {
+        for (const [i, c] of cardList.entries()) {
+            console.log(`${c.cardId}, ${i}/${cardList.length}`);
+
             const version = c.versions.find(v => v.lang === 'en') ?? c.versions[0];
 
             await parseGatherer(version.mids, this.set, version.number, version.lang);
