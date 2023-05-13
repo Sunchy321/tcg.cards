@@ -102,6 +102,7 @@ enchant[creature{control:opponent}]: 结附于由对手操控的生物
 enchant[creature{control:you}]: 结附于由你操控的生物
 enchant[creature{green}]: 结附于绿色生物
 enchant[creature{green|white}]: 结附于绿色或白色生物
+enchant[creature{legendary}]: 结附于传奇生物
 enchant[creature{mana_value<=2}]: 结附于法术力值等于或小于2的生物
 enchant[creature{power<=3}]: 结附于力量等于或小于3的生物
 enchant[creature{red|green}]: 结附于红色或绿色生物

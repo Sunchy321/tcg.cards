@@ -102,6 +102,7 @@ enchant[creature{control:opponent}]: Verzaubert eine Kreatur, die ein Gegner kon
 enchant[creature{control:you}]: Verzaubert eine Kreatur, die du kontrollierst
 enchant[creature{green}]: Verzaubert eine grüne Kreatur
 # enchant[creature{green|white}]:
+enchant[creature{legendary}]: Verzaubert eine legendäre Kreatur
 # enchant[creature{mana_value<=2}]:
 # enchant[creature{power<=3}]:
 enchant[creature{red|green}]: Verzaubert eine rote oder grüne Kreatur

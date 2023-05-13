@@ -102,6 +102,7 @@ enchant[creature{control:opponent}]: Encantar criatura que um oponente controla
 enchant[creature{control:you}]: Encantar criatura que você controla
 enchant[creature{green}]: Encantar criatura verde
 # enchant[creature{green|white}]:
+enchant[creature{legendary}]: Encantar criatura lendária
 # enchant[creature{mana_value<=2}]:
 enchant[creature{power<=3}]: Encantar criatura com poder menor ou igual a 3
 enchant[creature{red|green}]: Encantar criatura vermelha ou verde

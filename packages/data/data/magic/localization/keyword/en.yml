@@ -102,6 +102,7 @@ enchant[creature{control:opponent}]: Enchant creature an opponent controls
 enchant[creature{control:you}]: Enchant creature you control
 enchant[creature{green}]: Enchant green creature
 enchant[creature{green|white}]: Enchant green or white creature
+enchant[creature{legendary}]: Enchant legendary creature
 enchant[creature{mana_value<=2}]: Enchant creature with mana value 2 or less
 enchant[creature{power<=3}]: Enchant creature with power 3 or less
 enchant[creature{red|green}]: Enchant red or green creature
@@ -252,6 +253,7 @@ protection[creature]: Protection from creatures
 protection[creature{-spirit}]: Protection from non-Spirit creatures
 protection[creature{god}]: Protection from God creatures
 protection[creature{legendary}]: Protection from legendary creatures
+protection[creature{type>=2}]: Protection from creatures with two or more creature types
 protection[demon]: Protection from Demons
 protection[dragon]: Protection from Dragons
 protection[elf]: Protection from Elves
@@ -262,6 +264,7 @@ protection[human]: Protection from Humans
 protection[instant]: Protection from instants
 protection[kavu]: Protection from Kavu
 protection[land]: Protection from lands
+protection[mana_value:odd]: Protection from odd mana values
 protection[mana_value<=3]: Protection from mana value 3 or less
 protection[mana_value>=3]: Protection from mana value 3 or greater
 protection[permanents{counter:corruption}]: Protection from permanents with corruption counters on them

@@ -102,6 +102,7 @@ enchant[creature{control:opponent}]: "Enchanter : une créature qu'un adversaire
 enchant[creature{control:you}]: 'Enchanter : une créature que vous contrôlez'
 enchant[creature{green}]: 'Enchanter : créature verte'
 # enchant[creature{green|white}]:
+enchant[creature{legendary}]: 'Enchanter : créature légendaire'
 # enchant[creature{mana_value<=2}]:
 enchant[creature{power<=3}]: 'Enchanter : créature de force inférieure ou égale à'
 enchant[creature{red|green}]: 'Enchanter : créature rouge ou verte'

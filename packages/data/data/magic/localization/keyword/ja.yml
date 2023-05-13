@@ -102,6 +102,7 @@ enchant[creature{control:opponent}]: エンチャント（対戦相手がコン�
 enchant[creature{control:you}]: エンチャント（あなたがコントロールしているクリーチャー）
 enchant[creature{green}]: エンチャント（緑のクリーチャー）
 # enchant[creature{green|white}]:
+enchant[creature{legendary}]: エンチャント（伝説のクリーチャー）
 # enchant[creature{mana_value<=2}]:
 enchant[creature{power<=3}]: エンチャント（パワーが３以下のクリーチャー）
 enchant[creature{red|green}]: エンチャント（赤か緑のクリーチャー）
