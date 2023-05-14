@@ -26,6 +26,19 @@ async function assignRuling(
     cardNames: { id: string, name: string[] }[],
 ) {
     const rulings = data.map(r => {
+        for (const oldRulings of oldData.rulings) {
+            for (const or of oldRulings) {
+                if (or.cards != null && or.text === r.comment) {
+                    return {
+                        source: r.source,
+                        date:   r.published_at,
+                        text:   r.comment,
+                        cards:  or.cards,
+                    } as ICard['rulings'][0];
+                }
+            }
+        }
+
         const cards = new CardNameExtractor({
             text:     r.comment,
             cardNames,
