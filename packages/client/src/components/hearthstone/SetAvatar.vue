@@ -29,7 +29,7 @@ export default defineComponent({
         const profile = ref<SetProfile | null>(null);
 
         const link = computed(() => router.resolve({
-            name:   'magic/set',
+            name:   'hearthstone/set',
             params: { id: props.id },
         }).href);
 

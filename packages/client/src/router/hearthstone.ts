@@ -23,6 +23,11 @@ const routes = [
                 component: async () => import('pages/hearthstone/Format.vue'),
             },
             {
+                path:      'set/:id',
+                name:      'hearthstone/set',
+                component: async () => import('pages/hearthstone/Set.vue'),
+            },
+            {
                 path:      'card/:id',
                 name:      'hearthstone/card',
                 component: async () => import('pages/hearthstone/Card.vue'),

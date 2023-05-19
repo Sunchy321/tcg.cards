@@ -6,6 +6,7 @@ import websocket from '@/middlewares/websocket';
 import {
     DataGetter, DataLoader, PatchLoader, PatchClearer,
 } from '@/hearthstone/hsdata';
+import { ImageGetter } from '@/hearthstone/hsdata/image';
 
 import { toSingle } from '@/common/request-helper';
 
@@ -94,6 +95,17 @@ router.get(
             patchLoaders[version].on('end', () => delete patchLoaders[version]);
             patchLoaders[version].bind(ws);
         }
+    },
+);
+
+const imageGetter = new ImageGetter();
+
+router.get(
+    '/get-image',
+    websocket,
+    async ctx => {
+        imageGetter.bind(await ctx.ws());
+        ctx.status = 200;
     },
 );
 

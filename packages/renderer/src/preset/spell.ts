@@ -121,7 +121,7 @@ export default async function renderSpell(
     // illustration
     components.push({
         type:  'image',
-        image: join('..', 'card', 'illustration', `${data.cardId}.jpg`),
+        image: join('..', 'card', 'illustration', 'jpg', `${data.cardId}.jpg`),
         pos:   position.illustration,
         size:  illusSize,
         clip(ctx) {

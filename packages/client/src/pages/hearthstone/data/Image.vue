@@ -1,11 +1,13 @@
 <template>
     <div class="q-pa-md">
-        <div class="row justify-center">
-            <q-btn-toggle
-                v-model="type"
-                outline dense
-                :options="typeOptions"
-            />
+        <div class="q-mb-md row justify-center items-center">
+            <span v-if="progress != null" class="q-mr-md">
+                {{ progress.overall.count }}/{{ progress.overall.total }}
+
+                ({{ formatTime(progress.time.remaining) }})
+
+                ({{ progress.failed }})
+            </span>
 
             <q-btn
                 class="q-ml-md"
@@ -13,13 +15,6 @@
                 icon="mdi-play"
                 @click="getImage"
             />
-        </div>
-
-        <div v-if="progress != null" class="q-my-md row justify-center">
-            {{ progress.current.set }}:{{ progress.current.lang }}
-            {{ progress.overall.count }}/{{ progress.overall.total }}
-
-            ({{ progress.failed }})
         </div>
 
         <div v-if="progress != null">
@@ -38,7 +33,7 @@
     justify-content: center
     align-items: center
 
-    width: 35px
+    width: 12.5%
     height: 35px
     font-size: 10px
 
@@ -61,36 +56,44 @@
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
 
-import { useRouter, useRoute } from 'vue-router';
-
 import controlSetup from 'setup/control';
 
 interface Progress {
     overall: { count: number, total: number };
-    current: { set: string, lang: string };
+    time: { elapsed: number, remaining: number };
     status: Record<string, string>;
     failed: number;
 }
 
+function formatTime(time: number) {
+    let result = '';
+
+    time = Math.floor(time / 1000);
+
+    result = `${time % 60}`;
+
+    time = Math.floor(time / 60);
+
+    result = `${time % 60}:${result}`;
+
+    time = Math.floor(time / 60);
+
+    result = `${time % 60}:${result}`;
+
+    time = Math.floor(time / 24);
+
+    if (time > 0) {
+        result = `${time} ${result}`;
+    }
+
+    return result;
+}
+
 export default defineComponent({
     setup() {
-        const router = useRouter();
-        const route = useRoute();
-
         const { controlWs } = controlSetup();
 
         const progress = ref<Progress | null>(null);
-
-        const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
-
-        const typeOptions = types.map(t => ({
-            value: t, label: t,
-        }));
-
-        const type = computed({
-            get() { return route.query.type as string ?? 'large'; },
-            set(newValue: string) { void router.replace({ query: { type: newValue } }); },
-        });
 
         const status = computed(() => progress.value?.status ?? {});
 
@@ -99,15 +102,13 @@ export default defineComponent({
         const getImage = async () => {
             progress.value = null;
 
-            const ws = controlWs('/magic/image/get', { type: type.value });
+            const ws = controlWs('/hearthstone/hsdata/get-image');
 
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
                     const prog = JSON.parse(data) as Progress;
 
-                    if (prog?.current?.set != null) {
-                        progress.value = prog;
-                    }
+                    progress.value = prog;
                 };
 
                 ws.onerror = reject;
@@ -116,14 +117,12 @@ export default defineComponent({
         };
 
         return {
-            type,
             progress,
             status,
             statusKey,
 
-            typeOptions,
-
             getImage,
+            formatTime,
         };
     },
 });
