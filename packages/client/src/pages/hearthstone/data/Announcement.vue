@@ -522,7 +522,7 @@ export default defineComponent({
             const newLoc = newData.localization.find(l => l.lang === 'en') ?? newData.localization[0];
 
             if (oldLoc.text !== newLoc.text) {
-                newDetail.push({ part: 'text', status: 'nerf' });
+                newDetail.push({ part: 'text', status: 'adjust' });
             }
 
             if (!isEqual(oldData.race, newData.race)) {
@@ -530,7 +530,7 @@ export default defineComponent({
             }
 
             if (oldData.spellSchool !== newData.spellSchool) {
-                newDetail.push({ part: 'spell-school', status: 'adjust' });
+                newDetail.push({ part: 'school', status: 'adjust' });
             }
 
             const rarities = ['common', 'rare', 'epic', 'legendary'];

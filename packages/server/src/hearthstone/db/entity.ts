@@ -48,8 +48,9 @@ const EntitySchema = new Schema<IEntity>({
     buddy:        String,
     bannedRace:   String,
 
-    mercenaryRole: String,
-    colddown:      Number,
+    mercenaryRole:    String,
+    mercenaryFaction: String,
+    colddown:         Number,
 
     collectible: { type: Boolean, default: false },
     elite:       { type: Boolean, default: false },

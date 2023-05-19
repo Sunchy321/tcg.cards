@@ -54,6 +54,7 @@ export interface Entity {
     bannedRace?: string;
 
     mercenaryRole?: string;
+    mercenaryFaction?: string;
     colddown?: number;
 
     collectible: boolean;

@@ -223,6 +223,8 @@ interface TimelineNode {
 export const banlistStatusOrder = ['banned', 'banned_in_deck', 'banned_in_card_pool', 'legal', 'unavailable'];
 export const banlistSourceOrder = ['c_thun', 'quest', 'hero', 'odd_even', 'invoke', null];
 
+const adjustmentStatusOrder = ['nerf', 'buff', 'adjust'];
+
 export default defineComponent({
     components: {
         Grid,
@@ -355,6 +357,15 @@ export default defineComponent({
                     if (a.status !== b.status) {
                         return banlistStatusOrder.indexOf(a.status)
                                 - banlistStatusOrder.indexOf(b.status);
+                    } else {
+                        return a.id < b.id ? -1 : 1;
+                    }
+                });
+
+                v.adjustment.sort((a, b) => {
+                    if (a.status !== b.status) {
+                        return adjustmentStatusOrder.indexOf(a.status)
+                                - adjustmentStatusOrder.indexOf(b.status);
                     } else {
                         return a.id < b.id ? -1 : 1;
                     }

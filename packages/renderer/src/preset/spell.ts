@@ -328,7 +328,7 @@ export default async function renderSpell(
     if (aSchool?.status === 'adjust') {
         components.push({
             type:  'image',
-            image: join('minion', 'effect', 'school-adjust.png'),
+            image: join('spell', 'effect', 'school-adjust.png'),
             pos:   position.adjustment.school.adjust!,
         });
     }

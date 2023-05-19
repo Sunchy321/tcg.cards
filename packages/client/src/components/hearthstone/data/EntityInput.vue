@@ -120,9 +120,12 @@ const mercenariesPreset = [
     'LT24_003H_01',
     'LT24_007H_01',
     'LT24_008H_01',
+    'LT24_009H_01',
     'LT24_010H_02',
     'LT24_011H_02',
+    'LT24_012H_01',
     'LT24_013H_02',
+    'LT24_014H_03',
     'LT24_016H_01',
     'LT24_017H_01',
     'LT24_019H_01',
@@ -130,6 +133,9 @@ const mercenariesPreset = [
     'LT24_021H_01',
     'LT24_027H_01',
     'LT25_001H_01',
+    'LT25_003H_01',
+    'LT25_005H_01',
+    'LT25_020H_01',
     'SWL_01H_01',
     'SWL_06H_01',
     'SWL_10H_02',
@@ -186,7 +192,7 @@ export default defineComponent({
             }
 
             let { data } = await apiGet<Entity[]>('/hearthstone/card/name', {
-                name,
+                name:    name.replace(/’/g, '\''),
                 version: props.version,
             });
 
@@ -194,6 +200,16 @@ export default defineComponent({
                 if (data.some(d => mercenariesPreset.includes(d.cardId))) {
                     data = data.filter(d => mercenariesPreset.includes(d.cardId));
                 }
+            }
+
+            if (props.format === 'battlegrounds') {
+                data = data.filter(d => {
+                    if (d.cardId.endsWith('_G') && data.some(v => v.cardId === d.cardId.replace(/_G$/, ''))) {
+                        return false;
+                    }
+
+                    return true;
+                });
             }
 
             if (data.length === 1) {

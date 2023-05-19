@@ -98,6 +98,7 @@ export const tags: Record<string, ITag> = {
     1723: { index: 'armorBucket' },
     2130: { index: 'buddy' },
     2703: { index: 'bannedRace', enum: 'race' },
+    2720: { index: 'mercenaryFaction', enum: true },
 };
 
 export class DataGetter extends Task<SimpleGitProgressEvent & { type: 'get' }> {
@@ -254,15 +255,23 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
     }
 
     private addData(name: string) {
-        this.data[name] = internalData(`hearthstone.hsdata-map.${name}`);
+        this.data[name] = internalData(`hearthstone.${name}`);
     }
 
-    private getData<T>(name: string): Record<string, T> {
-        if (this.data[name] == null) {
-            this.addData(name);
+    private getMapData<T>(name: string): Record<string, T> {
+        if (this.data[`hsdata-map.${name}`] == null) {
+            this.addData(`hsdata-map.${name}`);
         }
 
-        return this.data[name];
+        return this.data[`hsdata-map.${name}`];
+    }
+
+    private getSpecialData<T>(name: string): T {
+        if (this.data[`hsdata-special.${name}`] == null) {
+            this.addData(`hsdata-special.${name}`);
+        }
+
+        return this.data[`hsdata-special.${name}`];
     }
 
     private getValue(tag: XLocStringTag | XTag, info: ITag) {
@@ -314,12 +323,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     return 'faction';
                 case 'mercenaryRole':
                     return 'mercenary-role';
+                case 'mercenaryFaction':
+                    return 'mercenary-faction';
                 default:
                     throw new Error(`Unknown enum ${enumId}`);
                 }
             })();
 
-            const data = this.getData<any>(filename);
+            const data = this.getMapData<any>(filename);
 
             return data[id];
         } else {
@@ -521,7 +532,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         continue;
                     }
 
-                    const rune = this.getData<string>('rune')[id];
+                    const rune = this.getMapData<string>('rune')[id];
 
                     if (rune != null) {
                         if (result.rune == null) {
@@ -532,7 +543,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         continue;
                     }
 
-                    const dualRace = this.getData<string>('dual-race')[id];
+                    const dualRace = this.getMapData<string>('dual-race')[id];
 
                     if (dualRace != null) {
                         if (result.race == null) {
@@ -543,14 +554,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         continue;
                     }
 
-                    const raceBucket = this.getData<string>('race-bucket')[id];
+                    const raceBucket = this.getMapData<string>('race-bucket')[id];
 
                     if (raceBucket != null) {
                         result.raceBucket = raceBucket;
                         continue;
                     }
 
-                    const relatedEntity = this.getData<string>('related-entity')[id];
+                    const relatedEntity = this.getMapData<string>('related-entity')[id];
 
                     if (relatedEntity != null) {
                         result.relatedEntities.push({
@@ -561,7 +572,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         continue;
                     }
 
-                    const mechanic = this.getData<string>('mechanic')[id];
+                    const mechanic = this.getMapData<string>('mechanic')[id];
 
                     if (type !== 'Int' && type !== 'Card') {
                         errors.push(`Incorrect type ${type} of mechanic ${mechanic}`);
@@ -598,7 +609,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             quest.part = value;
                             break;
                         case 'puzzle_type':
-                            result.mechanics[result.mechanics.indexOf('puzzle')!] = `puzzle:${this.getData<string>('puzzle-type')[value]}`;
+                            result.mechanics[result.mechanics.indexOf('puzzle')!] = `puzzle:${this.getMapData<string>('puzzle-type')[value]}`;
                             break;
                         case 'drag_minion':
                             if (value === 1) {
@@ -609,64 +620,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                                 errors.push(`Mechanic ${mechanic} with non-1 value`);
                             }
                             break;
-                        case 'data_num_1':
-                        case 'data_num_2':
-                        case 'data_env_1':
-                        case 'score_value_1':
-                        case 'score_value_2':
-                        case 'windfury':
-                        case 'buff_attack_up':
-                        case 'buff_cost_down':
-                        case 'buff_cost_up':
-                        case 'buff_health_up':
-                        case 'buff_durability_up':
-                        case 'discard_cards':
-                        case 'game_button':
-                        case 'overload':
-                        case 'spell_power':
-                        case 'darkmoon_prize':
-                        case 'lettuce_role':
-                        case '?1672':
-                        case '?lettuce_ability_summoned_minion':
-                        case 'lettuce_current_cooldown':
-                        case 'overload_owed':
-                        case 'the_rat_king_skill_activating_type':
-                        case 'entity_threshold_value':
-                        case 'transfromed_card_visual_type':
-                        case 'quest_param_no_beast':
-                        case 'quest_param_no_demon':
-                        case 'quest_param_no_dragon':
-                        case 'quest_param_no_mech':
-                        case 'quest_param_no_murloc':
-                        case 'quest_param_no_pirate':
-                        case 'quest_param_no_elemental':
-                        case 'quest_param_no_quilboar':
-                        case 'quest_param_no_naga':
-                        case 'quest_lower_bound':
-                        case 'quest_upper_bound':
-                        case 'quest_adjustment':
-                        case 'quest_reward_adjustment':
-                        case 'quest_reward_rarity':
-                        case 'quest_reward_race':
-                        case 'manathirst':
-                            result.mechanics.push(`${mechanic}:${value}`);
-                            break;
-                        case 'base_galakrond':
-                        case 'hide_stats':
-                        case 'hide_watermark':
-                        case 'poison':
-                        case 'dormant_visual':
-                        case 'advance_fight':
-                        case '?darkmoon_prize':
-                        case '?duels_passive':
-                        case '?1684':
-                        case 'entity_threshold':
-                        case 'one_turn_taunt':
-                        case '?sire_denathrius':
-                            result.mechanics.push(mechanic);
-                            break;
                         default:
-                            if (value === 1 || mechanic.startsWith('?')) {
+                            if (this.getSpecialData<string[]>('mechanic-with-value').includes(mechanic)) {
+                                result.mechanics.push(`${mechanic}:${value}`);
+                            } else if (this.getSpecialData<string[]>('mechanic-ignore-value').includes(mechanic)) {
+                                result.mechanics.push(mechanic);
+                            } else if (value === 1 || mechanic.startsWith('?')) {
                                 result.mechanics.push(mechanic);
                             } else {
                                 errors.push(`Mechanic ${mechanic} with non-1 value`);
@@ -710,7 +669,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         power.playRequirements = [];
 
                         for (const r of castArray(p.PlayRequirement)) {
-                            const type = this.getData<string>('play-requirement')[r._attributes.reqID];
+                            const type = this.getMapData<string>('play-requirement')[r._attributes.reqID];
 
                             const { param } = r._attributes;
 
@@ -741,7 +700,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 for (const r of castArray(entity[k])) {
                     const id = r._attributes.enumID;
 
-                    const req = this.getData<string>('mechanic')[id];
+                    const req = this.getMapData<string>('mechanic')[id];
 
                     if (req === undefined) {
                         errors.push(`Unknown referenced tag ${id} <${r._attributes.name}>`);
