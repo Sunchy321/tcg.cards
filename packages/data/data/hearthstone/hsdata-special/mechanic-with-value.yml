@@ -19,8 +19,8 @@
 - emote_class
 - entity_threshold_value
 - game_button
-- generic_tripler
-- generic_tripler_effect
+- wildcard_tripler
+- wildcard_tripler_effect
 - lettuce_current_cooldown
 - lettuce_role
 - magnetic_race
