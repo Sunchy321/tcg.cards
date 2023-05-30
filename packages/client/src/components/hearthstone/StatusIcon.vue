@@ -34,9 +34,9 @@ export default defineComponent({
             case 'legal':
                 return 'mdi-check-circle-outline';
             case 'banned_in_deck':
-                return 'mdi-progress-close';
-            case 'banned_in_card_pool':
                 return 'mdi-minus-circle-outline';
+            case 'banned_in_card_pool':
+                return 'mdi-star-circle-outline';
             case 'unavailable':
                 return 'mdi-cancel';
             case 'nerf':

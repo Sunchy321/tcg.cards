@@ -44,7 +44,7 @@ module.exports = configure((/* ctx */) => ({
 
     // https://github.com/quasarframework/quasar/tree/dev/extras
     extras: [
-        'mdi-v6',
+        'mdi-v7',
     ],
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#build
@@ -129,7 +129,7 @@ module.exports = configure((/* ctx */) => ({
     framework: {
         config: {},
 
-        iconSet: 'mdi-v5', // Quasar icon set
+        iconSet: 'mdi-v7', // Quasar icon set
         lang: 'en-US', // Quasar language pack
 
         // For special cases outside of where the auto-import strategy can have an impact

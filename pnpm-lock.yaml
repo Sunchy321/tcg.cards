@@ -66,8 +66,8 @@ importers:
         specifier: ^2.0.11
         version: 2.0.22(typescript@4.8.4)(vue@3.2.40)
       quasar:
-        specifier: ^2.9.2
-        version: 2.9.2
+        specifier: ^2.12.0
+        version: 2.12.0
       tst-reflect:
         specifier: ^0.7.4
         version: 0.7.9
@@ -89,7 +89,7 @@ importers:
         version: 3.4.0(vite@2.9.15)(vue-i18n@9.2.2)
       '@quasar/app-vite':
         specifier: ^1.0.0-alpha.0
-        version: 1.1.2(eslint@8.24.0)(pinia@2.0.22)(quasar@2.9.2)(vue-router@4.1.5)(vue@3.2.40)
+        version: 1.1.2(eslint@8.24.0)(pinia@2.0.22)(quasar@2.12.0)(vue-router@4.1.5)(vue@3.2.40)
       '@rollup/plugin-yaml':
         specifier: ^4.0.1
         version: 4.0.1
@@ -984,7 +984,7 @@ packages:
     resolution: {integrity: sha512-nWlGg+aMfQDhGYa5FtBhZwldeo2MtdjHdxmEQvhBXEnxgD5IhIYl0PHvex8SdwyN7qcSoMykMWdjyAX7ZxkpMw==}
     dev: true
 
-  /@quasar/app-vite@1.1.2(eslint@8.24.0)(pinia@2.0.22)(quasar@2.9.2)(vue-router@4.1.5)(vue@3.2.40):
+  /@quasar/app-vite@1.1.2(eslint@8.24.0)(pinia@2.0.22)(quasar@2.12.0)(vue-router@4.1.5)(vue@3.2.40):
     resolution: {integrity: sha512-jR8QSCLf9VB1DggaqCXpTjXahBiZQa/g2q+U6DuABsVKOajkAjtKmgOziizKwWqNFBH4cfPWX4HZLcGqzn0KWQ==}
     engines: {node: ^18 || ^16 || ^14.19, npm: '>= 6.14.12', yarn: '>= 1.17.3'}
     hasBin: true
@@ -1013,7 +1013,7 @@ packages:
         optional: true
     dependencies:
       '@quasar/fastclick': 1.1.5
-      '@quasar/vite-plugin': 1.2.3(@vitejs/plugin-vue@2.3.4)(quasar@2.9.2)(vite@2.9.15)(vue@3.2.40)
+      '@quasar/vite-plugin': 1.2.3(@vitejs/plugin-vue@2.3.4)(quasar@2.12.0)(vite@2.9.15)(vue@3.2.40)
       '@rollup/pluginutils': 4.2.1
       '@types/chrome': 0.0.191
       '@types/compression': 1.7.2
@@ -1041,7 +1041,7 @@ packages:
       open: 8.4.0
       ouch: 2.0.1
       pinia: 2.0.22(typescript@4.8.4)(vue@3.2.40)
-      quasar: 2.9.2
+      quasar: 2.12.0
       register-service-worker: 1.7.2
       rollup-plugin-visualizer: 5.8.2
       sass: 1.32.12
@@ -1067,7 +1067,7 @@ packages:
     resolution: {integrity: sha512-p3JKgTjRlJ1YQXbqTw3Bsa4j0mQdt5dq+WfYvyb7MgKGdephHCKdR/kxA5PCTAmJanGJuDKqRdyGYX/hYN4KGw==}
     dev: true
 
-  /@quasar/vite-plugin@1.2.3(@vitejs/plugin-vue@2.3.4)(quasar@2.9.2)(vite@2.9.15)(vue@3.2.40):
+  /@quasar/vite-plugin@1.2.3(@vitejs/plugin-vue@2.3.4)(quasar@2.12.0)(vite@2.9.15)(vue@3.2.40):
     resolution: {integrity: sha512-ErSyY3cHz40GBIQUmqSI8OzzshJM5pLq33Yq3NEtYdWYh1NuIc4C766xkatUdxvhX9sLNnQQZax2ysJ5u7kUJA==}
     engines: {node: '>=12'}
     peerDependencies:
@@ -1077,7 +1077,7 @@ packages:
       vue: ^3.0.0
     dependencies:
       '@vitejs/plugin-vue': 2.3.4(vite@2.9.15)(vue@3.2.40)
-      quasar: 2.9.2
+      quasar: 2.12.0
       vite: 2.9.15(sass@1.32.12)
       vue: 3.2.40
     dev: true
@@ -6438,8 +6438,8 @@ packages:
     engines: {node: '>=0.6'}
     dev: false
 
-  /quasar@2.9.2:
-    resolution: {integrity: sha512-Z4QWJDC4vFILKRJJdE0j/jnRTo94A2k403G6LtTiSIRSmV8dUl4YWqqNRH6lQQ01Vwjj06kKtN81fi3ontBt0w==}
+  /quasar@2.12.0:
+    resolution: {integrity: sha512-B8xoeOWNs/Iv7M+FGRvXGYI1qDnJH8AtIb7RiP+zMfMkBcEp+6HJHU/9ODPemC4yteDjO+HPX2f7OhNZKgsPIw==}
     engines: {node: '>= 10.18.1', npm: '>= 6.13.4', yarn: '>= 1.21.1'}
 
   /queue-microtask@1.2.3:
