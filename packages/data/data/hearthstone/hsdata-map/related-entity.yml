@@ -1,3 +1,4 @@
+435:  transform_from
 1078: display_mouse_over_card
 1086: upgraded_power
 1089: quest_reward
@@ -14,4 +15,6 @@
 2153: aranna_advanced
 2359: spellcraft
 2519: upgraded_hero_power
-2673: quest_reward_card
+2673: battlegrounds_quest_reward
+3080: wildcard_tripler_minion
+3092: wildcard_tripler_effect

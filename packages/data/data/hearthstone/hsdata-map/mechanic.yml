@@ -74,7 +74,9 @@
 457:  auto_attack
 462:  quest # use isQuest instead of mechanics
 463:  ?boss_king_krush # only on boss King Krush
+469:  defining_enchantment
 470:  finish_attack_spell_on_damage
+481:  cost_health
 482:  ~ # grimy_goons ignored because useless
 483:  ~ # jade_lotus ignored because useless
 484:  ~ # kabal ignored because useless
@@ -456,7 +458,7 @@
 2887: ?detective_for_hire
 2888: ?unknown_2888
 2889: ?mercenaries_2889
-2911: cost_health
+2911: battlegrounds_cost_health
 2919: ?mercenaries_2919
 2920: ?mercenaries_2920
 2931: ?unknown_2931
@@ -472,5 +474,4 @@
 3047: counter_trigger
 3049: ?polarizing_beatboxer
 3062: wildcard_tripler
-3080: wildcard_tripler_effect
 3083: ?malchezaar__prince_of_dance_golden
