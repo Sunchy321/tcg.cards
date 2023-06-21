@@ -21,6 +21,7 @@ import internalData from '@/internal-data';
 import { SpellingMistakes } from '@/magic/scryfall/data/ruling';
 import { CardData, getLegality, getLegalityRules } from '@/magic/banlist/legality';
 import parseGatherer, { GathererGetter, saveGathererImage } from '@/magic/gatherer/parse';
+import { toBucket, toGenerator } from '@/common/to-bucket';
 
 import searcher from '@/magic/search';
 
@@ -221,8 +222,8 @@ const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResu
                 date:          { $max: '$releaseDate' },
             })
             .match({
-                '_id.lang': lang,
-                '$or':      [
+                ...lang != null ? { '_id.lang': lang } : {},
+                $or: [
                     { 'colorIdentity.1': { $exists: true } },
                     { 'color.1': { $exists: true } },
                     { 'power.1': { $exists: true } },
@@ -637,25 +638,53 @@ router.post('/accept-all-updation', async ctx => {
 });
 
 router.post('/reject-all-updation', async ctx => {
-    const { key } = ctx.request.body;
+    const { key } = mapValues(ctx.request.body, toSingle);
 
     const updations = await CardUpdation.find({ key });
 
-    for (const u of updations) {
-        const card = await Card.findOne({ 'scryfall.cardId': u.scryfallId });
+    if (!key.startsWith('parts.')) {
+        const values = [];
 
-        if (card != null) {
-            if (u.key.startsWith('parts.')) {
-                (card.parts[u.partIndex!] as any)[u.key.slice(6)] = u.oldValue;
-            } else {
-                (card as any)[u.key] = u.oldValue;
+        for (const u of updations) {
+            let found = false;
+
+            for (const v of values) {
+                if (isEqual(v.oldValue, u.oldValue)) {
+                    v.cardIds.push(u.scryfallId);
+                    found = true;
+                    break;
+                }
             }
 
-            await card.save();
+            if (!found) {
+                values.push({
+                    oldValue: u.oldValue,
+                    cardIds:  [u.scryfallId],
+                });
+            }
+        }
+
+        for (const v of values) {
+            for (const ids of toBucket(toGenerator(v.cardIds), 1000)) {
+                await Card.updateMany({ 'scryfall.cardId': { $in: ids } }, { $set: { [key]: v.oldValue } });
+                await CardUpdation.deleteMany({ key, scryfallId: { $in: ids } });
+            }
+        }
+    } else {
+        for (const bucket of toBucket(toGenerator(updations), 100)) {
+            for (const u of bucket) {
+                const card = await Card.findOne({ 'scryfall.cardId': u.scryfallId });
+
+                if (card != null) {
+                    (card.parts[u.partIndex!] as any)[u.key.slice(6)] = u.oldValue;
+
+                    await card.save();
+                }
+            }
+
+            await CardUpdation.deleteMany({ _id: { $in: bucket.map(b => b._id) } });
         }
     }
-
-    await CardUpdation.deleteMany({ key });
 
     ctx.body = 200;
 });

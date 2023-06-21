@@ -136,7 +136,28 @@ export default defineComponent({
                     ...render(values.map(() => [placeholder, ']']), index),
                 ];
             } else if (values.every(v => v == null || !isPrimary(v))) {
-                const keys = uniq(flatten(values.map(v => Object.keys(v ?? {})))).sort();
+                const keyOrder = (k: string) => {
+                    if (!isEqual(values[0]?.[k], values[1]?.[k])) {
+                        if (values.every(v => isPrimary(v?.[k]) || isPrimaryArray(v?.[k]))) {
+                            return 2;
+                        } else {
+                            return 1;
+                        }
+                    } else {
+                        return 0;
+                    }
+                };
+
+                const keys = uniq(flatten(values.map(v => Object.keys(v ?? {})))).sort((a, b) => {
+                    const aOrder = keyOrder(a);
+                    const bOrder = keyOrder(b);
+
+                    if (aOrder !== bOrder) {
+                        return aOrder > bOrder ? -1 : 1;
+                    } else {
+                        return a < b ? -1 : a > b ? 1 : 0;
+                    }
+                });
 
                 const lines = flatten(keys.map(k => render(values.map(v => v?.[k] ?? null), [...index, `${k}.`]))).map((l, i, a) => {
                     if (l.children != null && Array.isArray(l.children)) {
