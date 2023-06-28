@@ -20,6 +20,7 @@ export const locales = [
 export const formats = [
     'standard',
     'wild',
+    'twist',
     'classic',
     'battlegrounds',
     'mercenaries',

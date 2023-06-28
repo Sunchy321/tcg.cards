@@ -9,6 +9,7 @@ export default {
 
         standard:      'Standard',
         wild:          'Wild',
+        twist:         'Twist',
         classic:       'Classic',
         battlegrounds: 'Battlegrounds',
         mercenaries:   'Mercenaries',

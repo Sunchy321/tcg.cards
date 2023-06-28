@@ -9,6 +9,7 @@ export default {
 
         standard:      '标准',
         wild:          '狂野',
+        twist:         '幻变',
         classic:       '经典',
         battlegrounds: '酒馆战棋',
         mercenaries:   '佣兵',

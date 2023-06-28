@@ -19,8 +19,6 @@
 - emote_class
 - entity_threshold_value
 - game_button
-- wildcard_tripler
-- wildcard_tripler_effect
 - lettuce_current_cooldown
 - lettuce_role
 - magnetic_race
@@ -38,6 +36,7 @@
 - quest_param_no_naga
 - quest_param_no_pirate
 - quest_param_no_quilboar
+- quest_param_no_undead
 - quest_reward_adjustment
 - quest_reward_race
 - quest_reward_rarity
@@ -47,4 +46,6 @@
 - spell_power
 - the_rat_king_skill_activating_type
 - transfromed_card_visual_type
+- wildcard_tripler
+- wildcard_tripler_effect
 - windfury

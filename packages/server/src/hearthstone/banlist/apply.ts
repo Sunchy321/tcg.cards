@@ -389,7 +389,7 @@ export class AnnouncementApplier {
                 const formats = (() => {
                     switch (c.format) {
                     case '#hearthstone':
-                        return ['standard', 'wild', 'arena', 'duel'].filter(f => {
+                        return ['standard', 'wild', 'arena', 'duel', 'twist'].filter(f => {
                             const format = this.formatMap[f]!;
                             // the change don't become effective now
                             if (date > new Date().toISOString().split('T')[0]) { return false; }
