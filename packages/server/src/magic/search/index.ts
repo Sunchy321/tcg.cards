@@ -129,6 +129,24 @@ export default createSearcher({
             allowRegex: false,
             op:         [''],
             query:      ({ param, qual }) => {
+                if (param === 'ox-ne-px') {
+                    return {
+                        $expr: { $ne: ['$parts.oracle.text', '$parts.printed.text'] },
+                    };
+                }
+
+                if (param === 'ux-ne-px') {
+                    return {
+                        $expr: { $ne: ['$parts.unified.text', '$parts.printed.text'] },
+                    };
+                }
+
+                if (param === '__oracle') {
+                    return {
+                        __oracle: { $exists: true },
+                    };
+                }
+
                 if (!qual.includes('!')) {
                     return {
                         $or: [
