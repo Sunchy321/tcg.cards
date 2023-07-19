@@ -421,6 +421,7 @@
 2649: quest_param_no_elemental
 2650: quest_param_no_quilboar
 2651: quest_param_no_naga
+2652: quest_param_no_undead
 2653: quest_reward_rarity
 2674: quest_lower_bound
 2677: ?ghastly_mask
@@ -445,6 +446,7 @@
 2831: treant
 2837: always_spend_corpse
 2839: emote_character
+2840: has_active_power
 2851: emote_class
 2853: venomous
 2859: magnetic_race
@@ -475,5 +477,4 @@
 3049: ?polarizing_beatboxer
 3062: wildcard_tripler
 3083: ?malchezaar__prince_of_dance_golden
-2652: quest_param_no_undead
-2840: has_active_power
+3108: banned_in_twist
