@@ -54,7 +54,7 @@ export function parseTypeline(typeline: string): Type {
     const typeSub = sub != null
         ? mainWord.includes('plane')
             ? [toIdentifier(sub)]
-            : sub.split(' ').map(toIdentifier)
+            : sub.split(/ |(time lord)/i).filter(v => v != null && v !== '').map(toIdentifier)
         : undefined;
 
     const typeSuper = mainWord.filter(w => superList.includes(w));
