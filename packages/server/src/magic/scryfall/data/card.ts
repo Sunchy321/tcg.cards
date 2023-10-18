@@ -39,12 +39,12 @@ type NCardFace = Omit<CardFace, 'colors'> & {
 
 type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | 'oracle_id'> | 'card_faces' | 'layout'> & {
     card_faces: NCardFace[];
-    face?: 'back' | 'front';
+    face?: 'back' | 'bottom' | 'front' | 'top';
 };
 
 type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };
 type NCardSplit = NCardBase & {
-    layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced' | 'transform_token';
+    layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced' | 'flip_token_bottom' | 'flip_token_top' | 'transform_token';
 };
 
 function splitCost(cost: string) {
@@ -187,6 +187,27 @@ function splitDFT(card: NCardFaceExtracted): NCardSplit[] {
                 },
             ];
         }
+    }
+
+    if (card.layout === 'flip' && card.card_faces[0].type_line.includes('Token')) {
+        return [
+            {
+                ...card,
+                color_identity:   card.card_faces[0].colors,
+                collector_number: `${card.collector_number}-0`,
+                layout:           'flip_token_top',
+                card_faces:       [card.card_faces[0]],
+                face:             'top',
+            },
+            {
+                ...card,
+                color_identity:   card.card_faces[1].colors,
+                collector_number: `${card.collector_number}-1`,
+                layout:           'flip_token_bottom',
+                card_faces:       [card.card_faces[1]],
+                face:             'bottom',
+            },
+        ];
     }
 
     return [card as NCardSplit];
@@ -815,6 +836,11 @@ export default class CardLoader extends Task<Status> {
                     continue;
                 }
 
+                if (json.card_faces == null || !json.card_faces[0].type_line.includes('Role')) {
+                    count += 1;
+                    continue;
+                }
+
                 const newCards = splitDFT(toNSCard(json as RawCardNoArtSeries));
 
                 const oldCards = cards.filter(c => c.scryfall.cardId === json.id
@@ -870,7 +896,7 @@ export default class CardLoader extends Task<Status> {
                     continue;
                 }
 
-                if (card.set === 'plist') {
+                if (card.set === 'plist' || card.set === 'pagl') {
                     card.localTags.push('dev:printed');
                     continue;
                 }

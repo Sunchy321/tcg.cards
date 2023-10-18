@@ -6,7 +6,7 @@ export type Category =
 export type Legalities = Record<string, Legality>;
 
 export type Layout =
-    'adventure' | 'aftermath' | 'augment' | 'battle' | 'class' | 'double_faced' | 'emblem' | 'flip' | 'host' | 'leveler' | 'meld' | 'modal_dfc' | 'multipart' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'token' | 'transform_token' | 'transform' | 'vanguard';
+    'adventure' | 'aftermath' | 'augment' | 'battle' | 'class' | 'double_faced' | 'emblem' | 'flip_token_bottom' | 'flip_token_top' | 'flip' | 'host' | 'leveler' | 'meld' | 'modal_dfc' | 'multipart' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'token' | 'transform_token' | 'transform' | 'vanguard';
 
 export type Card = {
     cardId: string;
@@ -115,7 +115,7 @@ export type Card = {
     scryfall: {
         oracleId: string;
         cardId?: string;
-        face?: 'back' | 'front';
+        face?: 'back' | 'bottom' | 'front' | 'top';
         imageUris: Record<string, string>[];
     };
 

@@ -97,7 +97,7 @@
     &.rotated
         transform: rotate(90deg) scale(calc(745/1040))
 
-    &.layout-flip.part-1
+    &.layout-flip.part-1, &.layout-flip_token_bottom
         transform: rotate(180deg)
 
     &.layout-aftermath.part-1
@@ -210,6 +210,10 @@ export default defineComponent({
                 return [
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
                     `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
+                ];
+            } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
+                return [
+                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number.split('-')[0]}`,
                 ];
             } else {
                 return [
