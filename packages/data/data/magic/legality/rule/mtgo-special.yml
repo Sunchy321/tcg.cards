@@ -1,0 +1,6 @@
+status:
+  format: '*'
+  value: unavailable
+
+patterns:
+  - '"Name Sticker" Goblin'
