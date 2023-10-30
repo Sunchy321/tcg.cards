@@ -116,6 +116,7 @@
 890:  discard_cards
 917:  city_of_stormwind_1 # only on City of Stormwind
 920:  city_of_stormwind_2 # only on City of Stormwind
+921:  voodoo_link
 923:  overkill
 956:  filter_even_in_collection
 957:  filter_odd_in_collection
@@ -436,8 +437,10 @@
 2731: ?overload_variant
 2732: battlegrounds_quest_prepration
 2768: ?treasure_seeker_elise
+2772: titan
 2779: lettuce_charge
 2780: battlegrounds_died_last_combat_hint
+2785: forge
 2795: quest_upper_bound
 2803: double_quest_hero_power
 2819: riff
@@ -447,6 +450,7 @@
 2837: always_spend_corpse
 2839: emote_character
 2840: has_active_power
+2848: ?unknown_blessing_of_might
 2851: emote_class
 2853: venomous
 2859: magnetic_race
@@ -454,12 +458,14 @@
 2861: avenge_extra_coin
 2862: ?mercenaries_2862
 2870: bacon_reborn_tooltip
+2871: ancient
 2872: reborn_keep_enchantment
 2875: ?putricide_s_creation_2875
 2882: ?unknown_2882_bg
 2887: ?detective_for_hire
 2888: ?unknown_2888
 2889: ?mercenaries_2889
+2899: plague
 2911: battlegrounds_cost_health
 2919: ?mercenaries_2919
 2920: ?mercenaries_2920
@@ -470,6 +476,7 @@
 2943: ?maxwell__mighty_steed
 2944: ?special_trigger_golden
 2954: ?unknown_2954
+3011: forged
 3035: ?unknown_3035
 3036: ?lightning_invocation
 3046: every_n_turn_trigger
@@ -477,4 +484,9 @@
 3049: ?polarizing_beatboxer
 3062: wildcard_tripler
 3083: ?malchezaar__prince_of_dance_golden
+3101: ?gilnean_war_horn
+3102: ?turbulent_tombs
 3108: banned_in_twist
+3128: summon_when_drawn
+3130: ?mind_spike
+3169: ?discover_quest_reward
