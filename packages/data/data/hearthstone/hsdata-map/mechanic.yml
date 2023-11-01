@@ -247,6 +247,7 @@
 1784: ?1784 # only on two cards
 1790: ?elistra_the_immortal # only on Elistra the Immortal
 1816: ?bacon_shop_8_player_enchant # only on BaconShop8PlayerEnchant
+1818: ?1818
 1824: in_mini_set
 1855: lettuce_equipment
 1868: ~ # only in barren hunter puzzle
@@ -255,6 +256,7 @@
 1871: ~ # only in barren hunter puzzle
 1872: ~ # only in barren hunter puzzle
 1880: ?1880
+1895: darkmoon_prize_enabled
 1900: ?unknown_1900 # some book of hero boss
 1910: ?unknown_1910 # some book of hero boss
 1911: ?unknown_1911 # some book of hero boss
@@ -389,6 +391,7 @@
 2510: ?mercenaries_2510
 2514: one_turn_taunt
 2515: ?mercenaries_2515
+2518: buddy_in_tavern_2
 2529: ?mercenaries_2529
 2536: ?rotgill
 2546: ?transmuted_bramblewitch_enchantment
@@ -515,6 +518,7 @@
 3169: ?discover_quest_reward
 3174: one_turn_venomous
 3181: spellcraft_don_t_affect_minion
+3190: ?hero_3190
 3194: buddy_in_tavern
 3209: ?anomaly_3209
 3211: ?c_thun_3211
@@ -524,6 +528,7 @@
 3224: ?battlegrounds_enchantment
 3227: ?piloted_whirl_o_tron_enchantment
 3261: ?enchantment_3261
+3262: ?anomaly_3262
 3299: ?anomaly_3299
 3308: ?anomaly_3308
 3312: ?anomaly_3312

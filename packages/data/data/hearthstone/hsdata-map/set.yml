@@ -37,6 +37,7 @@
 1809: fol # Festival of Legends
 1858: ttn # Titans
 1898: cot # Cavern of Time
+1892: sib # Showdown in the Badlands
 
 5:    mission
 7:    none
@@ -53,3 +54,4 @@
 1453: bgs # Battlegrounds
 1646: van # Vanilla
 1586: mercenaries # Mercenaries
+1904: tut # Tutorial
