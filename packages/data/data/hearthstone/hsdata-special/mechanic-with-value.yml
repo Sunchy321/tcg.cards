@@ -1,10 +1,15 @@
 - ?1672
+- ?anomaly_2928
+- ?anomaly_3057
+- ?anomaly_3059
 - ?lettuce_ability_summoned_minion
 - ?mercenaries_2494
 - ?mercenaries_2889
 - ?overload_variant
 - ?unknown_2931
 - ?unknown_2954
+- anomaly_weight
+- battleground_extra_armor
 - buff_attack_up
 - buff_cost_down
 - buff_cost_up
@@ -18,6 +23,7 @@
 - emote_character
 - emote_class
 - entity_threshold_value
+- extra_minion
 - game_button
 - lettuce_current_cooldown
 - lettuce_role
@@ -46,6 +52,7 @@
 - spell_power
 - the_rat_king_skill_activating_type
 - transfromed_card_visual_type
+- unique_race
 - wildcard_tripler
 - wildcard_tripler_effect
 - windfury
