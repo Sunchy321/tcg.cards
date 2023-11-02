@@ -132,6 +132,13 @@
                 <q-space />
 
                 <q-btn
+                    icon="mdi-merge"
+                    :color="autoAssign ? 'primary' : 'black'"
+                    dense flat round
+                    @click="autoAssign = !autoAssign"
+                />
+
+                <q-btn
                     v-if="devPrinted"
                     color="red" icon="mdi-alert-circle-outline"
                     dense flat round
@@ -407,8 +414,9 @@ const abilitiesRegex = `${abilityRegex}(?: and ${abilityRegex})*`;
 const creatureRegex = `${numberRegex}(?: tapped)?(?: (${statsRegex}))? (${colorRegex}) (${subtypesRegex}) (?:(?:${typeRegex}) )?creature tokens?(?: with (${abilitiesRegex}))?`;
 
 const predefinedRegex = `${numberRegex}(?: tapped)? (${predefinedNames.join('|')}|colorless Clue artifact) tokens?`;
+const roleRegex = `${numberRegex}(?: tapped)? ([A-Z][a-z]+|[A-Z][a-z]+ [A-Z][a-z]+) Role tokens?`;
 
-const guessRegex = new RegExp(`[Cc]reates? (?:${creatureRegex}|${predefinedRegex})`, 'g');
+const guessRegex = new RegExp(`[Cc]reates? (?:${creatureRegex}|${predefinedRegex}|${roleRegex})`, 'g');
 const predefinedCheckRegex = new RegExp(predefinedRegex);
 
 const counterBlacklist = [
@@ -459,6 +467,7 @@ export default defineComponent({
             rp: replacePrinted,
             rf: replaceFrom,
             rt: replaceTo,
+            aa: autoAssign,
         } = pageSetup({
             params: {
                 locale: {
@@ -515,6 +524,12 @@ export default defineComponent({
                     type:    'string',
                     bind:    'query',
                     default: '',
+                },
+
+                aa: {
+                    type:    'boolean',
+                    bind:    'query',
+                    default: false,
                 },
             },
 
@@ -1033,6 +1048,8 @@ export default defineComponent({
                         .replace(/'/g, '‘');
                 }
             }
+
+            devPrinted.value = false;
         };
 
         const prettify = () => {
@@ -1067,13 +1084,15 @@ export default defineComponent({
             }
 
             if (lang.value === 'ja') {
+                unifiedName.value = unifiedName.value!.replace(/（.*?）/g, '');
+                printedName.value = printedName.value!.replace(/（.*?）/g, '');
                 unifiedText.value = unifiedText.value!.replace(/ *<i>[(（][^)）]+[)）]<\/i> */g, '').trim();
             }
 
             defaultPrettify();
 
             if (replaceFrom.value !== '') {
-                const fromRegex = new RegExp(replaceFrom.value, 'ug');
+                const fromRegex = new RegExp(replaceFrom.value, 'ugm');
                 const toReplacer = (text: string, ...captures: string[]) => replaceTo.value
                     .replace(/\\n/g, '\n')
                     .replace(/\$(\d)/g, (_, num) => captures[Number.parseInt(num, 10) - 1]);
@@ -1099,6 +1118,26 @@ export default defineComponent({
                     new RegExp(commaRegex.source, 'mg'),
                     l => l.split(/[,，、;；] */g).map(v => upperFirst(v)).join('\n'),
                 );
+            }
+
+            if (autoAssign.value && searchResult.value != null) {
+                const result = searchResult.value;
+
+                if (result.counters != null) {
+                    const counterResult = result.counters.filter((c: any[]) => c.length > 0);
+
+                    if (counterResult.length === 1) {
+                        counters.value = counterResult[0];
+                    }
+                }
+
+                if (result.relatedCards != null) {
+                    const relatedCardsResult = result.relatedCards.filter((r: string) => r !== '');
+
+                    if (relatedCardsResult.length === 1) {
+                        relatedCardsString.value = relatedCardsResult[0];
+                    }
+                }
             }
 
             if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
@@ -1345,6 +1384,8 @@ export default defineComponent({
                         } else {
                             tokenId = `${mp[1].toLowerCase()}!`;
                         }
+                    } else if (m[0].includes(' Role ')) {
+                        tokenId = `${m[6].toLowerCase().replaceAll(/[ -]/g, '_')}!`;
                     } else {
                         tokenId += m[3].toLowerCase().replaceAll(/[ -]/g, '_');
                         tokenId += `!${colorMap[m[2]]}`;
@@ -1450,6 +1491,7 @@ export default defineComponent({
             forcePrettify,
             filterBy,
             separateKeyword,
+            autoAssign,
 
             partCount,
             partIndex,

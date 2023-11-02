@@ -204,7 +204,7 @@
                             :icon="statusIcon(d.status)"
                             :color="statusColor(d.status)"
                             text-color="white"
-                            :clickable="d.part === 'text'"
+                            :clickable="d.part === 'text' || d.part === 'rune'"
                             @click="d.status = nextStatus(d.status)"
                             @remove="a.detail.splice(i, 1)"
                         >{{ d.part }}</q-chip>
@@ -531,6 +531,10 @@ export default defineComponent({
 
             if (oldData.spellSchool !== newData.spellSchool) {
                 newDetail.push({ part: 'school', status: 'adjust' });
+            }
+
+            if (!isEqual(oldData.rune, newData.rune)) {
+                newDetail.push({ part: 'rune', status: 'adjust' });
             }
 
             const rarities = ['common', 'rare', 'epic', 'legendary'];

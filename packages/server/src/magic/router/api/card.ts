@@ -50,12 +50,12 @@ router.get('/', async ctx => {
 
     aggregate
         .addFields({
-            langIsEnglish:    { $eq: ['$lang', 'en'] },
-            frameEffectCount: { $size: '$frameEffects' },
+            langIsEnglish: { $eq: ['$lang', 'en'] },
         })
         .sort({
-            langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, frameEffectCount: 1,
+            langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, number: 1,
         })
+        .collation({ locale: 'en', numericOrdering: true })
         .limit(1)
         .project({
             '_id':                0,
@@ -63,7 +63,6 @@ router.get('/', async ctx => {
             'parts.__costMap':    0,
             'langIsLocale':       0,
             'langIsEnglish':      0,
-            'frameEffectCount':   0,
             'scryfall.imageUris': 0,
         });
 

@@ -66,6 +66,10 @@ const orderByCommand = command({
             case 'cost':
                 agg.sort({ manaValue: dir });
                 break;
+            case 'number':
+            case 'num':
+                agg.sort({ number: dir }).collation({ locale: 'en', numericOrdering: true });
+                break;
             default:
                 throw new QueryError({ type: 'invalid-query' });
             }
@@ -349,6 +353,40 @@ export default createSearcher({
                 }
             },
         }),
+        command({
+            id:    'related-card',
+            alt:   ['rc'],
+            op:    ['=', '<', '<=', '>', '>='],
+            qual:  [],
+            query: ({ param, op }) => {
+                const num = Number.parseInt(param, 10);
+
+                if (Number.isNaN(num)) {
+                    throw new QueryError({ type: 'invalid-query' });
+                }
+
+                switch (op) {
+                case '=':
+                    return { relatedCards: { $size: num } };
+                case '<':
+                    if (num === 0) {
+                        throw new QueryError({ type: 'invalid-query' });
+                    }
+                    return { [`relatedCards.${num - 1}`]: { $exists: false } };
+                case '<=':
+                    return { [`relatedCards.${num}`]: { $exists: false } };
+                case '>':
+                    return { [`relatedCards.${num}`]: { $exists: true } };
+                case '>=':
+                    if (num === 0) {
+                        return {};
+                    }
+                    return { [`relatedCards.${num - 1}`]: { $exists: true } };
+                default:
+                    throw new QueryError({ type: 'invalid-query' });
+                }
+            },
+        }),
 
         orderByCommand,
     ],
@@ -372,17 +410,16 @@ export default createSearcher({
         default:
             aggregate
                 .addFields({
-                    langIsLocale:     { $eq: ['$lang', locale] },
-                    langIsEnglish:    { $eq: ['$lang', 'en'] },
-                    frameEffectCount: { $size: '$frameEffects' },
+                    langIsLocale:  { $eq: ['$lang', locale] },
+                    langIsEnglish: { $eq: ['$lang', 'en'] },
                 })
                 .sort({
-                    langIsLocale:     -1,
-                    langIsEnglish:    -1,
-                    releaseDate:      -1,
-                    frameEffectCount: 1,
-                    number:           1,
+                    langIsLocale:  -1,
+                    langIsEnglish: -1,
+                    releaseDate:   -1,
+                    number:        1,
                 })
+                .collation({ locale: 'en', numericOrdering: true })
                 .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
                 .replaceRoot('data');
         }
