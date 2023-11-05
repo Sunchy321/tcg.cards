@@ -29,8 +29,40 @@ const position = {
         mana: { x: 38, y: 61 },
         coin: { x: 37, y: 62 },
     },
-    costNumber:       { x: 88, y: 105 },
-    flag:             { x: 43, y: 70 },
+    costNumber: { x: 88, y: 105 },
+    flag:       { x: 43, y: 70 },
+    runeBase:   { x: 27, y: 116 },
+    rune:       {
+        basic: [
+            {
+                blood:  { x: 26, y: 156 },
+                unholy: { x: 32, y: 163 },
+                frost:  { x: 30, y: 162 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 64, y: 169 },
+                unholy: { x: 70, y: 176 },
+                frost:  { x: 68, y: 175 },
+            } as Record<string, { x: number, y: number }>,
+        ],
+        full: [
+            {
+                blood:  { x: 29, y: 159 },
+                unholy: { x: 34, y: 165 },
+                frost:  { x: 32, y: 164 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 67, y: 172 },
+                unholy: { x: 72, y: 178 },
+                frost:  { x: 70, y: 177 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 103, y: 159 },
+                unholy: { x: 108, y: 165 },
+                frost:  { x: 106, y: 164 },
+            } as Record<string, { x: number, y: number }>,
+        ],
+    },
     elite:            { x: 142, y: 33 },
     rarityBase:       { x: 216, y: 364 },
     rarity:           { x: 234, y: 385 },
@@ -181,6 +213,36 @@ export default async function renderWeapon(
             image: join('flag', 'tradeable.png'),
             pos:   position.flag,
         });
+    }
+
+    if (data.mechanics.includes('forge')) {
+        components.push({
+            type:  'image',
+            image: join('flag', 'forge.png'),
+            pos:   position.flag,
+        });
+    }
+
+    if (data.rune != null) {
+        components.push({
+            type:  'image',
+            image: join('flag', 'rune', 'base.png'),
+            pos:   position.runeBase,
+        });
+
+        if (data.rune.length === 3) {
+            components.push(...data.rune.map((r, i) => ({
+                type:  'image' as const,
+                image: join('flag', 'rune', `${r}-small.png`),
+                pos:   position.rune.full[i][r],
+            })));
+        } else {
+            components.push(...data.rune.map((r, i) => ({
+                type:  'image' as const,
+                image: join('flag', 'rune', `${r}.png`),
+                pos:   position.rune.full[i][r],
+            })));
+        }
     }
 
     // elite

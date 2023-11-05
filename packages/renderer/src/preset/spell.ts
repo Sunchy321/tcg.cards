@@ -38,6 +38,38 @@ const position = {
     },
     costNumber: { x: 88, y: 105 },
     flag:       { x: 43, y: 70 },
+    runeBase:   { x: 27, y: 116 },
+    rune:       {
+        basic: [
+            {
+                blood:  { x: 26, y: 156 },
+                unholy: { x: 32, y: 163 },
+                frost:  { x: 30, y: 162 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 64, y: 169 },
+                unholy: { x: 70, y: 176 },
+                frost:  { x: 68, y: 175 },
+            } as Record<string, { x: number, y: number }>,
+        ],
+        full: [
+            {
+                blood:  { x: 29, y: 159 },
+                unholy: { x: 34, y: 165 },
+                frost:  { x: 32, y: 164 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 67, y: 172 },
+                unholy: { x: 72, y: 178 },
+                frost:  { x: 70, y: 177 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 103, y: 159 },
+                unholy: { x: 108, y: 165 },
+                frost:  { x: 106, y: 164 },
+            } as Record<string, { x: number, y: number }>,
+        ],
+    },
     elite:      { x: 139, y: 49 },
     rarityBase: { x: 198, y: 379 },
     rarity:     { x: 230, y: 390 },
@@ -153,39 +185,47 @@ export default async function renderSpell(
     // background
     const backgroundPath = join('spell', 'background');
 
-    switch (data.classes.length) {
-    case 1:
+    if (data.cardType === 'anomaly') {
         components.push({
             type:  'image',
-            image: join(backgroundPath, 'full', `${data.classes[0]}.png`),
+            image: join(backgroundPath, 'anomaly.png'),
             pos:   position.background.full,
         });
-        break;
-    case 2:
-        components.push(
-            {
+    } else {
+        switch (data.classes.length) {
+        case 1:
+            components.push({
                 type:  'image',
-                image: join(backgroundPath, 'left', `${data.classes[0]}.png`),
-                pos:   position.background.left,
-            },
-            {
+                image: join(backgroundPath, 'full', `${data.classes[0]}.png`),
+                pos:   position.background.full,
+            });
+            break;
+        case 2:
+            components.push(
+                {
+                    type:  'image',
+                    image: join(backgroundPath, 'left', `${data.classes[0]}.png`),
+                    pos:   position.background.left,
+                },
+                {
+                    type:  'image',
+                    image: join(backgroundPath, 'right', `${data.classes[1]}.png`),
+                    pos:   position.background.right,
+                },
+                {
+                    type:  'image',
+                    image: join(backgroundPath, 'split.png'),
+                    pos:   position.background.split,
+                },
+            );
+            break;
+        default:
+            components.push({
                 type:  'image',
-                image: join(backgroundPath, 'right', `${data.classes[1]}.png`),
-                pos:   position.background.right,
-            },
-            {
-                type:  'image',
-                image: join(backgroundPath, 'split.png'),
-                pos:   position.background.split,
-            },
-        );
-        break;
-    default:
-        components.push({
-            type:  'image',
-            image: join(backgroundPath, 'full', 'neutral.png'),
-            pos:   position.background.full,
-        });
+                image: join(backgroundPath, 'full', 'neutral.png'),
+                pos:   position.background.full,
+            });
+        }
     }
 
     // flag
@@ -195,6 +235,36 @@ export default async function renderSpell(
             image: join('flag', 'tradeable.png'),
             pos:   position.flag,
         });
+    }
+
+    if (data.mechanics.includes('forge')) {
+        components.push({
+            type:  'image',
+            image: join('flag', 'forge.png'),
+            pos:   position.flag,
+        });
+    }
+
+    if (data.rune != null) {
+        components.push({
+            type:  'image',
+            image: join('flag', 'rune', 'base.png'),
+            pos:   position.runeBase,
+        });
+
+        if (data.rune.length === 3) {
+            components.push(...data.rune.map((r, i) => ({
+                type:  'image' as const,
+                image: join('flag', 'rune', `${r}-small.png`),
+                pos:   position.rune.full[i][r],
+            })));
+        } else {
+            components.push(...data.rune.map((r, i) => ({
+                type:  'image' as const,
+                image: join('flag', 'rune', `${r}.png`),
+                pos:   position.rune.full[i][r],
+            })));
+        }
     }
 
     // elite
@@ -207,52 +277,54 @@ export default async function renderSpell(
     }
 
     // cost
-    const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
+    if (data.cardType !== 'anomaly') {
+        const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
 
-    const costType = (() => {
-        if (data.format === 'battlegrounds') {
-            return 'coin';
-        } else if (data.format != null) {
-            return 'mana';
-        } else {
-            if (data.costType === 'speed') {
+        const costType = (() => {
+            if (data.format === 'battlegrounds') {
+                return 'coin';
+            } else if (data.format != null) {
                 return 'mana';
+            } else {
+                if (data.costType === 'speed') {
+                    return 'mana';
+                }
+
+                return data.costType ?? 'mana';
             }
+        })();
 
-            return data.costType ?? 'mana';
-        }
-    })();
-
-    if (aCost?.status === 'nerf') {
-        components.push({
-            type:  'image',
-            image: join('cost', 'effect', `${costType}-nerf.png`),
-            pos:   position.adjustment[costType].nerf!,
-        });
-    } else {
-        components.push({
-            type:  'image',
-            image: join('cost', `${costType}.png`),
-            pos:   position.cost[costType],
-        });
-
-        if (aCost?.status === 'buff') {
+        if (aCost?.status === 'nerf') {
             components.push({
                 type:  'image',
-                image: join('cost', 'effect', `${costType}-buff.png`),
-                pos:   position.adjustment[costType].buff!,
+                image: join('cost', 'effect', `${costType}-nerf.png`),
+                pos:   position.adjustment[costType].nerf!,
+            });
+        } else {
+            components.push({
+                type:  'image',
+                image: join('cost', `${costType}.png`),
+                pos:   position.cost[costType],
+            });
+
+            if (aCost?.status === 'buff') {
+                components.push({
+                    type:  'image',
+                    image: join('cost', 'effect', `${costType}-buff.png`),
+                    pos:   position.adjustment[costType].buff!,
+                });
+            }
+        }
+
+        if (data.cost != null) {
+            components.push({
+                type: 'text',
+                text: data.cost.toString(),
+                font: '文鼎隶书',
+                size: 114,
+                pos:  position.costNumber,
             });
         }
-    }
-
-    if (data.cost != null) {
-        components.push({
-            type: 'text',
-            text: data.cost.toString(),
-            font: '文鼎隶书',
-            size: 114,
-            pos:  position.costNumber,
-        });
     }
 
     // name

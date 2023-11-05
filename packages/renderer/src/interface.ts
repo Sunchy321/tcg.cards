@@ -22,6 +22,7 @@ export interface EntityRenderData {
     health?: Entity['health'];
     durability?: Entity['durability'];
     armor?: Entity['armor'];
+    rune?: Entity['rune'];
     race?: Entity['race'];
     spellSchool?: Entity['spellSchool'];
 

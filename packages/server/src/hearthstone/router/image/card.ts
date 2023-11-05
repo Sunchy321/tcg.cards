@@ -86,6 +86,7 @@ router.get('/', async ctx => {
             health:      json.health,
             durability:  json.durability,
             armor:       json.armor,
+            rune:        json.rune,
             race:        json.race,
             spellSchool: json.spellSchool,
 

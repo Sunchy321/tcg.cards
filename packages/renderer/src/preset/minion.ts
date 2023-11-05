@@ -41,21 +41,57 @@ const position = {
         4:    { x: 62, y: 83 },
         5:    { x: 59, y: 75 },
         6:    { x: 59, y: 75 },
+        7:    { x: 59, y: 63 },
     } as Record<number | 'base', { x: number, y: number }>,
-    costNumber:   { x: 88, y: 105 },
-    flag:         { x: 43, y: 70 },
-    elite:        { x: 139, y: 22 },
-    rarityBase:   { x: 203, y: 375 },
-    rarity:       { x: 237, y: 385 },
-    name:         { x: 73, y: 323 },
-    nameText:     { x: 248, y: 355 },
-    desc:         { x: 83, y: 408 },
-    race:         { x: 139, y: 567 },
-    raceText:     { x: 247, y: 584 },
-    attack:       { x: 29, y: 507 },
-    attackNumber: { x: 94, y: 575 },
-    health:       { x: 369, y: 512 },
-    healthNumber: { x: 407, y: 577 },
+    costNumber: { x: 88, y: 105 },
+    flag:       { x: 43, y: 70 },
+    runeBase:   { x: 27, y: 116 },
+    rune:       {
+        basic: [
+            {
+                blood:  { x: 26, y: 156 },
+                unholy: { x: 32, y: 163 },
+                frost:  { x: 30, y: 162 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 64, y: 169 },
+                unholy: { x: 70, y: 176 },
+                frost:  { x: 68, y: 175 },
+            } as Record<string, { x: number, y: number }>,
+        ],
+        full: [
+            {
+                blood:  { x: 29, y: 159 },
+                unholy: { x: 34, y: 165 },
+                frost:  { x: 32, y: 164 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 67, y: 172 },
+                unholy: { x: 72, y: 178 },
+                frost:  { x: 70, y: 177 },
+            } as Record<string, { x: number, y: number }>,
+            {
+                blood:  { x: 103, y: 159 },
+                unholy: { x: 108, y: 165 },
+                frost:  { x: 106, y: 164 },
+            } as Record<string, { x: number, y: number }>,
+        ],
+    },
+    elite:          { x: 139, y: 22 },
+    rarityBase:     { x: 203, y: 375 },
+    rarity:         { x: 237, y: 385 },
+    name:           { x: 73, y: 323 },
+    nameText:       { x: 248, y: 355 },
+    desc:           { x: 83, y: 408 },
+    race:           { x: 139, y: 568 },
+    raceText:       { x: 247, y: 584 },
+    dualRace:       { x: 112, y: 561 },
+    dualRaceTop:    { x: 253, y: 582 },
+    dualRaceBottom: { x: 253, y: 605 },
+    attack:         { x: 29, y: 507 },
+    attackNumber:   { x: 94, y: 575 },
+    health:         { x: 369, y: 512 },
+    healthNumber:   { x: 407, y: 577 },
 
     adjustment: {
         mana: {
@@ -127,6 +163,10 @@ const position = {
         'vsc':      { x: 200, y: 446 },
         'vsc-mini': { x: 191, y: 446 },
         'mcn':      { x: 200, y: 447 },
+        'mcn-mini': { x: 194, y: 442 },
+        'poa':      { x: 194, y: 445 },
+
+        'ttn': { x: 187, y: 443 },
 
         'van': { x: 172, y: 451 },
     } as Record<string, { x: number, y: number }>,
@@ -208,6 +248,36 @@ export default async function renderMinion(
         });
     }
 
+    if (data.mechanics.includes('forge')) {
+        components.push({
+            type:  'image',
+            image: join('flag', 'forge.png'),
+            pos:   position.flag,
+        });
+    }
+
+    if (data.rune != null) {
+        components.push({
+            type:  'image',
+            image: join('flag', 'rune', 'base.png'),
+            pos:   position.runeBase,
+        });
+
+        if (data.rune.length === 3) {
+            components.push(...data.rune.map((r, i) => ({
+                type:  'image' as const,
+                image: join('flag', 'rune', `${r}-small.png`),
+                pos:   position.rune.full[i][r],
+            })));
+        } else {
+            components.push(...data.rune.map((r, i) => ({
+                type:  'image' as const,
+                image: join('flag', 'rune', `${r}.png`),
+                pos:   position.rune.full[i][r],
+            })));
+        }
+    }
+
     // elite
     if (data.elite) {
         components.push({
@@ -243,7 +313,7 @@ export default async function renderMinion(
             }
         }
 
-        if (data.techLevel != null && data.techLevel >= 1 && data.techLevel <= 6) {
+        if (data.techLevel != null && data.techLevel >= 1 && data.techLevel <= 7) {
             components.push({
                 type:  'image',
                 image: join('cost', 'tech-level', `${data.techLevel}.png`),
@@ -399,24 +469,50 @@ export default async function renderMinion(
 
     // race
     if (data.race != null) {
-        const race = raceMap[data.race[0]];
+        const raceText = data.race.map(r => {
+            const race = raceMap[r];
 
-        const raceText = race?.[data.lang] ?? race?.en ?? data.race;
+            return race?.[data.lang] ?? race?.en ?? data.race;
+        });
 
-        components.push(
-            {
-                type:  'image',
-                image: join('minion', 'race.png'),
-                pos:   position.race,
-            },
-            {
-                type: 'text',
-                text: raceText,
-                font: '文鼎隶书',
-                size: 32,
-                pos:  position.raceText,
-            },
-        );
+        if (data.race.length === 2) {
+            components.push(
+                {
+                    type:  'image',
+                    image: join('minion', 'dualrace.png'),
+                    pos:   position.dualRace,
+                },
+                {
+                    type: 'text',
+                    text: raceText[0],
+                    font: '文鼎隶书',
+                    size: 28,
+                    pos:  position.dualRaceTop,
+                },
+                {
+                    type: 'text',
+                    text: raceText[1],
+                    font: '文鼎隶书',
+                    size: 28,
+                    pos:  position.dualRaceBottom,
+                },
+            );
+        } else {
+            components.push(
+                {
+                    type:  'image',
+                    image: join('minion', 'race.png'),
+                    pos:   position.race,
+                },
+                {
+                    type: 'text',
+                    text: raceText[0],
+                    font: '文鼎隶书',
+                    size: 32,
+                    pos:  position.raceText,
+                },
+            );
+        }
     }
 
     const aRace = (data.adjustment ?? []).find(a => a.part === 'race');
