@@ -14,7 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { xml2js } from 'xml-js';
 import {
-    castArray, isEqual, last, omit, repeat, uniq,
+    castArray, isEqual, last, omit, uniq,
 } from 'lodash';
 
 import { dataPath } from '@/config';
@@ -539,7 +539,10 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             result.rune = [];
                         }
 
-                        result.rune.push(repeat(rune, value));
+                        for (let i = 0; i < value; i += 1) {
+                            result.rune.push(rune);
+                        }
+
                         continue;
                     }
 

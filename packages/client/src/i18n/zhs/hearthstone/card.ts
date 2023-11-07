@@ -7,6 +7,8 @@ export default {
         hero_power:        '英雄技能',
         enchantment:       '额外效果',
         mercenary_ability: '佣兵技能',
+        location:          '地标',
+        anomaly:           '畸变',
     },
 
     race: {
@@ -88,6 +90,7 @@ export default {
         city_of_stormwind_1:             'city_of_stormwind_1', // only on City of Stormwind
         city_of_stormwind_2:             'city_of_stormwind_2', // only on City of Stormwind
         coin_skin:                       '幸运币皮肤',
+        colossal:                        '巨型',
         combo:                           '连击',
         conditional_awake:               'conditional_awake',
         consider_spell_power:            'consider_spell_power', // effects considering spell power that is not a damage

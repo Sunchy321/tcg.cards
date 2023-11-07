@@ -7,6 +7,8 @@ export default {
         hero_power:        'Hero Power',
         enchantment:       'Enchantment',
         mercenary_ability: 'Mercenary Ability',
+        location:          'Location',
+        anomaly:           'Anomaly',
     },
 
     race: {
@@ -90,6 +92,7 @@ export default {
         city_of_stormwind_1:             'city_of_stormwind_1', // only on City of Stormwind
         city_of_stormwind_2:             'city_of_stormwind_2', // only on City of Stormwind
         coin_skin:                       'coin_skin',
+        colossal:                        'colossal',
         combo:                           'combo',
         conditional_awake:               'conditional_awake',
         consider_spell_power:            'consider_spell_power', // effects considering spell power that is not a damage
