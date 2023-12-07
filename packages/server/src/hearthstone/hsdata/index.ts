@@ -10,7 +10,7 @@ import Card from '@/hearthstone/db/card';
 import Task from '@/common/task';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { Card as ICard, PlayRequirement, Power } from '@interface/hearthstone/card';
+import { PlayRequirement, Power } from '@interface/hearthstone/card';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -505,13 +505,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                                 ...Object.keys(c.toJSON()),
                                 ...Object.keys(latesetOldCard.toJSON()),
                             ]).filter(k => ![
-                                'cardId', 'version', 'change', 'entityId',
+                                'cardId', 'version', 'change', 'entityId', 'set',
                             ].includes(k));
 
                             const cJson = pick(c.toJSON(), commonKeys);
                             const oJson = pick(latesetOldCard.toJSON(), commonKeys);
 
-                            if (isEqual(cJson, oJson)) {
+                            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                            if (isEqual(cJson, oJson) && cJson.set.every((s: string) => oJson.set.includes(s))) {
                                 latesetOldCard.version.push(c.version[0]);
                                 await latesetOldCard.save();
                                 cardSaved = true;

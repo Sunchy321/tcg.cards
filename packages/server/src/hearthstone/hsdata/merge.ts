@@ -47,7 +47,6 @@ export async function mergeCard(card: Document & ICard, data: ICard): Promise<vo
         case 'elite':
         case 'rarity':
         case 'artist':
-        case 'faction':
         case 'mechanics':
         case 'referencedTags':
         case 'relatedEntities':

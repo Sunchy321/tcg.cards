@@ -27,7 +27,7 @@ const CardSchema = new Schema<ICard, Model<ICard>, {}, {}, {}, {}, '$type'>({
         illusId:         String,
     }],
 
-    set:         String,
+    set:         [String],
     classes:     [String],
     type:        String,
     cost:        Number,
@@ -58,8 +58,6 @@ const CardSchema = new Schema<ICard, Model<ICard>, {}, {}, {}, {}, '$type'>({
     rarity:      String,
 
     artist: String,
-
-    faction: String,
 
     mechanics:      [String],
     referencedTags: [String],

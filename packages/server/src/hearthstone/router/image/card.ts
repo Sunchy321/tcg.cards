@@ -79,7 +79,7 @@ router.get('/', async ctx => {
             ...localization,
             text: localization.displayText,
 
-            set:         json.set,
+            set:         json.set[0],
             classes:     json.classes,
             cost:        json.cost,
             attack:      json.attack,

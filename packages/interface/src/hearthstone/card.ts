@@ -33,7 +33,7 @@ export interface Card {
         illusId?: string;
     }[];
 
-    set: string;
+    set: string[];
     classes: string[];
     type: string;
     cost: number;
@@ -64,8 +64,6 @@ export interface Card {
     rarity?: string;
 
     artist: string;
-
-    faction?: string;
 
     mechanics: string[];
     referencedTags: string[];
