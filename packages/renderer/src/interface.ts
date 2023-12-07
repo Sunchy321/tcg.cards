@@ -7,7 +7,7 @@ export interface EntityRenderData {
     format?: string;
     adjustment?: { part: string, status: Adjustment }[];
 
-    cardId: string;
+    entityId: string;
 
     lang: string;
     name: string;
@@ -16,7 +16,7 @@ export interface EntityRenderData {
 
     set: Entity['set'];
     classes: Entity['classes'];
-    cardType: Entity['cardType'];
+    type: Entity['type'];
     cost?: Entity['cost'];
     attack?: Entity['attack'];
     health?: Entity['health'];

@@ -69,20 +69,20 @@ export class CardGetter extends Task<ICardStatus> {
 
                 entity.slug = c.slug;
 
-                if (c.parentId != null) {
-                    const parent = entities.find(e => e.dbfId === c.parentId);
+                // if (c.parentId != null) {
+                //     const parent = entities.find(e => e.dbfId === c.parentId);
 
-                    if (parent != null) {
-                        entity.parentCard = parent.cardId;
-                    }
-                }
+                //     if (parent != null) {
+                //         entity.parentCard = parent.entityId;
+                //     }
+                // }
 
-                if (c.childIds != null) {
-                    entity.childrenCard = entities
-                        .filter(e => c.childIds?.includes(e.dbfId))
-                        .sort((a, b) => a.dbfId - b.dbfId)
-                        .map(c => c.cardId);
-                }
+                // if (c.childIds != null) {
+                //     entity.childrenCard = entities
+                //         .filter(e => c.childIds?.includes(e.dbfId))
+                //         .sort((a, b) => a.dbfId - b.dbfId)
+                //         .map(c => c.entityId);
+                // }
 
                 await entity.save();
 

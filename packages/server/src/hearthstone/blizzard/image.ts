@@ -99,17 +99,17 @@ export class ImageGetter extends Task<IImageStatus> {
 
                 for (const l of Object.keys(c.image)) {
                     this.todoTasks.push({
-                        name: `${e.cardId}/${l}: normal`,
+                        name: `${e.entityId}/${l}: normal`,
                         uri:  c.image[l as Locale],
-                        path: `${assetPath}/hearthstone/card/constructed/normal/${localeMap[l as Locale]}/${e.cardId}.png`,
+                        path: `${assetPath}/hearthstone/card/constructed/normal/${localeMap[l as Locale]}/${e.entityId}.png`,
                     });
                 }
 
                 for (const l of Object.keys(c.imageGold)) {
                     this.todoTasks.push({
-                        name: `${e.cardId}/${l}: gold`,
+                        name: `${e.entityId}/${l}: gold`,
                         uri:  c.imageGold[l as Locale],
-                        path: `${assetPath}/hearthstone/card/constructed/gold/${localeMap[l as Locale]}/${e.cardId}.png`,
+                        path: `${assetPath}/hearthstone/card/constructed/gold/${localeMap[l as Locale]}/${e.entityId}.png`,
                     });
                 }
             }
@@ -159,17 +159,17 @@ export class ImageGetter extends Task<IImageStatus> {
                 if (c.battlegrounds != null) {
                     for (const l of Object.keys(c.battlegrounds.image)) {
                         this.todoTasks.push({
-                            name: `${e.cardId}/${l}: bg-normal`,
+                            name: `${e.entityId}/${l}: bg-normal`,
                             uri:  c.battlegrounds.image[l as Locale],
-                            path: `${assetPath}/hearthstone/card/battlegrounds/normal/${localeMap[l as Locale]}/${e.cardId}.png`,
+                            path: `${assetPath}/hearthstone/card/battlegrounds/normal/${localeMap[l as Locale]}/${e.entityId}.png`,
                         });
                     }
 
                     for (const l of Object.keys(c.battlegrounds.imageGold)) {
                         this.todoTasks.push({
-                            name: `${e.cardId}/${l}: bg-gold`,
+                            name: `${e.entityId}/${l}: bg-gold`,
                             uri:  c.battlegrounds.imageGold[l as Locale],
-                            path: `${assetPath}/hearthstone/card/battlegrounds/gold/${localeMap[l as Locale]}/${e.cardId}.png`,
+                            path: `${assetPath}/hearthstone/card/battlegrounds/gold/${localeMap[l as Locale]}/${e.entityId}.png`,
                         });
                     }
                 }

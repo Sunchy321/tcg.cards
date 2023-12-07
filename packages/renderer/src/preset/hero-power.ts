@@ -33,7 +33,7 @@ export default async function renderHeroPower(
     // illustration
     components.push({
         type:  'image',
-        image: join('..', 'card', 'illustration', 'jpg', `${data.cardId}.jpg`),
+        image: join('..', 'card', 'illustration', 'jpg', `${data.entityId}.jpg`),
         pos:   position.illustration,
         size:  illusSize,
         // clip omitted.
@@ -86,7 +86,7 @@ export default async function renderHeroPower(
     // name
     components.push({
         type: 'text',
-        text: data.name,
+        text: data.name ?? '',
         font: '文鼎隶书',
         size: 32,
         pos:  position.nameText,

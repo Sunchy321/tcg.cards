@@ -1,18 +1,30 @@
-import { Power } from './card';
+export interface PlayRequirement {
+    type: string;
+    param: number;
+}
 
-export interface Entity {
+export interface Power {
+    definition: string;
+    isMaster?: boolean;
+    showInHistory?: boolean;
+    playRequirements: PlayRequirement[];
+}
+
+export type Change = 'major' | 'minor' | 'significant' | 'unspecified';
+
+export interface Card {
+    cardId: string;
+
     version: number[];
+    change?: Change;
 
-    entityId: string;
-    dbfId: number;
-    slug?: string;
+    entityId: string[];
 
     localization: {
         lang: string;
         name: string;
         text: string;
         displayText: string;
-        rawText: string;
         targetText?: string;
         textInPlay?: string;
         howToEarn?: string;
@@ -58,15 +70,12 @@ export interface Entity {
     mechanics: string[];
     referencedTags: string[];
 
-    powers: Power[];
-
-    relatedEntities: { relation: string, entityId: string }[];
+    relatedEntities: { relation: string, cardId: string }[];
 
     entourages: string[];
     heroPower?: string;
     heroicHeroPower?: string;
 
-    multipleClasses: number;
     deckOrder: number;
     overrideWatermark: string;
     deckSize?: number;

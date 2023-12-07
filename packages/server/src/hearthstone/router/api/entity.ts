@@ -1,8 +1,8 @@
 import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 
-import Card from '@/hearthstone/db/card';
-import { Card as ICard } from '@interface/hearthstone/card';
+import Entity from '@/hearthstone/db/entity';
+import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 import {
     flatten, last, mapValues, omit, random, uniq,
@@ -12,7 +12,7 @@ import { toMultiple, toSingle } from '@/common/request-helper';
 
 const router = new KoaRouter<DefaultState, Context>();
 
-router.prefix('/card');
+router.prefix('/entity');
 
 router.get('/', async ctx => {
     const { id, version: versionText } = mapValues(ctx.query, toSingle);
@@ -29,11 +29,11 @@ router.get('/', async ctx => {
         return;
     }
 
-    const cards = await Card.find({ cardId: id }).sort({ version: -1 });
+    const entities = await Entity.find({ cardId: id }).sort({ version: -1 });
 
-    const card = cards.find(e => e.version.includes(version ?? 0)) ?? cards[0];
+    const entity = entities.find(e => e.version.includes(version ?? 0)) ?? entities[0];
 
-    const buckets = cards.map(e => e.version);
+    const buckets = entities.map(e => e.version);
 
     const versions = [];
 
@@ -55,7 +55,7 @@ router.get('/', async ctx => {
         }
     }
 
-    ctx.body = { ...card.toJSON(), versions };
+    ctx.body = { ...entity.toJSON(), versions };
 });
 
 router.get('/name', async ctx => {
@@ -79,12 +79,12 @@ router.get('/name', async ctx => {
         query.version = version;
     }
 
-    const cards = await Card.aggregate<{ _id: string, data: ICard[] }>()
+    const entities = await Entity.aggregate<{ _id: string, data: IEntity[] }>()
         .match(query)
         .sort({ version: -1 })
         .group({ _id: '$cardId', data: { $push: '$$ROOT' } });
 
-    ctx.body = cards.map(v => {
+    ctx.body = entities.map(v => {
         const entity = (
             version != null ? v.data.filter(d => d.version.includes(version)) : v.data
         )[0];
@@ -97,13 +97,13 @@ router.get('/name', async ctx => {
 });
 
 router.get('/random', async ctx => {
-    const cardIds = await Card.distinct('cardId');
+    const entityIds = await Entity.distinct('cardId');
 
-    ctx.body = cardIds[random(cardIds.length - 1)] ?? '';
+    ctx.body = entityIds[random(entityIds.length - 1)] ?? '';
 });
 
-interface CardProfile {
-    cardId: string;
+interface EntityProfile {
+    entityId: string;
 
     localization: {
         lang: string;
@@ -121,14 +121,14 @@ router.get('/profile', async ctx => {
         return;
     }
 
-    const fullCards = await Card.find({ cardId: { $in: ids } });
+    const fullEntities = await Entity.find({ cardId: { $in: ids } });
 
-    const result: Record<string, CardProfile> = {};
+    const result: Record<string, EntityProfile> = {};
 
     for (const id of ids) {
-        const cards = fullCards.filter(e => e.cardId === id);
+        const entities = fullEntities.filter(e => e.entityId === id);
 
-        const buckets = cards.map(e => e.version);
+        const buckets = entities.map(e => e.version);
 
         const versions: number[][] = [];
 
@@ -150,10 +150,10 @@ router.get('/profile', async ctx => {
             }
         }
 
-        const entity = cards.find(e => e.version.includes(versions[0][0])) ?? cards[0];
+        const entity = entities.find(e => e.version.includes(versions[0][0])) ?? entities[0];
 
         result[id] = {
-            cardId:       entity.cardId,
+            entityId:     entity.entityId,
             localization: entity.localization.map(l => ({ lang: l.lang, name: l.name })),
             versions,
         };
@@ -241,14 +241,14 @@ router.get('/compare', async ctx => {
         return;
     }
 
-    const cards = await Card.find({ cardId: id, version: { $in: [lvm, rvm] } }).sort({ version: 1 });
+    const entities = await Entity.find({ cardId: id, version: { $in: [lvm, rvm] } }).sort({ version: 1 });
 
-    if (cards.length !== 2) {
+    if (entities.length !== 2) {
         ctx.status = 400;
         return;
     }
 
-    ctx.body = compare(cards[0].toJSON(), cards[1].toJSON()) ?? {};
+    ctx.body = compare(entities[0].toJSON(), entities[1].toJSON()) ?? {};
 });
 
 export default router;

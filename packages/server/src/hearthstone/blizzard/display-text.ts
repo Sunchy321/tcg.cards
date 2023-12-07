@@ -8,7 +8,7 @@ import git, { ResetMode } from 'simple-git';
 import { join } from 'path';
 
 import { dataPath } from '@/config';
-import { localPath as hsdataPath, langMap } from '../hsdata';
+import { localPath as hsdataPath, langMap } from '@/hearthstone/hsdata/base';
 
 interface ILocValue {
     'm_locValues': string[];
@@ -63,7 +63,7 @@ interface IDisplayTextStatus {
     total: number;
 }
 
-enum TextBuilderType {
+export enum TextBuilderType {
     default,
     jadeGolem,
     jadeGolemTrigger,
@@ -97,7 +97,7 @@ enum TextBuilderType {
     referenceScriptDataNum1CardDBID,
 }
 
-const dbfPath = join(dataPath, 'hearthstone', 'dbf');
+export const dbfPath = join(dataPath, 'hearthstone', 'dbf');
 
 function getTag(mechanics: string[], id: string): number {
     const tag = mechanics.find(m => m.startsWith(id));
@@ -143,7 +143,7 @@ function getStringsPrefix(cardID: string): string {
     return '';
 }
 
-function getDisplayText(
+export function getDisplayText(
     text: string,
     type: TextBuilderType,
     id: string,
@@ -259,6 +259,35 @@ function getDisplayText(
 
 const stringsPath = join(hsdataPath, 'Strings');
 
+export function getLangStrings(): Record<string, Record<string, string>> {
+    const strings: Record<string, Record<string, string>> = {};
+
+    const langs = fs.readdirSync(stringsPath)
+        .filter(f => fs.statSync(join(stringsPath, f)).isDirectory);
+
+    for (const l of langs) {
+        strings[langMap[l] ?? l] = {};
+
+        const fileContent = fs.readFileSync(join(stringsPath, l, 'GAMEPLAY.txt')).toString();
+
+        for (const line of fileContent.split('\n')) {
+            const [id, text] = line.split('\t');
+
+            strings[langMap[l] ?? l][id] = text;
+        }
+    }
+
+    return strings;
+}
+
+export function getDbfCardFile(): IDbfCardFile {
+    const versions = fs.readdirSync(dbfPath).filter(v => fs.statSync(join(dbfPath, v)).isDirectory());
+
+    const version = versions.sort((a, b) => (a > b ? -1 : a < b ? 1 : 0))[0];
+
+    return JSON.parse(fs.readFileSync(join(dbfPath, version, 'CARD.json')).toString()) as IDbfCardFile;
+}
+
 export class DisplayTextLoader extends Task<IDisplayTextStatus> {
     async startImpl(): Promise<void> {
         const repo = git({
@@ -270,22 +299,8 @@ export class DisplayTextLoader extends Task<IDisplayTextStatus> {
 
         await repo.reset(ResetMode.HARD, ['HEAD']);
 
-        const strings: Record<string, Record<string, string>> = {};
-
-        const langs = fs.readdirSync(stringsPath)
-            .filter(f => fs.statSync(join(stringsPath, f)).isDirectory);
-
-        for (const l of langs) {
-            strings[langMap[l] ?? l] = {};
-
-            const fileContent = fs.readFileSync(join(stringsPath, l, 'GAMEPLAY.txt')).toString();
-
-            for (const line of fileContent.split('\n')) {
-                const [id, text] = line.split('\t');
-
-                strings[langMap[l] ?? l][id] = text;
-            }
-        }
+        const strings = getLangStrings();
+        const fileJson = getDbfCardFile();
 
         let count = 0;
         const total = await Entity.estimatedDocumentCount({});
@@ -296,12 +311,6 @@ export class DisplayTextLoader extends Task<IDisplayTextStatus> {
             count,
             total,
         }));
-
-        const versions = fs.readdirSync(dbfPath).filter(v => fs.statSync(join(dbfPath, v)).isDirectory());
-
-        const version = versions.sort((a, b) => (a > b ? -1 : a < b ? 1 : 0))[0];
-
-        const fileJson = JSON.parse(fs.readFileSync(join(dbfPath, version, 'CARD.json')).toString()) as IDbfCardFile;
 
         for await (const e of Entity.find()) {
             if (this.status === 'idle') {
@@ -316,7 +325,7 @@ export class DisplayTextLoader extends Task<IDisplayTextStatus> {
                 l.displayText = getDisplayText(
                     text,
                     json?.m_cardTextBuilderType ?? TextBuilderType.default,
-                    e.cardId,
+                    e.entityId,
                     e.mechanics,
                     strings[l.lang],
                 );

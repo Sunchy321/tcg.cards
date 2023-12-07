@@ -45,7 +45,7 @@ export default async function renderEntity(
     data: EntityRenderData,
     asset: string,
 ): Promise<Buffer> {
-    switch (data.cardType) {
+    switch (data.type) {
     case 'minion':
         return renderMinion(data, asset);
     case 'spell':

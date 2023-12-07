@@ -85,7 +85,7 @@ export default {
         cariel_hero_power_advanced:      'cariel_hero_power_advanced',
         casts_when_drawn:                '抽到时施放',
         cat:                             '猫',
-        charge:                          'charge',
+        charge:                          '冲锋',
         choose_one:                      '抉择',
         city_of_stormwind_1:             'city_of_stormwind_1', // only on City of Stormwind
         city_of_stormwind_2:             'city_of_stormwind_2', // only on City of Stormwind

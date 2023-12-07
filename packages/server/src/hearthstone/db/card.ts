@@ -2,15 +2,16 @@ import { Document, Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { Entity as IEntity } from '@interface/hearthstone/entity';
+import { Card as ICard } from '@interface/hearthstone/card';
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'>({
-    version: [Number],
+const CardSchema = new Schema<ICard, Model<ICard>, {}, {}, {}, {}, '$type'>({
+    cardId: String,
 
-    entityId: String,
-    dbfId:    Number,
-    slug:     String,
+    version: [Number],
+    change:  String,
+
+    entityId: [String],
 
     localization: [{
         _id:             false,
@@ -18,7 +19,6 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'
         name:            String,
         text:            String,
         displayText:     String,
-        rawText:         String,
         targetText:      String,
         textInPlay:      String,
         howToEarn:       String,
@@ -64,37 +64,16 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'
     mechanics:      [String],
     referencedTags: [String],
 
-    powers: {
-        $type: [{
-            _id:              false,
-            definition:       String,
-            isMaster:         Boolean,
-            showInHistory:    Boolean,
-            playRequirements: {
-                $type: [
-                    {
-                        _id:     false,
-                        reqType: String,
-                        param:   Number,
-                    },
-                ],
-                default: undefined,
-            },
-        }],
-        default: undefined,
-    },
-
     relatedEntities: [{
         _id:      false,
         relation: String,
-        entityId: String,
+        cardId:   String,
     }],
 
     entourages:      { $type: [String], default: undefined },
     heroPower:       String,
     heroicHeroPower: String,
 
-    multipleClasses:   Number,
     deckOrder:         Number,
     overrideWatermark: String,
     deckSize:          Number,
@@ -111,6 +90,6 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'
     },
 });
 
-const Entity = conn.model<Document & IEntity>('entity', EntitySchema);
+const Card = conn.model<Document & ICard>('card', CardSchema);
 
-export default Entity;
+export default Card;

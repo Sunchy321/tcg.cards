@@ -153,7 +153,7 @@ export default async function renderSpell(
     // illustration
     components.push({
         type:  'image',
-        image: join('..', 'card', 'illustration', 'jpg', `${data.cardId}.jpg`),
+        image: join('..', 'card', 'illustration', 'jpg', `${data.entityId}.jpg`),
         pos:   position.illustration,
         size:  illusSize,
         clip(ctx) {
@@ -185,7 +185,7 @@ export default async function renderSpell(
     // background
     const backgroundPath = join('spell', 'background');
 
-    if (data.cardType === 'anomaly') {
+    if (data.type === 'anomaly') {
         components.push({
             type:  'image',
             image: join(backgroundPath, 'anomaly.png'),
@@ -277,7 +277,7 @@ export default async function renderSpell(
     }
 
     // cost
-    if (data.cardType !== 'anomaly') {
+    if (data.type !== 'anomaly') {
         const aCost = (data.adjustment ?? []).find(a => a.part === 'cost');
 
         const costType = (() => {
@@ -336,7 +336,7 @@ export default async function renderSpell(
         },
         {
             type:   'curve-text',
-            text:   data.name,
+            text:   data.name ?? '',
             font:   '文鼎隶书',
             size:   35,
             pos:    position.nameText,

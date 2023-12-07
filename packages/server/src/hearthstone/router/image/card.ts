@@ -6,9 +6,9 @@ import mime from 'mime-types';
 import { flatten, mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import Entity from '@/hearthstone/db/entity';
+import Card from '@/hearthstone/db/card';
 
-import { Entity as IEntity } from '@interface/hearthstone/entity';
+import { Card as ICard } from '@interface/hearthstone/card';
 import { Adjustment } from '@interface/hearthstone/format-change';
 
 import renderEntity, { registerFonts } from '@renderer/index';
@@ -50,18 +50,18 @@ router.get('/', async ctx => {
         query.version = version;
     }
 
-    const entities = await Entity.find(query);
+    const cards = await Card.find(query);
 
-    const entityVersion = version ?? Math.max(...flatten(entities.map(e => e.version)));
+    const cardVersion = version ?? Math.max(...flatten(cards.map(e => e.version)));
 
-    const entity = entities.find(e => e.version.includes(entityVersion));
+    const card = cards.find(e => e.version.includes(cardVersion));
 
-    if (entity == null) {
+    if (card == null) {
         ctx.status = 404;
         return;
     }
 
-    const json = entity.toObject() as IEntity;
+    const json = card.toObject() as ICard;
 
     const localization = json.localization.find(l => l.lang === lang)
         ?? json.localization.find(l => l.lang === 'en')
@@ -69,12 +69,12 @@ router.get('/', async ctx => {
 
     try {
         const data = await renderEntity({
-            cardType: json.cardType,
+            type:     json.type,
             variant:  'normal',
             format,
             costType: 'mana',
 
-            cardId: json.cardId,
+            entityId: json.entityId[0],
 
             ...localization,
             text: localization.displayText,

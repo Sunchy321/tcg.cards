@@ -241,13 +241,13 @@ import pageSetup from 'setup/page';
 
 import HearthstoneText from 'components/hearthstone/Text.vue';
 
-import { Entity } from 'interface/hearthstone/entity';
+import { Card } from 'interface/hearthstone/card';
 
 import { omitBy } from 'lodash';
 
 import { apiBase, apiGet, imageBase } from 'boot/backend';
 
-type Data = Entity & {
+type Data = Card & {
     versions: number[][];
 };
 
@@ -332,7 +332,7 @@ export default defineComponent({
 
         const cost = computed(() => data.value?.cost ?? 0);
 
-        const type = computed(() => data.value?.cardType);
+        const type = computed(() => data.value?.type);
         const race = computed(() => data.value?.race);
 
         const stats = computed(() => {

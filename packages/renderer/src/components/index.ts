@@ -105,7 +105,7 @@ export async function renderComponent(ctx: CanvasRenderingContext2D, c: Componen
 
             fontCtx.font = `${size}px "${c.font}"`;
 
-            sizes = c.text.split('').map(w => fontCtx.measureText(w).width);
+            sizes = (c.text ?? '').split('').map(w => fontCtx.measureText(w).width);
         } while (sum(sizes) > panelWidth && size > 10);
 
         const xCenter = c.middle * panelWidth;

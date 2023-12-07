@@ -197,14 +197,14 @@ export default defineComponent({
             });
 
             if (props.format === 'mercenaries') {
-                if (data.some(d => mercenariesPreset.includes(d.cardId))) {
-                    data = data.filter(d => mercenariesPreset.includes(d.cardId));
+                if (data.some(d => mercenariesPreset.includes(d.entityId))) {
+                    data = data.filter(d => mercenariesPreset.includes(d.entityId));
                 }
             }
 
             if (props.format === 'battlegrounds') {
                 data = data.filter(d => {
-                    if (d.cardId.endsWith('_G') && data.some(v => v.cardId === d.cardId.replace(/_G$/, ''))) {
+                    if (d.entityId.endsWith('_G') && data.some(v => v.entityId === d.entityId.replace(/_G$/, ''))) {
                         return false;
                     }
 
@@ -228,7 +228,7 @@ export default defineComponent({
             const data = await getData(input.value, props.modelValue);
 
             if (Array.isArray(data)) {
-                input.value = data.map(v => v.cardId).sort().join(', ');
+                input.value = data.map(v => v.entityId).sort().join(', ');
                 return;
             }
 
@@ -241,7 +241,7 @@ export default defineComponent({
 
             if (data != null) {
                 input.value = loc.name;
-                emit('update:modelValue', data.cardId);
+                emit('update:modelValue', data.entityId);
             }
         };
 

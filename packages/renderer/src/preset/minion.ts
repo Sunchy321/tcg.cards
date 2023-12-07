@@ -183,7 +183,7 @@ export default async function renderMinion(
     // illustration
     components.push({
         type:  'image',
-        image: join('..', 'card', 'illustration', 'jpg', `${data.cardId}.jpg`),
+        image: join('..', 'card', 'illustration', 'jpg', `${data.entityId}.jpg`),
         pos:   position.illustration,
         size:  illusSize,
         clip(ctx) {
@@ -375,7 +375,7 @@ export default async function renderMinion(
         },
         {
             type:   'curve-text',
-            text:   data.name,
+            text:   data.name ?? '',
             font:   '文鼎隶书',
             size:   35,
             pos:    position.nameText,

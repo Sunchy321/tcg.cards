@@ -6,46 +6,37 @@ import {
 
 import Patch from '@/hearthstone/db/patch';
 import Entity from '@/hearthstone/db/entity';
+import Card from '@/hearthstone/db/card';
 import Task from '@/common/task';
 
-import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthstone/entity';
+import { Entity as IEntity } from '@interface/hearthstone/entity';
+import { Card as ICard, PlayRequirement, Power } from '@interface/hearthstone/card';
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { xml2js } from 'xml-js';
 import {
-    castArray, isEqual, last, omit, uniq,
+    castArray, flatten, isEqual, last, omit, partition, pick, uniq,
 } from 'lodash';
 
+import { mergeCard } from './merge';
+
+import {
+    TextBuilderType, getLangStrings, getDbfCardFile, getDisplayText,
+} from '@/hearthstone/blizzard/display-text';
+
 import { dataPath } from '@/config';
+import { localPath, langMap } from './base';
 import * as logger from '@/logger';
 
 import { toBucket, toGenerator } from '@/common/to-bucket';
 import internalData from '@/internal-data';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
-export const localPath = path.join(dataPath, 'hearthstone', 'hsdata');
 
 function hasData(): boolean {
     return fs.existsSync(path.join(localPath, '.git'));
 }
-
-export const langMap: Record<string, string> = {
-    deDE: 'de',
-    enUS: 'en',
-    esES: 'es',
-    esMX: 'mx',
-    frFR: 'fr',
-    itIT: 'it',
-    jaJP: 'ja',
-    koKR: 'ko',
-    plPL: 'pl',
-    ptBR: 'pt',
-    ruRU: 'ru',
-    thTH: 'th',
-    zhCN: 'zhs',
-    zhTW: 'zht',
-};
 
 export interface ITag {
     index: keyof IEntity;
@@ -75,7 +66,7 @@ export const tags: Record<string, ITag> = {
     199:  { index: 'classes', array: true, enum: 'class' },
     200:  { index: 'race', array: true, enum: true },
     201:  { index: 'faction', enum: true },
-    202:  { index: 'cardType', enum: 'type' },
+    202:  { index: 'type', enum: 'type' },
     203:  { index: 'rarity', enum: true },
     292:  { index: 'armor' },
     321:  { index: 'collectible', bool: true },
@@ -205,7 +196,7 @@ export class PatchClearer extends Task<IClearPatchStatus> {
         }
 
         let count = 0;
-        const total = await Entity.countDocuments({ version: this.version });
+        let total = await Entity.countDocuments({ version: this.version });
 
         this.intervalProgress(500, () => ({
             type:    'clear-patch',
@@ -222,6 +213,22 @@ export class PatchClearer extends Task<IClearPatchStatus> {
                 await e.save();
             } else {
                 await e.delete();
+            }
+
+            count += 1;
+        }
+
+        count = 0;
+        total = await Card.countDocuments({ version: this.version });
+
+        const cards = await Card.find({ version: this.version });
+
+        for (const c of cards) {
+            if (c.version.length > 1) {
+                c.version = c.version.filter(v => v !== this.version);
+                await c.save();
+            } else {
+                await c.delete();
             }
 
             count += 1;
@@ -368,11 +375,11 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         await repo.reset(ResetMode.HARD, [patch.hash]);
 
-        const text = fs
+        const cardDefs = fs
             .readFileSync(path.join(localPath, 'CardDefs.xml'))
             .toString();
 
-        const xml = xml2js(text, {
+        const xml = xml2js(cardDefs, {
             compact:           true,
             ignoreDeclaration: true,
             ignoreComment:     true,
@@ -404,9 +411,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         for (const e of entities) {
             for (const r of e.relatedEntities) {
-                r.cardId = entities.find(e => e.dbfId.toString() === r.cardId)?.cardId ?? '';
+                r.entityId = entities.find(e => e.dbfId.toString() === r.entityId)?.entityId ?? '';
             }
         }
+
+        const strings = getLangStrings();
+        const fileJson = getDbfCardFile();
 
         let count = 0;
         const total = entities.length;
@@ -419,26 +429,104 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }));
 
         for (const jsons of toBucket(toGenerator(entities), 500)) {
-            const oldData = await Entity.find({ cardId: { $in: jsons.map(j => j.cardId) } });
+            const oldData = await Entity.find({ entityId: { $in: jsons.map(j => j.entityId) } });
+
+            const oldCard = await Card.find({ entityId: { $in: jsons.map(j => j.entityId) } });
 
             for (const e of jsons) {
+                const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
+
+                for (const l of e.localization) {
+                    const text = l.rawText.replace(/[$#](\d+)/g, (_, m) => m);
+
+                    l.displayText = getDisplayText(
+                        text,
+                        json?.m_cardTextBuilderType ?? TextBuilderType.default,
+                        e.entityId,
+                        e.mechanics,
+                        strings[l.lang],
+                    );
+
+                    l.text = l.displayText.replace(/<\/?.>|\[.\]/g, '');
+                }
+
                 const eJson = omit(new Entity(e).toJSON(), ['version']);
 
-                let saved = false;
+                let entitySaved = false;
+                let cardSaved = false;
 
-                for (const o of oldData.filter(o => o.cardId === e.cardId)) {
-                    const oJson = omit(o.toJSON(), ['version']);
+                for (const oe of oldData.filter(o => o.entityId === e.entityId)) {
+                    const oJson = omit(oe.toJSON(), ['version']);
 
                     if (isEqual(oJson, eJson)) {
-                        o.version = uniq([...o.version, e.version[0]]).sort((a, b) => a - b);
-                        await o.save();
-                        saved = true;
+                        oe.version = uniq([...oe.version, e.version[0]]).sort((a, b) => a - b);
+                        await oe.save();
+                        entitySaved = true;
                         break;
                     }
                 }
 
-                if (!saved) {
+                if (!entitySaved) {
                     await Entity.create(e);
+                }
+
+                const enLoc = e.localization.find(l => l.lang === 'en') ?? e.localization[0];
+
+                const toIdentifier = (s: string) => s.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
+
+                if (e.type !== 'enchantment') {
+                    const c = new Card({
+                        ...e,
+                        cardId:          toIdentifier(enLoc.name),
+                        entityId:        [e.entityId],
+                        relatedEntities: e.relatedEntities.map(r => ({ relation: r.relation, cardId: r.entityId })),
+                    });
+
+                    const cards = oldCard.filter(o => o.entityId.includes(e.entityId));
+
+                    if (cards.length > 0) {
+                        c.cardId = cards[0].cardId;
+                    }
+
+                    const oc = cards.find(o => o.version.includes(c.version[0]));
+
+                    if (oc != null) {
+                        await mergeCard(oc, c);
+                        cardSaved = true;
+                    } else {
+                        const [oldCards] = partition(cards, o => o.version.every(v => v < c.version[0]));
+
+                        if (oldCards.length > 0) {
+                            const latesetOldVersion = Math.max(...flatten(oldCards.map(o => o.version)));
+
+                            const latesetOldCard = oldCards.find(o => o.version.includes(latesetOldVersion))!;
+
+                            const commonKeys = uniq([
+                                ...Object.keys(c.toJSON()),
+                                ...Object.keys(latesetOldCard.toJSON()),
+                            ]).filter(k => ![
+                                'cardId', 'version', 'change', 'entityId',
+                            ].includes(k));
+
+                            const cJson = pick(c.toJSON(), commonKeys);
+                            const oJson = pick(latesetOldCard.toJSON(), commonKeys);
+
+                            if (isEqual(cJson, oJson)) {
+                                latesetOldCard.version.push(c.version[0]);
+                                await latesetOldCard.save();
+                                cardSaved = true;
+                            } else {
+                                if (latesetOldCard.change == null) {
+                                    latesetOldCard.change = 'unspecified';
+                                    await latesetOldCard.save();
+                                }
+                            }
+                        }
+                    }
+
+                    if (!cardSaved) {
+                        await Card.create(c);
+                    }
                 }
 
                 count += 1;
@@ -458,7 +546,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         const errors: string[] = [];
 
         result.version = [this.version];
-        result.cardId = entity._attributes.CardID;
+        result.entityId = entity._attributes.CardID;
         result.dbfId = Number.parseInt(entity._attributes.ID, 10);
 
         result.classes = [];
@@ -569,7 +657,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     if (relatedEntity != null) {
                         result.relatedEntities.push({
                             relation: relatedEntity,
-                            cardId:   (t as XTag)._attributes.value,
+                            entityId: (t as XTag)._attributes.value,
                         });
 
                         continue;
@@ -797,7 +885,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             result.cost = 0;
         }
 
-        if (result.cardType === 'minion') {
+        if (result.type === 'minion') {
             if (result.attack != null && result.health == null) {
                 result.health = 0;
             }
@@ -805,7 +893,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             if (result.attack == null && result.health != null) {
                 result.attack = 0;
             }
-        } else if (result.cardType === 'weapon') {
+        } else if (result.type === 'weapon') {
             if (result.attack != null && result.durability == null) {
                 result.durability = 0;
             }
