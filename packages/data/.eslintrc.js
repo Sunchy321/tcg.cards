@@ -1,8 +1,19 @@
 const path = require('path');
 
 module.exports = {
+    parser: 'vue-eslint-parser',
+
     parserOptions: {
+        parser:      '@typescript-eslint/parser',
         project: path.join(__dirname, 'tsconfig.json'),
+    },
+
+    globals: {
+        defineProps: 'readonly',
+    },
+
+    env: {
+        'vue/setup-compiler-macros': true,
     },
 
     rules: {

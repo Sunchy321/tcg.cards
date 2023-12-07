@@ -21,7 +21,7 @@ import pageSetup from 'setup/page';
 import components from './data';
 
 export default defineComponent({
-    name: 'Data',
+    name: 'DataPage',
 
     components: { ...components },
 

@@ -15,5 +15,10 @@
             "@interface/*": ["../node_modules/card-interface/src/*"],
         },
     },
+    "vueCompilerOptions": {
+        "plugins": [
+            "@vue/language-plugin-pug"
+        ]
+    },
     "include": ["src/*"]
 }

@@ -10,7 +10,7 @@
             <card-avatar v-if="id != null && version != null" :id="id" :version="version" use-lang />
         </div>
 
-        <duplicate-item :values="values" @update-value="updateValue" />
+        <json-comparator :values="values" @update-value="updateValue" />
     </div>
 </template>
 
@@ -28,8 +28,8 @@ import controlSetup from 'setup/control';
 
 import { Card } from 'interface/magic/card';
 
-import DuplicateItem from 'src/components/magic/data/DuplicateItem.vue';
-import CardAvatar from 'src/components/magic/CardAvatar.vue';
+import JsonComparator from 'components/JSONComparator.vue';
+import CardAvatar from 'components/magic/CardAvatar.vue';
 
 import { isEqual, set } from 'lodash';
 
@@ -52,7 +52,7 @@ type DuplicateData = {
 };
 
 export default defineComponent({
-    components: { DuplicateItem, CardAvatar },
+    components: { JsonComparator, CardAvatar },
 
     setup() {
         const { controlGet, controlPost } = controlSetup();
@@ -85,7 +85,7 @@ export default defineComponent({
                     values.value[i] = value;
                 }
             } else {
-                const path = index.map(v => (v.endsWith('.') ? v.slice(0, -1) : v.slice(1, -1)));
+                const path = index.map(v => (v.startsWith('.') ? v.slice(1) : v.slice(1, -1)));
 
                 for (const v of values.value) {
                     set(v, path, value);

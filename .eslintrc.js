@@ -7,8 +7,13 @@ module.exports = {
         node:    true,
     },
 
+    parser: 'vue-eslint-parser',
+
     parserOptions: {
-        parser:      '@typescript-eslint/parser',
+        parser:      {
+            js: 'espree',
+            ts: '@typescript-eslint/parser',
+        },
         sourceType:  'module',
         ecmaVersion: 2020,
     },
@@ -21,16 +26,14 @@ module.exports = {
         'airbnb-base',
         'plugin:@typescript-eslint/recommended',
         'plugin:vue/vue3-recommended',
+        'plugin:vue-pug/vue3-recommended',
     ],
 
     overrides: [
         {
             files: ['.eslintrc.js', 'webpack.config.js', 'quasar.conf.js'],
             rules: {
-                'global-require': 'off',
-
-                'import/no-extraneous-dependencies': 'off',
-
+                'import/no-extraneous-dependencies':  'off',
                 '@typescript-eslint/no-var-requires': 'off',
             },
         },
@@ -56,6 +59,7 @@ module.exports = {
         'no-nested-ternary':           'off',
         'no-param-reassign':           'off',
         'no-shadow':                   'off',
+        'no-spaced-func':              'off',
         'no-underscore-dangle':        'off',
         'no-unused-expressions':       'off',
         'no-use-before-define':        'off',
