@@ -1,49 +1,62 @@
-<template>
-    <div class="hsdata-patch row items-center">
-        <div class="version">{{ version }}</div>
+<template lang="pug">
+div.hsdata-patch.row.items-center
+    div.version {{ version }}
 
-        <q-btn
-            class="clear-button"
-            flat round dense
-            icon="mdi-close"
-            @click="clearPatch"
-        />
+    q-btn.clear-button(
+        flat round dense
+        icon="mdi-close"
+        @click="clearPatch"
+    )
 
-        <q-btn
-            class="load-button"
-            :class="{ 'is-updated': isUpdated }"
-            flat round dense
-            icon="mdi-import"
-            @click="loadPatch"
-        />
+    q-btn.load-button(
+        :class="{ 'is-updated': isUpdated }"
+        flat round dense
+        icon="mdi-import"
+        @click="loadPatch"
+    )
 
-        <q-circular-progress
-            v-show="progress != null"
-            :value="progressValue"
-            font-size="8px"
-            :max="1"
-            :thickness="0.3"
-            color="primary"
-            track-color="transparent"
-        />
+    span.duplicate(v-if="duplicate > 0") {{ duplicate }}
 
-        <span v-show="progress != null" class="q-pl-sm">{{ progressLabel }}</span>
-    </div>
+    q-circular-progress(
+        v-show="progress != null"
+        :value="progressValue"
+        font-size="8px"
+        :max="1"
+        :thickness="0.3"
+        color="primary"
+        track-color="transparent"
+    )
+
+    span.q-pl-sm(v-show="progress != null") {{ progressLabel }}
 </template>
 
 <style lang="sass" scoped>
 .version
     width: 100px
 
+.duplicate
+    color: red
+
 .load-button.is-updated
     color: green
 
 </style>
 
-<script lang="ts">
-import { defineComponent, ref, computed } from 'vue';
+<script setup lang="ts">
+import { ref, computed } from 'vue';
 
 import controlSetup from 'setup/control';
+
+const props = defineProps<{
+    version: string;
+    number: number;
+    isUpdated: boolean;
+    duplicate: number;
+}>();
+
+const emit = defineEmits<{
+    'load-data': [void];
+}>();
 
 interface Progress {
     type: 'clear-patch' | 'load-patch';
@@ -52,101 +65,69 @@ interface Progress {
     total: number;
 }
 
-export default defineComponent({
-    props: {
-        version: {
-            type:     String,
-            required: true,
-        },
+const { controlWs } = controlSetup();
 
-        number: {
-            type:     Number,
-            required: true,
-        },
+const progress = ref<Progress | null>(null);
 
-        isUpdated: {
-            type:     Boolean,
-            required: true,
-        },
-    },
-
-    emits: ['load-data'],
-
-    setup(props, { emit }) {
-        const { controlWs } = controlSetup();
-
-        const progress = ref<Progress | null>(null);
-
-        const progressValue = computed(() => {
-            if (progress.value == null) {
-                return 0;
-            } else {
-                return progress.value.count / progress.value.total;
-            }
-        });
-
-        const progressLabel = computed(() => {
-            if (progress.value == null) {
-                return '';
-            } else {
-                return `${progress.value.count}/${progress.value.total}`;
-            }
-        });
-
-        const clearPatch = async () => {
-            const ws = controlWs('/hearthstone/hsdata/clear-patch', { version: props.number });
-
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    if (data.error != null) {
-                        console.error(data);
-                    } else {
-                        const prog = JSON.parse(data) as Progress;
-                        progress.value = prog;
-                    }
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    emit('load-data');
-
-                    resolve(undefined);
-                };
-            });
-        };
-
-        const loadPatch = async () => {
-            const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.number });
-
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    if (data.error != null) {
-                        console.error(data);
-                    } else {
-                        const prog = JSON.parse(data) as Progress;
-                        progress.value = prog;
-                    }
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    emit('load-data');
-
-                    resolve(undefined);
-                };
-            });
-        };
-
-        return {
-            progress,
-            progressValue,
-            progressLabel,
-
-            clearPatch,
-            loadPatch,
-        };
-    },
+const progressValue = computed(() => {
+    if (progress.value == null) {
+        return 0;
+    } else {
+        return progress.value.count / progress.value.total;
+    }
 });
+
+const progressLabel = computed(() => {
+    if (progress.value == null) {
+        return '';
+    } else {
+        return `${progress.value.count}/${progress.value.total}`;
+    }
+});
+
+const clearPatch = async () => {
+    const ws = controlWs('/hearthstone/hsdata/clear-patch', { version: props.number });
+
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            if (data.error != null) {
+                console.error(data);
+            } else {
+                const prog = JSON.parse(data) as Progress;
+                progress.value = prog;
+            }
+        };
+
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            emit('load-data');
+
+            resolve(undefined);
+        };
+    });
+};
+
+const loadPatch = async () => {
+    const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.number });
+
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            if (data.error != null) {
+                console.error(data);
+            } else {
+                const prog = JSON.parse(data) as Progress;
+                progress.value = prog;
+            }
+        };
+
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            emit('load-data');
+
+            resolve(undefined);
+        };
+    });
+};
 </script>

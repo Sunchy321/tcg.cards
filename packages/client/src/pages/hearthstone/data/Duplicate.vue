@@ -1,15 +1,14 @@
 <template lang="pug">
-div(class="q-pa-md")
-    div(class="q-mb-md")
+div.q-pa-md
+    div.q-mb-md
         span {{ total }}
-        q-btn(class="q-mx-md" outline dense :disable="!resolveEnabled" @click="resolveDuplicate") Resolve
+        q-btn.q-mx-md(outline dense :disable="!resolveEnabled" @click="resolveDuplicate") Resolve
 
     JsonComparator(:values="values", :key-order="keyOrder", @update-value="updateValue")
         template(#default="{ text, value, index, which }")
             template(v-if="index[index.length - 1] == '.cardId'")
                 | cardId:
-                q-input(
-                    class="cardid-input"
+                q-input.cardid-input(
                     flat dense outlined
                     :model-value="value" @update:model-value="value => updateValue({ index, value, which })"
                 )
