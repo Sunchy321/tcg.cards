@@ -511,8 +511,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             const cJson = pick(c.toJSON(), commonKeys);
                             const oJson = pick(latesetOldCard.toJSON(), commonKeys);
 
-                            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-                            if (isEqual(cJson, oJson) && cJson.set.every((s: string) => oJson.set.includes(s))) {
+                            if (isEqual(cJson, oJson) && c.set.every(s => latesetOldCard.set.includes(s))) {
                                 latesetOldCard.version.push(c.version[0]);
                                 await latesetOldCard.save();
                                 cardSaved = true;
