@@ -1,18 +1,37 @@
-<template lang="pug">
-div.q-pa-md
-    div.q-mb-md
-        span {{ total }}
-        q-btn.q-mx-md(outline dense :disable="!resolveEnabled" @click="resolveDuplicate") Resolve
+<template>
+    <div class="q-ma-md">
+        <div class="row items-center q-mb-md">
+            <span>{{ total }}</span>
+            <q-btn class="q-ml-md" outline dense :disable="!resolveEnabled" @click="resolveDuplicate">Resolve</q-btn>
+            <q-btn class="q-ml-md" outline dense @click="mergeData">Merge</q-btn>
+            <q-btn class="q-ml-md" outline dense @click="rotateData">Rotate</q-btn>
 
-    JsonComparator(:values="values", :key-order="keyOrder", @update-value="updateValue")
-        template(#default="{ text, value, index, which }")
-            template(v-if="index[index.length - 1] == '.cardId'")
-                | cardId:
-                q-input.cardid-input(
-                    flat dense outlined
-                    :model-value="value" @update:model-value="value => updateValue({ index, value, which })"
-                )
-            span(v-else) {{ text }}
+            <span style="width: 30px" />
+
+            <q-btn
+                v-for="(v, k) in resolveSnippets" :key="k"
+                class="q-ml-sm"
+                dense outline rounded
+                color="primary"
+                @click="v"
+            >{{ k.replace(/_/g, ' ') }}</q-btn>
+        </div>
+
+        <JsonComparator :values="values" :key-order="keyOrder" @update-value="updateValue">
+            <template #default="{text, value, index, which}">
+                <template v-if="index[index.length - 1] == '.cardId'">
+                    cardId:
+                    <q-input
+                        class="cardid-input"
+                        flat dense outlined
+                        :model-value="value"
+                        @update:model-value="value => updateValue({ index, value, which })"
+                    />
+                </template>
+                <span v-else>{{ text }}</span>
+            </template>
+        </JsonComparator>
+    </div>
 </template>
 
 <style lang="sass" scoped>
@@ -22,9 +41,8 @@ div.q-pa-md
 </style>
 
 <script setup lang="ts">
-import {
-    ref, computed, onMounted,
-} from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { Notify } from 'quasar';
 
 import controlSetup from 'setup/control';
 
@@ -32,7 +50,9 @@ import JsonComparator from 'components/JSONComparator.vue';
 
 import type { Card } from 'interface/hearthstone/card';
 
-import { isEqual, set, uniq } from 'lodash';
+import {
+    isEqual, set, uniq, flatten, omit,
+} from 'lodash';
 
 export type ICardUpdation = {
     cardId: string;
@@ -49,26 +69,60 @@ export type ICardUpdation = {
 
 type DuplicateData = {
     total: number;
-    values: (Card & { _id: string })[];
+    values: Card[];
+    initial: { cardId: string, version: number };
 };
 
 const { controlGet, controlPost } = controlSetup();
 
 const data = ref<DuplicateData>({
-    total:  0,
-    values: [],
-});
-
-const initial = ref({
-    cardId:  '',
-    version: [] as number[],
+    total:   0,
+    values:  [],
+    initial: { cardId: '', version: 0 },
 });
 
 const total = computed(() => data.value.total);
-const values = computed(() => data.value.values);
+const initial = computed(() => data.value.initial);
+
+const values = computed({
+    get() { return data.value.values; },
+    set(newValue) {
+        data.value.values = newValue;
+    },
+});
+
+const loadData = async () => {
+    const { data: result } = await controlGet<DuplicateData>('/hearthstone/card/get-duplicate');
+
+    data.value = result;
+};
 
 const resolveEnabled = computed(() => uniq(values.value.map(v => v.cardId)).length !== 1
     || values.value.every((v, i, a) => i === a.length - 1 || isEqual(v, a[i + 1])));
+
+const resolveDuplicate = async () => {
+    await controlPost('/hearthstone/card/resolve-duplicate', {
+        data:    values.value,
+        initial: initial.value,
+    });
+
+    await loadData();
+};
+
+const keyOrder = (key: string, allValues: any[], index: string[]) => {
+    if (index.length === 0) {
+        switch (key) {
+        case 'cardId':
+            return 999;
+        case 'type':
+            return 998;
+        default:
+            return null;
+        }
+    } else {
+        return null;
+    }
+};
 
 const updateValue = ({ index, value, which }: { index: string[], value: any, which?: number }) => {
     if (index.length === 0) {
@@ -92,31 +146,72 @@ const updateValue = ({ index, value, which }: { index: string[], value: any, whi
     }
 };
 
-const loadData = async () => {
-    const { data: result } = await controlGet<DuplicateData>('/hearthstone/card/get-duplicate');
+const omitKey = ['version', 'set', 'entityId'];
 
-    data.value = result;
-    initial.value = {
-        cardId:  result.values[0]?.cardId ?? '',
-        version: result.values[0]?.version ?? [],
-    };
-};
+const mergeData = () => {
+    const allVersion = uniq(flatten(values.value.map(v => v.version)));
+    const commonVersion = allVersion.filter(v => values.value.every(o => o.version.includes(v)));
 
-const resolveDuplicate = async () => {
-    await controlPost('/hearthstone/card/resolve-duplicate', {
-        data:    values.value,
-        initial: initial.value,
-    });
+    for (const [i, v] of values.value.entries()) {
+        if (i !== 0) {
+            const thisJson = omit(v, omitKey);
+            const lastJson = omit(values.value[i - 1], omitKey);
 
-    await loadData();
-};
+            if (!isEqual(thisJson, lastJson)) {
+                Notify.create({
+                    message: `Card [${i}] is not equal to previous card`,
+                    color:   'negative',
+                });
 
-const keyOrder = (key: string, allValues: any[], indent: number) => {
-    if (key === '.cardId' && indent === 0) {
-        return 999;
+                console.log(Object.keys((thisJson as any).localization)
+                    .filter(k => !isEqual((thisJson.localization as any)[k], (lastJson.localization as any)[k]))
+                    .map(k => ({
+                        key:  k,
+                        this: (thisJson.localization as any)[k],
+                        last: (lastJson.localization as any)[k],
+                    })));
+
+                return;
+            }
+        }
     }
 
-    return 0;
+    const commonJson = {
+        ...omit(values.value[0], omitKey),
+        version:  commonVersion,
+        set:      uniq(flatten(values.value.map(v => v.set))),
+        entityId: uniq(flatten(values.value.map(v => v.entityId))),
+    } as Card;
+
+    const remainingJson = values.value.map(v => ({
+        ...v,
+        version: v.version.filter(o => !commonVersion.includes(o)),
+    }) as Card).filter(v => v.version.length > 0);
+
+    console.dir(commonJson);
+
+    data.value.values = [...remainingJson, commonJson];
+};
+
+const rotateData = () => {
+    values.value = [...values.value.slice(1), values.value[0]];
+};
+
+const resolveSnippets = {
+    hero: () => {
+        for (const v of values.value) {
+            if (v.type === 'hero') {
+                v.cardId += '!hero';
+            }
+        }
+    },
+    tavern_brawl: () => {
+        for (const v of values.value) {
+            if (v.set.includes('tb')) {
+                v.cardId += ':tavern_brawl';
+            }
+        }
+    },
 };
 
 onMounted(loadData);

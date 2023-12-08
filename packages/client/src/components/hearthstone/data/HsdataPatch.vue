@@ -1,33 +1,35 @@
-<template lang="pug">
-div.hsdata-patch.row.items-center
-    div.version {{ version }}
+<template>
+    <div class="hsdata-patch row items-center">
+        <div class="version">{{ version }}</div>
 
-    q-btn.clear-button(
-        flat round dense
-        icon="mdi-close"
-        @click="clearPatch"
-    )
+        <q-btn
+            class="clear-button"
+            flat round dense
+            icon="mdi-close"
+            @click="clearPatch"
+        />
 
-    q-btn.load-button(
-        :class="{ 'is-updated': isUpdated }"
-        flat round dense
-        icon="mdi-import"
-        @click="loadPatch"
-    )
+        <q-btn
+            class="load-button" :class="{ 'is-updated': isUpdated }"
+            flat round dense
+            icon="mdi-import"
+            @click="loadPatch"
+        />
 
-    span.duplicate(v-if="duplicate > 0") {{ duplicate }}
+        <span v-if="duplicate > 0" class="duplicate">{{ duplicate }}</span>
 
-    q-circular-progress(
-        v-show="progress != null"
-        :value="progressValue"
-        font-size="8px"
-        :max="1"
-        :thickness="0.3"
-        color="primary"
-        track-color="transparent"
-    )
+        <q-circular-progress
+            v-show="progress != null"
+            :value="progressValue"
+            font-size="8px"
+            :max="1"
+            :thickness="0.3"
+            color="primary"
+            track-color="transparent"
+        />
 
-    span.q-pl-sm(v-show="progress != null") {{ progressLabel }}
+        <span v-show="progress != null" class="q-pl-sm">{{ progressLabel }}</span>
+    </div>
 </template>
 
 <style lang="sass" scoped>

@@ -1,5 +1,5 @@
-<template lang="pug">
-root
+<template>
+    <root />
 </template>
 
 <style lang="sass">
@@ -34,7 +34,7 @@ import {
 
 const props = defineProps<{
     values: any[];
-    keyOrder?: (key: string, values: any[], indent: number) => number;
+    keyOrder?: (key: string, values: any[], index: string[]) => number | null;
 }>();
 
 const emit = defineEmits<{
@@ -64,9 +64,13 @@ const isAllEqual = (values: any[]) => {
     return values.every(v => isEqual(v, values[0]));
 };
 
-const keyOrder = (key: string, values: any[], indent: number) => {
+const keyOrder = (key: string, values: any[], index: string[]) => {
     if (props.keyOrder != null) {
-        return props.keyOrder(key, values, indent);
+        const order = props.keyOrder(key, values, index);
+
+        if (order != null) {
+            return order;
+        }
     }
 
     if (!isAllEqual(values.map(v => v?.[key]))) {
@@ -202,8 +206,8 @@ const render = (values: any[], index: string[] = []): VNode[] => {
         ];
     } else if (values.every(v => v == null || !isPrimary(v))) {
         const keys = uniq(flatten(values.map(v => Object.keys(v ?? {})))).sort((a, b) => {
-            const aOrder = keyOrder(a, values, index.length);
-            const bOrder = keyOrder(b, values, index.length);
+            const aOrder = keyOrder(a, values, index);
+            const bOrder = keyOrder(b, values, index);
 
             if (aOrder !== bOrder) {
                 return aOrder > bOrder ? -1 : 1;

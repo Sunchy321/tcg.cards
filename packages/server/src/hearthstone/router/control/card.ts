@@ -33,8 +33,9 @@ router.get('/get-duplicate', async ctx => {
     const cards = await Card.find({ cardId: first.cardId, version: first.version });
 
     ctx.body = {
-        total:  duplicates.length,
-        values: cards.map(c => c.toJSON()),
+        total:   duplicates.length,
+        values:  cards.map(c => c.toJSON()),
+        initial: first,
     };
 });
 

@@ -10,6 +10,8 @@ import {
 
 import { toMultiple, toSingle } from '@/common/request-helper';
 
+import { locales } from '@static/hearthstone/basic';
+
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/card');
@@ -248,7 +250,28 @@ router.get('/compare', async ctx => {
         return;
     }
 
-    ctx.body = compare(cards[0].toJSON(), cards[1].toJSON()) ?? {};
+    const first = cards[0].toJSON() as ICard;
+    const second = cards[1].toJSON() as ICard;
+
+    const existLocale = locales.filter(
+        l => first.localization.some(e => e.lang === l) || second.localization.some(e => e.lang === l),
+    );
+
+    const compareLocalization = existLocale.map(l => {
+        const firstLoc = first.localization.find(e => e.lang === l);
+        const secondLoc = second.localization.find(e => e.lang === l);
+
+        if (firstLoc == null || secondLoc == null) {
+            return [firstLoc, secondLoc];
+        } else {
+            return compare(firstLoc, secondLoc);
+        }
+    });
+
+    ctx.body = {
+        ...compare(omit(first, ['localization']), omit(second, ['localization'])) ?? {},
+        localization: compareLocalization,
+    };
 });
 
 export default router;

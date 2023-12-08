@@ -1,44 +1,52 @@
-<template lang="pug">
-q-page.q-pa-md
-    div.q-mb-lg.row.items-center
-        q-btn.q-mr-md(
-            flat dense round
-            icon="mdi-download"
-            @click="getHsdata"
-        )
+<template>
+    <q-page class="q-pa-md">
+        <div class="q-mb-lg row items-center">
+            <q-btn
+                class="q-mr-md"
+                flat dense round
+                icon="mdi-download"
+                @click="getHsdata"
+            />
 
-        q-btn.q-mr-md(
-            flat dense round
-            icon="mdi-merge"
-            @click="loadHsdata"
-        )
+            <q-btn
+                class="q-mr-md"
+                flat dense round
+                icon="mdi-merge"
+                @click="loadHsdata"
+            />
 
-        q-btn.q-mr-md(
-            flat round dense
-            icon="mdi-import"
-            @click="loadPatches"
-        )
+            <q-btn
+                class="q-mr-md"
+                flat round dense
+                icon="mdi-import"
+                @click="loadPatches"
+            />
 
-        div.q-mr-ms(v-if="progress != null" class="q-mr-sm") {{ progressLabel }}
+            <div v-if="progress != null" class="q-mr-sm">
+                {{ progressLabel }}
+            </div>
 
-        q-linear-progress.col-grow(
-            v-if="progress != null"
-            rounded
-            color="primary"
-            :indeterminate="progressValue == null"
-            :value="progressValue"
-            size="15px"
-        )
-
-    grid(v-slot="{ version, number, isUpdated, duplicate }" :value="patches" :item-width="300")
-        hsdata-patch(
-            :key="number"
-            :version="version"
-            :number="number"
-            :is-updated="isUpdated"
-            :duplicate="duplicate"
-            @load-data="loadData"
-        )
+            <q-linear-progress
+                v-if="progress != null"
+                class="col-grow"
+                rounded
+                color="primary"
+                :indeterminate="progressValue == null"
+                :value="progressValue"
+                size="15px"
+            />
+        </div>
+        <grid v-slot="{ version, number, isUpdated, duplicate }" :value="patches" :item-width="300">
+            <hsdata-patch
+                :key="number"
+                :version="version"
+                :number="number"
+                :is-updated="isUpdated"
+                :duplicate="duplicate"
+                @load-data="loadData"
+            />
+        </grid>
+    </q-page>
 </template>
 
 <script setup lang="ts">
