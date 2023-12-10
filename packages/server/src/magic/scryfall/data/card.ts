@@ -236,7 +236,7 @@ function getId(data: NCardBase & { layout: string }): string {
 
     if (data.card_faces[0]?.name === 'Incubator') {
         return 'incubator!';
-    } else if (data.layout === 'token') {
+    } else if (['token', 'flip_token_top', 'flip_token_bottom'].includes(data.layout)) {
         const { typeMain, typeSub } = parseTypeline(cardFaces[0].type_line ?? '');
 
         if (typeSub == null) {
@@ -836,11 +836,6 @@ export default class CardLoader extends Task<Status> {
                     continue;
                 }
 
-                if (json.card_faces == null || !json.card_faces[0].type_line.includes('Role')) {
-                    count += 1;
-                    continue;
-                }
-
                 const newCards = splitDFT(toNSCard(json as RawCardNoArtSeries));
 
                 const oldCards = cards.filter(c => c.scryfall.cardId === json.id
@@ -865,22 +860,17 @@ export default class CardLoader extends Task<Status> {
                         cardsToInsert.push(...newCards.map(c => toCard(c, setCodeMap)));
                     } else if (oldCards.length === 1 || oldCards.length === 2) {
                         for (const n of newCards) {
-                            if (n.face === 'front') {
-                                const front = oldCards.find(c => c.scryfall.face === 'front');
+                            if (n.face != null) {
+                                const old = oldCards.find(c => c.scryfall.face === n.face);
 
-                                if (front != null) {
-                                    merge(front, toCard(n, setCodeMap));
+                                if (old != null) {
+                                    merge(old, toCard(n, setCodeMap));
                                 } else {
                                     cardsToInsert.push(toCard(n, setCodeMap));
                                 }
                             } else {
-                                const back = oldCards.find(c => c.scryfall.face === 'back');
-
-                                if (back != null) {
-                                    merge(back, toCard(n, setCodeMap));
-                                } else {
-                                    cardsToInsert.push(toCard(n, setCodeMap));
-                                }
+                                // eslint-disable-next-line no-debugger
+                                debugger;
                             }
                         }
                     } else {
