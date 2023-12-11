@@ -191,6 +191,217 @@ async function parseVersion(mid: number) {
     return versions;
 }
 
+interface GathererStatus {
+    method: string;
+    type: string;
+
+    amount: {
+        updated?: number;
+        count: number;
+        total?: number;
+    };
+
+    time?: {
+        elapsed: number;
+        remaining: number;
+    };
+
+    status: Record<string, [number, number] | null>;
+}
+
+export class GathererGetter extends Task<GathererStatus> {
+    set: string;
+
+    statusMap: Record<string, [number, number] | null> = {};
+
+    constructor(set: string) {
+        super();
+
+        this.set = set;
+    }
+
+    async startImpl(): Promise<void> {
+        const cards = await Card.find({ 'set': this.set, 'multiverseId.0': { $exists: true } });
+
+        const cardList: {
+            cardId: string;
+            versions: {
+                lang: string;
+                number: string;
+                mids: number[];
+            }[];
+        } [] = [];
+
+        for (const c of cards) {
+            const item = cardList.find(v => v.cardId === c.cardId);
+
+            if (item != null) {
+                item.versions.push({
+                    lang:   c.lang,
+                    number: c.number,
+                    mids:   c.multiverseId,
+                });
+            } else {
+                cardList.push({
+                    cardId:   c.cardId,
+                    versions: [{
+                        lang:   c.lang,
+                        number: c.number,
+                        mids:   c.multiverseId,
+                    }],
+                });
+            }
+        }
+
+        const total = cardList.length;
+        let count = 0;
+
+        this.statusMap = Object.fromEntries(cardList.map(c => {
+            const version = c.versions.find(v => v.lang === 'en') ?? c.versions[0];
+
+            return [version.number, null];
+        }));
+
+        // start timer
+        const start = Date.now();
+
+        this.intervalProgress(500, () => {
+            const prog: GathererStatus = {
+                method: 'load',
+                type:   'card',
+
+                amount: { total, count },
+                status: this.statusMap,
+            };
+
+            const elapsed = Date.now() - start;
+
+            prog.time = {
+                elapsed,
+                remaining: (elapsed / count) * (total - count),
+            };
+
+            return prog;
+        });
+
+        for (const [i, c] of cardList.entries()) {
+            console.log(`${c.cardId}, ${i}/${cardList.length}`);
+
+            const version = c.versions.find(v => v.lang === 'en') ?? c.versions[0];
+
+            await this.parseGatherer(version.mids, this.set, version.number, version.lang);
+
+            count += 1;
+        }
+    }
+
+    async parseGatherer(
+        mids: number[],
+        set: string,
+        number: string,
+        lang: string,
+    ): Promise<void> {
+        await saveGathererImage(mids, set, number, lang);
+
+        const baseCard = await Card.findOne({ set, number, lang });
+
+        if (baseCard == null) {
+            return;
+        }
+
+        const versions = await parseVersion(mids[0]);
+
+        const cards = await Card.find({ multiverseId: { $in: versions.map(v => v.id).filter(v => v != null) } });
+
+        const versionsToParse = [];
+
+        for (const v of versions) {
+            if (v.id != null && cards.every(c => !c.multiverseId.includes(v.id!))) {
+                versionsToParse.push(v);
+            }
+        }
+
+        this.statusMap[number] = [versions.length - versionsToParse.length, versions.length];
+
+        for (const [i, v] of versionsToParse.entries()) {
+            const vMids = mids.map((_, index) => v.id! + index);
+            try {
+                const data = await parseGathererDetail(vMids);
+
+                await saveGathererImage(vMids, set, data.number, v.lang);
+
+                const oldCard = await Card.findOne({
+                    $or: [
+                        { set, number: data.number, lang: v.lang },
+                        { multiverseId: { $in: vMids } },
+                    ],
+                });
+
+                if (oldCard != null) {
+                    continue;
+                }
+
+                const newData = baseCard.toObject();
+
+                delete (newData as any)._id;
+                delete (newData as any).__v;
+
+                newData.number = data.number;
+                newData.lang = v.lang;
+
+                for (const [i, p] of newData.parts.entries()) {
+                    // fix meld card issue
+                    const dPart = data.parts[i - newData.parts.length + data.parts.length];
+
+                    delete p.scryfallIllusId;
+
+                    p.unified.name = dPart.name;
+                    p.unified.typeline = dPart.typeline;
+                    p.unified.text = dPart.text;
+
+                    p.printed.name = dPart.name;
+                    p.printed.typeline = dPart.typeline;
+                    p.printed.text = dPart.text;
+
+                    if (dPart.flavorText !== '') {
+                        p.flavorText = dPart.flavorText;
+                    } else {
+                        delete p.flavorText;
+                    }
+                }
+
+                if (!newData.localTags.includes('dev:printed')) {
+                    newData.localTags.push('dev:printed');
+                }
+
+                delete newData.scryfall.cardId;
+                newData.scryfall.imageUris = [];
+                delete newData.arenaId;
+                delete newData.mtgoId;
+                delete newData.mtgoFoilId;
+                newData.multiverseId = vMids;
+                delete newData.tcgPlayerId;
+                delete newData.cardMarketId;
+
+                new Card(newData).save();
+
+                this.statusMap[number]![0] += 1;
+                console.log(`${v.id}:${v.lang}, ${i + 1}/${versionsToParse.length}`);
+            } catch (e) {
+                console.log(e);
+                continue;
+            }
+        }
+    }
+
+    stopImpl(): void {
+
+    }
+
+    equals(): boolean { return true; }
+}
+
+// TODO resolve duplicate code
 export default async function parseGatherer(
     mids: number[],
     set: string,
@@ -218,8 +429,6 @@ export default async function parseGatherer(
     }
 
     for (const [i, v] of versionsToParse.entries()) {
-        console.log(`${v.id}:${v.lang}, ${i}/${versionsToParse.length}`);
-
         const vMids = mids.map((_, index) => v.id! + index);
         try {
             const data = await parseGathererDetail(vMids);
@@ -246,7 +455,7 @@ export default async function parseGatherer(
             newData.lang = v.lang;
 
             for (const [i, p] of newData.parts.entries()) {
-            // fix meld card issue
+                // fix meld card issue
                 const dPart = data.parts[i - newData.parts.length + data.parts.length];
 
                 delete p.scryfallIllusId;
@@ -280,121 +489,11 @@ export default async function parseGatherer(
             delete newData.cardMarketId;
 
             new Card(newData).save();
+
+            console.log(`${v.id}:${v.lang}, ${i + 1}/${versionsToParse.length}`);
         } catch (e) {
             console.log(e);
             continue;
         }
     }
-}
-
-interface GathererStatus {
-    method: string;
-    type: string;
-
-    amount: {
-        updated?: number;
-        count: number;
-        total?: number;
-    };
-
-    time?: {
-        elapsed: number;
-        remaining: number;
-    };
-}
-
-export class GathererGetter extends Task<GathererStatus> {
-    set: string;
-
-    constructor(set: string) {
-        super();
-
-        this.set = set;
-    }
-
-    async startImpl(): Promise<void> {
-        const cards = await Card.find({ 'set': this.set, 'multiverseId.0': { $exists: true } });
-
-        let cardList: {
-            cardId: string;
-            versions: {
-                lang: string;
-                number: string;
-                mids: number[];
-            }[];
-        } [] = [];
-
-        for (const c of cards) {
-            const item = cardList.find(v => v.cardId === c.cardId);
-
-            if (item != null) {
-                item.versions.push({
-                    lang:   c.lang,
-                    number: c.number,
-                    mids:   c.multiverseId,
-                });
-            } else {
-                cardList.push({
-                    cardId:   c.cardId,
-                    versions: [{
-                        lang:   c.lang,
-                        number: c.number,
-                        mids:   c.multiverseId,
-                    }],
-                });
-            }
-        }
-
-        const filteredList = cardList.filter(c => {
-            const versionMap: Record<string, number> = { };
-
-            for (const v of c.versions) {
-                versionMap[v.lang] = (versionMap[v.lang] ?? 0) + 1;
-            }
-
-            return Object.values(versionMap).some(count => count !== versionMap.en);
-        });
-
-        cardList = filteredList.length === 0 ? cardList : filteredList;
-
-        const total = cardList.length;
-        let count = 0;
-
-        // start timer
-        const start = Date.now();
-
-        this.intervalProgress(500, () => {
-            const prog: GathererStatus = {
-                method: 'load',
-                type:   'card',
-
-                amount: { total, count },
-            };
-
-            const elapsed = Date.now() - start;
-
-            prog.time = {
-                elapsed,
-                remaining: (elapsed / count) * (total - count),
-            };
-
-            return prog;
-        });
-
-        for (const [i, c] of cardList.entries()) {
-            console.log(`${c.cardId}, ${i}/${cardList.length}`);
-
-            const version = c.versions.find(v => v.lang === 'en') ?? c.versions[0];
-
-            await parseGatherer(version.mids, this.set, version.number, version.lang);
-
-            count += 1;
-        }
-    }
-
-    stopImpl(): void {
-
-    }
-
-    equals(): boolean { return true; }
 }
