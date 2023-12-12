@@ -54,10 +54,19 @@ export const commaBlacklist = [
     'Parceira',
     'Партнер',
     'Camarada',
+
+    'Craft with',
+    'Anfertigung mit',
+    'Façonnez avec',
+    'Costruisci con',
+    'Construir com',
+    'Elaborar con',
 ];
 
 export const commaSuffixBlacklist = [
     'の共闘',
+    // '化炼.*',
+    // '作製.*',
 ];
 
 export const parenRegex = new RegExp(`(?<!${parenPrefixBlacklist.join('|')}) *[(（](?!-|(${parenBlacklist.join('|')})[)）])([^（()）]+|[^（()）]+[(（][^（()）]+[)）][^（()）]+)[)）](?!-) *`);

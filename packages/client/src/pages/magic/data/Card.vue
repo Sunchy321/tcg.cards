@@ -399,7 +399,7 @@ const keywordMap: Record<string, string> = {
     'prowess':      'p',
 };
 
-const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone'];
+const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone', 'Map'];
 
 const numberRegex = '(?:[a-z]+|a number of|(?:twice )?(?:X|that many))';
 
@@ -1048,8 +1048,6 @@ export default defineComponent({
                         .replace(/'/g, '‘');
                 }
             }
-
-            devPrinted.value = false;
         };
 
         const prettify = () => {

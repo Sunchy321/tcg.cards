@@ -250,7 +250,7 @@ function getId(data: NCardBase & { layout: string }): string {
 
             if (
                 nameId !== baseId
-                || ['gold', 'clue', 'treasure', 'food'].includes(baseId)
+                || ['gold', 'clue', 'treasure', 'food', 'map'].includes(baseId)
             ) {
                 return `${nameId}!`;
             }
