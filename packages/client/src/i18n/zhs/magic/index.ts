@@ -26,14 +26,15 @@ export default {
         '$self': '赛制',
 
         'standard': '标准',
-        'alchemy':  '炼金',
-        'historic': '史迹',
-        'explorer': '探险',
         'pioneer':  '先驱',
         'modern':   '近代',
         'extended': '扩充',
         'legacy':   '薪传',
         'vintage':  '特选',
+
+        'alchemy':  '炼金',
+        'historic': '史迹',
+        'explorer': '探险',
 
         'standard/arena': 'MTGA标准',
 

@@ -27,14 +27,16 @@ export default {
         '$self': 'Format',
 
         'standard': 'Standard',
-        'alchemy':  'Alchemy',
-        'historic': 'Historic',
-        'explorer': 'Explorer',
         'pioneer':  'Pioneer',
         'modern':   'Modern',
         'extended': 'Extended',
         'legacy':   'Legacy',
         'vintage':  'Vintage',
+
+        'alchemy':  'Alchemy',
+        'historic': 'Historic',
+        'explorer': 'Explorer',
+        'timeless': 'Timeless',
 
         'standard/arena': 'Arena Standard',
 

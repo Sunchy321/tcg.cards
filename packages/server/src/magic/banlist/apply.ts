@@ -17,7 +17,11 @@ import { cloneDeep } from 'lodash';
 import internalData from '@/internal-data';
 import { toIdentifier } from '@/magic/util';
 
-const formatWithSet = ['standard', 'alchemy', 'historic', 'explorer', 'pioneer', 'modern', 'extended'];
+const formatWithSet = [
+    'standard', 'pioneer', 'modern', 'extended',
+    'alchemy', 'historic', 'explorer', 'timeless',
+];
+
 const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
 const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
 
@@ -298,7 +302,16 @@ export class AnnouncementApplier {
                 const formats = (() => {
                     switch (c.format) {
                     case '#alchemy':
-                        return ['alchemy', 'historic'];
+                        return ['alchemy', 'historic', 'timeless'].filter(f => {
+                            const format = this.formatMap[f]!;
+                            // the change don't become effective now
+                            if (date > new Date().toISOString().split('T')[0]) { return false; }
+                            // the change is before the format exists
+                            if (format.birthday != null && date < format.birthday) { return false; }
+                            // the change is after the format died
+                            if (format.deathdate != null && date > format.deathdate) { return false; }
+                            return true;
+                        });
                     case '#standard':
                         return [...this.eternalFormats, ...formatWithSet].filter(f => {
                             const format = this.formatMap[f]!;

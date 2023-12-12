@@ -48,14 +48,15 @@ export const symbols = [
 
 export const formats = [
     'standard',
-    'alchemy',
-    'historic',
-    'explorer',
     'pioneer',
     'modern',
     'extended',
     'legacy',
     'vintage',
+    'alchemy',
+    'historic',
+    'explorer',
+    'timeless',
     'commander',
     'duelcommander',
     'leviathan_commander',
