@@ -3,6 +3,7 @@ status:
     - historic
     - historic_brawl
     - explorer
+    - timeless
   value: unavailable
 
 patterns:

@@ -1,0 +1,12 @@
+status:
+  format:
+    - historic
+    - historic_brawl
+    - timeless
+  value: legal
+
+patterns:
+  - Admiral Brass, Unsinkable
+  - Clavileño, First of the Blessed
+  - Pantlaza, Sun-Favored
+  - Xolatoyac, the Smiling Flood

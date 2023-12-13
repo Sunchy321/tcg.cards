@@ -3,6 +3,7 @@ status:
     - alchemy
     - historic
     - historic_brawl
+    - timeless
   value: unavailable
 
 patterns:
