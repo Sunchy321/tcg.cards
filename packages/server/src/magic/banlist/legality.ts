@@ -235,16 +235,18 @@ function testRule(data: CardData, format: string, rule: LegalityRule): Legality 
     }
 }
 
-function testRules(data: CardData, format: string, rules: LegalityRule[]): Legality | null {
+type TestResult = { status: Legality, rule: LegalityRule };
+
+function testRules(data: CardData, format: string, rules: LegalityRule[]): TestResult | null {
     for (const r of rules) {
         const status = testRule(data, format, r);
 
         if (status != null) {
-            return status;
+            return { status, rule: r };
         }
 
         if (r.exclusive && Object.keys(r.status).includes(format)) {
-            return 'unavailable';
+            return { status: 'unavailable', rule: r };
         }
     }
 
@@ -254,10 +256,16 @@ function testRules(data: CardData, format: string, rules: LegalityRule[]): Legal
 const nonCardCategories = ['token', 'auxiliary', 'minigame', 'art', 'decklist', 'player', 'advertisement'];
 const casualCardTypes = ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'];
 
+export type LegalityRecorder = Record<string, {
+    result: Legality;
+    reason: string;
+}>;
+
 export function getLegality(
     data: CardData,
     formats: IFormat[],
     rules: LegalityRule[],
+    recorder: LegalityRecorder | undefined = undefined,
 ): ICard['legalities'] {
     const setsInformal = getLegalitySets('informal');
     const setsSpecial = getLegalitySets('special');
@@ -273,37 +281,45 @@ export function getLegality(
     for (const f of formats) {
         const { formatId } = f;
 
+        const assign = (value: Legality, reason: string) => {
+            if (recorder != null) {
+                recorder[formatId] = { result: value, reason };
+            }
+
+            result[formatId] = value;
+        };
+
         // This card is not released now
         if (versions.length === 0) {
-            result[formatId] = 'unavailable';
+            assign('unavailable', 'not-released');
             continue;
         }
 
         // Non-card
         if (nonCardCategories.includes(data.category)) {
-            result[formatId] = 'unavailable';
+            assign('unavailable', 'non-card');
             continue;
         }
 
-        const status = testRules(data, formatId, rules);
+        const testResult = testRules(data, formatId, rules);
 
-        if (status != null) {
-            result[formatId] = status;
+        if (testResult != null) {
+            assign(testResult.status, `rule: ${testResult.rule.name}`);
             continue;
         }
 
         if (
-            !['alchemy', 'historic', 'historic_brawl'].includes(formatId)
+            !['alchemy', 'historic', 'historic_brawl', 'timeless'].includes(formatId)
             && versions.every(v => setsOnlyOnMTGA.includes(v.set))
         ) {
-            result[formatId] = 'unavailable';
+            assign('unavailable', 'not-on-mtga');
             continue;
         }
 
         const banlistItem = f.banlist.find(b => b.id === cardId);
 
         if (banlistItem != null) {
-            result[formatId] = banlistItem.status;
+            assign(banlistItem.status, `banlist: ${banlistItem.date}`);
             continue;
         }
 
@@ -313,13 +329,13 @@ export function getLegality(
                 || v.securityStamp === 'acorn')
             && versions.some(v => setsInformal.includes(v.set) || v.securityStamp === 'acorn')
         ) {
-            result[formatId] = 'unavailable';
+            assign('unavailable', 'un-card');
             continue;
         }
 
         // Casual card type
         if (data.parts.some(p => p.typeMain.some(t => casualCardTypes.includes(t)))) {
-            result[formatId] = 'unavailable';
+            assign('unavailable', 'casual-type');
             continue;
         }
 
@@ -334,12 +350,12 @@ export function getLegality(
                     sets.every(v => !historic.sets!.includes(v))
                     || sets.every(v => !pioneer.sets!.includes(v))
                 ) {
-                    result[formatId] = 'unavailable';
+                    assign('unavailable', 'not-in-common');
                     continue;
                 }
             } else {
                 if (sets.every(v => !f.sets!.includes(v))) {
-                    result[formatId] = 'unavailable';
+                    assign('unavailable', 'not-in-set');
                     continue;
                 }
             }
@@ -364,7 +380,7 @@ export function getLegality(
             })();
 
             if (!hasCommon) {
-                result[formatId] = 'unavailable';
+                assign('unavailable', 'pauper: no-common');
                 continue;
             }
         } else if (formatId === 'pauper_commander') {
@@ -397,17 +413,17 @@ export function getLegality(
                 || (data.parts[0].typeSub?.includes('background'));
 
             if (frontType.includes('conspiracy')) {
-                result[formatId] = 'unavailable';
+                assign('unavailable', 'casual-type');
                 continue;
             }
 
             if (canBeCommander ? (!hasCommon && !hasUncommon) : !hasCommon) {
-                result[formatId] = 'unavailable';
+                assign('unavailable', 'pauper-commander: no-common');
                 continue;
             }
         }
 
-        result[formatId] = 'legal';
+        assign('legal', 'default');
     }
 
     return result;

@@ -19,7 +19,9 @@ import { toSingle } from '@/common/request-helper';
 import internalData from '@/internal-data';
 
 import { SpellingMistakes } from '@/magic/scryfall/data/ruling';
-import { CardData, getLegality, getLegalityRules } from '@/magic/banlist/legality';
+import {
+    CardData, LegalityRecorder, getLegality, getLegalityRules,
+} from '@/magic/banlist/legality';
 import parseGatherer, { GathererGetter, saveGathererImage } from '@/magic/gatherer/parse';
 import { toBucket, toGenerator } from '@/common/to-bucket';
 
@@ -478,11 +480,13 @@ router.get('/get-legality', async ctx => {
         },
     ]);
 
-    const legalities = getLegality(cardData[0], formats, rules);
+    const recorder: LegalityRecorder = { };
+
+    const legalities = getLegality(cardData[0], formats, rules, recorder);
 
     await Card.updateMany({ cardId: id }, { legalities });
 
-    ctx.body = legalities;
+    ctx.body = recorder;
 });
 
 router.get('/extract-ruling-cards', async ctx => {

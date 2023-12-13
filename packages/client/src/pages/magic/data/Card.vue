@@ -1207,11 +1207,11 @@ export default defineComponent({
         };
 
         const getLegality = async () => {
-            const { data: legalities } = await controlGet('/magic/card/get-legality', {
+            const { data: result } = await controlGet('/magic/card/get-legality', {
                 id: id.value,
             });
 
-            console.log(legalities);
+            console.log(result);
         };
 
         const extractRulingCards = async () => {
