@@ -10,10 +10,7 @@ module.exports = {
     parser: 'vue-eslint-parser',
 
     parserOptions: {
-        parser:      {
-            js: 'espree',
-            ts: '@typescript-eslint/parser',
-        },
+        parser:      '@typescript-eslint/parser',
         sourceType:  'module',
         ecmaVersion: 2020,
     },
@@ -26,7 +23,6 @@ module.exports = {
         'airbnb-base',
         'plugin:@typescript-eslint/recommended',
         'plugin:vue/vue3-recommended',
-        'plugin:vue-pug/vue3-recommended',
     ],
 
     overrides: [

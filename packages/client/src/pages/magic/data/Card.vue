@@ -139,10 +139,9 @@
                 />
 
                 <q-btn
-                    v-if="devPrinted"
-                    color="red" icon="mdi-alert-circle-outline"
+                    :color="devPrintedColor" icon="mdi-alert-circle-outline"
                     dense flat round
-                    @click="devPrinted = false"
+                    @click="clickDevPrinted"
                 />
 
                 <q-btn
@@ -468,6 +467,7 @@ export default defineComponent({
             rf: replaceFrom,
             rt: replaceTo,
             aa: autoAssign,
+            cp: clearDevPrinted,
         } = pageSetup({
             params: {
                 locale: {
@@ -527,6 +527,12 @@ export default defineComponent({
                 },
 
                 aa: {
+                    type:    'boolean',
+                    bind:    'query',
+                    default: false,
+                },
+
+                cp: {
                     type:    'boolean',
                     bind:    'query',
                     default: false,
@@ -735,6 +741,36 @@ export default defineComponent({
         const devPrinted = localTag('printed');
         const devToken = tag('token');
         const devCounter = tag('counter');
+
+        const devPrintedColor = computed(() => {
+            if (clearDevPrinted.value) {
+                if (devPrinted.value) {
+                    return 'purple';
+                } else {
+                    return 'primary';
+                }
+            } else {
+                if (devPrinted.value) {
+                    return 'red';
+                } else {
+                    return 'grey';
+                }
+            }
+        });
+
+        const clickDevPrinted = () => {
+            if (clearDevPrinted.value) {
+                clearDevPrinted.value = false;
+                return;
+            }
+
+            if (devPrinted.value) {
+                devPrinted.value = false;
+                return;
+            }
+
+            clearDevPrinted.value = true;
+        };
 
         const relatedCards = computed({
             get() {
@@ -1047,6 +1083,10 @@ export default defineComponent({
                         .replace(/"/g, '“')
                         .replace(/'/g, '‘');
                 }
+            }
+
+            if (clearDevPrinted.value) {
+                devPrinted.value = false;
             }
         };
 
@@ -1541,7 +1581,9 @@ export default defineComponent({
 
             copyToClipboard,
 
-            devPrinted,
+            devPrintedColor,
+            clickDevPrinted,
+
             devToken,
             devCounter,
             guessToken,
