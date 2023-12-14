@@ -49,6 +49,15 @@ router.post('/resolve-duplicate', async ctx => {
 
     await Card.insertMany(data);
 
+    for (const c of data) {
+        if (c.cardId !== initial.cardId) {
+            await Card.updateMany(
+                { cardId: initial.cardId, entityId: { $in: c.entityId } },
+                { $set: { cardId: c.cardId } },
+            );
+        }
+    }
+
     ctx.status = 200;
 });
 

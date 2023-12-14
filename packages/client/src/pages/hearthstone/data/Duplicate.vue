@@ -25,7 +25,11 @@
                         class="cardid-input"
                         flat dense outlined
                         :model-value="value"
-                        @update:model-value="value => updateValue({ index, value, which })"
+                        @update:model-value="value => updateValue({
+                            index,
+                            value: toIdentifier(value as string),
+                            which
+                        })"
                     />
                 </template>
                 <span v-else>{{ text }}</span>
@@ -51,7 +55,7 @@ import JsonComparator from 'components/JSONComparator.vue';
 import type { Card } from 'interface/hearthstone/card';
 
 import {
-    isEqual, set, uniq, flatten, omit,
+    isEqual, set, uniq, flatten, omit, deburr,
 } from 'lodash';
 
 export type ICardUpdation = {
@@ -123,6 +127,13 @@ const keyOrder = (key: string, allValues: any[], index: string[]) => {
         return null;
     }
 };
+
+const toIdentifier = (text: string) => deburr(text)
+    .trim()
+    .toLowerCase()
+    .replace(' // ', '____')
+    .replace('/', '____')
+    .replace(/[^a-z0-9!:]/g, '_');
 
 const updateValue = ({ index, value, which }: { index: string[], value: any, which?: number }) => {
     if (index.length === 0) {

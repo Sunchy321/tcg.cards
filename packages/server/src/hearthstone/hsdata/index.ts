@@ -477,7 +477,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 if (e.type !== 'enchantment') {
                     const c = new Card({
                         ...e,
-                        cardId:          toIdentifier(enLoc.name),
+                        cardId:          enLoc != null ? toIdentifier(enLoc.name) : toIdentifier(e.entityId),
                         entityId:        [e.entityId],
                         relatedEntities: e.relatedEntities.map(r => ({ relation: r.relation, cardId: r.entityId })),
                     });
