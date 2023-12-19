@@ -166,7 +166,7 @@ function splitDFT(card: NCardFaceExtracted): NCardSplit[] {
         return [{ ...card, layout: 'transform_token' }];
     }
 
-    if (card.layout === 'double_faced_token') {
+    if (card.layout === 'double_faced_token' && card.card_faces[0]?.name !== 'The Ring') {
         if (card.set) {
             return [
                 {

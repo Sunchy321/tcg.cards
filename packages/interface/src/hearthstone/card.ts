@@ -27,8 +27,6 @@ export interface Card {
         displayText: string;
         targetText?: string;
         textInPlay?: string;
-        howToEarn?: string;
-        howToEarnGolden?: string;
         flavor: string;
         illusId?: string;
     }[];

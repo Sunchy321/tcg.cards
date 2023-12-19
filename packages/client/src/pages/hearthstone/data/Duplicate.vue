@@ -2,26 +2,20 @@
     <div class="q-ma-md">
         <div class="row items-center q-mb-md">
             <span>{{ total }}</span>
-            <q-btn class="q-ml-md" outline dense :disable="!resolveEnabled" @click="resolveDuplicate">Resolve</q-btn>
+            <q-btn class="q-ml-md" outline dense @click="resolveDuplicate">Resolve</q-btn>
             <q-btn class="q-ml-md" outline dense @click="mergeData">Merge</q-btn>
             <q-btn class="q-ml-md" outline dense @click="rotateData">Rotate</q-btn>
 
             <span style="width: 30px" />
 
-            <q-btn
-                v-for="(v, k) in resolveSnippets" :key="k"
-                class="q-ml-sm"
-                dense outline rounded
-                color="primary"
-                @click="v"
-            >{{ k.replace(/_/g, ' ') }}</q-btn>
+            <q-btn class="q-ml-sm" outline dense rounded color="primary" @click="guessResolve">Guess</q-btn>
         </div>
 
         <JsonComparator :values="values" :key-order="keyOrder" @update-value="updateValue">
             <template #default="{text, value, index, which}">
                 <template v-if="index[index.length - 1] == '.cardId'">
                     cardId:
-                    <q-input
+                    <defer-input
                         class="cardid-input"
                         flat dense outlined
                         :model-value="value"
@@ -51,6 +45,7 @@ import { Notify } from 'quasar';
 import controlSetup from 'setup/control';
 
 import JsonComparator from 'components/JSONComparator.vue';
+import DeferInput from 'src/components/DeferInput.vue';
 
 import type { Card } from 'interface/hearthstone/card';
 
@@ -100,9 +95,6 @@ const loadData = async () => {
 
     data.value = result;
 };
-
-const resolveEnabled = computed(() => uniq(values.value.map(v => v.cardId)).length !== 1
-    || values.value.every((v, i, a) => i === a.length - 1 || isEqual(v, a[i + 1])));
 
 const resolveDuplicate = async () => {
     await controlPost('/hearthstone/card/resolve-duplicate', {
@@ -164,6 +156,8 @@ const mergeData = () => {
     const commonVersion = allVersion.filter(v => values.value.every(o => o.version.includes(v)));
 
     for (const [i, v] of values.value.entries()) {
+        v.relatedEntities = v.relatedEntities.filter(r => r.relation !== 'count_as_copy_of');
+
         if (i !== 0) {
             const thisJson = omit(v, omitKey);
             const lastJson = omit(values.value[i - 1], omitKey);
@@ -174,32 +168,35 @@ const mergeData = () => {
                     color:   'negative',
                 });
 
-                console.log(Object.keys((thisJson as any).localization)
+                const duplicates = Object.keys((thisJson as any).localization)
                     .filter(k => !isEqual((thisJson.localization as any)[k], (lastJson.localization as any)[k]))
                     .map(k => ({
                         key:  k,
                         this: (thisJson.localization as any)[k],
                         last: (lastJson.localization as any)[k],
-                    })));
+                    }));
+
+                (window as any).duplicates = duplicates;
+                console.log(duplicates);
 
                 return;
             }
         }
     }
 
+    const targetVersion = commonVersion.length > 0 ? commonVersion : allVersion;
+
     const commonJson = {
         ...omit(values.value[0], omitKey),
-        version:  commonVersion,
+        version:  targetVersion,
         set:      uniq(flatten(values.value.map(v => v.set))),
         entityId: uniq(flatten(values.value.map(v => v.entityId))),
     } as Card;
 
     const remainingJson = values.value.map(v => ({
         ...v,
-        version: v.version.filter(o => !commonVersion.includes(o)),
+        version: v.version.filter(o => !targetVersion.includes(o)),
     }) as Card).filter(v => v.version.length > 0);
-
-    console.dir(commonJson);
 
     data.value.values = [...remainingJson, commonJson];
 };
@@ -208,21 +205,98 @@ const rotateData = () => {
     values.value = [...values.value.slice(1), values.value[0]];
 };
 
-const resolveSnippets = {
-    hero: () => {
-        for (const v of values.value) {
-            if (v.type === 'hero') {
-                v.cardId += '!hero';
+const guessResolve = () => {
+    const cards = values.value;
+
+    const resolved = () => uniq(cards.map(c => c.cardId)).length === cards.length;
+
+    // battlegrounds
+    for (const c of cards) {
+        const tester = [/^TB_BaconUps/];
+
+        if (tester.some(t => t.test(c.entityId[0]))) {
+            c.cardId += ':golden';
+        }
+    }
+
+    if (resolved()) {
+        return;
+    }
+
+    // Hero
+    if (cards.some(v => v.type === 'hero') && cards.some(v => v.type !== 'hero')) {
+        for (const c of cards) {
+            if (c.type === 'hero') {
+                c.cardId += '!hero';
             }
         }
-    },
-    tavern_brawl: () => {
-        for (const v of values.value) {
-            if (v.set.includes('tb')) {
-                v.cardId += ':tavern_brawl';
+    }
+
+    if (resolved()) {
+        return;
+    }
+
+    // Hero power
+    if (cards.some(v => v.type === 'hero_power') && cards.some(v => v.type !== 'hero_power')) {
+        for (const c of cards) {
+            if (c.type === 'hero_power') {
+                c.cardId += '!hero_power';
             }
         }
-    },
+    }
+
+    if (resolved()) {
+        return;
+    }
+
+    // Tavern Brawl & Wild Return
+    for (const c of cards) {
+        if (c.set.includes('tb')) {
+            if (c.entityId[0].startsWith('FB_Champs')) {
+                c.cardId += ':hall_of_champions';
+            } else {
+                c.cardId += ':tavern_brawl';
+            }
+        }
+    }
+
+    if (resolved()) {
+        return;
+    }
+
+    // Heroic
+    if (cards.length === 2) {
+        const mainId = cards.map(c => c.entityId[0]).sort((a, b) => a.length - b.length)[0];
+
+        const possibleId = ['h', 'x'].map(s => mainId + s);
+
+        possibleId.push(`${mainId.slice(0, -1)}x${mainId.slice(-1)}`);
+
+        for (const c of cards) {
+            if (c.entityId[0] !== mainId && possibleId.includes(c.entityId[0])) {
+                c.cardId += ':heroic';
+            }
+        }
+
+        if (resolved()) {
+            return;
+        }
+    }
+
+    // Token
+    const collectibles = cards.filter(v => v.collectible);
+
+    if (collectibles.length === 1) {
+        for (const v of cards) {
+            if (!v.collectible) {
+                if (collectibles[0].mechanics.includes('twinspell')) {
+                    v.cardId += '!twinspell';
+                } else {
+                    v.cardId += '!token';
+                }
+            }
+        }
+    }
 };
 
 onMounted(loadData);
