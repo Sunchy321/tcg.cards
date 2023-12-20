@@ -33,6 +33,11 @@ const routes = [
                 component: async () => import('pages/hearthstone/Card.vue'),
             },
             {
+                path:      'entity/:id',
+                name:      'hearthstone/entity',
+                component: async () => import('pages/hearthstone/Entity.vue'),
+            },
+            {
                 path:      'log-parse',
                 name:      'hearthstone/log-parse',
                 component: async () => import('pages/hearthstone/LogParse.vue'),

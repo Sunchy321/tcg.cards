@@ -29,7 +29,7 @@ router.get('/', async ctx => {
         return;
     }
 
-    const entities = await Entity.find({ cardId: id }).sort({ version: -1 });
+    const entities = await Entity.find({ entityId: id }).sort({ version: -1 });
 
     const entity = entities.find(e => e.version.includes(version ?? 0)) ?? entities[0];
 

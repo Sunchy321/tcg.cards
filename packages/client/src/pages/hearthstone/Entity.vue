@@ -117,12 +117,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="entity-block">
-                <div v-for="e in entityUrl" :key="e[0]" class="entity-line">
-                    <router-link :to="e[1]" target="_blank">{{ e[0] }}</router-link>
-                </div>
-            </div>
         </div>
     </q-page>
 </template>
@@ -206,13 +200,13 @@
 .link
     width: 150px
 
-.version-block, .entity-block
+.version-block
     margin-top: 10px
 
     border: 1px solid $primary
     border-radius: 5px
 
-.version-line, .entity-line
+.version-line
     position: relative
     padding: 5px
     padding-left: 10px
@@ -325,8 +319,6 @@ pageSetup({
     ],
 });
 
-const entityId = computed(() => data.value?.entityId ?? []);
-
 const hasCost = computed(() => {
     if (data.value?.cost == null) {
         return false;
@@ -376,7 +368,7 @@ watch(hasTechLevel, () => {
 }, { immediate: true });
 
 const imageUrl = computed(() => {
-    const url = new URL('/hearthstone/card', `https://${imageBase}`);
+    const url = new URL('/hearthstone/entity', `https://${imageBase}`);
 
     const params: any = {
         id:   id.value,
@@ -395,17 +387,6 @@ const imageUrl = computed(() => {
 
     return url.toString();
 });
-
-const entityUrl = computed(() => entityId.value.map(e => [
-    e,
-    router.resolve({
-        name:   'hearthstone/entity',
-        params: { id: e },
-        query:  {
-            version: version.value,
-        },
-    }).href,
-]));
 
 const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
     id:      route.params.id as string,
@@ -455,7 +436,7 @@ const loadData = async () => {
         version: route.query.version,
     }, v => v == null);
 
-    const { data: result } = await apiGet<Data>('/hearthstone/card', query);
+    const { data: result } = await apiGet<Data>('/hearthstone/entity', query);
 
     data.value = result;
 };
