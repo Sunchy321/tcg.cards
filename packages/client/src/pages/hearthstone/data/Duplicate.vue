@@ -96,6 +96,8 @@ const loadData = async () => {
     data.value = result;
 };
 
+onMounted(loadData);
+
 const resolveDuplicate = async () => {
     await controlPost('/hearthstone/card/resolve-duplicate', {
         data:    values.value,
@@ -283,21 +285,19 @@ const guessResolve = () => {
         }
     }
 
-    // Token
-    const collectibles = cards.filter(v => v.collectible);
-
-    if (collectibles.length === 1) {
-        for (const v of cards) {
-            if (!v.collectible) {
-                if (collectibles[0].mechanics.includes('twinspell')) {
-                    v.cardId += '!twinspell';
-                } else {
-                    v.cardId += '!token';
+    // Keywords
+    if (cards.length === 2) {
+        if (cards.some(c => c.mechanics.includes('twinspell'))) {
+            for (const c of cards) {
+                if (!c.mechanics.includes('twinspell')) {
+                    c.cardId += '!twinspell';
                 }
             }
         }
     }
 };
 
-onMounted(loadData);
+const tryMerge = () => {
+
+};
 </script>

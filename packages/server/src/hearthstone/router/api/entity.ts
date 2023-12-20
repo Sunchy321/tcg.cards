@@ -5,7 +5,7 @@ import Entity from '@/hearthstone/db/entity';
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 import {
-    flatten, last, mapValues, omit, random, uniq,
+    flatten, last, mapValues, omit, uniq,
 } from 'lodash';
 
 import { toMultiple, toSingle } from '@/common/request-helper';
@@ -82,7 +82,7 @@ router.get('/name', async ctx => {
     const entities = await Entity.aggregate<{ _id: string, data: IEntity[] }>()
         .match(query)
         .sort({ version: -1 })
-        .group({ _id: '$cardId', data: { $push: '$$ROOT' } });
+        .group({ _id: '$entityId', data: { $push: '$$ROOT' } });
 
     ctx.body = entities.map(v => {
         const entity = (
@@ -94,12 +94,6 @@ router.get('/name', async ctx => {
             versions: v.data.map(e => e.version.sort((a, b) => a - b)),
         };
     });
-});
-
-router.get('/random', async ctx => {
-    const entityIds = await Entity.distinct('cardId');
-
-    ctx.body = entityIds[random(entityIds.length - 1)] ?? '';
 });
 
 interface EntityProfile {
@@ -121,7 +115,7 @@ router.get('/profile', async ctx => {
         return;
     }
 
-    const fullEntities = await Entity.find({ cardId: { $in: ids } });
+    const fullEntities = await Entity.find({ entityId: { $in: ids } });
 
     const result: Record<string, EntityProfile> = {};
 
@@ -241,7 +235,7 @@ router.get('/compare', async ctx => {
         return;
     }
 
-    const entities = await Entity.find({ cardId: id, version: { $in: [lvm, rvm] } }).sort({ version: 1 });
+    const entities = await Entity.find({ entityId: id, version: { $in: [lvm, rvm] } }).sort({ version: 1 });
 
     if (entities.length !== 2) {
         ctx.status = 400;

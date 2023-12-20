@@ -394,7 +394,7 @@ const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
 }, v => v == null)));
 
 const jsonLink = computed(() => {
-    const url = new URL('hearthstone/card', `https://${apiBase}`);
+    const url = new URL('hearthstone/entity', `https://${apiBase}`);
 
     const query = apiQuery.value;
 
@@ -410,7 +410,7 @@ const compareLink = computed(() => {
         return null;
     }
 
-    const url = new URL('hearthstone/card/compare', `https://${apiBase}`);
+    const url = new URL('hearthstone/entity/compare', `https://${apiBase}`);
 
     const index = versions.value.findIndex(v => v.includes(version.value));
 
