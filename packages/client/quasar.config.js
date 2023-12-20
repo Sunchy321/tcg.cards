@@ -77,8 +77,9 @@ module.exports = configure((/* ctx */) => ({
             setup: path.join(__dirname, 'src/setup'),
             store: path.join(__dirname, 'src/stores'),
             searcher: path.join(__dirname, 'node_modules/card-searcher/src'),
-            static: path.join(__dirname, 'node_modules/card-static/src'),
-            data: path.join(__dirname, 'node_modules/card-data/data'),
+            static: path.join(__dirname, 'node_modules/card-common/static'),
+            data: path.join(__dirname, 'node_modules/card-common/data'),
+            common: path.join(__dirname, 'node_modules/card-common/src'),
 
             util: 'rollup-plugin-node-polyfills/polyfills/util',
             events: 'rollup-plugin-node-polyfills/polyfills/events',

@@ -5,8 +5,8 @@
         "src/",
         "data/",
         "../interface/src",
-        "../static/src",
-        "../data/src",
+        "../common/static",
+        "../common/src",
         "../log-parser/src",
         "../searcher/src",
         "../renderer/src"
