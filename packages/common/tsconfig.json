@@ -11,5 +11,5 @@
         "lib": ["ES2021"],
         "baseUrl": "./src",
     },
-    "include": ["static/*", "data/*", "src/*"]
+    "include": ["static/*", "data/*", "src/**/*"]
 }

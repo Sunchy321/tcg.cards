@@ -53,6 +53,8 @@ import {
     isEqual, set, uniq, flatten, omit, deburr,
 } from 'lodash';
 
+import { compare } from 'common/document/compare';
+
 export type ICardUpdation = {
     cardId: string;
     scryfallId: string;
