@@ -9,6 +9,7 @@
             <span style="width: 30px" />
 
             <q-btn class="q-ml-sm" outline dense rounded color="primary" @click="guessResolve">Guess</q-btn>
+            <q-btn class="q-ml-sm" outline dense rounded color="primary" @click="tryMerge">Try Merge</q-btn>
         </div>
 
         <JsonComparator :values="values" :key-order="keyOrder" @update-value="updateValue">
@@ -50,10 +51,12 @@ import DeferInput from 'src/components/DeferInput.vue';
 import type { Card } from 'interface/hearthstone/card';
 
 import {
-    isEqual, set, uniq, flatten, omit, deburr,
+    isEqual, set, uniq, flatten, omit, deburr, cloneDeep,
 } from 'lodash';
 
-import { compare } from 'common/document/compare';
+import recursive from 'common/document/recursive';
+import compare, { allEqual } from 'common/document/compare';
+import assign from 'common/document/assign';
 
 export type ICardUpdation = {
     cardId: string;
@@ -256,7 +259,7 @@ const guessResolve = () => {
     // Tavern Brawl & Wild Return
     for (const c of cards) {
         if (c.set.includes('tb')) {
-            if (c.entityId[0].startsWith('FB_Champs')) {
+            if (['FB_Champs', 'TB_Champs'].some(p => c.entityId[0].startsWith(p))) {
                 c.cardId += ':hall_of_champions';
             } else {
                 c.cardId += ':tavern_brawl';
@@ -300,6 +303,56 @@ const guessResolve = () => {
 };
 
 const tryMerge = () => {
+    const newValues = cloneDeep(values.value);
 
+    recursive(
+        values.value,
+        (itemValues, index) => {
+            if (itemValues.some(v => !isEqual(v, itemValues[0]))) {
+                const realValue = itemValues.filter(v => v != null);
+
+                if (realValue.length === 1) {
+                    newValues.forEach(v => { assign(v, index, realValue[0]); });
+                    return;
+                }
+
+                // Battlegrounds
+                if (values.value.length === 2 && values.value.some(v => v.set.includes('bgs'))) {
+                    if (['.collectible', '.inBobsTavern'].includes(index[0])) {
+                        if (itemValues.includes(true) && itemValues.includes(false)) {
+                            newValues.forEach(v => { assign(v, index, true); });
+                            return;
+                        }
+                    }
+                }
+
+                // Wild Return
+                if (index[0] === '.mechanics') {
+                    const filtered = itemValues.map(v => v.filter((m: string) => m !== '?unknown_858'));
+
+                    console.log('MECH: ', filtered, allEqual(filtered));
+
+                    if (allEqual(filtered)) {
+                        newValues.forEach(v => { assign(v, index, filtered[0]); });
+                        return;
+                    }
+                }
+
+                if (itemValues.every(v => typeof v === 'string')) {
+                    const splitted = itemValues.map(v => v.split(''));
+
+                    const diff = compare(splitted, false);
+
+                    console.log('DIFF: ', index.join(''));
+                    console.dir(diff.map(d => [d[0], itemValues.map(v => v[d[0].slice(1, -1)])]));
+                } else {
+                    console.log('DIFF: ', index.join(''));
+                    console.dir(itemValues);
+                }
+            }
+        },
+    );
+
+    values.value = newValues;
 };
 </script>
