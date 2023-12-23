@@ -3,12 +3,12 @@ import { TupleToArray } from '../meta/utility';
 import { Index, Access } from '../meta/type-index';
 import { isFundamental } from '../meta/type';
 
-export function access<T, I extends Index<T>>(value: T, index: I): Access<T, I>;
-export function access<T, I extends TupleToArray<Index<T>>>(value: T, index: I): any;
+export function assign<T, I extends Index<T>>(value: T, index: I, newValue: Access<T, I>): void;
+export function assign<T, I extends TupleToArray<Index<T>>>(value: T, index: I, newValue: any): void;
 
-export default function access(value: any, index: string[]): any {
+export default function assign(value: any, index: string[], newValue: any): void {
     if (isFundamental(value)) {
-        return value;
+        return;
     }
 
     const [first, ...rest] = index;
@@ -21,13 +21,21 @@ export default function access(value: any, index: string[]): any {
                 throw new Error(`Malformed index: ${first}`);
             }
 
-            return access(value[i], rest);
+            if (rest.length === 0) {
+                value[i] = newValue;
+            } else {
+                assign(value[i], rest, newValue);
+            }
         } else {
             throw new Error(`Malformed index: ${first}`);
         }
     } else {
         if (first.startsWith('.')) {
-            return access(value[first.slice(1)], rest);
+            if (rest.length === 0) {
+                value[first.slice(1)] = newValue;
+            } else {
+                assign(value[first.slice(1)], rest, newValue);
+            }
         } else {
             throw new Error(`Malformed index: ${first}`);
         }

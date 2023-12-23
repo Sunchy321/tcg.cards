@@ -2,22 +2,28 @@ import { isFundamental, isFundamentalArray } from '../meta/type';
 
 import { zip } from 'lodash';
 
-// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export function recursive(
+function recursiveImpl(
     values: any[],
     map: (values: any[], index: string[]) => any,
     reduce: (results: any[], values: any[], index: string[]) => any,
-    index: string[] = [],
+    index: string[],
+    skipFundamentalArrays: boolean,
 ): any {
-    if (values.every(v => isFundamental(v) || isFundamentalArray(v))) {
-        return map(values, index);
+    if (skipFundamentalArrays) {
+        if (values.every(v => isFundamental(v) || isFundamentalArray(v))) {
+            return map(values, index);
+        }
+    } else {
+        if (values.every(v => isFundamental(v))) {
+            return map(values, index);
+        }
     }
 
     if (values.every(v => Array.isArray(v))) {
         const zipped = zip(...values);
 
         return reduce(
-            zipped.map((v, i) => recursive(v, map, reduce, [...index, `[${i}]`])),
+            zipped.map((v, i) => recursiveImpl(v, map, reduce, [...index, `[${i}]`], skipFundamentalArrays)),
             values,
             index,
         );
@@ -31,11 +37,12 @@ export function recursive(
         });
 
         return reduce(
-            Array.from(keys).map(k => recursive(
+            Array.from(keys).map(k => recursiveImpl(
                 values.map(v => v[k]),
                 map,
                 reduce,
                 [...index, `.${k}`],
+                skipFundamentalArrays,
             )),
             values,
             index,
@@ -43,4 +50,14 @@ export function recursive(
     }
 
     return map(values, index);
+}
+
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export default function recursive(
+    values: any[],
+    map: (values: any[], index: string[]) => any,
+    reduce: (results: any[], values: any[], index: string[]) => any = () => {},
+    skipFundamentalArrays = true,
+): any {
+    return recursiveImpl(values, map, reduce, [], skipFundamentalArrays);
 }

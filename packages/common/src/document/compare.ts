@@ -1,14 +1,15 @@
-import { flatten, isEqual as lodashEqual } from 'lodash';
-import { recursive } from './recursive';
+import { flatten, isEqual } from 'lodash';
+import recursive from './recursive';
 
-export function compare<T>(opeartors: T[]): string[][] {
+export default function compare<T>(opeartors: T[], skipFundamentalArrays = true): string[][] {
     return recursive(
         opeartors,
-        (values, index) => (values.some(v => !lodashEqual(v, values[0])) ? [index] : null),
-        (results) => flatten(results.filter(v => v != null)),
+        (values, index) => (values.some(v => !isEqual(v, values[0])) ? [index] : []),
+        (results) => flatten(results),
+        skipFundamentalArrays,
     );
 }
 
-export function isEqual<T>(opeartors: T[]): boolean {
+export function allEqual<T>(opeartors: T[]): boolean {
     return compare(opeartors).length === 0;
 }

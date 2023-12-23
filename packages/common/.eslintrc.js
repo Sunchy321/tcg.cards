@@ -20,7 +20,7 @@ module.exports = {
         'no-implied-eval': 'off',
 
         '@typescript-eslint/no-implied-eval':                'warn',
-        '@typescript-eslint/no-misused-promises':            'warn',
+        '@typescript-eslint/no-misused-promises':            'off',
         '@typescript-eslint/prefer-includes':                'warn',
         '@typescript-eslint/prefer-nullish-coalescing':      'warn',
         '@typescript-eslint/prefer-regexp-exec':             'warn',
@@ -28,6 +28,7 @@ module.exports = {
         '@typescript-eslint/promise-function-async':         'warn',
         '@typescript-eslint/restrict-plus-operands':         'error',
         '@typescript-eslint/switch-exhaustiveness-check':    'error',
+        '@typescript-eslint/no-confusing-void-expression':   'off',
 
         '@typescript-eslint/strict-boolean-expressions': ['error', {
             allowNullableBoolean: true,

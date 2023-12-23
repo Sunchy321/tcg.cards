@@ -55,7 +55,6 @@ module.exports = {
         'no-nested-ternary':           'off',
         'no-param-reassign':           'off',
         'no-shadow':                   'off',
-        'no-spaced-func':              'off',
         'no-underscore-dangle':        'off',
         'no-unused-expressions':       'off',
         'no-use-before-define':        'off',
@@ -157,8 +156,9 @@ module.exports = {
         'vue/multi-word-component-names':              'off',
         'vue/singleline-html-element-content-newline': 'off',
         'vue/multiline-html-element-content-newline':  'off',
+        'vue/component-tags-order':                    'off',
 
-        'vue/component-tags-order': ['error', { order: ['template', 'style', 'script'] }],
+        'vue/block-order':          ['error', { order: ['template', 'style', 'script'] }],
         'vue/html-indent':          ['warn', 4],
         'vue/no-unused-properties': ['warn', { groups: ['setup'] }],
     },
