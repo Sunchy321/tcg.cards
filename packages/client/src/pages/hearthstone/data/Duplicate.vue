@@ -275,7 +275,7 @@ const guessResolve = () => {
     if (cards.length === 2) {
         const mainId = cards.map(c => c.entityId[0]).sort((a, b) => a.length - b.length)[0];
 
-        const possibleId = ['h', 'x'].map(s => mainId + s);
+        const possibleId = ['h', 'x', '_H'].map(s => mainId + s);
 
         possibleId.push(`${mainId.slice(0, -1)}x${mainId.slice(-1)}`);
 

@@ -9,9 +9,7 @@ const colorMap: Record<string, string> = {
     G: '#006B47',
 };
 
-const toPart: Record<string, string> = {
-    WRG: 'RGW',
-};
+const toPart: Record<string, string> = { };
 
 export default defineComponent({
     props: {

@@ -133,15 +133,27 @@ export default createSearcher({
             allowRegex: false,
             op:         [''],
             query:      ({ param, qual }) => {
-                if (param === 'ox-ne-px') {
+                if (param === 'ox-eq-px') {
                     return {
-                        $expr: { $ne: ['$parts.oracle.text', '$parts.printed.text'] },
+                        $expr: { $eq: ['$parts.oracle.text', '$parts.printed.text'] },
                     };
                 }
 
-                if (param === 'ux-ne-px') {
+                if (param === 'ux-eq-px') {
                     return {
-                        $expr: { $ne: ['$parts.unified.text', '$parts.printed.text'] },
+                        $expr: { $eq: ['$parts.unified.text', '$parts.printed.text'] },
+                    };
+                }
+
+                if (param === 'on-eq-un') {
+                    return {
+                        $expr: { $eq: ['$parts.oracle.name', '$parts.unified.name'] },
+                    };
+                }
+
+                if (param === 'on-eq-pn') {
+                    return {
+                        $expr: { $eq: ['$parts.oracle.name', '$parts.printed.name'] },
                     };
                 }
 

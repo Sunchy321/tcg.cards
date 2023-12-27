@@ -32,6 +32,7 @@ import {
     flatten, isEqual, last, range, uniq,
 } from 'lodash';
 
+// eslint-disable-next-line no-spaced-func
 const props = defineProps<{
     values: any[];
     keyOrder?: (key: string, values: any[], index: string[]) => number | null;
@@ -41,6 +42,7 @@ const emit = defineEmits<{
     'update-value': [args: { index: string[], value: any }];
 }>();
 
+// eslint-disable-next-line no-spaced-func
 const slots = defineSlots<{
     default?: (props: {
         text: string;
