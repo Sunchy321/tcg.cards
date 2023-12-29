@@ -1,23 +1,21 @@
-import {
-    Command, createCommand, DBQuery, DefaultOperator, defaultOperator, DefaultQualifier, defaultQualifier,
-} from '../../command';
+import { BackendOf, DBQuery, QueryFuncOf } from '../../backend';
+
+import { TextCommand } from './index';
 
 import { escapeRegExp } from 'lodash';
 
-export type TextCommand = Command<never, DefaultOperator, DefaultQualifier, true>;
+export type TextBackendCommand = BackendOf<TextCommand>;
 
-export type TextOption = {
-    id: string;
-    alt?: string[] | string;
+export type TextBackendOption = {
     key?: string;
     multiline?: boolean;
 };
 
-export type TextQueryOption = Parameters<TextCommand['query']>[0] & { key: string, multiline?: boolean };
+export type TextQueryOption = Parameters<QueryFuncOf<TextCommand>>[0] & { key: string, multiline?: boolean };
 
 function query(options: TextQueryOption): DBQuery {
     const {
-        key, multiline = false, parameter, operator, qualifier,
+        key, multiline = true, parameter, operator, qualifier,
     } = options;
 
     const regexSource = typeof parameter === 'string' ? escapeRegExp(parameter) : parameter.source;
@@ -50,19 +48,13 @@ function query(options: TextQueryOption): DBQuery {
     }
 }
 
-export default function text(options: TextOption): TextCommand {
-    const {
-        id, alt, key = id, multiline = false,
-    } = options;
+export default function text(command: TextCommand, options?: TextBackendOption): TextBackendCommand {
+    const { key = command.id, multiline } = options ?? { };
 
-    return createCommand({
-        id,
-        alt,
-        operators:  defaultOperator,
-        qualifiers: defaultQualifier,
-
-        query: arg => query({ key, multiline, ...arg }),
-    });
+    return {
+        ...command,
+        query: args => query({ key, ...args, multiline }),
+    };
 }
 
 text.query = query;

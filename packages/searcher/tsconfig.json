@@ -3,7 +3,7 @@
         "module": "CommonJS",
         "target": "ES2021",
         "noImplicitAny": true,
-        "rootDir": "src",
+        "rootDir": ".",
         "outDir": "./dist",
         "sourceMap": true,
         "strictNullChecks": true,
@@ -14,5 +14,5 @@
             "@static/*": ["../node_modules/card-common/static/*"],
         },
     },
-    "include": ["src/*"]
+    "include": ["src/*", "data/*"]
 }

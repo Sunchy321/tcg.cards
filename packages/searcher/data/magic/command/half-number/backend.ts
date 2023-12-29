@@ -1,9 +1,15 @@
-import {
-    Command, createCommand, DBQuery, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
-} from '../../../command';
-import { QueryError } from '../../../command/error';
+import { BackendOf, QueryFuncOf, DBQuery } from '../../../../src/command/backend';
+import { QueryError } from '../../../../src/command/error';
+
+import { HalfNumberCommand } from './index';
 
 import { range } from 'lodash';
+
+export type HalfNumberBackendCommand = BackendOf<HalfNumberCommand>;
+
+export type HalfNumberBackendOption = {
+    key?: string;
+};
 
 const statsNumber = range(-10, 100, 0.5);
 
@@ -24,15 +30,7 @@ function toStatsList(numbers: number[]) {
     return result;
 }
 
-export type HalfNumberCommand = Command<never, AllOperator, DefaultQualifier, false>;
-
-export type HalfNumberOption = {
-    id: string;
-    alt?: string[] | string;
-    key?: string;
-};
-
-export type HalfNumberQueryOption = Parameters<HalfNumberCommand['query']>[0] & { key: string };
+export type HalfNumberQueryOption = Parameters<QueryFuncOf<HalfNumberCommand>>[0] & { key: string };
 
 function query(options: HalfNumberQueryOption): DBQuery {
     const {
@@ -111,19 +109,13 @@ function query(options: HalfNumberQueryOption): DBQuery {
     }
 }
 
-export default function halfNumber(options: HalfNumberOption): HalfNumberCommand {
-    const {
-        id, alt, key = id,
-    } = options;
+export default function halfNumber(command: HalfNumberCommand, options?: HalfNumberBackendOption): HalfNumberBackendCommand {
+    const { key = command.id } = options ?? {};
 
-    return createCommand({
-        id,
-        alt,
-        operators:  allOperator,
-        qualifiers: defaultQualifier,
-
-        query: arg => query({ key, ...arg }),
-    });
+    return {
+        ...command,
+        query: args => query({ key, ...args }),
+    };
 }
 
 halfNumber.query = query;

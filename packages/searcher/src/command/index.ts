@@ -1,4 +1,4 @@
-import type { Aggregate } from 'mongoose';
+import { ResultPattern } from './pattern';
 
 import { castArray } from 'lodash';
 
@@ -15,8 +15,6 @@ export type NumericOperator = (typeof numericOperator)[number];
 export type AllOperator = (typeof allOperator)[number];
 export type DefaultQualifier = (typeof defaultQualifier)[number];
 
-export type DBQuery = any | { '$and': DBQuery[] } | { '$or': DBQuery[] };
-
 export type Argument<
     M extends string,
     O extends Operator,
@@ -29,77 +27,56 @@ export type Argument<
     qualifier: Q[];
 };
 
-export type Context = {
-    pattern: string;
-};
-
-export type QueryFunc<
+export type Command<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
     AR extends boolean,
-> = (arg: Argument<M, O, Q, AR>, ctx: Context) => DBQuery;
-
-export type PostFunc<
-    M extends string,
-    O extends Operator,
-    Q extends Qualifier,
-    AR extends boolean,
-> = (arg: Argument<M, O, Q, AR>, ctx: Context) => ((agg: Aggregate<any>) => void);
-
-export interface Command<
-    M extends string,
-    O extends Operator,
-    Q extends Qualifier,
-    AR extends boolean,
-> {
+    P,
+> = {
     id: string;
     alt: string[];
-    pattern: string[];
+    pattern: ResultPattern<P>;
     modifiers: M[] | Record<M, string>;
     operators: O[];
     qualifiers: Q[];
     allowRegex: boolean extends AR ? false : AR;
-    query: QueryFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR>;
-    post?: PostFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR>;
-}
+};
 
-export interface CommandOption<
+export type CommandOption<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
     AR extends boolean,
-> {
+    P,
+> = {
     id: string;
     alt?: string[] | string;
-    pattern?: string[] | string;
+    pattern?: P;
     modifiers?: Record<M, string> | readonly M[];
     operators?: readonly O[];
     qualifiers?: readonly Q[];
     allowRegex?: AR;
-    query: QueryFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR>;
-    post?: PostFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR> ;
-}
+};
 
-export function createCommand<
+export function defineCommand<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
     AR extends boolean,
->(options: CommandOption<M, O, Q, AR>): Command<M, O, Q, AR> {
+    P,
+>(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, AR, P> {
     const {
-        id, alt, pattern, modifiers, operators, qualifiers, allowRegex, query, post,
+        id, alt, pattern, modifiers, operators, qualifiers, allowRegex,
     } = options;
 
     return {
         id,
         alt:        castArray(alt ?? []),
-        pattern:    castArray(pattern ?? []),
+        pattern:    castArray(pattern ?? []) as ResultPattern<P>,
         modifiers:  modifiers as M[] | Record<M, string>,
         operators:  operators as O[],
         qualifiers: qualifiers as Q[],
-        allowRegex: (allowRegex ?? false) as Command<M, O, Q, AR>['allowRegex'],
-        query,
-        post,
+        allowRegex: (allowRegex ?? false) as Command<M, O, Q, AR, P>['allowRegex'],
     };
 }

@@ -1,18 +1,15 @@
-import {
-    Command, createCommand, DBQuery, DefaultQualifier, defaultQualifier, numericOperator, NumericOperator,
-} from '../../command';
-import { QueryError } from '../../command/error';
+import { BackendOf, DBQuery, QueryFuncOf } from '../../backend';
+import { QueryError } from '../../error';
 
-export type NumberCommand = Command<never, NumericOperator, DefaultQualifier, false>;
+import { NumberCommand } from './index';
 
-export type NumberOption = {
-    id: string;
-    alt?: string[] | string;
+export type NumberBackendCommand = BackendOf<NumberCommand>;
+
+export type NumberBackendOption = {
     key?: string;
-    allowFloat?: boolean;
 };
 
-export type NumberQueryOption = Parameters<NumberCommand['query']>[0] & { key: string, allowFloat?: boolean };
+export type NumberQueryOption = Parameters<QueryFuncOf<NumberCommand>>[0] & { key: string, allowFloat?: boolean };
 
 function query(options: NumberQueryOption): DBQuery {
     const {
@@ -45,19 +42,13 @@ function query(options: NumberQueryOption): DBQuery {
     }
 }
 
-export default function number(options: NumberOption): NumberCommand {
-    const {
-        id, alt, key = id, allowFloat = false,
-    } = options;
+export default function number(command: NumberCommand, options?: NumberBackendOption): NumberBackendCommand {
+    const { key = command.id } = options ?? { };
 
-    return createCommand({
-        id,
-        alt,
-        operators:  numericOperator,
-        qualifiers: defaultQualifier,
-
-        query: arg => query({ key, allowFloat, ...arg }),
-    });
+    return {
+        ...command,
+        query: args => query({ key, ...args }),
+    };
 }
 
 number.query = query;

@@ -68,7 +68,7 @@ module.exports = {
         'no-void':     ['error', { allowAsStatement: true }],
         'quote-props': ['warn', 'consistent-as-needed'],
 
-        'max-len': ['warn', 120, 4, {
+        'max-len': ['warn', 130, 4, {
             ignoreUrls:             true,
             ignoreComments:         false,
             ignoreRegExpLiterals:   true,

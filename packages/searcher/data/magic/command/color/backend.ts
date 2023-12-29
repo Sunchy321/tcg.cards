@@ -1,19 +1,17 @@
-import {
-    Command, createCommand, DBQuery, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
-} from '../../../command';
-import { QueryError } from '../../../command/error';
+import { BackendOf, QueryFuncOf, DBQuery } from '../../../../src/command/backend';
+import { QueryError } from '../../../../src/command/error';
+
+import { ColorCommand } from './index';
 
 const colorEnums = 'WUBRGOP'.split('');
 
-export type ColorCommand = Command<never, AllOperator, DefaultQualifier, false>;
+export type ColorBackendCommand = BackendOf<ColorCommand>;
 
-export type ColorOption = {
-    id: string;
-    alt?: string[] | string;
+export type ColorBackendOption = {
     key?: string;
 };
 
-export type ColorQueryOption = Parameters<ColorCommand['query']>[0] & { key: string };
+export type ColorQueryOption = Parameters<QueryFuncOf<ColorCommand>>[0] & { key: string };
 
 function query(options: ColorQueryOption): DBQuery {
     const {
@@ -200,19 +198,13 @@ function query(options: ColorQueryOption): DBQuery {
     }
 }
 
-export default function color(options: ColorOption): ColorCommand {
-    const {
-        id, alt, key = id,
-    } = options;
+export default function color(command: ColorCommand, options?: ColorBackendOption): ColorBackendCommand {
+    const { key = command.id } = options ?? { };
 
-    return createCommand({
-        id,
-        alt,
-        operators:  allOperator,
-        qualifiers: defaultQualifier,
-
-        query: arg => query({ key, ...arg }),
-    });
+    return {
+        ...command,
+        query: args => query({ key, ...args }),
+    };
 }
 
 color.query = query;

@@ -1,13 +1,13 @@
-import {
-    Command, createCommand, DBQuery, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
-} from '../../../command';
-import { QueryError } from '../../../command/error';
+import { BackendOf, QueryFuncOf, DBQuery } from '../../../../src/command/backend';
+import { QueryError } from '../../../../src/command/error';
+
+import { CostCommand } from './index';
 
 import { flatten } from 'lodash';
 
 import { specificManaSymbols } from '@static/magic/basic';
 
-export type CostCommand = Command<never, AllOperator, DefaultQualifier, false>;
+export type CostBackendCommand = BackendOf<CostCommand>;
 
 export type CostOption = {
     id: string;
@@ -16,7 +16,7 @@ export type CostOption = {
     allowFloat?: boolean;
 };
 
-export type CostQueryOption = Parameters<CostCommand['query']>[0];
+export type CostQueryOption = Parameters<QueryFuncOf<CostCommand>>[0];
 
 function query(options: CostQueryOption): DBQuery {
     const {
@@ -151,17 +151,11 @@ function query(options: CostQueryOption): DBQuery {
     }
 }
 
-export default function cost(options: CostOption): CostCommand {
-    const { id, alt } = options;
-
-    return createCommand({
-        id,
-        alt,
-        operators:  allOperator,
-        qualifiers: defaultQualifier,
-
-        query,
-    });
+export default function cost(command: CostCommand): CostBackendCommand {
+    return {
+        ...command,
+        query: args => query(args),
+    };
 }
 
 cost.query = query;
