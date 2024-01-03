@@ -1,4 +1,4 @@
-import Parser from './parser/parser';
+import Parser from './parser/index-';
 import { Token } from './parser/lexer';
 
 export default function tokenize(text: string): Token[] {

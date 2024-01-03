@@ -56,6 +56,7 @@ export type BackendCommand<
     P,
 > = Command<M, O, Q, AR, P> & {
     query: QueryFuncOf<Command<M, O, Q, AR, P>>;
+    phase?: string;
     post?: PostFuncOf<Command<M, O, Q, AR, P>>;
 };
 

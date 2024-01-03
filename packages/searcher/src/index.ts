@@ -1,4 +1,4 @@
-import './parser/parser';
+import './parser/index-';
 import './parser/lexer';
 import './helper';
 

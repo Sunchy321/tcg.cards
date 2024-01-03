@@ -1,6 +1,7 @@
 import { last } from 'lodash';
 import SearchError from './error';
 import Lexer, { defaultOption, Token } from './lexer';
+import { Operator, Qualifier } from '../command';
 
 export type ParserError = {
     type: string;
@@ -10,19 +11,21 @@ export type ParserError = {
 type ExprBase = {
     tokens: Token[];
     location: [number, number];
+    topLevel?: boolean;
+    qual?: Qualifier[];
 };
 
 export type SimpleExpr = {
     type: 'simple';
     cmd: string;
-    op: string;
-    argType: string;
+    op: Operator;
+    argType: Token['type'];
     arg: string;
 };
 
 export type RawExpr = {
     type: 'raw';
-    argType: string;
+    argType: Token['type'];
     arg: string;
 };
 
@@ -364,7 +367,7 @@ export default class Parser {
                 return {
                     type:     'simple',
                     cmd:      first.text,
-                    op:       op.text,
+                    op:       op.text as Operator,
                     argType:  arg.type,
                     arg:      arg.text,
                     tokens:   this.returnTokens(),

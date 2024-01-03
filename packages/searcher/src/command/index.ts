@@ -2,7 +2,7 @@ import { ResultPattern } from './pattern';
 
 import { castArray } from 'lodash';
 
-export type Operator = ':' | '<' | '<=' | '=' | '>' | '>=';
+export type Operator = ':' | '' | '<' | '<=' | '=' | '>' | '>=';
 export type Qualifier = '!';
 
 export const defaultOperator = [':', '='] as const;
@@ -37,7 +37,7 @@ export type Command<
     id: string;
     alt: string[];
     pattern: ResultPattern<P>;
-    modifiers: M[] | Record<M, string>;
+    modifiers?: M[] | Record<M, string>;
     operators: O[];
     qualifiers: Q[];
     allowRegex: boolean extends AR ? false : AR;
@@ -54,8 +54,8 @@ export type CommandOption<
     alt?: string[] | string;
     pattern?: P;
     modifiers?: Record<M, string> | readonly M[];
-    operators?: readonly O[];
-    qualifiers?: readonly Q[];
+    operators: readonly O[];
+    qualifiers: readonly Q[];
     allowRegex?: AR;
 };
 
