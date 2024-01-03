@@ -1,5 +1,9 @@
-import { BackendModel, defineBackendModel } from '../../src/model/backend';
-import { defineBackendCommand } from '../../src/command/backend';
+import { defineBackendModel } from '../../src/model/backend';
+import { defineBackendCommand, DBQuery } from '../../src/command/backend';
+
+import { AnyBackendCommand, PostAction } from '../../src/model/type';
+import { SearchOption } from '../../src/search';
+
 import { commands } from './index';
 
 import * as builtin from '../../src/command/builtin/backend';
@@ -388,8 +392,8 @@ const keyword = defineBackendCommand({
     },
 });
 
-const orderBy = defineBackendCommand({
-    command: commands.orderBy,
+const order = defineBackendCommand({
+    command: commands.order,
     query() {},
 
     post: ({ parameter }) => {
@@ -431,7 +435,7 @@ const orderBy = defineBackendCommand({
     },
 });
 
-const backedCommands = {
+const backedCommands: Record<string, AnyBackendCommand> = {
     raw,
     stats,
     hash,
@@ -458,9 +462,115 @@ const backedCommands = {
     format,
     counter,
     keyword,
-    orderBy,
+    order,
 };
 
+function parseOption(optionText: string | undefined, defaultValue: number): number {
+    if (optionText == null) {
+        return defaultValue;
+    }
+
+    const optionNumber = Number.parseInt(optionText, 10);
+
+    if (Number.isNaN(optionNumber)) {
+        return defaultValue;
+    }
+
+    return optionNumber;
+}
+
 export default defineBackendModel({
-    commands: Object.values(backedCommands) as BackendModel['commands'],
+    commands: Object.values(backedCommands),
+
+    actions: {
+        search: async (q: DBQuery, p: PostAction[], o: SearchOption) => {
+            const groupBy = o['group-by'] ?? 'card';
+            const orderBy = o['order-by'] ?? 'id+';
+            const page = parseOption(o.page, 1);
+            const pageSize = parseOption(o['page-size'], 100);
+            const locale = o.locale ?? 'en';
+
+            const aggregate = await Card.aggregate()
+                .allowDiskUse(true)
+                .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
+                .match(q);
+
+            switch (groupBy) {
+            case 'print':
+                break;
+            case 'card':
+            default:
+                aggregate
+                    .addFields({
+                        langIsLocale:  { $eq: ['$lang', locale] },
+                        langIsEnglish: { $eq: ['$lang', 'en'] },
+                    })
+                    .sort({
+                        langIsLocale:  -1,
+                        langIsEnglish: -1,
+                        releaseDate:   -1,
+                        number:        1,
+                    })
+                    .collation({ locale: 'en', numericOrdering: true })
+                    .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
+                    .replaceRoot('data');
+            }
+
+            const total = (
+                await Card.aggregate(aggregate.pipeline())
+                    .allowDiskUse(true)
+                    .group({ _id: null, count: { $sum: 1 } })
+            )[0]?.count ?? 0;
+
+            const orderAction = p.find(v => v.phase === 'order');
+
+            if (orderAction != null) {
+                orderAction.action(aggregate);
+            } else {
+                order.post!({ parameter: orderBy, operator: ':', qualifier: [] })(aggregate);
+            }
+
+            aggregate.skip((page - 1) * pageSize);
+            aggregate.limit(pageSize);
+            aggregate.project({
+                _id:          0,
+                __v:          0,
+                langIsLocale: 0,
+                langIsEn:     0,
+            });
+
+            const cards = await aggregate;
+
+            return { cards, total, page };
+        },
+
+        dev: async (q: DBQuery, p: PostAction[], o: SearchOption) => {
+            const aggregate = Card.aggregate().allowDiskUse(true).match(q);
+
+            const total = (
+                await Card.aggregate(aggregate.pipeline())
+                    .allowDiskUse(true)
+                    .group({ _id: null, count: { $sum: 1 } })
+            )[0]?.count ?? 0;
+
+            const cards = await Card.aggregate(aggregate.pipeline())
+                .sort({ releaseDate: -1, cardId: 1 })
+                .limit(o.sample);
+
+            return {
+                cards,
+                total,
+            };
+        },
+
+        searchId: async (q: DBQuery) => {
+            const result = await Card
+                .aggregate()
+                .allowDiskUse(true)
+                .match(q)
+                .group({ _id: '$cardId' });
+
+            return result.map(v => v._id) as string[];
+        },
+    },
 });

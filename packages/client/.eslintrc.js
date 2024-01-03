@@ -4,7 +4,10 @@ module.exports = {
     parserOptions: {
         ecmaVersion:         'latest',
         extraFileExtensions: ['.vue'],
-        project:             path.join(__dirname, 'tsconfig.json'),
+        project:             [
+            path.join(__dirname, 'tsconfig.json'),
+            path.join(__dirname, '..', 'searcher', 'tsconfig.json')
+        ],
     },
 
     globals: {
@@ -15,6 +18,8 @@ module.exports = {
         Capacitor: true,
         chrome:    true,
     },
+
+    ignorePatterns: ['**/searcher/**/*'],
 
     rules: {
         'no-implied-eval': 'off',

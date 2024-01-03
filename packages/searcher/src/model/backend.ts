@@ -1,4 +1,4 @@
-import Parser from '../parser/index-';
+import Parser from '../parser';
 import { SearchOption, SearchResult } from '../search';
 import { AnyBackendCommand, PostAction } from './type';
 import { DBQuery } from '../command/backend';
@@ -6,23 +6,23 @@ import { DBQuery } from '../command/backend';
 import { simplify } from '../parser/simplify';
 import { translate } from './translate';
 
-type Actions = Record<string, (query: DBQuery, post: PostAction[], option: SearchOption) => any>;
+type Actions<A extends string> = Record<A, (query: DBQuery, post: PostAction[], option: SearchOption) => any>;
 
-type BackendModelOption = {
+type BackendModelOption<A extends string> = {
     commands: AnyBackendCommand[];
-    actions: Actions;
+    actions: Actions<A>;
 };
 
-export class BackendModel {
-    commands: AnyBackendCommand[] = [];
-    actions: Actions = { };
+export class BackendModel<A extends string> {
+    commands: AnyBackendCommand[];
+    actions: Actions<A>;
 
-    constructor(option: BackendModelOption) {
+    constructor(option: BackendModelOption<A>) {
         this.commands = option.commands;
         this.actions = option.actions;
     }
 
-    async search(actionKey: string, text: string, options: SearchOption): Promise<SearchResult> {
+    async search(actionKey: A, text: string, options: SearchOption): Promise<SearchResult> {
         const action = this.actions[actionKey];
 
         if (action == null) {
@@ -61,6 +61,6 @@ export class BackendModel {
     }
 }
 
-export function defineBackendModel(option: BackendModelOption): BackendModel {
+export function defineBackendModel<A extends string>(option: BackendModelOption<A>): BackendModel<A> {
     return new BackendModel(option);
 }

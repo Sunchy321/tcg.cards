@@ -5,6 +5,8 @@ import { Aggregate } from 'mongoose';
 
 export type DBQuery = any | { '$and': DBQuery[] } | { '$or': DBQuery[] };
 
+type Select<B, T, F> = [B] extends [true] ? T : F;
+
 export type Argument<
     M extends string,
     O extends Operator,
@@ -13,12 +15,12 @@ export type Argument<
     P,
 > = [PatternContext<P>] extends [never] ? {
     modifier?: M;
-    parameter: AR extends false ? string : (RegExp | string);
+    parameter: Select<AR, (RegExp | string), string>;
     operator: O;
     qualifier: Q[];
 } : {
     modifier?: M;
-    parameter: AR extends false ? string : (RegExp | string);
+    parameter: Select<AR, (RegExp | string), string>;
     operator: O;
     qualifier: Q[];
     pattern?: PatternContext<P>;
@@ -41,11 +43,11 @@ export type PostFunc<
 > = (arg: Argument<M, O, Q, AR, P>) => ((agg: Aggregate<any>) => void);
 
 export type QueryFuncOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P>
-    ? QueryFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR, P>
+    ? QueryFunc<string extends M ? never : M, O, Q, AR, P>
     : never;
 
 export type PostFuncOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P>
-    ? PostFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR, P>
+    ? PostFunc<string extends M ? never : M, O, Q, AR, P>
     : never;
 
 export type BackendCommand<
@@ -72,8 +74,8 @@ export type BackendCommandOption<
     P,
 > = {
     command: Command<M, O, Q, AR, P>;
-    query: QueryFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR, P>;
-    post?: PostFunc<string extends M ? never : M, O, Q, boolean extends AR ? false : AR, P>;
+    query: QueryFunc<string extends M ? never : M, O, Q, AR, P>;
+    post?: PostFunc<string extends M ? never : M, O, Q, AR, P>;
 };
 
 export function defineBackendCommand<

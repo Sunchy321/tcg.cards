@@ -2,7 +2,9 @@ import { BackendCommand } from '../command/backend';
 import { Operator, Qualifier } from '../command';
 import { Aggregate } from 'mongoose';
 
-export type AnyBackendCommand = BackendCommand<any, Operator, Qualifier, true, any>;
+export type AnyBackendCommand =
+    BackendCommand<any, Operator, Qualifier, boolean, any> |
+    BackendCommand<any, Operator, Qualifier, boolean, never>;
 
 export type PostAction = {
     phase: string;

@@ -1,4 +1,4 @@
-import { Expression } from '../parser/index-';
+import { Expression } from '../parser';
 import { DBQuery } from '../command/backend';
 import { AnyBackendCommand, PostAction } from './type';
 import { QueryError } from '../command/error';

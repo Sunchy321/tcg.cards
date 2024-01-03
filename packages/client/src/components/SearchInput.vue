@@ -43,7 +43,7 @@ import { defineComponent, computed, h } from 'vue';
 
 import { QInput } from 'quasar';
 
-import Parser from 'searcher/parser/parser';
+import Parser from 'searcher/parser';
 import SearchError from 'searcher/parser/error';
 
 import { last } from 'lodash';

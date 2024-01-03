@@ -14,20 +14,6 @@ import halfNumber from './half-number';
 
 import { toIdentifier } from '../util';
 
-function parseOption(text: string | undefined, defaultValue: number): number {
-    if (text == null) {
-        return defaultValue;
-    }
-
-    const num = Number.parseInt(text, 10);
-
-    if (Number.isNaN(num)) {
-        return defaultValue;
-    }
-
-    return num;
-}
-
 const orderByCommand = command({
     id:         'order',
     postStep:   'order',

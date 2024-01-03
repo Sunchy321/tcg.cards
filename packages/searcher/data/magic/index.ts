@@ -6,7 +6,7 @@ import {
 import * as builtin from '../../src/command/builtin';
 import * as magic from './command';
 
-const raw = defineCommand({ id: '' });
+const raw = defineCommand({ id: '', operators: [] });
 
 const stats = defineCommand({
     id:         'stats',
@@ -128,7 +128,7 @@ const keyword = defineCommand({
     operators: [':'],
 });
 
-const orderBy = defineCommand({
+const order = defineCommand({
     id:        'order',
     operators: [':'],
 });
@@ -160,7 +160,7 @@ export const commands = {
     format,
     counter,
     keyword,
-    orderBy,
+    order,
 };
 
 export default defineModel({

@@ -40,7 +40,7 @@ export type Command<
     modifiers?: M[] | Record<M, string>;
     operators: O[];
     qualifiers: Q[];
-    allowRegex: boolean extends AR ? false : AR;
+    allowRegex: AR;
 };
 
 export type CommandOption<
@@ -55,7 +55,7 @@ export type CommandOption<
     pattern?: P;
     modifiers?: Record<M, string> | readonly M[];
     operators: readonly O[];
-    qualifiers: readonly Q[];
+    qualifiers?: readonly Q[];
     allowRegex?: AR;
 };
 
@@ -65,9 +65,15 @@ export function defineCommand<
     Q extends Qualifier,
     AR extends boolean,
     P,
->(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, AR, P> {
+>(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, [AR] extends [boolean] ? false : AR, P> {
     const {
-        id, alt, pattern, modifiers, operators, qualifiers, allowRegex,
+        id,
+        alt,
+        pattern,
+        modifiers,
+        operators,
+        qualifiers = [],
+        allowRegex,
     } = options;
 
     return {
