@@ -22,7 +22,7 @@ export class BackendModel<A extends string> {
         this.actions = option.actions;
     }
 
-    async search(actionKey: A, text: string, options: SearchOption): Promise<SearchResult> {
+    async search(actionKey: A, text: string, options: SearchOption = {}): Promise<SearchResult> {
         const action = this.actions[actionKey];
 
         if (action == null) {

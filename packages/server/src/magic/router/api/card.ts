@@ -117,7 +117,7 @@ router.get('/random', async ctx => {
     const q = toSingle(ctx.query.q ?? '');
 
     const cardIds = q !== ''
-        ? (await searcher.searchId(q)).result ?? []
+        ? (await searcher.search('searchId', q)).result ?? []
         : await Card.distinct('cardId');
 
     ctx.body = cardIds[random(cardIds.length - 1)] ?? '';

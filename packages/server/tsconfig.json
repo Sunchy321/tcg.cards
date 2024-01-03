@@ -20,6 +20,7 @@
             "@data/*": ["../node_modules/card-common/data/*"],
             "@common/*": ["../node_modules/card-common/src/*"],
             "@searcher/*": ["../node_modules/card-searcher/src/*"],
+            "@searcher-data/*": ["../node_modules/card-searcher/data/*"],
             "@renderer/*": ["../node_modules/card-renderer/src/*"]
         },
         "plugins": [

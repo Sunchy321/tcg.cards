@@ -1,7 +1,7 @@
-import { BackendOf, QueryFuncOf, DBQuery } from '../../../../src/command/backend';
-import { QueryError } from '../../../../src/command/error';
+import { BackendOf, QueryFuncOf, DBQuery } from '@searcher/command/backend';
+import { QueryError } from '@searcher/command/error';
 
-import { HalfNumberCommand } from './index';
+import { HalfNumberCommand } from '@searcher-data/magic/command/half-number';
 
 import { range } from 'lodash';
 

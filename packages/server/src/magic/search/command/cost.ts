@@ -1,7 +1,7 @@
-import { BackendOf, QueryFuncOf, DBQuery } from '../../../../src/command/backend';
-import { QueryError } from '../../../../src/command/error';
+import { BackendOf, QueryFuncOf, DBQuery } from '@searcher/command/backend';
+import { QueryError } from '@searcher/command/error';
 
-import { CostCommand } from './index';
+import { CostCommand } from '@searcher-data/magic/command/cost';
 
 import { flatten } from 'lodash';
 

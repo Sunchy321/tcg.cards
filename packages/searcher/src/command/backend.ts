@@ -5,7 +5,7 @@ import { Aggregate } from 'mongoose';
 
 export type DBQuery = any | { '$and': DBQuery[] } | { '$or': DBQuery[] };
 
-type Select<B, T, F> = [B] extends [true] ? T : F;
+type Select<B, T, F> = B extends true ? T : F;
 
 export type Argument<
     M extends string,

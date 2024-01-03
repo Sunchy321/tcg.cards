@@ -18,7 +18,7 @@ router.get('/', async ctx => {
         return;
     }
 
-    ctx.body = await searcher.search(q, mapValues(ctx.query, toSingle));
+    ctx.body = await searcher.search('search', q, mapValues(ctx.query, toSingle));
 });
 
 export default router;

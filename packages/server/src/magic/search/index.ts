@@ -1,39 +1,417 @@
-import {
-    DBQuery, Options, createSearcher,
-} from '@/search/searcher';
-import { PostAction, command } from '@/search/command';
-import { QueryError } from '@/search/error';
+import { defineBackendModel } from '@searcher/model/backend';
+import { defineBackendCommand, DBQuery } from '@searcher/command/backend';
+
+import { AnyBackendCommand, PostAction } from '@searcher/model/type';
+import { SearchOption } from '@searcher/search';
+
+import { commands } from '@searcher-data/magic/index';
+
+import * as builtin from '@searcher/command/builtin/backend';
+import * as magic from './command';
+import { QueryError } from '@searcher/command/error';
 
 import Card from '@/magic/db/card';
 
-import * as builtin from '@/search/builtin';
+import { deburr } from 'lodash';
 
-import color from './color';
-import cost from './cost';
-import halfNumber from './half-number';
+function toIdentifier(text: string): string {
+    return deburr(text)
+        .trim()
+        .toLowerCase()
+        .replace(' // ', '____')
+        .replace('/', '____')
+        .replace(/[^a-z0-9]/g, '_');
+}
 
-import { toIdentifier } from '../util';
+const raw = defineBackendCommand({
+    command: commands.raw,
+    query:   ({ parameter }) => {
+        // search mana
+        if (/^(\{[^}]+\})+$/.test(parameter)) {
+            return {
+                $or: [
+                    builtin.text.query({
+                        key:       'parts.oracle.text',
+                        multiline: false,
+                        parameter,
+                        operator:  ':',
+                        qualifier: [],
+                    }),
+                    builtin.text.query({
+                        key:       'parts.unified.text',
+                        multiline: false,
+                        parameter,
+                        operator:  ':',
+                        qualifier: [],
+                    }),
+                    builtin.text.query({
+                        key:       'parts.printed.text',
+                        multiline: false,
+                        parameter,
+                        operator:  ':',
+                        qualifier: [],
+                    }),
+                    magic.cost.query({
+                        parameter,
+                        operator:  ':',
+                        qualifier: [],
+                    }),
+                ],
+            };
+        } else {
+            return {
+                $or: [
+                    builtin.text.query({
+                        key:       'parts.oracle.name',
+                        multiline: false,
+                        parameter,
+                        operator:  ':',
+                        qualifier: [],
+                    }),
+                    builtin.text.query({
+                        key:       'parts.unified.name',
+                        multiline: false,
+                        parameter,
+                        operator:  ':',
+                        qualifier: [],
+                    }),
+                ],
+            };
+        }
+    },
+});
 
-const orderByCommand = command({
-    id:         'order',
-    postStep:   'order',
-    allowRegex: false,
-    op:         [':'],
-    qual:       [],
+const stats = defineBackendCommand({
+    command: commands.stats,
 
-    post: ({ param }) => {
-        param = param.toLowerCase();
+    query({ pattern, operator, qualifier }) {
+        if (pattern == null) {
+            throw new QueryError({ type: 'invalid-query' });
+        }
 
+        const { power, toughness } = pattern;
+
+        if (qualifier?.includes('!')) {
+            return {
+                $or: [
+                    magic.halfNumber.query({
+                        key:       'parts.power',
+                        parameter: power,
+                        operator:  operator ?? '=',
+                        qualifier,
+                    }),
+                    magic.halfNumber.query({
+                        key:       'parts.toughness',
+                        parameter: toughness,
+                        operator:  operator ?? '=',
+                        qualifier,
+                    }),
+                ],
+            };
+        } else {
+            return {
+                ...magic.halfNumber.query({
+                    key:       'parts.power',
+                    parameter: power,
+                    operator:  operator ?? '=',
+                    qualifier: qualifier ?? [],
+                }),
+                ...magic.halfNumber.query({
+                    key:       'parts.toughness',
+                    parameter: toughness,
+                    operator:  operator ?? '=',
+                    qualifier: qualifier ?? [],
+                }),
+            };
+        }
+    },
+});
+
+const hash = defineBackendCommand({
+    command: commands.hash,
+    query({ pattern, qualifier }) {
+        if (pattern == null) {
+            throw new QueryError({ type: 'invalid-query' });
+        }
+
+        const { tag } = pattern;
+
+        if (!qualifier.includes('!')) {
+            return {
+                $or: [
+                    { tags: tag },
+                    { localTags: tag },
+                ],
+            };
+        } else {
+            return {
+                $and: [
+                    { tags: { $ne: tag } },
+                    { localTags: { $ne: tag } },
+                ],
+            };
+        }
+    },
+});
+
+const set = builtin.simple(commands.set);
+const num = builtin.simple(commands.num);
+const lang = builtin.simple(commands.lang);
+
+const cost = magic.cost(commands.cost);
+const manaValue = builtin.number(commands.manaValue, { key: 'manaValue' });
+
+const color = magic.color(commands.color, { key: 'parts.color' });
+const colorIdentity = magic.color(commands.colorIdentity, { key: 'colorIdentity' });
+const colorIndicator = magic.color(commands.colorIndicator, { key: 'parts.colorIndicator' });
+
+const power = magic.halfNumber(commands.power, { key: 'parts.power' });
+const toughness = magic.halfNumber(commands.toughness, { key: 'parts.toughness' });
+
+const loyalty = defineBackendCommand({
+    command: commands.loyalty,
+    query({
+        pattern, parameter, operator, qualifier,
+    }) {
+        return magic.halfNumber.query({
+            key:       'parts.loyalty',
+            parameter: pattern?.loyalty ?? parameter,
+            operator,
+            qualifier: qualifier ?? [],
+        });
+    },
+});
+
+const defense = defineBackendCommand({
+    command: commands.defense,
+    query({
+        pattern, parameter, operator, qualifier,
+    }) {
+        return magic.halfNumber.query({
+            key:       'parts.defense',
+            parameter: pattern?.defense ?? parameter,
+            operator,
+            qualifier,
+        });
+    },
+});
+
+const name = defineBackendCommand({
+    command: commands.name,
+    query({
+        modifier, parameter, operator, qualifier,
+    }) {
+        switch (modifier) {
+        case 'oracle':
+            return builtin.text.query({
+                key: 'parts.name.oracle', parameter, operator, qualifier,
+            });
+        case 'unified':
+            return builtin.text.query({
+                key: 'parts.name.unified', parameter, operator, qualifier,
+            });
+        case 'printed':
+            return builtin.text.query({
+                key: 'parts.name.printed', parameter, operator, qualifier,
+            });
+        default:
+            return {
+                [!qualifier.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query({
+                        key: 'parts.oracle.name', parameter, operator, qualifier,
+                    }),
+                    builtin.text.query({
+                        key: 'parts.unified.name', parameter, operator, qualifier,
+                    }),
+                    builtin.text.query({
+                        key: 'parts.printed.name', parameter, operator, qualifier,
+                    }),
+                ],
+            };
+        }
+    },
+});
+
+const type = defineBackendCommand({
+    command: commands.type,
+    query({
+        modifier, parameter, operator, qualifier,
+    }) {
+        switch (modifier) {
+        case 'oracle':
+            return builtin.text.query({
+                key: 'parts.oracle.typeline', parameter, operator, qualifier,
+            });
+        case 'unified':
+            return builtin.text.query({
+                key: 'parts.unified.typeline', parameter, operator, qualifier,
+            });
+        case 'printed':
+            return builtin.text.query({
+                key: 'parts.printed.typeline', parameter, operator, qualifier,
+            });
+        default:
+            return {
+                [!qualifier.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query({
+                        key: 'parts.oracle.typeline', parameter, operator, qualifier,
+                    }),
+                    builtin.text.query({
+                        key: 'parts.unified.typeline', parameter, operator, qualifier,
+                    }),
+                    builtin.text.query({
+                        key: 'parts.printed.typeline', parameter, operator, qualifier,
+                    }),
+                ],
+            };
+        }
+    },
+});
+
+const text = defineBackendCommand({
+    command: commands.text,
+    query({
+        modifier, parameter, operator, qualifier,
+    }) {
+        switch (modifier) {
+        case 'oracle':
+            return builtin.text.query({
+                key: 'parts.oracle.text', parameter, operator, qualifier, multiline: true,
+            });
+        case 'unified':
+            return builtin.text.query({
+                key: 'parts.unified.text', parameter, operator, qualifier, multiline: true,
+            });
+        case 'printed':
+            return builtin.text.query({
+                key: 'parts.printed.text', parameter, operator, qualifier, multiline: true,
+            });
+        default:
+            return {
+                [!qualifier.includes('!') ? '$or' : '$and']: [
+                    builtin.text.query({
+                        key: 'parts.oracle.text', parameter, operator, qualifier, multiline: true,
+                    }),
+                    builtin.text.query({
+                        key: 'parts.unified.text', parameter, operator, qualifier, multiline: true,
+                    }),
+                    builtin.text.query({
+                        key: 'parts.printed.text', parameter, operator, qualifier, multiline: true,
+                    }),
+                ],
+            };
+        }
+    },
+});
+
+const oracle = defineBackendCommand({
+    command: commands.oracle,
+    query:   ({ parameter, operator, qualifier }) => ({
+        [!qualifier.includes('!') ? '$or' : '$and']: [
+            builtin.text.query({
+                key: 'parts.oracle.text', parameter, operator, qualifier,
+            }),
+            builtin.text.query({
+                key: 'parts.unified.text', parameter, operator, qualifier,
+            }),
+        ],
+    }),
+});
+
+const flavorText = builtin.text(commands.flavorText, { key: 'parts.flavorText' });
+const flavorName = builtin.text(commands.flavorName, { key: 'parts.flavorName' });
+const layout = builtin.simple(commands.layout);
+
+const rarity = defineBackendCommand({
+    command: commands.rarity,
+    query:   ({ parameter, operator, qualifier }) => {
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        const rarity = (
+            {
+                c: 'common',
+                u: 'uncommon',
+                r: 'rare',
+                m: 'mythic',
+                s: 'special',
+            } as Record<string, string>
+        )[parameter] ?? parameter;
+
+        return builtin.simple.query({
+            key: 'rarity', parameter: rarity, operator, qualifier,
+        });
+    },
+});
+
+const format = defineBackendCommand({
+    command: commands.format,
+    query:   ({ parameter, qualifier }) => {
+        if (parameter.includes(',')) {
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            const [format, status] = parameter.split(',');
+
+            if (!qualifier.includes('!')) {
+                return { [`legalities.${format}`]: status };
+            } else {
+                return { [`legalities.${format}`]: { $ne: status } };
+            }
+        } else {
+            if (!qualifier.includes('!')) {
+                return {
+                    [`legalities.${parameter}`]: { $in: ['legal', 'restricted'] },
+                };
+            } else {
+                return {
+                    [`legalities.${parameter}`]: { $nin: ['legal', 'restricted'] },
+                };
+            }
+        }
+    },
+});
+
+const counter = defineBackendCommand({
+    command: commands.counter,
+    query:   ({ parameter, qualifier }) => {
+        parameter = toIdentifier(parameter);
+
+        if (!qualifier.includes('!')) {
+            return { counters: parameter };
+        } else {
+            return { counters: { $ne: parameter } };
+        }
+    },
+});
+
+const keyword = defineBackendCommand({
+    command: commands.keyword,
+    query:   ({ parameter, qualifier }) => {
+        parameter = toIdentifier(parameter);
+
+        if (!qualifier.includes('!')) {
+            return { keywords: parameter };
+        } else {
+            return { keywords: { $ne: parameter } };
+        }
+    },
+});
+
+const order = defineBackendCommand({
+    command: commands.order,
+    query() {},
+
+    post: ({ parameter }) => {
+        parameter = parameter.toLowerCase();
+
+        // eslint-disable-next-line @typescript-eslint/no-shadow
         const [type, dir] = ((): [string, -1 | 1] => {
-            if (param.endsWith('+')) {
-                return [param.slice(0, -1), 1];
+            if (parameter.endsWith('+')) {
+                return [parameter.slice(0, -1), 1];
             }
 
-            if (param.endsWith('-')) {
-                return [param.slice(0, -1), -1];
+            if (parameter.endsWith('-')) {
+                return [parameter.slice(0, -1), -1];
             }
 
-            return [param, 1];
+            return [parameter, 1];
         })();
 
         return agg => {
@@ -52,10 +430,6 @@ const orderByCommand = command({
             case 'cost':
                 agg.sort({ manaValue: dir });
                 break;
-            case 'number':
-            case 'num':
-                agg.sort({ number: dir }).collation({ locale: 'en', numericOrdering: true });
-                break;
             default:
                 throw new QueryError({ type: 'invalid-query' });
             }
@@ -63,419 +437,142 @@ const orderByCommand = command({
     },
 });
 
-export default createSearcher({
-    commands: [
-        command({
-            id:    '',
-            query: ({ param }) => {
-                if (typeof param === 'string') {
-                    // search stats
-                    if (/^[^/]+\/[^/]+$/.test(param)) {
-                        const [power, toughness] = param.split('/');
+const backedCommands: Record<string, AnyBackendCommand> = {
+    raw,
+    stats,
+    hash,
+    set,
+    num,
+    lang,
+    cost,
+    manaValue,
+    color,
+    colorIdentity,
+    colorIndicator,
+    power,
+    toughness,
+    loyalty,
+    defense,
+    name,
+    type,
+    text,
+    oracle,
+    flavorText,
+    flavorName,
+    layout,
+    rarity,
+    format,
+    counter,
+    keyword,
+    order,
+};
 
-                        return {
-                            ...halfNumber.query('parts.power', power, '=', []),
-                            ...halfNumber.query('parts.toughness', toughness, '=', []),
-                        };
-                    }
+function parseOption(optionText: string | undefined, defaultValue: number): number {
+    if (optionText == null) {
+        return defaultValue;
+    }
 
-                    // search loyalty
-                    if (/^\[.+\]$/.test(param)) {
-                        const loyalty = param.slice(1, -1);
+    const optionNumber = Number.parseInt(optionText, 10);
 
-                        return { 'parts.loyalty': loyalty };
-                    }
+    if (Number.isNaN(optionNumber)) {
+        return defaultValue;
+    }
 
-                    // search defense
-                    if (/^<.+>$/.test(param)) {
-                        const defense = param.slice(1, -1);
+    return optionNumber;
+}
 
-                        return { 'parts.defense': defense };
-                    }
+export default defineBackendModel({
+    commands: Object.values(backedCommands),
 
-                    // search mana
-                    if (/^(\{[^}]+\})+$/.test(param)) {
-                        return {
-                            $or: [
-                                builtin.text.query('parts.oracle.text', param, ':', []),
-                                builtin.text.query('parts.unified.text', param, ':', []),
-                                builtin.text.query('parts.printed.text', param, ':', []),
-                                cost.query(param, ':', []),
-                            ],
-                        };
-                    }
-                }
+    actions: {
+        search: async (q: DBQuery, p: PostAction[], o: SearchOption) => {
+            const groupBy = o['group-by'] ?? 'card';
+            const orderBy = o['order-by'] ?? 'id+';
+            const page = parseOption(o.page, 1);
+            const pageSize = parseOption(o['page-size'], 100);
+            const locale = o.locale ?? 'en';
 
-                return {
-                    $or: [
-                        builtin.text.query('parts.oracle.name', param, ':', []),
-                        builtin.text.query('parts.unified.name', param, ':', []),
-                    ],
-                };
-            },
-        }),
-        command({
-            id:         '#',
-            allowRegex: false,
-            op:         [''],
-            query:      ({ param, qual }) => {
-                if (param === 'ox-eq-px') {
-                    return {
-                        $expr: { $eq: ['$parts.oracle.text', '$parts.printed.text'] },
-                    };
-                }
-
-                if (param === 'ux-eq-px') {
-                    return {
-                        $expr: { $eq: ['$parts.unified.text', '$parts.printed.text'] },
-                    };
-                }
-
-                if (param === 'on-eq-un') {
-                    return {
-                        $expr: { $eq: ['$parts.oracle.name', '$parts.unified.name'] },
-                    };
-                }
-
-                if (param === 'on-eq-pn') {
-                    return {
-                        $expr: { $eq: ['$parts.oracle.name', '$parts.printed.name'] },
-                    };
-                }
-
-                if (param === '__oracle') {
-                    return {
-                        __oracle: { $exists: true },
-                    };
-                }
-
-                if (!qual.includes('!')) {
-                    return {
-                        $or: [
-                            { tags: param },
-                            { localTags: param },
-                        ],
-                    };
-                } else {
-                    return {
-                        $and: [
-                            { tags: { $ne: param } },
-                            { localTags: { $ne: param } },
-                        ],
-                    };
-                }
-            },
-        }),
-        builtin.simple({ id: 'layout' }),
-        builtin.simple({ id: 'set', alt: ['expansion', 's', 'e'] }),
-        builtin.simple({ id: 'number', alt: ['num'] }),
-        builtin.simple({ id: 'lang', alt: ['l'] }),
-        builtin.simple({ id: 'category', alt: ['cat'] }),
-        cost({ id: 'cost', alt: ['mana', 'mana-cost', 'm'] }),
-        builtin.number({ id: 'mana-value', alt: ['mv', 'cmc'], key: 'manaValue' }),
-        color({ id: 'color', alt: ['c'], key: 'parts.color' }),
-        color({ id: 'color-identity', alt: ['cd'], key: 'colorIdentity' }),
-        color({ id: 'color-indicator', alt: ['ci'], key: 'parts.colorIndicator' }),
-        halfNumber({ id: 'power', alt: ['pow'], key: 'parts.power' }),
-        halfNumber({ id: 'toughness', alt: ['tou'], key: 'parts.toughness' }),
-        halfNumber({ id: 'loyalty', key: 'parts.loyalty' }),
-        builtin.text({ id: 'name.oracle', alt: ['on'], key: 'parts.oracle.name' }),
-        builtin.text({ id: 'name.unified', alt: ['un'], key: 'parts.unified.name' }),
-        builtin.text({ id: 'name.printed', alt: ['pn'], key: 'parts.printed.name' }),
-        command({
-            id:    'name',
-            alt:   ['n'],
-            op:    [':', '='],
-            query: ({ param, op, qual }) => ({
-                [!qual.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query('parts.oracle.name', param, op, qual),
-                    builtin.text.query('parts.unified.name', param, op, qual),
-                    builtin.text.query('parts.printed.name', param, op, qual),
-                ],
-            }),
-        }),
-        command({
-            id:    'name',
-            alt:   ['n'],
-            op:    [':', '='],
-            query: ({ param, op, qual }) => ({
-                [!qual.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query('parts.oracle.name', param, op, qual),
-                    builtin.text.query('parts.unified.name', param, op, qual),
-                    builtin.text.query('parts.printed.name', param, op, qual),
-                ],
-            }),
-        }),
-        builtin.text({ id: 'type.oracle', alt: ['ot'], key: 'parts.oracle.typeline' }),
-        builtin.text({ id: 'type.unified', alt: ['ut'], key: 'parts.unified.typeline' }),
-        builtin.text({ id: 'type.printed', alt: ['pt'], key: 'parts.printed.typeline' }),
-        command({
-            id:    'type',
-            alt:   ['t'],
-            op:    [':', '='],
-            query: ({ param, op, qual }) => ({
-                [!qual.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query('parts.oracle.typeline', param, op, qual),
-                    builtin.text.query('parts.unified.typeline', param, op, qual),
-                    builtin.text.query('parts.printed.typeline', param, op, qual),
-                ],
-            }),
-        }),
-        builtin.text({ id: 'text.oracle', alt: ['ox'], key: 'parts.oracle.text' }),
-        builtin.text({ id: 'text.unified', alt: ['ux'], key: 'parts.unified.text' }),
-        builtin.text({ id: 'text.printed', alt: ['px'], key: 'parts.printed.text' }),
-        command({
-            id:    'text',
-            alt:   ['x'],
-            op:    [':', '='],
-            query: ({ param, op, qual }) => ({
-                [!qual.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query('parts.oracle.text', param, op, qual),
-                    builtin.text.query('parts.unified.text', param, op, qual),
-                    builtin.text.query('parts.printed.text', param, op, qual),
-                ],
-            }),
-        }),
-        command({
-            id:    'text.oracle-or-unified',
-            alt:   ['o'],
-            op:    [':', '='],
-            query: ({ param, op, qual }) => ({
-                [!qual.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query('parts.oracle.text', param, op, qual),
-                    builtin.text.query('parts.unified.text', param, op, qual),
-                ],
-            }),
-        }),
-        builtin.text({
-            id: 'flavor-text', alt: ['flavor', 'ft'], key: 'parts.flavorText', multiline: false,
-        }),
-        builtin.text({ id: 'flavor-name', alt: ['fn'], key: 'parts.flavorName' }),
-        command({
-            id:         'rarity',
-            alt:        ['r'],
-            allowRegex: false,
-            op:         [':', '='],
-            query:      ({ param, op, qual }) => {
-                const rarity = (
-                    {
-                        c: 'common',
-                        u: 'uncommon',
-                        r: 'rare',
-                        m: 'mythic',
-                        s: 'special',
-                    } as Record<string, string>
-                )[param] || param;
-
-                return builtin.simple.query('rarity', rarity, op, qual);
-            },
-        }),
-        command({
-            id:         'release-date',
-            alt:        ['date'],
-            allowRegex: false,
-            op:         ['=', '<', '<=', '>', '>='],
-            query:      ({ param, op, qual }) => {
-                switch (op) {
-                case '=':
-                    if (!qual.includes('!')) {
-                        return { releaseDate: { $eq: param } };
-                    } else {
-                        return { releaseDate: { $ne: param } };
-                    }
-                case '>':
-                    return { releaseDate: { $gt: param } };
-                case '>=':
-                    return { releaseDate: { $gte: param } };
-                case '<':
-                    return { releaseDate: { $lt: param } };
-                case '<=':
-                    return { releaseDate: { $lte: param } };
-                default:
-                    throw new QueryError({ type: 'invalid-query' });
-                }
-            },
-        }),
-        command({
-            id:         'format',
-            alt:        ['f'],
-            allowRegex: false,
-            op:         [':'],
-            query:      ({ param, qual }) => {
-                if (param.includes(',')) {
-                    const [format, status] = param.split(',');
-
-                    if (!qual.includes('!')) {
-                        return { [`legalities.${format}`]: status };
-                    } else {
-                        return { [`legalities.${format}`]: { $ne: status } };
-                    }
-                } else {
-                    if (!qual.includes('!')) {
-                        return {
-                            [`legalities.${param}`]: { $in: ['legal', 'restricted'] },
-                        };
-                    } else {
-                        return {
-                            [`legalities.${param}`]: { $nin: ['legal', 'restricted'] },
-                        };
-                    }
-                }
-            },
-        }),
-        command({
-            id:         'counter',
-            allowRegex: false,
-            op:         [':'],
-            query:      ({ param, qual }) => {
-                param = toIdentifier(param);
-
-                if (!qual.includes('!')) {
-                    return { counters: param };
-                } else {
-                    return { counters: { $ne: param } };
-                }
-            },
-        }),
-        command({
-            id:         'keyword',
-            allowRegex: false,
-            op:         [':'],
-            query:      ({ param, qual }) => {
-                param = toIdentifier(param);
-
-                if (!qual.includes('!')) {
-                    return { keywords: param };
-                } else {
-                    return { keywords: { $ne: param } };
-                }
-            },
-        }),
-        command({
-            id:    'related-card',
-            alt:   ['rc'],
-            op:    ['=', '<', '<=', '>', '>='],
-            qual:  [],
-            query: ({ param, op }) => {
-                const num = Number.parseInt(param, 10);
-
-                if (Number.isNaN(num)) {
-                    throw new QueryError({ type: 'invalid-query' });
-                }
-
-                switch (op) {
-                case '=':
-                    return { relatedCards: { $size: num } };
-                case '<':
-                    if (num === 0) {
-                        throw new QueryError({ type: 'invalid-query' });
-                    }
-                    return { [`relatedCards.${num - 1}`]: { $exists: false } };
-                case '<=':
-                    return { [`relatedCards.${num}`]: { $exists: false } };
-                case '>':
-                    return { [`relatedCards.${num}`]: { $exists: true } };
-                case '>=':
-                    if (num === 0) {
-                        return {};
-                    }
-                    return { [`relatedCards.${num - 1}`]: { $exists: true } };
-                default:
-                    throw new QueryError({ type: 'invalid-query' });
-                }
-            },
-        }),
-
-        orderByCommand,
-    ],
-
-    search: async (q: DBQuery, p: PostAction[], o: Options) => {
-        const groupBy = o['group-by'] ?? 'card';
-        const orderBy = o['order-by'] ?? 'id+';
-        const page = parseOption(o.page, 1);
-        const pageSize = parseOption(o['page-size'], 100);
-        const locale = o.locale ?? 'en';
-
-        const aggregate = Card.aggregate()
-            .allowDiskUse(true)
-            .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-            .match(q);
-
-        switch (groupBy) {
-        case 'print':
-            break;
-        case 'card':
-        default:
-            aggregate
-                .addFields({
-                    langIsLocale:  { $eq: ['$lang', locale] },
-                    langIsEnglish: { $eq: ['$lang', 'en'] },
-                })
-                .sort({
-                    langIsLocale:  -1,
-                    langIsEnglish: -1,
-                    releaseDate:   -1,
-                    number:        1,
-                })
-                .collation({ locale: 'en', numericOrdering: true })
-                .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
-                .replaceRoot('data');
-        }
-
-        const total = (
-            await Card.aggregate(aggregate.pipeline())
+            const aggregate = Card.aggregate()
                 .allowDiskUse(true)
-                .group({ _id: null, count: { $sum: 1 } })
-        )[0]?.count ?? 0;
+                .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
+                .match(q);
 
-        const orderAction = p.find(v => v.step === 'order');
+            switch (groupBy) {
+            case 'print':
+                break;
+            case 'card':
+            default:
+                aggregate
+                    .addFields({
+                        langIsLocale:  { $eq: ['$lang', locale] },
+                        langIsEnglish: { $eq: ['$lang', 'en'] },
+                    })
+                    .sort({
+                        langIsLocale:  -1,
+                        langIsEnglish: -1,
+                        releaseDate:   -1,
+                        number:        1,
+                    })
+                    .collation({ locale: 'en', numericOrdering: true })
+                    .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
+                    .replaceRoot('data');
+            }
 
-        if (orderAction != null) {
-            orderAction.action(aggregate);
-        } else {
-            orderByCommand.post!({ param: orderBy, op: ':', qual: [] })(aggregate);
-        }
+            const total = (
+                await Card.aggregate(aggregate.pipeline())
+                    .allowDiskUse(true)
+                    .group({ _id: null, count: { $sum: 1 } })
+            )[0]?.count ?? 0;
 
-        aggregate.skip((page - 1) * pageSize);
-        aggregate.limit(pageSize);
-        aggregate.project({
-            _id:          0,
-            __v:          0,
-            langIsLocale: 0,
-            langIsEn:     0,
-        });
+            const orderAction = p.find(v => v.phase === 'order');
 
-        const cards = await aggregate;
+            if (orderAction != null) {
+                orderAction.action(aggregate);
+            } else {
+                order.post!({ parameter: orderBy, operator: ':', qualifier: [] })(aggregate);
+            }
 
-        return { cards, total, page };
-    },
+            aggregate.skip((page - 1) * pageSize);
+            aggregate.limit(pageSize);
+            aggregate.project({
+                _id:          0,
+                __v:          0,
+                langIsLocale: 0,
+                langIsEn:     0,
+            });
 
-    dev: async (q: DBQuery, p: PostAction[], o: Options) => {
-        const aggregate = Card.aggregate().allowDiskUse(true).match(q);
+            const cards = await aggregate;
 
-        const total = (
-            await Card.aggregate(aggregate.pipeline())
+            return { cards, total, page };
+        },
+
+        dev: async (q: DBQuery, p: PostAction[], o: SearchOption) => {
+            const aggregate = Card.aggregate().allowDiskUse(true).match(q);
+
+            const total = (
+                await Card.aggregate(aggregate.pipeline())
+                    .allowDiskUse(true)
+                    .group({ _id: null, count: { $sum: 1 } })
+            )[0]?.count ?? 0;
+
+            const cards = await Card.aggregate(aggregate.pipeline())
+                .sort({ releaseDate: -1, cardId: 1 })
+                .limit(o.sample);
+
+            return {
+                cards,
+                total,
+            };
+        },
+
+        searchId: async (q: DBQuery) => {
+            const result = await Card
+                .aggregate()
                 .allowDiskUse(true)
-                .group({ _id: null, count: { $sum: 1 } })
-        )[0]?.count ?? 0;
+                .match(q)
+                .group({ _id: '$cardId' });
 
-        const cards = await Card.aggregate(aggregate.pipeline())
-            .sort({ releaseDate: -1, cardId: 1 })
-            .limit(o.sample);
-
-        return {
-            cards,
-            total,
-        };
-    },
-
-    searchId: async (q: DBQuery) => {
-        const result = await Card
-            .aggregate()
-            .allowDiskUse(true)
-            .match(q)
-            .group({ _id: '$cardId' });
-
-        return result.map(v => v._id) as string[];
+            return result.map(v => v._id) as string[];
+        },
     },
 });

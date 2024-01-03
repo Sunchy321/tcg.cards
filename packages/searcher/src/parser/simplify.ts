@@ -1,4 +1,4 @@
-import { Expression } from './index-';
+import { Expression } from './index';
 
 export function simplify(expr: Expression): Expression {
     if (expr.type === 'not') {
@@ -51,12 +51,12 @@ export function simplify(expr: Expression): Expression {
             };
         }
     } else if (expr.type === 'logic') {
-        const simplifiedValue = [];
+        const simplifiedValue: Expression[] = [];
 
         for (const v of expr.exprs) {
             const value = simplify(v);
 
-            if (value.type === expr.type) {
+            if (value.type === 'logic' && value.sep === expr.sep) {
                 simplifiedValue.push(...value.exprs);
             } else {
                 simplifiedValue.push(value);

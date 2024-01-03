@@ -1,15 +1,17 @@
 import {
     Command, defineCommand, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
-} from '../../../../src/command';
+} from '../../../src/command';
 
-export type ColorCommand = Command<never, AllOperator, DefaultQualifier, false, never>;
+export type CostCommand = Command<never, AllOperator, DefaultQualifier, false, never>;
 
-export type ColorOption = {
+export type CostOption = {
     id: string;
     alt?: string[] | string;
+    key?: string;
+    allowFloat?: boolean;
 };
 
-export default function color(options: ColorOption): ColorCommand {
+export default function cost(options: CostOption): CostCommand {
     const { id, alt } = options;
 
     return defineCommand({
@@ -17,6 +19,5 @@ export default function color(options: ColorOption): ColorCommand {
         alt,
         operators:  allOperator,
         qualifiers: defaultQualifier,
-
     });
 }

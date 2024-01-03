@@ -1,15 +1,23 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import { Command, command } from '@/search/command';
-import { QueryError } from '@/search/error';
+import { BackendOf, QueryFuncOf, DBQuery } from '@searcher/command/backend';
+import { QueryError } from '@searcher/command/error';
+
+import { ColorCommand } from '@searcher-data/magic/command/color';
 
 const colorEnums = 'WUBRGOP'.split('');
 
-function query(
-    key: string,
-    param: string,
-    op: ':' | '<' | '<=' | '=' | '>' | '>=',
-    qual: '!'[],
-) {
+export type ColorBackendCommand = BackendOf<ColorCommand>;
+
+export type ColorBackendOption = {
+    key?: string;
+};
+
+export type ColorQueryOption = Parameters<QueryFuncOf<ColorCommand>>[0] & { key: string };
+
+function query(options: ColorQueryOption): DBQuery {
+    const {
+        parameter:param, operator:op, qualifier:qual, key,
+    } = options;
+
     const text = param.toLowerCase();
 
     if (text === 'c' || text === 'colorless') {
@@ -190,21 +198,13 @@ function query(
     }
 }
 
-export default function color(config: {
-    id: string;
-    alt?: string[];
-    key?: string;
-}): Command<never, false, ':' | '<' | '<=' | '=' | '>' | '>=', '!'> {
-    const { id, alt, key } = config;
+export default function color(command: ColorCommand, options?: ColorBackendOption): ColorBackendCommand {
+    const { key = command.id } = options ?? { };
 
-    return command({
-        id,
-        alt,
-        allowRegex: false,
-        op:         [':', '=', '<', '<=', '>', '>='],
-
-        query: ({ param, op, qual }) => query(key ?? id, param, op, qual),
-    });
+    return {
+        ...command,
+        query: args => query({ key, ...args }),
+    };
 }
 
 color.query = query;

@@ -1,15 +1,15 @@
 import {
     Command, defineCommand, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
-} from '../../../../src/command';
+} from '../../../src/command';
 
-export type HalfNumberCommand = Command<never, AllOperator, DefaultQualifier, false, never>;
+export type ColorCommand = Command<never, AllOperator, DefaultQualifier, false, never>;
 
-export type HalfNumberOption = {
+export type ColorOption = {
     id: string;
     alt?: string[] | string;
 };
 
-export default function halfNumber(options: HalfNumberOption): HalfNumberCommand {
+export default function color(options: ColorOption): ColorCommand {
     const { id, alt } = options;
 
     return defineCommand({
@@ -17,5 +17,6 @@ export default function halfNumber(options: HalfNumberOption): HalfNumberCommand
         alt,
         operators:  allOperator,
         qualifiers: defaultQualifier,
+
     });
 }

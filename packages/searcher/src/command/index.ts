@@ -65,7 +65,7 @@ export function defineCommand<
     Q extends Qualifier,
     AR extends boolean,
     P,
->(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, [AR] extends [boolean] ? false : AR, P> {
+>(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, boolean extends AR ? false : AR, P> {
     const {
         id,
         alt,
@@ -73,7 +73,7 @@ export function defineCommand<
         modifiers,
         operators,
         qualifiers = [],
-        allowRegex,
+        allowRegex = false,
     } = options;
 
     return {
@@ -83,6 +83,6 @@ export function defineCommand<
         modifiers:  modifiers as M[] | Record<M, string>,
         operators:  operators as O[],
         qualifiers: qualifiers as Q[],
-        allowRegex: (allowRegex ?? false) as Command<M, O, Q, AR, P>['allowRegex'],
+        allowRegex: allowRegex as any,
     };
 }

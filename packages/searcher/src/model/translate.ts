@@ -14,8 +14,8 @@ export function translate(expr: Expression, commands: AnyBackendCommand[]): Tran
     if (expr.type === 'logic') {
         const value = expr.exprs.map(v => translate(v, commands));
 
-        const dbQuery = [];
-        const post = [];
+        const dbQuery: DBQuery = [];
+        const post: PostAction[] = [];
 
         const sep = expr.sep === '|' ? '$or' : '$and';
 
