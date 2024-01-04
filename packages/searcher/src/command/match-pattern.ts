@@ -1,6 +1,15 @@
+import { escapeRegExp } from 'lodash';
+
 export function matchPattern(pattern: string, parameter: string): Record<string, string> | undefined {
-    const regexText = pattern.replace(/\{\{([a-z]+)\}\}/g, (_, name) => `(?<${name}>.*?)`);
-    const regex = new RegExp(regexText);
+    const regexText = pattern.split(/(\{\{[a-z_]+?\}\})/).map(t => {
+        if (t.startsWith('{{') && t.endsWith('}}')) {
+            return `(?<${t.slice(2, -2)}>.*?)`;
+        } else {
+            return escapeRegExp(t);
+        }
+    }).join('');
+
+    const regex = new RegExp(`^${regexText}$`);
 
     return regex.exec(parameter)?.groups;
 }

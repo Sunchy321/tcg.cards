@@ -1,6 +1,6 @@
 import { Expression } from '../parser';
-import { DBQuery } from '../command/backend';
-import { AnyBackendCommand, PostAction } from './type';
+import { CommonBackendCommand, DBQuery } from '../command/backend';
+import { PostAction } from './type';
 import { QueryError } from '../command/error';
 
 import { matchPattern } from '../command/match-pattern';
@@ -10,7 +10,49 @@ export type TranslatedQuery = {
     post: PostAction[];
 };
 
-export function translate(expr: Expression, commands: AnyBackendCommand[]): TranslatedQuery {
+type CommonBackendCommandArgs = Parameters<CommonBackendCommand['query']>[0];
+
+function simpleTranslate(
+    command: CommonBackendCommand,
+    expr: Expression,
+    args: CommonBackendCommandArgs,
+): TranslatedQuery {
+    const { parameter, operator } = args;
+
+    if (parameter instanceof RegExp && !command.allowRegex) {
+        throw new QueryError({ type: 'invalid-regex' });
+    }
+
+    if (!command.operators.includes(operator)) {
+        throw new QueryError({ type: 'invalid-operator' });
+    }
+
+    if (command.post == null) {
+        try {
+            return {
+                dbQuery: command.query(args),
+                post:    [],
+            };
+        } catch (e) {
+            throw new QueryError({ type: e.type });
+        }
+    } else {
+        if (!expr.topLevel) {
+            throw new QueryError({ type: 'not-toplevel-command' });
+        }
+
+        return {
+            dbQuery: undefined,
+            post:    [{
+                phase:  command.phase as string,
+                action: command.post!(args),
+            }],
+        };
+    }
+}
+
+export function translate(expr: Expression, commands: CommonBackendCommand[]): TranslatedQuery {
+    // computed expression
     if (expr.type === 'logic') {
         const value = expr.exprs.map(v => translate(v, commands));
 
@@ -48,9 +90,32 @@ export function translate(expr: Expression, commands: AnyBackendCommand[]): Tran
         return translate(expr.expr, commands);
     }
 
-    const cmd = expr.type === 'simple' ? expr.cmd : '';
+    // parameter
+    const parameter = (() => {
+        if (expr.type === 'simple' || expr.type === 'raw') {
+            if (expr.argType === 'regex') {
+                try {
+                    return new RegExp(expr.arg.slice(1, -1));
+                } catch (e) {
+                    throw new QueryError({
+                        type:  'invalid-regex',
+                        value: expr.arg.slice(1, -1),
+                    });
+                }
+            } else if (expr.argType === 'string') {
+                return expr.arg.slice(1, -1).replace(/\\\\./g, v => v.slice(1));
+            } else {
+                return expr.arg;
+            }
+        } else {
+            return expr.tokens.map(t => t.text).join('');
+        }
+    })();
 
-    if (expr.type === 'simple' || expr.type === 'raw') {
+    // simple expr, such as cmd:arg or cmd=arg
+    if (expr.type === 'simple') {
+        const { cmd } = expr;
+
         const { command, modifier = undefined } = (() => {
             const nameMatched = commands.find(c => c.id === cmd || c.alt?.includes(cmd));
 
@@ -72,7 +137,7 @@ export function translate(expr: Expression, commands: AnyBackendCommand[]): Tran
                         }
                     } else {
                         for (const [lm, sm] of Object.entries(c.modifiers)) {
-                            if (cmd === `${c.id}.${lm}` || cmd === `${sm}${c.id}`) {
+                            if (cmd === `${c.id}.${lm}` || cmd === sm) {
                                 return { command: c, modifier: lm };
                             }
                         }
@@ -87,104 +152,53 @@ export function translate(expr: Expression, commands: AnyBackendCommand[]): Tran
             throw new QueryError({ type: 'unknown-command' });
         }
 
-        const allowRegex: boolean = (command.allowRegex as boolean) ?? true;
-
-        const parameter = (() => {
-            if (expr.argType === 'string') {
-                return expr.arg;
-            } else {
-                if (!allowRegex) {
-                    throw new QueryError({ type: 'invalid-regex' });
-                }
-
-                try {
-                    return new RegExp(expr.arg);
-                } catch (e) {
-                    throw new QueryError({
-                        type:  'invalid-regex',
-                        value: expr.arg,
-                    });
-                }
-            }
-        })();
-
         const operator = expr.type === 'simple' ? expr.op : '' as const;
         const qualifier = expr.type === 'simple' ? (expr.qual ?? []) : [];
 
-        if (!command.operators.includes(operator)) {
-            throw new QueryError({ type: 'invalid-operator' });
-        }
+        return simpleTranslate(command, expr, {
+            modifier, parameter, operator, qualifier,
+        });
+    }
 
-        if (command.post == null) {
-            try {
-                return {
-                    dbQuery: command.query({
-                        modifier, parameter, operator, qualifier,
-                    }),
-                    post: [],
-                };
-            } catch (e) {
-                throw new QueryError({ type: e.type });
-            }
-        } else {
-            if (!expr.topLevel) {
-                throw new QueryError({ type: 'not-toplevel-command' });
-            }
-
-            return {
-                dbQuery: undefined,
-                post:    [{
-                    phase:  command.phase as string,
-                    action: command.post!({
-                        modifier, parameter, operator, qualifier,
-                    }),
-                }],
-            };
-        }
-    } else {
+    // find patterns
+    if (!(parameter instanceof RegExp)) {
         const command = commands.find(c => {
             if (c.pattern == null) {
                 return false;
             }
 
-            return matchPattern(c.pattern, expr.tokens.map(v => v.text).join(''));
+            for (const p of c.pattern) {
+                if (matchPattern(p, parameter)) {
+                    return true;
+                }
+            }
+
+            return false;
         });
 
-        if (command == null) {
-            throw new QueryError({ type: 'unknown-command' });
-        }
+        if (command != null) {
+            const pattern = command.pattern!
+                .map(p => matchPattern(p, parameter))
+                .find(p => p != null)!;
 
-        const parameter = expr.tokens.map(v => v.text).join('');
-        const pattern = matchPattern(command.pattern, parameter);
-
-        const operator = '';
-        const qualifier = expr.qual ?? [];
-
-        if (command.post == null) {
-            try {
-                return {
-                    dbQuery: command.query({
-                        parameter, pattern, operator, qualifier,
-                    }),
-                    post: [],
-                };
-            } catch (e) {
-                throw new QueryError({ type: e.type });
-            }
-        } else {
-            if (!expr.topLevel) {
-                throw new QueryError({ type: 'not-toplevel-command' });
-            }
-
-            return {
-                dbQuery: undefined,
-                post:    [{
-                    phase:  command.phase as string,
-                    action: command.post({
-                        parameter, pattern, operator, qualifier,
-                    }),
-                }],
-            };
+            return simpleTranslate(command, expr, {
+                parameter,
+                pattern,
+                operator:  '',
+                qualifier: expr.qual ?? [],
+            });
         }
     }
+
+    const raw = commands.find(c => c.id === '');
+
+    if (raw == null) {
+        throw new QueryError({ type: 'unknown-command' });
+    }
+
+    return simpleTranslate(raw, expr, {
+        parameter,
+        operator:  '',
+        qualifier: expr.qual ?? [],
+    });
 }

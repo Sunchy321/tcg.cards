@@ -1,7 +1,7 @@
 import Parser from '../parser';
 import { SearchOption, SearchResult } from '../search';
-import { AnyBackendCommand, PostAction } from './type';
-import { DBQuery } from '../command/backend';
+import { PostAction } from './type';
+import { DBQuery, CommonBackendCommand } from '../command/backend';
 
 import { simplify } from '../parser/simplify';
 import { translate } from './translate';
@@ -9,12 +9,12 @@ import { translate } from './translate';
 type Actions<A extends string> = Record<A, (query: DBQuery, post: PostAction[], option: SearchOption) => any>;
 
 type BackendModelOption<A extends string> = {
-    commands: AnyBackendCommand[];
+    commands: CommonBackendCommand[];
     actions: Actions<A>;
 };
 
 export class BackendModel<A extends string> {
-    commands: AnyBackendCommand[];
+    commands: CommonBackendCommand[];
     actions: Actions<A>;
 
     constructor(option: BackendModelOption<A>) {

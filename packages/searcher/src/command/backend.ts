@@ -1,4 +1,6 @@
-import { Command, Operator, Qualifier } from './index';
+import {
+    Command, CommonCommand, Operator, Qualifier,
+} from './index';
 import { PatternContext } from './pattern';
 
 import { Aggregate } from 'mongoose';
@@ -24,6 +26,14 @@ export type Argument<
     operator: O;
     qualifier: Q[];
     pattern?: PatternContext<P>;
+};
+
+export type CommonArgument = {
+    modifier?: string;
+    parameter: RegExp | string;
+    operator: Operator;
+    qualifier: Qualifier[];
+    pattern?: Record<string, string>;
 };
 
 export type QueryFunc<
@@ -60,6 +70,12 @@ export type BackendCommand<
     query: QueryFuncOf<Command<M, O, Q, AR, P>>;
     phase?: string;
     post?: PostFuncOf<Command<M, O, Q, AR, P>>;
+};
+
+export type CommonBackendCommand = CommonCommand & {
+    query: (arg: CommonArgument) => DBQuery;
+    phase?: string;
+    post?: (arg: CommonArgument)=> ((agg: Aggregate<any>) => void);
 };
 
 export type BackendOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P>

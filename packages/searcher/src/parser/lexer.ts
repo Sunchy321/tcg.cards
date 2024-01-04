@@ -253,6 +253,7 @@ export default class Lexer {
         this.startToken();
 
         if (!this.inRegexContext) {
+            this.nextChar();
             return this.returnToken('punc');
         }
 

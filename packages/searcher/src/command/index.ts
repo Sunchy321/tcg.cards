@@ -35,12 +35,22 @@ export type Command<
     P,
 > = {
     id: string;
-    alt: string[];
-    pattern: ResultPattern<P>;
+    alt?: string[];
+    pattern: P;
     modifiers?: M[] | Record<M, string>;
     operators: O[];
     qualifiers: Q[];
     allowRegex: AR;
+};
+
+export type CommonCommand = {
+    id: string;
+    alt?: string[];
+    pattern?: string[];
+    modifiers?: Record<string, string> | string[];
+    operators: Operator[];
+    qualifiers: Qualifier[];
+    allowRegex: boolean;
 };
 
 export type CommandOption<
@@ -65,7 +75,7 @@ export function defineCommand<
     Q extends Qualifier,
     AR extends boolean,
     P,
->(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, boolean extends AR ? false : AR, P> {
+>(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, boolean extends AR ? false : AR, ResultPattern<P>> {
     const {
         id,
         alt,
@@ -79,7 +89,7 @@ export function defineCommand<
     return {
         id,
         alt:        castArray(alt ?? []),
-        pattern:    castArray(pattern ?? []) as ResultPattern<P>,
+        pattern:    (pattern != null ? castArray(pattern) : pattern) as any,
         modifiers:  modifiers as M[] | Record<M, string>,
         operators:  operators as O[],
         qualifiers: qualifiers as Q[],

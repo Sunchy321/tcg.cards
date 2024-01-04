@@ -46,7 +46,7 @@ function query(options: HalfNumberQueryOption): DBQuery {
         return rawParameter;
     })();
 
-    const num = Number.parseInt(parameter, 10);
+    const num = Number.parseFloat(parameter);
 
     const less = Number.isNaN(num) ? [] : toStatsList(statsNumber.filter(s => s < num));
     const equal = Number.isNaN(num) ? [] : toStatsList(statsNumber.filter(s => s === num));

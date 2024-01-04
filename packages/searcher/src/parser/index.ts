@@ -229,13 +229,17 @@ export default class Parser {
         // eslint-disable-next-line no-constant-condition
         } while (true);
 
-        return {
-            type:     'logic',
-            sep:      sep as any,
-            exprs,
-            tokens:   this.returnTokens(),
-            location: [exprs[0].location[0], last(exprs)!.location[1]],
-        };
+        if (exprs.length === 1) {
+            return exprs[0];
+        } else {
+            return {
+                type:     'logic',
+                sep:      sep as any,
+                exprs,
+                tokens:   this.returnTokens(),
+                location: [exprs[0].location[0], last(exprs)!.location[1]],
+            };
+        }
     }
 
     /**
@@ -364,10 +368,15 @@ export default class Parser {
                     throw new SearchError('unknown-token', null, arg?.location ?? this.lastPos);
                 }
 
+                const { operator, qualifiers } = ['!:', '!='].includes(op.text)
+                    ? { operator: op.text.slice(1), qualifiers: ['!'] }
+                    : { operator: op.text, qualifiers: [] };
+
                 return {
                     type:     'simple',
                     cmd:      first.text,
-                    op:       op.text as Operator,
+                    op:       operator as Operator,
+                    qual:     qualifiers as Qualifier[],
                     argType:  arg.type,
                     arg:      arg.text,
                     tokens:   this.returnTokens(),

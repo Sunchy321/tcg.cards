@@ -1,7 +1,7 @@
 import { defineBackendModel } from '@searcher/model/backend';
-import { defineBackendCommand, DBQuery } from '@searcher/command/backend';
+import { defineBackendCommand, DBQuery, CommonBackendCommand } from '@searcher/command/backend';
 
-import { AnyBackendCommand, PostAction } from '@searcher/model/type';
+import { PostAction } from '@searcher/model/type';
 import { SearchOption } from '@searcher/search';
 
 import { commands } from '@searcher-data/magic/index';
@@ -87,6 +87,10 @@ const stats = defineBackendCommand({
     query({ pattern, operator, qualifier }) {
         if (pattern == null) {
             throw new QueryError({ type: 'invalid-query' });
+        }
+
+        if (operator === '') {
+            operator = '=';
         }
 
         const { power, toughness } = pattern;
@@ -176,7 +180,7 @@ const loyalty = defineBackendCommand({
         return magic.halfNumber.query({
             key:       'parts.loyalty',
             parameter: pattern?.loyalty ?? parameter,
-            operator,
+            operator:  operator === '' ? '=' : operator,
             qualifier: qualifier ?? [],
         });
     },
@@ -190,7 +194,7 @@ const defense = defineBackendCommand({
         return magic.halfNumber.query({
             key:       'parts.defense',
             parameter: pattern?.defense ?? parameter,
-            operator,
+            operator:  operator === '' ? '=' : operator,
             qualifier,
         });
     },
@@ -203,16 +207,10 @@ const name = defineBackendCommand({
     }) {
         switch (modifier) {
         case 'oracle':
-            return builtin.text.query({
-                key: 'parts.name.oracle', parameter, operator, qualifier,
-            });
         case 'unified':
-            return builtin.text.query({
-                key: 'parts.name.unified', parameter, operator, qualifier,
-            });
         case 'printed':
             return builtin.text.query({
-                key: 'parts.name.printed', parameter, operator, qualifier,
+                key: `parts.${modifier}.name`, parameter, operator, qualifier,
             });
         default:
             return {
@@ -239,16 +237,10 @@ const type = defineBackendCommand({
     }) {
         switch (modifier) {
         case 'oracle':
-            return builtin.text.query({
-                key: 'parts.oracle.typeline', parameter, operator, qualifier,
-            });
         case 'unified':
-            return builtin.text.query({
-                key: 'parts.unified.typeline', parameter, operator, qualifier,
-            });
         case 'printed':
             return builtin.text.query({
-                key: 'parts.printed.typeline', parameter, operator, qualifier,
+                key: `parts.${modifier}.typeline`, parameter, operator, qualifier,
             });
         default:
             return {
@@ -275,16 +267,10 @@ const text = defineBackendCommand({
     }) {
         switch (modifier) {
         case 'oracle':
-            return builtin.text.query({
-                key: 'parts.oracle.text', parameter, operator, qualifier, multiline: true,
-            });
         case 'unified':
-            return builtin.text.query({
-                key: 'parts.unified.text', parameter, operator, qualifier, multiline: true,
-            });
         case 'printed':
             return builtin.text.query({
-                key: 'parts.printed.text', parameter, operator, qualifier, multiline: true,
+                key: `parts.${modifier}.text`, parameter, operator, qualifier, multiline: true,
             });
         default:
             return {
@@ -437,7 +423,7 @@ const order = defineBackendCommand({
     },
 });
 
-const backedCommands: Record<string, AnyBackendCommand> = {
+const backedCommands: Record<string, CommonBackendCommand> = {
     raw,
     stats,
     hash,

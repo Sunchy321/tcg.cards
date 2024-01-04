@@ -1,24 +1,24 @@
-import { Model, defineModel } from '../../src/model';
+import { defineModel } from '../../src/model';
 import {
-    allOperator, defineCommand, defaultOperator, defaultQualifier,
+    defineCommand, allOperator, defaultOperator, defaultQualifier,
 } from '../../src/command';
 
 import * as builtin from '../../src/command/builtin';
 import * as magic from './command';
 
-const raw = defineCommand({ id: '', operators: [] });
+const raw = defineCommand({ id: '', operators: [''] });
 
 const stats = defineCommand({
     id:         'stats',
     pattern:    '{{power}}/{{toughness}}' as const,
-    operators:  allOperator,
+    operators:  ['', ...allOperator],
     qualifiers: defaultQualifier,
 });
 
 const hash = defineCommand({
     id:         'hash',
     pattern:    '#{{tag}}' as const,
-    operators:  [':'],
+    operators:  [':', ''],
     qualifiers: defaultQualifier,
 });
 
@@ -30,7 +30,7 @@ const cost = magic.cost({ id: 'cost', alt: ['mana', 'mana-cost', 'm'] });
 const manaValue = builtin.number({ id: 'mana-value', alt: ['mv', 'cmc'] });
 
 const color = magic.color({ id: 'color', alt: ['c'] });
-const colorIdentity = magic.color({ id: 'color-identity', alt: ['cd'] });
+const colorIdentity = magic.color({ id: 'color-identity', alt: ['identity', 'cd'] });
 const colorIndicator = magic.color({ id: 'color-indicator', alt: ['indicator', 'ci'] });
 
 const power = magic.halfNumber({ id: 'power', alt: ['pow'] });
@@ -40,7 +40,7 @@ const loyalty = defineCommand({
     id:         'loyalty',
     alt:        'loy',
     pattern:    '[{{loyalty}}]' as const,
-    operators:  allOperator,
+    operators:  ['', ...allOperator],
     qualifiers: defaultQualifier,
 });
 
@@ -48,7 +48,7 @@ const defense = defineCommand({
     id:         'defense',
     alt:        'def',
     pattern:    '<{{defense}}>' as const,
-    operators:  allOperator,
+    operators:  ['', ...allOperator],
     qualifiers: defaultQualifier,
 });
 
@@ -56,9 +56,9 @@ const name = defineCommand({
     id:        'name',
     alt:       'n',
     modifiers: {
-        oracle:  'o',
-        unified: 'u',
-        printed: 'p',
+        oracle:  'on',
+        unified: 'un',
+        printed: 'pn',
     },
     operators:  defaultOperator,
     qualifiers: defaultQualifier,
@@ -69,9 +69,9 @@ const type = defineCommand({
     id:        'type',
     alt:       't',
     modifiers: {
-        oracle:  'o',
-        unified: 'u',
-        printed: 'p',
+        oracle:  'ot',
+        unified: 'ut',
+        printed: 'pt',
     },
     operators:  defaultOperator,
     qualifiers: defaultQualifier,
@@ -82,9 +82,9 @@ const text = defineCommand({
     id:        'text',
     alt:       'x',
     modifiers: {
-        oracle:  'o',
-        unified: 'u',
-        printed: 'p',
+        oracle:  'ox',
+        unified: 'ux',
+        printed: 'px',
     },
     operators:  defaultOperator,
     qualifiers: defaultQualifier,
@@ -113,7 +113,7 @@ const rarity = defineCommand({
 const format = defineCommand({
     id:         'format',
     alt:        ['f'],
-    operators:  [':'] as const,
+    operators:  [':'],
     qualifiers: defaultQualifier,
 });
 
@@ -164,5 +164,5 @@ export const commands = {
 };
 
 export default defineModel({
-    commands: Object.values(commands) as Model['commands'],
+    commands: Object.values(commands),
 });

@@ -88,15 +88,18 @@ function query(options: CostQueryOption): DBQuery {
     case '=':
         if (!qualifier.includes('!')) {
             return {
-                $and: Object.entries(costMap)
-                    .map(([k, v]) => (v === 0
-                        ? {
-                            $or: [
-                                { [`parts.__costMap.${k}`]: 0 },
-                                { [`parts.__costMap.${k}`]: { $exists: false } },
-                            ],
-                        }
-                        : { [`parts.__costMap.${k}`]: v })),
+                $and: [
+                    { 'parts.cost': { $exists: true } },
+                    ...Object.entries(costMap)
+                        .map(([k, v]) => (v === 0
+                            ? {
+                                $or: [
+                                    { [`parts.__costMap.${k}`]: 0 },
+                                    { [`parts.__costMap.${k}`]: { $exists: false } },
+                                ],
+                            }
+                            : { [`parts.__costMap.${k}`]: v })),
+                ],
             };
         } else {
             return {

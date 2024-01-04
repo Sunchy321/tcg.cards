@@ -1,4 +1,10 @@
-export type ResultPattern<P> = P extends string ? [P] : P;
+export type ResultPattern<P> = [P] extends [never]
+    ? never
+    : P extends string
+        ? [P]
+        : P extends [...any]
+            ? P
+            : never;
 
 export type SinglePatternKeys<P> = P extends `${any}{{${infer Param}}}${infer Suffix}`
     ? ([SinglePatternKeys<Suffix>] extends [never]
