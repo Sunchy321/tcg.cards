@@ -1125,6 +1125,34 @@ export default defineComponent({
                 unifiedName.value = unifiedName.value!.replace(/（.*?）/g, '');
                 printedName.value = printedName.value!.replace(/（.*?）/g, '');
                 unifiedText.value = unifiedText.value!.replace(/ *<i>[(（][^)）]+[)）]<\/i> */g, '').trim();
+
+                const applyReplace = (v: string) => {
+                    const charMap: Record<string, string> = {
+                        '0': '０',
+                        '1': '１',
+                        '2': '２',
+                        '3': '３',
+                        '4': '４',
+                        '5': '５',
+                        '6': '６',
+                        '7': '７',
+                        '8': '８',
+                        '9': '９',
+                        'X': 'Ｘ',
+                        '+': '＋',
+                        '-': '－',
+                        '(': '（',
+                        ')': '）',
+                    };
+
+                    const replacer = (nums: string) => (/\d{2,}/.test(nums) ? nums : nums.split('').map(c => charMap[c] ?? c).join(''));
+
+                    return v
+                        .replace(/[-+0-9X()]+(?!\})/g, replacer);
+                };
+
+                unifiedText.value = applyReplace(unifiedText.value!);
+                printedText.value = applyReplace(printedText.value!);
             }
 
             defaultPrettify();
@@ -1182,33 +1210,33 @@ export default defineComponent({
                 printedText.value = '';
             }
 
-            const symbolMap: Record<string, string> = {
-                '-': '-',
-                '—': '-',
-                '―': '-',
-                '－': '-',
-                '–': '-',
-                '−': '-',
-
-                '＋': '+',
-                '+': '+',
-            };
-
-            const numberMap: Record<string, string> = {
-                '０': '0',
-                '１': '1',
-                '２': '2',
-                '３': '3',
-                '４': '4',
-                '５': '5',
-                '６': '6',
-                '７': '7',
-                '８': '8',
-                '９': '9',
-                'Ｘ': 'X',
-            };
-
             const applyReplace = (v: string) => {
+                const numberMap: Record<string, string> = {
+                    '０': '0',
+                    '１': '1',
+                    '２': '2',
+                    '３': '3',
+                    '４': '4',
+                    '５': '5',
+                    '６': '6',
+                    '７': '7',
+                    '８': '8',
+                    '９': '9',
+                    'Ｘ': 'X',
+                };
+
+                const symbolMap: Record<string, string> = {
+                    '-': '-',
+                    '—': '-',
+                    '―': '-',
+                    '－': '-',
+                    '–': '-',
+                    '−': '-',
+
+                    '＋': '+',
+                    '+': '+',
+                };
+
                 const replacer = (_: string, sym: string, num: string) => `[${symbolMap[sym]}${num.split('').map(n => numberMap[n] ?? n).join('')}]`;
 
                 return v
