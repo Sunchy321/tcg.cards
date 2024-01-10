@@ -1,4 +1,4 @@
-import { BackendOf, DBQuery, QueryFuncOf } from '../../backend';
+import { BackendOf, DBQuery, QueryOption } from '../../backend';
 
 import { SimpleCommand } from './index';
 
@@ -8,7 +8,7 @@ export type SimpleBackendOption = {
     key?: string;
 };
 
-export type SimpleQueryOption = Parameters<QueryFuncOf<SimpleCommand>>[0] & { key: string };
+export type SimpleQueryOption = QueryOption<SimpleCommand, SimpleBackendOption>;
 
 function query(options: SimpleQueryOption): DBQuery {
     const {

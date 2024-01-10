@@ -1,4 +1,4 @@
-import { BackendOf, DBQuery, QueryFuncOf } from '../../backend';
+import { BackendOf, DBQuery, QueryOption } from '../../backend';
 import { QueryError } from '../../error';
 
 import { NumberCommand } from './index';
@@ -9,14 +9,14 @@ export type NumberBackendOption = {
     key?: string;
 };
 
-export type NumberQueryOption = Parameters<QueryFuncOf<NumberCommand>>[0] & { key: string, allowFloat?: boolean };
+export type NumberQueryOption = QueryOption<NumberCommand, NumberBackendOption>;
 
 function query(options: NumberQueryOption): DBQuery {
     const {
-        key, allowFloat = false, parameter, operator, qualifier,
+        key, parameter, operator, qualifier, meta,
     } = options;
 
-    const num = allowFloat ? Number.parseFloat(parameter) : Number.parseInt(parameter, 10);
+    const num = meta.allowFloat ? Number.parseFloat(parameter) : Number.parseInt(parameter, 10);
 
     if (Number.isNaN(num)) {
         throw new QueryError({ type: 'invalid-query' });

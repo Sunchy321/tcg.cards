@@ -1,11 +1,11 @@
-import { Command } from '../command';
+import { CommonCommand } from '../command';
 
 type ModelOption = {
-    commands: Command<any, any, any, any, any>[];
+    commands: CommonCommand[];
 };
 
 export class Model {
-    commands: Command<any, any, any, any, any>[] = [];
+    commands: CommonCommand[] = [];
 
     constructor(option: ModelOption) {
         this.commands = option.commands;

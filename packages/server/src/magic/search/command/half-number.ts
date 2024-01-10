@@ -1,4 +1,4 @@
-import { BackendOf, QueryFuncOf, DBQuery } from '@searcher/command/backend';
+import { BackendOf, DBQuery, QueryOption } from '@searcher/command/backend';
 import { QueryError } from '@searcher/command/error';
 
 import { HalfNumberCommand } from '@searcher-data/magic/command/half-number';
@@ -30,7 +30,7 @@ function toStatsList(numbers: number[]) {
     return result;
 }
 
-export type HalfNumberQueryOption = Parameters<QueryFuncOf<HalfNumberCommand>>[0] & { key: string };
+export type HalfNumberQueryOption = QueryOption<HalfNumberCommand, HalfNumberBackendOption>;
 
 function query(options: HalfNumberQueryOption): DBQuery {
     const {

@@ -6,6 +6,7 @@ import './helper';
 import './model';
 import './model/backend';
 import './model/translate';
+import './command/builtin/backend';
 
 import './data/magic/command';
 

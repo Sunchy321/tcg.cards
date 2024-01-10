@@ -2,7 +2,7 @@ import {
     Command, defineCommand, DefaultOperator, defaultOperator, DefaultQualifier, defaultQualifier,
 } from '../../index';
 
-export type TextCommand = Command<never, DefaultOperator, DefaultQualifier, true, never>;
+export type TextCommand = Command<never, DefaultOperator, DefaultQualifier, true, never, never>;
 
 export type TextOption = {
     id: string;

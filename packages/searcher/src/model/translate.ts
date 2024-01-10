@@ -156,7 +156,7 @@ export function translate(expr: Expression, commands: CommonBackendCommand[]): T
         const qualifier = expr.type === 'simple' ? (expr.qual ?? []) : [];
 
         return simpleTranslate(command, expr, {
-            modifier, parameter, operator, qualifier,
+            modifier, parameter, operator, qualifier, meta: command.meta,
         });
     }
 
@@ -186,6 +186,7 @@ export function translate(expr: Expression, commands: CommonBackendCommand[]): T
                 pattern,
                 operator:  '',
                 qualifier: expr.qual ?? [],
+                meta:      command.meta,
             });
         }
     }
@@ -200,5 +201,6 @@ export function translate(expr: Expression, commands: CommonBackendCommand[]): T
         parameter,
         operator:  '',
         qualifier: expr.qual ?? [],
+        meta:      raw.meta,
     });
 }

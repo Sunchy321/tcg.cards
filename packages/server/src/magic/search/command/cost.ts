@@ -1,4 +1,4 @@
-import { BackendOf, QueryFuncOf, DBQuery } from '@searcher/command/backend';
+import { BackendOf, DBQuery, QueryOption } from '@searcher/command/backend';
 import { QueryError } from '@searcher/command/error';
 
 import { CostCommand } from '@searcher-data/magic/command/cost';
@@ -16,7 +16,7 @@ export type CostOption = {
     allowFloat?: boolean;
 };
 
-export type CostQueryOption = Parameters<QueryFuncOf<CostCommand>>[0];
+export type CostQueryOption = QueryOption<CostCommand, never>;
 
 function query(options: CostQueryOption): DBQuery {
     const {

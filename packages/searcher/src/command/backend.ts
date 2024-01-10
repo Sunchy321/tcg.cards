@@ -9,24 +9,25 @@ export type DBQuery = any | { '$and': DBQuery[] } | { '$or': DBQuery[] };
 
 type Select<B, T, F> = B extends true ? T : F;
 
+type OmitNever<T> = {
+    [K in keyof T as [T[K]] extends [never] ? never : K]: T[K]
+};
+
 export type Argument<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
     AR extends boolean,
     P,
-> = [PatternContext<P>] extends [never] ? {
+    X,
+> = OmitNever<{
     modifier?: M;
     parameter: Select<AR, (RegExp | string), string>;
     operator: O;
     qualifier: Q[];
-} : {
-    modifier?: M;
-    parameter: Select<AR, (RegExp | string), string>;
-    operator: O;
-    qualifier: Q[];
-    pattern?: PatternContext<P>;
-};
+    pattern: PatternContext<P>;
+    meta: X;
+}>;
 
 export type CommonArgument = {
     modifier?: string;
@@ -34,6 +35,7 @@ export type CommonArgument = {
     operator: Operator;
     qualifier: Qualifier[];
     pattern?: Record<string, string>;
+    meta?: any;
 };
 
 export type QueryFunc<
@@ -42,7 +44,8 @@ export type QueryFunc<
     Q extends Qualifier,
     AR extends boolean,
     P,
-> = (arg: Argument<M, O, Q, AR, P>) => DBQuery;
+    X,
+> = (arg: Argument<M, O, Q, AR, P, X>) => DBQuery;
 
 export type PostFunc<
     M extends string,
@@ -50,15 +53,20 @@ export type PostFunc<
     Q extends Qualifier,
     AR extends boolean,
     P,
-> = (arg: Argument<M, O, Q, AR, P>) => ((agg: Aggregate<any>) => void);
+    X,
+> = (arg: Argument<M, O, Q, AR, P, X>) => ((agg: Aggregate<any>) => void);
 
-export type QueryFuncOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P>
-    ? QueryFunc<string extends M ? never : M, O, Q, AR, P>
+export type QueryFuncOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
+    ? QueryFunc<string extends M ? never : M, O, Q, AR, P, X>
     : never;
 
-export type PostFuncOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P>
-    ? PostFunc<string extends M ? never : M, O, Q, AR, P>
+export type PostFuncOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
+    ? PostFunc<string extends M ? never : M, O, Q, AR, P, X>
     : never;
+
+export type QueryOption<C, O> = [O] extends [never]
+    ? Parameters<QueryFuncOf<C>>[0]
+    : Parameters<QueryFuncOf<C>>[0] & Required<O>;
 
 export type BackendCommand<
     M extends string,
@@ -66,10 +74,11 @@ export type BackendCommand<
     Q extends Qualifier,
     AR extends boolean,
     P,
-> = Command<M, O, Q, AR, P> & {
-    query: QueryFuncOf<Command<M, O, Q, AR, P>>;
+    X,
+> = Command<M, O, Q, AR, P, X> & {
+    query: QueryFuncOf<Command<M, O, Q, AR, P, X>>;
     phase?: string;
-    post?: PostFuncOf<Command<M, O, Q, AR, P>>;
+    post?: PostFuncOf<Command<M, O, Q, AR, P, X>>;
 };
 
 export type CommonBackendCommand = CommonCommand & {
@@ -78,8 +87,8 @@ export type CommonBackendCommand = CommonCommand & {
     post?: (arg: CommonArgument)=> ((agg: Aggregate<any>) => void);
 };
 
-export type BackendOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P>
-    ? BackendCommand<M, O, Q, AR, P>
+export type BackendOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
+    ? BackendCommand<M, O, Q, AR, P, X>
     : never;
 
 export type BackendCommandOption<
@@ -88,10 +97,11 @@ export type BackendCommandOption<
     Q extends Qualifier,
     AR extends boolean,
     P,
+    X,
 > = {
-    command: Command<M, O, Q, AR, P>;
-    query: QueryFunc<string extends M ? never : M, O, Q, AR, P>;
-    post?: PostFunc<string extends M ? never : M, O, Q, AR, P>;
+    command: Command<M, O, Q, AR, P, X>;
+    query: QueryFunc<string extends M ? never : M, O, Q, AR, P, X>;
+    post?: PostFunc<string extends M ? never : M, O, Q, AR, P, X>;
 };
 
 export function defineBackendCommand<
@@ -100,7 +110,8 @@ export function defineBackendCommand<
     Q extends Qualifier,
     AR extends boolean,
     P,
->(options: BackendCommandOption<M, O, Q, AR, P>): BackendCommand<M, O, Q, AR, P> {
+    X,
+>(options: BackendCommandOption<M, O, Q, AR, P, X>): BackendCommand<M, O, Q, AR, P, X> {
     const {
         command, query, post,
     } = options;

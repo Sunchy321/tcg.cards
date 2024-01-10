@@ -33,6 +33,7 @@ export type Command<
     Q extends Qualifier,
     AR extends boolean,
     P,
+    X,
 > = {
     id: string;
     alt?: string[];
@@ -41,6 +42,7 @@ export type Command<
     operators: O[];
     qualifiers: Q[];
     allowRegex: AR;
+    meta: X;
 };
 
 export type CommonCommand = {
@@ -51,6 +53,7 @@ export type CommonCommand = {
     operators: Operator[];
     qualifiers: Qualifier[];
     allowRegex: boolean;
+    meta: any;
 };
 
 export type CommandOption<
@@ -59,6 +62,7 @@ export type CommandOption<
     Q extends Qualifier,
     AR extends boolean,
     P,
+    X,
 > = {
     id: string;
     alt?: string[] | string;
@@ -67,6 +71,7 @@ export type CommandOption<
     operators: readonly O[];
     qualifiers?: readonly Q[];
     allowRegex?: AR;
+    meta?: X;
 };
 
 export function defineCommand<
@@ -75,7 +80,12 @@ export function defineCommand<
     Q extends Qualifier,
     AR extends boolean,
     P,
->(options: CommandOption<M, O, Q, AR, P>): Command<M, O, Q, boolean extends AR ? false : AR, ResultPattern<P>> {
+    X,
+>(
+    options: CommandOption<M, O, Q, AR, P, X>,
+): Command<M, O, Q, boolean extends AR ? false : AR, ResultPattern<P>, X extends unknown ? never : X> {
+    type R = Command<M, O, Q, boolean extends AR ? false : AR, ResultPattern<P>, X extends unknown ? never : X>;
+
     const {
         id,
         alt,
@@ -84,15 +94,17 @@ export function defineCommand<
         operators,
         qualifiers = [],
         allowRegex = false,
+        meta,
     } = options;
 
     return {
         id,
         alt:        castArray(alt ?? []),
-        pattern:    (pattern != null ? castArray(pattern) : pattern) as any,
-        modifiers:  modifiers as M[] | Record<M, string>,
-        operators:  operators as O[],
-        qualifiers: qualifiers as Q[],
+        pattern:    (pattern != null ? castArray(pattern) : pattern) as R['pattern'],
+        modifiers:  modifiers as R['modifiers'],
+        operators:  operators as R['operators'],
+        qualifiers: qualifiers as R['qualifiers'],
         allowRegex: allowRegex as any,
+        meta:       meta as R['meta'],
     };
 }

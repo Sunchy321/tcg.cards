@@ -54,7 +54,7 @@ const raw = defineBackendCommand({
                     magic.cost.query({
                         parameter,
                         operator:  ':',
-                        qualifier: [],
+                        qualifier: [] as '!'[],
                     }),
                 ],
             };

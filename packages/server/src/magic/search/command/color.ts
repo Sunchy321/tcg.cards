@@ -1,4 +1,4 @@
-import { BackendOf, QueryFuncOf, DBQuery } from '@searcher/command/backend';
+import { BackendOf, DBQuery, QueryOption } from '@searcher/command/backend';
 import { QueryError } from '@searcher/command/error';
 
 import { ColorCommand } from '@searcher-data/magic/command/color';
@@ -11,20 +11,20 @@ export type ColorBackendOption = {
     key?: string;
 };
 
-export type ColorQueryOption = Parameters<QueryFuncOf<ColorCommand>>[0] & { key: string };
+export type ColorQueryOption = QueryOption<ColorCommand, ColorBackendOption>;
 
 function query(options: ColorQueryOption): DBQuery {
     const {
-        parameter:param, operator:op, qualifier:qual, key,
+        parameter, operator, qualifier, key,
     } = options;
 
-    const text = param.toLowerCase();
+    const text = parameter.toLowerCase();
 
     if (text === 'c' || text === 'colorless') {
-        switch (op) {
+        switch (operator) {
         case ':':
         case '=':
-            if (!qual.includes('!')) {
+            if (!qualifier.includes('!')) {
                 return { [key]: '' };
             } else {
                 return { [key]: { $ne: '' } };
@@ -33,9 +33,9 @@ function query(options: ColorQueryOption): DBQuery {
             throw new QueryError({ type: 'invalid-query' });
         }
     } else if (text === 'm' || text === 'multicolor') {
-        switch (op) {
+        switch (operator) {
         case ':':
-            if (!qual.includes('!')) {
+            if (!qualifier.includes('!')) {
                 return { [key]: /../ };
             } else {
                 return { [key]: { $not: /../ } };
@@ -49,9 +49,9 @@ function query(options: ColorQueryOption): DBQuery {
     if (/^\d+$/.test(text)) {
         const count = Number.parseInt(text, 10);
 
-        switch (op) {
+        switch (operator) {
         case '=':
-            if (!qual.includes('!')) {
+            if (!qualifier.includes('!')) {
                 return { [key]: new RegExp(`^.{${count}}$`) };
             } else {
                 return { [key]: { $not: new RegExp(`^.{${count}}$`) } };
@@ -147,9 +147,9 @@ function query(options: ColorQueryOption): DBQuery {
         return colorEnums.filter(c => chars.includes(c));
     })();
 
-    switch (op) {
+    switch (operator) {
     case ':':
-        if (qual.includes('!')) {
+        if (qualifier.includes('!')) {
             return {
                 [key]: {
                     $not: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : `${c}?`)).join('')}$`),
@@ -163,7 +163,7 @@ function query(options: ColorQueryOption): DBQuery {
         };
 
     case '=':
-        if (!qual.includes('!')) {
+        if (!qualifier.includes('!')) {
             return {
                 [key]: new RegExp(`^${colorEnums.map(c => (colors.includes(c) ? c : '')).join('')}$`),
             };

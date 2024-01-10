@@ -2,7 +2,7 @@ import {
     Command, defineCommand, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
 } from '../../../src/command';
 
-export type ColorCommand = Command<never, AllOperator, DefaultQualifier, false, never>;
+export type ColorCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
 
 export type ColorOption = {
     id: string;

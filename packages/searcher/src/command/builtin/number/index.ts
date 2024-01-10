@@ -2,16 +2,21 @@ import {
     Command, defineCommand, DefaultQualifier, defaultQualifier, numericOperator, NumericOperator,
 } from '../..';
 
-export type NumberCommand = Command<never, NumericOperator, DefaultQualifier, false, never>;
+type NumberMeta = {
+    allowFloat: boolean;
+};
+
+export type NumberCommand = Command<never, NumericOperator, DefaultQualifier, false, never, NumberMeta>;
 
 export type NumberOption = {
     id: string;
     alt?: string[] | string;
+    allowFloat?: boolean;
 };
 
 export default function number(options: NumberOption): NumberCommand {
     const {
-        id, alt,
+        id, alt, allowFloat = false,
     } = options;
 
     return defineCommand({
@@ -19,5 +24,6 @@ export default function number(options: NumberOption): NumberCommand {
         alt,
         operators:  numericOperator,
         qualifiers: defaultQualifier,
+        meta:       { allowFloat },
     });
 }

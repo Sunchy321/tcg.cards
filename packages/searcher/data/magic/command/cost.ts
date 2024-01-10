@@ -2,7 +2,7 @@ import {
     Command, defineCommand, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
 } from '../../../src/command';
 
-export type CostCommand = Command<never, AllOperator, DefaultQualifier, false, never>;
+export type CostCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
 
 export type CostOption = {
     id: string;
