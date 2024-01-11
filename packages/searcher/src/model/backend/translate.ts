@@ -1,23 +1,22 @@
-import { Expression } from '../parser';
-import { CommonBackendCommand, DBQuery } from '../command/backend';
-import { PostAction } from './type';
-import { QueryError } from '../command/error';
+import { Expression } from '../../parser';
+import { CommonBackendCommand, DBQuery } from '../../command/backend';
+import { CommonArgument } from '../../command';
+import { PostAction } from '../type';
+import { QueryError } from '../../command/error';
 
-import { matchPattern } from '../command/match-pattern';
+import { matchPattern } from '../../command/match-pattern';
 
 export type TranslatedQuery = {
     dbQuery: DBQuery;
     post: PostAction[];
 };
 
-type CommonBackendCommandArgs = Parameters<CommonBackendCommand['query']>[0];
-
 function simpleTranslate(
     command: CommonBackendCommand,
     expr: Expression,
-    args: CommonBackendCommandArgs,
+    arg: CommonArgument,
 ): TranslatedQuery {
-    const { parameter, operator } = args;
+    const { parameter, operator } = arg;
 
     if (parameter instanceof RegExp && !command.allowRegex) {
         throw new QueryError({ type: 'invalid-regex' });
@@ -30,7 +29,7 @@ function simpleTranslate(
     if (command.post == null) {
         try {
             return {
-                dbQuery: command.query(args),
+                dbQuery: command.query(arg),
                 post:    [],
             };
         } catch (e) {
@@ -45,7 +44,7 @@ function simpleTranslate(
             dbQuery: undefined,
             post:    [{
                 phase:  command.phase as string,
-                action: command.post!(args),
+                action: command.post!(arg),
             }],
         };
     }

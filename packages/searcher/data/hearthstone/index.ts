@@ -92,5 +92,6 @@ export const commands = {
 };
 
 export default defineModel({
+    id:       'hearthstone',
     commands: Object.values(commands),
 });

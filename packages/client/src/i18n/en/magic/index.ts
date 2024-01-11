@@ -1,4 +1,5 @@
 import ui from './ui';
+import search from './search';
 
 export default {
     '$self':     'MTG',
@@ -107,4 +108,5 @@ export default {
     },
 
     ui,
+    search,
 };

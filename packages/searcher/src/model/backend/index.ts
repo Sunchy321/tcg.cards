@@ -1,9 +1,9 @@
-import Parser from '../parser';
-import { SearchOption, SearchResult } from '../search';
-import { PostAction } from './type';
-import { DBQuery, CommonBackendCommand } from '../command/backend';
+import Parser from '../../parser';
+import { SearchOption, SearchResult } from '../../search';
+import { PostAction } from '../type';
+import { DBQuery, CommonBackendCommand } from '../../command/backend';
 
-import { simplify } from '../parser/simplify';
+import { simplify } from '../../parser/simplify';
 import { translate } from './translate';
 
 type Actions<A extends string> = Record<A, (query: DBQuery, post: PostAction[], option: SearchOption) => any>;
@@ -34,7 +34,7 @@ export class BackendModel<A extends string> {
 
         const trimmedText = text.trim();
 
-        if (trimmedText == null) {
+        if (trimmedText === '') {
             return {
                 text,
                 errors: [{ type: 'empty-input' }],

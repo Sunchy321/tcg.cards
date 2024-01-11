@@ -54,6 +54,25 @@ export default {
         search: 'Search',
     },
 
+    search: {
+        error: {
+            'unknown-token': 'unknown token',
+        },
+
+        separator: {
+            '&': 'and',
+            '|': 'or',
+        },
+
+        operator: {
+            '=': ' equals ',
+        },
+
+        qualifier: {
+            '!': 'not',
+        },
+    },
+
     magic,
     hearthstone,
 };

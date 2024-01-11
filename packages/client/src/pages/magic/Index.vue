@@ -4,6 +4,7 @@
             v-model="searchText"
             class="main-input q-ma-xl"
             filled clearable
+            :error="explained.type === 'error'"
             @keypress.enter="search"
         >
             <template #append>
@@ -12,6 +13,12 @@
                     flat dense round
                     @click="search"
                 />
+            </template>
+            <template #hint>
+                <magic-text>{{ explained.text }}</magic-text>
+            </template>
+            <template #error>
+                <magic-text>{{ explained.text }}</magic-text>
             </template>
         </search-input>
         <div class="links q-pa-xl q-gutter-md row">
@@ -80,8 +87,8 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { useCore } from 'store/core';
 import { useI18n } from 'vue-i18n';
@@ -90,40 +97,49 @@ import magicSetup from 'setup/magic';
 import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
+import MagicText from 'components/magic/Text.vue';
 
-export default defineComponent({
-    components: { SearchInput },
+import model from 'searcher-data/magic/frontend';
 
-    setup() {
-        const core = useCore();
-        const i18n = useI18n();
+const core = useCore();
+const i18n = useI18n();
 
-        const { search, random } = magicSetup();
+const { search, random } = magicSetup();
 
-        pageSetup({
-            title:   () => i18n.t('magic.$self'),
-            actions: [
-                {
-                    action:  'search',
-                    handler: search,
-                },
-                {
-                    action:  'random',
-                    icon:    'mdi-shuffle-variant',
-                    handler: random,
-                },
-            ],
-        });
-
-        const searchText = computed({
-            get() { return core.search; },
-            set(newValue: string) { core.search = newValue; },
-        });
-
-        return {
-            searchText, search,
-        };
-    },
-
+pageSetup({
+    title:   () => i18n.t('magic.$self'),
+    actions: [
+        {
+            action:  'search',
+            handler: search,
+        },
+        {
+            action:  'random',
+            icon:    'mdi-shuffle-variant',
+            handler: random,
+        },
+    ],
 });
+
+const searchText = computed({
+    get() { return core.search; },
+    set(newValue: string) { core.search = newValue; },
+});
+
+const explained = computed(() => model.explain(searchText.value, (key: string, named) => {
+    let realKey;
+
+    if (key.startsWith('magic.')) {
+        realKey = `magic.search.${key.slice(6)}`;
+    } else {
+        realKey = `search.${key}`;
+    }
+
+    if (named != null) {
+        return i18n.t(realKey, named);
+    } else {
+        return i18n.t(realKey);
+    }
+}));
+
 </script>

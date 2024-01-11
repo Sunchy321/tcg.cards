@@ -19,7 +19,8 @@
             "static/*": ["node_modules/card-common/static/*"],
             "data/*": ["node_modules/card-common/data/*"],
             "common/*": ["node_modules/card-common/src/*"],
-            "searcher/*": ["node_modules/card-searcher/src/*"]
+            "searcher/*": ["node_modules/card-searcher/src/*"],
+            "searcher-data/*": ["node_modules/card-searcher/data/*"]
         }
     },
     "include": [

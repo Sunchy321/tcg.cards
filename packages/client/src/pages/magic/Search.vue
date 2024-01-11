@@ -3,7 +3,7 @@
         <div class="controller flex items-center shadow-4 q-px-md">
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
-            <span>{{ q }}</span>
+            <magic-text>{{ explained.text }}</magic-text>
 
             <q-space />
 
@@ -66,10 +66,8 @@
     justify-content: center !important
 </style>
 
-<script lang="ts">
-import {
-    defineComponent, ref, computed, watch,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
 
 import { useCore } from 'store/core';
 import { useMagic } from 'store/games/magic';
@@ -80,6 +78,9 @@ import magicSetup from 'setup/magic';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/magic/CardImage.vue';
+import MagicText from 'components/magic/Text.vue';
+
+import model from 'searcher-data/magic/frontend';
 
 import { apiGet } from 'boot/backend';
 
@@ -108,114 +109,99 @@ interface SearchResult {
     result: QueryResult | null;
 }
 
-export default defineComponent({
-    name: 'Search',
+const core = useCore();
+const magic = useMagic();
+const i18n = useI18n();
 
-    components: { Grid, CardImage },
+const { search } = magicSetup();
 
-    setup() {
-        const core = useCore();
-        const magic = useMagic();
-        const i18n = useI18n();
+const data = ref<SearchResult | null>(null);
+const searching = ref(false);
 
-        const { search } = magicSetup();
+const { q, page, pageSize } = pageSetup({
+    title:     () => i18n.t('ui.search'),
+    titleType: 'input',
 
-        const data = ref<SearchResult | null>(null);
-        const searching = ref(false);
-
-        const { q, page, pageSize } = pageSetup({
-            title:     () => i18n.t('ui.search'),
-            titleType: 'input',
-
-            params: {
-                q: {
-                    type:     'string',
-                    bind:     'query',
-                    readonly: true,
-                },
-                page: {
-                    type:    'number',
-                    bind:    'query',
-                    default: 1,
-                },
-                pageSize: {
-                    type:    'number',
-                    bind:    'query',
-                    default: 100,
-                },
-            },
-
-            actions: [
-                {
-                    action:  'search',
-                    handler: search,
-                },
-            ],
-        });
-
-        const searchText = computed({
-            get() { return core.search; },
-            set(newValue: string) { core.search = newValue; },
-        });
-
-        const cards = computed(() => data.value?.result?.cards ?? []);
-        const total = computed(() => data.value?.result?.total ?? 0);
-
-        const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
-
-        const doSearch = async () => {
-            if (q.value == null || q.value === '') {
-                return;
-            }
-
-            searchText.value = q.value;
-
-            searching.value = true;
-
-            const { data: result } = await apiGet<SearchResult>('/magic/search', {
-                q:        q.value,
-                locale:   magic.locale,
-                page:     page.value,
-                pageSize: pageSize.value,
-            });
-
-            if (result.text === q.value) {
-                data.value = result;
-
-                searching.value = false;
-            }
-        };
-
-        const changePage = (newPage: number) => {
-            if (page.value !== newPage) {
-                page.value = newPage;
-            }
-        };
-
-        const cardLink = (
-            cardId: string,
-            set: string,
-            number: string,
-            lang: string,
-            partIndex: string,
-        ) => `/magic/card/${cardId}?set=${set}&number=${number}&lang=${lang}&part=${partIndex}`;
-
-        watch([q, page, pageSize], doSearch, { immediate: true });
-
-        return {
-            q,
-            searching,
-
-            data,
-            total,
-            page,
-            pageCount,
-            cards,
-
-            changePage,
-            cardLink,
-        };
+    params: {
+        q: {
+            type:     'string',
+            bind:     'query',
+            readonly: true,
+        },
+        page: {
+            type:    'number',
+            bind:    'query',
+            default: 1,
+        },
+        pageSize: {
+            type:    'number',
+            bind:    'query',
+            default: 100,
+        },
     },
 
+    actions: [
+        {
+            action:  'search',
+            handler: search,
+        },
+    ],
 });
+
+const searchText = computed({
+    get() { return core.search; },
+    set(newValue: string) { core.search = newValue; },
+});
+
+const explained = computed(() => model.explain(searchText.value, (key: string) => {
+    if (key.startsWith('magic.')) {
+        return i18n.t(`magic.search.${key.slice(6)}`);
+    } else {
+        return i18n.t(`search.${key}`);
+    }
+}));
+
+const cards = computed(() => data.value?.result?.cards ?? []);
+const total = computed(() => data.value?.result?.total ?? 0);
+
+const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
+
+const doSearch = async () => {
+    if (q.value == null || q.value === '') {
+        return;
+    }
+
+    searchText.value = q.value;
+
+    searching.value = true;
+
+    const { data: result } = await apiGet<SearchResult>('/magic/search', {
+        q:        q.value,
+        locale:   magic.locale,
+        page:     page.value,
+        pageSize: pageSize.value,
+    });
+
+    if (result.text === q.value) {
+        data.value = result;
+
+        searching.value = false;
+    }
+};
+
+const changePage = (newPage: number) => {
+    if (page.value !== newPage) {
+        page.value = newPage;
+    }
+};
+
+const cardLink = (
+    cardId: string,
+    set: string,
+    number: string,
+    lang: string,
+    partIndex: string,
+) => `/magic/card/${cardId}?set=${set}&number=${number}&lang=${lang}&part=${partIndex}`;
+
+watch([q, page, pageSize], doSearch, { immediate: true });
 </script>

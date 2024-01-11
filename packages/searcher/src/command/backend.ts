@@ -1,42 +1,10 @@
 import {
-    Command, CommonCommand, Operator, Qualifier,
+    Command, CommonCommand, Operator, Qualifier, Argument, CommonArgument,
 } from './index';
-import { PatternContext } from './pattern';
 
 import { Aggregate } from 'mongoose';
 
 export type DBQuery = any | { '$and': DBQuery[] } | { '$or': DBQuery[] };
-
-type Select<B, T, F> = B extends true ? T : F;
-
-type OmitNever<T> = {
-    [K in keyof T as [T[K]] extends [never] ? never : K]: T[K]
-};
-
-export type Argument<
-    M extends string,
-    O extends Operator,
-    Q extends Qualifier,
-    AR extends boolean,
-    P,
-    X,
-> = OmitNever<{
-    modifier?: M;
-    parameter: Select<AR, (RegExp | string), string>;
-    operator: O;
-    qualifier: Q[];
-    pattern: PatternContext<P>;
-    meta: X;
-}>;
-
-export type CommonArgument = {
-    modifier?: string;
-    parameter: RegExp | string;
-    operator: Operator;
-    qualifier: Qualifier[];
-    pattern?: Record<string, string>;
-    meta?: any;
-};
 
 export type QueryFunc<
     M extends string,

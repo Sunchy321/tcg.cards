@@ -92,7 +92,7 @@ const text = defineCommand({
 });
 
 const oracle = defineCommand({
-    id:         '!text-oracle',
+    id:         'oracle',
     alt:        'o',
     operators:  defaultOperator,
     qualifiers: defaultQualifier,
@@ -164,5 +164,6 @@ export const commands = {
 };
 
 export default defineModel({
+    id:       'magic',
     commands: Object.values(commands),
 });
