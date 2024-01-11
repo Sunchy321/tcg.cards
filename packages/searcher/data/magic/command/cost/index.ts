@@ -1,6 +1,6 @@
 import {
     Command, defineCommand, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
-} from '../../../src/command';
+} from '../../../../src/command';
 
 export type CostCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
 

@@ -1,18 +1,19 @@
-import { defineBackendModel } from '@searcher/model/backend';
-import { defineBackendCommand, DBQuery, CommonBackendCommand } from '@searcher/command/backend';
+import { defineBackendModel } from '../../src/model/backend';
+import { defineBackendCommand, DBQuery, CommonBackendCommand } from '../../src/command/backend';
 
-import { PostAction } from '@searcher/model/type';
-import { SearchOption } from '@searcher/search';
+import { PostAction } from '../../src/model/type';
+import { SearchOption } from '../../src/search';
 
-import { commands } from '@searcher-data/magic/index';
+import { Card as ICard } from '@interface/magic/card';
 
-import * as builtin from '@searcher/command/builtin/backend';
-import * as magic from './command';
-import { QueryError } from '@searcher/command/error';
+import { commands } from './index';
 
-import Card from '@/magic/db/card';
+import * as builtin from '../../src/command/builtin/backend';
+import * as magic from './command/backend';
+import { QueryError } from '../../src/command/error';
 
 import { deburr } from 'lodash';
+import { Model } from 'mongoose';
 
 function toIdentifier(text: string): string {
     return deburr(text)
@@ -467,11 +468,11 @@ function parseOption(optionText: string | undefined, defaultValue: number): numb
     return optionNumber;
 }
 
-export default defineBackendModel({
+export default defineBackendModel<ICard, 'dev' | 'search' | 'searchId'>({
     commands: Object.values(backedCommands),
 
     actions: {
-        search: async (q: DBQuery, p: PostAction[], o: SearchOption) => {
+        search: async (Card: Model<ICard>, q: DBQuery, p: PostAction[], o: SearchOption) => {
             const groupBy = o['group-by'] ?? 'card';
             const orderBy = o['order-by'] ?? 'id+';
             const page = parseOption(o.page, 1);
@@ -532,7 +533,7 @@ export default defineBackendModel({
             return { cards, total, page };
         },
 
-        dev: async (q: DBQuery, p: PostAction[], o: SearchOption) => {
+        dev: async (Card: Model<ICard>, q: DBQuery, p: PostAction[], o: SearchOption) => {
             const aggregate = Card.aggregate().allowDiskUse(true).match(q);
 
             const total = (
@@ -551,7 +552,7 @@ export default defineBackendModel({
             };
         },
 
-        searchId: async (q: DBQuery) => {
+        searchId: async (Card: Model<ICard>, q: DBQuery) => {
             const result = await Card
                 .aggregate()
                 .allowDiskUse(true)

@@ -2,24 +2,29 @@ import Parser from '../../parser';
 import { SearchOption, SearchResult } from '../../search';
 import { PostAction } from '../type';
 import { DBQuery, CommonBackendCommand } from '../../command/backend';
+import { Model as MongooseModel } from 'mongoose';
 
 import { simplify } from '../../parser/simplify';
 import { translate } from './translate';
 
-type Actions<A extends string> = Record<A, (query: DBQuery, post: PostAction[], option: SearchOption) => any>;
+type Action<I> = (model: MongooseModel<I>, query: DBQuery, post: PostAction[], option: SearchOption) => any;
 
-type BackendModelOption<A extends string> = {
+type Actions<I, A extends string> = Record<A, Action<I>>;
+
+type BackendModelOption<I, A extends string> = {
     commands: CommonBackendCommand[];
-    actions: Actions<A>;
+    actions: Actions<I, A>;
 };
 
-export class BackendModel<A extends string> {
+class BackendSearcher<I, A extends string, M extends MongooseModel<I>> {
     commands: CommonBackendCommand[];
-    actions: Actions<A>;
+    actions: Actions<I, A>;
+    model: M;
 
-    constructor(option: BackendModelOption<A>) {
-        this.commands = option.commands;
-        this.actions = option.actions;
+    constructor(commands: CommonBackendCommand[], actions: Actions<I, A>, model: M) {
+        this.commands = commands;
+        this.actions = actions;
+        this.model = model;
     }
 
     async search(actionKey: A, text: string, options: SearchOption = {}): Promise<SearchResult> {
@@ -52,7 +57,7 @@ export class BackendModel<A extends string> {
                 return { text, errors: [], result: [] };
             }
 
-            const result = await action(dbQuery, post, options);
+            const result = await action(this.model, dbQuery, post, options);
 
             return { text, errors: [], result };
         } catch (e) {
@@ -61,6 +66,20 @@ export class BackendModel<A extends string> {
     }
 }
 
-export function defineBackendModel<A extends string>(option: BackendModelOption<A>): BackendModel<A> {
+export class BackendModel<I, A extends string> {
+    commands: CommonBackendCommand[];
+    actions: Actions<I, A>;
+
+    constructor(option: BackendModelOption<I, A>) {
+        this.commands = option.commands;
+        this.actions = option.actions;
+    }
+
+    bind<M extends MongooseModel<I>>(collection: M): BackendSearcher<I, A, M> {
+        return new BackendSearcher<I, A, M>(this.commands, this.actions, collection);
+    }
+}
+
+export function defineBackendModel<I, A extends string>(option: BackendModelOption<I, A>): BackendModel<I, A> {
     return new BackendModel(option);
 }
