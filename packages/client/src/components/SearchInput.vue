@@ -53,7 +53,7 @@ import SearchError from 'searcher/parser/error';
 import { last } from 'lodash';
 
 // eslint-disable-next-line vue/prop-name-casing
-type Props = Omit<QInputProps, 'modelValue'> & {
+type Props = Omit<QInputProps, 'hideBottomSpace' | 'modelValue'> & {
     modelValue: string;
 };
 
@@ -120,6 +120,7 @@ const render = () => {
     return h(QInput, {
         'class':               'search-input',
         ...props,
+        'hideBottomSpace':     true,
         'onUpdate:modelValue': (newValue: string) => { emit('update:modelValue', newValue); },
     }, {
         ...slots,

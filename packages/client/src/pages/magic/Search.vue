@@ -3,7 +3,9 @@
         <div class="controller flex items-center shadow-4 q-px-md">
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
-            <magic-text>{{ explained.text }}</magic-text>
+            <div>
+                <magic-text>{{ explained.text }}</magic-text>
+            </div>
 
             <q-space />
 
@@ -153,11 +155,19 @@ const searchText = computed({
     set(newValue: string) { core.search = newValue; },
 });
 
-const explained = computed(() => model.explain(searchText.value, (key: string) => {
+const explained = computed(() => model.explain(q.value, (key: string, named) => {
+    let realKey;
+
     if (key.startsWith('magic.')) {
-        return i18n.t(`magic.search.${key.slice(6)}`);
+        realKey = `magic.search.${key.slice(6)}`;
     } else {
-        return i18n.t(`search.${key}`);
+        realKey = `search.${key}`;
+    }
+
+    if (named != null) {
+        return i18n.t(realKey, named);
+    } else {
+        return i18n.t(realKey);
     }
 }));
 
