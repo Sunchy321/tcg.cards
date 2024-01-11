@@ -65,7 +65,9 @@ export default {
         },
 
         operator: {
-            '=': ' equals ',
+            '=': ' is ',
+
+            '!=': ' is not ',
         },
 
         qualifier: {

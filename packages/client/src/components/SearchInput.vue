@@ -38,7 +38,7 @@
         & .token-regex
             color: $brown
 
-.search-token, .search-error
+*:deep(.search-token), *:deep(.search-error)
     white-space: pre
 </style>
 

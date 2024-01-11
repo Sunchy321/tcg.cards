@@ -14,7 +14,9 @@ function simpleTranslate(
     model: FrontendModel,
     i18n: I18N,
 ): string {
-    const { modifier, parameter, operator } = arg;
+    const {
+        modifier, parameter, operator, qualifier,
+    } = arg;
 
     if (parameter instanceof RegExp && !command.allowRegex) {
         throw new QueryError({ type: 'invalid-regex' });
@@ -34,7 +36,15 @@ function simpleTranslate(
 
     const commandText = i18n(`${model.id}.command.${id}`);
 
-    const operatorText = i18n(`operator.${operator}`);
+    const realOperator = (() => {
+        if (qualifier.includes('!')) {
+            return `!${operator}`;
+        }
+
+        return operator;
+    })();
+
+    const operatorText = i18n(`operator.${realOperator}`);
 
     return `${commandText}${operatorText}${parameter}`;
 }

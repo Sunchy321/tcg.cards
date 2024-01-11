@@ -1,4 +1,5 @@
 import ui from './ui';
+import search from './search';
 
 export default {
     '$self': '万智牌',
@@ -96,4 +97,5 @@ export default {
     },
 
     ui,
+    search,
 };

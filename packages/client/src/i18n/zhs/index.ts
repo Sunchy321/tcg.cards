@@ -53,6 +53,27 @@ export default {
         search: '搜索',
     },
 
+    search: {
+        error: {
+            'unknown-token': '未知符号',
+        },
+
+        separator: {
+            '&': '且',
+            '|': '或',
+        },
+
+        operator: {
+            '=': '等于',
+
+            '!=': '不等于',
+        },
+
+        qualifier: {
+            '!': '并非',
+        },
+    },
+
     magic,
     hearthstone,
 };
