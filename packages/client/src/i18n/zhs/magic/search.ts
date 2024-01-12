@@ -31,7 +31,7 @@ export default {
         'text:oracle':     'Oracle文本',
         'text:unified':    '统一文本',
         'text:printed':    '牌面文本',
-        'oracle':          'Oracle或统一文本',
+        'oracle':          '标准文本',
         'flavor-text':     '风味文字',
         'flavor-name':     '风味名称',
         'layout':          '布局',
@@ -40,5 +40,12 @@ export default {
         'counter':         '指示物',
         'keyword':         '关键字',
         'order':           '顺序',
+    },
+
+    'parameter': {
+        layout: {
+            transform: '转化式双面牌',
+            battle:    '战役',
+        },
     },
 };

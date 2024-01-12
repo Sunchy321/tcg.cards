@@ -75,6 +75,10 @@ export type CommonCommand = {
     meta: any;
 };
 
+export type ArgumentOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
+    ? Argument<string extends M ? never : M, O, Q, AR, P, X>
+    : never;
+
 export type CommandOption<
     M extends string,
     O extends Operator,

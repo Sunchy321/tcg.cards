@@ -129,8 +129,8 @@ const searchText = computed({
 const explained = computed(() => model.explain(searchText.value, (key: string, named) => {
     let realKey;
 
-    if (key.startsWith('magic.')) {
-        realKey = `magic.search.${key.slice(6)}`;
+    if (key.startsWith('$.')) {
+        realKey = `magic.search.${key.slice(2)}`;
     } else {
         realKey = `search.${key}`;
     }

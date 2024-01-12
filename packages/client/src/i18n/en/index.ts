@@ -65,9 +65,22 @@ export default {
         },
 
         operator: {
-            '=': ' is ',
+            'match':         ' matches ',
+            'not-match':     ' doesn\'t match',
+            'equal':         ' is equal to ',
+            'not-equal':     ' isn\'t equal to ',
+            'less-than':     ' is less than',
+            'less-equal':    ' is less than or equal to ',
+            'greater-than':  ' is greater than',
+            'greater-equal': ' is greater than or equal to ',
 
-            '!=': ' is not ',
+            'include':     ' includes ',
+            'not-include': ' doesn\'t include ',
+            'is':          ' is ',
+            'is-not':      ' isn\'t ',
+
+            'fully-match':     ' fully matches',
+            'not-fully-match': ' doesn\'t fully match',
         },
 
         qualifier: {

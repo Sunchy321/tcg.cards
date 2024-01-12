@@ -2,39 +2,49 @@ import { FrontendModel } from './index';
 
 import { Expression } from '../../parser';
 import { CommonFrontendCommand, I18N } from '../../command/frontend';
-import { CommonArgument } from '../../command';
+import {
+    Command, CommonArgument, Operator, Qualifier,
+} from '../../command';
 import { QueryError } from '../../command/error';
 
 import { matchPattern } from '../../command/match-pattern';
 
-function simpleTranslate(
-    command: CommonFrontendCommand,
-    expr: Expression,
+export type OperatorMapOf<C> = C extends Command<any, infer O, infer Q, any, any, any>
+    ? Record<`${Q | ''}${O}`, string>
+    : never;
+
+const realOperatorMap: Record<`${Qualifier | ''}${Exclude<Operator, ''>}`, string> = {
+    ':':  'match',
+    '!:': 'not-match',
+    '=':  'equal',
+    '!=': 'not-equal',
+    '<':  'less-than',
+    '<=': 'less-equal',
+    '>':  'greater-than',
+    '>=': 'greater-equal',
+
+    // aliases
+    '!>':  'less-equal',
+    '!<':  'greater-equal',
+    '!>=': 'less-than',
+    '!<=': 'greater-than',
+};
+
+type OperatorMap = Record<string, string> | ((operator: string, arg: CommonArgument) => string);
+
+export function defaultTranslate(
     arg: CommonArgument,
-    model: FrontendModel,
     i18n: I18N,
+    id: string,
+    map: OperatorMap,
 ): string {
     const {
         modifier, parameter, operator, qualifier,
     } = arg;
 
-    if (parameter instanceof RegExp && !command.allowRegex) {
-        throw new QueryError({ type: 'invalid-regex' });
-    }
+    const realId = modifier != null ? `${id}:${modifier}` : id;
 
-    if (!command.operators.includes(operator)) {
-        throw new QueryError({ type: 'invalid-operator' });
-    }
-
-    const specialized = command.explain(arg, i18n);
-
-    if (specialized != null) {
-        return specialized;
-    }
-
-    const id = modifier != null ? `${command.id}:${modifier}` : command.id;
-
-    const commandText = i18n(`${model.id}.command.${id}`);
+    const commandText = i18n(`$.command.${realId}`);
 
     const realOperator = (() => {
         if (qualifier.includes('!')) {
@@ -44,9 +54,30 @@ function simpleTranslate(
         return operator;
     })();
 
-    const operatorText = i18n(`operator.${realOperator}`);
+    const operatorId = typeof map === 'function' ? map(realOperator, arg) : map[realOperator] ?? realOperator;
+
+    const operatorText = i18n(`operator.${operatorId}`);
 
     return `${commandText}${operatorText}${parameter}`;
+}
+
+function simpleTranslate(
+    command: CommonFrontendCommand,
+    expr: Expression,
+    arg: CommonArgument,
+    i18n: I18N,
+): string {
+    const { parameter, operator } = arg;
+
+    if (parameter instanceof RegExp && !command.allowRegex) {
+        throw new QueryError({ type: 'invalid-regex' });
+    }
+
+    if (!command.operators.includes(operator)) {
+        throw new QueryError({ type: 'invalid-operator' });
+    }
+
+    return command.explain(arg, i18n) ?? defaultTranslate(arg, i18n, command.id, realOperatorMap);
 }
 
 export function translate(expr: Expression, model: FrontendModel, i18n: (key: string) => string): string {
@@ -136,7 +167,7 @@ export function translate(expr: Expression, model: FrontendModel, i18n: (key: st
 
         return simpleTranslate(command, expr, {
             modifier, parameter, operator, qualifier, meta: command.meta,
-        }, model, i18n);
+        }, i18n);
     }
 
     // find patterns
@@ -166,7 +197,7 @@ export function translate(expr: Expression, model: FrontendModel, i18n: (key: st
                 operator:  '',
                 qualifier: expr.qual ?? [],
                 meta:      command.meta,
-            }, model, i18n);
+            }, i18n);
         }
     }
 
@@ -181,5 +212,5 @@ export function translate(expr: Expression, model: FrontendModel, i18n: (key: st
         operator:  '',
         qualifier: expr.qual ?? [],
         meta:      raw.meta,
-    }, model, i18n);
+    }, i18n);
 }

@@ -1,15 +1,18 @@
 import { defineFrontendModel } from '../../src/model/frontend';
 import { defineFrontendCommand, CommonFrontendCommand } from '../../src/command/frontend';
 
+import * as builtin from '../../src/command/builtin/frontend';
+// import * as magic from './command/frontend';
+
 import model, { commands } from './index';
 
 const raw = defineFrontendCommand({
     command: commands.raw,
     explain({ parameter }, i18n) {
         if (/^(\{[^}]+\})+$/.test(parameter)) {
-            return i18n('magic.full-command.raw-mana', { parameter });
+            return i18n('$.full-command.raw-mana', { parameter });
         } else {
-            return i18n('magic.full-command.raw', { parameter });
+            return i18n('$.full-command.raw', { parameter });
         }
     },
 });
@@ -17,14 +20,14 @@ const raw = defineFrontendCommand({
 const stats = defineFrontendCommand({
     command: commands.stats,
     explain({ pattern: { power, toughness } }, i18n) {
-        return i18n('magic.full-command.stats', { power, toughness });
+        return i18n('$.full-command.stats', { power, toughness });
     },
 });
 
 const hash = defineFrontendCommand({
     command: commands.hash,
     explain({ pattern:{ tag } }, i18n) {
-        return i18n('magic.full-command.hash', { tag });
+        return i18n('$.full-command.hash', { tag });
     },
 });
 
@@ -47,7 +50,7 @@ const loyalty = defineFrontendCommand({
     explain({ parameter, pattern, operator }, i18n) {
         const { id } = commands.loyalty;
 
-        const commandText = i18n(`${model.id}.command.${id}`);
+        const commandText = i18n(`$.command.${id}`);
 
         const operatorText = i18n(`operator.${operator}`);
 
@@ -62,7 +65,7 @@ const defense = defineFrontendCommand({
     explain({ parameter, pattern, operator }, i18n) {
         const { id } = commands.defense;
 
-        const commandText = i18n(`${model.id}.command.${id}`);
+        const commandText = i18n(`$.command.${id}`);
 
         const operatorText = i18n(`operator.${operator}`);
 
@@ -72,14 +75,14 @@ const defense = defineFrontendCommand({
     },
 });
 
-const name = defineFrontendCommand(commands.name);
-const type = defineFrontendCommand(commands.type);
-const text = defineFrontendCommand(commands.text);
-const oracle = defineFrontendCommand(commands.oracle);
+const name = builtin.text(commands.name);
+const type = builtin.text(commands.type);
+const text = builtin.text(commands.text);
+const oracle = builtin.text(commands.oracle);
 
-const flavorText = defineFrontendCommand(commands.flavorText);
-const flavorName = defineFrontendCommand(commands.flavorName);
-const layout = defineFrontendCommand(commands.layout);
+const flavorText = builtin.text(commands.flavorText);
+const flavorName = builtin.text(commands.flavorName);
+const layout = builtin.simple(commands.layout, { map: true });
 
 const rarity = defineFrontendCommand(commands.rarity);
 const format = defineFrontendCommand(commands.format);

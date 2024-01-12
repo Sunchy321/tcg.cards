@@ -31,7 +31,7 @@ export default {
         'text:oracle':     'Oracle text',
         'text:unified':    'unified text',
         'text:printed':    'printed text',
-        'oracle':          'Oracle or unified text',
+        'oracle':          'standard text',
         'flavor-text':     'flavor text',
         'flavor-name':     'flavor name',
         'layout':          'layout',
@@ -40,5 +40,12 @@ export default {
         'counter':         'counter',
         'keyword':         'keyword',
         'order':           'order',
+    },
+
+    'parameter': {
+        layout: {
+            transform: 'Transforming DFC',
+            battle:    'Battle',
+        },
     },
 };
