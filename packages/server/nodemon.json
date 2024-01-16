@@ -9,6 +9,7 @@
         "../common/src",
         "../log-parser/src",
         "../searcher/src",
+        "../searcher/data",
         "../renderer/src"
     ],
     "execMap": {
