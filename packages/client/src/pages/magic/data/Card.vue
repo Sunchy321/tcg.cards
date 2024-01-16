@@ -185,6 +185,7 @@
                     @click="sample = !sample"
                 />
 
+                <q-btn icon="mdi-skip-next" dense flat round @click="skipCurrent" />
                 <q-btn icon="mdi-refresh" dense flat round @click="loadData" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
@@ -633,7 +634,7 @@ export default defineComponent({
             },
         });
 
-        const layoutOptions = ['normal', 'split', 'multipart', 'battle', 'transform_token'];
+        const layoutOptions = ['normal', 'split', 'multipart', 'battle', 'reversible_card', 'transform_token'];
         const partCount = computed(() => data.value?.parts?.length ?? 0);
 
         const partOptions = computed(() => {
@@ -1082,6 +1083,28 @@ export default defineComponent({
                     p.printed.text = p.printed.text
                         .replace(/"/g, '“')
                         .replace(/'/g, '‘');
+
+                    if (p.flavorText != null) {
+                        p.flavorText = p.flavorText
+                            .replace(/"/g, '“')
+                            .replace(/'/g, '‘');
+                    }
+                }
+
+                if (lang.value === 'fr') {
+                    p.unified.text = p.unified.text
+                        .replace(/<</g, '«')
+                        .replace(/>>/g, '»');
+
+                    p.printed.text = p.printed.text
+                        .replace(/<</g, '«')
+                        .replace(/>>/g, '»');
+
+                    if (p.flavorText != null) {
+                        p.flavorText = p.flavorText
+                            .replace(/<</g, '«')
+                            .replace(/>>/g, '»');
+                    }
                 }
             }
 
@@ -1121,6 +1144,10 @@ export default defineComponent({
                 }
             }
 
+            if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
+                printedText.value = '';
+            }
+
             if (lang.value === 'ja') {
                 unifiedName.value = unifiedName.value!.replace(/（.*?）/g, '');
                 printedName.value = printedName.value!.replace(/（.*?）/g, '');
@@ -1145,7 +1172,7 @@ export default defineComponent({
                         ')': '）',
                     };
 
-                    const replacer = (nums: string) => (/\d{2,}/.test(nums) ? nums : nums.split('').map(c => charMap[c] ?? c).join(''));
+                    const replacer = (nums: string) => (/\d{2}/.test(nums) ? nums : nums.split('').map(c => charMap[c] ?? c).join(''));
 
                     return v
                         .replace(/[-+0-9X()]+(?!\})/g, replacer);
@@ -1153,6 +1180,17 @@ export default defineComponent({
 
                 unifiedText.value = applyReplace(unifiedText.value!);
                 printedText.value = applyReplace(printedText.value!);
+            }
+
+            if (lang.value === 'zhs' || lang.value === 'zht') {
+                unifiedTypeline.value = unifiedTypeline.value.replace(/ — /g, '～').replace(/\//g, '／');
+                printedTypeline.value = printedTypeline.value.replace(/ — /g, '～').replace(/\//g, '／');
+            } else if (lang.value === 'fr') {
+                unifiedTypeline.value = unifiedTypeline.value.replace(/ — /g, ' : ').trim();
+                printedTypeline.value = printedTypeline.value.replace(/ — /g, ' : ').trim();
+            } else {
+                unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ').trim();
+                printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ').trim();
             }
 
             defaultPrettify();
@@ -1175,6 +1213,26 @@ export default defineComponent({
             }
 
             defaultPrettify();
+
+            if (data.value.parts.length === 2) {
+                const [front, back] = data.value.parts;
+
+                if (front.unified.name === back.unified.name && front.unified.name.includes(' // ')) {
+                    [front.unified.name, back.unified.name] = front.unified.name.split(' // ');
+                }
+
+                if (front.unified.typeline === back.unified.typeline && front.unified.typeline.includes(' // ')) {
+                    [front.unified.typeline, back.unified.typeline] = front.unified.typeline.split(' // ');
+                }
+
+                if (front.printed.name === back.printed.name && front.printed.name.includes(' // ')) {
+                    [front.printed.name, back.printed.name] = front.printed.name.split(' // ');
+                }
+
+                if (front.printed.typeline === back.printed.typeline && front.printed.typeline.includes(' // ')) {
+                    [front.printed.typeline, back.printed.typeline] = front.printed.typeline.split(' // ');
+                }
+            }
 
             unifiedText.value = unifiedText.value!
                 .replace(new RegExp(parenRegex.source, 'g'), '').trim();
@@ -1204,10 +1262,6 @@ export default defineComponent({
                         relatedCardsString.value = relatedCardsResult[0];
                     }
                 }
-            }
-
-            if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
-                printedText.value = '';
             }
 
             const applyReplace = (v: string) => {
@@ -1366,8 +1420,8 @@ export default defineComponent({
             }
         };
 
-        const loadGroup = async (method: string) => {
-            if (data.value != null) {
+        const loadGroup = async (method: string, skip = false) => {
+            if (data.value != null && !skip) {
                 await doUpdate();
             }
 
@@ -1417,8 +1471,13 @@ export default defineComponent({
             loadGroup(`search:${search.value}`);
         };
 
-        console.log('paren:', parenRegex);
-        console.log('comma:', commaRegex);
+        const skipCurrent = async () => {
+            if (dataGroup.value == null) {
+                return;
+            }
+
+            loadGroup(dataGroup.value.method, true);
+        };
 
         onMounted(loadData);
 
@@ -1606,6 +1665,7 @@ export default defineComponent({
             loadData,
             loadGroup,
             doSearch,
+            skipCurrent,
 
             copyToClipboard,
 
