@@ -142,6 +142,15 @@ const hash = defineBackendCommand({
         const { tag } = pattern;
 
         if (!qualifier.includes('!')) {
+            switch (tag) {
+            case 'dev:on-eq-un':
+                return { $expr: { $eq: ['$parts.oracle.name', '$parts.unified.name'] } };
+            case 'dev:on-eq-pn':
+                return { $expr: { $eq: ['$parts.oracle.name', '$parts.printed.name'] } };
+            default:
+                break;
+            }
+
             return {
                 $or: [
                     { tags: tag },
@@ -149,6 +158,15 @@ const hash = defineBackendCommand({
                 ],
             };
         } else {
+            switch (tag) {
+            case 'dev:on-eq-un':
+                return { $expr: { $ne: ['$parts.oracle.name', '$parts.unified.name'] } };
+            case 'dev:on-eq-pn':
+                return { $expr: { $ne: ['$parts.oracle.name', '$parts.printed.name'] } };
+            default:
+                break;
+            }
+
             return {
                 $and: [
                     { tags: { $ne: tag } },
