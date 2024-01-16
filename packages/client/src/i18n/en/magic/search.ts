@@ -1,9 +1,12 @@
 export default {
     'full-command': {
-        'raw':      'name includes {parameter}',
-        'raw-mana': 'mana cost or text includes {parameter}',
-        'stats':    'power is {power} and toughness is {toughness}',
-        'hash':     'has tag {tag}',
+        'raw':              'name includes {parameter}',
+        'raw-mana':         'mana cost or text includes {parameter}',
+        'stats':            'power is {power} and toughness is {toughness}',
+        'hash':             'has tag {tag}',
+        'order':            'order by {parameter}',
+        'order-ascending':  'order by {parameter} (ascending)',
+        'order-descending': 'order by {parameter} (descending)',
     },
 
     'command': {
@@ -36,6 +39,7 @@ export default {
         'flavor-name':     'flavor name',
         'layout':          'layout',
         'rarity':          'rarity',
+        'release-date':    'release date',
         'format':          'format',
         'counter':         'counter',
         'keyword':         'keyword',
@@ -46,6 +50,13 @@ export default {
         layout: {
             transform: 'Transforming DFC',
             battle:    'Battle',
+        },
+
+        order: {
+            name: 'name',
+            date: 'release date',
+            id:   'card id',
+            cost: 'mana value',
         },
     },
 };

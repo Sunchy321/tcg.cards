@@ -1,9 +1,12 @@
 export default {
     'full-command': {
-        'raw':      '名称包含{parameter}',
-        'raw-mana': '法术力费用或描述包含{parameter}',
-        'stats':    '力量是{power}并且防御力是{toughness}',
-        'hash':     '具有标签 {tag}',
+        'raw':              '名称包含{parameter}',
+        'raw-mana':         '法术力费用或描述包含{parameter}',
+        'stats':            '力量是{power}并且防御力是{toughness}',
+        'hash':             '具有标签 {tag}',
+        'order':            '按{parameter}排序',
+        'order-ascending':  '按{parameter}排序（升序）',
+        'order-descending': '按{parameter}排序（降序）',
     },
 
     'command': {
@@ -36,6 +39,7 @@ export default {
         'flavor-name':     '风味名称',
         'layout':          '布局',
         'rarity':          '稀有度',
+        'release-date':    '发售日期',
         'format':          '赛制',
         'counter':         '指示物',
         'keyword':         '关键字',
@@ -46,6 +50,13 @@ export default {
         layout: {
             transform: '转化式双面牌',
             battle:    '战役',
+        },
+
+        order: {
+            name: '名称',
+            date: '发售日期',
+            id:   '卡牌ID',
+            cost: '法术力值',
         },
     },
 };

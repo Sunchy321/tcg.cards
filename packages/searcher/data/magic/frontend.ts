@@ -85,11 +85,52 @@ const flavorName = builtin.text(commands.flavorName);
 const layout = builtin.simple(commands.layout, { map: true });
 
 const rarity = defineFrontendCommand(commands.rarity);
+const date = defineFrontendCommand(commands.date);
 const format = defineFrontendCommand(commands.format);
 
 const counter = defineFrontendCommand(commands.counter);
 const keyword = defineFrontendCommand(commands.keyword);
-const order = defineFrontendCommand(commands.order);
+
+const order = defineFrontendCommand({
+    command: commands.order,
+    explain({ parameter }, i18n) {
+        parameter = parameter.toLowerCase();
+
+        // eslint-disable-next-line @typescript-eslint/no-shadow
+        const [type, dir] = ((): [string, -1 | 0 | 1] => {
+            if (parameter.endsWith('+')) {
+                return [parameter.slice(0, -1), 1];
+            }
+
+            if (parameter.endsWith('-')) {
+                return [parameter.slice(0, -1), -1];
+            }
+
+            return [parameter, 0];
+        })();
+
+        const realType = (() => {
+            switch (type) {
+            case 'name':
+                return 'name';
+            case 'date':
+                return 'date';
+            case 'id':
+                return 'id';
+            case 'cmc':
+            case 'mv':
+            case 'cost':
+                return 'cost';
+            default:
+                return type;
+            }
+        })();
+
+        const commandKey = dir === 0 ? 'order' : dir === 1 ? 'order-ascending' : 'order-descending';
+
+        return i18n(`$.full-command.${commandKey}`, { parameter: i18n(`$.parameter.order.${realType}`) });
+    },
+});
 
 const frontendCommands: Record<string, CommonFrontendCommand> = {
     raw,
@@ -115,6 +156,7 @@ const frontendCommands: Record<string, CommonFrontendCommand> = {
     flavorName,
     layout,
     rarity,
+    date,
     format,
     counter,
     keyword,

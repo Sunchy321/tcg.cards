@@ -28,7 +28,7 @@ const raw = defineBackendCommand({
     command: commands.raw,
     query:   ({ parameter }) => {
         // search mana
-        if (/^(\{[^}]+\})+$/.test(parameter)) {
+        if (typeof parameter === 'string' && /^(\{[^}]+\})+$/.test(parameter)) {
             return {
                 $or: [
                     builtin.text.query({
@@ -329,6 +329,31 @@ const rarity = defineBackendCommand({
     },
 });
 
+const date = defineBackendCommand({
+    command: commands.date,
+    query:   ({ parameter, operator, qualifier }) => {
+        switch (operator) {
+        case '=':
+        case ':':
+            if (!qualifier.includes('!')) {
+                return { releaseDate: { $eq: parameter } };
+            } else {
+                return { releaseDate: { $ne: parameter } };
+            }
+        case '>':
+            return { releaseDate: { $gt: parameter } };
+        case '>=':
+            return { releaseDate: { $gte: parameter } };
+        case '<':
+            return { releaseDate: { $lt: parameter } };
+        case '<=':
+            return { releaseDate: { $lte: parameter } };
+        default:
+            throw new QueryError({ type: 'invalid-query' });
+        }
+    },
+});
+
 const format = defineBackendCommand({
     command: commands.format,
     query:   ({ parameter, qualifier }) => {
@@ -384,8 +409,8 @@ const keyword = defineBackendCommand({
 const order = defineBackendCommand({
     command: commands.order,
     query() {},
-
-    post: ({ parameter }) => {
+    phase:   'order',
+    post:    ({ parameter }) => {
         parameter = parameter.toLowerCase();
 
         // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -448,6 +473,7 @@ const backedCommands: Record<string, CommonBackendCommand> = {
     flavorName,
     layout,
     rarity,
+    date,
     format,
     counter,
     keyword,

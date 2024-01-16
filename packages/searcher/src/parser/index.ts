@@ -169,6 +169,14 @@ export default class Parser {
             throw this.lexer.errors[0];
         }
 
+        query.topLevel = true;
+
+        if (query.type === 'logic') {
+            for (const expr of query.exprs) {
+                expr.topLevel = true;
+            }
+        }
+
         return query;
     }
 

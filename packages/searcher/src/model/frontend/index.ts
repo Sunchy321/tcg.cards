@@ -52,7 +52,7 @@ export class FrontendModel {
         } catch (e) {
             return {
                 type: 'error',
-                text: i18n(`error.${(e as QueryError).message}`),
+                text: i18n(`error.${(e as QueryError).type}`),
             };
         }
     }

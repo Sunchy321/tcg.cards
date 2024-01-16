@@ -69,6 +69,7 @@ export type BackendCommandOption<
 > = {
     command: Command<M, O, Q, AR, P, X>;
     query: QueryFunc<string extends M ? never : M, O, Q, AR, P, X>;
+    phase?: string;
     post?: PostFunc<string extends M ? never : M, O, Q, AR, P, X>;
 };
 
@@ -81,8 +82,10 @@ export function defineBackendCommand<
     X,
 >(options: BackendCommandOption<M, O, Q, AR, P, X>): BackendCommand<M, O, Q, AR, P, X> {
     const {
-        command, query, post,
+        command, query, phase, post,
     } = options;
 
-    return { ...command, query, post };
+    return {
+        ...command, query, phase, post,
+    };
 }

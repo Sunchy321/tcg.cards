@@ -6,7 +6,7 @@ import {
 import * as builtin from '../../src/command/builtin';
 import * as magic from './command';
 
-const raw = defineCommand({ id: '', operators: [''] });
+const raw = defineCommand({ id: '', operators: [''], allowRegex: true });
 
 const stats = defineCommand({
     id:         'stats',
@@ -105,8 +105,15 @@ const layout = builtin.simple({ id: 'layout' });
 
 const rarity = defineCommand({
     id:         'rarity',
-    alt:        ['r'],
+    alt:        'r',
     operators:  defaultOperator,
+    qualifiers: defaultQualifier,
+});
+
+const date = defineCommand({
+    id:         'release-date',
+    alt:        'date',
+    operators:  allOperator,
     qualifiers: defaultQualifier,
 });
 
@@ -157,6 +164,7 @@ export const commands = {
     flavorName,
     layout,
     rarity,
+    date,
     format,
     counter,
     keyword,
