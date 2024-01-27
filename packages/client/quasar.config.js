@@ -81,43 +81,14 @@ module.exports = configure((/* ctx */) => ({
             common: path.join(__dirname, 'node_modules/card-common/src'),
             searcher: path.join(__dirname, 'node_modules/card-searcher/src'),
             'searcher-data': path.join(__dirname, 'node_modules/card-searcher/data'),
-
-            util: 'rollup-plugin-node-polyfills/polyfills/util',
-            events: 'rollup-plugin-node-polyfills/polyfills/events',
-            stream: 'rollup-plugin-node-polyfills/polyfills/stream',
-            process: 'rollup-plugin-node-polyfills/polyfills/process-es6',
         },
 
         vitePlugins: [
-            ['@intlify/vite-plugin-vue-i18n', {
-                // if you want to use Vue I18n Legacy API, you need to set `compositionOnly: false`
-                // compositionOnly: false,
-
-                runtimeOnly: false,
-
-                // you need to set i18n resource including paths !
+            ['@intlify/unplugin-vue-i18n/vite', {
                 include: path.resolve(__dirname, './src/i18n/**'),
-            }],
+            }]
             ['@rollup/plugin-yaml']
         ],
-
-        extendViteConf(config) {
-            config.optimizeDeps.esbuildOptions = {
-                plugins: [
-                    require('@esbuild-plugins/node-globals-polyfill').default({
-                        process: true,
-                        buffer: true
-                    }),
-                    require('@esbuild-plugins/node-modules-polyfill').default()
-                ]
-            };
-
-            config.build.rollupOptions = {
-                plugins: [
-                    require('rollup-plugin-node-polyfills')()
-                ]
-            };
-        }
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer

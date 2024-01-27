@@ -4,7 +4,7 @@
         "target": "ES2019",
         "baseUrl": ".",
         "jsx": "preserve",
-        "types": ["vite/client"],
+        "types": ["vite/client", "@intlify/unplugin-vue-i18n/messages"],
         "paths": {
             "src/*": ["src/*"],
             "app/*": ["*"],
@@ -21,7 +21,7 @@
             "common/*": ["node_modules/card-common/src/*"],
             "searcher/*": ["node_modules/card-searcher/src/*"],
             "searcher-data/*": ["node_modules/card-searcher/data/*"]
-        }
+        },
     },
     "include": [
       "src/**/*.ts",

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 
 import { LocalStorage } from 'quasar';
-import jwt from 'jsonwebtoken';
+import { jwtDecode } from 'jwt-decode';
 import { computed, ref, watch } from 'vue';
 
 import { user as userBackend } from 'boot/backend';
@@ -68,7 +68,7 @@ export const useUser = defineStore('user', () => {
         if (token.value == null) {
             return null;
         } else {
-            return jwt.decode(token.value) as User;
+            return jwtDecode<User>(token.value);
         }
     });
 

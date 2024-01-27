@@ -1,9 +1,0 @@
-diff --git a/lib/psSupported.js b/lib/psSupported.js
-index 8c04144a14cc4f68210545769f5a23c03f808063..29c66bedc99fd74465642a1778f22c16d706cdb4 100644
---- a/lib/psSupported.js
-+++ b/lib/psSupported.js
-@@ -1,3 +1,4 @@
- var semver = require('semver');
-+var process = require('process');
- 
- module.exports = semver.satisfies(process.version, '^6.12.0 || >=8.0.0');
