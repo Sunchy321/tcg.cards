@@ -1,10 +1,11 @@
-import { Schema } from 'mongoose';
+import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
 import { Set as ISet } from '@interface/magic/set';
 
-export const SetSchema = new Schema<ISet>({
+// eslint-disable-next-line @typescript-eslint/ban-types
+export const SetSchema = new Schema<ISet, Model<ISet>, {}, {}, {}, {}, '$type'>({
     setId: String,
 
     block:  String,
@@ -28,10 +29,10 @@ export const SetSchema = new Schema<ISet>({
     isFoilOnly:    Boolean,
     isNonfoilOnly: Boolean,
     symbolStyle:   {
-        type:    [String],
+        $type:   [String],
         default: undefined,
     },
-    doubleFacedIcon: { type: [String], default: undefined },
+    doubleFacedIcon: { $type: [String], default: undefined },
 
     releaseDate: String,
 
@@ -42,8 +43,55 @@ export const SetSchema = new Schema<ISet>({
 
     mtgoCode:    String,
     tcgplayerId: Number,
+
+    boosters: [{
+        _id: false,
+
+        boosterId: String,
+
+        packs: [{
+            _id: false,
+
+            contents: [{
+                _id: false,
+
+                type:  String,
+                count: Number,
+            }],
+
+            weight: Number,
+        }],
+
+        totalWeight: Number,
+
+        sheets: [{
+            _id: false,
+
+            typeId: String,
+
+            cards: [{
+                _id: false,
+
+                cardId:  String,
+                version: {
+                    set:    String,
+                    number: String,
+                    lang:   String,
+                },
+                weight: Number,
+            }],
+
+            totalWeight: Number,
+
+            allowDuplicates: Boolean,
+            balanceColors:   Boolean,
+            isFoil:          Boolean,
+            isFixed:         Boolean,
+        }],
+    }],
 }, {
-    toJSON: {
+    typeKey: '$type',
+    toJSON:  {
         transform(doc, ret) {
             delete ret._id;
             delete ret.__v;

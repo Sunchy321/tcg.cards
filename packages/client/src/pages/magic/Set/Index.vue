@@ -53,8 +53,110 @@
 
             {{ cardCount }}
         </div>
+        <div>
+            <div class="booster-title q-mt-lg">{{ $t('magic.ui.set.booster') }}</div>
+
+            <booster v-for="b in boosters" :key="b.boosterId" :value="b" class="booster q-mt-md" />
+        </div>
     </q-page>
 </template>
+
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+
+import { useRoute } from 'vue-router';
+import { useMagic } from 'store/games/magic';
+
+import basicSetup from 'setup/basic';
+import pageSetup from 'setup/page';
+
+import Booster from './BoosterSummary.vue';
+
+import { Set as ISet } from 'interface/magic/set';
+
+import setProfile from 'src/common/magic/set';
+import { apiGet, apiBase, imageBase } from 'boot/backend';
+
+type Set = Omit<ISet, 'localization'> & {
+    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
+};
+
+const route = useRoute();
+const magic = useMagic();
+
+const { isAdmin } = basicSetup();
+
+const data = ref<Set | null>(null);
+
+const id = computed(() => route.params.id as string);
+
+const name = computed(() => {
+    if (data.value == null) {
+        return '';
+    }
+
+    return data.value.localization[magic.locale]?.name
+                 ?? data.value.localization[magic.locales[0]]?.name;
+});
+
+pageSetup({
+    title: () => name.value ?? id.value,
+});
+
+const parent = computed(() => data.value?.parent);
+
+const cardCount = computed(() => data.value?.cardCount ?? 0);
+const langs = computed(() => data.value?.langs ?? []);
+const rarities = computed(() => data.value?.rarities ?? []);
+
+const setType = computed(() => data.value?.setType);
+
+const wotcLink = computed(() => {
+    if (data.value == null) {
+        return '';
+    }
+
+    return data.value.localization[magic.locale]?.link
+                 ?? data.value.localization[magic.locales[0]]?.link;
+});
+
+const apiLink = computed(() => `https://${apiBase}/magic/set?id=${id.value}`);
+const editorLink = computed(() => ({ name: 'magic/data', query: { tab: 'Set', id: id.value } }));
+
+const boosters = computed(() => data.value?.boosters ?? []);
+
+const loadData = async () => {
+    const { data: result } = await apiGet<Set>('/magic/set', {
+        id: id.value,
+    });
+
+    data.value = result;
+
+    setProfile.update({
+        setId:           result.setId,
+        parent:          result.parent,
+        localization:    result.localization,
+        setType:         result.setType,
+        symbolStyle:     result.symbolStyle,
+        doubleFacedIcon: result.doubleFacedIcon,
+        releaseDate:     result.releaseDate,
+    });
+};
+
+const iconUrl = (rarity: string) => {
+    if (
+        parent.value != null && setType.value != null
+                && ['promo', 'token', 'memorabilia', 'funny'].includes(setType.value)
+    ) {
+        return `https://${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
+    }
+
+    return `https://${imageBase}/magic/set/icon?auto-adjust&set=${id.value}&rarity=${rarity}`;
+};
+
+watch(() => id.value, loadData, { immediate: true });
+
+</script>
 
 <style lang="sass" scoped>
 .name
@@ -83,118 +185,7 @@
     margin-right: 2px
 
     font-size: 10px
+
+.booster-title
+    font-size: 120%
 </style>
-
-<script lang="ts">
-import {
-    defineComponent, ref, computed, watch,
-} from 'vue';
-
-import { useRoute } from 'vue-router';
-import { useMagic } from 'store/games/magic';
-
-import basicSetup from 'setup/basic';
-import pageSetup from 'setup/page';
-
-import { Set as ISet } from 'interface/magic/set';
-
-import setProfile from 'src/common/magic/set';
-import { apiGet, apiBase, imageBase } from 'boot/backend';
-
-type Set = Omit<ISet, 'localization'> & {
-    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
-};
-
-export default defineComponent({
-    setup() {
-        const route = useRoute();
-        const magic = useMagic();
-
-        const { isAdmin } = basicSetup();
-
-        const data = ref<Set | null>(null);
-
-        const id = computed(() => route.params.id as string);
-
-        const name = computed(() => {
-            if (data.value == null) {
-                return '';
-            }
-
-            return data.value.localization[magic.locale]?.name
-                 ?? data.value.localization[magic.locales[0]]?.name;
-        });
-
-        pageSetup({
-            title: () => name.value ?? id.value,
-        });
-
-        const parent = computed(() => data.value?.parent);
-
-        const cardCount = computed(() => data.value?.cardCount ?? 0);
-        const langs = computed(() => data.value?.langs ?? []);
-        const rarities = computed(() => data.value?.rarities ?? []);
-
-        const setType = computed(() => data.value?.setType);
-
-        const wotcLink = computed(() => {
-            if (data.value == null) {
-                return '';
-            }
-
-            return data.value.localization[magic.locale]?.link
-                 ?? data.value.localization[magic.locales[0]]?.link;
-        });
-
-        const apiLink = computed(() => `https://${apiBase}/magic/set?id=${id.value}`);
-        const editorLink = computed(() => ({ name: 'magic/data', query: { tab: 'Set', id: id.value } }));
-
-        const loadData = async () => {
-            const { data: result } = await apiGet<Set>('/magic/set', {
-                id: id.value,
-            });
-
-            data.value = result;
-
-            setProfile.update({
-                setId:           result.setId,
-                parent:          result.parent,
-                localization:    result.localization,
-                setType:         result.setType,
-                symbolStyle:     result.symbolStyle,
-                doubleFacedIcon: result.doubleFacedIcon,
-                releaseDate:     result.releaseDate,
-            });
-        };
-
-        const iconUrl = (rarity: string) => {
-            if (
-                parent.value != null && setType.value != null
-                && ['promo', 'token', 'memorabilia', 'funny'].includes(setType.value)
-            ) {
-                return `https://${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
-            }
-
-            return `https://${imageBase}/magic/set/icon?auto-adjust&set=${id.value}&rarity=${rarity}`;
-        };
-
-        watch(() => id.value, loadData, { immediate: true });
-
-        return {
-            isAdmin,
-
-            id,
-            name,
-            cardCount,
-            langs,
-            rarities,
-
-            wotcLink,
-            apiLink,
-            editorLink,
-
-            iconUrl,
-        };
-    },
-});
-</script>

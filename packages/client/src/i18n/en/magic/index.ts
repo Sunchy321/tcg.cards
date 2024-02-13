@@ -1,4 +1,5 @@
 import ui from './ui';
+import set from './set';
 import search from './search';
 
 export default {
@@ -20,9 +21,7 @@ export default {
         },
     },
 
-    'set': {
-        $self: 'Set',
-    },
+    set,
 
     'format': {
         '$self': 'Format',

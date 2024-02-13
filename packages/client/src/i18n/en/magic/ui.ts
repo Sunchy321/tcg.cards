@@ -44,6 +44,10 @@ export default {
         },
     },
 
+    'set': {
+        booster: 'Boosters',
+    },
+
     'misc': {
         '$self':   'Miscellaneous',
         'symbol':  'Symbols',

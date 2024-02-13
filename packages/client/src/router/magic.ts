@@ -30,7 +30,12 @@ const routes = [
             {
                 path:      'set/:id',
                 name:      'magic/set',
-                component: async () => import('pages/magic/Set.vue'),
+                component: async () => import('pages/magic/set/Index.vue'),
+            },
+            {
+                path:      'set/:setId/booster/:boosterId',
+                name:      'magic/set/booster',
+                component: async () => import('pages/magic/set/Booster.vue'),
             },
             {
                 path:      'card/:id',

@@ -44,6 +44,10 @@ export default {
         },
     },
 
+    'set': {
+        booster: '补充包',
+    },
+
     'misc': {
         '$self':   '杂项',
         'symbol':  '符号',

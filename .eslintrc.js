@@ -68,7 +68,7 @@ module.exports = {
         'no-void':     ['error', { allowAsStatement: true }],
         'quote-props': ['warn', 'consistent-as-needed'],
 
-        'max-len': ['warn', 130, 4, {
+        'max-len': ['warn', 150, 4, {
             ignoreUrls:             true,
             ignoreComments:         false,
             ignoreRegExpLiterals:   true,
@@ -158,7 +158,7 @@ module.exports = {
         'vue/multiline-html-element-content-newline':  'off',
         'vue/component-tags-order':                    'off',
 
-        'vue/block-order':          ['error', { order: ['template', 'style', 'script'] }],
+        'vue/block-order':          ['warn', { order: ['template', 'script', 'style'] }],
         'vue/html-indent':          ['warn', 4],
         'vue/no-unused-properties': ['warn', { groups: ['setup'] }],
     },

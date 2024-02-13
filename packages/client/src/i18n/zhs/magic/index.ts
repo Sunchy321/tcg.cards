@@ -1,4 +1,5 @@
 import ui from './ui';
+import set from './set';
 import search from './search';
 
 export default {
@@ -19,9 +20,7 @@ export default {
         },
     },
 
-    'set': {
-        $self: '系列',
-    },
+    set,
 
     'format': {
         '$self': '赛制',
