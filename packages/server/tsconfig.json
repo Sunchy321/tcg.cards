@@ -1,6 +1,6 @@
 {
     "ts-node": {
-        "compiler": "ttypescript",
+        "compiler": "ts-patch/compiler",
     },
     "compilerOptions": {
         "module": "CommonJS",

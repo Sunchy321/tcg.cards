@@ -10,7 +10,7 @@ import {
     mapValues, omitBy, random,
 } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
-import sortKey from '@/common/sort-key';
+// import sortKey from '@/common/sort-key';
 
 import searcher from '@/magic/search';
 
@@ -104,7 +104,8 @@ router.get('/', async ctx => {
 
     if (cards.length !== 0) {
         ctx.body = JSON.stringify(
-            sortKey<ICard & { versions: Version[] }>({ ...cards[0], versions }),
+            // sortKey<ICard & { versions: Version[] }>({ ...cards[0], versions }),
+            {...cards[0],versions},
             null,
             2,
         );

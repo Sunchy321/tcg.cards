@@ -11,10 +11,10 @@
 /* eslint func-names: 0 */
 /* eslint global-require: 0 */
 
-const { configure } = require('quasar/wrappers');
-const path = require('path');
+import { configure } from 'quasar/wrappers';
+import path from 'path';
 
-module.exports = configure((/* ctx */) => ({
+export default configure((/* ctx */) => ({
     eslint: {
         // fix: true,
         // include = [],
@@ -84,9 +84,9 @@ module.exports = configure((/* ctx */) => ({
         },
 
         vitePlugins: [
-            ['@intlify/unplugin-vue-i18n/vite', {
-                include: path.resolve(__dirname, './src/i18n/**'),
-            }]
+            // ['@intlify/unplugin-vue-i18n/vite', {
+            //     include: path.resolve(__dirname, './src/i18n/**'),
+            // }],
             ['@rollup/plugin-yaml']
         ],
     },
@@ -149,7 +149,7 @@ module.exports = configure((/* ctx */) => ({
         // (gets superseded if process.env.PORT is specified at runtime)
 
         middlewares: [
-        'render', // keep this as last one
+            'render', // keep this as last one
         ],
     },
 
@@ -208,7 +208,7 @@ module.exports = configure((/* ctx */) => ({
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/developing-browser-extensions/configuring-bex
     bex: {
         contentScripts: [
-        'my-content-script',
+            'my-content-script',
         ],
 
         // extendBexScriptsConf (esbuildConf) {}
