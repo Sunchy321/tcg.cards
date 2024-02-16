@@ -3,8 +3,8 @@ import { TupleToArray } from '../meta/utility';
 import { Index, Access } from '../meta/type-index';
 import { isFundamental } from '../meta/type';
 
-export function assign<T, I extends Index<T>>(value: T, index: I, newValue: Access<T, I>): void;
-export function assign<T, I extends TupleToArray<Index<T>>>(value: T, index: I, newValue: any): void;
+export function assign<T, I>(value: T, index: I, newValue: Access<T, I>): void;
+// export function assign<T, I extends TupleToArray<Index<T>>>(value: T, index: I, newValue: any): void;
 
 export default function assign(value: any, index: string[], newValue: any): void {
     if (isFundamental(value)) {

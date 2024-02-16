@@ -9,7 +9,7 @@ import model, { commands } from './index';
 const raw = defineFrontendCommand({
     command: commands.raw,
     explain({ parameter }, i18n) {
-        if (/^(\{[^}]+\})+$/.test(parameter)) {
+        if (typeof parameter === 'string' && /^(\{[^}]+\})+$/.test(parameter)) {
             return i18n('$.full-command.raw-mana', { parameter });
         } else {
             return i18n('$.full-command.raw', { parameter });

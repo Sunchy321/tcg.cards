@@ -5,7 +5,7 @@
     "scripts": {
         "lint": "eslint ./src ./data --ext js,ts --cache --fix",
         "dev": "npx nodemon --inspect src/app.ts -- ../../../server-config.json",
-        "build": "npx ttsc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist && cp src/search/syntax.pegjs dist/src/search/syntax.pegjs"
+        "build": "npx tspc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist"
     },
     "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
     "license": "MIT",

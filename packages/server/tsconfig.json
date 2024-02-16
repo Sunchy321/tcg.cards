@@ -29,9 +29,11 @@
         ]
     },
     "include": [
-        "node_modules/card-static/src/**/*",
-        "node_modules/card-data/src/**/*",
+        "node_modules/card-common/static/**/*",
+        "node_modules/card-common/data/**/*",
+        "node_modules/card-common/src/**/*",
         "node_modules/card-searcher/src/**/*",
+        "node_modules/card-searcher/data/**/*",
         "node_modules/card-renderer/src/**/*",
         "src/*"
     ]

@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { TupleToArray } from '../meta/utility';
 import { Index, Access } from '../meta/type-index';
 import { isFundamental } from '../meta/type';
 
-export function access<T, I extends Index<T>>(value: T, index: I): Access<T, I>;
-export function access<T, I extends TupleToArray<Index<T>>>(value: T, index: I): any;
+export function access<T, I>(value: T, index: I): Access<T, I>;
+// export function access<T, I extends TupleToArray<Index<T>>>(value: T, index: I): any;
 
 export default function access(value: any, index: string[]): any {
     if (isFundamental(value)) {
