@@ -61,6 +61,7 @@
         "@koa/router": "^9.4.0",
         "async-stream-reader": "^1.2.0",
         "axios": "^1.6.7",
+        "axios-retry": "^4.0.0",
         "card-common": "workspace:^1.0.0",
         "card-interface": "workspace:^1.1.0",
         "card-renderer": "workspace:^1.1.0",

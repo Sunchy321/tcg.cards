@@ -3,11 +3,20 @@ import {
 } from 'fs';
 import axios, { AxiosProgressEvent } from 'axios';
 
+import axiosRetry from 'axios-retry';
+
 import Task from './task';
+
+import { config } from '@/config';
 
 interface ISaveFileOption {
     override?: boolean;
 }
+
+axiosRetry(axios, {
+    retries:    3,
+    retryDelay: (retryCount) => retryCount * 1000,
+});
 
 export default class FileSaver extends Task<AxiosProgressEvent> {
     url: string;
@@ -44,13 +53,16 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
 
         return axios.get(this.url, {
             responseType:       'stream',
+            timeout:            5000,
             signal:             this.controller.signal,
+            proxy:              config.axiosProxy,
             onDownloadProgress: (progressEvent) => {
                 this.emit('progress', progressEvent);
             },
         }).then(async res => new Promise((resolve, reject) => {
             res.data.pipe(stream);
 
+            res.data.on('error', reject);
             stream.on('finish', resolve);
             stream.on('error', reject);
         }));

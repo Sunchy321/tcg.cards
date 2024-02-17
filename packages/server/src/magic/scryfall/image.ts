@@ -167,7 +167,7 @@ export class ImageGetter extends Task<IImageStatus> {
             const [exists, nonexist] = partition(this.todoTasks, task => FileSaver.fileExists(task.path));
 
             for (const task of exists) {
-                this.statusMap[task.name] = 'success';
+                this.statusMap[task.name] = 'exists';
             }
 
             this.todoTasks = nonexist;
@@ -220,7 +220,13 @@ export class ImageGetter extends Task<IImageStatus> {
                     if (this.rest() === 0 && this.working() === 0) {
                         this.emit('all-end');
                     }
-                }).on('error', () => {
+                }).on('error', (err: Error) => {
+                    if (err.message === 'aborted') {
+                        return;
+                    }
+
+                    console.log(task.name, err.message);
+
                     delete this.taskMap[task.name];
                     this.statusMap[task.name] = 'failed';
 

@@ -32,6 +32,62 @@
     </div>
 </template>
 
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+
+import { useRouter, useRoute } from 'vue-router';
+
+import controlSetup from 'setup/control';
+
+interface Progress {
+    overall: { count: number, total: number };
+    current: { set: string, lang: string };
+    status: Record<string, string>;
+    failed: number;
+}
+
+const router = useRouter();
+const route = useRoute();
+
+const { controlWs } = controlSetup();
+
+const progress = ref<Progress | null>(null);
+
+const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
+
+const typeOptions = types.map(t => ({
+    value: t, label: t,
+}));
+
+const type = computed({
+    get() { return route.query.type as string ?? 'large'; },
+    set(newValue: string) { void router.replace({ query: { type: newValue } }); },
+});
+
+const status = computed(() => progress.value?.status ?? {});
+
+const statusKey = computed(() => Object.keys(status.value));
+
+const getImage = async () => {
+    progress.value = null;
+
+    const ws = controlWs('/magic/image/get', { type: type.value });
+
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            const prog = JSON.parse(data) as Progress;
+
+            if (prog?.current?.set != null) {
+                progress.value = prog;
+            }
+        };
+
+        ws.onerror = reject;
+        ws.onclose = () => { resolve(undefined); };
+    });
+};
+</script>
+
 <style lang="sass" scoped>
 .single-status
     display: inline-flex
@@ -56,75 +112,8 @@
 
     &.status-stopped
         background-color: yellow
+
+    &.status-exists
+        background-color: seagreen
+        color: white
 </style>
-
-<script lang="ts">
-import { defineComponent, ref, computed } from 'vue';
-
-import { useRouter, useRoute } from 'vue-router';
-
-import controlSetup from 'setup/control';
-
-interface Progress {
-    overall: { count: number, total: number };
-    current: { set: string, lang: string };
-    status: Record<string, string>;
-    failed: number;
-}
-
-export default defineComponent({
-    setup() {
-        const router = useRouter();
-        const route = useRoute();
-
-        const { controlWs } = controlSetup();
-
-        const progress = ref<Progress | null>(null);
-
-        const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
-
-        const typeOptions = types.map(t => ({
-            value: t, label: t,
-        }));
-
-        const type = computed({
-            get() { return route.query.type as string ?? 'large'; },
-            set(newValue: string) { void router.replace({ query: { type: newValue } }); },
-        });
-
-        const status = computed(() => progress.value?.status ?? {});
-
-        const statusKey = computed(() => Object.keys(status.value));
-
-        const getImage = async () => {
-            progress.value = null;
-
-            const ws = controlWs('/magic/image/get', { type: type.value });
-
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    const prog = JSON.parse(data) as Progress;
-
-                    if (prog?.current?.set != null) {
-                        progress.value = prog;
-                    }
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => { resolve(undefined); };
-            });
-        };
-
-        return {
-            type,
-            progress,
-            status,
-            statusKey,
-
-            typeOptions,
-
-            getImage,
-        };
-    },
-});
-</script>

@@ -1,5 +1,7 @@
 import { readFileSync } from 'fs';
 
+import { AxiosProxyConfig } from 'axios';
+
 const configPath = process.argv[2];
 
 export interface Database {
@@ -35,6 +37,8 @@ export interface Config {
     data: string;
     log: string;
     internalData?: string;
+
+    axiosProxy?: AxiosProxyConfig;
 
     mongodb: MongoDB;
 

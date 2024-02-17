@@ -5,7 +5,6 @@ import { EventEmitter } from 'events';
 
 import WebSocket from 'ws';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 abstract class Task<T> extends EventEmitter {
     status: 'error' | 'idle' | 'working';
 
