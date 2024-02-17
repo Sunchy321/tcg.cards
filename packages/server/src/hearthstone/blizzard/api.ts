@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import request from 'request-promise-native';
+import axios from 'axios';
 
 import { hearthstone } from '@/config';
 import { URL, URLSearchParams } from 'url';
@@ -17,7 +17,7 @@ async function blzAuth(): Promise<string> {
     const auth = `Basic ${Buffer.from(`${clientID}:${clientSecret}`).toString('base64')}`;
 
     const data: IBlizzardToken = JSON.parse(
-        await request.post('https://www.battlenet.com.cn/oauth/token', {
+        await axios.post('https://www.battlenet.com.cn/oauth/token', {
             headers: {
                 'content-type':  'application/x-www-form-urlencoded',
                 'Authorization': auth,
@@ -39,7 +39,7 @@ export default async function blzApi<T>(path: string, params?: Record<string, an
         url.search = new URLSearchParams(params).toString();
     }
 
-    const data = JSON.parse(await request.get(url.toString(), { headers: { Authorization: auth } }));
+    const { data } = await axios.get<T>(url.toString(), { headers: { Authorization: auth } });
 
     return data;
 }

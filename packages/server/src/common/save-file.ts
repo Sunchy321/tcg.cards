@@ -1,8 +1,7 @@
 import {
     createWriteStream, existsSync, mkdirSync, statSync, unlinkSync,
 } from 'fs';
-import request from 'request';
-import progress, { Progress, RequestProgress } from 'request-progress';
+import axios, { AxiosProgressEvent } from 'axios';
 
 import Task from './task';
 
@@ -10,11 +9,11 @@ interface ISaveFileOption {
     override?: boolean;
 }
 
-export default class FileSaver extends Task<Progress> {
+export default class FileSaver extends Task<AxiosProgressEvent> {
     url: string;
     path: string;
     override: boolean;
-    request?: RequestProgress;
+    controller: AbortController;
 
     constructor(url: string, path: string, option: ISaveFileOption = {}) {
         super();
@@ -23,6 +22,7 @@ export default class FileSaver extends Task<Progress> {
         this.path = path;
 
         this.override = option.override ?? false;
+        this.controller = new AbortController();
     }
 
     async startImpl(): Promise<string | void> {
@@ -40,25 +40,24 @@ export default class FileSaver extends Task<Progress> {
             return 'file_exists';
         }
 
-        this.request = progress(request(this.url));
+        const stream = createWriteStream(this.path);
 
-        return new Promise((resolve, reject) => {
-            this.request!
-                .on('response', res => {
-                    if (res.statusCode !== 200) {
-                        this.request?.abort();
-                        resolve('network_error');
-                    }
-                })
-                .on('progress', p => this.emit('progress', p))
-                .on('error', reject)
-                .on('end', resolve)
-                .pipe(createWriteStream(this.path));
-        });
+        return axios.get(this.url, {
+            responseType:       'stream',
+            signal:             this.controller.signal,
+            onDownloadProgress: (progressEvent) => {
+                this.emit('progress', progressEvent);
+            },
+        }).then(async res => new Promise((resolve, reject) => {
+            res.data.pipe(stream);
+
+            stream.on('finish', resolve);
+            stream.on('error', reject);
+        }));
     }
 
     stopImpl(): void {
-        this.request?.abort();
+        this.controller.abort();
 
         if (existsSync(this.path)) {
             unlinkSync(this.path);

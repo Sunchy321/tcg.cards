@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
 import cheerio from 'cheerio';
-import request from 'request-promise-native';
+import axios from 'axios';
 
 import Task from '@/common/task';
 
@@ -66,7 +66,7 @@ type ParsedGatherer = {
 };
 
 async function parseGathererDetail(mids: number[]): Promise<ParsedGatherer> {
-    const html = await request(`https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${mids[0]}&printed=true`);
+    const { data:html } = await axios.get(`https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${mids[0]}&printed=true`);
     const $ = cheerio.load(html);
 
     if ($('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_ctl01_nameRow').length === 0) {
@@ -172,7 +172,7 @@ async function parseVersionDetail($: cheerio.Root) {
 }
 
 async function parseVersion(mid: number) {
-    const html = await request(`https://gatherer.wizards.com/Pages/Card/Languages.aspx?multiverseid=${mid}`);
+    const { data:html } = await axios.get(`https://gatherer.wizards.com/Pages/Card/Languages.aspx?multiverseid=${mid}`);
     const $ = cheerio.load(html);
 
     const versions = await parseVersionDetail($);
@@ -181,7 +181,7 @@ async function parseVersion(mid: number) {
         const links = $('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_languageList_pagingControls > a').get().slice(1, -1);
 
         for (const a of links) {
-            const aHtml = await request(`https://gatherer.wizards.com${$(a).attr('href')!}`);
+            const { data: aHtml } = await axios.get(`https://gatherer.wizards.com${$(a).attr('href')!}`);
             const a$ = cheerio.load(aHtml);
 
             versions.push(...await parseVersionDetail(a$));

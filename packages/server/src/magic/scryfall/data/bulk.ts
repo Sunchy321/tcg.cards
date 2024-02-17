@@ -1,4 +1,4 @@
-import request from 'request-promise-native';
+import axios from 'axios';
 
 import FileSaver from '@/common/save-file';
 import { existsSync, readdirSync } from 'fs';
@@ -25,7 +25,7 @@ export default class BulkGetter extends Task<Status> {
 
     async startImpl(): Promise<void> {
         {
-            const info: IBulkData = JSON.parse(await request('https://api.scryfall.com/bulk-data/all-cards'));
+            const { data: info } = await axios.get<IBulkData>('https://api.scryfall.com/bulk-data/all-cards');
             const uri = info.download_uri;
             const filename = last(uri.split('/'));
 
@@ -50,7 +50,7 @@ export default class BulkGetter extends Task<Status> {
         }
 
         {
-            const info: IBulkData = JSON.parse(await request('https://api.scryfall.com/bulk-data/rulings'));
+            const { data:info } = await axios.get<IBulkData>('https://api.scryfall.com/bulk-data/rulings');
             const uri = info.download_uri;
             const filename = last(uri.split('/'));
 

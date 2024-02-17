@@ -1,19 +1,19 @@
-import request from 'request-promise-native';
+import axios from 'axios';
 
 import { List } from '@interface/magic/scryfall/basic';
 
 export async function* listOf<T>(url: string): AsyncGenerator<T[]> {
-    let data: List<T>;
+    let listData: List<T>;
 
     do {
-        data = JSON.parse(await request(url));
+        ({ data: listData } = await axios.get<List<T>>(url));
 
-        yield data.data;
+        yield listData.data;
 
-        if (data.has_more && data.next_page != null) {
-            url = data.next_page;
+        if (listData.has_more && listData.next_page != null) {
+            url = listData.next_page;
         }
-    } while (data.has_more);
+    } while (listData.has_more);
 }
 
 export async function* dataOf<T>(url: string): AsyncGenerator<T> {
