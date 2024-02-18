@@ -175,6 +175,24 @@ router.post('/update', async ctx => {
     ctx.status = 200;
 });
 
+router.get('/get-unified', async ctx => {
+    const { id, lang } = mapValues(ctx.query, toSingle);
+
+    if (id == null || lang == null) {
+        ctx.status = 400;
+        return;
+    }
+
+    const card = await Card.findOne({ cardId: id, lang });
+
+    if (card == null) {
+        ctx.status = 404;
+        return;
+    }
+
+    ctx.body = card.parts.map(p => p.unified);
+});
+
 interface INeedEditResult {
     _id: { id: string, lang: string, part: number };
 }
