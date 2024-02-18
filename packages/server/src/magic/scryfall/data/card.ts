@@ -886,7 +886,7 @@ export default class CardLoader extends Task<Status> {
                     continue;
                 }
 
-                if (card.set === 'plist' || card.set === 'pagl') {
+                if (card.set === 'plst' || card.set === 'pagl') {
                     card.localTags.push('dev:printed');
                     continue;
                 }
