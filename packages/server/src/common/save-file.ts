@@ -1,7 +1,7 @@
 import {
     createWriteStream, existsSync, mkdirSync, statSync, unlinkSync,
 } from 'fs';
-import axios, { AxiosProgressEvent } from 'axios';
+import axios, { AxiosRequestConfig, AxiosProgressEvent } from 'axios';
 
 import axiosRetry from 'axios-retry';
 
@@ -11,6 +11,7 @@ import { config } from '@/config';
 
 interface ISaveFileOption {
     override?: boolean;
+    axiosOption?: Partial<AxiosRequestConfig<any>>;
 }
 
 axiosRetry(axios, {
@@ -24,6 +25,8 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
     override: boolean;
     controller: AbortController;
 
+    axiosOption: Partial<AxiosRequestConfig<any>>;
+
     constructor(url: string, path: string, option: ISaveFileOption = {}) {
         super();
 
@@ -32,6 +35,8 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
 
         this.override = option.override ?? false;
         this.controller = new AbortController();
+
+        this.axiosOption = option.axiosOption ?? { };
     }
 
     async startImpl(): Promise<string | void> {
@@ -53,12 +58,10 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
 
         return axios.get(this.url, {
             responseType:       'stream',
-            timeout:            5000,
             signal:             this.controller.signal,
             proxy:              config.axiosProxy,
-            onDownloadProgress: (progressEvent) => {
-                this.emit('progress', progressEvent);
-            },
+            onDownloadProgress: (progressEvent) => this.emit('progress', progressEvent),
+            ...this.axiosOption,
         }).then(async res => new Promise((resolve, reject) => {
             res.data.pipe(stream);
 

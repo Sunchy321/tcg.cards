@@ -210,7 +210,11 @@ export class ImageGetter extends Task<IImageStatus> {
             this.todoTasks.splice(randomIndex, 1);
 
             if (task != null) {
-                const savers = new FileSaver(task.uri, task.path);
+                const savers = new FileSaver(task.uri, task.path, {
+                    axiosOption: {
+                        timeout: 5000,
+                    },
+                });
 
                 savers.on('end', () => {
                     delete this.taskMap[task.name];
