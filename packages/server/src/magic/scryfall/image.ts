@@ -1,6 +1,6 @@
 import Task from '@/common/task';
 
-import Card from '../db/card';
+import Card from '../db/card-temp';
 import Set from '../db/set';
 
 import FileSaver from '@/common/save-file';

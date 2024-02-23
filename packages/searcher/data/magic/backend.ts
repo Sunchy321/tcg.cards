@@ -5,7 +5,7 @@ import { PostAction } from '../../src/model/type';
 import { SearchOption } from '../../src/search';
 import { QueryError } from '../../src/command/error';
 
-import { Card as ICard } from '@interface/magic/card';
+import { Card as ICard } from '@interface/magic/card-temp';
 
 import * as builtin from '../../src/command/builtin/backend';
 import * as magic from './command/backend';

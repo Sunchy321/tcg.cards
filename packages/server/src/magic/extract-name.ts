@@ -1,4 +1,4 @@
-import Card from '@/magic/db/card';
+import Card from '@/magic/db/card-temp';
 
 import { isEqual } from 'lodash';
 import internalData from '@/internal-data';

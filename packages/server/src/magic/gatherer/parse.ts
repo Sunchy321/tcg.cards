@@ -4,7 +4,7 @@ import axios from 'axios';
 
 import Task from '@/common/task';
 
-import Card from '@/magic/db/card';
+import Card from '@/magic/db/card-temp';
 
 import FileSaver from '@/common/save-file';
 

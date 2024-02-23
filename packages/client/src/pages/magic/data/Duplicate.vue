@@ -14,10 +14,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-
-</style>
-
 <script lang="ts">
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import {
@@ -26,7 +22,7 @@ import {
 
 import controlSetup from 'setup/control';
 
-import { Card } from 'interface/magic/card';
+import { Card } from 'interface/magic/card-temp';
 
 import JsonComparator from 'components/JSONComparator.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';

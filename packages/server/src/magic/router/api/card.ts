@@ -2,9 +2,9 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card from '@/magic/db/card';
+import Card from '@/magic/db/card-temp';
 
-import { Card as ICard } from '@interface/magic/card';
+import { Card as ICard } from '@interface/magic/card-temp';
 
 import {
     mapValues, omitBy, random,
@@ -105,7 +105,7 @@ router.get('/', async ctx => {
     if (cards.length !== 0) {
         ctx.body = JSON.stringify(
             // sortKey<ICard & { versions: Version[] }>({ ...cards[0], versions }),
-            {...cards[0],versions},
+            { ...cards[0], versions },
             null,
             2,
         );

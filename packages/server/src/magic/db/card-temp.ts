@@ -1,0 +1,172 @@
+import { Schema } from 'mongoose';
+
+import conn from './db';
+
+import { Card as ICardBase } from '@interface/magic/card-temp';
+
+export type ICard = Omit<ICardBase, 'parts'> & {
+    parts: (ICardBase['parts'][0] & {
+        __costMap?: Record<string, number>;
+    })[];
+
+    __oracle?: {
+        name?: string;
+        typeline?: string;
+        text?: string;
+    };
+};
+
+const CardSchema = new Schema<ICard>({
+    cardId: String,
+
+    lang:   String,
+    set:    String,
+    number: String,
+
+    manaValue:     Number,
+    colorIdentity: String,
+
+    parts: [{
+        _id: false,
+
+        cost:           { type: [String], default: undefined },
+        __costMap:      Object,
+        color:          String,
+        colorIndicator: String,
+
+        typeSuper: { type: [String], default: undefined },
+        typeMain:  [String],
+        typeSub:   { type: [String], default: undefined },
+
+        power:            String,
+        toughness:        String,
+        loyalty:          String,
+        defense:          String,
+        handModifier:     String,
+        lifeModifier:     String,
+        attractionLights: { type: [Number], default: undefined },
+
+        oracle: {
+            name:     String,
+            text:     String,
+            typeline: String,
+        },
+
+        unified: {
+            name:     String,
+            text:     String,
+            typeline: String,
+        },
+
+        printed: {
+            name:     String,
+            text:     String,
+            typeline: String,
+        },
+
+        scryfallIllusId: { type: [String], default: undefined },
+        flavorName:      String,
+        flavorText:      String,
+        artist:          String,
+        watermark:       String,
+    }],
+
+    relatedCards: [{
+        _id:      false,
+        relation: String,
+        cardId:   String,
+        version:  {
+            type: {
+                lang:   String,
+                set:    String,
+                number: String,
+            },
+            default: undefined,
+        },
+    }],
+
+    rulings: [{
+        _id:    false,
+        source: String,
+        date:   String,
+        text:   String,
+        cards:  {
+            type: [{
+                _id: false, id: String, text: String, part: Number,
+            }],
+            default: undefined,
+        },
+    }],
+
+    keywords:       [String],
+    counters:       { type: [String], default: undefined },
+    producibleMana: String,
+    tags:           [String],
+    localTags:      [String],
+
+    category:      String,
+    layout:        String,
+    frame:         String,
+    frameEffects:  [String],
+    borderColor:   String,
+    cardBack:      String,
+    securityStamp: String,
+    promoTypes:    { type: [String], default: undefined },
+    rarity:        String,
+    releaseDate:   String,
+
+    isDigital:       Boolean,
+    isPromo:         Boolean,
+    isReprint:       Boolean,
+    finishes:        [String],
+    hasHighResImage: Boolean,
+    imageStatus:     String,
+
+    legalities:     Object,
+    inBooster:      Boolean,
+    contentWarning: { type: Boolean, default: undefined },
+    games:          [String],
+
+    preview: {
+        type: {
+            _id:    false,
+            date:   String,
+            source: String,
+            uri:    String,
+        },
+        default: undefined,
+    },
+
+    scryfall: {
+        cardId:    String,
+        oracleId:  String,
+        face:      String,
+        imageUris: Array,
+    },
+
+    arenaId:      Number,
+    mtgoId:       Number,
+    mtgoFoilId:   Number,
+    multiverseId: { type: [Number], default: undefined },
+    tcgPlayerId:  Number,
+    cardMarketId: Number,
+
+    __oracle: {
+        name:     String,
+        typeline: String,
+        text:     String,
+    },
+}, {
+    toJSON: {
+        transform(doc, ret) {
+            delete ret._id;
+            delete ret.__v;
+
+            return ret;
+        },
+    },
+});
+
+const Card = conn.model<ICard>('card_old', CardSchema);
+
+export default Card;

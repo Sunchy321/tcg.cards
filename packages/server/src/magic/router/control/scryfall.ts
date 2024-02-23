@@ -3,7 +3,7 @@ import { DefaultState, Context } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import Card from '@/magic/db/card';
+import Card from '@/magic/db/card-temp';
 import Set from '@/magic/db/set';
 
 import BulkGetter from '@/magic/scryfall/data/bulk';

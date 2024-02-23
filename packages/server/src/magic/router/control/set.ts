@@ -2,7 +2,7 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import Set from '@/magic/db/set';
-import Card from '@/magic/db/card';
+import Card from '@/magic/db/card-temp';
 
 import { Set as ISet } from '@interface/magic/set';
 

@@ -1,12 +1,12 @@
 /* eslint-disable camelcase */
 import Task from '@/common/task';
 
-import Card, { ICard } from '@/magic/db/card';
+import Card, { ICard } from '@/magic/db/card-temp';
 import SCard from '@/magic/db/scryfall-card';
 import Set from '@/magic/db/set';
 import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
 
-import { Category } from '@interface/magic/card';
+import { Category } from '@interface/magic/card-temp';
 import { Colors } from '@interface/magic/scryfall/basic';
 import { CardFace, RawCard } from '@interface/magic/scryfall/card';
 

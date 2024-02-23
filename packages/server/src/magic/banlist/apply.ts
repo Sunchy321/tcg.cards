@@ -2,7 +2,7 @@ import Format from '../db/format';
 import FormatAnnouncement from '../db/format-announcement';
 import FormatChange from '@/magic/db/format-change';
 import Set from '@/magic/db/set';
-import Card from '@/magic/db/card';
+import Card from '@/magic/db/card-temp';
 
 import { Document } from 'mongoose';
 

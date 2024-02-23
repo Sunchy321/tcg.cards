@@ -208,7 +208,6 @@ export default async function renderMinion(
     }
 
     // elite
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (data.elite) {
         components.push({
             type:  'image',

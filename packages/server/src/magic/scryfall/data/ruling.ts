@@ -1,8 +1,8 @@
 import Task from '@/common/task';
 
-import { Card as ICard } from '@interface/magic/card';
+import { Card as ICard } from '@interface/magic/card-temp';
 import { RawRuling } from '@interface/magic/scryfall/card';
-import Card from '@/magic/db/card';
+import Card from '@/magic/db/card-temp';
 
 import LineReader from '@/common/line-reader';
 import CardNameExtractor from '@/magic/extract-name';
