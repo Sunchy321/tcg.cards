@@ -11,5 +11,5 @@
         "lib": ["ES2019"],
         "baseUrl": "./src",
     },
-    "include": ["src/*", "test"]
+    "include": ["src/**/*", "test"]
 }

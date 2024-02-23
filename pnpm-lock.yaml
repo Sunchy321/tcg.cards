@@ -161,6 +161,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^5.39.0
         version: 5.39.0(eslint@8.56.0)(typescript@5.3.3)
+      card-interface:
+        specifier: workspace:^
+        version: link:../interface
       eslint:
         specifier: ^8.56.0
         version: 8.56.0
@@ -3879,7 +3882,7 @@ packages:
     dependencies:
       confusing-browser-globals: 1.0.11
       eslint: 8.56.0
-      eslint-plugin-import: 2.26.0(@typescript-eslint/parser@7.0.1)(eslint@8.56.0)
+      eslint-plugin-import: 2.26.0(@typescript-eslint/parser@5.39.0)(eslint@8.56.0)
       object.assign: 4.1.4
       object.entries: 1.1.5
       semver: 6.3.0

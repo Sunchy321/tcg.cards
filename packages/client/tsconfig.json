@@ -16,6 +16,7 @@
             "setup/*": ["src/setup/*"],
             "store/*": ["src/stores/*"],
             "interface/*": ["node_modules/card-interface/src/*"],
+            "@interface/*": ["node_modules/card-interface/src/*"],
             "static/*": ["node_modules/card-common/static/*"],
             "data/*": ["node_modules/card-common/data/*"],
             "common/*": ["node_modules/card-common/src/*"],

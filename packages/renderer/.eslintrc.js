@@ -17,9 +17,5 @@ module.exports = {
         '@typescript-eslint/promise-function-async':         'warn',
         '@typescript-eslint/restrict-plus-operands':         'error',
         '@typescript-eslint/switch-exhaustiveness-check':    'error',
-
-        '@typescript-eslint/strict-boolean-expressions': ['error', {
-            allowNullableBoolean: true,
-        }],
     },
 };

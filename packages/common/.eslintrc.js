@@ -29,9 +29,5 @@ module.exports = {
         '@typescript-eslint/restrict-plus-operands':         'error',
         '@typescript-eslint/switch-exhaustiveness-check':    'error',
         '@typescript-eslint/no-confusing-void-expression':   'off',
-
-        '@typescript-eslint/strict-boolean-expressions': ['error', {
-            allowNullableBoolean: true,
-        }],
     },
 };

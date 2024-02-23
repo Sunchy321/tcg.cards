@@ -35,6 +35,6 @@
         "node_modules/card-searcher/src/**/*",
         "node_modules/card-searcher/data/**/*",
         "node_modules/card-renderer/src/**/*",
-        "src/*"
+        "src/**/*"
     ]
 }
