@@ -2,26 +2,11 @@ import { Schema } from 'mongoose';
 
 import conn from './db';
 
-import { Card as ICardBase } from '@interface/magic/card';
+import { ICardDatabase } from '@common/model/magic/card';
+import { WithHistory, historyPlugin } from '@/database/history';
 
-export type ICard = Omit<ICardBase, 'parts'> & {
-    parts: (ICardBase['parts'][0] & {
-        __costMap?: Record<string, number>;
-    })[];
-
-    __oracle?: {
-        name?: string;
-        typeline?: string;
-        text?: string;
-    };
-};
-
-const CardSchema = new Schema<ICard>({
+const CardSchema = new Schema<WithHistory<ICardDatabase>>({
     cardId: String,
-
-    lang:   String,
-    set:    String,
-    number: String,
 
     manaValue:     Number,
     colorIdentity: String,
@@ -29,144 +14,97 @@ const CardSchema = new Schema<ICard>({
     parts: [{
         _id: false,
 
-        cost:           { type: [String], default: undefined },
+        name:     String,
+        typeline: String,
+        text:     String,
+
+        localization: [{
+            _id:      false,
+            lang:     String,
+            name:     String,
+            typeline: String,
+            text:     String,
+        }],
+
+        cost: {
+            type:    [String],
+            default: undefined,
+            set(newValue: string[]) {
+                // eslint-disable-next-line no-debugger
+                debugger;
+
+                const costMap: Record<string, number> = { };
+
+                for (const c of newValue) {
+                    if (/^\d+$/.test(c)) {
+                        costMap[''] = Number.parseInt(c, 10);
+                    } else {
+                        costMap[c] = (costMap[c] ?? 0) + 1;
+                    }
+                }
+
+                this.__costMap = costMap;
+
+                return newValue;
+            },
+        },
+
         __costMap:      Object,
+        manaValue:      Number,
         color:          String,
         colorIndicator: String,
 
-        typeSuper: { type: [String], default: undefined },
-        typeMain:  [String],
-        typeSub:   { type: [String], default: undefined },
-
-        power:            String,
-        toughness:        String,
-        loyalty:          String,
-        defense:          String,
-        handModifier:     String,
-        lifeModifier:     String,
-        attractionLights: { type: [Number], default: undefined },
-
-        oracle: {
-            name:     String,
-            text:     String,
-            typeline: String,
+        type: {
+            super: { type: [String], default: undefined },
+            main:  [String],
+            sub:   { type: [String], default: undefined },
         },
 
-        unified: {
-            name:     String,
-            text:     String,
-            typeline: String,
-        },
-
-        printed: {
-            name:     String,
-            text:     String,
-            typeline: String,
-        },
-
-        scryfallIllusId: { type: [String], default: undefined },
-        flavorName:      String,
-        flavorText:      String,
-        artist:          String,
-        watermark:       String,
-    }],
-
-    relatedCards: [{
-        _id:      false,
-        relation: String,
-        cardId:   String,
-        version:  {
-            type: {
-                lang:   String,
-                set:    String,
-                number: String,
-            },
-            default: undefined,
-        },
-    }],
-
-    rulings: [{
-        _id:    false,
-        source: String,
-        date:   String,
-        text:   String,
-        cards:  {
-            type: [{
-                _id: false, id: String, text: String, part: Number,
-            }],
-            default: undefined,
-        },
+        power:        String,
+        toughness:    String,
+        loyalty:      String,
+        defense:      String,
+        handModifier: String,
+        lifeModifier: String,
     }],
 
     keywords:       [String],
     counters:       { type: [String], default: undefined },
     producibleMana: String,
     tags:           [String],
-    localTags:      [String],
 
-    category:      String,
-    layout:        String,
-    frame:         String,
-    frameEffects:  [String],
-    borderColor:   String,
-    cardBack:      String,
-    securityStamp: String,
-    promoTypes:    { type: [String], default: undefined },
-    rarity:        String,
-    releaseDate:   String,
-
-    isDigital:       Boolean,
-    isPromo:         Boolean,
-    isReprint:       Boolean,
-    finishes:        [String],
-    hasHighResImage: Boolean,
-    imageStatus:     String,
-
+    category:       String,
     legalities:     Object,
-    inBooster:      Boolean,
     contentWarning: { type: Boolean, default: undefined },
-    games:          [String],
-
-    preview: {
-        type: {
-            _id:    false,
-            date:   String,
-            source: String,
-            uri:    String,
-        },
-        default: undefined,
-    },
 
     scryfall: {
-        cardId:    String,
-        oracleId:  String,
-        face:      String,
-        imageUris: Array,
+        oracleId: String,
+        face:     String,
     },
 
-    arenaId:      Number,
-    mtgoId:       Number,
-    mtgoFoilId:   Number,
-    multiverseId: { type: [Number], default: undefined },
-    tcgPlayerId:  Number,
-    cardMarketId: Number,
+    __updations: [{
+        _id:    false,
+        source: String,
+        date:   Date,
+        data:   Object,
+    }],
 
-    __oracle: {
-        name:     String,
-        typeline: String,
-        text:     String,
-    },
+    __lockedPaths: [String],
 }, {
     toJSON: {
         transform(doc, ret) {
             delete ret._id;
             delete ret.__v;
+            delete ret.__updations;
+            delete ret.__lockedPaths;
 
             return ret;
         },
     },
 });
 
-const Card = conn.model<ICard>('card', CardSchema);
+CardSchema.plugin(historyPlugin);
+
+const Card = conn.model('card', CardSchema);
 
 export default Card;
