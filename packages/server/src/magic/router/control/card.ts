@@ -2,7 +2,7 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card, { ICard } from '@/magic/db/card';
+import Card, { ICard } from '@/magic/db/card-temp';
 import Format from '@/magic/db/format';
 import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
 
@@ -20,7 +20,7 @@ import internalData from '@/internal-data';
 
 import { SpellingMistakes } from '@/magic/scryfall/data/ruling';
 import {
-    CardData, LegalityRecorder, getLegality, getLegalityRules,
+    CardLegalityView, LegalityRecorder, getLegality, getLegalityRules, lookupPrintsForLegality,
 } from '@/magic/banlist/legality';
 import parseGatherer, { GathererGetter, saveGathererImage } from '@/magic/gatherer/parse';
 import { toBucket, toGenerator } from '@/common/to-bucket';
@@ -459,44 +459,12 @@ router.get('/get-legality', async ctx => {
 
     const rules = getLegalityRules();
 
-    const cardData = await Card.aggregate<CardData>([
-        { $match: { cardId: id } },
-        {
-            $group: {
-                _id: '$cardId',
+    const agg = Card.aggregate<CardLegalityView>()
+        .match({ cardId: id });
 
-                category:   { $first: '$category' },
-                legalities: { $addToSet: '$legalities' },
+    lookupPrintsForLegality(agg);
 
-                parts: {
-                    $first: {
-                        $map: {
-                            input: '$parts',
-                            as:    'parts',
-                            in:    {
-                                typeMain: '$$parts.typeMain',
-                                typeSub:  '$$parts.typeSub',
-                            },
-                        },
-                    },
-                },
-
-                versions: {
-                    $addToSet: {
-                        set:           '$set',
-                        number:        '$number',
-                        rarity:        '$rarity',
-                        securityStamp: '$securityStamp',
-                        releaseDate:   '$releaseDate',
-                    },
-                },
-
-                scryfall: {
-                    $first: '$scryfall.oracleId',
-                },
-            },
-        },
-    ]);
+    const cardData = await agg;
 
     const recorder: LegalityRecorder = { };
 

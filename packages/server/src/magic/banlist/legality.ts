@@ -3,7 +3,7 @@ import SCard, { ISCard } from '@/magic/db/scryfall-card';
 import Format from '@/magic/db/format';
 
 import Task from '@/common/task';
-import { Card as ICard, Category, Legalities } from '@interface/magic/card';
+import { Card as ICard, Legalities } from '@interface/magic/card';
 import { Format as IFormat } from '@interface/magic/format';
 import { Legality } from '@interface/magic/format-change';
 
@@ -16,27 +16,16 @@ import { convertLegality, toIdentifier } from '../util';
 
 import { dataPath } from '@/config';
 import { formats as formatList } from '@static/magic/basic';
+import { Aggregate } from 'mongoose';
 
-export type CardData = {
-    _id: string;
-
-    category: Category;
-    legalities: ICard['legalities'][];
-
-    parts: {
-        typeMain: string[];
-        typeSub?: string[];
-    }[];
-
-    versions: {
+export type CardLegalityView = ICard & {
+    prints: {
         set: string;
         number: string;
         rarity: string;
         securityStamp?: string;
         releaseDate: string;
     }[];
-
-    scryfall: ICard['scryfall']['oracleId'];
 };
 
 type ValueOrArray<T> = T | T[];
@@ -71,10 +60,6 @@ type ScryfallMismatch = {
     }[];
 };
 
-// const rulePath = join(legalityPath, 'rules');
-// const scryfallPath = join(legalityPath, 'scryfall-mismatch');
-// const setPath = join(legalityPath, 'sets');
-// const alchemyCardPath = join(legalityPath, 'alchemy');
 const pennyCardPath = join(dataPath, 'magic', 'penny');
 
 export function getLegalitySets(type: string): string[] {
@@ -214,16 +199,16 @@ function getScryfallMismatches(): ScryfallMismatch[] {
     return result;
 }
 
-function testFilter(data: CardData, filter: LegalityRule['patterns'][0]): boolean {
+function testFilter(data: CardLegalityView, filter: LegalityRule['patterns'][0]): boolean {
     if (filter.type === 'id') {
-        return data._id === filter.value;
+        return data.cardId === filter.value;
     } else {
-        return data.versions.some(v => v.set === filter.value)
-            && !['plains', 'island', 'swamp', 'mountain', 'forest'].includes(data._id);
+        return data.prints.some(v => v.set === filter.value)
+            && !['plains', 'island', 'swamp', 'mountain', 'forest'].includes(data.cardId);
     }
 }
 
-function testRule(data: CardData, format: string, rule: LegalityRule): Legality | null {
+function testRule(data: CardLegalityView, format: string, rule: LegalityRule): Legality | null {
     if (!rule.patterns.some(f => testFilter(data, f))) {
         return null;
     }
@@ -237,7 +222,7 @@ function testRule(data: CardData, format: string, rule: LegalityRule): Legality 
 
 type TestResult = { status: Legality, rule: LegalityRule };
 
-function testRules(data: CardData, format: string, rules: LegalityRule[]): TestResult | null {
+function testRules(data: CardLegalityView, format: string, rules: LegalityRule[]): TestResult | null {
     for (const r of rules) {
         const status = testRule(data, format, r);
 
@@ -262,7 +247,7 @@ export type LegalityRecorder = Record<string, {
 }>;
 
 export function getLegality(
-    data: CardData,
+    data: CardLegalityView,
     formats: IFormat[],
     rules: LegalityRule[],
     recorder: LegalityRecorder | undefined = undefined,
@@ -273,8 +258,8 @@ export function getLegality(
     const setsPauperExclusive = [...setsOnlyOnMTGA, ...getLegalitySets('pauper-exclusive')];
     const setsPauperCommanderExclusive = getLegalitySets('pauper-commander-exclusive');
 
-    const cardId = data._id;
-    const versions = data.versions.filter(v => v.releaseDate <= new Date().toISOString().split('T')[0]);
+    const { cardId } = data;
+    const prints = data.prints.filter(p => p.releaseDate <= new Date().toISOString().split('T')[0]);
 
     const result: ICard['legalities'] = {};
 
@@ -290,7 +275,7 @@ export function getLegality(
         };
 
         // This card is not released now
-        if (versions.length === 0) {
+        if (prints.length === 0) {
             assign('unavailable', 'not-released');
             continue;
         }
@@ -310,7 +295,7 @@ export function getLegality(
 
         if (
             !['alchemy', 'historic', 'historic_brawl', 'timeless'].includes(formatId)
-            && versions.every(v => setsOnlyOnMTGA.includes(v.set))
+            && prints.every(v => setsOnlyOnMTGA.includes(v.set))
         ) {
             assign('unavailable', 'not-on-mtga');
             continue;
@@ -325,22 +310,22 @@ export function getLegality(
 
         // Un-cards, gift cards, etc
         if (
-            versions.every(v => [...setsInformal, ...setsSpecial].includes(v.set)
+            prints.every(v => [...setsInformal, ...setsSpecial].includes(v.set)
                 || v.securityStamp === 'acorn')
-            && versions.some(v => setsInformal.includes(v.set) || v.securityStamp === 'acorn')
+            && prints.some(v => setsInformal.includes(v.set) || v.securityStamp === 'acorn')
         ) {
             assign('unavailable', 'un-card');
             continue;
         }
 
         // Casual card type
-        if (data.parts.some(p => p.typeMain.some(t => casualCardTypes.includes(t)))) {
+        if (data.parts.some(p => p.type.main.some(t => casualCardTypes.includes(t)))) {
             assign('unavailable', 'casual-type');
             continue;
         }
 
         if (f.sets != null) {
-            const sets = versions.map(v => v.set);
+            const sets = prints.map(v => v.set);
 
             if (formatId === 'explorer') {
                 const historic = formats.find(f => f.formatId === 'historic')!;
@@ -363,7 +348,7 @@ export function getLegality(
 
         if (formatId === 'pauper') {
             // Some set are not checked
-            const pauperVersions = versions.filter(v => !setsPauperExclusive.includes(v.set));
+            const pauperVersions = prints.filter(v => !setsPauperExclusive.includes(v.set));
 
             const hasCommon = (() => {
                 // I don't know why
@@ -385,7 +370,7 @@ export function getLegality(
             }
         } else if (formatId === 'pauper_commander') {
             // Some set are not checked
-            const pauperVersions = versions.filter(
+            const pauperVersions = prints.filter(
                 v => !setsPauperCommanderExclusive.includes(v.set),
             );
 
@@ -407,10 +392,10 @@ export function getLegality(
 
             const hasUncommon = (() => pauperVersions.some(v => v.rarity === 'uncommon'))();
 
-            const frontType = data.parts[0].typeMain;
+            const frontType = data.parts[0].type.main;
 
             const canBeCommander = (frontType.includes('creature') && !frontType.includes('land'))
-                || (data.parts[0].typeSub?.includes('background'));
+                || (data.parts[0].type.sub?.includes('background'));
 
             if (frontType.includes('conspiracy')) {
                 assign('unavailable', 'casual-type');
@@ -430,7 +415,7 @@ export function getLegality(
 }
 
 function legalityMatch(
-    data: CardData,
+    data: CardLegalityView,
     format: string,
     legality: [Legality, Legality],
     mismatches: ScryfallMismatch[],
@@ -447,11 +432,11 @@ function legalityMatch(
         }
 
         if (status[0] === legality[0] && status[1] === legality[1]) {
-            for (const p of m.patterns) {
-                if (p.type === 'id') {
-                    if (p.value === data._id) return true;
+            for (const pt of m.patterns) {
+                if (pt.type === 'id') {
+                    if (pt.value === data.cardId) return true;
                 } else {
-                    if (data.versions.some(v => v.set === p.value)) return true;
+                    if (data.prints.some(p => p.set === pt.value)) return true;
                 }
             }
         }
@@ -478,6 +463,26 @@ interface Status {
     }[];
 }
 
+export function lookupPrintsForLegality<T>(aggregate: Aggregate<T>): void {
+    aggregate.lookup({
+        from:     'prints',
+        let:      { cardId: '$cardId' },
+        pipeline: [
+            { $match: { $expr: { $eq: ['$cardId', '$$cardId'] } } },
+            {
+                $project: {
+                    set:           '$set',
+                    number:        '$number',
+                    rarity:        '$rarity',
+                    securityStamp: '$securityStamp',
+                    releaseDate:   '$releaseDate',
+                },
+            },
+        ],
+        as: 'prints',
+    });
+}
+
 export class LegalityAssigner extends Task<Status> {
     test = false;
 
@@ -491,41 +496,9 @@ export class LegalityAssigner extends Task<Status> {
 
         const wrongs: Status['wrongs'] = [];
 
-        const allCards = Card.aggregate<CardData>()
-            .addFields({ legalities: { $ifNull: ['$legalities', {}] } })
-            .group({
-                _id: '$cardId',
+        const allCards = Card.aggregate<CardLegalityView>();
 
-                category:   { $first: '$category' },
-                legalities: { $addToSet: '$legalities' },
-
-                parts: {
-                    $first: {
-                        $map: {
-                            input: '$parts',
-                            as:    'parts',
-                            in:    {
-                                typeMain: '$$parts.typeMain',
-                                typeSub:  '$$parts.typeSub',
-                            },
-                        },
-                    },
-                },
-
-                versions: {
-                    $addToSet: {
-                        set:           '$set',
-                        number:        '$number',
-                        rarity:        '$rarity',
-                        securityStamp: '$securityStamp',
-                        releaseDate:   '$releaseDate',
-                    },
-                },
-
-                scryfall: {
-                    $first: '$scryfall.oracleId',
-                },
-            });
+        lookupPrintsForLegality(allCards);
 
         let count = 0;
         const total = (await Card.aggregate().group({ _id: '$cardId' })).length;
@@ -561,7 +534,7 @@ export class LegalityAssigner extends Task<Status> {
         for await (const c of allCards) {
             const result = getLegality(c, formats, rules);
 
-            const scryfall = scryfalls.find(s => s.oracle_id === c.scryfall);
+            const scryfall = scryfalls.find(s => c.scryfall.oracleId.includes(s.oracle_id));
 
             if (scryfall != null) {
                 const sLegalities = convertLegality(scryfall.legalities);
@@ -577,20 +550,20 @@ export class LegalityAssigner extends Task<Status> {
                         );
 
                         if (wrong != null) {
-                            wrong.cards.push(c._id);
+                            wrong.cards.push(c.cardId);
                         } else {
                             wrongs.push({
                                 format:   f,
                                 legality: [result[f], sLegalities[f]],
-                                cards:    [c._id],
+                                cards:    [c.cardId],
                             });
                         }
                     }
                 }
             }
 
-            if (c.legalities.length > 1 || !isEqual(result, c.legalities[0])) {
-                toUpdate[c._id] = result;
+            if (!isEqual(result, c.legalities)) {
+                toUpdate[c.cardId] = result;
             }
 
             count += 1;
