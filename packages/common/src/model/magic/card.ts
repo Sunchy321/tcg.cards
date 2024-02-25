@@ -8,14 +8,24 @@ export type ICardDatabase = Omit<ICard, 'parts'> & {
     })[];
 };
 
-export type CardPrintView = Omit<ICard, 'parts'> & Omit<IPrint, 'parts'> & {
+export type RelatedCard = {
+    relation: string;
+    cardId: string;
+    version?: {
+        lang: string;
+        set: string;
+        number: string;
+    };
+};
+
+export type CardPrintView = Omit<ICard, 'parts' | 'scryfall'> & Omit<IPrint, 'parts'> & {
     parts: (ICard['parts'][0] & IPrint['parts'][0] & {
         printName: IPrint['parts'][0]['name'];
         printTypeline: IPrint['parts'][0]['typeline'];
         printText: IPrint['parts'][0]['text'];
     })[];
 
-    localTags: IPrint['tags'];
+    printTags: IPrint['tags'];
 
     versions: {
         lang: string;
@@ -24,15 +34,7 @@ export type CardPrintView = Omit<ICard, 'parts'> & Omit<IPrint, 'parts'> & {
         rarity: string;
     }[];
 
-    relatedCards: {
-        relation: string;
-        cardId: string;
-        version?: {
-            lang: string;
-            set: string;
-            number: string;
-        };
-    }[];
+    relatedCards: RelatedCard[];
 
     rulings: Ruling[];
 };

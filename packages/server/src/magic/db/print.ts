@@ -3,17 +3,9 @@ import { Schema } from 'mongoose';
 import conn from './db';
 
 import { Print as IPrint } from '@interface/magic/print';
+import { WithHistory } from '@/database/history';
 
-export type ICard = IPrint & {
-    __updation: {
-        source: string;
-        updation: Partial<IPrint>;
-    }[];
-
-    __lock: string[];
-};
-
-const CardSchema = new Schema<ICard>({
+const IPrintSchema = new Schema<WithHistory<IPrint>>({
     cardId: String,
 
     lang:   String,
@@ -82,24 +74,26 @@ const CardSchema = new Schema<ICard>({
     tcgPlayerId:  Number,
     cardMarketId: Number,
 
-    __updation: [{
+    __updations: [{
         _id:      false,
         source:   String,
         updation: Object,
     }],
 
-    __lock: [String],
+    __lockedPaths: [String],
 }, {
     toJSON: {
         transform(doc, ret) {
             delete ret._id;
             delete ret.__v;
+            delete ret.__updations;
+            delete ret.__lockedPaths;
 
             return ret;
         },
     },
 });
 
-const Card = conn.model<ICard>('card_old', CardSchema);
+const Print = conn.model('print', IPrintSchema);
 
-export default Card;
+export default Print;

@@ -24,7 +24,7 @@ export type Card = {
         }[];
 
         cost?: string[];
-        manaValue: number;
+        manaValue?: number;
         color?: string;
         colorIndicator?: string;
 

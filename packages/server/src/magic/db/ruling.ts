@@ -5,11 +5,12 @@ import conn from './db';
 import { Ruling as IRuling } from '@interface/magic/ruling';
 
 const RulingSchema = new Schema<IRuling>({
+    cardId: String,
     source: String,
     date:   String,
     text:   String,
 
-    cardSheets: [{
+    cards: [{
         _id:    false,
         text:   String,
         cardId: String,
