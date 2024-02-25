@@ -36,6 +36,8 @@ type RuleYAML<T> = {
         value: T;
     }>;
 
+    exclusive?: boolean;
+
     patterns: (string | { set: string })[];
 };
 
@@ -126,7 +128,12 @@ export function getLegalityRules(): LegalityRule[] {
             }
         }
 
-        rules.push({ name: r, status, patterns });
+        rules.push({
+            name:      r,
+            status,
+            exclusive: yaml.exclusive,
+            patterns,
+        });
     }
 
     // Alchemy Variant Cards
@@ -324,25 +331,19 @@ export function getLegality(
             continue;
         }
 
-        if (f.sets != null) {
+        if (formatId === 'explorer') {
+            if (result.timeless === 'unavailable' || result.pioneer === 'unavailable') {
+                assign('unavailable', 'not-in-common');
+                continue;
+            }
+        }
+
+        if (f.sets != null && formatId !== 'explorer') {
             const sets = prints.map(v => v.set);
 
-            if (formatId === 'explorer') {
-                const historic = formats.find(f => f.formatId === 'historic')!;
-                const pioneer = formats.find(f => f.formatId === 'pioneer')!;
-
-                if (
-                    sets.every(v => !historic.sets!.includes(v))
-                    || sets.every(v => !pioneer.sets!.includes(v))
-                ) {
-                    assign('unavailable', 'not-in-common');
-                    continue;
-                }
-            } else {
-                if (sets.every(v => !f.sets!.includes(v))) {
-                    assign('unavailable', 'not-in-set');
-                    continue;
-                }
+            if (sets.every(v => !f.sets!.includes(v))) {
+                assign('unavailable', 'not-in-set');
+                continue;
             }
         }
 
