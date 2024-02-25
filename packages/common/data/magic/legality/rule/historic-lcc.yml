@@ -1,7 +1,7 @@
 status:
   format:
     - historic
-    - historic_brawl
+    - brawl
     - timeless
   value: legal
 

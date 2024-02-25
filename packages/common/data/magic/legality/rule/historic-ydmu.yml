@@ -2,7 +2,7 @@ status:
   format:
     - alchemy
     - historic
-    - historic_brawl
+    - brawl
     - timeless
   value: unavailable
 

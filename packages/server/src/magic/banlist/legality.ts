@@ -132,7 +132,7 @@ export function getLegalityRules(): LegalityRule[] {
     // Alchemy Variant Cards
     const alchemyCards = internalData<string[]>('magic.legality.alchemy');
 
-    const alchemyFormats = ['alchemy', 'historic', 'historic_brawl'];
+    const alchemyFormats = ['alchemy', 'historic', 'brawl'];
 
     rules.push({
         name:   'alchemy',
@@ -294,7 +294,7 @@ export function getLegality(
         }
 
         if (
-            !['alchemy', 'historic', 'historic_brawl', 'timeless'].includes(formatId)
+            !['alchemy', 'historic', 'brawl', 'timeless'].includes(formatId)
             && prints.every(v => setsOnlyOnMTGA.includes(v.set))
         ) {
             assign('unavailable', 'not-on-mtga');

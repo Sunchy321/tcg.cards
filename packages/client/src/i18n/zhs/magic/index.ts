@@ -43,7 +43,7 @@ export default {
         'leviathan_commander': '海怪禁指挥官',
         'commander1v1':        '指挥官1v1',
         'brawl':               '争锋',
-        'historic_brawl':      '史迹争锋',
+        'standard_brawl':      '标准争锋',
 
         'pauper':           '纯普',
         'oathbreaker':      '破誓人',

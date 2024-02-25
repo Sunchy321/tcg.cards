@@ -45,7 +45,7 @@ export default {
         'leviathan_commander': 'Leviathan Commander',
         'commander1v1':        'Commander 1v1',
         'brawl':               'Brawl',
-        'historic_brawl':      'Historic Brawl',
+        'standard_brawl':      'Standard Brawl',
 
         'pauper':           'Pauper',
         'oathbreaker':      'Oathbreaker',

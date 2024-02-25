@@ -85,7 +85,7 @@ export function convertLegality(legalities: SLegalities): Legalities {
             {
                 duel:            'duelcommander',
                 paupercommander: 'pauper_commander',
-                historicbrawl:   'historic_brawl',
+                standardbrawl:   'standard_brawl',
             }[k] ?? k,
             {
                 duel: {

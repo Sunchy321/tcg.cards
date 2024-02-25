@@ -250,7 +250,7 @@ export class AnnouncementApplier {
         this.groupWatcher = [];
 
         const alchemyBirthday = this.formatMap.alchemy.birthday!;
-        const brawlBirthday = this.formatMap.brawl.birthday!;
+        const standardBrawlBirthday = this.formatMap.standard_brawl.birthday!;
 
         for (const f of Object.values(this.formatMap)) {
             f.sets = [];
@@ -344,14 +344,14 @@ export class AnnouncementApplier {
                         formats.push('alchemy');
                     }
 
-                    if (!formats.includes('brawl') && date >= brawlBirthday) {
-                        formats.push('brawl');
+                    if (!formats.includes('standard_brawl') && date >= standardBrawlBirthday) {
+                        formats.push('standard_brawl');
                     }
                 }
 
                 if (formats.includes('historic')) {
-                    if (!formats.includes('historic_brawl')) {
-                        formats.push('historic_brawl');
+                    if (!formats.includes('brawl')) {
+                        formats.push('brawl');
                     }
                 }
 
@@ -403,7 +403,7 @@ export class AnnouncementApplier {
                 for (const s of c.setIn) {
                     if (fo.sets.includes(s)) {
                         // Alchemy initial, ignore duplicate
-                        if (['historic', 'historic_brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
+                        if (['historic', 'brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
                             continue;
                         }
 

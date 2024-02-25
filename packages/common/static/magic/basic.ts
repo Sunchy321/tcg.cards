@@ -62,7 +62,7 @@ export const formats = [
     'leviathan_commander',
     'commander1v1',
     'brawl',
-    'historic_brawl',
+    'standard_brawl',
     'pauper',
     'oathbreaker',
     'penny',
