@@ -1,0 +1,9 @@
+status:
+  format:
+    - historic
+    - brawl
+    - timeless
+  value: legal
+
+patterns:
+  - Timeless Dragon

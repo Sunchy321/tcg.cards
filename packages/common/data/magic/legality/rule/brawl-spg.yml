@@ -1,0 +1,17 @@
+status:
+  format:
+    - brawl
+  value: legal
+
+patterns:
+# mkm
+- Ghostly Prison
+- Fabricate
+- Show and Tell
+- Tragic Slip
+- Victimize
+- Gamble
+- Crashing Footfalls
+- Tireless Tracker
+- Drown in the Loch
+# - Field of the Dead

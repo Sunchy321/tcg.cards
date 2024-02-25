@@ -1,0 +1,10 @@
+status:
+  format:
+    - duelcommander
+    - oathbreaker
+    - pauper
+    - pauper_commander
+  value: [legal, unavailable]
+
+patterns:
+  - '"Name Sticker" Goblin'

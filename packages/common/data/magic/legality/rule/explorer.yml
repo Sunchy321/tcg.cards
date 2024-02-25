@@ -2,9 +2,9 @@ status:
   format: explorer
   value: unavailable
 
-patterns:
-  - Angler Turtle
-  - Bloodhunter Bat
-  - Rampaging Brontodon
-  - Soul of the Harvest
-  - Vengeant Vampire
+patterns: []
+  # - Angler Turtle
+  # - Bloodhunter Bat
+  # - Rampaging Brontodon
+  # - Soul of the Harvest
+  # - Vengeant Vampire

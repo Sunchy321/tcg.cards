@@ -1,0 +1,18 @@
+status:
+  format:
+    - historic
+    - brawl
+  value: legal
+
+patterns:
+# mkm
+- Ghostly Prison
+- Fabricate
+# - Show and Tell # banned
+- Tragic Slip
+- Victimize
+- Gamble
+- Crashing Footfalls
+- Tireless Tracker
+- Drown in the Loch
+# - Field of the Dead # banned
