@@ -1,11 +1,16 @@
-import { Schema } from 'mongoose';
+/* eslint-disable @typescript-eslint/ban-types */
+import { Schema, Model } from 'mongoose';
 
 import conn from './db';
 
 import { ICardDatabase } from '@common/model/magic/card';
 import { WithHistory, historyPlugin } from '@/database/history';
 
-const CardSchema = new Schema<WithHistory<ICardDatabase>>({
+const CardSchema = new Schema<
+WithHistory<ICardDatabase>,
+Model<WithHistory<ICardDatabase>>,
+{}, {}, {}, {}, '$type'
+>({
     cardId: String,
 
     manaValue:     Number,
@@ -27,12 +32,8 @@ const CardSchema = new Schema<WithHistory<ICardDatabase>>({
         }],
 
         cost: {
-            type:    [String],
-            default: undefined,
+            $type: [String],
             set(newValue: string[]) {
-                // eslint-disable-next-line no-debugger
-                debugger;
-
                 const costMap: Record<string, number> = { };
 
                 for (const c of newValue) {
@@ -55,9 +56,9 @@ const CardSchema = new Schema<WithHistory<ICardDatabase>>({
         colorIndicator: String,
 
         type: {
-            super: { type: [String], default: undefined },
+            super: { $type: [String], default: undefined },
             main:  [String],
-            sub:   { type: [String], default: undefined },
+            sub:   { $type: [String], default: undefined },
         },
 
         power:        String,
@@ -69,13 +70,13 @@ const CardSchema = new Schema<WithHistory<ICardDatabase>>({
     }],
 
     keywords:       [String],
-    counters:       { type: [String], default: undefined },
+    counters:       { $type: [String], default: undefined },
     producibleMana: String,
     tags:           [String],
 
     category:       String,
     legalities:     Object,
-    contentWarning: { type: Boolean, default: undefined },
+    contentWarning: { $type: Boolean, default: undefined },
 
     scryfall: {
         oracleId: String,
@@ -91,7 +92,8 @@ const CardSchema = new Schema<WithHistory<ICardDatabase>>({
 
     __lockedPaths: [String],
 }, {
-    toJSON: {
+    typeKey: '$type',
+    toJSON:  {
         transform(doc, ret) {
             delete ret._id;
             delete ret.__v;
