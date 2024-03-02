@@ -2,10 +2,11 @@ import Format from '../db/format';
 import FormatAnnouncement from '../db/format-announcement';
 import FormatChange from '@/magic/db/format-change';
 import Set from '@/magic/db/set';
-import Card from '@/magic/db/card-temp';
+import Card from '@/magic/db/card';
 
 import { Document } from 'mongoose';
 
+import { Card as ICard } from '@interface/magic/card';
 import { Format as IFormat } from '@interface/magic/format';
 import {
     FormatAnnouncement as IFormatAnnouncement,
@@ -43,8 +44,8 @@ export class AnnouncementApplier {
     private offensiveList: string[];
 
     private cards: {
-        id: string;
-        set: string[];
+        cardId: string;
+        sets: string[];
         inPauper: boolean;
         inPauperCommander: boolean;
     }[];
@@ -81,13 +82,20 @@ export class AnnouncementApplier {
         this.offensiveList = internalData<string[]>('magic.banlist.offensive').map(toIdentifier);
 
         // all conspiracy
-        this.conspiracyList = await Card.distinct('cardId', { 'parts.typeMain': 'conspiracy' });
+        this.conspiracyList = await Card.distinct('cardId', { 'parts.type.main': 'conspiracy' });
 
         // legendary cards are legal after 1995-11-01
-        this.legendaryList = await Card.distinct('cardId', {
-            'parts.typeSuper': 'legendary',
-            '$expr':           { $eq: [-1, { $strcasecmp: ['$releaseDate', '1995-11-01'] }] },
-        });
+        const result = await Card.aggregate<ICard>()
+            .match({ 'parts.type.super': 'legendary' })
+            .lookup({
+                from:         'prints',
+                localField:   'cardId',
+                foreignField: 'cardId',
+                as:           'prints',
+            })
+            .match({ 'prints.releaseDate': { $lte: '1995-11-01' } });
+
+        this.legendaryList = result.map(v => v.cardId);
     }
 
     private async loadCard(): Promise<void> {
@@ -113,22 +121,39 @@ export class AnnouncementApplier {
         }
 
         const data = await Card.aggregate<{
-            _id: string;
-            set: string[];
-            rarity: string[];
+            cardId: string;
             typeMain: string[][];
+            sets: string[];
+            rarity: string[];
         }>()
             .match({ cardId: { $in: cards } })
-            .group({
-                _id:      '$cardId',
-                set:      { $addToSet: '$set' },
-                rarity:   { $addToSet: '$rarity' },
-                typeMain: { $first: '$parts.typeMain' },
+            .lookup({
+                from:     'prints',
+                let:      { cardId: '$cardId' },
+                pipeline: [
+                    { $match: { $expr: { $eq: ['$cardId', '$$cardId'] } } },
+                    {
+                        $group: {
+                            _id:    '$cardId',
+                            sets:   { $addToSet: '$set' },
+                            rarity: { $addToSet: '$rarity' },
+                        },
+                    },
+                ],
+                as: 'prints',
+            })
+            .unwind('prints')
+            .project({
+                _id:      false,
+                cardId:   '$cardId',
+                typeMain: '$parts.type.main',
+                sets:     '$prints.sets',
+                rarity:   '$prints.rarity',
             });
 
         this.cards = data.map(d => ({
-            id:       d._id,
-            set:      d.set,
+            cardId:   d.cardId,
+            sets:     d.sets,
             inPauper: d.rarity.includes('common'),
 
             // rough code, ignore background
@@ -151,7 +176,7 @@ export class AnnouncementApplier {
 
     private detectGroup(group: string, format: string, sets?: string[]): string[] {
         return this.getCardList(group).filter(c => {
-            const data = this.cards.find(d => d.id === c);
+            const data = this.cards.find(d => d.cardId === c);
 
             if (data == null) {
                 return false;
@@ -166,7 +191,7 @@ export class AnnouncementApplier {
             if (sets == null) {
                 return true;
             } else {
-                return data.set.some(s => sets.includes(s));
+                return data.sets.some(s => sets.includes(s));
             }
         });
     }
@@ -513,7 +538,7 @@ export class AnnouncementApplier {
                 // banlist item rotated out
                 if (c.setOut != null && c.setOut.length > 0) {
                     for (const b of fo.banlist) {
-                        const sets = this.cards.find(c => c.id === b.id)?.set ?? [];
+                        const sets = this.cards.find(c => c.cardId === b.id)?.sets ?? [];
 
                         const setInFormat = sets.filter(s => [...fo.sets ?? [], c.setOut]!.includes(s));
 

@@ -2,7 +2,8 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card, { ICard } from '@/magic/db/card-temp';
+import Card from '@/magic/db/card';
+import CardTemp, { ICard as ICardTemp } from '@/magic/db/card-temp';
 import Format from '@/magic/db/format';
 import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
 
@@ -40,7 +41,7 @@ router.get('/raw', async ctx => {
         id: cardId, lang, set, number,
     } = mapValues(ctx.query, toSingle);
 
-    const card = await Card.findOne({
+    const card = await CardTemp.findOne({
         cardId, lang, set, number,
     });
 
@@ -86,7 +87,7 @@ router.get('/search', async ctx => {
 });
 
 router.post('/update', async ctx => {
-    const { data } = ctx.request.body as { data: ICard & { _id: ObjectId } };
+    const { data } = ctx.request.body as { data: ICardTemp & { _id: ObjectId } };
 
     for (const p of data.parts) {
         if (p.flavorText === '') {
@@ -98,17 +99,17 @@ router.post('/update', async ctx => {
         delete data.counters;
     }
 
-    const old = await Card.findById(data._id);
+    const old = await CardTemp.findById(data._id);
 
     if (old != null) {
         await old.replaceOne(data);
     } else {
-        await Card.create(omit(data, ['_id', '__v']) as ICard);
+        await CardTemp.create(omit(data, ['_id', '__v']) as ICardTemp);
     }
 
     if (old == null || (data.cardId === old.cardId && data.lang === old.lang)) {
-        const cardUpdate: UpdateQuery<ICard> = { };
-        const langUpdate: UpdateQuery<ICard> = { };
+        const cardUpdate: UpdateQuery<ICardTemp> = { };
+        const langUpdate: UpdateQuery<ICardTemp> = { };
 
         if (cardUpdate.$set == null) { cardUpdate.$set = {}; }
         if (cardUpdate.$unset == null) { cardUpdate.$unset = {}; }
@@ -131,12 +132,12 @@ router.post('/update', async ctx => {
         cardUpdate.$set.tags = data.tags;
         langUpdate.$unset.__oracle = 0;
 
-        const versions = await Card.find({ cardId: { $in: data.relatedCards.map(r => r.cardId) } });
+        const versions = await CardTemp.find({ cardId: { $in: data.relatedCards.map(r => r.cardId) } });
 
         const relatedCards = sortBy(
             data.relatedCards.filter(r => versions.some(v => v.cardId === r.cardId)),
             ['relation', 'cardId'],
-        ) as ICard['relatedCards'];
+        ) as ICardTemp['relatedCards'];
 
         if (relatedCards.every(r => r.version == null)) {
             cardUpdate.$set.relatedCards = relatedCards;
@@ -153,7 +154,7 @@ router.post('/update', async ctx => {
                 continue;
             }
 
-            const related = await Card.findOne({ cardId: r.cardId });
+            const related = await CardTemp.findOne({ cardId: r.cardId });
 
             // no such token or already added this entry
             if (related == null || related.relatedCards.some(r => r.relation === 'source' && r.cardId === data.cardId)) {
@@ -162,14 +163,14 @@ router.post('/update', async ctx => {
 
             const newRelatedCards = [...related.relatedCards, { relation: 'source', cardId: data.cardId }];
 
-            await Card.updateMany(
+            await CardTemp.updateMany(
                 { cardId: r.cardId },
                 { relatedCards: sortBy(newRelatedCards, ['relation', 'cardId']) },
             );
         }
 
-        await Card.updateMany({ cardId: data.cardId }, cardUpdate);
-        await Card.updateMany({ cardId: data.cardId, lang: data.lang }, langUpdate);
+        await CardTemp.updateMany({ cardId: data.cardId }, cardUpdate);
+        await CardTemp.updateMany({ cardId: data.cardId, lang: data.lang }, langUpdate);
     }
 
     ctx.status = 200;
@@ -183,7 +184,7 @@ router.get('/get-unified', async ctx => {
         return;
     }
 
-    const card = await Card.findOne({ cardId: id, lang });
+    const card = await CardTemp.findOne({ cardId: id, lang });
 
     if (card == null) {
         ctx.status = 404;
@@ -204,7 +205,7 @@ type AggregateOption = {
 };
 
 function aggregate({ lang, match, post }: AggregateOption): Aggregate<INeedEditResult[]> {
-    const agg = Card.aggregate().allowDiskUse(true);
+    const agg = CardTemp.aggregate().allowDiskUse(true);
 
     if (match != null) { agg.match(match); }
     if (lang != null) { agg.match({ lang }); }
@@ -359,7 +360,7 @@ router.get('/need-edit', async ctx => {
         )
         .limit(sample);
 
-    const cards = await Card.aggregate().allowDiskUse(true)
+    const cards = await CardTemp.aggregate().allowDiskUse(true)
         .match({ $or: result.map(r => ({ cardId: r._id.id, lang: r._id.lang })) })
         .sort({ releaseDate: -1 })
         .group({ _id: { id: '$cardId', lang: '$lang' }, card: { $first: '$$ROOT' } });
@@ -389,7 +390,7 @@ router.get('/rename', async ctx => {
         return;
     }
 
-    const cards = await Card.find({ set, lang: 'zhs' });
+    const cards = await CardTemp.find({ set, lang: 'zhs' });
 
     const renamed = [];
     const missed = [];
@@ -482,7 +483,7 @@ router.get('/extract-ruling-cards', async ctx => {
     const ids = (ctx.query.id ?? '') as string;
 
     for (const id of ids.split(',')) {
-        const card = await Card.findOne({ cardId: id as string });
+        const card = await CardTemp.findOne({ cardId: id as string });
 
         if (card == null) {
             continue;
@@ -514,7 +515,7 @@ router.get('/extract-ruling-cards', async ctx => {
             }
         }
 
-        await Card.updateMany({ cardId: card.cardId }, { rulings: card.rulings });
+        await CardTemp.updateMany({ cardId: card.cardId }, { rulings: card.rulings });
 
         ctx.body = cardsList;
     }
@@ -569,7 +570,7 @@ router.get('/get-updation', async ctx => {
 
     const updation = await CardUpdation.aggregate<ICardUpdation>().match({ key }).sample(50);
 
-    const cards = await Card.find({ 'scryfall.cardId': { $in: updation.map(v => v.scryfallId) } });
+    const cards = await CardTemp.find({ 'scryfall.cardId': { $in: updation.map(v => v.scryfallId) } });
 
     const values = updation.map(u => {
         const c = cards.find(c => c.scryfall.cardId === u.scryfallId);
@@ -601,7 +602,7 @@ router.post('/commit-updation', async ctx => {
     }
 
     if (type === 'reject') {
-        const card = await Card.findOne({ 'scryfall.cardId': updation.scryfallId });
+        const card = await CardTemp.findOne({ 'scryfall.cardId': updation.scryfallId });
 
         if (card != null) {
             if (updation.key.startsWith('parts.')) {
@@ -656,14 +657,14 @@ router.post('/reject-all-updation', async ctx => {
 
         for (const v of values) {
             for (const ids of toBucket(toGenerator(v.cardIds), 1000)) {
-                await Card.updateMany({ 'scryfall.cardId': { $in: ids } }, { $set: { [key]: v.oldValue } });
+                await CardTemp.updateMany({ 'scryfall.cardId': { $in: ids } }, { $set: { [key]: v.oldValue } });
                 await CardUpdation.deleteMany({ key, scryfallId: { $in: ids } });
             }
         }
     } else {
         for (const bucket of toBucket(toGenerator(updations), 100)) {
             for (const u of bucket) {
-                const card = await Card.findOne({ 'scryfall.cardId': u.scryfallId });
+                const card = await CardTemp.findOne({ 'scryfall.cardId': u.scryfallId });
 
                 if (card != null) {
                     (card.parts[u.partIndex!] as any)[u.key.slice(6)] = u.oldValue;
@@ -680,7 +681,7 @@ router.post('/reject-all-updation', async ctx => {
 });
 
 router.get('/get-duplicate', async ctx => {
-    const duplicates = await Card.aggregate<{ _id: { set: string, number: string, lang: string } }>()
+    const duplicates = await CardTemp.aggregate<{ _id: { set: string, number: string, lang: string } }>()
         .group({
             _id:   { set: '$set', number: '$number', lang: '$lang' },
             count: { $sum: 1 },
@@ -698,7 +699,7 @@ router.get('/get-duplicate', async ctx => {
         return;
     }
 
-    const cards = await Card.find({ set: first.set, number: first.number, lang: first.lang });
+    const cards = await CardTemp.find({ set: first.set, number: first.number, lang: first.lang });
 
     ctx.body = {
         total:  duplicates.length,
@@ -707,11 +708,11 @@ router.get('/get-duplicate', async ctx => {
 });
 
 router.post('/resolve-duplicate', async ctx => {
-    const { data } = ctx.request.body as { data: ICard };
+    const { data } = ctx.request.body as { data: ICardTemp };
 
-    await Card.deleteMany({ set: data.set, number: data.number, lang: data.lang });
+    await CardTemp.deleteMany({ set: data.set, number: data.number, lang: data.lang });
 
-    await Card.insertMany(data);
+    await CardTemp.insertMany(data);
 
     ctx.status = 200;
 });

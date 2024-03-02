@@ -1,4 +1,4 @@
-import Card from '@/magic/db/card-temp';
+import Card from '@/magic/db/card';
 
 import { isEqual } from 'lodash';
 import internalData from '@/internal-data';
@@ -201,13 +201,12 @@ export default class CardNameExtractor {
         return Card.aggregate([
             {
                 $match: {
-                    'category':        'default',
-                    'parts.typeMain':  { $nin: ['vanguard'] },
-                    'parts.typeSuper': { $nin: ['token'] },
+                    'category':         'default',
+                    'parts.type.main':  { $nin: ['vanguard'] },
+                    'parts.type.super': { $nin: ['token'] },
                 },
             },
-            { $group: { _id: '$cardId', name: { $first: '$parts.oracle.name' } } },
-            { $project: { id: '$_id', name: 1 } },
+            { $project: { id: '$cardId', name: '$parts.oracle.name' } },
         ]);
     }
 }
