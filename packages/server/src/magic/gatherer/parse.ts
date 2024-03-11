@@ -4,7 +4,8 @@ import axios from 'axios';
 
 import Task from '@/common/task';
 
-import Card from '@/magic/db/card-temp';
+import Card from '@/magic/db/card';
+import Print from '@/magic/db/print';
 
 import FileSaver from '@/common/save-file';
 
@@ -221,7 +222,7 @@ export class GathererGetter extends Task<GathererStatus> {
     }
 
     async startImpl(): Promise<void> {
-        const cards = await Card.find({ 'set': this.set, 'multiverseId.0': { $exists: true } });
+        const prints = await Print.find({ 'set': this.set, 'multiverseId.0': { $exists: true } });
 
         const cardList: {
             cardId: string;
@@ -232,22 +233,22 @@ export class GathererGetter extends Task<GathererStatus> {
             }[];
         } [] = [];
 
-        for (const c of cards) {
-            const item = cardList.find(v => v.cardId === c.cardId);
+        for (const p of prints) {
+            const item = cardList.find(v => v.cardId === p.cardId);
 
             if (item != null) {
                 item.versions.push({
-                    lang:   c.lang,
-                    number: c.number,
-                    mids:   c.multiverseId,
+                    lang:   p.lang,
+                    number: p.number,
+                    mids:   p.multiverseId,
                 });
             } else {
                 cardList.push({
-                    cardId:   c.cardId,
+                    cardId:   p.cardId,
                     versions: [{
-                        lang:   c.lang,
-                        number: c.number,
-                        mids:   c.multiverseId,
+                        lang:   p.lang,
+                        number: p.number,
+                        mids:   p.multiverseId,
                     }],
                 });
             }
@@ -303,7 +304,13 @@ export class GathererGetter extends Task<GathererStatus> {
     ): Promise<void> {
         await saveGathererImage(mids, set, number, lang);
 
-        const baseCard = await Card.findOne({ set, number, lang });
+        const basePrint = await Print.findOne({ set, number, lang });
+
+        if (basePrint == null) {
+            return;
+        }
+
+        const baseCard = await Card.findOne({ cardId: basePrint.cardId });
 
         if (baseCard == null) {
             return;
@@ -311,12 +318,12 @@ export class GathererGetter extends Task<GathererStatus> {
 
         const versions = await parseVersion(mids[0]);
 
-        const cards = await Card.find({ multiverseId: { $in: versions.map(v => v.id).filter(v => v != null) } });
+        const prints = await Print.find({ multiverseId: { $in: versions.map(v => v.id).filter(v => v != null) } });
 
         const versionsToParse = [];
 
         for (const v of versions) {
-            if (v.id != null && cards.every(c => !c.multiverseId.includes(v.id!))) {
+            if (v.id != null && prints.every(c => !c.multiverseId.includes(v.id!))) {
                 versionsToParse.push(v);
             }
         }
@@ -330,18 +337,33 @@ export class GathererGetter extends Task<GathererStatus> {
 
                 await saveGathererImage(vMids, set, data.number, v.lang);
 
-                const oldCard = await Card.findOne({
+                for (const [i, p] of baseCard.parts.entries()) {
+                    const loc = p.localization.find(l => l.lang === lang);
+
+                    if (loc == null) {
+                        p.localization.push({
+                            lang,
+                            name:     data.parts[i].name,
+                            typeline: data.parts[i].typeline,
+                            text:     data.parts[i].text,
+                        });
+                    }
+                }
+
+                await baseCard.save();
+
+                const oldPrint = await Print.findOne({
                     $or: [
                         { set, number: data.number, lang: v.lang },
                         { multiverseId: { $in: vMids } },
                     ],
                 });
 
-                if (oldCard != null) {
+                if (oldPrint != null) {
                     continue;
                 }
 
-                const newData = baseCard.toObject();
+                const newData = basePrint.toObject();
 
                 delete (newData as any)._id;
                 delete (newData as any).__v;
@@ -355,13 +377,9 @@ export class GathererGetter extends Task<GathererStatus> {
 
                     delete p.scryfallIllusId;
 
-                    p.unified.name = dPart.name;
-                    p.unified.typeline = dPart.typeline;
-                    p.unified.text = dPart.text;
-
-                    p.printed.name = dPart.name;
-                    p.printed.typeline = dPart.typeline;
-                    p.printed.text = dPart.text;
+                    p.name = dPart.name;
+                    p.typeline = dPart.typeline;
+                    p.text = dPart.text;
 
                     if (dPart.flavorText !== '') {
                         p.flavorText = dPart.flavorText;
@@ -370,8 +388,8 @@ export class GathererGetter extends Task<GathererStatus> {
                     }
                 }
 
-                if (!newData.localTags.includes('dev:printed')) {
-                    newData.localTags.push('dev:printed');
+                if (!newData.tags.includes('dev:printed')) {
+                    newData.tags.push('dev:printed');
                 }
 
                 delete newData.scryfall.cardId;
@@ -383,7 +401,7 @@ export class GathererGetter extends Task<GathererStatus> {
                 delete newData.tcgPlayerId;
                 delete newData.cardMarketId;
 
-                new Card(newData).save();
+                new Print(newData).save();
 
                 this.statusMap[number]![0] += 1;
                 console.log(`${v.id}:${v.lang}, ${i + 1}/${versionsToParse.length}`);
@@ -410,7 +428,13 @@ export default async function parseGatherer(
 ): Promise<void> {
     await saveGathererImage(mids, set, number, lang);
 
-    const baseCard = await Card.findOne({ set, number, lang });
+    const basePrint = await Print.findOne({ set, number, lang });
+
+    if (basePrint == null) {
+        return;
+    }
+
+    const baseCard = await Card.findOne({ cardId: basePrint.cardId });
 
     if (baseCard == null) {
         return;
@@ -418,12 +442,12 @@ export default async function parseGatherer(
 
     const versions = await parseVersion(mids[0]);
 
-    const cards = await Card.find({ multiverseId: { $in: versions.map(v => v.id).filter(v => v != null) } });
+    const prints = await Print.find({ multiverseId: { $in: versions.map(v => v.id).filter(v => v != null) } });
 
     const versionsToParse = [];
 
     for (const v of versions) {
-        if (v.id != null && cards.every(c => !c.multiverseId.includes(v.id!))) {
+        if (v.id != null && prints.every(c => !c.multiverseId.includes(v.id!))) {
             versionsToParse.push(v);
         }
     }
@@ -435,18 +459,33 @@ export default async function parseGatherer(
 
             await saveGathererImage(vMids, set, data.number, v.lang);
 
-            const oldCard = await Card.findOne({
+            for (const [i, p] of baseCard.parts.entries()) {
+                const loc = p.localization.find(l => l.lang === lang);
+
+                if (loc == null) {
+                    p.localization.push({
+                        lang,
+                        name:     data.parts[i].name,
+                        typeline: data.parts[i].typeline,
+                        text:     data.parts[i].text,
+                    });
+                }
+            }
+
+            await baseCard.save();
+
+            const oldPrint = await Print.findOne({
                 $or: [
                     { set, number: data.number, lang: v.lang },
                     { multiverseId: { $in: vMids } },
                 ],
             });
 
-            if (oldCard != null) {
+            if (oldPrint != null) {
                 continue;
             }
 
-            const newData = baseCard.toObject();
+            const newData = basePrint.toObject();
 
             delete (newData as any)._id;
             delete (newData as any).__v;
@@ -460,13 +499,9 @@ export default async function parseGatherer(
 
                 delete p.scryfallIllusId;
 
-                p.unified.name = dPart.name;
-                p.unified.typeline = dPart.typeline;
-                p.unified.text = dPart.text;
-
-                p.printed.name = dPart.name;
-                p.printed.typeline = dPart.typeline;
-                p.printed.text = dPart.text;
+                p.name = dPart.name;
+                p.typeline = dPart.typeline;
+                p.text = dPart.text;
 
                 if (dPart.flavorText !== '') {
                     p.flavorText = dPart.flavorText;
@@ -475,8 +510,8 @@ export default async function parseGatherer(
                 }
             }
 
-            if (!newData.localTags.includes('dev:printed')) {
-                newData.localTags.push('dev:printed');
+            if (!newData.tags.includes('dev:printed')) {
+                newData.tags.push('dev:printed');
             }
 
             delete newData.scryfall.cardId;
@@ -488,7 +523,7 @@ export default async function parseGatherer(
             delete newData.tcgPlayerId;
             delete newData.cardMarketId;
 
-            new Card(newData).save();
+            new Print(newData).save();
 
             console.log(`${v.id}:${v.lang}, ${i + 1}/${versionsToParse.length}`);
         } catch (e) {
