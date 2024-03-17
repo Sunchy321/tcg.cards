@@ -305,7 +305,7 @@ import ArrayInput from 'components/ArrayInput.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
-import { Card, Layout } from 'interface/magic/card-temp';
+import { CardTemp, Layout } from 'interface/magic/card-temp';
 
 import { AxiosResponse } from 'axios';
 
@@ -317,9 +317,9 @@ import { copyToClipboard } from 'quasar';
 
 import { parenRegex, commaRegex } from 'static/magic/special';
 
-type Part = Card['parts'][0];
+type Part = CardTemp['parts'][0];
 
-type CardData = Card & {
+type CardData = CardTemp & {
     _id?: string;
     __oracle?: {
         name?: string;
@@ -944,7 +944,7 @@ const searchResult = computed(() => {
                     case 'relatedCards':
                         return [
                             k,
-                            v.map((e: Card['relatedCards']) => e.map(
+                            v.map((e: CardTemp['relatedCards']) => e.map(
                                 ({ relation, cardId, version }) => (version != null
                                     ? [relation, cardId, version.lang, version.set, version.number]
                                     : [relation, cardId]
@@ -1389,7 +1389,7 @@ const doUpdate = debounce(
 
 const loadData = async () => {
     if (id.value != null && lang.value != null && set.value != null && number.value != null) {
-        const { data: result } = await controlGet<Card>('/magic/card/raw', {
+        const { data: result } = await controlGet<CardTemp>('/magic/card/raw', {
             id:     id.value,
             lang:   lang.value,
             set:    set.value,
@@ -1582,7 +1582,7 @@ const getUnified = async () => {
         return;
     }
 
-    const { data: result } = await controlGet<Card['parts'][0]['unified'][]>('/magic/card/get-unified', {
+    const { data: result } = await controlGet<CardTemp['parts'][0]['unified'][]>('/magic/card/get-unified', {
         id:   id.value,
         lang: lang.value,
     });

@@ -3,6 +3,7 @@ import Gatherer from './Gatherer.vue';
 import MTGJSON from './MTGJSON.vue';
 import Image from './Image.vue';
 import Card from './Card.vue';
+import Editor from './Editor.vue';
 import Updation from './Updation.vue';
 import Duplicate from './Duplicate.vue';
 import Set from './Set.vue';
@@ -17,6 +18,7 @@ export default {
     MTGJSON,
     Image,
     Card,
+    Editor,
     Updation,
     Duplicate,
     Set,

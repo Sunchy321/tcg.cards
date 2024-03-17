@@ -1,7 +1,7 @@
 import Task from '@/common/task';
 
-import Card from '../db/card-temp';
-import Set from '../db/set';
+import Print from '@/magic/db/print';
+import Set from '@/magic/db/set';
 
 import FileSaver from '@/common/save-file';
 
@@ -55,7 +55,7 @@ export class ImageGetter extends Task<IImageStatus> {
             }
         }
 
-        const aggregate = Card.aggregate()
+        const aggregate = Print.aggregate()
             .allowDiskUse(true)
             .match({
                 'scryfall.imageUris.0': { $exists: true },
@@ -77,7 +77,7 @@ export class ImageGetter extends Task<IImageStatus> {
             .addFields({ langIsEn: { $eq: ['$_id.lang', 'en'] } })
             .sort({ 'langIsEn': -1, '_id.lang': 1 });
 
-        const total = await Card.aggregate(aggregate.pipeline()).allowDiskUse(true).count('total');
+        const total = await Print.aggregate(aggregate.pipeline()).allowDiskUse(true).count('total');
 
         this.projCount = 0;
         this.projTotal = total[0].total;

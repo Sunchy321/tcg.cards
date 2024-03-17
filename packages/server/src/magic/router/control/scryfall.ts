@@ -3,7 +3,8 @@ import { DefaultState, Context } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import Card from '@/magic/db/card-temp';
+import Card from '@/magic/db/card';
+import Print from '@/magic/db/print';
 import Set from '@/magic/db/set';
 
 import BulkGetter from '@/magic/scryfall/data/bulk';
@@ -22,8 +23,9 @@ router.get('/', async ctx => {
     ctx.body = {
         bulk:     BulkGetter.data(),
         database: {
-            card: await Card.estimatedDocumentCount(),
-            set:  await Set.estimatedDocumentCount(),
+            card:  await Card.estimatedDocumentCount(),
+            print: await Print.estimatedDocumentCount(),
+            set:   await Set.estimatedDocumentCount(),
         },
     };
 });

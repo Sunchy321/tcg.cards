@@ -8,7 +8,7 @@ export type Legalities = Record<string, Legality>;
 export type Layout =
     'adventure' | 'aftermath' | 'augment' | 'battle' | 'class' | 'double_faced' | 'emblem' | 'flip_token_bottom' | 'flip_token_top' | 'flip' | 'host' | 'leveler' | 'meld' | 'modal_dfc' | 'multipart' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'token' | 'transform_token' | 'transform' | 'vanguard';
 
-export type Card = {
+export type CardTemp = {
     cardId: string;
 
     lang: string;

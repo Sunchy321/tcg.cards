@@ -2,7 +2,7 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import Set from '@/magic/db/set';
-import Card from '@/magic/db/card-temp';
+import Print from '@/magic/db/print';
 
 import { Set as ISet } from '@interface/magic/set';
 
@@ -52,7 +52,7 @@ const rarities = [
 router.post('/calc', async ctx => {
     const sets = await Set.find();
 
-    const allCards = await Card.aggregate<{
+    const allPrints = await Print.aggregate<{
         set: string;
         number: string;
         lang: string;
@@ -64,7 +64,7 @@ router.post('/calc', async ctx => {
     for (const set of sets) {
         const id = set.setId;
 
-        const cards = allCards.filter(c => c.set === id);
+        const cards = allPrints.filter(c => c.set === id);
 
         set.cardCount = uniq(cards.map(c => c.number)).length;
         set.langs = uniq(cards.map(c => c.lang))

@@ -2,7 +2,7 @@ import { Schema } from 'mongoose';
 
 import conn from './db';
 
-import { Card as ICardBase } from '@interface/magic/card-temp';
+import { CardTemp as ICardBase } from '@interface/magic/card-temp';
 
 export type ICard = Omit<ICardBase, 'parts'> & {
     parts: (ICardBase['parts'][0] & {

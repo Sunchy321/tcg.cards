@@ -22,7 +22,7 @@ import {
 
 import controlSetup from 'setup/control';
 
-import { Card } from 'interface/magic/card-temp';
+import { CardTemp } from 'interface/magic/card-temp';
 
 import JsonComparator from 'components/JSONComparator.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
@@ -44,7 +44,7 @@ export type ICardUpdation = {
 
 type DuplicateData = {
     total: number;
-    values: (Card & { _id: string })[];
+    values: (CardTemp & { _id: string })[];
 };
 
 export default defineComponent({

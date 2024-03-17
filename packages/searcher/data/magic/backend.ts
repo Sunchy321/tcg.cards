@@ -5,7 +5,7 @@ import { PostAction } from '../../src/model/type';
 import { SearchOption } from '../../src/search';
 import { QueryError } from '../../src/command/error';
 
-import { Card as ICard } from '@interface/magic/card-temp';
+import { CardTemp as ICardTemp } from '@interface/magic/card-temp';
 
 import * as builtin from '../../src/command/builtin/backend';
 import * as magic from './command/backend';
@@ -512,11 +512,11 @@ function parseOption(optionText: string | undefined, defaultValue: number): numb
     return optionNumber;
 }
 
-export default defineBackendModel<ICard, 'dev' | 'search' | 'searchId'>({
+export default defineBackendModel<ICardTemp, 'dev' | 'search' | 'searchId'>({
     commands: Object.values(backedCommands),
 
     actions: {
-        search: async (Card: Model<ICard>, q: DBQuery, p: PostAction[], o: SearchOption) => {
+        search: async (Card: Model<ICardTemp>, q: DBQuery, p: PostAction[], o: SearchOption) => {
             const groupBy = o['group-by'] ?? 'card';
             const orderBy = o['order-by'] ?? 'id+';
             const page = parseOption(o.page, 1);
@@ -577,7 +577,7 @@ export default defineBackendModel<ICard, 'dev' | 'search' | 'searchId'>({
             return { cards, total, page };
         },
 
-        dev: async (Card: Model<ICard>, q: DBQuery, p: PostAction[], o: SearchOption) => {
+        dev: async (Card: Model<ICardTemp>, q: DBQuery, p: PostAction[], o: SearchOption) => {
             const aggregate = Card.aggregate().allowDiskUse(true).match(q);
 
             const total = (
@@ -596,7 +596,7 @@ export default defineBackendModel<ICard, 'dev' | 'search' | 'searchId'>({
             };
         },
 
-        searchId: async (Card: Model<ICard>, q: DBQuery) => {
+        searchId: async (Card: Model<ICardTemp>, q: DBQuery) => {
             const result = await Card
                 .aggregate()
                 .allowDiskUse(true)

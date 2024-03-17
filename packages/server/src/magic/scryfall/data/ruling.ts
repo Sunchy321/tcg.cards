@@ -1,8 +1,10 @@
 import Task from '@/common/task';
 
-import { Card as ICard } from '@interface/magic/card-temp';
+import Card from '@/magic/db/card';
+import Ruling from '@/magic/db/ruling';
+
+import { Ruling as IRuling } from '@interface/magic/ruling';
 import { RawRuling } from '@interface/magic/scryfall/card';
-import Card from '@/magic/db/card-temp';
 
 import LineReader from '@/common/line-reader';
 import CardNameExtractor from '@/magic/extract-name';
@@ -10,53 +12,8 @@ import CardNameExtractor from '@/magic/extract-name';
 import { Status } from '../status';
 
 import { join } from 'path';
-import { isEqual } from 'lodash';
 import internalData from '@/internal-data';
 import { convertJson, bulkPath } from './common';
-
-type OldData = {
-    cardId: string;
-    names: string[];
-    rulings: ICard['rulings'][];
-};
-
-async function assignRuling(
-    data: RawRuling[],
-    oldData: OldData,
-    cardNames: { id: string, name: string[] }[],
-) {
-    const rulings = data.map(r => {
-        for (const oldRulings of oldData.rulings) {
-            for (const or of oldRulings) {
-                if (or.cards != null && or.text === r.comment) {
-                    return {
-                        source: r.source,
-                        date:   r.published_at,
-                        text:   r.comment,
-                        cards:  or.cards,
-                    } as ICard['rulings'][0];
-                }
-            }
-        }
-
-        const cards = new CardNameExtractor({
-            text:     r.comment,
-            cardNames,
-            thisName: { id: oldData.cardId, name: oldData.names },
-        }).extract();
-
-        return {
-            source: r.source,
-            date:   r.published_at,
-            text:   r.comment,
-            ...cards.length > 0 ? { cards } : {},
-        } as ICard['rulings'][0];
-    });
-
-    if (oldData.rulings.length > 1 || !isEqual(oldData.rulings[0], rulings)) {
-        await Card.updateMany({ cardId: oldData.cardId }, { rulings });
-    }
-}
 
 export type SpellingMistakes = {
     cardId: string;
@@ -115,59 +72,57 @@ export default class RulingLoader extends Task<Status> {
 
         start = Date.now();
 
-        const rulingMap: Record<string, RawRuling[]> = {};
+        await Ruling.deleteMany({});
+
+        const rawRulings: RawRuling[] = [];
+        const oracleIds = new Set<string>();
 
         for await (const ruling of convertJson<RawRuling>(this.lineReader.get())) {
-            if (rulingMap[ruling.oracle_id] == null) {
-                rulingMap[ruling.oracle_id] = [];
-            }
-
-            rulingMap[ruling.oracle_id].push(ruling);
+            rawRulings.push(ruling);
+            oracleIds.add(ruling.oracle_id);
 
             count += 1;
         }
 
-        const oldRulingMap: Record<string, OldData> = {};
-
-        const dbData = await Card.aggregate([
-            {
-                $group: {
-                    _id:     '$scryfall.oracleId',
-                    cardId:  { $first: '$cardId' },
-                    names:   { $first: '$parts.oracle.name' },
-                    rulings: { $addToSet: '$rulings' },
-                },
-            },
-        ]);
-
-        for (const data of dbData) {
-            oldRulingMap[data._id] = {
-                cardId:  data.cardId,
-                names:   data.names,
-                rulings: data.rulings,
-            };
-        }
+        const cards = await Card.find({ 'scryfall.oracleId': { $in: Array.from(oracleIds) } });
 
         method = 'assign';
-        total = Object.keys(rulingMap).length;
+        total = rawRulings.length;
         count = 0;
 
-        for (const [oracleId, data] of Object.entries(rulingMap)) {
-            const oldData = oldRulingMap[oracleId];
+        for (const rawRuling of rawRulings) {
+            const matchCards = cards.filter(c => c.scryfall.oracleId.includes(rawRuling.oracle_id));
 
-            if (oldData == null) {
+            if (matchCards.length !== 1) {
+                console.log(`No unique card with oracle id ${rawRuling.oracle_id} found. Skipping...`);
                 continue;
             }
 
+            const card = matchCards[0];
+
+            let text = rawRuling.comment;
+
             for (const m of spellingMistakes) {
-                if (m.cardId === oldData.cardId) {
-                    for (const d of data) {
-                        d.comment = d.comment.replaceAll(m.text, m.correction);
-                    }
+                if (m.cardId === card.cardId) {
+                    text = text.replaceAll(m.text, m.correction);
                 }
             }
 
-            await assignRuling(data, oldData, cardNames);
+            const cardsInText = new CardNameExtractor({
+                text,
+                cardNames,
+                thisName: { id: card.cardId, name: card.parts.map(p => p.name) },
+            }).extract();
+
+            const ruling: IRuling = {
+                cardId: card.cardId,
+                source: rawRuling.source,
+                date:   rawRuling.published_at,
+                text,
+                cards:  cardsInText,
+            };
+
+            await Ruling.create(ruling);
 
             count += 1;
         }
