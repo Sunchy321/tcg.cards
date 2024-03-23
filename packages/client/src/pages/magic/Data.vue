@@ -1,49 +1,65 @@
 <template>
     <q-page>
-        <q-tabs v-model="tab">
-            <q-tab
-                v-for="t in tabs"
-                :key="t"
-                :name="t"
-                :label="t.replace('-', ' ')"
-            />
-        </q-tabs>
-
-        <component :is="tab" />
+        <page-component v-if="pageComponent != null" />
     </q-page>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script setup lang="ts">
+import {
+    Component, shallowRef, watch, defineAsyncComponent,
+} from 'vue';
 
 import pageSetup from 'setup/page';
 
-import components from './data';
+const components = import.meta.glob<Component>('./data/*.vue');
 
-export default defineComponent({
-    name: 'DataPage',
+// keep order
+const tabs = [
+    'Scryfall',
+    'Gatherer',
+    'MTGJSON',
+    'Image',
+    'Card',
+    'Editor',
+    'Updation',
+    'Duplicate',
+    'Set',
+    'Format',
+    'Announcement',
+    'Legality',
+    'CR',
+];
 
-    components: { ...components },
-
-    setup() {
-        const tabs = Object.keys(components);
-
-        const { tab } = pageSetup({
-            title: 'Data',
-
-            params: {
-                tab: {
-                    type:   'enum',
-                    bind:   'query',
-                    values: tabs,
-                },
-            },
-        });
-
-        return {
-            tabs,
-            tab,
-        };
+const { tab } = pageSetup({
+    params: {
+        tab: {
+            type:    'enum',
+            bind:    'query',
+            inTitle: true,
+            values:  tabs,
+            label:   v => v,
+        },
     },
 });
+
+pageSetup({ title: () => `Data - ${tab.value}`, appendParam: true });
+
+const pageComponent = shallowRef<Component>();
+
+watch([tab], () => {
+    const filename = `./data/${tab.value}.vue`;
+
+    const component = components[filename];
+
+    console.log(tab.value, component);
+
+    if (component == null) {
+        pageComponent.value = undefined;
+
+        return;
+    }
+
+    pageComponent.value = defineAsyncComponent(components[filename]);
+}, { immediate: true });
+
 </script>

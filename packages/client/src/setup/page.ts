@@ -17,7 +17,11 @@ export default function pageSetup<O extends Option>(option: O): ParamResult<O['p
     const core = useCore();
 
     core.titleType = option.titleType ?? 'text';
-    core.setTitle(option.title);
+
+    if (option.title != null || !option.appendParam) {
+        core.setTitle(option.title);
+    }
+
     core.initParams(option.params ?? {}, option.appendParam);
     core.actions = option.actions ?? [];
 
