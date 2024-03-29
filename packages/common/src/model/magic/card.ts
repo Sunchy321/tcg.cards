@@ -38,3 +38,10 @@ export type CardPrintView = Omit<ICard, 'parts' | 'scryfall'> & Omit<IPrint, 'pa
 
     rulings: Ruling[];
 };
+
+export type CardEditorView = {
+    card: ICard & { _id?: string };
+    print: IPrint & { _id?: string };
+    partIndex?: number;
+    relatedCards: RelatedCard[];
+};
