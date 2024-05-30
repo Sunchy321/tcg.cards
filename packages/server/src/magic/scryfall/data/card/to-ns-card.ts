@@ -19,7 +19,7 @@ type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | '
     face?: 'back' | 'bottom' | 'front' | 'top';
 };
 
-type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };
+export type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };
 
 export function extractCardFace(card: RawCard): NCardFace[] {
     if (card.card_faces != null) {

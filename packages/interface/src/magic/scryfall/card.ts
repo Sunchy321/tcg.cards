@@ -15,7 +15,7 @@ export interface Part {
 
 export interface CardFace {
     artist?: string;
-    cmc?: string;
+    cmc?: number;
     color_indicator?: Colors;
     colors?: Colors;
     defense?: string;

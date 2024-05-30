@@ -2,11 +2,13 @@ import { Card as ICard } from '@interface/magic/card';
 import { Print as IPrint } from '@interface/magic/print';
 import { Ruling } from '@interface/magic/ruling';
 
-export type ICardDatabase = Omit<ICard, 'parts'> & {
+import { WithUpdation } from '../updation';
+
+export type ICardDatabase = WithUpdation<Omit<ICard, 'parts'> & {
     parts: (ICard['parts'][0] & {
         __costMap: Record<string, number>;
     })[];
-};
+}>;
 
 export type RelatedCard = {
     relation: string;

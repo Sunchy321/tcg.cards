@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 
-import { ICard } from '@/magic/db/card-temp';
+import { Card as ICard } from '@interface/magic/card';
+import { Print as IPrint } from '@interface/magic/print';
 
 import { Category } from '@interface/magic/card-temp';
 import { Colors } from '@interface/magic/scryfall/basic';
@@ -32,6 +33,8 @@ type NCardSplit = NCardBase & {
     layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced' | 'flip_token_bottom' | 'flip_token_top' | 'transform_token';
 };
 
+type CardPrint = { card: ICard, print: IPrint };
+
 function splitCost(cost: string) {
     return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
 }
@@ -50,11 +53,7 @@ function toCostMap(cost: string) {
     return result;
 }
 
-function purifyText(text: string | undefined) {
-    if (text == null) {
-        return text;
-    }
-
+function purifyText(text: string) {
     const symbolMap: Record<string, string> = {
         '-': '-',
         '—': '-',
@@ -119,7 +118,7 @@ function getId(data: NCardBase & { layout: string }): string {
     if (data.card_faces[0]?.name === 'Incubator') {
         return 'incubator!';
     } else if (['token', 'flip_token_top', 'flip_token_bottom'].includes(data.layout)) {
-        const { typeMain, typeSub } = parseTypeline(cardFaces[0].type_line ?? '');
+        const { main: typeMain, sub: typeSub } = parseTypeline(cardFaces[0].type_line ?? '');
 
         if (typeSub == null) {
             if (typeMain.includes('card')) {
@@ -192,164 +191,173 @@ function getId(data: NCardBase & { layout: string }): string {
     }
 }
 
-export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): ICard {
+export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): CardPrint {
     const cardFaces = data.layout === 'reversible_card' ? [data.card_faces[0]] : data.card_faces;
 
     return {
-        cardId: getId(data),
+        card: {
+            cardId: getId(data),
 
-        lang:   data.lang,
-        set:    setCodeMap[data.set] ?? data.set,
-        number: data.collector_number,
+            manaValue:     data.cmc,
+            colorIdentity: convertColor(data.color_identity),
 
-        manaValue:     data.cmc,
-        colorIdentity: convertColor(data.color_identity),
-
-        parts: cardFaces.map(f => ({
-            cost:      f.mana_cost != null && f.mana_cost !== '' ? splitCost(f.mana_cost) : undefined,
-            __costMap: f.mana_cost != null && f.mana_cost !== '' ? toCostMap(f.mana_cost) : undefined,
-
-            color:          convertColor(f.colors),
-            colorIndicator: f.color_indicator != null
-                ? convertColor(f.color_indicator)
-                : undefined,
-
-            ...parseTypeline(f.type_line ?? ''),
-
-            power:            f.power,
-            toughness:        f.toughness,
-            loyalty:          f.loyalty,
-            defense:          f.defense,
-            handModifier:     f.hand_modifier,
-            lifeModifier:     f.life_modifier,
-            attractionLights: f.attraction_lights,
-
-            oracle: {
+            parts: cardFaces.map(f => ({
                 name:     f.name,
-                text:     purifyText(f.oracle_text),
                 typeline: f.type_line ?? '',
-            },
+                text:     purifyText(f.oracle_text ?? ''),
 
-            unified: {
-                name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
-                text:     purifyText(f.printed_text ?? f.oracle_text),
-                typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
-            },
+                localization: [{
+                    lang:     data.lang,
+                    name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
+                    typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
+                    text:     purifyText(f.printed_text ?? f.oracle_text ?? ''),
+                }],
 
-            printed: {
-                name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
-                text:     purifyText(f.printed_text ?? f.oracle_text),
-                typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
-            },
+                cost:           f.mana_cost != null && f.mana_cost !== '' ? splitCost(f.mana_cost) : undefined,
+                __costMap:      f.mana_cost != null && f.mana_cost !== '' ? toCostMap(f.mana_cost) : undefined,
+                manaValue:      f.cmc,
+                color:          convertColor(f.colors),
+                colorIndicator: f.color_indicator != null
+                    ? convertColor(f.color_indicator)
+                    : undefined,
 
-            scryfallIllusId: (() => {
-                const illusId = f.illustration_id;
+                type: parseTypeline(f.type_line ?? ''),
 
-                if (illusId == null) {
-                    return undefined;
-                }
+                power:        f.power,
+                toughness:    f.toughness,
+                loyalty:      f.loyalty,
+                defense:      f.defense,
+                handModifier: f.hand_modifier,
+                lifeModifier: f.life_modifier,
+            })),
 
-                if (data.layout === 'reversible_card') {
-                    return data.card_faces.map(f => f.illustration_id).filter(v => v != null) as string[];
+            keywords:       data.keywords.map(v => toIdentifier(v)),
+            counters:       cardFaces.some(c => (c.oracle_text ?? '').includes('counter')) ? [] : undefined,
+            producibleMana: data.produced_mana != null
+                ? convertMana(data.produced_mana)
+                : undefined,
+            tags: [
+                ...data.reserved ? ['reserved'] : [],
+                ...cardFaces.some(c => /\bcreates?|embalm|eternalize\b/i.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
+                ...cardFaces.some(c => /\bcounters?\b/.test(c.oracle_text ?? '')) ? ['dev:counter'] : [],
+            ],
+
+            category: ((): Category => {
+                if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
+                    return 'token';
+                } else if (isMinigame(data)) {
+                    return 'minigame';
                 } else {
-                    return [illusId];
+                    return 'default';
                 }
             })(),
 
-            flavorName: f.flavor_name,
-            flavorText: f.flavor_text,
-            artist:     f.artist,
-            watermark:  f.watermark,
-        })),
+            legalities:     {},
+            contentWarning: data.content_warning,
 
-        relatedCards: [],
-        rulings:      [],
+            scryfall: {
+                oracleId: [data.oracle_id],
+            },
+        },
+        print: {
+            cardId: getId(data),
 
-        keywords:       data.keywords.map(v => toIdentifier(v)),
-        counters:       cardFaces.some(c => (c.oracle_text ?? '').includes('counter')) ? [] : undefined,
-        producibleMana: data.produced_mana != null
-            ? convertMana(data.produced_mana)
-            : undefined,
-        tags: [
-            ...data.reserved ? ['reserved'] : [],
-            ...cardFaces.some(c => /\bcreates?|embalm|eternalize\b/i.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
-            ...cardFaces.some(c => /\bcounters?\b/.test(c.oracle_text ?? '')) ? ['dev:counter'] : [],
-        ],
-        localTags: [
-            ...data.full_art ? ['full-art'] : [],
-            ...data.oversized ? ['oversized'] : [],
-            ...data.story_spotlight ? ['story-spotlight'] : [],
-            ...data.textless ? ['textless'] : [],
-        ],
+            lang:   data.lang,
+            set:    setCodeMap[data.set] ?? data.set,
+            number: data.collector_number,
 
-        category: ((): Category => {
-            if (data.card_faces.some(f => /\btoken\b/i.test(f.type_line ?? ''))) {
-                return 'token';
-            } else if (isMinigame(data)) {
-                return 'minigame';
-            } else {
-                return 'default';
-            }
-        })(),
+            parts: cardFaces.map(f => ({
+                name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
+                typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
+                text:     purifyText(f.printed_text ?? f.oracle_text ?? ''),
 
-        layout: (() => {
-            if (data.layout === 'split') {
-                if (data.keywords.includes('Aftermath')) {
-                    if (data.games.includes('paper')) {
-                        return 'aftermath';
+                attractionLights: f.attraction_lights,
+
+                scryfallIllusId: (() => {
+                    const illusId = f.illustration_id;
+
+                    if (illusId == null) {
+                        return undefined;
+                    }
+
+                    if (data.layout === 'reversible_card') {
+                        return data.card_faces.map(f => f.illustration_id).filter(v => v != null) as string[];
                     } else {
-                        return 'split_arena';
+                        return [illusId];
+                    }
+                })(),
+
+                flavorName: f.flavor_name,
+                flavorText: f.flavor_text,
+                artist:     f.artist,
+                watermark:  f.watermark,
+            })),
+
+            tags: [
+                ...data.full_art ? ['full-art'] : [],
+                ...data.oversized ? ['oversized'] : [],
+                ...data.story_spotlight ? ['story-spotlight'] : [],
+                ...data.textless ? ['textless'] : [],
+            ],
+
+            layout: (() => {
+                if (data.layout === 'split') {
+                    if (data.keywords.includes('Aftermath')) {
+                        if (data.games.includes('paper')) {
+                            return 'aftermath';
+                        } else {
+                            return 'split_arena';
+                        }
                     }
                 }
-            }
 
-            if (data.card_faces[0].type_line.includes('Battle')) {
-                return 'battle';
-            }
+                if (data.card_faces[0].type_line.includes('Battle')) {
+                    return 'battle';
+                }
 
-            return data.layout;
-        })(),
+                return data.layout;
+            })(),
 
-        frame:         data.frame,
-        frameEffects:  data.frame_effects ?? [],
-        borderColor:   data.border_color,
-        cardBack:      data.card_back_id,
-        securityStamp: data.security_stamp,
-        promoTypes:    data.promo_types,
-        rarity:        data.rarity,
-        releaseDate:   data.released_at,
+            frame:         data.frame,
+            frameEffects:  data.frame_effects ?? [],
+            borderColor:   data.border_color,
+            cardBack:      data.card_back_id,
+            securityStamp: data.security_stamp,
+            promoTypes:    data.promo_types,
+            rarity:        data.rarity,
+            releaseDate:   data.released_at,
 
-        isDigital:       data.digital,
-        isPromo:         data.promo,
-        isReprint:       data.reprint,
-        finishes:        data.finishes,
-        hasHighResImage: data.highres_image,
-        imageStatus:     data.image_status,
+            isDigital:       data.digital,
+            isPromo:         data.promo,
+            isReprint:       data.reprint,
+            finishes:        data.finishes,
+            hasHighResImage: data.highres_image,
+            imageStatus:     data.image_status,
 
-        legalities:     {},
-        inBooster:      data.booster,
-        contentWarning: data.content_warning,
-        games:          data.games,
+            inBooster: data.booster,
+            games:     data.games,
 
-        preview: data.preview != null
-            ? {
-                date:   data.preview.previewed_at,
-                source: data.preview.source,
-                uri:    data.preview.source_uri,
-            }
-            : undefined,
+            preview: data.preview != null
+                ? {
+                    date:   data.preview.previewed_at,
+                    source: data.preview.source,
+                    uri:    data.preview.source_uri,
+                }
+                : undefined,
 
-        scryfall: {
-            cardId:    data.id,
-            oracleId:  data.oracle_id,
-            face:      data.face,
-            imageUris: data.image_uris != null ? [data.image_uris] : data.card_faces.map(v => v.image_uris ?? {}),
+            scryfall: {
+                oracleId:  data.oracle_id,
+                cardId:    data.id,
+                face:      data.face,
+                imageUris: data.image_uris != null ? [data.image_uris] : data.card_faces.map(v => v.image_uris ?? {}),
+            },
+
+            arenaId:      data.arena_id,
+            mtgoId:       data.mtgo_id,
+            mtgoFoilId:   data.mtgo_foil_id,
+            multiverseId: data.multiverse_ids,
+            tcgPlayerId:  data.tcgplayer_id,
+            cardMarketId: data.cardmarket_id,
         },
-        arenaId:      data.arena_id,
-        mtgoId:       data.mtgo_id,
-        mtgoFoilId:   data.mtgo_foil_id,
-        multiverseId: data.multiverse_ids,
-        tcgPlayerId:  data.tcgplayer_id,
-        cardMarketId: data.cardmarket_id,
     };
 }

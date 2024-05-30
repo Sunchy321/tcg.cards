@@ -15,9 +15,9 @@ export function toIdentifier(text: string): string {
 }
 
 type Type = {
-    typeSuper?: string[];
-    typeMain: string[];
-    typeSub?: string[];
+    super?: string[];
+    main: string[];
+    sub?: string[];
 };
 
 const superList = [
@@ -61,9 +61,9 @@ export function parseTypeline(typeline: string): Type {
     const typeMain = mainWord.filter(w => !superList.includes(w));
 
     return {
-        typeSuper: typeSuper.length > 0 ? typeSuper : undefined,
-        typeMain,
-        typeSub,
+        super: typeSuper.length > 0 ? typeSuper : undefined,
+        main:  typeMain,
+        sub:   typeSub,
     };
 }
 

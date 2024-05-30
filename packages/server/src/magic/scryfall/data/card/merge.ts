@@ -1,77 +1,180 @@
 /* eslint-disable camelcase */
-import { ICard } from '@/magic/db/card-temp';
+import { Card as ICard } from '@interface/magic/card';
+import { Print as IPrint } from '@interface/magic/print';
+import { ICardDatabase } from '@common/model/magic/card';
+import { IPrintDatabase } from '@common/model/magic/print';
 import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
+import { WithUpdation } from 'card-common/src/model/updation';
 
 import { Document } from 'mongoose';
 
 import { existsSync, unlinkSync } from 'fs';
-import { isEqual } from 'lodash';
+import { isEqual, uniq } from 'lodash';
 
 import { cardImagePath } from '@/magic/image';
 
-function assign(card: Document & ICard, data: ICard, key: keyof ICard, updation: ICardUpdation[]) {
+function assign<T>(card: Document & WithUpdation<T>, data: T, key: string & keyof T) {
     if (!isEqual(card[key], data[key])) {
-        updation.push({
-            cardId:     card.cardId,
-            scryfallId: card.scryfall.cardId!,
+        card.__updations.push({
             key,
-            oldValue:   card[key],
-            newValue:   data[key],
+            oldValue: card[key],
+            newValue: data[key],
         });
 
         (card as any)[key] = data[key];
     }
 }
 
-function assignPart(
-    card: ICard['parts'][0],
-    data: ICard['parts'][0],
-    key: keyof ICard['parts'][0],
-    cardId: string,
-    scryfallId: string,
+type Part = {
+    parts: any[];
+};
+
+function assignPart<T extends Part, U extends WithUpdation<T>>(
+    card: U,
+    cPart: T['parts'][0],
+    dPart: T['parts'][0],
+    key: string & keyof T['parts'][0],
     index: number,
-    updation: ICardUpdation[],
 ) {
-    if (!isEqual(card[key], data[key])) {
-        updation.push({
-            cardId,
-            scryfallId,
+    if (!isEqual(cPart[key], dPart[key])) {
+        card.__updations ??= [];
+
+        card.__updations.push({
             key:       `parts.${key}`,
             partIndex: index,
-            oldValue:  card[key],
-            newValue:  data[key],
+            oldValue:  cPart[key],
+            newValue:  dPart[key],
         });
 
-        (card as any)[key] = data[key];
+        (cPart as any)[key] = dPart[key];
     }
 }
 
-function assignSet(card: string[], data: string[], tag: string) {
-    if (data.includes(tag) && !card.includes(tag)) {
-        card.push(tag);
-    }
+function assignCardLocalization(
+    card: ICardDatabase,
+    cLocs: ICardDatabase['parts'][0]['localization'],
+    dLocs: ICardDatabase['parts'][0]['localization'],
+    index: number,
+) {
+    const locs = uniq([
+        ...cLocs.map(c => c.lang),
+        ...dLocs.map(d => d.lang),
+    ]);
 
-    if (!data.includes(tag) && card.includes(tag)) {
-        card.splice(card.indexOf(tag), 1);
+    for (const loc of locs) {
+        const cLoc = cLocs.find(c => c.lang === loc);
+        const dLoc = dLocs.find(d => d.lang === loc);
+
+        if (dLoc == null) {
+            // won't delete, skip
+            continue;
+        }
+
+        if (cLoc == null) {
+            cLocs.push(dLoc);
+
+            card.__updations.push({
+                key:       `parts.localization.${loc}`,
+                partIndex: index,
+                lang:      loc,
+                oldValue:  cLoc,
+                newValue:  dLoc,
+            });
+        } else {
+            if (cLoc.name !== dLoc.name) {
+                card.__updations.push({
+                    key:       `parts.localization.${loc}.name`,
+                    partIndex: index,
+                    lang:      loc,
+                    oldValue:  cLoc.name,
+                    newValue:  dLoc.name,
+                });
+
+                cLoc.name = dLoc.name;
+            }
+
+            if (cLoc.typeline !== dLoc.typeline) {
+                card.__updations.push({
+                    key:       `parts.localization.${loc}.typeline`,
+                    partIndex: index,
+                    lang:      loc,
+                    oldValue:  cLoc.typeline,
+                    newValue:  dLoc.typeline,
+                });
+
+                cLoc.typeline = dLoc.typeline;
+            }
+
+            if (cLoc.text !== dLoc.text) {
+                card.__updations.push({
+                    key:       `parts.localization.${loc}.text`,
+                    partIndex: index,
+                    lang:      loc,
+                    oldValue:  cLoc.text,
+                    newValue:  dLoc.text,
+                });
+
+                cLoc.text = dLoc.text;
+            }
+        }
     }
 }
 
-export async function merge(card: Document & ICard, data: ICard): Promise<void> {
+function assignCardType(
+    card: ICardDatabase,
+    cType: ICardDatabase['parts'][0]['type'],
+    dType: ICardDatabase['parts'][0]['type'],
+    key: keyof ICardDatabase['parts'][0]['type'],
+    index: number,
+) {
+    if (!isEqual(cType[key], dType[key])) {
+        card.__updations ??= [];
+
+        card.__updations.push({
+            key:       `parts.type.${key}`,
+            partIndex: index,
+            oldValue:  cType[key],
+            newValue:  dType[key],
+        });
+
+        (cType as any)[key] = dType[key];
+    }
+}
+
+function assignSet<T>(card: Document & WithUpdation<T>, data: T, key: string & keyof T) {
+    if (isEqual(card[key], data[key])) {
+        return;
+    }
+
+    (data as any)[key] = (data as any)[key]
+        .filter((v: string) => !v.startsWith('dev:') || (card as any)[key].includes(v))
+        .sort();
+
+    (card as any)[key] = (card as any)[key].sort();
+
+    card.__updations ??= [];
+
+    card.__updations.push({
+        key,
+        oldValue: card[key],
+        newValue: data[key],
+    });
+
+    (card as any)[key] = data[key];
+}
+
+export async function mergeCard(card: Document & ICardDatabase, data: ICard): Promise<void> {
     const updation: ICardUpdation[] = [];
 
     for (const k of Object.keys(data) as (keyof ICard)[]) {
         // eslint-disable-next-line default-case
         switch (k) {
         case 'cardId':
-            break;
+            throw new Error(`cardId mismatch: ${card.cardId} -- ${data.cardId}`);
 
-        case 'lang':
-            break;
-        case 'set':
-        case 'number':
         case 'manaValue':
         case 'colorIdentity':
-            assign(card, data, k, updation);
+            assign(card, data, k);
             break;
 
         case 'parts': {
@@ -83,77 +186,45 @@ export async function merge(card: Document & ICard, data: ICard): Promise<void> 
                 const cPart = card.parts[i];
                 const dPart = data.parts[i];
 
-                for (const l of Object.keys(dPart) as (keyof ICard['parts'][0])[]) {
+                for (const l of Object.keys(dPart) as (keyof ICardDatabase['parts'][0])[]) {
                     // eslint-disable-next-line default-case
                     switch (l) {
-                    case '__costMap':
-                    case 'flavorName':
-                    case 'flavorText':
+                    case 'name':
+                    case 'typeline':
+                    case 'text':
+                        assignPart(card, cPart, dPart, l, i);
                         break;
+
+                    case 'localization':
+                        assignCardLocalization(card, cPart.localization, dPart.localization, i);
+                        break;
+
                     case 'cost':
+                    case '__costMap':
+                    case 'manaValue':
                     case 'color':
                     case 'colorIndicator':
-                    case 'typeSuper':
-                    case 'typeMain':
-                    case 'typeSub':
+                        assignPart(card, cPart, dPart, l, i);
+                        break;
+
+                    case 'type': {
+                        const cType = cPart.type;
+                        const dType = dPart.type;
+
+                        assignCardType(card, cType, dType, 'super', i);
+                        assignCardType(card, cType, dType, 'main', i);
+                        assignCardType(card, cType, dType, 'sub', i);
+
+                        break;
+                    }
+
                     case 'power':
                     case 'toughness':
                     case 'loyalty':
                     case 'defense':
                     case 'handModifier':
                     case 'lifeModifier':
-                    case 'attractionLights':
-                    case 'scryfallIllusId':
-                    case 'artist':
-                    case 'watermark':
-                        assignPart(cPart, dPart, l, card.cardId, card.scryfall.cardId!, i, updation);
-                        break;
-
-                    case 'oracle': {
-                        if (cPart.oracle.name !== dPart.oracle.name) {
-                            if (card.__oracle == null) {
-                                card.__oracle = {};
-                            }
-
-                            card.__oracle.name = cPart.oracle.name;
-                            cPart.oracle.name = dPart.oracle.name;
-
-                            if (card.lang === 'en') {
-                                cPart.unified.name = dPart.oracle.name;
-                            }
-                        }
-
-                        if (cPart.oracle.typeline !== dPart.oracle.typeline) {
-                            if (card.__oracle == null) {
-                                card.__oracle = {};
-                            }
-
-                            card.__oracle.typeline = cPart.oracle.typeline;
-                            cPart.oracle.typeline = dPart.oracle.typeline;
-
-                            if (card.lang === 'en') {
-                                cPart.unified.typeline = dPart.oracle.typeline;
-                            }
-                        }
-
-                        if (cPart.oracle.text !== dPart.oracle.text) {
-                            if (card.__oracle == null) {
-                                card.__oracle = {};
-                            }
-
-                            card.__oracle.text = cPart.oracle.text;
-                            cPart.oracle.text = dPart.oracle.text;
-
-                            if (card.lang === 'en') {
-                                cPart.unified.text = dPart.oracle.text;
-                            }
-                        }
-
-                        break;
-                    }
-
-                    case 'unified':
-                    case 'printed':
+                        assignPart(card, cPart, dPart, l, i);
                         break;
                     }
                 }
@@ -162,54 +233,96 @@ export async function merge(card: Document & ICard, data: ICard): Promise<void> 
             break;
         }
 
-        case 'relatedCards':
-            break;
-
-        case 'rulings':
-            break;
-
         case 'keywords':
         case 'producibleMana':
-            assign(card, data, k, updation);
+            assign(card, data, k);
             break;
 
         case 'counters':
             break;
 
         case 'tags':
-            if (!isEqual(card[k], data[k])) {
-                updation.push({
-                    cardId:     card.cardId,
-                    scryfallId: card.scryfall.cardId!,
-                    key:        k,
-                    oldValue:   card[k],
-                    newValue:   data[k],
-                });
-            }
-
-            assignSet(card.tags, data.tags, 'reserved');
-            assignSet(card.tags, data.tags, 'dev:counted');
-            assignSet(card.tags, data.tags, 'dev:counted');
-            break;
-
-        case 'localTags':
-            if (!isEqual(card[k], data[k])) {
-                updation.push({
-                    cardId:     card.cardId,
-                    scryfallId: card.scryfall.cardId!,
-                    key:        k,
-                    oldValue:   card[k],
-                    newValue:   data[k],
-                });
-            }
-
-            assignSet(card.localTags, data.localTags, 'full-art');
-            assignSet(card.localTags, data.localTags, 'oversized');
-            assignSet(card.localTags, data.localTags, 'story-spotlight');
-            assignSet(card.localTags, data.localTags, 'textless');
+            assignSet(card, data, 'tags');
             break;
 
         case 'category':
+            break;
+
+        case 'legalities':
+            break;
+
+        case 'contentWarning':
+            assign(card, data, k);
+            break;
+
+        case 'scryfall':
+            assign(card, data, k);
+            break;
+        }
+    }
+
+    if (card.modifiedPaths().length > 0) {
+        await card.save();
+    }
+
+    await CardUpdation.insertMany(updation);
+}
+
+export async function mergePrint(print: Document & IPrintDatabase, data: IPrint): Promise<void> {
+    const updation: ICardUpdation[] = [];
+
+    for (const k of Object.keys(data) as (keyof IPrint)[]) {
+        // eslint-disable-next-line default-case
+        switch (k) {
+        case 'cardId':
+            break;
+
+        case 'lang':
+            break;
+        case 'set':
+        case 'number':
+            assign(print, data, k);
+            break;
+
+        case 'parts': {
+            if (print.parts.length !== data.parts.length) {
+                throw new Error(`parts count mismatch: ${print.cardId}`);
+            }
+
+            for (let i = 0; i < data.parts.length; i += 1) {
+                const cPart = print.parts[i];
+                const dPart = data.parts[i];
+
+                for (const l of Object.keys(dPart) as (keyof IPrint['parts'][0])[]) {
+                    // eslint-disable-next-line default-case
+                    switch (l) {
+                    case 'name':
+                    case 'typeline':
+                    case 'text':
+                        assignPart(print, cPart, dPart, l, i);
+                        break;
+                    case 'attractionLights':
+                    case 'scryfallIllusId':
+                        assignPart(print, cPart, dPart, l, i);
+                        break;
+                    case 'flavorName':
+                    case 'flavorText':
+                        break;
+                    case 'artist':
+                    case 'watermark':
+                        assignPart(print, cPart, dPart, l, i);
+                        break;
+                    }
+                }
+            }
+
+            break;
+        }
+
+        case 'tags':
+            assignSet(print, data, 'tags');
+            break;
+
         case 'layout':
         case 'rarity':
             break;
@@ -220,17 +333,17 @@ export async function merge(card: Document & ICard, data: ICard): Promise<void> 
         case 'securityStamp':
         case 'promoTypes':
         case 'releaseDate':
-            assign(card, data, k, updation);
+            assign(print, data, k);
             break;
 
         case 'isDigital':
         case 'isPromo':
         case 'isReprint':
         case 'finishes':
-            assign(card, data, k, updation);
+            assign(print, data, k);
             break;
         case 'hasHighResImage': {
-            if (card.hasHighResImage !== data.hasHighResImage) {
+            if (print.hasHighResImage !== data.hasHighResImage) {
                 for (const type of ['png', 'border_crop', 'art_crop', 'large', 'normal', 'small']) {
                     const basePath = cardImagePath(type, data.set, data.lang, data.number);
 
@@ -247,20 +360,17 @@ export async function merge(card: Document & ICard, data: ICard): Promise<void> 
                     }
                 }
 
-                card.hasHighResImage = data.hasHighResImage;
+                print.hasHighResImage = data.hasHighResImage;
             }
             break;
         }
         case 'imageStatus':
-            assign(card, data, 'imageStatus', updation);
+            assign(print, data, 'imageStatus');
             break;
 
-        case 'legalities':
-            break;
         case 'inBooster':
-        case 'contentWarning':
         case 'games':
-            assign(card, data, k, updation);
+            assign(print, data, k);
             break;
 
         case 'preview':
@@ -273,17 +383,13 @@ export async function merge(card: Document & ICard, data: ICard): Promise<void> 
         case 'multiverseId':
         case 'tcgPlayerId':
         case 'cardMarketId':
-            assign(card, data, k, updation);
-            break;
-
-        case '__oracle':
-            assign(card, data, '__oracle', updation);
+            assign(print, data, k);
             break;
         }
     }
 
-    if (card.modifiedPaths().length > 0) {
-        await card.save();
+    if (print.modifiedPaths().length > 0) {
+        await print.save();
     }
 
     await CardUpdation.insertMany(updation);

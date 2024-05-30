@@ -3,9 +3,9 @@ import { Schema } from 'mongoose';
 import conn from './db';
 
 import { Print as IPrint } from '@interface/magic/print';
-import { WithHistory } from '@/database/history';
+import { WithUpdation } from '@common/model/updation';
 
-const IPrintSchema = new Schema<WithHistory<IPrint>>({
+const IPrintSchema = new Schema<WithUpdation<IPrint>>({
     cardId: String,
 
     lang:   String,

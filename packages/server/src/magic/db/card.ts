@@ -4,13 +4,9 @@ import { Schema, Model } from 'mongoose';
 import conn from './db';
 
 import { ICardDatabase } from '@common/model/magic/card';
-import { WithHistory, historyPlugin } from '@/database/history';
+import { historyPlugin } from '@/database/updation';
 
-const CardSchema = new Schema<
-WithHistory<ICardDatabase>,
-Model<WithHistory<ICardDatabase>>,
-{}, {}, {}, {}, '$type'
->({
+const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
     manaValue:     Number,
@@ -84,10 +80,12 @@ Model<WithHistory<ICardDatabase>>,
     },
 
     __updations: [{
-        _id:    false,
-        source: String,
-        date:   Date,
-        data:   Object,
+        _id:       false,
+        key:       String,
+        partIndex: Number,
+        lang:      String,
+        oldValue:  {},
+        newValue:  {},
     }],
 
     __lockedPaths: [String],

@@ -1,10 +1,8 @@
 /* eslint-disable camelcase */
+import { NCardFaceExtracted } from './to-ns-card';
+
 import { Colors } from '@interface/magic/scryfall/basic';
 import { CardFace, RawCard } from '@interface/magic/scryfall/card';
-
-type RawCardNoArtSeries = Omit<RawCard, 'layout'> & {
-    layout: Exclude<RawCard['layout'], 'art_series'>;
-};
 
 type NCardFace = Omit<CardFace, 'colors'> & {
     colors: Colors;
@@ -19,7 +17,6 @@ type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | '
     face?: 'back' | 'bottom' | 'front' | 'top';
 };
 
-type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };
 type NCardSplit = NCardBase & {
     layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced' | 'flip_token_bottom' | 'flip_token_top' | 'transform_token';
 };

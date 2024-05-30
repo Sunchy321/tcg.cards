@@ -1,11 +1,14 @@
 /* eslint-disable camelcase */
 import Task from '@/common/task';
 
-import Card, { ICard } from '@/magic/db/card-temp';
+import Card from '@/magic/db/card';
+import Print from '@/magic/db/print';
 import SCard from '@/magic/db/scryfall-card';
 import Set from '@/magic/db/set';
 
 import { RawCard } from '@interface/magic/scryfall/card';
+import { Card as ICard } from '@interface/magic/card';
+import { Print as IPrint } from '@interface/magic/print';
 
 import { Status } from '../../status';
 
@@ -18,7 +21,7 @@ import { bulkPath, convertJson } from '../common';
 import { toNSCard, RawCardNoArtSeries } from './to-ns-card';
 import { splitDFT } from './split-dft';
 import { toCard } from './to-card';
-import { merge } from './merge';
+import { mergeCard, mergePrint } from './merge';
 
 const bucketSize = 500;
 
@@ -95,46 +98,68 @@ export default class CardLoader extends Task<Status> {
                 card_id: json.id,
             })));
 
-            const cards = await Card.find({ 'scryfall.cardId': { $in: jsons.map(j => j.id) } });
+            const cards = await Card.find({ 'scryfall.oracle': { $in: jsons.map(j => j.oracle_id) } });
+            const prints = await Print.find({ 'scryfall.cardId': { $in: jsons.map(j => j.id) } });
 
             const cardsToInsert: ICard[] = [];
+            const printsToInsert: IPrint[] = [];
 
             for (const json of jsons) {
                 if (json.layout === 'art_series') {
                     continue;
                 }
 
-                const newCards = splitDFT(toNSCard(json as RawCardNoArtSeries));
+                const cardPrints = splitDFT(toNSCard(json as RawCardNoArtSeries)).map(c => toCard(c, setCodeMap));
 
-                const oldCards = cards.filter(c => c.scryfall.cardId === json.id
-                    || (c.set === json.set && c.number === json.collector_number && c.lang === json.lang));
+                const oldCards = cards.filter(c => c.scryfall.oracleId.includes(json.oracle_id));
 
-                if (newCards.length === 1) {
+                const oldPrints = prints.filter(p => p.scryfall.cardId === json.id
+                    || (p.set === json.set && p.number === json.collector_number && p.lang === json.lang));
+
+                if (cardPrints.length === 1) {
                     // a single card
                     if (oldCards.length === 0) {
-                        cardsToInsert.push(...newCards.map(c => toCard(c, setCodeMap)));
+                        cardsToInsert.push(...cardPrints.map(v => v.card));
                     } else if (oldCards.length === 1) {
-                        merge(oldCards[0], toCard(newCards[0], setCodeMap));
+                        mergeCard(oldCards[0], cardPrints[0].card);
                     } else {
                         // Scryfall mowu is bugged. ignore.
-                        if (newCards[0].id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
+                        if (json.id !== 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
+                            console.log(`mismatch object count: ${json.id}`);
+                        }
+                    }
+
+                    if (oldPrints.length === 0) {
+                        printsToInsert.push(...cardPrints.map(v => v.print));
+                    } else if (oldPrints.length === 1) {
+                        mergePrint(oldPrints[0], cardPrints[0].print);
+                    } else {
+                        // Scryfall mowu is bugged. ignore.
+                        if (json.id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
                             continue;
                         }
 
-                        console.log(`mismatch object count: ${newCards[0].id}`);
+                        console.log(`mismatch object count: ${json.id}`);
                     }
-                } else if (newCards.length === 2) {
+                } else if (cardPrints.length === 2) {
                     if (oldCards.length === 0) {
-                        cardsToInsert.push(...newCards.map(c => toCard(c, setCodeMap)));
+                        cardsToInsert.push(...cardPrints.map(c => c.card));
                     } else if (oldCards.length === 1 || oldCards.length === 2) {
-                        for (const n of newCards) {
-                            if (n.face != null) {
-                                const old = oldCards.find(c => c.scryfall.face === n.face);
+                        for (const n of cardPrints) {
+                            if (n.print.scryfall.face != null) {
+                                const oldPrint = oldPrints.find(p => p.scryfall.face === n.print.scryfall.face);
+                                const oldCard = oldCards.find(c => c.cardId === oldPrint?.cardId);
 
-                                if (old != null) {
-                                    merge(old, toCard(n, setCodeMap));
+                                if (oldCard != null) {
+                                    mergeCard(oldCard, n.card);
                                 } else {
-                                    cardsToInsert.push(toCard(n, setCodeMap));
+                                    cardsToInsert.push(n.card);
+                                }
+
+                                if (oldPrint != null) {
+                                    mergePrint(oldPrint, n.print);
+                                } else {
+                                    printsToInsert.push(n.print);
                                 }
                             } else {
                                 // eslint-disable-next-line no-debugger
@@ -142,31 +167,30 @@ export default class CardLoader extends Task<Status> {
                             }
                         }
                     } else {
-                        console.log(`mismatch object count: ${newCards[0].id}, ${newCards[1].id}`);
+                        console.log(`mismatch object count: ${json.id}`);
                     }
                 }
 
                 count += 1;
             }
 
-            for (const card of cardsToInsert) {
-                if (card.lang !== 'en') {
+            for (const print of printsToInsert) {
+                if (print.lang !== 'en') {
                     continue;
                 }
 
-                if (card.set === 'plst' || card.set === 'pagl') {
-                    card.localTags.push('dev:printed');
+                if (print.set === 'plst' || print.set === 'pagl') {
+                    print.tags.push('dev:printed');
                     continue;
                 }
 
-                if (card.parts.some(p => /[(（)）]/.test(p.oracle.text ?? '')
-                    || /[(（)）]/.test(p.printed.text ?? ''))
-                ) {
-                    card.localTags.push('dev:printed');
+                if (print.parts.some(p => /[(（)）]/.test(p.text ?? ''))) {
+                    print.tags.push('dev:printed');
                 }
             }
 
             await Card.insertMany(cardsToInsert);
+            await Print.insertMany(printsToInsert);
         }
     }
 
