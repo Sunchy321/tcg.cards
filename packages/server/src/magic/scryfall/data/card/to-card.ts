@@ -1,9 +1,8 @@
 /* eslint-disable camelcase */
 
-import { Card as ICard } from '@interface/magic/card';
+import { Card as ICard, Category } from '@interface/magic/card';
 import { Print as IPrint } from '@interface/magic/print';
 
-import { Category } from '@interface/magic/card-temp';
 import { Colors } from '@interface/magic/scryfall/basic';
 import { CardFace, RawCard } from '@interface/magic/scryfall/card';
 
