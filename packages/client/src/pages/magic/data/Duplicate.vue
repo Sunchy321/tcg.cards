@@ -22,7 +22,7 @@ import {
 
 import controlSetup from 'setup/control';
 
-import { CardTemp } from 'interface/magic/card-temp';
+import { Print } from 'interface/magic/print';
 
 import JsonComparator from 'components/JSONComparator.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
@@ -44,7 +44,7 @@ export type ICardUpdation = {
 
 type DuplicateData = {
     total: number;
-    values: (CardTemp & { _id: string })[];
+    values: (Print & { _id: string })[];
 };
 
 export default defineComponent({
@@ -90,7 +90,7 @@ export default defineComponent({
         };
 
         const loadData = async () => {
-            const { data: result } = await controlGet<DuplicateData>('/magic/card/get-duplicate');
+            const { data: result } = await controlGet<DuplicateData>('/magic/print/get-duplicate');
 
             data.value = result;
         };
@@ -102,7 +102,7 @@ export default defineComponent({
                 return;
             }
 
-            await controlPost('/magic/card/resolve-duplicate', { data: value });
+            await controlPost('/magic/print/resolve-duplicate', { data: value });
 
             await loadData();
         };
