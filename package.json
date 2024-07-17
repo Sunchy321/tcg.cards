@@ -1,7 +1,3 @@
 {
-	"pnpm": {
-		"patchedDependencies": {
-			"@types/koa-bodyparser@4.3.8": "patches/@types__koa-bodyparser@4.3.8.patch"
-		}
-	}
+	"workspaces": ["packages/*"]
 }

@@ -15,13 +15,13 @@
         "paths": {
             "*": ["@types/*"],
             "@/*": ["./*"],
-            "@interface/*": ["../node_modules/card-interface/src/*"],
-            "@static/*": ["../node_modules/card-common/static/*"],
-            "@data/*": ["../node_modules/card-common/data/*"],
-            "@common/*": ["../node_modules/card-common/src/*"],
-            "@searcher/*": ["../node_modules/card-searcher/src/*"],
-            "@searcher-data/*": ["../node_modules/card-searcher/data/*"],
-            "@renderer/*": ["../node_modules/card-renderer/src/*"]
+            "@interface/*": ["../../../node_modules/card-interface/src/*"],
+            "@static/*": ["../../../node_modules/card-common/static/*"],
+            "@data/*": ["../../../node_modules/card-common/data/*"],
+            "@common/*": ["../../../node_modules/card-common/src/*"],
+            "@searcher/*": ["../../../node_modules/card-searcher/src/*"],
+            "@searcher-data/*": ["../../../node_modules/card-searcher/data/*"],
+            "@renderer/*": ["../../../node_modules/card-renderer/src/*"]
         },
         "plugins": [
             { "transform": "tst-reflect-transformer" },

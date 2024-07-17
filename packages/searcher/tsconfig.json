@@ -11,9 +11,9 @@
         "lib": ["ES2021"],
         "baseUrl": "./src",
         "paths": {
-            "@static/*": ["../node_modules/card-common/static/*"],
-            "@interface/*": ["../node_modules/card-interface/src/*"],
-            "@common/*": ["../node_modules/card-common/src/*"]
+            "@static/*": ["../../../node_modules/card-common/static/*"],
+            "@interface/*": ["../../../node_modules/card-interface/src/*"],
+            "@common/*": ["../../../node_modules/card-common/src/*"]
         },
     },
     "include": ["src/**/*", "data/**/*"]
