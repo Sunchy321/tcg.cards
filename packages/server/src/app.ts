@@ -1,4 +1,4 @@
-/* eslint-disable consistent-return */
+/* eslint-disable consistent-return, @typescript-eslint/no-misused-promises */
 import Koa from 'koa';
 import cors from '@koa/cors';
 import sslify from 'koa-sslify';
@@ -12,9 +12,7 @@ import websocket from 'koa-easy-ws';
 
 import http from 'http';
 import https, { ServerOptions } from 'https';
-import { create as createCas } from 'ssl-root-cas';
 import { readFileSync } from 'fs';
-import { join } from 'path';
 
 import { main } from '@/logger';
 
@@ -26,7 +24,7 @@ import user from '@/user/router';
 import control from '@/control';
 
 import {
-    config, clientPath, httpsSecret, HttpsSecret, dataPath,
+    config, clientPath, httpsSecret, HttpsSecret,
 } from '@/config';
 
 const app = new Koa();
@@ -73,12 +71,6 @@ function createOption(option: HttpsSecret) {
         cert: readFileSync(option.cert),
     } as ServerOptions;
 }
-
-const cas = createCas();
-
-cas.addFile(join(dataPath, 'magic', 'intermediate.pem'));
-
-https.globalAgent.options.ca = cas;
 
 const server = https.createServer(createOption(httpsSecret.default), app.callback());
 
