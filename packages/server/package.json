@@ -4,7 +4,7 @@
     "description": "Card Server",
     "scripts": {
         "lint": "eslint ./src ./data --ext js,ts --cache --fix",
-        "dev": "npx nodemon --inspect src/app.ts -- ../../../server-config.json",
+        "dev": "bun --inspect --hot src/app.ts ../../../config.json",
         "build": "npx tspc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist"
     },
     "homepage": "https://github.com/Sunchy321/tcg.cards#readme",

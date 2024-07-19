@@ -1,5 +1,5 @@
-import { BackendOf, DBQuery, QueryOption } from '@searcher/command/backend';
-import { QueryError } from '@searcher/command/error';
+import { BackendOf, DBQuery, QueryOption } from 'command/backend';
+import { QueryError } from 'command/error';
 
 import { CostCommand } from '@searcher-data/magic/command/cost';
 
