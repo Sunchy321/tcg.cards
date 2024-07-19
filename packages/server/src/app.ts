@@ -72,12 +72,7 @@ function createOption(option: HttpsSecret) {
     } as ServerOptions;
 }
 
-const server = https.createServer(createOption(httpsSecret.default), app.callback());
-
-server.addContext('api.tcg.cards', createOption(httpsSecret.api));
-server.addContext('image.tcg.cards', createOption(httpsSecret.image));
-server.addContext('user.tcg.cards', createOption(httpsSecret.user));
-server.addContext('control.tcg.cards', createOption(httpsSecret.control));
+const server = https.createServer(createOption(httpsSecret), app.callback());
 
 server.listen(httpsPort, () => {
     main.info(`Server is running at ${httpsPort}`, { category: 'server' });
