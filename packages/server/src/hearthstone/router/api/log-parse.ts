@@ -2,7 +2,7 @@ import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 
 import { readFileSync } from 'fs';
-import { parseLog } from 'hs-log-parser';
+// import { parseLog } from 'hs-log-parser';
 
 const router = new KoaRouter<DefaultState, Context>();
 

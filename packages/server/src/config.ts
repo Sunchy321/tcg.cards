@@ -24,13 +24,7 @@ export interface Config {
     appKey: string;
     jwtSecretKey: string;
 
-    httpsSecret: {
-        default: HttpsSecret;
-        api: HttpsSecret;
-        image: HttpsSecret;
-        user: HttpsSecret;
-        control: HttpsSecret;
-    };
+    httpsSecret: HttpsSecret;
 
     client: string;
     asset: string;
