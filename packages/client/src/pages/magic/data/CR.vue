@@ -8,10 +8,7 @@
                 :options="crOptions"
             >
                 <template #option="scope">
-                    <q-item
-                        v-bind="scope.itemProps"
-                        v-on="scope.itemEvents"
-                    >
+                    <q-item v-bind="scope.itemProps">
                         <q-item-section avatar>
                             <q-icon
                                 :color="scope.opt.hasData ? 'positive' : 'grey'"
@@ -64,6 +61,16 @@
                 <q-tab name="content" label="Content" />
                 <q-tab name="glossary" label="Glossary" />
             </q-tabs>
+        </div>
+
+        <div class="flex items-center q-my-sm q-gutter-md">
+            <q-input v-model="oldId" dense outlined />
+            <q-icon name="mdi-arrow-right" size="md" />
+            <q-input v-model="newId" dense outlined />
+
+            <q-btn flat dense outline @click="renameAll">
+                Rename All
+            </q-btn>
         </div>
 
         <q-tab-panels v-model="tab" animated>
@@ -178,14 +185,9 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.error
-    color: $negative
-</style>
-
-<script lang="ts">
+<script setup lang="ts">
 import {
-    defineComponent, ref, computed, watch, onMounted,
+    ref, computed, watch, onMounted,
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
@@ -223,176 +225,154 @@ interface CR {
     csi?: string;
 }
 
-export default defineComponent({
-    name: 'DataCR',
+const router = useRouter();
+const route = useRoute();
 
-    components: { ArrayInput, DeferredInput },
+const { controlGet, controlPost } = controlSetup();
 
-    setup() {
-        const router = useRouter();
-        const route = useRoute();
+const cr = ref<string[]>([]);
+const txt = ref<string[]>([]);
+const data = ref<CR | null>(null);
+const tab = ref('content');
 
-        const { controlGet, controlPost } = controlSetup();
+const contentFilter = ref('');
+const glossaryFilter = ref('');
 
-        const cr = ref<string[]>([]);
-        const txt = ref<string[]>([]);
-        const data = ref<CR | null>(null);
-        const tab = ref('content');
+const oldId = ref('');
+const newId = ref('');
 
-        const contentFilter = ref('');
-        const glossaryFilter = ref('');
-
-        const date = computed({
-            get() {
-                return route.query.date as string ?? last(cr.value);
-            },
-            set(newValue: string) {
-                void router.push({ query: { ...route.query, date: newValue } });
-            },
-        });
-
-        const crOptions = computed(() => txt.value.map(d => ({
-            value:   d,
-            label:   d,
-            hasData: cr.value.includes(d),
-        })));
-
-        const contents = computed(() => data.value?.contents ?? []);
-        const glossary = computed(() => data.value?.glossary ?? []);
-
-        const contentTitle = computed(() => {
-            if (data.value != null) {
-                return `Contents (${data.value.date})`;
-            } else {
-                return 'Contents';
-            }
-        });
-
-        const contentColumns = [
-            { name: 'id', label: 'ID', field: 'id' },
-            { name: 'depth', label: 'Depth', field: 'depth' },
-            { name: 'index', label: 'Index', field: 'index' },
-            {
-                name: 'text', label: 'Text', field: 'text', align: 'left' as const,
-            },
-            { name: 'card', label: 'Card', field: 'card' },
-        ];
-
-        const duplicatedID = computed(() => {
-            const ids = contents.value.map(c => c.id);
-
-            const count: Record<string, number> = { };
-
-            for (const id of ids) {
-                count[id] = (count[id] ?? 0) + 1;
-            }
-
-            return Object.keys(count).filter(id => count[id] > 1);
-        });
-
-        const glossaryTitle = computed(() => {
-            if (data.value != null) {
-                return `Glossary (${data.value.date})`;
-            } else {
-                return 'Glossary';
-            }
-        });
-
-        const glossaryColumns = [
-            { name: 'ids', label: 'IDs', field: 'ids' },
-            { name: 'words', label: 'Words', field: 'words' },
-            {
-                name: 'text', label: 'Text', field: 'text', align: 'left' as const,
-            },
-        ];
-
-        const loadData = async () => {
-            if (date.value != null && cr.value.includes(date.value)) {
-                const { data: result } = await apiGet<CR>('/magic/cr', {
-                    date: date.value,
-                });
-
-                data.value = result;
-            }
-        };
-
-        const loadList = async () => {
-            const { data: crResult } = await apiGet<string[]>('/magic/cr');
-            const { data: txtResult } = await controlGet<string[]>('/magic/cr/list');
-
-            cr.value = crResult;
-            txt.value = txtResult;
-
-            if (data.value == null) {
-                void loadData();
-            }
-        };
-
-        const parse = async () => {
-            if (date.value != null && !cr.value.includes(date.value)) {
-                const { data:result } = await controlGet<CR>('/magic/cr/parse', { date: date.value });
-
-                data.value = result;
-            }
-        };
-
-        const save = async () => {
-            if (data.value != null) {
-                await controlPost('/magic/cr/save', { data: data.value });
-
-                void loadList();
-            }
-        };
-
-        const reparse = async () => {
-            if (date.value != null && cr.value.includes(date.value)) {
-                const { data: result } = await controlGet<CR>('/magic/cr/reparse', { date: date.value });
-
-                data.value = result;
-            }
-        };
-
-        const allReparse = async () => {
-            await controlPost('/magic/cr/all-reparse');
-        };
-
-        const extractCard = async (id: string) => {
-            await controlGet('/magic/cr/extract-cardname', { date: date.value, id });
-        };
-
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        const focus = (e: any) => { e.target.select(); };
-
-        watch(date, loadData);
-        onMounted(loadList);
-
-        return {
-            date,
-            cr,
-            tab,
-            contentFilter,
-
-            contents,
-            contentTitle,
-            contentColumns,
-            glossary,
-            glossaryTitle,
-            glossaryColumns,
-            glossaryFilter,
-
-            duplicatedID,
-
-            crOptions,
-
-            loadData,
-            save,
-            parse,
-            reparse,
-            allReparse,
-            extractCard,
-
-            focus,
-        };
+const date = computed({
+    get() {
+        return route.query.date as string ?? last(cr.value);
+    },
+    set(newValue: string) {
+        void router.push({ query: { ...route.query, date: newValue } });
     },
 });
+
+const crOptions = computed(() => txt.value.map(d => ({
+    value:   d,
+    label:   d,
+    hasData: cr.value.includes(d),
+})));
+
+const contents = computed(() => data.value?.contents ?? []);
+const glossary = computed(() => data.value?.glossary ?? []);
+
+const contentTitle = computed(() => {
+    if (data.value != null) {
+        return `Contents (${data.value.date})`;
+    } else {
+        return 'Contents';
+    }
+});
+
+const contentColumns = [
+    { name: 'id', label: 'ID', field: 'id' },
+    { name: 'depth', label: 'Depth', field: 'depth' },
+    { name: 'index', label: 'Index', field: 'index' },
+    {
+        name: 'text', label: 'Text', field: 'text', align: 'left' as const,
+    },
+    { name: 'card', label: 'Card', field: 'card' },
+];
+
+const duplicatedID = computed(() => {
+    const ids = contents.value.map(c => c.id);
+
+    const count: Record<string, number> = { };
+
+    for (const id of ids) {
+        count[id] = (count[id] ?? 0) + 1;
+    }
+
+    return Object.keys(count).filter(id => count[id] > 1);
+});
+
+const glossaryTitle = computed(() => {
+    if (data.value != null) {
+        return `Glossary (${data.value.date})`;
+    } else {
+        return 'Glossary';
+    }
+});
+
+const glossaryColumns = [
+    { name: 'ids', label: 'IDs', field: 'ids' },
+    { name: 'words', label: 'Words', field: 'words' },
+    {
+        name: 'text', label: 'Text', field: 'text', align: 'left' as const,
+    },
+];
+
+const loadData = async () => {
+    if (date.value != null && cr.value.includes(date.value)) {
+        const { data: result } = await apiGet<CR>('/magic/cr', {
+            date: date.value,
+        });
+
+        data.value = result;
+    }
+};
+
+const loadList = async () => {
+    const { data: crResult } = await apiGet<string[]>('/magic/cr');
+    const { data: txtResult } = await controlGet<string[]>('/magic/cr/list');
+
+    cr.value = crResult;
+    txt.value = txtResult;
+
+    if (data.value == null) {
+        void loadData();
+    }
+};
+
+const parse = async () => {
+    if (date.value != null && !cr.value.includes(date.value)) {
+        const { data:result } = await controlGet<CR>('/magic/cr/parse', { date: date.value });
+
+        data.value = result;
+    }
+};
+
+const save = async () => {
+    if (data.value != null) {
+        await controlPost('/magic/cr/save', { data: data.value });
+
+        void loadList();
+    }
+};
+
+const reparse = async () => {
+    if (date.value != null && cr.value.includes(date.value)) {
+        const { data: result } = await controlGet<CR>('/magic/cr/reparse', { date: date.value });
+
+        data.value = result;
+    }
+};
+
+const allReparse = async () => {
+    await controlPost('/magic/cr/all-reparse');
+};
+
+const extractCard = async (id: string) => {
+    await controlGet('/magic/cr/extract-cardname', { date: date.value, id });
+};
+
+const renameAll = async () => {
+    await controlPost('/magic/cr/rename-all', { old: oldId.value, new: newId.value });
+    await loadData();
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call
+const focus = (e: any) => { e.target.select(); };
+
+watch(date, loadData);
+onMounted(loadList);
+
 </script>
+
+<style lang="sass" scoped>
+.error
+    color: $negative
+</style>
