@@ -19,7 +19,6 @@ const tabs = [
     'Gatherer',
     'MTGJSON',
     'Image',
-    'Card',
     'Editor',
     'Updation',
     'Duplicate',
