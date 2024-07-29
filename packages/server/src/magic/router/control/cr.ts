@@ -202,4 +202,29 @@ router.get('/extract-cardname', async ctx => {
     ctx.status = 200;
 });
 
+router.post('/rename-all', async ctx => {
+    const { old: oldValue, new: newValue } = mapValues(ctx.request.body, toSingle);
+
+    if (oldValue == null || oldValue === '') {
+        return;
+    }
+
+    if (newValue == null || newValue === '') {
+        return;
+    }
+
+    await CR.find({ 'contents.id': oldValue }).cursor()
+        .eachAsync(async cr => {
+            for (const c of cr.contents) {
+                if (c.id === oldValue && !cr.contents.some(oc => oc.id === newValue)) {
+                    c.id = newValue;
+                }
+            }
+
+            await cr.save();
+        });
+
+    ctx.status = 200;
+});
+
 export default router;
