@@ -8,6 +8,7 @@ import { last, zip } from 'lodash';
 import { toIdentifier } from '../util';
 
 import { dataPath } from '@/config';
+import { diffString } from './diff';
 
 function parseContentLine(text: string) {
     let m: RegExpExecArray | null;
@@ -169,21 +170,49 @@ export async function parse(date: string): Promise<ICR> {
     const crDoc = await CR.findOne({ date: nearestDate });
 
     if (crDoc != null) {
-        for (const e of contents.entries()) {
-            if (!e[1].id.startsWith('~')) {
+        for (const c of contents) {
+            if (!c.id.startsWith('~')) {
                 continue;
             }
 
-            const same = [...contents.entries()].filter(eo => eo[1].text === e[1].text);
-            const sameInDoc = [...crDoc.contents.entries()].filter(eo => eo[1].text === e[1].text);
+            // exact text
+            const same = [...contents.entries()].filter(eo => eo[1].text === c.text);
+            const sameInDoc = [...crDoc.contents.entries()].filter(eo => eo[1].text === c.text);
 
             if (sameInDoc.length === same.length) {
                 for (const [e, ed] of zip(same, sameInDoc)) {
                     contents[e![0]].id = crDoc.contents[ed![0]].id;
                 }
+
+                continue;
             } else if (sameInDoc.length > 0) {
                 for (const e of same) {
                     contents[e[0]].id = sameInDoc[0][1].id;
+                }
+
+                continue;
+            }
+
+            // rough text
+            const sameId = crDoc.contents.find(co => co.index === c.index);
+
+            if (sameId != null) {
+                const diff = diffString(sameId.text, c.text);
+
+                let totalLength = 0;
+                let diffLength = 0;
+
+                for (const d of diff) {
+                    if (typeof d === 'string') {
+                        totalLength += d.length;
+                    } else {
+                        totalLength += d[1].length;
+                        diffLength += d[1].length;
+                    }
+                }
+
+                if (diffLength < 20 || diffLength / totalLength < 0.1) {
+                    c.id = sameId.id;
                 }
             }
         }

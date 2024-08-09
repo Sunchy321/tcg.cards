@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 import CR from '@/magic/db/cr';
 import { Content, Glossary } from '@interface/magic/cr';
 
@@ -30,7 +31,7 @@ interface Change {
     csi: TextChange[];
 }
 
-function diffString(lhs: string, rhs: string): TextChange[] {
+export function diffString(lhs: string, rhs: string): TextChange[] {
     const diffs: TextChange[] = [];
 
     for (const d of diffWordsWithSpace(lhs, rhs)) {
@@ -60,7 +61,7 @@ function diffString(lhs: string, rhs: string): TextChange[] {
             if (lastDiff == null) {
                 diffs.push(d.value);
             } else if (typeof lastDiff === 'string') {
-                diffs[diffs.length - 1] += d.value;
+                diffs[diffs.length - 1] = (diffs[diffs.length - 1] as string) + d.value;
             } else if (d.value === ' ') {
                 lastDiff[0] += d.value;
                 lastDiff[1] += d.value;
