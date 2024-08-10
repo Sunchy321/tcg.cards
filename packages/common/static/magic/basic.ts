@@ -42,7 +42,7 @@ export const manaSymbols = [
 export const symbols = [
     ...manaSymbols,
     'T', 'Q',
-    'P', 'E', 'A',
+    'H', 'E', 'A', 'P',
     'PW', 'CHAOS', 'TK',
 ];
 

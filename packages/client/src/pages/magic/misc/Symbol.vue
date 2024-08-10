@@ -37,24 +37,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.icon-list
-    &:not(.icon-raw)
-        font-size: 24px
-
-.icon-line
-    height: 32px
-
-.icon
-    width: 60px
-
-    &.icon-100
-        width: 80px
-
-    &.icon-1000000
-        width: 160px
-</style>
-
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 
@@ -93,8 +75,8 @@ const symbols = computed(() => {
     }
 
     if (style.value === 'normal' || style.value === 'raw') {
-        result.push(['T', 'Q', 'S', 'INF', 'H1', 'HW', 'HR', 'P', 'PW', 'E']);
-        result.push(['A', 'TK']);
+        result.push(['T', 'Q', 'S', 'INF', 'H1', 'HW', 'HR', 'H', 'PW', 'E']);
+        result.push(['A', 'TK', 'P']);
         result.push(['CHAOS', '100', '1000000']);
     } else if (style.value === 'shadow') {
         result.push(['', '', 'S', 'INF', 'H1', 'HW', 'HR']);
@@ -116,3 +98,21 @@ const type = computed(() => {
 });
 
 </script>
+
+<style lang="sass" scoped>
+.icon-list
+    &:not(.icon-raw)
+        font-size: 24px
+
+.icon-line
+    height: 32px
+
+.icon
+    width: 60px
+
+    &.icon-100
+        width: 80px
+
+    &.icon-1000000
+        width: 160px
+</style>
