@@ -13,8 +13,19 @@ import { isEqual, uniq } from 'lodash';
 
 import { cardImagePath } from '@/magic/image';
 
-function assign<T>(card: Document & WithUpdation<T>, data: T, key: string & keyof T) {
-    if (!isEqual(card[key], data[key])) {
+function get<T>(value: T, key: string & keyof T) {
+    if ((value as any).toObject != null) {
+        value = (value as any).toObject();
+    }
+
+    return value[key];
+}
+
+function assign<T>(card: WithUpdation<T>, data: T, key: string & keyof T) {
+    const cardValue = get(card, key);
+    const dataValue = get(data, key);
+
+    if (!isEqual(cardValue, dataValue)) {
         card.__updations.push({
             key,
             oldValue: card[key],
@@ -141,7 +152,7 @@ function assignCardType(
     }
 }
 
-function assignSet<T>(card: Document & WithUpdation<T>, data: T, key: string & keyof T) {
+function assignSet<T>(card: WithUpdation<T>, data: T, key: string & keyof T) {
     if (isEqual(card[key], data[key])) {
         return;
     }
@@ -163,14 +174,12 @@ function assignSet<T>(card: Document & WithUpdation<T>, data: T, key: string & k
     (card as any)[key] = data[key];
 }
 
-export async function mergeCard(card: Document & ICardDatabase, data: ICard): Promise<void> {
-    const updation: ICardUpdation[] = [];
-
+export function combineCard(card: ICardDatabase, data: ICard): void {
     for (const k of Object.keys(data) as (keyof ICard)[]) {
         // eslint-disable-next-line default-case
         switch (k) {
         case 'cardId':
-            throw new Error(`cardId mismatch: ${card.cardId} -- ${data.cardId}`);
+            break;
 
         case 'manaValue':
         case 'colorIdentity':
@@ -260,12 +269,14 @@ export async function mergeCard(card: Document & ICardDatabase, data: ICard): Pr
             break;
         }
     }
+}
+
+export async function mergeCard(card: Document & ICardDatabase, data: ICard): Promise<void> {
+    combineCard(card, data);
 
     if (card.modifiedPaths().length > 0) {
         await card.save();
     }
-
-    await CardUpdation.insertMany(updation);
 }
 
 export async function mergePrint(print: Document & IPrintDatabase, data: IPrint): Promise<void> {

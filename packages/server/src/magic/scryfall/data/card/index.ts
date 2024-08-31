@@ -13,7 +13,7 @@ import { Print as IPrint } from '@interface/magic/print';
 import { Status } from '../../status';
 
 import { join } from 'path';
-import { omit } from 'lodash';
+import { omit, uniq } from 'lodash';
 import { toAsyncBucket } from '@/common/to-bucket';
 import LineReader from '@/common/line-reader';
 import { bulkPath, convertJson } from '../common';
@@ -21,7 +21,8 @@ import { bulkPath, convertJson } from '../common';
 import { toNSCard, RawCardNoArtSeries } from './to-ns-card';
 import { splitDFT } from './split-dft';
 import { toCard } from './to-card';
-import { mergeCard, mergePrint } from './merge';
+import { combineCard, mergeCard, mergePrint } from './merge';
+import { ICardDatabase } from 'card-common/src/model/magic/card';
 
 const bucketSize = 500;
 
@@ -98,7 +99,23 @@ export default class CardLoader extends Task<Status> {
                 card_id: json.id,
             })));
 
-            const cards = await Card.find({ 'scryfall.oracle': { $in: jsons.map(j => j.oracle_id) } });
+            const oracleIds = [];
+
+            for (const json of jsons) {
+                if (json.oracle_id != null) {
+                    oracleIds.push(json.oracle_id);
+                }
+
+                if (json.card_faces != null) {
+                    for (const face of json.card_faces) {
+                        if (face.oracle_id != null) {
+                            oracleIds.push(face.oracle_id);
+                        }
+                    }
+                }
+            }
+
+            const cards = await Card.find({ 'scryfall.oracleId': { $in: oracleIds } });
             const prints = await Print.find({ 'scryfall.cardId': { $in: jsons.map(j => j.id) } });
 
             const cardsToInsert: ICard[] = [];
@@ -111,7 +128,15 @@ export default class CardLoader extends Task<Status> {
 
                 const cardPrints = splitDFT(toNSCard(json as RawCardNoArtSeries)).map(c => toCard(c, setCodeMap));
 
-                const oldCards = cards.filter(c => c.scryfall.oracleId.includes(json.oracle_id));
+                const oldCards = cards.filter(c => {
+                    if (json.oracle_id != null) {
+                        return c.scryfall.oracleId.includes(json.oracle_id);
+                    } else if (json.card_faces?.every(f => f.oracle_id === json.card_faces![0].oracle_id)) {
+                        return c.scryfall.oracleId.includes(json.card_faces![0].oracle_id!);
+                    } else {
+                        throw new Error('Unknown oracle Id');
+                    }
+                });
 
                 const oldPrints = prints.filter(p => p.scryfall.cardId === json.id
                     || (p.set === json.set && p.number === json.collector_number && p.lang === json.lang));
@@ -121,7 +146,7 @@ export default class CardLoader extends Task<Status> {
                     if (oldCards.length === 0) {
                         cardsToInsert.push(...cardPrints.map(v => v.card));
                     } else if (oldCards.length === 1) {
-                        mergeCard(oldCards[0], cardPrints[0].card);
+                        await mergeCard(oldCards[0], cardPrints[0].card);
                     } else {
                         // Scryfall mowu is bugged. ignore.
                         if (json.id !== 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
@@ -132,7 +157,7 @@ export default class CardLoader extends Task<Status> {
                     if (oldPrints.length === 0) {
                         printsToInsert.push(...cardPrints.map(v => v.print));
                     } else if (oldPrints.length === 1) {
-                        mergePrint(oldPrints[0], cardPrints[0].print);
+                        await mergePrint(oldPrints[0], cardPrints[0].print);
                     } else {
                         // Scryfall mowu is bugged. ignore.
                         if (json.id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
@@ -151,13 +176,13 @@ export default class CardLoader extends Task<Status> {
                                 const oldCard = oldCards.find(c => c.cardId === oldPrint?.cardId);
 
                                 if (oldCard != null) {
-                                    mergeCard(oldCard, n.card);
+                                    await mergeCard(oldCard, n.card);
                                 } else {
                                     cardsToInsert.push(n.card);
                                 }
 
                                 if (oldPrint != null) {
-                                    mergePrint(oldPrint, n.print);
+                                    await mergePrint(oldPrint, n.print);
                                 } else {
                                     printsToInsert.push(n.print);
                                 }
@@ -186,6 +211,39 @@ export default class CardLoader extends Task<Status> {
 
                 if (print.parts.some(p => /[(（)）]/.test(p.text ?? ''))) {
                     print.tags.push('dev:printed');
+                }
+            }
+
+            // process duplicate card in once process.
+            const cardsToInsertIds = uniq(cardsToInsert.map(c => c.cardId));
+
+            const cardsToInsertUniq = cardsToInsertIds.map(id => {
+                const matchedCards = cardsToInsert.filter(c => c.cardId === id);
+
+                const combineResult = matchedCards.map(c => ({
+                    ...c,
+                    parts:         c.parts.map(p => ({ ...p, __costMap: {} })),
+                    __updations:   [],
+                    __lockedPaths: [],
+                }) as ICardDatabase).reduce((prev, curr) => {
+                    combineCard(prev, curr);
+
+                    return prev;
+                });
+
+                return omit({
+                    ...combineResult,
+                    parts: combineResult.parts.map(p => omit(p, '__costMap')),
+                }, ['__updations', '__lockedPaths']) as ICard;
+            });
+
+            cardsToInsert.splice(0, cardsToInsert.length, ...cardsToInsertUniq);
+
+            const dups = await Card.find({ cardId: { $in: cardsToInsert.map(c => c.cardId) } });
+
+            for (const c of cardsToInsert) {
+                if (dups.some(d => d.cardId === c.cardId)) {
+                    c.cardId += `::dup${Math.round(Math.random() * 1000)}`;
                 }
             }
 

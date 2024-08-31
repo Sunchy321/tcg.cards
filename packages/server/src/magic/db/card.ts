@@ -30,6 +30,11 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         cost: {
             $type: [String],
             set(newValue: string[]) {
+                if (newValue == null) {
+                    this.__costMap = undefined;
+                    return newValue;
+                }
+
                 const costMap: Record<string, number> = { };
 
                 for (const c of newValue) {
@@ -75,7 +80,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     contentWarning: { $type: Boolean, default: undefined },
 
     scryfall: {
-        oracleId: String,
+        oracleId: [String],
         face:     String,
     },
 

@@ -203,15 +203,7 @@
                             dense flat round
                         />
                     </th>
-                    <th>
-                        Unified
-                        <q-btn
-                            icon="mdi-magnify"
-                            dense flat round
-                            size="xs"
-                            @click="getUnified"
-                        />
-                    </th>
+                    <th>Unified</th>
                     <th>Printed</th>
                 </tr>
                 <tr>
@@ -307,13 +299,14 @@ import ArrayInput from 'components/ArrayInput.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
-import { CardTemp, Layout } from 'interface/magic/card-temp';
+import { Layout } from 'interface/magic/print';
 import { CardEditorView } from 'common/model/magic/card';
 
 import { AxiosResponse } from 'axios';
 
 import {
     debounce, deburr, uniq, upperFirst,
+    zip,
 } from 'lodash';
 
 import { copyToClipboard } from 'quasar';
@@ -951,17 +944,19 @@ const oracleUpdated = computed(() => {
         return undefined;
     }
 
-    const value = data.value?.__oracle;
+    return null;
 
-    if (value == null) {
-        return undefined;
-    }
+    // const value = data.value?.__oracle;
 
-    if (value.name == null && value.typeline == null && value.text == null) {
-        return undefined;
-    }
+    // if (value == null) {
+    //     return undefined;
+    // }
 
-    return value;
+    // if (value.name == null && value.typeline == null && value.text == null) {
+    //     return undefined;
+    // }
+
+    // return value;
 });
 
 const displayOracleName = computed({
@@ -1285,23 +1280,33 @@ const prettify = () => {
 
     defaultPrettify();
 
-    if (data.value.parts.length === 2) {
-        const [front, back] = data.value.parts;
+    if (data.value.card.parts.length === 2) {
+        const [front, back] = data.value.card.parts;
 
-        if (front.unified.name === back.unified.name && front.unified.name.includes(' // ')) {
-            [front.unified.name, back.unified.name] = front.unified.name.split(' // ');
+        for (const [frontLoc, backLoc] of zip(front.localization, back.localization)) {
+            if (frontLoc == null || backLoc == null) {
+                continue;
+            }
+
+            if (frontLoc.name === backLoc.name && frontLoc.name.includes(' // ')) {
+                [frontLoc.name, backLoc.name] = frontLoc.name.split(' // ');
+            }
+
+            if (frontLoc.typeline === backLoc.typeline && frontLoc.typeline.includes(' // ')) {
+                [frontLoc.typeline, backLoc.typeline] = frontLoc.typeline.split(' // ');
+            }
+        }
+    }
+
+    if (data.value.print.parts.length === 2) {
+        const [front, back] = data.value.print.parts;
+
+        if (front.name === back.name && front.name.includes(' // ')) {
+            [front.name, back.name] = front.name.split(' // ');
         }
 
-        if (front.unified.typeline === back.unified.typeline && front.unified.typeline.includes(' // ')) {
-            [front.unified.typeline, back.unified.typeline] = front.unified.typeline.split(' // ');
-        }
-
-        if (front.printed.name === back.printed.name && front.printed.name.includes(' // ')) {
-            [front.printed.name, back.printed.name] = front.printed.name.split(' // ');
-        }
-
-        if (front.printed.typeline === back.printed.typeline && front.printed.typeline.includes(' // ')) {
-            [front.printed.typeline, back.printed.typeline] = front.printed.typeline.split(' // ');
+        if (front.typeline === back.typeline && front.typeline.includes(' // ')) {
+            [front.typeline, back.typeline] = front.typeline.split(' // ');
         }
     }
 
@@ -1426,20 +1431,22 @@ const newData = () => {
         return;
     }
 
-    delete data.value._id;
+    const oldPrint = data.value.print;
 
-    for (const p of data.value.parts) {
+    delete oldPrint._id;
+
+    for (const p of oldPrint.parts) {
         delete p.scryfallIllusId;
     }
 
-    delete data.value.scryfall.cardId;
-    data.value.scryfall.imageUris = [];
-    delete data.value.arenaId;
-    delete data.value.mtgoId;
-    delete data.value.mtgoFoilId;
-    data.value.multiverseId = [];
-    delete data.value.tcgPlayerId;
-    delete data.value.cardMarketId;
+    delete oldPrint.scryfall.cardId;
+    oldPrint.scryfall.imageUris = [];
+    delete oldPrint.arenaId;
+    delete oldPrint.mtgoId;
+    delete oldPrint.mtgoFoilId;
+    oldPrint.multiverseId = [];
+    delete oldPrint.tcgPlayerId;
+    delete oldPrint.cardMarketId;
 
     unlock.value = true;
 };
@@ -1480,7 +1487,7 @@ const doUpdate = debounce(
 
 const loadData = async () => {
     if (id.value != null && lang.value != null && set.value != null && number.value != null) {
-        const { data: result } = await controlGet<CardTemp>('/magic/card/raw', {
+        const { data: result } = await controlGet<CardEditorView>('/magic/card/raw', {
             id:     id.value,
             lang:   lang.value,
             set:    set.value,
@@ -1568,7 +1575,7 @@ const guessToken = () => {
 
     const relatedCardsCopy = [...relatedCards.value];
 
-    for (const text of data.value.parts.map(p => p.oracle.text ?? '')) {
+    for (const text of data.value.card.parts.map(p => p.text ?? '')) {
         for (const m of text.matchAll(guessRegex)) {
             let tokenId = '';
 
@@ -1627,7 +1634,7 @@ const guessCounter = () => {
         return;
     }
 
-    for (const text of data.value.parts.map(p => p.oracle.text ?? '')) {
+    for (const text of data.value.card.parts.map(p => p.text ?? '')) {
         const matches = text.matchAll(/(\b(?:first|double) strike|\b[a-z!]+|[+-]\d\/[+-]\d) counters?\b/g);
 
         counters.value = [
@@ -1668,20 +1675,6 @@ const saveGathererImage = async () => {
     });
 };
 
-const getUnified = async () => {
-    if (data.value == null) {
-        return;
-    }
-
-    const { data: result } = await controlGet<CardTemp['parts'][0]['unified'][]>('/magic/card/get-unified', {
-        id:   id.value,
-        lang: lang.value,
-    });
-
-    for (const [i, p] of data.value.parts.entries()) {
-        p.unified = result[i];
-    }
-};
 </script>
 
 <style lang="sass" scoped>

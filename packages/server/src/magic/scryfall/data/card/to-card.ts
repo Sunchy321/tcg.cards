@@ -347,7 +347,7 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
             scryfall: {
                 oracleId:  data.oracle_id,
                 cardId:    data.id,
-                face:      data.face,
+                ...data.face == null ? { } : { face: data.face },
                 imageUris: data.image_uris != null ? [data.image_uris] : data.card_faces.map(v => v.image_uris ?? {}),
             },
 

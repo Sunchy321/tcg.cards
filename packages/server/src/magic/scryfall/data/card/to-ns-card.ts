@@ -61,5 +61,16 @@ export function extractCardFace(card: RawCard): NCardFace[] {
 }
 
 export function toNSCard(card: RawCardNoArtSeries): NCardFaceExtracted {
-    return { ...card, card_faces: extractCardFace(card) };
+    const result: NCardFaceExtracted = { ...card, card_faces: extractCardFace(card) };
+
+    // process double-faced normal card
+    if (result.oracle_id == null && result.card_faces != null) {
+        const faceIds = result.card_faces.map(f => f.oracle_id);
+
+        if (faceIds[0] != null && faceIds.every(id => id === faceIds[0])) {
+            result.oracle_id = faceIds[0];
+        }
+    }
+
+    return result;
 }

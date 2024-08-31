@@ -5,9 +5,12 @@ import { DefaultState, Context } from 'koa';
 import { Aggregate, ObjectId } from 'mongoose';
 
 import Card from '@/magic/db/card';
+import Print from '@/magic/db/print';
+import CardRelation from '@/magic/db/card-relation';
 import Format from '@/magic/db/format';
 
 import { Card as ICard } from '@interface/magic/card';
+import { CardEditorView, RelatedCard } from 'card-common/src/model/magic/card';
 
 import { omit, mapValues } from 'lodash';
 import websocket from '@/middlewares/websocket';
@@ -29,12 +32,36 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 router.get('/raw', async ctx => {
-    const { id: cardId } = mapValues(ctx.query, toSingle);
+    const {
+        id: cardId, lang, set, number,
+    } = mapValues(ctx.query, toSingle);
 
     const card = await Card.findOne({ cardId });
 
-    if (card != null) {
-        ctx.body = card.toObject();
+    const print = await Print.findOne({
+        cardId, lang, set, number,
+    });
+
+    const sourceRelations = await CardRelation.find({ sourceId: cardId });
+    const targetRelations = await CardRelation.find({ targetId: cardId });
+
+    const relatedCards: RelatedCard[] = [
+        ...sourceRelations.map(s => ({
+            relation: `${s.relation}:src`,
+            cardId:   s.targetId,
+        })),
+        ...targetRelations.map(t => ({
+            relation: `${t.relation}:tgt`,
+            cardId:   t.sourceId,
+        })),
+    ];
+
+    if (card != null && print != null) {
+        ctx.body = {
+            card:  card.toObject(),
+            print: print.toObject(),
+            relatedCards,
+        } as CardEditorView;
     } else {
         ctx.status = 404;
     }
