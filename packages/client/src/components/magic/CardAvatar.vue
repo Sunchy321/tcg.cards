@@ -1,12 +1,3 @@
-<style lang="sass">
-.card-popover, [content-class=card-popover]
-    background-color: transparent !important
-    padding: 0 !important
-
-.card-image-popover
-    width: 250px
-</style>
-
 <script lang="ts">
 import {
     PropType, defineComponent, ref, computed, watch, h,
@@ -23,8 +14,8 @@ import cardProfile, { CardProfile } from 'src/common/magic/card';
 import { pick } from 'lodash';
 
 type Version = {
-    set: string;
-    number: string;
+    set?: string;
+    number?: string;
     lang: string;
 };
 
@@ -81,14 +72,26 @@ export default defineComponent({
         });
 
         const imageVersion = computed(() => {
-            if (profile.value == null || profile.value.versions == null) {
+            if (profile.value?.versions == null) {
                 return null;
             }
 
             if (props.version != null) {
-                const matchedVersion = profile.value.versions.find(v => v.set === props.version?.set
-                    && v.number === props.version?.number
-                    && v.lang === props.version?.lang);
+                const matchedVersion = profile.value.versions.find(v => {
+                    if (v.lang !== props.version?.lang) {
+                        return false;
+                    }
+
+                    if (props.version?.set != null && v.set !== props.version.set) {
+                        return false;
+                    }
+
+                    if (props.version?.number != null && v.number !== props.version.number) {
+                        return false;
+                    }
+
+                    return true;
+                });
 
                 if (matchedVersion != null) {
                     return matchedVersion;
@@ -207,3 +210,12 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass">
+.card-popover, [content-class=card-popover]
+    background-color: transparent !important
+    padding: 0 !important
+
+.card-image-popover
+    width: 250px
+</style>

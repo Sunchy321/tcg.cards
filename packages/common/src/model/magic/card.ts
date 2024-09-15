@@ -47,3 +47,20 @@ export type CardEditorView = {
     partIndex?: number;
     relatedCards: RelatedCard[];
 };
+
+export type CardUpdationView = {
+    cardId: string;
+    scryfallId: string;
+    key: string;
+    partIndex?: number;
+    lang?: string;
+    oldValue: any;
+    newValue: any;
+};
+
+export type CardUpdationCollection = {
+    total: number;
+    key: string;
+    current: number;
+    values: CardUpdationView[];
+};

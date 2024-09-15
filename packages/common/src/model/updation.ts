@@ -1,11 +1,11 @@
+export type Updation = {
+    key: string;
+    oldValue: any;
+    newValue: any;
+};
+
 export type WithUpdation<T> = T & {
-    __updations: {
-        key: string;
-        partIndex?: number;
-        lang?: string;
-        oldValue: any;
-        newValue: any;
-    }[];
+    __updations: Updation[];
 
     __lockedPaths: string[];
 };

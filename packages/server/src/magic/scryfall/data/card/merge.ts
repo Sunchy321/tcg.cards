@@ -25,6 +25,10 @@ function assign<T>(card: WithUpdation<T>, data: T, key: string & keyof T) {
     const cardValue = get(card, key);
     const dataValue = get(data, key);
 
+    if (card.__lockedPaths.includes(key)) {
+        return;
+    }
+
     if (!isEqual(cardValue, dataValue)) {
         card.__updations.push({
             key,
@@ -47,14 +51,19 @@ function assignPart<T extends Part, U extends WithUpdation<T>>(
     key: string & keyof T['parts'][0],
     index: number,
 ) {
+    const fullKey = `parts[${index}].${key}`;
+
+    if (card.__lockedPaths.includes(fullKey)) {
+        return;
+    }
+
     if (!isEqual(cPart[key], dPart[key])) {
         card.__updations ??= [];
 
         card.__updations.push({
-            key:       `parts.${key}`,
-            partIndex: index,
-            oldValue:  cPart[key],
-            newValue:  dPart[key],
+            key:      fullKey,
+            oldValue: cPart[key],
+            newValue: dPart[key],
         });
 
         (cPart as any)[key] = dPart[key];
@@ -84,48 +93,58 @@ function assignCardLocalization(
         if (cLoc == null) {
             cLocs.push(dLoc);
 
+            const fullKey = `parts[${index}].localization[${loc}]`;
+
+            if (card.__lockedPaths.includes(fullKey)) {
+                continue;
+            }
+
             card.__updations.push({
-                key:       `parts.localization.${loc}`,
-                partIndex: index,
-                lang:      loc,
-                oldValue:  cLoc,
-                newValue:  dLoc,
+                key:      fullKey,
+                oldValue: cLoc,
+                newValue: dLoc,
             });
         } else {
             if (cLoc.name !== dLoc.name) {
-                card.__updations.push({
-                    key:       `parts.localization.${loc}.name`,
-                    partIndex: index,
-                    lang:      loc,
-                    oldValue:  cLoc.name,
-                    newValue:  dLoc.name,
-                });
+                const fullKey = `parts[${index}].localization[${loc}].name`;
 
-                cLoc.name = dLoc.name;
+                if (!card.__lockedPaths.includes(fullKey)) {
+                    card.__updations.push({
+                        key:      fullKey,
+                        oldValue: cLoc.name,
+                        newValue: dLoc.name,
+                    });
+
+                    cLoc.name = dLoc.name;
+                }
             }
 
             if (cLoc.typeline !== dLoc.typeline) {
-                card.__updations.push({
-                    key:       `parts.localization.${loc}.typeline`,
-                    partIndex: index,
-                    lang:      loc,
-                    oldValue:  cLoc.typeline,
-                    newValue:  dLoc.typeline,
-                });
+                const fullKey = `parts[${index}].localization[${loc}].typeline`;
 
-                cLoc.typeline = dLoc.typeline;
+                if (!card.__lockedPaths.includes(fullKey)) {
+                    card.__updations.push({
+                        key:      fullKey,
+                        oldValue: cLoc.typeline,
+                        newValue: dLoc.typeline,
+                    });
+
+                    cLoc.typeline = dLoc.typeline;
+                }
             }
 
             if (cLoc.text !== dLoc.text) {
-                card.__updations.push({
-                    key:       `parts.localization.${loc}.text`,
-                    partIndex: index,
-                    lang:      loc,
-                    oldValue:  cLoc.text,
-                    newValue:  dLoc.text,
-                });
+                const fullKey = `parts[${index}].localization[${loc}].text`;
 
-                cLoc.text = dLoc.text;
+                if (!card.__lockedPaths.includes(fullKey)) {
+                    card.__updations.push({
+                        key:      fullKey,
+                        oldValue: cLoc.text,
+                        newValue: dLoc.text,
+                    });
+
+                    cLoc.text = dLoc.text;
+                }
             }
         }
     }
@@ -138,14 +157,19 @@ function assignCardType(
     key: keyof ICardDatabase['parts'][0]['type'],
     index: number,
 ) {
+    const fullKey = `parts[${index}].type.${key}`;
+
+    if (card.__lockedPaths.includes(fullKey)) {
+        return;
+    }
+
     if (!isEqual(cType[key], dType[key])) {
         card.__updations ??= [];
 
         card.__updations.push({
-            key:       `parts.type.${key}`,
-            partIndex: index,
-            oldValue:  cType[key],
-            newValue:  dType[key],
+            key:      fullKey,
+            oldValue: cType[key],
+            newValue: dType[key],
         });
 
         (cType as any)[key] = dType[key];
@@ -209,11 +233,13 @@ export function combineCard(card: ICardDatabase, data: ICard): void {
                         break;
 
                     case 'cost':
-                    case '__costMap':
                     case 'manaValue':
                     case 'color':
                     case 'colorIndicator':
                         assignPart(card, cPart, dPart, l, i);
+                        break;
+
+                    case '__costMap':
                         break;
 
                     case 'type': {

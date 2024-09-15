@@ -103,6 +103,10 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
             delete ret.__updations;
             delete ret.__lockedPaths;
 
+            for (const p of ret.parts) {
+                delete p.__costMap;
+            }
+
             return ret;
         },
     },

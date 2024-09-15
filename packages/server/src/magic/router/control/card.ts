@@ -10,7 +10,10 @@ import CardRelation from '@/magic/db/card-relation';
 import Format from '@/magic/db/format';
 
 import { Card as ICard } from '@interface/magic/card';
-import { CardEditorView, RelatedCard } from 'card-common/src/model/magic/card';
+import {
+    CardEditorView, CardUpdationCollection, CardUpdationView, RelatedCard,
+} from '@common/model/magic/card';
+import { Updation, WithUpdation } from '@common/model/updation';
 
 import { omit, mapValues } from 'lodash';
 import websocket from '@/middlewares/websocket';
@@ -319,5 +322,163 @@ router.get(
         ctx.status = 200;
     },
 );
+
+router.get('/get-updation', async ctx => {
+    const keys = await Card.aggregate<{ _id: string, count: number }>()
+        .unwind('__updations')
+        .group({
+            _id:   '$__updations.key',
+            count: { $sum: 1 },
+        })
+        .sort({ count: 1 });
+
+    if (keys.length === 0) {
+        ctx.body = {
+            total:   0,
+            key:     '',
+            current: 0,
+            values:  [],
+        } as CardUpdationCollection;
+        return;
+    }
+
+    const minimumKey = keys[0]._id;
+    const current = keys[0].count;
+    const total = keys.reduce((acc, cur) => acc + cur.count, 0);
+
+    const updations = await Card.aggregate<CardUpdationView>()
+        .match({ '__updations.key': minimumKey })
+        .unwind('__updations')
+        .match({ '__updations.key': minimumKey })
+        .project({
+            _id:        '$_id',
+            cardId:     '$cardId',
+            scryfallId: '$scryfall.oracleId',
+
+            key:      '$__updations.key',
+            oldValue: '$__updations.oldValue',
+            newValue: '$__updations.newValue',
+        });
+
+    ctx.body = {
+        total,
+        key:    minimumKey,
+        current,
+        values: updations,
+    } as CardUpdationCollection;
+});
+
+function rejectUpdation(card: WithUpdation<ICard>, updation: Updation) {
+    const { key } = updation;
+
+    const keyParts = (`.${key}`).split(/(\.[a-z_]+|\[[^]]+\])/i).filter(v => v !== '');
+
+    let object: any = card;
+
+    for (const [i, part] of keyParts.entries()) {
+        let m;
+
+        const isLast = i === keyParts.length - 1;
+
+        if (part.startsWith('.')) {
+            if (isLast) {
+                object[part.slice(1)] = updation.oldValue;
+            } else {
+                object = object[part.slice(1)];
+            }
+            // eslint-disable-next-line no-cond-assign
+        } else if ((m = /^\[(.*)\]$/.exec(part)) != null) {
+            const index = m[1];
+
+            if (/^\d+$/.test(index)) {
+                if (isLast) {
+                    object[Number.parseInt(index, 10)] = updation.oldValue;
+                } else {
+                    object = object[Number.parseInt(index, 10)];
+                }
+            } else {
+                if (isLast) {
+                    const itemIndex = object.findIndex((v: any) => v.lang === index);
+
+                    object.splice(itemIndex, 1);
+                } else {
+                    object = object.find((v: any) => v.lang === index);
+                }
+            }
+        } else {
+            console.error(`unknown key ${key}`);
+            return;
+        }
+    }
+
+    card.__lockedPaths.push(key);
+}
+
+router.post('/commit-updation', async ctx => {
+    const {
+        id, key, type,
+    } = ctx.request.body as {
+        id: string; key: string; type: string;
+    };
+
+    const card = await Card.findOne({ _id: id });
+
+    if (card == null) {
+        return;
+    }
+
+    const updation = card.__updations.find(u => u.key === key);
+
+    if (updation == null) {
+        return;
+    }
+
+    card.__updations = card.__updations.filter(u => u.key !== key);
+
+    if (type === 'accept') {
+        await card.save();
+
+        ctx.status = 200;
+    } else if (type === 'reject') {
+        rejectUpdation(card, updation);
+
+        await card.save();
+
+        ctx.status = 200;
+    }
+});
+
+router.post('/accept-all-updation', async ctx => {
+    const { key } = ctx.request.body as { key: string };
+
+    const card = await Card.find({ '__updations.key': key });
+
+    for (const c of card) {
+        c.__updations = c.__updations.filter(u => u.key !== key);
+        await c.save();
+    }
+
+    ctx.status = 200;
+});
+
+router.post('/reject-all-updation', async ctx => {
+    const { key } = ctx.request.body as { key: string };
+
+    const card = await Card.find({ '__updations.key': key });
+
+    for (const c of card) {
+        const updation = c.__updations.filter(u => u.key === key);
+
+        if (updation.length !== 1) {
+            continue;
+        }
+
+        c.__updations = c.__updations.filter(u => u.key !== key);
+        rejectUpdation(c, updation[0]);
+        await c.save();
+    }
+
+    ctx.status = 200;
+});
 
 export default router;
