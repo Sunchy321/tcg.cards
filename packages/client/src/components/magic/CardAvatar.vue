@@ -1,6 +1,10 @@
-<script lang="ts">
+<template>
+    <render v-scroll-fire="loadData" />
+</template>
+
+<script setup lang="ts">
 import {
-    PropType, defineComponent, ref, computed, watch, h,
+    ref, computed, watch, h,
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
@@ -19,196 +23,203 @@ type Version = {
     lang: string;
 };
 
-export default defineComponent({
-    components: { CardImage },
-
-    props: {
-        id:      { type: String, required: true },
-        part:    { type: Number, default: undefined },
-        version: { type: Object as PropType<Version>, default: undefined },
-        useLang: { type: Boolean, default: false },
-        pauper:  { type: Boolean, default: false },
-        text:    { type: String, default: undefined },
+const props = withDefaults(
+    defineProps<{
+        id: string;
+        part?: number;
+        version?: Version;
+        useLang?: boolean;
+        pauper?: boolean;
+        text?: string;
+    }>(),
+    {
+        part:    undefined,
+        version: undefined,
+        useLang: false,
+        pauper:  false,
+        text:    undefined,
     },
+);
 
-    setup(props) {
-        const router = useRouter();
-        const route = useRoute();
-        const magic = useMagic();
+const router = useRouter();
+const route = useRoute();
+const magic = useMagic();
 
-        const innerShowId = ref(false);
-        const profile = ref<CardProfile | null>(null);
+const innerShowId = ref(false);
+const profile = ref<CardProfile | null>(null);
 
-        const locale = computed(() => {
-            if (props.useLang && props.version != null) {
-                return props.version.lang;
-            } else {
-                return magic.locale;
+const locale = computed(() => {
+    if (props.useLang && props.version != null) {
+        return props.version.lang;
+    } else {
+        return magic.locale;
+    }
+});
+
+const link = computed(() => router.resolve({
+    name:   'magic/card',
+    params: { id: props.id },
+    query:  {
+        ...pick(props.version, ['set', 'number', 'lang']),
+        ...props.part != null ? { part: props.part } : {},
+    },
+}).href);
+
+const showId = computed(() => innerShowId.value || (profile.value == null && props.text == null));
+const onThisPage = computed(() => link.value === route.path);
+
+const name = computed(() => {
+    if (profile.value == null) {
+        return null;
+    }
+
+    const { locales } = magic;
+    const defaultLocale = locales[0];
+
+    return profile.value.parts.map(p => p.localization.find(l => l.lang === locale.value)?.name
+                ?? p.localization.find(l => l.lang === defaultLocale)?.name ?? '').join(' // ');
+});
+
+const imageVersion = computed(() => {
+    if (profile.value?.versions == null) {
+        return null;
+    }
+
+    if (props.version != null) {
+        const matchedVersion = profile.value.versions.find(v => {
+            if (v.lang !== props.version?.lang) {
+                return false;
             }
+
+            if (props.version?.set != null && v.set !== props.version.set) {
+                return false;
+            }
+
+            if (props.version?.number != null && v.number !== props.version.number) {
+                return false;
+            }
+
+            return true;
         });
 
-        const link = computed(() => router.resolve({
-            name:   'magic/card',
-            params: { id: props.id },
-            query:  {
-                ...pick(props.version, ['set', 'number', 'lang']),
-                ...props.part != null ? { part: props.part } : {},
-            },
-        }).href);
+        if (matchedVersion != null) {
+            return matchedVersion;
+        }
+    }
 
-        const showId = computed(() => innerShowId.value || (profile.value == null && props.text == null));
-        const onThisPage = computed(() => link.value === route.path);
-
-        const name = computed(() => {
-            if (profile.value == null) {
-                return null;
+    const versions = [
+        // filter for pauper
+        (vs: CardProfile['versions']) => {
+            if (props.pauper) {
+                return vs.filter(v => v.rarity === 'common');
+            } else {
+                return vs;
             }
+        },
 
+        // filter for locale
+        (vs: CardProfile['versions']) => {
             const { locales } = magic;
             const defaultLocale = locales[0];
 
-            return profile.value.parts.map(p => p.localization.find(l => l.lang === locale.value)?.name
-                ?? p.localization.find(l => l.lang === defaultLocale)?.name ?? '').join(' // ');
-        });
+            const localeVersion = vs.filter(v => v.lang === locale.value);
 
-        const imageVersion = computed(() => {
-            if (profile.value?.versions == null) {
-                return null;
+            if (localeVersion.length > 0) {
+                return localeVersion;
             }
 
-            if (props.version != null) {
-                const matchedVersion = profile.value.versions.find(v => {
-                    if (v.lang !== props.version?.lang) {
-                        return false;
-                    }
+            const defaultVersion = vs.filter(v => v.lang === defaultLocale);
 
-                    if (props.version?.set != null && v.set !== props.version.set) {
-                        return false;
-                    }
-
-                    if (props.version?.number != null && v.number !== props.version.number) {
-                        return false;
-                    }
-
-                    return true;
-                });
-
-                if (matchedVersion != null) {
-                    return matchedVersion;
-                }
+            if (defaultVersion.length > 0) {
+                return defaultVersion;
             }
 
-            const versions = [
-                // filter for pauper
-                (vs: CardProfile['versions']) => {
-                    if (props.pauper) {
-                        return vs.filter(v => v.rarity === 'common');
-                    } else {
-                        return vs;
-                    }
-                },
+            return vs.slice();
+        },
+    ].reduce((value, func) => func(value), profile.value.versions);
 
-                // filter for locale
-                (vs: CardProfile['versions']) => {
-                    const { locales } = magic;
-                    const defaultLocale = locales[0];
+    return versions.sort((a, b) => {
+        if (a.releaseDate > b.releaseDate) {
+            return -1;
+        }
 
-                    const localeVersion = vs.filter(v => v.lang === locale.value);
+        if (a.releaseDate < b.releaseDate) {
+            return 1;
+        }
 
-                    if (localeVersion.length > 0) {
-                        return localeVersion;
-                    }
+        const cmpNumber = ((a, b) => {
+            const matchA = /^(\d+)(\w*)$/.exec(a.number);
+            const matchB = /^(\d+)(\w*)$/.exec(b.number);
 
-                    const defaultVersion = vs.filter(v => v.lang === defaultLocale);
-
-                    if (defaultVersion.length > 0) {
-                        return defaultVersion;
-                    }
-
-                    return vs.slice();
-                },
-            ].reduce((value, func) => func(value), profile.value.versions);
-
-            return versions.sort((a, b) => {
-                if (a.releaseDate > b.releaseDate) {
-                    return -1;
-                }
-
-                if (a.releaseDate < b.releaseDate) {
+            if (matchA == null) {
+                if (matchB == null) {
+                    return a.number < b.number ? -1 : a.number > b.number ? 1 : 0;
+                } else {
                     return 1;
                 }
-
-                const cmpNumber = ((a, b) => {
-                    const matchA = /^(\d+)(\w*)$/.exec(a.number);
-                    const matchB = /^(\d+)(\w*)$/.exec(b.number);
-
-                    if (matchA == null) {
-                        if (matchB == null) {
-                            return a.number < b.number ? -1 : a.number > b.number ? 1 : 0;
-                        } else {
-                            return 1;
-                        }
-                    } else if (matchB == null) {
-                        return -1;
-                    }
-
-                    const numA = Number.parseInt(matchA[1], 10);
-                    const numB = Number.parseInt(matchB[1], 10);
-
-                    return numA < numB ? -1 : numA > numB ? 1
-                        : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
-                })(a, b);
-
-                if (cmpNumber !== 0) {
-                    return cmpNumber;
-                }
-
-                return 0;
-            })[0];
-        });
-
-        const loadData = async () => cardProfile.get(
-            props.id,
-            v => { profile.value = v; },
-        ).catch(() => { innerShowId.value = true; });
-
-        watch(() => props.id, loadData, { immediate: true });
-
-        return () => {
-            const text = showId.value
-                ? h('span', { class: 'code' }, props.id)
-                : props.text != null
-                    ? h('span', props.text)
-                    : h('span', { lang: locale.value }, name.value ?? '');
-
-            if (onThisPage.value) {
-                return text;
-            } else {
-                return h(RouterLink, {
-                    to:     link.value,
-                    target: '_blank',
-                }, () => {
-                    const children = [text];
-
-                    if (profile.value != null && imageVersion.value != null) {
-                        children.push(h(QTooltip, {
-                            'content-class': 'card-popover',
-                        }, () => [h(CardImage, {
-                            class:  'card-image-popover',
-                            lang:   imageVersion.value!.lang,
-                            set:    imageVersion.value!.set,
-                            number: imageVersion.value!.number,
-                            layout: imageVersion.value!.layout,
-                            part:   props.part,
-                        })]));
-                    }
-
-                    return children;
-                });
+            } else if (matchB == null) {
+                return -1;
             }
-        };
-    },
+
+            const numA = Number.parseInt(matchA[1], 10);
+            const numB = Number.parseInt(matchB[1], 10);
+
+            return numA < numB ? -1 : numA > numB ? 1
+                : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
+        })(a, b);
+
+        if (cmpNumber !== 0) {
+            return cmpNumber;
+        }
+
+        return 0;
+    })[0];
 });
+
+const loadData = async () => cardProfile.get(
+    props.id,
+    v => { profile.value = v; },
+).catch(() => { innerShowId.value = true; });
+
+watch(() => props.id, (newValue, oldValue) => {
+    if (newValue != null && oldValue != null) {
+        loadData();
+    }
+});
+
+const render = () => {
+    const text = showId.value
+        ? h('span', { class: 'code' }, props.id)
+        : props.text != null
+            ? h('span', props.text)
+            : h('span', { lang: locale.value }, name.value ?? '');
+
+    if (onThisPage.value) {
+        return text;
+    } else {
+        return h(RouterLink, {
+            to:     link.value,
+            target: '_blank',
+        }, () => {
+            const children = [text];
+
+            if (profile.value != null && imageVersion.value != null) {
+                children.push(h(QTooltip, {
+                    'content-class': 'card-popover',
+                }, () => [h(CardImage, {
+                    class:  'card-image-popover',
+                    lang:   imageVersion.value!.lang,
+                    set:    imageVersion.value!.set,
+                    number: imageVersion.value!.number,
+                    layout: imageVersion.value!.layout,
+                    part:   props.part,
+                })]));
+            }
+
+            return children;
+        });
+    }
+};
 </script>
 
 <style lang="sass">
