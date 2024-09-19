@@ -31,10 +31,38 @@ interface Change {
     csi: TextChange[];
 }
 
+// map '{XXX}' into a single char with unicode private area
+function encode(text: string, map: Record<string, string>): string {
+    return text.split(/(\{[^}]+\})/).filter(v => v !== '').map(p => {
+        if (p.startsWith('{') && p.endsWith('}')) {
+            map[p] ??= String.fromCodePoint(Object.keys(map).length + 0xF0000);
+
+            return map[p];
+        }
+
+        return p;
+    }).join('');
+}
+
+function decode(text: string, map: Record<string, string>): string {
+    return [...text].map(p => {
+        if (p.codePointAt(0)! >= 0xF0000) {
+            return Object.entries(map).find(([_, v]) => v === p)?.[0] ?? p;
+        } else {
+            return p;
+        }
+    }).join('');
+}
+
 export function diffString(lhs: string, rhs: string): TextChange[] {
+    const map: Record<string, string> = {};
+
     const diffs: TextChange[] = [];
 
-    for (const d of diffWordsWithSpace(lhs, rhs)) {
+    const lhsEncoded = encode(lhs, map);
+    const rhsEncoded = encode(rhs, map);
+
+    for (const d of diffWordsWithSpace(lhsEncoded, rhsEncoded)) {
         if (d.added) {
             const lastDiff = last(diffs);
 
@@ -83,30 +111,16 @@ export function diffString(lhs: string, rhs: string): TextChange[] {
                     diffs[i + 1] = ` ${diffs[i + 1]}`;
                 }
             }
-
-            if (i !== 0 && i !== diffs.length - 1) {
-                const prev = diffs[i - 1]; const
-                    next = diffs[i + 1];
-
-                if (typeof prev === 'string' && typeof next === 'string') {
-                    if (prev.endsWith('{') && next.startsWith('}')) {
-                        d[0] = `{${d[0]}}`;
-                        d[1] = `{${d[1]}}`;
-
-                        diffs[i - 1] = prev.slice(0, -1);
-                        diffs[i + 1] = next.slice(1);
-                    } else if (prev.endsWith('{') && d[0].endsWith('{') && d[1] === '') {
-                        d[0] = `{${d[0].slice(0, -1)}`;
-
-                        diffs[i - 1] = prev.slice(0, -1);
-                        diffs[i + 1] = `{${next}`;
-                    }
-                }
-            }
         }
     }
 
-    return diffs;
+    return diffs.map(v => {
+        if (typeof v === 'string') {
+            return decode(v, map);
+        } else {
+            return [decode(v[0], map), decode(v[1], map)] as const;
+        }
+    });
 }
 
 type ThreeChange = {
