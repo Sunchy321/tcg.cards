@@ -120,7 +120,6 @@ module.exports = {
         '@typescript-eslint/comma-spacing':               ['warn', { before: false, after: true }],
         '@typescript-eslint/indent':                      ['warn', 4, { SwitchCase: 0 }],
         '@typescript-eslint/lines-between-class-members': ['warn', 'always', { exceptAfterSingleLine: true }],
-        '@typescript-eslint/no-unused-vars':              ['warn', { varsIgnorePattern: '^(_{1,3})$' }],
         '@typescript-eslint/object-curly-spacing':        ['warn', 'always'],
         '@typescript-eslint/quotes':                      ['error', 'single'],
 
@@ -144,6 +143,11 @@ module.exports = {
                 'p', 'q', 'r', 's', 't',
                 'u', 'v', 'w', 'x', 'y', 'z',
             ],
+        }],
+
+        '@typescript-eslint/no-unused-vars':              ['warn', {
+            varsIgnorePattern: '^(_{1,3})$',
+            argsIgnorePattern: '^(_{1,3})$',
         }],
 
         '@typescript-eslint/space-before-function-paren': ['warn', {
