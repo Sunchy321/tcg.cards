@@ -7,8 +7,9 @@ import { join } from 'path';
 import { last, zip } from 'lodash';
 import { toIdentifier } from '../util';
 
+import { diffString } from '@common/util/diff';
+
 import { dataPath } from '@/config';
-import { diffString } from './diff';
 
 function parseContentLine(text: string) {
     let m: RegExpExecArray | null;

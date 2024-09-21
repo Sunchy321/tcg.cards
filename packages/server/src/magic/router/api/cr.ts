@@ -5,8 +5,9 @@ import CR from '@/magic/db/cr';
 import { CR as ICR, Content, Glossary } from '@interface/magic/cr';
 
 import { isEqual, mapValues, zip } from 'lodash';
+import { diffThreeString } from '@common/util/diff';
 import { toSingle } from '@/common/request-helper';
-import { diff, diffThreeString } from '@/magic/cr/diff';
+import { diff } from '@/magic/cr/diff';
 
 const router = new KoaRouter<DefaultState, Context>();
 
