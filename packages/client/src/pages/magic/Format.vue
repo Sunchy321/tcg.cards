@@ -120,6 +120,337 @@
     </q-page>
 </template>
 
+<script setup lang="ts">
+import {
+    ref, computed, watch,
+} from 'vue';
+
+import { useMagic } from 'store/games/magic';
+import { useI18n } from 'vue-i18n';
+
+import pageSetup from 'setup/page';
+
+import Grid from 'components/Grid.vue';
+import DateInput from 'components/DateInput.vue';
+import CardAvatar from 'components/magic/CardAvatar.vue';
+import BanlistIcon from 'components/magic/BanlistIcon.vue';
+import SetAvatar from 'components/magic/SetAvatar.vue';
+
+import { Format } from 'interface/magic/format';
+import { FormatChange, Legality } from 'interface/magic/format-change';
+
+import { last, uniq } from 'lodash';
+
+import { apiGet } from 'boot/backend';
+
+import { banlistStatusOrder, banlistSourceOrder } from 'static/magic/misc';
+
+interface BanlistItem {
+    date: string;
+    link: string[];
+
+    id: string;
+    status: Legality;
+    group?: string;
+}
+
+interface TimelineNode {
+    date: string;
+    link: string[];
+
+    sets: { id: string, status: 'in' | 'out' }[];
+    banlist: { id: string, status: Legality, group?: string }[];
+}
+
+const magic = useMagic();
+const i18n = useI18n();
+
+const formats = computed(() => magic.formats);
+
+const {
+    format,
+    timeline: showTimeline,
+    date,
+    order,
+} = pageSetup({
+    title: () => i18n.t('magic.format.$self'),
+
+    params: {
+        format: {
+            type:    'enum',
+            bind:    'params',
+            key:     'id',
+            inTitle: true,
+            values:  formats,
+            label:   (v: string) => i18n.t(`magic.format.${v}`),
+        },
+        timeline: {
+            type:    'boolean',
+            bind:    'query',
+            inTitle: true,
+            icon:    ['mdi-timeline-outline', 'mdi-timeline'],
+        },
+        date: {
+            type: 'date',
+            bind: 'query',
+        },
+        order: {
+            type:   'enum',
+            bind:   'query',
+            values: ['name', 'date'],
+        },
+    },
+});
+
+const data = ref<Format | null>(null);
+const changes = ref<FormatChange[]>([]);
+
+const orderOptions = ['name', 'date'].map(v => ({
+    value: v,
+    slot:  v,
+}));
+
+const dateFrom = computed(() => data.value?.birthday ?? magic.birthday);
+const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
+
+const birthAndDeath = computed(() => {
+    if (data.value?.birthday != null) {
+        if (data.value?.deathdate != null) {
+            return `${data.value.birthday} ~ ${data.value.deathdate}`;
+        } else {
+            return `${data.value.birthday} ~`;
+        }
+    } else {
+        return '';
+    }
+});
+
+const nodes = computed(() => {
+    const result: TimelineNode[] = [];
+
+    for (const c of changes.value) {
+        const node = (() => {
+            const value = result.find(r => r.date === c.date);
+
+            if (value != null) {
+                return value;
+            } else {
+                result.push({
+                    date:    c.date,
+                    link:    c.link ?? [],
+                    sets:    [],
+                    banlist: [],
+                });
+
+                return last(result)!;
+            }
+        })();
+
+        if (c.type === 'set') {
+            node.sets.push({ id: c.id, status: c.status as 'in' | 'out' });
+        } else {
+            node.banlist.push({
+                id:     c.id,
+                status: c.status as Legality,
+                group:  c.group,
+            });
+        }
+    }
+
+    for (const v of result) {
+        v.link = uniq(v.link);
+
+        v.sets.sort((a, b) => {
+            if (a.status !== b.status) {
+                return a.status === 'in' ? -1 : 1;
+            } else {
+                return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+            }
+        });
+
+        v.banlist.sort((a, b) => {
+            if (a.status !== b.status) {
+                return banlistStatusOrder.indexOf(a.status)
+                                - banlistStatusOrder.indexOf(b.status);
+            } else if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null)
+                                - banlistSourceOrder.indexOf(b.group ?? null);
+            } else {
+                return a.id < b.id ? -1 : 1;
+            }
+        });
+    }
+
+    return result;
+});
+
+const sets = computed(() => {
+    let result: string[] = [];
+
+    for (const c of changes.value) {
+        if (c.type === 'set') {
+            if (c.date > date.value) {
+                break;
+            }
+
+            if (c.status === 'in') {
+                result.push(c.id);
+            } else {
+                result = result.filter(s => s !== c.id);
+            }
+        }
+    }
+
+    return result;
+});
+
+const banlist = computed(() => {
+    const banlistItems = (() => {
+        let result: BanlistItem[] = [];
+
+        for (const c of changes.value) {
+            if (c.type === 'card') {
+                if (c.date > date.value) {
+                    break;
+                }
+
+                if (c.status === 'legal' || c.status === 'unavailable') {
+                    result = result.filter(v => v.id !== c.id);
+                } else {
+                    const sameIndex = result.findIndex(b => b.id === c.id);
+
+                    const value: BanlistItem = {
+                        date:   c.date,
+                        link:   c.link ?? [],
+                        id:     c.id,
+                        status: c.status as Legality,
+                        group:  c.group,
+                    };
+
+                    if (sameIndex === -1) {
+                        result.push(value);
+                    } else {
+                        result.splice(sameIndex, 1, value);
+                    }
+                }
+            }
+        }
+
+        return result;
+    })();
+
+    switch (order.value) {
+    case 'name':
+        banlistItems.sort((a, b) => {
+            if (a.status !== b.status) {
+                return banlistStatusOrder.indexOf(a.status)
+                                - banlistStatusOrder.indexOf(b.status);
+            } else if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null)
+                                - banlistSourceOrder.indexOf(b.group ?? null);
+            } else {
+                return a.id < b.id ? -1 : 1;
+            }
+        });
+        break;
+    case 'date':
+        banlistItems.sort((a, b) => {
+            if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null)
+                                - banlistSourceOrder.indexOf(b.group ?? null);
+            }
+
+            if (a.date < b.date) {
+                return -1;
+            } else if (a.date > b.date) {
+                return 1;
+            }
+
+            if (a.status !== b.status) {
+                return banlistStatusOrder.indexOf(a.status)
+                                - banlistStatusOrder.indexOf(b.status);
+            } else {
+                return a.id < b.id ? -1 : 1;
+            }
+        });
+        break;
+    default:
+    }
+
+    return banlistItems;
+});
+
+const timelineEvents = computed(() => {
+    const result = [];
+
+    for (const c of changes.value) {
+        const v = result.find(r => r.date === c.date);
+
+        if (v != null) {
+            if (c.type === 'set') {
+                v.color = 'cyan';
+            }
+        } else {
+            result.push({
+                date:  c.date,
+                color: c.type === 'set' ? 'cyan' : 'orange',
+            });
+        }
+    }
+
+    return result;
+});
+
+const loadData = async () => {
+    const { data: formatResult } = await apiGet<Format>('/magic/format', {
+        id: format.value,
+    });
+
+    data.value = formatResult;
+
+    const { data: changesResult } = await apiGet<FormatChange[]>('/magic/format/changes', {
+        id: format.value,
+    });
+
+    changes.value = changesResult;
+};
+
+const groupShort = (group: string) => {
+    switch (group) {
+    case 'ante': return 'ante';
+    case 'legendary': return 'leg.';
+    case 'conspiracy': return 'consp.';
+    case 'unfinity': return 'unf.';
+    case 'offensive': return 'off.';
+    default: return '';
+    }
+};
+
+const toPrevDate = () => {
+    const currDate = date.value ?? new Date().toISOString().split('T')[0];
+
+    for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
+        if (dateValue < currDate) {
+            date.value = dateValue;
+            return;
+        }
+    }
+};
+
+const toNextDate = () => {
+    const currDate = date.value ?? new Date().toISOString().split('T')[0];
+
+    for (const { date: dateValue } of timelineEvents.value) {
+        if (dateValue > currDate) {
+            date.value = dateValue;
+            return;
+        }
+    }
+};
+
+watch(format, loadData, { immediate: true });
+</script>
+
 <style lang="sass" scoped>
 .title
     font-size: 24px
@@ -144,369 +475,3 @@
 .group
     font-variant: small-caps
 </style>
-
-<script lang="ts">
-import {
-    defineComponent, ref, computed, watch,
-} from 'vue';
-
-import { useMagic } from 'store/games/magic';
-import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
-
-import Grid from 'components/Grid.vue';
-import DateInput from 'components/DateInput.vue';
-import CardAvatar from 'components/magic/CardAvatar.vue';
-import BanlistIcon from 'components/magic/BanlistIcon.vue';
-import SetAvatar from 'components/magic/SetAvatar.vue';
-
-import { Format } from 'interface/magic/format';
-import { FormatChange, Legality } from 'interface/magic/format-change';
-
-import { last, uniq } from 'lodash';
-
-import { apiGet } from 'boot/backend';
-
-interface BanlistItem {
-    date: string;
-    link: string[];
-
-    id: string;
-    status: Legality;
-    group?: string;
-}
-
-interface TimelineNode {
-    date: string;
-    link: string[];
-
-    sets: { id: string, status: 'in' | 'out' }[];
-    banlist: { id: string, status: Legality, group?: string }[];
-}
-
-export const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
-export const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
-
-export default defineComponent({
-    components: {
-        Grid,
-        DateInput,
-        CardAvatar,
-        BanlistIcon,
-        SetAvatar,
-    },
-
-    setup() {
-        const magic = useMagic();
-        const i18n = useI18n();
-
-        const formats = computed(() => magic.formats);
-
-        const {
-            format,
-            timeline: showTimeline,
-            date,
-            order,
-        } = pageSetup({
-            title: () => i18n.t('magic.format.$self'),
-
-            params: {
-                format: {
-                    type:    'enum',
-                    bind:    'params',
-                    key:     'id',
-                    inTitle: true,
-                    values:  formats,
-                    label:   (v: string) => i18n.t(`magic.format.${v}`),
-                },
-                timeline: {
-                    type:    'boolean',
-                    bind:    'query',
-                    inTitle: true,
-                    icon:    ['mdi-timeline-outline', 'mdi-timeline'],
-                },
-                date: {
-                    type: 'date',
-                    bind: 'query',
-                },
-                order: {
-                    type:   'enum',
-                    bind:   'query',
-                    values: ['name', 'date'],
-                },
-            },
-        });
-
-        const data = ref<Format | null>(null);
-        const changes = ref<FormatChange[]>([]);
-
-        const orderOptions = ['name', 'date'].map(v => ({
-            value: v,
-            slot:  v,
-        }));
-
-        const dateFrom = computed(() => data.value?.birthday ?? magic.birthday);
-        const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
-
-        const birthAndDeath = computed(() => {
-            if (data.value?.birthday != null) {
-                if (data.value?.deathdate != null) {
-                    return `${data.value.birthday} ~ ${data.value.deathdate}`;
-                } else {
-                    return `${data.value.birthday} ~`;
-                }
-            } else {
-                return '';
-            }
-        });
-
-        const nodes = computed(() => {
-            const result: TimelineNode[] = [];
-
-            for (const c of changes.value) {
-                const node = (() => {
-                    const value = result.find(r => r.date === c.date);
-
-                    if (value != null) {
-                        return value;
-                    } else {
-                        result.push({
-                            date:    c.date,
-                            link:    c.link ?? [],
-                            sets:    [],
-                            banlist: [],
-                        });
-
-                        return last(result)!;
-                    }
-                })();
-
-                if (c.type === 'set') {
-                    node.sets.push({ id: c.id, status: c.status as 'in' | 'out' });
-                } else {
-                    node.banlist.push({
-                        id:     c.id,
-                        status: c.status as Legality,
-                        group:  c.group,
-                    });
-                }
-            }
-
-            for (const v of result) {
-                v.link = uniq(v.link);
-
-                v.sets.sort((a, b) => {
-                    if (a.status !== b.status) {
-                        return a.status === 'in' ? -1 : 1;
-                    } else {
-                        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-                    }
-                });
-
-                v.banlist.sort((a, b) => {
-                    if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
-                    } else if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
-                    } else {
-                        return a.id < b.id ? -1 : 1;
-                    }
-                });
-            }
-
-            return result;
-        });
-
-        const sets = computed(() => {
-            let result: string[] = [];
-
-            for (const c of changes.value) {
-                if (c.type === 'set') {
-                    if (c.date > date.value) {
-                        break;
-                    }
-
-                    if (c.status === 'in') {
-                        result.push(c.id);
-                    } else {
-                        result = result.filter(s => s !== c.id);
-                    }
-                }
-            }
-
-            return result;
-        });
-
-        const banlist = computed(() => {
-            const banlistItems = (() => {
-                let result: BanlistItem[] = [];
-
-                for (const c of changes.value) {
-                    if (c.type === 'card') {
-                        if (c.date > date.value) {
-                            break;
-                        }
-
-                        if (c.status === 'legal' || c.status === 'unavailable') {
-                            result = result.filter(v => v.id !== c.id);
-                        } else {
-                            const sameIndex = result.findIndex(b => b.id === c.id);
-
-                            const value: BanlistItem = {
-                                date:   c.date,
-                                link:   c.link ?? [],
-                                id:     c.id,
-                                status: c.status as Legality,
-                                group:  c.group,
-                            };
-
-                            if (sameIndex === -1) {
-                                result.push(value);
-                            } else {
-                                result.splice(sameIndex, 1, value);
-                            }
-                        }
-                    }
-                }
-
-                return result;
-            })();
-
-            switch (order.value) {
-            case 'name':
-                banlistItems.sort((a, b) => {
-                    if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
-                    } else if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
-                    } else {
-                        return a.id < b.id ? -1 : 1;
-                    }
-                });
-                break;
-            case 'date':
-                banlistItems.sort((a, b) => {
-                    if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
-                    }
-
-                    if (a.date < b.date) {
-                        return -1;
-                    } else if (a.date > b.date) {
-                        return 1;
-                    }
-
-                    if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
-                    } else {
-                        return a.id < b.id ? -1 : 1;
-                    }
-                });
-                break;
-            default:
-            }
-
-            return banlistItems;
-        });
-
-        const timelineEvents = computed(() => {
-            const result = [];
-
-            for (const c of changes.value) {
-                const v = result.find(r => r.date === c.date);
-
-                if (v != null) {
-                    if (c.type === 'set') {
-                        v.color = 'cyan';
-                    }
-                } else {
-                    result.push({
-                        date:  c.date,
-                        color: c.type === 'set' ? 'cyan' : 'orange',
-                    });
-                }
-            }
-
-            return result;
-        });
-
-        const loadData = async () => {
-            const { data: formatResult } = await apiGet<Format>('/magic/format', {
-                id: format.value,
-            });
-
-            data.value = formatResult;
-
-            const { data: changesResult } = await apiGet<FormatChange[]>('/magic/format/changes', {
-                id: format.value,
-            });
-
-            changes.value = changesResult;
-        };
-
-        const groupShort = (group: string) => {
-            switch (group) {
-            case 'ante': return 'ante';
-            case 'legendary': return 'leg.';
-            case 'conspiracy': return 'consp.';
-            case 'offensive': return 'off.';
-            default: return '';
-            }
-        };
-
-        const toPrevDate = () => {
-            const currDate = date.value ?? new Date().toISOString().split('T')[0];
-
-            for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
-                if (dateValue < currDate) {
-                    date.value = dateValue;
-                    return;
-                }
-            }
-        };
-
-        const toNextDate = () => {
-            const currDate = date.value ?? new Date().toISOString().split('T')[0];
-
-            for (const { date: dateValue } of timelineEvents.value) {
-                if (dateValue > currDate) {
-                    date.value = dateValue;
-                    return;
-                }
-            }
-        };
-
-        watch(format, loadData, { immediate: true });
-
-        return {
-            format,
-            showTimeline,
-            date,
-            order,
-
-            orderOptions,
-
-            dateFrom,
-            dateTo,
-
-            birthAndDeath,
-            timelineEvents,
-            sets,
-            banlist,
-            nodes,
-
-            groupShort,
-            toPrevDate,
-            toNextDate,
-        };
-    },
-
-});
-</script>

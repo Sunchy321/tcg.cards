@@ -2,6 +2,7 @@ import * as magic from './magic/basic';
 import * as hearthstone from './hearthstone/basic';
 
 import './magic/special';
+import './magic/misc';
 
 export const games = ['magic', 'hearthstone'] as const;
 

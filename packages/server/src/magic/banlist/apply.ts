@@ -18,13 +18,12 @@ import { cloneDeep } from 'lodash';
 import internalData from '@/internal-data';
 import { toIdentifier } from '@/magic/util';
 
+import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
+
 const formatWithSet = [
     'standard', 'pioneer', 'modern', 'extended',
     'alchemy', 'historic', 'explorer', 'timeless',
 ];
-
-const banlistStatusOrder = ['banned', 'suspended', 'banned_as_commander', 'banned_as_companion', 'restricted', 'legal', 'unavailable'];
-const banlistSourceOrder = ['ante', 'offensive', 'conspiracy', 'legendary', null];
 
 function cmp<T>(a: T, b: T): number {
     return a < b ? -1 : a > b ? 1 : 0;
@@ -41,6 +40,7 @@ export class AnnouncementApplier {
     private anteList: string[];
     private conspiracyList: string[];
     private legendaryList: string[];
+    private unfinityList: string[];
     private offensiveList: string[];
 
     private cards: {
@@ -80,6 +80,7 @@ export class AnnouncementApplier {
         // preload group cards
         this.anteList = internalData<string[]>('magic.banlist.ante').map(toIdentifier);
         this.offensiveList = internalData<string[]>('magic.banlist.offensive').map(toIdentifier);
+        this.unfinityList = internalData<string[]>('magic.banlist.unfinity').map(toIdentifier);
 
         // all conspiracy
         this.conspiracyList = await Card.distinct('cardId', { 'parts.type.main': 'conspiracy' });
@@ -104,6 +105,7 @@ export class AnnouncementApplier {
         cards.push(...this.anteList);
         cards.push(...this.conspiracyList);
         cards.push(...this.offensiveList);
+        cards.push(...this.unfinityList);
         cards.push(...this.legendaryList);
 
         for (const a of this.announcements) {
@@ -169,6 +171,7 @@ export class AnnouncementApplier {
         case 'ante': return this.anteList;
         case 'conspiracy': return this.conspiracyList;
         case 'offensive': return this.offensiveList;
+        case 'unfinity': return this.unfinityList;
         case 'legendary': return this.legendaryList;
         default: return [];
         }
