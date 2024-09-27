@@ -6,10 +6,13 @@ import Print from '@/magic/db/print';
 
 import { Set as ISet } from '@interface/magic/set';
 
+import axios from 'axios';
+import cheerio from 'cheerio';
+
 import { mapValues, uniq } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import { extendedLocales } from '@static/magic/basic';
+import { locales, extendedLocales } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -76,6 +79,54 @@ router.post('/calc', async ctx => {
     }
 
     ctx.status = 200;
+});
+
+const linkMap: Record<string, string> = {
+    en:  'en',
+    de:  'de',
+    es:  'es',
+    fr:  'fr',
+    it:  'it',
+    ja:  'ja',
+    ko:  'ko',
+    pt:  'pt-br',
+    ru:  'ru',
+    zhs: 'zh-hans',
+    zht: 'zh-hant',
+};
+
+router.get('/fill-link', async ctx => {
+    const { link } = mapValues(ctx.query, toSingle);
+
+    if (link == null || link === '') {
+        return;
+    }
+
+    const result: Record<string, { link: string, name: string }> = { };
+
+    for (const l of locales) {
+        const localeUrl = link.replace('/en/', `/${linkMap[l]}/`);
+
+        try {
+            const html = await axios.get(localeUrl);
+
+            const $ = cheerio.load(html.data);
+
+            result[l] = {
+                link: localeUrl,
+                name: $('title').text().replace(/\|.*$/, ''),
+            };
+        } catch (e) {
+            console.error(e.message);
+
+            result[l] = {
+                link: localeUrl,
+                name: '',
+            };
+        }
+    }
+
+    ctx.body = result;
 });
 
 export default router;

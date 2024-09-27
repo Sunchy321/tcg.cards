@@ -107,10 +107,10 @@
     </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-use-before-define */
 import {
-    VNode, defineComponent, ref, computed, watch, onMounted,
+    VNode, ref, computed, watch, onMounted,
 } from 'vue';
 
 import { QBtnToggle } from 'quasar';
@@ -146,20 +146,6 @@ const TapBtnToggle = QBtnToggle as
 const WhiteBtnToggle = QBtnToggle as
     unknown as GlobalComponentConstructor<QBtnToggleProps, WhiteBtnGroupSlots>;
 
-const linkMap: Record<string, string> = {
-    en:  'en',
-    de:  'de',
-    es:  'es',
-    fr:  'fr',
-    it:  'it',
-    ja:  'ja',
-    ko:  'ko',
-    pt:  'pt-br',
-    ru:  'ru',
-    zhs: 'zh-hans',
-    zht: 'zh-hant',
-};
-
 function symbolStyleOf(tap: string, white: string, flat: boolean) {
     const result = [];
 
@@ -178,256 +164,239 @@ function symbolStyleOf(tap: string, white: string, flat: boolean) {
     return result;
 }
 
-export default defineComponent({
-    components: { MagicSymbol, TapBtnToggle, WhiteBtnToggle },
+const router = useRouter();
+const route = useRoute();
+const magic = useMagic();
 
-    setup() {
-        const router = useRouter();
-        const route = useRoute();
-        const magic = useMagic();
+const { controlGet, controlPost } = controlSetup();
 
-        const { controlGet, controlPost } = controlSetup();
+const set = ref<string[]>([]);
+const data = ref<Set | null>(null);
+const filteredSet = ref<string[]>([]);
 
-        const set = ref<string[]>([]);
-        const data = ref<Set | null>(null);
-        const filteredSet = ref<string[]>([]);
-
-        const id = computed({
-            get() { return route.query.id as string ?? set.value[0]; },
-            set(newValue: string) {
-                void router.replace({
-                    query: {
-                        ...route.query,
-                        id: newValue,
-                    },
-                });
+const id = computed({
+    get() { return route.query.id as string ?? set.value[0]; },
+    set(newValue: string) {
+        void router.replace({
+            query: {
+                ...route.query,
+                id: newValue,
             },
         });
-
-        const localization = computed(() => magic.locales.map(
-            l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
-        ));
-
-        const symbolStyle = computed(() => data.value?.symbolStyle ?? []);
-
-        const tapStyle = computed({
-            get() {
-                if (symbolStyle.value.includes('tap:old1')) {
-                    return 'old1';
-                } else if (symbolStyle.value.includes('tap:old2')) {
-                    return 'old2';
-                } else {
-                    return 'modern';
-                }
-            },
-            set(newValue: string) {
-                if (data.value == null) {
-                    return;
-                }
-
-                data.value.symbolStyle = symbolStyleOf(newValue, whiteStyle.value, flat.value);
-            },
-        });
-
-        const tapStyleOption = [
-            { value: 'old1', slot: 'old1' },
-            { value: 'old2', slot: 'old2' },
-            { value: 'modern', slot: 'modern' },
-        ];
-
-        const whiteStyle = computed({
-            get() {
-                if (symbolStyle.value.includes('white:old')) {
-                    return 'old';
-                } else {
-                    return 'modern';
-                }
-            },
-            set(newValue: string) {
-                if (data.value == null) {
-                    return;
-                }
-
-                data.value.symbolStyle = symbolStyleOf(tapStyle.value, newValue, flat.value);
-            },
-        });
-
-        const whiteStyleOption = [
-            { value: 'old', slot: 'old' },
-            { value: 'modern', slot: 'modern' },
-        ];
-
-        const flat = computed({
-            get() {
-                return symbolStyle.value.includes('flat');
-            },
-            set(newValue: boolean) {
-                if (data.value == null) {
-                    return;
-                }
-
-                data.value.symbolStyle = symbolStyleOf(tapStyle.value, whiteStyle.value, newValue);
-            },
-        });
-
-        const loadList = async () => {
-            const { data: sets } = await apiGet<string[]>('/magic/set');
-
-            set.value = sets;
-
-            if (data.value == null) {
-                void loadData();
-            }
-        };
-
-        const loadData = async () => {
-            if (data.value != null) {
-                await save();
-            }
-
-            const { data: result } = await controlGet<Set>('/magic/set/raw', {
-                id: id.value,
-            });
-
-            data.value = result;
-        };
-
-        const filterFn = (val: string, update: Parameters<NonNullable<QSelectProps['onFilter']>>[1]) => {
-            if (val === '') {
-                update(
-                    () => { filteredSet.value = set.value; },
-                    () => { /* no-op */ },
-                );
-            } else {
-                update(
-                    () => { filteredSet.value = set.value.filter(s => s.includes(val)); },
-                    () => { /* no-op */ },
-                );
-            }
-        };
-
-        const assignName = (lang: string, name: string) => {
-            if (data.value == null) {
-                return;
-            }
-
-            const loc = data.value.localization.find(l => l.lang === lang);
-
-            if (loc == null) {
-                data.value.localization = [...data.value.localization, { lang, name, isOfficialName: true }];
-            } else {
-                if (loc.name == null || loc.name === '') {
-                    loc.isOfficialName = true;
-                }
-
-                loc.name = name;
-            }
-        };
-
-        const assignLink = (lang: string, link: string) => {
-            if (data.value == null) {
-                return;
-            }
-
-            const loc = data.value.localization.find(l => l.lang === lang);
-
-            if (loc == null) {
-                data.value.localization = [
-                    ...data.value.localization,
-                    { lang, name: '', link },
-                ];
-            } else {
-                loc.link = link;
-            }
-        };
-
-        const toggleIsWotcName = (lang: string) => {
-            if (data.value == null) {
-                return;
-            }
-
-            const loc = data.value.localization.find(l => l.lang === lang);
-
-            if (loc != null) {
-                loc.isOfficialName = !loc.isOfficialName;
-            }
-        };
-
-        const fillLink = () => {
-            if (data.value == null) {
-                return;
-            }
-
-            const loc = data.value.localization.find(l => l.lang === 'en');
-
-            if (loc?.link != null) {
-                for (const l of localization.value) {
-                    if (l.link == null || l.link === '') {
-                        assignLink(l.lang, loc.link.replace('/en/', `/${linkMap[l.lang]}/`));
-                    }
-                }
-            }
-        };
-
-        const prettify = () => {
-            if (data.value == null) {
-                return;
-            }
-
-            data.value.localization = data.value.localization.filter(
-                l => (l.name != null && l.name !== '') || (l.link != null && l.link !== ''),
-            );
-
-            for (const l of data.value.localization) {
-                if (l.name === '') {
-                    delete l.name;
-                    delete l.isOfficialName;
-                }
-
-                if (l.link === '') {
-                    delete l.link;
-                }
-            }
-        };
-
-        const save = async () => {
-            if (data.value != null) {
-                prettify();
-
-                await controlPost('/magic/set/save', { data: data.value });
-            }
-        };
-
-        const calcField = async () => {
-            await controlPost('/magic/set/calc', { id: id.value });
-        };
-
-        watch(set, () => { filteredSet.value = set.value; });
-        watch(id, loadData);
-        onMounted(loadList);
-
-        return {
-            id,
-            localization,
-            symbolStyle,
-
-            tapStyle,
-            whiteStyle,
-            flat,
-
-            tapStyleOption,
-            whiteStyleOption,
-
-            filteredSet,
-
-            save,
-            fillLink,
-            filterFn,
-            toggleIsWotcName,
-            assignName,
-            assignLink,
-            calcField,
-        };
     },
 });
+
+const localization = computed(() => magic.locales.map(
+    l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
+));
+
+const symbolStyle = computed(() => data.value?.symbolStyle ?? []);
+
+const tapStyle = computed({
+    get() {
+        if (symbolStyle.value.includes('tap:old1')) {
+            return 'old1';
+        } else if (symbolStyle.value.includes('tap:old2')) {
+            return 'old2';
+        } else {
+            return 'modern';
+        }
+    },
+    set(newValue: string) {
+        if (data.value == null) {
+            return;
+        }
+
+        data.value.symbolStyle = symbolStyleOf(newValue, whiteStyle.value, flat.value);
+    },
+});
+
+const tapStyleOption = [
+    { value: 'old1', slot: 'old1' },
+    { value: 'old2', slot: 'old2' },
+    { value: 'modern', slot: 'modern' },
+];
+
+const whiteStyle = computed({
+    get() {
+        if (symbolStyle.value.includes('white:old')) {
+            return 'old';
+        } else {
+            return 'modern';
+        }
+    },
+    set(newValue: string) {
+        if (data.value == null) {
+            return;
+        }
+
+        data.value.symbolStyle = symbolStyleOf(tapStyle.value, newValue, flat.value);
+    },
+});
+
+const whiteStyleOption = [
+    { value: 'old', slot: 'old' },
+    { value: 'modern', slot: 'modern' },
+];
+
+const flat = computed({
+    get() {
+        return symbolStyle.value.includes('flat');
+    },
+    set(newValue: boolean) {
+        if (data.value == null) {
+            return;
+        }
+
+        data.value.symbolStyle = symbolStyleOf(tapStyle.value, whiteStyle.value, newValue);
+    },
+});
+
+const loadList = async () => {
+    const { data: sets } = await apiGet<string[]>('/magic/set');
+
+    set.value = sets;
+
+    if (data.value == null) {
+        void loadData();
+    }
+};
+
+const loadData = async () => {
+    if (data.value != null) {
+        await save();
+    }
+
+    const { data: result } = await controlGet<Set>('/magic/set/raw', {
+        id: id.value,
+    });
+
+    data.value = result;
+};
+
+const filterFn = (val: string, update: Parameters<NonNullable<QSelectProps['onFilter']>>[1]) => {
+    if (val === '') {
+        update(
+            () => { filteredSet.value = set.value; },
+            () => { /* no-op */ },
+        );
+    } else {
+        update(
+            () => { filteredSet.value = set.value.filter(s => s.includes(val)); },
+            () => { /* no-op */ },
+        );
+    }
+};
+
+const assignName = (lang: string, name: string) => {
+    if (data.value == null) {
+        return;
+    }
+
+    const loc = data.value.localization.find(l => l.lang === lang);
+
+    if (loc == null) {
+        data.value.localization = [...data.value.localization, { lang, name, isOfficialName: true }];
+    } else {
+        if (loc.name == null || loc.name === '') {
+            loc.isOfficialName = true;
+        }
+
+        loc.name = name;
+    }
+};
+
+const assignLink = (lang: string, link: string) => {
+    if (data.value == null) {
+        return;
+    }
+
+    const loc = data.value.localization.find(l => l.lang === lang);
+
+    if (loc == null) {
+        data.value.localization = [
+            ...data.value.localization,
+            { lang, name: '', link },
+        ];
+    } else {
+        loc.link = link;
+    }
+};
+
+const toggleIsWotcName = (lang: string) => {
+    if (data.value == null) {
+        return;
+    }
+
+    const loc = data.value.localization.find(l => l.lang === lang);
+
+    if (loc != null) {
+        loc.isOfficialName = !loc.isOfficialName;
+    }
+};
+
+type FillLink = Record<string, { link: string, name: string }>;
+
+const fillLink = async () => {
+    if (data.value == null) {
+        return;
+    }
+
+    const enLink = data.value.localization.find(l => l.lang === 'en')?.link;
+
+    if (enLink == null) { return; }
+
+    const { data: linkMap } = await controlGet<FillLink>('magic/set/fill-link', {
+        link: enLink,
+    });
+
+    console.log(linkMap);
+
+    for (const [l, v] of Object.entries(linkMap)) {
+        assignLink(l, v.link);
+
+        const locName = localization.value.find(loc => loc.lang === l)?.name;
+
+        if (locName === '' || locName == null) {
+            assignName(l, v.name);
+        }
+    }
+};
+
+const prettify = () => {
+    if (data.value == null) {
+        return;
+    }
+
+    data.value.localization = data.value.localization.filter(
+        l => (l.name != null && l.name !== '') || (l.link != null && l.link !== ''),
+    );
+
+    for (const l of data.value.localization) {
+        if (l.name === '') {
+            delete l.name;
+            delete l.isOfficialName;
+        }
+
+        if (l.link === '') {
+            delete l.link;
+        }
+    }
+};
+
+const save = async () => {
+    if (data.value != null) {
+        prettify();
+
+        await controlPost('/magic/set/save', { data: data.value });
+    }
+};
+
+const calcField = async () => {
+    await controlPost('/magic/set/calc', { id: id.value });
+};
+
+watch(set, () => { filteredSet.value = set.value; });
+watch(id, loadData);
+onMounted(loadList);
 </script>
