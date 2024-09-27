@@ -368,10 +368,6 @@ export class AnnouncementApplier {
                 })();
 
                 if (formats.includes('standard')) {
-                    if (!formats.includes('alchemy') && date >= alchemyBirthday) {
-                        formats.push('alchemy');
-                    }
-
                     if (!formats.includes('standard_brawl') && date >= standardBrawlBirthday) {
                         formats.push('standard_brawl');
                     }
