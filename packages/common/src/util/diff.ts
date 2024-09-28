@@ -1,7 +1,50 @@
-import { diffWordsWithSpace } from 'diff';
+import { diffChars as diffCharsImpl, diffWordsWithSpace } from 'diff';
 import { last } from 'lodash';
 
 type TextChange = string | [string, string];
+
+export function diffChars(lhs: string, rhs: string): TextChange[] {
+    const diffs: TextChange[] = [];
+
+    for (const d of diffCharsImpl(lhs, rhs)) {
+        if (d.added) {
+            const lastDiff = last(diffs);
+
+            if (lastDiff == null) {
+                diffs.push(['', d.value]);
+            } else if (typeof lastDiff === 'string') {
+                diffs.push(['', d.value]);
+            } else {
+                lastDiff[1] += d.value;
+            }
+        } else if (d.removed) {
+            const lastDiff = last(diffs);
+
+            if (lastDiff == null) {
+                diffs.push([d.value, '']);
+            } else if (typeof lastDiff === 'string') {
+                diffs.push([d.value, '']);
+            } else {
+                lastDiff[0] += d.value;
+            }
+        } else {
+            const lastDiff = last(diffs);
+
+            if (lastDiff == null) {
+                diffs.push(d.value);
+            } else if (typeof lastDiff === 'string') {
+                diffs[diffs.length - 1] = (diffs[diffs.length - 1] as string) + d.value;
+            } else if (d.value === ' ') {
+                lastDiff[0] += d.value;
+                lastDiff[1] += d.value;
+            } else {
+                diffs.push(d.value);
+            }
+        }
+    }
+
+    return diffs;
+}
 
 // map '{XXX}' into a single char with unicode private area
 function encode(text: string, map: Record<string, string>): string {

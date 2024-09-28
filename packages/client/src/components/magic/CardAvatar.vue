@@ -31,13 +31,15 @@ const props = withDefaults(
         useLang?: boolean;
         pauper?: boolean;
         text?: string;
+        fullImage?: boolean;
     }>(),
     {
-        part:    undefined,
-        version: undefined,
-        useLang: false,
-        pauper:  false,
-        text:    undefined,
+        part:      undefined,
+        version:   undefined,
+        useLang:   false,
+        pauper:    false,
+        text:      undefined,
+        fullImage: false,
     },
 );
 
@@ -85,22 +87,10 @@ const imageVersion = computed(() => {
         return null;
     }
 
-    if (props.version != null) {
-        const matchedVersion = profile.value.versions.find(v => {
-            if (v.lang !== props.version?.lang) {
-                return false;
-            }
-
-            if (props.version?.set != null && v.set !== props.version.set) {
-                return false;
-            }
-
-            if (props.version?.number != null && v.number !== props.version.number) {
-                return false;
-            }
-
-            return true;
-        });
+    if (props.version?.set != null && props.version.number != null) {
+        const matchedVersion = profile.value.versions.find(
+            v => v.lang === props.version?.lang && v.set === props.version?.set && v.number === props.version.number,
+        );
 
         if (matchedVersion != null) {
             return matchedVersion;
@@ -197,27 +187,51 @@ const render = () => {
     if (onThisPage.value) {
         return text;
     } else {
-        return h(RouterLink, {
-            to:     link.value,
-            target: '_blank',
-        }, () => {
-            const children = [text];
+        if (props.fullImage) {
+            const nodes = [];
 
             if (profile.value != null && imageVersion.value != null) {
-                children.push(h(QTooltip, {
-                    'content-class': 'card-popover',
-                }, () => [h(CardImage, {
-                    class:  'card-image-popover',
+                nodes.push(h(CardImage, {
                     lang:   imageVersion.value!.lang,
                     set:    imageVersion.value!.set,
                     number: imageVersion.value!.number,
                     layout: imageVersion.value!.layout,
                     part:   props.part,
-                })]));
+                }));
             }
 
-            return children;
-        });
+            const linkElem = h(RouterLink, {
+                style:  { 'text-align': 'center' },
+                to:     link.value,
+                target: '_blank',
+            }, () => [text]);
+
+            nodes.push(h('div', { class: 'flex justify-center' }, [linkElem]));
+
+            return h('div', null, nodes);
+        } else {
+            return h(RouterLink, {
+                to:     link.value,
+                target: '_blank',
+            }, () => {
+                const children = [text];
+
+                if (profile.value != null && imageVersion.value != null) {
+                    children.push(h(QTooltip, {
+                        'content-class': 'card-popover',
+                    }, () => [h(CardImage, {
+                        class:  'card-image-popover',
+                        lang:   imageVersion.value!.lang,
+                        set:    imageVersion.value!.set,
+                        number: imageVersion.value!.number,
+                        layout: imageVersion.value!.layout,
+                        part:   props.part,
+                    })]));
+                }
+
+                return children;
+            });
+        }
     }
 };
 </script>

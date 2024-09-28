@@ -99,7 +99,7 @@
                             <q-td key="id" :props="props" style="width: 100px; white-space: normal;">
                                 {{ props.row.id }}
                                 <q-popup-edit v-model="props.row.id">
-                                    <deferred-input
+                                    <defer-input
                                         v-model="props.row.id"
                                         dense
                                         autofocus counter
@@ -194,7 +194,7 @@ import { useRouter, useRoute } from 'vue-router';
 
 import controlSetup from 'setup/control';
 
-import DeferredInput from 'components/DeferredInput.vue';
+import DeferInput from 'components/DeferInput.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 
 import { last } from 'lodash';

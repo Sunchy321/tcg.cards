@@ -15,7 +15,7 @@ import {
 } from '@common/model/magic/card';
 import { Updation, WithUpdation } from '@common/model/updation';
 
-import { omit, mapValues } from 'lodash';
+import { omit, mapValues, isEqual } from 'lodash';
 import websocket from '@/middlewares/websocket';
 import { toSingle } from '@/common/request-helper';
 import internalData from '@/internal-data';
@@ -368,6 +368,34 @@ router.get('/get-updation', async ctx => {
     } as CardUpdationCollection;
 });
 
+function access(card: WithUpdation<ICard>, key: string) {
+    const keyParts = (`.${key}`).split(/(\.[a-z_]+|\[[^]]+\])/i).filter(v => v !== '');
+
+    let object: any = card;
+
+    for (const part of keyParts) {
+        let m;
+
+        if (part.startsWith('.')) {
+            object = object[part.slice(1)];
+            // eslint-disable-next-line no-cond-assign
+        } else if ((m = /^\[(.*)\]$/.exec(part)) != null) {
+            const index = m[1];
+
+            if (/^\d+$/.test(index)) {
+                object = object[Number.parseInt(index, 10)];
+            } else {
+                object = object.find((v: any) => v.lang === index);
+            }
+        } else {
+            console.error(`unknown key ${key}`);
+            return undefined;
+        }
+    }
+
+    return object;
+}
+
 function rejectUpdation(card: WithUpdation<ICard>, updation: Updation) {
     const { key } = updation;
 
@@ -424,28 +452,26 @@ router.post('/commit-updation', async ctx => {
     const card = await Card.findOne({ _id: id });
 
     if (card == null) {
+        ctx.status = 200;
         return;
     }
 
     const updation = card.__updations.find(u => u.key === key);
 
     if (updation == null) {
+        ctx.status = 200;
         return;
     }
 
     card.__updations = card.__updations.filter(u => u.key !== key);
 
-    if (type === 'accept') {
-        await card.save();
-
-        ctx.status = 200;
-    } else if (type === 'reject') {
+    if (type === 'reject') {
         rejectUpdation(card, updation);
-
-        await card.save();
-
-        ctx.status = 200;
     }
+
+    await card.save();
+
+    ctx.status = 200;
 });
 
 router.post('/accept-all-updation', async ctx => {
@@ -455,6 +481,11 @@ router.post('/accept-all-updation', async ctx => {
 
     for (const c of card) {
         c.__updations = c.__updations.filter(u => u.key !== key);
+
+        if (key === 'parts[0].text' && !c.tags.includes('dev:oracle')) {
+            c.tags.push('dev:oracle');
+        }
+
         await c.save();
     }
 
@@ -476,6 +507,26 @@ router.post('/reject-all-updation', async ctx => {
         c.__updations = c.__updations.filter(u => u.key !== key);
         rejectUpdation(c, updation[0]);
         await c.save();
+    }
+
+    ctx.status = 200;
+});
+
+router.post('/accept-unchanged', async ctx => {
+    const { key } = ctx.request.body as { key: string };
+
+    const cards = await Card.find({ '__updations.key': key });
+
+    for (const c of cards) {
+        const updations = c.__updations.filter(u => u.key === key);
+
+        const currentValue = access(c, key);
+        const originalValue = updations[0].oldValue;
+
+        if (isEqual(currentValue, originalValue) || (currentValue == null && originalValue == null)) {
+            c.__updations = c.__updations.filter(u => u.key !== key);
+            await c.save();
+        }
     }
 
     ctx.status = 200;

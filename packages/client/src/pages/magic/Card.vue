@@ -630,7 +630,7 @@ const textSymbolStyle = computed(() => symbolStyle.value);
 const editorLink = computed(() => ({
     name:  'magic/data',
     query: {
-        tab:    'Card',
+        tab:    'Editor',
         id:     id.value,
         lang:   lang.value,
         set:    set.value,
