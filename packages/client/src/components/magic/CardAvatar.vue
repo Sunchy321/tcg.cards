@@ -29,7 +29,7 @@ const props = withDefaults(
         part?: number;
         version?: Version;
         useLang?: boolean;
-        pauper?: boolean;
+        pauper?: 'pauper' | 'pdh' | undefined;
         text?: string;
         fullImage?: boolean;
     }>(),
@@ -37,7 +37,7 @@ const props = withDefaults(
         part:      undefined,
         version:   undefined,
         useLang:   false,
-        pauper:    false,
+        pauper:    undefined,
         text:      undefined,
         fullImage: false,
     },
@@ -100,8 +100,14 @@ const imageVersion = computed(() => {
     const versions = [
         // filter for pauper
         (vs: CardProfile['versions']) => {
-            if (props.pauper) {
+            if (props.pauper === 'pauper') {
                 return vs.filter(v => v.rarity === 'common');
+            } else if (props.pauper === 'pdh') {
+                if (vs.some(v => v.rarity === 'common')) {
+                    return vs.filter(v => v.rarity === 'common');
+                } else {
+                    return vs.filter(v => v.rarity === 'uncommon');
+                }
             } else {
                 return vs;
             }

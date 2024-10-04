@@ -62,11 +62,11 @@
                 <grid
                     v-if="n.banlist.length>0"
                     v-slot="{ id, status, group }"
-                    :value="n.banlist" :item-width="300" item-key="card" item-class="flex items-center"
+                    :value="n.banlist" :item-width="300" item-class="flex items-center"
                 >
                     <div class="banlist flex items-center q-gutter-sm">
                         <banlist-icon :status="status" />
-                        <card-avatar :id="id" class="avatar" :pauper="format === 'pauper'" />
+                        <card-avatar :id="id" class="avatar" :pauper="formatIsPauper" />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
                 </grid>
@@ -94,13 +94,13 @@
 
             <grid
                 v-slot="{ id, status, date: effectiveDate, group, link }"
-                :value="banlist" :item-width="300" item-key="card" item-class="flex items-center"
+                :value="banlist" :item-width="300" item-class="flex items-center"
             >
                 <div class="banlist flex items-center q-gutter-sm">
                     <banlist-icon :status="status" />
                     <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                     <div v-else class="date">{{ effectiveDate }}</div>
-                    <card-avatar :id="id" class="avatar" :pauper="format === 'pauper'" />
+                    <card-avatar :id="id" class="avatar" :pauper="formatIsPauper" />
                     <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                 </div>
             </grid>
@@ -222,6 +222,18 @@ const birthAndDeath = computed(() => {
         }
     } else {
         return '';
+    }
+});
+
+const formatIsPauper = computed(() => {
+    switch (format.value) {
+    case 'pauper':
+        return 'pauper';
+    case 'pauper_commander':
+    case 'pauper_duelcommander':
+        return 'pdh';
+    default:
+        return undefined;
     }
 });
 

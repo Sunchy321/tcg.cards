@@ -45,10 +45,11 @@ export default {
         'brawl':               '争锋',
         'standard_brawl':      '标准争锋',
 
-        'pauper':           '纯普',
-        'oathbreaker':      '破誓人',
-        'pauper_commander': '纯普指挥官',
-        'penny':            'Penny Dreadful',
+        'pauper':               '纯普',
+        'oathbreaker':          '破誓人',
+        'penny':                'Penny Dreadful',
+        'pauper_commander':     '纯普指挥官',
+        'pauper_duelcommander': '纯普指挥官1v1',
 
         'two_head_giant': '双头巨人',
     },

@@ -68,4 +68,5 @@ export const formats = [
     'oathbreaker',
     'penny',
     'pauper_commander',
+    'pauper_duelcommander',
 ];

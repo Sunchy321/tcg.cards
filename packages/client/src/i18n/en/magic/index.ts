@@ -47,10 +47,11 @@ export default {
         'brawl':               'Brawl',
         'standard_brawl':      'Standard Brawl',
 
-        'pauper':           'Pauper',
-        'oathbreaker':      'Oathbreaker',
-        'penny':            'Penny Dreadful',
-        'pauper_commander': 'Pauper Commander',
+        'pauper':               'Pauper',
+        'oathbreaker':          'Oathbreaker',
+        'penny':                'Penny Dreadful',
+        'pauper_commander':     'Pauper Commander',
+        'pauper_duelcommander': 'Pauper Duel Commander',
 
         'two_head_giant': 'Two Head Giant',
 

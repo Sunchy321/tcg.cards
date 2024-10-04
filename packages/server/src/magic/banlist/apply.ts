@@ -187,7 +187,7 @@ export class AnnouncementApplier {
 
             if (format === 'pauper' && !data.inPauper) {
                 return false;
-            } else if (format === 'pauper_commander' && !data.inPauperCommander) {
+            } else if ((format === 'pauper_commander' || format === 'pauper_duelcommander') && !data.inPauperCommander) {
                 return false;
             }
 
