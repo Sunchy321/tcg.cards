@@ -1,10 +1,26 @@
 <template>
     <div class="q-pa-md">
         <div class="flex items-center q-mb-md">
+            <q-toggle
+                v-model="mode"
+                class="q-mr-md"
+                false-value="card"
+                true-value="print"
+                label="Print"
+            />
+
             <span>{{ summaryText }}</span>
 
             <q-toggle v-model="takeMulti" label="Only Multi" />
-            <q-toggle v-model="showImage" class="q-ml-md" label="Show Image" />
+            <q-toggle v-model="showImage" class="q-ml-md" label="Show Image" stack-label />
+
+            <q-select
+                v-model="lang"
+                class="lang-selector q-ml-lg"
+                :options="['',...locales]"
+                label="Language"
+                flat dense outlined
+            />
         </div>
         <div class="flex items-center q-mb-md">
             <q-btn outline dense label="Accept All" @click="acceptAllUpdation" />
@@ -52,6 +68,7 @@
         <grid
             v-slot="u"
             :value="displayValues" :item-width="320"
+            item-key="_id"
             class="legalities"
         >
             <q-card class="q-ma-sm q-pa-sm updation">
@@ -78,7 +95,7 @@
 <script setup lang="ts">
 
 import {
-    h, ref, computed, onMounted,
+    h, ref, computed, watch, onMounted,
 } from 'vue';
 
 import controlSetup from 'setup/control';
@@ -90,24 +107,29 @@ import DeferInput from 'components/DeferInput.vue';
 
 import { diffChars } from 'common/util/diff';
 
-export type ICardUpdation = {
+import { locales } from 'static/magic/basic';
+
+export type Updation = {
     cardId: string;
+    set?: string;
+    number?: string;
+    lang?: string;
     scryfallId: string;
     key: string;
     oldValue: any;
     newValue: any;
 };
 
-type CardUpdationData = {
+type UpdationData = {
     total: number;
     key: string;
     current: number;
-    values: (ICardUpdation & { _id: string })[];
+    values: (Updation & { _id: string })[];
 };
 
 const { controlGet, controlPost } = controlSetup();
 
-const data = ref<CardUpdationData>({
+const data = ref<UpdationData>({
     total:   0,
     key:     '',
     current: 0,
@@ -120,13 +142,21 @@ const current = computed(() => data.value.current);
 const values = computed(() => data.value.values);
 
 const {
-    tk : takeMulti,
+    mode,
+    tk: takeMulti,
     si: showImage,
     of: oldValueFilter,
     nf: newValueFilter,
     cc: commitCount,
+    lang,
 } = pageSetup({
     params: {
+        mode: {
+            type:    'enum',
+            bind:    'query',
+            values:  ['card', 'print'],
+            default: 'card',
+        },
         tk: {
             type:    'boolean',
             bind:    'query',
@@ -152,6 +182,11 @@ const {
             bind:    'query',
             default: 50,
         },
+        lang: {
+            type:    'string',
+            bind:    'query',
+            default: '',
+        },
     },
 
     appendParam: true,
@@ -170,6 +205,10 @@ const filteredValues = computed(() => {
         const regex = new RegExp(newValueFilter.value);
 
         result = result.filter(u => regex.test(u.newValue));
+    }
+
+    if (lang.value !== '' && mode.value !== 'card') {
+        result = result.filter(r => r.lang === lang.value);
     }
 
     if (takeMulti.value) {
@@ -208,7 +247,9 @@ const diffContent = (lhs: string, rhs: string) => {
 
     const result = diffChars(lhs, rhs);
 
-    const escape = (text: string) => text.replace(/\n/g, '␤');
+    const escape = (text: string) => text
+        .replace(/\n/g, '␤')
+        .replace(/^ | $/g, '\xA0');
 
     return [
         result.map(v => {
@@ -229,19 +270,27 @@ const diffContent = (lhs: string, rhs: string) => {
 };
 
 const loadData = async () => {
-    const { data: result } = await controlGet<CardUpdationData>('/magic/card/get-updation');
+    const { data: result } = await controlGet<UpdationData>(`/magic/${mode.value}/get-updation`);
 
     data.value = result;
 };
 
-const versionFor = (updation: ICardUpdation) => {
-    const lang = /\[([a-z]+)\]/.exec(updation.key)?.[1];
+onMounted(loadData);
 
-    return lang != null ? { lang } : undefined;
+watch([mode], loadData);
+
+const versionFor = (updation: Updation) => {
+    if (mode.value === 'card') {
+        const langFilter = /\[([a-z]+)\]/.exec(updation.key)?.[1];
+
+        return lang != null ? { lang: langFilter! } : undefined;
+    } else {
+        return { set: updation.set!, number: updation.number!, lang: updation.lang! };
+    }
 };
 
-const commitUpdation = async (updation: ICardUpdation & { _id: string }, type: string) => {
-    await controlPost('/magic/card/commit-updation', {
+const commitUpdation = async (updation: Updation & { _id: string }, type: string) => {
+    await controlPost(`/magic/${mode.value}/commit-updation`, {
         id:  updation._id,
         key: updation.key,
         type,
@@ -254,7 +303,7 @@ const acceptAllUpdation = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost('/magic/card/accept-all-updation', { key: first.key });
+        await controlPost(`/magic/${mode.value}/accept-all-updation`, { key: first.key });
         await loadData();
     }
 };
@@ -263,7 +312,7 @@ const rejectAllUpdation = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost('/magic/card/reject-all-updation', { key: first.key });
+        await controlPost(`/magic/${mode.value}/reject-all-updation`, { key: first.key });
         await loadData();
     }
 };
@@ -272,7 +321,7 @@ const acceptUnchanged = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost('/magic/card/accept-unchanged', { key: first.key });
+        await controlPost(`/magic/${mode.value}/accept-unchanged`, { key: first.key });
         await loadData();
     }
 };
@@ -285,7 +334,7 @@ const commitFirst = async (type: 'accept' | 'reject', count: number) => {
             return;
         }
 
-        await controlPost('/magic/card/commit-updation', {
+        await controlPost(`/magic/${mode.value}/commit-updation`, {
             id:  updation._id,
             key: updation.key,
             type,
@@ -295,11 +344,12 @@ const commitFirst = async (type: 'accept' | 'reject', count: number) => {
     await loadData();
 };
 
-onMounted(loadData);
-
 </script>
 
 <style lang="sass" scoped>
+
+.lang-selector
+    min-width: 150px
 
 .updation
     border: 1px solid grey

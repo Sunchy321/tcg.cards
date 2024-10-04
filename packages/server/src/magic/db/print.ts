@@ -75,9 +75,12 @@ const IPrintSchema = new Schema<WithUpdation<IPrint>>({
     cardMarketId: Number,
 
     __updations: [{
-        _id:      false,
-        source:   String,
-        updation: Object,
+        _id:       false,
+        key:       String,
+        partIndex: Number,
+        lang:      String,
+        oldValue:  {},
+        newValue:  {},
     }],
 
     __lockedPaths: [String],

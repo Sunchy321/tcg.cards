@@ -37,6 +37,9 @@ function assign<T>(card: WithUpdation<T>, data: T, key: string & keyof T) {
         });
 
         (card as any)[key] = data[key];
+    } else {
+        console.log(`Remove lockedPaths ${key}`);
+        card.__lockedPaths = card.__lockedPaths.filter(v => v !== key);
     }
 }
 
@@ -67,6 +70,9 @@ function assignPart<T extends Part, U extends WithUpdation<T>>(
         });
 
         (cPart as any)[key] = dPart[key];
+    } else {
+        console.log(`Remove lockedPaths ${fullKey}`);
+        card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullKey);
     }
 }
 
@@ -104,48 +110,57 @@ function assignCardLocalization(
                 oldValue: cLoc,
                 newValue: dLoc,
             });
+
+            continue;
+        }
+
+        const fullNameKey = `parts[${index}].localization[${loc}].name`;
+        const fullTypelineKey = `parts[${index}].localization[${loc}].typeline`;
+        const fullTextKey = `parts[${index}].localization[${loc}].text`;
+
+        if (cLoc.name !== dLoc.name) {
+            if (!card.__lockedPaths.includes(fullNameKey)) {
+                card.__updations.push({
+                    key:      fullNameKey,
+                    oldValue: cLoc.name,
+                    newValue: dLoc.name,
+                });
+
+                cLoc.name = dLoc.name;
+            }
         } else {
-            if (cLoc.name !== dLoc.name) {
-                const fullKey = `parts[${index}].localization[${loc}].name`;
+            console.log(`Remove lockedPaths ${fullNameKey}`);
+            card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullNameKey);
+        }
 
-                if (!card.__lockedPaths.includes(fullKey)) {
-                    card.__updations.push({
-                        key:      fullKey,
-                        oldValue: cLoc.name,
-                        newValue: dLoc.name,
-                    });
+        if (cLoc.typeline !== dLoc.typeline) {
+            if (!card.__lockedPaths.includes(fullTypelineKey)) {
+                card.__updations.push({
+                    key:      fullTypelineKey,
+                    oldValue: cLoc.typeline,
+                    newValue: dLoc.typeline,
+                });
 
-                    cLoc.name = dLoc.name;
-                }
+                cLoc.typeline = dLoc.typeline;
             }
+        } else {
+            console.log(`Remove lockedPaths ${fullTypelineKey}`);
+            card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullTypelineKey);
+        }
 
-            if (cLoc.typeline !== dLoc.typeline) {
-                const fullKey = `parts[${index}].localization[${loc}].typeline`;
+        if (cLoc.text !== dLoc.text) {
+            if (!card.__lockedPaths.includes(fullTextKey)) {
+                card.__updations.push({
+                    key:      fullTextKey,
+                    oldValue: cLoc.text,
+                    newValue: dLoc.text,
+                });
 
-                if (!card.__lockedPaths.includes(fullKey)) {
-                    card.__updations.push({
-                        key:      fullKey,
-                        oldValue: cLoc.typeline,
-                        newValue: dLoc.typeline,
-                    });
-
-                    cLoc.typeline = dLoc.typeline;
-                }
+                cLoc.text = dLoc.text;
             }
-
-            if (cLoc.text !== dLoc.text) {
-                const fullKey = `parts[${index}].localization[${loc}].text`;
-
-                if (!card.__lockedPaths.includes(fullKey)) {
-                    card.__updations.push({
-                        key:      fullKey,
-                        oldValue: cLoc.text,
-                        newValue: dLoc.text,
-                    });
-
-                    cLoc.text = dLoc.text;
-                }
-            }
+        } else {
+            console.log(`Remove lockedPaths ${fullTextKey}`);
+            card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullTextKey);
         }
     }
 }
@@ -173,6 +188,9 @@ function assignCardType(
         });
 
         (cType as any)[key] = dType[key];
+    } else {
+        console.log(`Remove lockedPaths ${fullKey}`);
+        card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullKey);
     }
 }
 

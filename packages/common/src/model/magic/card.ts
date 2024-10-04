@@ -52,8 +52,6 @@ export type CardUpdationView = {
     cardId: string;
     scryfallId: string;
     key: string;
-    partIndex?: number;
-    lang?: string;
     oldValue: any;
     newValue: any;
 };

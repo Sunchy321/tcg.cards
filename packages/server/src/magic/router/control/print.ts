@@ -9,15 +9,18 @@ import Print from '@/magic/db/print';
 import Format from '@/magic/db/format';
 
 import { Print as IPrint } from '@interface/magic/print';
+import { PrintUpdationCollection, PrintUpdationView } from '@common/model/magic/print';
+import { Updation, WithUpdation } from '@common/model/updation';
 
 import { existsSync, renameSync } from 'fs';
-import { omit, mapValues } from 'lodash';
+import { omit, mapValues, isEqual } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import internalData from '@/internal-data';
 
 import {
     CardLegalityView, LegalityRecorder, getLegality, getLegalityRules, lookupPrintsForLegality,
 } from '@/magic/banlist/legality';
+
 import parseGatherer, { saveGathererImage } from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
@@ -424,6 +427,221 @@ router.post('/resolve-duplicate', async ctx => {
     await Print.deleteMany({ set: data.set, number: data.number, lang: data.lang });
 
     await Print.insertMany(data);
+
+    ctx.status = 200;
+});
+
+router.get('/get-updation', async ctx => {
+    const keys = await Print.aggregate<{ _id: string, count: number }>()
+        .unwind('__updations')
+        .group({
+            _id:   '$__updations.key',
+            count: { $sum: 1 },
+        })
+        .sort({ count: 1 });
+
+    if (keys.length === 0) {
+        ctx.body = {
+            total:   0,
+            key:     '',
+            current: 0,
+            values:  [],
+        } as PrintUpdationCollection;
+        return;
+    }
+
+    const minimumKey = keys[0]._id;
+    const current = keys[0].count;
+    const total = keys.reduce((acc, cur) => acc + cur.count, 0);
+
+    const updations = await Print.aggregate<PrintUpdationView>()
+        .match({ '__updations.key': minimumKey })
+        .unwind('__updations')
+        .match({ '__updations.key': minimumKey })
+        .sort({ releaseDate: 1, cardId: 1 })
+        .project({
+            _id:        '$_id',
+            cardId:     '$cardId',
+            set:        '$set',
+            number:     '$number',
+            lang:       '$lang',
+            scryfallId: '$scryfall.cardId',
+
+            key:      '$__updations.key',
+            oldValue: '$__updations.oldValue',
+            newValue: '$__updations.newValue',
+        });
+
+    ctx.body = {
+        total,
+        key:    minimumKey,
+        current,
+        values: updations,
+    } as PrintUpdationCollection;
+});
+
+function access(print: WithUpdation<IPrint>, key: string) {
+    const keyParts = (`.${key}`).split(/(\.[a-z_]+|\[[^]]+\])/i).filter(v => v !== '');
+
+    let object: any = print;
+
+    for (const part of keyParts) {
+        let m;
+
+        if (part.startsWith('.')) {
+            object = object[part.slice(1)];
+            // eslint-disable-next-line no-cond-assign
+        } else if ((m = /^\[(.*)\]$/.exec(part)) != null) {
+            const index = m[1];
+
+            if (/^\d+$/.test(index)) {
+                object = object[Number.parseInt(index, 10)];
+            } else {
+                object = object.find((v: any) => v.lang === index);
+            }
+        } else {
+            console.error(`unknown key ${key}`);
+            return undefined;
+        }
+    }
+
+    return object;
+}
+
+function rejectUpdation(print: WithUpdation<IPrint>, updation: Updation) {
+    const { key } = updation;
+
+    const keyParts = (`.${key}`).split(/(\.[a-z_]+|\[[^]]+\])/i).filter(v => v !== '');
+
+    let object: any = print;
+
+    for (const [i, part] of keyParts.entries()) {
+        let m;
+
+        const isLast = i === keyParts.length - 1;
+
+        if (part.startsWith('.')) {
+            if (isLast) {
+                object[part.slice(1)] = updation.oldValue;
+            } else {
+                object = object[part.slice(1)];
+            }
+            // eslint-disable-next-line no-cond-assign
+        } else if ((m = /^\[(.*)\]$/.exec(part)) != null) {
+            const index = m[1];
+
+            if (/^\d+$/.test(index)) {
+                if (isLast) {
+                    object[Number.parseInt(index, 10)] = updation.oldValue;
+                } else {
+                    object = object[Number.parseInt(index, 10)];
+                }
+            } else {
+                if (isLast) {
+                    const itemIndex = object.findIndex((v: any) => v.lang === index);
+
+                    object.splice(itemIndex, 1);
+                } else {
+                    object = object.find((v: any) => v.lang === index);
+                }
+            }
+        } else {
+            console.error(`unknown key ${key}`);
+            return;
+        }
+    }
+
+    print.__lockedPaths.push(key);
+}
+
+router.post('/commit-updation', async ctx => {
+    const {
+        id, key, type,
+    } = ctx.request.body as {
+        id: string; key: string; type: string;
+    };
+
+    const print = await Print.findOne({ _id: id });
+
+    if (print == null) {
+        ctx.status = 200;
+        return;
+    }
+
+    const updation = print.__updations.find(u => u.key === key);
+
+    if (updation == null) {
+        ctx.status = 200;
+        return;
+    }
+
+    print.__updations = print.__updations.filter(u => u.key !== key);
+
+    if (type === 'reject') {
+        rejectUpdation(print, updation);
+    }
+
+    await print.save();
+
+    console.log(`commit updation, id=${id}, key=${key}, type=${type}`);
+
+    ctx.status = 200;
+});
+
+router.post('/accept-all-updation', async ctx => {
+    const { key } = ctx.request.body as { key: string };
+
+    const print = await Print.find({ '__updations.key': key });
+
+    for (const p of print) {
+        p.__updations = p.__updations.filter(u => u.key !== key);
+
+        if (key === 'parts[0].text' && !p.tags.includes('dev:oracle')) {
+            p.tags.push('dev:oracle');
+        }
+
+        await p.save();
+    }
+
+    ctx.status = 200;
+});
+
+router.post('/reject-all-updation', async ctx => {
+    const { key } = ctx.request.body as { key: string };
+
+    const prints = await Print.find({ '__updations.key': key });
+
+    for (const p of prints) {
+        const updation = p.__updations.filter(u => u.key === key);
+
+        if (updation.length !== 1) {
+            continue;
+        }
+
+        p.__updations = p.__updations.filter(u => u.key !== key);
+        rejectUpdation(p, updation[0]);
+        await p.save();
+    }
+
+    ctx.status = 200;
+});
+
+router.post('/accept-unchanged', async ctx => {
+    const { key } = ctx.request.body as { key: string };
+
+    const prints = await Print.find({ '__updations.key': key });
+
+    for (const p of prints) {
+        const updations = p.__updations.filter(u => u.key === key);
+
+        const currentValue = access(p, key);
+        const originalValue = updations[0].oldValue;
+
+        if (isEqual(currentValue, originalValue) || (currentValue == null && originalValue == null)) {
+            p.__updations = p.__updations.filter(u => u.key !== key);
+            await p.save();
+        }
+    }
 
     ctx.status = 200;
 });

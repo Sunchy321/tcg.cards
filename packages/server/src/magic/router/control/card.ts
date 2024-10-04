@@ -477,9 +477,9 @@ router.post('/commit-updation', async ctx => {
 router.post('/accept-all-updation', async ctx => {
     const { key } = ctx.request.body as { key: string };
 
-    const card = await Card.find({ '__updations.key': key });
+    const cards = await Card.find({ '__updations.key': key });
 
-    for (const c of card) {
+    for (const c of cards) {
         c.__updations = c.__updations.filter(u => u.key !== key);
 
         if (key === 'parts[0].text' && !c.tags.includes('dev:oracle')) {
@@ -495,9 +495,9 @@ router.post('/accept-all-updation', async ctx => {
 router.post('/reject-all-updation', async ctx => {
     const { key } = ctx.request.body as { key: string };
 
-    const card = await Card.find({ '__updations.key': key });
+    const cards = await Card.find({ '__updations.key': key });
 
-    for (const c of card) {
+    for (const c of cards) {
         const updation = c.__updations.filter(u => u.key === key);
 
         if (updation.length !== 1) {
