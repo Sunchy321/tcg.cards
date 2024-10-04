@@ -98,13 +98,13 @@
                 > {{ $t('magic.tag.' + t) }} </q-chip>
             </div>
             <grid
-                v-slot="[f, s]"
+                v-slot="v"
                 :value="Object.entries(legalities)" :item-width="160"
                 class="legalities"
             >
                 <div class="flex items-center no-wrap">
-                    <banlist-icon class="q-mr-sm" :status="s" />
-                    <span style="white-space: nowrap;"> {{ $t('magic.format.'+f) }}</span>
+                    <banlist-icon class="q-mr-sm" :status="v[1]" />
+                    <span style="white-space: nowrap;"> {{ $t('magic.format.' + v[0]) }}</span>
                 </div>
             </grid>
             <div v-if="rulings.length > 0" class="rulings">
