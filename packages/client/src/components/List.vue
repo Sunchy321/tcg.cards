@@ -10,9 +10,9 @@
             />
         </div>
 
-        <div v-for="(v, i) in modelValue" :key="itemKey ? v[itemKey] : i" :class="itemClass">
+        <div v-for="(v, i) in modelValue" :key="keyOf(v, i)" :class="itemClass">
             <div :class="summaryClass" class="flex items-center">
-                <slot name="summary" v-bind="{ value: v, index: i, update: (v: any) => update(v, i) }" />
+                <slot name="summary" v-bind="{ value: v, index: i, update: (v: T) => update(v, i) }" />
                 <q-btn
                     class="q-ml-sm"
                     icon="mdi-arrow-up"
@@ -38,80 +38,68 @@
     </div>
 </template>
 
-<script lang="ts">
-import { PropType, defineComponent } from 'vue';
+<script setup lang="ts" generic="T">
+type IndexKey<T> = {
+    [K in keyof T]: T[K] extends number | string ? K : never;
+}[keyof T];
 
-export default defineComponent({
-    name: 'List',
+const {
+    itemKey, titleClass = '', itemClass = '', summaryClass = '',
+} = defineProps<{
+    itemKey?: IndexKey<T>;
+    titleClass?: string;
+    itemClass?: string;
+    summaryClass?: string;
+}>();
 
-    props: {
-        modelValue: {
-            type:     Array as PropType<any[]>,
-            required: true,
-        },
-        itemKey: {
-            type:    String,
-            default: undefined,
-        },
-        titleClass:   { type: String, default: '' },
-        itemClass:    { type: String, default: '' },
-        summaryClass: { type: String, default: '' },
-    },
+const emit = defineEmits<{
+    insert: [];
+}>();
 
-    emits: ['update:modelValue', 'insert'],
+const model = defineModel<T[]>({ required: true });
 
-    setup(props, { emit }) {
-        const insert = () => { emit('insert'); };
+const keyOf = (value: T, index: number) => (itemKey != null ? value[itemKey] : index) as number | string;
 
-        const remove = (i: number) => {
-            emit('update:modelValue', [
-                ...props.modelValue.slice(0, i),
-                ...props.modelValue.slice(i + 1),
-            ]);
-        };
+const insert = () => { emit('insert'); };
 
-        const moveUp = (i: number) => {
-            if (i === 0) {
-                return;
-            }
+const remove = (i: number) => {
+    model.value = [
+        ...model.value.slice(0, i),
+        ...model.value.slice(i + 1),
+    ];
+};
 
-            emit('update:modelValue', [
-                ...props.modelValue.slice(0, i - 1),
-                props.modelValue[i],
-                props.modelValue[i - 1],
-                ...props.modelValue.slice(i + 1),
-            ]);
-        };
+const moveUp = (i: number) => {
+    if (i === 0) {
+        return;
+    }
 
-        const moveDown = (i: number) => {
-            if (i === props.modelValue.length - 1) {
-                return;
-            }
+    model.value = [
+        ...model.value.slice(0, i - 1),
+        model.value[i],
+        model.value[i - 1],
+        ...model.value.slice(i + 1),
+    ];
+};
 
-            emit('update:modelValue', [
-                ...props.modelValue.slice(0, i),
-                props.modelValue[i + 1],
-                props.modelValue[i],
-                ...props.modelValue.slice(i + 2),
-            ]);
-        };
+const moveDown = (i: number) => {
+    if (i === model.value.length - 1) {
+        return;
+    }
 
-        const update = (v: any, i: number) => {
-            emit('update:modelValue', [
-                ...props.modelValue.slice(0, i),
-                v,
-                ...props.modelValue.slice(i + 1),
-            ]);
-        };
+    model.value = [
+        ...model.value.slice(0, i),
+        model.value[i + 1],
+        model.value[i],
+        ...model.value.slice(i + 2),
+    ];
+};
 
-        return {
-            insert,
-            remove,
-            moveUp,
-            moveDown,
-            update,
-        };
-    },
-});
-
+const update = (v: any, i: number) => {
+    model.value = [
+        ...model.value.slice(0, i),
+        v,
+        ...model.value.slice(i + 1),
+    ];
+};
 </script>

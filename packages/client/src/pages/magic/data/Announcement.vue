@@ -2,8 +2,14 @@
     <div class="q-pa-md">
         <div class="flex items-center">
             <q-select
+                v-model="filter"
+                :options="['', ...sources]"
+                outlined dense
+            />
+
+            <q-select
                 v-model="selected"
-                class="col-grow q-mr-sm"
+                class="col-grow q-mx-sm"
                 :options="announcementListWithLabel"
                 emit-value
                 map-options
@@ -91,7 +97,7 @@
                     class="col-grow"
                     outlined dense
                     :model-value="value"
-                    @update:model-value="update"
+                    @update:model-value="(update as any)"
                 />
             </template>
         </list>
@@ -100,7 +106,7 @@
             v-model="changes"
             class="change-list q-mt-md"
             item-class="change q-mt-sm q-pa-sm"
-            @insert="changes = [...changes, { format: '', setIn: [], setOut: [], banlist: [] }]"
+            @insert="() => addChange()"
         >
             <template #title>
                 <q-icon name="mdi-text-box-outline" size="sm" />
@@ -150,6 +156,7 @@
                             outlined dense
                             @update:model-value="v => b.id = adjustId(v as string)"
                         />
+
                         <q-btn-toggle
                             v-model="b.status"
                             :options="statusOptions"
@@ -158,6 +165,19 @@
                             color="white"
                             text-color="grey"
                         />
+
+                        <q-input
+                            class="q-ml-sm score-input"
+                            type="number"
+                            :model-value="scoreFor(b)"
+                            min="0" max="8"
+                            flat dense outlined
+                            @update:model-value="v => updateScoreFor(b, v as number)"
+                        >
+                            <template #prepend>
+                                <q-icon name="mdi-counter" />
+                            </template>
+                        </q-input>
                     </template>
                 </list>
             </template>
@@ -165,22 +185,15 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-
-.change-list :deep(.change)
-    border: 1px grey solid
-    border-radius: 5px
-
-</style>
-
-<script lang="ts">
+<script setup lang="ts">
 import {
-    defineComponent, ref, computed, watch, onMounted, toRaw,
+    ref, computed, watch, onMounted, toRaw,
 } from 'vue';
 
 import { useMagic } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
+import pageSetup from 'src/setup/page';
 
 import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
@@ -190,7 +203,7 @@ import { FormatAnnouncement } from 'interface/magic/format-change';
 
 import { deburr, last } from 'lodash';
 
-type FormatAnnouncementBanlist = Required<FormatAnnouncement['changes'][0]>['banlist'];
+type BanlistItem = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 
 interface FormatAnnouncementProfile {
     id?: string;
@@ -205,6 +218,7 @@ const sources = [
     'mtgcommander',
     'leviathan_commander',
     'oathbreaker',
+    'canadian_highlander',
     'pauper_commander',
     'initial',
     'rotation',
@@ -258,231 +272,266 @@ const toIdentifier = (text: string) => deburr(text)
     .replace('/', '____')
     .replace(/[^a-z0-9]/g, '_');
 
-export default defineComponent({
-    name: 'DataAnnouncement',
+const magic = useMagic();
 
-    components: { ArrayInput, DateInput, List },
+const { controlGet, controlPost } = controlSetup();
 
-    setup() {
-        const magic = useMagic();
+const {
+    filter,
+} = pageSetup({
+    params: {
+        filter: {
+            type:    'enum',
+            bind:    'query',
+            values:  ['', ...sources],
+            default: '',
+        },
+    },
 
-        const { controlGet, controlPost } = controlSetup();
+    appendParam: true,
+});
 
-        const formats = computed(() => ['#alchemy', '#standard', ...magic.formats]);
-        const announcementList = ref<FormatAnnouncementProfile[]>([]);
-        const selected = ref<FormatAnnouncementProfile | null>(null);
+const formats = computed(() => ['#standard', '#alchemy', ...magic.formats]);
+const announcementList = ref<FormatAnnouncementProfile[]>([]);
+const selected = ref<FormatAnnouncementProfile | null>(null);
 
-        const announcement = ref<FormatAnnouncement>({
-            date:          '',
-            source:        'wotc',
-            effectiveDate: {},
-            link:          [],
-            changes:       [],
-        });
+const announcement = ref<FormatAnnouncement>({
+    date:          '',
+    source:        'wotc',
+    effectiveDate: {},
+    link:          [],
+    changes:       [],
+});
 
-        const announcementListWithLabel = computed(() => announcementList.value.map(a => ({
-            value: a,
-            label: `${a.date} - ${a.source}`,
-        })));
+const announcementFiltered = computed(() => {
+    let list = announcementList.value;
 
-        const dbId = computed(() => (announcement.value as any)?._id);
+    if (filter.value !== '') {
+        list = list.filter(a => a.source === filter.value);
+    }
 
-        const source = computed({
-            get() { return announcement.value?.source ?? 'wotc'; },
-            set(newValue: string) {
-                announcement.value.source = newValue;
-            },
-        });
+    return list;
+});
 
-        const date = computed({
-            get() { return announcement.value?.date ?? ''; },
-            set(newValue: string) {
-                announcement.value.date = newValue;
-            },
-        });
+const announcementListWithLabel = computed(() => announcementFiltered.value.map(a => ({
+    value: a,
+    label: `${a.date} - ${a.source}`,
+})));
 
-        const nextDate = computed({
-            get() { return announcement.value?.nextDate ?? ''; },
-            set(newValue: string) {
-                if (newValue === '') {
-                    delete announcement.value.nextDate;
-                } else {
-                    announcement.value.nextDate = newValue;
-                }
-            },
-        });
+const dbId = computed(() => (announcement.value as any)?._id);
 
-        const tabletopDate = computed({
-            get() { return announcement.value?.effectiveDate?.tabletop ?? ''; },
-            set(newValue: string) {
-                if (announcement.value.effectiveDate == null) {
-                    announcement.value.effectiveDate = {};
-                }
-
-                if (newValue === '') {
-                    delete announcement.value.effectiveDate.tabletop;
-                } else {
-                    announcement.value.effectiveDate.tabletop = newValue;
-                }
-            },
-        });
-
-        const onlineDate = computed({
-            get() { return announcement.value?.effectiveDate?.online ?? ''; },
-            set(newValue: string) {
-                if (announcement.value.effectiveDate == null) {
-                    announcement.value.effectiveDate = {};
-                }
-
-                if (newValue === '') {
-                    delete announcement.value.effectiveDate.online;
-                } else {
-                    announcement.value.effectiveDate.online = newValue;
-                }
-            },
-        });
-
-        const arenaDate = computed({
-            get() { return announcement.value?.effectiveDate?.arena ?? ''; },
-            set(newValue: string) {
-                if (announcement.value.effectiveDate == null) {
-                    announcement.value.effectiveDate = {};
-                }
-
-                if (newValue === '') {
-                    delete announcement.value.effectiveDate.arena;
-                } else {
-                    announcement.value.effectiveDate.arena = newValue;
-                }
-            },
-        });
-
-        const link = computed({
-            get() { return announcement.value?.link ?? []; },
-            set(newValue: string[]) { announcement.value.link = newValue; },
-        });
-
-        const changes = computed({
-            get() { return announcement.value.changes; },
-            set(newValue: FormatAnnouncement['changes']) {
-                announcement.value.changes = newValue;
-            },
-        });
-
-        const adjustId = (id: string) => (id.startsWith('#') ? id : toIdentifier(id));
-
-        const addBanlist = (banlist: FormatAnnouncementBanlist) => [
-            ...banlist,
-            {
-                id:     '',
-                status: last(banlist)?.status ?? 'banned',
-            },
-        ];
-
-        const loadData = async () => {
-            const { data } = await controlGet<FormatAnnouncementProfile[]>('/magic/format/announcement');
-
-            announcementList.value = data;
-
-            if (data.length > 0 && selected.value == null) {
-                selected.value = data[0];
-            }
-        };
-
-        const loadAnnouncement = async () => {
-            if (selected.value?.id == null) {
-                return;
-            }
-
-            const { data: result } = await controlGet<FormatAnnouncement>('/magic/format/announcement', {
-                id: selected.value.id,
-            });
-
-            announcement.value = result;
-        };
-
-        const saveAnnouncement = async () => {
-            if (announcement.value == null) {
-                return;
-            }
-
-            const data = toRaw(announcement.value);
-
-            if (data.effectiveDate != null && Object.keys(data.effectiveDate).length === 0) {
-                delete data.effectiveDate;
-            }
-
-            if (data.link?.length === 0) {
-                delete data.link;
-            }
-
-            for (const c of data.changes) {
-                if (c.setIn?.length === 0) {
-                    delete c.setIn;
-                }
-
-                if (c.setOut?.length === 0) {
-                    delete c.setOut;
-                }
-
-                if (c.banlist?.length === 0) {
-                    delete c.banlist;
-                }
-            }
-
-            await controlPost('/magic/format/announcement/save', { data });
-
-            await loadData();
-        };
-
-        const newAnnouncement = async () => {
-            await saveAnnouncement();
-
-            const todayDate = new Date().toISOString().split('T')[0];
-
-            selected.value = null;
-
-            announcement.value = {
-                source:  'wotc',
-                date:    todayDate,
-                changes: [],
-            };
-        };
-
-        const applyAnnouncements = async () => {
-            await saveAnnouncement();
-
-            await controlPost('/magic/format/announcement/apply');
-        };
-
-        watch(selected, loadAnnouncement);
-        onMounted(loadData);
-
-        return {
-            announcementListWithLabel,
-            selected,
-
-            dbId,
-            source,
-            date,
-            nextDate,
-            tabletopDate,
-            onlineDate,
-            arenaDate,
-            link,
-            changes,
-
-            sources,
-            formats,
-            statusOptions,
-
-            newAnnouncement,
-            saveAnnouncement,
-            applyAnnouncements,
-            adjustId,
-            addBanlist,
-        };
+const source = computed({
+    get() { return announcement.value?.source ?? 'wotc'; },
+    set(newValue: string) {
+        announcement.value.source = newValue;
     },
 });
 
+const date = computed({
+    get() { return announcement.value?.date ?? ''; },
+    set(newValue: string) {
+        announcement.value.date = newValue;
+    },
+});
+
+const nextDate = computed({
+    get() { return announcement.value?.nextDate ?? ''; },
+    set(newValue: string) {
+        if (newValue === '') {
+            delete announcement.value.nextDate;
+        } else {
+            announcement.value.nextDate = newValue;
+        }
+    },
+});
+
+const effectiveDate = (index: keyof Required<FormatAnnouncement>['effectiveDate']) => computed({
+    get() { return announcement.value?.effectiveDate?.[index] ?? ''; },
+    set(newValue: string) {
+        announcement.value.effectiveDate ??= {};
+
+        if (newValue == null || newValue === '') {
+            delete announcement.value.effectiveDate[index];
+        } else {
+            announcement.value.effectiveDate[index] = newValue;
+        }
+    },
+});
+
+const tabletopDate = effectiveDate('tabletop');
+const onlineDate = effectiveDate('online');
+const arenaDate = effectiveDate('arena');
+
+const link = computed({
+    get() { return announcement.value?.link ?? []; },
+    set(newValue: string[]) { announcement.value.link = newValue; },
+});
+
+const changes = computed({
+    get() { return announcement.value.changes; },
+    set(newValue: FormatAnnouncement['changes']) {
+        announcement.value.changes = newValue;
+    },
+});
+
+const addChange = (format = '') => {
+    changes.value.push({
+        format,
+        setIn:   [],
+        setOut:  [],
+        banlist: [],
+    });
+};
+
+const adjustId = (id: string) => (id.startsWith('#') ? id : toIdentifier(id));
+
+const addBanlist = (banlist: BanlistItem[]) => [
+    ...banlist,
+    {
+        id:     '',
+        status: last(banlist)?.status ?? 'banned',
+    },
+];
+
+const scoreFor = (banlist: BanlistItem) => {
+    if (banlist.status.startsWith('score-')) {
+        return Number.parseInt(banlist.status.slice('score-'.length), 10);
+    } else {
+        return 0;
+    }
+};
+
+const updateScoreFor = (banlist: BanlistItem, value: number | string) => {
+    value = typeof value === 'string' ? Number.parseInt(value, 10) : value;
+
+    if (value < 0 || value > 8) {
+        return;
+    }
+
+    if (value === 0) {
+        banlist.status = 'legal';
+    } else {
+        banlist.status = `score-${value}`;
+    }
+};
+
+const formatMap: Record<string, string> = {
+    release:             '#standard',
+    duelcommander:       'duelcommander',
+    mtgcommander:        'commander',
+    leviathan_commander: 'leviathan_commander',
+    oathbreaker:         'oathbreaker',
+    canadian_highlander: 'canadian_highlander',
+    pauper_commander:    'pauper_commander',
+};
+
+const fillEmptyAnnouncement = () => {
+    if (changes.value.length !== 0) {
+        return;
+    }
+
+    const format = formatMap[source.value];
+
+    if (format == null) {
+        return;
+    }
+
+    addChange(format);
+};
+
+watch(source, fillEmptyAnnouncement);
+
+const loadData = async () => {
+    const { data } = await controlGet<FormatAnnouncementProfile[]>('/magic/format/announcement');
+
+    announcementList.value = data;
+
+    if (announcementFiltered.value.length > 0 && selected.value == null) {
+        selected.value = announcementFiltered.value[0];
+    }
+};
+
+onMounted(loadData);
+
+const loadAnnouncement = async () => {
+    if (selected.value?.id == null) {
+        return;
+    }
+
+    const { data: result } = await controlGet<FormatAnnouncement>('/magic/format/announcement', {
+        id: selected.value.id,
+    });
+
+    announcement.value = result;
+};
+
+watch(selected, loadAnnouncement);
+
+const saveAnnouncement = async () => {
+    if (announcement.value == null) {
+        return;
+    }
+
+    const data = toRaw(announcement.value);
+
+    if (data.effectiveDate != null && Object.keys(data.effectiveDate).length === 0) {
+        delete data.effectiveDate;
+    }
+
+    if (data.link?.length === 0) {
+        delete data.link;
+    }
+
+    for (const c of data.changes) {
+        if (c.setIn?.length === 0) {
+            delete c.setIn;
+        }
+
+        if (c.setOut?.length === 0) {
+            delete c.setOut;
+        }
+
+        if (c.banlist?.length === 0) {
+            delete c.banlist;
+        }
+    }
+
+    await controlPost('/magic/format/announcement/save', { data });
+
+    await loadData();
+};
+
+const newAnnouncement = async () => {
+    await saveAnnouncement();
+
+    const todayDate = new Date().toISOString().split('T')[0];
+
+    selected.value = null;
+
+    announcement.value = {
+        source:  filter.value === '' ? 'wotc' : filter.value,
+        date:    todayDate,
+        changes: [],
+    };
+
+    fillEmptyAnnouncement();
+};
+
+const applyAnnouncements = async () => {
+    await saveAnnouncement();
+
+    await controlPost('/magic/format/announcement/apply');
+};
+
 </script>
+
+<style lang="sass" scoped>
+
+.change-list :deep(.change)
+    border: 1px grey solid
+    border-radius: 5px
+
+.score-input
+    width: 150px
+
+</style>

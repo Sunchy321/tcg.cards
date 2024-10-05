@@ -20,15 +20,14 @@
 <script setup lang="ts" generic="T">
 import { ref, watch } from 'vue';
 
-const props = withDefaults(defineProps<{
+const {
+    value, itemWidth, itemKey, itemClass = '',
+} = defineProps<{
     value: T[];
     itemWidth: number;
-    itemKey?: keyof T | undefined;
+    itemKey?: keyof T;
     itemClass?: string;
-}>(), {
-    itemKey:   undefined,
-    itemClass: '',
-});
+}>();
 
 const root = ref<HTMLDivElement | null>(null);
 
@@ -46,14 +45,14 @@ function calcGridInfo() {
     const panelWidth = root.value.clientWidth;
     const contentWidth = panelWidth - 2 * margin;
 
-    itemRealWidth.value = contentWidth < props.itemWidth ? contentWidth : props.itemWidth;
+    itemRealWidth.value = contentWidth < itemWidth ? contentWidth : itemWidth;
     itemPerLine.value = Math.floor((panelWidth - margin) / (itemRealWidth.value + margin));
 
-    const reminder = props.value.length % itemPerLine.value;
+    const reminder = value.length % itemPerLine.value;
 
     placeholder.value = reminder === 0 ? 0 : itemPerLine.value - reminder;
 }
 
-watch(() => props.value.length, calcGridInfo, { immediate: true });
+watch(() => value.length, calcGridInfo, { immediate: true });
 
 </script>

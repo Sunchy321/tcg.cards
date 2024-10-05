@@ -50,6 +50,7 @@ export default {
         'pauper':               'Pauper',
         'oathbreaker':          'Oathbreaker',
         'penny':                'Penny Dreadful',
+        'canadian_highlander':  'Canadian Highlander',
         'pauper_commander':     'Pauper Commander',
         'pauper_duelcommander': 'Pauper Duel Commander',
 

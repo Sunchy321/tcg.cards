@@ -67,6 +67,7 @@ export const formats = [
     'pauper',
     'oathbreaker',
     'penny',
+    'canadian_highlander',
     'pauper_commander',
     'pauper_duelcommander',
 ];

@@ -4,51 +4,62 @@
         :class="'banlist-status-' + status"
     >
         <q-tooltip>
-            {{ $t('magic.legality.' + status) }}
+            {{ tooltip }}
         </q-tooltip>
     </q-icon>
 </template>
 
-<script lang="ts">
-import type { PropType } from 'vue';
-import { defineComponent, computed } from 'vue';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-type BanlistStatus =
-    'banned_as_commander' | 'banned_as_companion' | 'banned' | 'legal' | 'restricted' | 'suspended' | 'unavailable';
+import { useI18n } from 'vue-i18n';
 
-export default defineComponent({
-    props: {
-        status: {
-            type:     String as PropType<BanlistStatus>,
-            required: true,
-        },
-    },
+import { Legality } from 'interface/magic/format-change';
 
-    setup(props) {
-        const icon = computed(() => {
-            switch (props.status) {
-            case 'legal':
-                return 'mdi-check-circle-outline';
-            case 'restricted':
-                return 'mdi-alert-circle-outline';
-            case 'suspended':
-                return 'mdi-minus-circle-outline';
-            case 'banned':
-                return 'mdi-close-circle-outline';
-            case 'banned_as_commander':
-                return 'mdi-crown-circle-outline';
-            case 'banned_as_companion':
-                return 'mdi-heart-circle-outline';
-            case 'unavailable':
-                return 'mdi-cancel';
-            default:
-                return 'mdi-help-circle-outline';
-            }
-        });
+const i18n = useI18n();
 
-        return {
-            icon,
-        };
-    },
+const { status } = defineProps<{
+    status: Legality;
+}>();
+
+const score = computed(() => {
+    if (status.startsWith('score-')) {
+        return status.slice('score-'.length);
+    } else {
+        return null;
+    }
+});
+
+const icon = computed(() => {
+    switch (status) {
+    case 'legal':
+        return 'mdi-check-circle-outline';
+    case 'restricted':
+        return 'mdi-alert-circle-outline';
+    case 'suspended':
+        return 'mdi-minus-circle-outline';
+    case 'banned':
+        return 'mdi-close-circle-outline';
+    case 'banned_as_commander':
+        return 'mdi-crown-circle-outline';
+    case 'banned_as_companion':
+        return 'mdi-heart-circle-outline';
+    case 'unavailable':
+        return 'mdi-cancel';
+    default:
+        if (score.value != null) {
+            return `mdi-numeric-${score.value}-circle-outline`;
+        } else {
+            return 'mdi-help-circle-outline';
+        }
+    }
+});
+
+const tooltip = computed(() => {
+    if (score.value != null) {
+        return score;
+    } else {
+        return i18n.t(`magic.legality.${status}`);
+    }
 });
 </script>
