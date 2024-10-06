@@ -214,14 +214,18 @@ const filteredValues = computed(() => {
     if (takeMulti.value) {
         const counts: Record<string, number> = { };
 
-        for (const updations of values.value) {
+        for (const updations of result) {
             counts[updations.cardId] ??= 0;
             counts[updations.cardId] += 1;
         }
 
         const max = Math.max(...Object.values(counts));
 
-        result = values.value.filter(u => counts[u.cardId] > 1 && counts[u.cardId] === max);
+        if (max > 1) {
+            result = result.filter(u => counts[u.cardId] === max);
+        } else {
+            result = [];
+        }
     }
 
     return result;

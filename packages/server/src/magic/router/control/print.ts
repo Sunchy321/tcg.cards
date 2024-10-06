@@ -458,7 +458,7 @@ router.get('/get-updation', async ctx => {
         .match({ '__updations.key': minimumKey })
         .unwind('__updations')
         .match({ '__updations.key': minimumKey })
-        .sort({ releaseDate: 1, cardId: 1 })
+        .sort({ cardId: 1, releaseDate: 1 })
         .project({
             _id:        '$_id',
             cardId:     '$cardId',
