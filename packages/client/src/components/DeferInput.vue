@@ -60,12 +60,18 @@ const onKeypress = (event: KeyboardEvent) => {
     }
 };
 
+const onClear = () => {
+    text.value = '';
+    updateValue();
+};
+
 const render = () => h(QInput, {
     ...props,
     'modelValue':          text.value,
     'onUpdate:modelValue': (newValue: string) => { text.value = newValue; },
     'color':               textChanged.value ? 'positive' : undefined,
     'onKeypress':          onKeypress,
+    'onClear':             onClear,
     ...attrs,
 }, slots);
 
