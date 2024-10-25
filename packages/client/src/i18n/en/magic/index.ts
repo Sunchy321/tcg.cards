@@ -80,6 +80,7 @@ export default {
 
         legal:               'Legal',
         banned:              'Banned',
+        banned_in_bo1:       'Banned in BO1',
         suspended:           'Suspended',
         restricted:          'Restricted',
         unavailable:         'Unavailable',

@@ -228,6 +228,8 @@ const statusIcon = (status: string, card?: string) => {
     switch (status) {
     case 'banned':
         return 'mdi-close-circle-outline';
+    case 'banned_in_bo1':
+        return 'mdi-progress-close';
     case 'suspended':
         return 'mdi-minus-circle-outline';
     case 'banned_as_commander':
@@ -254,6 +256,7 @@ const statusIcon = (status: string, card?: string) => {
 const statusOptions = [
     'legal',
     'banned',
+    'banned_in_bo1',
     'suspended',
     'restricted',
     'banned_as_commander',

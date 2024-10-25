@@ -69,6 +69,7 @@ export default {
 
         legal:               '可用',
         banned:              '禁止',
+        banned_in_bo1:       '在BO1中禁止',
         suspended:           '暂缓',
         restricted:          '限制',
         unavailable:         '不可用',

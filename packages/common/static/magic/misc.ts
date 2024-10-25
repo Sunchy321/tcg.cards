@@ -1,5 +1,6 @@
 export const banlistStatusOrder = [
     'banned',
+    'banned_in_bo1',
     'suspended',
     'banned_as_commander',
     'banned_as_companion',

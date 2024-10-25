@@ -40,6 +40,8 @@ const icon = computed(() => {
         return 'mdi-minus-circle-outline';
     case 'banned':
         return 'mdi-close-circle-outline';
+    case 'banned_in_bo1':
+        return 'mdi-progress-close';
     case 'banned_as_commander':
         return 'mdi-crown-circle-outline';
     case 'banned_as_companion':
