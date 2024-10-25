@@ -13,7 +13,9 @@ import { PrintUpdationCollection, PrintUpdationView } from '@common/model/magic/
 import { Updation, WithUpdation } from '@common/model/updation';
 
 import { existsSync, renameSync } from 'fs';
-import { omit, mapValues, isEqual } from 'lodash';
+import {
+    omit, mapValues, isEqual, uniq,
+} from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import internalData from '@/internal-data';
 
@@ -458,7 +460,7 @@ router.get('/get-updation', async ctx => {
         .match({ '__updations.key': minimumKey })
         .unwind('__updations')
         .match({ '__updations.key': minimumKey })
-        .sort({ cardId: 1, releaseDate: 1 })
+        .sort({ releaseDate: 1, cardId: 1 })
         .project({
             _id:        '$_id',
             cardId:     '$cardId',
@@ -640,6 +642,22 @@ router.post('/accept-unchanged', async ctx => {
         if (isEqual(currentValue, originalValue) || (currentValue == null && originalValue == null)) {
             p.__updations = p.__updations.filter(u => u.key !== key);
             await p.save();
+            continue;
+        }
+
+        if (key === 'tags') {
+            if (updations.length !== 1) {
+                continue;
+            }
+
+            const oldValue = [...updations[0].oldValue].sort();
+            const newValue = uniq([...updations[0].newValue, 'dev:printed']).sort();
+
+            if (isEqual(oldValue, newValue)) {
+                p.__updations = p.__updations.filter(u => u.key !== key);
+                p.tags = updations[0].oldValue;
+                await p.save();
+            }
         }
     }
 

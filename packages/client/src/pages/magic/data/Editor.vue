@@ -87,8 +87,8 @@
             <div class="id-line flex items-center">
                 <q-icon
                     class="q-mr-md"
-                    :name="inDatabase ? 'mdi-database-remove': 'mdi-database-check'"
-                    :color="inDatabase ? 'red' : undefined"
+                    :name="inDatabase ? 'mdi-database-check' : 'mdi-database-remove'"
+                    :color="inDatabase ? undefined : 'red'"
                     size="sm"
                 />
 
@@ -194,24 +194,15 @@
 
             <table>
                 <tr>
-                    <th>
-                        Oracle
-                        <q-toggle
-                            v-if="oracleUpdated != null"
-                            v-model="showBeforeUpdate"
-                            icon="mdi-history"
-                            dense flat round
-                        />
-                    </th>
+                    <th>Oracle</th>
                     <th>Unified</th>
                     <th>Printed</th>
                 </tr>
                 <tr>
                     <td>
                         <q-input
-                            v-model="displayOracleName"
+                            v-model="oracleName"
                             tabindex="1" :readonly="!unlock"
-                            :filled="displayOracleName !== oracleName"
                             outlined dense
                         />
                     </td>
@@ -221,9 +212,8 @@
                 <tr>
                     <td>
                         <q-input
-                            v-model="displayOracleTypeline"
+                            v-model="oracleTypeline"
                             tabindex="1" :readonly="!unlock"
-                            :filled="displayOracleTypeline !== oracleTypeline"
                             outlined dense
                         />
                     </td>
@@ -233,9 +223,8 @@
                 <tr class="text">
                     <td>
                         <q-input
-                            v-model="displayOracleText"
+                            v-model="oracleText"
                             tabindex="1" :readonly="!unlock"
-                            :filled="displayOracleText !== oracleText"
                             outlined type="textarea" dense
                         />
                     </td>
@@ -272,6 +261,14 @@
                 </array-input>
             </div>
 
+            <div>
+                locked[card]: {{ cardLockedPaths.join(', ') }}
+            </div>
+
+            <div>
+                locked[print]: {{ printLockedPaths.join(', ') }}
+            </div>
+
             <div v-if="searchResult != null" class="q-mt-sm">
                 <div v-for="(v, k) in searchResult" :key="k">
                     <div>{{ k }}</div>
@@ -287,6 +284,7 @@
 <script setup lang="ts">
 import {
     ref, computed, onMounted, watch, nextTick,
+    ComputedRef,
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
@@ -305,7 +303,7 @@ import { CardEditorView } from 'common/model/magic/card';
 import { AxiosResponse } from 'axios';
 
 import {
-    debounce, deburr, uniq, upperFirst,
+    debounce, deburr, isEqual, uniq, upperFirst,
     zip,
 } from 'lodash';
 
@@ -623,20 +621,38 @@ type PrintPart = CardEditorView['print']['parts'][0];
 const cardPart = computed(() => card?.value?.parts?.[partIndex.value]);
 const printPart = computed(() => print?.value?.parts?.[partIndex.value]);
 
-const cardPartField = <F extends keyof CardPart>(firstKey: F, defaultValue?: CardPart[F]) => computed({
+const lockPath = <T extends { __lockedPaths: string[] }>(value: ComputedRef<T | undefined>, path: string) => {
+    if (value.value != null && !value.value.__lockedPaths.includes(path)) {
+        value.value.__lockedPaths.push(path);
+    }
+};
+
+const cardPartField = <F extends keyof CardPart>(firstKey: F, defaultValue?: CardPart[F], path?: string | (() => string)) => computed({
     get() { return (cardPart.value?.[firstKey] ?? defaultValue)!; },
     set(newValue: CardPart[F]) {
         if (data.value != null) {
             cardPart.value![firstKey] = newValue;
+
+            if (path != null) {
+                const realPath = typeof path === 'string' ? path : path();
+
+                lockPath(card, realPath);
+            }
         }
     },
 });
 
-const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: PrintPart[F]) => computed({
+const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: PrintPart[F], path?: string | (() => string)) => computed({
     get() { return (printPart.value?.[firstKey] ?? defaultValue)!; },
     set(newValue: PrintPart[F]) {
-        if (data.value != null) {
+        if (data.value != null && !isEqual(printPart.value![firstKey], newValue)) {
             printPart.value![firstKey] = newValue;
+
+            if (path != null) {
+                const realPath = typeof path === 'string' ? path : path();
+
+                lockPath(print, realPath);
+            }
         }
     },
 });
@@ -656,13 +672,13 @@ const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: P
 //     },
 // });
 
-const oracleName = cardPartField('name');
-const oracleTypeline = cardPartField('typeline');
-const oracleText = cardPartField('text');
+const oracleName = cardPartField('name', '');
+const oracleTypeline = cardPartField('typeline', '');
+const oracleText = cardPartField('text', '');
 
-const printedName = printPartField('name');
-const printedTypeline = printPartField('typeline');
-const printedText = printPartField('text');
+const printedName = printPartField('name', '', () => `parts[${partIndex.value}].name`);
+const printedTypeline = printPartField('typeline', '', () => `parts[${partIndex.value}].typeline`);
+const printedText = printPartField('text', '', () => `parts[${partIndex.value}].text`);
 
 const unifiedName = computed({
     get() {
@@ -687,8 +703,9 @@ const unifiedName = computed({
             cardPart.value.localization.push({
                 lang: lang.value, name: newValue, typeline: '', text: '',
             });
-        } else {
+        } else if (localization.name !== newValue) {
             localization.name = newValue;
+            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].name`);
         }
     },
 });
@@ -716,8 +733,9 @@ const unifiedTypeline = computed({
             cardPart.value.localization.push({
                 lang: lang.value, name: '', typeline: newValue, text: '',
             });
-        } else {
+        } else if (localization.typeline !== newValue) {
             localization.typeline = newValue;
+            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].typeline`);
         }
     },
 });
@@ -745,8 +763,9 @@ const unifiedText = computed({
             cardPart.value.localization.push({
                 lang: lang.value, name: '', typeline: '', text: newValue,
             });
-        } else {
+        } else if (localization.text !== newValue) {
             localization.text = newValue;
+            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].text`);
         }
     },
 });
@@ -937,236 +956,186 @@ const multiverseId = computed({
     },
 });
 
-const showBeforeUpdate = ref(false);
-
-const oracleUpdated = computed(() => {
-    if (data.value == null) {
-        return undefined;
-    }
-
-    return null;
-
-    // const value = data.value?.__oracle;
-
-    // if (value == null) {
-    //     return undefined;
-    // }
-
-    // if (value.name == null && value.typeline == null && value.text == null) {
-    //     return undefined;
-    // }
-
-    // return value;
-});
-
-const displayOracleName = computed({
-    get(): string {
-        if (showBeforeUpdate.value) {
-            return oracleUpdated.value?.name ?? oracleName.value;
-        } else {
-            return oracleName.value;
-        }
-    },
-    set(newValue: string) {
-        if (!showBeforeUpdate.value) {
-            oracleName.value = newValue;
+const cardLockedPaths = computed({
+    get() { return card.value?.__lockedPaths ?? []; },
+    set(newValue) {
+        if (card.value != null) {
+            card.value.__lockedPaths = newValue;
         }
     },
 });
 
-const displayOracleTypeline = computed({
-    get(): string {
-        if (showBeforeUpdate.value) {
-            return oracleUpdated.value?.typeline ?? oracleTypeline.value;
-        } else {
-            return oracleTypeline.value;
-        }
-    },
-    set(newValue: string) {
-        if (!showBeforeUpdate.value) {
-            oracleTypeline.value = newValue;
-        }
-    },
-});
-
-const displayOracleText = computed({
-    get(): string | undefined {
-        if (showBeforeUpdate.value) {
-            return oracleUpdated.value?.text ?? oracleText.value;
-        } else {
-            return oracleText.value;
-        }
-    },
-    set(newValue: string | undefined) {
-        if (!showBeforeUpdate.value) {
-            oracleText.value = newValue;
+const printLockedPaths = computed({
+    get() { return print.value?.__lockedPaths ?? []; },
+    set(newValue) {
+        if (print.value != null) {
+            print.value.__lockedPaths = newValue;
         }
     },
 });
 
 const searchResult = computed(() => {
-    const result = data.value?.result;
+    const result = (data.value as any)?.result;
 
     if (result == null) {
         return null;
     }
 
-    if (result.method === 'oracle') {
-        return Object.fromEntries(
-            Object.entries(result)
-                .filter(([k, v]) => {
-                    switch (k) {
-                    case 'method':
-                    case '_id':
-                        return false;
-                    case '__oracle':
-                        return v.length > 0;
-                    default:
-                        return v.length > 1;
-                    }
-                })
-                .map(([k, v]) => {
-                    switch (k) {
-                    case 'relatedCards':
-                        return [
-                            k,
-                            v.map((e: CardTemp['relatedCards']) => e.map(
-                                ({ relation, cardId, version }) => (version != null
-                                    ? [relation, cardId, version.lang, version.set, version.number]
-                                    : [relation, cardId]
-                                ).join('|'),
-                            ).join('; ') ?? ''),
-                        ];
-                    default:
-                        return [k, v];
-                    }
-                }),
-        );
-    } else if (result.method === 'unified') {
-        return Object.fromEntries(
-            Object.entries(result)
-                .filter(([k, v]) => {
-                    switch (k) {
-                    case 'method':
-                    case '_id':
-                        return false;
-                    default:
-                        return v.length > 1;
-                    }
-                }),
-        );
-    }
+    // if (result.method === 'oracle') {
+    //     return Object.fromEntries(
+    //         Object.entries(result)
+    //             .filter(([k, v]) => {
+    //                 switch (k) {
+    //                 case 'method':
+    //                 case '_id':
+    //                     return false;
+    //                 case '__oracle':
+    //                     return v.length > 0;
+    //                 default:
+    //                     return v.length > 1;
+    //                 }
+    //             })
+    //             .map(([k, v]) => {
+    //                 switch (k) {
+    //                 case 'relatedCards':
+    //                     return [
+    //                         k,
+    //                         v.map((e: CardTemp['relatedCards']) => e.map(
+    //                             ({ relation, cardId, version }) => (version != null
+    //                                 ? [relation, cardId, version.lang, version.set, version.number]
+    //                                 : [relation, cardId]
+    //                             ).join('|'),
+    //                         ).join('; ') ?? ''),
+    //                     ];
+    //                 default:
+    //                     return [k, v];
+    //                 }
+    //             }),
+    //     );
+    // } else if (result.method === 'unified') {
+    //     return Object.fromEntries(
+    //         Object.entries(result)
+    //             .filter(([k, v]) => {
+    //                 switch (k) {
+    //                 case 'method':
+    //                 case '_id':
+    //                     return false;
+    //                 default:
+    //                     return v.length > 1;
+    //                 }
+    //             }),
+    //     );
+    // }
 
     return null;
 });
+
+// eslint-disable-next-line @typescript-eslint/no-shadow
+const defaultTypelinePrettifier = (typeline: string, lang: string) => {
+    typeline = typeline
+        .trim()
+        .replace(/\s/g, ' ')
+        .replace(/ *～ *-? */, '～')
+        .replace(/ *[―—] *-? */, ' — ')
+        .replace(/ *: *-? */, ' : ');
+
+    if (lang === 'zhs' || lang === 'zht') {
+        typeline = typeline.replace(/~/g, '～').replace(/\//g, '／');
+    } else {
+        typeline = typeline.replace(/ - /g, ' — ').trim();
+    }
+
+    return typeline;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-shadow
+const defaultTextPrettifier = (text: string, lang: string, name: string) => {
+    text = text.replace(/~~/g, name);
+
+    if (lang === 'zhs' || lang === 'zht') {
+        text = text.replace(/~/g, '～').replace(/\/\//g, '／').trim();
+    }
+
+    text = text
+        .trim()
+        .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
+        .replace(/\n{2,}/g, '\n')
+        .replace(/^[●•‧・] ?/mg, lang === 'ja' ? '・' : '• ')
+        .replace(/<\/?.>/g, '')
+        .replace(/&lt;\/?.&gt;/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&.*?;/g, '');
+
+    if (lang === 'zhs' || lang === 'zht') {
+        if (!/[a-wyz](?![/}])/.test(text)) {
+            text = text
+                .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
+                .replace(/\(/g, '（')
+                .replace(/\)/g, '）')
+                .replace(/;/g, '；');
+        }
+    }
+
+    if (lang === 'de') {
+        text = text
+            .replace(/"/g, '“')
+            .replace(/'/g, '‘');
+    }
+
+    if (lang === 'fr') {
+        text = text
+            .replace(/<</g, '«')
+            .replace(/>>/g, '»');
+    }
+
+    return text;
+};
 
 const defaultPrettify = () => {
     if (data.value == null) {
         return;
     }
 
-    for (const p of data.value.parts) {
-        p.unified.typeline = p.unified.typeline
-            .trim()
-            .replace(/\s/g, ' ')
-            .replace(/ *～ *-? */, '～')
-            .replace(/ *[―—] *-? */, ' — ')
-            .replace(/ *: *-? */, ' : ');
+    for (const [i, p] of card.value!.parts.entries()) {
+        const loc = p.localization.find(l => l.lang === lang.value);
 
-        p.printed.typeline = p.printed.typeline
-            .trim()
-            .replace(/\s/g, ' ')
-            .replace(/ *～ *-? */, '～')
-            .replace(/ *[―—] *-? */, ' — ')
-            .replace(/ *: *-? */, ' : ');
+        if (loc != null) {
+            if (i === partIndex.value) {
+                unifiedTypeline.value = defaultTypelinePrettifier(unifiedTypeline.value, lang.value);
+                unifiedText.value = defaultTextPrettifier(unifiedText.value, lang.value, loc.name);
+            } else {
+                loc.typeline = defaultTypelinePrettifier(loc.typeline, lang.value);
+                loc.text = defaultTextPrettifier(loc.text, lang.value, loc.name);
+            }
+        }
+    }
 
-        p.unified.text = p.unified.text!.replace(/~~/g, p.unified.name);
-        p.printed.text = p.printed.text!.replace(/~~/g, p.printed.name);
+    for (const [i, p] of print.value!.parts.entries()) {
+        if (i === partIndex.value) {
+            printedTypeline.value = defaultTypelinePrettifier(printedTypeline.value, lang.value);
+            printedText.value = defaultTextPrettifier(printedText.value, lang.value, p.name);
+        } else {
+            p.typeline = defaultTypelinePrettifier(p.typeline, lang.value);
+            p.text = defaultTextPrettifier(p.text, lang.value, p.name);
+        }
 
-        if (lang.value === 'zhs' || lang.value === 'zht') {
-            p.unified.typeline = p.unified.typeline.replace(/~/g, '～').replace(/\//g, '／');
-            p.printed.typeline = p.printed.typeline.replace(/~/g, '～').replace(/\//g, '／');
-            p.unified.text = p.unified.text.replace(/~/g, '～').replace(/\/\//g, '／').trim();
-            p.printed.text = p.printed.text.replace(/~/g, '～').replace(/\/\//g, '／').trim();
-
-            if (p.flavorText != null) {
+        if (p.flavorText != null && p.flavorText !== '') {
+            if (lang.value === 'zhs' || lang.value === 'zht') {
                 p.flavorText = p.flavorText
                     .replace(/~/g, '～')
                     .replace(/\.\.\./g, '…')
                     .replace(/」 ?～/g, '」\n～')
                     .replace(/。 ?～/g, '。\n～')
-                    .replace(/([，。！？：；]) /g, (m, m1: string) => m1);
-            }
-        } else {
-            p.unified.typeline = p.unified.typeline.replace(/ - /g, ' — ').trim();
-            p.printed.typeline = p.printed.typeline.replace(/ - /g, ' — ').trim();
-        }
-
-        p.unified.text = p.unified.text
-            .trim()
-            .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
-            .replace(/\n{2,}/g, '\n')
-            .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
-            .replace(/<\/?.>/g, '')
-            .replace(/&lt;\/?.&gt;/g, '')
-            .replace(/&amp;/g, '&')
-            .replace(/&.*?;/g, '');
-
-        p.printed.text = p.printed.text
-            .trim()
-            .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
-            .replace(/\n{2,}/g, '\n')
-            .replace(/^[●•‧・] ?/mg, lang.value === 'ja' ? '・' : '• ')
-            .replace(/<\/?.>/g, '')
-            .replace(/&lt;\/?.&gt;/g, '')
-            .replace(/&amp;/g, '&')
-            .replace(/&.*?;/g, '');
-
-        if (lang.value === 'zhs' || lang.value === 'zht') {
-            if (!/[a-wyz](?![/}])/.test(p.unified.text)) {
-                p.unified.text = p.unified.text
-                // .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
-                    .replace(/\(/g, '（')
-                    .replace(/\)/g, '）')
-                    .replace(/;/g, '；');
+                    .replace(/([，。！？：；]) /g, (m: any, m1: string) => m1);
             }
 
-            if (!/[a-wyz](?![/}])/.test(p.printed.text)) {
-                p.printed.text = p.printed.text
-                // .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
-                    .replace(/<\/?.>/g, '')
-                    .replace(/\(/g, '（')
-                    .replace(/\)/g, '）')
-                    .replace(/;/g, '；');
-            }
-        }
-
-        if (lang.value === 'de') {
-            p.unified.text = p.unified.text
-                .replace(/"/g, '“')
-                .replace(/'/g, '‘');
-
-            p.printed.text = p.printed.text
-                .replace(/"/g, '“')
-                .replace(/'/g, '‘');
-
-            if (p.flavorText != null) {
+            if (lang.value === 'de') {
                 p.flavorText = p.flavorText
                     .replace(/"/g, '“')
                     .replace(/'/g, '‘');
             }
-        }
 
-        if (lang.value === 'fr') {
-            p.unified.text = p.unified.text
-                .replace(/<</g, '«')
-                .replace(/>>/g, '»');
-
-            p.printed.text = p.printed.text
-                .replace(/<</g, '«')
-                .replace(/>>/g, '»');
-
-            if (p.flavorText != null) {
+            if (lang.value === 'fr') {
                 p.flavorText = p.flavorText
                     .replace(/<</g, '«')
                     .replace(/>>/g, '»');
@@ -1320,25 +1289,25 @@ const prettify = () => {
         );
     }
 
-    if (autoAssign.value && searchResult.value != null) {
-        const result = searchResult.value;
+    // if (autoAssign.value && searchResult.value != null) {
+    //     const result = searchResult.value;
 
-        if (result.counters != null) {
-            const counterResult = result.counters.filter((c: any[]) => c.length > 0);
+    //     if (result.counters != null) {
+    //         const counterResult = result.counters.filter((c: any[]) => c.length > 0);
 
-            if (counterResult.length === 1) {
-                counters.value = counterResult[0];
-            }
-        }
+    //         if (counterResult.length === 1) {
+    //             counters.value = counterResult[0];
+    //         }
+    //     }
 
-        if (result.relatedCards != null) {
-            const relatedCardsResult = result.relatedCards.filter((r: string) => r !== '');
+    //     if (result.relatedCards != null) {
+    //         const relatedCardsResult = result.relatedCards.filter((r: string) => r !== '');
 
-            if (relatedCardsResult.length === 1) {
-                relatedCardsString.value = relatedCardsResult[0];
-            }
-        }
-    }
+    //         if (relatedCardsResult.length === 1) {
+    //             relatedCardsString.value = relatedCardsResult[0];
+    //         }
+    //     }
+    // }
 
     const applyReplace = (v: string) => {
         const numberMap: Record<string, string> = {
@@ -1463,8 +1432,6 @@ const doUpdate = debounce(
             defaultPrettify();
         }
 
-        // devPrinted.value = false;
-
         await nextTick();
 
         history.value.unshift({
@@ -1475,7 +1442,11 @@ const doUpdate = debounce(
         });
 
         await controlPost('/magic/card/update', {
-            data: data.value,
+            data: card.value,
+        });
+
+        await controlPost('/magic/print/update', {
+            data: print.value,
         });
     },
     1000,
@@ -1497,6 +1468,8 @@ const loadData = async () => {
         data.value = result;
     }
 };
+
+onMounted(loadData);
 
 const loadGroup = async (method: string, skip = false) => {
     if (data.value != null && !skip) {
@@ -1556,8 +1529,6 @@ const skipCurrent = async () => {
 
     loadGroup(dataGroup.value.method, true);
 };
-
-onMounted(loadData);
 
 watch(
     [data, partIndex, printedName, printedTypeline, printedText],
