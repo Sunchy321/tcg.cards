@@ -13,6 +13,7 @@
 
             <q-toggle v-model="takeMulti" label="Only Multi" />
             <q-toggle v-model="showImage" class="q-ml-md" label="Show Image" stack-label />
+            <q-toggle v-model="massiveChanged" label="Massive Changed" />
 
             <q-select
                 v-model="lang"
@@ -143,12 +144,13 @@ const values = computed(() => data.value.values);
 
 const {
     mode,
+    lang,
     tk: takeMulti,
     si: showImage,
     of: oldValueFilter,
     nf: newValueFilter,
     cc: commitCount,
-    lang,
+    mc: massiveChanged,
 } = pageSetup({
     params: {
         mode: {
@@ -156,6 +158,11 @@ const {
             bind:    'query',
             values:  ['card', 'print'],
             default: 'card',
+        },
+        lang: {
+            type:    'string',
+            bind:    'query',
+            default: '',
         },
         tk: {
             type:    'boolean',
@@ -182,10 +189,10 @@ const {
             bind:    'query',
             default: 50,
         },
-        lang: {
-            type:    'string',
+        mc: {
+            type:    'boolean',
             bind:    'query',
-            default: '',
+            default: false,
         },
     },
 
@@ -205,6 +212,18 @@ const filteredValues = computed(() => {
         const regex = new RegExp(newValueFilter.value);
 
         result = result.filter(u => regex.test(u.newValue));
+    }
+
+    if (massiveChanged.value) {
+        result = result.filter(u => {
+            if (typeof u.oldValue !== 'string' || typeof u.newValue !== 'string') {
+                return false;
+            }
+
+            const diffs = diffChars(u.oldValue, u.newValue);
+
+            return diffs.length >= 10;
+        });
     }
 
     if (lang.value !== '' && mode.value !== 'card') {
