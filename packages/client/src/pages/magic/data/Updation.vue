@@ -106,7 +106,7 @@ import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 import DeferInput from 'components/DeferInput.vue';
 
-import { diffChars } from 'common/util/diff';
+import { diffString } from 'common/util/diff';
 
 import { locales } from 'static/magic/basic';
 
@@ -220,7 +220,7 @@ const filteredValues = computed(() => {
                 return false;
             }
 
-            const diffs = diffChars(u.oldValue, u.newValue);
+            const diffs = diffString(u.oldValue, u.newValue);
 
             return diffs.length >= 10;
         });
@@ -268,7 +268,7 @@ const diffContent = (lhs: string, rhs: string) => {
         ];
     }
 
-    const result = diffChars(lhs, rhs);
+    const result = diffString(lhs, rhs);
 
     const escape = (text: string) => text
         .replace(/\n/g, '␤')
