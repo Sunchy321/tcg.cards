@@ -78,64 +78,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.card-image
-    position: relative
-    padding-bottom: calc(100% / (745/1040))
-    perspective: 1000px
-
-.image
-    position: absolute
-
-    top: 0
-    left: 0
-    bottom: 0
-    right: 0
-
-    transition: transform 0.5s
-
-    &.rotated
-        transform: rotate(90deg) scale(calc(745/1040))
-
-    &.layout-flip.part-1, &.layout-flip_token_bottom
-        transform: rotate(180deg)
-
-    &.layout-aftermath.part-1
-        transform: rotate(-90deg) scale(calc(745/1040))
-
-    &.turnable
-        transform-style: preserve-3d
-
-        & .front, & .back
-            position: absolute
-            top: 0
-            left: 0
-
-            backface-visibility: hidden
-
-        & .front
-            transform: rotateY(0deg)
-
-        & .back
-            transform: rotateY(180deg)
-
-        &.part-1
-            transform: rotateY(-180deg)
-
-.not-found
-    width: 100%
-    background-color: transparent !important
-    padding: 0 !important
-
-.control
-    position: absolute
-
-    top: 50%
-    right: 5%
-    transform: translateY(-50%)
-
-</style>
-
 <script lang="ts">
 import type { PropType } from 'vue';
 import {
@@ -208,16 +150,16 @@ export default defineComponent({
         const imageUrls = computed(() => {
             if (turnable.value) {
                 return [
-                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
-                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
+                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
+                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
                 ];
             } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
                 return [
-                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number.split('-')[0]}`,
+                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number.split('-')[0]}`,
                 ];
             } else {
                 return [
-                    `https://${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}`,
+                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}`,
                 ];
             }
         });
@@ -242,3 +184,61 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.card-image
+    position: relative
+    padding-bottom: calc(100% / (745/1040))
+    perspective: 1000px
+
+.image
+    position: absolute
+
+    top: 0
+    left: 0
+    bottom: 0
+    right: 0
+
+    transition: transform 0.5s
+
+    &.rotated
+        transform: rotate(90deg) scale(calc(745/1040))
+
+    &.layout-flip.part-1, &.layout-flip_token_bottom
+        transform: rotate(180deg)
+
+    &.layout-aftermath.part-1
+        transform: rotate(-90deg) scale(calc(745/1040))
+
+    &.turnable
+        transform-style: preserve-3d
+
+        & .front, & .back
+            position: absolute
+            top: 0
+            left: 0
+
+            backface-visibility: hidden
+
+        & .front
+            transform: rotateY(0deg)
+
+        & .back
+            transform: rotateY(180deg)
+
+        &.part-1
+            transform: rotateY(-180deg)
+
+.not-found
+    width: 100%
+    background-color: transparent !important
+    padding: 0 !important
+
+.control
+    position: absolute
+
+    top: 50%
+    right: 5%
+    transform: translateY(-50%)
+
+</style>

@@ -22,31 +22,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.main-content
-    padding: 5px
-
-.item
-    margin-bottom: 2px
-
-    border-width: 1px
-    border-style: solid
-    border-radius: 5px
-
-    &.unknown
-        color: grey
-
-.date, .content
-    display: inline
-
-.date
-    margin-right: 5px
-
-    &.placeholder
-        color: transparent
-
-</style>
-
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 
@@ -76,7 +51,7 @@ export default defineComponent({
                     icon:   'mdi-upload',
                     popup:  {
                         type:   'file',
-                        url:    `https://${apiBase}/hearthstone/log-parse`,
+                        url:    `${apiBase}/hearthstone/log-parse`,
                         accept: '.log',
                     },
                     handler: {
@@ -105,3 +80,28 @@ export default defineComponent({
 });
 
 </script>
+
+<style lang="sass" scoped>
+.main-content
+    padding: 5px
+
+.item
+    margin-bottom: 2px
+
+    border-width: 1px
+    border-style: solid
+    border-radius: 5px
+
+    &.unknown
+        color: grey
+
+.date, .content
+    display: inline
+
+.date
+    margin-right: 5px
+
+    &.placeholder
+        color: transparent
+
+</style>

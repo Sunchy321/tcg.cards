@@ -17,11 +17,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.image
-    width: calc(100% / 8)
-</style>
-
 <script lang="ts">
 import {
     defineComponent, ref, computed, onMounted,
@@ -69,9 +64,9 @@ export default defineComponent({
             const [number, part] = name.split('-');
 
             if (part != null) {
-                return `https://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
+                return `${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
             } else {
-                return `https://${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
+                return `${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
             }
         }));
 
@@ -91,3 +86,8 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.image
+    width: calc(100% / 8)
+</style>

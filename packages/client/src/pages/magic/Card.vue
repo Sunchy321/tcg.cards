@@ -369,7 +369,7 @@ const setInfos = computed(() => sets.value.map(s => {
         langs:           uniq(setVersions.map(v => v.lang)),
         numbers,
         rarity,
-        iconUrl:         `https://${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
+        iconUrl:         `${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
         name:            name?.[magic.locale] ?? name?.[magic.locales[0]] ?? '',
         symbolStyle:     profile?.symbolStyle,
         doubleFacedIcon: profile?.doubleFacedIcon,
@@ -679,7 +679,7 @@ const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
 }, v => v == null)));
 
 const jsonLink = computed(() => {
-    const url = new URL('magic/card', `https://${apiBase}`);
+    const url = new URL('magic/card', apiBase);
 
     const query = apiQuery.value;
 

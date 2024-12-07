@@ -33,35 +33,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.name
-    @media (max-width: 599px)
-        font-size: 150%
-
-    @media (min-width: 600px)
-        font-size: 200%
-
-.rarities, .langs
-    display: flex
-
-    @media (max-width: 599px)
-        justify-content: center
-
-    @media (min-width: 600px)
-        justify-content: start
-
-.rarity
-    width: 80px
-
-    & > img
-        width: 50px
-
-.lang
-    margin-right: 2px
-
-    font-size: 10px
-</style>
-
 <script lang="ts">
 import {
     defineComponent, ref, computed, watch,
@@ -108,7 +79,7 @@ export default defineComponent({
 
         // const cardCount = computed(() => data.value?.cardCount ?? 0);
 
-        const apiLink = computed(() => `https://${apiBase}/hearthstone/set?id=${id.value}`);
+        const apiLink = computed(() => `${apiBase}/hearthstone/set?id=${id.value}`);
         const editorLink = computed(() => ({ name: 'hearthstone/data', query: { tab: 'Set', id: id.value } }));
 
         const loadData = async () => {
@@ -138,3 +109,32 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.name
+    @media (max-width: 599px)
+        font-size: 150%
+
+    @media (min-width: 600px)
+        font-size: 200%
+
+.rarities, .langs
+    display: flex
+
+    @media (max-width: 599px)
+        justify-content: center
+
+    @media (min-width: 600px)
+        justify-content: start
+
+.rarity
+    width: 80px
+
+    & > img
+        width: 50px
+
+.lang
+    margin-right: 2px
+
+    font-size: 10px
+</style>
