@@ -120,7 +120,7 @@ const wotcLink = computed(() => {
                  ?? data.value.localization[magic.locales[0]]?.link;
 });
 
-const apiLink = computed(() => `https://${apiBase}/magic/set?id=${id.value}`);
+const apiLink = computed(() => `${apiBase}/magic/set?id=${id.value}`);
 const editorLink = computed(() => ({ name: 'magic/data', query: { tab: 'Set', id: id.value } }));
 
 const boosters = computed(() => data.value?.boosters ?? []);
@@ -148,10 +148,10 @@ const iconUrl = (rarity: string) => {
         parent.value != null && setType.value != null
                 && ['promo', 'token', 'memorabilia', 'funny'].includes(setType.value)
     ) {
-        return `https://${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
+        return `${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
     }
 
-    return `https://${imageBase}/magic/set/icon?auto-adjust&set=${id.value}&rarity=${rarity}`;
+    return `${imageBase}/magic/set/icon?auto-adjust&set=${id.value}&rarity=${rarity}`;
 };
 
 watch(() => id.value, loadData, { immediate: true });

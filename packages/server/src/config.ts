@@ -15,18 +15,10 @@ export interface MongoDB {
     database: Record<string, Database>;
 }
 
-export interface HttpsSecret {
-    key: string;
-    cert: string;
-}
-
 export interface Config {
     appKey: string;
     jwtSecretKey: string;
 
-    httpsSecret: HttpsSecret;
-
-    client: string;
     asset: string;
     data: string;
     log: string;
@@ -46,9 +38,8 @@ export interface Config {
 
 export const config = JSON.parse(readFileSync(configPath).toString()) as Config;
 
-export const { mongodb, hearthstone, httpsSecret } = config;
+export const { mongodb, hearthstone } = config;
 
-export const clientPath = config.client;
 export const assetPath = config.asset;
 export const logPath = config.log;
 export const dataPath = config.data;

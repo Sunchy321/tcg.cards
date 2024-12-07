@@ -1,15 +1,3 @@
-<style lang="sass">
-.adjustment-popover, [content-class=adjustment-popover]
-    background-color: transparent !important
-    padding: 0 !important
-
-.adjustment-image-popover
-    width: 150px
-
-.adjustment-arrow
-    width: 30px
-</style>
-
 <script lang="ts">
 import {
     PropType, defineComponent, ref, computed, watch, h,
@@ -79,7 +67,7 @@ export default defineComponent({
         });
 
         const imageUrl = (id: string, version: number, adjustment: PartAdjustment[]) => {
-            const url = new URL('/hearthstone/card', `https://${imageBase}`);
+            const url = new URL('/hearthstone/card', imageBase);
 
             const params: any = { };
 
@@ -167,3 +155,15 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass">
+.adjustment-popover, [content-class=adjustment-popover]
+    background-color: transparent !important
+    padding: 0 !important
+
+.adjustment-image-popover
+    width: 150px
+
+.adjustment-arrow
+    width: 30px
+</style>

@@ -1,12 +1,3 @@
-<style lang="sass">
-.card-popover, [content-class=card-popover]
-    background-color: transparent !important
-    padding: 0 !important
-
-.card-image-popover
-    width: 250px
-</style>
-
 <script lang="ts">
 import {
     defineComponent, ref, computed, watch, h,
@@ -66,7 +57,7 @@ export default defineComponent({
         });
 
         const imageUrl = computed(() => {
-            const url = new URL('/hearthstone/card', `https://${imageBase}`);
+            const url = new URL('/hearthstone/card', imageBase);
 
             const params: any = { };
 
@@ -123,3 +114,12 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass">
+.card-popover, [content-class=card-popover]
+    background-color: transparent !important
+    padding: 0 !important
+
+.card-image-popover
+    width: 250px
+</style>

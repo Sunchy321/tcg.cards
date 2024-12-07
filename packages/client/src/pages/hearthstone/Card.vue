@@ -127,119 +127,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.main
-    display: flex
-    flex-wrap: wrap
-
-@media (max-width: 599px)
-    .image-column
-        flex: 0 0 100%
-
-    .info-column
-        flex: 0 0 100%
-        padding: 16px 0
-
-    .version-column
-        flex: 0 0 100%
-
-@media (min-width: 600px) and (max-width: 1023px)
-    .image-column
-        flex: 0 0 350px
-
-    .info-column
-        flex: 0 0 calc(100% - 350px)
-        padding-left: 16px
-
-    .version-column
-        flex: 0 0 100%
-
-@media (min-width: 1023px)
-    .image-column
-        flex: 0 0 350px
-
-    .info-column
-        flex: 1 1 0px
-        padding: 0 16px
-
-    .version-column
-        flex: 0 0 300px
-
-.name-line
-    display: flex
-    align-items: center
-
-    @media (max-width: 599px)
-        font-size: 150%
-
-    @media (min-width: 600px)
-        font-size: 200%
-
-.stats-line
-    margin-top: 10px
-    display: flex
-    align-items: center
-
-.text, .mechanics
-    margin-top: 30px
-
-.type
-    margin-right: 5px
-
-.race
-    margin-right: 5px
-
-.mechanic, .referenced-tag
-    display: inline-block
-
-    padding: 2px
-    margin-right: 5px
-    margin-bottom: 5px
-
-    border-width: 1px
-    border-style: solid
-    border-radius: 5px
-
-.links
-    margin-top: 30px
-
-.link
-    width: 150px
-
-.version-block, .entity-block
-    margin-top: 10px
-
-    border: 1px solid $primary
-    border-radius: 5px
-
-.version-line, .entity-line
-    position: relative
-    padding: 5px
-    padding-left: 10px
-
-    &:not(:first-child)
-        border-top: 1px solid $primary
-
-    cursor: pointer
-
-.version-dot
-    width: 10px
-    height: 10px
-    border-radius: 100px
-    border: 1px $primary solid
-
-    background-color: white
-
-    &.current
-        background-color: $primary
-
-    position: absolute
-    left: -5px
-    top: 50%
-    transform: translateY(-50%)
-
-</style>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 
@@ -376,7 +263,7 @@ watch(hasTechLevel, () => {
 }, { immediate: true });
 
 const imageUrl = computed(() => {
-    const url = new URL('/hearthstone/card', `https://${imageBase}`);
+    const url = new URL('/hearthstone/card', imageBase);
 
     const params: any = {
         id:   id.value,
@@ -413,7 +300,7 @@ const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
 }, v => v == null)));
 
 const jsonLink = computed(() => {
-    const url = new URL('hearthstone/card', `https://${apiBase}`);
+    const url = new URL('hearthstone/card', apiBase);
 
     const query = apiQuery.value;
 
@@ -429,7 +316,7 @@ const compareLink = computed(() => {
         return null;
     }
 
-    const url = new URL('hearthstone/card/compare', `https://${apiBase}`);
+    const url = new URL('hearthstone/card/compare', apiBase);
 
     const index = versions.value.findIndex(v => v.includes(version.value));
 
@@ -478,3 +365,116 @@ watch(
     { immediate: true },
 );
 </script>
+
+<style lang="sass" scoped>
+.main
+    display: flex
+    flex-wrap: wrap
+
+@media (max-width: 599px)
+    .image-column
+        flex: 0 0 100%
+
+    .info-column
+        flex: 0 0 100%
+        padding: 16px 0
+
+    .version-column
+        flex: 0 0 100%
+
+@media (min-width: 600px) and (max-width: 1023px)
+    .image-column
+        flex: 0 0 350px
+
+    .info-column
+        flex: 0 0 calc(100% - 350px)
+        padding-left: 16px
+
+    .version-column
+        flex: 0 0 100%
+
+@media (min-width: 1023px)
+    .image-column
+        flex: 0 0 350px
+
+    .info-column
+        flex: 1 1 0px
+        padding: 0 16px
+
+    .version-column
+        flex: 0 0 300px
+
+.name-line
+    display: flex
+    align-items: center
+
+    @media (max-width: 599px)
+        font-size: 150%
+
+    @media (min-width: 600px)
+        font-size: 200%
+
+.stats-line
+    margin-top: 10px
+    display: flex
+    align-items: center
+
+.text, .mechanics
+    margin-top: 30px
+
+.type
+    margin-right: 5px
+
+.race
+    margin-right: 5px
+
+.mechanic, .referenced-tag
+    display: inline-block
+
+    padding: 2px
+    margin-right: 5px
+    margin-bottom: 5px
+
+    border-width: 1px
+    border-style: solid
+    border-radius: 5px
+
+.links
+    margin-top: 30px
+
+.link
+    width: 150px
+
+.version-block, .entity-block
+    margin-top: 10px
+
+    border: 1px solid $primary
+    border-radius: 5px
+
+.version-line, .entity-line
+    position: relative
+    padding: 5px
+    padding-left: 10px
+
+    &:not(:first-child)
+        border-top: 1px solid $primary
+
+    cursor: pointer
+
+.version-dot
+    width: 10px
+    height: 10px
+    border-radius: 100px
+    border: 1px $primary solid
+
+    background-color: white
+
+    &.current
+        background-color: $primary
+
+    position: absolute
+    left: -5px
+    top: 50%
+    transform: translateY(-50%)
+
+</style>

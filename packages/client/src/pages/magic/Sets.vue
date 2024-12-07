@@ -27,35 +27,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.code
-    color: #777
-
-.set
-    padding: 4px 8px
-
-    &:first-child
-        border: 1px black solid
-        border-top-left-radius: 8px
-        border-top-right-radius: 8px
-
-    &:not(:first-child)
-        border-left: 1px black solid
-        border-right: 1px black solid
-        border-bottom: 1px black solid
-
-    &:last-child
-        border-bottom-left-radius: 8px
-        border-bottom-right-radius: 8px
-
-    &.is-primary
-        color: $primary
-
-.icon
-    height: 1em
-
-</style>
-
 <script lang="ts">
 import {
     defineComponent, ref, computed, watch, onMounted,
@@ -225,7 +196,7 @@ export default defineComponent({
                 return undefined;
             }
 
-            return `https://${imageBase}/magic/set/icon?auto-adjust&set=${set}&rarity=default`;
+            return `${imageBase}/magic/set/icon?auto-adjust&set=${set}&rarity=default`;
         };
 
         watch(sets, loadProfile);
@@ -241,3 +212,32 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.code
+    color: #777
+
+.set
+    padding: 4px 8px
+
+    &:first-child
+        border: 1px black solid
+        border-top-left-radius: 8px
+        border-top-right-radius: 8px
+
+    &:not(:first-child)
+        border-left: 1px black solid
+        border-right: 1px black solid
+        border-bottom: 1px black solid
+
+    &:last-child
+        border-bottom-left-radius: 8px
+        border-bottom-right-radius: 8px
+
+    &.is-primary
+        color: $primary
+
+.icon
+    height: 1em
+
+</style>
