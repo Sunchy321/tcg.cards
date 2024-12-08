@@ -45,7 +45,7 @@ export default function controlSetup(): {
 
         params = token != null ? { jwt: token, ...params } : params;
 
-        const url = new URL(path, `wss://${controlBase}`);
+        const url = new URL(path, controlBase.replace(/^http/, 'ws'));
 
         if (Object.keys(params).length !== 0) {
             url.search = new URLSearchParams(params).toString();
