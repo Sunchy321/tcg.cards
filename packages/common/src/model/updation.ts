@@ -5,6 +5,8 @@ export type Updation = {
 };
 
 export type WithUpdation<T> = T & {
+    cardId: string;
+
     __updations: Updation[];
 
     __lockedPaths: string[];

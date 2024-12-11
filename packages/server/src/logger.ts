@@ -3,7 +3,7 @@ import { TransformableInfo } from 'logform';
 
 import { logPath } from '@/config';
 
-function formatter(info: TransformableInfo) {
+export function formatter(info: TransformableInfo): string {
     const level = info.level[0];
     const tag = info.category != null ? `${level}/${info.category}` : level;
 

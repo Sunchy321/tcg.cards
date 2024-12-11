@@ -23,6 +23,7 @@ import { splitDFT } from './split-dft';
 import { toCard } from './to-card';
 import { combineCard, mergeCard, mergePrint } from './merge';
 import { ICardDatabase } from 'card-common/src/model/magic/card';
+import { bulkUpdation } from '@/magic/logger';
 
 const bucketSize = 500;
 
@@ -38,6 +39,8 @@ export default class CardLoader extends Task<Status> {
     }
 
     async startImpl(): Promise<void> {
+        bulkUpdation.info('================== MERGE CARD ==================');
+
         // initialize set code map
         const setCodeMap: Record<string, string> = {};
 
@@ -150,7 +153,7 @@ export default class CardLoader extends Task<Status> {
                     } else {
                         // Scryfall mowu is bugged. ignore.
                         if (json.id !== 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
-                            console.log(`mismatch object count: ${json.id}`);
+                            bulkUpdation.warn(`mismatch object count: ${json.id}`);
                         }
                     }
 
@@ -164,7 +167,7 @@ export default class CardLoader extends Task<Status> {
                             continue;
                         }
 
-                        console.log(`mismatch object count: ${json.id}`);
+                        bulkUpdation.warn(`mismatch object count: ${json.id}`);
                     }
                 } else if (cardPrints.length === 2) {
                     if (oldCards.length === 0) {
@@ -192,7 +195,7 @@ export default class CardLoader extends Task<Status> {
                             }
                         }
                     } else {
-                        console.log(`mismatch object count: ${json.id}`);
+                        bulkUpdation.warn(`mismatch object count: ${json.id}`);
                     }
                 }
 
@@ -250,6 +253,8 @@ export default class CardLoader extends Task<Status> {
             await Card.insertMany(cardsToInsert);
             await Print.insertMany(printsToInsert);
         }
+
+        bulkUpdation.info('============== MERGE CARD COMPLETE =============');
     }
 
     stopImpl(): void { /* no-op */ }
