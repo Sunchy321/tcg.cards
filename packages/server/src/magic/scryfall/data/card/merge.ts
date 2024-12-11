@@ -12,6 +12,7 @@ import { existsSync, unlinkSync } from 'fs';
 import { isEqual, uniq } from 'lodash';
 
 import { cardImagePath } from '@/magic/image';
+import { bulkUpdation } from '@/magic/logger';
 
 function get<T>(value: T, key: string & keyof T) {
     if ((value as any).toObject != null) {
@@ -37,8 +38,8 @@ function assign<T>(card: WithUpdation<T>, data: T, key: string & keyof T) {
         });
 
         (card as any)[key] = data[key];
-    } else {
-        console.log(`Remove lockedPaths ${key}`);
+    } else if (card.__lockedPaths.includes(key)) {
+        bulkUpdation.info(`Remove lockedPaths ${key} (${cardValue}) for ${card?.cardId}`);
         card.__lockedPaths = card.__lockedPaths.filter(v => v !== key);
     }
 }
@@ -70,8 +71,8 @@ function assignPart<T extends Part, U extends WithUpdation<T>>(
         });
 
         (cPart as any)[key] = dPart[key];
-    } else {
-        console.log(`Remove lockedPaths ${fullKey}`);
+    } else if (card.__lockedPaths.includes(fullKey)) {
+        bulkUpdation.info(`Remove lockedPaths ${fullKey} (${cPart[key]}) for ${card.cardId}`);
         card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullKey);
     }
 }
@@ -128,8 +129,8 @@ function assignCardLocalization(
 
                 cLoc.name = dLoc.name;
             }
-        } else {
-            console.log(`Remove lockedPaths ${fullNameKey}`);
+        } else if (card.__lockedPaths.includes(fullNameKey)) {
+            bulkUpdation.info(`Remove lockedPaths ${fullNameKey} (${cLoc.name}) for ${card.cardId}:${loc}`);
             card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullNameKey);
         }
 
@@ -143,8 +144,8 @@ function assignCardLocalization(
 
                 cLoc.typeline = dLoc.typeline;
             }
-        } else {
-            console.log(`Remove lockedPaths ${fullTypelineKey}`);
+        } else if (card.__lockedPaths.includes(fullTypelineKey)) {
+            bulkUpdation.info(`Remove lockedPaths ${fullTypelineKey} (${cLoc.typeline}) for ${card.cardId}:${loc}`);
             card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullTypelineKey);
         }
 
@@ -158,8 +159,8 @@ function assignCardLocalization(
 
                 cLoc.text = dLoc.text;
             }
-        } else {
-            console.log(`Remove lockedPaths ${fullTextKey}`);
+        } else if (card.__lockedPaths.includes(fullTextKey)) {
+            bulkUpdation.info(`Remove lockedPaths ${fullTextKey} (${cLoc.text}) for ${card.cardId}:${loc}`);
             card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullTextKey);
         }
     }
@@ -188,8 +189,8 @@ function assignCardType(
         });
 
         (cType as any)[key] = dType[key];
-    } else {
-        console.log(`Remove lockedPaths ${fullKey}`);
+    } else if (card.__lockedPaths.includes(fullKey)) {
+        bulkUpdation.info(`Remove lockedPaths ${fullKey} (${cType[key]}) for ${card.cardId}`);
         card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullKey);
     }
 }
