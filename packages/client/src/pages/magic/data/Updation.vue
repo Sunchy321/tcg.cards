@@ -69,7 +69,7 @@
         <grid
             v-slot="u"
             :value="displayValues" :item-width="320"
-            item-key="_id"
+            item-key="index"
             class="legalities"
         >
             <q-card class="q-ma-sm q-pa-sm updation">
@@ -247,7 +247,7 @@ const filteredValues = computed(() => {
         }
     }
 
-    return result;
+    return result.map((v, i) => ({ index: v._id + i, ...v }));
 });
 
 const displayValues = computed(() => filteredValues.value.slice(0, 100));
