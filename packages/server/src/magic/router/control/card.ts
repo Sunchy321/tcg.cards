@@ -26,6 +26,7 @@ import {
 import parseGatherer, { GathererGetter, saveGathererImage } from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
+import * as logger from '@/magic/logger';
 
 import { formats as formatList } from '@static/magic/basic';
 import { parenRegex, commaRegex } from '@static/magic/special';
@@ -470,6 +471,8 @@ router.post('/commit-updation', async ctx => {
     }
 
     await card.save();
+
+    logger.updation.info(`commit-updation, id=${id}(${card.cardId}), key=${key}, type=${type}`);
 
     ctx.status = 200;
 });
