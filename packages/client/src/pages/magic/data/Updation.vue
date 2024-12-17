@@ -106,7 +106,7 @@ import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 import DeferInput from 'components/DeferInput.vue';
 
-import { diffString } from 'common/util/diff';
+import { diffChars, diffString } from 'common/util/diff';
 
 import { locales } from 'static/magic/basic';
 
@@ -199,6 +199,18 @@ const {
     appendParam: true,
 });
 
+const diffValue = (lhs: string, rhs: string) => {
+    if (['ja', 'zhs', 'zht', 'ko'].includes(lang.value)) {
+        return diffChars(lhs, rhs);
+    }
+
+    if (key.value.includes('[ja]') || key.value.includes('[zhs]') || key.value.includes('[zht]') || key.value.includes('[ko]')) {
+        return diffChars(lhs, rhs);
+    }
+
+    return diffString(lhs, rhs);
+};
+
 const filteredValues = computed(() => {
     let result = values.value;
 
@@ -220,7 +232,7 @@ const filteredValues = computed(() => {
                 return false;
             }
 
-            const diffs = diffString(u.oldValue, u.newValue);
+            const diffs = diffValue(u.oldValue, u.newValue);
 
             return diffs.length >= 10;
         });
@@ -247,7 +259,11 @@ const filteredValues = computed(() => {
         }
     }
 
-    return result.map((v, i) => ({ index: v._id + i, ...v }));
+    if (mode.value === 'card') {
+        return result.map((v, i) => ({ index: v._id + i, ...v }));
+    } else {
+        return result.map(v => ({ index: v._id, ...v }));
+    }
 });
 
 const displayValues = computed(() => filteredValues.value.slice(0, 100));
@@ -268,7 +284,7 @@ const diffContent = (lhs: string, rhs: string) => {
         ];
     }
 
-    const result = diffString(lhs, rhs);
+    const result = diffValue(lhs, rhs);
 
     const escape = (text: string) => text
         .replace(/\n/g, '␤')

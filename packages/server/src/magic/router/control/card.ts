@@ -140,6 +140,13 @@ function aggregate({ lang, match, post }: AggregateOption): Aggregate<INeedEditR
     if (lang != null) { agg.match({ lang }); }
 
     agg
+        .replaceRoot({
+            newRoot: { card: '$$ROOT' },
+        })
+        .lookup({
+            from: 'prints', localField: 'card.cardId', foreignField: 'cardId', as: 'print',
+        })
+        .unwind({ path: '$print' })
         .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
         .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
 
@@ -155,29 +162,22 @@ function aggregate({ lang, match, post }: AggregateOption): Aggregate<INeedEditR
 }
 
 const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResult[]>> = {
-    oracle: () => aggregate({
-        post: agg => agg
-            .match({
-                '__updations.key': { $in: ['parts.name', 'parts.typeline', 'parts.text'] },
-            }),
-    }),
-
     paren: lang => aggregate({
         lang,
         match: {
-            'cardId':             { $nin: internalData<string[]>('magic.special.with-paren') },
-            'parts.unified.text': parenRegex,
-            'parts.typeMain':     { $nin: ['dungeon', 'card'] },
-            'parts.typeMain.0':   { $exists: true },
+            'cardId':                  { $nin: internalData<string[]>('magic.special.with-paren') },
+            'parts.localization.text': parenRegex,
+            'parts.typeMain':          { $nin: ['dungeon', 'card'] },
+            'parts.typeMain.0':        { $exists: true },
         },
     }),
 
     keyword: lang => aggregate({
         lang,
         match: {
-            'cardId':             { $nin: internalData<string[]>('magic.special.with-comma') },
-            'parts.unified.text': commaRegex,
-            'parts.typeMain':     { $nin: ['dungeon', 'stickers', 'card'] },
+            'cardId':                  { $nin: internalData<string[]>('magic.special.with-comma') },
+            'parts.localization.text': commaRegex,
+            'parts.typeMain':          { $nin: ['dungeon', 'stickers', 'card'] },
         },
     }),
 
@@ -198,8 +198,8 @@ router.get('/need-edit', async ctx => {
         ? 100
         : Number.parseInt(sampleText, 10);
 
-    if (getter == null) {
-        ctx.status = 400;
+    if (getter == null || Number.isNaN(sample)) {
+        ctx.status = 404;
         return;
     }
 
@@ -215,11 +215,7 @@ router.get('/need-edit', async ctx => {
     }
 
     const result = await getter(lang)
-        .sort(
-            method === 'unified'
-                ? { 'unifiedIndicator': -1, 'date': -1, '_id.id': 1 }
-                : { 'date': -1, '_id.id': 1 },
-        )
+        .sort({ 'print.releaseDate': -1 })
         .limit(sample);
 
     const cards = await Card.aggregate().allowDiskUse(true)
@@ -472,7 +468,7 @@ router.post('/commit-updation', async ctx => {
 
     await card.save();
 
-    logger.updation.info(`commit-updation, id=${id}(${card.cardId}), key=${key}, type=${type}`);
+    logger.updation.info(`commit-updation(card), id=${id}(${card.cardId}), key=${key}, type=${type}`);
 
     ctx.status = 200;
 });
