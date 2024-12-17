@@ -26,6 +26,7 @@ import {
 import parseGatherer, { saveGathererImage } from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
+import * as logger from '@/magic/logger';
 
 import { assetPath } from '@/config';
 import { formats as formatList } from '@static/magic/basic';
@@ -585,7 +586,7 @@ router.post('/commit-updation', async ctx => {
 
     await print.save();
 
-    console.log(`commit updation, id=${id}, key=${key}, type=${type}`);
+    logger.updation.info(`commit-updation(print), id=${id}(${print.cardId}/${print.set}/${print.number}/${print.lang}), key=${key}, type=${type}`);
 
     ctx.status = 200;
 });
