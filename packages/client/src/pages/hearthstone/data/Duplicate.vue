@@ -33,12 +33,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.cardid-input
-    flex-basis: 300px
-
-</style>
-
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { Notify } from 'quasar';
@@ -219,7 +213,7 @@ const guessResolve = () => {
 
     // battlegrounds
     for (const c of cards) {
-        const tester = [/^TB_BaconUps/];
+        const tester = [/^TB_Bacon[Uu]ps/];
 
         if (tester.some(t => t.test(c.entityId[0]))) {
             c.cardId += ':golden';
@@ -249,6 +243,19 @@ const guessResolve = () => {
             if (c.type === 'hero_power') {
                 c.cardId += '!hero_power';
             }
+        }
+    }
+
+    if (resolved()) {
+        return;
+    }
+
+    // duel
+    for (const c of cards) {
+        const tester = [/^PVPDR/];
+
+        if (tester.some(t => t.test(c.entityId[0]))) {
+            c.cardId += ':duel';
         }
     }
 
@@ -300,6 +307,19 @@ const guessResolve = () => {
             }
         }
     }
+
+    if (resolved()) {
+        return;
+    }
+
+    // Storybook
+    for (const c of cards) {
+        const tester = [/^Story/];
+
+        if (tester.some(t => t.test(c.entityId[0]))) {
+            c.cardId += ':story';
+        }
+    }
 };
 
 const tryMerge = () => {
@@ -344,7 +364,7 @@ const tryMerge = () => {
                     const diff = compare(splitted, false);
 
                     console.log('DIFF: ', index.join(''));
-                    console.dir(diff.map(d => [d[0], itemValues.map(v => v[d[0].slice(1, -1)])]));
+                    console.dir(diff.map(d => [d[0], itemValues.map(v => v[d[0].slice(1, -1) as unknown as number])]));
                 } else {
                     console.log('DIFF: ', index.join(''));
                     console.dir(itemValues);
@@ -356,3 +376,9 @@ const tryMerge = () => {
     values.value = newValues;
 };
 </script>
+
+<style lang="sass" scoped>
+.cardid-input
+    flex-basis: 300px
+
+</style>
