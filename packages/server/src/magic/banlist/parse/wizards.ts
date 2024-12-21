@@ -5,8 +5,8 @@ import { BanlistChange as IBanlistChange, BanlistStatus } from '@interface/magic
 
 import { escapeRegExp } from 'lodash';
 
+import { toIdentifier } from '@common/util/id';
 import { parseDate, getLines } from './helper';
-import { toIdentifier } from '@/magic/util';
 
 const formatMap: Record<string, string> = {
     'Standard':                           'standard',

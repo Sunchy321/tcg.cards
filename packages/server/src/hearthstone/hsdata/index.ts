@@ -30,6 +30,7 @@ import { localPath, langMap } from './base';
 import * as logger from '@/logger';
 
 import { toBucket, toGenerator } from '@/common/to-bucket';
+import { toIdentifier } from '@common/util/id';
 import internalData from '@/internal-data';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
@@ -472,8 +473,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                 const enLoc = e.localization.find(l => l.lang === 'en') ?? e.localization[0];
 
-                const toIdentifier = (s: string) => s.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
-
                 if (e.type !== 'enchantment') {
                     const c = new Card({
                         ...e,
@@ -904,8 +903,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }
 
         const sameIdEntities = await Entity.find({ entityId: result.entityId, cardId: { $exists: true } });
-
-        const toIdentifier = (s: string) => s.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
 
         if (sameIdEntities.length > 0) {
             const cardIds = uniq(sameIdEntities.map(e => e.cardId));

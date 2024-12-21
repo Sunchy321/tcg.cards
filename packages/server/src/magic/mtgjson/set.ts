@@ -10,8 +10,8 @@ import { join } from 'path';
 
 import internalData from '@/internal-data';
 
-import { toIdentifier } from '@/magic/util';
 import sorter from '@common/util/sorter';
+import { toIdentifier } from '@common/util/id';
 import { kebabCase } from 'lodash';
 
 import { dataPath } from '@/config';

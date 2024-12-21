@@ -3,7 +3,7 @@ import { Banlist } from '@interface/magic/banlist';
 import request from 'request-promise-native';
 import cheerio from 'cheerio';
 
-import { toIdentifier } from '../util';
+import { toIdentifier } from '@common/util/id';
 
 export async function getWizardsBanlist(): Promise<Record<string, Banlist>> {
     const html = await request('https://magic.wizards.com/en/game-info/gameplay/rules-and-formats/banned-restricted');

@@ -6,9 +6,8 @@ import { Print as IPrint } from '@interface/magic/print';
 import { Colors } from '@interface/magic/scryfall/basic';
 import { CardFace, RawCard } from '@interface/magic/scryfall/card';
 
-import {
-    convertColor, convertMana, parseTypeline, toIdentifier,
-} from '@/magic/util';
+import { toIdentifier } from '@common/util/id';
+import { convertColor, convertMana, parseTypeline } from '@/magic/util';
 
 type RawCardNoArtSeries = Omit<RawCard, 'layout'> & {
     layout: Exclude<RawCard['layout'], 'art_series'>;

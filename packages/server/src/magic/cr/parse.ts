@@ -5,9 +5,9 @@ import { CR as ICR, Content, Glossary } from '@interface/magic/cr';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { last, zip } from 'lodash';
-import { toIdentifier } from '../util';
 
 import { diffString } from '@common/util/diff';
+import { toIdentifier } from '@common/util/id';
 
 import { dataPath } from '@/config';
 

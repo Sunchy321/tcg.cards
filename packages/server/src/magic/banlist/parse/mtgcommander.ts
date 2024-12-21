@@ -4,7 +4,7 @@ import request from 'request-promise-native';
 import { BanlistChange as IBanlistChange, BanlistStatus } from '@interface/magic/banlist';
 
 import { parseDate, getLines } from './helper';
-import { toIdentifier } from '@/magic/util';
+import { toIdentifier } from '@common/util/id';
 
 const monthMap: Record<string, string> = {
     Jan: '01',

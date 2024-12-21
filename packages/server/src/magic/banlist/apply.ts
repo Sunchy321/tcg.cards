@@ -16,7 +16,7 @@ import {
 
 import { cloneDeep } from 'lodash';
 import internalData from '@/internal-data';
-import { toIdentifier } from '@/magic/util';
+import { toIdentifier } from '@common/util/id';
 
 import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
 

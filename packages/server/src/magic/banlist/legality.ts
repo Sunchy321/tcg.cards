@@ -11,8 +11,9 @@ import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { castArray, isEqual } from 'lodash';
 
+import { toIdentifier } from '@common/util/id';
 import internalData from '@/internal-data';
-import { convertLegality, toIdentifier } from '../util';
+import { convertLegality } from '../util';
 
 import { dataPath } from '@/config';
 import { formats as formatList } from '@static/magic/basic';

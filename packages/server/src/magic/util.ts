@@ -1,18 +1,10 @@
-import { deburr } from 'lodash';
 import {
     Colors, Legalities as SLegalities, Legality as SLegality, Manas,
 } from '@interface/magic/scryfall/basic';
 import { Legalities } from '@interface/magic/card';
 import { Legality } from '@interface/magic/format-change';
 
-export function toIdentifier(text: string): string {
-    return deburr(text)
-        .trim()
-        .toLowerCase()
-        .replace(' // ', '____')
-        .replace('/', '____')
-        .replace(/[^a-z0-9]/g, '_');
-}
+import { toIdentifier } from '@common/util/id';
 
 type Type = {
     super?: string[];
