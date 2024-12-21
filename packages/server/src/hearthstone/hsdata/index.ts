@@ -391,7 +391,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         for (const e of xml.CardDefs.Entity) {
             try {
-                entities.push(this.convert(e) as IEntity);
+                entities.push((await this.convert(e)) as IEntity);
             } catch (errs) {
                 errors.push(...(errs as string[]).map(err => `${e._attributes.CardID}: ${err}\n`));
             }
@@ -540,7 +540,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
     }
 
-    private convert(entity: XEntity): IEntity {
+    private async convert(entity: XEntity): Promise<IEntity> {
         const result: Partial<IEntity> = { };
         const masters: string[] = [];
         const errors: string[] = [];
@@ -901,6 +901,23 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             if (result.attack == null && result.durability != null) {
                 result.attack = 0;
             }
+        }
+
+        const sameIdEntities = await Entity.find({ entityId: result.entityId, cardId: { $exists: true } });
+
+        const toIdentifier = (s: string) => s.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
+
+        if (sameIdEntities.length > 0) {
+            const cardIds = uniq(sameIdEntities.map(e => e.cardId));
+
+            if (cardIds.length > 1) {
+                errors.push(`Multiple card ids ${cardIds.join(', ')}`);
+                result.cardId = toIdentifier(result.entityId);
+            }
+
+            result.cardId = cardIds[0];
+        } else {
+            result.cardId = toIdentifier(result.entityId);
         }
 
         return result as IEntity;

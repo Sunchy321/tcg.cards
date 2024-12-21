@@ -4,6 +4,7 @@ export interface Entity {
     version: number[];
 
     entityId: string;
+    cardId: string;
     dbfId: number;
     slug?: string;
 
