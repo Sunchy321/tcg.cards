@@ -73,15 +73,21 @@
             class="legalities"
         >
             <q-card class="q-ma-sm q-pa-sm updation">
-                <q-card-section>
+                <q-card-section class="flex justify-around">
                     <q-btn class="q-mr-sm" flat dense no-caps @click="commitUpdation(u, 'reject')">
                         <component :is="() => diffContent(u.oldValue, u.newValue)[0]" />
                     </q-btn>
                 </q-card-section>
 
-                <q-card-section>
+                <q-card-section class="flex justify-around">
                     <q-btn class="q-mr-sm" flat dense no-caps @click="commitUpdation(u, 'accept')">
                         <component :is="() => diffContent(u.oldValue, u.newValue)[1]" />
+                    </q-btn>
+                </q-card-section>
+
+                <q-card-section class="flex justify-around">
+                    <q-btn class="q-ml-sm" outline dense @click="acceptAndEdit(u)">
+                        Accept & Edit
                     </q-btn>
                 </q-card-section>
 
@@ -98,6 +104,8 @@
 import {
     h, ref, computed, watch, onMounted,
 } from 'vue';
+
+import { useRouter } from 'vue-router';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'src/setup/page';
@@ -127,6 +135,8 @@ type UpdationData = {
     current: number;
     values: (Updation & { _id: string })[];
 };
+
+const router = useRouter();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -336,6 +346,28 @@ const commitUpdation = async (updation: Updation & { _id: string }, type: string
     });
 
     await loadData();
+};
+
+const acceptAndEdit = async (updation: Updation & { _id: string }) => {
+    await controlPost(`/magic/${mode.value}/commit-updation`, {
+        id:  updation._id,
+        key: updation.key,
+    });
+
+    await loadData();
+
+    const route = router.resolve({
+        name:  'magic/data',
+        query: {
+            tab:    'Editor',
+            id:     updation.cardId,
+            lang:   updation.lang,
+            set:    updation.set,
+            number: updation.number,
+        },
+    });
+
+    window.open(route.href, '_blank');
 };
 
 const acceptAllUpdation = async () => {
