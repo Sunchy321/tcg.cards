@@ -8,6 +8,7 @@ export default {
         enchantment:       '额外效果',
         mercenary_ability: '佣兵技能',
         location:          '地标',
+        tavern_spell:      '酒馆法术',
         anomaly:           '畸变',
     },
 
@@ -185,6 +186,7 @@ export default {
         piece_of_cthun:                  'piece_of_cthun',
         poison:                          'poison',
         poisonous:                       '剧毒',
+        prefer_attack_can_kill:          '优先攻击可以消灭',
         premium:                         '金色',
         puzzle_type:                     'puzzle_type',
         puzzle:                          'puzzle',

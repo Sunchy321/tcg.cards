@@ -8,6 +8,7 @@ export default {
         enchantment:       'Enchantment',
         mercenary_ability: 'Mercenary Ability',
         location:          'Location',
+        tavern_spell:      'Tavern Spell',
         anomaly:           'Anomaly',
     },
 
@@ -187,6 +188,7 @@ export default {
         piece_of_cthun:                  'piece_of_cthun',
         poison:                          'poison',
         poisonous:                       'poisonous',
+        prefer_attack_can_kill:          'prefer attack can kill',
         premium:                         'premium',
         puzzle_type:                     'puzzle_type',
         puzzle:                          'puzzle',

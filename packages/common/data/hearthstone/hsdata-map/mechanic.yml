@@ -537,4 +537,7 @@
 3308: ?anomaly_3308
 3312: ?anomaly_3312
 3329: is_coin
-3382: ?anomaly_3382
+3382: ?3382
+3370: prefer_attack_can_kill
+3391: ?3391
+3081: ?tavern_spell
