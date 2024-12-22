@@ -825,6 +825,16 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
         }
 
+        const defaultCardId = (() => {
+            let id = toIdentifier(result.localization?.find(l => l.lang === 'en')?.name ?? result.entityId);
+
+            if (result.type === 'enchantment') {
+                id += ';enchantment';
+            }
+
+            return id;
+        })();
+
         const sameIdEntities = await Entity.find({ entityId: result.entityId, cardId: { $exists: true } });
 
         if (sameIdEntities.length > 0) {
@@ -832,12 +842,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
             if (cardIds.length > 1) {
                 errors.push(`Multiple card ids ${cardIds.join(', ')}`);
-                result.cardId = toIdentifier(result.entityId);
+                result.cardId = defaultCardId;
             }
 
             result.cardId = cardIds[0];
         } else {
-            result.cardId = toIdentifier(result.entityId);
+            result.cardId = defaultCardId;
         }
 
         return result as IEntity;
