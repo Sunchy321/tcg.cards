@@ -146,6 +146,7 @@ export default {
         filter_even_in_collection:                    'filter_even_in_collection',
         filter_odd_in_collection:                     'filter_odd_in_collection',
         finish_attack_spell_on_damage:                'finish_attack_spell_on_damage',
+        fish_of_n_zoth:                               'fish of n\'zoth',
         forgetful:                                    'forgetful',
         freeze:                                       'freeze',
         frenzy:                                       'frenzy',
@@ -157,6 +158,8 @@ export default {
         gears:                                        'gears', // maybe related to Dr. Boom
         generate_soul_fragment:                       'generate_soul_fragment',
         ghostly:                                      'ghostly', // destroy if it is in your hand at end of turn
+        gigantic:                                     'gigantic',
+        gigantify:                                    'gigantify',
         has_diamond:                                  'has_diamond',
         health:                                       'health',
         hero_frame_type:                              'hero frame type',

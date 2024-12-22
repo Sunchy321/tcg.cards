@@ -144,6 +144,7 @@ export default {
         filter_even_in_collection:                    'filter_even_in_collection',
         filter_odd_in_collection:                     'filter_odd_in_collection',
         finish_attack_spell_on_damage:                'finish_attack_spell_on_damage',
+        fish_of_n_zoth:                               '恩佐斯的鱼',
         forgetful:                                    'forgetful',
         freeze:                                       '冻结',
         frenzy:                                       '暴怒',
@@ -155,6 +156,8 @@ export default {
         gears:                                        'gears', // maybe related to Dr. Boom
         generate_soul_fragment:                       'generate_soul_fragment',
         ghostly:                                      'ghostly', // destroy if it is in your hand at end of turn
+        gigantic:                                     '大型',
+        gigantify:                                    '扩大',
         has_diamond:                                  '具有钻石卡牌',
         health:                                       '生命值',
         hero_frame_type:                              '英雄框架类型',
