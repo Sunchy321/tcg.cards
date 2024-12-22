@@ -6,7 +6,6 @@ import {
 
 import Patch from '@/hearthstone/db/patch';
 import Entity from '@/hearthstone/db/entity';
-import Card from '@/hearthstone/db/card';
 import Task from '@/common/task';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
@@ -16,10 +15,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { xml2js } from 'xml-js';
 import {
-    castArray, flatten, isEqual, last, omit, partition, pick, uniq,
+    castArray, isEqual, last, omit, uniq,
 } from 'lodash';
-
-import { mergeCard } from './merge';
 
 import {
     TextBuilderType, getLangStrings, getDbfCardFile, getDisplayText,
@@ -197,7 +194,7 @@ export class PatchClearer extends Task<IClearPatchStatus> {
         }
 
         let count = 0;
-        let total = await Entity.countDocuments({ version: this.version });
+        const total = await Entity.countDocuments({ version: this.version });
 
         this.intervalProgress(500, () => ({
             type:    'clear-patch',
@@ -220,20 +217,6 @@ export class PatchClearer extends Task<IClearPatchStatus> {
         }
 
         count = 0;
-        total = await Card.countDocuments({ version: this.version });
-
-        const cards = await Card.find({ version: this.version });
-
-        for (const c of cards) {
-            if (c.version.length > 1) {
-                c.version = c.version.filter(v => v !== this.version);
-                await c.save();
-            } else {
-                await c.delete();
-            }
-
-            count += 1;
-        }
 
         patch.isUpdated = false;
 
@@ -432,8 +415,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         for (const jsons of toBucket(toGenerator(entities), 500)) {
             const oldData = await Entity.find({ entityId: { $in: jsons.map(j => j.entityId) } });
 
-            const oldCard = await Card.find({ entityId: { $in: jsons.map(j => j.entityId) } });
-
             for (const e of jsons) {
                 const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
 
@@ -454,7 +435,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 const eJson = omit(new Entity(e).toJSON(), ['version']);
 
                 let entitySaved = false;
-                let cardSaved = false;
 
                 for (const oe of oldData.filter(o => o.entityId === e.entityId)) {
                     const oJson = omit(oe.toJSON(), ['version']);
@@ -469,63 +449,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                 if (!entitySaved) {
                     await Entity.create(e);
-                }
-
-                const enLoc = e.localization.find(l => l.lang === 'en') ?? e.localization[0];
-
-                if (e.type !== 'enchantment') {
-                    const c = new Card({
-                        ...e,
-                        cardId:          enLoc != null ? toIdentifier(enLoc.name) : toIdentifier(e.entityId),
-                        entityId:        [e.entityId],
-                        relatedEntities: e.relatedEntities.map(r => ({ relation: r.relation, cardId: r.entityId })),
-                    });
-
-                    const cards = oldCard.filter(o => o.entityId.includes(e.entityId));
-
-                    if (cards.length > 0) {
-                        c.cardId = cards[0].cardId;
-                    }
-
-                    const oc = cards.find(o => o.version.includes(c.version[0]));
-
-                    if (oc != null) {
-                        await mergeCard(oc, c);
-                        cardSaved = true;
-                    } else {
-                        const [oldCards] = partition(cards, o => o.version.every(v => v < c.version[0]));
-
-                        if (oldCards.length > 0) {
-                            const latesetOldVersion = Math.max(...flatten(oldCards.map(o => o.version)));
-
-                            const latesetOldCard = oldCards.find(o => o.version.includes(latesetOldVersion))!;
-
-                            const commonKeys = uniq([
-                                ...Object.keys(c.toJSON()),
-                                ...Object.keys(latesetOldCard.toJSON()),
-                            ]).filter(k => ![
-                                'cardId', 'version', 'change', 'entityId', 'set',
-                            ].includes(k));
-
-                            const cJson = pick(c.toJSON(), commonKeys);
-                            const oJson = pick(latesetOldCard.toJSON(), commonKeys);
-
-                            if (isEqual(cJson, oJson) && c.set.every(s => latesetOldCard.set.includes(s))) {
-                                latesetOldCard.version.push(c.version[0]);
-                                await latesetOldCard.save();
-                                cardSaved = true;
-                            } else {
-                                if (latesetOldCard.change == null) {
-                                    latesetOldCard.change = 'unspecified';
-                                    await latesetOldCard.save();
-                                }
-                            }
-                        }
-                    }
-
-                    if (!cardSaved) {
-                        await Card.create(c);
-                    }
                 }
 
                 count += 1;
