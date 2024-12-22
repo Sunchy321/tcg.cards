@@ -1,5 +1,6 @@
 - ?1672
 - ?3439
+- ?3476
 - ?anomaly_2910
 - ?anomaly_2928
 - ?anomaly_3019
@@ -42,6 +43,7 @@
 - lettuce_role
 - magnetic_race
 - manathirst
+- min_sideboard_cards
 - overload
 - overload_owed
 - quest_adjustment
@@ -62,6 +64,7 @@
 - quest_upper_bound
 - score_value_1
 - score_value_2
+- sideboard_type
 - spell_power
 - the_rat_king_skill_activating_type
 - transfromed_card_visual_type
@@ -69,3 +72,5 @@
 - wildcard_tripler
 - wildcard_tripler_effect
 - windfury
+- zilliax_customizable_linked_cosmeticmoudle
+- zilliax_customizable_linked_functionalmoudle
