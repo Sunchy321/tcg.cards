@@ -10,6 +10,7 @@ export default {
         location:          'Location',
         tavern_spell:      'Tavern Spell',
         anomaly:           'Anomaly',
+        trinket:           'Trinket',
     },
 
     race: {
@@ -60,6 +61,8 @@ export default {
         physical_combat: 'Physical Combat',
         tavern_spell:    'Tavern Spell',
         spellcraft:      'Spellcraft',
+        lesser_trinket:  'Lesser',
+        greater_trinket: 'Greater',
     },
 
     mechanic: {
@@ -84,6 +87,7 @@ export default {
         battlegrounds_duo:                                'battlegrounds duo',
         battlegrounds_hero_skin:                          'battlegrounds_hero_skin',
         battlegrounds_hero:                               'battlegrounds_hero',
+        battlegrounds_is_magic_item_discover:             'is magic item discover',
         battlegrounds_kel_thuzad:                         'battlegrounds_kel_thuzad',
         battlegrounds_minion_summoned:                    'battlegrounds_minion_summoned',
         battlegrounds_pass_tooltip:                       'battlegrounds pass tooltip',
@@ -230,6 +234,8 @@ export default {
         quickdraw:                                        'quickdraw',
         random_deck:                                      'random_deck',
         rastakhan_treasure:                               'rastakhan_treasure',
+        reborn_with_full_attack:                          'reborn with full attack',
+        reborn_with_full_health:                          'reborn with full health',
         reborn:                                           'reborn',
         recruit:                                          'recruit',
         refresh:                                          'refresh',
@@ -298,6 +304,11 @@ export default {
         transfromed_card_visual_type:                     'transfromed_card_visual_type', // only on Corrupt cards
         treat_as_played_hero_card:                        'treat_as_played_hero_card',
         trigger_visual:                                   'trigger_visual',
+        trinket_allow_not_in_race:                        'trinket (allow not in race)',
+        trinket_multirace:                                'trinket (multirace)',
+        trinket_neutral:                                  'trinket (neutral)',
+        trinket_shop:                                     'trinket shop',
+        trinket:                                          'trinket',
         twinspell:                                        'twinspell',
         untouchable:                                      'untouchable',
         use_discover_visuals:                             'use_discover_visuals',

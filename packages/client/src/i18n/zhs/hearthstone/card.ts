@@ -10,6 +10,7 @@ export default {
         location:          '地标',
         tavern_spell:      '酒馆法术',
         anomaly:           '畸变',
+        trinket:           '饰品',
     },
 
     race: {
@@ -58,6 +59,8 @@ export default {
         physical_combat: '攻击',
         tavern_spell:    '酒馆法术',
         spellcraft:      '塑造法术',
+        lesser_trinket:  '小型',
+        greater_trinket: '大型',
     },
 
     mechanic: {
@@ -82,6 +85,7 @@ export default {
         battlegrounds_duo:                                '酒馆战棋双人',
         battlegrounds_hero_skin:                          'battlegrounds_hero_skin',
         battlegrounds_hero:                               '酒馆战棋英雄',
+        battlegrounds_is_magic_item_discover:             '饰品发现洁面',
         battlegrounds_kel_thuzad:                         'battlegrounds_kel_thuzad',
         battlegrounds_minion_summoned:                    'battlegrounds_minion_summoned',
         battlegrounds_pass_tooltip:                       '酒馆战棋传递提示',
@@ -228,6 +232,8 @@ export default {
         quickdraw:                                        '快枪',
         random_deck:                                      'random_deck',
         rastakhan_treasure:                               'rastakhan_treasure',
+        reborn_with_full_attack:                          '复生具有全部攻击力',
+        reborn_with_full_health:                          '复生具有全部生命值',
         reborn:                                           '复生',
         recruit:                                          '招募',
         refresh:                                          'refresh',
@@ -296,6 +302,11 @@ export default {
         transfromed_card_visual_type:                     'transfromed_card_visual_type', // only on Corrupt cards
         treat_as_played_hero_card:                        'treat_as_played_hero_card',
         trigger_visual:                                   '扳机可见',
+        trinket_allow_not_in_race:                        '饰品（允许未进种族时选择）',
+        trinket_multirace:                                '饰品（多种族）',
+        trinket_neutral:                                  '饰品（中立）',
+        trinket_shop:                                     '饰品商店',
+        trinket:                                          '饰品',
         twinspell:                                        '双生法术',
         untouchable:                                      'untouchable',
         use_discover_visuals:                             'use_discover_visuals',

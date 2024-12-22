@@ -26,6 +26,7 @@
 - ?mercenaries_2494
 - ?mercenaries_2889
 - ?overload_variant
+- ?trinket_3524
 - ?unknown_2931
 - ?unknown_2954
 - anomaly_weight
@@ -40,6 +41,7 @@
 - data_env_1
 - data_num_1
 - data_num_2
+- data_num_6
 - discard_cards
 - emote_character
 - emote_class
@@ -78,6 +80,7 @@
 - the_rat_king_skill_activating_type
 - tourist
 - transfromed_card_visual_type
+- turns_left_to_discover_trinket
 - unique_race
 - wildcard_tripler
 - wildcard_tripler_effect
