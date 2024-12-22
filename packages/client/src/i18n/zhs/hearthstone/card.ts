@@ -64,6 +64,7 @@ export default {
     },
 
     mechanic: {
+        abort_launch_button:                              '终止发射按钮',
         adapt:                                            '进化',
         adjacent_battlecry:                               '相邻随从战吼',
         adjacent_buff:                                    '相邻随从效果',
@@ -98,6 +99,7 @@ export default {
         buff_cost_zero:                                   'buff_cost_zero',
         buff_durability_up:                               'buff_durability_up',
         buff_health_up:                                   'buff_health_up',
+        c_thun_related:                                   '克苏恩相关',
         cant_attack_hero:                                 '不能攻击英雄',
         cant_attack:                                      '不能攻击',
         cant_be_destroyed:                                '不能被消灭',
@@ -123,6 +125,7 @@ export default {
         corrupted:                                        '已腐蚀',
         count_in_tavern:                                  '酒馆中数量',
         counter:                                          '反击',
+        crewmate:                                         '乘务员',
         critical_damage:                                  'critical_damage',
         current_spellpower_nature:                        'current_spellpower_nature',
         darkmoon_prize:                                   '暗月奖品',
@@ -160,6 +163,7 @@ export default {
         function_watcher:                                 'function_watcher',
         functionally_dead:                                'functionally_dead',
         galakrond_hero:                                   'galakrond_hero',
+        galakrond_related:                                '迦拉克隆相关',
         game_button:                                      'game_button',
         gears:                                            'gears', // maybe related to Dr. Boom
         generate_soul_fragment:                           'generate_soul_fragment',
@@ -271,6 +275,10 @@ export default {
         spell_weakness_shadow:                            '暗影虚弱',
         spellburst:                                       '法术迸发',
         spellcraft:                                       '塑造法术',
+        starship_enchantment:                             '星舰状态',
+        starship_piece_variant:                           '星舰组件（变种）',
+        starship_piece:                                   '星舰组件',
+        starship:                                         '星舰',
         start_dormant:                                    '起始休眠',
         start_of_combat_1:                                'start_of_combat_1',
         start_of_combat_2:                                'start_of_combat_2', // only on 8 battlegrounds hero power

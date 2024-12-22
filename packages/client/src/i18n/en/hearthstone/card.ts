@@ -66,6 +66,7 @@ export default {
     },
 
     mechanic: {
+        abort_launch_button:                              'abort launch button',
         adapt:                                            'adapt',
         adjacent_battlecry:                               'adjacent_battlecry',
         adjacent_buff:                                    'adjacent_buff',
@@ -100,6 +101,7 @@ export default {
         buff_cost_zero:                                   'buff_cost_zero',
         buff_durability_up:                               'buff_durability_up',
         buff_health_up:                                   'buff_health_up',
+        c_thun_related:                                   'c\'thun related',
         cant_attack_hero:                                 'cant_attack_hero',
         cant_attack:                                      'cant_attack',
         cant_be_destroyed:                                'cant_be_destroyed',
@@ -125,6 +127,7 @@ export default {
         corrupted:                                        'corrupted',
         count_in_tavern:                                  'count in tavern',
         counter:                                          'counter',
+        crewmate:                                         'crewmate',
         critical_damage:                                  'critical_damage',
         current_spellpower_nature:                        'current_spellpower_nature',
         darkmoon_prize:                                   'darkmoon_prize',
@@ -162,6 +165,7 @@ export default {
         function_watcher:                                 'function_watcher',
         functionally_dead:                                'functionally_dead',
         galakrond_hero:                                   'galakrond_hero',
+        galakrond_related:                                'galakrond related',
         game_button:                                      'game_button',
         gears:                                            'gears', // maybe related to Dr. Boom
         generate_soul_fragment:                           'generate_soul_fragment',
@@ -273,6 +277,10 @@ export default {
         spell_weakness_shadow:                            'spell_weakness_shadow',
         spellburst:                                       'spellburst',
         spellcraft:                                       'Spellcraft',
+        starship_enchantment:                             'starship enchantment',
+        starship_piece_variant:                           'starship piece (variant)',
+        starship_piece:                                   'starship piece',
+        starship:                                         'starship',
         start_dormant:                                    'start_dormant',
         start_of_combat_1:                                'start_of_combat_1',
         start_of_combat_2:                                'start_of_combat_2', // only on 8 battlegrounds hero power
