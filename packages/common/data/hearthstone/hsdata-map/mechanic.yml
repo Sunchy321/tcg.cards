@@ -4,6 +4,7 @@
 12:   premium
 32:   trigger_visual
 45:   health
+188:  silenced
 189:  windfury # processed individually includes mega_windfury
 190:  taunt
 191:  stealth
@@ -580,5 +581,8 @@
 3516: cho_gall
 3523: ?3523
 3548: ?quest_3548
+3573: zilliax_battlegrounds_module
 3576: ?3576
 3580: fish_of_n_zoth
+3661: battlegrounds_dont_show_pair_triple_discover_vfx
+3664: fallback_enchantment_portrait_dbid

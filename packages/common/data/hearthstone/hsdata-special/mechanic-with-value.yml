@@ -45,6 +45,7 @@
 - emote_class
 - entity_threshold_value
 - extra_minion
+- fallback_enchantment_portrait_dbid
 - game_button
 - hero_frame_type
 - lettuce_current_cooldown
