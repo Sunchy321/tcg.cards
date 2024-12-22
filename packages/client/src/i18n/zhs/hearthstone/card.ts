@@ -77,10 +77,13 @@ export default {
         battlecry:                                    '战吼',
         battlegrounds_action:                         'battlegrounds_action',
         battlegrounds_bob_skin:                       'battlegrounds_bob_skin',
+        battlegrounds_consume_tooltip:                '酒馆战棋消耗提示',
+        battlegrounds_duo:                            '酒馆战棋双人',
         battlegrounds_hero_skin:                      'battlegrounds_hero_skin',
         battlegrounds_hero:                           '酒馆战棋英雄',
         battlegrounds_kel_thuzad:                     'battlegrounds_kel_thuzad',
         battlegrounds_minion_summoned:                'battlegrounds_minion_summoned',
+        battlegrounds_pass_tooltip:                   '酒馆战棋传递提示',
         bleed:                                        '流血',
         blood_gem:                                    '鲜血宝石',
         buff_attack_up:                               'buff_attack_up',
@@ -100,6 +103,7 @@ export default {
         casts_when_drawn:                             '抽到时施放',
         cat:                                          '猫',
         charge:                                       '冲锋',
+        cho_gall:                                     '古加尔',
         choose_one:                                   '抉择',
         city_of_stormwind_1:                          'city_of_stormwind_1', // only on City of Stormwind
         city_of_stormwind_2:                          'city_of_stormwind_2', // only on City of Stormwind
@@ -111,6 +115,7 @@ export default {
         copy_spell_on_itself:                         'copy_spell_on_itself',
         corrupt:                                      '腐蚀',
         corrupted:                                    '已腐蚀',
+        count_in_tavern:                              '酒馆中数量',
         counter:                                      '反击',
         critical_damage:                              'critical_damage',
         current_spellpower_nature:                    'current_spellpower_nature',
@@ -152,6 +157,7 @@ export default {
         ghostly:                                      'ghostly', // destroy if it is in your hand at end of turn
         has_diamond:                                  '具有钻石卡牌',
         health:                                       '生命值',
+        hero_frame_type:                              '英雄框架类型',
         hero_power_damage:                            '英雄技能伤害',
         hide_attack_number:                           '隐藏攻击力',
         hide_attack:                                  '隐藏攻击力', // only on Unleash the Beast

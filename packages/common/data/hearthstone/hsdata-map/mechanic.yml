@@ -368,6 +368,7 @@
 2434: lettuce_healing_power
 2436: ?battleground_battlecry
 2439: ?mercenaries_2439
+2443: ?battlegrounds_duo_2443
 2448: infuse_beast
 2449: infuse_totem
 2455: battlegrounds_freeze
@@ -510,6 +511,7 @@
 3078: new_ritual
 3081: ?tavern_spell
 3083: ?malchezaar__prince_of_dance_golden
+3090: ?3090
 3101: ?gilnean_war_horn
 3102: ?turbulent_tombs
 3108: banned_in_twist
@@ -522,11 +524,16 @@
 3131: ?anomaly_3131
 3132: ?anomaly_3132
 3133: ?anomaly_3133
+3164: count_in_tavern
+3166: battlegrounds_duo
+3167: ?battlegrounds_hero_3167
 3169: ?discover_quest_reward
 3174: one_turn_venomous
 3181: spellcraft_don_t_affect_minion
+3186: ?battlegrounds_3186
 3190: ?hero_3190
 3194: buddy_in_tavern
+3206: ?battlegrounds_duo_3206
 3209: ?anomaly_3209
 3211: ?c_thun_3211
 3218: battlegrounds_disable_refresh
@@ -534,6 +541,8 @@
 3220: battlegrounds_disable_upgrade
 3224: ?battlegrounds_enchantment
 3227: ?piloted_whirl_o_tron_enchantment
+3234: ?battlegrounds_3234
+3254: battlegrounds_consume_tooltip
 3261: ?enchantment_3261
 3262: ?anomaly_3262
 3299: ?anomaly_3299
@@ -541,6 +550,9 @@
 3312: ?anomaly_3312
 3318: miniaturize
 3319: mini
+3321: battlegrounds_pass_tooltip
+3323: ?battlegrounds_3323
+3324: ?battlegrounds_3324
 3329: is_coin
 3360: ?3360
 3370: prefer_attack_can_kill
@@ -561,4 +573,6 @@
 3472: hide_attack_number
 3476: ?3476
 3482: ignore_suppress_mill_animation
+3495: hero_frame_type
+3516: cho_gall
 3548: ?quest_3548

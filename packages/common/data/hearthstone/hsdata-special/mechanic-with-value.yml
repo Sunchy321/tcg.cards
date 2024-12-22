@@ -1,4 +1,5 @@
 - ?1672
+- ?3090
 - ?3439
 - ?3476
 - ?anomaly_2910
@@ -15,6 +16,10 @@
 - ?anomaly_3299
 - ?anomaly_3308
 - ?anomaly_3312
+- ?battlegrounds_3323
+- ?battlegrounds_3324
+- ?battlegrounds_duo_2443
+- ?battlegrounds_duo_3206
 - ?hero_3190
 - ?lettuce_ability_summoned_minion
 - ?mercenaries_2494
@@ -29,6 +34,7 @@
 - buff_cost_up
 - buff_durability_up
 - buff_health_up
+- count_in_tavern
 - darkmoon_prize
 - data_env_1
 - data_num_1
@@ -39,6 +45,7 @@
 - entity_threshold_value
 - extra_minion
 - game_button
+- hero_frame_type
 - lettuce_current_cooldown
 - lettuce_role
 - magnetic_race

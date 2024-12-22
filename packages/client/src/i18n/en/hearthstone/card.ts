@@ -79,10 +79,13 @@ export default {
         battlecry:                                    'battlecry',
         battlegrounds_action:                         'battlegrounds_action',
         battlegrounds_bob_skin:                       'battlegrounds_bob_skin',
+        battlegrounds_consume_tooltip:                'battlegrounds consume tooltip',
+        battlegrounds_duo:                            'battlegrounds duo',
         battlegrounds_hero_skin:                      'battlegrounds_hero_skin',
         battlegrounds_hero:                           'battlegrounds_hero',
         battlegrounds_kel_thuzad:                     'battlegrounds_kel_thuzad',
         battlegrounds_minion_summoned:                'battlegrounds_minion_summoned',
+        battlegrounds_pass_tooltip:                   'battlegrounds pass tooltip',
         bleed:                                        'bleed',
         blood_gem:                                    'blood_gem',
         buff_attack_up:                               'buff_attack_up',
@@ -102,6 +105,7 @@ export default {
         casts_when_drawn:                             'casts_when_drawn',
         cat:                                          'cat',
         charge:                                       'charge',
+        cho_gall:                                     'cho gall',
         choose_one:                                   'choose_one',
         city_of_stormwind_1:                          'city_of_stormwind_1', // only on City of Stormwind
         city_of_stormwind_2:                          'city_of_stormwind_2', // only on City of Stormwind
@@ -113,6 +117,7 @@ export default {
         copy_spell_on_itself:                         'copy_spell_on_itself',
         corrupt:                                      'corrupt',
         corrupted:                                    'corrupted',
+        count_in_tavern:                              'count in tavern',
         counter:                                      'counter',
         critical_damage:                              'critical_damage',
         current_spellpower_nature:                    'current_spellpower_nature',
@@ -154,6 +159,7 @@ export default {
         ghostly:                                      'ghostly', // destroy if it is in your hand at end of turn
         has_diamond:                                  'has_diamond',
         health:                                       'health',
+        hero_frame_type:                              'hero frame type',
         hero_power_damage:                            'hero_power_damage',
         hide_attack_number:                           'hide attack number',
         hide_attack:                                  'hide_attack', // only on Unleash the Beast
