@@ -47,6 +47,19 @@ export default {
         worgen:    '狼人',
     },
 
+    spellSchool: {
+        arcane:          '奥术',
+        fire:            '火焰',
+        frost:           '冰霜',
+        nature:          '自然',
+        holy:            '神圣',
+        shadow:          '暗影',
+        fel:             '邪能',
+        physical_combat: '攻击',
+        tavern_spell:    '酒馆法术',
+        spellcraft:      '塑造法术',
+    },
+
     mechanic: {
         adapt:                           '进化',
         adjacent_battlecry:              '相邻随从战吼',
@@ -107,6 +120,7 @@ export default {
         discard_cards:                   'discard_cards',
         discover:                        '发现',
         divine_shield:                   '圣盾',
+        dont_show_in_history:            '不在出牌历史中显示',
         dormant_visual:                  '休眠可见',
         dormant:                         '休眠',
         double_spell_damage:             'double_spell_damage',

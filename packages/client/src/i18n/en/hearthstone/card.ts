@@ -49,6 +49,19 @@ export default {
         worgen:    'Worgen',
     },
 
+    spellSchool: {
+        arcane:          'Arcane',
+        fire:            'Fire',
+        frost:           'Frost',
+        nature:          'Nature',
+        holy:            'Holy',
+        shadow:          'Shadow',
+        fel:             'Fel',
+        physical_combat: 'Physical Combat',
+        tavern_spell:    'Tavern Spell',
+        spellcraft:      'Spellcraft',
+    },
+
     mechanic: {
         adapt:                           'adapt',
         adjacent_battlecry:              'adjacent_battlecry',
@@ -109,6 +122,7 @@ export default {
         discard_cards:                   'discard_cards',
         discover:                        'discover',
         divine_shield:                   'divine_shield',
+        dont_show_in_history:            'don\'t show int history',
         dormant_visual:                  'dormant_visual',
         dormant:                         'dormant',
         double_spell_damage:             'double_spell_damage',
