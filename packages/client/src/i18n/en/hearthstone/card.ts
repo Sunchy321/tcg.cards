@@ -95,6 +95,7 @@ export default {
         bleed:                                            'bleed',
         blood_gem:                                        'blood_gem',
         board_replacement_type:                           'board_replacement_type',
+        bonus_keyword:                                    'bonus keyword',
         buff_attack_up:                                   'buff_attack_up',
         buff_cost_down:                                   'buff_cost_down',
         buff_cost_up:                                     'buff_cost_up',
@@ -125,7 +126,10 @@ export default {
         copy_spell_on_itself:                             'copy_spell_on_itself',
         corrupt:                                          'corrupt',
         corrupted:                                        'corrupted',
+        count_bonus_keyword:                              'count bonus keyword',
+        count_element_played:                             'count element played',
         count_in_tavern:                                  'count in tavern',
+        count_san_layn_scribe_died:                       'count san\'layn scribe died',
         counter:                                          'counter',
         crewmate:                                         'crewmate',
         critical_damage:                                  'critical_damage',
@@ -145,6 +149,7 @@ export default {
         echo:                                             'echo',
         elusive:                                          'elusive',
         enchantment_invisible:                            'enchantment_invisible',
+        end_of_turn_effect:                               'end of turn effect',
         enraged:                                          'enraged',
         eudora_treasure:                                  'eudora treasure',
         evil_glow:                                        'evil_glow',
@@ -198,6 +203,7 @@ export default {
         jade_golem:                                       'jade_golem', // it should be a referenced tag
         kingsbane_1:                                      'kingsbane_1', // only on kingsbane
         kingsbane_2:                                      'kingsbane_2', // only on kingsbane
+        knockoff_wisdomball:                              'knockoff wisdomball',
         kurtrus_hero_power_advanced:                      'kurtrus_hero_power_advanced',
         lackey:                                           'lackey',
         lettuce_attack:                                   'lettuce_attack', // unknown
@@ -211,6 +217,7 @@ export default {
         lettuce_start_of_combat:                          'lettuce_start_of_combat',
         libram:                                           'libram',
         lifesteal:                                        'lifesteal',
+        magnetic_variable:                                'magnetic variable',
         mega_windfury:                                    'mega_windfury',
         min_sideboard_cards:                              'min sideboard cards',
         mini:                                             'mini',
@@ -310,6 +317,7 @@ export default {
         tourist_warrior:                                  'tourist (warrior)',
         tourist:                                          'tourist',
         tradable:                                         'tradable',
+        transform_after_play_minion:                      'transform after play minion',
         transfromed_card_visual_type:                     'transfromed_card_visual_type', // only on Corrupt cards
         treat_as_played_hero_card:                        'treat_as_played_hero_card',
         trigger_visual:                                   'trigger_visual',
@@ -322,6 +330,7 @@ export default {
         untouchable:                                      'untouchable',
         use_discover_visuals:                             'use_discover_visuals',
         windfury:                                         'windfury', // processed individually, includes mega_windfury
+        young_murk_eye:                                   'young murk-eye',
         zilliax_battlegrounds_module:                     'zilliax battlegrounds module',
         zilliax_customizable_cosmeticmodule:              'zilliax customizable cosmeticmodule',
         zilliax_customizable_functionalmodule:            'zilliax customizable functionalmodule',

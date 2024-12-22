@@ -570,6 +570,7 @@
 3399: gigantify
 3400: gigantic
 3407: trinket
+3423: bonus_keyword
 3427: sideboard_type
 3429: paladin_aura_variant
 3431: eudora_treasure
@@ -620,11 +621,19 @@
 3661: battlegrounds_dont_show_pair_triple_discover_vfx
 3664: fallback_enchantment_portrait_dbid
 3684: starship_piece_variant
+3744: end_of_turn_effect
+3768: count_element_played
+3770: count_bonus_keyword
 3798: reborn_with_full_attack
 3800: reborn_with_full_health
 3822: ?trinket_3822
+3840: magnetic_variable
 3850: ?sky_pirate_3850
 3860: ?battleground_3860
 3861: ?trinket_3861
 3870: starship_enchantment
 3885: abort_launch_button
+3929: count_san_layn_scribe_died
+3942: transform_after_play_minion
+3970: young_murk_eye
+3982: knockoff_wisdomball

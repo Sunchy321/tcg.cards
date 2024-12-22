@@ -93,6 +93,7 @@ export default {
         bleed:                                            '流血',
         blood_gem:                                        '鲜血宝石',
         board_replacement_type:                           '棋盘替换类型',
+        bonus_keyword:                                    '额外关键字',
         buff_attack_up:                                   'buff_attack_up',
         buff_cost_down:                                   'buff_cost_down',
         buff_cost_up:                                     'buff_cost_up',
@@ -123,7 +124,10 @@ export default {
         copy_spell_on_itself:                             'copy_spell_on_itself',
         corrupt:                                          '腐蚀',
         corrupted:                                        '已腐蚀',
+        count_bonus_keyword:                              '计数额外关键字',
+        count_element_played:                             '计数使用元素数量',
         count_in_tavern:                                  '酒馆中数量',
+        count_san_layn_scribe_died:                       '计数萨莱因铭文师死亡',
         counter:                                          '反击',
         crewmate:                                         '乘务员',
         critical_damage:                                  'critical_damage',
@@ -143,6 +147,7 @@ export default {
         echo:                                             '回响',
         elusive:                                          '魔免',
         enchantment_invisible:                            '状态可见',
+        end_of_turn_effect:                               '回合结束效果',
         enraged:                                          '激怒',
         eudora_treasure:                                  '尤朵拉宝藏',
         evil_glow:                                        'evil_glow',
@@ -196,6 +201,7 @@ export default {
         jade_golem:                                       '青玉魔像', // it should be a referenced tag
         kingsbane_1:                                      '弑君1', // only on kingsbane
         kingsbane_2:                                      '弑君2', // only on kingsbane
+        knockoff_wisdomball:                              '假冒的智慧之球',
         kurtrus_hero_power_advanced:                      'kurtrus_hero_power_advanced',
         lackey:                                           '跟班',
         lettuce_attack:                                   '攻击技能', // unknown
@@ -209,6 +215,7 @@ export default {
         lettuce_start_of_combat:                          '佣兵对战开始时效果',
         libram:                                           'libram',
         lifesteal:                                        '吸血',
+        magnetic_variable:                                '可变磁力',
         mega_windfury:                                    '超级风怒',
         min_sideboard_cards:                              '最小备牌数量',
         mini:                                             '微星',
@@ -308,6 +315,7 @@ export default {
         tourist_warrior:                                  '游客（战士）',
         tourist:                                          '游客',
         tradable:                                         '可交易',
+        transform_after_play_minion:                      '使用随从后变形',
         transfromed_card_visual_type:                     'transfromed_card_visual_type', // only on Corrupt cards
         treat_as_played_hero_card:                        'treat_as_played_hero_card',
         trigger_visual:                                   '扳机可见',
@@ -320,6 +328,7 @@ export default {
         untouchable:                                      'untouchable',
         use_discover_visuals:                             'use_discover_visuals',
         windfury:                                         '风怒', // processed individually, includes mega_windfury
+        young_murk_eye:                                   '小瞎眼',
         zilliax_battlegrounds_module:                     '奇利亚斯酒馆战棋模块',
         zilliax_customizable_cosmeticmodule:              '奇利亚斯定制外观模块',
         zilliax_customizable_functionalmodule:            '奇利亚斯定制功能模块',
