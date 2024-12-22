@@ -542,6 +542,7 @@
 3220: battlegrounds_disable_upgrade
 3224: ?battlegrounds_enchantment
 3227: ?piloted_whirl_o_tron_enchantment
+3228: tourist
 3234: ?battlegrounds_3234
 3254: battlegrounds_consume_tooltip
 3261: ?enchantment_3261
@@ -565,6 +566,8 @@
 3399: gigantify
 3400: gigantic
 3427: sideboard_type
+3429: paladin_aura_variant
+3431: eudora_treasure
 3438: suppress_hero_standard_summon_fx
 3439: ?3439
 3444: silver_hand_recruit
@@ -584,5 +587,17 @@
 3573: zilliax_battlegrounds_module
 3576: ?3576
 3580: fish_of_n_zoth
+3597: tourist_rogue
+3598: tourist_warlock
+3599: tourist_death_knight
+3600: tourist_shaman
+3601: tourist_demon_hunter
+3602: tourist_priest
+3603: tourist_hunter
+3604: tourist_warrior
+3605: tourist_druid
+3606: tourist_mage
+3607: tourist_paladin
+3630: temporary
 3661: battlegrounds_dont_show_pair_triple_discover_vfx
 3664: fallback_enchantment_portrait_dbid
