@@ -93,6 +93,7 @@ export default {
         battlegrounds_pass_tooltip:                       'battlegrounds pass tooltip',
         bleed:                                            'bleed',
         blood_gem:                                        'blood_gem',
+        board_replacement_type:                           'board_replacement_type',
         buff_attack_up:                                   'buff_attack_up',
         buff_cost_down:                                   'buff_cost_down',
         buff_cost_up:                                     'buff_cost_up',

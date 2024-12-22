@@ -91,6 +91,7 @@ export default {
         battlegrounds_pass_tooltip:                       '酒馆战棋传递提示',
         bleed:                                            '流血',
         blood_gem:                                        '鲜血宝石',
+        board_replacement_type:                           '棋盘替换类型',
         buff_attack_up:                                   'buff_attack_up',
         buff_cost_down:                                   'buff_cost_down',
         buff_cost_up:                                     'buff_cost_up',
