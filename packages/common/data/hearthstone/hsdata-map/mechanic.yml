@@ -111,7 +111,7 @@
 857:  ignore_hide_stats_for_big_card
 858:  ?unknown_858 # unknown mechanic [hero power of skin].858 = [hero power of basic hero]
 871:  magnetic_enchantment
-882: extra_deathrattle
+882:  extra_deathrattle
 886:  ?unknown_886 # only on 3 cards
 890:  discard_cards
 917:  city_of_stormwind_1 # only on City of Stormwind
@@ -451,6 +451,7 @@
 2819: riff
 2820: finale
 2821: overheal
+2823: excavate_treasure
 2831: treant
 2837: always_spend_corpse
 2839: emote_character
@@ -532,3 +533,7 @@
 3299: ?anomaly_3299
 3308: ?anomaly_3308
 3312: ?anomaly_3312
+3329: is_coin
+3114: excavate
+2905: quickdraw
+936: shifting_spell

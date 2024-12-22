@@ -118,6 +118,8 @@ export default {
         enchantment_invisible:           'enchantment_invisible',
         enraged:                         'enraged',
         evil_glow:                       'evil_glow',
+        excavate_treasure:               'excavate treasure',
+        excavate:                        'excavate',
         fantastic_treasure:              'fantastic_treasure',
         fatigue:                         'fatigue',
         filter_even_in_collection:       'filter_even_in_collection',
@@ -151,6 +153,7 @@ export default {
         inspire:                         'inspire',
         invisible_deathrattle:           'invisible_deathrattle',
         invoke:                          'invoke',
+        is_coin:                         'is coin',
         is_companion:                    'Battlegrounds Companion',
         jade_golem:                      'jade_golem', // it should be a referenced tag
         kingsbane_1:                     'kingsbane_1', // only on kingsbane
@@ -187,6 +190,7 @@ export default {
         premium:                         'premium',
         puzzle_type:                     'puzzle_type',
         puzzle:                          'puzzle',
+        quickdraw:                       'quickdraw',
         random_deck:                     'random_deck',
         rastakhan_treasure:              'rastakhan_treasure',
         reborn:                          'reborn',
@@ -197,6 +201,7 @@ export default {
         rush:                            'rush',
         secret_deathrattle:              'secret_deathrattle',
         secret:                          'secret',
+        shifting_spell:                  'shifting spell',
         shrine:                          'shrine',
         shudderwork:                     'shudderwork',
         si_7:                            'si_7',

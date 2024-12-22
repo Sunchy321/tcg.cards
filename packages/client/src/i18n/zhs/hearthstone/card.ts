@@ -116,6 +116,8 @@ export default {
         enchantment_invisible:           '状态可见',
         enraged:                         '激怒',
         evil_glow:                       'evil_glow',
+        excavate_treasure:               '发掘宝藏',
+        excavate:                        '发掘',
         fantastic_treasure:              'fantastic_treasure',
         fatigue:                         'fatigue',
         filter_even_in_collection:       'filter_even_in_collection',
@@ -149,6 +151,7 @@ export default {
         inspire:                         '激励',
         invisible_deathrattle:           '不可见亡语',
         invoke:                          '祈求',
+        is_coin:                         '幸运币',
         is_companion:                    '酒馆战棋伙伴',
         jade_golem:                      '青玉魔像', // it should be a referenced tag
         kingsbane_1:                     '弑君1', // only on kingsbane
@@ -185,6 +188,7 @@ export default {
         premium:                         '金色',
         puzzle_type:                     'puzzle_type',
         puzzle:                          'puzzle',
+        quickdraw:                       '快枪',
         random_deck:                     'random_deck',
         rastakhan_treasure:              'rastakhan_treasure',
         reborn:                          '复生',
@@ -195,6 +199,7 @@ export default {
         rush:                            '突袭',
         secret_deathrattle:              '秘密亡语',
         secret:                          '奥秘',
+        shifting_spell:                  '变形法术',
         shrine:                          '神龛',
         shudderwork:                     'shudderwork',
         si_7:                            '军情七处',
