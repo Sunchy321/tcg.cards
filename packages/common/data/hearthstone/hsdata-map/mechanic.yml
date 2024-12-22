@@ -514,6 +514,7 @@
 3081: ?tavern_spell
 3083: ?malchezaar__prince_of_dance_golden
 3090: ?3090
+3096: ?start_of_combat_3096
 3101: ?gilnean_war_horn
 3102: ?turbulent_tombs
 3108: banned_in_twist
@@ -616,3 +617,6 @@
 3798: reborn_with_full_attack
 3800: reborn_with_full_health
 3822: ?trinket_3822
+3850: ?sky_pirate_3850
+3860: ?battleground_3860
+3861: ?trinket_3861
