@@ -22,13 +22,13 @@ import {
     TextBuilderType, getLangStrings, getDbfCardFile, getDisplayText,
 } from '@/hearthstone/blizzard/display-text';
 
-import { dataPath } from '@/config';
 import { localPath, langMap } from './base';
 import * as logger from '@/logger';
 
 import { toBucket, toGenerator } from '@/common/to-bucket';
 import { toIdentifier } from '@common/util/id';
 import internalData from '@/internal-data';
+import { loadPatch } from '../logger';
 
 const remoteUrl = 'git@github.com:HearthSim/hsdata.git';
 
@@ -359,6 +359,18 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         await repo.reset(ResetMode.HARD, [patch.hash]);
 
+        let count = 0;
+        let total = 0;
+
+        this.intervalProgress(500, () => ({
+            type:    'load-patch',
+            version: this.version,
+            count,
+            total,
+        }));
+
+        loadPatch.info(`${'='.repeat(20)} ${patch.version} ${'='.repeat(20)}`);
+
         const cardDefs = fs
             .readFileSync(path.join(localPath, 'CardDefs.xml'))
             .toString();
@@ -370,26 +382,60 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }) as { CardDefs: XCardDefs };
 
         const entities: IEntity[] = [];
-        const errors: string[] = [];
-        const errorPath = path.join(dataPath, 'hearthstone', 'hsdata-error.txt');
+        let hasError = false;
 
-        for (const e of xml.CardDefs.Entity) {
-            try {
-                entities.push((await this.convert(e)) as IEntity);
-            } catch (errs) {
-                errors.push(...(errs as string[]).map(err => `${e._attributes.CardID}: ${err}\n`));
+        for (const bucket of toBucket(toGenerator(xml.CardDefs.Entity), 500)) {
+            const newEntities = [];
+
+            for (const e of bucket) {
+                try {
+                    newEntities.push(this.convert(e));
+
+                    total += 1;
+                } catch (errs) {
+                    hasError = true;
+
+                    for (const err of errs) {
+                        loadPatch.error(`${e._attributes.CardID}: ${err}`);
+                    }
+                }
             }
+
+            const bucketEntities = await Entity.find({ entityId: { $in: newEntities.map(e => e.entityId) } });
+
+            for (const e of newEntities) {
+                const defaultCardId = (() => {
+                    let id = toIdentifier(e.localization?.find(l => l.lang === 'en')?.name ?? e.entityId);
+
+                    if (e.type === 'enchantment') {
+                        id += ';enchantment';
+                    }
+
+                    return id;
+                })();
+
+                const sameIdEntities = bucketEntities.filter(o => o.entityId === e.entityId);
+
+                if (sameIdEntities.length > 0) {
+                    const cardIds = uniq(sameIdEntities.map(e => e.cardId));
+
+                    if (cardIds.length > 1) {
+                        loadPatch.error(`Multiple card ids ${cardIds.join(', ')}`);
+                        e.cardId = defaultCardId;
+                    }
+
+                    e.cardId = cardIds[0];
+                } else {
+                    e.cardId = defaultCardId;
+                }
+            }
+
+            entities.push(...newEntities);
         }
 
-        fs.writeFileSync(errorPath, '');
+        loadPatch.info('='.repeat(54));
 
-        for (const e of errors) {
-            fs.writeFileSync(errorPath, e, { flag: 'a' });
-        }
-
-        fs.writeFileSync(errorPath, '-'.repeat(50), { flag: 'a' });
-
-        if (errors.length > 0) {
+        if (hasError) {
             return;
         }
 
@@ -401,16 +447,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         const strings = getLangStrings();
         const fileJson = getDbfCardFile();
-
-        let count = 0;
-        const total = entities.length;
-
-        this.intervalProgress(500, () => ({
-            type:    'load-patch',
-            version: this.version,
-            count,
-            total,
-        }));
 
         for (const jsons of toBucket(toGenerator(entities), 500)) {
             const oldData = await Entity.find({ entityId: { $in: jsons.map(j => j.entityId) } });
@@ -462,7 +498,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
     }
 
-    private async convert(entity: XEntity): Promise<IEntity> {
+    private convert(entity: XEntity): IEntity {
         const result: Partial<IEntity> = { };
         const masters: string[] = [];
         const errors: string[] = [];
@@ -823,31 +859,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             if (result.attack == null && result.durability != null) {
                 result.attack = 0;
             }
-        }
-
-        const defaultCardId = (() => {
-            let id = toIdentifier(result.localization?.find(l => l.lang === 'en')?.name ?? result.entityId);
-
-            if (result.type === 'enchantment') {
-                id += ';enchantment';
-            }
-
-            return id;
-        })();
-
-        const sameIdEntities = await Entity.find({ entityId: result.entityId, cardId: { $exists: true } });
-
-        if (sameIdEntities.length > 0) {
-            const cardIds = uniq(sameIdEntities.map(e => e.cardId));
-
-            if (cardIds.length > 1) {
-                errors.push(`Multiple card ids ${cardIds.join(', ')}`);
-                result.cardId = defaultCardId;
-            }
-
-            result.cardId = cardIds[0];
-        } else {
-            result.cardId = defaultCardId;
         }
 
         return result as IEntity;
