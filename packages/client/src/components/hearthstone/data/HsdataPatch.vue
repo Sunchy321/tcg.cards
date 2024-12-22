@@ -19,7 +19,8 @@
         <span v-if="duplicate > 0" class="duplicate">{{ duplicate }}</span>
 
         <q-circular-progress
-            v-show="progress != null"
+            v-show="progress !== undefined"
+            :indeterminate="progress === null"
             :value="progressValue"
             font-size="8px"
             :max="1"
@@ -31,18 +32,6 @@
         <span v-show="progress != null" class="q-pl-sm">{{ progressLabel }}</span>
     </div>
 </template>
-
-<style lang="sass" scoped>
-.version
-    width: 100px
-
-.duplicate
-    color: red
-
-.load-button.is-updated
-    color: green
-
-</style>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
@@ -69,7 +58,7 @@ interface Progress {
 
 const { controlWs } = controlSetup();
 
-const progress = ref<Progress | null>(null);
+const progress = ref<Progress | null>();
 
 const progressValue = computed(() => {
     if (progress.value == null) {
@@ -102,7 +91,7 @@ const clearPatch = async () => {
 
         ws.onerror = reject;
         ws.onclose = () => {
-            progress.value = null;
+            progress.value = undefined;
             emit('load-data');
 
             resolve(undefined);
@@ -111,6 +100,8 @@ const clearPatch = async () => {
 };
 
 const loadPatch = async () => {
+    progress.value = null;
+
     const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.number });
 
     return new Promise((resolve, reject) => {
@@ -125,7 +116,7 @@ const loadPatch = async () => {
 
         ws.onerror = reject;
         ws.onclose = () => {
-            progress.value = null;
+            progress.value = undefined;
             emit('load-data');
 
             resolve(undefined);
@@ -133,3 +124,15 @@ const loadPatch = async () => {
     });
 };
 </script>
+
+<style lang="sass" scoped>
+.version
+    width: 100px
+
+.duplicate
+    color: red
+
+.load-button.is-updated
+    color: green
+
+</style>
