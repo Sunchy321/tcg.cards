@@ -118,6 +118,7 @@
 920:  city_of_stormwind_2 # only on City of Stormwind
 921:  voodoo_link
 923:  overkill
+936:  shifting_spell
 956:  filter_even_in_collection
 957:  filter_odd_in_collection
 960:  ?unknown_960 # only on 5 cards
@@ -474,6 +475,7 @@
 2895: anomaly_constructed
 2899: plague
 2900: anomaly_battlegrounds
+2905: quickdraw
 2909: battleground_extra_armor
 2910: ?anomaly_2910
 2911: battlegrounds_cost_health
@@ -508,6 +510,7 @@
 3101: ?gilnean_war_horn
 3102: ?turbulent_tombs
 3108: banned_in_twist
+3114: excavate
 3117: extra_minion
 3123: ?recurring_nightmare_enchantment
 3124: ?golden_recurring_nightmare_enchantment
@@ -534,6 +537,4 @@
 3308: ?anomaly_3308
 3312: ?anomaly_3312
 3329: is_coin
-3114: excavate
-2905: quickdraw
-936: shifting_spell
+3382: ?anomaly_3382
