@@ -6,6 +6,7 @@ import { SearchOption } from '../../src/search';
 import { QueryError } from '../../src/command/error';
 
 import { ICardDatabase } from '@common/model/magic/card';
+import { IPrintDatabase } from '@common/model/magic/print';
 
 import * as builtin from '../../src/command/builtin/backend';
 import * as magic from './command/backend';
@@ -512,46 +513,64 @@ function parseOption(optionText: string | undefined, defaultValue: number): numb
     return optionNumber;
 }
 
-export default defineBackendModel<ICardDatabase, 'dev' | 'search' | 'searchId'>({
+type ServerModel = {
+    card: ICardDatabase;
+    print: IPrintDatabase;
+};
+
+type ServerActions = {
+    search: { cards: ServerModel[], total: number, page: number };
+    dev: { cards: ServerModel[], total: number };
+    searchId: string[];
+};
+
+export default defineBackendModel<ServerActions, Model<ICardDatabase>>({
     commands: Object.values(backedCommands),
 
     actions: {
-        search: async (Card: Model<ICardDatabase>, q: DBQuery, p: PostAction[], o: SearchOption) => {
+        search: async (gen, q: DBQuery, p: PostAction[], o: SearchOption) => {
             const groupBy = o['group-by'] ?? 'card';
             const orderBy = o['order-by'] ?? 'id+';
             const page = parseOption(o.page, 1);
             const pageSize = parseOption(o['page-size'], 100);
             const locale = o.locale ?? 'en';
 
-            const aggregate = Card.aggregate()
-                .allowDiskUse(true)
-                .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-                .match(q);
+            const fullGen = <T>() => {
+                const aggregate = gen<T>();
 
-            switch (groupBy) {
-            case 'print':
-                break;
-            case 'card':
-            default:
                 aggregate
-                    .addFields({
-                        langIsLocale:  { $eq: ['$lang', locale] },
-                        langIsEnglish: { $eq: ['$lang', 'en'] },
-                    })
-                    .sort({
-                        langIsLocale:  -1,
-                        langIsEnglish: -1,
-                        releaseDate:   -1,
-                        number:        1,
-                    })
-                    .collation({ locale: 'en', numericOrdering: true })
-                    .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
-                    .replaceRoot('data');
-            }
+                    .allowDiskUse(true)
+                    .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
+                    .match(q);
+
+                switch (groupBy) {
+                case 'print':
+                    break;
+                case 'card':
+                default:
+                    aggregate
+                        .addFields({
+                            langIsLocale:  { $eq: ['$lang', locale] },
+                            langIsEnglish: { $eq: ['$lang', 'en'] },
+                        })
+                        .sort({
+                            langIsLocale:  -1,
+                            langIsEnglish: -1,
+                            releaseDate:   -1,
+                            number:        1,
+                        })
+                        .collation({ locale: 'en', numericOrdering: true })
+                        .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
+                        .replaceRoot('data');
+                }
+
+                return aggregate;
+            };
+
+            const aggregate = fullGen<ServerModel>();
 
             const total = (
-                await Card.aggregate(aggregate.pipeline())
-                    .allowDiskUse(true)
+                await fullGen<{ count: number }>()
                     .group({ _id: null, count: { $sum: 1 } })
             )[0]?.count ?? 0;
 
@@ -577,16 +596,24 @@ export default defineBackendModel<ICardDatabase, 'dev' | 'search' | 'searchId'>(
             return { cards, total, page };
         },
 
-        dev: async (Card: Model<ICardDatabase>, q: DBQuery, p: PostAction[], o: SearchOption) => {
-            const aggregate = Card.aggregate().allowDiskUse(true).match(q);
+        dev: async (gen, q: DBQuery, p: PostAction[], o: SearchOption) => {
+            const fullGen = <T>() => {
+                const aggregate = gen<T>();
+
+                aggregate.allowDiskUse(true).match(q);
+
+                return aggregate;
+            };
+
+            const aggregate = fullGen<ServerModel>();
 
             const total = (
-                await Card.aggregate(aggregate.pipeline())
+                await fullGen<{ count: number }>()
                     .allowDiskUse(true)
                     .group({ _id: null, count: { $sum: 1 } })
             )[0]?.count ?? 0;
 
-            const cards = await Card.aggregate(aggregate.pipeline())
+            const cards = await aggregate
                 .sort({ releaseDate: -1, cardId: 1 })
                 .limit(o.sample);
 
@@ -596,9 +623,8 @@ export default defineBackendModel<ICardDatabase, 'dev' | 'search' | 'searchId'>(
             };
         },
 
-        searchId: async (Card: Model<ICardDatabase>, q: DBQuery) => {
-            const result = await Card
-                .aggregate()
+        searchId: async (generator, q: DBQuery) => {
+            const result = await generator<{ _id: string }>()
                 .allowDiskUse(true)
                 .match(q)
                 .group({ _id: '$cardId' });
@@ -606,4 +632,19 @@ export default defineBackendModel<ICardDatabase, 'dev' | 'search' | 'searchId'>(
             return result.map(v => v._id) as string[];
         },
     },
+}, card => {
+    const gen = <V>() => card.aggregate<V>()
+        .lookup({
+            from:         'prints',
+            as:           'print',
+            localField:   'cardId',
+            foreignField: 'cardId',
+        })
+        .unwind('parts');
+
+    return {
+        search:   gen,
+        dev:      gen,
+        searchId: gen,
+    };
 });

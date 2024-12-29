@@ -2,33 +2,40 @@ import Parser from '../../parser';
 import { SearchOption, SearchResult } from '../../search';
 import { PostAction } from '../type';
 import { DBQuery, CommonBackendCommand } from '../../command/backend';
-import { Model as MongooseModel } from 'mongoose';
+import { Aggregate } from 'mongoose';
 
 import { simplify } from '../../parser/simplify';
 import { translate } from './translate';
 
-type Action<I> = (model: MongooseModel<I>, query: DBQuery, post: PostAction[], option: SearchOption) => any;
+type Action<T> = (generator: <V = T>() => Aggregate<V[]>, query: DBQuery, post: PostAction[], option: SearchOption) => Promise<T>;
 
-type Actions<I, A extends string> = Record<A, Action<I>>;
-
-type BackendModelOption<I, A extends string> = {
-    commands: CommonBackendCommand[];
-    actions: Actions<I, A>;
+type Actions<A> = {
+    [K in string & keyof A]: Action<A[K]>;
 };
 
-class BackendSearcher<I, A extends string, M extends MongooseModel<I>> {
-    commands: CommonBackendCommand[];
-    actions: Actions<I, A>;
-    model: M;
+type Generator<A> = {
+    [K in string & keyof A]: <V>() => Aggregate<V[]>;
+};
 
-    constructor(commands: CommonBackendCommand[], actions: Actions<I, A>, model: M) {
+type BackendModelOption<A> = {
+    commands: CommonBackendCommand[];
+    actions: Actions<A>;
+};
+
+class BackendSearcher<A> {
+    commands: CommonBackendCommand[];
+    actions: Actions<A>;
+    generator: Generator<A>;
+
+    constructor(commands: CommonBackendCommand[], actions: Actions<A>, generator: Generator<A>) {
         this.commands = commands;
         this.actions = actions;
-        this.model = model;
+        this.generator = generator;
     }
 
-    async search(actionKey: A, text: string, options: SearchOption = {}): Promise<SearchResult> {
+    async search<K extends string & keyof A>(actionKey: K, text: string, options: SearchOption = {}): Promise<SearchResult> {
         const action = this.actions[actionKey];
+        const generator = this.generator[actionKey];
 
         if (action == null) {
             return {
@@ -57,7 +64,7 @@ class BackendSearcher<I, A extends string, M extends MongooseModel<I>> {
                 return { text, errors: [], result: [] };
             }
 
-            const result = await action(this.model, dbQuery, post, options);
+            const result = await action(generator, dbQuery, post, options);
 
             return { text, errors: [], result };
         } catch (e) {
@@ -66,20 +73,22 @@ class BackendSearcher<I, A extends string, M extends MongooseModel<I>> {
     }
 }
 
-export class BackendModel<I, A extends string> {
+export class BackendModel<A, I> {
     commands: CommonBackendCommand[];
-    actions: Actions<I, A>;
+    actions: Actions<A>;
+    generator: (input: I) => Generator<A>;
 
-    constructor(option: BackendModelOption<I, A>) {
+    constructor(option: BackendModelOption<A>, generator: (input: I) => Generator<A>) {
         this.commands = option.commands;
         this.actions = option.actions;
+        this.generator = generator;
     }
 
-    bind<M extends MongooseModel<I>>(collection: M): BackendSearcher<I, A, M> {
-        return new BackendSearcher<I, A, M>(this.commands, this.actions, collection);
+    bind(input: I): BackendSearcher<A> {
+        return new BackendSearcher(this.commands, this.actions, this.generator(input));
     }
 }
 
-export function defineBackendModel<I, A extends string>(option: BackendModelOption<I, A>): BackendModel<I, A> {
-    return new BackendModel(option);
+export function defineBackendModel<A, I>(option: BackendModelOption<A>, generator: (input: I) => Generator<A>): BackendModel<A, I> {
+    return new BackendModel(option, generator);
 }
