@@ -1,15 +1,15 @@
-import { BackendOf, DBQuery, QueryOption } from '../../backend';
+import { DBQuery, QueryOption, ServerCommandOf } from '../../server';
 import { QueryError } from '../../error';
 
 import { NumberCommand } from './index';
 
-export type NumberBackendCommand = BackendOf<NumberCommand>;
+export type NumberServerCommand = ServerCommandOf<NumberCommand>;
 
-export type NumberBackendOption = {
+export type NumberServerOption = {
     key?: string;
 };
 
-export type NumberQueryOption = QueryOption<NumberCommand, NumberBackendOption>;
+export type NumberQueryOption = QueryOption<NumberCommand, NumberServerOption>;
 
 function query(options: NumberQueryOption): DBQuery {
     const {
@@ -42,7 +42,7 @@ function query(options: NumberQueryOption): DBQuery {
     }
 }
 
-export default function number(command: NumberCommand, options?: NumberBackendOption): NumberBackendCommand {
+export default function number(command: NumberCommand, options?: NumberServerOption): NumberServerCommand {
     const { key = command.id } = options ?? { };
 
     return {

@@ -1,13 +1,13 @@
-import { BackendOf, DBQuery, QueryOption } from '@searcher/command/backend';
+import { ServerCommandOf, DBQuery, QueryOption } from '@searcher/command/server';
 import { QueryError } from '@searcher/command/error';
 
 import { HalfNumberCommand } from '@searcher-data/magic/command/half-number';
 
 import { range } from 'lodash';
 
-export type HalfNumberBackendCommand = BackendOf<HalfNumberCommand>;
+export type HalfNumberServerCommand = ServerCommandOf<HalfNumberCommand>;
 
-export type HalfNumberBackendOption = {
+export type HalfNumberServerOption = {
     key?: string;
 };
 
@@ -30,7 +30,7 @@ function toStatsList(numbers: number[]) {
     return result;
 }
 
-export type HalfNumberQueryOption = QueryOption<HalfNumberCommand, HalfNumberBackendOption>;
+export type HalfNumberQueryOption = QueryOption<HalfNumberCommand, HalfNumberServerOption>;
 
 function query(options: HalfNumberQueryOption): DBQuery {
     const {
@@ -109,7 +109,7 @@ function query(options: HalfNumberQueryOption): DBQuery {
     }
 }
 
-export default function halfNumber(command: HalfNumberCommand, options?: HalfNumberBackendOption): HalfNumberBackendCommand {
+export default function halfNumber(command: HalfNumberCommand, options?: HalfNumberServerOption): HalfNumberServerCommand {
     const { key = command.id } = options ?? {};
 
     return {

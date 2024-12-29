@@ -4,13 +4,13 @@ import './parser';
 import './parser/lexer';
 import './helper';
 import './model';
-import './model/frontend';
-import './model/backend';
-import './command/builtin/backend';
+import './model/client';
+import './model/server';
+import './command/builtin/server';
 
 import './data/magic/command';
 
 import '../data/magic';
-import '../data/magic/frontend';
+import '../data/magic/client';
 import '../data/magic/backend';
 import '../data/hearthstone';

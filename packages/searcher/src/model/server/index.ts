@@ -1,7 +1,7 @@
 import Parser from '../../parser';
 import { SearchOption, SearchResult } from '../../search';
 import { PostAction } from '../type';
-import { DBQuery, CommonBackendCommand } from '../../command/backend';
+import { DBQuery, CommonServerCommand } from '../../command/server';
 import { Aggregate } from 'mongoose';
 
 import { simplify } from '../../parser/simplify';
@@ -17,17 +17,17 @@ type Generator<A> = {
     [K in string & keyof A]: <V>() => Aggregate<V[]>;
 };
 
-type BackendModelOption<A> = {
-    commands: CommonBackendCommand[];
+type ServerModelOption<A> = {
+    commands: CommonServerCommand[];
     actions: Actions<A>;
 };
 
-class BackendSearcher<A> {
-    commands: CommonBackendCommand[];
+class ServerSearcher<A> {
+    commands: CommonServerCommand[];
     actions: Actions<A>;
     generator: Generator<A>;
 
-    constructor(commands: CommonBackendCommand[], actions: Actions<A>, generator: Generator<A>) {
+    constructor(commands: CommonServerCommand[], actions: Actions<A>, generator: Generator<A>) {
         this.commands = commands;
         this.actions = actions;
         this.generator = generator;
@@ -73,22 +73,22 @@ class BackendSearcher<A> {
     }
 }
 
-export class BackendModel<A, I> {
-    commands: CommonBackendCommand[];
+export class ServerModel<A, I> {
+    commands: CommonServerCommand[];
     actions: Actions<A>;
     generator: (input: I) => Generator<A>;
 
-    constructor(option: BackendModelOption<A>, generator: (input: I) => Generator<A>) {
+    constructor(option: ServerModelOption<A>, generator: (input: I) => Generator<A>) {
         this.commands = option.commands;
         this.actions = option.actions;
         this.generator = generator;
     }
 
-    bind(input: I): BackendSearcher<A> {
-        return new BackendSearcher(this.commands, this.actions, this.generator(input));
+    bind(input: I): ServerSearcher<A> {
+        return new ServerSearcher(this.commands, this.actions, this.generator(input));
     }
 }
 
-export function defineBackendModel<A, I>(option: BackendModelOption<A>, generator: (input: I) => Generator<A>): BackendModel<A, I> {
-    return new BackendModel(option, generator);
+export function defineServerModel<A, I>(option: ServerModelOption<A>, generator: (input: I) => Generator<A>): ServerModel<A, I> {
+    return new ServerModel(option, generator);
 }

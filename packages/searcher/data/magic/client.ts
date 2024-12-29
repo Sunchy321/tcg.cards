@@ -1,12 +1,11 @@
-import { defineFrontendModel } from '../../src/model/frontend';
-import { defineFrontendCommand, CommonFrontendCommand } from '../../src/command/frontend';
+import { defineClientModel } from '../../src/model/client';
+import { defineClientCommand, CommonClientCommand } from '../../src/command/client';
 
-import * as builtin from '../../src/command/builtin/frontend';
-// import * as magic from './command/frontend';
+import * as builtin from '../../src/command/builtin/client';
 
 import model, { commands } from './index';
 
-const raw = defineFrontendCommand({
+const raw = defineClientCommand({
     command: commands.raw,
     explain({ parameter }, i18n) {
         if (typeof parameter === 'string' && /^(\{[^}]+\})+$/.test(parameter)) {
@@ -17,35 +16,35 @@ const raw = defineFrontendCommand({
     },
 });
 
-const stats = defineFrontendCommand({
+const stats = defineClientCommand({
     command: commands.stats,
     explain({ pattern: { power, toughness } }, i18n) {
         return i18n('$.full-command.stats', { power, toughness });
     },
 });
 
-const hash = defineFrontendCommand({
+const hash = defineClientCommand({
     command: commands.hash,
     explain({ pattern:{ tag } }, i18n) {
         return i18n('$.full-command.hash', { tag });
     },
 });
 
-const set = defineFrontendCommand(commands.set);
-const num = defineFrontendCommand(commands.num);
-const lang = defineFrontendCommand(commands.lang);
+const set = defineClientCommand(commands.set);
+const num = defineClientCommand(commands.num);
+const lang = defineClientCommand(commands.lang);
 
-const cost = defineFrontendCommand(commands.cost);
-const manaValue = defineFrontendCommand(commands.manaValue);
+const cost = defineClientCommand(commands.cost);
+const manaValue = defineClientCommand(commands.manaValue);
 
-const color = defineFrontendCommand(commands.color);
-const colorIdentity = defineFrontendCommand(commands.colorIdentity);
-const colorIndicator = defineFrontendCommand(commands.colorIndicator);
+const color = defineClientCommand(commands.color);
+const colorIdentity = defineClientCommand(commands.colorIdentity);
+const colorIndicator = defineClientCommand(commands.colorIndicator);
 
-const power = defineFrontendCommand(commands.power);
-const toughness = defineFrontendCommand(commands.toughness);
+const power = defineClientCommand(commands.power);
+const toughness = defineClientCommand(commands.toughness);
 
-const loyalty = defineFrontendCommand({
+const loyalty = defineClientCommand({
     command: commands.loyalty,
     explain({ parameter, pattern, operator }, i18n) {
         const { id } = commands.loyalty;
@@ -60,7 +59,7 @@ const loyalty = defineFrontendCommand({
     },
 });
 
-const defense = defineFrontendCommand({
+const defense = defineClientCommand({
     command: commands.defense,
     explain({ parameter, pattern, operator }, i18n) {
         const { id } = commands.defense;
@@ -84,14 +83,14 @@ const flavorText = builtin.text(commands.flavorText);
 const flavorName = builtin.text(commands.flavorName);
 const layout = builtin.simple(commands.layout, { map: true });
 
-const rarity = defineFrontendCommand(commands.rarity);
-const date = defineFrontendCommand(commands.date);
-const format = defineFrontendCommand(commands.format);
+const rarity = defineClientCommand(commands.rarity);
+const date = defineClientCommand(commands.date);
+const format = defineClientCommand(commands.format);
 
-const counter = defineFrontendCommand(commands.counter);
-const keyword = defineFrontendCommand(commands.keyword);
+const counter = defineClientCommand(commands.counter);
+const keyword = defineClientCommand(commands.keyword);
 
-const order = defineFrontendCommand({
+const order = defineClientCommand({
     command: commands.order,
     explain({ parameter }, i18n) {
         parameter = parameter.toLowerCase();
@@ -132,7 +131,7 @@ const order = defineFrontendCommand({
     },
 });
 
-const frontendCommands: Record<string, CommonFrontendCommand> = {
+const clientCommands: Record<string, CommonClientCommand> = {
     raw,
     stats,
     hash,
@@ -163,7 +162,7 @@ const frontendCommands: Record<string, CommonFrontendCommand> = {
     order,
 };
 
-export default defineFrontendModel({
+export default defineClientModel({
     id:       model.id,
-    commands: Object.values(frontendCommands),
+    commands: Object.values(clientCommands),
 });

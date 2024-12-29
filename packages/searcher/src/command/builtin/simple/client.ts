@@ -1,13 +1,13 @@
-import { FrontendOf, I18N } from '../../frontend';
+import { ClientCommandOf, I18N } from '../../client';
 import { ArgumentOf } from '../../index';
 
 import { SimpleCommand } from './index';
 
-import { OperatorMapOf, defaultTranslate } from '../../../model/frontend/translate';
+import { OperatorMapOf, defaultTranslate } from '../../../model/client/translate';
 
-export type SimpleFrontendCommand = FrontendOf<SimpleCommand>;
+export type SimpleClientCommand = ClientCommandOf<SimpleCommand>;
 
-export type SimpleFrontendOption = {
+export type SimpleClientOption = {
     map?: Record<string, string> | boolean | ((parameter: string) => string);
 };
 
@@ -18,7 +18,7 @@ const operatorMap: OperatorMapOf<SimpleCommand> = {
     '!:': 'is-not',
 };
 
-function explain(arg: ArgumentOf<SimpleCommand>, i18n: I18N, id: string, options: SimpleFrontendOption): string {
+function explain(arg: ArgumentOf<SimpleCommand>, i18n: I18N, id: string, options: SimpleClientOption): string {
     const { map } = options;
 
     const realParam = (() => {
@@ -40,7 +40,7 @@ function explain(arg: ArgumentOf<SimpleCommand>, i18n: I18N, id: string, options
     return defaultTranslate({ ...arg, parameter: realParam }, i18n, id, operatorMap);
 }
 
-export default function simple(command: SimpleCommand, options?: SimpleFrontendOption): SimpleFrontendCommand {
+export default function simple(command: SimpleCommand, options?: SimpleClientOption): SimpleClientCommand {
     return {
         ...command,
         explain: (args, i18n) => explain(args, i18n, command.id, options ?? { }),

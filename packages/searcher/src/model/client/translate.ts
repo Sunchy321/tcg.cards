@@ -1,7 +1,7 @@
-import { FrontendModel } from './index';
+import { ClientModel } from './index';
 
 import { Expression } from '../../parser';
-import { CommonFrontendCommand, I18N } from '../../command/frontend';
+import { CommonClientCommand, I18N } from '../../command/client';
 import {
     Command, CommonArgument, Operator, Qualifier,
 } from '../../command';
@@ -62,7 +62,7 @@ export function defaultTranslate(
 }
 
 function simpleTranslate(
-    command: CommonFrontendCommand,
+    command: CommonClientCommand,
     expr: Expression,
     arg: CommonArgument,
     i18n: I18N,
@@ -80,7 +80,7 @@ function simpleTranslate(
     return command.explain(arg, i18n) ?? defaultTranslate(arg, i18n, command.id, realOperatorMap);
 }
 
-export function translate(expr: Expression, model: FrontendModel, i18n: (key: string) => string): string {
+export function translate(expr: Expression, model: ClientModel, i18n: (key: string) => string): string {
     const { commands } = model;
 
     // computed expression

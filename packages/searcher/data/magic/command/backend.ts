@@ -1,5 +1,5 @@
-import cost from './cost/backend';
-import color from './color/backend';
-import halfNumber from './half-number/backend';
+import cost from './cost/server';
+import color from './color/server';
+import halfNumber from './half-number/server';
 
 export { cost, color, halfNumber };

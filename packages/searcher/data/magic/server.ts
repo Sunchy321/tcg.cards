@@ -1,5 +1,5 @@
-import { defineBackendModel } from '../../src/model/backend';
-import { defineBackendCommand, DBQuery, CommonBackendCommand } from '../../src/command/backend';
+import { defineServerModel } from '../../src/model/server';
+import { defineServerCommand, DBQuery, CommonServerCommand } from '../../src/command/server';
 
 import { PostAction } from '../../src/model/type';
 import { SearchOption } from '../../src/search';
@@ -8,7 +8,7 @@ import { QueryError } from '../../src/command/error';
 import { ICardDatabase } from '@common/model/magic/card';
 import { IPrintDatabase } from '@common/model/magic/print';
 
-import * as builtin from '../../src/command/builtin/backend';
+import * as builtin from '../../src/command/builtin/server';
 import * as magic from './command/backend';
 
 import { commands } from './index';
@@ -25,7 +25,7 @@ function toIdentifier(text: string): string {
         .replace(/[^a-z0-9]/g, '_');
 }
 
-const raw = defineBackendCommand({
+const raw = defineServerCommand({
     command: commands.raw,
     query:   ({ parameter }) => {
         // search mana
@@ -83,7 +83,7 @@ const raw = defineBackendCommand({
     },
 });
 
-const stats = defineBackendCommand({
+const stats = defineServerCommand({
     command: commands.stats,
 
     query({ pattern, operator, qualifier }) {
@@ -133,7 +133,7 @@ const stats = defineBackendCommand({
     },
 });
 
-const hash = defineBackendCommand({
+const hash = defineServerCommand({
     command: commands.hash,
     query({ pattern, qualifier }) {
         if (pattern == null) {
@@ -192,7 +192,7 @@ const colorIndicator = magic.color(commands.colorIndicator, { key: 'parts.colorI
 const power = magic.halfNumber(commands.power, { key: 'parts.power' });
 const toughness = magic.halfNumber(commands.toughness, { key: 'parts.toughness' });
 
-const loyalty = defineBackendCommand({
+const loyalty = defineServerCommand({
     command: commands.loyalty,
     query({
         pattern, parameter, operator, qualifier,
@@ -206,7 +206,7 @@ const loyalty = defineBackendCommand({
     },
 });
 
-const defense = defineBackendCommand({
+const defense = defineServerCommand({
     command: commands.defense,
     query({
         pattern, parameter, operator, qualifier,
@@ -220,7 +220,7 @@ const defense = defineBackendCommand({
     },
 });
 
-const name = defineBackendCommand({
+const name = defineServerCommand({
     command: commands.name,
     query({
         modifier, parameter, operator, qualifier,
@@ -250,7 +250,7 @@ const name = defineBackendCommand({
     },
 });
 
-const type = defineBackendCommand({
+const type = defineServerCommand({
     command: commands.type,
     query({
         modifier, parameter, operator, qualifier,
@@ -280,7 +280,7 @@ const type = defineBackendCommand({
     },
 });
 
-const text = defineBackendCommand({
+const text = defineServerCommand({
     command: commands.text,
     query({
         modifier, parameter, operator, qualifier,
@@ -310,7 +310,7 @@ const text = defineBackendCommand({
     },
 });
 
-const oracle = defineBackendCommand({
+const oracle = defineServerCommand({
     command: commands.oracle,
     query:   ({ parameter, operator, qualifier }) => ({
         [!qualifier.includes('!') ? '$or' : '$and']: [
@@ -328,7 +328,7 @@ const flavorText = builtin.text(commands.flavorText, { key: 'parts.flavorText' }
 const flavorName = builtin.text(commands.flavorName, { key: 'parts.flavorName' });
 const layout = builtin.simple(commands.layout);
 
-const rarity = defineBackendCommand({
+const rarity = defineServerCommand({
     command: commands.rarity,
     query:   ({ parameter, operator, qualifier }) => {
         // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -348,7 +348,7 @@ const rarity = defineBackendCommand({
     },
 });
 
-const date = defineBackendCommand({
+const date = defineServerCommand({
     command: commands.date,
     query:   ({ parameter, operator, qualifier }) => {
         switch (operator) {
@@ -373,7 +373,7 @@ const date = defineBackendCommand({
     },
 });
 
-const format = defineBackendCommand({
+const format = defineServerCommand({
     command: commands.format,
     query:   ({ parameter, qualifier }) => {
         if (parameter.includes(',')) {
@@ -399,7 +399,7 @@ const format = defineBackendCommand({
     },
 });
 
-const counter = defineBackendCommand({
+const counter = defineServerCommand({
     command: commands.counter,
     query:   ({ parameter, qualifier }) => {
         parameter = toIdentifier(parameter);
@@ -412,7 +412,7 @@ const counter = defineBackendCommand({
     },
 });
 
-const keyword = defineBackendCommand({
+const keyword = defineServerCommand({
     command: commands.keyword,
     query:   ({ parameter, qualifier }) => {
         parameter = toIdentifier(parameter);
@@ -425,7 +425,7 @@ const keyword = defineBackendCommand({
     },
 });
 
-const order = defineBackendCommand({
+const order = defineServerCommand({
     command: commands.order,
     query() {},
     phase:   'order',
@@ -468,7 +468,7 @@ const order = defineBackendCommand({
     },
 });
 
-const backedCommands: Record<string, CommonBackendCommand> = {
+const backedCommands: Record<string, CommonServerCommand> = {
     raw,
     stats,
     hash,
@@ -524,7 +524,7 @@ type ServerActions = {
     searchId: string[];
 };
 
-export default defineBackendModel<ServerActions, Model<ICardDatabase>>({
+export default defineServerModel<ServerActions, Model<ICardDatabase>>({
     commands: Object.values(backedCommands),
 
     actions: {

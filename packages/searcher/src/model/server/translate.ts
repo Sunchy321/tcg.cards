@@ -1,5 +1,5 @@
 import { Expression } from '../../parser';
-import { CommonBackendCommand, DBQuery } from '../../command/backend';
+import { CommonServerCommand, DBQuery } from '../../command/server';
 import { CommonArgument } from '../../command';
 import { PostAction } from '../type';
 import { QueryError } from '../../command/error';
@@ -12,7 +12,7 @@ export type TranslatedQuery = {
 };
 
 function simpleTranslate(
-    command: CommonBackendCommand,
+    command: CommonServerCommand,
     expr: Expression,
     arg: CommonArgument,
 ): TranslatedQuery {
@@ -50,7 +50,7 @@ function simpleTranslate(
     }
 }
 
-export function translate(expr: Expression, commands: CommonBackendCommand[]): TranslatedQuery {
+export function translate(expr: Expression, commands: CommonServerCommand[]): TranslatedQuery {
     // computed expression
     if (expr.type === 'logic') {
         const value = expr.exprs.map(v => translate(v, commands));

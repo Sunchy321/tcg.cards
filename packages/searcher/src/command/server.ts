@@ -36,7 +36,7 @@ export type QueryOption<C, O> = [O] extends [never]
     ? Parameters<QueryFuncOf<C>>[0]
     : Parameters<QueryFuncOf<C>>[0] & Required<O>;
 
-export type BackendCommand<
+export type ServerCommand<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
@@ -49,17 +49,17 @@ export type BackendCommand<
     post?: PostFuncOf<Command<M, O, Q, AR, P, X>>;
 };
 
-export type CommonBackendCommand = CommonCommand & {
+export type CommonServerCommand = CommonCommand & {
     query: (arg: CommonArgument) => DBQuery;
     phase?: string;
     post?: (arg: CommonArgument)=> ((agg: Aggregate<any>) => void);
 };
 
-export type BackendOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
-    ? BackendCommand<M, O, Q, AR, P, X>
+export type ServerCommandOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
+    ? ServerCommand<M, O, Q, AR, P, X>
     : never;
 
-export type BackendCommandOption<
+export type ServerCommandOption<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
@@ -73,14 +73,14 @@ export type BackendCommandOption<
     post?: PostFunc<string extends M ? never : M, O, Q, AR, P, X>;
 };
 
-export function defineBackendCommand<
+export function defineServerCommand<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
     AR extends boolean,
     P,
     X,
->(options: BackendCommandOption<M, O, Q, AR, P, X>): BackendCommand<M, O, Q, AR, P, X> {
+>(options: ServerCommandOption<M, O, Q, AR, P, X>): ServerCommand<M, O, Q, AR, P, X> {
     const {
         command, query, phase, post,
     } = options;

@@ -1,4 +1,4 @@
-import { BackendOf, DBQuery, QueryOption } from '@searcher/command/backend';
+import { ServerCommandOf, DBQuery, QueryOption } from '@searcher/command/server';
 import { QueryError } from '@searcher/command/error';
 
 import { CostCommand } from '@searcher-data/magic/command/cost';
@@ -7,7 +7,7 @@ import { flatten } from 'lodash';
 
 import { specificManaSymbols } from '@static/magic/basic';
 
-export type CostBackendCommand = BackendOf<CostCommand>;
+export type CostServerCommand = ServerCommandOf<CostCommand>;
 
 export type CostOption = {
     id: string;
@@ -154,7 +154,7 @@ function query(options: CostQueryOption): DBQuery {
     }
 }
 
-export default function cost(command: CostCommand): CostBackendCommand {
+export default function cost(command: CostCommand): CostServerCommand {
     return {
         ...command,
         query: args => query(args),

@@ -99,7 +99,7 @@ import pageSetup from 'setup/page';
 import SearchInput from 'components/SearchInput.vue';
 import MagicText from 'components/magic/Text.vue';
 
-import model from 'searcher-data/magic/frontend';
+import model from 'searcher-data/magic/client';
 
 const core = useCore();
 const i18n = useI18n();

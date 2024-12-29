@@ -1,19 +1,23 @@
-import { BackendOf, DBQuery, QueryOption } from '../../backend';
+import { DBQuery, QueryOption, ServerCommandOf } from '../../server';
 
-import { SimpleCommand } from './index';
+import { SimpleSetCommand } from './index';
 
-export type SimpleBackendCommand = BackendOf<SimpleCommand>;
+export type SimpleSetServerCommand = ServerCommandOf<SimpleSetCommand>;
 
-export type SimpleBackendOption = {
+export type SimpleSetServerOption = {
     key?: string;
 };
 
-export type SimpleQueryOption = QueryOption<SimpleCommand, SimpleBackendOption>;
+export type SimpleSetQueryOption = QueryOption<SimpleSetCommand, SimpleSetServerOption>;
 
-function query(options: SimpleQueryOption): DBQuery {
+function query(options: SimpleSetQueryOption): DBQuery {
     const {
-        key, parameter, operator, qualifier,
+        key, parameter, operator, qualifier, meta,
     } = options;
+
+    const values = [];
+
+    const words = parameter.split(',');
 
     switch (operator) {
     case ':':
@@ -33,7 +37,7 @@ function query(options: SimpleQueryOption): DBQuery {
     }
 }
 
-export default function simple(command: SimpleCommand, options?: SimpleBackendOption): SimpleBackendCommand {
+export default function simpleSet(command: SimpleSetCommand, options?: SimpleSetServerOption): SimpleSetServerCommand {
     const { key = command.id } = options ?? { };
 
     return {
@@ -42,4 +46,4 @@ export default function simple(command: SimpleCommand, options?: SimpleBackendOp
     };
 }
 
-simple.query = query;
+simpleSet.query = query;

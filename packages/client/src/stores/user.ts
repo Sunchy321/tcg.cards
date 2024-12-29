@@ -4,7 +4,7 @@ import { LocalStorage } from 'quasar';
 import { jwtDecode } from 'jwt-decode';
 import { computed, ref, watch } from 'vue';
 
-import { user as userBackend } from 'boot/backend';
+import { user as userServer } from 'boot/backend';
 
 export interface State {
     user: string | null;
@@ -77,7 +77,7 @@ export const useUser = defineStore('user', () => {
 
     const refresh = async () => {
         if (token.value != null) {
-            const { data } = await userBackend.get<UserOrError>('/refresh', {
+            const { data } = await userServer.get<UserOrError>('/refresh', {
                 headers: {
                     Authentication: `Bearer ${token.value}`,
                 },
@@ -102,7 +102,7 @@ export const useUser = defineStore('user', () => {
             throw new Error(result);
         }
 
-        const { data } = await userBackend.post<UserOrError>('/register', { username, password });
+        const { data } = await userServer.post<UserOrError>('/register', { username, password });
 
         if (data.error == null) {
             token.value = data.token;
@@ -116,7 +116,7 @@ export const useUser = defineStore('user', () => {
             throw new Error('already_logged_in');
         }
 
-        const { data } = await userBackend.post<UserOrError>('/login', { username, password });
+        const { data } = await userServer.post<UserOrError>('/login', { username, password });
 
         if (data.error == null) {
             token.value = data.token;

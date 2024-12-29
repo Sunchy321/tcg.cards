@@ -1,4 +1,4 @@
-import model from '@searcher-data/magic/backend';
+import model from '@searcher-data/magic/server';
 
 import Card from '@/magic/db/card';
 

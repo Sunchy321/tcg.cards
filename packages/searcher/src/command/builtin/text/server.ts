@@ -1,12 +1,12 @@
-import { BackendOf, DBQuery, QueryFuncOf } from '../../backend';
+import { ServerCommandOf, DBQuery, QueryFuncOf } from '../../server';
 
 import { TextCommand } from './index';
 
 import { escapeRegExp } from 'lodash';
 
-export type TextBackendCommand = BackendOf<TextCommand>;
+export type TextServerCommand = ServerCommandOf<TextCommand>;
 
-export type TextBackendOption = {
+export type TextServerOption = {
     key?: string;
     multiline?: boolean;
 };
@@ -48,7 +48,7 @@ function query(options: TextQueryOption): DBQuery {
     }
 }
 
-export default function text(command: TextCommand, options?: TextBackendOption): TextBackendCommand {
+export default function text(command: TextCommand, options?: TextServerOption): TextServerCommand {
     const { key = command.id, multiline } = options ?? { };
 
     return {

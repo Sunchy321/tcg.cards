@@ -82,7 +82,7 @@ import Grid from 'components/Grid.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import MagicText from 'components/magic/Text.vue';
 
-import model from 'searcher-data/magic/frontend';
+import model from 'searcher-data/magic/client';
 
 import { apiGet } from 'boot/backend';
 

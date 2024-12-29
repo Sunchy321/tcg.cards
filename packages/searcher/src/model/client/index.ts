@@ -4,7 +4,7 @@ import { QueryError } from '../../command/error';
 
 import { translate } from './translate';
 
-import { CommonFrontendCommand, I18N } from '../../command/frontend';
+import { CommonClientCommand, I18N } from '../../command/client';
 
 import { simplify } from '../../parser/simplify';
 
@@ -13,17 +13,17 @@ type ExplainResult = {
     text: string;
 };
 
-type FrontendModelOption = {
+type ClientModelOption = {
     id: string;
-    commands: CommonFrontendCommand[];
+    commands: CommonClientCommand[];
 
 };
 
-export class FrontendModel {
+export class ClientModel {
     id: string;
-    commands: CommonFrontendCommand[];
+    commands: CommonClientCommand[];
 
-    constructor(option: FrontendModelOption) {
+    constructor(option: ClientModelOption) {
         this.id = option.id;
         this.commands = option.commands;
     }
@@ -58,6 +58,6 @@ export class FrontendModel {
     }
 }
 
-export function defineFrontendModel(option: FrontendModelOption): FrontendModel {
-    return new FrontendModel(option);
+export function defineClientModel(option: ClientModelOption): ClientModel {
+    return new ClientModel(option);
 }

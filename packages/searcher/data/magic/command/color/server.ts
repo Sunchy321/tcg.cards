@@ -1,17 +1,17 @@
-import { BackendOf, DBQuery, QueryOption } from '@searcher/command/backend';
+import { ServerCommandOf, DBQuery, QueryOption } from '@searcher/command/server';
 import { QueryError } from '@searcher/command/error';
 
 import { ColorCommand } from '@searcher-data/magic/command/color';
 
 const colorEnums = 'WUBRGOP'.split('');
 
-export type ColorBackendCommand = BackendOf<ColorCommand>;
+export type ColorServerCommand = ServerCommandOf<ColorCommand>;
 
-export type ColorBackendOption = {
+export type ColorServerOption = {
     key?: string;
 };
 
-export type ColorQueryOption = QueryOption<ColorCommand, ColorBackendOption>;
+export type ColorQueryOption = QueryOption<ColorCommand, ColorServerOption>;
 
 function query(options: ColorQueryOption): DBQuery {
     const {
@@ -198,7 +198,7 @@ function query(options: ColorQueryOption): DBQuery {
     }
 }
 
-export default function color(command: ColorCommand, options?: ColorBackendOption): ColorBackendCommand {
+export default function color(command: ColorCommand, options?: ColorServerOption): ColorServerCommand {
     const { key = command.id } = options ?? { };
 
     return {

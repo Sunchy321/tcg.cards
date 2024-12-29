@@ -17,7 +17,7 @@ export type ExplainFuncOf<C> = C extends Command<infer M, infer O, infer Q, infe
     ? ExplainFunc<string extends M ? never : M, O, Q, AR, P, X>
     : never;
 
-export type FrontendCommand<
+export type ClientCommand<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
@@ -28,15 +28,15 @@ export type FrontendCommand<
     explain: ExplainFuncOf<Command<M, O, Q, AR, P, X>>;
 };
 
-export type CommonFrontendCommand = CommonCommand & {
+export type CommonClientCommand = CommonCommand & {
     explain: (arg: CommonArgument, i18n: I18N) => string | undefined;
 };
 
-export type FrontendOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
-    ? FrontendCommand<M, O, Q, AR, P, X>
+export type ClientCommandOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
+    ? ClientCommand<M, O, Q, AR, P, X>
     : never;
 
-export type FrontendCommandOption<
+export type ClientCommandOption<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
@@ -48,14 +48,14 @@ export type FrontendCommandOption<
     explain?: ExplainFuncOf<Command<M, O, Q, AR, P, X>>;
 };
 
-export function defineFrontendCommand<
+export function defineClientCommand<
     M extends string,
     O extends Operator,
     Q extends Qualifier,
     AR extends boolean,
     P,
     X,
->(options: FrontendCommandOption<M, O, Q, AR, P, X>): FrontendCommand<M, O, Q, AR, P, X> {
+>(options: ClientCommandOption<M, O, Q, AR, P, X>): ClientCommand<M, O, Q, AR, P, X> {
     const { command, explain = () => undefined } = (() => {
         if ('command' in options) {
             return options;
