@@ -9,27 +9,26 @@ import { specificManaSymbols } from '@static/magic/basic';
 
 export type CostServerCommand = ServerCommandOf<CostCommand>;
 
-export type CostOption = {
-    id: string;
-    alt?: string[] | string;
+export type CostServerOption = {
     key?: string;
-    allowFloat?: boolean;
 };
 
-export type CostQueryOption = QueryOption<CostCommand, never>;
+export type CostQueryOption = QueryOption<CostCommand, CostServerOption>;
 
 function query(options: CostQueryOption): DBQuery {
     const {
-        parameter, operator, qualifier,
+        parameter, operator, qualifier, key,
     } = options;
+
+    const mapKey = key.replace(/\bcost\b/, '__costMap');
 
     if (parameter === 'null') {
         switch (operator) {
         case ':':
             if (!qualifier.includes('!')) {
-                return { 'parts.cost': { $exists: false } };
+                return { [key]: { $exists: false } };
             } else {
-                return { 'parts.cost': { $exists: true } };
+                return { [key]: { $exists: true } };
             }
         default:
             throw new QueryError({
@@ -59,9 +58,9 @@ function query(options: CostQueryOption): DBQuery {
     const notEqual = Object.entries(costMap)
         .map(([k, v]) => {
             if (v !== 0) {
-                return { [`parts.__costMap.${k}`]: { $ne: v } };
+                return { [`${mapKey}.${k}`]: { $ne: v } };
             } else {
-                return { [`parts.__costMap.${k}`]: { $exists: true, $ne: 0 } };
+                return { [`${mapKey}.${k}`]: { $exists: true, $ne: 0 } };
             }
         });
 
@@ -71,7 +70,7 @@ function query(options: CostQueryOption): DBQuery {
             return Object.fromEntries(
                 Object.entries(costMap)
                     .filter(e => e[1] !== 0)
-                    .map(([k, v]) => [`parts.__costMap.${k}`, k === '' ? v : { $gte: v }]),
+                    .map(([k, v]) => [`${mapKey}.${k}`, k === '' ? v : { $gte: v }]),
             );
         } else {
             return {
@@ -79,8 +78,8 @@ function query(options: CostQueryOption): DBQuery {
                     Object.entries(costMap)
                         .filter(e => e[1] !== 0)
                         .map(([k, v]) => [
-                            { [`parts.__costMap.${k}`]: { $lt: v } },
-                            { [`parts.__costMap.${k}`]: { $exists: false } },
+                            { [`${mapKey}.${k}`]: { $lt: v } },
+                            { [`${mapKey}.${k}`]: { $exists: false } },
                         ]),
                 ),
             };
@@ -89,22 +88,22 @@ function query(options: CostQueryOption): DBQuery {
         if (!qualifier.includes('!')) {
             return {
                 $and: [
-                    { 'parts.cost': { $exists: true } },
+                    { [key]: { $exists: true } },
                     ...Object.entries(costMap)
                         .map(([k, v]) => (v === 0
                             ? {
                                 $or: [
-                                    { [`parts.__costMap.${k}`]: 0 },
-                                    { [`parts.__costMap.${k}`]: { $exists: false } },
+                                    { [`${mapKey}.${k}`]: 0 },
+                                    { [`${mapKey}.${k}`]: { $exists: false } },
                                 ],
                             }
-                            : { [`parts.__costMap.${k}`]: v })),
+                            : { [`${mapKey}.${k}`]: v })),
                 ],
             };
         } else {
             return {
                 $or: [
-                    { 'parts.cost': { $exists: false } },
+                    { [key]: { $exists: false } },
                     ...notEqual,
                 ],
             };
@@ -113,7 +112,7 @@ function query(options: CostQueryOption): DBQuery {
         return Object.fromEntries(
             Object.entries(costMap)
                 .filter(e => e[1] !== 0)
-                .map(([k, v]) => [`parts.__costMap.${k}`, { $gte: v }]),
+                .map(([k, v]) => [`${mapKey}.${k}`, { $gte: v }]),
         );
     case '>':
         return {
@@ -121,7 +120,7 @@ function query(options: CostQueryOption): DBQuery {
                 Object.fromEntries(
                     Object.entries(costMap)
                         .filter(e => e[1] !== 0)
-                        .map(([k, v]) => [`parts.__costMap.${k}`, { $gte: v }]),
+                        .map(([k, v]) => [`${mapKey}.${k}`, { $gte: v }]),
                 ),
                 { $or: notEqual },
             ],
@@ -131,8 +130,8 @@ function query(options: CostQueryOption): DBQuery {
             $and: Object.entries(costMap)
                 .map(([k, v]) => ({
                     $or: [
-                        { [`parts.__costMap.${k}`]: { $lte: v } },
-                        { [`parts.__costMap.${k}`]: { $exists: false } },
+                        { [`${mapKey}.${k}`]: { $lte: v } },
+                        { [`${mapKey}.${k}`]: { $exists: false } },
                     ],
                 })),
         };
@@ -142,8 +141,8 @@ function query(options: CostQueryOption): DBQuery {
                 ...Object.entries(costMap)
                     .map(([k, v]) => ({
                         $or: [
-                            { [`parts.__costMap.${k}`]: { $lte: v } },
-                            { [`parts.__costMap.${k}`]: { $exists: false } },
+                            { [`${mapKey}.${k}`]: { $lte: v } },
+                            { [`${mapKey}.${k}`]: { $exists: false } },
                         ],
                     })),
                 { $or: notEqual },
@@ -154,10 +153,12 @@ function query(options: CostQueryOption): DBQuery {
     }
 }
 
-export default function cost(command: CostCommand): CostServerCommand {
+export default function cost(command: CostCommand, options?: CostServerOption): CostServerCommand {
+    const { key = command.id } = options ?? { };
+
     return {
         ...command,
-        query: args => query(args),
+        query: args => query({ key, ...args }),
     };
 }
 

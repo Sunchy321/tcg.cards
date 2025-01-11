@@ -1,6 +1,8 @@
 import { defineServerModel } from '../../src/model/server';
 import { defineServerCommand, DBQuery, CommonServerCommand } from '../../src/command/server';
 
+import { Model, PipelineStage } from 'mongoose';
+
 import { PostAction } from '../../src/model/type';
 import { SearchOption } from '../../src/search';
 import { QueryError } from '../../src/command/error';
@@ -11,19 +13,9 @@ import { IPrintDatabase } from '@common/model/magic/print';
 import * as builtin from '../../src/command/builtin/server';
 import * as magic from './command/backend';
 
+import { toIdentifier } from '@common/util/id';
+
 import { commands } from './index';
-
-import { deburr } from 'lodash';
-import { Model } from 'mongoose';
-
-function toIdentifier(text: string): string {
-    return deburr(text)
-        .trim()
-        .toLowerCase()
-        .replace(' // ', '____')
-        .replace('/', '____')
-        .replace(/[^a-z0-9]/g, '_');
-}
 
 const raw = defineServerCommand({
     command: commands.raw,
@@ -33,27 +25,28 @@ const raw = defineServerCommand({
             return {
                 $or: [
                     builtin.text.query({
-                        key:       'parts.oracle.text',
+                        key:       'card.parts.text',
                         multiline: false,
                         parameter,
                         operator:  ':',
                         qualifier: [],
                     }),
                     builtin.text.query({
-                        key:       'parts.unified.text',
+                        key:       'card.parts.localization.text',
                         multiline: false,
                         parameter,
                         operator:  ':',
                         qualifier: [],
                     }),
                     builtin.text.query({
-                        key:       'parts.printed.text',
+                        key:       'print.parts.text',
                         multiline: false,
                         parameter,
                         operator:  ':',
                         qualifier: [],
                     }),
                     magic.cost.query({
+                        key:       'card.parts.cost',
                         parameter,
                         operator:  ':',
                         qualifier: [] as '!'[],
@@ -64,14 +57,14 @@ const raw = defineServerCommand({
             return {
                 $or: [
                     builtin.text.query({
-                        key:       'parts.oracle.name',
+                        key:       'card.parts.name',
                         multiline: false,
                         parameter,
                         operator:  ':',
                         qualifier: [],
                     }),
                     builtin.text.query({
-                        key:       'parts.unified.name',
+                        key:       'card.parts.localization.name',
                         multiline: false,
                         parameter,
                         operator:  ':',
@@ -101,13 +94,13 @@ const stats = defineServerCommand({
             return {
                 $or: [
                     magic.halfNumber.query({
-                        key:       'parts.power',
+                        key:       'card.parts.power',
                         parameter: power,
                         operator:  operator ?? '=',
                         qualifier,
                     }),
                     magic.halfNumber.query({
-                        key:       'parts.toughness',
+                        key:       'card.parts.toughness',
                         parameter: toughness,
                         operator:  operator ?? '=',
                         qualifier,
@@ -117,13 +110,13 @@ const stats = defineServerCommand({
         } else {
             return {
                 ...magic.halfNumber.query({
-                    key:       'parts.power',
+                    key:       'card.parts.power',
                     parameter: power,
                     operator:  operator ?? '=',
                     qualifier: qualifier ?? [],
                 }),
                 ...magic.halfNumber.query({
-                    key:       'parts.toughness',
+                    key:       'card.parts.toughness',
                     parameter: toughness,
                     operator:  operator ?? '=',
                     qualifier: qualifier ?? [],
@@ -143,54 +136,36 @@ const hash = defineServerCommand({
         const { tag } = pattern;
 
         if (!qualifier.includes('!')) {
-            switch (tag) {
-            case 'dev:on-eq-un':
-                return { $expr: { $eq: ['$parts.oracle.name', '$parts.unified.name'] } };
-            case 'dev:on-eq-pn':
-                return { $expr: { $eq: ['$parts.oracle.name', '$parts.printed.name'] } };
-            default:
-                break;
-            }
-
             return {
                 $or: [
-                    { tags: tag },
-                    { localTags: tag },
+                    { 'card.tags': tag },
+                    { 'print.tags': tag },
                 ],
             };
         } else {
-            switch (tag) {
-            case 'dev:on-eq-un':
-                return { $expr: { $ne: ['$parts.oracle.name', '$parts.unified.name'] } };
-            case 'dev:on-eq-pn':
-                return { $expr: { $ne: ['$parts.oracle.name', '$parts.printed.name'] } };
-            default:
-                break;
-            }
-
             return {
                 $and: [
-                    { tags: { $ne: tag } },
-                    { localTags: { $ne: tag } },
+                    { 'card.tags': { $ne: tag } },
+                    { 'print.tags': { $ne: tag } },
                 ],
             };
         }
     },
 });
 
-const set = builtin.simple(commands.set);
-const num = builtin.simple(commands.num);
-const lang = builtin.simple(commands.lang);
+const set = builtin.simple(commands.set, { key: 'print.set' });
+const num = builtin.simple(commands.num, { key: 'print.number' });
+const lang = builtin.simple(commands.lang, { key: 'print.lang' });
 
-const cost = magic.cost(commands.cost);
-const manaValue = builtin.number(commands.manaValue, { key: 'manaValue' });
+const cost = magic.cost(commands.cost, { key: 'card.part.cost' });
+const manaValue = builtin.number(commands.manaValue, { key: 'card.manaValue' });
 
-const color = magic.color(commands.color, { key: 'parts.color' });
-const colorIdentity = magic.color(commands.colorIdentity, { key: 'colorIdentity' });
-const colorIndicator = magic.color(commands.colorIndicator, { key: 'parts.colorIndicator' });
+const color = magic.color(commands.color, { key: 'card.parts.color' });
+const colorIdentity = magic.color(commands.colorIdentity, { key: 'card.colorIdentity' });
+const colorIndicator = magic.color(commands.colorIndicator, { key: 'card.parts.colorIndicator' });
 
-const power = magic.halfNumber(commands.power, { key: 'parts.power' });
-const toughness = magic.halfNumber(commands.toughness, { key: 'parts.toughness' });
+const power = magic.halfNumber(commands.power, { key: 'card.parts.power' });
+const toughness = magic.halfNumber(commands.toughness, { key: 'card.parts.toughness' });
 
 const loyalty = defineServerCommand({
     command: commands.loyalty,
@@ -198,7 +173,7 @@ const loyalty = defineServerCommand({
         pattern, parameter, operator, qualifier,
     }) {
         return magic.halfNumber.query({
-            key:       'parts.loyalty',
+            key:       'card.parts.loyalty',
             parameter: pattern?.loyalty ?? parameter,
             operator:  operator === '' ? '=' : operator,
             qualifier: qualifier ?? [],
@@ -212,7 +187,7 @@ const defense = defineServerCommand({
         pattern, parameter, operator, qualifier,
     }) {
         return magic.halfNumber.query({
-            key:       'parts.defense',
+            key:       'card.parts.defense',
             parameter: pattern?.defense ?? parameter,
             operator:  operator === '' ? '=' : operator,
             qualifier,
@@ -227,22 +202,28 @@ const name = defineServerCommand({
     }) {
         switch (modifier) {
         case 'oracle':
+            return builtin.text.query({
+                key: 'card.parts.name', parameter, operator, qualifier,
+            });
         case 'unified':
+            return builtin.text.query({
+                key: 'card.parts.localization.name', parameter, operator, qualifier,
+            });
         case 'printed':
             return builtin.text.query({
-                key: `parts.${modifier}.name`, parameter, operator, qualifier,
+                key: 'print.parts.name', parameter, operator, qualifier,
             });
         default:
             return {
                 [!qualifier.includes('!') ? '$or' : '$and']: [
                     builtin.text.query({
-                        key: 'parts.oracle.name', parameter, operator, qualifier,
+                        key: 'card.parts.name', parameter, operator, qualifier,
                     }),
                     builtin.text.query({
-                        key: 'parts.unified.name', parameter, operator, qualifier,
+                        key: 'card.parts.localization.name', parameter, operator, qualifier,
                     }),
                     builtin.text.query({
-                        key: 'parts.printed.name', parameter, operator, qualifier,
+                        key: 'print.parts.name', parameter, operator, qualifier,
                     }),
                 ],
             };
@@ -257,22 +238,28 @@ const type = defineServerCommand({
     }) {
         switch (modifier) {
         case 'oracle':
+            return builtin.text.query({
+                key: 'card.parts.typeline', parameter, operator, qualifier,
+            });
         case 'unified':
+            return builtin.text.query({
+                key: 'card.parts.localization.typeline', parameter, operator, qualifier,
+            });
         case 'printed':
             return builtin.text.query({
-                key: `parts.${modifier}.typeline`, parameter, operator, qualifier,
+                key: 'print.parts.typeline', parameter, operator, qualifier,
             });
         default:
             return {
                 [!qualifier.includes('!') ? '$or' : '$and']: [
                     builtin.text.query({
-                        key: 'parts.oracle.typeline', parameter, operator, qualifier,
+                        key: 'card.parts.typeline', parameter, operator, qualifier,
                     }),
                     builtin.text.query({
-                        key: 'parts.unified.typeline', parameter, operator, qualifier,
+                        key: 'card.parts.localization.typeline', parameter, operator, qualifier,
                     }),
                     builtin.text.query({
-                        key: 'parts.printed.typeline', parameter, operator, qualifier,
+                        key: 'print.parts.typeline', parameter, operator, qualifier,
                     }),
                 ],
             };
@@ -287,22 +274,28 @@ const text = defineServerCommand({
     }) {
         switch (modifier) {
         case 'oracle':
+            return builtin.text.query({
+                key: 'card.parts.text', parameter, operator, qualifier,
+            });
         case 'unified':
+            return builtin.text.query({
+                key: 'card.parts.localization.text', parameter, operator, qualifier,
+            });
         case 'printed':
             return builtin.text.query({
-                key: `parts.${modifier}.text`, parameter, operator, qualifier, multiline: true,
+                key: 'print.parts.text', parameter, operator, qualifier,
             });
         default:
             return {
                 [!qualifier.includes('!') ? '$or' : '$and']: [
                     builtin.text.query({
-                        key: 'parts.oracle.text', parameter, operator, qualifier, multiline: true,
+                        key: 'card.parts.text', parameter, operator, qualifier,
                     }),
                     builtin.text.query({
-                        key: 'parts.unified.text', parameter, operator, qualifier, multiline: true,
+                        key: 'card.parts.localization.text', parameter, operator, qualifier,
                     }),
                     builtin.text.query({
-                        key: 'parts.printed.text', parameter, operator, qualifier, multiline: true,
+                        key: 'print.parts.text', parameter, operator, qualifier,
                     }),
                 ],
             };
@@ -315,24 +308,23 @@ const oracle = defineServerCommand({
     query:   ({ parameter, operator, qualifier }) => ({
         [!qualifier.includes('!') ? '$or' : '$and']: [
             builtin.text.query({
-                key: 'parts.oracle.text', parameter, operator, qualifier,
+                key: 'card.parts.text', parameter, operator, qualifier,
             }),
             builtin.text.query({
-                key: 'parts.unified.text', parameter, operator, qualifier,
+                key: 'card.parts.localization.text', parameter, operator, qualifier,
             }),
         ],
     }),
 });
 
-const flavorText = builtin.text(commands.flavorText, { key: 'parts.flavorText' });
-const flavorName = builtin.text(commands.flavorName, { key: 'parts.flavorName' });
+const flavorText = builtin.text(commands.flavorText, { key: 'print.parts.flavorText' });
+const flavorName = builtin.text(commands.flavorName, { key: 'print.parts.flavorName' });
 const layout = builtin.simple(commands.layout);
 
 const rarity = defineServerCommand({
     command: commands.rarity,
     query:   ({ parameter, operator, qualifier }) => {
-        // eslint-disable-next-line @typescript-eslint/no-shadow
-        const rarity = (
+        const rarities = (
             {
                 c: 'common',
                 u: 'uncommon',
@@ -343,7 +335,7 @@ const rarity = defineServerCommand({
         )[parameter] ?? parameter;
 
         return builtin.simple.query({
-            key: 'rarity', parameter: rarity, operator, qualifier,
+            key: 'print.rarity', parameter: rarities, operator, qualifier,
         });
     },
 });
@@ -355,18 +347,18 @@ const date = defineServerCommand({
         case '=':
         case ':':
             if (!qualifier.includes('!')) {
-                return { releaseDate: { $eq: parameter } };
+                return { 'print.releaseDate': { $eq: parameter } };
             } else {
-                return { releaseDate: { $ne: parameter } };
+                return { 'print.releaseDate': { $ne: parameter } };
             }
         case '>':
-            return { releaseDate: { $gt: parameter } };
+            return { 'print.releaseDate': { $gt: parameter } };
         case '>=':
-            return { releaseDate: { $gte: parameter } };
+            return { 'print.releaseDate': { $gte: parameter } };
         case '<':
-            return { releaseDate: { $lt: parameter } };
+            return { 'print.releaseDate': { $lt: parameter } };
         case '<=':
-            return { releaseDate: { $lte: parameter } };
+            return { 'print.releaseDate': { $lte: parameter } };
         default:
             throw new QueryError({ type: 'invalid-query' });
         }
@@ -381,18 +373,18 @@ const format = defineServerCommand({
             const [format, status] = parameter.split(',');
 
             if (!qualifier.includes('!')) {
-                return { [`legalities.${format}`]: status };
+                return { [`card.legalities.${format}`]: status };
             } else {
-                return { [`legalities.${format}`]: { $ne: status } };
+                return { [`card.legalities.${format}`]: { $ne: status } };
             }
         } else {
             if (!qualifier.includes('!')) {
                 return {
-                    [`legalities.${parameter}`]: { $in: ['legal', 'restricted'] },
+                    [`card.legalities.${parameter}`]: { $in: ['legal', 'restricted'] },
                 };
             } else {
                 return {
-                    [`legalities.${parameter}`]: { $nin: ['legal', 'restricted'] },
+                    [`card.legalities.${parameter}`]: { $nin: ['legal', 'restricted'] },
                 };
             }
         }
@@ -405,9 +397,9 @@ const counter = defineServerCommand({
         parameter = toIdentifier(parameter);
 
         if (!qualifier.includes('!')) {
-            return { counters: parameter };
+            return { 'card.counters': parameter };
         } else {
-            return { counters: { $ne: parameter } };
+            return { 'card.counters': { $ne: parameter } };
         }
     },
 });
@@ -418,9 +410,9 @@ const keyword = defineServerCommand({
         parameter = toIdentifier(parameter);
 
         if (!qualifier.includes('!')) {
-            return { keywords: parameter };
+            return { 'card.keywords': parameter };
         } else {
-            return { keywords: { $ne: parameter } };
+            return { 'card.keywords': { $ne: parameter } };
         }
     },
 });
@@ -448,18 +440,18 @@ const order = defineServerCommand({
         return agg => {
             switch (type) {
             case 'name':
-                agg.sort({ 'parts.unified.name': dir });
+                agg.sort({ 'card.parts.name': dir });
                 break;
             case 'date':
-                agg.sort({ releaseDate: dir });
+                agg.sort({ 'print.releaseDate': dir });
                 break;
             case 'id':
-                agg.sort({ cardId: dir });
+                agg.sort({ 'card.cardId': dir });
                 break;
             case 'cmc':
             case 'mv':
             case 'cost':
-                agg.sort({ manaValue: dir });
+                agg.sort({ 'card.manaValue': dir });
                 break;
             default:
                 throw new QueryError({ type: 'invalid-query' });
@@ -535,34 +527,84 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
             const pageSize = parseOption(o['page-size'], 100);
             const locale = o.locale ?? 'en';
 
-            const fullGen = <T>() => {
+            const start = Date.now();
+
+            const fullGen = <T>(justCount = false) => {
                 const aggregate = gen<T>();
 
                 aggregate
+                    .collation({ locale: 'en', numericOrdering: true })
                     .allowDiskUse(true)
                     .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-                    .match(q);
+                    .replaceRoot({ card: '$$ROOT' })
+                    .addFields({ cardId: '$card.cardId' });
+
+                const pipeline: Exclude<PipelineStage, PipelineStage.Merge | PipelineStage.Out>[] = [
+                    { $match: { $expr: { $eq: ['$cardId', '$$cardId'] } } },
+                    { $unwind: { path: '$parts', includeArrayIndex: 'partIndex' } },
+                    { $match: { $expr: { $eq: ['$partIndex', '$$partIndex'] } } },
+                ];
 
                 switch (groupBy) {
                 case 'print':
                     break;
                 case 'card':
                 default:
-                    aggregate
-                        .addFields({
-                            langIsLocale:  { $eq: ['$lang', locale] },
-                            langIsEnglish: { $eq: ['$lang', 'en'] },
-                        })
-                        .sort({
-                            langIsLocale:  -1,
-                            langIsEnglish: -1,
-                            releaseDate:   -1,
-                            number:        1,
-                        })
-                        .collation({ locale: 'en', numericOrdering: true })
-                        .group({ _id: '$cardId', data: { $first: '$$ROOT' } })
-                        .replaceRoot('data');
+                    if (!justCount) {
+                        pipeline.push(
+                            {
+                                $addFields: {
+                                    langIsLocale:  { $eq: ['$lang', locale] },
+                                    langIsEnglish: { $eq: ['$lang', 'en'] },
+                                },
+                            },
+                            {
+                                $sort: {
+                                    langIsLocale:  -1,
+                                    langIsEnglish: -1,
+                                    releaseDate:   -1,
+                                    number:        1,
+                                },
+                            },
+                            {
+                                $group: {
+                                    _id:  0,
+                                    data: { $first: '$$ROOT' },
+                                },
+                            },
+                            {
+                                $replaceRoot: { newRoot: '$data' },
+                            },
+                        );
+                    } else {
+                        pipeline.push(
+                            {
+                                $group: {
+                                    _id:  0,
+                                    data: { $first: '$$ROOT' },
+                                },
+                            },
+                            {
+                                $replaceRoot: { newRoot: '$data' },
+                            },
+                        );
+                    }
                 }
+
+                aggregate
+                    .lookup({
+                        from: 'prints',
+                        let:  { cardId: '$cardId', partIndex: '$card.partIndex' },
+                        pipeline,
+                        as:   'print',
+                    })
+                    .unwind('print')
+                    .match(q)
+                    .group({
+                        _id:   '$cardId',
+                        value: { $first: '$$ROOT' },
+                    })
+                    .replaceRoot('$value');
 
                 return aggregate;
             };
@@ -570,9 +612,11 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
             const aggregate = fullGen<ServerModel>();
 
             const total = (
-                await fullGen<{ count: number }>()
+                await fullGen<{ count: number }>(true)
                     .group({ _id: null, count: { $sum: 1 } })
             )[0]?.count ?? 0;
+
+            const countElapsed = Date.now() - start;
 
             const orderAction = p.find(v => v.phase === 'order');
 
@@ -591,16 +635,28 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 langIsEn:     0,
             });
 
+            // const explain = await aggregate.explain('executionStats');
+
             const cards = await aggregate;
 
-            return { cards, total, page };
+            return {
+                countElapsed,
+                elapsed: Date.now() - start,
+                // explain,
+                cards,
+                total,
+                page,
+            };
         },
 
         dev: async (gen, q: DBQuery, p: PostAction[], o: SearchOption) => {
             const fullGen = <T>() => {
                 const aggregate = gen<T>();
 
-                aggregate.allowDiskUse(true).match(q);
+                aggregate
+                    .allowDiskUse(true)
+                    .unwind('print')
+                    .match(q);
 
                 return aggregate;
             };
@@ -609,7 +665,6 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
 
             const total = (
                 await fullGen<{ count: number }>()
-                    .allowDiskUse(true)
                     .group({ _id: null, count: { $sum: 1 } })
             )[0]?.count ?? 0;
 
@@ -632,19 +687,23 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
             return result.map(v => v._id) as string[];
         },
     },
-}, card => {
-    const gen = <V>() => card.aggregate<V>()
+}, card => ({
+    search: <V> () => card.aggregate<V>(),
+
+    dev: <V>() => card.aggregate<V>()
+        .replaceRoot({ card: '$$ROOT' })
+        .lookup({
+            from:         'prints',
+            as:           'print',
+            localField:   'card.cardId',
+            foreignField: 'cardId',
+        }),
+
+    searchId: <V>() => card.aggregate<V>()
         .lookup({
             from:         'prints',
             as:           'print',
             localField:   'cardId',
             foreignField: 'cardId',
-        })
-        .unwind('parts');
-
-    return {
-        search:   gen,
-        dev:      gen,
-        searchId: gen,
-    };
-});
+        }),
+}));

@@ -21,7 +21,7 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, set, number, lang, layout, partIndex }"
+                v-slot="{ cardId, print: { set, number, lang, layout, partIndex }}"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
@@ -43,31 +43,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.controller
-    height: 50px
-
-    position: fixed
-    top: 50px
-    left: 0
-    right: 0
-
-    background-color: lighten($primary, 20%)
-
-    z-index: 10
-
-    &:deep(*)
-        color: white !important
-
-.result
-    margin-top: 50px
-    margin-left: 50px
-    margin-right: 50px
-
-.card-panel
-    justify-content: center !important
-</style>
-
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 
@@ -81,6 +56,9 @@ import magicSetup from 'setup/magic';
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import MagicText from 'components/magic/Text.vue';
+
+import { Card } from '@interface/magic/card';
+import { Print } from '@interface/magic/print';
 
 import model from 'searcher-data/magic/client';
 
@@ -97,10 +75,20 @@ interface QueryItem {
     param: QueryParam;
 }
 
+type Unwind<T extends { parts: any[] }> = Omit<T, 'parts'> & {
+    parts: T['parts'][0];
+    partIndex: number;
+};
+
+interface QueryCard {
+    cardId: string;
+    card: Unwind<Card>;
+    print: Unwind<Print>;
+}
+
 interface QueryResult {
-    onlyId: false;
     total: number;
-    cards: { cardId: string, set: string, number: string, lang: string, layout: string }[];
+    cards: QueryCard[];
 }
 
 interface SearchResult {
@@ -152,7 +140,7 @@ const { q, page, pageSize } = pageSetup({
 
 const searchText = computed({
     get() { return core.search; },
-    set(newValue: string) { core.search = newValue; },
+    set(newValue: string) { (core as any).search = newValue; },
 });
 
 const explained = computed(() => model.explain(q.value, (key: string, named) => {
@@ -195,6 +183,8 @@ const doSearch = async () => {
     if (result.text === q.value) {
         data.value = result;
 
+        console.log(result);
+
         searching.value = false;
     }
 };
@@ -210,8 +200,33 @@ const cardLink = (
     set: string,
     number: string,
     lang: string,
-    partIndex: string,
+    partIndex: number,
 ) => `/magic/card/${cardId}?set=${set}&number=${number}&lang=${lang}&part=${partIndex}`;
 
 watch([q, page, pageSize], doSearch, { immediate: true });
 </script>
+
+<style lang="sass" scoped>
+.controller
+    height: 50px
+
+    position: fixed
+    top: 50px
+    left: 0
+    right: 0
+
+    background-color: lighten($primary, 20%)
+
+    z-index: 10
+
+    &:deep(*)
+        color: white !important
+
+.result
+    margin-top: 50px
+    margin-left: 50px
+    margin-right: 50px
+
+.card-panel
+    justify-content: center !important
+</style>
