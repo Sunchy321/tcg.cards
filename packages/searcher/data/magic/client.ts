@@ -5,6 +5,10 @@ import * as builtin from '../../src/command/builtin/client';
 
 import model, { commands } from './index';
 
+import { defaultTranslate } from '../../src/model/client/translate';
+
+import { textMap } from '../../src/command/builtin/text/client';
+
 const raw = defineClientCommand({
     command: commands.raw,
     explain({ parameter }, i18n) {
@@ -49,13 +53,11 @@ const loyalty = defineClientCommand({
     explain({ parameter, pattern, operator }, i18n) {
         const { id } = commands.loyalty;
 
-        const commandText = i18n(`$.command.${id}`);
-
-        const operatorText = i18n(`operator.${operator}`);
-
-        const param = pattern?.loyalty ?? parameter;
-
-        return `${commandText}${operatorText}${param}`;
+        return defaultTranslate({
+            operator,
+            qualifier: [],
+            parameter: pattern?.loyalty ?? parameter,
+        }, i18n, id, textMap);
     },
 });
 
@@ -64,13 +66,11 @@ const defense = defineClientCommand({
     explain({ parameter, pattern, operator }, i18n) {
         const { id } = commands.defense;
 
-        const commandText = i18n(`$.command.${id}`);
-
-        const operatorText = i18n(`operator.${operator}`);
-
-        const param = pattern?.defense ?? parameter;
-
-        return `${commandText}${operatorText}${param}`;
+        return defaultTranslate({
+            operator,
+            qualifier: [],
+            parameter: pattern?.defense ?? parameter,
+        }, i18n, id, textMap);
     },
 });
 

@@ -9,7 +9,7 @@ export type TextClientCommand = ClientCommandOf<TextCommand>;
 
 export type TextQueryOption = ArgumentOf<TextCommand>;
 
-const textMap: OperatorMapOf<TextCommand> = {
+export const textMap: OperatorMapOf<TextCommand> = {
     '=':  'equal',
     '!=': 'not-equal',
     ':':  'include',

@@ -1,7 +1,7 @@
 import { defineServerModel } from '../../src/model/server';
 import { defineServerCommand, DBQuery, CommonServerCommand } from '../../src/command/server';
 
-import { Model, PipelineStage } from 'mongoose';
+import { Model } from 'mongoose';
 
 import { PostAction } from '../../src/model/type';
 import { SearchOption } from '../../src/search';
@@ -13,6 +13,7 @@ import { IPrintDatabase } from '@common/model/magic/print';
 import * as builtin from '../../src/command/builtin/server';
 import * as magic from './command/backend';
 
+import { isEmpty, pickBy } from 'lodash';
 import { toIdentifier } from '@common/util/id';
 
 import { commands } from './index';
@@ -157,7 +158,7 @@ const set = builtin.simple(commands.set, { key: 'print.set' });
 const num = builtin.simple(commands.num, { key: 'print.number' });
 const lang = builtin.simple(commands.lang, { key: 'print.lang' });
 
-const cost = magic.cost(commands.cost, { key: 'card.part.cost' });
+const cost = magic.cost(commands.cost, { key: 'card.parts.cost' });
 const manaValue = builtin.number(commands.manaValue, { key: 'card.manaValue' });
 
 const color = magic.color(commands.color, { key: 'card.parts.color' });
@@ -529,6 +530,8 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
 
             const start = Date.now();
 
+            const cardQuery = pickBy(q, (v, k) => k.startsWith('card.'));
+
             const fullGen = <T>(justCount = false) => {
                 const aggregate = gen<T>();
 
@@ -536,75 +539,70 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                     .collation({ locale: 'en', numericOrdering: true })
                     .allowDiskUse(true)
                     .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-                    .replaceRoot({ card: '$$ROOT' })
-                    .addFields({ cardId: '$card.cardId' });
+                    .unwind('parts.localization')
+                    .replaceRoot({ card: '$$ROOT' });
 
-                const pipeline: Exclude<PipelineStage, PipelineStage.Merge | PipelineStage.Out>[] = [
-                    { $match: { $expr: { $eq: ['$cardId', '$$cardId'] } } },
-                    { $unwind: { path: '$parts', includeArrayIndex: 'partIndex' } },
-                    { $match: { $expr: { $eq: ['$partIndex', '$$partIndex'] } } },
-                ];
-
-                switch (groupBy) {
-                case 'print':
-                    break;
-                case 'card':
-                default:
-                    if (!justCount) {
-                        pipeline.push(
-                            {
-                                $addFields: {
-                                    langIsLocale:  { $eq: ['$lang', locale] },
-                                    langIsEnglish: { $eq: ['$lang', 'en'] },
-                                },
-                            },
-                            {
-                                $sort: {
-                                    langIsLocale:  -1,
-                                    langIsEnglish: -1,
-                                    releaseDate:   -1,
-                                    number:        1,
-                                },
-                            },
-                            {
-                                $group: {
-                                    _id:  0,
-                                    data: { $first: '$$ROOT' },
-                                },
-                            },
-                            {
-                                $replaceRoot: { newRoot: '$data' },
-                            },
-                        );
-                    } else {
-                        pipeline.push(
-                            {
-                                $group: {
-                                    _id:  0,
-                                    data: { $first: '$$ROOT' },
-                                },
-                            },
-                            {
-                                $replaceRoot: { newRoot: '$data' },
-                            },
-                        );
-                    }
+                if (!isEmpty(cardQuery)) {
+                    aggregate.match(cardQuery);
                 }
 
                 aggregate
+                    .addFields({
+                        cardId: '$card.cardId',
+                    })
                     .lookup({
                         from: 'prints',
-                        let:  { cardId: '$cardId', partIndex: '$card.partIndex' },
-                        pipeline,
-                        as:   'print',
+                        let:  {
+                            cardId:    '$cardId',
+                            lang:      '$card.parts.localization.lang',
+                            partIndex: '$card.partIndex',
+                        },
+                        pipeline: [
+                            { $unwind: { path: '$parts', includeArrayIndex: 'partIndex' } },
+                            {
+                                $match: {
+                                    $expr: {
+                                        $and: [
+                                            { $eq: ['$cardId', '$$cardId'] },
+                                            { $eq: ['$lang', '$$lang'] },
+                                            { $eq: ['$partIndex', '$$partIndex'] },
+                                        ],
+                                    },
+                                },
+                            },
+                        ],
+                        as: 'print',
                     })
                     .unwind('print')
-                    .match(q)
-                    .group({
-                        _id:   '$cardId',
-                        value: { $first: '$$ROOT' },
-                    })
-                    .replaceRoot('$value');
+                    .match(q);
+
+                if (groupBy === 'card') {
+                    if (!justCount) {
+                        aggregate
+                            .addFields({
+                                langIsLocale:  { $eq: ['$print.lang', locale] },
+                                langIsEnglish: { $eq: ['$print.lang', 'en'] },
+                            })
+                            .group({
+                                _id:   '$cardId',
+                                value: {
+                                    $top: {
+                                        sortBy: {
+                                            'langIsLocale':      -1,
+                                            'langIsEnglish':     -1,
+                                            'print.releaseDate': -1,
+                                            'print.number':      1,
+                                        },
+
+                                        output: '$$ROOT',
+                                    },
+                                } as any,
+                            })
+                            .replaceRoot('$value');
+                    } else {
+                        aggregate.group({ _id: '$cardId' });
+                    }
+                }
 
                 return aggregate;
             };
@@ -626,26 +624,27 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 order.post!({ parameter: orderBy, operator: ':', qualifier: [] })(aggregate);
             }
 
-            aggregate.skip((page - 1) * pageSize);
-            aggregate.limit(pageSize);
-            aggregate.project({
-                _id:          0,
-                __v:          0,
-                langIsLocale: 0,
-                langIsEn:     0,
-            });
+            aggregate
+                .skip((page - 1) * pageSize)
+                .limit(pageSize)
+                .project({
+                    'card._id':           0,
+                    'card.__v':           0,
+                    'print.langIsLocale': 0,
+                    'print.langIsEn':     0,
+                });
 
-            // const explain = await aggregate.explain('executionStats');
+            const explain = await aggregate.explain('executionStats');
 
             const cards = await aggregate;
 
             return {
                 countElapsed,
                 elapsed: Date.now() - start,
-                // explain,
-                cards,
                 total,
                 page,
+                explain,
+                cards,
             };
         },
 
