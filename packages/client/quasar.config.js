@@ -11,7 +11,7 @@
 /* eslint func-names: 0 */
 /* eslint global-require: 0 */
 
-import { configure } from 'quasar/wrappers';
+import { configure } from 'quasar/wrappers/index.js';
 import path from 'path';
 
 export default configure((/* ctx */) => ({
