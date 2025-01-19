@@ -26,7 +26,7 @@
 		"typescript": "^5.3.3"
 	},
 	"dependencies": {
-		"canvas": "^2.11.2",
+		"canvas": "^3.0.1",
 		"card-interface": "workspace:^1.1.0",
 		"lodash": "^4.17.21",
 		"tst-reflect": "^0.7.4"
