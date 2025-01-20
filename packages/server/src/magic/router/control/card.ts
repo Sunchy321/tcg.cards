@@ -47,18 +47,11 @@ router.get('/raw', async ctx => {
     });
 
     const sourceRelations = await CardRelation.find({ sourceId: cardId });
-    const targetRelations = await CardRelation.find({ targetId: cardId });
 
-    const relatedCards: RelatedCard[] = [
-        ...sourceRelations.map(s => ({
-            relation: `${s.relation}:src`,
-            cardId:   s.targetId,
-        })),
-        ...targetRelations.map(t => ({
-            relation: `${t.relation}:tgt`,
-            cardId:   t.sourceId,
-        })),
-    ];
+    const relatedCards: RelatedCard[] = sourceRelations.map(s => ({
+        relation: s.relation,
+        cardId:   s.targetId,
+    }));
 
     if (card != null && print != null) {
         ctx.body = {
@@ -87,12 +80,16 @@ router.get('/search', async ctx => {
         sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
     });
 
-    const cards = ((values: { cardId: string, lang: string }[]) => {
+    const cards = ((values: { card: { cardId: string }, print: { lang: string } }[]) => {
         switch (filterBy) {
         case 'card':
-            return values.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId));
+            return values.filter((v, i, a) => a
+                .slice(i + 1)
+                .every(e => e.card.cardId !== v.card.cardId));
         case 'lang':
-            return values.filter((v, i, a) => a.slice(i + 1).every(e => e.cardId !== v.cardId || e.lang !== v.lang));
+            return values.filter((v, i, a) => a
+                .slice(i + 1)
+                .every(e => e.card.cardId !== v.card.cardId || e.print.lang !== v.print.lang));
         default:
             return values;
         }
@@ -118,6 +115,32 @@ router.post('/update', async ctx => {
         await old.replaceOne(data);
     } else {
         await Card.create(omit(data, ['_id', '__v']) as ICard);
+    }
+
+    ctx.status = 200;
+});
+
+router.post('/update-related', async ctx => {
+    const { id, related } = ctx.request.body as { id: string, related: RelatedCard[] };
+
+    if (id == null) {
+        return;
+    }
+
+    await CardRelation.deleteMany({ sourceId: id });
+
+    for (const r of related) {
+        const card = await Card.findOne({ cardId: r.cardId });
+
+        if (card == null) {
+            continue;
+        }
+
+        await CardRelation.create({
+            relation: r.relation,
+            sourceId: id,
+            targetId: r.cardId,
+        });
     }
 
     ctx.status = 200;

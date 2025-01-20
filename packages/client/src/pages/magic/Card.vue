@@ -145,6 +145,16 @@
                     <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
                     JSON
                 </q-btn>
+
+                <q-btn
+                    v-if="jsonPrintLink != null"
+                    class="link"
+                    :href="jsonPrintLink" target="_blank"
+                    outline no-caps
+                >
+                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
+                    JSON(Print)
+                </q-btn>
             </div>
         </div>
 
@@ -680,6 +690,18 @@ const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
 
 const jsonLink = computed(() => {
     const url = new URL('magic/card', apiBase);
+
+    const query = apiQuery.value;
+
+    if (query != null) {
+        url.search = new URLSearchParams(query).toString();
+    }
+
+    return url.toString();
+});
+
+const jsonPrintLink = computed(() => {
+    const url = new URL('magic/print', apiBase);
 
     const query = apiQuery.value;
 

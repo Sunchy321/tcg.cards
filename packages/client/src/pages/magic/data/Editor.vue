@@ -141,6 +141,13 @@
                 />
 
                 <q-btn
+                    v-if="devOracle"
+                    color="red" icon="mdi-alpha-o-circle-outline"
+                    dense flat round
+                    @click="devOracle = false"
+                />
+
+                <q-btn
                     :color="devPrintedColor" icon="mdi-alert-circle-outline"
                     dense flat round
                     @click="clickDevPrinted"
@@ -361,7 +368,7 @@ const keywordMap: Record<string, string> = {
     'prowess':      'p',
 };
 
-const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone', 'Map'];
+const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone', 'Map', 'Junk'];
 
 const numberRegex = '(?:[a-z]+|a number of|(?:twice )?(?:X|that many))';
 
@@ -805,7 +812,7 @@ const printTag = (name: string) => computed({
             return false;
         }
 
-        return print.value.tags.includes(`dev:${name}`);
+        return (print.value.tags ?? []).includes(`dev:${name}`);
     },
     set(newValue: boolean) {
         if (print.value == null) {
@@ -813,7 +820,7 @@ const printTag = (name: string) => computed({
         }
 
         if (newValue) {
-            if (!print.value.tags.includes(`dev:${name}`)) {
+            if (print.value.tags != null && !print.value.tags.includes(`dev:${name}`)) {
                 print.value.tags.push(`dev:${name}`);
             }
         } else {
@@ -823,6 +830,7 @@ const printTag = (name: string) => computed({
 });
 
 const devPrinted = printTag('printed');
+const devOracle = cardTag('oracle');
 const devToken = cardTag('token');
 const devCounter = cardTag('counter');
 
@@ -1448,6 +1456,11 @@ const doUpdate = debounce(
         await controlPost('/magic/print/update', {
             data: print.value,
         });
+
+        await controlPost('/magic/card/update-related', {
+            id:      card.value!.cardId,
+            related: relatedCards.value,
+        });
     },
     1000,
     {
@@ -1474,6 +1487,8 @@ onMounted(loadData);
 const loadGroup = async (method: string, skip = false) => {
     if (data.value != null && !skip) {
         await doUpdate();
+
+        await (async (time: number) => new Promise(resolve => { setTimeout(resolve, time); }))(100);
     }
 
     if (dataGroup.value != null && dataGroup.value.method === method && dataGroup.value.cards?.length > 0) {

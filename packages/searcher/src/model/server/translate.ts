@@ -84,7 +84,17 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
     } else if (expr.type === 'not') {
         const result = translate(expr.expr, commands);
 
-        return { dbQuery: { $not: result.dbQuery }, post: result.post };
+        if (result.dbQuery.$and != null) {
+            return {
+                dbQuery: { $nor: result.dbQuery.$and },
+                post:    result.post,
+            };
+        } else {
+            return {
+                dbQuery: { $nor: [result.dbQuery] },
+                post:    result.post,
+            };
+        }
     } else if (expr.type === 'paren') {
         return translate(expr.expr, commands);
     }

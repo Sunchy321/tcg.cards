@@ -668,6 +668,29 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
             )[0]?.count ?? 0;
 
             const cards = await aggregate
+                .project({
+                    'card.relatedCards': false,
+                })
+                .lookup({
+                    from: 'card_relations',
+                    let:  {
+                        cardId: '$card.cardId',
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ['$sourceId', '$$cardId'] },
+                            },
+                        },
+                        {
+                            $project: {
+                                relation: '$relation',
+                                cardId:   '$targetId',
+                            },
+                        },
+                    ],
+                    as: 'relatedCards',
+                })
                 .sort({ releaseDate: -1, cardId: 1 })
                 .limit(o.sample);
 
