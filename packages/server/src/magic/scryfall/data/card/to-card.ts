@@ -236,7 +236,7 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
                 : undefined,
             tags: [
                 ...data.reserved ? ['reserved'] : [],
-                ...cardFaces.some(c => /\bcreates?|embalm|eternalize\b/i.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
+                ...cardFaces.some(c => /\bcreates?|embalm|eternalize|squad|offspring\b/i.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
                 ...cardFaces.some(c => /\bcounters?\b/.test(c.oracle_text ?? '')) ? ['dev:counter'] : [],
             ],
 

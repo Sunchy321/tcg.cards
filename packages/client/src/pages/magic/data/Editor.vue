@@ -1603,7 +1603,7 @@ const guessToken = () => {
             }
         }
 
-        if (/^(Embalm|Eternalize|Squad)/m.test(text)) {
+        if (/^(Embalm|Eternalize|Squad|Offspring)/m.test(text)) {
             relatedCardsCopy.push({ relation: 'token', cardId: `${id.value}!` });
         }
 
