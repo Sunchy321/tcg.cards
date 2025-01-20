@@ -27,7 +27,7 @@ export const extendedLocales = [
 export const specificManaSymbols = [
     'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',
     'W/U', 'U/B', 'B/R', 'R/G', 'G/W', 'W/B', 'U/R', 'B/G', 'R/W', 'G/U',
-    '2/W', '2/U', '2/B', '2/R', '2/G', 'W/P', 'U/P', 'B/P', 'R/P', 'G/P',
+    '2/W', '2/U', '2/B', '2/R', '2/G', 'W/P', 'U/P', 'B/P', 'R/P', 'G/P', 'C/P',
     'W/U/P', 'U/B/P', 'B/R/P', 'R/G/P', 'G/W/P', 'W/B/P', 'U/R/P', 'B/G/P', 'R/W/P', 'G/U/P',
     'C/W', 'C/U', 'C/B', 'C/R', 'C/G',
     'S', 'HW', 'HR',

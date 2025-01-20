@@ -66,7 +66,7 @@ const symbols = computed(() => {
     result.push(['20', 'X', 'Y', 'Z', 'W', 'U', 'B', 'R', 'G', 'C']);
 
     result.push(['W/U', 'U/B', 'B/R', 'R/G', 'G/W', 'W/B', 'U/R', 'B/G', 'R/W', 'G/U']);
-    result.push(['2/W', '2/U', '2/B', '2/R', '2/G', 'W/P', 'U/P', 'B/P', 'R/P', 'G/P']);
+    result.push(['2/W', '2/U', '2/B', '2/R', '2/G', 'W/P', 'U/P', 'B/P', 'R/P', 'G/P', 'C/P']);
 
     if (style.value === 'flat') {
         result.push(['']);
