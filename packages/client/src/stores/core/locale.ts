@@ -44,7 +44,7 @@ export default function useLocale(): {
                     const qLocaleId = quasarLocaleMap[newValue]
                     ?? newValue.replace(/[A-Z]/, t => `-${t.toLowerCase()}`);
 
-                    const qLocaleImport = qLocales()[`/node_modules/quasar/lang/${qLocaleId}.mjs`];
+                    const qLocaleImport = qLocales()[`/node_modules/quasar/lang/${qLocaleId}.js`];
 
                     const qLocale = await qLocaleImport() as { default: QuasarLanguage };
 
