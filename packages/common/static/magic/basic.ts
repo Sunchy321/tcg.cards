@@ -31,6 +31,7 @@ export const specificManaSymbols = [
     'W/U/P', 'U/B/P', 'B/R/P', 'R/G/P', 'G/W/P', 'W/B/P', 'U/R/P', 'B/G/P', 'R/W/P', 'G/U/P',
     'C/W', 'C/U', 'C/B', 'C/R', 'C/G',
     'S', 'HW', 'HR',
+    'D', 'L',
 ];
 
 export const manaSymbols = [

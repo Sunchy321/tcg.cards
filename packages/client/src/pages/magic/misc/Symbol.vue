@@ -78,6 +78,7 @@ const symbols = computed(() => {
         result.push(['T', 'Q', 'S', 'INF', 'H1', 'HW', 'HR', 'H', 'PW', 'E']);
         result.push(['A', 'TK', 'P']);
         result.push(['CHAOS', '100', '1000000']);
+        result.push(['D', 'L']);
     } else if (style.value === 'shadow') {
         result.push(['', '', 'S', 'INF', 'H1', 'HW', 'HR']);
         result.push(['']);
