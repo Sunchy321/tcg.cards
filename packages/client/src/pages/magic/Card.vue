@@ -691,11 +691,7 @@ const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
 const jsonLink = computed(() => {
     const url = new URL('magic/card', apiBase);
 
-    const query = apiQuery.value;
-
-    if (query != null) {
-        url.search = new URLSearchParams(query).toString();
-    }
+    url.search = new URLSearchParams({ id: id.value }).toString();
 
     return url.toString();
 });
@@ -703,11 +699,12 @@ const jsonLink = computed(() => {
 const jsonPrintLink = computed(() => {
     const url = new URL('magic/print', apiBase);
 
-    const query = apiQuery.value;
-
-    if (query != null) {
-        url.search = new URLSearchParams(query).toString();
-    }
+    url.search = new URLSearchParams({
+        id:     id.value,
+        set:    set.value,
+        number: number.value,
+        lang:   lang.value,
+    }).toString();
 
     return url.toString();
 });
