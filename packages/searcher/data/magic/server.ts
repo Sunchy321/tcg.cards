@@ -13,7 +13,7 @@ import { IPrintDatabase } from '@common/model/magic/print';
 import * as builtin from '../../src/command/builtin/server';
 import * as magic from './command/backend';
 
-import { isEmpty, pickBy } from 'lodash';
+import { isEmpty, mapKeys, pickBy } from 'lodash';
 import { toIdentifier } from '@common/util/id';
 
 import { commands } from './index';
@@ -443,6 +443,10 @@ const order = defineServerCommand({
             case 'name':
                 agg.sort({ 'card.parts.name': dir });
                 break;
+            case 'set':
+            case 'number':
+                agg.sort({ 'print.set': 1, 'print.number': 1 });
+                break;
             case 'date':
                 agg.sort({ 'print.releaseDate': dir });
                 break;
@@ -531,6 +535,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
             const start = Date.now();
 
             const cardQuery = pickBy(q, (v, k) => k.startsWith('card.'));
+            const printQuery = mapKeys(pickBy(q, (v, k) => k.startsWith('print.')), (v, k) => k.replace(/^print\./, ''));
 
             const fullGen = <T>(justCount = false) => {
                 const aggregate = gen<T>();
@@ -559,6 +564,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                         },
                         pipeline: [
                             { $unwind: { path: '$parts', includeArrayIndex: 'partIndex' } },
+                            ...isEmpty(printQuery) ? [] : [{ $match: printQuery }],
                             {
                                 $match: {
                                     $expr: {

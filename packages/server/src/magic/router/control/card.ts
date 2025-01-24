@@ -23,7 +23,7 @@ import internalData from '@/internal-data';
 import {
     CardLegalityView, LegalityRecorder, getLegality, getLegalityRules, lookupPrintsForLegality,
 } from '@/magic/banlist/legality';
-import parseGatherer, { GathererGetter, saveGathererImage } from '@/magic/gatherer/parse';
+import { GathererGetter } from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
 import * as logger from '@/magic/logger';
@@ -152,34 +152,53 @@ interface INeedEditResult {
 
 type AggregateOption = {
     lang?: string;
-    match?: any;
-    post?: (arg: Aggregate<any[]>) => Aggregate<any[]>;
+    match: any;
 };
 
-function aggregate({ lang, match, post }: AggregateOption): Aggregate<INeedEditResult[]> {
+function aggregate({ lang, match }: AggregateOption): Aggregate<INeedEditResult[]> {
     const agg = Card.aggregate().allowDiskUse(true);
 
-    if (match != null) { agg.match(match); }
-    if (lang != null) { agg.match({ lang }); }
-
     agg
-        .replaceRoot({
-            newRoot: { card: '$$ROOT' },
-        })
+        .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
+        .unwind('$parts.localization')
         .lookup({
-            from: 'prints', localField: 'card.cardId', foreignField: 'cardId', as: 'print',
+            from: 'prints',
+            let:  {
+                cardId:    '$cardId',
+                lang:      '$parts.localization.lang',
+                partIndex: '$partIndex',
+            },
+            pipeline: [
+                {
+                    $unwind: {
+                        path:              '$parts',
+                        includeArrayIndex: 'partIndex',
+                    },
+                },
+                {
+                    $match: {
+                        $expr: {
+                            $and: [
+                                { $eq: ['$cardId', '$$cardId'] },
+                                { $eq: ['$lang', '$$lang'] },
+                                { $eq: ['$partIndex', '$$partIndex'] },
+                            ],
+                        },
+                    },
+                },
+            ],
+            as: 'print',
         })
         .unwind({ path: '$print' })
-        .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-        .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
+        .addFields({ info: { id: '$cardId', lang: '$print.lang', part: '$print.partIndex' } });
 
-    if (match != null) { agg.match(match); }
-
-    if (post != null) {
-        post(agg);
-    } else {
-        agg.group({ _id: '$info', date: { $max: '$releaseDate' } });
+    if (lang != null) {
+        agg.match({ 'parts.localization.lang': lang });
     }
+
+    agg
+        .match(match)
+        .group({ _id: '$info', date: { $max: '$print.releaseDate' } });
 
     return agg;
 }
@@ -190,8 +209,8 @@ const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResu
         match: {
             'cardId':                  { $nin: internalData<string[]>('magic.special.with-paren') },
             'parts.localization.text': parenRegex,
-            'parts.typeMain':          { $nin: ['dungeon', 'card'] },
-            'parts.typeMain.0':        { $exists: true },
+            'parts.type.main':         { $nin: ['dungeon', 'card'] },
+            'parts.type.main.0':       { $exists: true },
         },
     }),
 
@@ -200,14 +219,14 @@ const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResu
         match: {
             'cardId':                  { $nin: internalData<string[]>('magic.special.with-comma') },
             'parts.localization.text': commaRegex,
-            'parts.typeMain':          { $nin: ['dungeon', 'stickers', 'card'] },
+            'parts.type.main':         { $nin: ['dungeon', 'stickers', 'card'] },
         },
     }),
 
     token: () => aggregate({
         match: {
-            'cardId':          { $not: /!/ },
-            'parts.typeSuper': 'token',
+            'cardId':           { $not: /!/ },
+            'parts.type.super': 'token',
         },
     }),
 };
@@ -228,6 +247,8 @@ router.get('/need-edit', async ctx => {
 
     const total = (await getter(lang)).length;
 
+    // console.log(JSON.stringify(await getter(lang).explain(), null, 4));
+
     if (total === 0) {
         ctx.body = {
             method,
@@ -241,16 +262,28 @@ router.get('/need-edit', async ctx => {
         .sort({ 'print.releaseDate': -1 })
         .limit(sample);
 
-    const cards = await Card.aggregate().allowDiskUse(true)
+    const cards = await Print.aggregate().allowDiskUse(true)
         .match({ $or: result.map(r => ({ cardId: r._id.id, lang: r._id.lang })) })
         .sort({ releaseDate: -1 })
-        .group({ _id: { id: '$cardId', lang: '$lang' }, card: { $first: '$$ROOT' } });
+        .group({ _id: { id: '$cardId', lang: '$lang' }, print: { $first: '$$ROOT' } })
+        .lookup({
+            from:         'cards',
+            localField:   'print.cardId',
+            foreignField: 'cardId',
+            as:           'card',
+        })
+        .unwind('card');
 
     const resultCards = result.map(r => {
         const card = cards.find(c => c._id.id === r._id.id && c._id.lang === r._id.lang);
 
         if (card != null) {
-            return { ...card.card, partIndex: r._id.part, result: { method, ...omit(r, 'date') } };
+            return {
+                card:      card.card,
+                print:     card.print,
+                partIndex: r._id.part,
+                result:    { method, ...omit(r, 'date') },
+            };
         } else {
             return null;
         }
@@ -261,30 +294,6 @@ router.get('/need-edit', async ctx => {
         cards: resultCards,
         total,
     };
-});
-
-router.get('/parse-gatherer', async ctx => {
-    const {
-        id: mid, set, number, lang,
-    } = mapValues(ctx.query, toSingle);
-
-    const mids = mid.split(',').map(v => Number.parseInt(v.trim(), 10));
-
-    if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
-        await parseGatherer(mids, set, number, lang);
-    }
-});
-
-router.get('/save-gatherer-image', async ctx => {
-    const {
-        id: mid, set, number, lang,
-    } = mapValues(ctx.query, toSingle);
-
-    const mids = mid.split(',').map(v => Number.parseInt(v.trim(), 10));
-
-    if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
-        await saveGathererImage(mids, set, number, lang);
-    }
 });
 
 router.get('/get-legality', async ctx => {

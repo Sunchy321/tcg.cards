@@ -2,7 +2,7 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import { Aggregate, ObjectId } from 'mongoose';
+import { ObjectId } from 'mongoose';
 
 import Card from '@/magic/db/card';
 import Print from '@/magic/db/print';
@@ -17,7 +17,6 @@ import {
     omit, mapValues, isEqual, uniq,
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
-import internalData from '@/internal-data';
 
 import {
     CardLegalityView, LegalityRecorder, getLegality, getLegalityRules, lookupPrintsForLegality,
@@ -30,7 +29,6 @@ import * as logger from '@/magic/logger';
 
 import { assetPath } from '@/config';
 import { formats as formatList } from '@static/magic/basic';
-import { parenRegex, commaRegex } from '@static/magic/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -93,6 +91,10 @@ router.post('/update', async ctx => {
         if (p.flavorText === '') {
             delete p.flavorText;
         }
+
+        if (p.flavorName === '') {
+            delete p.flavorName;
+        }
     }
 
     const old = await Print.findById(data._id);
@@ -104,194 +106,6 @@ router.post('/update', async ctx => {
     }
 
     ctx.status = 200;
-});
-
-interface INeedEditResult {
-    _id: { id: string, lang: string, part: number };
-}
-
-type AggregateOption = {
-    lang?: string;
-    match?: any;
-    post?: (arg: Aggregate<any[]>) => Aggregate<any[]>;
-};
-
-function aggregate({ lang, match, post }: AggregateOption): Aggregate<INeedEditResult[]> {
-    const agg = Print.aggregate().allowDiskUse(true);
-
-    if (match != null) { agg.match(match); }
-    if (lang != null) { agg.match({ lang }); }
-
-    agg
-        .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-        .addFields({ info: { id: '$cardId', lang: '$lang', part: '$partIndex' } });
-
-    if (match != null) { agg.match(match); }
-
-    if (post != null) {
-        post(agg);
-    } else {
-        agg.group({ _id: '$info', date: { $max: '$releaseDate' } });
-    }
-
-    return agg;
-}
-
-const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResult[]>> = {
-    oracle: lang => aggregate({
-        post: agg => agg
-            .group({
-                _id:           '$info',
-                colorIdentity: { $addToSet: '$colorIdentity' },
-                color:         { $addToSet: '$parts.color' },
-                power:         { $addToSet: '$parts.power' },
-                toughness:     { $addToSet: '$parts.toughness' },
-                name:          { $addToSet: '$parts.oracle.name' },
-                typeline:      { $addToSet: '$parts.oracle.typeline' },
-                text:          { $addToSet: '$parts.oracle.text' },
-                counters:      { $addToSet: '$counters' },
-                relatedCards:  { $addToSet: '$relatedCards' },
-                __oracle:      { $addToSet: '$__oracle' },
-                date:          { $max: '$releaseDate' },
-            })
-            .match({
-                ...lang != null ? { '_id.lang': lang } : {},
-                $or: [
-                    { 'colorIdentity.1': { $exists: true } },
-                    { 'color.1': { $exists: true } },
-                    { 'power.1': { $exists: true } },
-                    { 'toughness.1': { $exists: true } },
-                    { 'name.1': { $exists: true } },
-                    { 'typeline.1': { $exists: true } },
-                    { 'text.1': { $exists: true } },
-                    { 'counters.1': { $exists: true } },
-                    { 'relatedCards.1': { $exists: true } },
-                    { '__oracle.name': { $exists: true } },
-                    { '__oracle.typeline': { $exists: true } },
-                    { '__oracle.text': { $exists: true } },
-                ],
-            }),
-    }),
-
-    unified: lang => aggregate({
-        lang,
-        post: agg => agg
-            .group({
-                _id:  '$info',
-                name: { $addToSet: '$parts.unified.name' },
-                type: { $addToSet: '$parts.unified.typeline' },
-                text: { $addToSet: '$parts.unified.text' },
-                date: { $max: '$releaseDate' },
-            })
-            .match({
-                $or: [
-                    { 'name.1': { $exists: true } },
-                    { 'type.1': { $exists: true } },
-                    { 'text.1': { $exists: true } },
-                ],
-            })
-            .addFields({
-                nameCount: { $size: '$name' },
-                typeCount: { $size: '$type' },
-                textCount: { $size: '$text' },
-            })
-            .addFields({
-                unifiedIndicator: {
-                    $cond: {
-                        if:   { $gt: ['$nameCount', 1] },
-                        then: { $multiply: ['$nameCount', 10000] },
-                        else: {
-                            $cond: {
-                                if:   { $gt: ['$typeCount', 1] },
-                                then: { $multiply: ['$typeCount', 100] },
-                                else: '$textCount',
-                            },
-                        },
-                    },
-                },
-            }),
-    }),
-
-    paren: lang => aggregate({
-        lang,
-        match: {
-            'cardId':             { $nin: internalData<string[]>('magic.special.with-paren') },
-            'parts.unified.text': parenRegex,
-            'parts.typeMain':     { $nin: ['dungeon', 'card'] },
-            'parts.typeMain.0':   { $exists: true },
-        },
-    }),
-
-    keyword: lang => aggregate({
-        lang,
-        match: {
-            'cardId':             { $nin: internalData<string[]>('magic.special.with-comma') },
-            'parts.unified.text': commaRegex,
-            'parts.typeMain':     { $nin: ['dungeon', 'stickers', 'card'] },
-        },
-    }),
-
-    token: () => aggregate({
-        match: {
-            'cardId':          { $not: /!/ },
-            'parts.typeSuper': 'token',
-        },
-    }),
-};
-
-router.get('/need-edit', async ctx => {
-    const { method, lang, sample: sampleText } = mapValues(ctx.query, toSingle);
-
-    const getter = needEditGetters[method];
-
-    const sample = Number.isNaN(Number.parseInt(sampleText, 10))
-        ? 100
-        : Number.parseInt(sampleText, 10);
-
-    if (getter == null) {
-        ctx.status = 400;
-        return;
-    }
-
-    const total = (await getter(lang)).length;
-
-    if (total === 0) {
-        ctx.body = {
-            method,
-            cards: [],
-            total,
-        };
-        return;
-    }
-
-    const result = await getter(lang)
-        .sort(
-            method === 'unified'
-                ? { 'unifiedIndicator': -1, 'date': -1, '_id.id': 1 }
-                : { 'date': -1, '_id.id': 1 },
-        )
-        .limit(sample);
-
-    const prints = await Print.aggregate().allowDiskUse(true)
-        .match({ $or: result.map(r => ({ cardId: r._id.id, lang: r._id.lang })) })
-        .sort({ releaseDate: -1 })
-        .group({ _id: { id: '$cardId', lang: '$lang' }, card: { $first: '$$ROOT' } });
-
-    const results = result.map(r => {
-        const print = prints.find(c => c._id.id === r._id.id && c._id.lang === r._id.lang);
-
-        if (print != null) {
-            return { ...print.card, partIndex: r._id.part, result: { method, ...omit(r, 'date') } };
-        } else {
-            return null;
-        }
-    }).filter(v => v != null);
-
-    ctx.body = {
-        method,
-        cards: results,
-        total,
-    };
 });
 
 router.get('/rename', async ctx => {

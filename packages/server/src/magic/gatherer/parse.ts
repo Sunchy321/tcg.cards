@@ -36,6 +36,7 @@ const imgAltMap: Record<string, string> = {
     'Phyrexian Black':    'B/P',
     'Phyrexian Red':      'R/P',
     'Phyrexian Green':    'G/P',
+    'Energy':             'E',
 };
 
 function getText($: cheerio.Root, elem: cheerio.Cheerio) {
@@ -482,6 +483,13 @@ export default async function parseGatherer(
             });
 
             if (oldPrint != null) {
+                if (oldPrint.multiverseId.length === 0) {
+                    oldPrint.multiverseId = vMids;
+                    await oldPrint.save();
+
+                    console.log(`${v.id}:${v.lang}, ${i + 1}/${versionsToParse.length} (*)`);
+                }
+
                 continue;
             }
 

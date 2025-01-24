@@ -40,8 +40,6 @@
                 <q-select v-model="locale" class="q-mr-md" :options="locales" outlined dense />
 
                 <q-btn-group outline>
-                    <q-btn outline label="oracle" @click="loadGroup('oracle')" />
-                    <q-btn outline label="lang" @click="loadGroup('unified')" />
                     <q-btn outline label="paren" @click="loadGroup('paren')" />
                     <q-btn outline label="keyword" @click="loadGroup('keyword')" />
                 </q-btn-group>
@@ -537,6 +535,10 @@ const id = computed({
         if (card.value != null) {
             card.value.cardId = newValue;
         }
+
+        if (print.value != null) {
+            print.value.cardId = newValue;
+        }
     },
 });
 
@@ -923,7 +925,7 @@ const relatedCardsString = computed({
             cardId = deburr(cardId)
                 .trim()
                 .toLowerCase()
-                .replace(/[^a-z0-9!*+-]/g, '_');
+                .replace(/[^a-z0-9!*+]/g, '_');
 
             if (lang != null) {
                 return { relation, cardId, version: { lang, set, number } };
@@ -1162,28 +1164,40 @@ const prettify = () => {
     }
 
     if (lang.value !== 'en') {
-        if (oracleName.value !== unifiedName.value && oracleName.value === printedName.value) {
-            printedName.value = unifiedName.value;
+        if (oracleName.value !== unifiedName.value) {
+            if (oracleName.value === printedName.value || printedName.value === '') {
+                printedName.value = unifiedName.value;
+            }
         }
 
-        if (oracleName.value !== printedName.value && oracleName.value === unifiedName.value) {
-            unifiedName.value = printedName.value;
+        if (oracleName.value !== printedName.value) {
+            if (oracleName.value === unifiedName.value || unifiedName.value === '') {
+                unifiedName.value = printedName.value;
+            }
         }
 
-        if (oracleTypeline.value !== unifiedTypeline.value && oracleTypeline.value === printedTypeline.value) {
-            printedTypeline.value = unifiedTypeline.value;
+        if (oracleTypeline.value !== unifiedTypeline.value) {
+            if (oracleTypeline.value === printedTypeline.value || printedTypeline.value === '') {
+                printedTypeline.value = unifiedTypeline.value;
+            }
         }
 
-        if (oracleTypeline.value !== printedTypeline.value && oracleTypeline.value === unifiedTypeline.value) {
-            unifiedTypeline.value = printedTypeline.value;
+        if (oracleTypeline.value !== printedTypeline.value) {
+            if (oracleTypeline.value === unifiedTypeline.value || unifiedTypeline.value === '') {
+                unifiedTypeline.value = printedTypeline.value;
+            }
         }
 
-        if (oracleText.value !== unifiedText.value && oracleText.value === printedText.value) {
-            printedText.value = unifiedText.value;
+        if (oracleText.value !== unifiedText.value) {
+            if (oracleText.value === printedText.value || printedText.value === '') {
+                printedText.value = unifiedText.value;
+            }
         }
 
-        if (oracleText.value !== printedText.value && oracleText.value === unifiedText.value) {
-            unifiedText.value = printedText.value;
+        if (oracleText.value !== printedText.value) {
+            if (oracleText.value === unifiedText.value || unifiedText.value === '') {
+                unifiedText.value = printedText.value;
+            }
         }
     }
 
@@ -1231,7 +1245,7 @@ const prettify = () => {
     } else if (lang.value === 'fr') {
         unifiedTypeline.value = unifiedTypeline.value.replace(/ — /g, ' : ').trim();
         printedTypeline.value = printedTypeline.value.replace(/ — /g, ' : ').trim();
-    } else {
+    } else if (lang.value !== 'ja') {
         unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ').trim();
         printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ').trim();
     }
@@ -1640,7 +1654,7 @@ const loadGatherer = async () => {
         return;
     }
 
-    await controlGet('/magic/card/parse-gatherer', {
+    await controlGet('/magic/print/parse-gatherer', {
         id:     multiverseId.value.join(','),
         set:    set.value,
         number: number.value,
@@ -1653,7 +1667,7 @@ const saveGathererImage = async () => {
         return;
     }
 
-    await controlGet('/magic/card/save-gatherer-image', {
+    await controlGet('/magic/print/save-gatherer-image', {
         id:     multiverseId.value.join(','),
         set:    set.value,
         number: number.value,
