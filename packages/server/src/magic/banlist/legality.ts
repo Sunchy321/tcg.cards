@@ -24,6 +24,7 @@ export type CardLegalityView = ICard & {
         set: string;
         number: string;
         rarity: string;
+        borderColor?: string;
         securityStamp?: string;
         releaseDate: string;
     }[];
@@ -247,7 +248,7 @@ function testRules(data: CardLegalityView, format: string, rules: LegalityRule[]
 }
 
 const nonCardCategories = ['token', 'auxiliary', 'minigame', 'art', 'decklist', 'player', 'advertisement'];
-const casualCardTypes = ['scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'];
+const casualCardTypes = ['conspiracy', 'scheme', 'vanguard', 'plane', 'phenomenon', 'emblem', 'dungeon'];
 
 export type LegalityRecorder = Record<string, {
     result: Legality;
@@ -309,6 +310,17 @@ export function getLegality(
             continue;
         }
 
+        // Un-cards, gift cards, etc
+        if (
+            prints.every(v => [...setsInformal, ...setsSpecial].includes(v.set)
+                || v.securityStamp === 'acorn'
+                || v.borderColor === 'silver')
+            && prints.some(v => setsInformal.includes(v.set) || v.securityStamp === 'acorn' || v.borderColor === 'silver')
+        ) {
+            assign('unavailable', 'un-card');
+            continue;
+        }
+
         const banlistItem = f.banlist.find(b => b.id === cardId);
 
         if (banlistItem != null) {
@@ -316,20 +328,18 @@ export function getLegality(
             continue;
         }
 
-        // Un-cards, gift cards, etc
-        if (
-            prints.every(v => [...setsInformal, ...setsSpecial].includes(v.set)
-                || v.securityStamp === 'acorn')
-            && prints.some(v => setsInformal.includes(v.set) || v.securityStamp === 'acorn')
-        ) {
-            assign('unavailable', 'un-card');
-            continue;
-        }
-
         // Casual card type
         if (data.parts.some(p => p.type.main.some(t => casualCardTypes.includes(t)))) {
             assign('unavailable', 'casual-type');
             continue;
+        }
+
+        // Stickers and Attractions
+        if (data.parts.some(p => p.type.main.includes('stickers') || p.type.sub?.includes('attraction'))) {
+            if (['legacy', 'vintage', 'duelcommander', 'oathbreaker', 'pauper'].includes(formatId)) {
+                assign('unavailable', 'casual-type/unf');
+                continue;
+            }
         }
 
         if (formatId === 'explorer') {
@@ -426,6 +436,17 @@ function legalityMatch(
         return true;
     }
 
+    // Pauper commander special mismatch
+    if (format === 'pauper_commander') {
+        if (legality[0] === 'legal' && legality[1] === 'unavailable') {
+            if (data.prints.some(p => p.rarity === 'uncommon')) {
+                if (data.parts[0].type.main.includes('creature') || data.parts[0].type.sub?.includes('background')) {
+                    return true;
+                }
+            }
+        }
+    }
+
     for (const m of mismatches) {
         const status = m.status[format] ?? m.status['*'];
 
@@ -476,6 +497,7 @@ export function lookupPrintsForLegality<T>(aggregate: Aggregate<T>): void {
                     set:           '$set',
                     number:        '$number',
                     rarity:        '$rarity',
+                    borderColor:   '$borderColor',
                     securityStamp: '$securityStamp',
                     releaseDate:   '$releaseDate',
                 },

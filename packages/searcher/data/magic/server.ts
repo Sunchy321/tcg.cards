@@ -666,14 +666,12 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 return aggregate;
             };
 
-            const aggregate = fullGen<ServerModel>();
-
             const total = (
                 await fullGen<{ count: number }>()
                     .group({ _id: null, count: { $sum: 1 } })
             )[0]?.count ?? 0;
 
-            const cards = await aggregate
+            const cards = await fullGen<ServerModel>()
                 .project({
                     'card.relatedCards': false,
                 })
@@ -697,7 +695,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                     ],
                     as: 'relatedCards',
                 })
-                .sort({ releaseDate: -1, cardId: 1 })
+                .sort({ 'print.releaseDate': -1, 'card.cardId': 1 })
                 .limit(o.sample);
 
             return {

@@ -201,7 +201,9 @@ import DateInput from 'components/DateInput.vue';
 
 import { FormatAnnouncement } from 'interface/magic/format-change';
 
-import { deburr, last } from 'lodash';
+import { last } from 'lodash';
+
+import { toIdentifier } from 'common/util/id';
 
 type BanlistItem = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 
@@ -267,13 +269,6 @@ const statusOptions = [
     class: `banlist-status-${v}`,
     value: v,
 }));
-
-const toIdentifier = (text: string) => deburr(text)
-    .trim()
-    .toLowerCase()
-    .replace(' // ', '____')
-    .replace('/', '____')
-    .replace(/[^a-z0-9]/g, '_');
 
 const magic = useMagic();
 

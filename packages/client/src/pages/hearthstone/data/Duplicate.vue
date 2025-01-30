@@ -124,7 +124,7 @@ const keyOrder = (key: string, allValues: any[], index: string[]) => {
 const toIdentifier = (text: string) => deburr(text)
     .trim()
     .toLowerCase()
-    .replace(' // ', '____')
+    .replace(/ \/\/ /g, '____')
     .replace('/', '____')
     .replace(/[^a-z0-9!:]/g, '_');
 
