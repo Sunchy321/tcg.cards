@@ -1,0 +1,16 @@
+status:
+  format:
+    - historic
+    - brawl
+    - timeless
+  value: legal
+
+patterns:
+  - Disa the Restless
+  - Azlask, the Swelling Scourge
+  - Omo, Queen of Vesuva
+  - Coram, the Undertaker
+  - Satya, Aetherflux Genius
+  - Jyoti, Moag Ancient
+  - Cayth, Famed Mechanist
+  - Ulalek, Fused Atrocity

@@ -1,6 +1,6 @@
 status:
   format: duelcommander
-  value: [banned, legal]
+  value: [banned, unavailable]
 
 patterns:
   - Cleanse

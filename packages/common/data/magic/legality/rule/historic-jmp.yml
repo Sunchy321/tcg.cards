@@ -9,21 +9,21 @@ status:
 patterns:
   - Ajani's Chosen
   - Angelic Arbiter
-  - Ball Lightning
+  # Ball Lightning
   - Chain Lightning
-  - Draconic Roar
+  # Draconic Roar
   - Exhume
   - Fa'adiyah Seer
   - Flametongue Kavu
   - Goblin Lore
   # Lightning Bolt
   - Mausoleum Turnkey
-  - Path to Exile
+  # Path to Exile
   - Read the Runes
-  - Reanimate
+  # Reanimate
   # Rhystic Study
   - Scourge of Nel Toth
   - Scrounging Bandar
   # Sheoldred, Whispering One
   - Thought Scour
-  - Time to Feed
+  # Time to Feed

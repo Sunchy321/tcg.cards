@@ -1,0 +1,12 @@
+status:
+  format:
+    - historic
+    - timeless
+    - brawl
+  value: legal
+
+patterns:
+  - Disciple of Bolas
+  - Leatherback Baloth
+  - One with Nothing
+  - Sorin Markov

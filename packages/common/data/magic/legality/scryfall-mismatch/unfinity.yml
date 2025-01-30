@@ -1,0 +1,93 @@
+status:
+  format:
+    - duelcommander
+    - oathbreaker
+  value: [unavailable, banned]
+
+patterns:
+# stickers
+  - Ancestral Hot Dog Minotaur
+  - Carnival Elephant Meteor
+  - Contortionist Otter Storm
+  - Cool Fluffy Loxodon
+  - Cursed Firebreathing Yogurt
+  - Deep-Fried Plague Myr
+  - Demonic Tourist Laser
+  - Eldrazi Guacamole Tightrope
+  - Elemental Time Flamingo
+  - Eternal Acrobat Toast
+  - Familiar Beeble Mascot
+  - Geek Lotus Warrior
+  - Giant Mana Cake
+  - Goblin Coward Parade
+  - Happy Dead Squirrel
+  - Jetpack Death Seltzer
+  - Misunderstood Trapeze Elf
+  - Mystic Doom Sandwich
+  - Narrow-Minded Baloney Fireworks
+  - Night Brushwagg Ringmaster
+  - Notorious Sliver War
+  - Phyrexian Midway Bamboozle
+  - Playable Delusionary Hydra
+  - Primal Elder Kitty
+  - Sassy Gremlin Blood
+  - Slimy Burrito Illusion
+  - Snazzy Aether Homunculus
+  - Space Fungus Snickerdoodle
+  - Spooky Clown Mox
+  - Squid Fire Knight
+  - Squishy Sphinx Ninja
+  - Sticky Kavu Daredevil
+  - Trained Blessed Mind
+  - Trendy Circus Pirate
+  - Unassuming Gelatinous Serpent
+  - Unglued Pea-Brained Dinosaur
+  - Unhinged Beast Hunt
+  - Unique Charmed Pants
+  - Unsanctioned Ancient Juggler
+  - Unstable Robot Dragon
+  - "Urza's Dark Cannonball"
+  - Vampire Champion Fury
+  - Weird Angel Flame
+  - Werewolf Lightning Mage
+  - Wild Ogre Bupkis
+  - Wrinkly Monkey Shenanigans
+  - Yawgmoth Merfolk Soul
+  - Zombie Cheese Magician
+
+# attractions
+  - Balloon Stand
+  - Bounce Chamber
+  - Bumper Cars
+  - Centrifuge
+  - Clown Extruder
+  - Concession Stand
+  - Costume Shop
+  - Cover the Spot
+  - Dart Throw
+  - Drop Tower
+  - Ferris Wheel
+  - Foam Weapons Kiosk
+  - Fortune Teller
+  - Gallery of Legends
+  - Gift Shop
+  - Guess Your Fate
+  - Hall of Mirrors
+  - Haunted House
+  - Information Booth
+  - Kiddie Coaster
+  - Log Flume
+  - Memory Test
+  - Merry-Go-Round
+  - Pick-a-Beeble
+  - Push Your Luck
+  - Roller Coaster
+  - Scavenger Hunt
+  - Spinny Ride
+  - Squirrel Stack
+  - Storybook Ride
+  - Swinging Ship
+  - The Superlatorium
+  - Trash Bin
+  - Trivia Contest
+  - Tunnel of Love

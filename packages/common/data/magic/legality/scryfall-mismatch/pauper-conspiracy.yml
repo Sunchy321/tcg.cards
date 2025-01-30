@@ -1,6 +1,6 @@
 status:
   format: pauper
-  value: [legal, unavailable]
+  value: [unavailable, banned]
 
 patterns:
   - Adriana's Valor

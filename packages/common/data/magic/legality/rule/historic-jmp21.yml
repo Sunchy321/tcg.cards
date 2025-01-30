@@ -8,7 +8,7 @@ status:
 
 patterns:
   - Assault Strobe
-  - Fog
+  # Fog
   - Force Spike
   - Kraken Hatchling
   - Ponder
