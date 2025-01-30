@@ -6,7 +6,6 @@ import { ObjectId } from 'mongoose';
 
 import Card from '@/magic/db/card';
 import Print from '@/magic/db/print';
-import Format from '@/magic/db/format';
 
 import { Print as IPrint } from '@interface/magic/print';
 import { PrintUpdationCollection, PrintUpdationView } from '@common/model/magic/print';
@@ -18,17 +17,12 @@ import {
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import {
-    CardLegalityView, LegalityRecorder, getLegality, getLegalityRules, lookupPrintsForLegality,
-} from '@/magic/banlist/legality';
-
 import parseGatherer, { saveGathererImage } from '@/magic/gatherer/parse';
 
 import searcher from '@/magic/search';
 import * as logger from '@/magic/logger';
 
 import { assetPath } from '@/config';
-import { formats as formatList } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -181,42 +175,18 @@ router.get('/save-gatherer-image', async ctx => {
     }
 });
 
-router.get('/get-legality', async ctx => {
-    const { id } = mapValues(ctx.query, toSingle);
-
-    if (id == null) {
-        ctx.status = 401;
-        return;
-    }
-
-    const formats = await Format.find();
-
-    formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
-
-    const rules = getLegalityRules();
-
-    const agg = Card.aggregate<CardLegalityView>()
-        .match({ cardId: id });
-
-    lookupPrintsForLegality(agg);
-
-    const cardData = await agg;
-
-    const recorder: LegalityRecorder = { };
-
-    const legalities = getLegality(cardData[0], formats, rules, recorder);
-
-    await Card.updateMany({ cardId: id }, { legalities });
-
-    ctx.body = recorder;
-});
-
 router.get('/get-duplicate', async ctx => {
     const duplicates = await Print.aggregate<{ _id: { set: string, number: string, lang: string } }>()
         .group({
-            _id:   { set: '$set', number: '$number', lang: '$lang' },
-            count: { $sum: 1 },
+            _id: {
+                set:    '$set',
+                number: '$number',
+                lang:   '$lang',
+            },
+            cardId: { $first: '$cardId' },
+            count:  { $sum: 1 },
         })
+        .sort({ cardId: 1 })
         .match({ count: { $gt: 1 } });
 
     const first = duplicates[0]?._id;
