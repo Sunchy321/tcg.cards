@@ -1,0 +1,12 @@
+status:
+  format:
+    - timeless
+    - brawl
+  value: legal
+
+patterns:
+  - Arid Mesa
+  - Marsh Flats
+  - Misty Rainforest
+  - Scalding Tarn
+  - Verdant Catacombs

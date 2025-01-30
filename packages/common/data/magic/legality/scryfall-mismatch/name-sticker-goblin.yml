@@ -4,7 +4,7 @@ status:
     - oathbreaker
     - pauper
     - pauper_commander
-  value: [legal, unavailable]
+  value: [banned, unavailable]
 
 patterns:
   - '"Name Sticker" Goblin'

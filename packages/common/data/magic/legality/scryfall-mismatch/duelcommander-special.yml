@@ -1,0 +1,10 @@
+status:
+  format:
+    - duelcommander
+    - oathbreaker
+  value: [legal, unavailable]
+
+patterns:
+  - Goblin Gang Leader
+  - Mardu Outrider
+  - Velukan Dragon

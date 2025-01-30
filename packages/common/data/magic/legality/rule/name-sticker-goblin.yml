@@ -1,0 +1,7 @@
+status:
+  format:
+    - pauper_commander
+  value: unavailable
+
+patterns:
+  - '"Name Sticker" Goblin'

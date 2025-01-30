@@ -1,0 +1,19 @@
+status:
+  format:
+    - legacy
+    - vintage
+    - commander
+    - duelcommander
+    - oathbreaker
+    - pauper
+    - pauper_commander
+  value: unavailable
+
+patterns:
+  - Forsaken Crossroads
+  - Oracle of the Alpha
+  - Rusko, Clockmaker
+  - Sanguine Brushstroke
+  - Sigardian Evangel
+  - Tenacious Pup
+  - Toralf's Disciple

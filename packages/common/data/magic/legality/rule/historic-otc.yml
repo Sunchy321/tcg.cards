@@ -1,0 +1,12 @@
+status:
+  format:
+    - historic
+    - brawl
+    - timeless
+  value: legal
+
+patterns:
+  - Gonti, Canny Acquisitor
+  - Olivia, Opulent Outlaw
+  - Yuma, Proud Protector
+  - Stella Lee, Wild Card

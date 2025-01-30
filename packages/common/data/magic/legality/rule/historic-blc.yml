@@ -1,0 +1,17 @@
+status:
+  format:
+    - historic
+    - brawl
+    - timeless
+  value: legal
+
+patterns:
+  - Ant Queen
+  - Baleful Strix
+  - Birds of Paradise
+  - Derevi, Empyrial Tactician
+  - Ishai, Ojutai Dragonspeaker
+  - Ink-Eyes, Servant of Oni
+  - Jace, the Mind Sculptor
+  - Kwain, Itinerant Meddler
+  - Flubs, the Fool
