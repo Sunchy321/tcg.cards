@@ -293,7 +293,7 @@
 2099: puzzle_lightspawn
 2104: refresh
 2105: banned_in_wild
-2108: target_arrow
+2108: target_arrow_type
 2110: ?shifting # only on Shifting
 2127: kurtrus_hero_power_advanced
 2128: cariel_hero_power_advanced
@@ -567,8 +567,11 @@
 3443: trinket_allow_not_in_race
 3444: silver_hand_recruit
 3450: zilliax_customizable_linked_cosmeticmoudle
+3457: zerg
+3458: terran
 3459: min_sideboard_cards
 3465: extra_turns_spell_override
+3469: protoss
 3470: zilliax_customizable_linked_functionalmoudle
 3471: hide_health_number
 3472: hide_attack_number
@@ -624,3 +627,4 @@
 3942: transform_after_play_minion
 3970: young_murk_eye
 3982: knockoff_wisdomball
+4013: starship_launch_trigger
