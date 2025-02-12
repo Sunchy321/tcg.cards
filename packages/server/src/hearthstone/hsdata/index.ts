@@ -690,18 +690,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     errors.push(`Unknown tag ${id}`);
                 }
 
-                const m = result.mechanics;
-
                 if (quest.type != null) {
                     result.quest = quest as IEntity['quest'];
-                }
-
-                if (
-                    m.includes('cant_be_targeted_by_spells')
-                    && m.includes('cant_be_targeted_by_hero_powers')
-                ) {
-                    m[m.indexOf('cant_be_targeted_by_spells')] = 'elusive';
-                    m.splice(m.indexOf('cant_be_targeted_by_hero_powers'), 1);
                 }
 
                 break;
