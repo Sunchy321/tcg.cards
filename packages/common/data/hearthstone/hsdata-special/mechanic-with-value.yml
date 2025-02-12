@@ -23,6 +23,7 @@
 - anomaly_banned_heroes
 - anomaly_banned_minions
 - anomaly_occurrence_rate
+- anomaly_rule_id
 - anomaly_weight
 - attack_visual_type
 - barren_hunter_puzzle_param_1
@@ -30,7 +31,9 @@
 - barren_hunter_puzzle_param_3
 - barren_hunter_puzzle_param_4
 - base_galakrond
+- battlegrounds_cho_gall
 - battlegrounds_diablo_reward_level
+- battlegrounds_extra_armor
 - battlegrounds_lower_armor
 - battlegrounds_magnetic_enchantment
 - board_replacement_type
@@ -50,6 +53,7 @@
 - data_num_4
 - data_num_5
 - data_num_6
+- deck_action_cost
 - dev_state
 - discard_cards
 - dormant_visual
@@ -107,6 +111,8 @@
 - shrine_deck_id
 - sideboard_type
 - spell_power
+- stable_amalgamation
+- target_arrow_type
 - tavern_special
 - the_rat_king_skill_activating_type
 - threshold_tag_id
@@ -121,9 +127,4 @@
 - windfury
 - zilliax_customizable_linked_cosmeticmoudle
 - zilliax_customizable_linked_functionalmoudle
-- deck_action_cost
-- battlegrounds_extra_armor
-- anomaly_rule_id
-- stable_amalgamation
 - zilliax_subset_id
-- battlegrounds_cho_gall
