@@ -36,7 +36,7 @@
                 size="15px"
             />
         </div>
-        <grid v-slot="{ version, number, isUpdated, duplicate }" :value="patches" :item-width="300">
+        <grid v-slot="{ version, number, isUpdated, duplicate }" :value="sortedPatches" :item-width="300">
             <hsdata-patch
                 :key="number"
                 :version="version"
@@ -95,6 +95,11 @@ const { controlGet, controlWs } = controlSetup();
 
 const patches = ref<ControlPatch[]>([]);
 const progress = ref<Progress | undefined>(undefined);
+
+const sortedPatches = computed(() => [
+    ...patches.value.filter(v => !v.isUpdated).sort((a, b) => a.number - b.number),
+    ...patches.value.filter(v => v.isUpdated).sort((a, b) => a.number - b.number),
+]);
 
 const progressValue = computed(() => {
     const prog = progress.value;
