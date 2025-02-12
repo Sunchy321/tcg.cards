@@ -23,20 +23,20 @@
 240:  immune
 245:  cant_be_attacked
 247:  cant_be_destroyed
-251:  ~ # attack_visual_type ignore
+251:  attack_visual_type
 260:  frozen
 264:  cant_be_frozen
-268:  ~ # DevState ignore
+268:  dev_state
 292:  armor
 293:  morph
 296:  overload_owed
-309:  ?maybe_immune
+309:  ?immune_variant
 311:  cant_be_targeted_by_spells
 314:  cant_be_silenced
-330:  ~ # enchantment_birth_visual ignore
-331:  ~ # enchantment_idle_visual ignore
+330:  enchantment_birth_visual
+331:  enchantment_idle_visual
 332:  cant_be_targeted_by_hero_powers
-333:  ?death_knight_ghoul
+333:  death_knight_ghoul
 335:  invisible_deathrattle
 338:  one_turn_effect
 339:  silence
@@ -78,22 +78,22 @@
 469:  defining_enchantment
 470:  finish_attack_spell_on_damage
 481:  cost_health
-482:  ~ # grimy_goons ignored because useless
-483:  ~ # jade_lotus ignored because useless
-484:  ~ # kabal ignored because useless
+482:  grimy_goons
+483:  jade_lotus
+484:  kabal
 535:  quest_progress
 537:  ?unknown_test_subject # only on Test Subject
 542:  special_deathrattle
 546:  adapt
 554:  ?corpse_raiser # only on Corpse Raiser
-556:  ?boss_anomalous_rex # only on boss Anomalous Rex
-676:  ~ # some cards related to galakrond and some quests
+556:  boss_minion
+676:  not_in_random_pool
 682:  hide_health
 683:  hide_attack # only on Unleash the Beast
 684:  hide_cost
 685:  lifesteal
 717:  ?unknown_717 # only on Level Up! and Ixlid Fungal Lord
-758:  ?unknown_758 # only on two 5/5 buffs
+758:  crystallized
 759:  ?unknown_759 # only on 3 cards
 763:  recruit
 782:  base_galakrond
@@ -101,19 +101,17 @@
 785:  ghostly # destroy if it is in your hand at end of turn
 789:  secret_deathrattle
 791:  rush
-793:  ~ # hero deck id ignore
+793:  hero_deck_id
 818:  secret_deathrattle
-839:  ?some_quest
+839:  always_in_starting_hand
 843:  ?unknown_843
 846:  echo
 849:  modular
 851:  kingsbane_1 # only on kingsbane
-853:  ?replicating_menace # only on Replicating Menace
 857:  ignore_hide_stats_for_big_card
-858:  ?unknown_858 # unknown mechanic [hero power of skin].858 = [hero power of basic hero]
 871:  magnetic_enchantment
 882:  extra_deathrattle
-886:  ?unknown_886 # only on 3 cards
+886:  self_destroy
 890:  discard_cards
 917:  city_of_stormwind_1 # only on City of Stormwind
 920:  city_of_stormwind_2 # only on City of Stormwind
@@ -122,7 +120,7 @@
 936:  shifting_spell
 956:  filter_even_in_collection
 957:  filter_odd_in_collection
-960:  ?unknown_960 # only on 5 cards
+960:  dont_count_itself
 968:  start_of_game
 974:  opponent_turn_deathrattle
 976:  enchantment_invisible
@@ -132,7 +130,7 @@
 994:  lackey
 998:  shudderwork
 1016: treat_as_played_hero_card
-1020: ?unknown_1020 # only on A Mothers Vow and Equip Kingsbane
+1020: literally_unplayable
 1023: kingsbane_2 # only on kingsbane
 1052: gears # maybe related to Dr. Boom
 1057: shrine
@@ -141,34 +139,34 @@
 1077: casts_when_drawn
 1085: reborn
 1090: dormant_visual
-1099: ~ # player shrine base deck id ignore
+1099: player_base_shrine_deck_id
 1107: hide_watermark
 1114: non_keyword_echo
-1115: ~ # threshold tag id ignore
-1116: ~ # threshold value ignore
+1115: threshold_tag_id
+1116: threshold_value
 1118: affected_by_healing_does_damage
-1135: ~ # enchantment_banner_text ignored
+1135: enchantment_banner_text
 1137: function_watcher
-1142: ~ # mouse_over_card_appearance ignored
+1142: mouse_over_card_appearance
 1175: rastakhan_treasure
 1176: ?unknown_1176 # only on Shirvallahs Vengeance
 1179: ?unknown_1179 # some adventure card
 1192: sidequest # use isQuest instead of mechanics
 1193: twinspell
-1199: ?unknown_1199
+1199: ?coin_mana_gem
 1200: ?helper_1200
-1201: ?unknown_1201
-1202: ?unknown_1202
-1203: ?unknown_1203
-1204: ?unknown_1204
-1205: ?unknown_1205
-1206: ?unknown_1206
+1201: ?adventure_boss1
+1202: ?adventure_boss2
+1203: ?adventure_boss3
+1204: ?adventure_boss4
+1205: ?adventure_boss5
+1206: ?adventure_boss6
 1207: mega_windfury
-1211: ?evasive_wyrm # only on Evasive Wyrm
-1249: ~ # shrine unknown tag ignore
+1211: elusive
+1249: shrine_deck_id
 1263: invoke
 1270: ?freeze
-1279: ?unknown_1279
+1279: heroic_boss_deck_id
 1290: fatigue
 1294: buff_health_up
 1295: buff_cost_zero
@@ -178,7 +176,7 @@
 1304: ?sire_denathrius
 1333: outcast
 1342: use_discover_visuals
-1359: ?related_to_lackey
+1359: generate_lackey
 1365: galakrond_hero
 1395: ?mercenaries_1395
 1398: start_of_combat_1
@@ -191,20 +189,18 @@
 1450: consider_spell_power # effects considering spell power that is not a damage
 1458: suppress_all_summon_vo
 1464: drag_minion # drag_minion_to_buy & drag_minion_to_sell
-1471: ~ # battlegrounds minion summoned?
-1475: ~ # only on Replicating Menace and Annoy-o-Module ignore
+1475: battlegrounds_magnetic_enchantment
 1477: piece_of_cthun
-1489: ~ # source of buffs from Replicating Menace and Annoy-o-Module useless
 1491: battlegrounds_hero
-1500: ?red_whelp # only on Red Whelp
-1506: start_of_combat_2 # only on 8 battlegrounds hero power
+1500: start_of_combat_2
+1506: start_of_combat_3 # only on 8 battlegrounds hero power
 1508: ?helper_1508
 1518: dormant
 1524: corrupt
-1530: ?zapp_slywick # only on Zapp Slywick
-1531: start_of_combat_3
-1543: ?1543 # unknown mechanic
-1544: conditional_awake
+1530: zapp_slywick
+1531: start_of_combat
+1543: ?unknown_1543 # unknown mechanic
+1544: not_in_random_summon_pool
 1546: libram
 1548: ?pack_tactics # only on Pack Tactics
 1551: corrupted
@@ -215,57 +211,55 @@
 1576: adjacent_battlecry
 1584: cat
 1590: generate_soul_fragment
-1602: ?arcane_cannon # only on Arcane Cannon
+1602: arcane_cannon
 1614: ?force_no_custom_summon_spells
 1620: the_rat_king_skill
 1623: poison
 1637: frenzy
-1649: ~ # base hero of Aranna Unleashed ignore
 1650: studies
 1652: start_dormant
-1655: ?check_recipes # only on Check Recipes
+1655: check_recipes
 1665: lettuce_mercenary
 1670: lettuce_current_cooldown
 1671: lettuce_passive_ability
-1672: ?1672
-1673: ?cthun_the_shattered # only on CThun the Shattered
-1676: ?lettuce_ability_summoned_minion # Its weird
+1672: ?unknown_1672
+1673: cthun_the_shattered # only on CThun the Shattered
 1678: si_7
-1679: ?1679
-1684: ?1684 # only on Blessing of Sacrifice 2
-1687: ?friendly_wager_1687 # only on Friendly Wager
-1692: ?friendly_wager_1692 # only on Friendly Wager
-1707: ?1707 # only on Jaina Proudmoore and Blink Fox
+1679: ?unknown_1679
+1684: ?unknown_1684 # only on Blessing of Sacrifice 2
+1687: ?guess_winner_1687 # only on Friendly Wager
+1692: ?guess_winner_1692 # only on Friendly Wager
+1707: ?unknown_1707 # only on Jaina Proudmoore and Blink Fox
 1719: transfromed_card_visual_type # only on Corrupt and Infuse cards
 1720: tradable
-1724: ?transfer_student_and_galakrond # only on Transfer Student and Galakrond
+1724: ?unknown_1724
 1725: questline
-1726: ?1726
+1726: ?unknown_1726
 1735: darkmoon_prize
-1736: ?1736
-1743: ~ # trade cost ignore
+1736: ?unknown_1736
+1743: deck_action_cost
 1745: ?secret_exit # only on Secret Exit
 1749: sigil
-1784: ?1784 # only on two cards
-1790: ?elistra_the_immortal # only on Elistra the Immortal
+1784: ?unknown_1784 # only on two cards
+1790: elistra_the_immortal
 1816: ?bacon_shop_8_player_enchant # only on BaconShop8PlayerEnchant
-1818: ?1818
+1818: ?unknown_1818
 1824: in_mini_set
 1855: lettuce_equipment
-1868: ~ # only in barren hunter puzzle
-1869: ~ # only in barren hunter puzzle
-1870: ~ # only in barren hunter puzzle
-1871: ~ # only in barren hunter puzzle
-1872: ~ # only in barren hunter puzzle
-1880: ?1880
+1868: barren_hunter_puzzle_param_1
+1869: barren_hunter_puzzle_param_2
+1870: barren_hunter_puzzle_param_3
+1871: barren_hunter_puzzle_param_4
+1872: barren_hunter_puzzle_param_5
+1880: bleeding
 1895: darkmoon_prize_enabled
-1900: ?unknown_1900 # some book of hero boss
-1910: ?unknown_1910 # some book of hero boss
-1911: ?unknown_1911 # some book of hero boss
+1900: adventure_player_deck_id
+1910: adventure_scene_hall_id
+1911: adventure_scene_id
 1920: honorably_kill
 1927: permanent # permanent enchantments in battlegrounds
 1932: has_diamond
-1935: ?learn_to_grow # only on Learn to Grow
+1935: ?unknown_1935 # only on Learn to Grow
 1937: current_spellpower_fire
 1938: current_spellpower_frost
 1939: current_spellpower_nature
@@ -277,35 +271,35 @@
 1949: spell_power_holy
 1950: spell_power_shadow
 1951: spell_power_fel
-1954: ~ # enraged tooltip
-1956: ?1956
+1954: enrage_tooltip
+1956: ?unknown_1956
 1958: advance_fight # only in adventure
 1965: imp
 1966: blood_gem
-1968: ?duels_passive
+1968: duels_passive_induce_rule
 1985: lettuce_start_of_combat_bonus
 1993: questline_part
 2015: dont_show_in_history
 2018: ?diablo
 2028: saidan
-2033: ?battlegrounds_hero_power_2
+2033: battlegrounds_diablo_reward_level
 2038: battlegrounds_hero_skin
-2044: ?darkmoon_prize # only on Darkmoon Prize
+2044: darkmoon_prize_count
 2049: battlegrounds_bob_skin
 2054: kazakusan_treasure
-2057: ?theotar__the_mad_duke
-2063: ?twisted_tether
+2057: theotar__the_mad_duke
+2063: twisted_tether
 2088: coin_skin
-2099: ?puzzle_2099
+2099: puzzle_lightspawn
 2104: refresh
-2105: ?stealer_of_souls # only on Stealer of Souls
+2105: banned_in_wild
 2108: target_arrow
 2110: ?shifting # only on Shifting
 2127: kurtrus_hero_power_advanced
 2128: cariel_hero_power_advanced
 2129: avenge
-2132: ?2132
-2134: ?2134
+2132: ?mercenaries_2132
+2134: ?mercenaries_2134
 2138: spell_resistance_arcane
 2139: spell_resistance_fire
 2140: spell_resistance_frost
@@ -332,15 +326,15 @@
 2217: not_leave_corpse
 2219: critical_damage
 2220: root
-2221: ?mind_thief # only on Mind Thief
+2221: ?mercenaries_2221
 2234: lettuce_no_action
-2236: ?leapfrogger # only on Leapfrogger
-2238: ?leapfrogger_golden # only on Golden Leapfrogger
+2236: leapfrogger
+2238: leapfrogger_golden
 2241: lettuce_start_of_combat
 2242: ?mercenaries_2242
 2247: colossal
 2248: colossal_limb
-2266: ?battlegrounds_hero_power_4
+2266: duel_hero_related_treasure
 2270: eudoras_kanone # only on Eudoras Kanone
 2273: ?etc__god_of_metal
 2279: lettuce_alliance
@@ -352,23 +346,23 @@
 2330: the_rat_king_skill_activating_type
 2332: dredge
 2343: record_invocation
-2345: ?2345
+2345: ?unknown_2345
 2355: whelp
 2359: spellcraft
 2369: revive
 2375: lettuce_return
 2376: ?battlegrounds_hero_power
-2383: ?2383
+2383: adventure_scene_id_2
 2387: battlegrounds_out_of_rotation
 2388: allied
 2423: one_turn_spell
 2428: kazakus_golem
 2431: relic
 2432: infuse_demon
-2433: ?hardcore_cultist
+2433: damage_all_enemy_conditionally
 2434: lettuce_healing_power
-2436: ?battleground_battlecry
-2439: ?mercenaries_2439
+2436: ?battlegrounds_battlecry
+2439: life_from_death
 2443: ?battlegrounds_duo_2443
 2448: infuse_beast
 2449: infuse_totem
@@ -386,40 +380,35 @@
 2471: ?putricide_s_creation_2471
 2474: battlegrounds_skip_turn
 2475: ?battlegrounds_hero_power_3
-2486: ?stasis_elemental
+2486: stasis_elemental
 2493: ?mercenaries_2493
 2494: ?mercenaries_2494
-2496: ?unlikely_duo
+2496: unlikely_duo
 2498: manathirst
 2500: concoction
 2506: ?mercenaries_2506
 2510: ?mercenaries_2510
 2514: one_turn_taunt
-2515: ?mercenaries_2515
+2515: mercenaries_ability_cannot_upgrade
 2518: buddy_in_tavern_2
-2529: ?mercenaries_2529
-2536: ?rotgill
-2546: ?transmuted_bramblewitch_enchantment
 2557: spellcraft_hint
 2559: corpse
-2560: ?2560
+2560: naga_conquest
 2564: one_turn_divine_shield
 2570: bench
 2571: quest_reward_race
-2573: ?fathom_guard
+2573: fathom_guard
 2580: ?battlegrounds_quest_2580
 2581: quest_reward_infinity
-2584: ?mercenaries_2584
-2586: ?mercenaries_2586
 2589: has_signature
 2594: one_turn_effect
-2595: ?mercenaries_2595
-2596: ?mercenaries_2596
-2598: ?mercenaries_2598
-2599: ?mercenaries_2599
-2608: ?mercenaries_2608
-2609: ?mercenaries_2609
-2626: ?mercenaries_2626
+2595: mercenaries_gall
+2596: mercenaries_cho
+2598: mercenaries_cho_ability
+2599: mercenaries_gall_ability
+2608: mercenaries_dilapidated_murloc_ability
+2609: mercenaries_skill_level
+2626: mercenaries_lineage_ability
 2631: lettuce_silence
 2641: quest_reward_in_game
 2642: quest_adjustment
@@ -435,18 +424,17 @@
 2652: quest_param_no_undead
 2653: quest_reward_rarity
 2674: quest_lower_bound
-2677: ?ghastly_mask
+2677: ghastly_mask
 2704: battlegrounds_stealth
-2711: ?first_mate_pip
-2720: ?mercenaries_2720
-2721: ?greta_gold_gun
-2724: ?trainee_1
-2725: ?trainee_2
-2726: ?trainee_3
+2711: first_mate_pip
+2721: greta_gold_gun
+2724: trainee_1_deck_id
+2725: trainee_2_deck_id
+2726: trainee_3_deck_id
 2727: quest_reward_start_of_combat
 2731: ?overload_variant
 2732: battlegrounds_quest_prepration
-2768: ?treasure_seeker_elise
+2768: ?battlegrounds_2768
 2772: titan
 2779: lettuce_charge
 2780: battlegrounds_died_last_combat_hint
@@ -465,108 +453,108 @@
 2851: emote_class
 2853: venomous
 2859: magnetic_race
-2860: ?unknown_2860_bg_undead
+2860: battlegrounds_global_enchantment
 2861: avenge_extra_coin
-2862: ?mercenaries_2862
+2862: mercenaries_reference_other_ability
 2870: bacon_reborn_tooltip
 2871: ancient
 2872: reborn_keep_enchantment
-2875: ?putricide_s_creation_2875
-2882: ?unknown_2882_bg
-2887: ?detective_for_hire
-2888: ?unknown_2888
-2889: ?mercenaries_2889
+2875: putricide_s_creation
+2882: battlegrounds_upbeat
+2887: ?battlegrounds_2887
+2888: conviction
+2889: data_num_3
 2895: anomaly_constructed
 2899: plague
 2900: anomaly_battlegrounds
 2905: quickdraw
-2909: battleground_extra_armor
+2909: battlegrounds_extra_armor
 2910: ?anomaly_2910
 2911: battlegrounds_cost_health
-2919: ?mercenaries_2919
-2920: ?mercenaries_2920
+2919: data_num_4
+2920: data_num_5
 2921: data_num_6
-2928: ?anomaly_2928
-2931: ?unknown_2931
+2928: anomaly_banned_heroes
+2931: max_sideboard_cards
 2934: bonus_effects
 2936: etc_blacklist
-2937: ?buddy_meter
-2943: ?maxwell__mighty_steed
-2944: ?special_trigger_golden
-2954: ?unknown_2954
+2937: buddy_meter
+2943: maxwell__mighty_steed
+2944: golden_keep_counter
+2954: battlegrounds_lower_armor
 3011: forged
 3017: anomaly_weight
-3019: ?anomaly_3019
+3019: tavern_special
 3020: unique_race
-3035: ?unknown_3035
-3036: ?lightning_invocation
+3035: golden_freedealing_gambler
+3036: lightning_invocation
 3046: every_n_turn_trigger
 3047: counter_trigger
-3049: ?polarizing_beatboxer
-3057: ?anomaly_3057
-3059: ?anomaly_3059
+3049: polarizing_beatboxer
+3057: anomaly_banned_minions
+3059: anomaly_occurrence_rate
 3060: ?anomaly_3060
 3061: triple_give_darkmoon_prize
 3062: wildcard_tripler
-3072: ?sea_witch_zar_jira
-3076: ?c_thun
+3072: sea_witch_zar_jira
+3076: c_thun
 3078: new_ritual
-3081: ?tavern_spell
-3083: ?malchezaar__prince_of_dance_golden
-3090: ?3090
+3081: tavern_spell
+3083: ?battlegrounds_3083
+3090: ?unknown_3090
 3096: ?start_of_combat_3096
-3101: ?gilnean_war_horn
-3102: ?turbulent_tombs
+3101: gilnean_war_horn
+3102: turbulent_tombs
 3108: banned_in_twist
 3114: excavate
 3117: extra_minion
-3123: ?recurring_nightmare_enchantment
-3124: ?golden_recurring_nightmare_enchantment
+3123: recurring_nightmare_enchantment
+3124: golden_recurring_nightmare_enchantment
 3128: summon_when_drawn
-3130: ?mind_spike
+3130: mind_spike
 3131: ?anomaly_3131
 3132: ?anomaly_3132
 3133: ?anomaly_3133
 3164: count_in_tavern
 3166: battlegrounds_duo
-3167: ?battlegrounds_hero_3167
-3169: ?discover_quest_reward
+3167: ?battlegrounds_3167
+3169: ?battlegrounds_3169
 3174: one_turn_venomous
 3181: spellcraft_don_t_affect_minion
-3186: ?battlegrounds_3186
+3186: well_wisher
 3190: ?hero_3190
 3194: buddy_in_tavern
 3206: ?battlegrounds_duo_3206
 3209: ?anomaly_3209
-3211: ?c_thun_3211
+3211: dont_move_on_attack
 3218: battlegrounds_disable_refresh
 3219: battlegrounds_disable_freeze
 3220: battlegrounds_disable_upgrade
 3224: ?battlegrounds_enchantment
-3227: ?piloted_whirl_o_tron_enchantment
+3227: piloted_whirl_o_tron_enchantment
 3228: tourist
 3234: ?battlegrounds_3234
 3254: battlegrounds_consume_tooltip
-3261: ?enchantment_3261
-3262: ?anomaly_3262
-3299: ?anomaly_3299
+3261: ?battlegrounds_enchantment_3261
+3262: anomaly_rule_id
+3299: ?anomaly_swap_attack_health_3299
 3308: ?anomaly_3308
-3312: ?anomaly_3312
+3312: ?anomaly_swap_attack_health_3312
 3318: miniaturize
 3319: mini
 3321: battlegrounds_pass_tooltip
 3323: ?battlegrounds_3323
-3324: ?battlegrounds_3324
+3324: battlegrounds_cho_gall
 3329: is_coin
-3360: ?3360
+3360: secret_culprit
 3370: prefer_attack_can_kill
 3374: paladin_aura
 3376: zilliax_customizable_cosmeticmodule
 3377: zilliax_customizable_functionalmodule
-3382: ?3382
-3385: ?trinket_3385
-3388: ?trinket_3388
-3391: ?3391
+3382: keep_class_after_played
+3385: ancient_reflections
+3388: trinket_neutral
+3391: ?battlegrounds_3391
 3399: gigantify
 3400: gigantic
 3407: trinket
@@ -575,7 +563,7 @@
 3429: paladin_aura_variant
 3431: eudora_treasure
 3438: suppress_hero_standard_summon_fx
-3439: ?3439
+3439: stable_amalgamation
 3443: trinket_allow_not_in_race
 3444: silver_hand_recruit
 3450: zilliax_customizable_linked_cosmeticmoudle
@@ -584,14 +572,13 @@
 3470: zilliax_customizable_linked_functionalmoudle
 3471: hide_health_number
 3472: hide_attack_number
-3476: ?3476
+3476: zilliax_subset_id
 3482: ignore_suppress_mill_animation
-3487: ?3487
 3495: hero_frame_type
 3516: cho_gall
-3519: trinket_neutral
-3521: ?battleground_3521
-3523: ?3523
+3519: trinket_norace
+3521: reference_tavern_spell
+3523: quest_hide_progress
 3524: ?trinket_3524
 3548: ?quest_3548
 3551: trinket_multirace
@@ -600,7 +587,7 @@
 3565: battlegrounds_is_magic_item_discover
 3568: starship_piece
 3573: zilliax_battlegrounds_module
-3576: ?3576
+3576: twist_passive
 3580: fish_of_n_zoth
 3597: tourist_rogue
 3598: tourist_warlock
@@ -626,10 +613,10 @@
 3770: count_bonus_keyword
 3798: reborn_with_full_attack
 3800: reborn_with_full_health
-3822: ?trinket_3822
+3822: colorful_compass
 3840: magnetic_variable
-3850: ?sky_pirate_3850
-3860: ?battleground_3860
+3850: sky_pirate
+3860: best_boi
 3861: ?trinket_3861
 3870: starship_enchantment
 3885: abort_launch_button
