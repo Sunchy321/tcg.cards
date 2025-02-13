@@ -1,0 +1,83 @@
+45:
+    index: 'health'
+47:
+    index: 'attack'
+48:
+    index: 'cost'
+114:
+    index: 'elite'
+    bool: true
+183:
+    index: 'set'
+    enum: 'set'
+187:
+    index: 'durability'
+199:
+    index: 'classes'
+    array: true
+    enum: 'class'
+200:
+    index: 'race'
+    array: true
+    enum: true
+201:
+    index: 'faction'
+    enum: true
+202:
+    index: 'type'
+    enum: 'type'
+203:
+    index: 'rarity'
+    enum: true
+292:
+    index: 'armor'
+321:
+    index: 'collectible'
+    bool: true
+342:
+    index: 'artist'
+344:
+    index: 'localizationNotes'
+380:
+    index: 'heroPower'
+476:
+    index: 'multipleClasses'
+480:
+    index: 'classes'
+    enum: 'multiClass'
+997:
+    index: 'deckSize'
+1125:
+    index: 'deckOrder'
+1282:
+    index: 'heroicHeroPower'
+1429:
+    index: 'tripleCard'
+1440:
+    index: 'techLevel'
+1456:
+    index: 'inBobsTavern'
+    bool: true
+1517:
+    index: 'overrideWatermark'
+    enum: 'set'
+1587:
+    index: 'coin'
+1635:
+    index: 'spellSchool'
+    enum: true
+1666:
+    index: 'mercenaryRole'
+    enum: true
+1669:
+    index: 'colddown'
+1723:
+    index: 'armorBucket'
+2130:
+    index: 'buddy'
+2703:
+    index: 'bannedRace'
+    enum: 'race'
+2720:
+    index: 'mercenaryFaction'
+    enum: true

@@ -42,6 +42,19 @@ const routes = [
                 name:      'hearthstone/log-parse',
                 component: async () => import('pages/hearthstone/LogParse.vue'),
             },
+            {
+                path:      'misc',
+                name:      'hearthstone/misc',
+                redirect:  { name: 'hearthstone/misc/tag' },
+                component: async () => import('pages/hearthstone/Misc.vue'),
+                children:  [
+                    {
+                        path:      'tag',
+                        name:      'hearthstone/misc/tag',
+                        component: async () => import('pages/hearthstone/misc/Tag.vue'),
+                    },
+                ],
+            },
         ],
     },
 ];

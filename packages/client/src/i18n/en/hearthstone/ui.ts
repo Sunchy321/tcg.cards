@@ -7,4 +7,10 @@ export default {
     'log-parse': {
         $self: 'Log Parsing',
     },
+
+    'misc': {
+        $self: 'Misc',
+
+        tag: 'Tag',
+    },
 };

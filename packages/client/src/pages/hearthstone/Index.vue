@@ -55,6 +55,15 @@
                     flat
                     :stack="$q.screen.xs"
                 /> -->
+                <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'hearthstone/misc' }"
+                    icon="mdi-dots-horizontal-circle"
+                    :label="$t('hearthstone.ui.misc.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
             </div>
         </div>
     </q-page>
