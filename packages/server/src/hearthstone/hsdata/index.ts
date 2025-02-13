@@ -44,52 +44,6 @@ export interface ITag {
     static?: IEntity[keyof IEntity];
 }
 
-export const locTags: Record<string, keyof IEntity['localization'][0]> = {
-    184: 'rawText',
-    185: 'name',
-    252: 'textInPlay',
-    325: 'targetText',
-    351: 'flavor',
-    364: 'howToEarn',
-    365: 'howToEarnGolden',
-};
-
-export const tags: Record<string, ITag> = {
-    45:   { index: 'health' },
-    47:   { index: 'attack' },
-    48:   { index: 'cost' },
-    114:  { index: 'elite', bool: true },
-    183:  { index: 'set', enum: 'set' },
-    187:  { index: 'durability' },
-    199:  { index: 'classes', array: true, enum: 'class' },
-    200:  { index: 'race', array: true, enum: true },
-    201:  { index: 'faction', enum: true },
-    202:  { index: 'type', enum: 'type' },
-    203:  { index: 'rarity', enum: true },
-    292:  { index: 'armor' },
-    321:  { index: 'collectible', bool: true },
-    344:  { index: 'localizationNotes' },
-    342:  { index: 'artist' },
-    380:  { index: 'heroPower' },
-    476:  { index: 'multipleClasses' },
-    480:  { index: 'classes', enum: 'multiClass' },
-    997:  { index: 'deckSize' },
-    1125: { index: 'deckOrder' },
-    1282: { index: 'heroicHeroPower' },
-    1429: { index: 'tripleCard' },
-    1440: { index: 'techLevel' },
-    1456: { index: 'inBobsTavern', bool: true },
-    1517: { index: 'overrideWatermark', enum: 'set' },
-    1587: { index: 'coin' },
-    1635: { index: 'spellSchool', enum: true },
-    1666: { index: 'mercenaryRole', enum: true },
-    1669: { index: 'colddown' },
-    1723: { index: 'armorBucket' },
-    2130: { index: 'buddy' },
-    2703: { index: 'bannedRace', enum: 'race' },
-    2720: { index: 'mercenaryFaction', enum: true },
-};
-
 export class DataGetter extends Task<SimpleGitProgressEvent & { type: 'get' }> {
     async startImpl(): Promise<void> {
         if (!fs.existsSync(localPath)) {
@@ -250,19 +204,19 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
     }
 
     private getMapData<T>(name: string): Record<string, T> {
-        if (this.data[`hsdata-map.${name}`] == null) {
-            this.addData(`hsdata-map.${name}`);
+        if (this.data[`tag.map.${name}`] == null) {
+            this.addData(`tag.map.${name}`);
         }
 
-        return this.data[`hsdata-map.${name}`];
+        return this.data[`tag.map.${name}`];
     }
 
     private getSpecialData<T>(name: string): T {
-        if (this.data[`hsdata-special.${name}`] == null) {
-            this.addData(`hsdata-special.${name}`);
+        if (this.data[`tag.${name}`] == null) {
+            this.addData(`tag.${name}`);
         }
 
-        return this.data[`hsdata-special.${name}`];
+        return this.data[`tag.${name}`];
     }
 
     private getValue(tag: XLocStringTag | XTag, info: ITag) {
@@ -512,6 +466,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         result.referencedTags = [];
         result.relatedEntities = [];
 
+        const locFields = this.getSpecialData<Record<string, keyof IEntity['localization'][0]>>('localization-field');
+        const fields = this.getSpecialData<Record<string, ITag>>('field');
+
         const localization: Partial<IEntity['localization'][0]>[] = [];
         const quest: Partial<IEntity['quest']> = { };
 
@@ -527,9 +484,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     const value = Number.parseInt((t as XTag)._attributes.value, 10);
 
-                    const locTag = locTags[id];
+                    const locField = locFields[id];
 
-                    if (locTag != null) {
+                    if (locField != null) {
                         for (const k of Object.keys(t as XLocStringTag)) {
                             if (k === '_attributes') {
                                 continue;
@@ -541,35 +498,35 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                             const loc = localization.find(l => l.lang === lang);
 
                             if (loc != null) {
-                                loc[locTag] = text;
+                                loc[locField] = text;
                             } else {
-                                localization.push({ lang, [locTag]: text });
+                                localization.push({ lang, [locField]: text });
                             }
                         }
 
                         continue;
                     }
 
-                    const tag = tags[id];
+                    const field = fields[id];
 
-                    if (tag != null) {
+                    if (field != null) {
                         try {
-                            const tagValue = this.getValue(t, tag);
+                            const tagValue = this.getValue(t, field);
 
                             if (tagValue == null) {
                                 errors.push(`Unknown tag ${
-                                    tag.enum === true ? tag.index : tag.enum
+                                    field.enum === true ? field.index : field.enum
                                 } of ${(t as XTag)._attributes.value}`);
                             }
 
-                            if (tag.array) {
-                                if (result[tag.index] == null) {
-                                    (result as any)[tag.index] = [];
+                            if (field.array) {
+                                if (result[field.index] == null) {
+                                    (result as any)[field.index] = [];
                                 }
 
-                                (result as any)[tag.index].push(tagValue);
+                                (result as any)[field.index].push(tagValue);
                             } else {
-                                (result as any)[tag.index] = tagValue;
+                                (result as any)[field.index] = tagValue;
                             }
                         } catch (e) {
                             errors.push(e.message);

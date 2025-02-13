@@ -3,7 +3,6 @@
 4:    data_env_1 # temp variable 3
 12:   premium
 32:   trigger_visual
-45:   health
 188:  silenced
 189:  windfury # processed individually includes mega_windfury
 190:  taunt

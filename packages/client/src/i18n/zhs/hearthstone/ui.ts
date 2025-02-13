@@ -7,4 +7,10 @@ export default {
     'log-parse': {
         $self: '日志解析',
     },
+
+    'misc': {
+        $self: '杂项',
+
+        tag: '标签',
+    },
 };

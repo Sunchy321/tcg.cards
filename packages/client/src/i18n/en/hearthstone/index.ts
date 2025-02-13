@@ -1,5 +1,6 @@
 import card from './card';
 import ui from './ui';
+import tag from './tag';
 
 export default {
     $self: 'Hearthstone',
@@ -35,4 +36,5 @@ export default {
 
     card,
     ui,
+    tag,
 };

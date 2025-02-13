@@ -20,3 +20,23 @@ declare module 'data/magic/localization/keyword/*.yml' {
     const data: Record<string, string>;
     export default data;
 }
+
+declare module 'data/hearthstone/tag/map/mechanic.yml' {
+    const data: Record<number, string>;
+    export default data;
+}
+
+declare module 'data/hearthstone/tag/map/related-entity.yml' {
+    const data: Record<number, string>;
+    export default data;
+}
+
+declare module 'data/hearthstone/tag/field.yml' {
+    const data: Record<number, { index: string }>;
+    export default data;
+}
+
+declare module 'data/hearthstone/tag/localization-field.yml' {
+    const data: Record<number, string>;
+    export default data;
+}

@@ -351,9 +351,9 @@ const mechanicText = (m: string) => {
     if (m.includes(':')) {
         const [mid, arg] = m.split(':');
 
-        return `${i18n.t(`hearthstone.card.mechanic.${mid}`)}:${arg}`;
+        return `${i18n.t(`hearthstone.tag.${mid}`)}:${arg}`;
     } else {
-        return i18n.t(`hearthstone.card.mechanic.${m}`);
+        return i18n.t(`hearthstone.tag.${m}`);
     }
 };
 
