@@ -5,7 +5,7 @@ import Entity from '@/hearthstone/db/entity';
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 import {
-    flatten, last, mapValues, omit, uniq,
+    flatten, last, mapValues, omit, random, uniq,
 } from 'lodash';
 
 import { toMultiple, toSingle } from '@/common/request-helper';
@@ -94,6 +94,12 @@ router.get('/name', async ctx => {
             versions: v.data.map(e => e.version.sort((a, b) => a - b)),
         };
     });
+});
+
+router.get('/random', async ctx => {
+    const entityIds = await Entity.distinct('entityId', { type: { $ne: 'enchantment ' } });
+
+    ctx.body = entityIds[random(entityIds.length - 1)] ?? '';
 });
 
 interface EntityProfile {

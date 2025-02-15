@@ -9,18 +9,34 @@ export default function hearthstoneSetup(): {
     const route = useRoute();
 
     const random = async () => {
-        const { data: id } = await api.get<string>('/hearthstone/card/random', {
-            // params: { q: store.getters.search },
-        });
-
-        if (id !== '') {
-            const { q } = route.query;
-
-            void router.push({
-                name:   'hearthstone/card',
-                params: { id },
-                query:  { q: q === '' ? undefined : q },
+        if (route.name === 'hearthstone/entity') {
+            const { data: id } = await api.get<string>('/hearthstone/entity/random', {
+                // params: { q: store.getters.search },
             });
+
+            if (id !== '') {
+                const { q } = route.query;
+
+                void router.push({
+                    name:   'hearthstone/entity',
+                    params: { id },
+                    query:  { q: q === '' ? undefined : q },
+                });
+            }
+        } else {
+            const { data: id } = await api.get<string>('/hearthstone/card/random', {
+            // params: { q: store.getters.search },
+            });
+
+            if (id !== '') {
+                const { q } = route.query;
+
+                void router.push({
+                    name:   'hearthstone/card',
+                    params: { id },
+                    query:  { q: q === '' ? undefined : q },
+                });
+            }
         }
     };
 
