@@ -1,19 +1,14 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
+import { createReadStream, existsSync } from 'fs';
 import mime from 'mime-types';
-
 import { flatten, mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
 import Entity from '@/hearthstone/db/entity';
 
-import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { Adjustment } from '@interface/hearthstone/format-change';
-
-import renderEntity, { registerFonts } from '@renderer/index';
-
-import { assetPath } from '@/config';
+import { cardImagePath } from '@/hearthstone/image';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -21,101 +16,46 @@ router.prefix('/entity');
 
 router.get('/', async ctx => {
     const {
-        id, lang, version: versionText, adjustment: adjustmentText, format,
+        id, lang, version: versionText, variant = 'normal',
     } = mapValues(ctx.query, toSingle);
 
-    const version = versionText != null ? Number.parseInt(versionText, 10) : null;
-
-    if (Number.isNaN(version)) {
+    if (id == null) {
         ctx.status = 400;
         return;
     }
 
-    const adjustment = (adjustmentText ?? '')
-        .split(',')
-        .map(a => {
-            const p = a.split(':');
+    const version = await (async () => {
+        if (versionText != null) {
+            const result = Number.parseInt(versionText, 10);
 
-            return {
-                part:   p[0],
-                status: (p[1] ?? 'nerf') as Adjustment,
-            };
-        });
+            if (!Number.isNaN(result)) {
+                return result;
+            } else {
+                return null;
+            }
+        } else {
+            const entities = await Entity.find({ entityId: id });
 
-    registerFonts(assetPath);
+            if (entities.length === 0) {
+                return null;
+            }
 
-    const query: any = { entityId: id };
+            const versions = flatten(entities.map(e => e.version));
 
-    if (version != null) {
-        query.version = version;
-    }
+            return Math.max(...versions);
+        }
+    })();
 
-    const entities = await Entity.find(query);
-
-    const entityVersion = version ?? Math.max(...flatten(entities.map(e => e.version)));
-
-    const entity = entities.find(e => e.version.includes(entityVersion));
-
-    if (entity == null) {
-        ctx.status = 404;
+    if (version == null) {
+        ctx.status = 400;
         return;
     }
 
-    const json = entity.toObject() as IEntity;
+    const path = cardImagePath(id, lang, version, variant);
 
-    const localization = json.localization.find(l => l.lang === lang)
-        ?? json.localization.find(l => l.lang === 'en')
-        ?? json.localization[0];
-
-    try {
-        const data = await renderEntity({
-            type:     json.type,
-            variant:  'normal',
-            format,
-            costType: 'mana',
-
-            entityId: json.entityId,
-
-            ...localization,
-            text: localization.displayText,
-
-            set:         json.set[0],
-            classes:     json.classes,
-            cost:        json.cost,
-            attack:      json.attack,
-            health:      json.health,
-            durability:  json.durability,
-            armor:       json.armor,
-            rune:        json.rune,
-            race:        json.race,
-            spellSchool: json.spellSchool,
-
-            techLevel:     json.techLevel,
-            inBobsTavern:  json.inBobsTavern,
-            tripleCard:    json.tripleCard,
-            raceBucket:    json.raceBucket,
-            coin:          json.coin,
-            armorBucket:   json.armorBucket,
-            buddy:         json.buddy,
-            bannedRace:    json.bannedRace,
-            mercenaryRole: json.mercenaryRole,
-            colddown:      json.colddown,
-
-            collectible: json.collectible,
-            elite:       json.elite,
-            rarity:      json.rarity,
-
-            mechanics: json.mechanics,
-
-            adjustment,
-        }, assetPath);
-
-        ctx.response.set('content-type', mime.lookup('.png') as string);
-
-        ctx.body = data;
-    } catch (err) {
-        console.log(err.message);
-        ctx.status = 404;
+    if (existsSync(path)) {
+        ctx.response.set('content-type', mime.lookup(path) as string);
+        ctx.body = createReadStream(path);
     }
 });
 

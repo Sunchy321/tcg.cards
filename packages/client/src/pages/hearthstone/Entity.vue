@@ -153,7 +153,7 @@ const { random } = hearthstoneSetup();
 const data = ref<Data | null>(null);
 
 // data fields
-const id = computed(() => data.value?.cardId ?? route.params.id);
+const id = computed(() => data.value?.entityId ?? route.params.id);
 
 const versions = computed(() => data.value?.versions ?? []);
 
@@ -267,7 +267,7 @@ const imageUrl = computed(() => {
     }
 
     if (format.value === 'battlegrounds') {
-        params.format = 'battlegrounds';
+        params.variant = 'battlegrounds';
     }
 
     url.search = new URLSearchParams(params).toString();
@@ -332,9 +332,9 @@ const mechanicText = (m: string) => {
     if (m.includes(':')) {
         const [mid, arg] = m.split(':');
 
-        return `${i18n.t(`hearthstone.card.mechanic.${mid}`)}:${arg}`;
+        return `${i18n.t(`hearthstone.tag.${mid}`)}:${arg}`;
     } else {
-        return i18n.t(`hearthstone.card.mechanic.${m}`);
+        return i18n.t(`hearthstone.tag.${m}`);
     }
 };
 
