@@ -1,5 +1,5 @@
 export type Legality =
-    'banned_as_commander' | 'banned_as_companion' | 'banned_in_bo1' | 'banned' | 'legal' | 'restricted' | 'suspended' | 'unavailable' | `score-${number}`;
+    'banned_as_commander' | 'banned_as_companion' | 'banned_in_bo1' | 'banned' | 'game_changer' | 'legal' | 'restricted' | 'suspended' | 'unavailable' | `score-${number}`;
 
 export type Banlist = Record<string, Legality>;
 

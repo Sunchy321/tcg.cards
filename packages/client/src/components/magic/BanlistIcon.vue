@@ -46,6 +46,8 @@ const icon = computed(() => {
         return 'mdi-crown-circle-outline';
     case 'banned_as_companion':
         return 'mdi-heart-circle-outline';
+    case 'game_changer':
+        return 'mdi-eye-circle-outline';
     case 'unavailable':
         return 'mdi-cancel';
     default:

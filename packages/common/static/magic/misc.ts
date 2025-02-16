@@ -15,6 +15,8 @@ export const banlistStatusOrder = [
     'score-2',
     'score-1',
 
+    'game_changer',
+
     'legal',
     'unavailable',
 ];
