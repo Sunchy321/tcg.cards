@@ -238,6 +238,8 @@ const statusIcon = (status: string, card?: string) => {
         return 'mdi-crown-circle-outline';
     case 'banned_as_companion':
         return 'mdi-heart-circle-outline';
+    case 'game_changer':
+        return 'mdi-eye-circle-outline';
     case 'restricted':
         return 'mdi-alert-circle-outline';
     case 'legal':
@@ -263,6 +265,7 @@ const statusOptions = [
     'restricted',
     'banned_as_commander',
     'banned_as_companion',
+    'game_changer',
     'unavailable',
 ].map(v => ({
     icon:  statusIcon(v),

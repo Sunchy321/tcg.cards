@@ -86,6 +86,7 @@ export default {
         unavailable:         'Unavailable',
         banned_as_commander: 'Banned as Commander',
         banned_as_companion: 'Banned as Companion',
+        game_changer:        'Game Changer',
     },
 
     'tag': {
