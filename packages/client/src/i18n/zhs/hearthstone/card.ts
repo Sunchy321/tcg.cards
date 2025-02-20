@@ -1,13 +1,15 @@
 export default {
     type: {
+        hero:              '英雄',
         minion:            '随从',
         spell:             '法术',
-        weapon:            '武器',
-        hero:              '英雄',
-        hero_power:        '英雄技能',
         enchantment:       '额外效果',
+        weapon:            '武器',
+        hero_power:        '英雄技能',
         mercenary_ability: '佣兵技能',
+        buddy_meter:       '伙伴计量槽',
         location:          '地标',
+        quest_reward:      '任务奖励',
         tavern_spell:      '酒馆法术',
         anomaly:           '畸变',
         trinket:           '饰品',
@@ -27,8 +29,10 @@ export default {
         furbolg:   '熊怪',
         gnome:     '侏儒',
         goblin:    '地精',
+        gronn:     '戈隆',
         halforc:   '半兽人',
         human:     '人类',
+        lock:      '锁头',
         mech:      '机械',
         murloc:    '鱼人',
         naga:      '纳迦',
@@ -61,5 +65,13 @@ export default {
         spellcraft:      '塑造法术',
         lesser_trinket:  '小型',
         greater_trinket: '大型',
+    },
+
+    variant: {
+        normal:        '普通',
+        golden:        '金卡',
+        diamond:       '钻石',
+        signature:     '异画',
+        battlegrounds: '战棋',
     },
 };

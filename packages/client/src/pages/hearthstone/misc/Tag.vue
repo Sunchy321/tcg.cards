@@ -39,7 +39,7 @@ const tagDesc = (tag: string) => {
     if (i18n.te(key)) {
         return i18n.t(key);
     } else {
-        return tag;
+        return '';
     }
 };
 
