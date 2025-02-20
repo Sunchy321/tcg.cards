@@ -182,33 +182,35 @@ const loadHsdata = async () => {
 };
 
 const loadPatches = async () => {
-    for (const p of patches.value) {
-        if (p.isUpdated) {
-            continue;
-        }
+    const patch = patches.value.filter(v => !v.isUpdated).sort((a, b) => a.number - b.number)[0];
 
-        const ws = controlWs('/hearthstone/hsdata/load-patch', { version: p.number });
-
-        await new Promise((resolve, reject) => {
-            ws.onmessage = ({ data }) => {
-                if (data.error != null) {
-                    console.error(data);
-                } else {
-                    const prog = JSON.parse(data) as Progress;
-                    progress.value = prog;
-                }
-            };
-
-            ws.onerror = reject;
-            ws.onclose = () => {
-                progress.value = undefined;
-
-                resolve(undefined);
-            };
-        });
-
-        await loadData();
+    if (patch == null) {
+        return;
     }
+
+    const ws = controlWs('/hearthstone/hsdata/load-patch', { version: patch.number });
+
+    await new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            if (data.error != null) {
+                console.error(data);
+            } else {
+                const prog = JSON.parse(data) as Progress;
+                progress.value = prog;
+            }
+        };
+
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = undefined;
+
+            resolve(undefined);
+        };
+    });
+
+    await loadData();
+
+    loadPatches();
 };
 
 onMounted(loadData);

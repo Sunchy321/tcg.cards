@@ -586,21 +586,10 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     if (mechanic != null) {
                         switch (mechanic) {
-                        case 'premium':
-                            if (value === 1) {
-                                result.mechanics.push('premium');
-                            } else {
-                                result.mechanics.push(`premium:${value}`);
-                            }
-                            break;
-                        case 'jade_golem':
-                            result.referencedTags.push('jade_golem');
-                            break;
                         case 'quest':
                             if (quest.type == null) {
                                 quest.type = 'normal';
                             }
-
                             break;
                         case 'sidequest':
                             quest.type = 'side';
@@ -614,33 +603,20 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         case 'questline_part':
                             quest.part = value;
                             break;
-                        case 'puzzle_type':
-                            result.mechanics[result.mechanics.indexOf('puzzle')!] = `puzzle:${this.getMapData<string>('puzzle-type')[value]}`;
-                            break;
-                        case 'drag_minion':
-                            if (value === 1) {
-                                result.mechanics.push('drag_minion_to_buy');
-                            } else if (value === 2) {
-                                result.mechanics.push('drag_minion_to_sell');
-                            } else {
-                                errors.push(`Mechanic ${mechanic} with non-1 value`);
-                            }
-                            break;
                         default:
-                            if (this.getSpecialData<string[]>('mechanic-with-value').includes(mechanic)) {
-                                result.mechanics.push(`${mechanic}:${value}`);
-                            } else if (this.getSpecialData<string[]>('mechanic-ignore-value').includes(mechanic)) {
-                                result.mechanics.push(mechanic);
-                            } else if (value === 1 || mechanic.startsWith('?')) {
-                                result.mechanics.push(mechanic);
-                            } else {
-                                errors.push(`Mechanic ${mechanic} with non-1 value`);
-                            }
+                            break;
                         }
 
-                        continue;
-                    } else if (mechanic === null) {
-                        // explicitly ignored
+                        if (this.getSpecialData<string[]>('mechanic-with-value').includes(mechanic)) {
+                            result.mechanics.push(`${mechanic}:${value}`);
+                        } else if (this.getSpecialData<string[]>('mechanic-ignore-value').includes(mechanic)) {
+                            result.mechanics.push(mechanic);
+                        } else if (value === 1) {
+                            result.mechanics.push(mechanic);
+                        } else {
+                            errors.push(`Mechanic ${mechanic} with non-1 value`);
+                        }
+
                         continue;
                     }
 

@@ -3,6 +3,7 @@
 4:    data_env_1 # temp variable 3
 12:   premium
 32:   trigger_visual
+45:   health
 188:  silenced
 189:  windfury # processed individually includes mega_windfury
 190:  taunt
@@ -64,7 +65,7 @@
 415:  discover
 424:  ritual
 426:  functionally_dead
-436:  cthun
+436:  lettuce_c_thun
 441:  jade_golem # it should be a referenced tag
 443:  choose_one
 448:  untouchable
@@ -105,7 +106,7 @@
 839:  always_in_starting_hand
 843:  ?unknown_843
 846:  echo
-849:  modular
+849:  magnetic
 851:  kingsbane_1 # only on kingsbane
 857:  ignore_hide_stats_for_big_card
 871:  magnetic_enchantment
@@ -530,7 +531,7 @@
 3219: battlegrounds_disable_freeze
 3220: battlegrounds_disable_upgrade
 3224: ?battlegrounds_enchantment
-3227: piloted_whirl_o_tron_enchantment
+3227: piloted_whirl_o_tron
 3228: tourist
 3234: ?battlegrounds_3234
 3254: battlegrounds_consume_tooltip

@@ -3,12 +3,14 @@
         <div class="image-column column items-center">
             <q-img :src="imageUrl" />
 
-            <q-btn-toggle
-                v-if="hasTechLevel"
-                v-model="format"
-                outline dense
-                :options="formatOptions"
+            <q-select
+                v-model="variant"
+                flat dense outlined
+                emit-value map-options
+                :options="variantOptions"
             />
+
+            <div class="q-mt-md">{{ artist }}</div>
         </div>
         <div class="info-column">
             <div class="name-line row items-center">
@@ -19,8 +21,6 @@
                 <q-space />
 
                 <div v-if="hasCost" class="cost">
-                    <!-- <img class="cost-image" :src="costImage">
-                    <div class="cost-text">{{ cost }}</div> -->
                     {{ cost }}
                 </div>
             </div>
@@ -34,10 +34,13 @@
             <div v-if="text != null" class="text">
                 <hearthstone-text disable-newline>{{ text }}</hearthstone-text>
             </div>
+            <div v-if="flavorText != null" class="flavor-text">
+                <hearthstone-text disable-newline>{{ flavorText }}</hearthstone-text>
+            </div>
             <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="mechanics">
                 <q-chip
                     v-for="m in mechanics" :key="m"
-                    class="q-mr-sm q-ma-none"
+                    class="q-mr-sm q-mb-sm"
                     square
                     size="12px"
                     color="primary"
@@ -233,24 +236,42 @@ const stats = computed(() => {
 
 const text = computed(() => localization.value?.displayText);
 
-const mechanics = computed(() => (data.value?.mechanics ?? []).filter(
-    v => !v.startsWith('?') && !/_\d(:\d+)?$/.test(v),
-));
+const flavorText = computed(() => localization.value?.flavor);
+
+const artist = computed(() => data.value?.artist ?? '');
+
+const mechanics = computed(() => (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')));
 
 const referencedTags = computed(() => (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')));
 
 const hasTechLevel = computed(() => data.value?.techLevel != null);
 
-const format = ref('constructed');
+const variant = ref('normal');
 
-const formatOptions = [
-    { label: 'Constructed', value: 'constructed' },
-    { label: 'Battlegrounds', value: 'battlegrounds' },
-];
+const variantOptions = computed(() => {
+    const options = [
+        { label: i18n.t('hearthstone.card.variant.normal'), value: 'normal' },
+        { label: i18n.t('hearthstone.card.variant.golden'), value: 'golden' },
+    ];
+
+    if (mechanics.value.includes('has_diamond')) {
+        options.push({ label: i18n.t('hearthstone.card.variant.diamond'), value: 'diamond' });
+    }
+
+    if (mechanics.value.includes('has_signature')) {
+        options.push({ label: i18n.t('hearthstone.card.variant.signature'), value: 'signature' });
+    }
+
+    if (hasTechLevel.value) {
+        options.push({ label: i18n.t('hearthstone.card.variant.battlegrounds'), value: 'battlegrounds' });
+    }
+
+    return options;
+});
 
 watch(hasTechLevel, () => {
     if (!hasTechLevel.value) {
-        format.value = 'constructed';
+        variant.value = 'normal';
     }
 }, { immediate: true });
 
@@ -266,9 +287,7 @@ const imageUrl = computed(() => {
         params.version = version.value;
     }
 
-    if (format.value === 'battlegrounds') {
-        params.variant = 'battlegrounds';
-    }
+    params.variant = variant.value;
 
     url.search = new URLSearchParams(params).toString();
 
@@ -400,8 +419,11 @@ watch(
     display: flex
     align-items: center
 
-.text, .mechanics
+.text, .flavor-text, .mechanics
     margin-top: 30px
+
+.flavor-text
+    font-style: italic
 
 .type
     margin-right: 5px

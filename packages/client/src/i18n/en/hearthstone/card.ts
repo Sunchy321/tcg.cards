@@ -1,13 +1,15 @@
 export default {
     type: {
+        hero:              'Hero',
         minion:            'Minion',
         spell:             'Spell',
-        weapon:            'Weapon',
-        hero:              'Hero',
-        hero_power:        'Hero Power',
         enchantment:       'Enchantment',
+        weapon:            'Weapon',
+        hero_power:        'Hero Power',
         mercenary_ability: 'Mercenary Ability',
+        buddy_meter:       'Buddy Meter',
         location:          'Location',
+        quest_reward:      'Quest Reward',
         tavern_spell:      'Tavern Spell',
         anomaly:           'Anomaly',
         trinket:           'Trinket',
@@ -29,8 +31,10 @@ export default {
         gnome:     'Gnome',
         goblin:    'Goblin',
         goblin2:   'Goblin2',
+        gronn:     'Gronn',
         halforc:   'Halforc',
         human:     'Human',
+        lock:      'Lock',
         mech:      'Mech',
         murloc:    'Murloc',
         naga:      'Naga',
@@ -63,5 +67,13 @@ export default {
         spellcraft:      'Spellcraft',
         lesser_trinket:  'Lesser',
         greater_trinket: 'Greater',
+    },
+
+    variant: {
+        normal:        'Normal',
+        golden:        'Golden',
+        diamond:       'Diamond',
+        signature:     'Signature',
+        battlegrounds: 'Battlegrounds',
     },
 };
