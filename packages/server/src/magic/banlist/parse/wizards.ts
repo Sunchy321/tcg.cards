@@ -1,7 +1,8 @@
+/* eslint-disable no-loop-func */
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
-import { BanlistChange as IBanlistChange, BanlistStatus } from '@interface/magic/banlist';
+import { FormatAnnouncement as IFormatAnnouncement, Legality } from '@interface/magic/format-change';
 
 import { escapeRegExp } from 'lodash';
 
@@ -53,7 +54,7 @@ function isCardLink(e: cheerio.TagElement, $: cheerio.Root): boolean {
 function parseDateText(
     sText: string,
     rest: string,
-    result: Partial<IBanlistChange>,
+    result: Partial<IFormatAnnouncement>,
 ): string | null | undefined {
     const sTextDeburr = sText.replace(/\xA0/g, ' ');
 
@@ -87,7 +88,7 @@ function parseDateText(
     }
 }
 
-const statusMap: Record<string, BanlistStatus> = {
+const statusMap: Record<string, Legality> = {
     '':                        'banned',
     'banned':                  'banned',
     'is banned':               'banned',
@@ -138,7 +139,7 @@ function parseLine(elems: cheerio.TagElement[], currFormat: string, $: cheerio.R
     }));
 }
 
-export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> {
+export async function parseWizardsBanlist(url: string): Promise<IFormatAnnouncement> {
     const html = await request(url);
     const $ = cheerio.load(html);
 
@@ -152,8 +153,8 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
         }
     })();
 
-    const result: Partial<IBanlistChange> = {
-        category:      'wotc',
+    const result: Partial<IFormatAnnouncement> = {
+        source:        'wotc',
         date:          undefined,
         nextDate:      undefined,
         effectiveDate: { },
@@ -161,7 +162,8 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
         changes:       [],
     };
 
-    let currFormat = null;
+    let currFormat: string | null = null;
+    let currChange: IFormatAnnouncement['changes'][0] | undefined;
 
     for (const e of getLines(content, $)) {
         const text = e.map(v => $(v).text()).join('');
@@ -179,6 +181,15 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
 
             if (newFormat !== undefined) {
                 currFormat = newFormat;
+
+                if (!result.changes!.some(c => c.format === currFormat)) {
+                    result.changes!.push({
+                        format:  currFormat!,
+                        banlist: [],
+                    });
+                }
+
+                currChange = result.changes!.find(c => c.format === currFormat);
             }
         } else if (currFormat != null) {
             if (isCardLink(e[0], $)) {
@@ -186,9 +197,8 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
             } else {
                 for (const s of Object.keys(statusMap)) {
                     if (s !== '' && s !== 'banned' && text.endsWith(s)) {
-                        result.changes!.push({
-                            card:   toIdentifier(text.slice(0, -s.length)),
-                            format: currFormat,
+                        currChange!.banlist!.push({
+                            id:     toIdentifier(text.slice(0, -s.length)),
                             status: statusMap[s],
                         });
                         break;
@@ -210,17 +220,17 @@ export async function parseWizardsBanlist(url: string): Promise<IBanlistChange> 
         result.effectiveDate = undefined;
     }
 
-    return result as IBanlistChange;
+    return result as IFormatAnnouncement;
 }
 
-export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChange> {
+export async function parseWizardsOldBanlist(url: string): Promise<IFormatAnnouncement> {
     const html = await request(url);
     const $ = cheerio.load(html);
 
     const content = $('#bodycontent');
 
-    const result: Partial<IBanlistChange> = {
-        category:      'wotc',
+    const result: Partial<IFormatAnnouncement> = {
+        source:        'wotc',
         date:          undefined,
         nextDate:      undefined,
         effectiveDate: { },
@@ -228,7 +238,8 @@ export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChang
         changes:       [],
     };
 
-    let currFormat = null;
+    let currFormat: string | null = null;
+    let currChange: IFormatAnnouncement['changes'][0] | undefined;
 
     for (const e of getLines(content, $)) {
         const text = e.map(v => $(v).text()).join('').trim();
@@ -244,23 +255,39 @@ export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChang
 
             if (newFormat !== undefined) {
                 currFormat = newFormat;
+
+                if (!result.changes!.some(c => c.format === currFormat)) {
+                    result.changes!.push({
+                        format:  currFormat!,
+                        banlist: [],
+                    });
+                }
+
+                currChange = result.changes!.find(c => c.format === currFormat);
             }
         } else if (e[0].tagName === 'h3') {
             currFormat = formatMap[$(e[0]).text()];
+
+            if (!result.changes!.some(c => c.format === currFormat)) {
+                result.changes!.push({
+                    format:  currFormat!,
+                    banlist: [],
+                });
+            }
+
+            currChange = result.changes!.find(c => c.format === currFormat);
         } else if (currFormat != null) {
             for (const s of Object.keys(statusMap)) {
                 if (s !== '' && s !== 'banned') {
                     if (text.endsWith(s)) {
-                        result.changes!.push({
-                            card:   toIdentifier(text.slice(0, -s.length)),
-                            format: currFormat,
+                        currChange!.banlist!.push({
+                            id:     toIdentifier(text.slice(0, -s.length)),
                             status: statusMap[s],
                         });
                         break;
                     } else if (text.endsWith(`${s}.`)) {
-                        result.changes!.push({
-                            card:   toIdentifier(text.slice(0, -s.length - 1)),
-                            format: currFormat,
+                        currChange!.banlist!.push({
+                            id:     toIdentifier(text.slice(0, -s.length - 1)),
                             status: statusMap[s],
                         });
                         break;
@@ -270,5 +297,5 @@ export async function parseWizardsOldBanlist(url: string): Promise<IBanlistChang
         }
     }
 
-    return result as IBanlistChange;
+    return result as IFormatAnnouncement;
 }
