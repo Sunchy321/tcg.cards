@@ -1,7 +1,7 @@
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
-import { BanlistChange as IBanlistChange, BanlistStatus } from '@interface/magic/banlist';
+import { FormatAnnouncement as IFormatAnnouncement, Legality } from '@interface/magic/format-change';
 
 import { parseDate, getLines } from './helper';
 import { toIdentifier } from '@common/util/id';
@@ -21,7 +21,7 @@ const monthMap: Record<string, string> = {
     Dec: '12',
 };
 
-const statusMap: Record<string, BanlistStatus> = {
+const statusMap: Record<string, Legality> = {
     'is now banned':                      'banned',
     'is banned':                          'banned',
     'is now banned as a commander only':  'banned_as_commander',
@@ -33,17 +33,22 @@ const statusMap: Record<string, BanlistStatus> = {
     'is unbanned as a commander':         'legal',
 };
 
-export async function parseMTGCommanderBanlist(url: string): Promise<IBanlistChange> {
+export async function parseMTGCommanderBanlist(url: string): Promise<IFormatAnnouncement> {
     const html = await request(url);
     const $ = cheerio.load(html);
 
     const content = $('.single-post');
 
-    const result: Partial<IBanlistChange> = {
-        category:      'duelcommander',
+    const result: Partial<IFormatAnnouncement> = {
+        source:        'mtgcommander',
         effectiveDate: {},
         link:          [url],
-        changes:       [],
+        changes:       [
+            {
+                format:  'commander',
+                banlist: [],
+            },
+        ],
     };
 
     const year = url.substr(url.search(/\d{4}/), 4);
@@ -68,9 +73,8 @@ export async function parseMTGCommanderBanlist(url: string): Promise<IBanlistCha
                 const id = toIdentifier(text.slice(0, -mStatus[0].length));
 
                 if (id.length <= 80) {
-                    result.changes!.push({
-                        card:   id,
-                        format: 'duelcommander',
+                    result.changes![0].banlist!.push({
+                        id,
                         status: statusMap[s],
                     });
                 }
@@ -110,5 +114,5 @@ export async function parseMTGCommanderBanlist(url: string): Promise<IBanlistCha
         result.effectiveDate = undefined;
     }
 
-    return result as IBanlistChange;
+    return result as IFormatAnnouncement;
 }

@@ -2,9 +2,9 @@ import { parseWizardsBanlist, parseWizardsOldBanlist } from './wizards';
 import { parseDuelCommanderBanlist } from './duelcommander';
 import { parseMTGCommanderBanlist } from './mtgcommander';
 
-import { BanlistChange as IBanlistChange } from '@interface/magic/banlist';
+import { FormatAnnouncement as IFormatAnnouncement } from '@interface/magic/format-change';
 
-export default async function parseBanlist(url: string): Promise<IBanlistChange> {
+export default async function parseBanlist(url: string): Promise<IFormatAnnouncement> {
     if (url.startsWith('https://magic.wizards.com/')) {
         // Wizards of the Coast
         return parseWizardsBanlist(url);
