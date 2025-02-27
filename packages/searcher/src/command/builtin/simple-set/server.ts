@@ -15,22 +15,31 @@ function query(options: SimpleSetQueryOption): DBQuery {
         key, parameter, operator, qualifier, meta,
     } = options;
 
-    const values = [];
+    const words = (() => {
+        const decoded = parameter.split('').map(
+            c => Object.entries(meta.valueMap)
+                .find(([_, v]) => v.includes(c))?.[0],
+        );
 
-    const words = parameter.split(',');
+        if (decoded.every(v => v != null)) {
+            return decoded;
+        } else {
+            return parameter.split(',');
+        }
+    });
 
     switch (operator) {
     case ':':
         if (!qualifier.includes('!')) {
-            return { [key]: { $in: parameter.split(',') } };
+            return { [key]: { $in: words } };
         } else {
-            return { [key]: { $nin: parameter.split(',') } };
+            return { [key]: { $nin: words } };
         }
     case '=':
         if (!qualifier.includes('!')) {
-            return { [key]: parameter };
+            return { [key]: words };
         } else {
-            return { [key]: { $ne: parameter } };
+            return { [key]: { $ne: words } };
         }
     default:
         return {};

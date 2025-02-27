@@ -72,4 +72,6 @@ export interface Entity {
     overrideWatermark: string;
     deckSize?: number;
     localizationNotes?: string;
+
+    isCurrent: boolean;
 }

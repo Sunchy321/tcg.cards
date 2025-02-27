@@ -100,6 +100,8 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'
     overrideWatermark: String,
     deckSize:          Number,
     localizationNotes: String,
+
+    isCurrent: Boolean,
 }, {
     typeKey: '$type',
     toJSON:  {
@@ -112,6 +114,6 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'
     },
 });
 
-const Entity = conn.model<Document & IEntity>('entity', EntitySchema);
+const Entity = conn.model('entity', EntitySchema);
 
 export default Entity;

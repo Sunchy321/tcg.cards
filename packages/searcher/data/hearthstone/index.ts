@@ -9,14 +9,21 @@ const raw = defineCommand({ id: '', operators: [''] });
 
 const stats = defineCommand({
     id:         'stats',
-    pattern:    '{{attack}}/{{health}}',
-    operators:  ['', ...allOperator],
+    pattern:    '{{attack}}/{{health}}' as const,
+    operators:  [':', '', '='],
     qualifiers: defaultQualifier,
 });
 
 const fullStats = defineCommand({
     id:         'full-stats',
-    pattern:    '{{cost}}/{{attack}}/{{health}}',
+    pattern:    '{{cost}}/{{attack}}/{{health}}' as const,
+    operators:  [':', '', '='],
+    qualifiers: defaultQualifier,
+});
+
+const hash = defineCommand({
+    id:         'hash',
+    pattern:    '#{{tag}}' as const,
     operators:  [':', ''],
     qualifiers: defaultQualifier,
 });
@@ -27,9 +34,9 @@ const text = builtin.text({ id: 'text', alt: 'x' });
 const flavorText = builtin.text({ id: 'flavor-text', alt: ['flavor', 'ft'] });
 
 const set = builtin.simple({ id: 'set', alt: 's' });
-const classes = builtin.simple({ id: 'class', alt: 'cl' });
-const type = builtin.simple({ id: 'type', alt: 't' });
 
+const classes = builtin.simpleSet({ id: 'class', alt: 'cl' });
+const type = builtin.simple({ id: 'type', alt: 't' });
 const cost = builtin.number({ id: 'cost', alt: 'c' });
 const attack = builtin.number({ id: 'attack', alt: 'a' });
 const health = builtin.number({ id: 'health', alt: 'h' });
@@ -64,10 +71,16 @@ const change = defineCommand({
     qualifiers: [],
 });
 
+const order = defineCommand({
+    id:        'order',
+    operators: [':'],
+});
+
 export const commands = {
     raw,
     stats,
     fullStats,
+    hash,
     name,
     text,
     flavorText,
@@ -89,6 +102,7 @@ export const commands = {
     rarity,
     artist,
     change,
+    order,
 };
 
 export default defineModel({
