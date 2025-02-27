@@ -1,8 +1,26 @@
 <template>
     <q-page>
-        <div class="main-input q-ma-xl">
-            <q-input v-model="searchText" filled />
-        </div>
+        <search-input
+            v-model="searchText"
+            class="main-input q-ma-xl"
+            filled clearable
+            :error="explained.type === 'error'"
+            @keypress.enter="search"
+        >
+            <template #append>
+                <q-btn
+                    icon="mdi-magnify"
+                    flat dense round
+                    @click="search"
+                />
+            </template>
+            <template #hint>
+                <magic-text>{{ explained.text }}</magic-text>
+            </template>
+            <template #error>
+                <magic-text>{{ explained.text }}</magic-text>
+            </template>
+        </search-input>
         <div class="links q-pa-xl q-gutter-md row">
             <div class="col column">
                 <!-- <q-btn
@@ -69,8 +87,8 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 import { useCore } from 'store/core';
@@ -78,34 +96,45 @@ import { useCore } from 'store/core';
 import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
 
-export default defineComponent({
-    name: 'Hearthstone',
+import SearchInput from 'components/SearchInput.vue';
 
-    setup() {
-        const core = useCore();
-        const i18n = useI18n();
+import model from 'searcher-data/hearthstone/client';
 
-        const { random } = hearthstoneSetup();
+const core = useCore();
+const i18n = useI18n();
 
-        pageSetup({
-            title:   () => i18n.t('hearthstone.$self'),
-            actions: [
-                {
-                    action:  'random',
-                    icon:    'mdi-shuffle-variant',
-                    handler: random,
-                },
-            ],
-        });
+const { random, search } = hearthstoneSetup();
 
-        const searchText = computed({
-            get() { return core.search; },
-            set(newValue: string) { core.search = newValue; },
-        });
-
-        return {
-            searchText,
-        };
-    },
+pageSetup({
+    title:   () => i18n.t('hearthstone.$self'),
+    actions: [
+        {
+            action:  'random',
+            icon:    'mdi-shuffle-variant',
+            handler: random,
+        },
+    ],
 });
+
+const searchText = computed({
+    get() { return core.search; },
+    set(newValue: string) { core.search = newValue; },
+});
+
+const explained = computed(() => model.explain(searchText.value, (key: string, named) => {
+    let realKey;
+
+    if (key.startsWith('$.')) {
+        realKey = `magic.search.${key.slice(2)}`;
+    } else {
+        realKey = `search.${key}`;
+    }
+
+    if (named != null) {
+        return i18n.t(realKey, named);
+    } else {
+        return i18n.t(realKey);
+    }
+}));
+
 </script>

@@ -51,7 +51,7 @@
 
                 <q-chip
                     v-for="r in referencedTags" :key="r"
-                    class="q-mr-sm q-ma-none"
+                    class="q-mr-sm q-mb-sm"
                     square
                     size="12px"
                     color="secondary"
@@ -151,7 +151,7 @@ const route = useRoute();
 const hearthstone = useHearthstone();
 const i18n = useI18n();
 
-const { random } = hearthstoneSetup();
+const { search, random } = hearthstoneSetup();
 
 const data = ref<Data | null>(null);
 
@@ -201,6 +201,10 @@ pageSetup({
     titleType: 'input',
 
     actions: [
+        {
+            action:  'search',
+            handler: search,
+        },
         {
             action:  'random',
             icon:    'mdi-shuffle-variant',
