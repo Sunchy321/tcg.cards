@@ -11,7 +11,9 @@ import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 import * as builtin from '../../src/command/builtin/server';
 
-import { isEmpty, mapKeys, pickBy } from 'lodash';
+import {
+    escapeRegExp, isEmpty, mapKeys, pickBy,
+} from 'lodash';
 import { toIdentifier } from '@common/util/id';
 
 import { commands } from './index';
@@ -169,9 +171,11 @@ const hash = defineServerCommand({
 
         const { tag } = pattern;
 
-        const tester = tag.includes('=')
-            ? tag.replace('=', ':')
-            : tag;
+        const match = /^(.*?)[:=](.*)$/.exec(tag);
+
+        const tester = match == null
+            ? new RegExp(`^${escapeRegExp(tag)}(?:$|:)`)
+            : new RegExp(`^${escapeRegExp(match[1])}:${escapeRegExp(match[2])}$`);
 
         if (!qualifier.includes('!')) {
             return {
