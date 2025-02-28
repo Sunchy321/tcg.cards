@@ -68,6 +68,7 @@ export default {
         spellcraft:      'Spellcraft',
         lesser_trinket:  'Lesser',
         greater_trinket: 'Greater',
+        upgrade:         'Upgrade',
     },
 
     variant: {
