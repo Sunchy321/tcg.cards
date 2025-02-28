@@ -6,6 +6,7 @@ export default {
         enchantment:       'Enchantment',
         weapon:            'Weapon',
         hero_power:        'Hero Power',
+        game_mode_button:  'Game Mode Button',
         mercenary_ability: 'Mercenary Ability',
         buddy_meter:       'Buddy Meter',
         location:          'Location',

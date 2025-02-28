@@ -134,7 +134,7 @@
 1023: kingsbane_2 # only on kingsbane
 1052: gears # maybe related to Dr. Boom
 1057: shrine
-1059: copy_spell_on_itself
+1059: copy_spell_on_minion
 1076: random_deck
 1077: casts_when_drawn
 1085: reborn
@@ -181,7 +181,7 @@
 1395: ?mercenaries_1395
 1398: start_of_combat_1
 1421: battlegrounds_minion_summoned
-1423: battlegrounds_kel_thuzad
+1423: battlegrounds_dead_player
 1427: spellburst
 1437: battlegrounds_action
 1438: game_button
@@ -190,7 +190,7 @@
 1458: suppress_all_summon_vo
 1464: drag_minion # drag_minion_to_buy & drag_minion_to_sell
 1475: battlegrounds_magnetic_enchantment
-1477: piece_of_cthun
+1477: piece_of_c_thun
 1491: battlegrounds_hero
 1500: start_of_combat_2
 1506: start_of_combat_3 # only on 8 battlegrounds hero power
@@ -223,7 +223,7 @@
 1670: lettuce_current_cooldown
 1671: lettuce_passive_ability
 1672: ?unknown_1672
-1673: cthun_the_shattered # only on CThun the Shattered
+1673: c_thun_the_shattered # only on CThun the Shattered
 1678: si_7
 1679: ?unknown_1679
 1684: ?unknown_1684 # only on Blessing of Sacrifice 2
@@ -313,14 +313,14 @@
 2148: spell_weakness_nature
 2149: spell_weakness_holy
 2150: spell_weakness_shadow
-2151: spellweakness_fel
+2151: spell_weakness_fel
 2154: is_companion
 2156: in_bobs_tavern # enchantments works in bobs tavern
 2159: lettuce_attack # unknown
 2160: spell_combo
 2165: ?unknown_2165 # only on Soulciologist Malicia and Elwynn Boar
 2168: lettuce_bounty_boss
-2178: adventure
+2178: adventurer
 2185: deathblow
 2214: bleed
 2217: not_leave_corpse
@@ -356,7 +356,7 @@
 2387: battlegrounds_out_of_rotation
 2388: allied
 2423: one_turn_spell
-2428: kazakus_golem
+2428: golem
 2431: relic
 2432: infuse_demon
 2433: damage_all_enemy_conditionally
@@ -456,7 +456,7 @@
 2860: battlegrounds_global_enchantment
 2861: avenge_extra_coin
 2862: mercenaries_reference_other_ability
-2870: bacon_reborn_tooltip
+2870: battlegrounds_reborn_tooltip
 2871: ancient
 2872: reborn_keep_enchantment
 2875: putricide_s_creation
@@ -507,7 +507,6 @@
 3102: turbulent_tombs
 3108: banned_in_twist
 3114: excavate
-3117: extra_minion
 3123: recurring_nightmare_enchantment
 3124: golden_recurring_nightmare_enchantment
 3128: summon_when_drawn
@@ -611,6 +610,8 @@
 3661: battlegrounds_dont_show_pair_triple_discover_vfx
 3664: fallback_enchantment_portrait_dbid
 3684: starship_piece_variant
+3705: battlegrounds_is_potential_trinket
+3738: turns_left_to_discover_trinket
 3744: end_of_turn_effect
 3768: count_element_played
 3770: count_bonus_keyword
