@@ -6,6 +6,7 @@ export default {
         enchantment:       '额外效果',
         weapon:            '武器',
         hero_power:        '英雄技能',
+        game_mode_button:  '游戏模式按钮',
         mercenary_ability: '佣兵技能',
         buddy_meter:       '伙伴计量槽',
         location:          '地标',
