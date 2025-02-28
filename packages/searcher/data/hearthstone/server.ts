@@ -11,10 +11,7 @@ import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 import * as builtin from '../../src/command/builtin/server';
 
-import {
-    escapeRegExp, isEmpty, mapKeys, pickBy,
-} from 'lodash';
-import { toIdentifier } from '@common/util/id';
+import { escapeRegExp } from 'lodash';
 
 import { commands } from './index';
 
@@ -326,7 +323,7 @@ export default defineServerModel<ServerActions, Model<IEntity>>({
                 aggregate
                     .collation({ locale: 'en', numericOrdering: true })
                     .allowDiskUse(true)
-                    .match({ isCurrent: true })
+                    .match({ isCurrent: true, type: { $ne: 'enchantment' } })
                     .match(q);
 
                 return aggregate;
