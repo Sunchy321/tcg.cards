@@ -66,6 +66,7 @@ export default {
         spellcraft:      '塑造法术',
         lesser_trinket:  '小型',
         greater_trinket: '大型',
+        upgrade:         '升级',
     },
 
     variant: {

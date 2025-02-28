@@ -587,6 +587,7 @@
 3555: starship
 3564: board_replacement_type
 3565: battlegrounds_is_magic_item_discover
+3567: dark_gift_choice
 3568: starship_piece
 3573: zilliax_battlegrounds_module
 3576: twist_passive
@@ -603,6 +604,7 @@
 3606: tourist_mage
 3607: tourist_paladin
 3623: galakrond_related
+3627: dark_gift
 3630: temporary
 3631: crewmate
 3633: c_thun_related
@@ -612,6 +614,7 @@
 3684: starship_piece_variant
 3705: battlegrounds_is_potential_trinket
 3738: turns_left_to_discover_trinket
+3740: trinket_active
 3744: end_of_turn_effect
 3768: count_element_played
 3770: count_bonus_keyword
@@ -625,7 +628,20 @@
 3870: starship_enchantment
 3885: abort_launch_button
 3929: count_san_layn_scribe_died
+3932: anomaly_trigger_xy_stay
 3942: transform_after_play_minion
 3970: young_murk_eye
 3982: knockoff_wisdomball
 4013: starship_launch_trigger
+4020: battlegrounds_start_of_game
+4021: select_minion_at_start
+4044: ?anomaly_4044
+4046: battlecruiser_upgrade
+4050: give_dark_gift
+4060: anomaly_unique_hero
+4069: anomaly_active_turn
+4070: _loc_prince_enchantment
+4071: _loc_prince
+4087: hide_hero_power_in_leaderboard
+4088: hero_power_unlimited_uses
+4137: reborn_with_full_health_enchantment

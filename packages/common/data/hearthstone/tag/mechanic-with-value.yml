@@ -11,6 +11,7 @@
 - ?anomaly_3133
 - ?anomaly_3209
 - ?anomaly_3308
+- ?anomaly_4044
 - ?anomaly_swap_attack_health_3299
 - ?battlegrounds_3323
 - ?battlegrounds_duo_2443
@@ -41,6 +42,7 @@
 - adventure_scene_hall_id
 - adventure_scene_id
 - adventure_scene_id_2
+- anomaly_active_turn
 - anomaly_banned_heroes
 - anomaly_banned_minions
 - anomaly_occurrence_rate
@@ -148,6 +150,7 @@
 - trainee_2_deck_id
 - trainee_3_deck_id
 - transfromed_card_visual_type
+- turns_left_to_discover_trinket
 - unique_race
 - wildcard_tripler
 - windfury
