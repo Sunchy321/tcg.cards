@@ -9,6 +9,8 @@ export const imageBase = base('image');
 export const userBase = base('user');
 export const controlBase = base('control');
 
+export const assetBase = 'https://asset.tcg.cards';
+
 export const api = axios.create({ baseURL: apiBase });
 export const user = axios.create({ baseURL: userBase });
 export const control = axios.create({ baseURL: controlBase });

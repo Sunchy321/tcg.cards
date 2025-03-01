@@ -32,7 +32,7 @@
                 >
                     <card-image
                         :id="entityId"
-                        :version="last(version)"
+                        :version="Math.min(...version)"
                     />
                 </router-link>
             </grid>
@@ -46,7 +46,6 @@ import { ref, computed, watch } from 'vue';
 import { useCore } from 'store/core';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { useHearthstone } from 'store/games/hearthstone';
 
 import pageSetup from 'setup/page';
 import hearthstoneSetup from 'setup/hearthstone';
