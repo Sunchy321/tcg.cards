@@ -1,16 +1,23 @@
 <template>
     <q-page class="main q-pa-md">
-        <div class="image-column column items-center">
-            <q-img :src="imageUrl" />
-
-            <q-select
-                v-model="variant"
-                flat dense outlined
-                emit-value map-options
-                :options="variantOptions"
+        <div class="image-column">
+            <card-image
+                v-if="data != null"
+                :id="id"
+                :version="minVersion"
+                :variant="variant"
             />
 
-            <div class="q-mt-md">{{ artist }}</div>
+            <div class="column items-center">
+                <q-select
+                    v-model="variant"
+                    flat dense outlined
+                    emit-value map-options
+                    :options="variantOptions"
+                />
+            </div>
+
+            <div class="q-mt-md column items-center">{{ artist }}</div>
         </div>
         <div class="info-column">
             <div class="name-line row items-center">
@@ -135,14 +142,15 @@ import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
 
 import HearthstoneText from 'components/hearthstone/Text.vue';
+import CardImage from 'components/hearthstone/CardImage.vue';
 
-import { Card } from 'interface/hearthstone/card';
+import { Entity } from 'interface/hearthstone/entity';
 
 import { omitBy } from 'lodash';
 
-import { apiBase, apiGet, imageBase } from 'boot/backend';
+import { apiBase, apiGet } from 'boot/backend';
 
-type Data = Card & {
+type Data = Entity & {
     versions: number[][];
 };
 
@@ -156,7 +164,7 @@ const { search, random } = hearthstoneSetup();
 const data = ref<Data | null>(null);
 
 // data fields
-const id = computed(() => data.value?.entityId ?? route.params.id);
+const id = computed(() => data.value?.entityId ?? route.params.id as string);
 
 const versions = computed(() => data.value?.versions ?? []);
 
@@ -180,6 +188,8 @@ const version = computed({
         void router.replace({ query: { ...route.query, version: newValue } });
     },
 });
+
+const minVersion = computed(() => Math.min(...data.value?.version ?? []));
 
 const localization = computed(() => {
     const loc = data.value?.localization;
@@ -278,25 +288,6 @@ watch(hasTechLevel, () => {
         variant.value = 'normal';
     }
 }, { immediate: true });
-
-const imageUrl = computed(() => {
-    const url = new URL('/hearthstone/entity', imageBase);
-
-    const params: any = {
-        id:   id.value,
-        lang: hearthstone.locale,
-    };
-
-    if (version.value !== 0) {
-        params.version = version.value;
-    }
-
-    params.variant = variant.value;
-
-    url.search = new URLSearchParams(params).toString();
-
-    return url.toString();
-});
 
 const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
     id:      route.params.id as string,

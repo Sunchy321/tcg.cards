@@ -14,7 +14,7 @@ export function cardImagePath(
 ): string {
     const baseUrl = cardImageBase();
 
-    return join(baseUrl, variant, `${cardId}.png`);
+    return join(baseUrl, version.toString(), variant, `${cardId}.png`);
 }
 
 export const defaultIconPath = join(assetPath, 'magic', 'set', 'icon', 'default.svg');

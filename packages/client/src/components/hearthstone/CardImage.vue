@@ -15,7 +15,7 @@ import { computed } from 'vue';
 
 import { useHearthstone } from 'src/stores/games/hearthstone';
 
-import { imageBase } from 'boot/backend';
+import { imageBase, assetBase } from 'boot/backend';
 
 const hearthstone = useHearthstone();
 
@@ -24,7 +24,7 @@ const props = withDefaults(
         id: string;
         lang?: string;
         version?: number;
-        variant: string;
+        variant?: string;
     }>(),
     {
         lang:    undefined,
@@ -34,6 +34,10 @@ const props = withDefaults(
 );
 
 const imageUrl = computed(() => {
+    if (process.env.PROD) {
+        return `${assetBase}/hearthstone/card/image/${props.version}/${props.variant}/${props.id}.png`;
+    }
+
     const url = new URL('/hearthstone/entity', imageBase);
 
     const params: any = {
