@@ -15,7 +15,7 @@ import { computed } from 'vue';
 
 import { useHearthstone } from 'src/stores/games/hearthstone';
 
-import { imageBase, assetBase } from 'boot/backend';
+import { imageBase, assetBase } from 'boot/server';
 
 const hearthstone = useHearthstone();
 

@@ -188,7 +188,7 @@ import { FormatChange, Legality, Adjustment } from 'interface/hearthstone/format
 
 import { last, uniq } from 'lodash';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 interface BanlistItem {
     date: string;

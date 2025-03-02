@@ -127,7 +127,7 @@ import MagicSymbol from 'components/magic/Symbol.vue';
 
 import { Set, SetLocalization } from 'interface/magic/set';
 
-import { apiGet } from 'src/boot/backend';
+import { apiGet } from 'boot/server';
 
 interface TapBtnGroupSlots extends QBtnToggleSlots {
     old1: () => VNode[];

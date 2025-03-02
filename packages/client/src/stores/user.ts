@@ -4,7 +4,7 @@ import { LocalStorage } from 'quasar';
 import { jwtDecode } from 'jwt-decode';
 import { computed, ref, watch } from 'vue';
 
-import { user as userServer } from 'boot/backend';
+import { user as userServer } from 'boot/server';
 
 export interface State {
     user: string | null;

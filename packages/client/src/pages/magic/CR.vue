@@ -90,7 +90,7 @@ import copy from 'copy-to-clipboard';
 
 import modelWrapper from 'src/model-wrapper';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 type GeneralContent = Omit<Content, 'index'> & { index?: Content['index'] };
 

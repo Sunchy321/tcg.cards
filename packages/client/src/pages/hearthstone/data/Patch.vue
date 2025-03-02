@@ -32,7 +32,7 @@ import controlSetup from 'src/setup/control';
 
 import { Patch } from 'interface/hearthstone/patch';
 
-import { apiGet } from 'src/boot/backend';
+import { apiGet } from 'boot/server';
 import pageSetup from 'src/setup/page';
 
 export default defineComponent({

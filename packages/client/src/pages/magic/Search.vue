@@ -62,7 +62,7 @@ import { Print } from '@interface/magic/print';
 
 import model from 'searcher-data/magic/client';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 interface QueryParam {
     type: 'regex' | 'string';

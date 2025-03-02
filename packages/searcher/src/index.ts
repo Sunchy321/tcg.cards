@@ -12,5 +12,5 @@ import './data/magic/command';
 
 import '../data/magic';
 import '../data/magic/client';
-import '../data/magic/backend';
+import '../data/magic/server';
 import '../data/hearthstone';

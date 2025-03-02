@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 export default function magicSetup(): {
     search: () => void;

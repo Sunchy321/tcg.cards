@@ -259,7 +259,7 @@ import {
 } from 'lodash';
 
 import setProfile, { SetProfile } from 'src/common/magic/set';
-import { apiGet, apiBase, imageBase } from 'boot/backend';
+import { apiGet, apiBase, imageBase } from 'boot/server';
 
 import { auxSetType } from 'static/magic/special';
 

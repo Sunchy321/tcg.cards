@@ -18,7 +18,7 @@ import { useHearthstone } from 'src/stores/games/hearthstone';
 
 import { Entity } from 'interface/hearthstone/entity';
 
-import { apiGet } from 'src/boot/backend';
+import { apiGet } from 'boot/server';
 
 const mercenariesPreset = [
     'BARL_002H_01',

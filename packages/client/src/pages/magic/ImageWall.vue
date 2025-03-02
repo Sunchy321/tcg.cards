@@ -27,7 +27,7 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import { imageBase, apiGet } from 'boot/backend';
+import { imageBase, apiGet } from 'boot/server';
 
 export default defineComponent({
     setup() {

@@ -47,7 +47,7 @@ import CardImageAvatar from 'components/magic/CardImageAvatar.vue';
 import { Booster, Set as ISet } from 'interface/magic/set';
 
 import setProfile from 'src/common/magic/set';
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 type Set = Omit<ISet, 'localization'> & {
     localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;

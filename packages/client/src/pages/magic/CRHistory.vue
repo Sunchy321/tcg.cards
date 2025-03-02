@@ -76,7 +76,7 @@ import pageSetup from 'setup/page';
 
 import MagicText from 'components/magic/Text.vue';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 type ThreeChange = {
     type: 'add' | 'common' | 'dual' | 'remove';

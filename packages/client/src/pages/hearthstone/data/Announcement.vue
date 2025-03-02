@@ -274,7 +274,7 @@ import { Entity } from 'interface/hearthstone/entity';
 import { FormatAnnouncement } from 'interface/hearthstone/format-change';
 
 import { isEqual, last } from 'lodash';
-import { apiGet } from 'src/boot/backend';
+import { apiGet } from 'boot/server';
 
 type EntityNumberKey = {
     [K in keyof Required<Entity>]: Required<Entity>[K] extends number ? K : never;

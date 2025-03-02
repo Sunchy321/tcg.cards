@@ -11,7 +11,7 @@ import { ICardDatabase } from '@common/model/magic/card';
 import { IPrintDatabase } from '@common/model/magic/print';
 
 import * as builtin from '../../src/command/builtin/server';
-import * as magic from './command/backend';
+import * as magic from './command/server';
 
 import { isEmpty, mapKeys, pickBy } from 'lodash';
 import { toIdentifier } from '@common/util/id';

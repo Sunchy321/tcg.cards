@@ -37,7 +37,7 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import { apiGet, imageBase } from 'boot/backend';
+import { apiGet, imageBase } from 'boot/server';
 
 import setProfile, { SetProfile, SetLocalization } from 'src/common/magic/set';
 import { isEqual, partition } from 'lodash';
