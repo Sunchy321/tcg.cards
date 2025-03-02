@@ -12,7 +12,7 @@ import { Adjustment } from 'interface/hearthstone/format-change';
 
 import cardProfile, { CardProfile } from 'src/common/hearthstone/card';
 
-import { imageBase } from 'boot/backend';
+import { imageBase } from 'boot/server';
 
 type PartAdjustment = {
     part: string;

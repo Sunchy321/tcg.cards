@@ -32,7 +32,7 @@ import pageSetup from 'setup/page';
 
 // import { Log } from 'interface/hearthstone/log/file';
 
-import { apiBase } from 'src/boot/backend';
+import { apiBase } from 'boot/server';
 
 export default defineComponent({
     name: 'LogParse',

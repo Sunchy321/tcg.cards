@@ -1,6 +1,6 @@
 import { useUser } from 'store/user';
 
-import { controlBase, control } from 'boot/backend';
+import { controlBase, control } from 'boot/server';
 
 import { AxiosResponse } from 'axios';
 

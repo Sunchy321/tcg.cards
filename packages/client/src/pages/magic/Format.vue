@@ -141,7 +141,7 @@ import { FormatChange, Legality } from 'interface/magic/format-change';
 
 import { last, uniq } from 'lodash';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 import { banlistStatusOrder, banlistSourceOrder } from 'static/magic/misc';
 

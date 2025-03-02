@@ -148,7 +148,7 @@ import { Entity } from 'interface/hearthstone/entity';
 
 import { omitBy } from 'lodash';
 
-import { apiBase, apiGet } from 'boot/backend';
+import { apiBase, apiGet } from 'boot/server';
 
 type Data = Entity & {
     versions: number[][];

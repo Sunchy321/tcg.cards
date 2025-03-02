@@ -75,7 +75,7 @@ import Booster from './set/BoosterSummary.vue';
 import { Set as ISet } from 'interface/magic/set';
 
 import setProfile from 'src/common/magic/set';
-import { apiGet, apiBase, imageBase } from 'boot/backend';
+import { apiGet, apiBase, imageBase } from 'boot/server';
 
 type Set = Omit<ISet, 'localization'> & {
     localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;

@@ -3,7 +3,7 @@ import debounce from 'debounce-promise';
 
 import { uniq } from 'lodash';
 
-import { api } from 'boot/backend';
+import { api } from 'boot/server';
 
 type KeysMatching<T, V> = { [K in keyof T]-?: T[K] extends V ? K : never }[keyof T];
 

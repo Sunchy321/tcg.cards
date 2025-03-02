@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { api } from 'boot/backend';
+import { api } from 'boot/server';
 
 export default function hearthstoneSetup(): {
     search: () => void;

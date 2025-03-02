@@ -58,7 +58,7 @@ import { Entity } from '@interface/hearthstone/entity';
 
 import model from 'searcher-data/hearthstone/client';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 import { last } from 'lodash';
 
 interface QueryParam {

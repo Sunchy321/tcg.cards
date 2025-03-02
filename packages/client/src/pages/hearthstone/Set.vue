@@ -47,7 +47,7 @@ import pageSetup from 'setup/page';
 import { Set as ISet } from 'interface/hearthstone/set';
 
 import setProfile from 'src/common/hearthstone/set';
-import { apiGet, apiBase } from 'boot/backend';
+import { apiGet, apiBase } from 'boot/server';
 
 type Set = Omit<ISet, 'localization'> & {
     localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;

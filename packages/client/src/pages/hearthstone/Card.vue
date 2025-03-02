@@ -143,7 +143,7 @@ import { Card } from 'interface/hearthstone/card';
 
 import { omitBy } from 'lodash';
 
-import { apiBase, apiGet, imageBase } from 'boot/backend';
+import { apiBase, apiGet, imageBase } from 'boot/server';
 
 type Data = Card & {
     versions: number[][];

@@ -199,7 +199,7 @@ import ArrayInput from 'components/ArrayInput.vue';
 
 import { last } from 'lodash';
 
-import { apiGet } from 'src/boot/backend';
+import { apiGet } from 'boot/server';
 
 interface CRContent {
     id: string;

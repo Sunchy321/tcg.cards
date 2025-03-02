@@ -84,7 +84,7 @@ import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
-import { imageBase } from 'boot/backend';
+import { imageBase } from 'boot/server';
 
 export default defineComponent({
     props: {

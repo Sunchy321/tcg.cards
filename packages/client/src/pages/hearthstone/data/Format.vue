@@ -51,7 +51,7 @@ import DateInput from 'components/DateInput.vue';
 
 import { Format } from 'interface/hearthstone/format';
 
-import { apiGet } from 'boot/backend';
+import { apiGet } from 'boot/server';
 
 export default defineComponent({
     name: 'DataFormat',

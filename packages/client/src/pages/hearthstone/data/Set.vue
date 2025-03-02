@@ -66,7 +66,7 @@ import controlSetup from 'setup/control';
 
 import { Set, SetLocalization } from 'interface/hearthstone/set';
 
-import { apiGet } from 'src/boot/backend';
+import { apiGet } from 'boot/server';
 
 export default defineComponent({
     setup() {
