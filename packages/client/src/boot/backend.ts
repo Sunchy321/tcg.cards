@@ -6,10 +6,9 @@ function base(subdomain: string) {
 
 export const apiBase = base('api');
 export const imageBase = base('image');
+export const assetBase = base('asset');
 export const userBase = base('user');
 export const controlBase = base('control');
-
-export const assetBase = 'https://asset.tcg.cards';
 
 export const api = axios.create({ baseURL: apiBase });
 export const user = axios.create({ baseURL: userBase });
