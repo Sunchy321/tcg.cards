@@ -15,6 +15,7 @@ import api from '@/api';
 import img from '@/image';
 import user from '@/user/router';
 import control from '@/control';
+import asset from '@/asset';
 
 import { config } from '@/config';
 
@@ -32,6 +33,7 @@ app
     .use(websocket())
     .use(subdomain('api', api))
     .use(subdomain('image', img))
+    .use(subdomain('asset', asset))
     .use(subdomain('user', user))
     .use(subdomain('control', control))
     .use(compress({ threshold: 2048 }));

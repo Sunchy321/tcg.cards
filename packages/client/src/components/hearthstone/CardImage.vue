@@ -33,28 +33,7 @@ const props = withDefaults(
     },
 );
 
-const imageUrl = computed(() => {
-    if (process.env.PROD) {
-        return `${assetBase}/hearthstone/card/image/${props.version}/${props.variant}/${props.id}.png`;
-    }
-
-    const url = new URL('/hearthstone/entity', imageBase);
-
-    const params: any = {
-        id:   props.id,
-        lang: props.lang ?? hearthstone.locale,
-    };
-
-    if (props.version !== null) {
-        params.version = props.version;
-    }
-
-    params.variant = props.variant;
-
-    url.search = new URLSearchParams(params).toString();
-
-    return url.toString();
-});
+const imageUrl = computed(() => `${assetBase}/hearthstone/card/image/${props.version}/${props.variant}/${props.id}.png`);
 
 </script>
 
