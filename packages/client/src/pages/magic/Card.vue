@@ -371,7 +371,7 @@ const setInfos = computed(() => sets.value.map(s => {
 
     const profile = setProfiles.value[currVersion.set];
 
-    const iconSet = (auxSetType.includes(profile?.setType) ? profile?.parent : undefined) ?? s;
+    const iconSet = (auxSetType.includes(profile?.type) ? profile?.parent : undefined) ?? s;
     const name = mapValues(profile?.localization ?? { }, loc => loc.name);
 
     return {

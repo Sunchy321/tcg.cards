@@ -132,7 +132,7 @@ const loadData = async () => {
         setId:           result.setId,
         parent:          result.parent,
         localization:    result.localization,
-        setType:         result.setType,
+        type:            result.type,
         symbolStyle:     result.symbolStyle,
         doubleFacedIcon: result.doubleFacedIcon,
         releaseDate:     result.releaseDate,

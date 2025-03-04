@@ -7,7 +7,6 @@ export const auxSetType = [
     'planechase',
     'box',
     'archenemy',
-    'expansion',
 ];
 
 export const parenBlacklist = [

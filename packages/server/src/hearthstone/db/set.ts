@@ -1,21 +1,24 @@
-import { Schema } from 'mongoose';
+import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
 import { Set as ISet } from '@interface/hearthstone/set';
 
-const SetSchema = new Schema<ISet>({
+// eslint-disable-next-line @typescript-eslint/ban-types
+const SetSchema = new Schema<ISet, Model<ISet>, {}, {}, {}, {}, '$type'>({
     setId: String,
     dbfId: Number,
     slug:  String,
 
     localization: [{ _id: false, lang: String, name: String }],
 
-    setType:     String,
+    type:        String,
     releaseDate: String,
     cardCount:   [Number],
 
     group: String,
+}, {
+    typeKey: '$type',
 });
 
 const Set = conn.model<ISet>('set', SetSchema);

@@ -2,17 +2,17 @@
     <q-page class="q-pa-md">
         <div class="sets">
             <div
-                v-for="{ setId, localization, setType, parent, indent } in profileList" :key="setId"
+                v-for="{ setId, localization, type, parent, indent } in profileList" :key="setId"
                 class="set flex items-center"
-                :class="{ 'is-primary': setType === 'core' || setType === 'expansion' }"
+                :class="{ 'is-primary': type === 'core' || type === 'expansion' }"
             >
                 <div v-if="parent != null" :style="`width: ${16 * indent}px`" />
                 <span class="name q-mr-sm">{{ nameOf(localization) ?? setId }}</span>
                 <span class="id code q-mr-sm">{{ setId }}</span>
                 <img
-                    v-if="iconUrl(setId, setType, parent) != null"
+                    v-if="iconUrl(setId, type, parent) != null"
                     class="icon"
-                    :src="iconUrl(setId, setType, parent)"
+                    :src="iconUrl(setId, type, parent)"
                 >
                 <span class="col-grow" />
                 <q-btn
@@ -191,8 +191,8 @@ export default defineComponent({
         const nameOf = (localization: Record<string, SetLocalization>) => localization[magic.locale]?.name
             ?? localization[magic.locales[0]]?.name;
 
-        const iconUrl = (set: string, setType: string, parent?: string) => {
-            if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(setType)) {
+        const iconUrl = (set: string, type: string, parent?: string) => {
+            if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(type)) {
                 return undefined;
             }
 

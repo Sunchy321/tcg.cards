@@ -39,7 +39,7 @@ interface SetProfile {
     setId: string;
     parent?: string;
     localization: Record<string, Omit<SetLocalization, 'lang'>>;
-    setType: string;
+    type: string;
     symbolStyle?: string[];
     doubleFacedIcon?: string[];
     releaseDate?: string;
@@ -62,7 +62,7 @@ router.get('/profile', async ctx => {
             setId:           s.setId,
             parent:          s.parent,
             localization:    Object.fromEntries(s.toJSON().localization.map(l => [l.lang, omit(l, ['lang'])])),
-            setType:         s.setType,
+            type:            s.type,
             symbolStyle:     s.symbolStyle,
             doubleFacedIcon: s.doubleFacedIcon,
             releaseDate:     s.releaseDate,

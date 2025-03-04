@@ -8,7 +8,7 @@ export interface SetProfile {
     setId: string;
     parent?: string;
     localization: Record<string, SetLocalization>;
-    setType: string;
+    type: string;
     symbolStyle?: string[];
     doubleFacedIcon?: string[];
     releaseDate?: string;
