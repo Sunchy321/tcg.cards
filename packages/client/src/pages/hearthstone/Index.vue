@@ -125,7 +125,7 @@ const explained = computed(() => model.explain(searchText.value, (key: string, n
     let realKey;
 
     if (key.startsWith('$.')) {
-        realKey = `magic.search.${key.slice(2)}`;
+        realKey = `hearthstone.search.${key.slice(2)}`;
     } else {
         realKey = `search.${key}`;
     }
