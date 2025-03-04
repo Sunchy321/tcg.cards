@@ -10,7 +10,7 @@ export interface Set {
 
     localization: SetLocalization[];
 
-    setType: string;
+    type: string;
 
     releaseDate?: string;
     cardCount: [number, number];

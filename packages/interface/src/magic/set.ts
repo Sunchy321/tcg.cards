@@ -56,7 +56,7 @@ export interface Set {
 
     localization: SetLocalization[];
 
-    setType: string;
+    type: string;
     isDigital: boolean;
     isFoilOnly: boolean;
     isNonfoilOnly: boolean;

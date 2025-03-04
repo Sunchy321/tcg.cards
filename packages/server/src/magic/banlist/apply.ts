@@ -73,7 +73,7 @@ export class AnnouncementApplier {
         this.eternalFormats = formats.filter(f => f.isEternal).map(f => f.formatId);
 
         // load sets
-        const sets = await Set.find({ setType: { $in: ['core', 'expansion', 'draft_innovation', 'funny', 'alchemy', 'commander'] } });
+        const sets = await Set.find({ type: { $in: ['core', 'expansion', 'draft_innovation', 'funny', 'alchemy', 'commander'] } });
 
         this.sets = sets.map(s => ({ id: s.setId, releaseDate: s.releaseDate! }));
 

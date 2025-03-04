@@ -24,7 +24,7 @@ export const SetSchema = new Schema<ISet, Model<ISet>, {}, {}, {}, {}, '$type'>(
         link:           String,
     }],
 
-    setType:       String,
+    type:          String,
     isDigital:     Boolean,
     isFoilOnly:    Boolean,
     isNonfoilOnly: Boolean,

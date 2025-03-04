@@ -75,7 +75,9 @@ import Booster from './set/BoosterSummary.vue';
 import { Set as ISet } from 'interface/magic/set';
 
 import setProfile from 'src/common/magic/set';
-import { apiGet, apiBase, imageBase } from 'boot/server';
+import {
+    apiGet, apiBase, imageBase, assetBase,
+} from 'boot/server';
 
 type Set = Omit<ISet, 'localization'> & {
     localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
@@ -109,7 +111,7 @@ const cardCount = computed(() => data.value?.cardCount ?? 0);
 const langs = computed(() => data.value?.langs ?? []);
 const rarities = computed(() => data.value?.rarities ?? []);
 
-const setType = computed(() => data.value?.setType);
+const type = computed(() => data.value?.type);
 
 const wotcLink = computed(() => {
     if (data.value == null) {
@@ -136,7 +138,7 @@ const loadData = async () => {
         setId:           result.setId,
         parent:          result.parent,
         localization:    result.localization,
-        setType:         result.setType,
+        type:            result.type,
         symbolStyle:     result.symbolStyle,
         doubleFacedIcon: result.doubleFacedIcon,
         releaseDate:     result.releaseDate,
@@ -145,8 +147,8 @@ const loadData = async () => {
 
 const iconUrl = (rarity: string) => {
     if (
-        parent.value != null && setType.value != null
-                && ['promo', 'token', 'memorabilia', 'funny'].includes(setType.value)
+        parent.value != null && type.value != null
+                && ['promo', 'token', 'memorabilia', 'funny'].includes(type.value)
     ) {
         return `${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
     }

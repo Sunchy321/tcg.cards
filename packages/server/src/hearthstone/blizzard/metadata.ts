@@ -45,7 +45,7 @@ export class MetadataGetter extends Task<void> {
                 .entries(s.name)
                 .map(([key, name]) => ({ lang: localeMap[key as Locale], name })),
 
-            setType:     s.type,
+            type:        s.type,
             releaseDate: s.releastDate ?? undefined,
             cardCount:   [s.collectibleCount, s.nonCollectibleCount],
 

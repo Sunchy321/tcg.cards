@@ -189,7 +189,7 @@ export default defineComponent({
             data.value = {
                 setId:        '',
                 localization: [],
-                setType:      '',
+                type:         '',
                 cardCount:    [0, 0],
             };
         };

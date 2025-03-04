@@ -34,7 +34,7 @@ async function mergeWith(data: RawSet) {
                 isOfficialName: true,
             }],
 
-            setType:       data.set_type,
+            type:          data.set_type,
             isDigital:     data.digital,
             isFoilOnly:    data.foil_only,
             isNonfoilOnly: data.nonfoil_only,
@@ -58,7 +58,7 @@ async function mergeWith(data: RawSet) {
         set.scryfall.code = data.code;
         set.mtgoCode = data.mtgo_code;
         set.tcgplayerId = data.tcgplayer_id;
-        set.setType = data.set_type;
+        set.type = data.set_type;
         set.releaseDate = data.released_at;
         set.block = data.block_code;
         set.parent = data.parent_set_code;
@@ -71,7 +71,7 @@ async function mergeWith(data: RawSet) {
     }
 }
 
-export default class SetGette extends Task<Status> {
+export default class SetGetter extends Task<Status> {
     async startImpl(): Promise<void> {
         let count = 0;
         let total = 0;
