@@ -1,6 +1,7 @@
 import card from './card';
 import ui from './ui';
 import tag from './tag';
+import search from './search';
 
 export default {
     $self: '炉石传说',
@@ -37,4 +38,5 @@ export default {
     card,
     ui,
     tag,
+    search,
 };

@@ -1,6 +1,6 @@
 import { defineModel } from '../../src/model';
 import {
-    defineCommand, allOperator, defaultOperator, defaultQualifier,
+    defineCommand, defaultOperator, defaultQualifier,
 } from '../../src/command';
 
 import * as builtin from '../../src/command/builtin';
