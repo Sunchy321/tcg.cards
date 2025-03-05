@@ -101,7 +101,7 @@ export class AnnouncementApplier {
 
     private sets: { id: string, releaseDate: string }[];
 
-    private cardList: Record<string, string[]> = {
+    private entities: Record<string, string[]> = {
         c_thun: [
             'OG_096',
             'OG_131',
@@ -184,14 +184,14 @@ export class AnnouncementApplier {
         this.sets = sets.map(s => ({ id: s.setId, releaseDate: s.releaseDate! }));
 
         // preload group entities
-        this.cardList.hero = await Entity.distinct('cardId', {
-            cardType:    'hero',
+        this.entities.hero = await Entity.distinct('entityId', {
+            type:        'hero',
             collectible: true,
             cost:        { $gt: 0 },
-            cardId:      { $nin: ['EX1_323', 'CORE_EX1_323'] },
+            entityId:    { $nin: ['EX1_323', 'CORE_EX1_323'] },
         });
 
-        this.cardList.quest = await Entity.distinct('cardId', {
+        this.entities.quest = await Entity.distinct('entityId', {
             'quest.type':  { $in: ['normal', 'questline'] },
             'collectible': true,
         });
@@ -200,8 +200,8 @@ export class AnnouncementApplier {
     private async loadCard(): Promise<void> {
         const cards: string[] = [];
 
-        for (const k of Object.keys(this.cardList)) {
-            cards.push(...this.cardList[k]);
+        for (const k of Object.keys(this.entities)) {
+            cards.push(...this.entities[k]);
         }
 
         for (const a of this.announcements) {
@@ -262,7 +262,7 @@ export class AnnouncementApplier {
     }
 
     private getCardList(group: string): string[] {
-        return this.cardList[group];
+        return this.entities[group];
     }
 
     private detectGroup(group: string, format: string, sets?: string[]): string[] {

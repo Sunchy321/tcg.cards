@@ -63,7 +63,7 @@
                 <grid
                     v-if="n.banlist.length>0"
                     v-slot="{ id, status, group }"
-                    :value="n.banlist" :item-width="300" item-key="card" item-class="flex items-center"
+                    :value="n.banlist" :item-width="300" item-key="id" item-class="flex items-center"
                 >
                     <div class="banlist flex items-center q-gutter-sm">
                         <status-icon :status="status" />
@@ -75,17 +75,18 @@
                 <grid
                     v-if="n.adjustment.length>0"
                     v-slot="{ id, status, adjustment, group }"
-                    :value="n.adjustment" :item-width="300" item-key="card" item-class="flex items-center"
+                    :value="n.adjustment" :item-width="400" item-key="id" item-class="flex items-center"
                 >
-                    <div class="adjustment flex items-center q-gutter-sm">
-                        <status-icon :status="status" />
-                        <adjustment-avatar
+                    <div class="adjustment flex items-center">
+                        <card-adjustment
                             class="avatar"
                             :card-id="id"
+                            :status="status"
                             :format="format"
                             :version="n.version"
                             :last-version="n.lastVersion ?? n.version"
                             :adjustment="adjustment"
+                            show-full
                         />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
@@ -127,7 +128,7 @@
             <grid
                 v-if="banlist.length > 0"
                 v-slot="{ id, status, date: effectiveDate, group, link }"
-                :value="banlist" :item-width="300" item-key="card" item-class="flex items-center"
+                :value="banlist" :item-width="300" item-key="id" item-class="flex items-center"
             >
                 <div class="banlist flex items-center q-gutter-sm">
                     <status-icon :status="status" />
@@ -141,34 +142,9 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.title
-    font-size: 24px
-
-.set
-    padding: 5px
-
-.banlist, .adjustment
-    flex-wrap: nowrap
-
-    & > .date
-        flex-shrink: 0
-
-    & > .avatar
-        white-space: nowrap
-        overflow: hidden
-        text-overflow: ellipsis
-
-.date
-    color: grey
-
-.group
-    font-variant: small-caps
-</style>
-
-<script lang="ts">
+<script setup lang="ts">
 import {
-    defineComponent, ref, computed, watch,
+    ref, computed, watch,
 } from 'vue';
 
 import { useHearthstone } from 'src/stores/games/hearthstone';
@@ -179,7 +155,7 @@ import pageSetup from 'setup/page';
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
 import CardAvatar from 'components/hearthstone/CardAvatar.vue';
-import AdjustmentAvatar from 'components/hearthstone/AdjustmentAvatar.vue';
+import CardAdjustment from 'components/hearthstone/CardAdjustment.vue';
 import StatusIcon from 'components/hearthstone/StatusIcon.vue';
 import SetAvatar from 'components/hearthstone/SetAvatar.vue';
 
@@ -220,344 +196,333 @@ interface TimelineNode {
     }[];
 }
 
-export const banlistStatusOrder = ['banned', 'banned_in_deck', 'banned_in_card_pool', 'legal', 'unavailable'];
-export const banlistSourceOrder = ['c_thun', 'quest', 'hero', 'odd_even', 'invoke', null];
+const banlistStatusOrder = ['banned', 'banned_in_deck', 'banned_in_card_pool', 'legal', 'unavailable'];
+const banlistSourceOrder = ['c_thun', 'quest', 'hero', 'odd_even', 'invoke', null];
 
 const adjustmentStatusOrder = ['nerf', 'buff', 'adjust'];
 
-export default defineComponent({
-    components: {
-        Grid,
-        DateInput,
-        CardAvatar,
-        AdjustmentAvatar,
-        StatusIcon,
-        SetAvatar,
+const hearthstone = useHearthstone();
+const i18n = useI18n();
+
+const formats = computed(() => hearthstone.formats);
+
+const {
+    format,
+    timeline: showTimeline,
+    date,
+    order,
+} = pageSetup({
+    title: () => i18n.t('hearthstone.format.$self'),
+
+    params: {
+        format: {
+            type:    'enum',
+            bind:    'params',
+            key:     'id',
+            inTitle: true,
+            values:  formats,
+            label:   (v: string) => i18n.t(`hearthstone.format.${v}`),
+        },
+        timeline: {
+            type:    'boolean',
+            bind:    'query',
+            inTitle: true,
+            icon:    ['mdi-timeline-outline', 'mdi-timeline'],
+        },
+        date: {
+            type: 'date',
+            bind: 'query',
+        },
+        order: {
+            type:   'enum',
+            bind:   'query',
+            values: ['name', 'date'],
+        },
     },
+});
 
-    setup() {
-        const hearthstone = useHearthstone();
-        const i18n = useI18n();
+const data = ref<Format | null>(null);
+const changes = ref<FormatChange[]>([]);
 
-        const formats = computed(() => hearthstone.formats);
+const orderOptions = ['name', 'date'].map(v => ({
+    value: v,
+    slot:  v,
+}));
 
-        const {
-            format,
-            timeline: showTimeline,
-            date,
-            order,
-        } = pageSetup({
-            title: () => i18n.t('hearthstone.format.$self'),
+const dateFrom = computed(() => data.value?.birthday ?? hearthstone.birthday);
+const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
 
-            params: {
-                format: {
-                    type:    'enum',
-                    bind:    'params',
-                    key:     'id',
-                    inTitle: true,
-                    values:  formats,
-                    label:   (v: string) => i18n.t(`hearthstone.format.${v}`),
-                },
-                timeline: {
-                    type:    'boolean',
-                    bind:    'query',
-                    inTitle: true,
-                    icon:    ['mdi-timeline-outline', 'mdi-timeline'],
-                },
-                date: {
-                    type: 'date',
-                    bind: 'query',
-                },
-                order: {
-                    type:   'enum',
-                    bind:   'query',
-                    values: ['name', 'date'],
-                },
-            },
-        });
+const birthAndDeath = computed(() => {
+    if (data.value?.birthday != null) {
+        if (data.value?.deathdate != null) {
+            return `${data.value.birthday} ~ ${data.value.deathdate}`;
+        } else {
+            return `${data.value.birthday} ~`;
+        }
+    } else {
+        return '';
+    }
+});
 
-        const data = ref<Format | null>(null);
-        const changes = ref<FormatChange[]>([]);
+const nodes = computed(() => {
+    const result: TimelineNode[] = [];
 
-        const orderOptions = ['name', 'date'].map(v => ({
-            value: v,
-            slot:  v,
-        }));
+    for (const c of changes.value) {
+        const node = (() => {
+            const value = result.find(r => r.date === c.date);
 
-        const dateFrom = computed(() => data.value?.birthday ?? hearthstone.birthday);
-        const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
-
-        const birthAndDeath = computed(() => {
-            if (data.value?.birthday != null) {
-                if (data.value?.deathdate != null) {
-                    return `${data.value.birthday} ~ ${data.value.deathdate}`;
-                } else {
-                    return `${data.value.birthday} ~`;
-                }
+            if (value != null) {
+                return value;
             } else {
-                return '';
+                result.push({
+                    date:        c.date,
+                    name:        c.name,
+                    version:     c.version,
+                    lastVersion: c.lastVersion,
+                    link:        c.link ?? [],
+                    sets:        [],
+                    banlist:     [],
+                    adjustment:  [],
+                });
+
+                return last(result)!;
+            }
+        })();
+
+        if (c.type === 'set') {
+            node.sets.push({ id: c.id, status: c.status as 'in' | 'out' });
+        } else if (c.type === 'banlist') {
+            node.banlist.push({
+                id:     c.id,
+                status: c.status as Legality,
+                group:  c.group,
+            });
+        } else {
+            node.adjustment.push({
+                id:         c.id,
+                status:     c.status as Adjustment,
+                adjustment: c.adjustment ?? [],
+                group:      c.group,
+            });
+        }
+    }
+
+    for (const v of result) {
+        v.link = uniq(v.link);
+
+        v.sets.sort((a, b) => {
+            if (a.status !== b.status) {
+                return a.status === 'in' ? -1 : 1;
+            } else {
+                return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
             }
         });
 
-        const nodes = computed(() => {
-            const result: TimelineNode[] = [];
+        v.banlist.sort((a, b) => {
+            if (a.status !== b.status) {
+                return banlistStatusOrder.indexOf(a.status)
+                                - banlistStatusOrder.indexOf(b.status);
+            } else {
+                return a.id < b.id ? -1 : 1;
+            }
+        });
 
-            for (const c of changes.value) {
-                const node = (() => {
-                    const value = result.find(r => r.date === c.date);
+        v.adjustment.sort((a, b) => {
+            if (a.status !== b.status) {
+                return adjustmentStatusOrder.indexOf(a.status)
+                                - adjustmentStatusOrder.indexOf(b.status);
+            } else {
+                return a.id < b.id ? -1 : 1;
+            }
+        });
+    }
 
-                    if (value != null) {
-                        return value;
-                    } else {
-                        result.push({
-                            date:        c.date,
-                            name:        c.name,
-                            version:     c.version,
-                            lastVersion: c.lastVersion,
-                            link:        c.link ?? [],
-                            sets:        [],
-                            banlist:     [],
-                            adjustment:  [],
-                        });
+    return result;
+});
 
-                        return last(result)!;
-                    }
-                })();
+const sets = computed(() => {
+    let result: string[] = [];
 
-                if (c.type === 'set') {
-                    node.sets.push({ id: c.id, status: c.status as 'in' | 'out' });
-                } else if (c.type === 'banlist') {
-                    node.banlist.push({
+    for (const c of changes.value) {
+        if (c.type === 'set') {
+            if (c.date > date.value) {
+                break;
+            }
+
+            if (c.status === 'in') {
+                result.push(c.id);
+            } else {
+                result = result.filter(s => s !== c.id);
+            }
+        }
+    }
+
+    return result;
+});
+
+const banlist = computed(() => {
+    const banlistItems = (() => {
+        let result: BanlistItem[] = [];
+
+        for (const c of changes.value) {
+            if (c.type === 'banlist') {
+                if (c.date > date.value) {
+                    break;
+                }
+
+                if (c.status === 'legal' || c.status === 'unavailable') {
+                    result = result.filter(v => v.id !== c.id);
+                } else {
+                    const sameIndex = result.findIndex(b => b.id === c.id);
+
+                    const value: BanlistItem = {
+                        date:   c.date,
+                        link:   c.link ?? [],
                         id:     c.id,
                         status: c.status as Legality,
                         group:  c.group,
-                    });
-                } else {
-                    node.adjustment.push({
-                        id:         c.id,
-                        status:     c.status as Adjustment,
-                        adjustment: c.adjustment ?? [],
-                        group:      c.group,
-                    });
+                    };
+
+                    if (sameIndex === -1) {
+                        result.push(value);
+                    } else {
+                        result.splice(sameIndex, 1, value);
+                    }
                 }
             }
+        }
 
-            for (const v of result) {
-                v.link = uniq(v.link);
+        return result;
+    })();
 
-                v.sets.sort((a, b) => {
-                    if (a.status !== b.status) {
-                        return a.status === 'in' ? -1 : 1;
-                    } else {
-                        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-                    }
-                });
-
-                v.banlist.sort((a, b) => {
-                    if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status)
+    switch (order.value) {
+    case 'name':
+        banlistItems.sort((a, b) => {
+            if (a.status !== b.status) {
+                return banlistStatusOrder.indexOf(a.status)
                                 - banlistStatusOrder.indexOf(b.status);
-                    } else {
-                        return a.id < b.id ? -1 : 1;
-                    }
-                });
-
-                v.adjustment.sort((a, b) => {
-                    if (a.status !== b.status) {
-                        return adjustmentStatusOrder.indexOf(a.status)
-                                - adjustmentStatusOrder.indexOf(b.status);
-                    } else {
-                        return a.id < b.id ? -1 : 1;
-                    }
-                });
-            }
-
-            return result;
-        });
-
-        const sets = computed(() => {
-            let result: string[] = [];
-
-            for (const c of changes.value) {
-                if (c.type === 'set') {
-                    if (c.date > date.value) {
-                        break;
-                    }
-
-                    if (c.status === 'in') {
-                        result.push(c.id);
-                    } else {
-                        result = result.filter(s => s !== c.id);
-                    }
-                }
-            }
-
-            return result;
-        });
-
-        const banlist = computed(() => {
-            const banlistItems = (() => {
-                let result: BanlistItem[] = [];
-
-                for (const c of changes.value) {
-                    if (c.type === 'banlist') {
-                        if (c.date > date.value) {
-                            break;
-                        }
-
-                        if (c.status === 'legal' || c.status === 'unavailable') {
-                            result = result.filter(v => v.id !== c.id);
-                        } else {
-                            const sameIndex = result.findIndex(b => b.id === c.id);
-
-                            const value: BanlistItem = {
-                                date:   c.date,
-                                link:   c.link ?? [],
-                                id:     c.id,
-                                status: c.status as Legality,
-                                group:  c.group,
-                            };
-
-                            if (sameIndex === -1) {
-                                result.push(value);
-                            } else {
-                                result.splice(sameIndex, 1, value);
-                            }
-                        }
-                    }
-                }
-
-                return result;
-            })();
-
-            switch (order.value) {
-            case 'name':
-                banlistItems.sort((a, b) => {
-                    if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
-                    } else if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null)
+            } else if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null)
                                 - banlistSourceOrder.indexOf(b.group ?? null);
-                    } else {
-                        return a.id < b.id ? -1 : 1;
-                    }
-                });
-                break;
-            case 'date':
-                banlistItems.sort((a, b) => {
-                    if (a.date < b.date) {
-                        return -1;
-                    } else if (a.date > b.date) {
-                        return 1;
-                    }
+            } else {
+                return a.id < b.id ? -1 : 1;
+            }
+        });
+        break;
+    case 'date':
+        banlistItems.sort((a, b) => {
+            if (a.date < b.date) {
+                return -1;
+            } else if (a.date > b.date) {
+                return 1;
+            }
 
-                    if (a.status !== b.status) {
-                        return banlistStatusOrder.indexOf(a.status)
+            if (a.status !== b.status) {
+                return banlistStatusOrder.indexOf(a.status)
                                 - banlistStatusOrder.indexOf(b.status);
-                    } else if (a.group !== b.group) {
-                        return banlistSourceOrder.indexOf(a.group ?? null)
+            } else if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null)
                                 - banlistSourceOrder.indexOf(b.group ?? null);
-                    } else {
-                        return a.id < b.id ? -1 : 1;
-                    }
-                });
-                break;
-            default:
+            } else {
+                return a.id < b.id ? -1 : 1;
             }
-
-            return banlistItems;
         });
+        break;
+    default:
+    }
 
-        const timelineEvents = computed(() => {
-            const result = [];
-
-            for (const c of changes.value) {
-                const v = result.find(r => r.date === c.date);
-
-                if (v != null) {
-                    if (c.type === 'set') {
-                        v.color = 'cyan';
-                    }
-                } else {
-                    result.push({
-                        date:  c.date,
-                        color: c.type === 'set' ? 'cyan' : 'orange',
-                    });
-                }
-            }
-
-            return result;
-        });
-
-        const loadData = async () => {
-            const { data: formatResult } = await apiGet<Format>('/hearthstone/format', {
-                id: format.value,
-            });
-
-            data.value = formatResult;
-
-            const { data: changesResult } = await apiGet<FormatChange[]>('/hearthstone/format/changes', {
-                id: format.value,
-            });
-
-            changes.value = changesResult;
-        };
-
-        const groupShort = (group: string) => {
-            switch (group) {
-            case 'c_thun': return 'c\'thun';
-            case 'odd_even': return 'odd/even';
-            default: return group;
-            }
-        };
-
-        const toPrevDate = () => {
-            const currDate = date.value ?? new Date().toISOString().split('T')[0];
-
-            for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
-                if (dateValue < currDate) {
-                    date.value = dateValue;
-                    return;
-                }
-            }
-        };
-
-        const toNextDate = () => {
-            const currDate = date.value ?? new Date().toISOString().split('T')[0];
-
-            for (const { date: dateValue } of timelineEvents.value) {
-                if (dateValue > currDate) {
-                    date.value = dateValue;
-                    return;
-                }
-            }
-        };
-
-        watch(format, loadData, { immediate: true });
-
-        return {
-            format,
-            showTimeline,
-            date,
-            order,
-
-            orderOptions,
-
-            dateFrom,
-            dateTo,
-
-            birthAndDeath,
-            timelineEvents,
-            sets,
-            banlist,
-            nodes,
-
-            groupShort,
-            toPrevDate,
-            toNextDate,
-        };
-    },
-
+    return banlistItems;
 });
+
+const timelineEvents = computed(() => {
+    const result = [];
+
+    for (const c of changes.value) {
+        const v = result.find(r => r.date === c.date);
+
+        if (v != null) {
+            if (c.type === 'set') {
+                v.color = 'cyan';
+            }
+        } else {
+            result.push({
+                date:  c.date,
+                color: c.type === 'set' ? 'cyan' : 'orange',
+            });
+        }
+    }
+
+    return result;
+});
+
+const loadData = async () => {
+    const { data: formatResult } = await apiGet<Format>('/hearthstone/format', {
+        id: format.value,
+    });
+
+    data.value = formatResult;
+
+    const { data: changesResult } = await apiGet<FormatChange[]>('/hearthstone/format/changes', {
+        id: format.value,
+    });
+
+    changes.value = changesResult;
+};
+
+const groupShort = (group: string) => {
+    switch (group) {
+    case 'c_thun': return 'c\'thun';
+    case 'odd_even': return 'odd/even';
+    default: return group;
+    }
+};
+
+const toPrevDate = () => {
+    const currDate = date.value ?? new Date().toISOString().split('T')[0];
+
+    for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
+        if (dateValue < currDate) {
+            date.value = dateValue;
+            return;
+        }
+    }
+};
+
+const toNextDate = () => {
+    const currDate = date.value ?? new Date().toISOString().split('T')[0];
+
+    for (const { date: dateValue } of timelineEvents.value) {
+        if (dateValue > currDate) {
+            date.value = dateValue;
+            return;
+        }
+    }
+};
+
+watch(format, loadData, { immediate: true });
 </script>
+
+<style lang="sass" scoped>
+.title
+    font-size: 24px
+
+.set
+    padding: 5px
+
+.banlist, .adjustment
+    flex-wrap: nowrap
+
+    & > .date
+        flex-shrink: 0
+
+    & > .avatar
+        white-space: nowrap
+        overflow: hidden
+        text-overflow: ellipsis
+
+.date
+    color: grey
+
+.group
+    font-variant: small-caps
+</style>
