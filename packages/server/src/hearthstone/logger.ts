@@ -23,3 +23,13 @@ export const loadPatch = createLogger({
         }),
     ],
 });
+
+export const createAdjustmentJson = createLogger({
+    level:      'info',
+    format:     format.combine(format.timestamp(), format.printf(formatter)),
+    transports: [
+        new transports.File({
+            filename: `${logPath}/hearthstone/create-adjustment-json.log`,
+        }),
+    ],
+});

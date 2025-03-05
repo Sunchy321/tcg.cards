@@ -2,6 +2,7 @@ import KoaRouter from '@koa/router';
 
 import hsdata from './hsdata';
 import blizzard from './blizzard';
+import apollo from './apollo';
 import patch from './patch';
 import card from './card';
 import set from './set';
@@ -13,6 +14,7 @@ router.prefix('/hearthstone');
 
 router.use(hsdata.routes());
 router.use(blizzard.routes());
+router.use(apollo.routes());
 router.use(patch.routes());
 router.use(card.routes());
 router.use(set.routes());

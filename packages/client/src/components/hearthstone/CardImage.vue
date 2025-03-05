@@ -1,13 +1,9 @@
 <template>
-    <div class="card-image">
-        <div class="image">
-            <q-img
-                :src="imageUrl"
-                :ratio="512/707"
-                native-context-menu
-            />
-        </div>
-    </div>
+    <q-img
+        :src="imageUrl"
+        :ratio="512/707"
+        native-context-menu
+    />
 </template>
 
 <script setup lang="ts">
@@ -15,41 +11,48 @@ import { computed } from 'vue';
 
 import { useHearthstone } from 'src/stores/games/hearthstone';
 
-import { imageBase, assetBase } from 'boot/server';
+import { Adjustment } from 'interface/hearthstone/format-change';
+
+import { assetBase } from 'boot/server';
 
 const hearthstone = useHearthstone();
+
+type PartAdjustment = {
+    part: string;
+    status: Adjustment;
+};
 
 const props = withDefaults(
     defineProps<{
         id: string;
         lang?: string;
-        version?: number;
+        version: number;
         variant?: string;
+        adjustment?: PartAdjustment[];
     }>(),
     {
-        lang:    undefined,
-        version: undefined,
-        variant: 'normal',
+        lang:       undefined,
+        variant:    'normal',
+        adjustment: undefined,
     },
 );
 
-const imageUrl = computed(() => `${assetBase}/hearthstone/card/image/${props.version}/${props.variant}/${props.id}.png`);
+const imageUrl = computed(() => {
+    const { version } = props;
+    const locale = props.lang ?? hearthstone.locale;
+    const { variant } = props;
+    const { id } = props;
+
+    if (props.adjustment == null) {
+        return `${assetBase}/hearthstone/card/image/${version}/${locale}/${variant}/${id}.png`;
+    } else {
+        const adjustment = [...props.adjustment]
+            .sort((a, b) => (a.part < b.part ? -1 : a.part > b.part ? 1 : 0))
+            .map(v => `${v.part}${v.status[0]}`)
+            .join('-');
+
+        return `${assetBase}/hearthstone/card/adjusted/${version}/${locale}/${variant}/${id}-${adjustment}.png`;
+    }
+});
 
 </script>
-
-<style lang="sass" scoped>
-.card-image
-    position: relative
-    padding-bottom: calc(100% / (512/707))
-    perspective: 1000px
-
-.image
-    position: absolute
-
-    top: 0
-    left: 0
-    bottom: 0
-    right: 0
-
-    transition: transform 0.5s
-</style>
