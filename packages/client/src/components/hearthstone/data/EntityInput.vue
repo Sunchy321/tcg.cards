@@ -1,7 +1,14 @@
 <template>
-    <q-input v-model="input" :label="modelValue" @keypress.enter="search">
+    <q-input v-model="input" :label="model" @keypress.enter="search">
         <template #append>
             <slot name="append" />
+            <q-btn
+                v-if="href !== ''"
+                icon="mdi-link-variant"
+                flat dense round
+                :href="href"
+                target="_blank"
+            />
             <q-btn
                 icon="mdi-magnify"
                 flat dense round
@@ -11,9 +18,10 @@
     </q-input>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref } from 'vue';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
+import { useRouter } from 'vue-router';
 import { useHearthstone } from 'src/stores/games/hearthstone';
 
 import { Entity } from 'interface/hearthstone/entity';
@@ -145,110 +153,107 @@ const mercenariesPreset = [
     'SWL_26H_03',
 ];
 
-export default defineComponent({
-    name: 'EntityInput',
+const props = defineProps<{
+    format?: string;
+    version?: number;
+}>();
 
-    props: {
-        modelValue: {
-            type:     String,
-            required: true,
-        },
-        format: {
-            type:    String,
-            default: undefined,
-        },
-        version: {
-            type:    Number,
-            default: undefined,
-        },
-    },
+const model = defineModel<string>({ required: true });
 
-    emits: ['update:modelValue'],
+const router = useRouter();
+const hearthstone = useHearthstone();
 
-    setup(props, { emit }) {
-        const hearthstone = useHearthstone();
+const input = ref('');
 
-        const input = ref('');
+const getData = async (name: string, id: string): Promise<Entity | Entity[]> => {
+    name = name.trim();
 
-        const getData = async (name: string, id: string): Promise<Entity | Entity[]> => {
-            name = name.trim();
+    if (name.startsWith('!') || name.includes('_')) {
+        const { data } = await apiGet<Entity>('/hearthstone/entity', {
+            id:      name.replace(/^!/, '').trim(),
+            version: props.version,
+        });
 
-            if (name.startsWith('!') || name.includes('_')) {
-                const { data } = await apiGet<Entity>('/hearthstone/card', {
-                    id:      name.replace(/^!/, '').trim(),
-                    version: props.version,
-                });
+        return data;
+    }
 
-                return data;
+    if (name === '') {
+        const { data } = await apiGet<Entity>('/hearthstone/entity', {
+            id,
+            version: props.version,
+        });
+
+        return data;
+    }
+
+    let { data } = await apiGet<Entity[]>('/hearthstone/entity/name', {
+        name:    name.replace(/’/g, '\''),
+        version: props.version,
+    });
+
+    if (props.format === 'mercenaries') {
+        if (data.some(d => mercenariesPreset.includes(d.entityId))) {
+            data = data.filter(d => mercenariesPreset.includes(d.entityId));
+        }
+    }
+
+    if (props.format === 'battlegrounds') {
+        data = data.filter(d => {
+            if (d.entityId.endsWith('_G') && data.some(v => v.entityId === d.entityId.replace(/_G$/, ''))) {
+                return false;
             }
 
-            if (name === '') {
-                const { data } = await apiGet<Entity>('/hearthstone/card', {
-                    id,
-                    version: props.version,
-                });
+            return true;
+        });
+    }
 
-                return data;
-            }
+    if (data.length === 1) {
+        return data[0];
+    } else {
+        return data;
+    }
+};
 
-            let { data } = await apiGet<Entity[]>('/hearthstone/card/name', {
-                name:    name.replace(/’/g, '\''),
-                version: props.version,
-            });
+const search = async () => {
+    if (input.value.trim().startsWith('#')) {
+        model.value = input.value.trim();
+        return;
+    }
 
-            if (props.format === 'mercenaries') {
-                if (data.some(d => mercenariesPreset.includes(d.entityId))) {
-                    data = data.filter(d => mercenariesPreset.includes(d.entityId));
-                }
-            }
+    const data = await getData(input.value, model.value);
 
-            if (props.format === 'battlegrounds') {
-                data = data.filter(d => {
-                    if (d.entityId.endsWith('_G') && data.some(v => v.entityId === d.entityId.replace(/_G$/, ''))) {
-                        return false;
-                    }
+    if (Array.isArray(data)) {
+        input.value = data.map(v => v.entityId).sort().join(', ');
+        return;
+    }
 
-                    return true;
-                });
-            }
+    const { locale, locales } = hearthstone;
+    const defaultLocale = locales[0];
 
-            if (data.length === 1) {
-                return data[0];
-            } else {
-                return data;
-            }
-        };
-
-        const search = async () => {
-            if (input.value.trim().startsWith('#')) {
-                emit('update:modelValue', input.value.trim());
-                return;
-            }
-
-            const data = await getData(input.value, props.modelValue);
-
-            if (Array.isArray(data)) {
-                input.value = data.map(v => v.entityId).sort().join(', ');
-                return;
-            }
-
-            const { locale, locales } = hearthstone;
-            const defaultLocale = locales[0];
-
-            const loc = data.localization.find(l => l.lang === locale)
+    const loc = data.localization.find(l => l.lang === locale)
                     ?? data.localization.find(l => l.lang === defaultLocale)
                     ?? data.localization[0];
 
-            if (data != null) {
-                input.value = loc.name;
-                emit('update:modelValue', data.entityId);
-            }
-        };
+    if (data != null) {
+        input.value = loc.name;
+        model.value = data.entityId;
+    }
+};
 
-        return {
-            input,
-            search,
-        };
-    },
+const href = computed(() => {
+    if (model.value == null || model.value === '') {
+        return '';
+    }
+
+    return router.resolve({
+        name:   'hearthstone/entity',
+        params: {
+            id: model.value,
+        },
+        query: {
+            version: props.version,
+        },
+    }).href;
 });
+
 </script>

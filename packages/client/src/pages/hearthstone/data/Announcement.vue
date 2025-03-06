@@ -84,7 +84,7 @@
                     class="col-grow"
                     outlined dense
                     :model-value="value"
-                    @update:model-value="update"
+                    @update:model-value="v => update(v as string)"
                 />
             </template>
         </list>
@@ -132,7 +132,7 @@
                     class="q-mt-sm"
                     item-class="q-mt-sm"
                     :model-value="c.banlist ?? []"
-                    @update:model-value="b => c.banlist = b"
+                    @update:model-value="b => c.banlist = updateBanlist(b)"
                     @insert="c.banlist = addBanlist(c.banlist ?? [])"
                 >
                     <template #title>
@@ -161,8 +161,8 @@
                     class="q-mt-sm"
                     item-class="q-mt-sm"
                     :model-value="c.adjustment ?? []"
-                    @update:model-value="a => c.adjustment = a"
-                    @insert="c.adjustment = addAdjustment(c.adjustment)"
+                    @update:model-value="a => c.adjustment = updateAdjustment(a)"
+                    @insert="c.adjustment = addAdjustment(c.adjustment ?? [])"
                 >
                     <template #title>
                         <q-icon name="mdi-compare" size="sm" />
@@ -219,7 +219,7 @@
                         />
                     </template>
                     <template #body="{ value: a }">
-                        <div v-if="a.related?.length > 0" class="flex items-center q-mt-sm">
+                        <div v-if="a.related != null && a.related.length > 0" class="flex items-center q-mt-sm">
                             <q-icon name="mdi-cards-outline" size="sm" />
 
                             <entity-input
@@ -229,7 +229,7 @@
                                 :version="version"
                                 outlined dense
                                 :model-value="r"
-                                @update:model-value="v => a.related[i] = v"
+                                @update:model-value="v => a.related![i] = v"
                             >
                                 <template #append>
                                     <q-btn
@@ -247,15 +247,7 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-
-.change-list :deep(.change)
-    border: 1px grey solid
-    border-radius: 5px
-
-</style>
-
-<script lang="ts">
+<script setup lang="ts">
 import {
     defineComponent, ref, computed, watch, onMounted, toRaw,
 } from 'vue';
@@ -340,376 +332,351 @@ const adjustOptions = ['nerf', 'buff', 'adjust'].map(v => ({
     value: v,
 }));
 
-export default defineComponent({
-    name: 'DataAnnouncement',
-
-    components: {
-        ArrayInput,
-        DateInput,
-        List,
-        EntityInput,
-    },
-
-    setup() {
-        const { dialog } = useQuasar();
-        const hearthstone = useHearthstone();
-
-        const { controlGet, controlPost } = controlSetup();
-
-        const formats = computed(() => ['#hearthstone', ...hearthstone.formats]);
-        const announcementList = ref<FormatAnnouncementProfile[]>([]);
-        const selected = ref<FormatAnnouncementProfile | null>(null);
-
-        const announcement = ref<FormatAnnouncement>({
-            date:    '',
-            source:  'blizzard',
-            name:    '',
-            link:    [],
-            version: 0,
-            changes: [],
-        });
-
-        const announcementListWithLabel = computed(() => announcementList.value.map(a => ({
-            value: a,
-            label: `${a.name} [${a.date}] - ${a.source}`,
-        })));
-
-        const dbId = computed(() => (announcement.value as any)?._id);
-
-        const date = computed({
-            get() { return announcement.value?.date ?? ''; },
-            set(newValue: string) {
-                announcement.value.date = newValue;
-            },
-        });
-
-        const effectiveDate = computed({
-            get() { return announcement.value?.effectiveDate ?? ''; },
-            set(newValue: string) {
-                announcement.value.effectiveDate = newValue;
-            },
-        });
-
-        const name = computed({
-            get() { return announcement.value?.name ?? ''; },
-            set(newValue: string) {
-                announcement.value.name = newValue;
-            },
-        });
-
-        const version = computed({
-            get() { return announcement.value?.version; },
-            set(newValue: number) {
-                announcement.value.version = newValue;
-            },
-        });
-
-        const lastVersion = computed({
-            get() { return announcement.value?.lastVersion; },
-            set(newValue: number | undefined) {
-                announcement.value.lastVersion = newValue;
-            },
-        });
-
-        const link = computed({
-            get() { return announcement.value?.link ?? []; },
-            set(newValue: string[]) { announcement.value.link = newValue; },
-        });
-
-        const changes = computed({
-            get() { return announcement.value.changes; },
-            set(newValue: FormatAnnouncement['changes']) {
-                announcement.value.changes = newValue;
-            },
-        });
-
-        const getStatus = (oldValue: number, newValue: number, prefer: 'greater' | 'lesser') => {
-            if (oldValue == null || newValue == null || oldValue === newValue) {
-                return null;
-            }
-
-            if (prefer === 'greater') {
-                return newValue > oldValue ? 'buff' : 'nerf';
-            } else {
-                return newValue > oldValue ? 'nerf' : 'buff';
-            }
-        };
-
-        const pushDetail = <K extends EntityNumberKey>(
-            array: Adjustment['detail'],
-            key: K,
-            oldValue: Entity,
-            newValue: Entity,
-            prefer: 'greater' | 'lesser',
-        ) => {
-            const oldField = oldValue[key];
-            const newField = newValue[key];
-
-            const value = getStatus(oldField ?? 0, newField ?? 0, prefer);
-
-            if (value != null) {
-                array.push({ part: key, status: value });
-            }
-        };
-
-        const nextStatus = (status: 'adjust' | 'buff' | 'nerf') => {
-            switch (status) {
-            case 'nerf': return 'buff';
-            case 'buff': return 'adjust';
-            default: return 'nerf';
-            }
-        };
-
-        const addDetail = (a: Adjustment) => {
-            dialog({
-                title:  'Part',
-                prompt: {
-                    model: '',
-                },
-                cancel:     true,
-                persistent: true,
-            }).onOk(part => {
-                dialog({
-                    title:   'Status',
-                    options: {
-                        type:  'radio',
-                        model: 'nerf',
-                        items: [
-                            { label: 'Nerf', value: 'nerf', color: 'negative' },
-                            { label: 'Buff', value: 'buff', color: 'positive' },
-                            { label: 'Adjust', value: 'adjust', color: 'warning' },
-                        ],
-                    },
-                    cancel:     true,
-                    persistent: true,
-                }).onOk(status => {
-                    if (a.detail == null) {
-                        a.detail = [];
-                    }
-
-                    a.detail.push({ part, status });
-                });
-            });
-        };
-
-        const calcStatus = async (a: Adjustment) => {
-            if (lastVersion.value == null || a.id == null || a.id === '') {
-                return;
-            }
-
-            const { data: oldData } = await apiGet<Entity>('/hearthstone/card', {
-                id:      a.id,
-                version: lastVersion.value,
-            });
-
-            const { data: newData } = await apiGet<Entity>('/hearthstone/card', {
-                id:      a.id,
-                version: version.value,
-            });
-
-            const newDetail: Adjustment['detail'] = [];
-
-            pushDetail(newDetail, 'cost', oldData, newData, 'lesser');
-            pushDetail(newDetail, 'attack', oldData, newData, 'greater');
-            pushDetail(newDetail, 'health', oldData, newData, 'greater');
-            pushDetail(newDetail, 'durability', oldData, newData, 'greater');
-            pushDetail(newDetail, 'armor', oldData, newData, 'greater');
-            pushDetail(newDetail, 'techLevel', oldData, newData, 'lesser');
-            pushDetail(newDetail, 'armorBucket', oldData, newData, 'greater');
-            pushDetail(newDetail, 'colddown', oldData, newData, 'lesser');
-
-            const oldLoc = oldData.localization.find(l => l.lang === 'en') ?? oldData.localization[0];
-            const newLoc = newData.localization.find(l => l.lang === 'en') ?? newData.localization[0];
-
-            if (oldLoc.text !== newLoc.text) {
-                newDetail.push({ part: 'text', status: 'adjust' });
-            }
-
-            if (!isEqual(oldData.race, newData.race)) {
-                newDetail.push({ part: 'race', status: 'adjust' });
-            }
-
-            if (oldData.spellSchool !== newData.spellSchool) {
-                newDetail.push({ part: 'school', status: 'adjust' });
-            }
-
-            if (!isEqual(oldData.rune, newData.rune)) {
-                newDetail.push({ part: 'rune', status: 'adjust' });
-            }
-
-            const rarities = ['common', 'rare', 'epic', 'legendary'];
-
-            const oldRarity = rarities.indexOf(oldData.rarity ?? '');
-            const newRarity = rarities.indexOf(newData.rarity ?? '');
-
-            if (oldRarity !== -1 && newRarity !== -1) {
-                if (newRarity > oldRarity) {
-                    newDetail.push({ part: 'rarity', status: 'nerf' });
-                } else if (newRarity < oldRarity) {
-                    newDetail.push({ part: 'rarity', status: 'buff' });
-                }
-            }
-
-            a.detail = newDetail;
-
-            if (newDetail.length > 0) {
-                if (newDetail.every(d => d.status === 'nerf')) {
-                    a.status = 'nerf';
-                } else if (newDetail.every(d => d.status === 'buff')) {
-                    a.status = 'buff';
-                } else {
-                    a.status = 'adjust';
-                }
-            }
-        };
-
-        const addBanlist = (banlist: Banlist[]) => [
-            ...banlist ?? [],
-            {
-                id:     '',
-                status: last(banlist)?.status ?? 'banned',
-            },
-        ];
-
-        const addAdjustment = (adjustment: Adjustment[]) => [
-            ...adjustment ?? [],
-            {
-                id:      '',
-                status:  last(adjustment)?.status ?? 'nerf',
-                detail:  [],
-                related: [],
-            },
-        ];
-
-        const addRelated = (adjustment: Adjustment) => {
-            if (adjustment.related == null) {
-                adjustment.related = [];
-            }
-
-            adjustment.related.push('');
-        };
-
-        const loadData = async () => {
-            const { data } = await controlGet<FormatAnnouncementProfile[]>('/hearthstone/format/announcement');
-
-            announcementList.value = data;
-
-            if (data.length > 0 && selected.value == null) {
-                selected.value = data[0];
-            }
-        };
-
-        const loadAnnouncement = async () => {
-            if (selected.value?.id == null) {
-                return;
-            }
-
-            const { data: result } = await controlGet<FormatAnnouncement>('/hearthstone/format/announcement', {
-                id: selected.value.id,
-            });
-
-            announcement.value = result;
-        };
-
-        const saveAnnouncement = async () => {
-            if (announcement.value == null) {
-                return;
-            }
-
-            const data = toRaw(announcement.value);
-
-            if (data.effectiveDate != null && Object.keys(data.effectiveDate).length === 0) {
-                delete data.effectiveDate;
-            }
-
-            if (data.link?.length === 0) {
-                delete data.link;
-            }
-
-            for (const c of data.changes) {
-                if (c.setIn?.length === 0) {
-                    delete c.setIn;
-                }
-
-                if (c.setOut?.length === 0) {
-                    delete c.setOut;
-                }
-
-                if (c.banlist?.length === 0) {
-                    delete c.banlist;
-                }
-
-                if (c.adjustment?.length === 0) {
-                    delete c.adjustment;
-                } else if (c.adjustment != null) {
-                    for (const a of c.adjustment) {
-                        if (a.related?.length === 0) {
-                            delete a.related;
-                        }
-                    }
-                }
-            }
-
-            await controlPost('/hearthstone/format/announcement/save', { data });
-
-            await loadData();
-        };
-
-        const newAnnouncement = async () => {
-            await saveAnnouncement();
-
-            const todayDate = new Date().toISOString().split('T')[0];
-
-            selected.value = null;
-
-            announcement.value = {
-                source:  'blizzard',
-                date:    todayDate,
-                name:    '',
-                version: 0,
-                changes: [],
-            };
-        };
-
-        const applyAnnouncements = async () => {
-            await saveAnnouncement();
-
-            await controlPost('/hearthstone/format/announcement/apply');
-        };
-
-        watch(selected, loadAnnouncement);
-        onMounted(loadData);
-
-        return {
-            announcementListWithLabel,
-            selected,
-
-            dbId,
-            date,
-            effectiveDate,
-            name,
-            version,
-            lastVersion,
-            link,
-            changes,
-
-            formats,
-            banlistOptions,
-            adjustOptions,
-            nextStatus,
-            calcStatus,
-            statusIcon,
-            statusColor,
-
-            newAnnouncement,
-            saveAnnouncement,
-            applyAnnouncements,
-            addBanlist,
-            addAdjustment,
-            addDetail,
-            addRelated,
-        };
+const { dialog } = useQuasar();
+const hearthstone = useHearthstone();
+
+const { controlGet, controlPost } = controlSetup();
+
+const formats = computed(() => ['#hearthstone', ...hearthstone.formats]);
+const announcementList = ref<FormatAnnouncementProfile[]>([]);
+const selected = ref<FormatAnnouncementProfile | null>(null);
+
+const announcement = ref<FormatAnnouncement>({
+    date:    '',
+    source:  'blizzard',
+    name:    '',
+    link:    [],
+    version: 0,
+    changes: [],
+});
+
+const announcementListWithLabel = computed(() => announcementList.value.map(a => ({
+    value: a,
+    label: `${a.name} [${a.date}] - ${a.source}`,
+})));
+
+const dbId = computed(() => (announcement.value as any)?._id);
+
+const date = computed({
+    get() { return announcement.value?.date ?? ''; },
+    set(newValue: string) {
+        announcement.value.date = newValue;
     },
 });
 
+const effectiveDate = computed({
+    get() { return announcement.value?.effectiveDate ?? ''; },
+    set(newValue: string) {
+        announcement.value.effectiveDate = newValue;
+    },
+});
+
+const name = computed({
+    get() { return announcement.value?.name ?? ''; },
+    set(newValue: string) {
+        announcement.value.name = newValue;
+    },
+});
+
+const version = computed({
+    get() { return announcement.value?.version; },
+    set(newValue: number) {
+        announcement.value.version = newValue;
+    },
+});
+
+const lastVersion = computed({
+    get() { return announcement.value?.lastVersion; },
+    set(newValue: number | undefined) {
+        announcement.value.lastVersion = newValue;
+    },
+});
+
+const link = computed({
+    get() { return announcement.value?.link ?? []; },
+    set(newValue: string[]) { announcement.value.link = newValue; },
+});
+
+const changes = computed({
+    get() { return announcement.value.changes; },
+    set(newValue: FormatAnnouncement['changes']) {
+        announcement.value.changes = newValue;
+    },
+});
+
+const getStatus = (oldValue: number, newValue: number, prefer: 'greater' | 'lesser') => {
+    if (oldValue == null || newValue == null || oldValue === newValue) {
+        return null;
+    }
+
+    if (prefer === 'greater') {
+        return newValue > oldValue ? 'buff' : 'nerf';
+    } else {
+        return newValue > oldValue ? 'nerf' : 'buff';
+    }
+};
+
+const pushDetail = <K extends EntityNumberKey>(
+    array: Adjustment['detail'],
+    key: K,
+    oldValue: Entity,
+    newValue: Entity,
+    prefer: 'greater' | 'lesser',
+) => {
+    const oldField = oldValue[key];
+    const newField = newValue[key];
+
+    const value = getStatus(oldField ?? 0, newField ?? 0, prefer);
+
+    if (value != null) {
+        array.push({ part: key, status: value });
+    }
+};
+
+const nextStatus = (status: 'adjust' | 'buff' | 'nerf') => {
+    switch (status) {
+    case 'nerf': return 'buff';
+    case 'buff': return 'adjust';
+    default: return 'nerf';
+    }
+};
+
+const addDetail = (a: Adjustment) => {
+    dialog({
+        title:  'Part',
+        prompt: {
+            model: '',
+        },
+        cancel:     true,
+        persistent: true,
+    }).onOk(part => {
+        dialog({
+            title:   'Status',
+            options: {
+                type:  'radio',
+                model: 'nerf',
+                items: [
+                    { label: 'Nerf', value: 'nerf', color: 'negative' },
+                    { label: 'Buff', value: 'buff', color: 'positive' },
+                    { label: 'Adjust', value: 'adjust', color: 'warning' },
+                ],
+            },
+            cancel:     true,
+            persistent: true,
+        }).onOk(status => {
+            if (a.detail == null) {
+                a.detail = [];
+            }
+
+            a.detail.push({ part, status });
+        });
+    });
+};
+
+const calcStatus = async (a: Adjustment) => {
+    if (lastVersion.value == null || a.id == null || a.id === '') {
+        return;
+    }
+
+    const { data: oldData } = await apiGet<Entity>('/hearthstone/entity', {
+        id:      a.id,
+        version: lastVersion.value,
+    });
+
+    const { data: newData } = await apiGet<Entity>('/hearthstone/entity', {
+        id:      a.id,
+        version: version.value,
+    });
+
+    const newDetail: Adjustment['detail'] = [];
+
+    pushDetail(newDetail, 'cost', oldData, newData, 'lesser');
+    pushDetail(newDetail, 'attack', oldData, newData, 'greater');
+    pushDetail(newDetail, 'health', oldData, newData, 'greater');
+    pushDetail(newDetail, 'durability', oldData, newData, 'greater');
+    pushDetail(newDetail, 'armor', oldData, newData, 'greater');
+    pushDetail(newDetail, 'techLevel', oldData, newData, 'lesser');
+    pushDetail(newDetail, 'armorBucket', oldData, newData, 'greater');
+    pushDetail(newDetail, 'colddown', oldData, newData, 'lesser');
+
+    const oldLoc = oldData.localization.find(l => l.lang === 'en') ?? oldData.localization[0];
+    const newLoc = newData.localization.find(l => l.lang === 'en') ?? newData.localization[0];
+
+    if (oldLoc.text !== newLoc.text) {
+        newDetail.push({ part: 'text', status: 'adjust' });
+    }
+
+    if (!isEqual(oldData.race, newData.race)) {
+        newDetail.push({ part: 'race', status: 'adjust' });
+    }
+
+    if (oldData.spellSchool !== newData.spellSchool) {
+        newDetail.push({ part: 'school', status: 'adjust' });
+    }
+
+    if (!isEqual(oldData.rune, newData.rune)) {
+        newDetail.push({ part: 'rune', status: 'adjust' });
+    }
+
+    const rarities = ['common', 'rare', 'epic', 'legendary'];
+
+    const oldRarity = rarities.indexOf(oldData.rarity ?? '');
+    const newRarity = rarities.indexOf(newData.rarity ?? '');
+
+    if (oldRarity !== -1 && newRarity !== -1) {
+        if (newRarity > oldRarity) {
+            newDetail.push({ part: 'rarity', status: 'nerf' });
+        } else if (newRarity < oldRarity) {
+            newDetail.push({ part: 'rarity', status: 'buff' });
+        }
+    }
+
+    a.detail = newDetail;
+
+    if (newDetail.length > 0) {
+        if (newDetail.every(d => d.status === 'nerf')) {
+            a.status = 'nerf';
+        } else if (newDetail.every(d => d.status === 'buff')) {
+            a.status = 'buff';
+        } else {
+            const techLevel = newDetail.find(v => v.part === 'techLevel');
+
+            if (techLevel != null) {
+                a.status = techLevel.status;
+            } else {
+                a.status = 'adjust';
+            }
+        }
+    }
+};
+
+const addBanlist = (banlist: Banlist[]) => [
+    ...banlist ?? [],
+    {
+        id:     '',
+        status: last(banlist)?.status ?? 'banned',
+    },
+];
+
+const updateBanlist = (banlist: Banlist[]) => banlist;
+
+const addAdjustment = (adjustment: Adjustment[]) => [
+    ...adjustment ?? [],
+    {
+        id:      '',
+        status:  last(adjustment)?.status ?? 'nerf',
+        detail:  [],
+        related: [],
+    },
+];
+
+const updateAdjustment = (adjustment: Adjustment[]) => adjustment;
+
+const addRelated = (adjustment: Adjustment) => {
+    if (adjustment.related == null) {
+        adjustment.related = [];
+    }
+
+    adjustment.related.push('');
+};
+
+const loadData = async () => {
+    const { data } = await controlGet<FormatAnnouncementProfile[]>('/hearthstone/format/announcement');
+
+    announcementList.value = data;
+
+    if (data.length > 0 && selected.value == null) {
+        selected.value = data[0];
+    }
+};
+
+const loadAnnouncement = async () => {
+    if (selected.value?.id == null) {
+        return;
+    }
+
+    const { data: result } = await controlGet<FormatAnnouncement>('/hearthstone/format/announcement', {
+        id: selected.value.id,
+    });
+
+    announcement.value = result;
+};
+
+const saveAnnouncement = async () => {
+    if (announcement.value == null) {
+        return;
+    }
+
+    const data = toRaw(announcement.value);
+
+    if (data.effectiveDate != null && Object.keys(data.effectiveDate).length === 0) {
+        delete data.effectiveDate;
+    }
+
+    if (data.link?.length === 0) {
+        delete data.link;
+    }
+
+    for (const c of data.changes) {
+        if (c.setIn?.length === 0) {
+            delete c.setIn;
+        }
+
+        if (c.setOut?.length === 0) {
+            delete c.setOut;
+        }
+
+        if (c.banlist?.length === 0) {
+            delete c.banlist;
+        }
+
+        if (c.adjustment?.length === 0) {
+            delete c.adjustment;
+        } else if (c.adjustment != null) {
+            for (const a of c.adjustment) {
+                if (a.related?.length === 0) {
+                    delete a.related;
+                }
+            }
+        }
+    }
+
+    await controlPost('/hearthstone/format/announcement/save', { data });
+
+    await loadData();
+};
+
+const newAnnouncement = async () => {
+    await saveAnnouncement();
+
+    const todayDate = new Date().toISOString().split('T')[0];
+
+    selected.value = null;
+
+    announcement.value = {
+        source:  'blizzard',
+        date:    todayDate,
+        name:    '',
+        version: 0,
+        changes: [],
+    };
+};
+
+const applyAnnouncements = async () => {
+    await saveAnnouncement();
+
+    await controlPost('/hearthstone/format/announcement/apply');
+};
+
+watch(selected, loadAnnouncement);
+onMounted(loadData);
+
 </script>
+
+<style lang="sass" scoped>
+
+.change-list :deep(.change)
+    border: 1px grey solid
+    border-radius: 5px
+
+</style>

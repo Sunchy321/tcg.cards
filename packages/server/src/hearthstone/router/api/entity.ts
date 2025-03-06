@@ -73,7 +73,7 @@ router.get('/name', async ctx => {
         return;
     }
 
-    const query: any = { 'localization.name': name, 'cardType': { $ne: 'enchantment' } };
+    const query: any = { 'localization.name': name, 'type': { $ne: 'enchantment' } };
 
     if (version != null) {
         query.version = version;

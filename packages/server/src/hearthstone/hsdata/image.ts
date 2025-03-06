@@ -39,7 +39,7 @@ export class ImageGetter extends Task<IImageStatus> {
     async startImpl(): Promise<void> {
         const aggregate = Entity.aggregate<IImageProjection>()
             .allowDiskUse(true)
-            .match({ cardType: { $ne: 'enchantment' } })
+            .match({ type: { $ne: 'enchantment' } })
             .unwind('version')
             .group({ _id: '$cardId', version: { $min: '$version' } })
             .sort({ version: 1 });
