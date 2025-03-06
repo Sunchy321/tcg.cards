@@ -60,44 +60,6 @@ router.get('/', async ctx => {
     ctx.body = { ...card.toJSON(), versions };
 });
 
-router.get('/name', async ctx => {
-    const { name, version: versionText } = mapValues(ctx.query, toSingle);
-
-    if (name == null) {
-        ctx.status = 400;
-        return;
-    }
-
-    const version = versionText != null ? Number.parseInt(versionText, 10) : null;
-
-    if (versionText != null && Number.isNaN(version)) {
-        ctx.status = 400;
-        return;
-    }
-
-    const query: any = { 'localization.name': name, 'cardType': { $ne: 'enchantment' } };
-
-    if (version != null) {
-        query.version = version;
-    }
-
-    const cards = await Card.aggregate<{ _id: string, data: ICard[] }>()
-        .match(query)
-        .sort({ version: -1 })
-        .group({ _id: '$cardId', data: { $push: '$$ROOT' } });
-
-    ctx.body = cards.map(v => {
-        const entity = (
-            version != null ? v.data.filter(d => d.version.includes(version)) : v.data
-        )[0];
-
-        return {
-            ...omit(entity, ['_id', '__v']),
-            versions: v.data.map(e => e.version.sort((a, b) => a - b)),
-        };
-    });
-});
-
 router.get('/random', async ctx => {
     const cardIds = await Card.distinct('cardId');
 

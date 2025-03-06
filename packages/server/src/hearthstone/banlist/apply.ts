@@ -233,17 +233,17 @@ export class AnnouncementApplier {
         }
 
         const data = await Entity.aggregate<{
-            cardId: string;
+            entityId: string;
             version: number[];
             set: string;
         }>()
-            .match({ cardId: { $in: cards } })
+            .match({ entityId: { $in: cards } })
             .project({
-                _id: 0, cardId: 1, version: 1, set: 1,
+                _id: 0, entityId: 1, version: 1, set: 1,
             });
 
         this.cards = data.map(d => ({
-            id:      d.cardId,
+            id:      d.entityId,
             version: d.version,
             set:     d.set,
         }));
