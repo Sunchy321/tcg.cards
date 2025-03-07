@@ -552,11 +552,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     const dualRace = this.getMapData<string>('dual-race')[id];
 
                     if (dualRace != null) {
-                        if (result.race == null) {
-                            result.race = [];
-                        }
-
-                        result.race.push(dualRace);
+                        result.race!.push(dualRace);
                         continue;
                     }
 

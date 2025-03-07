@@ -6,12 +6,20 @@ import { Entity as IEntity } from '@interface/hearthstone/entity';
 
 import { ITag } from '@/hearthstone/hsdata';
 
-import { omitBy } from 'lodash';
-
-import internalData from '@/internal-data';
+type TagMap = {
+    field: Record<number, ITag>;
+    type: Record<number, string>;
+    race: Record<number, string>;
+    dualRace: Record<number, string>;
+    spellSchool: Record<number, string>;
+    rune: Record<number, string>;
+    set: Record<number, string>;
+    rarity: Record<number, string>;
+    mechanic: Record<number, string>;
+};
 
 type Methods = {
-    intoTags(): Record<number, number>;
+    intoTags(tagMap: TagMap): Record<number, number>;
 };
 
 // eslint-disable-next-line @typescript-eslint/ban-types
@@ -123,16 +131,12 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, Methods, {}, {}, {}, '$
         },
     },
     methods: {
-        intoTags() {
+        intoTags(tagMap: TagMap) {
             const tags: Record<number, number> = {};
 
-            const field = internalData<Record<number, ITag>>('hearthstone.tag.field');
-            const type = internalData<Record<number, string>>('hearthstone.tag.map.type');
-            const spellSchool = internalData<Record<number, string>>('hearthstone.tag.map.spell-school');
-            const rune = internalData<Record<number, string>>('hearthstone.tag.map.rune');
-            const set = internalData<Record<number, string>>('hearthstone.tag.map.set');
-            const rarity = internalData<Record<number, string>>('hearthstone.tag.map.rarity');
-            const mechanic = internalData<Record<number, string>>('hearthstone.tag.map.mechanic');
+            const {
+                field, type, race, dualRace, spellSchool, rune, set, rarity, mechanic,
+            } = tagMap;
 
             const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
 
@@ -145,8 +149,24 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, Methods, {}, {}, {}, '$
             tags[fieldKey('durability')] = this.durability ?? 0;
             tags[fieldKey('armor')] = this.armor ?? 0;
 
+            if (this.race != null) {
+                tags[fieldKey('race')] = invertFind(race, this.race[0]);
+
+                for (const [k, v] of Object.entries(dualRace)) {
+                    tags[Number.parseInt(k, 10)] = this.race[1] === v ? 1 : 0;
+                }
+            } else {
+                tags[fieldKey('race')] = 0;
+
+                for (const [k, v] of Object.entries(dualRace)) {
+                    tags[Number.parseInt(k, 10)] = 0;
+                }
+            }
+
             if (this.spellSchool != null) {
                 tags[fieldKey('spellSchool')] = invertFind(spellSchool, this.spellSchool);
+            } else {
+                tags[fieldKey('spellSchool')] = 0;
             }
 
             tags[fieldKey('set')] = invertFind(set, this.set);
