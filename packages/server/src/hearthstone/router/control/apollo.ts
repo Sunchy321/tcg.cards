@@ -1,75 +1,93 @@
+/* eslint-disable no-labels, no-restricted-syntax */
 import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 
 import FormatChange from '@/hearthstone/db/format-change';
 import Entity from '@/hearthstone/db/entity';
 
-import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { ITag } from '@/hearthstone/hsdata';
-
 import * as path from 'path';
 import * as fs from 'fs';
 
-import internalData from '@/internal-data';
+import { ApolloJson, getEssentialMap, intoApolloJson } from '@/hearthstone/apollo/into-json';
 
 import { assetPath } from '@/config';
 
 import { createAdjustmentJson } from '@/hearthstone/logger';
-import { omitBy, pickBy } from 'lodash';
+import { omitBy } from 'lodash';
 
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/apollo');
 
-const variantInput: Record<string, any> = {
-    'normal': { },
-    'golden': {
-        premium: 1,
-    },
-    'diamond': {
-        premium: 2,
-    },
-    'signature': {
-        premium: 3,
-    },
-    'battlegrounds': {
-        useBattlegroundsStyle: 1,
-    },
-    'in-game': {
-        useHeroStyle: 1,
-    },
-};
+const variants = ['normal', 'golden', 'diamond', 'signature', 'battlegrounds', 'in-game'] as const;
+
+const MAX_RESULT_LIMIT = 10000;
+
+router.post('/create-patch-json', async ctx => {
+    const { version } = ctx.request.body as { version: number };
+
+    if (version == null) {
+        return;
+    }
+
+    const entities = await Entity.find({ version, type: { $exists: true, $ne: 'enchantment' } });
+
+    const tagMap = getEssentialMap();
+
+    const result: Record<string, ApolloJson> = {};
+
+    outer: for (const e of entities) {
+        for (const v of variants) {
+            if (v === 'diamond' && !e.mechanics.includes('has_diamond')) {
+                continue;
+            }
+
+            if (v === 'signature' && !e.mechanics.includes('has_signature')) {
+                continue;
+            }
+
+            if (v === 'in-game' && e.type === 'spell') {
+                continue;
+            }
+
+            if (v === 'battlegrounds' && (e.set !== 'bgs' && e.techLevel == null)) {
+                continue;
+            }
+
+            const outName = `image@${Math.min(...e.version)}@zhs@${v}@${e.entityId}`;
+
+            const imagePath = `${path.join(assetPath, 'hearthstone', 'card', ...outName.split('@'))}.png`;
+
+            if (fs.existsSync(imagePath)) {
+                continue;
+            }
+
+            if (Object.keys(result).length < MAX_RESULT_LIMIT) {
+                result[outName] = {
+                    ...intoApolloJson(e, tagMap, undefined, v),
+                    outName,
+                };
+            } else {
+                break outer;
+            }
+        }
+    }
+
+    if (Object.keys(result).length === 0) {
+        return;
+    }
+
+    ctx.status = 200;
+
+    ctx.body = result;
+});
 
 router.post('/create-adjustment-json', async ctx => {
     const changes = await FormatChange.find({ type: 'adjustment' });
 
-    const result: Record<string, any> = {};
+    const tagMap = getEssentialMap();
 
-    const field = internalData<Record<number, ITag>>('hearthstone.tag.field');
-    const locField = internalData<Record<number, keyof IEntity['localization'][0]>>('hearthstone.tag.localization-field');
-    const type = internalData<Record<number, string>>('hearthstone.tag.map.type');
-    const race = internalData<Record<number, string>>('hearthstone.tag.map.race');
-    const dualRace = internalData<Record<number, string>>('hearthstone.tag.map.dual-race');
-    const spellSchool = internalData<Record<number, string>>('hearthstone.tag.map.spell-school');
-    const rune = internalData<Record<number, string>>('hearthstone.tag.map.rune');
-    const set = internalData<Record<number, string>>('hearthstone.tag.map.set');
-    const rarity = internalData<Record<number, string>>('hearthstone.tag.map.rarity');
-    const mechanic = internalData<Record<number, string>>('hearthstone.tag.map.mechanic');
-
-    const tagMap = {
-        field,
-        type,
-        race,
-        dualRace,
-        spellSchool,
-        rune,
-        set,
-        rarity,
-        mechanic,
-    };
-
-    const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
-    const locFieldKey = (key: keyof IEntity['localization'][0]) => Number.parseInt(Object.entries(locField).find(v => v[1] === key)![0], 10);
+    const result: Record<string, ApolloJson> = {};
 
     const entityIds: string[] = [];
 
@@ -87,7 +105,7 @@ router.post('/create-adjustment-json', async ctx => {
 
     const entities = await Entity.find({ entityId: { $in: entityIds } });
 
-    for (const [i, c] of changes.entries()) {
+    for (const [_i, c] of changes.entries()) {
         for (const a of c.adjustment!) {
             const id = a.id ?? c.id;
 
@@ -110,84 +128,19 @@ router.post('/create-adjustment-json', async ctx => {
                 continue;
             }
 
-            const oldLoc = oldEntity.localization.find(v => v.lang === 'zhs')
-                ?? oldEntity.localization.find(v => v.lang === 'en')
-                ?? oldEntity.localization[0];
-
-            const newLoc = newEntity.localization.find(v => v.lang === 'zhs')
-                ?? newEntity.localization.find(v => v.lang === 'en')
-                ?? newEntity.localization[0];
-
-            const oldTags = oldEntity.intoTags(tagMap);
-            const newTags = newEntity.intoTags(tagMap);
-
-            const oldJson = {
-                cardID:   id,
-                cardName: oldLoc.name,
-                cardText: oldLoc.rawText,
-                tags:     oldTags,
-            };
-
-            const newJson = {
-                cardID:   id,
-                cardName: newLoc.name,
-                cardText: newLoc.rawText,
-                tags:     newTags,
-            };
-
-            const nerf: Record<number, number> = {};
-
-            const partMap: Record<string, number> = {
-                cost:          fieldKey('cost'),
-                attack:        fieldKey('attack'),
-                health:        fieldKey('health'),
-                durability:    fieldKey('health'),
-                armor:         fieldKey('armor'),
-                text:          locFieldKey('rawText'),
-                race:          fieldKey('race'),
-                techLevel:     fieldKey('techLevel'),
-                rarity:        fieldKey('rarity'),
-                school:        fieldKey('spellSchool'),
-                colddown:      fieldKey('colddown'),
-                mercenaryRole: fieldKey('mercenaryRole'),
-                rune:          2196, // hardcoded blood rune
-            };
-
-            for (const d of a.detail) {
-                if (partMap[d.part] != null) {
-                    nerf[partMap[d.part]] = d.status === 'buff' ? 1 : 2;
-                } else {
-                    createAdjustmentJson.info(`Unknown part ${d.part}`);
-                }
-            }
-
-            const filterNerf = pickBy(nerf, (value, key) => {
-                // Hero Power has no nerf effect
-                if (oldEntity.type === 'hero_power') {
-                    return false;
-                }
-
-                // Trinket's nerf effect is at wrong place
-                if (oldEntity.mechanics.includes('trinket')) {
-                    return false;
-                }
-
-                return true;
-            });
-
             const variant = c.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
 
-            result[`image@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`] = {
-                ...oldJson,
-                ...variantInput[variant],
-                outName: `image@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`,
+            const oldName = `image@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`;
+            const newName = `adjusted@${c.version}@zhs@${variant}@${fullName}`;
+
+            result[oldName] = {
+                ...intoApolloJson(oldEntity, tagMap, undefined, variant),
+                outName: oldName,
             };
 
-            result[`adjusted@${c.version}@zhs@${variant}@${fullName}`] = {
-                ...newJson,
-                ...variantInput[variant],
-                outName: `adjusted@${c.version}@zhs@${variant}@${fullName}`,
-                nerf:    filterNerf,
+            result[newName] = {
+                ...intoApolloJson(newEntity, tagMap, a.detail, variant),
+                outName: newName,
             };
         }
 
@@ -201,25 +154,13 @@ router.post('/create-adjustment-json', async ctx => {
                 continue;
             }
 
-            const cardLoc = cardEntity.localization.find(v => v.lang === 'zhs')
-                ?? cardEntity.localization.find(v => v.lang === 'en')
-                ?? cardEntity.localization[0];
-
-            const cardTags = cardEntity.intoTags(tagMap);
-
-            const cardJson = {
-                cardID:   id,
-                cardName: cardLoc.name,
-                cardText: cardLoc.rawText,
-                tags:     cardTags,
-            };
-
             const variant = c.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
 
-            result[`image@${c.version}@zhs@${variant}@${id}`] = {
-                ...cardJson,
-                ...variantInput[variant],
-                outName: `image@${c.version}@zhs@${variant}@${id}`,
+            const outName = `image@${c.version}@zhs@${variant}@${id}`;
+
+            result[outName] = {
+                ...intoApolloJson(cardEntity, tagMap, undefined, variant),
+                outName,
             };
         }
     }

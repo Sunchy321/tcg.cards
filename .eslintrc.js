@@ -146,8 +146,8 @@ module.exports = {
         }],
 
         '@typescript-eslint/no-unused-vars':              ['warn', {
-            varsIgnorePattern: '^(_{1,3})$',
-            argsIgnorePattern: '^(_{1,3})$',
+            varsIgnorePattern: '^_',
+            argsIgnorePattern: '^_',
         }],
 
         '@typescript-eslint/space-before-function-paren': ['warn', {
