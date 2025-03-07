@@ -7,9 +7,15 @@ import Entity from '@/hearthstone/db/entity';
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 import { ITag } from '@/hearthstone/hsdata';
 
+import * as path from 'path';
+import * as fs from 'fs';
+
 import internalData from '@/internal-data';
 
+import { assetPath } from '@/config';
+
 import { createAdjustmentJson } from '@/hearthstone/logger';
+import { omitBy, pickBy } from 'lodash';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -41,6 +47,26 @@ router.post('/create-adjustment-json', async ctx => {
 
     const field = internalData<Record<number, ITag>>('hearthstone.tag.field');
     const locField = internalData<Record<number, keyof IEntity['localization'][0]>>('hearthstone.tag.localization-field');
+    const type = internalData<Record<number, string>>('hearthstone.tag.map.type');
+    const race = internalData<Record<number, string>>('hearthstone.tag.map.race');
+    const dualRace = internalData<Record<number, string>>('hearthstone.tag.map.dual-race');
+    const spellSchool = internalData<Record<number, string>>('hearthstone.tag.map.spell-school');
+    const rune = internalData<Record<number, string>>('hearthstone.tag.map.rune');
+    const set = internalData<Record<number, string>>('hearthstone.tag.map.set');
+    const rarity = internalData<Record<number, string>>('hearthstone.tag.map.rarity');
+    const mechanic = internalData<Record<number, string>>('hearthstone.tag.map.mechanic');
+
+    const tagMap = {
+        field,
+        type,
+        race,
+        dualRace,
+        spellSchool,
+        rune,
+        set,
+        rarity,
+        mechanic,
+    };
 
     const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
     const locFieldKey = (key: keyof IEntity['localization'][0]) => Number.parseInt(Object.entries(locField).find(v => v[1] === key)![0], 10);
@@ -92,8 +118,8 @@ router.post('/create-adjustment-json', async ctx => {
                 ?? newEntity.localization.find(v => v.lang === 'en')
                 ?? newEntity.localization[0];
 
-            const oldTags = oldEntity.intoTags();
-            const newTags = newEntity.intoTags();
+            const oldTags = oldEntity.intoTags(tagMap);
+            const newTags = newEntity.intoTags(tagMap);
 
             const oldJson = {
                 cardID:   id,
@@ -115,6 +141,8 @@ router.post('/create-adjustment-json', async ctx => {
                 cost:          fieldKey('cost'),
                 attack:        fieldKey('attack'),
                 health:        fieldKey('health'),
+                durability:    fieldKey('health'),
+                armor:         fieldKey('armor'),
                 text:          locFieldKey('rawText'),
                 race:          fieldKey('race'),
                 techLevel:     fieldKey('techLevel'),
@@ -125,35 +153,84 @@ router.post('/create-adjustment-json', async ctx => {
                 rune:          2196, // hardcoded blood rune
             };
 
-            if (oldEntity.type !== 'hero_power') {
-                for (const d of a.detail) {
-                    if (partMap[d.part] != null) {
-                        nerf[partMap[d.part]] = d.status === 'buff' ? 1 : 2;
-                    } else {
-                        createAdjustmentJson.info(`Unknown part ${d.part}`);
-                    }
+            for (const d of a.detail) {
+                if (partMap[d.part] != null) {
+                    nerf[partMap[d.part]] = d.status === 'buff' ? 1 : 2;
+                } else {
+                    createAdjustmentJson.info(`Unknown part ${d.part}`);
                 }
             }
+
+            const filterNerf = pickBy(nerf, (value, key) => {
+                // Hero Power has no nerf effect
+                if (oldEntity.type === 'hero_power') {
+                    return false;
+                }
+
+                // Trinket's nerf effect is at wrong place
+                if (oldEntity.mechanics.includes('trinket')) {
+                    return false;
+                }
+
+                return true;
+            });
 
             const variant = c.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
 
             result[`image@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`] = {
                 ...oldJson,
-                outName: `image@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`,
                 ...variantInput[variant],
+                outName: `image@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`,
             };
 
             result[`adjusted@${c.version}@zhs@${variant}@${fullName}`] = {
                 ...newJson,
-                outName: `adjusted@${c.version}@zhs@${variant}@${fullName}`,
                 ...variantInput[variant],
-                nerf,
+                outName: `adjusted@${c.version}@zhs@${variant}@${fullName}`,
+                nerf:    filterNerf,
+            };
+        }
+
+        if (!c.adjustment!.some(a => a.id == null || a.id === c.id)) {
+            const { id } = c;
+
+            const cardEntity = entities.find(e => e.entityId === c.id && e.version.includes(c.version));
+
+            if (cardEntity == null) {
+                createAdjustmentJson.error(`Unknown card ${c.id} at version ${c.version}`);
+                continue;
+            }
+
+            const cardLoc = cardEntity.localization.find(v => v.lang === 'zhs')
+                ?? cardEntity.localization.find(v => v.lang === 'en')
+                ?? cardEntity.localization[0];
+
+            const cardTags = cardEntity.intoTags(tagMap);
+
+            const cardJson = {
+                cardID:   id,
+                cardName: cardLoc.name,
+                cardText: cardLoc.rawText,
+                tags:     cardTags,
+            };
+
+            const variant = c.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
+
+            result[`image@${c.version}@zhs@${variant}@${id}`] = {
+                ...cardJson,
+                ...variantInput[variant],
+                outName: `image@${c.version}@zhs@${variant}@${id}`,
             };
         }
     }
 
     ctx.status = 200;
-    ctx.body = result;
+
+    ctx.body = omitBy(result, (value, key) => {
+        const imagePath = `${path.join(assetPath, 'hearthstone', 'card', ...key.split('@'))}.png`;
+
+        return fs.existsSync(imagePath);
+    });
 });
 
 export default router;

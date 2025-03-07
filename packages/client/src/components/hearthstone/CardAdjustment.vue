@@ -72,6 +72,19 @@ const name = computed(() => {
     return localization.name;
 });
 
+const adjustment = computed(() => {
+    const propsAdjustment = props.adjustment;
+
+    if (propsAdjustment.some(v => v.id == null || v.id === props.cardId)) {
+        return propsAdjustment;
+    }
+
+    return [
+        { id: props.cardId, detail: [] },
+        ...propsAdjustment,
+    ];
+});
+
 const loadData = async () => entityProfile.get(
     props.cardId,
     v => { profile.value = v; },
@@ -84,7 +97,7 @@ const render = () => {
         ? h('span', { class: 'code' }, props.cardId)
         : h('span', props.text ?? name.value ?? '');
 
-    const images = props.adjustment.map(a => {
+    const images = adjustment.value.map(a => {
         if (a.detail.length === 0) {
             return h(CardImage, {
                 class:   'adjustment-image',
