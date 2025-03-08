@@ -68,26 +68,6 @@
                 </q-chip>
             </div>
             <div class="links flex q-gutter-md">
-                <!-- <q-btn
-                    v-if="scryfallLink != null"
-                    class="link"
-                    :href="scryfallLink" target="_blank"
-                    outline no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    Scryfall
-                </q-btn>
-
-                <q-btn
-                    v-if="gathererLink != null"
-                    class="link"
-                    :href="gathererLink" target="_blank"
-                    outline no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    Gatherer
-                </q-btn> -->
-
                 <q-btn
                     v-if="jsonLink != null"
                     class="link"
@@ -179,7 +159,11 @@ const version = computed({
         }
 
         if (data.value != null) {
-            return data.value.version[0];
+            const lastVersion = Math.max(...data.value.version);
+
+            const lastVersions = versions.value.find(v => v.includes(lastVersion)) ?? [];
+
+            return lastVersions[0] ?? 0;
         }
 
         return 0;

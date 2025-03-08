@@ -21,8 +21,6 @@ router.prefix('/apollo');
 
 const variants = ['normal', 'golden', 'diamond', 'signature', 'battlegrounds', 'in-game'] as const;
 
-const MAX_RESULT_LIMIT = 10000;
-
 router.post('/create-patch-json', async ctx => {
     const { version } = ctx.request.body as { version: number };
 
@@ -36,7 +34,7 @@ router.post('/create-patch-json', async ctx => {
 
     const result: Record<string, ApolloJson> = {};
 
-    outer: for (const e of entities) {
+    for (const e of entities) {
         for (const v of variants) {
             if (v === 'diamond' && !e.mechanics.includes('has_diamond')) {
                 continue;
@@ -62,14 +60,10 @@ router.post('/create-patch-json', async ctx => {
                 continue;
             }
 
-            if (Object.keys(result).length < MAX_RESULT_LIMIT) {
-                result[outName] = {
-                    ...intoApolloJson(e, tagMap, undefined, v),
-                    outName,
-                };
-            } else {
-                break outer;
-            }
+            result[outName] = {
+                ...intoApolloJson(e, tagMap, undefined, v),
+                outName,
+            };
         }
     }
 
