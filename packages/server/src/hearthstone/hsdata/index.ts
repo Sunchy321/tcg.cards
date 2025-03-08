@@ -37,7 +37,7 @@ function hasData(): boolean {
 }
 
 export interface ITag {
-    index: keyof IEntity;
+    index: keyof IEntity | 'multiClass';
     bool?: true;
     array?: true;
     enum?: string | true;
@@ -115,6 +115,22 @@ export class DataLoader extends Task<ILoaderStatus> {
             count += 1;
 
             this.emit('progress', { type: 'load', count, total });
+        }
+
+        const patches = await Patch.find();
+
+        const maxVersion = Math.max(...patches.map(p => p.number));
+
+        for (const p of patches) {
+            if (p.isCurrent && p.number !== maxVersion) {
+                p.isCurrent = false;
+
+                await p.save();
+            } else if (!p.isCurrent && p.number === maxVersion) {
+                p.isCurrent = true;
+
+                await p.save();
+            }
         }
     }
 
@@ -245,8 +261,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     return 'set';
                 case 'class':
                     return 'class';
-                case 'multiClass':
-                    return 'multiclass';
                 case 'type':
                     return 'type';
                 case 'race':
@@ -434,6 +448,11 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         await oe.save();
                         entitySaved = true;
                         break;
+                    } else if (oJson.powers == null && eJson.powers != null && isEqual(omit(oJson, 'powers'), omit(eJson, 'powers'))) {
+                        oe.version = uniq([...oe.version, e.version[0]]).sort((a, b) => a - b);
+                        await oe.save();
+                        entitySaved = true;
+                        break;
                     }
                 }
 
@@ -448,6 +467,11 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         patch.isUpdated = true;
 
         await patch.save();
+
+        if (patch.isCurrent) {
+            await Entity.updateMany({}, { isCurrent: false });
+            await Entity.updateMany({ version: patch.number }, { isCurrent: true });
+        }
 
         logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
     }
@@ -509,7 +533,24 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     const field = fields[id];
 
-                    if (field != null) {
+                    if (field?.index === 'multiClass') {
+                        const classMap = this.getMapData<string>('class');
+
+                        const classes = [];
+
+                        for (const [k, v] of Object.entries(classMap)) {
+                            const num = Number.parseInt(k, 10) - 1;
+
+                            // eslint-disable-next-line no-bitwise
+                            if ((value & (1 << num)) !== 0) {
+                                classes.push(v);
+                            }
+                        }
+
+                        result.classes = classes;
+
+                        continue;
+                    } else if (field != null) {
                         try {
                             const tagValue = this.getValue(t, field);
 
@@ -552,7 +593,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     const dualRace = this.getMapData<string>('dual-race')[id];
 
                     if (dualRace != null) {
-                        result.race!.push(dualRace);
+                        if (result.race != null) {
+                            result.race!.push(dualRace);
+                        } else {
+                            loadPatch.info(`${result.entityId} has dual-race but no race`);
+                        }
+
                         continue;
                     }
 

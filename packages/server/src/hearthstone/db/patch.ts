@@ -10,6 +10,11 @@ const PatchSchema = new Schema<IPatch>({
     number:    Number,
     hash:      String,
 
+    isCurrent: {
+        type:    Boolean,
+        default: false,
+    },
+
     isUpdated: {
         type:    Boolean,
         default: false,

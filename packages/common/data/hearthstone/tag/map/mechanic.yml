@@ -77,6 +77,7 @@
 463:  ?boss_king_krush # only on boss King Krush
 469:  defining_enchantment
 470:  finish_attack_spell_on_damage
+480:  multi_class_rendering
 481:  cost_health
 482:  grimy_goons
 483:  jade_lotus

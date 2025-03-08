@@ -109,6 +109,7 @@
 - mercenaries_skill_level
 - min_sideboard_cards
 - mouse_over_card_appearance
+- multi_class_rendering
 - one_turn_taunt
 - overload
 - overload_owed

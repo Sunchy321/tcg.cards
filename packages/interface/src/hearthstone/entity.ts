@@ -67,7 +67,6 @@ export interface Entity {
     heroPower?: string;
     heroicHeroPower?: string;
 
-    multipleClasses: number;
     deckOrder: number;
     overrideWatermark: string;
     deckSize?: number;
