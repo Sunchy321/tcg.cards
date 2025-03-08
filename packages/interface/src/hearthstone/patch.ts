@@ -3,5 +3,6 @@ export interface Patch {
     shortName: string;
     number: number;
     hash: string;
+    isCurrent: boolean;
     isUpdated: boolean;
 }

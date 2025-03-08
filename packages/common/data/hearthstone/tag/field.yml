@@ -41,10 +41,7 @@
 380:
     index: 'heroPower'
 476:
-    index: 'multipleClasses'
-480:
-    index: 'classes'
-    enum: 'multiClass'
+    index: 'multiClass'
 997:
     index: 'deckSize'
 1125:
