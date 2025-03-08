@@ -13,13 +13,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-
 import controlSetup from 'src/setup/control';
+import pageSetup from 'src/setup/page';
 
 const { controlPost } = controlSetup();
 
-const version = ref(0);
+const { version } = pageSetup({
+    params: {
+        version: {
+            type:    'number',
+            bind:    'query',
+            default: 0,
+        },
+    },
+
+    appendParam: true,
+});
 
 const createPatchJson = async () => {
     const { data } = await controlPost('/hearthstone/apollo/create-patch-json', {
