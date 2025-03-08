@@ -4,26 +4,8 @@ import conn from './db';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
-import { ITag } from '@/hearthstone/hsdata';
-
-type TagMap = {
-    field: Record<number, ITag>;
-    type: Record<number, string>;
-    race: Record<number, string>;
-    dualRace: Record<number, string>;
-    spellSchool: Record<number, string>;
-    rune: Record<number, string>;
-    set: Record<number, string>;
-    rarity: Record<number, string>;
-    mechanic: Record<number, string>;
-};
-
-type Methods = {
-    intoTags(tagMap: TagMap): Record<number, number>;
-};
-
 // eslint-disable-next-line @typescript-eslint/ban-types
-const EntitySchema = new Schema<IEntity, Model<IEntity>, Methods, {}, {}, {}, '$type'>({
+const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'>({
     version: [Number],
 
     entityId: String,
@@ -113,7 +95,6 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, Methods, {}, {}, {}, '$
     heroPower:       String,
     heroicHeroPower: String,
 
-    multipleClasses:   Number,
     deckOrder:         Number,
     overrideWatermark: String,
     deckSize:          Number,
@@ -128,68 +109,6 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, Methods, {}, {}, {}, '$
             delete ret.__v;
 
             return ret;
-        },
-    },
-    methods: {
-        intoTags(tagMap: TagMap) {
-            const tags: Record<number, number> = {};
-
-            const {
-                field, type, race, dualRace, spellSchool, rune, set, rarity, mechanic,
-            } = tagMap;
-
-            const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
-
-            const invertFind = (map: Record<number, string>, value: string) => Number.parseInt(Object.entries(map).find(v => v[1] === value)![0], 10);
-
-            tags[fieldKey('type')] = invertFind(type, this.type);
-            tags[fieldKey('cost')] = this.cost ?? 0;
-            tags[fieldKey('attack')] = this.attack ?? 0;
-            tags[fieldKey('health')] = this.health ?? 0;
-            tags[fieldKey('durability')] = this.durability ?? 0;
-            tags[fieldKey('armor')] = this.armor ?? 0;
-
-            if (this.race != null) {
-                tags[fieldKey('race')] = invertFind(race, this.race[0]);
-
-                for (const [k, v] of Object.entries(dualRace)) {
-                    tags[Number.parseInt(k, 10)] = this.race[1] === v ? 1 : 0;
-                }
-            } else {
-                tags[fieldKey('race')] = 0;
-
-                for (const [k, v] of Object.entries(dualRace)) {
-                    tags[Number.parseInt(k, 10)] = 0;
-                }
-            }
-
-            if (this.spellSchool != null) {
-                tags[fieldKey('spellSchool')] = invertFind(spellSchool, this.spellSchool);
-            } else {
-                tags[fieldKey('spellSchool')] = 0;
-            }
-
-            tags[fieldKey('set')] = invertFind(set, this.set);
-
-            if (this.rarity != null) {
-                tags[fieldKey('rarity')] = invertFind(rarity, this.rarity!);
-            }
-
-            tags[fieldKey('elite')] = this.elite ? 1 : 0;
-            tags[fieldKey('techLevel')] = this.techLevel ?? 0;
-
-            tags[invertFind(rune, 'blood')] = this.rune?.includes('blood') ? 1 : 0;
-            tags[invertFind(rune, 'frost')] = this.rune?.includes('frost') ? 1 : 0;
-            tags[invertFind(rune, 'unholy')] = this.rune?.includes('unholy') ? 1 : 0;
-            tags[invertFind(mechanic, 'tradable')] = this.mechanics.includes('tradable') ? 1 : 0;
-            tags[invertFind(mechanic, 'forge')] = this.mechanics.includes('forge') ? 1 : 0;
-            tags[invertFind(mechanic, 'hide_cost')] = this.mechanics.includes('hide_cost') ? 1 : 0;
-            tags[invertFind(mechanic, 'hide_attack')] = this.mechanics.includes('hide_attack') ? 1 : 0;
-            tags[invertFind(mechanic, 'hide_health')] = this.mechanics.includes('hide_health') ? 1 : 0;
-            tags[invertFind(mechanic, 'in_mini_set')] = this.mechanics.includes('in_mini_set') ? 1 : 0;
-            tags[invertFind(mechanic, 'hide_watermark')] = this.mechanics.includes('hide_watermark') ? 1 : 0;
-
-            return tags;
         },
     },
 });
