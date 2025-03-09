@@ -48,6 +48,10 @@ export default {
         booster: 'Boosters',
     },
 
+    'cr': {
+        'copy-text': 'CR text copied to clipboard',
+    },
+
     'misc': {
         '$self':   'Miscellaneous',
         'symbol':  'Symbols',

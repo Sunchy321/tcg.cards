@@ -48,6 +48,10 @@ export default {
         booster: '补充包',
     },
 
+    'cr': {
+        'copy-text': 'CR文本已复制到剪贴板',
+    },
+
     'misc': {
         '$self':   '杂项',
         'symbol':  '符号',

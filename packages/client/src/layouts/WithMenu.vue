@@ -16,13 +16,18 @@
 
         <q-page-container>
             <q-ajax-bar />
-            <router-view ref="main" v-model:selected="selected" v-model:expanded="expanded" @update:menu="updateMenu" />
+            <router-view
+                ref="main"
+                v-model:selected="selected"
+                v-model:expanded="expanded"
+                @update:menu="updateMenu"
+            />
         </q-page-container>
     </q-layout>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref } from 'vue';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import AppHeader from 'components/Header.vue';
 
@@ -32,26 +37,12 @@ export interface Menu {
     children?: Menu[];
 }
 
-export default defineComponent({
-    components: { AppHeader },
+const drawerOpen = ref(false);
 
-    setup() {
-        const drawerOpen = ref(false);
+const menu = ref<Menu[]>([]);
+const selected = ref<string | null>(null);
+const expanded = ref<string[]>([]);
 
-        const menu = ref<Menu[]>([]);
-        const selected = ref<string | null>(null);
-        const expanded = ref<string[]>([]);
+const updateMenu = (newMenu: Menu[]) => { menu.value = newMenu; };
 
-        const updateMenu = (newMenu: Menu[]) => { menu.value = newMenu; };
-
-        return {
-            drawerOpen,
-            menu,
-            selected,
-            expanded,
-
-            updateMenu,
-        };
-    },
-});
 </script>
