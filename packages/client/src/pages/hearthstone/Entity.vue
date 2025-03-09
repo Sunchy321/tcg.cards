@@ -52,6 +52,8 @@
                     size="12px"
                     color="primary"
                     text-color="white"
+                    clickable
+                    @click="copyTag(m)"
                 >
                     {{ mechanicText(m) }}
                 </q-chip>
@@ -63,6 +65,8 @@
                     size="12px"
                     color="secondary"
                     text-color="white"
+                    clickable
+                    @click="copyTag(r)"
                 >
                     {{ mechanicText(r) }}
                 </q-chip>
@@ -127,6 +131,7 @@ import CardImage from 'components/hearthstone/CardImage.vue';
 import { Entity } from 'interface/hearthstone/entity';
 
 import { omitBy } from 'lodash';
+import { copyToClipboard, Notify } from 'quasar';
 
 import { apiBase, apiGet } from 'boot/server';
 
@@ -334,6 +339,16 @@ const mechanicText = (m: string) => {
     } else {
         return i18n.t(`hearthstone.tag.${m}`);
     }
+};
+
+const copyTag = async (tag: string) => {
+    const tagName = /^[^:]+(:|$)/.exec(tag)![0];
+
+    console.log(tagName);
+
+    await copyToClipboard(tagName);
+
+    Notify.create(i18n.t('hearthstone.ui.entity.copy-tag'));
 };
 
 // watches
