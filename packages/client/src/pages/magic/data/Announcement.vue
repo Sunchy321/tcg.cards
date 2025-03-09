@@ -170,7 +170,7 @@
                             class="q-ml-sm score-input"
                             type="number"
                             :model-value="scoreFor(b)"
-                            min="0" max="8"
+                            min="0" max="15"
                             flat dense outlined
                             @update:model-value="v => updateScoreFor(b, v as number)"
                         >
@@ -404,10 +404,6 @@ const scoreFor = (banlist: BanlistItem) => {
 
 const updateScoreFor = (banlist: BanlistItem, value: number | string) => {
     value = typeof value === 'string' ? Number.parseInt(value, 10) : value;
-
-    if (value < 0 || value > 8) {
-        return;
-    }
 
     if (value === 0) {
         banlist.status = 'legal';
