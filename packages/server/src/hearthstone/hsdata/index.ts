@@ -437,10 +437,13 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 }
 
                 const eJson = omit(new Entity(e).toJSON(), ['version']);
+                const oldJsons = oldData
+                    .filter(o => o.entityId === e.entityId)
+                    .sort((a, b) => b.version[0] - a.version[0]);
 
                 let entitySaved = false;
 
-                for (const oe of oldData.filter(o => o.entityId === e.entityId)) {
+                for (const oe of oldJsons) {
                     const oJson = omit(oe.toJSON(), ['version']);
 
                     if (isEqual(oJson, eJson)) {
