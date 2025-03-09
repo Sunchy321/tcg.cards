@@ -24,7 +24,7 @@ const { status } = defineProps<{
 
 const score = computed(() => {
     if (status.startsWith('score-')) {
-        return status.slice('score-'.length);
+        return Number.parseInt(status.slice('score-'.length), 10);
     } else {
         return null;
     }
@@ -52,7 +52,11 @@ const icon = computed(() => {
         return 'mdi-cancel';
     default:
         if (score.value != null) {
-            return `mdi-numeric-${score.value}-circle-outline`;
+            if (score.value > 9) {
+                return 'mdi-numeric-9-plus-circle-outline';
+            } else {
+                return `mdi-numeric-${score.value}-circle-outline`;
+            }
         } else {
             return 'mdi-help-circle-outline';
         }
