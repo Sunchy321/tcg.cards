@@ -12,7 +12,6 @@ import { main } from '@/logger';
 import subdomain from '@/middlewares/subdomain';
 
 import api from '@/api';
-import img from '@/image';
 import user from '@/user/router';
 import control from '@/control';
 import asset from '@/asset';
@@ -32,7 +31,6 @@ app
     .use(logger())
     .use(websocket())
     .use(subdomain('api', api))
-    .use(subdomain('image', img))
     .use(subdomain('asset', asset))
     .use(subdomain('user', user))
     .use(subdomain('control', control))
