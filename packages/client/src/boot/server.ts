@@ -5,7 +5,6 @@ function base(subdomain: string) {
 }
 
 export const apiBase = base('api');
-export const imageBase = base('image');
 export const assetBase = base('asset');
 export const userBase = base('user');
 export const controlBase = base('control');

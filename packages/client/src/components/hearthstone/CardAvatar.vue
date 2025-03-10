@@ -16,8 +16,6 @@ import CardImage from './CardImage.vue';
 
 import entityProfile, { EntityProfile } from 'src/common/hearthstone/entity';
 
-import { imageBase } from 'boot/server';
-
 const props = withDefaults(defineProps<{
     cardId: string;
     format?: string;
@@ -62,27 +60,6 @@ const name = computed(() => {
                 ?? localizations[0];
 
     return localization.name;
-});
-
-const imageUrl = computed(() => {
-    const url = new URL('/hearthstone/entity', imageBase);
-
-    const params: any = { };
-
-    params.id = props.cardId;
-    params.lang = hearthstone.locale;
-
-    if (props.version !== 0) {
-        params.version = props.version;
-    }
-
-    if (props.format != null) {
-        params.format = props.format;
-    }
-
-    url.search = new URLSearchParams(params).toString();
-
-    return url.toString();
 });
 
 const loadData = async () => entityProfile.get(

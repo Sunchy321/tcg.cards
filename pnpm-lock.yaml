@@ -6,7 +6,7 @@ settings:
 
 patchedDependencies:
   '@types/koa-bodyparser@4.3.8':
-    hash: dzyw22cy65irz6dpcdeua4yrtm
+    hash: d8dfe7f9b83c935a79d15bd457535e33a1f627780a8f8928345bf71a27772ae9
     path: patches/@types__koa-bodyparser@4.3.8.patch
 
 importers:
@@ -36,9 +36,6 @@ importers:
       card-searcher:
         specifier: workspace:^0.0.1
         version: link:../searcher
-      copy-to-clipboard:
-        specifier: ^3.3.1
-        version: 3.3.2
       debounce-promise:
         specifier: ^3.1.2
         version: 3.1.2
@@ -483,7 +480,7 @@ importers:
         version: 2.13.5
       '@types/koa-bodyparser':
         specifier: ^4.3.8
-        version: 4.3.8(patch_hash=dzyw22cy65irz6dpcdeua4yrtm)
+        version: 4.3.8(patch_hash=d8dfe7f9b83c935a79d15bd457535e33a1f627780a8f8928345bf71a27772ae9)
       '@types/koa-compress':
         specifier: ^4.0.3
         version: 4.0.3
@@ -3024,9 +3021,6 @@ packages:
     resolution: {integrity: sha512-8aPsApQfebXnuI+537McwYsDtjVxGm8gTIzQI3FDW6t5t/DAhERxtnbEPN/8RX+uZthoz4eCOgloXaE5cYyNow==}
     engines: {node: '>= 0.8'}
 
-  copy-to-clipboard@3.3.2:
-    resolution: {integrity: sha512-Vme1Z6RUDzrb6xAI7EZlVZ5uvOk2F//GaxKUxajDqm9LhOVM1inxNAD2vy+UZDYsd0uyA9s7b3/FVZPSxqrCfg==}
-
   copy-webpack-plugin@10.2.4:
     resolution: {integrity: sha512-xFVltahqlsRcyyJqQbDY6EYTtyQZF9rf+JPjwHObLdPFMEISqkFkr7mFoVOC6BfYS/dNThyoQKvziugm+OnwBg==}
     engines: {node: '>= 12.20.0'}
@@ -3739,6 +3733,7 @@ packages:
   eslint@8.56.0:
     resolution: {integrity: sha512-Go19xM6T9puCOWntie1/P997aXxFsOi37JIHRWI514Hc6ZnaHGKY9xFhrU65RT6CcBEzZoGG1e6Nq+DT04ZtZQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   espree@9.4.0:
@@ -4792,6 +4787,7 @@ packages:
 
   lodash.isequal@4.5.0:
     resolution: {integrity: sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==}
+    deprecated: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
 
   lodash.isinteger@4.0.4:
     resolution: {integrity: sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==}
@@ -4819,6 +4815,7 @@ packages:
 
   lodash.template@4.5.0:
     resolution: {integrity: sha512-84vYFxIkmidUiFxidA/KjjH9pAycqW+h980j7Fuz5qxRtO9pgB7MDFTdys1N7A5mcucRiDyEq4fusljItR1T/A==}
+    deprecated: This package is deprecated. Use https://socket.dev/npm/package/eta instead.
 
   lodash.templatesettings@4.2.0:
     resolution: {integrity: sha512-stgLz+i3Aa9mZgnjr/O+v9ruKZsPsndy7qPZOchbqk2cnTU1ZaldKK+v7m54WoKIyxiuMZTKT2H81F8BeAc3ZQ==}
@@ -6542,9 +6539,6 @@ packages:
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
-
-  toggle-selection@1.0.6:
-    resolution: {integrity: sha512-BiZS+C1OS8g/q2RRbJmy59xpyghNBqrr6k5L/uKBGRsTfxmu3ffiRnd8mlGPUVayg8pvfi5urfnu8TU7DVOkLQ==}
 
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
@@ -8766,7 +8760,7 @@ snapshots:
 
   '@types/keygrip@1.0.2': {}
 
-  '@types/koa-bodyparser@4.3.8(patch_hash=dzyw22cy65irz6dpcdeua4yrtm)':
+  '@types/koa-bodyparser@4.3.8(patch_hash=d8dfe7f9b83c935a79d15bd457535e33a1f627780a8f8928345bf71a27772ae9)':
     dependencies:
       '@types/koa': 2.13.5
 
@@ -9914,10 +9908,6 @@ snapshots:
     dependencies:
       depd: 2.0.0
       keygrip: 1.1.0
-
-  copy-to-clipboard@3.3.2:
-    dependencies:
-      toggle-selection: 1.0.6
 
   copy-webpack-plugin@10.2.4(webpack@5.74.0(esbuild@0.15.10)):
     dependencies:
@@ -13812,8 +13802,6 @@ snapshots:
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
-
-  toggle-selection@1.0.6: {}
 
   toidentifier@1.0.1: {}
 

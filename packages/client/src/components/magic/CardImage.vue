@@ -1,6 +1,6 @@
 <template>
     <div
-        v-scroll-fire="visible = true"
+        v-scroll-fire="() => visible = true"
         class="card-image"
     >
         <div
@@ -84,7 +84,7 @@ import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
-import { imageBase } from 'boot/server';
+import { assetBase } from 'boot/server';
 
 export default defineComponent({
     props: {
@@ -150,16 +150,16 @@ export default defineComponent({
         const imageUrls = computed(() => {
             if (turnable.value) {
                 return [
-                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=0`,
-                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}&part=1`,
+                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.jpg`,
+                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.jpg`,
                 ];
             } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
                 return [
-                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number.split('-')[0]}`,
+                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.jpg`,
                 ];
             } else {
                 return [
-                    `${imageBase}/magic/card?auto-locale&lang=${props.lang}&set=${props.set}&number=${props.number}`,
+                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}.jpg`,
                 ];
             }
         });

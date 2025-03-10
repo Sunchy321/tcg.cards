@@ -76,7 +76,7 @@ import { Set as ISet } from 'interface/magic/set';
 
 import setProfile from 'src/common/magic/set';
 import {
-    apiGet, apiBase, imageBase, assetBase,
+    apiGet, apiBase, assetBase,
 } from 'boot/server';
 
 type Set = Omit<ISet, 'localization'> & {
@@ -150,10 +150,10 @@ const iconUrl = (rarity: string) => {
         parent.value != null && type.value != null
                 && ['promo', 'token', 'memorabilia', 'funny'].includes(type.value)
     ) {
-        return `${imageBase}/magic/set/icon?auto-adjust&set=${parent.value}&rarity=${rarity}`;
+        return `${assetBase}/magic/set/icon/${parent.value}/${rarity}.svg`;
     }
 
-    return `${imageBase}/magic/set/icon?auto-adjust&set=${id.value}&rarity=${rarity}`;
+    return `${assetBase}/magic/set/icon/${id.value}/${rarity}.svg`;
 };
 
 watch(() => id.value, loadData, { immediate: true });
