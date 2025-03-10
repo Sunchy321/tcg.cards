@@ -21,7 +21,7 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, print: { set, number, lang, layout, partIndex }}"
+                v-slot="{ cardId, print: { set, number, lang, layout, partIndex, imageStatus }}"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
@@ -33,7 +33,7 @@
                     <card-image
                         :set="set"
                         :number="number"
-                        :lang="lang"
+                        :lang="imageLang(lang, imageStatus, set)"
                         :layout="layout"
                         :part="partIndex"
                     />
@@ -163,6 +163,14 @@ const cards = computed(() => data.value?.result?.cards ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
+
+const imageLang = (lang: string, imageStatus: string, set: string) => {
+    if (imageStatus !=='placeholder') {
+        return lang;
+    }
+
+    return 'en';
+};
 
 const doSearch = async () => {
     if (q.value == null || q.value === '') {

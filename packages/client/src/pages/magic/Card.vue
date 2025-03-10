@@ -5,7 +5,7 @@
                 v-if="data != null"
                 v-model:part="partIndex"
                 v-model:rotate="rotate"
-                :lang="lang"
+                :lang="imageLang"
                 :set="set"
                 :number="number"
                 :layout="layout"
@@ -259,7 +259,7 @@ import {
 } from 'lodash';
 
 import setProfile, { SetProfile } from 'src/common/magic/set';
-import { apiGet, apiBase, imageBase } from 'boot/server';
+import { apiGet, apiBase, assetBase } from 'boot/server';
 
 import { auxSetType } from 'static/magic/special';
 
@@ -379,7 +379,7 @@ const setInfos = computed(() => sets.value.map(s => {
         langs:           uniq(setVersions.map(v => v.lang)),
         numbers,
         rarity,
-        iconUrl:         `${imageBase}/magic/set/icon?auto-adjust&set=${iconSet}&rarity=${rarity}`,
+        iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
         name:            name?.[magic.locale] ?? name?.[magic.locales[0]] ?? '',
         symbolStyle:     profile?.symbolStyle,
         doubleFacedIcon: profile?.doubleFacedIcon,
@@ -441,6 +441,20 @@ const lang = computed({
 });
 
 const langWithMode = computed(() => (textMode.value === 'oracle' ? 'en' : lang.value));
+
+const imageLang = computed(() => {
+    if (data.value == null) {
+        return lang.value;
+    }
+
+    if (data.value.imageStatus !== 'placeholder') {
+        return lang.value;
+    }
+
+    const setInfo = setInfos.value.find(i => i.set === set.value);
+
+    return setInfo?.langs?.[0] ?? 'en';
+})
 
 const langInfos = computed(() => langs.value.map(l => ({
     lang:    l,

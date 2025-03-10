@@ -27,7 +27,7 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import { imageBase, apiGet } from 'boot/server';
+import { assetBase, apiGet } from 'boot/server';
 
 export default defineComponent({
     setup() {
@@ -64,9 +64,9 @@ export default defineComponent({
             const [number, part] = name.split('-');
 
             if (part != null) {
-                return `${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}&part=${part}`;
+                return `${assetBase}/magic/card/large/${set.value}/${lang.value}/${number}-${part}.jpg`;
             } else {
-                return `${imageBase}/magic/card?lang=${lang.value}&set=${set.value}&number=${number}`;
+                return `${assetBase}/magic/card/large/${set.value}/${lang.value}/${number}.jpg`;
             }
         }));
 

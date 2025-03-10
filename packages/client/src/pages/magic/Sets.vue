@@ -37,7 +37,7 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import { apiGet, imageBase } from 'boot/server';
+import { apiGet, assetBase } from 'boot/server';
 
 import setProfile, { SetProfile, SetLocalization } from 'src/common/magic/set';
 import { isEqual, partition } from 'lodash';
@@ -196,7 +196,7 @@ export default defineComponent({
                 return undefined;
             }
 
-            return `${imageBase}/magic/set/icon?auto-adjust&set=${set}&rarity=default`;
+            return `${assetBase}/magic/set/icon/${set}/default.svg`;
         };
 
         watch(sets, loadProfile);
