@@ -70,6 +70,14 @@
             </q-list>
             <q-list class="col" bordered separator>
                 <q-item>
+                    <q-item-section>Print</q-item-section>
+                    <q-item-section side>
+                        {{ database.print }}
+                    </q-item-section>
+                </q-item>
+            </q-list>
+            <q-list class="col" bordered separator>
+                <q-item>
                     <q-item-section>Set</q-item-section>
                     <q-item-section side>
                         {{ database.set }}
@@ -87,9 +95,9 @@
     </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import {
-    defineComponent, ref, computed, onMounted, watch,
+    ref, computed, onMounted, watch,
 } from 'vue';
 
 import controlSetup from 'setup/control';
@@ -110,6 +118,7 @@ interface Scryfall {
 
 interface Database {
     card: number;
+    print: number;
     set: number;
 }
 
@@ -153,174 +162,151 @@ function formatTime(time: number) {
     return result;
 }
 
-export default defineComponent({
-    name: 'DataScryfall',
+const { controlGet, controlWs } = controlSetup();
 
-    setup() {
-        const { controlGet, controlWs } = controlSetup();
+const bulk = ref<BulkList>({ allCard: [], ruling: [] });
+const scryfall = ref<Scryfall>({ card: 0, ruling: 0, set: 0 });
+const database = ref<Database>({ card: 0, print: 0, set: 0 });
 
-        const bulk = ref<BulkList>({ allCard: [], ruling: [] });
-        const scryfall = ref<Scryfall>({ card: 0, ruling: 0, set: 0 });
-        const database = ref<Database>({ card: 0, set: 0 });
+const bulkAllCard = ref<string>('');
+const bulkRuling = ref<string>('');
 
-        const bulkAllCard = ref<string>('');
-        const bulkRuling = ref<string>('');
+const progress = ref<Progress | null>(null);
 
-        const progress = ref<Progress | null>(null);
+const progressValue = computed(() => {
+    const prog = progress.value;
 
-        const progressValue = computed(() => {
-            const prog = progress.value;
+    if (prog?.amount?.total != null) {
+        return prog.amount.count / prog.amount.total;
+    } else {
+        return undefined;
+    }
+});
 
-            if (prog?.amount?.total != null) {
-                return prog.amount.count / prog.amount.total;
-            } else {
-                return undefined;
+const progressLabel = computed(() => {
+    const prog = progress.value;
+
+    if (prog != null) {
+        let result = '';
+
+        result += `[${prog.method}] ${prog.type}: `;
+
+        if (prog.method === 'get' && !['set', 'image'].includes(prog.type)) {
+            result += bytes(prog.amount.count);
+
+            if (prog.amount.total != null) {
+                result += `/${bytes(prog.amount.total)}`;
             }
-        });
-
-        const progressLabel = computed(() => {
-            const prog = progress.value;
-
-            if (prog != null) {
-                let result = '';
-
-                result += `[${prog.method}] ${prog.type}: `;
-
-                if (prog.method === 'get' && !['set', 'image'].includes(prog.type)) {
-                    result += bytes(prog.amount.count);
-
-                    if (prog.amount.total != null) {
-                        result += `/${bytes(prog.amount.total)}`;
-                    }
-                } else {
-                    if (prog.amount.updated != null) {
-                        result += `${prog.amount.updated},`;
-                    }
-
-                    result += prog.amount.count;
-
-                    if (prog.amount.total != null) {
-                        result += `/${prog.amount.total}`;
-                    }
-                }
-
-                if (prog.time != null) {
-                    result += ` (${formatTime(prog.time.remaining)})`;
-                }
-
-                return result;
-            } else {
-                return '';
+        } else {
+            if (prog.amount.updated != null) {
+                result += `${prog.amount.updated},`;
             }
-        });
 
-        const loadData = async () => {
-            const { data } = await controlGet<{
-                bulk: BulkList;
-                scryfall: Scryfall;
-                database: Database;
-            }>('/magic/scryfall');
+            result += prog.amount.count;
 
-            bulk.value = data.bulk;
-            scryfall.value = data.scryfall;
-            database.value = data.database;
+            if (prog.amount.total != null) {
+                result += `/${prog.amount.total}`;
+            }
+        }
+
+        if (prog.time != null) {
+            result += ` (${formatTime(prog.time.remaining)})`;
+        }
+
+        return result;
+    } else {
+        return '';
+    }
+});
+
+const loadData = async () => {
+    const { data } = await controlGet<{
+        bulk: BulkList;
+        scryfall: Scryfall;
+        database: Database;
+    }>('/magic/scryfall');
+
+    bulk.value = data.bulk;
+    scryfall.value = data.scryfall;
+    database.value = data.database;
+};
+
+const getBulk = async () => {
+    const ws = controlWs('/magic/scryfall/get-bulk');
+
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            progress.value = JSON.parse(data) as Progress;
         };
 
-        const getBulk = async () => {
-            const ws = controlWs('/magic/scryfall/get-bulk');
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            void loadData();
 
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    progress.value = JSON.parse(data) as Progress;
-                };
+            resolve(undefined);
+        };
+    });
+};
 
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    void loadData();
+const loadCard = async (file: string) => {
+    const ws = controlWs('/magic/scryfall/load-card', { file });
 
-                    resolve(undefined);
-                };
-            });
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            progress.value = JSON.parse(data) as Progress;
         };
 
-        const loadCard = async (file: string) => {
-            const ws = controlWs('/magic/scryfall/load-card', { file });
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            void loadData();
 
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    progress.value = JSON.parse(data) as Progress;
-                };
+            resolve(undefined);
+        };
+    });
+};
 
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    void loadData();
+const loadRuling = async (file: string) => {
+    const ws = controlWs('/magic/scryfall/load-ruling', { file });
 
-                    resolve(undefined);
-                };
-            });
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            progress.value = JSON.parse(data) as Progress;
         };
 
-        const loadRuling = async (file: string) => {
-            const ws = controlWs('/magic/scryfall/load-ruling', { file });
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            void loadData();
 
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    progress.value = JSON.parse(data) as Progress;
-                };
+            resolve(undefined);
+        };
+    });
+};
 
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    void loadData();
+const getSet = async () => {
+    const ws = controlWs('/magic/scryfall/get-set');
 
-                    resolve(undefined);
-                };
-            });
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            progress.value = JSON.parse(data) as Progress;
         };
 
-        const getSet = async () => {
-            const ws = controlWs('/magic/scryfall/get-set');
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            void loadData();
 
-            return new Promise((resolve, reject) => {
-                ws.onmessage = ({ data }) => {
-                    progress.value = JSON.parse(data) as Progress;
-                };
-
-                ws.onerror = reject;
-                ws.onclose = () => {
-                    progress.value = null;
-                    void loadData();
-
-                    resolve(undefined);
-                };
-            });
+            resolve(undefined);
         };
+    });
+};
 
-        onMounted(loadData);
+onMounted(loadData);
 
-        watch(bulk, ({ allCard, ruling }) => {
-            bulkAllCard.value = last(allCard) ?? '';
-            bulkRuling.value = last(ruling) ?? '';
-        });
-
-        return {
-            bulk,
-            database,
-
-            bulkAllCard,
-            bulkRuling,
-
-            progress,
-            progressValue,
-            progressLabel,
-
-            getBulk,
-            loadCard,
-            loadRuling,
-            getSet,
-        };
-    },
+watch(bulk, ({ allCard, ruling }) => {
+    bulkAllCard.value = last(allCard) ?? '';
+    bulkRuling.value = last(ruling) ?? '';
 });
 </script>
