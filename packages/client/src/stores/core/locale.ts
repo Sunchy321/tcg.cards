@@ -2,6 +2,7 @@ import { LocalStorage, QuasarLanguage, useQuasar } from 'quasar';
 
 import {
     ComputedRef, WritableComputedRef, ref, computed,
+    Ref,
 } from 'vue';
 
 import { useI18n } from 'vue-i18n';
@@ -21,7 +22,7 @@ function qLocales() {
 
 export default function useLocale(): {
     locales: ComputedRef<string[]>;
-    locale: WritableComputedRef<string>;
+    locale: Ref<string>;
 } {
     const quasar = useQuasar();
     const i18n = useI18n();

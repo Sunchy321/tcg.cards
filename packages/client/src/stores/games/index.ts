@@ -1,13 +1,13 @@
 import { useMagic } from './magic';
 import { useHearthstone } from './hearthstone';
+import { useLorcana } from './lorcana';
 
-export const games = ['magic', 'hearthstone'] as ['magic', 'hearthstone'];
-
-export type Game = (typeof games)[number];
+import { Game } from 'static/index';
 
 export const gameStores = {
     magic:       useMagic,
     hearthstone: useHearthstone,
+    lorcana:     useLorcana,
 };
 
 export function useGame<G extends Game>(game: G): (typeof gameStores)[G] {

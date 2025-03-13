@@ -10,7 +10,7 @@ import { defineComponent, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { Game } from './stores/games';
+import { Game } from 'static/index';
 
 export default defineComponent({
     name: 'App',

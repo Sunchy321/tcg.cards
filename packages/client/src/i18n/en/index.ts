@@ -1,5 +1,6 @@
 import magic from './magic';
 import hearthstone from './hearthstone';
+import lorcana from './lorcana';
 
 export default {
     lang: {
@@ -90,4 +91,5 @@ export default {
 
     magic,
     hearthstone,
+    lorcana,
 };

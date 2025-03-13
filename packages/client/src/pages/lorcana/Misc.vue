@@ -1,0 +1,55 @@
+<template>
+    <q-page>
+        <q-drawer :model-value="true" :width="200">
+            <q-list>
+                <q-item
+                    v-for="i in items" :key="i.id"
+                    :to="{ name: i.to }"
+                    class="navigation text-black bg-grey-3"
+                >
+                    <q-item-section>{{ $t('magic.ui.misc.' + i.id) }}</q-item-section>
+                    <q-item-section v-if="isCurrent(i.to)" side>
+                        <q-icon name="mdi-menu-right" />
+                    </q-item-section>
+                </q-item>
+            </q-list>
+        </q-drawer>
+
+        <router-view />
+    </q-page>
+</template>
+
+<style lang="sass" scoped>
+.navigation
+    &:hover
+        text-decoration: none
+
+    color: black
+    background-color: $grey-3
+</style>
+
+<script setup lang="ts">
+import { useRouter, useRoute } from 'vue-router';
+
+const router = useRouter();
+const route = useRoute();
+
+const items = [
+    {
+        id: 'symbol',
+        to: 'magic/misc/symbol',
+    },
+    {
+        id: 'keyword',
+        to: 'magic/misc/keyword',
+    },
+];
+
+const isCurrent = (name: string) => {
+    const { path } = route;
+    const target = router.resolve({ name });
+
+    return path === target.path;
+};
+
+</script>

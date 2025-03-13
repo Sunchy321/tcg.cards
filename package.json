@@ -3,5 +3,9 @@
 		"patchedDependencies": {
 			"@types/koa-bodyparser@4.3.8": "patches/@types__koa-bodyparser@4.3.8.patch"
 		}
+	},
+	"devDependencies": {
+		"@typescript-eslint/eslint-plugin": "^7.0.1",
+		"eslint-config-airbnb-base": "^15.0.0"
 	}
 }

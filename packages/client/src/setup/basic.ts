@@ -1,9 +1,10 @@
 import { ComputedRef, computed } from 'vue';
 import { RouteMeta, useRoute } from 'vue-router';
 
+import { Game } from 'static/index';
+
 import { useCore } from 'store/core';
 import { User, useUser } from 'store/user';
-import { Game } from 'store/games';
 
 export default function basicSetup(): {
     games: ComputedRef<Game[]>;

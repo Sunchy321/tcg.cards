@@ -4,7 +4,7 @@ import {
     Ref, computed, ref, watch, isRef,
 } from 'vue';
 
-import { Game, games as constGames } from '../games';
+import { Game, games as constGames } from 'static/index';
 
 import useBoot from './boot';
 import useLocale from './locale';
@@ -50,7 +50,7 @@ export function toRef<T>(value: Value<T>): Ref<T> {
 export const useCore = defineStore('core', () => {
     // games
     const game = ref<Game | null>(null);
-    const games = computed(() => constGames as Game[]);
+    const games = computed(() => constGames as readonly Game[]);
     const isGame = (value: string): value is Game => (constGames as readonly string[]).includes(value);
 
     // locale
@@ -61,7 +61,7 @@ export const useCore = defineStore('core', () => {
     const title = ref('');
     const titleType = ref<TitleType>('text');
 
-    const search = computed({
+    const search: Ref<string> = computed({
         get() { return innerSearch.value; },
         set(newValue: string) { innerSearch.value = newValue ?? ''; },
     });
