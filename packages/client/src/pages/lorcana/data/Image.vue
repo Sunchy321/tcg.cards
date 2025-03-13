@@ -1,11 +1,6 @@
 <template>
     <div class="q-pa-md">
         <div class="row justify-center">
-            <q-btn-toggle
-                v-model="type"
-                outline dense
-                :options="typeOptions"
-            />
 
             <q-btn
                 class="q-ml-md"
@@ -35,8 +30,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 
-import { useRouter, useRoute } from 'vue-router';
-
 import controlSetup from 'setup/control';
 
 interface Progress {
@@ -46,23 +39,9 @@ interface Progress {
     failed: number;
 }
 
-const router = useRouter();
-const route = useRoute();
-
 const { controlWs } = controlSetup();
 
 const progress = ref<Progress | null>(null);
-
-const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
-
-const typeOptions = types.map(t => ({
-    value: t, label: t,
-}));
-
-const type = computed({
-    get() { return route.query.type as string ?? 'large'; },
-    set(newValue: string) { void router.replace({ query: { type: newValue } }); },
-});
 
 const status = computed(() => progress.value?.status ?? {});
 
@@ -71,7 +50,7 @@ const statusKey = computed(() => Object.keys(status.value));
 const getImage = async () => {
     progress.value = null;
 
-    const ws = controlWs('/magic/image/get', { type: type.value });
+    const ws = controlWs('/lorcana/image/get');
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {
