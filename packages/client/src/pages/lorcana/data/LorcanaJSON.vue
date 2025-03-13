@@ -194,7 +194,7 @@ const loadBulk = async () => {
 };
 
 const loadData = async (file: string) => {
-    const ws = controlWs('/lorcana/lorcana-json/load-card', { file });
+    const ws = controlWs('/lorcana/lorcana-json/load-data', { file });
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {

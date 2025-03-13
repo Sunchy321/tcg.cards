@@ -20,7 +20,7 @@ import { toIdentifier } from '@common/util/id';
 import { toCard } from './to-card';
 import { combineCard, mergeCard, mergePrint } from './merge';
 
-import { assetPath } from '@/config';
+import { dataPath } from '@/config';
 import { bulkUpdation } from '@/lorcana/logger';
 
 const bucketSize = 500;
@@ -31,13 +31,13 @@ export default class DataLoader extends Task<Status> {
 
     init(fileName: string): void {
         this.file = fileName;
-        this.filePath = join(assetPath, 'lorcana', 'lorcana-json', `${fileName}.json`);
+        this.filePath = join(dataPath, 'lorcana', 'lorcana-json', `${fileName}.json`);
     }
 
     async startImpl(): Promise<void> {
         bulkUpdation.info('================== LOAD DATA ==================');
 
-        const sets = await Set.find();
+        let sets = await Set.find();
 
         let type = 'set';
         let total = 0;
@@ -119,6 +119,8 @@ export default class DataLoader extends Task<Status> {
 
             count += 1;
         }
+
+        sets = await Set.find();
 
         type = 'card';
         start = Date.now();

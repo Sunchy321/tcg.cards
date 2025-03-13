@@ -14,7 +14,35 @@ type ICardDatabase = WithUpdation<ICard>;
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
-    cost: Number,
+    cost:  Number,
+    color: [String],
+
+    inkwell: Boolean,
+
+    name:     String,
+    typeline: String,
+    text:     String,
+
+    type: {
+        main: String,
+        sub:  [String],
+    },
+
+    localization: [{
+        _id:      false,
+        lang:     String,
+        name:     String,
+        typeline: String,
+        text:     String,
+    }],
+
+    lore:      Number,
+    strength:  Number,
+    willPower: Number,
+    moveCost:  Number,
+
+    id:   Number,
+    code: String,
 
     __updations: [{
         _id:       false,
