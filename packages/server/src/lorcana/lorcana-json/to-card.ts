@@ -43,7 +43,7 @@ export function toCard(
     const loc = {
         name:     data.fullName,
         typeline: [data.type, ...data.subtypes ?? []].join('·'),
-        text:     data.fullText,
+        text:     data.fullTextSections.map(t => t.replace(/\n/g, ' ')).join('\n'),
     };
 
     return {
@@ -90,7 +90,7 @@ export function toCard(
 
             ...loc,
 
-            flavorText: data.flavorText,
+            flavorText: data.flavorText?.replace(/\n(?!—)/g, ' '),
             artist:     data.artistsText,
 
             imageUri: data.images as unknown as Record<string, string>,
