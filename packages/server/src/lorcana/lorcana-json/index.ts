@@ -16,7 +16,6 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { omit, uniq } from 'lodash';
 import { toBucket, toGenerator } from '@/common/to-bucket';
-import { toIdentifier } from '@common/util/id';
 import { toCard } from './to-card';
 import { combineCard, mergeCard, mergePrint } from './merge';
 
@@ -135,14 +134,8 @@ export default class DataLoader extends Task<Status> {
                 return;
             }
 
-            const cardIds = [];
-
-            for (const json of jsons) {
-                cardIds.push(toIdentifier(json.name));
-            }
-
-            const cards = await Card.find({ cardId: { $in: cardIds } });
-            const prints = await Print.find({ cardId: { $in: cardIds } });
+            const cards = await Card.find();
+            const prints = await Print.find();
 
             const cardsToInsert: ICard[] = [];
             const printsToInsert: IPrint[] = [];
