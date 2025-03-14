@@ -15,6 +15,7 @@ import { Status } from '../status';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { omit, uniq } from 'lodash';
+import internalData from '@/internal-data';
 import { toBucket, toGenerator } from '@/common/to-bucket';
 import { toCard } from './to-card';
 import { combineCard, mergeCard, mergePrint } from './merge';
@@ -34,7 +35,7 @@ export default class DataLoader extends Task<Status> {
     }
 
     async startImpl(): Promise<void> {
-        bulkUpdation.info('================== LOAD DATA ==================');
+        bulkUpdation.info('=================== LOAD DATA ===================');
 
         let sets = await Set.find();
 
@@ -66,6 +67,8 @@ export default class DataLoader extends Task<Status> {
         const data = JSON.parse(readFileSync(this.filePath).toString()) as Data;
 
         const lang = data.metadata.language;
+
+        const map = lang === 'en' ? {} : internalData<Record<string, string>>(`lorcana.word-map.${lang}`);
 
         total = Object.keys(data.sets).length;
 
@@ -141,10 +144,10 @@ export default class DataLoader extends Task<Status> {
             const printsToInsert: IPrint[] = [];
 
             for (const json of jsons) {
-                const { card, print } = toCard(json, lang, sets);
+                const { card, print } = toCard(json, lang, sets, map);
 
                 if (lang !== 'en') {
-                    const enPrint = prints.find(p => p.lang === 'en' && p.set === print.set && p.number === print.number);
+                    const enPrint = cards.find(c => c.code === card.code);
 
                     if (enPrint != null) {
                         card.cardId = enPrint.cardId;
@@ -207,7 +210,7 @@ export default class DataLoader extends Task<Status> {
             await Print.insertMany(printsToInsert);
         }
 
-        bulkUpdation.info('============== MERGE CARD COMPLETE =============');
+        bulkUpdation.info('============== LOAD DATA COMPLETE ==============');
     }
 
     stopImpl(): void { /* no-op */ }

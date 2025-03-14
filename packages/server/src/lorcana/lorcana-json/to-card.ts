@@ -8,13 +8,38 @@ import { Card as JCard } from '@interface/lorcana/lorcana-json/card';
 
 import { toIdentifier } from '@common/util/id';
 
+import { bulkUpdation } from '@/lorcana/logger';
+
 type CardPrint = { card: ICard, print: IPrint };
 
 function getId(data: JCard): string {
     return toIdentifier(data.fullName.replace(/ - /, '____'));
 }
 
-export function toCard(data: JCard, lang: string, sets: ISet[]): CardPrint {
+function transform(value: string, lang: string, map: Record<string, string>): string {
+    if (value === '') {
+        return '';
+    }
+
+    const mapped = map[value];
+
+    if (mapped == null) {
+        if (lang !== 'en') {
+            bulkUpdation.error(`Unknown key ${value} for lang ${lang}`);
+        }
+
+        return toIdentifier(value);
+    }
+
+    return toIdentifier(mapped ?? value);
+}
+
+export function toCard(
+    data: JCard,
+    lang: string,
+    sets: ISet[],
+    map: Record<string, string>,
+): CardPrint {
     const loc = {
         name:     data.fullName,
         typeline: [data.type, ...data.subtypes ?? []].join('·'),
@@ -26,7 +51,7 @@ export function toCard(data: JCard, lang: string, sets: ISet[]): CardPrint {
             cardId: getId(data),
 
             cost:  data.cost,
-            color: data.color.split('-').map(v => toIdentifier(v)) as Color[],
+            color: data.color.split('-').map(v => transform(v, lang, map)) as Color[],
 
             inkwell: data.inkwell,
 
@@ -37,8 +62,8 @@ export function toCard(data: JCard, lang: string, sets: ISet[]): CardPrint {
             },
 
             type: {
-                main: toIdentifier(data.type) as MainType,
-                ...data.subtypes != null ? { sub: data.subtypes.map(v => toIdentifier(v)) } : {},
+                main: transform(data.type, lang, map) as MainType,
+                ...data.subtypes != null ? { sub: data.subtypes.map(v => transform(v, lang, map)) } : {},
             },
 
             localization: [{ lang, ...loc }],
