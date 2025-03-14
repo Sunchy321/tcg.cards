@@ -18,7 +18,7 @@
         <div class="info-column">
             <div class="name-line row items-center" :class="effectClass">
                 <div class="name" :lang="langWithMode">
-                    {{ realName }}
+                    {{ mainName }}
                 </div>
 
                 <q-space />
@@ -26,6 +26,9 @@
                 <div v-if="cost != null" class="mana-cost">
                     {{ cost }}
                 </div>
+            </div>
+            <div v-if="subName != null" class="sub-name" :lang="lang">
+                {{ subName }}
             </div>
             <div class="stats-line" :class="effectClass">
                 <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
@@ -409,19 +412,8 @@ const name = computed(() => selectedTextInfo(data.value)?.name);
 const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
 const text = computed(() => selectedTextInfo(data.value)?.text);
 
-const realName = computed(() => {
-    const nameValue = name.value;
-
-    if (nameValue == null) {
-        return undefined;
-    }
-
-    if (nameValue.startsWith('A-')) {
-        return nameValue.slice(2);
-    }
-
-    return nameValue;
-});
+const mainName = computed(() => name?.value?.split('-')?.[0]?.trim());
+const subName = computed(() => name?.value?.split('-')?.[1]?.trim());
 
 const flavorText = computed(() => data.value?.flavorText);
 
@@ -656,7 +648,7 @@ onBeforeRouteLeave((to, from, next) => {
     &.aftermath-1
         transform: rotate(90deg)
 
-.flavor-name
+.sub-name
     font-size: 120%
     color: grey
 
