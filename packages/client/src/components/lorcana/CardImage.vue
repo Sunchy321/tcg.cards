@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { useLorcana } from 'src/stores/games/lorcana';
 
@@ -71,6 +71,14 @@ const imageUrl = computed(() => {
 
     return `${assetBase}/lorcana/card/image/${set}/${lang}/${number}.jpg`;
 });
+
+watch(() => props.layout, () => { innerRotate.value = null; });
+
+watch(() => props.rotate, () => {
+    if (props.rotate != null) {
+        innerRotate.value = props.rotate;
+    }
+}, { immediate: true });
 
 </script>
 

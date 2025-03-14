@@ -454,7 +454,7 @@ const imageLang = computed(() => {
     const setInfo = setInfos.value.find(i => i.set === set.value);
 
     return setInfo?.langs?.[0] ?? 'en';
-})
+});
 
 const langInfos = computed(() => langs.value.map(l => ({
     lang:    l,

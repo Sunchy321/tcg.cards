@@ -35,6 +35,11 @@ const routes = [
                 name:      'setting/hearthstone',
                 component: async () => import('pages/setting/Hearthstone.vue'),
             },
+            {
+                path:      'lorcana',
+                name:      'setting/lorcana',
+                component: async () => import('pages/setting/Lorcana.vue'),
+            },
         ],
     },
 

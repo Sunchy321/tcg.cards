@@ -35,10 +35,10 @@
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
-                {{ text }}
+                <lorcana-text>{{ text }}</lorcana-text>
             </div>
             <div v-if="flavorText != null" class="flavor-text auto-align" :class="effectClass" :lang="lang">
-                <magic-text detect-emph>{{ flavorText }}</magic-text>
+                <lorcana-text>{{ flavorText }}</lorcana-text>
             </div>
 
             <div class="links flex q-gutter-md">
@@ -134,7 +134,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
-import { useMagic, TextMode, textModes } from 'store/games/magic';
+import { useLorcana, TextMode, textModes } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import basicSetup from 'setup/basic';
@@ -142,7 +142,7 @@ import lorcanaSetup from 'setup/lorcana';
 import pageSetup from 'setup/page';
 
 import CardImage from 'components/lorcana/CardImage.vue';
-import MagicText from 'components/magic/Text.vue';
+import LorcanaText from 'components/lorcana/Text.vue';
 
 import { CardPrintView } from 'common/model/lorcana/card';
 
@@ -150,14 +150,12 @@ import {
     mapValues, omitBy, uniq,
 } from 'lodash';
 
-import setProfile, { SetProfile } from 'src/common/magic/set';
-import { apiGet, apiBase, assetBase } from 'boot/server';
-
-import { auxSetType } from 'static/magic/special';
+import setProfile, { SetProfile } from 'src/common/lorcana/set';
+import { apiGet, apiBase } from 'boot/server';
 
 const router = useRouter();
 const route = useRoute();
-const magic = useMagic();
+const lorcana = useLorcana();
 const i18n = useI18n();
 const { isAdmin } = basicSetup();
 
@@ -168,13 +166,13 @@ const rotate = ref<boolean | null>(null);
 const setProfiles = ref<Record<string, SetProfile>>({});
 
 const textMode = computed({
-    get() { return magic.textMode; },
-    set(newValue: TextMode) { magic.textMode = newValue; },
+    get() { return lorcana.textMode; },
+    set(newValue: TextMode) { lorcana.textMode = newValue; },
 });
 
 const textModeOptions = computed(() => textModes.map(v => ({
     value: v,
-    label: i18n.t(`magic.card.text-mode.${v}`),
+    label: i18n.t(`lorcana.card.text-mode.${v}`),
 })));
 
 // data fields
@@ -256,30 +254,27 @@ const setInfos = computed(() => sets.value.map(s => {
 
     const profile = setProfiles.value[currVersion.set];
 
-    const iconSet = (auxSetType.includes(profile?.type) ? profile?.parent : undefined) ?? s;
     const name = mapValues(profile?.localization ?? { }, loc => loc.name);
 
     return {
-        set:             s,
-        langs:           uniq(setVersions.map(v => v.lang)),
+        set:   s,
+        langs: uniq(setVersions.map(v => v.lang)),
         numbers,
         rarity,
-        iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
-        name:            name?.[magic.locale] ?? name?.[magic.locales[0]] ?? '',
-        symbolStyle:     profile?.symbolStyle,
-        doubleFacedIcon: profile?.doubleFacedIcon,
+        // iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
+        name:  name?.[lorcana.locale] ?? name?.[lorcana.locales[0]] ?? '',
     };
 }));
 
 const langs = computed(() => {
-    const locales = magic.extendedLocales;
+    const { locales } = lorcana;
 
     return uniq(versions.value.map(v => v.lang))
         .sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
 });
 
 const lang = computed({
-    get() { return data.value?.lang ?? route.query.lang as string ?? magic.locale; },
+    get() { return data.value?.lang ?? route.query.lang as string ?? lorcana.locale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
@@ -325,7 +320,7 @@ const lang = computed({
     },
 });
 
-const langWithMode = computed(() => (textMode.value === 'oracle' ? 'en' : lang.value));
+const langWithMode = computed(() => lang.value);
 
 const imageLang = computed(() => {
     if (data.value == null) {
@@ -356,17 +351,14 @@ const selectedTextInfo = (view: CardPrintView | undefined) => {
                 typeline: loc.typeline,
                 text:     loc.text,
             };
+        } else {
+            return {
+                name:     view.name,
+                typeline: view.typeline,
+                text:     view.text,
+            };
         }
     }
-
-    // fallthrough
-    case 'oracle':
-        return {
-            name:     view.name,
-            typeline: view.typeline,
-            text:     view.text,
-        };
-
     case 'printed':
         return {
             name:     view.printName,
@@ -406,14 +398,24 @@ pageSetup({
 const cost = computed(() => data.value?.cost);
 const layout = computed(() => data.value?.layout ?? 'normal');
 
-const stats = computed(() => '<todo>');
+const stats = computed(() => {
+    if (data.value == null) {
+        return '';
+    }
+
+    if (data.value.strength != null && data.value.willPower != null) {
+        return `${data.value.strength}/${data.value.willPower}`;
+    }
+
+    return '';
+});
 
 const name = computed(() => selectedTextInfo(data.value)?.name);
 const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
 const text = computed(() => selectedTextInfo(data.value)?.text);
 
 const mainName = computed(() => name?.value?.split('-')?.[0]?.trim());
-const subName = computed(() => name?.value?.split('-')?.[1]?.trim());
+const subName = computed(() => name?.value?.split('-')?.slice(1)?.join('-')?.trim());
 
 const flavorText = computed(() => data.value?.flavorText);
 
@@ -432,7 +434,7 @@ const editorLink = computed(() => ({
 
 const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
     id:     route.params.id as string,
-    lang:   route.query.lang as string ?? magic.locale,
+    lang:   route.query.lang as string ?? lorcana.locale,
     set:    route.query.set as string,
     number: route.query.number as string,
 }, v => v == null)));
@@ -483,7 +485,7 @@ watch(
     { immediate: true },
 );
 
-watch(() => magic.locale, loadData);
+watch(() => lorcana.locale, loadData);
 
 // special effects
 watch([id, set, number], () => {
