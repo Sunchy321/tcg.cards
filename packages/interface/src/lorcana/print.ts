@@ -1,3 +1,5 @@
+export type Layout = 'location' | 'normal';
+
 export type Rarity = 'common' | 'enchanted' | 'legendary' | 'rare' | 'special' | 'super_rare' | 'uncommon';
 
 export type Print = {
@@ -16,6 +18,7 @@ export type Print = {
 
     imageUri: Record<string, string>;
 
+    layout: Layout;
     rarity: Rarity;
     finishes?: string[];
 

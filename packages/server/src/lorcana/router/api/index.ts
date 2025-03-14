@@ -7,7 +7,7 @@ import search from './search';
 
 const router = new KoaRouter();
 
-router.prefix('/magic');
+router.prefix('/lorcana');
 
 router.use(card.routes());
 router.use(print.routes());

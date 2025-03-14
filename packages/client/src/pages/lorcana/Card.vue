@@ -3,7 +3,6 @@
         <div class="image-column">
             <card-image
                 v-if="data != null"
-                v-model:part="partIndex"
                 v-model:rotate="rotate"
                 :lang="imageLang"
                 :set="set"
@@ -18,21 +17,6 @@
 
         <div class="info-column">
             <div class="name-line row items-center" :class="effectClass">
-                <q-btn
-                    v-if="partIcon != null"
-                    class="part-icon q-mr-sm"
-                    :class="partIcon.class || ''"
-                    flat round dense
-                    :icon="`img:${partIcon.src}`"
-                    @click="switchPart"
-                />
-
-                <q-icon
-                    v-if="isArenaVariant"
-                    class="arena-variant q-mr-sm"
-                    name="img:/magic/arena.svg"
-                />
-
                 <div class="name" :lang="langWithMode">
                     {{ realName }}
                 </div>
@@ -40,102 +24,21 @@
                 <q-space />
 
                 <div v-if="cost != null" class="mana-cost">
-                    <magic-symbol
-                        v-for="(s, i) in cost" :key="i"
-                        :value="`{${s}}`"
-                        :type="costStyle"
-                    />
+                    {{ cost }}
                 </div>
             </div>
-            <div v-if="flavorName != null" class="flavor-name" :lang="lang">
-                {{ flavorName }}
-            </div>
             <div class="stats-line" :class="effectClass">
-                <magic-color
-                    v-if="colorIndicator != null"
-                    class="color-indicator"
-                    :value="colorIndicator"
-                />
                 <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
-                <magic-text :symbol="textSymbolStyle">{{ text }}</magic-text>
-            </div>
-            <div v-if="attractionLights != null" class="attraction-lights">
-                <div
-                    v-for="i in 6" :key="i"
-                    class="attraction-light"
-                    :class="{
-                        [`light-${i}`]: true,
-                        enabled: attractionLights.includes(i)
-                    }"
-                >
-                    {{ i }}
-                </div>
+                {{ text }}
             </div>
             <div v-if="flavorText != null" class="flavor-text auto-align" :class="effectClass" :lang="lang">
-                <magic-text :symbol="textSymbolStyle" detect-emph>{{ flavorText }}</magic-text>
-            </div>
-            <div v-if="tags.length + printTags.length > 0" class="tag-list">
-                <q-chip
-                    v-for="t in tags"
-                    :key="'tag-' + t"
-                    class="q-mr-sm q-ma-none"
-                    square
-                    size="12px"
-                    color="primary"
-                    text-color="white"
-                > {{ $t('magic.tag.' + t) }} </q-chip>
-                <q-chip
-                    v-for="t in printTags"
-                    :key="'tag-' + t"
-                    class="q-mr-sm q-ma-none"
-                    square
-                    size="12px"
-                    color="secondary"
-                    text-color="white"
-                > {{ $t('magic.tag.' + t) }} </q-chip>
-            </div>
-            <grid
-                v-slot="v"
-                :value="Object.entries(legalities)" :item-width="160"
-                class="legalities"
-            >
-                <div class="flex items-center no-wrap">
-                    <banlist-icon class="q-mr-sm" :status="v[1]" />
-                    <span style="white-space: nowrap;"> {{ $t('magic.format.' + v[0]) }}</span>
-                </div>
-            </grid>
-            <div v-if="rulings.length > 0" class="rulings">
-                <div v-for="(r, i) in rulings" :key="i">
-                    <magic-text :cards="r.cards" detect-url>
-                        {{ r.date }}: {{ r.text }}
-                    </magic-text>
-                </div>
+                <magic-text detect-emph>{{ flavorText }}</magic-text>
             </div>
 
             <div class="links flex q-gutter-md">
-                <q-btn
-                    v-if="scryfallLink != null"
-                    class="link"
-                    :href="scryfallLink" target="_blank"
-                    outline no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    Scryfall
-                </q-btn>
-
-                <q-btn
-                    v-if="gathererLink != null"
-                    class="link"
-                    :href="gathererLink" target="_blank"
-                    outline no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    Gatherer
-                </q-btn>
-
                 <q-btn
                     v-if="jsonLink != null"
                     class="link"
@@ -193,13 +96,6 @@
                 </div>
             </div>
 
-            <div v-if="relatedCards.length > 0" class="related-card-block">
-                <div v-for="r in relatedCards" :key="r.cardId" class="related-card q-pl-md">
-                    <q-icon :name="relationIcon(r.relation)" />
-                    <card-avatar :id="r.cardId" class="q-ml-sm" :version="r.version" />
-                </div>
-            </div>
-
             <div class="set-block">
                 <div v-for="i in setInfos" :key="i.set" class="set-line">
                     <div
@@ -210,7 +106,6 @@
                         <div v-ripple class="flex no-wrap items-center" @click="set = i.set">
                             <span class="code q-mr-sm" :style="`width: ${setMaxWidth}ch;`">{{ i.set }}</span>
                             <span class="set-name">{{ i.name }}</span>
-                            <img class="set-icon q-mx-sm" :src="i.iconUrl" :alt="set">
                             <span class="rarity">{{ i.rarity[0] }}</span>
                         </div>
                         <div>
@@ -240,19 +135,13 @@ import { useMagic, TextMode, textModes } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import basicSetup from 'setup/basic';
-import magicSetup from 'setup/magic';
+import lorcanaSetup from 'setup/lorcana';
 import pageSetup from 'setup/page';
 
-import Grid from 'components/Grid.vue';
-import CardAvatar from 'components/magic/CardAvatar.vue';
-import CardImage from 'components/magic/CardImage.vue';
-import MagicColor from 'components/magic/Color.vue';
+import CardImage from 'components/lorcana/CardImage.vue';
 import MagicText from 'components/magic/Text.vue';
-import MagicSymbol from 'components/magic/Symbol.vue';
-import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
-// TODO fix @interface issue
-import { CardPrintView } from 'common/model/magic/card';
+import { CardPrintView } from 'common/model/lorcana/card';
 
 import {
     mapValues, omitBy, uniq,
@@ -269,9 +158,9 @@ const magic = useMagic();
 const i18n = useI18n();
 const { isAdmin } = basicSetup();
 
-const { search, random } = magicSetup();
+const { search, random } = lorcanaSetup();
 
-const data = ref<CardPrintView | null>(null);
+const data = ref<CardPrintView>();
 const rotate = ref<boolean | null>(null);
 const setProfiles = ref<Record<string, SetProfile>>({});
 
@@ -317,13 +206,6 @@ const number = computed({
     get() { return data.value?.number ?? route.query.number as string; },
     set(newValue: string) {
         void router.replace({ query: { ...route.query, number: newValue } });
-    },
-});
-
-const partIndex = computed({
-    get() { return parseInt(route.query.part as string ?? '0', 10); },
-    set(newValue: number) {
-        void router.replace({ query: { ...route.query, part: newValue } });
     },
 });
 
@@ -447,14 +329,8 @@ const imageLang = computed(() => {
         return lang.value;
     }
 
-    if (data.value.imageStatus !== 'placeholder') {
-        return lang.value;
-    }
-
-    const setInfo = setInfos.value.find(i => i.set === set.value);
-
-    return setInfo?.langs?.[0] ?? 'en';
-})
+    return lang.value;
+});
 
 const langInfos = computed(() => langs.value.map(l => ({
     lang:    l,
@@ -462,18 +338,14 @@ const langInfos = computed(() => langs.value.map(l => ({
     current: l === lang.value,
 })));
 
-const partCount = computed(() => data.value?.parts?.length ?? 1);
-
-const part = computed(() => data.value?.parts?.[partIndex.value]);
-
-const selectedTextInfo = (partValue?: CardPrintView['parts'][0]) => {
-    if (partValue == null) {
+const selectedTextInfo = (view: CardPrintView | undefined) => {
+    if (view == null) {
         return null;
     }
 
     switch (textMode.value) {
     case 'unified': {
-        const loc = partValue.localization.find(l => l.lang === lang.value);
+        const loc = view.localization.find(l => l.lang === lang.value);
 
         if (loc != null) {
             return {
@@ -487,16 +359,16 @@ const selectedTextInfo = (partValue?: CardPrintView['parts'][0]) => {
     // fallthrough
     case 'oracle':
         return {
-            name:     partValue.name,
-            typeline: partValue.typeline,
-            text:     partValue.text,
+            name:     view.name,
+            typeline: view.typeline,
+            text:     view.text,
         };
 
     case 'printed':
         return {
-            name:     partValue.printName,
-            typeline: partValue.printTypeline,
-            text:     partValue.printText,
+            name:     view.printName,
+            typeline: view.printTypeline,
+            text:     view.printText,
         };
 
     default:
@@ -510,11 +382,7 @@ pageSetup({
             return '';
         }
 
-        if (lang.value === 'ph') {
-            return data.value.parts.map(p => p.name).join(' // ');
-        } else {
-            return data.value.parts.map(p => selectedTextInfo(p)!.name).join(' // ');
-        }
+        return selectedTextInfo(data.value)?.name ?? '';
     },
 
     titleType: 'input',
@@ -532,40 +400,14 @@ pageSetup({
     ],
 });
 
-const layout = computed(() => data.value?.layout);
-const cost = computed(() => part.value?.cost);
+const cost = computed(() => data.value?.cost);
+const layout = computed(() => data.value?.layout ?? 'normal');
 
-const stats = computed(() => {
-    const p = part.value;
+const stats = computed(() => '<todo>');
 
-    if (p == null) { return undefined; }
-
-    if (p.power != null && p.toughness != null) {
-        return `${p.power}/${p.toughness}`;
-    }
-
-    if (p.loyalty != null) {
-        return `[${p.loyalty}]`;
-    }
-
-    if (p.defense != null) {
-        return `<${p.defense}>`;
-    }
-
-    if (p.handModifier != null && p.lifeModifier != null) {
-        return `${p.handModifier};${p.lifeModifier}`;
-    }
-
-    return undefined;
-});
-
-const colorIndicator = computed(() => part.value?.colorIndicator);
-
-const name = computed(() => selectedTextInfo(part.value)?.name);
-const typeline = computed(() => selectedTextInfo(part.value)?.typeline);
-const text = computed(() => selectedTextInfo(part.value)?.text);
-
-const isArenaVariant = computed(() => name.value?.startsWith('A-'));
+const name = computed(() => selectedTextInfo(data.value)?.name);
+const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
+const text = computed(() => selectedTextInfo(data.value)?.text);
 
 const realName = computed(() => {
     const nameValue = name.value;
@@ -581,119 +423,20 @@ const realName = computed(() => {
     return nameValue;
 });
 
-const attractionLights = computed(() => part.value?.attractionLights);
+const flavorText = computed(() => data.value?.flavorText);
 
-const flavorText = computed(() => part.value?.flavorText);
-const flavorName = computed(() => part.value?.flavorName);
-const artist = computed(() => part.value?.artist);
-
-const relatedCards = computed(() => data.value?.relatedCards ?? []);
-const rulings = computed(() => data.value?.rulings ?? []);
-const legalities = computed(() => data.value?.legalities ?? {});
-
-const tags = computed(() => data.value?.tags?.filter(v => !v.startsWith('dev:')) ?? []);
-const printTags = computed(() => data.value?.printTags?.filter(v => !v.startsWith('dev:')) ?? []);
-
-const doubleFacedIcon = computed(() => setInfos.value
-    .filter(v => v.doubleFacedIcon != null)[0]
-    ?.doubleFacedIcon);
-
-const partIcon = computed(() => {
-    switch (layout.value) {
-    case 'flip':
-    case 'split':
-    case 'aftermath':
-    case 'split_arena':
-        return {
-            src:   `/magic/part-icon/${layout.value}.svg`,
-            class: `${layout.value}-${partIndex.value}`,
-        };
-    case 'transform':
-    case 'transform_token':
-        if (doubleFacedIcon.value != null) {
-            return {
-                src: `/magic/part-icon/${layout.value}-${doubleFacedIcon.value[partIndex.value]}.svg`,
-            };
-        } else {
-            return {
-                src: `/magic/part-icon/transform-${partIndex.value}.svg`,
-            };
-        }
-    case 'modal_dfc':
-    case 'adventure':
-        return {
-            src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`,
-        };
-    case 'multipart':
-        return {
-            src: '/magic/part-icon/multipart.svg',
-        };
-    default:
-        return null;
-    }
-});
-
-const symbolStyle = computed(() => {
-    if (textMode.value !== 'printed') {
-        return [];
-    } else {
-        return setInfos.value.find(i => i.set === set.value)?.symbolStyle ?? [];
-    }
-});
-
-const costStyle = computed(() => {
-    if (id.value === 'b_f_m___big_furry_monster_') {
-        return [...symbolStyle.value, 'cost', 'mini'];
-    } else {
-        return [...symbolStyle.value, 'cost'];
-    }
-});
-
-const textSymbolStyle = computed(() => symbolStyle.value);
+const artist = computed(() => data.value?.artist);
 
 const editorLink = computed(() => ({
-    name:  'magic/data',
+    name:  'lorcana/data',
     query: {
         tab:    'Editor',
         id:     id.value,
         lang:   lang.value,
         set:    set.value,
         number: number.value,
-        part:   partIndex.value,
     },
 }));
-
-const scryfallLink = computed(() => {
-    const cardId = data.value?.scryfall?.cardId;
-
-    if (cardId == null) {
-        return null;
-    }
-
-    return `https://scryfall.com/card/${cardId}`;
-});
-
-const gathererLink = computed(() => {
-    const multiverseId = (() => {
-        const multiverseIds = data.value?.multiverseId;
-
-        if (multiverseIds == null) {
-            return null;
-        }
-
-        if (layout.value != null && ['split', 'adventure'].includes(layout.value)) {
-            return multiverseIds[0];
-        }
-
-        return multiverseIds[partIndex.value];
-    })();
-
-    if (multiverseId == null) {
-        return null;
-    }
-
-    return `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${multiverseId}&printed=true`;
-});
 
 const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
     id:     route.params.id as string,
@@ -703,7 +446,7 @@ const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
 }, v => v == null)));
 
 const jsonLink = computed(() => {
-    const url = new URL('magic/card', apiBase);
+    const url = new URL('lorcana/card', apiBase);
 
     url.search = new URLSearchParams({ id: id.value }).toString();
 
@@ -711,7 +454,7 @@ const jsonLink = computed(() => {
 });
 
 const jsonPrintLink = computed(() => {
-    const url = new URL('magic/print', apiBase);
+    const url = new URL('lorcana/print', apiBase);
 
     url.search = new URLSearchParams({
         id:     id.value,
@@ -729,30 +472,11 @@ const loadData = async () => {
         return;
     }
 
-    const { data: result } = await apiGet<CardPrintView>('/magic/card/print-view', apiQuery.value);
+    const { data: result } = await apiGet<CardPrintView>('/lorcana/card/print-view', apiQuery.value);
 
     rotate.value = null;
     data.value = result;
 };
-
-const switchPart = () => {
-    if (partIndex.value === partCount.value - 1) {
-        partIndex.value = 0;
-    } else {
-        partIndex.value += 1;
-    }
-};
-
-const relationIcon = (relation: string) => ({
-    emblem:         'mdi-shield-outline',
-    intext:         'mdi-card-search-outline',
-    meld:           'mdi-circle-half-full',
-    specialization: 'mdi-arrow-decision mdi-rotate-90',
-    spellbook:      'mdi-book-open-page-variant-outline',
-    source:         'mdi-file-tree-outline',
-    stick_on:       'mdi-card-multiple',
-    token:          'mdi-shape-outline',
-})[relation] ?? 'mdi-cards-outline';
 
 // watches
 watch(

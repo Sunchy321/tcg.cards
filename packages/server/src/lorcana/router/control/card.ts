@@ -2,34 +2,26 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import { Aggregate, ObjectId } from 'mongoose';
+import { ObjectId } from 'mongoose';
 
-import Card from '@/magic/db/card';
-import Print from '@/magic/db/print';
-import CardRelation from '@/magic/db/card-relation';
-import Format from '@/magic/db/format';
+import Card from '@/lorcana/db/card';
+import Print from '@/lorcana/db/print';
 
-import { Card as ICard } from '@interface/magic/card';
+import { Card as ICard } from '@interface/lorcana/card';
 import {
-    CardEditorView, CardUpdationCollection, CardUpdationView, RelatedCard,
-} from '@common/model/magic/card';
-import { Updation, WithUpdation } from '@common/model/updation';
+    ICardDatabase,
+    CardEditorView, CardUpdationCollection, CardUpdationView,
+} from '@common/model/lorcana/card';
+import { Updation } from '@common/model/updation';
 
 import { omit, mapValues, isEqual } from 'lodash';
-import websocket from '@/middlewares/websocket';
 import { toSingle } from '@/common/request-helper';
-import internalData from '@/internal-data';
 
-import {
-    CardLegalityView, LegalityRecorder, getLegality, getLegalityRules, lookupPrintsForLegality,
-} from '@/magic/banlist/legality';
-import { GathererGetter } from '@/magic/gatherer/parse';
+// import searcher from '@/lorcana/search';
+import * as logger from '@/lorcana/logger';
 
-import searcher from '@/magic/search';
-import * as logger from '@/magic/logger';
-
-import { formats as formatList } from '@static/magic/basic';
-import { parenRegex, commaRegex } from '@static/magic/special';
+// import { formats as formatList } from '@static/lorcana/basic';
+// import { parenRegex, commaRegex } from '@static/lorcana/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -46,68 +38,56 @@ router.get('/raw', async ctx => {
         cardId, lang, set, number,
     });
 
-    const sourceRelations = await CardRelation.find({ sourceId: cardId });
-
-    const relatedCards: RelatedCard[] = sourceRelations.map(s => ({
-        relation: s.relation,
-        cardId:   s.targetId,
-    }));
-
     if (card != null && print != null) {
         ctx.body = {
             card:  card.toObject(),
             print: print.toObject(),
-            relatedCards,
         } as CardEditorView;
     } else {
         ctx.status = 404;
     }
 });
 
-router.get('/search', async ctx => {
-    const { q, sample: sampleText, 'filter-by': filterBy } = mapValues(ctx.query, toSingle);
+// router.get('/search', async ctx => {
+//     const { q, sample: sampleText, 'filter-by': filterBy } = mapValues(ctx.query, toSingle);
 
-    if (q == null) {
-        ctx.status = 400;
-        return;
-    }
+//     if (q == null) {
+//         ctx.status = 400;
+//         return;
+//     }
 
-    const sample = Number.isNaN(Number.parseInt(sampleText, 10))
-        ? 100
-        : Number.parseInt(sampleText, 10);
+//     const sample = Number.isNaN(Number.parseInt(sampleText, 10))
+//         ? 100
+//         : Number.parseInt(sampleText, 10);
 
-    const result = await searcher.search('dev', q, {
-        sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
-    });
+//     const result = await searcher.search('dev', q, {
+//         sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
+//     });
 
-    const cards = ((values: { card: { cardId: string }, print: { lang: string } }[]) => {
-        switch (filterBy) {
-        case 'card':
-            return values.filter((v, i, a) => a
-                .slice(i + 1)
-                .every(e => e.card.cardId !== v.card.cardId));
-        case 'lang':
-            return values.filter((v, i, a) => a
-                .slice(i + 1)
-                .every(e => e.card.cardId !== v.card.cardId || e.print.lang !== v.print.lang));
-        default:
-            return values;
-        }
-    })(result.result?.cards ?? []);
+//     const cards = ((values: { card: { cardId: string }, print: { lang: string } }[]) => {
+//         switch (filterBy) {
+//         case 'card':
+//             return values.filter((v, i, a) => a
+//                 .slice(i + 1)
+//                 .every(e => e.card.cardId !== v.card.cardId));
+//         case 'lang':
+//             return values.filter((v, i, a) => a
+//                 .slice(i + 1)
+//                 .every(e => e.card.cardId !== v.card.cardId || e.print.lang !== v.print.lang));
+//         default:
+//             return values;
+//         }
+//     })(result.result?.cards ?? []);
 
-    ctx.body = {
-        method: `search:${q}`,
-        cards,
-        total:  result.result?.total ?? 0,
-    };
-});
+//     ctx.body = {
+//         method: `search:${q}`,
+//         cards,
+//         total:  result.result?.total ?? 0,
+//     };
+// });
 
 router.post('/update', async ctx => {
     const { data } = ctx.request.body as { data: ICard & { _id: ObjectId } };
-
-    if (data.counters?.length === 0) {
-        delete data.counters;
-    }
 
     const old = await Card.findById(data._id);
 
@@ -119,238 +99,6 @@ router.post('/update', async ctx => {
 
     ctx.status = 200;
 });
-
-router.post('/update-related', async ctx => {
-    const { id, related } = ctx.request.body as { id: string, related: RelatedCard[] };
-
-    if (id == null) {
-        return;
-    }
-
-    await CardRelation.deleteMany({ sourceId: id });
-
-    for (const r of related) {
-        const card = await Card.findOne({ cardId: r.cardId });
-
-        if (card == null) {
-            continue;
-        }
-
-        await CardRelation.create({
-            relation: r.relation,
-            sourceId: id,
-            targetId: r.cardId,
-        });
-    }
-
-    ctx.status = 200;
-});
-
-interface INeedEditResult {
-    _id: { id: string, lang: string, part: number };
-}
-
-type AggregateOption = {
-    lang?: string;
-    match: any;
-};
-
-function aggregate({ lang, match }: AggregateOption): Aggregate<INeedEditResult[]> {
-    const agg = Card.aggregate().allowDiskUse(true);
-
-    agg
-        .unwind({ path: '$parts', includeArrayIndex: 'partIndex' })
-        .unwind('$parts.localization')
-        .lookup({
-            from: 'prints',
-            let:  {
-                cardId:    '$cardId',
-                lang:      '$parts.localization.lang',
-                partIndex: '$partIndex',
-            },
-            pipeline: [
-                {
-                    $unwind: {
-                        path:              '$parts',
-                        includeArrayIndex: 'partIndex',
-                    },
-                },
-                {
-                    $match: {
-                        $expr: {
-                            $and: [
-                                { $eq: ['$cardId', '$$cardId'] },
-                                { $eq: ['$lang', '$$lang'] },
-                                { $eq: ['$partIndex', '$$partIndex'] },
-                            ],
-                        },
-                    },
-                },
-            ],
-            as: 'print',
-        })
-        .unwind({ path: '$print' })
-        .addFields({ info: { id: '$cardId', lang: '$print.lang', part: '$print.partIndex' } });
-
-    if (lang != null) {
-        agg.match({ 'parts.localization.lang': lang });
-    }
-
-    agg
-        .match(match)
-        .group({ _id: '$info', date: { $max: '$print.releaseDate' } });
-
-    return agg;
-}
-
-const needEditGetters: Record<string, (lang?: string) => Aggregate<INeedEditResult[]>> = {
-    paren: lang => aggregate({
-        lang,
-        match: {
-            'cardId':                  { $nin: internalData<string[]>('magic.special.with-paren') },
-            'parts.localization.text': parenRegex,
-            'parts.type.main':         { $nin: ['dungeon', 'card'] },
-            'parts.type.main.0':       { $exists: true },
-        },
-    }),
-
-    keyword: lang => aggregate({
-        lang,
-        match: {
-            'cardId':                  { $nin: internalData<string[]>('magic.special.with-comma') },
-            'parts.localization.text': commaRegex,
-            'parts.type.main':         { $nin: ['dungeon', 'stickers', 'card'] },
-        },
-    }),
-
-    token: () => aggregate({
-        match: {
-            'cardId':           { $not: /!/ },
-            'parts.type.super': 'token',
-        },
-    }),
-};
-
-router.get('/need-edit', async ctx => {
-    const { method, lang, sample: sampleText } = mapValues(ctx.query, toSingle);
-
-    const getter = needEditGetters[method];
-
-    const sample = Number.isNaN(Number.parseInt(sampleText, 10))
-        ? 100
-        : Number.parseInt(sampleText, 10);
-
-    if (getter == null || Number.isNaN(sample)) {
-        ctx.status = 404;
-        return;
-    }
-
-    const total = (await getter(lang)).length;
-
-    // console.log(JSON.stringify(await getter(lang).explain(), null, 4));
-
-    if (total === 0) {
-        ctx.body = {
-            method,
-            cards: [],
-            total,
-        };
-        return;
-    }
-
-    const result = await getter(lang)
-        .sort({ 'print.releaseDate': -1 })
-        .limit(sample);
-
-    const cards = await Print.aggregate().allowDiskUse(true)
-        .match({ $or: result.map(r => ({ cardId: r._id.id, lang: r._id.lang })) })
-        .sort({ releaseDate: -1 })
-        .group({ _id: { id: '$cardId', lang: '$lang' }, print: { $first: '$$ROOT' } })
-        .lookup({
-            from:         'cards',
-            localField:   'print.cardId',
-            foreignField: 'cardId',
-            as:           'card',
-        })
-        .unwind('card');
-
-    const resultCards = result.map(r => {
-        const card = cards.find(c => c._id.id === r._id.id && c._id.lang === r._id.lang);
-
-        if (card != null) {
-            return {
-                card:      card.card,
-                print:     card.print,
-                partIndex: r._id.part,
-                result:    { method, ...omit(r, 'date') },
-            };
-        } else {
-            return null;
-        }
-    }).filter(v => v != null);
-
-    ctx.body = {
-        method,
-        cards: resultCards,
-        total,
-    };
-});
-
-router.get('/get-legality', async ctx => {
-    const { id } = mapValues(ctx.query, toSingle);
-
-    if (id == null) {
-        ctx.status = 401;
-        return;
-    }
-
-    const formats = await Format.find();
-
-    formats.sort((a, b) => formatList.indexOf(a.formatId) - formatList.indexOf(b.formatId));
-
-    const rules = getLegalityRules();
-
-    const agg = Card.aggregate<CardLegalityView>()
-        .match({ cardId: id });
-
-    lookupPrintsForLegality(agg);
-
-    const cardData = await agg;
-
-    const recorder: LegalityRecorder = { };
-
-    const legalities = getLegality(cardData[0], formats, rules, recorder);
-
-    await Card.updateMany({ cardId: id }, { legalities });
-
-    ctx.body = recorder;
-});
-
-const gathererGetters: Record<string, GathererGetter> = { };
-
-router.get(
-    '/get-gatherer',
-    websocket,
-    async ctx => {
-        const ws = await ctx.ws();
-
-        const { set } = mapValues(ctx.query, toSingle);
-
-        if (set == null) {
-            ctx.status = 400;
-            ws.close();
-        } else {
-            if (gathererGetters[set] == null) {
-                gathererGetters[set] = new GathererGetter(set);
-            }
-
-            gathererGetters[set].on('end', () => delete gathererGetters[set]);
-            gathererGetters[set].bind(ws);
-        }
-
-        ctx.status = 200;
-    },
-);
 
 router.get('/get-updation', async ctx => {
     const keys = await Card.aggregate<{ _id: string, count: number }>()
@@ -397,7 +145,7 @@ router.get('/get-updation', async ctx => {
     } as CardUpdationCollection;
 });
 
-function access(card: WithUpdation<ICard>, key: string) {
+function access(card: ICardDatabase, key: string) {
     const keyParts = (`.${key}`).split(/(\.[a-z_]+|\[[^]]+\])/i).filter(v => v !== '');
 
     let object: any = card;
@@ -425,7 +173,7 @@ function access(card: WithUpdation<ICard>, key: string) {
     return object;
 }
 
-function rejectUpdation(card: WithUpdation<ICard>, updation: Updation) {
+function rejectUpdation(card: ICardDatabase, updation: Updation) {
     const { key } = updation;
 
     const keyParts = (`.${key}`).split(/(\.[a-z_]+|\[[^]]+\])/i).filter(v => v !== '');
@@ -512,10 +260,6 @@ router.post('/accept-all-updation', async ctx => {
 
     for (const c of cards) {
         c.__updations = c.__updations.filter(u => u.key !== key);
-
-        if (key === 'parts[0].text' && !c.tags.includes('dev:oracle')) {
-            c.tags.push('dev:oracle');
-        }
 
         await c.save();
     }

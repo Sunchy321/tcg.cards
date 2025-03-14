@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 import { Card as ICard } from '@interface/lorcana/card';
 import { Print as IPrint } from '@interface/lorcana/print';
+import { ICardDatabase } from '@common/model/lorcana/card';
 import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
 import { WithUpdation } from 'card-common/src/model/updation';
 
@@ -41,9 +42,9 @@ function assign<T>(card: WithUpdation<T>, data: T, key: string & keyof T) {
 }
 
 function assignCardLocalization(
-    card: WithUpdation<ICard>,
-    cLocs: WithUpdation<ICard>['localization'],
-    dLocs: WithUpdation<ICard>['localization'],
+    card: ICardDatabase,
+    cLocs: ICardDatabase['localization'],
+    dLocs: ICardDatabase['localization'],
 ) {
     const locs = uniq([
         ...cLocs.map(c => c.lang),
@@ -129,10 +130,10 @@ function assignCardLocalization(
 }
 
 function assignCardType(
-    card: WithUpdation<ICard>,
-    cType: WithUpdation<ICard>['type'],
-    dType: WithUpdation<ICard>['type'],
-    key: keyof WithUpdation<ICard>['type'],
+    card: ICardDatabase,
+    cType: ICardDatabase['type'],
+    dType: ICardDatabase['type'],
+    key: keyof ICardDatabase['type'],
 ) {
     const fullKey = `type.${key}`;
 
@@ -156,7 +157,7 @@ function assignCardType(
     }
 }
 
-export function combineCard(card: WithUpdation<ICard>, data: ICard): void {
+export function combineCard(card: ICardDatabase, data: ICard): void {
     for (const k of Object.keys(data) as (keyof ICard)[]) {
         // eslint-disable-next-line default-case
         switch (k) {
@@ -203,7 +204,7 @@ export function combineCard(card: WithUpdation<ICard>, data: ICard): void {
     }
 }
 
-export async function mergeCard(card: Document & WithUpdation<ICard>, data: ICard): Promise<void> {
+export async function mergeCard(card: Document & ICardDatabase, data: ICard): Promise<void> {
     combineCard(card, data);
 
     if (card.modifiedPaths().length > 0) {

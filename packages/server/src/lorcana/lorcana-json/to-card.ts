@@ -11,12 +11,12 @@ import { toIdentifier } from '@common/util/id';
 type CardPrint = { card: ICard, print: IPrint };
 
 function getId(data: JCard): string {
-    return toIdentifier(data.name);
+    return toIdentifier(data.fullName.replace(/ - /, '____'));
 }
 
 export function toCard(data: JCard, lang: string, sets: ISet[]): CardPrint {
     const loc = {
-        name:     data.name,
+        name:     data.fullName,
         typeline: [data.type, ...data.subtypes ?? []].join('·'),
         text:     data.fullText,
     };
@@ -56,7 +56,15 @@ export function toCard(data: JCard, lang: string, sets: ISet[]): CardPrint {
 
             lang,
             set:    sets.find(v => v.lorcanaJsonId === data.setCode)!.setId,
-            number: data.number.toString(),
+            number: (() => {
+                const num = data.number.toString();
+
+                if (data.promoGrouping != null) {
+                    return `${num}-${data.promoGrouping}`;
+                }
+
+                return num;
+            })(),
 
             ...loc,
 
@@ -65,6 +73,7 @@ export function toCard(data: JCard, lang: string, sets: ISet[]): CardPrint {
 
             imageUri: data.images as unknown as Record<string, string>,
 
+            layout:   data.type === 'Location' ? 'location' : 'normal',
             rarity:   toIdentifier(data.rarity) as Rarity,
             finishes: data.foilTypes?.map(v => toIdentifier(v)),
 

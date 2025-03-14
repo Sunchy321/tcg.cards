@@ -3,13 +3,9 @@ import { Schema, Model } from 'mongoose';
 
 import conn from './db';
 
-import { Card as ICard } from '@interface/lorcana/card';
-
-import { WithUpdation } from '@common/model/updation';
+import { ICardDatabase } from '@common/model/lorcana/card';
 
 import { historyPlugin } from '@/database/updation';
-
-type ICardDatabase = WithUpdation<ICard>;
 
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
@@ -60,10 +56,8 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         transform(doc, ret) {
             delete ret._id;
             delete ret.__v;
-
-            for (const p of ret.parts) {
-                delete p.__costMap;
-            }
+            delete ret.__lockedPaths;
+            delete ret.__updations;
 
             return ret;
         },

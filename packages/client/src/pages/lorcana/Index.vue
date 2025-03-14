@@ -93,18 +93,17 @@ import { computed } from 'vue';
 import { useCore } from 'store/core';
 import { useI18n } from 'vue-i18n';
 
-import magicSetup from 'setup/magic';
+import lorcanaSetup from 'setup/lorcana';
 import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
-import MagicText from 'components/magic/Text.vue';
 
 import model from 'searcher-data/magic/client';
 
 const core = useCore();
 const i18n = useI18n();
 
-const { search, random } = magicSetup();
+const { search, random } = lorcanaSetup();
 
 pageSetup({
     title:   () => i18n.t('lorcana.$self'),

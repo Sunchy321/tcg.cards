@@ -1,6 +1,3 @@
-import { MainType } from '../card';
-import { Rarity } from '../print';
-
 export interface Ability {
     fullText: string;
     type: 'activated' | 'keyword' | 'static' | 'triggered';
@@ -67,13 +64,13 @@ export interface Card {
     number: number;
     promoGrouping?: string;
     promoIds?: number[];
-    rarity: Rarity;
+    rarity: string;
     setCode?: string;
     simpleName: string;
     story: string;
     strength?: number;
     subtypes?: string[];
-    type: MainType;
+    type: string;
     variant?: string;
     variantIds?: number[];
     version?: string;

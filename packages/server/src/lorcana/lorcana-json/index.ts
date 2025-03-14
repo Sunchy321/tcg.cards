@@ -150,6 +150,15 @@ export default class DataLoader extends Task<Status> {
             for (const json of jsons) {
                 const { card, print } = toCard(json, lang, sets);
 
+                if (lang !== 'en') {
+                    const enPrint = prints.find(p => p.lang === 'en' && p.set === print.set && p.number === print.number);
+
+                    if (enPrint != null) {
+                        card.cardId = enPrint.cardId;
+                        print.cardId = enPrint.cardId;
+                    }
+                }
+
                 const oldCard = cards.find(c => c.cardId === card.cardId);
                 const oldPrint = prints.find(
                     p => p.cardId === print.cardId && p.lang === print.lang && p.set === print.set && p.number === print.number,

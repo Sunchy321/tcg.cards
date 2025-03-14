@@ -2,30 +2,24 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card from '@/magic/db/card';
-import Print from '@/magic/db/print';
-import Ruling from '@/magic/db/ruling';
-import CardRelation from '@/magic/db/card-relation';
+import Card from '@/lorcana/db/card';
+import Print from '@/lorcana/db/print';
 
-import { Card as ICard } from '@interface/magic/card';
-import { Print as IPrint } from '@interface/magic/print';
-import { Ruling as IRuling } from 'card-interface/src/magic/ruling';
+import { Card as ICard } from '@interface/lorcana/card';
+import { Print as IPrint } from '@interface/lorcana/print';
 
-import { CardPrintView, RelatedCard } from '@common/model/magic/card';
+import { CardPrintView } from '@common/model/lorcana/card';
 
-import {
-    mapValues, omitBy, random,
-} from 'lodash';
+import { mapValues, omitBy, random } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
-// import sortKey from '@/common/sort-key';
 
-import sorter from '@common/util/sorter';
+// import sorter from '@common/util/sorter';
 
-import searcher from '@/magic/search';
+// import searcher from '@/lorcana/search';
 
 import Parser from '@searcher/parser';
 
-import { extendedLocales } from '@static/magic/basic';
+import { locales } from '@static/lorcana/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -61,7 +55,8 @@ router.get('/random', async ctx => {
     const q = toSingle(ctx.query.q ?? '');
 
     const cardIds = q !== ''
-        ? (await searcher.search('searchId', q)).result ?? []
+        ? []
+        // ? (await searcher.search('searchId', q)).result ?? []
         : await Card.distinct('cardId');
 
     ctx.body = cardIds[random(cardIds.length - 1)] ?? '';
@@ -160,37 +155,8 @@ router.get('/print-view', async ctx => {
         if (pa < pb) { return -1; }
         if (pa > pb) { return 1; }
 
-        return extendedLocales.indexOf(a.lang) - extendedLocales.indexOf(b.lang);
+        return locales.indexOf(a.lang) - locales.indexOf(b.lang);
     });
-
-    const rulings = await Ruling.aggregate<IRuling>()
-        .match({ cardId: id })
-        .project({ _id: false });
-
-    const sourceRelation = await CardRelation.aggregate<RelatedCard>()
-        .match({ sourceId: id })
-        .project({
-            _id:      false,
-            relation: '$relation',
-            cardId:   '$targetId',
-            version:  '$targerVersion',
-        });
-
-    sourceRelation.sort(
-        sorter.pick<RelatedCard, 'relation'>('relation', sorter.string).or(
-            sorter.pick<RelatedCard, 'cardId'>('cardId', sorter.string),
-        ),
-    );
-
-    const targetRelation = await CardRelation.aggregate<RelatedCard>()
-        .match({ targetId: id })
-        .project({
-            _id:      false,
-            relation: 'source',
-            cardId:   '$sourceId',
-        });
-
-    targetRelation.sort(sorter.pick('cardId', sorter.string));
 
     const result: CardPrintView = {
         cardId: card.cardId,
@@ -199,85 +165,45 @@ router.get('/print-view', async ctx => {
         set:    print.set,
         number: print.number,
 
-        manaValue:     card.manaValue,
-        colorIdentity: card.colorIdentity,
+        cost:  card.cost,
+        color: card.color,
 
-        parts: card.parts.map((p, i) => ({
-            name:     p.name,
-            typeline: p.typeline,
-            text:     p.text,
+        inkwell: card.inkwell,
 
-            localization: p.localization,
+        name:     card.name,
+        typeline: card.typeline,
+        text:     card.text,
 
-            printName:     print.parts[i].name,
-            printTypeline: print.parts[i].typeline,
-            printText:     print.parts[i].text,
+        localization: card.localization,
 
-            cost:           p.cost,
-            manaValue:      p.manaValue,
-            color:          p.color,
-            colorIndicator: p.colorIndicator,
+        printName:     print.name,
+        printTypeline: print.typeline,
+        printText:     print.text,
 
-            type: p.type,
+        type: card.type,
 
-            power:            p.power,
-            toughness:        p.toughness,
-            loyalty:          p.loyalty,
-            defense:          p.defense,
-            handModifier:     p.handModifier,
-            lifeModifier:     p.lifeModifier,
-            attractionLights: print.parts[i].attractionLights,
+        lore:      card.lore,
+        strength:  card.strength,
+        willPower: card.willPower,
+        moveCost:  card.moveCost,
 
-            scryfallIllusId: print.parts[i].scryfallIllusId,
-            flavorName:      print.parts[i].flavorName,
-            flavorText:      print.parts[i].flavorText,
-            artist:          print.parts[i].artist,
-            watermark:       print.parts[i].watermark,
-        })),
+        flavorText: print.flavorText,
+        artist:     print.artist,
 
-        keywords:       card.keywords,
-        counters:       card.counters,
-        producibleMana: card.producibleMana,
-        tags:           card.tags,
-        printTags:      print.tags,
+        imageUri: print.imageUri,
 
-        category:       card.category,
-        legalities:     card.legalities,
-        contentWarning: card.contentWarning,
+        layout: print.layout,
+        rarity: print.rarity,
 
-        layout:        print.layout,
-        frame:         print.frame,
-        frameEffects:  print.frameEffects,
-        borderColor:   print.borderColor,
-        cardBack:      print.cardBack,
-        securityStamp: print.securityStamp,
-        promoTypes:    print.promoTypes,
-        rarity:        print.rarity,
-        releaseDate:   print.releaseDate,
+        finishes: print.finishes,
 
-        isDigital:       print.isDigital,
-        isPromo:         print.isPromo,
-        isReprint:       print.isReprint,
-        finishes:        print.finishes,
-        hasHighResImage: print.hasHighResImage,
-        imageStatus:     print.imageStatus,
-
-        inBooster: print.inBooster,
-        games:     print.games,
-
-        preview: print.preview,
-
-        scryfall:     print.scryfall,
-        arenaId:      print.arenaId,
-        mtgoId:       print.mtgoId,
-        mtgoFoilId:   print.mtgoFoilId,
-        multiverseId: print.multiverseId,
+        id:           card.id,
+        code:         card.code,
         tcgPlayerId:  print.tcgPlayerId,
         cardMarketId: print.cardMarketId,
+        cardTraderId: print.cardTraderId,
 
         versions,
-        relatedCards: [...sourceRelation, ...targetRelation],
-        rulings,
     };
 
     ctx.body = result;
@@ -286,11 +212,9 @@ router.get('/print-view', async ctx => {
 interface CardProfile {
     cardId: string;
 
-    parts: {
-        localization: {
-            lang: string;
-            name: string;
-        }[];
+    localization: {
+        lang: string;
+        name: string;
     }[];
 
     versions: {
@@ -298,8 +222,6 @@ interface CardProfile {
         set: string;
         number: string;
         rarity: string;
-        layout: string;
-        releaseDate: string;
     }[];
 }
 
@@ -325,24 +247,20 @@ router.get('/profile', async ctx => {
     for (const c of cards) {
         if (result[c.cardId] == null) {
             result[c.cardId] = {
-                cardId:   c.cardId,
-                parts:    [],
-                versions: [],
+                cardId:       c.cardId,
+                localization: [],
+                versions:     [],
             };
         }
 
         const profile = result[c.cardId];
 
-        profile.parts = c.parts.map(p => ({ localization: p.localization }));
-
         for (const p of c.prints) {
             profile.versions.push({
-                set:         p.set,
-                number:      p.number,
-                lang:        p.lang,
-                rarity:      p.rarity,
-                layout:      p.layout,
-                releaseDate: p.releaseDate,
+                set:    p.set,
+                number: p.number,
+                lang:   p.lang,
+                rarity: p.rarity,
             });
         }
     }

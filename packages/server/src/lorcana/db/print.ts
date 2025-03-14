@@ -21,6 +21,7 @@ const IPrintSchema = new Schema<WithUpdation<IPrint>>({
 
     imageUri: Object,
 
+    layout:   String,
     rarity:   String,
     finishes: [String],
 
