@@ -30,7 +30,4 @@ export interface Card {
     strength?: number;
     willPower?: number;
     moveCost?: number;
-
-    id: number;
-    code: string;
 }

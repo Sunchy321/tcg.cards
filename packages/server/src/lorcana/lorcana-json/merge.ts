@@ -195,11 +195,6 @@ export function combineCard(card: ICardDatabase, data: ICard): void {
         case 'moveCost':
             assign(card, data, k);
             break;
-
-        case 'id':
-        case 'code':
-            assign(card, data, k);
-            break;
         }
     }
 }
@@ -234,6 +229,7 @@ export async function mergePrint(print: Document & WithUpdation<IPrint>, data: I
             assign(print, data, k);
             break;
 
+        case 'layout':
         case 'flavorText':
         case 'artist':
             assign(print, data, k);
@@ -245,6 +241,8 @@ export async function mergePrint(print: Document & WithUpdation<IPrint>, data: I
             assign(print, data, k);
             break;
 
+        case 'id':
+        case 'code':
         case 'tcgPlayerId':
         case 'cardMarketId':
         case 'cardTraderId':

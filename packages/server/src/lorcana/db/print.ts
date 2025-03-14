@@ -25,6 +25,8 @@ const IPrintSchema = new Schema<WithUpdation<IPrint>>({
     rarity:   String,
     finishes: [String],
 
+    id:           Number,
+    code:         String,
     tcgPlayerId:  Number,
     cardMarketId: Number,
     cardTraderId: Number,

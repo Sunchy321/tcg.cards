@@ -22,6 +22,8 @@ export type Print = {
     rarity: Rarity;
     finishes?: string[];
 
+    id: number;
+    code: string;
     tcgPlayerId?: number;
     cardMarketId?: number;
     cardTraderId?: number;

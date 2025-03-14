@@ -72,9 +72,6 @@ export function toCard(
             strength:  data.strength,
             willPower: data.willpower,
             moveCost:  data.moveCost,
-
-            id:   data.id,
-            code: data.code,
         },
         print: {
             cardId: getId(data),
@@ -102,6 +99,8 @@ export function toCard(
             rarity:   toIdentifier(data.rarity) as Rarity,
             finishes: data.foilTypes?.map(v => toIdentifier(v)),
 
+            id:           data.id,
+            code:         data.code,
             tcgPlayerId:  data.externalLinks.tcgPlayerId,
             cardMarketId: data.externalLinks.cardmarketId,
             cardTraderId: data.externalLinks.cardTraderId,

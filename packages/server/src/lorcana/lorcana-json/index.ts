@@ -147,7 +147,7 @@ export default class DataLoader extends Task<Status> {
                 const { card, print } = toCard(json, lang, sets, map);
 
                 if (lang !== 'en') {
-                    const enPrint = cards.find(c => c.code === card.code);
+                    const enPrint = prints.find(p => p.code === print.code);
 
                     if (enPrint != null) {
                         card.cardId = enPrint.cardId;

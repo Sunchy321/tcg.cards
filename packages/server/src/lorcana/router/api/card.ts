@@ -197,8 +197,8 @@ router.get('/print-view', async ctx => {
 
         finishes: print.finishes,
 
-        id:           card.id,
-        code:         card.code,
+        id:           print.id,
+        code:         print.code,
         tcgPlayerId:  print.tcgPlayerId,
         cardMarketId: print.cardMarketId,
         cardTraderId: print.cardTraderId,
