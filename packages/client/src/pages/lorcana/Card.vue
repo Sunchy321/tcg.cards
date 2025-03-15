@@ -27,7 +27,7 @@
                     <q-img :src="`/lorcana/color/${c}.svg`" class="color" />
                 </template>
 
-                <div v-if="cost != null" class="mana-cost">
+                <div v-if="cost != null" class="mana-cost" :class="{ inkwell }">
                     {{ cost }}
                 </div>
             </div>
@@ -402,6 +402,7 @@ pageSetup({
 });
 
 const cost = computed(() => data.value?.cost);
+const inkwell = computed(() => data.value?.inkwell ?? true);
 const color = computed(() => data.value?.color ?? []);
 const layout = computed(() => data.value?.layout ?? 'normal');
 
@@ -628,9 +629,24 @@ onBeforeRouteLeave((to, from, next) => {
     width: 1em
 
 .mana-cost
-    display: inline-flex
-    align-items: center
     margin-left: 5px
+
+    width: 2.5em
+    height: 2.5em
+    line-height: 2.5em
+
+    background-size: cover
+
+    text-align: center
+    vertical-align: center
+
+    font-size: 75%
+
+    &.inkwell
+        background: url('/lorcana/inkable.svg')
+
+    &:not(.inkwell)
+        background: url('/lorcana/uninkable.svg')
 
 .color-indicator
     height: 1em
