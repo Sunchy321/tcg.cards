@@ -86,7 +86,7 @@ export function toCard(
             cardId: getId(data),
 
             cost:  data.cost,
-            color: data.color.split('-').map(v => transform(v, lang, map)) as Color[],
+            color: data.color === '' ? [] : data.color.split('-').map(v => transform(v, lang, map)) as Color[],
 
             inkwell: data.inkwell,
 
