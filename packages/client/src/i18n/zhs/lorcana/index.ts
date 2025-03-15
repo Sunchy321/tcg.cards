@@ -1,3 +1,5 @@
+import search from './search';
+
 export default {
     $self: '洛卡纳',
 
@@ -9,4 +11,10 @@ export default {
             printed: '牌面描述',
         },
     },
+
+    set: {
+        $self: '系列',
+    },
+
+    search,
 };

@@ -70,8 +70,6 @@ import { useMagic } from 'store/games/magic';
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
 
-import Booster from './set/BoosterSummary.vue';
-
 import { Set as ISet } from 'interface/magic/set';
 
 import setProfile from 'src/common/magic/set';

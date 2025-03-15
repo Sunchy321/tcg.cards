@@ -1,3 +1,5 @@
+import search from './search';
+
 export default {
     $self: 'Lorcana',
 
@@ -9,4 +11,10 @@ export default {
             printed: 'Printed',
         },
     },
+
+    set: {
+        $self: 'Set',
+    },
+
+    search,
 };
