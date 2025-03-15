@@ -37,6 +37,7 @@
             <div class="stats-line" :class="effectClass">
                 <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
+                <div v-if="lore != null" class="lore"><lorcana-text>{{ lore }} {L}</lorcana-text></div>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
                 <lorcana-text>{{ text }}</lorcana-text>
@@ -415,8 +416,14 @@ const stats = computed(() => {
         return `${data.value.strength}/${data.value.willPower}`;
     }
 
+    if (data.value.moveCost != null) {
+        return `[${data.value.moveCost}]`;
+    }
+
     return '';
 });
+
+const lore = computed(() => data.value?.lore);
 
 const name = computed(() => selectedTextInfo(data.value)?.name);
 const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
@@ -652,7 +659,7 @@ onBeforeRouteLeave((to, from, next) => {
     height: 1em
     margin-right: 5px
 
-.other-stats
+.other-stats, .lore
     margin-left: 15px
 
 .link

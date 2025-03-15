@@ -5,9 +5,9 @@
 <script setup lang="ts">
 import { VNode, h, useAttrs } from 'vue';
 
-import { useLorcana } from 'store/games/lorcana';
-
 import Symbol from './Symbol.vue';
+
+import { symbols } from 'static/lorcana/basic';
 
 const props = withDefaults(defineProps<{
     symbol?: string[];
@@ -26,8 +26,6 @@ const attrs = useAttrs();
 const slots = defineSlots<{
     default: () => VNode[];
 }>();
-
-const lorcana = useLorcana();
 
 const render = () => {
     const defaultSlot = slots.default!();
@@ -63,7 +61,7 @@ const render = () => {
                 if (p.startsWith('{') && p.endsWith('}')) {
                     const content = p.slice(1, -1);
 
-                    if (lorcana.symbols.includes(content)) {
+                    if (symbols.includes(content)) {
                         result.push(h(Symbol, {
                             class: attrs.class,
                             value: p,

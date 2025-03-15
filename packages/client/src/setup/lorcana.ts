@@ -3,7 +3,7 @@ import { useCore } from 'store/core';
 
 import { apiGet } from 'boot/server';
 
-export default function magicSetup(): {
+export default function lorcanaSetup(): {
     search: () => void;
     random: () => Promise<void>;
 } {
