@@ -7,3 +7,7 @@ export const locales = [
     'zhs',
     'ja',
 ];
+
+export const symbols = [
+    'E', 'I', 'L', 'S', 'W', 'IW',
+];

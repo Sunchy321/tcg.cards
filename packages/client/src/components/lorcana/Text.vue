@@ -7,6 +7,8 @@ import { VNode, h, useAttrs } from 'vue';
 
 import { useLorcana } from 'store/games/lorcana';
 
+import Symbol from './Symbol.vue';
+
 const props = withDefaults(defineProps<{
     symbol?: string[];
     detectUrl?: boolean;
@@ -37,7 +39,7 @@ const render = () => {
             const regex = new RegExp(`(${[
                 '[\\n☐]',
                 '\\{[^}]+\\}',
-                '\\[(?:0|[+-](?:[1-9][0-9]*|X))\\]',
+                '\\[[^\\[\\]]+\\]',
                 ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.?=&]+[-a-zA-Z0-9/]'] : [],
                 ...props.detectEmph ? ['\\*[^*]+\\*'] : [],
             ].join('|')})`);
@@ -61,17 +63,24 @@ const render = () => {
                 if (p.startsWith('{') && p.endsWith('}')) {
                     const content = p.slice(1, -1);
 
-                    // if (lorcana.symbols.includes(content)) {
-                    //     result.push(h(Symbol, {
-                    //         class: attrs.class,
-                    //         value: p,
-                    //         type:  symbolType,
-                    //     }));
-                    // } else {
+                    if (lorcana.symbols.includes(content)) {
+                        result.push(h(Symbol, {
+                            class: attrs.class,
+                            value: p,
+                        }));
+                    } else {
+                        result.push(h('span', {
+                            class: attrs.class,
+                        }, p));
+                    }
+
+                    continue;
+                }
+
+                if (p.startsWith('[') && p.endsWith(']')) {
                     result.push(h('span', {
-                        class: attrs.class,
-                    }, p));
-                    // }
+                        class: 'lorcana-text ability-word',
+                    }, p.slice(1, -1)));
 
                     continue;
                 }
@@ -87,7 +96,7 @@ const render = () => {
 
                 if (props.detectEmph && p.startsWith('*') && p.endsWith('*')) {
                     result.push(h('span', {
-                        class: 'magic-text emph',
+                        class: 'lorcana-text emph',
                     }, p.slice(1, -1)));
 
                     continue;
@@ -107,10 +116,17 @@ const render = () => {
 </script>
 
 <style lang="sass">
-.magic-text.card
+.lorcana-text.ability-word
+    color: white
+    background-color: #5C4427
+
+    padding-left: 8px
+    padding-right: 8px
+
+.lorcana-text.card
     display: inline
     text-decoration: underline
 
-.magic-text.emph
+.lorcana-text.emph
     font-weight: italic
 </style>

@@ -34,16 +34,51 @@ function transform(value: string, lang: string, map: Record<string, string>): st
     return toIdentifier(mapped ?? value);
 }
 
+const escapeMap: Record<string, string> = {
+    '⟳': 'E',
+    '⬡': 'I',
+    '◊': 'L',
+    '¤': 'S',
+    '⛉': 'W',
+    '◉': 'IW',
+};
+
+function escapeText(text: string): string {
+    const regex = new RegExp(`[${Object.keys(escapeMap).join('')}]`, 'g');
+
+    return text.replace(regex, v => `{${escapeMap[v]}}`);
+}
+
 export function toCard(
     data: JCard,
     lang: string,
     sets: ISet[],
     map: Record<string, string>,
 ): CardPrint {
+    const abilityNames: string[] = [];
+
+    if (data.abilities != null) {
+        for (const a of data.abilities) {
+            if (a.name != null) {
+                abilityNames.push(a.name);
+            }
+        }
+    }
+
     const loc = {
         name:     data.fullName,
-        typeline: [data.type, ...data.subtypes ?? []].join('·'),
-        text:     data.fullTextSections.map(t => t.replace(/\n/g, ' ')).join('\n'),
+        typeline: [data.type, ...data.subtypes ?? []].join('•'),
+        text:     escapeText(
+            data.fullTextSections.map(sec => {
+                for (const n of abilityNames) {
+                    if (sec.startsWith(n)) {
+                        sec = sec.replace(n, `[${n}]`);
+                    }
+                }
+
+                return sec.replace(/\n(?!•)/g, ' ');
+            }).join('\n'),
+        ),
     };
 
     return {
