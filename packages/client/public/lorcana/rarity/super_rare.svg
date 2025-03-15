@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 17.983 18.3669">
+  <defs>
+    <style>
+      .cls-1 {
+        clip-path: url(#clippath-2);
+      }
+
+      .cls-2 {
+        fill: none;
+        stroke-width: 0px;
+      }
+
+      .cls-3 {
+        clip-path: url(#clippath-1);
+      }
+
+      .cls-4 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <clipPath id="clippath">
+      <path class="cls-2" d="m1.7891,8.927c1.1194-1.0289,2.1988-2.0209,3.3092-3.0415.5796.6971.9364,1.5493,1.2497,2.4244.5299,1.4803.7903,3.0159.9347,4.5751.0425.4592-.0986.8094-.6703,1.0039-1.5485-1.593-3.1218-3.2115-4.8232-4.9618Zm3.7331-3.6314c1.6506,2.346,2.1991,4.9952,2.425,7.7725.259-.0438.4486-.0758.6927-.117V2.3027c-1.0703,1.0274-2.0892,2.0055-3.1178,2.9929Zm5.2082,9.0644c-1.2459-1.0656-2.5659-1.0393-3.4722-.0299.5722.6088,1.3524,1.3259,1.7361,1.7341.6979-.5709,1.111-1.1928,1.7361-1.7042Zm5.4635-5.433c-1.1194-1.0289-2.1988-2.0209-3.3092-3.0415-.5796.6971-.9364,1.5493-1.2497,2.4244-.5299,1.4803-.7903,3.0159-.9347,4.5751-.0425.4592.0986.8094.6703,1.0039,1.5485-1.593,3.1218-3.2115,4.8232-4.9618Zm-6.8509-6.6243c0,3.5359,0,7.0779,0,10.6483.2441.0412.4337.0733.6927.117.226-2.7773.7745-5.4265,2.425-7.7725-1.0286-.9874-2.0475-1.9654-3.1178-2.9929Z"/>
+    </clipPath>
+    <clipPath id="clippath-1">
+      <rect class="cls-2" x="-.3504" y="1.0622" width="18.6894" height="16.5333"/>
+    </clipPath>
+    <clipPath id="clippath-2">
+      <rect class="cls-2" x="-.8505" y=".5621" width="19.6895" height="17.5337"/>
+    </clipPath>
+  </defs>
+  <g class="cls-4">
+    <g class="cls-3">
+      <g class="cls-1">
+        <image width="42" height="37" transform="translate(-1.0681 .5384) scale(.48)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAECAYAAABGM/VAAAAACXBIWXMAAAJOAAACTgEl1tp0AAAAdklEQVQImQAVAOr/AcrJyf/GyMgA3ePkAPH19QCil5YBAAAA//8AFQDq/wCtqqr/1dTV/+zs7P/r6uv/AAAAAAAAAP//Yrlx+zbDuUuXGH58/87w7ft3BgYGBgYAAAAA//9iAMnCwIVz5/4zMDAwAAAAAP//AwDrdzTxg0IhhAAAAABJRU5ErkJggg=="/>
+      </g>
+    </g>
+  </g>
+</svg>

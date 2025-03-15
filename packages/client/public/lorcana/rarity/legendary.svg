@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 17.983 18.3669">
+  <defs>
+    <style>
+      .cls-1 {
+        clip-path: url(#clippath-2);
+      }
+
+      .cls-2 {
+        fill: none;
+        stroke-width: 0px;
+      }
+
+      .cls-3 {
+        clip-path: url(#clippath-1);
+      }
+
+      .cls-4 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <clipPath id="clippath">
+      <path class="cls-2" d="m13.4756,16.0329H4.5212c2.6745-4.2169,3.7386-8.8955,4.4772-13.6988.8087,4.7786,1.7168,9.4962,4.4772,13.6988Zm-9.3208-.9449c2.4067-3.7766,3.2244-7.9395,3.8788-12.175-.9746,3.1221-2.7878,5.6496-5.4049,7.6404.513,1.5244.9986,2.967,1.5261,4.5346Zm-1.8011-5.3187c2.0332-1.6939,3.5793-3.6272,4.3844-6.1213-1.6739,1.2362-3.3478,2.4724-5.0982,3.7651.2331.7696.4626,1.5272.7138,2.3561Zm13.0006.7841c-2.6171-1.9908-4.4303-4.5183-5.4049-7.6404.6544,4.2356,1.4721,8.3984,3.8788,12.175.5276-1.5676,1.0131-3.0102,1.5261-4.5346Zm.9888-3.1402c-1.7504-1.2927-3.4243-2.5289-5.0982-3.7651.8051,2.4941,2.3512,4.4274,4.3844,6.1213.2511-.8289.4806-1.5866.7138-2.3561Z"/>
+    </clipPath>
+    <clipPath id="clippath-1">
+      <rect class="cls-2" x="-.8108" y="1.1579" width="19.3021" height="17.5958"/>
+    </clipPath>
+    <clipPath id="clippath-2">
+      <rect class="cls-2" x="-1.311" y=".6578" width="20.3022" height="18.5962"/>
+    </clipPath>
+  </defs>
+  <g class="cls-4">
+    <g class="cls-3">
+      <g class="cls-1">
+        <image width="43" height="39" transform="translate(-1.5481 .5384) scale(.48)" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAFCAYAAABmWJ3mAAAACXBIWXMAAAJOAAACTgEl1tp0AAAAiUlEQVQImWIAgXcPjv//9XzB/3c7pf4/XaD6n4GBgQEAAAD//wLjL+dt/u/vt/j/4fn9/79f9PxnYGBgAAAAAP//YgIR07rfM0gq/GVgeRHLcHT5CgYGBgYGAAAAAP//YgER20/8ZLhx/Q+DhhoLQ0SKEAMDAwMDAAAA///CjhkYGAAAAAD//wMAcbwmEDW6WowAAAAASUVORK5CYII="/>
+      </g>
+    </g>
+  </g>
+</svg>

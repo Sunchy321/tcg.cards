@@ -109,6 +109,8 @@
                         <div v-ripple class="flex no-wrap items-center" @click="set = i.set">
                             <span class="code q-mr-sm" :style="`width: ${setMaxWidth}ch;`">{{ i.set }}</span>
                             <span class="set-name">{{ i.name }}</span>
+
+                            <q-img class="rarity-icon q-mr-sm" :src="`/lorcana/rarity/${i.rarity}.svg`" />
                             <span class="rarity">{{ i.rarity[0] }}</span>
                         </div>
                         <div>
@@ -710,8 +712,9 @@ onBeforeRouteLeave((to, from, next) => {
 .set-name
     flex: 1 1 auto
 
-.set-icon
-    height: 1em
+.rarity-icon
+    height: 1.2em
+    width: 1.2em
 
 .rarity
     text-transform: uppercase
