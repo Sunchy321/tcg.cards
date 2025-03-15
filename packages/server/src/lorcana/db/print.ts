@@ -2,10 +2,9 @@ import { Schema } from 'mongoose';
 
 import conn from './db';
 
-import { Print as IPrint } from '@interface/lorcana/print';
-import { WithUpdation } from '@common/model/updation';
+import { IPrintDatabase } from '@common/model/lorcana/print';
 
-const IPrintSchema = new Schema<WithUpdation<IPrint>>({
+const IPrintSchema = new Schema<IPrintDatabase>({
     cardId: String,
 
     lang:   String,

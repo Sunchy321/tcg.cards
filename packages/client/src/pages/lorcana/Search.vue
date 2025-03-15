@@ -4,7 +4,7 @@
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
             <div>
-                <magic-text>{{ explained.text }}</magic-text>
+                <lorcana-text>{{ explained.text }}</lorcana-text>
             </div>
 
             <q-space />
@@ -21,21 +21,20 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, print: { set, number, lang, layout, partIndex, imageStatus }}"
+                v-slot="{ cardId, print: { set, number, lang, layout }}"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
                 <router-link
                     :key="cardId"
-                    :to="cardLink(cardId, set, number, lang, partIndex)"
+                    :to="cardLink(cardId, set, number, lang)"
                     target="_blank"
                 >
                     <card-image
                         :set="set"
                         :number="number"
-                        :lang="imageLang(lang, imageStatus, set)"
+                        :lang="imageLang(lang, set)"
                         :layout="layout"
-                        :part="partIndex"
                     />
                 </router-link>
             </grid>
@@ -47,20 +46,20 @@
 import { ref, computed, watch } from 'vue';
 
 import { useCore } from 'store/core';
-import { useMagic } from 'store/games/magic';
+import { useLorcana } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
-import magicSetup from 'setup/magic';
+import lorcanaSetup from 'setup/lorcana';
 
 import Grid from 'components/Grid.vue';
-import CardImage from 'components/magic/CardImage.vue';
-import MagicText from 'components/magic/Text.vue';
+import CardImage from 'components/lorcana/CardImage.vue';
+import LorcanaText from 'components/lorcana/Text.vue';
 
-import { Card } from '@interface/magic/card';
-import { Print } from '@interface/magic/print';
+import { Card } from '@interface/lorcana/card';
+import { Print } from '@interface/lorcana/print';
 
-import model from 'searcher-data/magic/client';
+import model from 'searcher-data/lorcana/client';
 
 import { apiGet } from 'boot/server';
 
@@ -75,15 +74,10 @@ interface QueryItem {
     param: QueryParam;
 }
 
-type Unwind<T extends { parts: any[] }> = Omit<T, 'parts'> & {
-    parts: T['parts'][0];
-    partIndex: number;
-};
-
 interface QueryCard {
     cardId: string;
-    card: Unwind<Card>;
-    print: Unwind<Print>;
+    card: Card;
+    print: Print;
 }
 
 interface QueryResult {
@@ -100,10 +94,10 @@ interface SearchResult {
 }
 
 const core = useCore();
-const magic = useMagic();
+const lorcana = useLorcana();
 const i18n = useI18n();
 
-const { search } = magicSetup();
+const { search } = lorcanaSetup();
 
 const data = ref<SearchResult | null>(null);
 const searching = ref(false);
@@ -147,7 +141,7 @@ const explained = computed(() => model.explain(q.value, (key: string, named) => 
     let realKey;
 
     if (key.startsWith('$.')) {
-        realKey = `magic.search.${key.slice(2)}`;
+        realKey = `lorcana.search.${key.slice(2)}`;
     } else {
         realKey = `search.${key}`;
     }
@@ -164,13 +158,7 @@ const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
 
-const imageLang = (lang: string, imageStatus: string, set: string) => {
-    if (imageStatus !=='placeholder') {
-        return lang;
-    }
-
-    return 'en';
-};
+const imageLang = (lang: string, set: string) => lang;
 
 const doSearch = async () => {
     if (q.value == null || q.value === '') {
@@ -181,9 +169,9 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const { data: result } = await apiGet<SearchResult>('/magic/search', {
+    const { data: result } = await apiGet<SearchResult>('/lorcana/search', {
         q:        q.value,
-        locale:   magic.locale,
+        locale:   lorcana.locale,
         page:     page.value,
         pageSize: pageSize.value,
     });
@@ -208,8 +196,7 @@ const cardLink = (
     set: string,
     number: string,
     lang: string,
-    partIndex: number,
-) => `/magic/card/${cardId}?set=${set}&number=${number}&lang=${lang}&part=${partIndex}`;
+) => `/lorcana/card/${cardId}?set=${set}&number=${number}&lang=${lang}`;
 
 watch([q, page, pageSize], doSearch, { immediate: true });
 </script>
