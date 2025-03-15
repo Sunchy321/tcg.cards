@@ -23,6 +23,10 @@
 
                 <q-space />
 
+                <template v-for="c in color" :key="c">
+                    <q-img :src="`/lorcana/color/${c}.svg`" class="color" />
+                </template>
+
                 <div v-if="cost != null" class="mana-cost">
                     {{ cost }}
                 </div>
@@ -398,6 +402,7 @@ pageSetup({
 });
 
 const cost = computed(() => data.value?.cost);
+const color = computed(() => data.value?.color ?? []);
 const layout = computed(() => data.value?.layout ?? 'normal');
 
 const stats = computed(() => {
@@ -577,43 +582,6 @@ onBeforeRouteLeave((to, from, next) => {
 .ability
     margin-top: 30px
 
-.attraction-lights
-    margin-top: 20px
-
-    & > *:not(:last-child)
-        margin-right: 5px
-
-.attraction-light
-    display: inline-flex
-    justify-content: center
-    align-items: center
-
-    height: 20px
-    width: 20px
-
-    background-color: #494947
-    border: 1.5px white solid
-    border-radius: 50%
-    box-shadow: -2px 1px 2px rgb(0 0 0 / 33%)
-
-    &.enabled
-        color: #FFF
-
-    &.light-2.enabled
-        background-color: #0A86A6
-
-    &.light-3.enabled
-        background-color: #7AC057
-
-    &.light-4.enabled
-        background-color: #B9B36A
-
-    &.light-5.enabled
-        background-color: #A83F81
-
-    &.light-6.enabled
-        background-color: #C77151
-
 .flavor-text
     margin-top: 20px
     font-style: italic
@@ -655,6 +623,9 @@ onBeforeRouteLeave((to, from, next) => {
 .sub-name
     font-size: 120%
     color: grey
+
+.color
+    width: 1em
 
 .mana-cost
     display: inline-flex
