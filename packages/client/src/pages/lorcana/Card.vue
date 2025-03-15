@@ -37,7 +37,7 @@
             <div class="stats-line" :class="effectClass">
                 <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
-                <div v-if="lore != null" class="lore"><lorcana-text>{{ lore }} {L}</lorcana-text></div>
+                <div v-if="lore != null && lore > 0" class="lore"><lorcana-text>{{ lore }} {L}</lorcana-text></div>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
                 <lorcana-text>{{ text }}</lorcana-text>
@@ -416,8 +416,8 @@ const stats = computed(() => {
         return `${data.value.strength}/${data.value.willPower}`;
     }
 
-    if (data.value.moveCost != null) {
-        return `[${data.value.moveCost}]`;
+    if (data.value.moveCost != null && data.value.willPower != null) {
+        return `[${data.value.moveCost}] ${data.value.willPower}`;
     }
 
     return '';
