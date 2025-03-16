@@ -14,6 +14,7 @@ export interface CardProfile {
         number: string;
         rarity: string;
         layout: string;
+        releaseDate: string;
     }[];
 }
 

@@ -3,7 +3,6 @@
         <div class="card-image col-3 q-mr-md">
             <card-image
                 v-if="data != null"
-                v-model:part="partIndex"
                 :lang="lang"
                 :set="set"
                 :number="number"
@@ -117,14 +116,6 @@
 
                 <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" outlined dense />
 
-                <q-btn-toggle
-                    v-if="partCount > 1"
-                    v-model="partIndex"
-                    class="q-mr-md"
-                    :options="partOptions"
-                    outline dense
-                />
-
                 <div>{{ releaseDate }}</div>
 
                 <span v-if="dataGroup != null" class="q-ml-md">{{ `${total} (${loaded})` }}</span>
@@ -199,14 +190,14 @@
 
             <table>
                 <tr>
-                    <th>Oracle</th>
+                    <th>Standard</th>
                     <th>Unified</th>
                     <th>Printed</th>
                 </tr>
                 <tr>
                     <td>
                         <q-input
-                            v-model="oracleName"
+                            v-model="standardName"
                             tabindex="1" :readonly="!unlock"
                             outlined dense
                         />
@@ -217,7 +208,7 @@
                 <tr>
                     <td>
                         <q-input
-                            v-model="oracleTypeline"
+                            v-model="standardTypeline"
                             tabindex="1" :readonly="!unlock"
                             outlined dense
                         />
@@ -228,7 +219,7 @@
                 <tr class="text">
                     <td>
                         <q-input
-                            v-model="oracleText"
+                            v-model="standardText"
                             tabindex="1" :readonly="!unlock"
                             outlined type="textarea" dense
                         />
@@ -239,32 +230,6 @@
             </table>
 
             <q-input v-model="flavorText" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea" />
-
-            <div class="flex q-mt-sm">
-                <q-input v-model="flavorName" class="col" label="Flavor Name" outlined dense />
-
-                <!-- eslint-disable-next-line max-len -->
-                <array-input v-model="multiverseId" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
-                    <template #append>
-                        <q-btn icon="mdi-image" flat dense round @click="saveGathererImage" />
-                        <q-btn icon="mdi-magnify" flat dense round @click="loadGatherer" />
-                    </template>
-                </array-input>
-            </div>
-
-            <div class="flex q-mt-sm">
-                <q-input v-model="relatedCardsString" class="col" debounce="500" label="Related Cards" outlined dense>
-                    <template #append>
-                        <q-btn icon="mdi-card-plus-outline" flat dense round @click="guessToken" />
-                    </template>
-                </q-input>
-
-                <array-input v-model="counters" class="col q-ml-sm" label="Counters" outlined dense>
-                    <template #append>
-                        <q-btn icon="mdi-magnify" flat dense round @click="guessCounter" />
-                    </template>
-                </array-input>
-            </div>
 
             <div>
                 locked[card]: {{ cardLockedPaths.join(', ') }}
@@ -293,28 +258,21 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useLorcana } from 'store/games/lorcana';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'setup/page';
 
-import ArrayInput from 'components/ArrayInput.vue';
-import CardImage from 'components/magic/CardImage.vue';
-import CardAvatar from 'components/magic/CardAvatar.vue';
+import CardImage from 'components/lorcana/CardImage.vue';
+import CardAvatar from 'components/lorcana/CardAvatar.vue';
 
-import { Layout } from 'interface/magic/print';
-import { CardEditorView } from 'common/model/magic/card';
+import { Layout } from 'interface/lorcana/print';
+import { CardEditorView } from 'common/model/lorcana/card';
 
 import { AxiosResponse } from 'axios';
 
-import {
-    debounce, deburr, isEqual, uniq, upperFirst,
-    zip,
-} from 'lodash';
-
 import { copyToClipboard } from 'quasar';
-
-import { parenRegex, commaRegex } from 'static/magic/special';
+import { debounce, isEqual } from 'lodash';
 
 type CardGroup = {
     method: string;
@@ -329,87 +287,9 @@ type History = {
     lang: string;
 };
 
-const colorMap: Record<string, string> = {
-    'white':           'w',
-    'blue':            'u',
-    'black':           'b',
-    'red':             'r',
-    'green':           'g',
-    'colorless':       'c',
-    'white and black': 'wb',
-    'white and blue':  'wu',
-    'blue and black':  'ub',
-    'blue and red':    'ur',
-    'black and red':   'br',
-    'black and green': 'bg',
-    'red and green':   'rg',
-    'red and white':   'wr',
-    'green and blue':  'ug',
-    'green and white': 'wg',
-    'pink':            'p',
-    'gold':            'o',
-};
-
-const keywordMap: Record<string, string> = {
-    'changeling':   'c',
-    'deathtouch':   'd',
-    'defender':     'e',
-    'first strike': 's',
-    'flying':       'f',
-    'haste':        'h',
-    'hexproof':     'x',
-    'lifelink':     'l',
-    'menace':       'm',
-    'reach':        'r',
-    'trample':      't',
-    'vigilance':    'v',
-    'prowess':      'p',
-};
-
-const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone', 'Map', 'Junk'];
-
-const numberRegex = '(?:[a-z]+|a number of|(?:twice )?(?:X|that many))';
-
-const statsRegex = '(?:\\d+|X)/(?:\\d+|X)';
-const colorRegex = `(?:${Object.keys(colorMap).join('|')})`;
-const subtypeRegex = '[A-Z][a-z]+(?:-[A-Z][a-z]+)?';
-const subtypesRegex = `${subtypeRegex}(?: ${subtypeRegex})*`;
-const typeRegex = 'artifact|enchantment';
-const abilityRegex = '(?:[a-z]+|"[^"]+")';
-const abilitiesRegex = `${abilityRegex}(?: and ${abilityRegex})*`;
-
-const creatureRegex = `${numberRegex}(?: tapped)?(?: (${statsRegex}))? (${colorRegex}) (${subtypesRegex}) (?:(?:${typeRegex}) )?creature tokens?(?: with (${abilitiesRegex}))?`;
-
-const predefinedRegex = `${numberRegex}(?: tapped)? (${predefinedNames.join('|')}|colorless Clue artifact) tokens?`;
-const roleRegex = `${numberRegex}(?: tapped)? ([A-Z][a-z]+|[A-Z][a-z]+ [A-Z][a-z]+) Role tokens?`;
-
-const guessRegex = new RegExp(`[Cc]reates? (?:${creatureRegex}|${predefinedRegex}|${roleRegex})`, 'g');
-const predefinedCheckRegex = new RegExp(predefinedRegex);
-
-const counterBlacklist = [
-    'a',
-    'all',
-    'and',
-    'each',
-    'had',
-    'has',
-    'have',
-    'more',
-    'no',
-    'of',
-    'the',
-    'those',
-    'with',
-    'X',
-    'another',
-    'moved',
-    'that',
-    'three',
-];
-
 const router = useRouter();
 const route = useRoute();
-const magic = useMagic();
+const lorcana = useLorcana();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -418,7 +298,7 @@ const dataGroup = ref<CardGroup>();
 const history = ref<History[]>([]);
 const unlock = ref(false);
 
-const locales = computed(() => ['', ...magic.locales]);
+const locales = computed(() => ['', ...lorcana.locales]);
 
 const {
     locale,
@@ -559,7 +439,7 @@ const info = computed(() => {
 });
 
 const cardLink = computed(() => ({
-    name:   'magic/card',
+    name:   'lorcana/card',
     params: { id: id.value },
     query:  {
         lang:   lang.value,
@@ -567,38 +447,6 @@ const cardLink = computed(() => ({
         number: number.value,
     },
 }));
-
-const partCount = computed(() => data.value?.card.parts.length ?? 0);
-
-const partIndex = computed({
-    get() {
-        if (data.value?.partIndex != null) {
-            return data.value.partIndex;
-        }
-
-        if (route.query.part != null) {
-            const result = parseInt(route.query.part as string, 10);
-
-            if (result < partCount.value) {
-                return result;
-            }
-        }
-
-        return 0;
-    },
-    set(newValue: number) {
-        if (data.value?.partIndex != null) {
-            data.value.partIndex = newValue;
-        } else {
-            router.replace({
-                query: {
-                    ...route.query,
-                    part: newValue,
-                },
-            });
-        }
-    },
-});
 
 const loaded = computed(() => dataGroup.value?.cards.length);
 const total = computed(() => dataGroup.value?.total);
@@ -614,21 +462,8 @@ const layout = computed({
 
 const layoutOptions = ['normal', 'split', 'multipart', 'battle', 'reversible_card', 'transform_token'];
 
-const partOptions = computed(() => {
-    const result = [];
-
-    for (let i = 0; i < partCount.value; i += 1) {
-        result.push({ value: i, label: i.toString() });
-    }
-
-    return result;
-});
-
-type CardPart = CardEditorView['card']['parts'][0];
-type PrintPart = CardEditorView['print']['parts'][0];
-
-const cardPart = computed(() => card?.value?.parts?.[partIndex.value]);
-const printPart = computed(() => print?.value?.parts?.[partIndex.value]);
+type Card = CardEditorView['card'];
+type Print = CardEditorView['print'];
 
 const lockPath = <T extends { __lockedPaths: string[] }>(value: ComputedRef<T | undefined>, path: string) => {
     if (value.value != null && !value.value.__lockedPaths.includes(path)) {
@@ -636,11 +471,11 @@ const lockPath = <T extends { __lockedPaths: string[] }>(value: ComputedRef<T | 
     }
 };
 
-const cardPartField = <F extends keyof CardPart>(firstKey: F, defaultValue?: CardPart[F], path?: string | (() => string)) => computed({
-    get() { return (cardPart.value?.[firstKey] ?? defaultValue)!; },
-    set(newValue: CardPart[F]) {
+const cardField = <F extends keyof Card>(firstKey: F, defaultValue?: Card[F], path?: string | (() => string)) => computed({
+    get() { return (card.value?.[firstKey] ?? defaultValue)!; },
+    set(newValue: Card[F]) {
         if (data.value != null) {
-            cardPart.value![firstKey] = newValue;
+            card.value![firstKey] = newValue;
 
             if (path != null) {
                 const realPath = typeof path === 'string' ? path : path();
@@ -651,11 +486,11 @@ const cardPartField = <F extends keyof CardPart>(firstKey: F, defaultValue?: Car
     },
 });
 
-const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: PrintPart[F], path?: string | (() => string)) => computed({
-    get() { return (printPart.value?.[firstKey] ?? defaultValue)!; },
-    set(newValue: PrintPart[F]) {
-        if (data.value != null && !isEqual(printPart.value![firstKey], newValue)) {
-            printPart.value![firstKey] = newValue;
+const printField = <F extends keyof Print>(firstKey: F, defaultValue?: Print[F], path?: string | (() => string)) => computed({
+    get() { return (print.value?.[firstKey] ?? defaultValue)!; },
+    set(newValue: Print[F]) {
+        if (data.value != null && !isEqual(print.value![firstKey], newValue)) {
+            print.value![firstKey] = newValue;
 
             if (path != null) {
                 const realPath = typeof path === 'string' ? path : path();
@@ -666,121 +501,105 @@ const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: P
     },
 });
 
-// const partField2 = <
-//     F extends keyof Part,
-//     L extends keyof Part[F],
-// >(firstKey: F, lastKey: L, defaultValue?: Part[F][L]) => computed({
-//     get(): Part[F][L] {
-//         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-//         return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
-//     },
-//     set(newValue: Part[F][L]) {
-//         if (data.value != null) {
-//             (part.value as any)![firstKey][lastKey] = newValue;
-//         }
-//     },
-// });
+const standardName = cardField('name', '');
+const standardTypeline = cardField('typeline', '');
+const standardText = cardField('text', '');
 
-const oracleName = cardPartField('name', '');
-const oracleTypeline = cardPartField('typeline', '');
-const oracleText = cardPartField('text', '');
-
-const printedName = printPartField('name', '', () => `parts[${partIndex.value}].name`);
-const printedTypeline = printPartField('typeline', '', () => `parts[${partIndex.value}].typeline`);
-const printedText = printPartField('text', '', () => `parts[${partIndex.value}].text`);
+const printedName = printField('name', '');
+const printedTypeline = printField('typeline', '');
+const printedText = printField('text', '');
 
 const unifiedName = computed({
     get() {
-        if (cardPart.value == null) {
+        if (card.value == null) {
             return '';
         }
 
-        return cardPart.value.localization.find(
+        return card.value.localization.find(
             l => l.lang === lang.value,
         )?.name ?? '';
     },
     set(newValue) {
-        if (cardPart.value == null) {
+        if (card.value == null) {
             return;
         }
 
-        const localization = cardPart.value.localization.find(
+        const localization = card.value.localization.find(
             l => l.lang === lang.value,
         );
 
         if (localization == null) {
-            cardPart.value.localization.push({
+            card.value.localization.push({
                 lang: lang.value, name: newValue, typeline: '', text: '',
             });
         } else if (localization.name !== newValue) {
             localization.name = newValue;
-            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].name`);
+            lockPath(card, `localization[${lang.value}].name`);
         }
     },
 });
 
 const unifiedTypeline = computed({
     get() {
-        if (cardPart.value == null) {
+        if (card.value == null) {
             return '';
         }
 
-        return cardPart.value.localization.find(
+        return card.value.localization.find(
             l => l.lang === lang.value,
         )?.typeline ?? '';
     },
     set(newValue) {
-        if (cardPart.value == null) {
+        if (card.value == null) {
             return;
         }
 
-        const localization = cardPart.value.localization.find(
+        const localization = card.value.localization.find(
             l => l.lang === lang.value,
         );
 
         if (localization == null) {
-            cardPart.value.localization.push({
+            card.value.localization.push({
                 lang: lang.value, name: '', typeline: newValue, text: '',
             });
         } else if (localization.typeline !== newValue) {
             localization.typeline = newValue;
-            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].typeline`);
+            lockPath(card, `localization[${lang.value}].typeline`);
         }
     },
 });
 
 const unifiedText = computed({
     get() {
-        if (cardPart.value == null) {
+        if (card.value == null) {
             return '';
         }
 
-        return cardPart.value.localization.find(
+        return card.value.localization.find(
             l => l.lang === lang.value,
         )?.text ?? '';
     },
     set(newValue) {
-        if (cardPart.value == null) {
+        if (card.value == null) {
             return;
         }
 
-        const localization = cardPart.value.localization.find(
+        const localization = card.value.localization.find(
             l => l.lang === lang.value,
         );
 
         if (localization == null) {
-            cardPart.value.localization.push({
+            card.value.localization.push({
                 lang: lang.value, name: '', typeline: '', text: newValue,
             });
         } else if (localization.text !== newValue) {
             localization.text = newValue;
-            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].text`);
+            lockPath(card, `localization[${lang.value}].text`);
         }
     },
 });
 
-const flavorText = printPartField('flavorText', '');
-const flavorName = printPartField('flavorName', '');
+const flavorText = printField('flavorText', '');
 
 const releaseDate = computed(() => print.value?.releaseDate);
 
@@ -866,106 +685,6 @@ const clickDevPrinted = () => {
     clearDevPrinted.value = true;
 };
 
-const relatedCards = computed({
-    get() {
-        return data.value?.relatedCards ?? [];
-    },
-    set(newValue) {
-        if (data.value == null) {
-            return;
-        }
-
-        data.value.relatedCards = newValue;
-        devToken.value = false;
-    },
-});
-
-const relatedCardsString = computed({
-    get() {
-        return relatedCards.value
-            ?.map(
-                ({ relation, cardId, version }) => (version != null
-                    ? [relation, cardId, version.lang, version.set, version.number]
-                    : [relation, cardId]
-                ).join('|'),
-            )
-            ?.join('; ') ?? '';
-    },
-    set(newValue: string) {
-        if (data.value == null) {
-            return;
-        }
-
-        if (newValue === '') {
-            relatedCards.value = [];
-            devToken.value = false;
-            return;
-        }
-
-        const parts = newValue.split(/; */);
-
-        relatedCards.value = parts.map(p => {
-            // eslint-disable-next-line prefer-const, @typescript-eslint/no-shadow
-            let [relation, cardId, lang, set, number] = p.split('|');
-
-            if (relation.length === 1) {
-                relation = {
-                    t: 'token',
-                    e: 'emblem',
-                    i: 'intext',
-                    m: 'meld',
-                    s: 'specialization',
-                }[relation] ?? relation;
-            }
-
-            if (relation === 'emblem' && cardId == null) {
-                cardId = `${id.value}_emblem`;
-            }
-
-            cardId = deburr(cardId)
-                .trim()
-                .toLowerCase()
-                .replace(/[^a-z0-9!*+]/g, '_');
-
-            if (lang != null) {
-                return { relation, cardId, version: { lang, set, number } };
-            } else {
-                return { relation, cardId };
-            }
-        });
-
-        devToken.value = false;
-    },
-});
-
-const counters = computed({
-    get() { return card.value?.counters ?? []; },
-    set(newValue: string[]) {
-        if (card.value == null) {
-            return;
-        }
-
-        newValue = uniq(newValue).sort();
-
-        devCounter.value = false;
-
-        if (newValue.length === 0) {
-            delete card.value?.counters;
-        } else {
-            card.value.counters = newValue.sort();
-        }
-    },
-});
-
-const multiverseId = computed({
-    get() { return print.value?.multiverseId ?? []; },
-    set(newValue: number[]) {
-        if (print.value != null) {
-            print.value.multiverseId = newValue;
-        }
-    },
-});
-
 const cardLockedPaths = computed({
     get() { return card.value?.__lockedPaths ?? []; },
     set(newValue) {
@@ -1040,117 +759,9 @@ const searchResult = computed(() => {
     return null;
 });
 
-// eslint-disable-next-line @typescript-eslint/no-shadow
-const defaultTypelinePrettifier = (typeline: string, lang: string) => {
-    typeline = typeline
-        .trim()
-        .replace(/\s/g, ' ')
-        .replace(/ *～ *-? */, '～')
-        .replace(/ *[―—] *-? */, ' — ')
-        .replace(/ *: *-? */, ' : ');
-
-    if (lang === 'zhs' || lang === 'zht') {
-        typeline = typeline.replace(/~/g, '～').replace(/\//g, '／');
-    } else {
-        typeline = typeline.replace(/ - /g, ' — ').trim();
-    }
-
-    return typeline;
-};
-
-// eslint-disable-next-line @typescript-eslint/no-shadow
-const defaultTextPrettifier = (text: string, lang: string, name: string) => {
-    text = text.replace(/~~/g, name);
-
-    if (lang === 'zhs' || lang === 'zht') {
-        text = text.replace(/~/g, '～').replace(/\/\//g, '／').trim();
-    }
-
-    text = text
-        .trim()
-        .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
-        .replace(/\n{2,}/g, '\n')
-        .replace(/^[●•‧・] ?/mg, lang === 'ja' ? '・' : '• ')
-        .replace(/<\/?.>/g, '')
-        .replace(/&lt;\/?.&gt;/g, '')
-        .replace(/&amp;/g, '&')
-        .replace(/&.*?;/g, '');
-
-    if (lang === 'zhs' || lang === 'zht') {
-        if (!/[a-wyz](?![/}])/.test(text)) {
-            text = text
-                .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
-                .replace(/\(/g, '（')
-                .replace(/\)/g, '）')
-                .replace(/;/g, '；');
-        }
-    }
-
-    if (lang === 'de') {
-        text = text
-            .replace(/"/g, '“')
-            .replace(/'/g, '‘');
-    }
-
-    if (lang === 'fr') {
-        text = text
-            .replace(/<</g, '«')
-            .replace(/>>/g, '»');
-    }
-
-    return text;
-};
-
 const defaultPrettify = () => {
     if (data.value == null) {
         return;
-    }
-
-    for (const [i, p] of card.value!.parts.entries()) {
-        const loc = p.localization.find(l => l.lang === lang.value);
-
-        if (loc != null) {
-            if (i === partIndex.value) {
-                unifiedTypeline.value = defaultTypelinePrettifier(unifiedTypeline.value, lang.value);
-                unifiedText.value = defaultTextPrettifier(unifiedText.value, lang.value, loc.name);
-            } else {
-                loc.typeline = defaultTypelinePrettifier(loc.typeline, lang.value);
-                loc.text = defaultTextPrettifier(loc.text, lang.value, loc.name);
-            }
-        }
-    }
-
-    for (const [i, p] of print.value!.parts.entries()) {
-        if (i === partIndex.value) {
-            printedTypeline.value = defaultTypelinePrettifier(printedTypeline.value, lang.value);
-            printedText.value = defaultTextPrettifier(printedText.value, lang.value, p.name);
-        } else {
-            p.typeline = defaultTypelinePrettifier(p.typeline, lang.value);
-            p.text = defaultTextPrettifier(p.text, lang.value, p.name);
-        }
-
-        if (p.flavorText != null && p.flavorText !== '') {
-            if (lang.value === 'zhs' || lang.value === 'zht') {
-                p.flavorText = p.flavorText
-                    .replace(/~/g, '～')
-                    .replace(/\.\.\./g, '…')
-                    .replace(/」 ?～/g, '」\n～')
-                    .replace(/。 ?～/g, '。\n～')
-                    .replace(/([，。！？：；]) /g, (m: any, m1: string) => m1);
-            }
-
-            if (lang.value === 'de') {
-                p.flavorText = p.flavorText
-                    .replace(/"/g, '“')
-                    .replace(/'/g, '‘');
-            }
-
-            if (lang.value === 'fr') {
-                p.flavorText = p.flavorText
-                    .replace(/<</g, '«')
-                    .replace(/>>/g, '»');
-            }
-        }
     }
 
     if (clearDevPrinted.value) {
@@ -1164,90 +775,41 @@ const prettify = () => {
     }
 
     if (lang.value !== 'en') {
-        if (oracleName.value !== unifiedName.value) {
-            if (oracleName.value === printedName.value || printedName.value === '') {
+        if (standardName.value !== unifiedName.value) {
+            if (standardName.value === printedName.value || printedName.value === '') {
                 printedName.value = unifiedName.value;
             }
         }
 
-        if (oracleName.value !== printedName.value) {
-            if (oracleName.value === unifiedName.value || unifiedName.value === '') {
+        if (standardName.value !== printedName.value) {
+            if (standardName.value === unifiedName.value || unifiedName.value === '') {
                 unifiedName.value = printedName.value;
             }
         }
 
-        if (oracleTypeline.value !== unifiedTypeline.value) {
-            if (oracleTypeline.value === printedTypeline.value || printedTypeline.value === '') {
+        if (standardTypeline.value !== unifiedTypeline.value) {
+            if (standardTypeline.value === printedTypeline.value || printedTypeline.value === '') {
                 printedTypeline.value = unifiedTypeline.value;
             }
         }
 
-        if (oracleTypeline.value !== printedTypeline.value) {
-            if (oracleTypeline.value === unifiedTypeline.value || unifiedTypeline.value === '') {
+        if (standardTypeline.value !== printedTypeline.value) {
+            if (standardTypeline.value === unifiedTypeline.value || unifiedTypeline.value === '') {
                 unifiedTypeline.value = printedTypeline.value;
             }
         }
 
-        if (oracleText.value !== unifiedText.value) {
-            if (oracleText.value === printedText.value || printedText.value === '') {
+        if (standardText.value !== unifiedText.value) {
+            if (standardText.value === printedText.value || printedText.value === '') {
                 printedText.value = unifiedText.value;
             }
         }
 
-        if (oracleText.value !== printedText.value) {
-            if (oracleText.value === unifiedText.value || unifiedText.value === '') {
+        if (standardText.value !== printedText.value) {
+            if (standardText.value === unifiedText.value || unifiedText.value === '') {
                 unifiedText.value = printedText.value;
             }
         }
-    }
-
-    if (/^\((Theme color: (\{.\})+|\{T\}: Add \{.\}\.)\)$/.test(printedText.value!)) {
-        printedText.value = '';
-    }
-
-    if (lang.value === 'ja') {
-        unifiedName.value = unifiedName.value!.replace(/（.*?）/g, '');
-        printedName.value = printedName.value!.replace(/（.*?）/g, '');
-        unifiedText.value = unifiedText.value!.replace(/ *<i>[(（][^)）]+[)）]<\/i> */g, '').trim();
-
-        const applyReplace = (v: string) => {
-            const charMap: Record<string, string> = {
-                '0': '０',
-                '1': '１',
-                '2': '２',
-                '3': '３',
-                '4': '４',
-                '5': '５',
-                '6': '６',
-                '7': '７',
-                '8': '８',
-                '9': '９',
-                'X': 'Ｘ',
-                '+': '＋',
-                '-': '－',
-                '(': '（',
-                ')': '）',
-            };
-
-            const replacer = (nums: string) => (/\d{2}/.test(nums) ? nums : nums.split('').map(c => charMap[c] ?? c).join(''));
-
-            return v
-                .replace(/[-+0-9X()]+(?!\})/g, replacer);
-        };
-
-        unifiedText.value = applyReplace(unifiedText.value!);
-        printedText.value = applyReplace(printedText.value!);
-    }
-
-    if (lang.value === 'zhs' || lang.value === 'zht') {
-        unifiedTypeline.value = unifiedTypeline.value.replace(/ — /g, '～').replace(/\//g, '／');
-        printedTypeline.value = printedTypeline.value.replace(/ — /g, '～').replace(/\//g, '／');
-    } else if (lang.value === 'fr') {
-        unifiedTypeline.value = unifiedTypeline.value.replace(/ — /g, ' : ').trim();
-        printedTypeline.value = printedTypeline.value.replace(/ — /g, ' : ').trim();
-    } else if (lang.value !== 'ja') {
-        unifiedTypeline.value = unifiedTypeline.value.replace(/ - /g, ' — ').trim();
-        printedTypeline.value = printedTypeline.value.replace(/ - /g, ' — ').trim();
     }
 
     defaultPrettify();
@@ -1270,119 +832,6 @@ const prettify = () => {
     }
 
     defaultPrettify();
-
-    if (data.value.card.parts.length === 2) {
-        const [front, back] = data.value.card.parts;
-
-        for (const [frontLoc, backLoc] of zip(front.localization, back.localization)) {
-            if (frontLoc == null || backLoc == null) {
-                continue;
-            }
-
-            if (frontLoc.name === backLoc.name && frontLoc.name.includes(' // ')) {
-                [frontLoc.name, backLoc.name] = frontLoc.name.split(' // ');
-            }
-
-            if (frontLoc.typeline === backLoc.typeline && frontLoc.typeline.includes(' // ')) {
-                [frontLoc.typeline, backLoc.typeline] = frontLoc.typeline.split(' // ');
-            }
-        }
-    }
-
-    if (data.value.print.parts.length === 2) {
-        const [front, back] = data.value.print.parts;
-
-        if (front.name === back.name && front.name.includes(' // ')) {
-            [front.name, back.name] = front.name.split(' // ');
-        }
-
-        if (front.typeline === back.typeline && front.typeline.includes(' // ')) {
-            [front.typeline, back.typeline] = front.typeline.split(' // ');
-        }
-    }
-
-    unifiedText.value = unifiedText.value!
-        .replace(new RegExp(parenRegex.source, 'g'), '').trim();
-
-    if (separateKeyword.value) {
-        unifiedText.value = unifiedText.value.replace(
-            new RegExp(commaRegex.source, 'mg'),
-            l => l.split(/[,，、;；] */g).map(v => upperFirst(v)).join('\n'),
-        );
-    }
-
-    // if (autoAssign.value && searchResult.value != null) {
-    //     const result = searchResult.value;
-
-    //     if (result.counters != null) {
-    //         const counterResult = result.counters.filter((c: any[]) => c.length > 0);
-
-    //         if (counterResult.length === 1) {
-    //             counters.value = counterResult[0];
-    //         }
-    //     }
-
-    //     if (result.relatedCards != null) {
-    //         const relatedCardsResult = result.relatedCards.filter((r: string) => r !== '');
-
-    //         if (relatedCardsResult.length === 1) {
-    //             relatedCardsString.value = relatedCardsResult[0];
-    //         }
-    //     }
-    // }
-
-    const applyReplace = (v: string) => {
-        const numberMap: Record<string, string> = {
-            '０': '0',
-            '１': '1',
-            '２': '2',
-            '３': '3',
-            '４': '4',
-            '５': '5',
-            '６': '6',
-            '７': '7',
-            '８': '8',
-            '９': '9',
-            'Ｘ': 'X',
-        };
-
-        const symbolMap: Record<string, string> = {
-            '-': '-',
-            '—': '-',
-            '―': '-',
-            '－': '-',
-            '–': '-',
-            '−': '-',
-
-            '＋': '+',
-            '+': '+',
-        };
-
-        const replacer = (_: string, sym: string, num: string) => `[${symbolMap[sym]}${num.split('').map(n => numberMap[n] ?? n).join('')}]`;
-
-        return v
-            .replace(/^([-—―－–−＋+])([0-9X０-９Ｘ]+)(?!\/)/mg, replacer)
-            .replace(/\[([-—―－–−＋+])([0-9X０-９Ｘ]+)\]/mg, replacer)
-            .replace(/^[0０](?=[:：]| :)/mg, '[0]')
-            .replace(/\[０\]/mg, '[0]');
-    };
-
-    oracleText.value = applyReplace(oracleText.value!);
-    unifiedText.value = applyReplace(unifiedText.value);
-
-    if (printedTypeline.value !== 'Planeswalker Legend' && !['cmb1', 'cmb2'].includes(set.value)) {
-        printedText.value = applyReplace(printedText.value!);
-    }
-
-    if (flavorText.value != null) {
-        if (['zhs', 'zht', 'ja'].includes(lang.value)) {
-            flavorText.value = flavorText.value
-                .replace(/<\/?.>/g, '');
-        } else {
-            flavorText.value = flavorText.value
-                .replace(/<\/?.>/g, '*');
-        }
-    }
 };
 
 const overwriteUnified = () => {
@@ -1390,13 +839,13 @@ const overwriteUnified = () => {
         return;
     }
 
-    unifiedName.value = oracleName.value;
-    unifiedTypeline.value = oracleTypeline.value;
-    unifiedText.value = oracleText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+    unifiedName.value = standardName.value;
+    unifiedTypeline.value = standardTypeline.value;
+    unifiedText.value = standardText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
 };
 
 const getLegality = async () => {
-    const { data: result } = await controlGet('/magic/card/get-legality', {
+    const { data: result } = await controlGet('/lorcana/card/get-legality', {
         id: id.value,
     });
 
@@ -1404,7 +853,7 @@ const getLegality = async () => {
 };
 
 const extractRulingCards = async () => {
-    const { data: cards } = await controlGet('/magic/card/extract-ruling-cards', {
+    const { data: cards } = await controlGet('/lorcana/card/extract-ruling-cards', {
         id: id.value,
     });
 
@@ -1412,7 +861,7 @@ const extractRulingCards = async () => {
 };
 
 (window as any).extract = async (ids: string[]) => {
-    await controlGet('/magic/card/extract-ruling-cards', {
+    await controlGet('/lorcana/card/extract-ruling-cards', {
         id: ids.join(','),
     });
 };
@@ -1426,18 +875,9 @@ const newData = () => {
 
     delete oldPrint._id;
 
-    for (const p of oldPrint.parts) {
-        delete p.scryfallIllusId;
-    }
-
-    delete oldPrint.scryfall.cardId;
-    oldPrint.scryfall.imageUris = [];
-    delete oldPrint.arenaId;
-    delete oldPrint.mtgoId;
-    delete oldPrint.mtgoFoilId;
-    oldPrint.multiverseId = [];
     delete oldPrint.tcgPlayerId;
     delete oldPrint.cardMarketId;
+    delete oldPrint.cardTraderId;
 
     unlock.value = true;
 };
@@ -1463,17 +903,12 @@ const doUpdate = debounce(
             lang:   lang.value,
         });
 
-        await controlPost('/magic/card/update', {
+        await controlPost('/lorcana/card/update', {
             data: card.value,
         });
 
-        await controlPost('/magic/print/update', {
+        await controlPost('/lorcana/print/update', {
             data: print.value,
-        });
-
-        await controlPost('/magic/card/update-related', {
-            id:      card.value!.cardId,
-            related: relatedCards.value,
         });
     },
     1000,
@@ -1485,7 +920,7 @@ const doUpdate = debounce(
 
 const loadData = async () => {
     if (id.value != null && lang.value != null && set.value != null && number.value != null) {
-        const { data: result } = await controlGet<CardEditorView>('/magic/card/raw', {
+        const { data: result } = await controlGet<CardEditorView>('/lorcana/card/raw', {
             id:     id.value,
             lang:   lang.value,
             set:    set.value,
@@ -1516,13 +951,13 @@ const loadGroup = async (method: string, skip = false) => {
     const sampleValue = sample.value ? 50 : 1;
 
     if (method.startsWith('search:')) {
-        request = await controlGet<CardGroup>('/magic/card/search', {
+        request = await controlGet<CardGroup>('/lorcana/card/search', {
             'q':         search.value,
             'sample':    sampleValue,
             'filter-by': filterBy.value,
         });
     } else {
-        request = await controlGet<CardGroup>('/magic/card/need-edit', {
+        request = await controlGet<CardGroup>('/lorcana/card/need-edit', {
             method,
             'lang':      locale.value === '' ? null : locale.value,
             'sample':    sampleValue,
@@ -1560,120 +995,13 @@ const skipCurrent = async () => {
 };
 
 watch(
-    [data, partIndex, printedName, printedTypeline, printedText],
+    [data, printedName, printedTypeline, printedText],
     ([newValue, newIndex], [oldValue, oldIndex]) => {
         if (newValue === oldValue && newIndex === oldIndex) {
             devPrinted.value = false;
         }
     },
 );
-
-const guessToken = () => {
-    if (data.value == null) {
-        return;
-    }
-
-    const relatedCardsCopy = [...relatedCards.value];
-
-    for (const text of data.value.card.parts.map(p => p.text ?? '')) {
-        for (const m of text.matchAll(guessRegex)) {
-            let tokenId = '';
-
-            const mp = predefinedCheckRegex.exec(m[0]);
-
-            if (mp != null) {
-                if (mp[1] === 'colorless Clue artifact') {
-                    tokenId = 'clue!';
-                } else {
-                    tokenId = `${mp[1].toLowerCase()}!`;
-                }
-            } else if (m[0].includes(' Role ')) {
-                tokenId = `${m[6].toLowerCase().replaceAll(/[ -]/g, '_')}!`;
-            } else {
-                tokenId += m[3].toLowerCase().replaceAll(/[ -]/g, '_');
-                tokenId += `!${colorMap[m[2]]}`;
-
-                if (m[1] == null) {
-                    tokenId += '!**';
-                } else {
-                    tokenId += `!${m[1].split('/').map(v => (v === 'X' ? '*' : v)).join('')}`;
-                }
-
-                if (m[4] != null) {
-                    tokenId += `!${
-                        m[4].split('and')
-                            .map(a => keywordMap[a.trim()] ?? 'a')
-                            .join('')
-                    }`;
-                }
-
-                if (tokenId === 'eldrazi_scion!c!11' || tokenId === 'eldrazi_spawn!c!01') {
-                    tokenId += '!a';
-                }
-            }
-
-            if (relatedCardsCopy.every(r => r.cardId !== tokenId)) {
-                relatedCardsCopy.push({ relation: 'token', cardId: tokenId });
-            }
-        }
-
-        if (/^(Embalm|Eternalize|Squad|Offspring)/m.test(text)) {
-            relatedCardsCopy.push({ relation: 'token', cardId: `${id.value}!` });
-        }
-
-        if (/\bincubates?\b/i.test(text)) {
-            relatedCardsCopy.push({ relation: 'token', cardId: 'incubator!' });
-        }
-    }
-
-    relatedCards.value = relatedCardsCopy;
-};
-
-const guessCounter = () => {
-    if (data.value == null) {
-        return;
-    }
-
-    for (const text of data.value.card.parts.map(p => p.text ?? '')) {
-        const matches = text.matchAll(/(\b(?:first|double) strike|\b[a-z!]+|[+-]\d\/[+-]\d) counters?\b/g);
-
-        counters.value = [
-            ...counters.value,
-            ...[...matches]
-                .map(m => m[1])
-                .map(c => (/^[+-]\d\/[+-]\d$/.test(c)
-                    ? c
-                    : c.toLowerCase().replace(/[^a-z0-9]/g, '_')))
-                .filter(c => !counterBlacklist.includes(c)),
-        ];
-    }
-};
-
-const loadGatherer = async () => {
-    if (data.value == null) {
-        return;
-    }
-
-    await controlGet('/magic/print/parse-gatherer', {
-        id:     multiverseId.value.join(','),
-        set:    set.value,
-        number: number.value,
-        lang:   lang.value,
-    });
-};
-
-const saveGathererImage = async () => {
-    if (data.value == null) {
-        return;
-    }
-
-    await controlGet('/magic/print/save-gatherer-image', {
-        id:     multiverseId.value.join(','),
-        set:    set.value,
-        number: number.value,
-        lang:   lang.value,
-    });
-};
 
 </script>
 

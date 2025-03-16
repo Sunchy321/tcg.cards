@@ -17,7 +17,7 @@ const components = import.meta.glob<Component>('./data/*.vue');
 const tabs = [
     'LorcanaJSON',
     'Image',
-    // 'Editor',
+    'Editor',
     // 'Updation',
     // 'Duplicate',
     // 'Set',

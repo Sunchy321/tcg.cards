@@ -155,6 +155,15 @@ export default class DataLoader extends Task<Status> {
                     }
                 }
 
+                if (card.cardId === 'vaiana____adventurer_of_land_and_sea') {
+                    card.cardId = 'moana____adventurer_of_land_and_sea';
+                }
+
+                if (print.cardId === 'vaiana____adventurer_of_land_and_sea') {
+                    print.cardId = 'moana____adventurer_of_land_and_sea';
+                    print.number += '†';
+                }
+
                 const oldCard = cards.find(c => c.cardId === card.cardId);
                 const oldPrint = prints.find(
                     p => p.cardId === print.cardId && p.lang === print.lang && p.set === print.set && p.number === print.number,

@@ -20,9 +20,12 @@ const IPrintSchema = new Schema<IPrintDatabase>({
 
     imageUri: Object,
 
-    layout:   String,
-    rarity:   String,
-    finishes: [String],
+    tags: [String],
+
+    layout:      String,
+    rarity:      String,
+    releaseDate: String,
+    finishes:    [String],
 
     id:           Number,
     code:         String,

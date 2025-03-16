@@ -65,6 +65,8 @@ export function toCard(
         }
     }
 
+    const set = sets.find(v => v.lorcanaJsonId === data.setCode)!;
+
     const loc = {
         name:     data.fullName,
         typeline: [data.type, ...data.subtypes ?? []].join('•'),
@@ -107,12 +109,14 @@ export function toCard(
             strength:  data.strength,
             willPower: data.willpower,
             moveCost:  data.moveCost,
+
+            tags: [],
         },
         print: {
             cardId: getId(data),
 
             lang,
-            set:    sets.find(v => v.lorcanaJsonId === data.setCode)!.setId,
+            set:    set.setId,
             number: (() => {
                 const num = data.number.toString();
 
@@ -130,15 +134,18 @@ export function toCard(
 
             imageUri: data.images as unknown as Record<string, string>,
 
-            layout:   data.type === 'Location' ? 'location' : 'normal',
-            rarity:   toIdentifier(data.rarity) as Rarity,
-            finishes: data.foilTypes?.map(v => toIdentifier(v)),
+            layout:      data.type === 'Location' ? 'location' : 'normal',
+            rarity:      toIdentifier(data.rarity) as Rarity,
+            releaseDate: set.releaseDate,
+            finishes:    data.foilTypes?.map(v => toIdentifier(v)),
 
             id:           data.id,
             code:         data.code,
             tcgPlayerId:  data.externalLinks.tcgPlayerId,
             cardMarketId: data.externalLinks.cardmarketId,
             cardTraderId: data.externalLinks.cardTraderId,
+
+            tags: [],
         },
     };
 }

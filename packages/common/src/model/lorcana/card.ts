@@ -20,6 +20,8 @@ export type CardPrintView = ICard & IPrint & {
     printTypeline: string;
     printText: string;
 
+    printTags: IPrint['tags'];
+
     versions: {
         lang: string;
         set: string;

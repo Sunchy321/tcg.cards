@@ -30,4 +30,6 @@ export interface Card {
     strength?: number;
     willPower?: number;
     moveCost?: number;
+
+    tags: string[];
 }

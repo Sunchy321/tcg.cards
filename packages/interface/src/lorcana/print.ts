@@ -18,8 +18,11 @@ export type Print = {
 
     imageUri: Record<string, string>;
 
+    tags: string[];
+
     layout: Layout;
     rarity: Rarity;
+    releaseDate: string;
     finishes?: string[];
 
     id: number;

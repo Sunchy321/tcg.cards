@@ -37,6 +37,8 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     willPower: Number,
     moveCost:  Number,
 
+    tags: [String],
+
     __updations: [{
         _id:       false,
         key:       String,

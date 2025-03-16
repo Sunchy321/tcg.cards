@@ -192,10 +192,13 @@ router.get('/print-view', async ctx => {
 
         imageUri: print.imageUri,
 
-        layout: print.layout,
-        rarity: print.rarity,
+        tags:      card.tags,
+        printTags: print.tags,
 
-        finishes: print.finishes,
+        layout:      print.layout,
+        rarity:      print.rarity,
+        releaseDate: print.releaseDate,
+        finishes:    print.finishes,
 
         id:           print.id,
         code:         print.code,
