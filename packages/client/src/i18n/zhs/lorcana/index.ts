@@ -1,4 +1,5 @@
 import search from './search';
+import ui from './ui';
 
 export default {
     $self: '洛卡纳',
@@ -16,5 +17,6 @@ export default {
         $self: '系列',
     },
 
+    ui,
     search,
 };

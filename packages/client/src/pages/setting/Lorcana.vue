@@ -46,8 +46,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 
-import cardProfile from 'src/common/magic/card';
-import setProfile from 'src/common/magic/set';
+import cardProfile from 'src/common/lorcana/card';
+import setProfile from 'src/common/lorcana/set';
 
 const cardCount = ref(0);
 const setCount = ref(0);
