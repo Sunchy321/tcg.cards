@@ -9,5 +9,5 @@ export const locales = [
 ];
 
 export const symbols = [
-    'E', 'I', 'L', 'S', 'W', 'IW',
+    'E', 'I', 'L', 'S', 'W', 'C',
 ];

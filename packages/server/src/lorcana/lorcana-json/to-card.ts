@@ -40,7 +40,7 @@ const escapeMap: Record<string, string> = {
     '◊': 'L',
     '¤': 'S',
     '⛉': 'W',
-    '◉': 'IW',
+    '◉': 'C',
 };
 
 function escapeText(text: string): string {
