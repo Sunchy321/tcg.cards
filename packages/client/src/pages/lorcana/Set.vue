@@ -4,15 +4,6 @@
             <div class="name">{{ name }}</div>
             <q-space />
             <q-btn
-                v-if="wotcLink != null"
-                class="q-mr-sm"
-                type="a"
-                :href="wotcLink"
-                target="_blank"
-                icon="mdi-link"
-                flat round dense
-            />
-            <q-btn
                 class="q-mr-sm"
                 type="a"
                 :href="apiLink"
@@ -29,8 +20,8 @@
         </div>
         <div class="rarities q-my-md">
             <div v-for="r in rarities" :key="r" class="rarity column items-center">
-                <img :src="iconUrl(r)">
-                <div>{{ $t('magic.rarity.' + r) }}</div>
+                <q-img :src="`lorcana/rarity/${r}.svg`" />
+                <div>{{ $t('lorcana.rarity.' + r) }}</div>
             </div>
         </div>
         <div class="langs q-my-md">
@@ -45,18 +36,13 @@
             <q-btn
                 class="q-mr-sm"
                 type="a"
-                :to="{ name: 'magic/search', query: { q: `s:${id}` }}"
+                :to="{ name: 'lorcana/search', query: { q: `s:${id}` }}"
                 target="_blank"
                 icon="mdi-cards-outline"
                 flat round dense
             />
 
             {{ cardCount }}
-        </div>
-        <div>
-            <div class="booster-title q-mt-lg">{{ $t('magic.ui.set.booster') }}</div>
-
-            <booster v-for="b in boosters" :key="b.boosterId" :value="b" class="booster q-mt-md" />
         </div>
     </q-page>
 </template>
@@ -65,24 +51,23 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useLorcana } from 'store/games/lorcana';
 
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
 
-import { Set as ISet } from 'interface/magic/set';
+import { Set as ISet } from 'interface/lorcana/set';
 
-import setProfile from 'src/common/magic/set';
-import {
-    apiGet, apiBase, assetBase,
-} from 'boot/server';
+import setProfile from 'src/common/lorcana/set';
+
+import { apiGet, apiBase } from 'boot/server';
 
 type Set = Omit<ISet, 'localization'> & {
     localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
 };
 
 const route = useRoute();
-const magic = useMagic();
+const lorcana = useLorcana();
 
 const { isAdmin } = basicSetup();
 
@@ -95,63 +80,34 @@ const name = computed(() => {
         return '';
     }
 
-    return data.value.localization[magic.locale]?.name
-                 ?? data.value.localization[magic.locales[0]]?.name;
+    return data.value.localization[lorcana.locale]?.name
+                 ?? data.value.localization[lorcana.locales[0]]?.name;
 });
 
 pageSetup({
     title: () => name.value ?? id.value,
 });
 
-const parent = computed(() => data.value?.parent);
-
 const cardCount = computed(() => data.value?.cardCount ?? 0);
 const langs = computed(() => data.value?.langs ?? []);
 const rarities = computed(() => data.value?.rarities ?? []);
 
-const type = computed(() => data.value?.type);
-
-const wotcLink = computed(() => {
-    if (data.value == null) {
-        return '';
-    }
-
-    return data.value.localization[magic.locale]?.link
-                 ?? data.value.localization[magic.locales[0]]?.link;
-});
-
-const apiLink = computed(() => `${apiBase}/magic/set?id=${id.value}`);
-const editorLink = computed(() => ({ name: 'magic/data', query: { tab: 'Set', id: id.value } }));
-
-const boosters = computed(() => data.value?.boosters ?? []);
+const apiLink = computed(() => `${apiBase}/lorcana/set?id=${id.value}`);
+const editorLink = computed(() => ({ name: 'lorcana/data', query: { tab: 'Set', id: id.value } }));
 
 const loadData = async () => {
-    const { data: result } = await apiGet<Set>('/magic/set', {
+    const { data: result } = await apiGet<Set>('/lorcana/set', {
         id: id.value,
     });
 
     data.value = result;
 
     setProfile.update({
-        setId:           result.setId,
-        parent:          result.parent,
-        localization:    result.localization,
-        type:            result.type,
-        symbolStyle:     result.symbolStyle,
-        doubleFacedIcon: result.doubleFacedIcon,
-        releaseDate:     result.releaseDate,
+        setId:        result.setId,
+        localization: result.localization,
+        type:         result.type,
+        releaseDate:  result.releaseDate,
     });
-};
-
-const iconUrl = (rarity: string) => {
-    if (
-        parent.value != null && type.value != null
-                && ['promo', 'token', 'memorabilia', 'funny'].includes(type.value)
-    ) {
-        return `${assetBase}/magic/set/icon/${parent.value}/${rarity}.svg`;
-    }
-
-    return `${assetBase}/magic/set/icon/${id.value}/${rarity}.svg`;
 };
 
 watch(() => id.value, loadData, { immediate: true });

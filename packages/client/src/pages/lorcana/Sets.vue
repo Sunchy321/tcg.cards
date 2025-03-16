@@ -2,23 +2,17 @@
     <q-page class="q-pa-md">
         <div class="sets">
             <div
-                v-for="{ setId, localization, type, parent, indent } in profileList" :key="setId"
+                v-for="{ setId, localization, type } in profileList" :key="setId"
                 class="set flex items-center"
                 :class="{ 'is-primary': type === 'core' || type === 'expansion' }"
             >
-                <div v-if="parent != null" :style="`width: ${16 * indent}px`" />
                 <span class="name q-mr-sm">{{ nameOf(localization) ?? setId }}</span>
                 <span class="id code q-mr-sm">{{ setId }}</span>
-                <img
-                    v-if="iconUrl(setId, type, parent) != null"
-                    class="icon"
-                    :src="iconUrl(setId, type, parent)"
-                >
                 <span class="col-grow" />
                 <q-btn
                     type="a"
                     target="_blank"
-                    :to="{ name: 'magic/set', params: { id: setId }}"
+                    :to="{ name: 'lorcana/set', params: { id: setId }}"
                     icon="mdi-menu-right"
                     flat dense round
                 />
@@ -27,53 +21,43 @@
     </q-page>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import {
-    defineComponent, ref, computed, watch, onMounted,
+    ref, computed, watch, onMounted,
 } from 'vue';
 
-import { useMagic } from 'store/games/magic';
+import { useLorcana } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import { apiGet, assetBase } from 'boot/server';
+import { apiGet } from 'boot/server';
 
-import setProfile, { SetProfile, SetLocalization } from 'src/common/magic/set';
+import setProfile, { SetProfile, SetLocalization } from 'src/common/lorcana/set';
 import { isEqual, partition } from 'lodash';
 
-export default defineComponent({
-    setup() {
-        const magic = useMagic();
-        const i18n = useI18n();
+const lorcana = useLorcana();
+const i18n = useI18n();
 
-        pageSetup({
-            title: () => i18n.t('magic.set.$self'),
-        });
+pageSetup({
+    title: () => i18n.t('lorcana.set.$self'),
+});
 
-        const sets = ref<string[]>([]);
-        const profiles = ref<Record<string, SetProfile>>({});
+const sets = ref<string[]>([]);
+const profiles = ref<Record<string, SetProfile>>({});
 
-        const profileList = computed(() => {
-            // Make a set list which parent occur before child.
-            let profilesDump = Object.values(profiles.value);
+const profileList = computed(() => {
+    // Make a set list which parent occur before child.
+    let profilesDump = Object.values(profiles.value);
 
-            const profilesOrdered: SetProfile[] = [];
+    const profilesOrdered: SetProfile[] = [];
 
-            while (profilesDump.length > 0) {
-                const [profilesToInsert, profilesRest] = partition(profilesDump, p => {
-                    if (p.parent == null) {
-                        return true;
-                    }
+    while (profilesDump.length > 0) {
+        const [profilesToInsert, profilesRest] = partition(profilesDump, _p => true);
 
-                    const parent = profilesOrdered.find(po => po.setId === p.parent);
-
-                    return parent != null;
-                });
-
-                profilesOrdered.push(...profilesToInsert);
-                profilesDump = profilesRest;
-            }
+        profilesOrdered.push(...profilesToInsert);
+        profilesDump = profilesRest;
+    }
 
             // Make a set map.
             type SetMap = { profile: SetProfile, children?: SetMap[] };
@@ -81,32 +65,8 @@ export default defineComponent({
             const setMap: SetMap[] = [];
 
             function insertSet(map: SetMap[], profile: SetProfile) {
-                if (profile.parent == null) {
-                    map.push({ profile });
-                    return true;
-                }
-
-                for (const set of map) {
-                    if (profile.parent === set.profile.setId) {
-                        if (set.children == null) {
-                            set.children = [];
-                        }
-
-                        set.children.push({ profile });
-
-                        return true;
-                    }
-                }
-
-                for (const set of map) {
-                    if (set.children != null) {
-                        if (insertSet(set.children, profile)) {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
+                map.push({ profile });
+                return true;
             }
 
             for (const profile of profilesOrdered) {
@@ -114,8 +74,6 @@ export default defineComponent({
                     console.log(
                         profile.setId,
                         profilesDump.findIndex(v => v.setId === profile.setId),
-                        profile.parent,
-                        profilesDump.findIndex(v => v.setId === profile.parent),
                     );
                 }
             }
@@ -162,55 +120,39 @@ export default defineComponent({
             flatten(setMap);
 
             return list;
-        });
-
-        const loadData = async () => {
-            const { data } = await apiGet<string[]>('/magic/set');
-
-            sets.value = data;
-        };
-
-        const loadProfile = async (setList: string[]) => {
-            profiles.value = {};
-
-            const profileMap: Record<string, SetProfile> = { };
-
-            for (const s of setList) {
-                setProfile.get(s, v => {
-                    if (!isEqual(v, profileMap[s])) {
-                        profileMap[s] = v;
-
-                        if (isEqual(setList.sort(), Object.keys(profileMap).sort())) {
-                            profiles.value = profileMap;
-                        }
-                    }
-                });
-            }
-        };
-
-        const nameOf = (localization: Record<string, SetLocalization>) => localization[magic.locale]?.name
-            ?? localization[magic.locales[0]]?.name;
-
-        const iconUrl = (set: string, type: string, parent?: string) => {
-            if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(type)) {
-                return undefined;
-            }
-
-            return `${assetBase}/magic/set/icon/${set}/default.svg`;
-        };
-
-        watch(sets, loadProfile);
-
-        onMounted(loadData);
-
-        return {
-            profileList,
-
-            nameOf,
-            iconUrl,
-        };
-    },
 });
+
+const loadData = async () => {
+    const { data } = await apiGet<string[]>('/lorcana/set');
+
+    sets.value = data;
+};
+
+const loadProfile = async (setList: string[]) => {
+    profiles.value = {};
+
+    const profileMap: Record<string, SetProfile> = { };
+
+    for (const s of setList) {
+        setProfile.get(s, v => {
+            if (!isEqual(v, profileMap[s])) {
+                profileMap[s] = v;
+
+                if (isEqual(setList.sort(), Object.keys(profileMap).sort())) {
+                    profiles.value = profileMap;
+                }
+            }
+        });
+    }
+};
+
+const nameOf = (localization: Record<string, SetLocalization>) => localization[lorcana.locale]?.name
+            ?? localization[lorcana.locales[0]]?.name;
+
+watch(sets, loadProfile);
+
+onMounted(loadData);
+
 </script>
 
 <style lang="sass" scoped>
