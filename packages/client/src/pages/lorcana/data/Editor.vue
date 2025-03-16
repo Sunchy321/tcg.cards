@@ -229,7 +229,7 @@
                 </tr>
             </table>
 
-            <q-input v-model="flavorText" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea" />
+            <q-input v-model="flavorText" tabindex="4" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea" />
 
             <div>
                 locked[card]: {{ cardLockedPaths.join(', ') }}
@@ -812,6 +812,26 @@ const prettify = () => {
         }
     }
 
+    const separatorReplacer = (text: string) => text
+        .replace(/•| · /g, '·');
+
+    standardTypeline.value = separatorReplacer(standardTypeline.value);
+    unifiedTypeline.value = separatorReplacer(unifiedTypeline.value);
+    printedTypeline.value = separatorReplacer(printedTypeline.value);
+
+    if (lang.value === 'zhs') {
+        const punctReplacer = (text: string) => text
+            .replace(/,/g, '，')
+            .replace(/\(/g, '（')
+            .replace(/\)/g, '）')
+            .replace(/!/g, '！')
+            .replace(/––/g, '——');
+
+        unifiedText.value = punctReplacer(unifiedText.value);
+        printedText.value = punctReplacer(printedText.value);
+        flavorText.value = punctReplacer(flavorText.value);
+    }
+
     defaultPrettify();
 
     if (replaceFrom.value !== '') {
@@ -996,8 +1016,8 @@ const skipCurrent = async () => {
 
 watch(
     [data, printedName, printedTypeline, printedText],
-    ([newValue, newIndex], [oldValue, oldIndex]) => {
-        if (newValue === oldValue && newIndex === oldIndex) {
+    ([newValue], [oldValue]) => {
+        if (newValue === oldValue) {
             devPrinted.value = false;
         }
     },

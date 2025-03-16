@@ -69,7 +69,7 @@ export function toCard(
 
     const loc = {
         name:     data.fullName,
-        typeline: [data.type, ...data.subtypes ?? []].join('•'),
+        typeline: [data.type, ...data.subtypes ?? []].join('·'),
         text:     escapeText(
             data.fullTextSections.map(sec => {
                 for (const n of abilityNames) {
