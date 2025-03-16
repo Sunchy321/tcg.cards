@@ -505,13 +505,13 @@ const printField = <F extends keyof Print>(firstKey: F, defaultValue?: Print[F],
     },
 });
 
-const standardName = cardField('name', '');
-const standardTypeline = cardField('typeline', '');
-const standardText = cardField('text', '');
+const standardName = cardField('name', '', 'name');
+const standardTypeline = cardField('typeline', '', 'typeline');
+const standardText = cardField('text', '', 'text');
 
-const printedName = printField('name', '');
-const printedTypeline = printField('typeline', '');
-const printedText = printField('text', '');
+const printedName = printField('name', '', 'name');
+const printedTypeline = printField('typeline', '', 'typeline');
+const printedText = printField('text', '', 'text');
 
 const unifiedName = computed({
     get() {
@@ -603,7 +603,7 @@ const unifiedText = computed({
     },
 });
 
-const flavorText = printField('flavorText', '');
+const flavorText = printField('flavorText', '', 'flavorText');
 
 const releaseDate = computed(() => print.value?.releaseDate);
 
@@ -734,10 +734,7 @@ const relatedCardsString = computed({
             if (relation.length === 1) {
                 relation = {
                     t: 'token',
-                    e: 'emblem',
                     i: 'intext',
-                    m: 'meld',
-                    s: 'specialization',
                 }[relation] ?? relation;
             }
 
@@ -835,10 +832,77 @@ const searchResult = computed(() => {
     return null;
 });
 
+const separatorReplacer = (text: string) => text
+    .replace(/•| · /g, '·');
+
+// eslint-disable-next-line @typescript-eslint/no-shadow
+const defaultTypelinePrettifier = (typeline: string, lang: string) => {
+    typeline = typeline
+        .trim()
+        .replace(/\s/g, ' ');
+
+    return separatorReplacer(typeline);
+};
+
+// eslint-disable-next-line @typescript-eslint/no-shadow
+const defaultTextPrettifier = (text: string, lang: string) => {
+    text = text
+        .trim()
+        .replace(/[^\S\n]+$|^[^\S\n]+/mg, '')
+        .replace(/\n{2,}/g, '\n');
+
+    if (lang === 'zhs' || lang === 'zht') {
+        if (!/[a-wyz](?![/}])/.test(text)) {
+            text = text
+                .replace(/(?<!•)(?<!\]) /g, '')
+                .replace(/,/g, '，')
+                .replace(/\(/g, '（')
+                .replace(/\)/g, '）')
+                .replace(/!/g, '！')
+                .replace(/:/g, '：')
+                .replace(/;/g, '；')
+                .replace(/\?/g, '？')
+                .replace(/––/g, '——')
+                .replace(/~/g, '～');
+        }
+    }
+
+    if (lang === 'de') {
+        text = text
+            .replace(/"/g, '“')
+            .replace(/'/g, '‘');
+    }
+
+    if (lang === 'fr') {
+        text = text
+            .replace(/<</g, '«')
+            .replace(/>>/g, '»');
+    }
+
+    text = text
+        .replace(/\](?! )/g, '] ');
+
+    return text;
+};
+
 const defaultPrettify = () => {
     if (data.value == null) {
         return;
     }
+
+    standardName.value = separatorReplacer(standardName.value);
+    unifiedName.value = separatorReplacer(unifiedName.value);
+    printedName.value = separatorReplacer(printedName.value);
+
+    standardTypeline.value = defaultTypelinePrettifier(standardTypeline.value, lang.value);
+    unifiedTypeline.value = defaultTypelinePrettifier(unifiedTypeline.value, lang.value);
+    printedTypeline.value = defaultTypelinePrettifier(printedTypeline.value, lang.value);
+
+    standardText.value = defaultTextPrettifier(standardText.value, lang.value);
+    unifiedText.value = defaultTextPrettifier(unifiedText.value, lang.value);
+    printedText.value = defaultTextPrettifier(printedText.value, lang.value);
+
+    flavorText.value = defaultTextPrettifier(flavorText.value, lang.value);
 
     if (clearDevPrinted.value) {
         devPrinted.value = false;
@@ -888,26 +952,6 @@ const prettify = () => {
         }
     }
 
-    const separatorReplacer = (text: string) => text
-        .replace(/•| · /g, '·');
-
-    standardTypeline.value = separatorReplacer(standardTypeline.value);
-    unifiedTypeline.value = separatorReplacer(unifiedTypeline.value);
-    printedTypeline.value = separatorReplacer(printedTypeline.value);
-
-    if (lang.value === 'zhs') {
-        const punctReplacer = (text: string) => text
-            .replace(/,/g, '，')
-            .replace(/\(/g, '（')
-            .replace(/\)/g, '）')
-            .replace(/!/g, '！')
-            .replace(/––/g, '——');
-
-        unifiedText.value = punctReplacer(unifiedText.value);
-        printedText.value = punctReplacer(printedText.value);
-        flavorText.value = punctReplacer(flavorText.value);
-    }
-
     defaultPrettify();
 
     if (replaceFrom.value !== '') {
@@ -928,6 +972,11 @@ const prettify = () => {
     }
 
     defaultPrettify();
+
+    if (lang.value === 'zhs') {
+        unifiedTypeline.value = unifiedTypeline.value.replace(/^Character/, '角色');
+        printedTypeline.value = printedTypeline.value.replace(/^Character/, '角色');
+    }
 };
 
 const overwriteUnified = () => {
