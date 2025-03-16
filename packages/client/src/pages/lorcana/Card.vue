@@ -43,7 +43,7 @@
                 <lorcana-text>{{ text }}</lorcana-text>
             </div>
             <div v-if="flavorText != null" class="flavor-text auto-align" :class="effectClass" :lang="lang">
-                <lorcana-text>{{ flavorText }}</lorcana-text>
+                <lorcana-text detect-emph>{{ flavorText }}</lorcana-text>
             </div>
 
             <div class="links flex q-gutter-md">
@@ -595,7 +595,7 @@ onBeforeRouteLeave((to, from, next) => {
     font-style: italic
 
     &:deep(.emph)
-        font-style: normal
+        font-weight: bold
 
 .tag-list, .legalities, .rulings
     margin-top: 20px

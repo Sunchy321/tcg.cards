@@ -17,11 +17,10 @@ import { Updation } from '@common/model/updation';
 import { omit, mapValues, isEqual } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-// import searcher from '@/lorcana/search';
+import searcher from '@/lorcana/search';
 import * as logger from '@/lorcana/logger';
 
 // import { formats as formatList } from '@static/lorcana/basic';
-// import { parenRegex, commaRegex } from '@static/lorcana/special';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -48,43 +47,43 @@ router.get('/raw', async ctx => {
     }
 });
 
-// router.get('/search', async ctx => {
-//     const { q, sample: sampleText, 'filter-by': filterBy } = mapValues(ctx.query, toSingle);
+router.get('/search', async ctx => {
+    const { q, sample: sampleText, 'filter-by': filterBy } = mapValues(ctx.query, toSingle);
 
-//     if (q == null) {
-//         ctx.status = 400;
-//         return;
-//     }
+    if (q == null) {
+        ctx.status = 400;
+        return;
+    }
 
-//     const sample = Number.isNaN(Number.parseInt(sampleText, 10))
-//         ? 100
-//         : Number.parseInt(sampleText, 10);
+    const sample = Number.isNaN(Number.parseInt(sampleText, 10))
+        ? 100
+        : Number.parseInt(sampleText, 10);
 
-//     const result = await searcher.search('dev', q, {
-//         sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
-//     });
+    const result = await searcher.search('dev', q, {
+        sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
+    });
 
-//     const cards = ((values: { card: { cardId: string }, print: { lang: string } }[]) => {
-//         switch (filterBy) {
-//         case 'card':
-//             return values.filter((v, i, a) => a
-//                 .slice(i + 1)
-//                 .every(e => e.card.cardId !== v.card.cardId));
-//         case 'lang':
-//             return values.filter((v, i, a) => a
-//                 .slice(i + 1)
-//                 .every(e => e.card.cardId !== v.card.cardId || e.print.lang !== v.print.lang));
-//         default:
-//             return values;
-//         }
-//     })(result.result?.cards ?? []);
+    const cards = ((values: { card: { cardId: string }, print: { lang: string } }[]) => {
+        switch (filterBy) {
+        case 'card':
+            return values.filter((v, i, a) => a
+                .slice(i + 1)
+                .every(e => e.card.cardId !== v.card.cardId));
+        case 'lang':
+            return values.filter((v, i, a) => a
+                .slice(i + 1)
+                .every(e => e.card.cardId !== v.card.cardId || e.print.lang !== v.print.lang));
+        default:
+            return values;
+        }
+    })(result.result?.cards ?? []);
 
-//     ctx.body = {
-//         method: `search:${q}`,
-//         cards,
-//         total:  result.result?.total ?? 0,
-//     };
-// });
+    ctx.body = {
+        method: `search:${q}`,
+        cards,
+        total:  result.result?.total ?? 0,
+    };
+});
 
 router.post('/update', async ctx => {
     const { data } = ctx.request.body as { data: ICard & { _id: ObjectId } };

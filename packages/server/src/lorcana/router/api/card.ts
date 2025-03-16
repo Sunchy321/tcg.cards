@@ -251,7 +251,7 @@ router.get('/profile', async ctx => {
         if (result[c.cardId] == null) {
             result[c.cardId] = {
                 cardId:       c.cardId,
-                localization: [],
+                localization: c.localization,
                 versions:     [],
             };
         }
