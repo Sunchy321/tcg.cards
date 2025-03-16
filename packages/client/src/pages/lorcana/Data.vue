@@ -20,7 +20,7 @@ const tabs = [
     'Editor',
     // 'Updation',
     // 'Duplicate',
-    // 'Set',
+    'Set',
     // 'Format',
     // 'Announcement',
     // 'Legality',
