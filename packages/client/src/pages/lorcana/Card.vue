@@ -104,6 +104,13 @@
                 </div>
             </div>
 
+            <div v-if="relatedCards.length > 0" class="related-card-block">
+                <div v-for="r in relatedCards" :key="r.cardId" class="related-card q-pl-md">
+                    <q-icon :name="relationIcon(r.relation)" />
+                    <card-avatar :id="r.cardId" class="q-ml-sm" :version="r.version" />
+                </div>
+            </div>
+
             <div class="set-block">
                 <div v-for="i in setInfos" :key="i.set" class="set-line">
                     <div
@@ -148,6 +155,7 @@ import basicSetup from 'setup/basic';
 import lorcanaSetup from 'setup/lorcana';
 import pageSetup from 'setup/page';
 
+import CardAvatar from 'components/lorcana/CardAvatar.vue';
 import CardImage from 'components/lorcana/CardImage.vue';
 import LorcanaText from 'components/lorcana/Text.vue';
 
@@ -436,6 +444,8 @@ const flavorText = computed(() => data.value?.flavorText);
 
 const artist = computed(() => data.value?.artist);
 
+const relatedCards = computed(() => data.value?.relatedCards ?? []);
+
 const editorLink = computed(() => ({
     name:  'lorcana/data',
     query: {
@@ -486,6 +496,12 @@ const loadData = async () => {
     rotate.value = null;
     data.value = result;
 };
+
+const relationIcon = (relation: string) => ({
+    intext: 'mdi-card-search-outline',
+    source: 'mdi-file-tree-outline',
+    token:  'mdi-shape-outline',
+})[relation] ?? 'mdi-cards-outline';
 
 // watches
 watch(

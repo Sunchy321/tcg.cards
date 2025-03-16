@@ -28,11 +28,14 @@ export type CardPrintView = ICard & IPrint & {
         number: string;
         rarity: string;
     }[];
+
+    relatedCards: RelatedCard[];
 };
 
 export type CardEditorView = {
     card: ICard & { _id?: string, __lockedPaths: string[] };
     print: IPrint & { _id?: string, __lockedPaths: string[] };
+    relatedCards: RelatedCard[];
 };
 
 export type CardUpdationView = {

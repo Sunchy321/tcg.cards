@@ -4,18 +4,19 @@ import { DefaultState, Context } from 'koa';
 
 import Card from '@/lorcana/db/card';
 import Print from '@/lorcana/db/print';
+import CardRelation from '@/lorcana/db/card-relation';
 
 import { Card as ICard } from '@interface/lorcana/card';
 import { Print as IPrint } from '@interface/lorcana/print';
 
-import { CardPrintView } from '@common/model/lorcana/card';
+import { CardPrintView, RelatedCard } from '@common/model/lorcana/card';
 
 import { mapValues, omitBy, random } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
 
-// import sorter from '@common/util/sorter';
+import sorter from '@common/util/sorter';
 
-// import searcher from '@/lorcana/search';
+import searcher from '@/lorcana/search';
 
 import Parser from '@searcher/parser';
 
@@ -55,8 +56,7 @@ router.get('/random', async ctx => {
     const q = toSingle(ctx.query.q ?? '');
 
     const cardIds = q !== ''
-        ? []
-        // ? (await searcher.search('searchId', q)).result ?? []
+        ? (await searcher.search('searchId', q)).result ?? []
         : await Card.distinct('cardId');
 
     ctx.body = cardIds[random(cardIds.length - 1)] ?? '';
@@ -158,6 +158,31 @@ router.get('/print-view', async ctx => {
         return locales.indexOf(a.lang) - locales.indexOf(b.lang);
     });
 
+    const sourceRelation = await CardRelation.aggregate<RelatedCard>()
+        .match({ sourceId: id })
+        .project({
+            _id:      false,
+            relation: '$relation',
+            cardId:   '$targetId',
+            version:  '$targerVersion',
+        });
+
+    sourceRelation.sort(
+        sorter.pick<RelatedCard, 'relation'>('relation', sorter.string).or(
+            sorter.pick<RelatedCard, 'cardId'>('cardId', sorter.string),
+        ),
+    );
+
+    const targetRelation = await CardRelation.aggregate<RelatedCard>()
+        .match({ targetId: id })
+        .project({
+            _id:      false,
+            relation: 'source',
+            cardId:   '$sourceId',
+        });
+
+    targetRelation.sort(sorter.pick('cardId', sorter.string));
+
     const result: CardPrintView = {
         cardId: card.cardId,
 
@@ -207,6 +232,7 @@ router.get('/print-view', async ctx => {
         cardTraderId: print.cardTraderId,
 
         versions,
+        relatedCards: [...sourceRelation, ...targetRelation],
     };
 
     ctx.body = result;

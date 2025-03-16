@@ -6,11 +6,13 @@ import { ObjectId } from 'mongoose';
 
 import Card from '@/lorcana/db/card';
 import Print from '@/lorcana/db/print';
+import CardRelation from '@/lorcana/db/card-relation';
 
 import { Card as ICard } from '@interface/lorcana/card';
 import {
     ICardDatabase,
     CardEditorView, CardUpdationCollection, CardUpdationView,
+    RelatedCard,
 } from '@common/model/lorcana/card';
 import { Updation } from '@common/model/updation';
 
@@ -37,10 +39,18 @@ router.get('/raw', async ctx => {
         cardId, lang, set, number,
     });
 
+    const sourceRelations = await CardRelation.find({ sourceId: cardId });
+
+    const relatedCards: RelatedCard[] = sourceRelations.map(s => ({
+        relation: s.relation,
+        cardId:   s.targetId,
+    }));
+
     if (card != null && print != null) {
         ctx.body = {
             card:  card.toObject(),
             print: print.toObject(),
+            relatedCards,
         } as CardEditorView;
     } else {
         ctx.status = 404;
@@ -94,6 +104,32 @@ router.post('/update', async ctx => {
         await old.replaceOne(data);
     } else {
         await Card.create(omit(data, ['_id', '__v']) as ICard);
+    }
+
+    ctx.status = 200;
+});
+
+router.post('/update-related', async ctx => {
+    const { id, related } = ctx.request.body as { id: string, related: RelatedCard[] };
+
+    if (id == null) {
+        return;
+    }
+
+    await CardRelation.deleteMany({ sourceId: id });
+
+    for (const r of related) {
+        const card = await Card.findOne({ cardId: r.cardId });
+
+        if (card == null) {
+            continue;
+        }
+
+        await CardRelation.create({
+            relation: r.relation,
+            sourceId: id,
+            targetId: r.cardId,
+        });
     }
 
     ctx.status = 200;

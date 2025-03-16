@@ -231,6 +231,10 @@
 
             <q-input v-model="flavorText" tabindex="4" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea" />
 
+            <div class="flex q-mt-sm">
+                <q-input v-model="relatedCardsString" class="col" debounce="500" label="Related Cards" outlined dense />
+            </div>
+
             <div>
                 locked[card]: {{ cardLockedPaths.join(', ') }}
             </div>
@@ -272,7 +276,7 @@ import { CardEditorView } from 'common/model/lorcana/card';
 import { AxiosResponse } from 'axios';
 
 import { copyToClipboard } from 'quasar';
-import { debounce, isEqual } from 'lodash';
+import { debounce, deburr, isEqual } from 'lodash';
 
 type CardGroup = {
     method: string;
@@ -685,6 +689,78 @@ const clickDevPrinted = () => {
     clearDevPrinted.value = true;
 };
 
+const relatedCards = computed({
+    get() {
+        return data.value?.relatedCards ?? [];
+    },
+    set(newValue) {
+        if (data.value == null) {
+            return;
+        }
+
+        data.value.relatedCards = newValue;
+        devToken.value = false;
+    },
+});
+
+const relatedCardsString = computed({
+    get() {
+        return relatedCards.value
+            ?.map(
+                ({ relation, cardId, version }) => (version != null
+                    ? [relation, cardId, version.lang, version.set, version.number]
+                    : [relation, cardId]
+                ).join('|'),
+            )
+            ?.join('; ') ?? '';
+    },
+    set(newValue: string) {
+        if (data.value == null) {
+            return;
+        }
+
+        if (newValue === '') {
+            relatedCards.value = [];
+            devToken.value = false;
+            return;
+        }
+
+        const parts = newValue.split(/; */);
+
+        relatedCards.value = parts.map(p => {
+            // eslint-disable-next-line prefer-const, @typescript-eslint/no-shadow
+            let [relation, cardId, lang, set, number] = p.split('|');
+
+            if (relation.length === 1) {
+                relation = {
+                    t: 'token',
+                    e: 'emblem',
+                    i: 'intext',
+                    m: 'meld',
+                    s: 'specialization',
+                }[relation] ?? relation;
+            }
+
+            if (relation === 'emblem' && cardId == null) {
+                cardId = `${id.value}_emblem`;
+            }
+
+            cardId = deburr(cardId)
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9!*+]/g, '_');
+
+            if (lang != null) {
+                return { relation, cardId, version: { lang, set, number } };
+            } else {
+                return { relation, cardId };
+            }
+        });
+
+        devToken.value = false;
+    },
+});
+
 const cardLockedPaths = computed({
     get() { return card.value?.__lockedPaths ?? []; },
     set(newValue) {
@@ -929,6 +1005,11 @@ const doUpdate = debounce(
 
         await controlPost('/lorcana/print/update', {
             data: print.value,
+        });
+
+        await controlPost('/lorcana/card/update-related', {
+            id:      card.value!.cardId,
+            related: relatedCards.value,
         });
     },
     1000,
