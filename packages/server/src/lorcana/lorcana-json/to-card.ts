@@ -135,7 +135,7 @@ export function toCard(
             imageUri: data.images as unknown as Record<string, string>,
 
             layout:      data.type === 'Location' ? 'location' : 'normal',
-            rarity:      toIdentifier(data.rarity) as Rarity,
+            rarity:      transform(data.rarity, lang, map) as Rarity,
             releaseDate: set.releaseDate,
             finishes:    data.foilTypes?.map(v => toIdentifier(v)),
 
