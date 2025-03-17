@@ -39,28 +39,54 @@ const fullName = (g: string) => {
 </script>
 
 <style lang="sass" scoped>
-.main
-    display: flex
-    justify-content: center
+@media (max-width: 599px)
+    .main
+        display: flex
+        flex-direction: column
+        justify-content: start
 
-.tcg-item
-    width: 200px
-    height: 250px
-    margin: 8px
+    .tcg-item
+        width: 100%
+        margin: 8px
 
-.tcg-item-card
-    width: 100%
-    height: 100%
+    .tcg-item-card
+        width: 100%
+        height: 100%
 
-    display: flex
-    flex-direction: column
-    justify-content: space-around
-    align-items: center
+        display: flex
+        justify-content: start
+        align-items: center
 
-    padding-top: 30px
-    padding-bottom: 30px
+    .tcg-icon
+        width: 40px
+        height: 40px
 
-.tcg-icon
-    width: 60%
-    height: 60%
+    .tcg-label
+        margin-left: 10px
+
+@media (min-width: 600px)
+    .main
+        display: flex
+        justify-content: center
+
+    .tcg-item
+        width: 200px
+        height: 250px
+        margin: 8px
+
+    .tcg-item-card
+        width: 100%
+        height: 100%
+
+        display: flex
+        flex-direction: column
+        justify-content: space-around
+        align-items: center
+
+        padding-top: 30px
+        padding-bottom: 30px
+
+    .tcg-icon
+        width: 60%
+        height: 60%
 </style>
