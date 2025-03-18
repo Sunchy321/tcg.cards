@@ -605,6 +605,7 @@
 3606: tourist_mage
 3607: tourist_paladin
 3623: galakrond_related
+3626: imbue
 3627: dark_gift
 3630: temporary
 3631: crewmate
@@ -613,6 +614,7 @@
 3661: battlegrounds_dont_show_pair_triple_discover_vfx
 3664: fallback_enchantment_portrait_dbid
 3684: starship_piece_variant
+3692: imbue_card
 3705: battlegrounds_is_potential_trinket
 3738: turns_left_to_discover_trinket
 3740: trinket_active
@@ -627,6 +629,7 @@
 3860: best_boi
 3861: ?trinket_3861
 3870: starship_enchantment
+3881: wisp
 3885: abort_launch_button
 3929: count_san_layn_scribe_died
 3932: anomaly_trigger_xy_stay
@@ -639,10 +642,14 @@
 4044: ?anomaly_4044
 4046: battlecruiser_upgrade
 4050: give_dark_gift
+4058: spend_corpse
 4060: anomaly_unique_hero
+4065: wild_god
 4069: anomaly_active_turn
 4070: _loc_prince_enchantment
 4071: _loc_prince
 4087: hide_hero_power_in_leaderboard
 4088: hero_power_unlimited_uses
+4110: ursol
 4137: reborn_with_full_health_enchantment
+4173: imbue_hero_power
