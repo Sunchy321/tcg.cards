@@ -3,8 +3,10 @@ import { DefaultState, Context } from 'koa';
 
 import Patch from '@/hearthstone/db/patch';
 
+import { Patch as IPatch } from '@interface/hearthstone/patch';
+
 import { mapValues } from 'lodash';
-import { toSingle } from '@/common/request-helper';
+import { toMultiple, toSingle } from '@/common/request-helper';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -28,41 +30,25 @@ router.get('/', async ctx => {
     }
 });
 
-// interface SetProfile {
-//     setId: string;
-//     parent?: string;
-//     // localization: Record<string, Omit<SetLocalization, 'lang'>>;
-//     setType: string;
-//     symbolStyle?: string[];
-//     doubleFacedIcon?: string[];
-//     releaseDate?: string;
-// }
+type PatchProfile = IPatch;
 
-// router.get('/profile', async ctx => {
-//     const ids = toMultiple(ctx.query.ids ?? '');
+router.get('/profile', async ctx => {
+    const numbers = toMultiple(ctx.query.ids ?? '');
 
-//     if (ids == null) {
-//         ctx.status = 400;
-//         return;
-//     }
+    if (numbers == null) {
+        ctx.status = 400;
+        return;
+    }
 
-//     const sets = await Set.find({ setId: { $in: ids } });
+    const patches = await Patch.find({ number: { $in: numbers } });
 
-//     const result: Record<string, SetProfile> = {};
+    const result: Record<string, PatchProfile> = {};
 
-//     for (const s of sets) {
-//         result[s.setId] = {
-//             setId:           s.setId,
-//             parent:          s.parent,
-//             localization:    Object.fromEntries(s.toJSON().localization.map(l => [l.lang, omit(l, ['lang'])])),
-//             setType:         s.setType,
-//             symbolStyle:     s.symbolStyle,
-//             doubleFacedIcon: s.doubleFacedIcon,
-//             releaseDate:     s.releaseDate,
-//         };
-//     }
+    for (const p of patches) {
+        result[p.number] = p.toJSON();
+    }
 
-//     ctx.body = result;
-// });
+    ctx.body = result;
+});
 
 export default router;

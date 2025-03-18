@@ -7,7 +7,7 @@ import { api } from 'boot/server';
 
 type KeysMatching<T, V> = { [K in keyof T]-?: T[K] extends V ? K : never }[keyof T];
 
-type IndexType<T> = KeysMatching<T, string>;
+type IndexType<T> = KeysMatching<T, number | string>;
 
 class Database<T> extends Dexie {
     profile: Table<T & { time: number }, string>;
@@ -15,7 +15,7 @@ class Database<T> extends Dexie {
         super(dbName);
 
         this.version(1).stores({
-            profile: `&${indexKey}`,
+            profile: `&${String(indexKey)}`,
         });
 
         this.profile = this.table('profile');

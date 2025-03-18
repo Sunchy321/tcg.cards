@@ -95,18 +95,18 @@
         </div>
         <div class="version-column">
             <div class="version-block">
-                <div v-for="(v, i) of versions" :key="i" class="version-line">
+                <div v-for="(v, i) of versionInfos" :key="i" class="version-line">
                     <div
                         class="version-dot"
-                        :class="{ current: v.includes(version) }"
+                        :class="{ current: v.versions.includes(version) }"
                     />
-                    <div v-ripple @click="version = v[0]">
-                        <template v-if="v.length === 1">
-                            <div>{{ v[0] }}</div>
+                    <div v-ripple @click="version = v.versions[0]">
+                        <template v-if="v.versions.length === 1">
+                            <div>{{ v.firstName }}</div>
                         </template>
                         <template v-else>
-                            <div>{{ v[0] }}</div>
-                            <div>{{ v[v.length - 1] }}</div>
+                            <div>{{ v.firstName }}</div>
+                            <div>{{ v.lastName }}</div>
                         </template>
                     </div>
                 </div>
@@ -130,9 +130,10 @@ import CardImage from 'components/hearthstone/CardImage.vue';
 
 import { Entity } from 'interface/hearthstone/entity';
 
-import { omitBy } from 'lodash';
+import { last, omitBy } from 'lodash';
 import { copyToClipboard, Notify } from 'quasar';
 
+import patchProfile, { PatchProfile } from 'src/common/hearthstone/patch';
 import { apiBase, apiGet } from 'boot/server';
 
 type Data = Entity & {
@@ -146,7 +147,8 @@ const i18n = useI18n();
 
 const { search, random } = hearthstoneSetup();
 
-const data = ref<Data | null>(null);
+const data = ref<Data>();
+const patchProfiles = ref<Record<string, PatchProfile>>({});
 
 // data fields
 const id = computed(() => data.value?.entityId ?? route.params.id as string);
@@ -179,6 +181,48 @@ const version = computed({
 });
 
 const minVersion = computed(() => Math.min(...data.value?.version ?? []));
+
+watch(versions, async values => {
+    patchProfiles.value = {};
+
+    for (const s of values) {
+        patchProfile.get(s[0].toString(), v => {
+            patchProfiles.value = {
+                ...patchProfiles.value,
+                [s[0]]: v,
+            };
+        });
+
+        patchProfile.get(last(s)!.toString(), v => {
+            patchProfiles.value = {
+                ...patchProfiles.value,
+                [last(s)!]: v,
+            };
+        });
+    }
+}, { immediate: true });
+
+const versionInfos = computed(() => versions.value.map(v => {
+    const firstVersion = v[0];
+    const lastVersion = last(v)!;
+
+    const firstProfile = patchProfiles.value[firstVersion.toString()];
+    const lastProfile = patchProfiles.value[lastVersion.toString()];
+
+    const name = (profile: PatchProfile | undefined, number: number) => {
+        if (profile?.shortName != null) {
+            return `${profile.shortName} (${number})`;
+        } else {
+            return `${number}`;
+        }
+    };
+
+    return {
+        versions:  v,
+        firstName: name(firstProfile, firstVersion),
+        lastName:  name(lastProfile, lastVersion),
+    };
+}));
 
 const localization = computed(() => {
     const loc = data.value?.localization;
