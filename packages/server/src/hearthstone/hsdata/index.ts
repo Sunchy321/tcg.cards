@@ -443,7 +443,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 let entitySaved = false;
 
                 for (const oe of oldJsons) {
-                    const oJson = omit(oe.toJSON(), ['version']);
+                    const oJson = omit(oe.toJSON(), ['version', 'isCurrent']);
 
                     if (isEqual(oJson, eJson)) {
                         oe.version = uniq([...oe.version, e.version[0]]).sort((a, b) => a - b);
