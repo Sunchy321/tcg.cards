@@ -1,4 +1,5 @@
-export type Legality = 'banned_in_card_pool' | 'banned_in_deck' | 'banned' | 'legal' | 'unavailable';
+export type Legality = 'banned_in_card_pool' | 'banned_in_deck' | 'banned' | 'derived' | 'legal' | 'minor' | 'unavailable';
+
 export type Adjustment = 'adjust' | 'buff' | 'nerf';
 
 export type Banlist = Record<string, Legality>;

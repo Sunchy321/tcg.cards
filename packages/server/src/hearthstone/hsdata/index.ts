@@ -8,8 +8,7 @@ import Patch from '@/hearthstone/db/patch';
 import Entity from '@/hearthstone/db/entity';
 import Task from '@/common/task';
 
-import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { PlayRequirement, Power } from '@interface/hearthstone/card';
+import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthstone/entity';
 
 import * as fs from 'fs';
 import * as path from 'path';

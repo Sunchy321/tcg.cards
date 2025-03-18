@@ -1,4 +1,14 @@
-import { Power } from './card';
+export interface PlayRequirement {
+    type: string;
+    param: number;
+}
+
+export interface Power {
+    definition: string;
+    isMaster?: boolean;
+    showInHistory?: boolean;
+    playRequirements: PlayRequirement[];
+}
 
 export interface Entity {
     version: number[];
