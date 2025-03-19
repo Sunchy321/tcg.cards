@@ -15,25 +15,25 @@ interface IImageProjection {
 
 interface IImageTask {
     name: string;
-    uri: string;
+    uri:  string;
     path: string;
 }
 
 interface IImageStatus {
     overall: { count: number, total: number };
-    time: { elapsed: number, remaining: number };
-    status: Record<string, string>;
-    failed: number;
+    time:    { elapsed: number, remaining: number };
+    status:  Record<string, string>;
+    failed:  number;
 }
 
 export class ImageGetter extends Task<IImageStatus> {
-    type: string;
+    type:      string;
     exist = 0;
     count = 0;
-    total: number;
+    total:     number;
     failed = 0;
     todoTasks: IImageTask[] = [];
-    taskMap: Record<string, [IImageTask, FileSaver]> = {};
+    taskMap:   Record<string, [IImageTask, FileSaver]> = {};
     statusMap: Record<string, string> = {};
 
     async startImpl(): Promise<void> {

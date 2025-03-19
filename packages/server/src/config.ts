@@ -5,7 +5,7 @@ import { AxiosProxyConfig } from 'axios';
 const configPath = process.argv[2];
 
 export interface Database {
-    user: string;
+    user:     string;
     password: string;
 }
 
@@ -16,12 +16,12 @@ export interface MongoDB {
 }
 
 export interface Config {
-    appKey: string;
+    appKey:       string;
     jwtSecretKey: string;
 
-    asset: string;
-    data: string;
-    log: string;
+    asset:         string;
+    data:          string;
+    log:           string;
     internalData?: string;
 
     axiosProxy?: AxiosProxyConfig;
@@ -30,7 +30,7 @@ export interface Config {
 
     hearthstone: {
         blizzard: {
-            clientId: string;
+            clientId:     string;
             clientSecret: string;
         };
     };

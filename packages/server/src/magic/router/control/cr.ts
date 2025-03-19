@@ -97,8 +97,8 @@ router.post('/save', async ctx => {
         // Keywords are not treated as card name in its clause
         if (/^70[12]/.test(c.index) && c.depth > 2) {
             const parent = data.contents.find(co => co.depth === 2
-                && c.index.slice(0, -1) === co.index.slice(0, -1)
-                && /\w$/.test(co.text));
+              && c.index.slice(0, -1) === co.index.slice(0, -1)
+              && /\w$/.test(co.text));
 
             if (parent != null) {
                 blacklist.push(parent.text);
@@ -165,8 +165,8 @@ router.get('/extract-cardname', async ctx => {
     // Keywords are not treated as card name in its clause
     if (/^70[12]/.test(content.index) && content.depth > 2) {
         const parent = cr.contents.find(co => co.depth === 2
-                && content.index.slice(0, -1) === co.index.slice(0, -1)
-                && /\w$/.test(co.text));
+          && content.index.slice(0, -1) === co.index.slice(0, -1)
+          && /\w$/.test(co.text));
 
         if (parent != null) {
             blacklist.push(parent.text);

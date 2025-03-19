@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 

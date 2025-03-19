@@ -16,14 +16,14 @@ import internalData from '@/internal-data';
 import { convertJson, bulkPath } from './common';
 
 export type SpellingMistakes = {
-    cardId: string;
-    text: string;
+    cardId:     string;
+    text:       string;
     correction: string;
 }[];
 
 export default class RulingLoader extends Task<Status> {
-    file: string;
-    filePath: string;
+    file:       string;
+    filePath:   string;
     lineReader: LineReader;
 
     init(fileName: string): void {

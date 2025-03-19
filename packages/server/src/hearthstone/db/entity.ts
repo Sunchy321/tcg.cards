@@ -4,7 +4,7 @@ import conn from './db';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'>({
     version: [Number],
 

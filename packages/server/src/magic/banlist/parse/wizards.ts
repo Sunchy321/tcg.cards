@@ -1,4 +1,3 @@
-/* eslint-disable no-loop-func */
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 

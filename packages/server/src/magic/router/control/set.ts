@@ -56,9 +56,9 @@ router.post('/calc', async ctx => {
     const sets = await Set.find();
 
     const allPrints = await Print.aggregate<{
-        set: string;
+        set:    string;
         number: string;
-        lang: string;
+        lang:   string;
         rarity: string;
     }>().project({
         _id: 0, set: 1, number: 1, lang: 1, rarity: 1,

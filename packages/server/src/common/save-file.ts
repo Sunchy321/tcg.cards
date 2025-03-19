@@ -10,19 +10,19 @@ import Task from './task';
 import { config } from '@/config';
 
 interface ISaveFileOption {
-    override?: boolean;
+    override?:    boolean;
     axiosOption?: Partial<AxiosRequestConfig<any>>;
 }
 
 axiosRetry(axios, {
     retries:    3,
-    retryDelay: (retryCount) => retryCount * 1000,
+    retryDelay: retryCount => retryCount * 1000,
 });
 
 export default class FileSaver extends Task<AxiosProgressEvent> {
-    url: string;
-    path: string;
-    override: boolean;
+    url:        string;
+    path:       string;
+    override:   boolean;
     controller: AbortController;
 
     axiosOption: Partial<AxiosRequestConfig<any>>;
@@ -60,7 +60,7 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
             responseType:       'stream',
             signal:             this.controller.signal,
             proxy:              config.axiosProxy,
-            onDownloadProgress: (progressEvent) => this.emit('progress', progressEvent),
+            onDownloadProgress: progressEvent => this.emit('progress', progressEvent),
             ...this.axiosOption,
         }).then(async res => new Promise((resolve, reject) => {
             res.data.pipe(stream);

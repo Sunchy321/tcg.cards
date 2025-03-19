@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Context, Next, Middleware } from 'koa';
 
 import User, { IUser } from '@/user/db/user';
@@ -39,7 +38,6 @@ export default function jwtAuth(option: JwtAuthOption = { }): Middleware {
     const pass = option.pass ?? false;
     const admin = option.admin ?? false;
 
-    // eslint-disable-next-line consistent-return
     return async function (ctx: Context, next: Next): Promise<any> {
         const token = getJwtToken(ctx);
 

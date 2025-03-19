@@ -126,7 +126,6 @@ router.get('/history', async ctx => {
                 curr.examples ?? [],
                 next?.examples ?? curr.examples ?? [],
             ).map(
-                // eslint-disable-next-line @typescript-eslint/no-shadow
                 ([prev, curr, next]) => diffThreeString(prev ?? curr ?? '', curr ?? '', next ?? curr ?? ''),
             ).filter(v => v.length > 0);
 

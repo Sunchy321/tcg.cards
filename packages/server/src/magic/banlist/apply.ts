@@ -32,21 +32,21 @@ function cmp<T>(a: T, b: T): number {
 export class AnnouncementApplier {
     private announcements: IFormatAnnouncement[];
 
-    private formatMap: Record<string, Document & IFormat>;
+    private formatMap:      Record<string, Document & IFormat>;
     private eternalFormats: string[];
 
     private sets: { id: string, releaseDate: string }[];
 
-    private anteList: string[];
+    private anteList:       string[];
     private conspiracyList: string[];
-    private legendaryList: string[];
-    private unfinityList: string[];
-    private offensiveList: string[];
+    private legendaryList:  string[];
+    private unfinityList:   string[];
+    private offensiveList:  string[];
 
     private cards: {
-        cardId: string;
-        sets: string[];
-        inPauper: boolean;
+        cardId:            string;
+        sets:              string[];
+        inPauper:          boolean;
         inPauperCommander: boolean;
     }[];
 
@@ -54,9 +54,9 @@ export class AnnouncementApplier {
 
     private groupWatcher: {
         source: string;
-        link?: string[];
+        link?:  string[];
         format: string;
-        id: string;
+        id:     string;
         status: Legality;
     }[];
 
@@ -123,10 +123,10 @@ export class AnnouncementApplier {
         }
 
         const data = await Card.aggregate<{
-            cardId: string;
+            cardId:   string;
             typeMain: string[][];
-            sets: string[];
-            rarity: string[];
+            sets:     string[];
+            rarity:   string[];
         }>()
             .match({ cardId: { $in: cards } })
             .lookup({
@@ -559,10 +559,10 @@ export class AnnouncementApplier {
             format.banlist.sort((a, b) => {
                 if (a.status !== b.status) {
                     return banlistStatusOrder.indexOf(a.status)
-                    - banlistStatusOrder.indexOf(b.status);
+                      - banlistStatusOrder.indexOf(b.status);
                 } else if (a.group !== b.group) {
                     return banlistSourceOrder.indexOf(a.group ?? null)
-                    - banlistSourceOrder.indexOf(b.group ?? null);
+                      - banlistSourceOrder.indexOf(b.group ?? null);
                 } else {
                     return cmp(a.id, b.id);
                 }

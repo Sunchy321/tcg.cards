@@ -25,7 +25,7 @@ interface Status {
     };
 
     time: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 }

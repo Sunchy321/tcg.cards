@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-
 import { Color, Card as ICard, MainType } from '@interface/lorcana/card';
 import { Print as IPrint, Rarity } from '@interface/lorcana/print';
 import { Set as ISet } from '@interface/lorcana/set';
@@ -92,11 +90,13 @@ export function toCard(
 
             inkwell: data.inkwell,
 
-            ...lang === 'en' ? loc : {
-                name:     '',
-                typeline: '',
-                text:     '',
-            },
+            ...lang === 'en'
+                ? loc
+                : {
+                    name:     '',
+                    typeline: '',
+                    text:     '',
+                },
 
             type: {
                 main: transform(data.type, lang, map) as MainType,

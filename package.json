@@ -5,7 +5,10 @@
 		}
 	},
 	"devDependencies": {
-		"@typescript-eslint/eslint-plugin": "^7.0.1",
-		"eslint-config-airbnb-base": "^15.0.0"
+		"@stylistic/eslint-plugin": "^4.2.0",
+		"eslint": "^9.22.0",
+		"eslint-stylistic-airbnb": "^2.0.0",
+		"globals": "^16.0.0",
+		"typescript-eslint": "^8.26.1"
 	}
 }

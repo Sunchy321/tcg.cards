@@ -9,12 +9,12 @@ import { config } from '@/config';
 
 interface IUserInfo {
     username: string;
-    role: string;
+    role:     string;
 }
 
 interface IUserProfile {
     username: string;
-    role: string;
+    role:     string;
 }
 
 export interface IUser extends Document {
@@ -26,7 +26,7 @@ export interface IUser extends Document {
     hash: string;
 
     lastLogin: number;
-    attempts: number;
+    attempts:  number;
 
     setPassword(password: string): void;
     changePassword(oldPassword: string, newPassword: string): Promise<void>;
@@ -222,7 +222,6 @@ UserSchema.statics.register = async function (this: UserModel, username: string,
         throw new Error('user_already_exists');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const user = new User({ username });
 
     user.setPassword(password);
@@ -247,7 +246,7 @@ UserSchema.statics.fromJwtToken = async function (this: UserModel, token: string
         const payload = jwt.verify(token, config.jwtSecretKey) as IUserInfo;
 
         return this.findByUsername(payload.username);
-    } catch (e) {
+    } catch (_err) {
         return null;
     }
 };

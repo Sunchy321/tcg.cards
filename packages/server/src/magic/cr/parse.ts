@@ -1,4 +1,3 @@
-/* eslint-disable no-cond-assign */
 import CR from '@/magic/db/cr';
 import { CR as ICR, Content, Glossary } from '@interface/magic/cr';
 

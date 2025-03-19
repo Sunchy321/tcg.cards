@@ -15,7 +15,7 @@ import { dataPath } from '@/config';
 
 interface IBulkList {
     allCard: string[];
-    ruling: string[];
+    ruling:  string[];
 }
 
 const bulkPath = join(dataPath, 'magic/scryfall');

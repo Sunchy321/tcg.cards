@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import Task from '@/common/task';
 
 import Card from '@/magic/db/card';
@@ -28,8 +27,8 @@ import { bulkUpdation } from '@/magic/logger';
 const bucketSize = 500;
 
 export default class CardLoader extends Task<Status> {
-    file: string;
-    filePath: string;
+    file:       string;
+    filePath:   string;
     lineReader: LineReader;
 
     init(fileName: string): void {
@@ -142,7 +141,7 @@ export default class CardLoader extends Task<Status> {
                 });
 
                 const oldPrints = prints.filter(p => p.scryfall.cardId === json.id
-                    || (p.set === json.set && p.number === json.collector_number && p.lang === json.lang));
+                  || (p.set === json.set && p.number === json.collector_number && p.lang === json.lang));
 
                 if (cardPrints.length === 1) {
                     // a single card

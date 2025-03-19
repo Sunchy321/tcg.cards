@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { Card as ICard } from '@interface/lorcana/card';
 import { Print as IPrint } from '@interface/lorcana/print';
 import { ICardDatabase } from '@common/model/lorcana/card';
@@ -159,7 +158,6 @@ function assignCardType(
 
 export function combineCard(card: ICardDatabase, data: ICard): void {
     for (const k of Object.keys(data) as (keyof ICard)[]) {
-        // eslint-disable-next-line default-case
         switch (k) {
         case 'cardId':
             break;
@@ -211,7 +209,6 @@ export async function mergePrint(print: Document & WithUpdation<IPrint>, data: I
     const updation: ICardUpdation[] = [];
 
     for (const k of Object.keys(data) as (keyof IPrint)[]) {
-        // eslint-disable-next-line default-case
         switch (k) {
         case 'cardId':
             break;

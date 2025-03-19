@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
@@ -41,7 +40,7 @@ router.get('/get-duplicate', async ctx => {
 
 router.post('/resolve-duplicate', async ctx => {
     const { data, initial } = ctx.request.body as {
-        data: ICard[];
+        data:    ICard[];
         initial: { cardId: string, version: number[] };
     };
 

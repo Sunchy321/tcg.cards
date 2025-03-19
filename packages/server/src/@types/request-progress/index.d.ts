@@ -39,7 +39,6 @@ declare module 'request-progress' {
         }
 
         interface RequestProgress extends Request {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             on(event: string, listener: (...args: any[]) => void): this;
             on(event: 'progress', listener: (progress: Progress) => void): this;
         }

@@ -7,17 +7,17 @@ import blzApi from './api';
 import Patch from '../db/patch';
 
 interface ICardResponse {
-    cards: ICard[];
+    cards:     ICard[];
     cardCount: number;
     pageCount: number;
-    page: number;
+    page:      number;
 }
 
 interface ICardStatus {
     method: 'get';
-    type: 'card';
-    count: number;
-    total: number;
+    type:   'card';
+    count:  number;
+    total:  number;
 }
 
 export class CardGetter extends Task<ICardStatus> {

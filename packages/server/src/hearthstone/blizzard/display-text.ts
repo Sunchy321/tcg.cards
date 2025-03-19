@@ -11,56 +11,56 @@ import { dataPath } from '@/config';
 import { localPath as hsdataPath, langMap } from '@/hearthstone/hsdata/base';
 
 interface ILocValue {
-    'm_locValues': string[];
-    'm_locId': number;
+    m_locValues: string[];
+    m_locId:     number;
 }
 
 interface IDbfCard {
-    'm_ID': number;
-    'm_noteMiniGuid': string;
-    'm_longGuid': string;
-    'm_textInHand': ILocValue;
-    'm_gameplayEvent': string;
-    'm_craftingEvent': string;
-    'm_goldenCraftingEvent': string;
-    'm_suggestionWeight': number;
-    'm_changeVersion': number;
-    'm_name': ILocValue;
-    'm_flavorText': ILocValue;
-    'm_howToGetCard': ILocValue;
-    'm_howToGetGoldCard': ILocValue;
-    'm_howToGetDiamondCard': ILocValue;
-    'm_targetArrowText': ILocValue;
-    'm_artistName': string;
-    'm_shortName': ILocValue;
-    'm_creditsCardName': string;
-    'm_featuredCardsEvent': string;
-    'm_battlegroundsActiveEvent': string;
-    'm_battlegroundsEarlyAccessEvent': string;
-    'm_battlegroundsEveryGameEvent': string;
-    'm_cardTextBuilderType': number;
-    'm_watermarkTextureOverride': string;
+    m_ID:                            number;
+    m_noteMiniGuid:                  string;
+    m_longGuid:                      string;
+    m_textInHand:                    ILocValue;
+    m_gameplayEvent:                 string;
+    m_craftingEvent:                 string;
+    m_goldenCraftingEvent:           string;
+    m_suggestionWeight:              number;
+    m_changeVersion:                 number;
+    m_name:                          ILocValue;
+    m_flavorText:                    ILocValue;
+    m_howToGetCard:                  ILocValue;
+    m_howToGetGoldCard:              ILocValue;
+    m_howToGetDiamondCard:           ILocValue;
+    m_targetArrowText:               ILocValue;
+    m_artistName:                    string;
+    m_shortName:                     ILocValue;
+    m_creditsCardName:               string;
+    m_featuredCardsEvent:            string;
+    m_battlegroundsActiveEvent:      string;
+    m_battlegroundsEarlyAccessEvent: string;
+    m_battlegroundsEveryGameEvent:   string;
+    m_cardTextBuilderType:           number;
+    m_watermarkTextureOverride:      string;
 }
 
 interface IDbfCardFile {
-    'm_GameObject': {
-        'm_FileID': number;
-        'm_PathID': number;
+    m_GameObject: {
+        m_FileID: number;
+        m_PathID: number;
     };
-    'm_Enabled': number;
-    'm_Script': {
-        'm_FileID': number;
-        'm_PathID': number;
+    m_Enabled: number;
+    m_Script: {
+        m_FileID: number;
+        m_PathID: number;
     };
-    'm_Name': 'CARD';
-    'Records': IDbfCard[];
+    m_Name:  'CARD';
+    Records: IDbfCard[];
 }
 
 interface IDisplayTextStatus {
     method: 'get';
-    type: 'display-text';
-    count: number;
-    total: number;
+    type:   'display-text';
+    count:  number;
+    total:  number;
 }
 
 export enum TextBuilderType {

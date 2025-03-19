@@ -4,7 +4,7 @@ import conn from './db';
 
 import { Card as ICard } from '@interface/hearthstone/card';
 
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICard, Model<ICard>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 

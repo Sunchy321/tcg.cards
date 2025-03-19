@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { Card as ICard } from '@interface/magic/card';
 import { Print as IPrint } from '@interface/magic/print';
 import { ICardDatabase } from '@common/model/magic/card';
@@ -219,7 +218,6 @@ function assignSet<T>(card: WithUpdation<T>, data: T, key: string & keyof T) {
 
 export function combineCard(card: ICardDatabase, data: ICard): void {
     for (const k of Object.keys(data) as (keyof ICard)[]) {
-        // eslint-disable-next-line default-case
         switch (k) {
         case 'cardId':
             break;
@@ -239,7 +237,6 @@ export function combineCard(card: ICardDatabase, data: ICard): void {
                 const dPart = data.parts[i];
 
                 for (const l of Object.keys(dPart) as (keyof ICardDatabase['parts'][0])[]) {
-                    // eslint-disable-next-line default-case
                     switch (l) {
                     case 'name':
                     case 'typeline':
@@ -328,7 +325,6 @@ export async function mergePrint(print: Document & IPrintDatabase, data: IPrint)
     const updation: ICardUpdation[] = [];
 
     for (const k of Object.keys(data) as (keyof IPrint)[]) {
-        // eslint-disable-next-line default-case
         switch (k) {
         case 'cardId':
             break;
@@ -350,7 +346,6 @@ export async function mergePrint(print: Document & IPrintDatabase, data: IPrint)
                 const dPart = data.parts[i];
 
                 for (const l of Object.keys(dPart) as (keyof IPrint['parts'][0])[]) {
-                    // eslint-disable-next-line default-case
                     switch (l) {
                     case 'name':
                     case 'typeline':

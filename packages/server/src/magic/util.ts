@@ -8,8 +8,8 @@ import { toIdentifier } from '@common/util/id';
 
 type Type = {
     super?: string[];
-    main: string[];
-    sub?: string[];
+    main:   string[];
+    sub?:   string[];
 };
 
 const superList = [

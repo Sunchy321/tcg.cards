@@ -1,6 +1,3 @@
-/* eslint-disable new-cap */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { EventEmitter } from 'events';
 
 import WebSocket from 'ws';
@@ -8,7 +5,7 @@ import WebSocket from 'ws';
 abstract class Task<T> extends EventEmitter {
     status: 'error' | 'idle' | 'working';
 
-    private intervalProgressId?: NodeJS.Timeout;
+    private intervalProgressId?:   NodeJS.Timeout;
     private intervalProgressFunc?: () => void;
 
     constructor() {

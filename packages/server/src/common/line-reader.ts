@@ -2,7 +2,7 @@ import fs from 'fs';
 import readline from 'readline';
 
 export default class LineReader {
-    file: string;
+    file:   string;
     stream: fs.ReadStream;
 
     constructor(file: string) {

@@ -5,13 +5,13 @@ import { assetPath } from '@/config';
 
 const router = new KoaRouter();
 
-router.get('/(.*)', async (ctx) => {
+router.get('/(.*)', async ctx => {
     const path = ctx.params[0];
     const root = assetPath;
 
     try {
         await send(ctx, path, { root });
-    } catch (err) {
+    } catch (_err) {
         ctx.status = 404;
         ctx.body = 'Image not found';
     }

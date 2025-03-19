@@ -1,4 +1,3 @@
-/* eslint-disable no-labels, no-restricted-syntax */
 import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 

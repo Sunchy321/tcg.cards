@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
@@ -27,10 +26,10 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 type Version = {
-    lang: string;
-    set: string;
-    number: string;
-    rarity: string;
+    lang:        string;
+    set:         string;
+    number:      string;
+    rarity:      string;
     releaseDate: string;
 };
 
@@ -247,8 +246,8 @@ interface CardProfile {
     }[];
 
     versions: {
-        lang: string;
-        set: string;
+        lang:   string;
+        set:    string;
         number: string;
         rarity: string;
     }[];

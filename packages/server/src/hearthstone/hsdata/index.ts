@@ -36,10 +36,10 @@ function hasData(): boolean {
 }
 
 export interface ITag {
-    index: keyof IEntity | 'multiClass';
-    bool?: true;
-    array?: true;
-    enum?: string | true;
+    index:   keyof IEntity | 'multiClass';
+    bool?:   true;
+    array?:  true;
+    enum?:   string | true;
     static?: IEntity[keyof IEntity];
 }
 
@@ -72,7 +72,7 @@ export class DataGetter extends Task<SimpleGitProgressEvent & { type: 'get' }> {
 }
 
 export interface ILoaderStatus {
-    type: 'load';
+    type:  'load';
     count: number;
     total: number;
 }
@@ -137,10 +137,10 @@ export class DataLoader extends Task<ILoaderStatus> {
 }
 
 export interface IClearPatchStatus {
-    type: 'clear-patch';
+    type:    'clear-patch';
     version: number;
-    count: number;
-    total: number;
+    count:   number;
+    total:   number;
 }
 
 export class PatchClearer extends Task<IClearPatchStatus> {
@@ -198,10 +198,10 @@ export class PatchClearer extends Task<IClearPatchStatus> {
 }
 
 export interface ILoadPatchStatus {
-    type: 'load-patch';
+    type:    'load-patch';
     version: number;
-    count: number;
-    total: number;
+    count:   number;
+    total:   number;
 }
 
 export class PatchLoader extends Task<ILoadPatchStatus> {
@@ -543,7 +543,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         for (const [k, v] of Object.entries(classMap)) {
                             const num = Number.parseInt(k, 10) - 1;
 
-                            // eslint-disable-next-line no-bitwise
                             if ((value & (1 << num)) !== 0) {
                                 classes.push(v);
                             }

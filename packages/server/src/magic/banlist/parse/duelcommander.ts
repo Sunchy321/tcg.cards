@@ -68,7 +68,6 @@ export async function parseDuelCommanderBanlist(url: string): Promise<IFormatAnn
         let mStatus = null;
 
         for (const s of Object.keys(statusMap)) {
-            // eslint-disable-next-line no-cond-assign
             if ((mStatus = new RegExp(`${s}\\.?$`, 'i').exec(text)) != null) {
                 const id = toIdentifier(text.slice(0, -mStatus[0].length));
 
@@ -85,7 +84,6 @@ export async function parseDuelCommanderBanlist(url: string): Promise<IFormatAnn
         }
 
         if (!isChange) {
-            // tslint:disable-next-line: max-line-length
             const eDate = /(?:These changes apply|This update applies|These changes take effect|This change takes effect|They take effect) on ([a-z]+ \d+(?:st|nd|rd|th)?,? \d+)/i.exec(
                 text,
             );
@@ -94,7 +92,6 @@ export async function parseDuelCommanderBanlist(url: string): Promise<IFormatAnn
                 result.effectiveDate!.tabletop = parseDate(eDate[1]);
             }
 
-            // tslint:disable-next-line: max-line-length
             const nDate = /(?:The next announcements? will be published|The next announcement is expected to be|See you all) on ([a-z]+ \d+(?:st|nd|rd|th)?, \d+)/i.exec(
                 text,
             );

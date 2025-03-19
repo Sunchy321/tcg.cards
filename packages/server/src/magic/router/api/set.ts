@@ -36,13 +36,13 @@ router.get('/', async ctx => {
 });
 
 interface SetProfile {
-    setId: string;
-    parent?: string;
-    localization: Record<string, Omit<SetLocalization, 'lang'>>;
-    type: string;
-    symbolStyle?: string[];
+    setId:            string;
+    parent?:          string;
+    localization:     Record<string, Omit<SetLocalization, 'lang'>>;
+    type:             string;
+    symbolStyle?:     string[];
     doubleFacedIcon?: string[];
-    releaseDate?: string;
+    releaseDate?:     string;
 }
 
 router.get('/profile', async ctx => {

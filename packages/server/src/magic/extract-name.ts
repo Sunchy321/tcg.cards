@@ -37,14 +37,14 @@ const nameRegex = `(?:Celebr-8000|B\\.F\\.M\\. \\(Big Furry Monster\\))|\\b_{5,}
 const phraseRegex = new RegExp(`${nameRegex}( */{1,2} *${nameRegex})*`, 'g');
 
 export interface CardNameExtractorOption {
-    text: string;
-    cardNames: { id: string, name: string[] }[];
-    thisName?: { id: string, name: string[] };
+    text:       string;
+    cardNames:  { id: string, name: string[] }[];
+    thisName?:  { id: string, name: string[] };
     blacklist?: string[];
 }
 
 export default class CardNameExtractor {
-    text: string;
+    text:      string;
     cardNames: { id: string, name: string[] }[];
     thisName?: { id: string, name: string[] };
     blacklist: string[];

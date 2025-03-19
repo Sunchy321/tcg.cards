@@ -1,15 +1,15 @@
 export interface Status {
     method: string;
-    type: string;
+    type:   string;
 
     amount: {
         updated?: number;
-        count: number;
-        total?: number;
+        count:    number;
+        total?:   number;
     };
 
     time?: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 }

@@ -4,7 +4,7 @@ import conn from './db';
 
 import { Set as ISet } from '@interface/magic/set';
 
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export const SetSchema = new Schema<ISet, Model<ISet>, {}, {}, {}, {}, '$type'>({
     setId: String,
 

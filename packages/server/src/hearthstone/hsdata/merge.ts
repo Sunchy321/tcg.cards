@@ -11,7 +11,6 @@ function assign(card: Document & ICard, data: ICard, key: keyof ICard) {
 
 export async function mergeCard(card: Document & ICard, data: ICard): Promise<void> {
     for (const k of Object.keys(data) as (keyof ICard)[]) {
-        // eslint-disable-next-line default-case
         switch (k) {
         case 'cardId':
         case 'version':

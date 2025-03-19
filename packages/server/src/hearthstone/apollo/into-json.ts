@@ -7,16 +7,16 @@ import internalData from '@/internal-data';
 import { pickBy } from 'lodash';
 
 export type TagMap = {
-    field: Record<number, ITag>;
-    locField: Record<number, keyof IEntity['localization'][0]>;
-    type: Record<number, string>;
-    race: Record<number, string>;
-    dualRace: Record<number, string>;
+    field:       Record<number, ITag>;
+    locField:    Record<number, keyof IEntity['localization'][0]>;
+    type:        Record<number, string>;
+    race:        Record<number, string>;
+    dualRace:    Record<number, string>;
     spellSchool: Record<number, string>;
-    rune: Record<number, string>;
-    set: Record<number, string>;
-    rarity: Record<number, string>;
-    mechanic: Record<number, string>;
+    rune:        Record<number, string>;
+    set:         Record<number, string>;
+    rarity:      Record<number, string>;
+    mechanic:    Record<number, string>;
 };
 
 export function getEssentialMap(): TagMap {
@@ -56,11 +56,11 @@ const variantInput: Record<Variant, any> = {
 };
 
 export type ApolloJson = {
-    cardID: string;
+    cardID:   string;
     cardName: string;
     cardText: string;
-    tags: Record<number, number>;
-    nerf?: Record<number, number>;
+    tags:     Record<number, number>;
+    nerf?:    Record<number, number>;
     outName?: string;
 };
 
@@ -73,8 +73,8 @@ export function intoApolloJson(
     const id = entity.entityId;
 
     const loc = entity.localization.find(v => v.lang === 'zhs')
-        ?? entity.localization.find(v => v.lang === 'en')
-        ?? entity.localization[0];
+      ?? entity.localization.find(v => v.lang === 'en')
+      ?? entity.localization[0];
 
     const tags: Record<number, number> = {};
 

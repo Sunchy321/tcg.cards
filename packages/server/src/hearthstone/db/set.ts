@@ -4,7 +4,7 @@ import conn from './db';
 
 import { Set as ISet } from '@interface/hearthstone/set';
 
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const SetSchema = new Schema<ISet, Model<ISet>, {}, {}, {}, {}, '$type'>({
     setId: String,
     dbfId: Number,

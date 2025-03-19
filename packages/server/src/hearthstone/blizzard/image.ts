@@ -28,28 +28,28 @@ const localeMap: Record<Locale, string> = {
 };
 
 interface ICardResponse {
-    cards: ICard[];
+    cards:     ICard[];
     cardCount: number;
     pageCount: number;
-    page: number;
+    page:      number;
 }
 
 interface IImageStatus {
     method: 'get';
-    type: 'image';
-    count: number;
-    total: number;
+    type:   'image';
+    count:  number;
+    total:  number;
 }
 
 interface IImageTask {
     name: string;
-    uri: string;
+    uri:  string;
     path: string;
 }
 
 export class ImageGetter extends Task<IImageStatus> {
     todoTasks: IImageTask[] = [];
-    taskMap: Record<string, [IImageTask, FileSaver]> = {};
+    taskMap:   Record<string, [IImageTask, FileSaver]> = {};
     statusMap: Record<string, string> = {};
 
     async startImpl(): Promise<void> {

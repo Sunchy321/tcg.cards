@@ -33,7 +33,7 @@ router.get('/', async ctx => {
 });
 
 interface SetProfile {
-    setId: string;
+    setId:        string;
     localization: Record<string, Omit<SetLocalization, 'lang'>>;
     releaseDate?: string;
 }

@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { Schema } from 'mongoose';
 
 import conn from './db';

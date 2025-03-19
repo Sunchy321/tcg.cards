@@ -21,12 +21,12 @@ import { Aggregate } from 'mongoose';
 
 export type CardLegalityView = ICard & {
     prints: {
-        set: string;
-        number: string;
-        rarity: string;
-        borderColor?: string;
+        set:            string;
+        number:         string;
+        rarity:         string;
+        borderColor?:   string;
         securityStamp?: string;
-        releaseDate: string;
+        releaseDate:    string;
     }[];
 };
 
@@ -35,7 +35,7 @@ type ValueOrArray<T> = T | T[];
 type RuleYAML<T> = {
     status: ValueOrArray<{
         format: ValueOrArray<string>;
-        value: T;
+        value:  T;
     }>;
 
     exclusive?: boolean;
@@ -44,22 +44,22 @@ type RuleYAML<T> = {
 };
 
 type LegalityRule = {
-    name: string;
-    status: Record<string, Legality>;
+    name:       string;
+    status:     Record<string, Legality>;
     exclusive?: boolean;
 
     patterns: {
-        type: 'id' | 'set';
+        type:  'id' | 'set';
         value: string;
     }[];
 };
 
 type ScryfallMismatch = {
-    name: string;
+    name:   string;
     status: Record<string, [Legality, Legality]>;
 
     patterns: {
-        type: 'id' | 'set';
+        type:  'id' | 'set';
         value: string;
     }[];
 };
@@ -213,7 +213,7 @@ function testFilter(data: CardLegalityView, filter: LegalityRule['patterns'][0])
         return data.cardId === filter.value;
     } else {
         return data.prints.some(v => v.set === filter.value)
-            && !['plains', 'island', 'swamp', 'mountain', 'forest'].includes(data.cardId);
+          && !['plains', 'island', 'swamp', 'mountain', 'forest'].includes(data.cardId);
     }
 }
 
@@ -313,8 +313,8 @@ export function getLegality(
         // Un-cards, gift cards, etc
         if (
             prints.every(v => [...setsInformal, ...setsSpecial].includes(v.set)
-                || v.securityStamp === 'acorn'
-                || v.borderColor === 'silver')
+              || v.securityStamp === 'acorn'
+              || v.borderColor === 'silver')
             && prints.some(v => setsInformal.includes(v.set) || v.securityStamp === 'acorn' || v.borderColor === 'silver')
         ) {
             assign('unavailable', 'un-card');
@@ -407,7 +407,7 @@ export function getLegality(
             const frontType = data.parts[0].type.main;
 
             const canBeCommander = (frontType.includes('creature') && !frontType.includes('land'))
-                || (data.parts[0].type.sub?.includes('background'));
+              || (data.parts[0].type.sub?.includes('background'));
 
             if (frontType.includes('conspiracy')) {
                 assign('unavailable', 'casual-type');
@@ -475,14 +475,14 @@ interface Status {
     };
 
     time: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 
     wrongs: {
-        format: string;
+        format:   string;
         legality: [Legality, Legality];
-        cards: string[];
+        cards:    string[];
     }[];
 }
 

@@ -7,7 +7,6 @@ declare module 'koa' {
     }
 }
 
-// eslint-disable-next-line consistent-return
 export default function websocket(ctx: Context, next: Next): any {
     if (ctx.ws != null) {
         return next();

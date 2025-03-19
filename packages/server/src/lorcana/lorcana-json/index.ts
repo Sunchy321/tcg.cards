@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import Task from '@/common/task';
 
 import Card from '@/lorcana/db/card';
@@ -26,7 +25,7 @@ import { bulkUpdation } from '@/lorcana/logger';
 const bucketSize = 500;
 
 export default class DataLoader extends Task<Status> {
-    file: string;
+    file:     string;
     filePath: string;
 
     init(fileName: string): void {

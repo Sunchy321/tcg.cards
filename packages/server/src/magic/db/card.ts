@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-types */
 import { Schema, Model } from 'mongoose';
 
 import conn from './db';
@@ -6,6 +5,7 @@ import conn from './db';
 import { ICardDatabase } from '@common/model/magic/card';
 import { historyPlugin } from '@/database/updation';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 

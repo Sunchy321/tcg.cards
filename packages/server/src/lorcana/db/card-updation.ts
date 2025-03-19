@@ -3,11 +3,11 @@ import { Schema } from 'mongoose';
 import conn from './db';
 
 export type ICardUpdation = {
-    cardId: string;
-    key: string;
+    cardId:     string;
+    key:        string;
     partIndex?: number;
-    oldValue: any;
-    newValue: any;
+    oldValue:   any;
+    newValue:   any;
 };
 
 const CardUpdationSchema = new Schema<ICardUpdation>({

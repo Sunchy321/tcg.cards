@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
@@ -277,7 +276,6 @@ function access(print: WithUpdation<IPrint>, key: string) {
 
         if (part.startsWith('.')) {
             object = object[part.slice(1)];
-            // eslint-disable-next-line no-cond-assign
         } else if ((m = /^\[(.*)\]$/.exec(part)) != null) {
             const index = m[1];
 
@@ -313,7 +311,6 @@ function rejectUpdation(print: WithUpdation<IPrint>, updation: Updation) {
             } else {
                 object = object[part.slice(1)];
             }
-            // eslint-disable-next-line no-cond-assign
         } else if ((m = /^\[(.*)\]$/.exec(part)) != null) {
             const index = m[1];
 

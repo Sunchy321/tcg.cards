@@ -9,21 +9,21 @@ import { partition } from 'lodash';
 import { assetPath } from '@/config';
 
 interface IImageProjection {
-    _id: { set: string, lang: string };
+    _id:   { set: string, lang: string };
     infos: { number: string, uri: string }[];
 }
 
 interface IImageTask {
     name: string;
-    uri: string;
+    uri:  string;
     path: string;
 }
 
 interface IImageStatus {
     overall: { count: number, total: number };
     current: { set: string, lang: string };
-    status: Record<string, string>;
-    failed: number;
+    status:  Record<string, string>;
+    failed:  number;
 }
 
 function cardImagePath(
@@ -36,14 +36,14 @@ function cardImagePath(
 }
 
 export class ImageGetter extends Task<IImageStatus> {
-    set: string;
-    lang: string;
+    set:       string;
+    lang:      string;
     projCount = 0;
     projTotal: number;
-    total: number;
+    total:     number;
     failed = 0;
     todoTasks: IImageTask[] = [];
-    taskMap: Record<string, [IImageTask, FileSaver]> = {};
+    taskMap:   Record<string, [IImageTask, FileSaver]> = {};
     statusMap: Record<string, string> = {};
 
     async startImpl(): Promise<void> {

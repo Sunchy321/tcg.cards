@@ -1,4 +1,3 @@
-/* eslint-disable consistent-return, @typescript-eslint/no-misused-promises */
 import Koa from 'koa';
 import cors from '@koa/cors';
 import session from 'koa-session';

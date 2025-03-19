@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 import CR from '@/magic/db/cr';
 import { Content, Glossary } from '@interface/magic/cr';
 
@@ -9,27 +8,27 @@ import { diffString } from '@common/util/diff';
 type TextChange = string | [string, string];
 
 interface ContentChange {
-    id: string;
-    type?: 'add' | 'move' | 'remove';
-    index: [string | undefined, string | undefined];
-    depth: [number | undefined, number | undefined];
-    text: TextChange[];
+    id:       string;
+    type?:    'add' | 'move' | 'remove';
+    index:    [string | undefined, string | undefined];
+    depth:    [number | undefined, number | undefined];
+    text:     TextChange[];
     examples: TextChange[][];
 }
 
 interface GlossaryChange {
-    ids: string[];
+    ids:   string[];
     words: string[];
     type?: 'add' | 'move' | 'remove';
     text?: TextChange[];
 }
 
 interface Change {
-    intro: TextChange[];
+    intro:    TextChange[];
     contents: ContentChange[];
     glossary: GlossaryChange[];
-    credits: TextChange[];
-    csi: TextChange[];
+    credits:  TextChange[];
+    csi:      TextChange[];
 }
 
 function isChanged(change: TextChange[]) {
@@ -109,8 +108,8 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
     }
 
     contents = contents.filter(d => d.type != null
-        || (d.text && isChanged(d.text))
-        || (d?.examples?.some(isChanged)));
+      || (d.text && isChanged(d.text))
+      || (d?.examples?.some(isChanged)));
 
     for (const d of contents) {
         if (

@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { Colors } from '@interface/magic/scryfall/basic';
 import { CardFace, RawCard } from '@interface/magic/scryfall/card';
 
@@ -7,16 +6,16 @@ export type RawCardNoArtSeries = Omit<RawCard, 'layout'> & {
 };
 
 type NCardFace = Omit<CardFace, 'colors'> & {
-    colors: Colors;
-    hand_modifier?: string;
-    life_modifier?: string;
-    flavor_name?: string;
+    colors:             Colors;
+    hand_modifier?:     string;
+    life_modifier?:     string;
+    flavor_name?:       string;
     attraction_lights?: number[];
 };
 
 type NCardBase = Omit<RawCard, Exclude<keyof NCardFace, 'cmc' | 'image_uris' | 'oracle_id'> | 'card_faces' | 'layout'> & {
     card_faces: NCardFace[];
-    face?: 'back' | 'bottom' | 'front' | 'top';
+    face?:      'back' | 'bottom' | 'front' | 'top';
 };
 
 export type NCardFaceExtracted = NCardBase & { layout: RawCardNoArtSeries['layout'] };

@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import axios from 'axios';
 
 import { hearthstone } from '@/config';
@@ -9,8 +8,8 @@ const { clientSecret } = hearthstone.blizzard;
 
 interface IBlizzardToken {
     access_token: string;
-    token_type: string;
-    expires_in: number;
+    token_type:   string;
+    expires_in:   number;
 }
 
 async function blzAuth(): Promise<string> {
@@ -29,7 +28,6 @@ async function blzAuth(): Promise<string> {
     return `Bearer ${data.access_token}`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default async function blzApi<T>(path: string, params?: Record<string, any>): Promise<T> {
     const auth = await blzAuth();
 

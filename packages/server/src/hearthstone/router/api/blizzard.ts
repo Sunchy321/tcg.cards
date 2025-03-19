@@ -12,19 +12,19 @@ router.get('/metadata', async ctx => {
 });
 
 interface CardBack {
-    id: number;
+    id:           number;
     sortCategory: number;
-    text: Record<string, string>;
-    name: Record<string, string>;
-    image: string;
-    slug: string;
+    text:         Record<string, string>;
+    name:         Record<string, string>;
+    image:        string;
+    slug:         string;
 }
 
 interface CardBackData {
     cardBacks: CardBack[];
     cardCount: number;
     pageCount: number;
-    page: number;
+    page:      number;
 }
 
 router.get('/cardbacks', async ctx => {

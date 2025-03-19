@@ -23,16 +23,16 @@ function cmp<T>(a: T, b: T): number {
 }
 
 type IntermediateChange = {
-    format: string;
+    format:         string;
     effectiveDate?: string;
-    setIn: string[];
-    setOut: string[];
-    banlist: { id: string, status: Legality }[];
+    setIn:          string[];
+    setOut:         string[];
+    banlist:        { id: string, status: Legality }[];
     adjustment: {
-        id: string;
-        status: Adjustment;
+        id:         string;
+        status:     Adjustment;
         adjustment: {
-            id?: string;
+            id?:    string;
             detail: { part: string, status: Adjustment }[];
         }[];
     }[];
@@ -152,18 +152,18 @@ export class AnnouncementApplier {
     };
 
     private cards: {
-        id: string;
+        id:      string;
         version: number[];
-        set: string;
+        set:     string;
     }[];
 
     private changes: IFormatChange[];
 
     private groupWatcher: {
         source: string;
-        link?: string[];
+        link?:  string[];
         format: string;
-        id: string;
+        id:     string;
         status: Legality;
     }[];
 
@@ -234,8 +234,8 @@ export class AnnouncementApplier {
 
         const data = await Entity.aggregate<{
             entityId: string;
-            version: number[];
-            set: string;
+            version:  number[];
+            set:      string;
         }>()
             .match({ entityId: { $in: cards } })
             .project({
@@ -411,8 +411,8 @@ export class AnnouncementApplier {
 
                     const adjustment = transformAdjustment(c.adjustment ?? [])
                         .filter(j => !c.format.startsWith('#')
-                            || j.id === 'HERO_02bp' // Shaman basic hero power
-                            || fo.sets?.includes(this.getCardData(j.id, a.version).set));
+                          || j.id === 'HERO_02bp' // Shaman basic hero power
+                          || fo.sets?.includes(this.getCardData(j.id, a.version).set));
 
                     if (co == null) {
                         const change = {
@@ -658,10 +658,10 @@ export class AnnouncementApplier {
             format.banlist.sort((a, b) => {
                 if (a.status !== b.status) {
                     return banlistStatusOrder.indexOf(a.status)
-                    - banlistStatusOrder.indexOf(b.status);
+                      - banlistStatusOrder.indexOf(b.status);
                 } else if (a.group !== b.group) {
                     return banlistSourceOrder.indexOf(a.group ?? null)
-                    - banlistSourceOrder.indexOf(b.group ?? null);
+                      - banlistSourceOrder.indexOf(b.group ?? null);
                 } else {
                     return cmp(a.id, b.id);
                 }

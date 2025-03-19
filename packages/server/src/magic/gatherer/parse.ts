@@ -1,4 +1,3 @@
-/* eslint-disable no-use-before-define */
 import cheerio from 'cheerio';
 import axios from 'axios';
 
@@ -60,9 +59,9 @@ function getText($: cheerio.Root, elem: cheerio.Cheerio) {
 type ParsedGatherer = {
     number: string;
     parts: {
-        name: string;
-        typeline: string;
-        text: string;
+        name:       string;
+        typeline:   string;
+        text:       string;
         flavorText: string;
     }[];
 };
@@ -195,16 +194,16 @@ async function parseVersion(mid: number) {
 
 interface GathererStatus {
     method: string;
-    type: string;
+    type:   string;
 
     amount: {
         updated?: number;
-        count: number;
-        total?: number;
+        count:    number;
+        total?:   number;
     };
 
     time?: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 
@@ -226,11 +225,11 @@ export class GathererGetter extends Task<GathererStatus> {
         const prints = await Print.find({ 'set': this.set, 'multiverseId.0': { $exists: true } });
 
         const cardList: {
-            cardId: string;
+            cardId:   string;
             versions: {
-                lang: string;
+                lang:   string;
                 number: string;
-                mids: number[];
+                mids:   number[];
             }[];
         } [] = [];
 
