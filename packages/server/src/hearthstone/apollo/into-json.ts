@@ -85,7 +85,7 @@ export function intoApolloJson(
     const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
     const locFieldKey = (key: keyof IEntity['localization'][0]) => Number.parseInt(Object.entries(locField).find(v => v[1] === key)![0], 10);
 
-    const invertFind = (map: Record<number, string>, value: string) => Number.parseInt(Object.entries(map).find(v => v[1] === value)![0], 10);
+    const invertFind = (map: Record<number, string>, value: string) => Number.parseInt(Object.entries(map).find(v => v[1] === value)?.[0] ?? '0', 10);
 
     tags[fieldKey('type')] = invertFind(type, entity.type);
     tags[fieldKey('cost')] = entity.cost ?? 0;
