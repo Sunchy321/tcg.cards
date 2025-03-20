@@ -1,5 +1,5 @@
 export class QueryError extends Error {
-    type: string;
+    type:   string;
     value?: any;
 
     constructor(arg: { type: string, value?: any }) {

@@ -1,10 +1,10 @@
 export interface CardRelation {
-    relation: string;
-    sourceId: string;
-    targetId: string;
+    relation:       string;
+    sourceId:       string;
+    targetId:       string;
     targetVersion?: {
-        set: string;
+        set:    string;
         number: string;
-        lang?: string;
+        lang?:  string;
     };
 }

@@ -3,10 +3,10 @@ import { getSize } from '../../util';
 import { removeTag } from './remove-tag';
 
 export type UnderwearOption = {
-    font: string;
-    size: number;
-    flip: boolean;
-    width: number;
+    font:   string;
+    size:   number;
+    flip:   boolean;
+    width:  number;
     height: number;
 };
 

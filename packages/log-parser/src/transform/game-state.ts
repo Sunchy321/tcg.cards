@@ -1,4 +1,3 @@
-/* eslint-disable camelcase, @typescript-eslint/no-use-before-define */
 import { RawItem } from '../parser';
 import {
     CommonItem,
@@ -11,55 +10,55 @@ import {
 
 export type GameState_OnEntityChoice = {
     method: 'GameState';
-    type: 'OnEntityChoice';
+    type:   'OnEntityChoice';
 };
 
 export type GameState_PowerList = {
     method: 'GameState';
-    type: 'PowerList';
-    count: string;
+    type:   'PowerList';
+    count:  string;
 };
 
 export type GameState_PrintGame = {
     method: 'GameState';
-    type: 'PrintGame';
+    type:   'PrintGame';
     tags: {
-        tag: string;
+        tag:   string;
         value: string;
     }[];
 };
 
 export type GameState_Options = {
-    method: 'GameState';
-    type: 'Options';
-    id: number;
+    method:  'GameState';
+    type:    'Options';
+    id:      number;
     options: {
-        type: string;
+        type:        string;
         mainEntity?: EntityAvatar;
-        error: string;
+        error:       string;
         errorParam?: number;
         targets?: {
-            entity: EntityAvatar;
-            error: string;
+            entity:      EntityAvatar;
+            error:       string;
             errorParam?: number;
         }[];
     }[];
 };
 
 export type GameState_SendOption = {
-    method: 'GameState';
-    type: 'SendOption';
-    selectedOption: number;
+    method:            'GameState';
+    type:              'SendOption';
+    selectedOption:    number;
     selectedSubOption: number;
-    selectedTarget: number;
-    selectedPosition: number;
+    selectedTarget:    number;
+    selectedPosition:  number;
 };
 
 export type GameState_Power = CommonItem & { method: 'GameState' };
 
 export type GameStateItem =
-    GameState_OnEntityChoice | GameState_Options | GameState_Power |
-    GameState_PowerList | GameState_PrintGame | GameState_SendOption;
+  GameState_OnEntityChoice | GameState_Options | GameState_Power |
+  GameState_PowerList | GameState_PrintGame | GameState_SendOption;
 
 export function transformGameStatePowerList(item: RawItem): GameState_PowerList | null {
     const m = /^Count=(\d+)$/.exec(item.text);

@@ -9,8 +9,8 @@ type NumberMeta = {
 export type NumberCommand = Command<never, NumericOperator, DefaultQualifier, false, never, NumberMeta>;
 
 export type NumberOption = {
-    id: string;
-    alt?: string[] | string;
+    id:          string;
+    alt?:        string[] | string;
     allowFloat?: boolean;
 };
 

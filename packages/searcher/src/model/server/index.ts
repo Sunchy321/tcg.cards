@@ -13,18 +13,16 @@ type Actions<A> = {
     [K in string & keyof A]: Action<A[K]>;
 };
 
-type Generator<A> = {
-    [K in string & keyof A]: <V>() => Aggregate<V[]>;
-};
+type Generator<A> = Record<string & keyof A, <V>() => Aggregate<V[]>>;
 
 type ServerModelOption<A> = {
     commands: CommonServerCommand[];
-    actions: Actions<A>;
+    actions:  Actions<A>;
 };
 
 class ServerSearcher<A> {
-    commands: CommonServerCommand[];
-    actions: Actions<A>;
+    commands:  CommonServerCommand[];
+    actions:   Actions<A>;
     generator: Generator<A>;
 
     constructor(commands: CommonServerCommand[], actions: Actions<A>, generator: Generator<A>) {
@@ -74,8 +72,8 @@ class ServerSearcher<A> {
 }
 
 export class ServerModel<A, I> {
-    commands: CommonServerCommand[];
-    actions: Actions<A>;
+    commands:  CommonServerCommand[];
+    actions:   Actions<A>;
     generator: (input: I) => Generator<A>;
 
     constructor(option: ServerModelOption<A>, generator: (input: I) => Generator<A>) {

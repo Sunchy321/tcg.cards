@@ -50,10 +50,12 @@ function query(options: HalfNumberQueryOption): DBQuery {
 
     const less = Number.isNaN(num) ? [] : toStatsList(statsNumber.filter(s => s < num));
     const equal = Number.isNaN(num) ? [] : toStatsList(statsNumber.filter(s => s === num));
-    const greater = Number.isNaN(num) ? [] : [
-        ...toStatsList(statsNumber.filter(s => s > num)),
-        '∞',
-    ];
+    const greater = Number.isNaN(num)
+        ? []
+        : [
+            ...toStatsList(statsNumber.filter(s => s > num)),
+            '∞',
+        ];
 
     switch (operator) {
     case ':':

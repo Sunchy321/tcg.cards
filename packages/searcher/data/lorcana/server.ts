@@ -351,7 +351,6 @@ const order = defineServerCommand({
     post:    ({ parameter }) => {
         parameter = parameter.toLowerCase();
 
-        // eslint-disable-next-line @typescript-eslint/no-shadow
         const [type, dir] = ((): [string, -1 | 1] => {
             if (parameter.endsWith('+')) {
                 return [parameter.slice(0, -1), 1];
@@ -427,13 +426,13 @@ function parseOption(optionText: string | undefined, defaultValue: number): numb
 }
 
 type ServerModel = {
-    card: ICardDatabase;
+    card:  ICardDatabase;
     print: IPrintDatabase;
 };
 
 type ServerActions = {
-    search: { cards: ServerModel[], total: number, page: number };
-    dev: { cards: ServerModel[], total: number };
+    search:   { cards: ServerModel[], total: number, page: number };
+    dev:      { cards: ServerModel[], total: number };
     searchId: string[];
 };
 

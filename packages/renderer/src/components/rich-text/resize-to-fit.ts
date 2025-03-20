@@ -5,10 +5,10 @@ import { getSize } from '../../util';
 import { wrapString } from './wrap-string';
 
 export type ResizeToFitOption = {
-    lang: string;
-    font: string;
-    minSize: number;
-    shape: [{ x: number, y: number }, { x: number, y: number }];
+    lang:      string;
+    font:      string;
+    minSize:   number;
+    shape:     [{ x: number, y: number }, { x: number, y: number }];
     underwear: Omit<UnderwearOption, 'font' | 'size'>;
 };
 

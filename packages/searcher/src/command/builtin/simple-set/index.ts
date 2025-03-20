@@ -4,16 +4,16 @@ import {
 import { castArray, mapValues } from 'lodash';
 
 export type SimpleSetMeta = {
-    valueMap: Record<string, string[]>;
+    valueMap:        Record<string, string[]>;
     countDuplicates: boolean;
 };
 
 export type SimpleSetCommand = Command<never, DefaultOperator, DefaultQualifier, false, never, SimpleSetMeta>;
 
 export type SimpleSetOption = {
-    id: string;
-    alt?: string[] | string;
-    valueMap?: Record<string, string[] | string>;
+    id:               string;
+    alt?:             string[] | string;
+    valueMap?:        Record<string, string[] | string>;
     countDuplicates?: boolean;
 };
 

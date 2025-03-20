@@ -5,7 +5,7 @@ export default function compare<T>(opeartors: T[], skipFundamentalArrays = true)
     return recursive(
         opeartors,
         (values, index) => (values.some(v => !isEqual(v, values[0])) ? [index] : []),
-        (results) => flatten(results),
+        results => flatten(results),
         skipFundamentalArrays,
     );
 }

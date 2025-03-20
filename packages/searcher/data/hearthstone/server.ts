@@ -228,7 +228,6 @@ const order = defineServerCommand({
     post:    ({ parameter }) => {
         parameter = parameter.toLowerCase();
 
-        // eslint-disable-next-line @typescript-eslint/no-shadow
         const [type, dir] = ((): [string, -1 | 1] => {
             if (parameter.endsWith('+')) {
                 return [parameter.slice(0, -1), 1];

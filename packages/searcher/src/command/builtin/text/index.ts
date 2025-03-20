@@ -5,7 +5,7 @@ import {
 export type TextCommand = Command<never, DefaultOperator, DefaultQualifier, true, never, never>;
 
 export type TextOption = {
-    id: string;
+    id:   string;
     alt?: string[] | string;
 };
 

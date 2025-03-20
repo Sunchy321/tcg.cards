@@ -8,7 +8,7 @@ import { matchPattern } from '../../command/match-pattern';
 
 export type TranslatedQuery = {
     dbQuery: DBQuery;
-    post: PostAction[];
+    post:    PostAction[];
 };
 
 function simpleTranslate(

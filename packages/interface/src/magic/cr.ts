@@ -1,23 +1,23 @@
 export interface Content {
-    id: string;
-    depth: number;
-    index: string;
-    text: string;
+    id:        string;
+    depth:     number;
+    index:     string;
+    text:      string;
     examples?: string[];
-    cards?: { id: string, text: string, part?: number }[];
+    cards?:    { id: string, text: string, part?: number }[];
 }
 
 export interface Glossary {
     words: string[];
-    ids: string[];
-    text: string;
+    ids:   string[];
+    text:  string;
 }
 
 export interface CR {
-    date: string;
-    intro: string;
+    date:     string;
+    intro:    string;
     contents: Content[];
     glossary: Glossary[];
-    credits: string;
-    csi?: string;
+    credits:  string;
+    csi?:     string;
 }

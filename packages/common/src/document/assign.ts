@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { TupleToArray } from '../meta/utility';
 import { Index, Access } from '../meta/type-index';
 import { isFundamental } from '../meta/type';

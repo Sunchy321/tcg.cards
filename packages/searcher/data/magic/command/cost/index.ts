@@ -5,9 +5,9 @@ import {
 export type CostCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
 
 export type CostOption = {
-    id: string;
-    alt?: string[] | string;
-    key?: string;
+    id:          string;
+    alt?:        string[] | string;
+    key?:        string;
     allowFloat?: boolean;
 };
 

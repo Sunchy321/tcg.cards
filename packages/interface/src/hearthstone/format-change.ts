@@ -5,43 +5,43 @@ export type Adjustment = 'adjust' | 'buff' | 'nerf';
 export type Banlist = Record<string, Legality>;
 
 export interface FormatAnnouncement {
-    source: string;
-    date: string;
+    source:         string;
+    date:           string;
     effectiveDate?: string;
-    name: string;
-    link?: string[];
-    version: number;
-    lastVersion?: number;
+    name:           string;
+    link?:          string[];
+    version:        number;
+    lastVersion?:   number;
 
     changes: {
-        format: string;
+        format:         string;
         effectiveDate?: string;
-        setIn?: string[];
-        setOut?: string[];
-        banlist?: { id: string, status: Legality }[];
+        setIn?:         string[];
+        setOut?:        string[];
+        banlist?:       { id: string, status: Legality }[];
         adjustment?: {
-            id: string;
-            status: Adjustment;
-            detail: { part: string, status: Adjustment }[];
+            id:       string;
+            status:   Adjustment;
+            detail:   { part: string, status: Adjustment }[];
             related?: string[];
         }[];
     }[];
 }
 
 export interface FormatChange {
-    source: string;
-    date: string;
-    name: string;
-    format: string;
-    link?: string[];
-    version: number;
+    source:       string;
+    date:         string;
+    name:         string;
+    format:       string;
+    link?:        string[];
+    version:      number;
     lastVersion?: number;
-    type: 'adjustment' | 'banlist' | 'set';
-    id: string;
-    status: Adjustment | Legality | 'in' | 'out';
-    group?: string;
+    type:         'adjustment' | 'banlist' | 'set';
+    id:           string;
+    status:       Adjustment | Legality | 'in' | 'out';
+    group?:       string;
     adjustment?: {
-        id?: string;
+        id?:    string;
         detail: { part: string, status: Adjustment }[];
     }[];
 }

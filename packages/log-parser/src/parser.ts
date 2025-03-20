@@ -2,18 +2,18 @@ import { last } from 'lodash';
 
 export interface Line {
     lineNumber: number;
-    date: string;
-    method: string;
-    indent: number;
-    text: string;
+    date:       string;
+    method:     string;
+    indent:     number;
+    text:       string;
 }
 
 export type RawItem = Line & { children?: RawItem[] };
 
 export default class Parser {
-    text: string;
+    text:  string;
     lines: Line[];
-    curr: number;
+    curr:  number;
 
     constructor(text: string) {
         this.text = text;

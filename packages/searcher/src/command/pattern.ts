@@ -23,4 +23,4 @@ export type PatternKeys<P> = P extends string
 
 export type IsPattern<P> = [PatternKeys<P>] extends [never] ? false : true;
 
-export type PatternContext<P> = [PatternKeys<P>] extends [never] ? never : { [K in PatternKeys<P>]: string };
+export type PatternContext<P> = [PatternKeys<P>] extends [never] ? never : Record<PatternKeys<P>, string>;

@@ -139,7 +139,7 @@ export function diffString(lhs: string, rhs: string): TextChange[] {
 }
 
 type ThreeChange = {
-    type: 'add' | 'common' | 'dual' | 'remove';
+    type:  'add' | 'common' | 'dual' | 'remove';
     value: string;
 };
 
@@ -162,7 +162,6 @@ export function diffThreeString(prev: string, curr: string, next: string): Three
 
         const length = Math.min(lastPrevText.length, lastNextText.length);
 
-        // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
         if (lastPrevText.slice(0, length) !== lastNextText.slice(0, length)) {
             throw new Error('diff mismatch');
         }

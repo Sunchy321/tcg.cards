@@ -1,77 +1,75 @@
-/* eslint-disable @typescript-eslint/no-use-before-define */
-/* eslint-disable camelcase */
 import { RawItem } from '../parser';
 import transform, { LogItem, RawEntity } from './index';
 
 export type EntityAvatar =
-    { avatar: 'game' } |
-    { avatar: 'player', name: string } |
-    RawEntity & { avatar: 'normal' };
+  { avatar: 'game' } |
+  { avatar: 'player', name: string } |
+  RawEntity & { avatar: 'normal' };
 
 export type Tag = {
-    tag: string;
+    tag:   string;
     value: string;
 };
 
 export type GameEntity = {
-    type: 'GameEntity';
+    type:   'GameEntity';
     entity: RawEntity;
 };
 
 export type PlayerEntity = {
-    type: 'PlayerEntity';
+    type:   'PlayerEntity';
     entity: RawEntity;
 };
 
 export type CreateGame = {
-    type: 'CreateGame';
-    game: GameEntity;
+    type:    'CreateGame';
+    game:    GameEntity;
     player1: PlayerEntity;
     player2: PlayerEntity;
 };
 
 export type CreateEntity = {
-    type: 'CreateEntity';
+    type:   'CreateEntity';
     entity: RawEntity;
 };
 
 export type UpdateEntity = {
-    type: 'UpdateEntity';
-    entity: EntityAvatar;
-    cardId: string;
+    type:    'UpdateEntity';
+    entity:  EntityAvatar;
+    cardId:  string;
     updated: RawEntity;
 };
 
 export type ShowEntity = {
-    type: 'ShowEntity';
+    type:   'ShowEntity';
     entity: EntityAvatar;
     cardId: string;
     detail: RawEntity;
 };
 
 export type HideEntity = {
-    type: 'HideEntity';
+    type:   'HideEntity';
     entity: EntityAvatar;
-    tag: string;
-    value: string;
+    tag:    string;
+    value:  string;
 };
 
 export type TagChange = {
-    type: 'TagChange';
+    type:   'TagChange';
     entity: EntityAvatar;
-    tag: string;
-    value: string;
+    tag:    string;
+    value:  string;
 };
 
 export type Block = {
-    type: 'Block';
-    blockType: string;
-    entity: EntityAvatar;
-    effectIndex: number;
-    target: EntityAvatar | null;
-    subOption: number;
+    type:            'Block';
+    blockType:       string;
+    entity:          EntityAvatar;
+    effectIndex:     number;
+    target:          EntityAvatar | null;
+    subOption:       number;
     triggerKeyword?: string;
-    content: LogItem[];
+    content:         LogItem[];
 };
 
 export type BlockEnd = {
@@ -79,17 +77,17 @@ export type BlockEnd = {
 };
 
 export type MetaData = {
-    type: 'MetaData';
-    meta: string;
-    data: number;
+    type:  'MetaData';
+    meta:  string;
+    data:  number;
     infos: EntityAvatar[];
 };
 
 export type FullEntity = CreateEntity | UpdateEntity;
 
 export type CommonItem =
-    Block | BlockEnd | CreateGame | FullEntity | GameEntity |
-    HideEntity | MetaData | PlayerEntity | ShowEntity | TagChange;
+  Block | BlockEnd | CreateGame | FullEntity | GameEntity |
+  HideEntity | MetaData | PlayerEntity | ShowEntity | TagChange;
 
 export function withMethod<T, U>(object: T | null, method: U): (T & { method: U }) | null {
     return object != null ? { method, ...object } : null;

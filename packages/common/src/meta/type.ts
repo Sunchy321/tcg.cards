@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { Primitive as P } from 'ts-essentials';
 
 export type Primitive = P;
@@ -7,7 +6,7 @@ export type Fundamental = Primitive | ((...args: any[]) => any);
 
 export function isPrimitive(value: any): value is Primitive {
     return value == null
-        || ['string', 'number', 'boolean', 'bigint', 'symbol'].includes(typeof value);
+      || ['string', 'number', 'boolean', 'bigint', 'symbol'].includes(typeof value);
 }
 
 export function isFundamental(value: any): value is Fundamental {

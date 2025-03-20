@@ -1,5 +1,3 @@
-/* eslint-disable camelcase, @typescript-eslint/no-use-before-define */
-
 import { RawItem } from '../parser';
 
 import {
@@ -26,9 +24,9 @@ import { last } from 'lodash';
 export type RawEntity = Record<string, any>;
 
 export type UnknownLogItem = {
-    type: 'unknown';
-    method: string;
-    text: string;
+    type:      'unknown';
+    method:    string;
+    text:      string;
     children?: LogItem[];
 };
 
@@ -41,7 +39,8 @@ function toUnknown(item: RawItem): UnknownLogItem {
             method:   item.method,
             text:     item.text,
             children: transform(item.children),
-        } : {
+        }
+        : {
             type:   'unknown',
             method: item.method,
             text:   item.text,

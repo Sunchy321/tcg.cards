@@ -5,14 +5,14 @@ export type MainType = 'action' | 'character' | 'item' | 'location';
 export interface Card {
     cardId: string;
 
-    cost: number;
+    cost:  number;
     color: Color[];
 
     inkwell: boolean;
 
-    name: string;
+    name:     string;
     typeline: string;
-    text: string;
+    text:     string;
 
     type: {
         main: MainType;
@@ -20,16 +20,16 @@ export interface Card {
     };
 
     localization: {
-        lang: string;
-        name: string;
+        lang:     string;
+        name:     string;
         typeline: string;
-        text: string;
+        text:     string;
     }[];
 
-    lore?: number;
-    strength?: number;
+    lore?:      number;
+    strength?:  number;
     willPower?: number;
-    moveCost?: number;
+    moveCost?:  number;
 
     tags: string[];
 }

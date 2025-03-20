@@ -1,12 +1,12 @@
 export interface PlayRequirement {
-    type: string;
+    type:  string;
     param: number;
 }
 
 export interface Power {
-    definition: string;
-    isMaster?: boolean;
-    showInHistory?: boolean;
+    definition:       string;
+    isMaster?:        boolean;
+    showInHistory?:   boolean;
     playRequirements: PlayRequirement[];
 }
 
@@ -14,72 +14,72 @@ export interface Entity {
     version: number[];
 
     entityId: string;
-    cardId: string;
-    dbfId: number;
-    slug?: string;
+    cardId:   string;
+    dbfId:    number;
+    slug?:    string;
 
     localization: {
-        lang: string;
-        name: string;
-        text: string;
-        displayText: string;
-        rawText: string;
-        targetText?: string;
-        textInPlay?: string;
-        howToEarn?: string;
+        lang:             string;
+        name:             string;
+        text:             string;
+        displayText:      string;
+        rawText:          string;
+        targetText?:      string;
+        textInPlay?:      string;
+        howToEarn?:       string;
         howToEarnGolden?: string;
-        flavor: string;
-        illusId?: string;
+        flavor:           string;
+        illusId?:         string;
     }[];
 
-    set: string;
-    classes: string[];
-    type: string;
-    cost: number;
-    attack?: number;
-    health?: number;
-    durability?: number;
-    armor?: number;
-    rune?: string[];
-    race?: string[];
+    set:          string;
+    classes:      string[];
+    type:         string;
+    cost:         number;
+    attack?:      number;
+    health?:      number;
+    durability?:  number;
+    armor?:       number;
+    rune?:        string[];
+    race?:        string[];
     spellSchool?: string;
-    quest?: { type: 'normal' | 'questline' | 'side', progress: number, part?: number };
+    quest?:       { type: 'normal' | 'questline' | 'side', progress: number, part?: number };
 
-    techLevel?: number;
+    techLevel?:   number;
     inBobsTavern: boolean;
-    tripleCard?: string;
-    raceBucket?: string;
-    coin?: number;
+    tripleCard?:  string;
+    raceBucket?:  string;
+    coin?:        number;
     armorBucket?: number;
-    buddy?: string;
-    bannedRace?: string;
+    buddy?:       string;
+    bannedRace?:  string;
 
-    mercenaryRole?: string;
+    mercenaryRole?:    string;
     mercenaryFaction?: string;
-    colddown?: number;
+    colddown?:         number;
 
     collectible: boolean;
-    elite: boolean;
-    rarity?: string;
+    elite:       boolean;
+    rarity?:     string;
 
     artist: string;
 
     faction?: string;
 
-    mechanics: string[];
+    mechanics:      string[];
     referencedTags: string[];
 
     powers: Power[];
 
     relatedEntities: { relation: string, entityId: string }[];
 
-    entourages: string[];
-    heroPower?: string;
+    entourages:       string[];
+    heroPower?:       string;
     heroicHeroPower?: string;
 
-    deckOrder: number;
-    overrideWatermark: string;
-    deckSize?: number;
+    deckOrder:          number;
+    overrideWatermark:  string;
+    deckSize?:          number;
     localizationNotes?: string;
 
     isCurrent: boolean;

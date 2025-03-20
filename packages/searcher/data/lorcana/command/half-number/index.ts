@@ -5,7 +5,7 @@ import {
 export type HalfNumberCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
 
 export type HalfNumberOption = {
-    id: string;
+    id:   string;
     alt?: string[] | string;
 };
 

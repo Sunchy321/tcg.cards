@@ -15,7 +15,7 @@ function query(options: SimpleSetQueryOption): DBQuery {
         key, parameter, operator, qualifier, meta,
     } = options;
 
-    const words = (() => {
+    const words = () => {
         const decoded = parameter.split('').map(
             c => Object.entries(meta.valueMap)
                 .find(([_, v]) => v.includes(c))?.[0],
@@ -26,7 +26,7 @@ function query(options: SimpleSetQueryOption): DBQuery {
         } else {
             return parameter.split(',');
         }
-    });
+    };
 
     switch (operator) {
     case ':':

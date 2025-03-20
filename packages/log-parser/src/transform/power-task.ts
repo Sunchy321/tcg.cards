@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import { RawItem } from '../parser';
 
 import {
@@ -8,12 +7,12 @@ import {
 } from './common';
 
 export type PowerTask_DumpInfo = {
-    method: 'PowerTask';
-    type: 'Dump';
-    id: string;
-    parentId: string;
+    method:     'PowerTask';
+    type:       'Dump';
+    id:         string;
+    parentId:   string;
     previousId: string;
-    taskCount: string;
+    taskCount:  string;
 };
 
 export type PowerTask_Start = { method: 'PowerTask', type: 'Start' };
@@ -25,25 +24,25 @@ export type PowerTask_Dump = PowerTask_DumpInfo | PowerTask_End | PowerTask_Star
 export type PowerTask_Power = CommonItem & { method: 'PowerTask' };
 
 export type PowerProcessor_PrepareHistory = {
-    method: 'PowerProcessor';
-    type: 'PrepareHistory';
+    method:   'PowerProcessor';
+    type:     'PrepareHistory';
     taskList: number;
 };
 
 export type PowerProcessor_DoTaskList = {
     method: 'PowerProcessor';
-    type: 'DoTaskList';
+    type:   'DoTaskList';
 };
 
 export type PowerProcessor_EndTaskList = {
-    method: 'PowerProcessor';
-    type: 'EndTaskList';
+    method:   'PowerProcessor';
+    type:     'EndTaskList';
     taskList: number;
 };
 
 export type PowerTaskItem =
-    PowerProcessor_DoTaskList | PowerProcessor_EndTaskList |
-    PowerProcessor_PrepareHistory | PowerTask_Dump | PowerTask_Power;
+  PowerProcessor_DoTaskList | PowerProcessor_EndTaskList |
+  PowerProcessor_PrepareHistory | PowerTask_Dump | PowerTask_Power;
 
 export function transformPowerTaskDump(item: RawItem): PowerTask_Dump | null {
     if (item.text === 'Block Start=(null)') {

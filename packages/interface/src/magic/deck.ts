@@ -2,11 +2,11 @@ export interface Deck {
     format: string;
 
     cards: [{
-        cardId: string;
+        cardId:   string;
         version?: {
-            set: string;
+            set:    string;
             number: string;
-            lang?: string;
+            lang?:  string;
         };
     }];
 }

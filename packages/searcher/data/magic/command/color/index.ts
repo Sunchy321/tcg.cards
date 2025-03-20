@@ -5,7 +5,7 @@ import {
 export type ColorCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
 
 export type ColorOption = {
-    id: string;
+    id:   string;
     alt?: string[] | string;
 };
 

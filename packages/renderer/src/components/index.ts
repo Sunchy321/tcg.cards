@@ -4,9 +4,9 @@ import { CanvasRenderingContext2D, createCanvas, loadImage } from 'canvas';
 import { sum } from 'lodash';
 
 type ImageComponent = {
-    type: 'image';
+    type:  'image';
     image: string;
-    pos: { x: number, y: number };
+    pos:   { x: number, y: number };
     size?: { width: number, height: number };
     clip?: (ctx: CanvasRenderingContext2D) => void;
 };
@@ -16,24 +16,24 @@ type TextComponent = {
     text: string;
     font: string;
     size: number;
-    pos: { x: number, y: number };
+    pos:  { x: number, y: number };
 };
 
 type CurveTextComponent = {
-    type: 'curve-text';
-    text: string;
-    font: string;
-    size: number;
-    pos: { x: number, y: number };
+    type:   'curve-text';
+    text:   string;
+    font:   string;
+    size:   number;
+    pos:    { x: number, y: number };
     middle: number;
-    curve: { x: number, y: number }[];
+    curve:  { x: number, y: number }[];
 };
 
 export type RichTextComponent = Omit<RichTextOption, 'lang'> & { type: 'rich-text', text: string };
 
 type CustomComponent = {
-    type: 'custom';
-    pos?: { x: number, y: number };
+    type:   'custom';
+    pos?:   { x: number, y: number };
     action: (ctx: CanvasRenderingContext2D, pos?: { x: number, y: number }) => void;
 };
 
@@ -41,20 +41,20 @@ export type Component = CurveTextComponent | CustomComponent | ImageComponent | 
 
 function getPointOnCurve(curve: { x: number, y: number }[], t: number): { x: number, y: number, r: number } {
     const rX = 3 * (1 - t) ** 2 * (curve[1].x - curve[0].x)
-        + 6 * (1 - t) * t * (curve[2].x - curve[1].x)
-        + 3 * t ** 2 * (curve[3].x - curve[2].x);
+      + 6 * (1 - t) * t * (curve[2].x - curve[1].x)
+      + 3 * t ** 2 * (curve[3].x - curve[2].x);
     const rY = 3 * (1 - t) ** 2 * (curve[1].y - curve[0].y)
-        + 6 * (1 - t) * t * (curve[2].y - curve[1].y)
-        + 3 * t ** 2 * (curve[3].y - curve[2].y);
+      + 6 * (1 - t) * t * (curve[2].y - curve[1].y)
+      + 3 * t ** 2 * (curve[3].y - curve[2].y);
 
     const x = (1 - t) ** 3 * curve[0].x
-        + 3 * (1 - t) ** 2 * t * curve[1].x
-        + 3 * (1 - t) * t ** 2 * curve[2].x
-        + t ** 3 * curve[3].x;
+      + 3 * (1 - t) ** 2 * t * curve[1].x
+      + 3 * (1 - t) * t ** 2 * curve[2].x
+      + t ** 3 * curve[3].x;
     const y = (1 - t) ** 3 * curve[0].y
-        + 3 * (1 - t) ** 2 * t * curve[1].y
-        + 3 * (1 - t) * t ** 2 * curve[2].y
-        + t ** 3 * curve[3].y;
+      + 3 * (1 - t) ** 2 * t * curve[1].y
+      + 3 * (1 - t) * t ** 2 * curve[2].y
+      + t ** 3 * curve[3].y;
 
     return { x, y, r: Math.atan2(rY, rX) };
 }
@@ -113,8 +113,8 @@ export async function renderComponent(ctx: CanvasRenderingContext2D, c: Componen
 
         for (let i = 0; i < c.text.length; i += 1) {
             const dx = sum(sizes.slice(0, i))
-                + sizes[i] / 2
-                - xSum / 2;
+              + sizes[i] / 2
+              - xSum / 2;
 
             const { x, y, r } = getPointOnCurve(c.curve, (xCenter + dx) / panelWidth);
 

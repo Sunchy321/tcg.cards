@@ -4,63 +4,63 @@ export type Layout =
 export type Print = {
     cardId: string;
 
-    lang: string;
-    set: string;
+    lang:   string;
+    set:    string;
     number: string;
 
     parts: {
-        name: string;
+        name:     string;
         typeline: string;
-        text: string;
+        text:     string;
 
         attractionLights?: number[];
 
         scryfallIllusId?: string[];
-        flavorName?: string;
-        flavorText?: string;
-        artist?: string;
-        watermark?: string;
+        flavorName?:      string;
+        flavorText?:      string;
+        artist?:          string;
+        watermark?:       string;
     }[];
 
     tags: string[];
 
-    layout: Layout;
-    frame: string;
-    frameEffects: string[];
-    borderColor: string;
-    cardBack: string;
+    layout:         Layout;
+    frame:          string;
+    frameEffects:   string[];
+    borderColor:    string;
+    cardBack:       string;
     securityStamp?: string;
-    promoTypes?: string[];
-    rarity: string;
-    releaseDate: string;
+    promoTypes?:    string[];
+    rarity:         string;
+    releaseDate:    string;
 
-    isDigital: boolean;
-    isPromo: boolean;
-    isReprint: boolean;
-    finishes: string[];
+    isDigital:       boolean;
+    isPromo:         boolean;
+    isReprint:       boolean;
+    finishes:        string[];
     hasHighResImage: boolean;
-    imageStatus: string;
+    imageStatus:     string;
 
     inBooster: boolean;
-    games: string[];
+    games:     string[];
 
     preview?: {
-        date: string;
+        date:   string;
         source: string;
-        uri: string;
+        uri:    string;
     };
 
     scryfall: {
-        oracleId: string;
-        cardId?: string;
-        face?: 'back' | 'bottom' | 'front' | 'top';
+        oracleId:  string;
+        cardId?:   string;
+        face?:     'back' | 'bottom' | 'front' | 'top';
         imageUris: Record<string, string>[];
     };
 
-    arenaId?: number;
-    mtgoId?: number;
-    mtgoFoilId?: number;
-    multiverseId: number[];
-    tcgPlayerId?: number;
+    arenaId?:      number;
+    mtgoId?:       number;
+    mtgoFoilId?:   number;
+    multiverseId:  number[];
+    tcgPlayerId?:  number;
     cardMarketId?: number;
 };

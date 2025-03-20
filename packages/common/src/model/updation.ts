@@ -1,5 +1,5 @@
 export type Updation = {
-    key: string;
+    key:      string;
     oldValue: any;
     newValue: any;
 };

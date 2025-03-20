@@ -31,19 +31,19 @@ export type Argument<
 > = OmitNever<{
     modifier?: M;
     parameter: Select<AR, (RegExp | string), string>;
-    operator: O;
+    operator:  O;
     qualifier: Q[];
-    pattern: PatternContext<P>;
-    meta: X;
+    pattern:   PatternContext<P>;
+    meta:      X;
 }>;
 
 export type CommonArgument = {
     modifier?: string;
     parameter: RegExp | string;
-    operator: Operator;
+    operator:  Operator;
     qualifier: Qualifier[];
-    pattern?: Record<string, string>;
-    meta?: any;
+    pattern?:  Record<string, string>;
+    meta?:     any;
 };
 
 export type Command<
@@ -54,25 +54,25 @@ export type Command<
     P,
     X,
 > = {
-    id: string;
-    alt?: string[];
-    pattern: P;
+    id:         string;
+    alt?:       string[];
+    pattern:    P;
     modifiers?: M[] | Record<M, string>;
-    operators: O[];
+    operators:  O[];
     qualifiers: Q[];
     allowRegex: AR;
-    meta: X;
+    meta:       X;
 };
 
 export type CommonCommand = {
-    id: string;
-    alt?: string[];
-    pattern?: string[];
+    id:         string;
+    alt?:       string[];
+    pattern?:   string[];
     modifiers?: Record<string, string> | string[];
-    operators: Operator[];
+    operators:  Operator[];
     qualifiers: Qualifier[];
     allowRegex: boolean;
-    meta: any;
+    meta:       any;
 };
 
 export type ArgumentOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
@@ -87,14 +87,14 @@ export type CommandOption<
     P,
     X,
 > = {
-    id: string;
-    alt?: string[] | string;
-    pattern?: P;
-    modifiers?: Record<M, string> | readonly M[];
-    operators: readonly O[];
+    id:          string;
+    alt?:        string[] | string;
+    pattern?:    P;
+    modifiers?:  Record<M, string> | readonly M[];
+    operators:   readonly O[];
     qualifiers?: readonly Q[];
     allowRegex?: AR;
-    meta?: X;
+    meta?:       X;
 };
 
 export function defineCommand<

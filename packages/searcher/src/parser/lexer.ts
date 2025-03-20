@@ -1,6 +1,6 @@
 export type Token = {
-    type: 'id' | 'punc' | 'regex' | 'string' | 'ws';
-    text: string;
+    type:     'id' | 'punc' | 'regex' | 'string' | 'ws';
+    text:     string;
     location: [number, number];
 };
 
@@ -9,7 +9,7 @@ export type LexOption = {
 };
 
 export type LexError = {
-    type: string;
+    type:     string;
     location: [number, number];
 };
 
@@ -18,10 +18,10 @@ export const defaultOption: LexOption = {
 };
 
 export default class Lexer {
-    text: string;
+    text:   string;
     errors: LexError[] = [];
 
-    index: number;
+    index:       number;
     savedIndex?: number;
 
     constructor(text: string) {
@@ -59,9 +59,9 @@ export default class Lexer {
 
     private isIdentifierStart(char = this.curr) {
         return !this.isWhitespace(char)
-            && !this.isString(char)
-            && !this.isRegex(char)
-            && !this.isPunctuator(char);
+          && !this.isString(char)
+          && !this.isRegex(char)
+          && !this.isPunctuator(char);
     }
 
     private isIdentifierRest(char = this.curr) {

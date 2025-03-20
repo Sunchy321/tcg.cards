@@ -6,20 +6,20 @@ export type Card = {
     cardId: string;
 
     parts: {
-        name: string;
+        name:     string;
         typeline: string;
-        text: string;
+        text:     string;
 
-        cost?: number;
-        type: CardType[];
-        race?: Race;
+        cost?:  number;
+        type:   CardType[];
+        race?:  Race;
         class?: Class;
 
-        attack?: string;
-        health?: string;
+        attack?:     string;
+        health?:     string;
         damageType?: DamageType;
 
-        isMaster?: boolean;
+        isMaster?:   boolean;
         talentSpec?: string;
         profession?: string[];
     }[];

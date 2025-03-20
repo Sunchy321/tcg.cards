@@ -6,13 +6,13 @@ import { wrapString } from './wrap-string';
 import { resizeToFit } from './resize-to-fit';
 
 export type RichTextOption = {
-    lang: string;
-    font: string;
-    size: number;
-    minSize: number;
-    shape: [{ x: number, y: number }, { x: number, y: number }];
+    lang:      string;
+    font:      string;
+    size:      number;
+    minSize:   number;
+    shape:     [{ x: number, y: number }, { x: number, y: number }];
     underwear: { flip: boolean, width: number, height: number };
-    color: string;
+    color:     string;
 };
 
 export const lineSpacing = 3;

@@ -32,7 +32,8 @@ function explain(arg: ArgumentOf<SimpleCommand>, i18n: I18N, id: string, options
         const paramKey = map === true
             ? parameter
             : map instanceof Function
-                ? map(parameter) : map[parameter] ?? parameter;
+                ? map(parameter)
+                : map[parameter] ?? parameter;
 
         return i18n(`$.parameter.${id}.${paramKey}`);
     })();

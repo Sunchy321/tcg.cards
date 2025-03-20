@@ -12,26 +12,26 @@ export type ICardDatabase = WithUpdation<Omit<ICard, 'parts'> & {
 
 export type RelatedCard = {
     relation: string;
-    cardId: string;
+    cardId:   string;
     version?: {
-        lang: string;
-        set: string;
+        lang:   string;
+        set:    string;
         number: string;
     };
 };
 
 export type CardPrintView = Omit<ICard, 'parts' | 'scryfall'> & Omit<IPrint, 'parts'> & {
     parts: (ICard['parts'][0] & IPrint['parts'][0] & {
-        printName: IPrint['parts'][0]['name'];
+        printName:     IPrint['parts'][0]['name'];
         printTypeline: IPrint['parts'][0]['typeline'];
-        printText: IPrint['parts'][0]['text'];
+        printText:     IPrint['parts'][0]['text'];
     })[];
 
     printTags: IPrint['tags'];
 
     versions: {
-        lang: string;
-        set: string;
+        lang:   string;
+        set:    string;
         number: string;
         rarity: string;
     }[];
@@ -42,23 +42,23 @@ export type CardPrintView = Omit<ICard, 'parts' | 'scryfall'> & Omit<IPrint, 'pa
 };
 
 export type CardEditorView = {
-    card: ICard & { _id?: string, __lockedPaths: string[] };
-    print: IPrint & { _id?: string, __lockedPaths: string[] };
-    partIndex?: number;
+    card:         ICard & { _id?: string, __lockedPaths: string[] };
+    print:        IPrint & { _id?: string, __lockedPaths: string[] };
+    partIndex?:   number;
     relatedCards: RelatedCard[];
 };
 
 export type CardUpdationView = {
-    cardId: string;
+    cardId:     string;
     scryfallId: string;
-    key: string;
-    oldValue: any;
-    newValue: any;
+    key:        string;
+    oldValue:   any;
+    newValue:   any;
 };
 
 export type CardUpdationCollection = {
-    total: number;
-    key: string;
+    total:   number;
+    key:     string;
     current: number;
-    values: CardUpdationView[];
+    values:  CardUpdationView[];
 };

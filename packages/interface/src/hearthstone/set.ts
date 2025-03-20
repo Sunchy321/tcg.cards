@@ -1,18 +1,18 @@
 export interface SetLocalization {
-    lang: string;
+    lang:  string;
     name?: string;
 }
 
 export interface Set {
-    setId: string;
+    setId:  string;
     dbfId?: number;
-    slug?: string;
+    slug?:  string;
 
     localization: SetLocalization[];
 
     type: string;
 
     releaseDate?: string;
-    cardCount: [number, number];
-    group?: string;
+    cardCount:    [number, number];
+    group?:       string;
 }

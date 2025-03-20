@@ -2,10 +2,10 @@ type ValueOrArray<T> = T | T[];
 
 export type XTag = {
     _attributes: {
-        enumID: string;
-        name: string;
-        type: 'Card' | 'Int' | 'String';
-        value: string;
+        enumID:  string;
+        name:    string;
+        type:    'Card' | 'Int' | 'String';
+        value:   string;
         cardID?: string;
     };
 
@@ -15,12 +15,10 @@ export type XTag = {
 export type XLocStringTag = {
     _attributes: {
         enumID: string;
-        name: string;
-        type: 'LocString';
+        name:   string;
+        type:   'LocString';
     };
-} & {
-    [key: string]: { _text: string };
-};
+} & Record<string, { _text: string }>;
 
 export type XPlayRequirement = {
     _attributes: {
@@ -40,8 +38,8 @@ export type XPower = {
 export type XReferencedTag = {
     _attributes: {
         enumID: string;
-        name: string;
-        value: string;
+        name:   string;
+        value:  string;
     };
 };
 
@@ -57,23 +55,23 @@ export type XMasterPower = {
 
 export type XTriggeredPowerHistoryInfo = {
     _attributes: {
-        effectIndex: string;
+        effectIndex:   string;
         showInHistory: string;
     };
 };
 
 export type XEntity = {
     _attributes: {
-        CardID: string;
-        ID: string;
+        CardID:  string;
+        ID:      string;
         version: string;
     };
 
-    MasterPower?: ValueOrArray<XMasterPower>;
-    Tag?: ValueOrArray<XLocStringTag | XTag>;
-    Power?: ValueOrArray<XPower>;
-    ReferencedTag?: ValueOrArray<XReferencedTag>;
-    EntourageCard?: ValueOrArray<XEntourageCard>;
+    MasterPower?:               ValueOrArray<XMasterPower>;
+    Tag?:                       ValueOrArray<XLocStringTag | XTag>;
+    Power?:                     ValueOrArray<XPower>;
+    ReferencedTag?:             ValueOrArray<XReferencedTag>;
+    EntourageCard?:             ValueOrArray<XEntourageCard>;
     TriggeredPowerHistoryInfo?: ValueOrArray<XTriggeredPowerHistoryInfo>;
 };
 

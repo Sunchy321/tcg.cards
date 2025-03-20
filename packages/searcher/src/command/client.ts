@@ -44,7 +44,7 @@ export type ClientCommandOption<
     P,
     X,
 > = Command<M, O, Q, AR, P, X> | {
-    command: Command<M, O, Q, AR, P, X>;
+    command:  Command<M, O, Q, AR, P, X>;
     explain?: ExplainFuncOf<Command<M, O, Q, AR, P, X>>;
 };
 

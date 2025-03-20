@@ -1,24 +1,24 @@
 import { Rarity } from './print';
 
 export interface SetLocalization {
-    lang: string;
-    name?: string;
+    lang:            string;
+    name?:           string;
     isOfficialName?: boolean;
 }
 
 export interface Set {
-    setId: string;
+    setId:  string;
     number: number;
 
     cardCount: number;
-    langs: string[];
-    rarities: Rarity[];
+    langs:     string[];
+    rarities:  Rarity[];
 
     localization: SetLocalization[];
 
     type: string;
 
-    releaseDate: string;
+    releaseDate:    string;
     prereleaseDate: string;
 
     lorcanaJsonId: string;

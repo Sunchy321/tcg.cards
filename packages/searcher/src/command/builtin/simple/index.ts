@@ -5,7 +5,7 @@ import {
 export type SimpleCommand = Command<never, DefaultOperator, DefaultQualifier, false, never, never>;
 
 export type SimpleOption = {
-    id: string;
+    id:   string;
     alt?: string[] | string;
 };
 

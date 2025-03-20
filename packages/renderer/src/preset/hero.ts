@@ -237,7 +237,8 @@ export default async function renderHero(
     const aText = (data.adjustment ?? []).find(a => a.part === 'text');
 
     const textPrefix = ['common', 'rare', 'epic', 'legendary'].includes(data.rarity ?? '')
-        ? 'text' : 'text-free';
+        ? 'text'
+        : 'text-free';
 
     if (aText?.status === 'nerf') {
         if (data.rarity != null && data.rarity !== 'free') {

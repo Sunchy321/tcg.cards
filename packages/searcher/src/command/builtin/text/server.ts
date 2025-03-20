@@ -7,7 +7,7 @@ import { escapeRegExp } from 'lodash';
 export type TextServerCommand = ServerCommandOf<TextCommand>;
 
 export type TextServerOption = {
-    key?: string;
+    key?:       string;
     multiline?: boolean;
 };
 

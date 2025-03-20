@@ -14,13 +14,13 @@ type ExplainResult = {
 };
 
 type ClientModelOption = {
-    id: string;
+    id:       string;
     commands: CommonClientCommand[];
 
 };
 
 export class ClientModel {
-    id: string;
+    id:       string;
     commands: CommonClientCommand[];
 
     constructor(option: ClientModelOption) {

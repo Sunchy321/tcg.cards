@@ -4,7 +4,7 @@ import {
 
 import { Aggregate } from 'mongoose';
 
-export type DBQuery = any | { '$and': DBQuery[] } | { '$or': DBQuery[] };
+export type DBQuery = any | { $and: DBQuery[] } | { $or: DBQuery[] };
 
 export type QueryFunc<
     M extends string,
@@ -44,15 +44,15 @@ export type ServerCommand<
     P,
     X,
 > = Command<M, O, Q, AR, P, X> & {
-    query: QueryFuncOf<Command<M, O, Q, AR, P, X>>;
+    query:  QueryFuncOf<Command<M, O, Q, AR, P, X>>;
     phase?: string;
-    post?: PostFuncOf<Command<M, O, Q, AR, P, X>>;
+    post?:  PostFuncOf<Command<M, O, Q, AR, P, X>>;
 };
 
 export type CommonServerCommand = CommonCommand & {
-    query: (arg: CommonArgument) => DBQuery;
+    query:  (arg: CommonArgument) => DBQuery;
     phase?: string;
-    post?: (arg: CommonArgument)=> ((agg: Aggregate<any>) => void);
+    post?:  (arg: CommonArgument)=> ((agg: Aggregate<any>) => void);
 };
 
 export type ServerCommandOf<C> = C extends Command<infer M, infer O, infer Q, infer AR, infer P, infer X>
@@ -68,9 +68,9 @@ export type ServerCommandOption<
     X,
 > = {
     command: Command<M, O, Q, AR, P, X>;
-    query: QueryFunc<string extends M ? never : M, O, Q, AR, P, X>;
-    phase?: string;
-    post?: PostFunc<string extends M ? never : M, O, Q, AR, P, X>;
+    query:   QueryFunc<string extends M ? never : M, O, Q, AR, P, X>;
+    phase?:  string;
+    post?:   PostFunc<string extends M ? never : M, O, Q, AR, P, X>;
 };
 
 export function defineServerCommand<

@@ -5,29 +5,29 @@ export type Rarity = 'common' | 'enchanted' | 'legendary' | 'rare' | 'special' |
 export type Print = {
     cardId: string;
 
-    lang: string;
-    set: string;
+    lang:   string;
+    set:    string;
     number: string;
 
-    name: string;
+    name:     string;
     typeline: string;
-    text: string;
+    text:     string;
 
     flavorText?: string;
-    artist: string;
+    artist:      string;
 
     imageUri: Record<string, string>;
 
     tags: string[];
 
-    layout: Layout;
-    rarity: Rarity;
+    layout:      Layout;
+    rarity:      Rarity;
     releaseDate: string;
-    finishes?: string[];
+    finishes?:   string[];
 
-    id: number;
-    code: string;
-    tcgPlayerId?: number;
+    id:            number;
+    code:          string;
+    tcgPlayerId?:  number;
     cardMarketId?: number;
     cardTraderId?: number;
 };

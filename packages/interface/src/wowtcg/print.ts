@@ -5,6 +5,6 @@ export type Print = {
 
     parts: {
         flavorText?: string;
-        artist: string;
+        artist:      string;
     }[];
 };

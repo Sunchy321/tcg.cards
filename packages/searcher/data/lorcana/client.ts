@@ -64,7 +64,6 @@ const order = defineClientCommand({
     explain({ parameter }, i18n) {
         parameter = parameter.toLowerCase();
 
-        // eslint-disable-next-line @typescript-eslint/no-shadow
         const [type, dir] = ((): [string, -1 | 0 | 1] => {
             if (parameter.endsWith('+')) {
                 return [parameter.slice(0, -1), 1];

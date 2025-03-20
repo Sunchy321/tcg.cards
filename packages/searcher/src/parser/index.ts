@@ -4,34 +4,34 @@ import Lexer, { defaultOption, Token } from './lexer';
 import { Operator, Qualifier } from '../command';
 
 export type ParserError = {
-    type: string;
+    type:     string;
     location: [number, number];
 };
 
 type ExprBase = {
-    tokens: Token[];
-    location: [number, number];
+    tokens:    Token[];
+    location:  [number, number];
     topLevel?: boolean;
-    qual?: Qualifier[];
+    qual?:     Qualifier[];
 };
 
 export type SimpleExpr = {
-    type: 'simple';
-    cmd: string;
-    op: Operator;
+    type:    'simple';
+    cmd:     string;
+    op:      Operator;
     argType: Token['type'];
-    arg: string;
+    arg:     string;
 };
 
 export type RawExpr = {
-    type: 'raw';
+    type:    'raw';
     argType: Token['type'];
-    arg: string;
+    arg:     string;
 };
 
 export type HashExpr = {
     type: 'hash';
-    arg: string;
+    arg:  string;
 };
 
 export type SlashExpr = {
@@ -50,16 +50,16 @@ export type ParenExpr = {
 };
 
 export type LogicExpr = {
-    type: 'logic';
-    sep: '' | '&' | '|';
+    type:  'logic';
+    sep:   '' | '&' | '|';
     exprs: Expression[];
 };
 
 export type Expression = ExprBase & (HashExpr | LogicExpr | NotExpr | ParenExpr | RawExpr | SimpleExpr | SlashExpr);
 
 export default class Parser {
-    text: string;
-    lexer: Lexer;
+    text:   string;
+    lexer:  Lexer;
     tokens: Token[] = [];
     errors: ParserError[] = [];
 
@@ -100,7 +100,6 @@ export default class Parser {
         const lastToken = last(this.tokens);
 
         if (lastToken != null) {
-            // eslint-disable-next-line prefer-destructuring
             this.index = lastToken.location[0];
             this.tokens.pop();
         }
@@ -120,7 +119,7 @@ export default class Parser {
         const tokens = [];
 
         let token;
-        // eslint-disable-next-line no-cond-assign
+
         while ((token = this.lexer.peek()) != null) {
             if (token.type === 'ws') {
                 tokens.push(token);
@@ -149,7 +148,6 @@ export default class Parser {
                 this.newError('unknown-token', [this.index, this.text.length]);
             }
         } catch (e) {
-            // eslint-disable-next-line no-constant-condition
             while (true) {
                 const token = this.lexer.next();
 

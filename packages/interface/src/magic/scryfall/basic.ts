@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-
 export type UUID = string;
 export type URI = string;
 export type Timestamp = string;
@@ -20,10 +18,10 @@ export type Legalities = Record<string, Legality>;
 export type Layout = 'adventure' | 'art_series' | 'augment' | 'class' | 'double_faced_token' | 'emblem' | 'flip' | 'host' | 'leveler' | 'meld' | 'modal_dfc' | 'normal' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split' | 'token' | 'transform' | 'vanguard';
 
 export interface List<T> {
-    object: 'list';
+    object:       'list';
     total_cards?: number;
-    has_more: boolean;
-    next_page?: URI;
-    data: T[];
-    warning?: string[];
+    has_more:     boolean;
+    next_page?:   URI;
+    data:         T[];
+    warning?:     string[];
 }

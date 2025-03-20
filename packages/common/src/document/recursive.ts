@@ -52,7 +52,6 @@ function recursiveImpl(
     return map(values, index);
 }
 
-// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export default function recursive(
     values: any[],
     map: (values: any[], index: string[]) => any,
