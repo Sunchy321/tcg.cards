@@ -1,5 +1,5 @@
 {
-    "extends": "@quasar/app/tsconfig-preset.json",
+    "extends": "./.quasar/tsconfig.json",
     "compilerOptions": {
         "target": "ES2019",
         "baseUrl": ".",
