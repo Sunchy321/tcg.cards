@@ -30,7 +30,6 @@
                 flat dense round
                 @click="newSet"
             />
-
         </div>
 
         <div>
@@ -50,7 +49,7 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable @typescript-eslint/no-use-before-define */
+
 import {
     defineComponent, ref, computed, watch, onMounted,
 } from 'vue';

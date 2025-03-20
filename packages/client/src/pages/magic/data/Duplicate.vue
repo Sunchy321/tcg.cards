@@ -15,7 +15,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable @typescript-eslint/no-use-before-define */
 import {
     defineComponent, ref, computed, onMounted,
 } from 'vue';
@@ -30,20 +29,20 @@ import CardAvatar from 'components/magic/CardAvatar.vue';
 import { isEqual, set } from 'lodash';
 
 export type ICardUpdation = {
-    cardId: string;
+    cardId:     string;
     scryfallId: string;
-    key: string;
+    key:        string;
     partIndex?: number;
-    oldValue: any;
-    newValue: any;
+    oldValue:   any;
+    newValue:   any;
 
-    set: string;
+    set:    string;
     number: string;
-    lang: string;
+    lang:   string;
 };
 
 type DuplicateData = {
-    total: number;
+    total:  number;
     values: (Print & { _id: string })[];
 };
 

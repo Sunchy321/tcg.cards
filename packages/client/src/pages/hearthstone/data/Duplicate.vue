@@ -53,21 +53,21 @@ import compare, { allEqual } from 'common/document/compare';
 import assign from 'common/document/assign';
 
 export type ICardUpdation = {
-    cardId: string;
+    cardId:     string;
     scryfallId: string;
-    key: string;
+    key:        string;
     partIndex?: number;
-    oldValue: any;
-    newValue: any;
+    oldValue:   any;
+    newValue:   any;
 
-    set: string;
+    set:    string;
     number: string;
-    lang: string;
+    lang:   string;
 };
 
 type DuplicateData = {
-    total: number;
-    values: Card[];
+    total:   number;
+    values:  Card[];
     initial: { cardId: string, version: number };
 };
 

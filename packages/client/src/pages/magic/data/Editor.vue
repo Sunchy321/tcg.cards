@@ -318,15 +318,15 @@ import { parenRegex, commaRegex } from 'static/magic/special';
 
 type CardGroup = {
     method: string;
-    cards: CardEditorView[];
-    total: number;
+    cards:  CardEditorView[];
+    total:  number;
 };
 
 type History = {
-    id: string;
-    set: string;
+    id:     string;
+    set:    string;
     number: string;
-    lang: string;
+    lang:   string;
 };
 
 const colorMap: Record<string, string> = {
@@ -905,7 +905,6 @@ const relatedCardsString = computed({
         const parts = newValue.split(/; */);
 
         relatedCards.value = parts.map(p => {
-            // eslint-disable-next-line prefer-const, @typescript-eslint/no-shadow
             let [relation, cardId, lang, set, number] = p.split('|');
 
             if (relation.length === 1) {
@@ -1040,7 +1039,6 @@ const searchResult = computed(() => {
     return null;
 });
 
-// eslint-disable-next-line @typescript-eslint/no-shadow
 const defaultTypelinePrettifier = (typeline: string, lang: string) => {
     typeline = typeline
         .trim()
@@ -1058,7 +1056,6 @@ const defaultTypelinePrettifier = (typeline: string, lang: string) => {
     return typeline;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-shadow
 const defaultTextPrettifier = (text: string, lang: string, name: string) => {
     text = text.replace(/~~/g, name);
 

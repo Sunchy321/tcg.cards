@@ -16,7 +16,6 @@
             icon="mdi-rotate-right"
             @click.prevent.stop="realRotate = !realRotate"
         />
-
     </div>
 </template>
 
@@ -30,10 +29,10 @@ import { assetBase } from 'boot/server';
 const lorcana = useLorcana();
 
 const props = withDefaults(defineProps<{
-    lang?: string;
-    set: string;
-    number: string;
-    layout: string;
+    lang?:   string;
+    set:     string;
+    number:  string;
+    layout:  string;
     rotate?: boolean | null;
 }>(), {
     lang:   undefined,

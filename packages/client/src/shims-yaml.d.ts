@@ -5,11 +5,11 @@ declare module '*.yml' {
 
 declare module 'data/magic/keyword.yml' {
     type KeywordList = {
-        keyword: string[];
+        keyword:        string[];
         keyword_action: string[];
-        ability_word: string[];
-        keyword_mtga: string[];
-        keyword_un: string[];
+        ability_word:   string[];
+        keyword_mtga:   string[];
+        keyword_un:     string[];
     };
 
     const data: KeywordList;

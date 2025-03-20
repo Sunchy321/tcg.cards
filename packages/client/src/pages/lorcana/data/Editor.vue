@@ -280,15 +280,15 @@ import { debounce, deburr, isEqual } from 'lodash';
 
 type CardGroup = {
     method: string;
-    cards: CardEditorView[];
-    total: number;
+    cards:  CardEditorView[];
+    total:  number;
 };
 
 type History = {
-    id: string;
-    set: string;
+    id:     string;
+    set:    string;
     number: string;
-    lang: string;
+    lang:   string;
 };
 
 const router = useRouter();
@@ -728,7 +728,6 @@ const relatedCardsString = computed({
         const parts = newValue.split(/; */);
 
         relatedCards.value = parts.map(p => {
-            // eslint-disable-next-line prefer-const, @typescript-eslint/no-shadow
             let [relation, cardId, lang, set, number] = p.split('|');
 
             if (relation.length === 1) {
@@ -835,8 +834,7 @@ const searchResult = computed(() => {
 const separatorReplacer = (text: string) => text
     .replace(/•| · /g, '·');
 
-// eslint-disable-next-line @typescript-eslint/no-shadow
-const defaultTypelinePrettifier = (typeline: string, lang: string) => {
+const defaultTypelinePrettifier = (typeline: string, _lang: string) => {
     typeline = typeline
         .trim()
         .replace(/\s/g, ' ');
@@ -844,7 +842,6 @@ const defaultTypelinePrettifier = (typeline: string, lang: string) => {
     return separatorReplacer(typeline);
 };
 
-// eslint-disable-next-line @typescript-eslint/no-shadow
 const defaultTextPrettifier = (text: string, lang: string) => {
     text = text
         .trim()

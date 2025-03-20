@@ -66,27 +66,27 @@ import bytes from 'bytes';
 type ControlPatch = Patch & { duplicate: number };
 
 interface TransferProgress {
-    type: 'get';
-    totalObjects: number;
-    indexedObjects: number;
+    type:            'get';
+    totalObjects:    number;
+    indexedObjects:  number;
     receivedObjects: number;
-    localObjects: number;
-    totalDeltas: number;
-    indexedDeltas: number;
-    receivedBytes: number;
+    localObjects:    number;
+    totalDeltas:     number;
+    indexedDeltas:   number;
+    receivedBytes:   number;
 }
 
 interface LoaderProgress {
-    type: 'load';
+    type:  'load';
     count: number;
     total: number;
 }
 
 interface PatchProgress {
-    type: 'clear-patch' | 'load-patch';
+    type:    'clear-patch' | 'load-patch';
     version: number;
-    count: number;
-    total: number;
+    count:   number;
+    total:   number;
 }
 
 type Progress = LoaderProgress | PatchProgress | TransferProgress;

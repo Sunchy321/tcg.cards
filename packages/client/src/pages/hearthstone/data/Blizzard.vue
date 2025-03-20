@@ -77,7 +77,6 @@
                     </q-item-section>
                 </q-item>
             </q-list>
-
         </div>
     </div>
 </template>
@@ -89,9 +88,9 @@ import controlSetup from 'setup/control';
 
 interface Progress {
     method: 'get';
-    type: 'card' | 'image';
-    count: number;
-    total: number;
+    type:   'card' | 'image';
+    count:  number;
+    total:  number;
 }
 
 export default defineComponent({

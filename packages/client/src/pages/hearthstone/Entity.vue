@@ -232,8 +232,8 @@ const localization = computed(() => {
     }
 
     return loc.find(l => l.lang === hearthstone.locale)
-                ?? loc.find(l => l.lang === hearthstone.locales[0])
-                ?? loc[0];
+      ?? loc.find(l => l.lang === hearthstone.locales[0])
+      ?? loc[0];
 });
 
 const name = computed(() => localization.value?.name);
@@ -322,10 +322,12 @@ watch(hasTechLevel, () => {
     }
 }, { immediate: true });
 
-const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
-    id:      route.params.id as string,
-    version: route.query.version as string,
-}, v => v == null)));
+const apiQuery = computed(() => (route.params.id == null
+    ? null
+    : omitBy({
+        id:      route.params.id as string,
+        version: route.query.version as string,
+    }, v => v == null)));
 
 const jsonLink = computed(() => {
     const url = new URL('hearthstone/entity', apiBase);

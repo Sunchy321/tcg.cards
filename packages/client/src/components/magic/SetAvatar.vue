@@ -1,9 +1,3 @@
-<style lang="sass" scoped>
-.set-id
-    color: #777
-
-</style>
-
 <script lang="ts">
 import {
     defineComponent, ref, computed, watch, h,
@@ -78,3 +72,9 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.set-id
+    color: #777
+
+</style>

@@ -202,27 +202,27 @@ import { last } from 'lodash';
 import { apiGet } from 'boot/server';
 
 interface CRContent {
-    id: string;
-    depth: number;
-    index: string;
-    text: string;
+    id:        string;
+    depth:     number;
+    index:     string;
+    text:      string;
     examples?: string[];
-    cards?: { text: string, id: string }[];
+    cards?:    { text: string, id: string }[];
 }
 
 interface CRGlossary {
     words: string[];
-    ids: string[];
-    text: string;
+    ids:   string[];
+    text:  string;
 }
 
 interface CR {
-    date: string;
-    intro: string;
+    date:     string;
+    intro:    string;
     contents: CRContent[];
     glossary: CRGlossary[];
-    credits: string;
-    csi?: string;
+    credits:  string;
+    csi?:     string;
 }
 
 const router = useRouter();
@@ -364,7 +364,6 @@ const renameAll = async () => {
     await loadData();
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-call
 const focus = (e: any) => { e.target.select(); };
 
 watch(date, loadData);

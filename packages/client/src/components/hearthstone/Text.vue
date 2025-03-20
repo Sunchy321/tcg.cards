@@ -8,13 +8,12 @@ import { h } from 'vue';
 
 const props = withDefaults(defineProps<{
     disableNewline?: boolean;
-    detectUrl?: boolean;
+    detectUrl?:      boolean;
 }>(), {
     disableNewline: false,
     detectUrl:      false,
 });
 
-// eslint-disable-next-line no-spaced-func
 const slots = defineSlots<{
     default: () => VNode[];
 }>();

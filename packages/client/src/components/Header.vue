@@ -34,7 +34,6 @@
                 flat dense round
                 :to="settingPath"
             />
-
         </q-toolbar>
         <q-toolbar v-if="isMobile && showParams">
             <q-btn
@@ -50,11 +49,6 @@
         </q-toolbar>
     </q-header>
 </template>
-
-<style lang="sass" scoped>
-.convert-white
-    filter: invert(99%) sepia(70%) saturate(62%) hue-rotate(350deg) brightness(114%) contrast(100%)
-</style>
 
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
@@ -121,3 +115,8 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.convert-white
+    filter: invert(99%) sepia(70%) saturate(62%) hue-rotate(350deg) brightness(114%) contrast(100%)
+</style>

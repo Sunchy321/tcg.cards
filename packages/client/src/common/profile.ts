@@ -23,10 +23,10 @@ class Database<T> extends Dexie {
 }
 
 interface Profile<T> {
-    get: (id: string, callback: (value: T) => void) => Promise<void>;
+    get:    (id: string, callback: (value: T) => void) => Promise<void>;
     update: (value: T) => Promise<void>;
-    count: () => Promise<number>;
-    clear: () => Promise<void>;
+    count:  () => Promise<number>;
+    clear:  () => Promise<void>;
 }
 
 const debounceGap = 100;

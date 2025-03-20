@@ -19,15 +19,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.navigation
-    &:hover
-        text-decoration: none
-
-    color: black
-    background-color: $grey-3
-</style>
-
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router';
 
@@ -53,3 +44,12 @@ const isCurrent = (name: string) => {
 };
 
 </script>
+
+<style lang="sass" scoped>
+.navigation
+    &:hover
+        text-decoration: none
+
+    color: black
+    background-color: $grey-3
+</style>

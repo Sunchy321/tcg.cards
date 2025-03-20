@@ -10,8 +10,8 @@ import Symbol from './Symbol.vue';
 import { symbols } from 'static/lorcana/basic';
 
 const props = withDefaults(defineProps<{
-    symbol?: string[];
-    detectUrl?: boolean;
+    symbol?:     string[];
+    detectUrl?:  boolean;
     detectEmph?: boolean;
 }>(), {
     symbol:     () => [],
@@ -22,7 +22,6 @@ const props = withDefaults(defineProps<{
 
 const attrs = useAttrs();
 
-// eslint-disable-next-line no-spaced-func
 const slots = defineSlots<{
     default: () => VNode[];
 }>();

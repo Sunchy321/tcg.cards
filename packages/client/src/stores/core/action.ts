@@ -1,27 +1,27 @@
 import { Ref, ref } from 'vue';
 
 export type FilePopup = {
-    type: 'file';
-    url: string;
+    type:    'file';
+    url:     string;
     accept?: string;
 };
 
 export interface Action {
-    action: string;
-    icon?: string;
-    popup?: FilePopup;
+    action:  string;
+    icon?:   string;
+    popup?:  FilePopup;
     handler: Record<string, (() => void) | ((payload: any) => void)> | (() => void) | ((payload: any) => void);
 }
 
 export interface ActionInfo {
-    name: string;
-    type?: string;
+    name:      string;
+    type?:     string;
     fallback?: boolean;
-    payload?: any;
+    payload?:  any;
 }
 
 export default function useAction(): {
-    actions: Ref<Action[]>;
+    actions:      Ref<Action[]>;
     invokeAction: (actionInfo: ActionInfo) => void;
 } {
     const actions = ref<Action[]>([]);

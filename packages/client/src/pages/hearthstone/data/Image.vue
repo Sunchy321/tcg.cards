@@ -27,32 +27,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.single-status
-    display: inline-flex
-    justify-content: center
-    align-items: center
-
-    width: 12.5%
-    height: 35px
-    font-size: 10px
-
-    &.status-success
-        background-color: green
-        color: white
-
-    &.status-working
-        background-color: blue
-        color: white
-
-    &.status-failed
-        background-color: red
-        color: white
-
-    &.status-stopped
-        background-color: yellow
-</style>
-
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
 
@@ -60,9 +34,9 @@ import controlSetup from 'setup/control';
 
 interface Progress {
     overall: { count: number, total: number };
-    time: { elapsed: number, remaining: number };
-    status: Record<string, string>;
-    failed: number;
+    time:    { elapsed: number, remaining: number };
+    status:  Record<string, string>;
+    failed:  number;
 }
 
 function formatTime(time: number) {
@@ -127,3 +101,29 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.single-status
+    display: inline-flex
+    justify-content: center
+    align-items: center
+
+    width: 12.5%
+    height: 35px
+    font-size: 10px
+
+    &.status-success
+        background-color: green
+        color: white
+
+    &.status-working
+        background-color: blue
+        color: white
+
+    &.status-failed
+        background-color: red
+        color: white
+
+    &.status-stopped
+        background-color: yellow
+</style>

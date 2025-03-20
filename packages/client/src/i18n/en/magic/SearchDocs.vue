@@ -2,8 +2,6 @@
     <q-page />
 </template>
 
-<style lang="sass" scoped src="../../search-docs.sass"/>
-
 <script lang="ts">
 import { defineComponent } from 'vue';
 
@@ -22,3 +20,5 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped src="../../search-docs.sass" />

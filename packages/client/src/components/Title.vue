@@ -21,11 +21,6 @@
     </q-toolbar-title>
 </template>
 
-<style lang="sass" scoped>
-.title-input
-    transition: 0.5s
-</style>
-
 <script lang="ts">
 import { defineComponent, computed, watch } from 'vue';
 
@@ -75,3 +70,8 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.title-input
+    transition: 0.5s
+</style>

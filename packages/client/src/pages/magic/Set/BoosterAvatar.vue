@@ -1,7 +1,11 @@
 <template>
     <div class="booster-avatar">
         <div class="avatar" :class="{ single: count == 1 }" :style="avatarStyle">
-            <img v-for="j in count" :key="j" :src="avatarUrl" class="card" :class="kebabCase(type)">
+            <img
+                v-for="j in count" :key="j" :src="avatarUrl"
+                class="card"
+                :class="kebabCase(type)"
+            >
         </div>
 
         <div class="text-center">
@@ -19,7 +23,7 @@ import { useI18n } from 'vue-i18n';
 import { kebabCase } from 'lodash';
 
 const props = defineProps<{
-    type: string;
+    type:  string;
     count: number;
 }>();
 

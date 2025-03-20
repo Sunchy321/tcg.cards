@@ -74,12 +74,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.code
-    color: #777
-    width: 40px
-</style>
-
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
 
@@ -148,7 +142,6 @@ export default defineComponent({
 
         const paramLabel = (p: any, v: string) => {
             if (p.label != null) {
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
                 return p.label(v) as string;
             } else {
                 return v;
@@ -185,3 +178,9 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.code
+    color: #777
+    width: 40px
+</style>

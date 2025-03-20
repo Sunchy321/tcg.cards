@@ -39,11 +39,11 @@
                 :value="w.cards.map(id => ({ id }))" :item-width="400"
                 class="legalities"
             >
-
                 <card-avatar :id="id" :key="id" />
             </grid>
         </div>
-    </div></template>
+    </div>
+</template>
 
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
@@ -60,14 +60,14 @@ interface Status {
     };
 
     time: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 
     wrongs: {
-        format: string;
+        format:   string;
         legality: [string, string];
-        cards: string[];
+        cards:    string[];
     }[];
 }
 

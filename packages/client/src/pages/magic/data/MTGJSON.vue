@@ -33,12 +33,12 @@ interface Progress {
 
     amount: {
         updated?: number;
-        count: number;
-        total?: number;
+        count:    number;
+        total?:   number;
     };
 
     time?: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 }

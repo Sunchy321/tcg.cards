@@ -32,8 +32,8 @@ import { ref } from 'vue';
 import AppHeader from 'components/Header.vue';
 
 export interface Menu {
-    id: string;
-    label: string;
+    id:        string;
+    label:     string;
     children?: Menu[];
 }
 

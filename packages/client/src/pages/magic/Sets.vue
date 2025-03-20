@@ -189,7 +189,7 @@ export default defineComponent({
         };
 
         const nameOf = (localization: Record<string, SetLocalization>) => localization[magic.locale]?.name
-            ?? localization[magic.locales[0]]?.name;
+          ?? localization[magic.locales[0]]?.name;
 
         const iconUrl = (set: string, type: string, parent?: string) => {
             if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(type)) {

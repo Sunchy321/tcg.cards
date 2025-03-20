@@ -1,7 +1,6 @@
 <template>
     <div class="q-pa-md">
         <div class="row justify-center">
-
             <q-btn
                 class="q-ml-md"
                 flat dense round
@@ -35,8 +34,8 @@ import controlSetup from 'setup/control';
 interface Progress {
     overall: { count: number, total: number };
     current: { set: string, lang: string };
-    status: Record<string, string>;
-    failed: number;
+    status:  Record<string, string>;
+    failed:  number;
 }
 
 const { controlWs } = controlSetup();

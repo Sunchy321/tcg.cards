@@ -46,9 +46,9 @@ type IndexKey<T> = {
 const {
     itemKey, titleClass = '', itemClass = '', summaryClass = '',
 } = defineProps<{
-    itemKey?: IndexKey<T>;
-    titleClass?: string;
-    itemClass?: string;
+    itemKey?:      IndexKey<T>;
+    titleClass?:   string;
+    itemClass?:    string;
     summaryClass?: string;
 }>();
 

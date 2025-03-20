@@ -5,9 +5,9 @@ import { controlBase, control } from 'boot/server';
 import { AxiosResponse } from 'axios';
 
 export default function controlSetup(): {
-    controlGet: <T>(url: string, params?: Record<string, any>) => Promise<AxiosResponse<T>>;
+    controlGet:  <T>(url: string, params?: Record<string, any>) => Promise<AxiosResponse<T>>;
     controlPost: <T>(url: string, params?: Record<string, any>) => Promise<AxiosResponse<T>>;
-    controlWs: (url: string, params?: Record<string, any>) => WebSocket;
+    controlWs:   (url: string, params?: Record<string, any>) => WebSocket;
 } {
     const user = useUser();
 

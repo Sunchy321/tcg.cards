@@ -170,27 +170,27 @@ interface BanlistItem {
     date: string;
     link: string[];
 
-    id: string;
+    id:     string;
     status: Legality;
     group?: string;
 }
 
 interface TimelineNode {
-    date: string;
-    name: string;
-    version: number;
+    date:         string;
+    name:         string;
+    version:      number;
     lastVersion?: number;
-    link: string[];
+    link:         string[];
 
-    sets: { id: string, status: 'in' | 'out' }[];
+    sets:    { id: string, status: 'in' | 'out' }[];
     banlist: { id: string, status: Legality, group?: string }[];
 
     adjustment: {
-        id: string;
-        status: Adjustment;
-        group?: string;
+        id:         string;
+        status:     Adjustment;
+        group?:     string;
         adjustment: {
-            id?: string;
+            id?:    string;
             detail: { part: string, status: Adjustment }[];
         }[];
     }[];
@@ -321,7 +321,7 @@ const nodes = computed(() => {
         v.banlist.sort((a, b) => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
+                  - banlistStatusOrder.indexOf(b.status);
             } else {
                 return a.id < b.id ? -1 : 1;
             }
@@ -330,7 +330,7 @@ const nodes = computed(() => {
         v.adjustment.sort((a, b) => {
             if (a.status !== b.status) {
                 return adjustmentStatusOrder.indexOf(a.status)
-                                - adjustmentStatusOrder.indexOf(b.status);
+                  - adjustmentStatusOrder.indexOf(b.status);
             } else {
                 return a.id < b.id ? -1 : 1;
             }
@@ -400,10 +400,10 @@ const banlist = computed(() => {
         banlistItems.sort((a, b) => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
+                  - banlistStatusOrder.indexOf(b.status);
             } else if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
+                  - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
                 return a.id < b.id ? -1 : 1;
             }
@@ -419,10 +419,10 @@ const banlist = computed(() => {
 
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
+                  - banlistStatusOrder.indexOf(b.status);
             } else if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
+                  - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
                 return a.id < b.id ? -1 : 1;
             }

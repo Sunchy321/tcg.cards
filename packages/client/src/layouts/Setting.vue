@@ -21,13 +21,6 @@
     </q-layout>
 </template>
 
-<style lang="sass" scoped>
-
-.left-tabs
-    height: unset
-
-</style>
-
 <script lang="ts">
 import { defineComponent, ref, computed } from 'vue';
 
@@ -44,8 +37,8 @@ import UserProfile from 'components/setting/Profile.vue';
 import AppHeader from 'components/Header.vue';
 
 export interface Menu {
-    id: string;
-    label: string;
+    id:        string;
+    label:     string;
     children?: Menu[];
 }
 
@@ -108,3 +101,10 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+
+.left-tabs
+    height: unset
+
+</style>

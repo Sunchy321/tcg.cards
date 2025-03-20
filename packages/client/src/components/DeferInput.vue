@@ -11,9 +11,9 @@ import { QInput } from 'quasar';
 
 import type { QInputProps } from 'quasar';
 
-const props = withDefaults(defineProps< {
+const props = withDefaults(defineProps<{
     modelValue: QInputProps['modelValue'];
-    isNumber?: boolean;
+    isNumber?:  boolean;
 }>(), { isNumber: false });
 
 const emit = defineEmits<{

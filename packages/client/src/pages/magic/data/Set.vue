@@ -108,7 +108,6 @@
 </template>
 
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-use-before-define */
 import {
     VNode, ref, computed, watch, onMounted,
 } from 'vue';
@@ -130,13 +129,13 @@ import { Set, SetLocalization } from 'interface/magic/set';
 import { apiGet } from 'boot/server';
 
 interface TapBtnGroupSlots extends QBtnToggleSlots {
-    old1: () => VNode[];
-    old2: () => VNode[];
+    old1:   () => VNode[];
+    old2:   () => VNode[];
     modern: () => VNode[];
 }
 
 interface WhiteBtnGroupSlots extends QBtnToggleSlots {
-    old: () => VNode[];
+    old:    () => VNode[];
     modern: () => VNode[];
 }
 

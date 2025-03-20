@@ -39,8 +39,8 @@ import { ref, computed } from 'vue';
 import controlSetup from 'setup/control';
 
 const props = defineProps<{
-    version: string;
-    number: number;
+    version:   string;
+    number:    number;
     isUpdated: boolean;
     duplicate: number;
 }>();
@@ -50,10 +50,10 @@ const emit = defineEmits<{
 }>();
 
 interface Progress {
-    type: 'clear-patch' | 'load-patch';
+    type:    'clear-patch' | 'load-patch';
     version: number;
-    count: number;
-    total: number;
+    count:   number;
+    total:   number;
 }
 
 const { controlWs } = controlSetup();

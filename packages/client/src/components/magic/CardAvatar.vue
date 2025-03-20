@@ -18,19 +18,19 @@ import cardProfile, { CardProfile } from 'src/common/magic/card';
 import { pick } from 'lodash';
 
 type Version = {
-    set?: string;
+    set?:    string;
     number?: string;
-    lang: string;
+    lang:    string;
 };
 
 const props = withDefaults(
     defineProps<{
-        id: string;
-        part?: number;
-        version?: Version;
-        useLang?: boolean;
-        pauper?: 'pauper' | 'pdh' | undefined;
-        text?: string;
+        id:         string;
+        part?:      number;
+        version?:   Version;
+        useLang?:   boolean;
+        pauper?:    'pauper' | 'pdh' | undefined;
+        text?:      string;
         fullImage?: boolean;
     }>(),
     {
@@ -79,7 +79,7 @@ const name = computed(() => {
     const defaultLocale = locales[0];
 
     return profile.value.parts.map(p => p.localization.find(l => l.lang === locale.value)?.name
-                ?? p.localization.find(l => l.lang === defaultLocale)?.name ?? '').join(' // ');
+      ?? p.localization.find(l => l.lang === defaultLocale)?.name ?? '').join(' // ');
 });
 
 const imageVersion = computed(() => {
@@ -160,8 +160,11 @@ const imageVersion = computed(() => {
             const numA = Number.parseInt(matchA[1], 10);
             const numB = Number.parseInt(matchB[1], 10);
 
-            return numA < numB ? -1 : numA > numB ? 1
-                : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
+            return numA < numB
+                ? -1
+                : numA > numB
+                    ? 1
+                    : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
         })(a, b);
 
         if (cmpNumber !== 0) {

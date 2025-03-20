@@ -154,7 +154,7 @@ const mercenariesPreset = [
 ];
 
 const props = defineProps<{
-    format?: string;
+    format?:  string;
     version?: number;
 }>();
 
@@ -231,8 +231,8 @@ const search = async () => {
     const defaultLocale = locales[0];
 
     const loc = data.localization.find(l => l.lang === locale)
-                    ?? data.localization.find(l => l.lang === defaultLocale)
-                    ?? data.localization[0];
+      ?? data.localization.find(l => l.lang === defaultLocale)
+      ?? data.localization[0];
 
     if (data != null) {
         input.value = loc.name;

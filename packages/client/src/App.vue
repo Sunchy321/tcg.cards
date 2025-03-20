@@ -21,7 +21,7 @@ export default defineComponent({
 
         watch(
             () => route.name?.toString(),
-            (name) => {
+            name => {
                 if (name == null || name === '') {
                     core.game = null;
                 } else if (name.startsWith('setting')) {

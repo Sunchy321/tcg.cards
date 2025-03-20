@@ -207,7 +207,9 @@
                             :clickable="d.part === 'text' || d.part === 'rune'"
                             @click="d.status = nextStatus(d.status)"
                             @remove="a.detail.splice(i, 1)"
-                        >{{ d.part }}</q-chip>
+                        >
+                            {{ d.part }}
+                        </q-chip>
 
                         <q-btn-toggle
                             v-model="a.status"
@@ -249,7 +251,7 @@
 
 <script setup lang="ts">
 import {
-    defineComponent, ref, computed, watch, onMounted, toRaw,
+    ref, computed, watch, onMounted, toRaw,
 } from 'vue';
 
 import { useQuasar } from 'quasar';
@@ -276,10 +278,10 @@ type Banlist = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 type Adjustment = Required<FormatAnnouncement['changes'][0]>['adjustment'][0];
 
 interface FormatAnnouncementProfile {
-    id?: string;
+    id?:    string;
     source: string;
-    date: string;
-    name: string;
+    date:   string;
+    name:   string;
 }
 
 const statusIcon = (status: string) => {

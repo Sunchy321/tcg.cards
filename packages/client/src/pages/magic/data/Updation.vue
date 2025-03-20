@@ -25,8 +25,16 @@
         </div>
         <div class="flex items-center q-mb-md">
             <q-btn outline dense label="Accept All" @click="acceptAllUpdation" />
-            <q-btn class="q-ml-md" outline dense label="Reject All" @click="rejectAllUpdation" />
-            <q-btn class="q-ml-md" outline dense label="Accept Unchanged" @click="acceptUnchanged" />
+            <q-btn
+                class="q-ml-md" outline dense
+                label="Reject All"
+                @click="rejectAllUpdation"
+            />
+            <q-btn
+                class="q-ml-md" outline dense
+                label="Accept Unchanged"
+                @click="acceptUnchanged"
+            />
 
             <q-btn
                 class="q-ml-md"
@@ -74,13 +82,21 @@
         >
             <q-card class="q-ma-sm q-pa-sm updation">
                 <q-card-section class="flex justify-around">
-                    <q-btn class="q-mr-sm" flat dense no-caps @click="commitUpdation(u, 'reject')">
+                    <q-btn
+                        class="q-mr-sm" flat dense
+                        no-caps
+                        @click="commitUpdation(u, 'reject')"
+                    >
                         <component :is="() => diffContent(u.oldValue, u.newValue)[0]" />
                     </q-btn>
                 </q-card-section>
 
                 <q-card-section class="flex justify-around">
-                    <q-btn class="q-mr-sm" flat dense no-caps @click="commitUpdation(u, 'accept')">
+                    <q-btn
+                        class="q-mr-sm" flat dense
+                        no-caps
+                        @click="commitUpdation(u, 'accept')"
+                    >
                         <component :is="() => diffContent(u.oldValue, u.newValue)[1]" />
                     </q-btn>
                 </q-card-section>
@@ -119,21 +135,21 @@ import { diffChars, diffString } from 'common/util/diff';
 import { locales } from 'static/magic/basic';
 
 export type Updation = {
-    cardId: string;
-    set?: string;
-    number?: string;
-    lang?: string;
+    cardId:     string;
+    set?:       string;
+    number?:    string;
+    lang?:      string;
     scryfallId: string;
-    key: string;
-    oldValue: any;
-    newValue: any;
+    key:        string;
+    oldValue:   any;
+    newValue:   any;
 };
 
 type UpdationData = {
-    total: number;
-    key: string;
+    total:   number;
+    key:     string;
     current: number;
-    values: (Updation & { _id: string })[];
+    values:  (Updation & { _id: string })[];
 };
 
 const router = useRouter();

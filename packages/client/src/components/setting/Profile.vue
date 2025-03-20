@@ -14,16 +14,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.header
-    border-radius: 5px
-    background-color: lighten($primary, 20%)
-    color: white
-
-.name
-    font-size: 120%
-</style>
-
 <script lang="ts">
 import { defineComponent } from 'vue';
 
@@ -46,3 +36,13 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.header
+    border-radius: 5px
+    background-color: lighten($primary, 20%)
+    color: white
+
+.name
+    font-size: 120%
+</style>

@@ -65,25 +65,25 @@ import model from 'searcher-data/magic/client';
 import { apiGet } from 'boot/server';
 
 interface QueryParam {
-    type: 'regex' | 'string';
+    type:  'regex' | 'string';
     value: string;
 }
 
 interface QueryItem {
-    type: string;
-    op: string;
+    type:  string;
+    op:    string;
     param: QueryParam;
 }
 
 type Unwind<T extends { parts: any[] }> = Omit<T, 'parts'> & {
-    parts: T['parts'][0];
+    parts:     T['parts'][0];
     partIndex: number;
 };
 
 interface QueryCard {
     cardId: string;
-    card: Unwind<Card>;
-    print: Unwind<Print>;
+    card:   Unwind<Card>;
+    print:  Unwind<Print>;
 }
 
 interface QueryResult {
@@ -92,11 +92,11 @@ interface QueryResult {
 }
 
 interface SearchResult {
-    text: string;
+    text:     string;
     commands: QueryItem[];
-    queries: any[];
-    errors: { type: string, value: string, query?: string }[];
-    result: QueryResult | null;
+    queries:  any[];
+    errors:   { type: string, value: string, query?: string }[];
+    result:   QueryResult | null;
 }
 
 const core = useCore();
@@ -164,8 +164,8 @@ const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
 
-const imageLang = (lang: string, imageStatus: string, set: string) => {
-    if (imageStatus !=='placeholder') {
+const imageLang = (lang: string, imageStatus: string, _set: string) => {
+    if (imageStatus !== 'placeholder') {
         return lang;
     }
 

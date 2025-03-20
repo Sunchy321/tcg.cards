@@ -19,7 +19,7 @@ import { computed, watch } from 'vue';
 
 const props = defineProps<{
     modelValue: number;
-    total: number;
+    total:      number;
 }>();
 
 const emit = defineEmits<{

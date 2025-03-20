@@ -42,8 +42,8 @@ import controlSetup from 'setup/control';
 interface Progress {
     overall: { count: number, total: number };
     current: { set: string, lang: string };
-    status: Record<string, string>;
-    failed: number;
+    status:  Record<string, string>;
+    failed:  number;
 }
 
 const router = useRouter();

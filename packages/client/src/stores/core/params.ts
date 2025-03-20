@@ -10,11 +10,11 @@ import { omit } from 'lodash';
 import { parseInt } from 'src/numeric';
 
 type ParamBase = {
-    readonly?: boolean ;
-    bind: 'params' | 'query' | 'state';
-    key?: string;
-    inTitle?: boolean;
-    label?: (id: string) => string;
+    readonly?: boolean;
+    bind:      'params' | 'query' | 'state';
+    key?:      string;
+    inTitle?:  boolean;
+    label?:    (id: string) => string;
 };
 
 type ParamOptionBoolean = { type: 'boolean', default?: Value<boolean>, icon?: [string, string] };
@@ -67,9 +67,9 @@ function getDefault(def: Parameter): any {
 }
 
 export default function useParams(): {
-    params: Ref<Record<string, any>>;
+    params:       Ref<Record<string, any>>;
     paramOptions: Ref<Record<string, Parameter>>;
-    initParams: (definition: Record<string, ParamOption>, append?: boolean) => void;
+    initParams:   (definition: Record<string, ParamOption>, append?: boolean) => void;
     deinitParams: (keys: string[]) => void;
 } {
     const router = useRouter();

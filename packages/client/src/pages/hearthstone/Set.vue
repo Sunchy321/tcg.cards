@@ -70,7 +70,7 @@ export default defineComponent({
             }
 
             return data.value.localization[hearthstone.locale]?.name
-                 ?? data.value.localization[hearthstone.locales[0]]?.name;
+              ?? data.value.localization[hearthstone.locales[0]]?.name;
         });
 
         pageSetup({

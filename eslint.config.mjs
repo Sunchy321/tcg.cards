@@ -1,17 +1,68 @@
 import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import tsEslint from 'typescript-eslint';
+import vueEslint from 'eslint-plugin-vue';
 import stylistic from '@stylistic/eslint-plugin';
 
 import { globalIgnores } from 'eslint/config';
 
-export default tseslint.config(
-    globalIgnores(['**/dist', '**/lib']),
-    eslint.configs.recommended,
-    tseslint.configs.stylistic,
+import globals from 'globals';
+
+export default tsEslint.config(
+    globalIgnores([
+        '**/dist',
+        '**/lib',
+        '**/src-capacitor',
+        '**/src-cordova',
+        '**/.quasar',
+        '**/node_modules',
+        '**/src-ssr',
+    ]),
+
     {
-        extends: [tseslint.configs.recommended],
+        extends: [eslint.configs.recommended],
+
+        rules: {
+            'no-unused-vars': 'off',
+        },
+    },
+    {
+        extends: [tsEslint.configs.recommended],
 
         files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.mjs'],
+
+        rules: {
+            '@typescript-eslint/no-explicit-any':   'off',
+            '@typescript-eslint/no-empty-function': 'off',
+
+            '@typescript-eslint/no-unused-vars': [
+                'warn',
+                {
+                    varsIgnorePattern:         '^_',
+                    caughtErrorsIgnorePattern: '^_',
+                    argsIgnorePattern:         '^_',
+                },
+            ],
+
+        },
+    },
+    {
+        extends: [tsEslint.configs.stylistic],
+
+        rules: {
+            '@typescript-eslint/consistent-type-definitions': 'off',
+        },
+    },
+    {
+        extends: [vueEslint.configs['flat/recommended']],
+
+        languageOptions: {
+            parserOptions: {
+                parser: '@typescript-eslint/parser',
+            },
+            globals: {
+                ...globals.browser,
+            },
+        },
 
         rules: {
             '@typescript-eslint/consistent-type-definitions': 'off',
@@ -26,6 +77,13 @@ export default tseslint.config(
                     argsIgnorePattern:         '^_',
                 },
             ],
+
+            'vue/max-attributes-per-line':                 'off',
+            'vue/multi-word-component-names':              'off',
+            'vue/singleline-html-element-content-newline': 'off',
+
+            'vue/html-indent': ['warn', 4],
+
         },
     },
     {

@@ -86,7 +86,9 @@
                     size="12px"
                     color="primary"
                     text-color="white"
-                > {{ $t('magic.tag.' + t) }} </q-chip>
+                >
+                    {{ $t('magic.tag.' + t) }}
+                </q-chip>
                 <q-chip
                     v-for="t in printTags"
                     :key="'tag-' + t"
@@ -95,7 +97,9 @@
                     size="12px"
                     color="secondary"
                     text-color="white"
-                > {{ $t('magic.tag.' + t) }} </q-chip>
+                >
+                    {{ $t('magic.tag.' + t) }}
+                </q-chip>
             </div>
             <grid
                 v-slot="v"
@@ -359,8 +363,11 @@ const setInfos = computed(() => sets.value.map(s => {
         const numA = Number.parseInt(matchA[1], 10);
         const numB = Number.parseInt(matchB[1], 10);
 
-        return numA < numB ? -1 : numA > numB ? 1
-            : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
+        return numA < numB
+            ? -1
+            : numA > numB
+                ? 1
+                : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
     });
 
     const currVersion = (
@@ -695,12 +702,14 @@ const gathererLink = computed(() => {
     return `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${multiverseId}&printed=true`;
 });
 
-const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
-    id:     route.params.id as string,
-    lang:   route.query.lang as string ?? magic.locale,
-    set:    route.query.set as string,
-    number: route.query.number as string,
-}, v => v == null)));
+const apiQuery = computed(() => (route.params.id == null
+    ? null
+    : omitBy({
+        id:     route.params.id as string,
+        lang:   route.query.lang as string ?? magic.locale,
+        set:    route.query.set as string,
+        number: route.query.number as string,
+    }, v => v == null)));
 
 const jsonLink = computed(() => {
     const url = new URL('magic/card', apiBase);

@@ -64,20 +64,20 @@ import model from 'searcher-data/lorcana/client';
 import { apiGet } from 'boot/server';
 
 interface QueryParam {
-    type: 'regex' | 'string';
+    type:  'regex' | 'string';
     value: string;
 }
 
 interface QueryItem {
-    type: string;
-    op: string;
+    type:  string;
+    op:    string;
     param: QueryParam;
 }
 
 interface QueryCard {
     cardId: string;
-    card: Card;
-    print: Print;
+    card:   Card;
+    print:  Print;
 }
 
 interface QueryResult {
@@ -86,11 +86,11 @@ interface QueryResult {
 }
 
 interface SearchResult {
-    text: string;
+    text:     string;
     commands: QueryItem[];
-    queries: any[];
-    errors: { type: string, value: string, query?: string }[];
-    result: QueryResult | null;
+    queries:  any[];
+    errors:   { type: string, value: string, query?: string }[];
+    result:   QueryResult | null;
 }
 
 const core = useCore();
@@ -158,7 +158,7 @@ const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
 
-const imageLang = (lang: string, set: string) => lang;
+const imageLang = (lang: string, _set: string) => lang;
 
 const doSearch = async () => {
     if (q.value == null || q.value === '') {

@@ -17,7 +17,9 @@
                     <magic-text
                         v-for="(v, i) in intro" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >{{ textValue(v, 'remove') }}</magic-text>
+                    >
+                        {{ textValue(v, 'remove') }}
+                    </magic-text>
                 </div>
             </template>
             <template #after>
@@ -28,7 +30,9 @@
                     <magic-text
                         v-for="(v, i) in intro" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >{{ textValue(v, 'add') }}</magic-text>
+                    >
+                        {{ textValue(v, 'add') }}
+                    </magic-text>
                 </div>
             </template>
         </q-splitter>
@@ -47,14 +51,18 @@
                     <magic-text
                         v-for="(v, i) in c.text ?? []" :key="i"
                         :class="textClass(v, 'remove')"
-                    >{{ textValue(v, 'remove') }}</magic-text>
+                    >
+                        {{ textValue(v, 'remove') }}
+                    </magic-text>
 
                     <div v-for="(e, i) in c.examples ?? []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
                             v-for="(v, j) in e" :key="j"
                             :class="textClass(v, 'remove')"
-                        >{{ textValue(v, 'remove') }}</magic-text>
+                        >
+                            {{ textValue(v, 'remove') }}
+                        </magic-text>
                     </div>
                 </div>
             </template>
@@ -69,14 +77,18 @@
                     <magic-text
                         v-for="(v, i) in c.text ?? []" :key="i"
                         :class="textClass(v, 'add')"
-                    >{{ textValue(v, 'add') }}</magic-text>
+                    >
+                        {{ textValue(v, 'add') }}
+                    </magic-text>
 
                     <div v-for="(e, i) in c.examples ?? []" :key="i" class="example">
                         <q-icon name="mdi-chevron-right" class="example-icon" />
                         <magic-text
                             v-for="(v, j) in e" :key="j"
                             :class="textClass(v, 'add')"
-                        >{{ textValue(v, 'add') }}</magic-text>
+                        >
+                            {{ textValue(v, 'add') }}
+                        </magic-text>
                     </div>
                 </div>
             </template>
@@ -114,7 +126,9 @@
                     <magic-text
                         v-for="(v, i) in g.text ?? []" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >{{ textValue(v, 'remove') }}</magic-text>
+                    >
+                        {{ textValue(v, 'remove') }}
+                    </magic-text>
                 </div>
             </template>
             <template #after>
@@ -129,7 +143,9 @@
                     <magic-text
                         v-for="(v, i) in g.text ?? []" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >{{ textValue(v, 'add') }}</magic-text>
+                    >
+                        {{ textValue(v, 'add') }}
+                    </magic-text>
                 </div>
             </template>
         </q-splitter>
@@ -146,7 +162,9 @@
                     <magic-text
                         v-for="(v, i) in credits" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >{{ textValue(v, 'remove') }}</magic-text>
+                    >
+                        {{ textValue(v, 'remove') }}
+                    </magic-text>
                 </div>
             </template>
             <template #after>
@@ -158,7 +176,9 @@
                     <magic-text
                         v-for="(v, i) in credits" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >{{ textValue(v, 'add') }}</magic-text>
+                    >
+                        {{ textValue(v, 'add') }}
+                    </magic-text>
                 </div>
             </template>
         </q-splitter>
@@ -175,7 +195,9 @@
                     <magic-text
                         v-for="(v, i) in csi" :key="i"
                         :class="`depth-2 ${textClass(v, 'remove')}`"
-                    >{{ textValue(v, 'remove') }}</magic-text>
+                    >
+                        {{ textValue(v, 'remove') }}
+                    </magic-text>
                 </div>
             </template>
             <template #after>
@@ -187,41 +209,14 @@
                     <magic-text
                         v-for="(v, i) in csi" :key="i"
                         :class="`depth-2 ${textClass(v, 'add')}`"
-                    >{{ textValue(v, 'add') }}</magic-text>
+                    >
+                        {{ textValue(v, 'add') }}
+                    </magic-text>
                 </div>
             </template>
         </q-splitter>
     </q-page>
 </template>
-
-<style lang="sass" scoped>
-*:deep(.text-add)
-    background-color: $green-2
-
-*:deep(.text-remove)
-    background-color: $red-2
-
-*:deep(.text-move)
-    background-color: $amber-2
-
-.depth-0
-    font-size: 200%
-    margin-bottom: 30px
-
-.depth-1
-    font-size: 150%
-    margin-bottom: 20px
-
-.depth-2
-    margin-bottom: 15px
-
-.depth-3
-    margin-bottom: 15px
-
-*:deep(.example-icon)
-    margin-right: 10px
-    color: $primary
-</style>
 
 <script lang="ts">
 import {
@@ -240,27 +235,27 @@ import { apiGet } from 'boot/server';
 type TextChange = string | [string, string];
 
 interface ContentChange {
-    id: string;
-    type?: 'add' | 'move' | 'remove';
-    index: [string | undefined, string | undefined];
-    depth: [number | undefined, number | undefined];
-    text: TextChange[];
+    id:       string;
+    type?:    'add' | 'move' | 'remove';
+    index:    [string | undefined, string | undefined];
+    depth:    [number | undefined, number | undefined];
+    text:     TextChange[];
     examples: TextChange[][];
 }
 
 interface GlossaryChange {
-    ids: string[];
+    ids:   string[];
     words: string[];
     type?: 'add' | 'move' | 'remove';
     text?: TextChange[];
 }
 
 interface Change {
-    intro: TextChange[];
+    intro:    TextChange[];
     contents: ContentChange[];
     glossary: GlossaryChange[];
-    credits: TextChange[];
-    csi: TextChange[];
+    credits:  TextChange[];
+    csi:      TextChange[];
 }
 
 export default defineComponent({
@@ -321,7 +316,11 @@ export default defineComponent({
         const csi = computed(() => crDiff.value?.csi ?? []);
 
         watch([from, to], loadData, { immediate: true });
-        onMounted(() => { void loadList(); void loadData(); });
+
+        onMounted(() => {
+            void loadList();
+            void loadData();
+        });
 
         const textClass = (value: TextChange, type: string) => {
             if (typeof value === 'string') {
@@ -360,3 +359,32 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+*:deep(.text-add)
+    background-color: $green-2
+
+*:deep(.text-remove)
+    background-color: $red-2
+
+*:deep(.text-move)
+    background-color: $amber-2
+
+.depth-0
+    font-size: 200%
+    margin-bottom: 30px
+
+.depth-1
+    font-size: 150%
+    margin-bottom: 20px
+
+.depth-2
+    margin-bottom: 15px
+
+.depth-3
+    margin-bottom: 15px
+
+*:deep(.example-icon)
+    margin-right: 10px
+    color: $primary
+</style>

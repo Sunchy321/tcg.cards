@@ -18,16 +18,16 @@ import { assetBase } from 'boot/server';
 const hearthstone = useHearthstone();
 
 type PartAdjustment = {
-    part: string;
+    part:   string;
     status: Adjustment;
 };
 
 const props = withDefaults(
     defineProps<{
-        id: string;
-        lang?: string;
-        version: number;
-        variant?: string;
+        id:          string;
+        lang?:       string;
+        version:     number;
+        variant?:    string;
         adjustment?: PartAdjustment[];
     }>(),
     {

@@ -20,19 +20,19 @@ import { Adjustment } from 'interface/hearthstone/format-change';
 import entityProfile, { EntityProfile } from 'src/common/hearthstone/entity';
 
 type PartAdjustment = {
-    part: string;
+    part:   string;
     status: Adjustment;
 };
 
 const props = withDefaults(defineProps<{
-    cardId: string;
-    status: Adjustment;
-    format?: string;
-    version: number;
+    cardId:      string;
+    status:      Adjustment;
+    format?:     string;
+    version:     number;
     lastVersion: number;
-    text?: string;
-    adjustment: { id?: string, detail: PartAdjustment[] }[];
-    showFull?: boolean;
+    text?:       string;
+    adjustment:  { id?: string, detail: PartAdjustment[] }[];
+    showFull?:   boolean;
 }>(), {
     format:   undefined,
     text:     undefined,
@@ -66,8 +66,8 @@ const name = computed(() => {
     const localizations = profile.value.localization;
 
     const localization = localizations.find(l => l.lang === locale)
-            ?? localizations.find(l => l.lang === defaultLocale)
-            ?? localizations[0];
+      ?? localizations.find(l => l.lang === defaultLocale)
+      ?? localizations[0];
 
     return localization.name;
 });

@@ -62,20 +62,15 @@ import { apiGet } from 'boot/server';
 import { last } from 'lodash';
 
 interface QueryParam {
-    type: 'regex' | 'string';
+    type:  'regex' | 'string';
     value: string;
 }
 
 interface QueryItem {
-    type: string;
-    op: string;
+    type:  string;
+    op:    string;
     param: QueryParam;
 }
-
-type Unwind<T extends { parts: any[] }> = Omit<T, 'parts'> & {
-    parts: T['parts'][0];
-    partIndex: number;
-};
 
 type QueryCard = Entity;
 
@@ -85,11 +80,11 @@ interface QueryResult {
 }
 
 interface SearchResult {
-    text: string;
+    text:     string;
     commands: QueryItem[];
-    queries: any[];
-    errors: { type: string, value: string, query?: string }[];
-    result: QueryResult | null;
+    queries:  any[];
+    errors:   { type: string, value: string, query?: string }[];
+    result:   QueryResult | null;
 }
 
 const core = useCore();

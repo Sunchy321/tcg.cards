@@ -98,7 +98,7 @@ const name = computed(() => {
     }
 
     return data.value.localization[magic.locale]?.name
-                 ?? data.value.localization[magic.locales[0]]?.name;
+      ?? data.value.localization[magic.locales[0]]?.name;
 });
 
 pageSetup({
@@ -119,7 +119,7 @@ const wotcLink = computed(() => {
     }
 
     return data.value.localization[magic.locale]?.link
-                 ?? data.value.localization[magic.locales[0]]?.link;
+      ?? data.value.localization[magic.locales[0]]?.link;
 });
 
 const apiLink = computed(() => `${apiBase}/magic/set?id=${id.value}`);
@@ -148,7 +148,7 @@ const loadData = async () => {
 const iconUrl = (rarity: string) => {
     if (
         parent.value != null && type.value != null
-                && ['promo', 'token', 'memorabilia', 'funny'].includes(type.value)
+        && ['promo', 'token', 'memorabilia', 'funny'].includes(type.value)
     ) {
         return `${assetBase}/magic/set/icon/${parent.value}/${rarity}.svg`;
     }

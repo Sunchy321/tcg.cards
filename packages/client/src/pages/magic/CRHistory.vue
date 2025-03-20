@@ -22,7 +22,9 @@
             <magic-text
                 v-for="(d, i) in h.diff" :key="i"
                 :class="`text-${d.type}`"
-            >{{ d.value }}</magic-text>
+            >
+                {{ d.value }}
+            </magic-text>
 
             <template v-if="data?.type === 'content'">
                 <div v-for="(e, i) in (h as any).examplesDiff || []" :key="i" class="example">
@@ -30,37 +32,14 @@
                     <magic-text
                         v-for="(v, j) in e" :key="j"
                         :class="`text-${v.type}`"
-                    >{{ v.value }}</magic-text>
+                    >
+                        {{ v.value }}
+                    </magic-text>
                 </div>
             </template>
         </div>
     </q-page>
 </template>
-
-<style lang="sass" scoped>
-.id
-    margin-bottom: 15px
-
-.history
-    margin-bottom: 25px
-
-.version
-    margin-bottom: 5px
-    color: grey
-
-*:deep(.text-add)
-    background-color: $green-2
-
-*:deep(.text-remove)
-    background-color: $red-2
-
-*:deep(.text-dual)
-    background-color: $amber-2
-
-.example-icon
-    margin-right: 10px
-    color: $primary
-</style>
 
 <script lang="ts">
 import {
@@ -79,20 +58,20 @@ import MagicText from 'components/magic/Text.vue';
 import { apiGet } from 'boot/server';
 
 type ThreeChange = {
-    type: 'add' | 'common' | 'dual' | 'remove';
+    type:  'add' | 'common' | 'dual' | 'remove';
     value: string;
 };
 
 type History = {
-    type: 'content';
-    id: string;
+    type:   'content';
+    id:     string;
     result: (Omit<Content, 'depth' | 'id'> & { versions: string[], diff: ThreeChange[] })[];
 } | {
-    type: 'glossary';
-    id: string;
+    type:   'glossary';
+    id:     string;
     result: (Omit<Glossary, 'ids'> & {
-        versions: string[];
-        diff: ThreeChange[];
+        versions:      string[];
+        diff:          ThreeChange[];
         examplesDiff?: ThreeChange[][];
     })[];
 };
@@ -138,3 +117,28 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.id
+    margin-bottom: 15px
+
+.history
+    margin-bottom: 25px
+
+.version
+    margin-bottom: 5px
+    color: grey
+
+*:deep(.text-add)
+    background-color: $green-2
+
+*:deep(.text-remove)
+    background-color: $red-2
+
+*:deep(.text-dual)
+    background-color: $amber-2
+
+.example-icon
+    margin-right: 10px
+    color: $primary
+</style>

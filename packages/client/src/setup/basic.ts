@@ -7,11 +7,11 @@ import { useCore } from 'store/core';
 import { User, useUser } from 'store/user';
 
 export default function basicSetup(): {
-    games: ComputedRef<Game[]>;
-    game: ComputedRef<Game | null>;
-    user: ComputedRef<User | null>;
+    games:   ComputedRef<Game[]>;
+    game:    ComputedRef<Game | null>;
+    user:    ComputedRef<User | null>;
     isAdmin: ComputedRef<boolean>;
-    meta: ComputedRef<RouteMeta>;
+    meta:    ComputedRef<RouteMeta>;
 } {
     const route = useRoute();
     const core = useCore();

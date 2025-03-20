@@ -14,11 +14,11 @@ import CardAvatar from './CardAvatar.vue';
 import { escapeRegExp } from 'lodash';
 
 const props = withDefaults(defineProps<{
-    symbol?: string[];
-    cards?: { text: string, id: string, part?: number }[];
-    detectUrl?: boolean;
+    symbol?:     string[];
+    cards?:      { text: string, id: string, part?: number }[];
+    detectUrl?:  boolean;
     detectEmph?: boolean;
-    detectCr?: boolean;
+    detectCr?:   boolean;
 }>(), {
     symbol:     () => [],
     cards:      () => [],
@@ -29,7 +29,6 @@ const props = withDefaults(defineProps<{
 
 const attrs = useAttrs();
 
-// eslint-disable-next-line no-spaced-func
 const slots = defineSlots<{
     default: () => VNode[];
 }>();

@@ -2,6 +2,96 @@
     <render />
 </template>
 
+<script setup lang="ts">
+import { computed, h } from 'vue';
+
+import { QInput, QInputProps, QInputSlots } from 'quasar';
+
+import Parser from 'searcher/parser';
+import SearchError from 'searcher/parser/error';
+
+import { last } from 'lodash';
+
+type Props = Omit<QInputProps, 'hideBottomSpace' | 'modelValue'> & {
+    modelValue: string;
+};
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+    'update:modelValue': [newValue: string];
+}>();
+
+const slots = defineSlots<Omit<QInputSlots, 'default'>>();
+
+const result = computed(() => {
+    const parser = new Parser(props.modelValue ?? '');
+
+    try {
+        const expr = parser.parse();
+
+        return {
+            tokens: expr.tokens,
+        };
+    } catch (e) {
+        return {
+            error:  e as SearchError,
+            tokens: parser.tokens,
+        };
+    }
+});
+
+const render = () => {
+    const { tokens, error } = result.value;
+
+    const spans = tokens.map(v => {
+        if (error != null) {
+            if (
+                (v.location[0] <= error.location[0] && error.location[0] < v.location[1])
+                || (v.location[0] < error.location[1] && error.location[1] <= v.location[1])
+            ) {
+                const before = v.text.slice(0, error.location[0] - v.location[0]);
+                const center = v.text.slice(
+                    error.location[0] - v.location[0],
+                    error.location[1] - v.location[0],
+                );
+                const after = v.text.slice(error.location[1] - v.location[0]);
+
+                return h('span', { class: `search-token token-${v.type}` }, [
+                    ...before.length > 0 ? [before] : [],
+                    h('span', { class: 'search-error' }, center),
+                    ...after.length > 0 ? [after] : [],
+                ]);
+            }
+        }
+
+        return h('span', { class: `search-token token-${v.type}` }, v.text);
+    });
+
+    if (
+        error != null
+        && error.type !== 'empty-input'
+        && error.location[0] >= (last(tokens)?.location[1] ?? 0)
+    ) {
+        spans.push(h('span', { class: 'search-error' }, ' '));
+    }
+
+    return h(QInput, {
+        'class':               'search-input',
+        ...props,
+        'hideBottomSpace':     true,
+        'onUpdate:modelValue': (newValue: string) => { emit('update:modelValue', newValue); },
+    }, {
+        ...slots,
+        default: () => h(
+            'span',
+            { class: 'q-field__native' },
+            spans,
+        ),
+    });
+};
+</script>
+
 <style lang="sass" scoped>
 .search-input
     &:deep(.q-field__control-container)
@@ -41,94 +131,3 @@
 *:deep(.search-token), *:deep(.search-error)
     white-space: pre
 </style>
-
-<script setup lang="ts">
-import { computed, h } from 'vue';
-
-import { QInput, QInputProps, QInputSlots } from 'quasar';
-
-import Parser from 'searcher/parser';
-import SearchError from 'searcher/parser/error';
-
-import { last } from 'lodash';
-
-// eslint-disable-next-line vue/prop-name-casing
-type Props = Omit<QInputProps, 'hideBottomSpace' | 'modelValue'> & {
-    modelValue: string;
-};
-
-const props = defineProps<Props>();
-
-const emit = defineEmits<{
-    'update:modelValue': [newValue: string];
-}>();
-
-const slots = defineSlots<Omit<QInputSlots, 'default'>>();
-
-const result = computed(() => {
-    const parser = new Parser(props.modelValue ?? '');
-
-    try {
-        const expr = parser.parse();
-
-        return {
-            tokens: expr.tokens,
-        };
-    } catch (e) {
-        return {
-            error:  e as SearchError,
-            tokens: parser.tokens,
-        };
-    }
-});
-
-const render = () => {
-    const { tokens, error } = result.value;
-
-    const spans = tokens.map(v => {
-        if (error != null) {
-            if (
-                (v.location[0] <= error.location[0] && error.location[0] < v.location[1])
-                        || (v.location[0] < error.location[1] && error.location[1] <= v.location[1])
-            ) {
-                const before = v.text.slice(0, error.location[0] - v.location[0]);
-                const center = v.text.slice(
-                    error.location[0] - v.location[0],
-                    error.location[1] - v.location[0],
-                );
-                const after = v.text.slice(error.location[1] - v.location[0]);
-
-                return h('span', { class: `search-token token-${v.type}` }, [
-                    ...before.length > 0 ? [before] : [],
-                    h('span', { class: 'search-error' }, center),
-                    ...after.length > 0 ? [after] : [],
-                ]);
-            }
-        }
-
-        return h('span', { class: `search-token token-${v.type}` }, v.text);
-    });
-
-    if (
-        error != null
-                && error.type !== 'empty-input'
-                && error.location[0] >= (last(tokens)?.location[1] ?? 0)
-    ) {
-        spans.push(h('span', { class: 'search-error' }, ' '));
-    }
-
-    return h(QInput, {
-        'class':               'search-input',
-        ...props,
-        'hideBottomSpace':     true,
-        'onUpdate:modelValue': (newValue: string) => { emit('update:modelValue', newValue); },
-    }, {
-        ...slots,
-        default: () => h(
-            'span',
-            { class: 'q-field__native' },
-            spans,
-        ),
-    });
-};
-</script>

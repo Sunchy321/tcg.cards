@@ -83,23 +83,23 @@ import { last } from 'lodash';
 type BulkList = string[];
 
 interface Database {
-    card: number;
+    card:  number;
     print: number;
-    set: number;
+    set:   number;
 }
 
 interface Progress {
     method: string;
-    type: string;
+    type:   string;
 
     amount: {
         updated?: number;
-        count: number;
-        total?: number;
+        count:    number;
+        total?:   number;
     };
 
     time?: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 }
@@ -185,7 +185,7 @@ const progressLabel = computed(() => {
 
 const loadBulk = async () => {
     const { data } = await controlGet<{
-        bulk: BulkList;
+        bulk:     BulkList;
         database: Database;
     }>('/lorcana/lorcana-json');
 

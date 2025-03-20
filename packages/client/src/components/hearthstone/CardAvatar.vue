@@ -17,10 +17,10 @@ import CardImage from './CardImage.vue';
 import entityProfile, { EntityProfile } from 'src/common/hearthstone/entity';
 
 const props = withDefaults(defineProps<{
-    cardId: string;
-    format?: string;
+    cardId:   string;
+    format?:  string;
     version?: number;
-    text?: string;
+    text?:    string;
 }>(), {
     format:  undefined,
     version: 0,
@@ -56,8 +56,8 @@ const name = computed(() => {
     const localizations = profile.value.localization;
 
     const localization = localizations.find(l => l.lang === locale)
-                ?? localizations.find(l => l.lang === defaultLocale)
-                ?? localizations[0];
+      ?? localizations.find(l => l.lang === defaultLocale)
+      ?? localizations[0];
 
     return localization.name;
 });

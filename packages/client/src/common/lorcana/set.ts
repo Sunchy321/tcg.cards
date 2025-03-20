@@ -5,9 +5,9 @@ import { SetLocalization as RawSetLocalization } from 'interface/lorcana/set';
 export type SetLocalization = Omit<RawSetLocalization, 'lang'>;
 
 export interface SetProfile {
-    setId: string;
+    setId:        string;
     localization: Record<string, SetLocalization>;
-    type: string;
+    type:         string;
     releaseDate?: string;
 }
 

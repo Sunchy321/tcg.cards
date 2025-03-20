@@ -19,7 +19,9 @@
                     flat dense no-caps
                     icon-right="mdi-menu-down"
                     @click="toggleSheet(s.typeId)"
-                >{{ localizeType(s.typeId) }} ({{ s.cards.length }})</q-btn>
+                >
+                    {{ localizeType(s.typeId) }} ({{ s.cards.length }})
+                </q-btn>
 
                 <div v-if="sheetsOpen[s.typeId] ?? false" class="sheet-cards">
                     <CardImageAvatar
@@ -62,7 +64,7 @@ const data = ref<Set | null>(null);
 const setId = computed(() => route.params.setId as string);
 const boosterId = computed(() => route.params.boosterId as string);
 
-const booster = computed(() => data.value?.boosters?.find((b) => b.boosterId === boosterId.value));
+const booster = computed(() => data.value?.boosters?.find(b => b.boosterId === boosterId.value));
 
 const setName = computed(() => {
     if (data.value == null) {
@@ -70,7 +72,7 @@ const setName = computed(() => {
     }
 
     return data.value.localization[magic.locale]?.name
-        ?? data.value.localization[magic.locales[0]]?.name;
+      ?? data.value.localization[magic.locales[0]]?.name;
 });
 
 const name = computed(() => i18n.t(`magic.set.booster.name.${boosterId.value}`));

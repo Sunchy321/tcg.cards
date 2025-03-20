@@ -12,7 +12,7 @@ export interface State {
 
 export interface User {
     username: string;
-    role: string;
+    role:     string;
 }
 
 export default {
@@ -25,7 +25,7 @@ interface UserPassPair {
 }
 
 interface UserOrError {
-    token: string;
+    token:  string;
     error?: string;
 }
 

@@ -149,7 +149,7 @@ interface BanlistItem {
     date: string;
     link: string[];
 
-    id: string;
+    id:     string;
     status: Legality;
     group?: string;
 }
@@ -158,7 +158,7 @@ interface TimelineNode {
     date: string;
     link: string[];
 
-    sets: { id: string, status: 'in' | 'out' }[];
+    sets:    { id: string, status: 'in' | 'out' }[];
     banlist: { id: string, status: Legality, group?: string }[];
 }
 
@@ -283,10 +283,10 @@ const nodes = computed(() => {
         v.banlist.sort((a, b) => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
+                  - banlistStatusOrder.indexOf(b.status);
             } else if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
+                  - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
                 return a.id < b.id ? -1 : 1;
             }
@@ -356,10 +356,10 @@ const banlist = computed(() => {
         banlistItems.sort((a, b) => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
+                  - banlistStatusOrder.indexOf(b.status);
             } else if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
+                  - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
                 return a.id < b.id ? -1 : 1;
             }
@@ -369,7 +369,7 @@ const banlist = computed(() => {
         banlistItems.sort((a, b) => {
             if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
-                                - banlistSourceOrder.indexOf(b.group ?? null);
+                  - banlistSourceOrder.indexOf(b.group ?? null);
             }
 
             if (a.date < b.date) {
@@ -380,7 +380,7 @@ const banlist = computed(() => {
 
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
-                                - banlistStatusOrder.indexOf(b.status);
+                  - banlistStatusOrder.indexOf(b.status);
             } else {
                 return a.id < b.id ? -1 : 1;
             }

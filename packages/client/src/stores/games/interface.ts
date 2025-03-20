@@ -7,8 +7,8 @@ interface GameOptionNumber {
 }
 
 interface GameOptionEnum {
-    type: 'enum';
-    values: string[];
+    type:     'enum';
+    values:   string[];
     default?: string;
 }
 

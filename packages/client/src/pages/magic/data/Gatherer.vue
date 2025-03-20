@@ -33,32 +33,6 @@
     </div>
 </template>
 
-<style lang="sass" scoped>
-.single-status
-    display: inline-flex
-    justify-content: center
-    align-items: center
-
-    width: 70px
-    height: 35px
-    font-size: 10px
-
-    &.status-success
-        background-color: green
-        color: white
-
-    &.status-working
-        background-color: blue
-        color: white
-
-    &.status-failed
-        background-color: red
-        color: white
-
-    &.status-stopped
-        background-color: yellow
-</style>
-
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 
@@ -68,16 +42,16 @@ import bytes from 'bytes';
 
 interface Progress {
     method: string;
-    type: string;
+    type:   string;
 
     amount: {
         updated?: number;
-        count: number;
-        total?: number;
+        count:    number;
+        total?:   number;
     };
 
     time?: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 
@@ -203,3 +177,29 @@ const getGatherer = async () => {
     });
 };
 </script>
+
+<style lang="sass" scoped>
+.single-status
+    display: inline-flex
+    justify-content: center
+    align-items: center
+
+    width: 70px
+    height: 35px
+    font-size: 10px
+
+    &.status-success
+        background-color: green
+        color: white
+
+    &.status-working
+        background-color: blue
+        color: white
+
+    &.status-failed
+        background-color: red
+        color: white
+
+    &.status-stopped
+        background-color: yellow
+</style>

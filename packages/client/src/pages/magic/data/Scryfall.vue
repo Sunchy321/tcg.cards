@@ -107,33 +107,33 @@ import { last } from 'lodash';
 
 interface BulkList {
     allCard: string[];
-    ruling: string[];
+    ruling:  string[];
 }
 
 interface Scryfall {
-    card: number;
+    card:   number;
     ruling: number;
-    set: number;
+    set:    number;
 }
 
 interface Database {
-    card: number;
+    card:  number;
     print: number;
-    set: number;
+    set:   number;
 }
 
 interface Progress {
     method: string;
-    type: string;
+    type:   string;
 
     amount: {
         updated?: number;
-        count: number;
-        total?: number;
+        count:    number;
+        total?:   number;
     };
 
     time?: {
-        elapsed: number;
+        elapsed:   number;
         remaining: number;
     };
 }
@@ -221,7 +221,7 @@ const progressLabel = computed(() => {
 
 const loadData = async () => {
     const { data } = await controlGet<{
-        bulk: BulkList;
+        bulk:     BulkList;
         scryfall: Scryfall;
         database: Database;
     }>('/magic/scryfall');

@@ -124,35 +124,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped>
-.item-name
-    margin-right: 8px
-    flex-shrink: 0
-
-.main
-    max-width: 1000px
-    margin: 0 auto
-
-    & > *
-        flex-basis: 100%
-        margin-bottom: 8px
-
-.magic-symbol
-    font-size: 18px
-
-.type
-    border: 1px black solid
-    border-radius: 5px
-
-    &.include
-        color: $positive
-        border-color: $positive
-
-    &.exclude
-        color: $negative
-        border-color: $negative
-</style>
-
 <script lang="ts">
 import type { Ref } from 'vue';
 import { defineComponent, ref } from 'vue';
@@ -404,3 +375,32 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+.item-name
+    margin-right: 8px
+    flex-shrink: 0
+
+.main
+    max-width: 1000px
+    margin: 0 auto
+
+    & > *
+        flex-basis: 100%
+        margin-bottom: 8px
+
+.magic-symbol
+    font-size: 18px
+
+.type
+    border: 1px black solid
+    border-radius: 5px
+
+    &.include
+        color: $positive
+        border-color: $positive
+
+    &.exclude
+        color: $negative
+        border-color: $negative
+</style>

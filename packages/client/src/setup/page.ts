@@ -6,11 +6,11 @@ import { ParamOption, ParamResult } from 'store/core/params';
 import { Action } from 'store/core/action';
 
 export interface Option {
-    title?: Value<string>;
-    titleType?: TitleType;
+    title?:       Value<string>;
+    titleType?:   TitleType;
     appendParam?: boolean;
-    params?: Record<string, ParamOption>;
-    actions?: Action[];
+    params?:      Record<string, ParamOption>;
+    actions?:     Action[];
 }
 
 export default function pageSetup<O extends Option>(option: O): ParamResult<O['params']> {

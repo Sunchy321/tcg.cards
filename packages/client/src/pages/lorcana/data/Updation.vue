@@ -119,21 +119,21 @@ import { diffChars, diffString } from 'common/util/diff';
 import { locales } from 'static/magic/basic';
 
 export type Updation = {
-    cardId: string;
-    set?: string;
-    number?: string;
-    lang?: string;
+    cardId:     string;
+    set?:       string;
+    number?:    string;
+    lang?:      string;
     scryfallId: string;
-    key: string;
-    oldValue: any;
-    newValue: any;
+    key:        string;
+    oldValue:   any;
+    newValue:   any;
 };
 
 type UpdationData = {
-    total: number;
-    key: string;
+    total:   number;
+    key:     string;
     current: number;
-    values: (Updation & { _id: string })[];
+    values:  (Updation & { _id: string })[];
 };
 
 const router = useRouter();

@@ -208,9 +208,9 @@ import { toIdentifier } from 'common/util/id';
 type BanlistItem = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 
 interface FormatAnnouncementProfile {
-    id?: string;
+    id?:    string;
     source: string;
-    date: string;
+    date:   string;
 }
 
 const sources = [

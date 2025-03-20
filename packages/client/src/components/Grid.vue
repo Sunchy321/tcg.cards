@@ -23,9 +23,9 @@ import { ref, watch } from 'vue';
 const {
     value, itemWidth, itemKey, itemClass = '',
 } = defineProps<{
-    value: T[];
-    itemWidth: number;
-    itemKey?: keyof T;
+    value:      T[];
+    itemWidth:  number;
+    itemKey?:   keyof T;
     itemClass?: string;
 }>();
 

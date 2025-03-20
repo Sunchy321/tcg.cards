@@ -17,18 +17,18 @@ import cardProfile, { CardProfile } from 'src/common/magic/card';
 import { pick } from 'lodash';
 
 type Version = {
-    set: string;
+    set:    string;
     number: string;
-    lang?: string;
+    lang?:  string;
 };
 
 const props = withDefaults(defineProps<{
-    cardId: string;
-    part?: number;
+    cardId:   string;
+    part?:    number;
     version?: Version;
     useLang?: boolean;
-    pauper?: boolean;
-    text?: string;
+    pauper?:  boolean;
+    text?:    string;
 }>(), {
     part:    undefined,
     version: undefined,
@@ -137,8 +137,11 @@ const imageVersion = computed(() => {
             const numA = Number.parseInt(matchA[1], 10);
             const numB = Number.parseInt(matchB[1], 10);
 
-            return numA < numB ? -1 : numA > numB ? 1
-                : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
+            return numA < numB
+                ? -1
+                : numA > numB
+                    ? 1
+                    : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
         })(a, b);
 
         if (cmpNumber !== 0) {

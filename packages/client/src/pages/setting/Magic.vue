@@ -39,17 +39,8 @@
                 </q-card-actions>
             </q-card>
         </div>
-
     </q-page>
 </template>
-
-<style lang="sass" scoped>
-
-.card
-    max-width: 150px
-    flex-basis: 150px
-
-</style>
 
 <script lang="ts">
 import { defineComponent, onMounted, ref } from 'vue';
@@ -67,8 +58,15 @@ export default defineComponent({
         const updateCard = async () => { cardCount.value = await cardProfile.count(); };
         const updateSet = async () => { setCount.value = await setProfile.count(); };
 
-        const clearCard = async () => { await cardProfile.clear(); await updateCard(); };
-        const clearSet = async () => { await setProfile.clear(); await updateSet(); };
+        const clearCard = async () => {
+            await cardProfile.clear();
+            await updateCard();
+        };
+
+        const clearSet = async () => {
+            await setProfile.clear();
+            await updateSet();
+        };
 
         onMounted(async () => {
             await updateCard();
@@ -85,3 +83,11 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped>
+
+.card
+    max-width: 150px
+    flex-basis: 150px
+
+</style>

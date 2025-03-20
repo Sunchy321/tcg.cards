@@ -88,7 +88,8 @@
             <tr>
                 <td><code>&gt;<span class="var number">number</span></code></td>
                 <td>匹配颜色多于该数量的牌。</td>
-                <td><example query="c>=4">有四种或更多颜色的牌</example>
+                <td>
+                    <example query="c>=4">有四种或更多颜色的牌</example>
                 </td>
             </tr>
             <tr>
@@ -338,8 +339,6 @@
     </q-page>
 </template>
 
-<style lang="sass" scoped src="../../search-docs.sass"/>
-
 <script lang="ts">
 import { defineComponent } from 'vue';
 
@@ -358,3 +357,5 @@ export default defineComponent({
     },
 });
 </script>
+
+<style lang="sass" scoped src="../../search-docs.sass" />

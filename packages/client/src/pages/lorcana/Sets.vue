@@ -147,7 +147,7 @@ const loadProfile = async (setList: string[]) => {
 };
 
 const nameOf = (localization: Record<string, SetLocalization>) => localization[lorcana.locale]?.name
-            ?? localization[lorcana.locales[0]]?.name;
+  ?? localization[lorcana.locales[0]]?.name;
 
 watch(sets, loadProfile);
 

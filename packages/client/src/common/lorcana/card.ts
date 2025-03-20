@@ -9,11 +9,11 @@ export interface CardProfile {
     }[];
 
     versions: {
-        lang: string;
-        set: string;
-        number: string;
-        rarity: string;
-        layout: string;
+        lang:        string;
+        set:         string;
+        number:      string;
+        rarity:      string;
+        layout:      string;
         releaseDate: string;
     }[];
 }

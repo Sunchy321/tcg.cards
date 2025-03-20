@@ -22,7 +22,6 @@ export default defineComponent({
     setup(props, { emit, slots }) {
         const text = ref('');
 
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         watch(() => props.modelValue, () => {
             text.value = props.modelValue.join(', ');
         }, { immediate: true });

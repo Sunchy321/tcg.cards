@@ -30,23 +30,6 @@
     </div>
 </template>
 
-<style lang="sass">
-
-.keyword-table
-    position: relative
-    width: 100%
-    border-collapse: collapse
-
-    & th
-        position: sticky
-        background-color: lightgrey
-        top: 50px
-
-    & td
-        border: 1px black solid
-
-</style>
-
 <script setup lang="ts">
 import { ref } from 'vue';
 
@@ -110,3 +93,20 @@ const keywordOf = (type: string) => {
 };
 
 </script>
+
+<style lang="sass">
+
+.keyword-table
+    position: relative
+    width: 100%
+    border-collapse: collapse
+
+    & th
+        position: sticky
+        background-color: lightgrey
+        top: 50px
+
+    & td
+        border: 1px black solid
+
+</style>

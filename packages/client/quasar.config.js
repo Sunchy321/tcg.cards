@@ -21,7 +21,7 @@ export default configure((/* ctx */) => ({
         // exclude = [],
         // rawOptions = {},
         warnings: true,
-        errors: true,
+        errors:   true,
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
@@ -51,7 +51,7 @@ export default configure((/* ctx */) => ({
     build: {
         target: {
             browser: ['es2019', 'edge88', 'firefox78', 'chrome87', 'safari13.1'],
-            node: 'node16',
+            node:    'node16',
         },
 
         vueRouterMode: 'history', // available values: 'hash', 'history'
@@ -74,12 +74,12 @@ export default configure((/* ctx */) => ({
         // viteVuePluginOptions: {},
 
         alias: {
-            setup: path.join(__dirname, 'src/setup'),
-            store: path.join(__dirname, 'src/stores'),
-            static: path.join(__dirname, 'node_modules/card-common/static'),
-            data: path.join(__dirname, 'node_modules/card-common/data'),
-            common: path.join(__dirname, 'node_modules/card-common/src'),
-            searcher: path.join(__dirname, 'node_modules/card-searcher/src'),
+            'setup':         path.join(__dirname, 'src/setup'),
+            'store':         path.join(__dirname, 'src/stores'),
+            'static':        path.join(__dirname, 'node_modules/card-common/static'),
+            'data':          path.join(__dirname, 'node_modules/card-common/data'),
+            'common':        path.join(__dirname, 'node_modules/card-common/src'),
+            'searcher':      path.join(__dirname, 'node_modules/card-searcher/src'),
             'searcher-data': path.join(__dirname, 'node_modules/card-searcher/data'),
         },
 
@@ -87,7 +87,7 @@ export default configure((/* ctx */) => ({
             // ['@intlify/unplugin-vue-i18n/vite', {
             //     include: path.resolve(__dirname, './src/i18n/**'),
             // }],
-            ['@rollup/plugin-yaml']
+            ['@rollup/plugin-yaml'],
         ],
     },
 
@@ -103,7 +103,7 @@ export default configure((/* ctx */) => ({
         config: {},
 
         iconSet: 'mdi-v7', // Quasar icon set
-        lang: 'en-US', // Quasar language pack
+        lang:    'en-US', // Quasar language pack
 
         // For special cases outside of where the auto-import strategy can have an impact
         // (like functional components as one of the examples),
@@ -155,10 +155,10 @@ export default configure((/* ctx */) => ({
 
     // https://v2.quasar.dev/quasar-cli-vite/developing-pwa/configuring-pwa
     pwa: {
-        workboxMode: 'generateSW', // or 'injectManifest'
-        injectPwaMetaTags: true,
-        swFilename: 'sw.js',
-        manifestFilename: 'manifest.json',
+        workboxMode:                  'generateSW', // or 'injectManifest'
+        injectPwaMetaTags:            true,
+        swFilename:                   'sw.js',
+        manifestFilename:             'manifest.json',
         useCredentialsForManifestTag: false,
         // extendGenerateSWOptions (cfg) {}
         // extendInjectManifestOptions (cfg) {},
@@ -188,11 +188,11 @@ export default configure((/* ctx */) => ({
         packager: {
         // https://github.com/electron-userland/electron-packager/blob/master/docs/api.md#options
 
-        // OS X / Mac App Store
-        // appBundleId: '',
-        // appCategoryType: '',
-        // osxSign: '',
-        // protocol: 'myapp://path',
+            // OS X / Mac App Store
+            // appBundleId: '',
+            // appCategoryType: '',
+            // osxSign: '',
+            // protocol: 'myapp://path',
 
         // Windows only
         // win32metadata: { ... }
@@ -201,7 +201,7 @@ export default configure((/* ctx */) => ({
         builder: {
         // https://www.electron.build/configuration/configuration
 
-        appId: 'quasar-project',
+            appId: 'quasar-project',
         },
     },
 

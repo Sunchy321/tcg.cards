@@ -2,27 +2,6 @@
     <root />
 </template>
 
-<style lang="sass">
-.compare-table
-    width: 100%
-
-.compare-line
-    display: flex
-
-    margin: 2px
-
-    &.compare-same
-        background-color: lightgrey
-
-.compare-item
-    display: flex
-
-    align-items: center
-
-    flex: 1 0 0
-
-</style>
-
 <script setup lang="ts">
 import type { VNode } from 'vue';
 import { h } from 'vue';
@@ -32,9 +11,8 @@ import {
     flatten, isEqual, last, range, uniq,
 } from 'lodash';
 
-// eslint-disable-next-line no-spaced-func
 const props = defineProps<{
-    values: any[];
+    values:    any[];
     keyOrder?: (key: string, values: any[], index: string[]) => number | null;
 }>();
 
@@ -42,10 +20,9 @@ const emit = defineEmits<{
     'update-value': [args: { index: string[], value: any }];
 }>();
 
-// eslint-disable-next-line no-spaced-func
 const slots = defineSlots<{
     default?: (props: {
-        text: string;
+        text:  string;
         value: any;
         index: string[];
         which: number;
@@ -117,28 +94,30 @@ const render = (values: any[], index: string[] = []): VNode[] => {
 
     if (values.every(v => v?.[0] === placeholder)) {
         return [h('tr', { class: 'compare-line compare-same' }, values.map(
-            (v, i) => h('td', { class: 'compare-item', style: `padding-left: ${indent}px` }, ['[', '{'].includes(values[0][1]) ? [
-                renderItem({
-                    text:  `${prefix} ${values[0][1]}`,
-                    value: values[0][1],
-                    index,
-                    which: i,
-                }),
-                h(QBtn, {
-                    class:   'q-ml-md',
-                    icon:    'mdi-check',
-                    size:    'sm',
-                    flat:    true,
-                    dense:   true,
-                    round:   true,
-                    onClick: () => {
-                        emit('update-value', {
-                            index,
-                            value: v[2],
-                        });
-                    },
-                }),
-            ] : values[0][1]),
+            (v, i) => h('td', { class: 'compare-item', style: `padding-left: ${indent}px` }, ['[', '{'].includes(values[0][1])
+                ? [
+                    renderItem({
+                        text:  `${prefix} ${values[0][1]}`,
+                        value: values[0][1],
+                        index,
+                        which: i,
+                    }),
+                    h(QBtn, {
+                        class:   'q-ml-md',
+                        icon:    'mdi-check',
+                        size:    'sm',
+                        flat:    true,
+                        dense:   true,
+                        round:   true,
+                        onClick: () => {
+                            emit('update-value', {
+                                index,
+                                value: v[2],
+                            });
+                        },
+                    }),
+                ]
+                : values[0][1]),
         ))];
     } else if (values.every(v => isPrimary(v) || isPrimaryArray(v))) {
         if (values.every(v => isEqual(v, values[0]))) {
@@ -251,3 +230,24 @@ const render = (values: any[], index: string[] = []): VNode[] => {
 const root = () => h('table', { class: 'compare-table code' }, render(props.values));
 
 </script>
+
+<style lang="sass">
+.compare-table
+    width: 100%
+
+.compare-line
+    display: flex
+
+    margin: 2px
+
+    &.compare-same
+        background-color: lightgrey
+
+.compare-item
+    display: flex
+
+    align-items: center
+
+    flex: 1 0 0
+
+</style>

@@ -81,7 +81,7 @@ const name = computed(() => {
     }
 
     return data.value.localization[lorcana.locale]?.name
-                 ?? data.value.localization[lorcana.locales[0]]?.name;
+      ?? data.value.localization[lorcana.locales[0]]?.name;
 });
 
 pageSetup({

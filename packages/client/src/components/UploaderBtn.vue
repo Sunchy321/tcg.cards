@@ -60,7 +60,7 @@ export default defineComponent({
             showPopup.value = false;
         };
 
-        watch(uploader, (value) => {
+        watch(uploader, value => {
             if (value != null) {
                 value.pickFiles();
             }

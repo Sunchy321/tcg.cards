@@ -16,15 +16,15 @@ export type Value<T> = Ref<T> | T | (() => T);
 export type TitleType = 'input' | 'text';
 
 export interface State {
-    game: Game | null;
+    game:   Game | null;
     locale: string;
     search: string;
 
-    title: string;
-    titleType: string;
-    params: Record<string, any>;
+    title:        string;
+    titleType:    string;
+    params:       Record<string, any>;
     paramOptions: Record<string, Parameter>;
-    actions: Action[];
+    actions:      Action[];
 }
 
 export function valueOf<T>(value: Value<T>): T {

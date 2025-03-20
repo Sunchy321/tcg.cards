@@ -257,8 +257,11 @@ const setInfos = computed(() => sets.value.map(s => {
         const numA = Number.parseInt(matchA[1], 10);
         const numB = Number.parseInt(matchB[1], 10);
 
-        return numA < numB ? -1 : numA > numB ? 1
-            : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
+        return numA < numB
+            ? -1
+            : numA > numB
+                ? 1
+                : matchA[2] < matchB[2] ? -1 : matchA[2] > matchB[2] ? 1 : 0;
     });
 
     const currVersion = (
@@ -457,12 +460,14 @@ const editorLink = computed(() => ({
     },
 }));
 
-const apiQuery = computed(() => (route.params.id == null ? null : omitBy({
-    id:     route.params.id as string,
-    lang:   route.query.lang as string ?? lorcana.locale,
-    set:    route.query.set as string,
-    number: route.query.number as string,
-}, v => v == null)));
+const apiQuery = computed(() => (route.params.id == null
+    ? null
+    : omitBy({
+        id:     route.params.id as string,
+        lang:   route.query.lang as string ?? lorcana.locale,
+        set:    route.query.set as string,
+        number: route.query.number as string,
+    }, v => v == null)));
 
 const jsonLink = computed(() => {
     const url = new URL('lorcana/card', apiBase);
