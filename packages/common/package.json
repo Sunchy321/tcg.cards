@@ -23,12 +23,12 @@
     "card-interface": "workspace:^",
     "eslint": "^9.22.0",
     "globals": "^16.0.0",
+    "ts-essentials": "^10.0.4",
     "typescript": "^5.8.2"
   },
   "dependencies": {
     "diff": "^5.0.0",
     "lodash": "^4.17.21",
-    "ts-essentials": "^10.0.4",
     "yaml": "^2.1.3"
   }
 }
