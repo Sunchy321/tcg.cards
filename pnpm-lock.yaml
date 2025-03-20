@@ -8,6 +8,9 @@ patchedDependencies:
   '@types/koa-bodyparser@4.3.8':
     hash: d8dfe7f9b83c935a79d15bd457535e33a1f627780a8f8928345bf71a27772ae9
     path: patches/@types__koa-bodyparser@4.3.8.patch
+  koa-logger:
+    hash: 1b763ec9aa9bbcaf763dfd0c1fbe009467ac3a3288d864131f7b8e9fa3ef7248
+    path: patches/koa-logger.patch
 
 importers:
 
@@ -390,7 +393,7 @@ importers:
         version: 4.0.3
       koa-logger:
         specifier: ^3.2.1
-        version: 3.2.1
+        version: 3.2.1(patch_hash=1b763ec9aa9bbcaf763dfd0c1fbe009467ac3a3288d864131f7b8e9fa3ef7248)
       koa-send:
         specifier: ^5.0.1
         version: 5.0.1
@@ -7813,7 +7816,7 @@ snapshots:
       koa-unless: 1.0.7
       p-any: 2.1.0
 
-  koa-logger@3.2.1:
+  koa-logger@3.2.1(patch_hash=1b763ec9aa9bbcaf763dfd0c1fbe009467ac3a3288d864131f7b8e9fa3ef7248):
     dependencies:
       bytes: 3.1.2
       chalk: 2.4.2

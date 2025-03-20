@@ -1,0 +1,80 @@
+diff --git a/History.md b/History.md
+deleted file mode 100644
+index 237efa1277162afebb378313848cd7818420e825..0000000000000000000000000000000000000000
+diff --git a/index.js b/index.js
+index 26e6eaf6bdc90cafae9459d80d34df0fe87779b6..45b9630cfca55b4f2a8dabd992533744fdb0fd69 100644
+--- a/index.js
++++ b/index.js
+@@ -57,11 +57,22 @@ function dev (opts) {
+   return async function logger (ctx, next) {
+     // request
+     const start = ctx[Symbol.for('request-received.startTime')] ? ctx[Symbol.for('request-received.startTime')].getTime() : Date.now()
+-    print('  ' + chalk.gray('<--') +
+-      ' ' + chalk.bold('%s') +
+-      ' ' + chalk.gray('%s'),
+-    ctx.method,
+-    ctx.originalUrl)
++
++    if (ctx.subdomains != null && ctx.subdomains.length > 0) {
++      print('  ' + chalk.gray('<--') +
++        ' ' + chalk.bold('%s') +
++        ' [' + chalk.gray('%s') + ']' +
++        ' ' + chalk.gray('%s'),
++      ctx.method,
++      ctx.subdomains.join('.'),
++      ctx.originalUrl)
++    } else {
++      print('  ' + chalk.gray('<--') +
++        ' ' + chalk.bold('%s') +
++        ' ' + chalk.gray('%s'),
++      ctx.method,
++      ctx.originalUrl)
++    }
+ 
+     try {
+       await next()
+@@ -130,17 +141,33 @@ function log (print, ctx, start, len, err, event) {
+     : event === 'close' ? chalk.yellow('-x-')
+       : chalk.gray('-->')
+ 
+-  print('  ' + upstream +
+-    ' ' + chalk.bold('%s') +
+-    ' ' + chalk.gray('%s') +
+-    ' ' + chalk[color]('%s') +
+-    ' ' + chalk.gray('%s') +
+-    ' ' + chalk.gray('%s'),
+-  ctx.method,
+-  ctx.originalUrl,
+-  status,
+-  time(start),
+-  length)
++  if (ctx.subdomains != null && ctx.subdomains.length > 0) {
++    print('  ' + upstream +
++      ' ' + chalk.bold('%s') +
++      ' [' + chalk.gray('%s') + ']' +
++      ' ' + chalk.gray('%s') +
++      ' ' + chalk[color]('%s') +
++      ' ' + chalk.gray('%s') +
++      ' ' + chalk.gray('%s'),
++    ctx.method,
++    ctx.subdomains.join('.'),
++    ctx.originalUrl,
++    status,
++    time(start),
++    length)
++  } else {
++    print('  ' + upstream +
++      ' ' + chalk.bold('%s') +
++      ' ' + chalk.gray('%s') +
++      ' ' + chalk[color]('%s') +
++      ' ' + chalk.gray('%s') +
++      ' ' + chalk.gray('%s'),
++    ctx.method,
++    ctx.originalUrl,
++    status,
++    time(start),
++    length)
++  }
+ }
+ 
+ /**
