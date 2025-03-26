@@ -27,7 +27,9 @@ router.post('/create-patch-json', async ctx => {
         return;
     }
 
-    const entities = await Entity.find({ version, type: { $exists: true, $ne: 'enchantment' } });
+    const entities = version === 0
+        ? await Entity.find({ type: { $exists: true, $ne: 'enchantment' } })
+        : await Entity.find({ version, type: { $exists: true, $ne: 'enchantment' } });
 
     const tagMap = getEssentialMap();
 

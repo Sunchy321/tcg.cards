@@ -210,7 +210,11 @@ router.get('/name', async ctx => {
 });
 
 router.get('/random', async ctx => {
-    const entityIds = await Entity.distinct('entityId', { type: { $ne: 'enchantment' } });
+    const entityIds = await Entity.distinct('entityId', {
+        type: {
+            $nin: ['enchantment', 'mercenary_ability'],
+        },
+    });
 
     ctx.body = entityIds[random(entityIds.length - 1)] ?? '';
 });
