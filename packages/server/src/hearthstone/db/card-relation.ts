@@ -2,19 +2,13 @@ import { Schema } from 'mongoose';
 
 import conn from './db';
 
-import { CardRelation as ICardRelation } from '@interface/magic/card-relation';
+import { CardRelation as ICardRelation } from '@interface/hearthstone/card-relation';
 
 const CardRelationSchema = new Schema<ICardRelation>({
     relation: String,
-
+    version:  [Number],
     sourceId: String,
     targetId: String,
-
-    targetVersion: {
-        set:    String,
-        number: String,
-        lang:   String,
-    },
 });
 
 const CardRelation = conn.model('card_relation', CardRelationSchema);

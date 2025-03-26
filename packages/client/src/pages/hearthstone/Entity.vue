@@ -94,6 +94,13 @@
             </div>
         </div>
         <div class="version-column">
+            <div v-if="relatedCards.length > 0" class="related-card-block">
+                <div v-for="r in relatedCards" :key="r.entityId" class="related-card q-pl-md">
+                    <q-icon :name="relationIcon(r.relation)" />
+                    <card-avatar class="q-ml-sm" :card-id="r.entityId" :version="r.version[0]" />
+                </div>
+            </div>
+
             <div class="version-block">
                 <div v-for="(v, i) of versionInfos" :key="i" class="version-line">
                     <div
@@ -126,19 +133,16 @@ import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
 
 import HearthstoneText from 'components/hearthstone/Text.vue';
+import CardAvatar from 'components/hearthstone/CardAvatar.vue';
 import CardImage from 'components/hearthstone/CardImage.vue';
 
-import { Entity } from 'interface/hearthstone/entity';
+import { EntityView } from 'common/model/hearthstone/entity';
 
 import { last, omitBy } from 'lodash';
 import { copyToClipboard, Notify } from 'quasar';
 
 import patchProfile, { PatchProfile } from 'src/common/hearthstone/patch';
 import { apiBase, apiGet } from 'boot/server';
-
-type Data = Entity & {
-    versions: number[][];
-};
 
 const router = useRouter();
 const route = useRoute();
@@ -147,7 +151,7 @@ const i18n = useI18n();
 
 const { search, random } = hearthstoneSetup();
 
-const data = ref<Data>();
+const data = ref<EntityView>();
 const patchProfiles = ref<Record<string, PatchProfile>>({});
 
 // data fields
@@ -288,8 +292,8 @@ const flavorText = computed(() => localization.value?.flavor);
 const artist = computed(() => data.value?.artist ?? '');
 
 const mechanics = computed(() => (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')));
-
 const referencedTags = computed(() => (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')));
+const relatedCards = computed(() => data.value?.relatedCards ?? []);
 
 const hasTechLevel = computed(() => data.value?.techLevel != null);
 
@@ -372,7 +376,7 @@ const loadData = async () => {
         version: route.query.version,
     }, v => v == null);
 
-    const { data: result } = await apiGet<Data>('/hearthstone/entity', query);
+    const { data: result } = await apiGet<EntityView>('/hearthstone/entity', query);
 
     data.value = result;
 };
@@ -396,6 +400,17 @@ const copyTag = async (tag: string) => {
 
     Notify.create(i18n.t('hearthstone.ui.entity.copy-tag'));
 };
+
+const relationIcon = (relation: string) => ({
+    emblem:         'mdi-shield-outline',
+    intext:         'mdi-card-search-outline',
+    meld:           'mdi-circle-half-full',
+    specialization: 'mdi-arrow-decision mdi-rotate-90',
+    spellbook:      'mdi-book-open-page-variant-outline',
+    source:         'mdi-file-tree-outline',
+    stick_on:       'mdi-card-multiple',
+    token:          'mdi-shape-outline',
+})[relation] ?? 'mdi-cards-outline';
 
 // watches
 watch(
@@ -487,6 +502,19 @@ watch(
 
 .link
     width: 150px
+
+.related-card-block
+    margin-top: 10px
+
+    border: 1px solid $primary
+    border-radius: 5px
+
+.related-card
+    padding: 5px
+    padding-left: 8px
+
+    &:not(:first-child)
+        border-top: 1px solid $primary
 
 .version-block
     margin-top: 10px

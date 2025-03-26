@@ -85,12 +85,6 @@ const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'
         default: undefined,
     },
 
-    relatedEntities: [{
-        _id:      false,
-        relation: String,
-        entityId: String,
-    }],
-
     entourages:      { $type: [String], default: undefined },
     heroPower:       String,
     heroicHeroPower: String,

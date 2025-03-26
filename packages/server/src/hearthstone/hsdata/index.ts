@@ -6,9 +6,11 @@ import {
 
 import Patch from '@/hearthstone/db/patch';
 import Entity from '@/hearthstone/db/entity';
+import CardRelation from '@/hearthstone/db/card-relation';
 import Task from '@/common/task';
 
 import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthstone/entity';
+import { CardRelation as ICardRelation } from '@interface/hearthstone/card-relation';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -349,6 +351,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }) as { CardDefs: XCardDefs };
 
         const entities: IEntity[] = [];
+        const cardRelations = [];
+
         let hasError = false;
 
         for (const bucket of toBucket(toGenerator(xml.CardDefs.Entity), 500)) {
@@ -356,7 +360,10 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
             for (const e of bucket) {
                 try {
-                    newEntities.push(this.convert(e));
+                    const [entity, relations] = this.convert(e);
+
+                    newEntities.push(entity);
+                    cardRelations.push(...relations);
 
                     total += 1;
                 } catch (errs) {
@@ -406,10 +413,8 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             return;
         }
 
-        for (const e of entities) {
-            for (const r of e.relatedEntities) {
-                r.entityId = entities.find(e => e.dbfId.toString() === r.entityId)?.entityId ?? '';
-            }
+        for (const r of cardRelations) {
+            r.targetId = entities.find(e => e.dbfId.toString() === r.targetId)?.entityId ?? '';
         }
 
         const strings = getLangStrings();
@@ -466,6 +471,29 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
         }
 
+        for (const relations of toBucket(toGenerator(cardRelations), 500)) {
+            const maybeRelations = await CardRelation.find({ sourceId: { $in: relations.map(r => r.sourceId) } });
+
+            const relationToInsert: ICardRelation[] = [];
+
+            for (const relation of relations) {
+                const exactRelation = maybeRelations.find(r => r.relation == relation.relation && r.sourceId === relation.sourceId && r.targetId == relation.relation);
+
+                if (exactRelation != null) {
+                    exactRelation.version = uniq([...exactRelation.version, this.version]).sort((a, b) => a - b);
+
+                    await exactRelation.save();
+                } else {
+                    relationToInsert.push({
+                        ...relation,
+                        version: [this.version],
+                    });
+                }
+            }
+
+            await CardRelation.insertMany(relationToInsert);
+        }
+
         patch.isUpdated = true;
 
         await patch.save();
@@ -478,8 +506,10 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
     }
 
-    private convert(entity: XEntity): IEntity {
+    private convert(entity: XEntity): [IEntity, ICardRelation[]] {
         const result: Partial<IEntity> = { };
+        const relations: ICardRelation[] = [];
+
         const masters: string[] = [];
         const errors: string[] = [];
 
@@ -490,7 +520,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         result.classes = [];
         result.mechanics = [];
         result.referencedTags = [];
-        result.relatedEntities = [];
 
         const locFields = this.getSpecialData<Record<string, keyof IEntity['localization'][0]>>('localization-field');
         const fields = this.getSpecialData<Record<string, ITag>>('field');
@@ -613,9 +642,11 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     const relatedEntity = this.getMapData<string>('related-entity')[id];
 
                     if (relatedEntity != null) {
-                        result.relatedEntities.push({
+                        relations.push({
                             relation: relatedEntity,
-                            entityId: (t as XTag)._attributes.value,
+                            version:  [],
+                            sourceId: result.entityId,
+                            targetId: (t as XTag)._attributes.value,
                         });
 
                         continue;
@@ -827,7 +858,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
         }
 
-        return result as IEntity;
+        return [result as IEntity, relations];
     }
 
     stopImpl(): void { /* no-op */ }

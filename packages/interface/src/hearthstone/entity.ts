@@ -71,8 +71,6 @@ export interface Entity {
 
     powers: Power[];
 
-    relatedEntities: { relation: string, entityId: string }[];
-
     entourages:       string[];
     heroPower?:       string;
     heroicHeroPower?: string;

@@ -2,12 +2,16 @@ import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 
 import Entity from '@/hearthstone/db/entity';
+import CardRelation from '@/hearthstone/db/card-relation';
+
 import { Entity as IEntity } from '@interface/hearthstone/entity';
+import { RelatedEntity } from '@common/model/hearthstone/entity';
 
 import {
     flatten, last, mapValues, omit, random, uniq,
 } from 'lodash';
 
+import sorter from '@common/util/sorter';
 import { toMultiple, toSingle } from '@/common/request-helper';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -30,6 +34,11 @@ router.get('/', async ctx => {
     }
 
     const entities = await Entity.find({ entityId: id }).sort({ version: -1 });
+
+    if (entities.length === 0) {
+        ctx.status = 404;
+        return;
+    }
 
     const entity = entities.find(e => e.version.includes(version ?? 0)) ?? entities[0];
 
@@ -55,7 +64,111 @@ router.get('/', async ctx => {
         }
     }
 
-    ctx.body = { ...entity.toJSON(), versions };
+    const sourceRelation = await CardRelation.aggregate<RelatedEntity>()
+        .match({ sourceId: id, version: { $in: entity.version } })
+        .project({
+            _id:      false,
+            relation: '$relation',
+            entityId: '$targetId',
+        })
+        .group({
+            _id: {
+                relation: '$relation',
+                entityId: '$entityId',
+            },
+        })
+        .lookup({
+            from: 'entities',
+            let:  {
+                entityId: '$_id.entityId',
+            },
+            pipeline: [
+                { $match: {
+                    $expr:   { $eq: ['$entityId', '$$entityId'] },
+                    version: { $in: entity.version },
+                } },
+                { $sort: { version: -1 } },
+                { $project: {
+                    _id: '$version',
+                } },
+            ],
+            as: 'version',
+        })
+        .unwind('version')
+        .group({
+            _id: {
+                relation: '$_id.relation',
+                entityId: '$_id.entityId',
+            },
+            version: {
+                $first: '$version._id',
+            },
+        })
+        .replaceRoot({
+            relation: '$_id.relation',
+            entityId: '$_id.entityId',
+            version:  '$version',
+        });
+
+    sourceRelation.sort(
+        sorter.pick<RelatedEntity, 'relation'>('relation', sorter.string).or(
+            sorter.pick<RelatedEntity, 'entityId'>('entityId', sorter.string),
+        ),
+    );
+
+    const targetRelation = await CardRelation.aggregate<RelatedEntity>()
+        .match({ targetId: id, version: { $in: entity.version } })
+        .project({
+            _id:      false,
+            relation: 'source',
+            entityId: '$sourceId',
+        })
+        .group({
+            _id: {
+                relation: '$relation',
+                entityId: '$entityId',
+            },
+        })
+        .lookup({
+            from: 'entities',
+            let:  {
+                entityId: '$_id.entityId',
+            },
+            pipeline: [
+                { $match: {
+                    $expr:   { $eq: ['$entityId', '$$entityId'] },
+                    version: { $in: entity.version },
+                } },
+                { $sort: { version: -1 } },
+                { $project: {
+                    _id: '$version',
+                } },
+            ],
+            as: 'version',
+        })
+        .unwind('version')
+        .group({
+            _id: {
+                relation: '$_id.relation',
+                entityId: '$_id.entityId',
+            },
+            version: {
+                $first: '$version._id',
+            },
+        })
+        .replaceRoot({
+            relation: '$_id.relation',
+            entityId: '$_id.entityId',
+            version:  '$version',
+        });
+
+    targetRelation.sort(sorter.pick('entityId', sorter.string));
+
+    ctx.body = {
+        ...entity.toJSON(),
+        versions,
+        relatedCards: [...sourceRelation, ...targetRelation],
+    };
 });
 
 router.get('/name', async ctx => {
