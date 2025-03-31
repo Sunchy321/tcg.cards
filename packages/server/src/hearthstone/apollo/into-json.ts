@@ -90,8 +90,7 @@ export function intoApolloJson(
     tags[fieldKey('type')] = invertFind(type, entity.type);
     tags[fieldKey('cost')] = entity.cost ?? 0;
     tags[fieldKey('attack')] = entity.attack ?? 0;
-    tags[fieldKey('health')] = entity.health ?? 0;
-    tags[fieldKey('durability')] = entity.durability ?? 0;
+    tags[fieldKey('health')] = entity.health ?? entity.durability ?? 0;
     tags[fieldKey('armor')] = entity.armor ?? 0;
 
     if (entity.race != null) {
