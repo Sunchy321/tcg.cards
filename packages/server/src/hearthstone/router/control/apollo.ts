@@ -13,6 +13,7 @@ import { assetPath } from '@/config';
 
 import { createAdjustmentJson } from '@/hearthstone/logger';
 import { omitBy } from 'lodash';
+import internalData from '@/internal-data';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -27,9 +28,11 @@ router.post('/create-patch-json', async ctx => {
         return;
     }
 
+    const blacklist = internalData<string[]>('hearthstone.apollo-blacklist');
+
     const entities = version === 0
-        ? await Entity.find({ type: { $exists: true, $ne: 'enchantment' } })
-        : await Entity.find({ version, type: { $exists: true, $ne: 'enchantment' } });
+        ? await Entity.find({ entityId: { $nin: blacklist }, type: { $exists: true, $ne: 'enchantment' } })
+        : await Entity.find({ entityId: { $nin: blacklist }, version, type: { $exists: true, $ne: 'enchantment' } });
 
     const tagMap = getEssentialMap();
 

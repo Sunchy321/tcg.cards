@@ -7,30 +7,32 @@ import internalData from '@/internal-data';
 import { pickBy } from 'lodash';
 
 export type TagMap = {
-    field:       Record<number, ITag>;
-    locField:    Record<number, keyof IEntity['localization'][0]>;
-    type:        Record<number, string>;
-    race:        Record<number, string>;
-    dualRace:    Record<number, string>;
-    spellSchool: Record<number, string>;
-    rune:        Record<number, string>;
-    set:         Record<number, string>;
-    rarity:      Record<number, string>;
-    mechanic:    Record<number, string>;
+    field:            Record<number, ITag>;
+    locField:         Record<number, keyof IEntity['localization'][0]>;
+    type:             Record<number, string>;
+    race:             Record<number, string>;
+    dualRace:         Record<number, string>;
+    spellSchool:      Record<number, string>;
+    mercenaryFaction: Record<number, string>;
+    rune:             Record<number, string>;
+    set:              Record<number, string>;
+    rarity:           Record<number, string>;
+    mechanic:         Record<number, string>;
 };
 
 export function getEssentialMap(): TagMap {
     return {
-        field:       internalData('hearthstone.tag.field'),
-        locField:    internalData('hearthstone.tag.localization-field'),
-        type:        internalData('hearthstone.tag.map.type'),
-        race:        internalData('hearthstone.tag.map.race'),
-        dualRace:    internalData('hearthstone.tag.map.dual-race'),
-        spellSchool: internalData('hearthstone.tag.map.spell-school'),
-        rune:        internalData('hearthstone.tag.map.rune'),
-        set:         internalData('hearthstone.tag.map.set'),
-        rarity:      internalData('hearthstone.tag.map.rarity'),
-        mechanic:    internalData('hearthstone.tag.map.mechanic'),
+        field:            internalData('hearthstone.tag.field'),
+        locField:         internalData('hearthstone.tag.localization-field'),
+        type:             internalData('hearthstone.tag.map.type'),
+        race:             internalData('hearthstone.tag.map.race'),
+        dualRace:         internalData('hearthstone.tag.map.dual-race'),
+        spellSchool:      internalData('hearthstone.tag.map.spell-school'),
+        mercenaryFaction: internalData('hearthstone.tag.map.mercenary-faction'),
+        rune:             internalData('hearthstone.tag.map.rune'),
+        set:              internalData('hearthstone.tag.map.set'),
+        rarity:           internalData('hearthstone.tag.map.rarity'),
+        mechanic:         internalData('hearthstone.tag.map.mechanic'),
     };
 }
 
@@ -79,7 +81,7 @@ export function intoApolloJson(
     const tags: Record<number, number> = {};
 
     const {
-        field, locField, type, race, dualRace, spellSchool, rune, set, rarity, mechanic,
+        field, locField, type, race, dualRace, spellSchool, rune, set, rarity, mechanic, mercenaryFaction,
     } = tagMap;
 
     const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
@@ -111,6 +113,12 @@ export function intoApolloJson(
         tags[fieldKey('spellSchool')] = invertFind(spellSchool, entity.spellSchool);
     } else {
         tags[fieldKey('spellSchool')] = 0;
+    }
+
+    if (entity.mercenaryFaction != null) {
+        tags[fieldKey('mercenaryFaction')] = invertFind(mercenaryFaction, entity.mercenaryFaction);
+    } else {
+        tags[fieldKey('mercenaryFaction')] = 0;
     }
 
     tags[fieldKey('set')] = invertFind(set, entity.set);
