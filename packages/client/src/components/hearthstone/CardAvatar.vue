@@ -90,6 +90,7 @@ const render = () => {
                     class:   'card-image-popover',
                     id:      props.cardId,
                     version: props.version,
+                    variant: props.format === 'battlegrounds' ? 'battlegrounds' : 'normal',
                 })]));
             }
 
