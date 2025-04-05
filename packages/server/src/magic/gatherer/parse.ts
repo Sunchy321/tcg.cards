@@ -343,6 +343,7 @@ export class GathererGetter extends Task<GathererStatus> {
                     if (loc == null) {
                         p.localization.push({
                             lang,
+                            lastDate: basePrint.releaseDate,
                             name:     data.parts[i].name,
                             typeline: data.parts[i].typeline,
                             text:     data.parts[i].text,
@@ -465,6 +466,7 @@ export default async function parseGatherer(
                 if (loc == null) {
                     p.localization.push({
                         lang,
+                        lastDate: basePrint.releaseDate,
                         name:     data.parts[i].name,
                         typeline: data.parts[i].typeline,
                         text:     data.parts[i].text,

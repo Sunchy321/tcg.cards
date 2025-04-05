@@ -114,6 +114,12 @@ function assignCardLocalization(
             continue;
         }
 
+        if (dLoc.lastDate < cLoc.lastDate) {
+            continue;
+        }
+
+        cLoc.lastDate = dLoc.lastDate;
+
         const fullNameKey = `parts[${index}].localization[${loc}].name`;
         const fullTypelineKey = `parts[${index}].localization[${loc}].typeline`;
         const fullTextKey = `parts[${index}].localization[${loc}].text`;

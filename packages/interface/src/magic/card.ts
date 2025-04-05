@@ -18,6 +18,7 @@ export type Card = {
 
         localization: {
             lang:     string;
+            lastDate: string;
             name:     string;
             typeline: string;
             text:     string;

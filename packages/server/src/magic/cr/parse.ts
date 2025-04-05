@@ -80,7 +80,7 @@ function parseGlossary(texts: string[]) {
 }
 
 export async function parse(date: string): Promise<ICR> {
-    const path = join(dataPath, 'magic', 'cr', 'data', `${date}.txt`);
+    const path = join(dataPath, 'magic', 'rule', `${date}.txt`);
 
     if (!existsSync(path)) {
         throw new Error(`cr ${date} doesn't exist`);

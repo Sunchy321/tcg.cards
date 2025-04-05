@@ -6,7 +6,7 @@ import { WithUpdation } from '../updation';
 
 export type ICardDatabase = WithUpdation<Omit<ICard, 'parts'> & {
     parts: (ICard['parts'][0] & {
-        __costMap: Record<string, number>;
+        __costMap?: Record<string, number>;
     })[];
 }>;
 

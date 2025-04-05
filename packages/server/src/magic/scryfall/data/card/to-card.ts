@@ -188,7 +188,9 @@ function getId(data: NCardBase & { layout: string }): string {
 }
 
 export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): CardPrint {
-    const cardFaces = data.layout === 'reversible_card' ? [data.card_faces[0]] : data.card_faces;
+    const cardFaces = data.layout === 'reversible_card' && data.card_faces[0].layout !== 'adventure'
+        ? [data.card_faces[0]]
+        : data.card_faces;
 
     return {
         card: {
@@ -204,6 +206,7 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
 
                 localization: [{
                     lang:     data.lang,
+                    lastDate: data.released_at,
                     name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
                     typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
                     text:     purifyText(f.printed_text ?? f.oracle_text ?? ''),
