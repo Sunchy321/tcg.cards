@@ -517,7 +517,7 @@ pageSetup({
             return '';
         }
 
-        if (lang.value === 'ph') {
+        if (['ph', 'qya'].includes(lang.value)) {
             return data.value.parts.map(p => p.name).join(' // ');
         } else {
             return data.value.parts.map(p => selectedTextInfo(p)!.name).join(' // ');

@@ -22,6 +22,7 @@ export const extendedLocales = [
     'sa',
     'grc',
     'la',
+    'qya',
 ];
 
 export const specificManaSymbols = [
