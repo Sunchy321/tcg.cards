@@ -118,14 +118,12 @@ function assignCardLocalization(
             continue;
         }
 
-        cLoc.lastDate = dLoc.lastDate;
-
         const fullNameKey = `parts[${index}].localization[${loc}].name`;
         const fullTypelineKey = `parts[${index}].localization[${loc}].typeline`;
         const fullTextKey = `parts[${index}].localization[${loc}].text`;
 
         if (cLoc.name !== dLoc.name) {
-            if (!card.__lockedPaths.includes(fullNameKey)) {
+            if (!card.__lockedPaths.includes(fullNameKey) || dLoc.lastDate > cLoc.lastDate) {
                 card.__updations.push({
                     key:      fullNameKey,
                     oldValue: cLoc.name,
@@ -140,7 +138,7 @@ function assignCardLocalization(
         }
 
         if (cLoc.typeline !== dLoc.typeline) {
-            if (!card.__lockedPaths.includes(fullTypelineKey)) {
+            if (!card.__lockedPaths.includes(fullTypelineKey) || dLoc.lastDate > cLoc.lastDate) {
                 card.__updations.push({
                     key:      fullTypelineKey,
                     oldValue: cLoc.typeline,
@@ -155,7 +153,7 @@ function assignCardLocalization(
         }
 
         if (cLoc.text !== dLoc.text) {
-            if (!card.__lockedPaths.includes(fullTextKey)) {
+            if (!card.__lockedPaths.includes(fullTextKey) || dLoc.lastDate > cLoc.lastDate) {
                 card.__updations.push({
                     key:      fullTextKey,
                     oldValue: cLoc.text,
@@ -168,6 +166,8 @@ function assignCardLocalization(
             bulkUpdation.info(`Remove lockedPaths ${fullTextKey} (${cLoc.text}) for ${card.cardId}:${loc}`);
             card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullTextKey);
         }
+
+        cLoc.lastDate = dLoc.lastDate;
     }
 }
 
