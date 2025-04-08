@@ -348,7 +348,7 @@ const versionFor = (updation: Updation) => {
     if (mode.value === 'card') {
         const langFilter = /\[([a-z]+)\]/.exec(updation.key)?.[1];
 
-        return lang != null ? { lang: langFilter! } : undefined;
+        return langFilter != null ? { lang: langFilter! } : undefined;
     } else {
         return { set: updation.set!, number: updation.number!, lang: updation.lang! };
     }

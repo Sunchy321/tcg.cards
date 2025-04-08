@@ -118,7 +118,7 @@ const imageVersion = computed(() => {
             const { locales } = magic;
             const defaultLocale = locales[0];
 
-            const localeVersion = vs.filter(v => v.lang === locale.value);
+            const localeVersion = vs.filter(v => v.lang === (props.version?.lang ?? locale.value));
 
             if (localeVersion.length > 0) {
                 return localeVersion;

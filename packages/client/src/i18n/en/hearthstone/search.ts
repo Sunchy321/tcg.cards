@@ -2,7 +2,7 @@ export default {
     'full-command': {
         'raw':              'name includes {parameter}',
         'raw-mana':         'mana cost or text includes {parameter}',
-        'stats':            'power is {power} and toughness is {toughness}',
+        'stats':            'attack is {attack} and health is {health}',
         'hash':             'has tag {tag}',
         'order':            'order by {parameter}',
         'order-ascending':  'order by {parameter} (ascending)',

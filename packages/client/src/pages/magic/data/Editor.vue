@@ -253,7 +253,13 @@
             </div>
 
             <div class="flex q-mt-sm">
-                <q-input v-model="relatedCardsString" class="col" debounce="500" label="Related Cards" outlined dense>
+                <q-input
+                    v-model="relatedCardsString"
+                    class="col" debounce="500"
+                    :disable="dataGroup?.method != null && !dataGroup.method.startsWith('search:')"
+                    label="Related Cards"
+                    outlined dense
+                >
                     <template #append>
                         <q-btn icon="mdi-card-plus-outline" flat dense round @click="guessToken" />
                     </template>
@@ -378,7 +384,7 @@ const typeRegex = 'artifact|enchantment';
 const abilityRegex = '(?:[a-z]+|"[^"]+")';
 const abilitiesRegex = `${abilityRegex}(?: and ${abilityRegex})*`;
 
-const creatureRegex = `${numberRegex}(?: tapped)?(?: (${statsRegex}))? (${colorRegex}) (${subtypesRegex}) (?:(?:${typeRegex}) )?creature tokens?(?: with (${abilitiesRegex}))?`;
+const creatureRegex = `${numberRegex}(?: (?:tapped|tapped and attacking))?(?: (${statsRegex}))? (${colorRegex}) (${subtypesRegex}) (?:(?:${typeRegex}) )?creature tokens?(?: with (${abilitiesRegex}))?`;
 
 const predefinedRegex = `${numberRegex}(?: tapped)? (${predefinedNames.join('|')}|colorless Clue artifact) tokens?`;
 const roleRegex = `${numberRegex}(?: tapped)? ([A-Z][a-z]+|[A-Z][a-z]+ [A-Z][a-z]+) Role tokens?`;
@@ -710,7 +716,7 @@ const unifiedName = computed({
 
         if (localization == null) {
             cardPart.value.localization.push({
-                lang: lang.value, name: newValue, typeline: '', text: '',
+                lang: lang.value, name: newValue, typeline: '', text: '', lastDate: releaseDate.value,
             });
         } else if (localization.name !== newValue) {
             localization.name = newValue;
@@ -740,7 +746,7 @@ const unifiedTypeline = computed({
 
         if (localization == null) {
             cardPart.value.localization.push({
-                lang: lang.value, name: '', typeline: newValue, text: '',
+                lang: lang.value, name: '', typeline: newValue, text: '', lastDate: releaseDate.value,
             });
         } else if (localization.typeline !== newValue) {
             localization.typeline = newValue;
@@ -770,7 +776,7 @@ const unifiedText = computed({
 
         if (localization == null) {
             cardPart.value.localization.push({
-                lang: lang.value, name: '', typeline: '', text: newValue,
+                lang: lang.value, name: '', typeline: '', text: newValue, lastDate: releaseDate.value,
             });
         } else if (localization.text !== newValue) {
             localization.text = newValue;
@@ -1468,10 +1474,12 @@ const doUpdate = debounce(
             data: print.value,
         });
 
-        await controlPost('/magic/card/update-related', {
-            id:      card.value!.cardId,
-            related: relatedCards.value,
-        });
+        if (dataGroup.value.method.startsWith('search:')) {
+            await controlPost('/magic/card/update-related', {
+                id:      card.value!.cardId,
+                related: relatedCards.value,
+            });
+        }
     },
     1000,
     {

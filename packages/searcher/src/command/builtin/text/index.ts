@@ -19,5 +19,6 @@ export default function text(options: TextOption): TextCommand {
         alt,
         operators:  defaultOperator,
         qualifiers: defaultQualifier,
+        allowRegex: true,
     });
 }

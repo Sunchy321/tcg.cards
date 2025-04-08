@@ -114,7 +114,7 @@ function assignCardLocalization(
             continue;
         }
 
-        if (dLoc.lastDate < cLoc.lastDate) {
+        if (cLoc.lang !== 'en' && dLoc.lastDate < cLoc.lastDate) {
             continue;
         }
 
@@ -123,7 +123,7 @@ function assignCardLocalization(
         const fullTextKey = `parts[${index}].localization[${loc}].text`;
 
         if (cLoc.name !== dLoc.name) {
-            if (!card.__lockedPaths.includes(fullNameKey) || dLoc.lastDate > cLoc.lastDate) {
+            if (cLoc.lang === 'en' || !card.__lockedPaths.includes(fullNameKey) || dLoc.lastDate > cLoc.lastDate) {
                 card.__updations.push({
                     key:      fullNameKey,
                     oldValue: cLoc.name,
@@ -138,7 +138,7 @@ function assignCardLocalization(
         }
 
         if (cLoc.typeline !== dLoc.typeline) {
-            if (!card.__lockedPaths.includes(fullTypelineKey) || dLoc.lastDate > cLoc.lastDate) {
+            if (cLoc.lang === 'en' || !card.__lockedPaths.includes(fullTypelineKey) || dLoc.lastDate > cLoc.lastDate) {
                 card.__updations.push({
                     key:      fullTypelineKey,
                     oldValue: cLoc.typeline,
@@ -153,7 +153,7 @@ function assignCardLocalization(
         }
 
         if (cLoc.text !== dLoc.text) {
-            if (!card.__lockedPaths.includes(fullTextKey) || dLoc.lastDate > cLoc.lastDate) {
+            if (cLoc.lang === 'en' || !card.__lockedPaths.includes(fullTextKey) || dLoc.lastDate > cLoc.lastDate) {
                 card.__updations.push({
                     key:      fullTextKey,
                     oldValue: cLoc.text,

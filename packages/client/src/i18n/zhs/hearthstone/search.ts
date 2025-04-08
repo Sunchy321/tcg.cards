@@ -2,8 +2,8 @@ export default {
     'full-command': {
         'raw':              '名称包含{parameter}',
         'raw-mana':         '法术力费用或描述包含{parameter}',
-        'stats':            '力量是{attack}并且防御力是{health}',
-        'full-stats':       '费用是{cost}并且力量是{attack}并且防御力是{health}',
+        'stats':            '攻击力是{attack}并且生命值是{health}',
+        'full-stats':       '费用是{cost}并且攻击力是{attack}并且生命值是{health}',
         'hash':             '具有标签 {tag}',
         'order':            '按{parameter}排序',
         'order-ascending':  '按{parameter}排序（升序）',

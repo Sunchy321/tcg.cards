@@ -106,7 +106,7 @@ export function translate(expr: Expression, model: ClientModel, i18n: (key: stri
             if (expr.argType === 'regex') {
                 try {
                     return new RegExp(expr.arg.slice(1, -1));
-                } catch (e) {
+                } catch (_e) {
                     throw new QueryError({
                         type:  'invalid-regex',
                         value: expr.arg.slice(1, -1),
