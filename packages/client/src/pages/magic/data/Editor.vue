@@ -8,6 +8,7 @@
                 :set="set"
                 :number="number"
                 :layout="layout"
+                :refresh-token="refreshToken"
             />
             <div class="history q-mt-md">
                 <div class="code text-center">{{ history.length }}</div>
@@ -1654,6 +1655,8 @@ const guessCounter = () => {
     }
 };
 
+const refreshToken = ref('');
+
 const loadGatherer = async () => {
     if (data.value == null) {
         return;
@@ -1665,6 +1668,8 @@ const loadGatherer = async () => {
         number: number.value,
         lang:   lang.value,
     });
+
+    refreshToken.value = crypto.randomUUID();
 };
 
 const saveGathererImage = async () => {
@@ -1678,6 +1683,8 @@ const saveGathererImage = async () => {
         number: number.value,
         lang:   lang.value,
     });
+
+    refreshToken.value = crypto.randomUUID();
 };
 
 </script>

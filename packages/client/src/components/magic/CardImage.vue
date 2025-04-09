@@ -78,111 +78,113 @@
     </div>
 </template>
 
-<script lang="ts">
-import type { PropType } from 'vue';
-import {
-    defineComponent, ref, computed, watch,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
 
 import { assetBase } from 'boot/server';
 
-export default defineComponent({
-    props: {
-        lang:   { type: String, default: null },
-        set:    { type: String, default: null },
-        number: { type: String, default: null },
-        part:   { type: Number, default: null },
-        layout: { type: String, default: null },
-        rotate: { type: Boolean as PropType<boolean | null>, default: null },
-    },
+const props = defineProps<{
+    lang?:         string;
+    set?:          string;
+    number?:       string;
+    part?:         number;
+    layout?:       string;
+    rotate?:       boolean | null;
+    refreshToken?: string;
+}>();
 
-    emits: ['update:part', 'update:rotate'],
+const emit = defineEmits<{
+    'update:part':   [newPart: number];
+    'update:rotate': [newRotate: boolean | null];
+}>();
 
-    setup(props, { emit }) {
-        const visible = ref<boolean | null>(null);
-        const innerPart = ref(0);
-        const innerRotate = ref<boolean | null>(null);
+const visible = ref<boolean | null>(null);
+const innerPart = ref(0);
+const innerRotate = ref<boolean | null>(null);
 
-        const realPart = computed({
-            get() { return innerPart.value; },
-            set(newValue: number) {
-                innerPart.value = newValue;
+const realPart = computed({
+    get() { return innerPart.value; },
+    set(newValue: number) {
+        innerPart.value = newValue;
 
-                if (props.layout !== 'reversible_card') {
-                    emit('update:part', newValue);
-                }
-            },
-        });
-
-        const rotatable = computed(() => ['split', 'planar'].includes(props.layout));
-
-        const defaultRotate = computed(() => {
-            if (rotatable.value) {
-                return true;
-            }
-
-            if (props.layout === 'battle') {
-                return realPart.value === 0;
-            }
-
-            return false;
-        });
-
-        const realRotate = computed({
-            get() { return innerRotate.value ?? defaultRotate.value; },
-            set(newValue: boolean | null) {
-                innerRotate.value = newValue;
-                emit('update:rotate', newValue);
-            },
-        });
-
-        const turnable = computed(() => [
-            'transform',
-            'modal_dfc',
-            'transform_token',
-            'minigame',
-            'reversible_card',
-            'double_faced',
-            'battle',
-            'art_series',
-        ].includes(props.layout));
-
-        const imageUrls = computed(() => {
-            if (turnable.value) {
-                return [
-                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.jpg`,
-                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.jpg`,
-                ];
-            } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
-                return [
-                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.jpg`,
-                ];
-            } else {
-                return [
-                    `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}.jpg`,
-                ];
-            }
-        });
-
-        watch(() => props.layout, () => { innerRotate.value = null; });
-
-        watch(() => props.part, () => {
-            if (props.part != null) {
-                innerPart.value = props.part;
-            }
-        }, { immediate: true });
-
-        watch(() => props.rotate, () => {
-            if (props.rotate != null) {
-                innerRotate.value = props.rotate;
-            }
-        }, { immediate: true });
-
-        return {
-            visible, realPart, realRotate, rotatable, turnable, imageUrls,
-        };
+        if (props.layout !== 'reversible_card') {
+            emit('update:part', newValue);
+        }
     },
 });
+
+const rotatable = computed(() => ['split', 'planar'].includes(props.layout));
+
+const defaultRotate = computed(() => {
+    if (rotatable.value) {
+        return true;
+    }
+
+    if (props.layout === 'battle') {
+        return realPart.value === 0;
+    }
+
+    return false;
+});
+
+const realRotate = computed({
+    get() { return innerRotate.value ?? defaultRotate.value; },
+    set(newValue: boolean | null) {
+        innerRotate.value = newValue;
+        emit('update:rotate', newValue);
+    },
+});
+
+const turnable = computed(() => [
+    'transform',
+    'modal_dfc',
+    'transform_token',
+    'minigame',
+    'reversible_card',
+    'double_faced',
+    'battle',
+    'art_series',
+].includes(props.layout));
+
+const imageUrlValues = computed(() => {
+    if (turnable.value) {
+        return [
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.jpg`,
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.jpg`,
+        ];
+    } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
+        return [
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.jpg`,
+        ];
+    } else {
+        return [
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}.jpg`,
+        ];
+    }
+});
+
+const imageUrls = computed(() => {
+    if (props.refreshToken != null) {
+        return imageUrlValues.value.map(v => v + '?' + props.refreshToken);
+    } else {
+        return imageUrlValues.value;
+    }
+});
+
+watch(() => props.layout, () => { innerRotate.value = null; });
+
+watch(() => props.part, () => {
+    if (props.part != null) {
+        innerPart.value = props.part;
+    }
+}, { immediate: true });
+
+watch(() => props.rotate, () => {
+    if (props.rotate != null) {
+        innerRotate.value = props.rotate;
+    }
+}, { immediate: true });
+
 </script>
 
 <style lang="sass" scoped>

@@ -172,6 +172,8 @@ router.get('/save-gatherer-image', async ctx => {
     if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
         await saveGathererImage(mids, set, number, lang);
     }
+
+    ctx.status = 200;
 });
 
 router.get('/get-duplicate', async ctx => {
