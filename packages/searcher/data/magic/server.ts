@@ -39,13 +39,6 @@ const raw = defineServerCommand({
                         operator:  ':',
                         qualifier: [],
                     }),
-                    builtin.text.query({
-                        key:       'print.parts.text',
-                        multiline: false,
-                        parameter,
-                        operator:  ':',
-                        qualifier: [],
-                    }),
                     magic.cost.query({
                         key:       'card.parts.cost',
                         parameter,
@@ -223,9 +216,6 @@ const name = defineServerCommand({
                     builtin.text.query({
                         key: 'card.parts.localization.name', parameter, operator, qualifier,
                     }),
-                    builtin.text.query({
-                        key: 'print.parts.name', parameter, operator, qualifier,
-                    }),
                 ],
             };
         }
@@ -259,9 +249,6 @@ const type = defineServerCommand({
                     builtin.text.query({
                         key: 'card.parts.localization.typeline', parameter, operator, qualifier,
                     }),
-                    builtin.text.query({
-                        key: 'print.parts.typeline', parameter, operator, qualifier,
-                    }),
                 ],
             };
         }
@@ -294,9 +281,6 @@ const text = defineServerCommand({
                     }),
                     builtin.text.query({
                         key: 'card.parts.localization.text', parameter, operator, qualifier,
-                    }),
-                    builtin.text.query({
-                        key: 'print.parts.text', parameter, operator, qualifier,
                     }),
                 ],
             };
