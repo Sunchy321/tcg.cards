@@ -1475,7 +1475,7 @@ const doUpdate = debounce(
             data: print.value,
         });
 
-        if (dataGroup.value.method.startsWith('search:')) {
+        if (dataGroup.value?.method == null || dataGroup.value.method.startsWith('search:')) {
             await controlPost('/magic/card/update-related', {
                 id:      card.value!.cardId,
                 related: relatedCards.value,

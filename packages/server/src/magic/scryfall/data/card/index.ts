@@ -13,6 +13,7 @@ import { Status } from '../../status';
 
 import { join } from 'path';
 import { omit, uniq } from 'lodash';
+import internalData from '@/internal-data';
 import { toAsyncBucket } from '@/common/to-bucket';
 import LineReader from '@/common/line-reader';
 import { bulkPath, convertJson } from '../common';
@@ -39,6 +40,8 @@ export default class CardLoader extends Task<Status> {
 
     async startImpl(): Promise<void> {
         bulkUpdation.info('================== MERGE CARD ==================');
+
+        const frontCardSet = internalData<string[]>('magic.front-card-set');
 
         // initialize set code map
         const setCodeMap: Record<string, string> = {};
@@ -124,7 +127,7 @@ export default class CardLoader extends Task<Status> {
             const printsToInsert: IPrint[] = [];
 
             for (const json of jsons) {
-                if (json.layout === 'art_series') {
+                if (json.layout === 'art_series' || frontCardSet.includes(json.set)) {
                     continue;
                 }
 
@@ -246,6 +249,12 @@ export default class CardLoader extends Task<Status> {
             for (const c of cardsToInsert) {
                 if (dups.some(d => d.cardId === c.cardId)) {
                     c.cardId += `::dup${Math.round(Math.random() * 1000)}`;
+
+                    for (const p of printsToInsert) {
+                        if (c.scryfall.oracleId.includes(p.scryfall.oracleId)) {
+                            p.cardId = c.cardId;
+                        }
+                    }
                 }
             }
 
