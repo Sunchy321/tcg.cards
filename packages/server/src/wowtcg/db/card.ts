@@ -4,41 +4,32 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { ICardDatabase } from '@common/model/lorcana/card';
+import { ICardDatabase } from '@common/model/wowtcg/card';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
-    cost:  Number,
-    color: [String],
-
-    inkwell: Boolean,
-
-    name:     String,
-    typeline: String,
-    text:     String,
-
-    type: {
-        main: String,
-        sub:  { $type: [String], default: undefined },
-    },
-
-    localization: [{
+    parts: [{
         _id: false,
 
-        lang:     String,
         name:     String,
         typeline: String,
         text:     String,
+
+        cost:  Number,
+        type:  [String],
+        race:  String,
+        class: String,
+
+        attack:     String,
+        health:     String,
+        damageType: String,
+
+        isMaster:   Boolean,
+        talentSpec: String,
+        profession: { $type: [String], default: undefined },
     }],
-
-    lore:      Number,
-    strength:  Number,
-    willPower: Number,
-    moveCost:  Number,
-
-    tags: [String],
 
     __updations: [{
         _id: false,

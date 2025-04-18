@@ -1,0 +1,23 @@
+{
+  "name": "codegen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "exec": "ts-node ./src/app.ts",
+    "lint": "cd ../server && pnpm dlx eslint src --fix"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.8.0",
+  "devDependencies": {
+    "@types/lodash": "^4.17.16",
+    "@types/node": "^22.14.1",
+    "ts-morph": "^25.0.1",
+    "ts-node": "^10.9.1"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}

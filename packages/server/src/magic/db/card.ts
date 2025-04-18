@@ -1,9 +1,10 @@
-import { Schema, Model } from 'mongoose';
+/** AUTO GENERATED, DO NOT CHANGE **/
+
+import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
 import { ICardDatabase } from '@common/model/magic/card';
-import { historyPlugin } from '@/database/updation';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
@@ -20,12 +21,13 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         text:     String,
 
         localization: [{
-            _id:      false,
+            _id: false,
+
             lang:     String,
+            lastDate: String,
             name:     String,
             typeline: String,
             text:     String,
-            lastDate: String,
         }],
 
         cost: {
@@ -78,22 +80,21 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
 
     category:       String,
     legalities:     Object,
-    contentWarning: { $type: Boolean, default: undefined },
+    contentWarning: Boolean,
 
     scryfall: {
         oracleId: [String],
-        face:     String,
     },
 
     __updations: [{
-        _id:       false,
+        _id: false,
+
         key:       String,
         partIndex: Number,
         lang:      String,
-        oldValue:  {},
-        newValue:  {},
+        oldValue:  Object,
+        newValue:  Object,
     }],
-
     __lockedPaths: [String],
 }, {
     typeKey: '$type',
@@ -101,6 +102,8 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         transform(doc, ret) {
             delete ret._id;
             delete ret.__v;
+            delete ret.__lockedPaths;
+            delete ret.__updations;
 
             for (const p of ret.parts) {
                 delete p.__costMap;
@@ -110,8 +113,6 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         },
     },
 });
-
-CardSchema.plugin(historyPlugin);
 
 const Card = conn.model('card', CardSchema);
 

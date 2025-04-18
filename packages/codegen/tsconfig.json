@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "module": "CommonJS",
+        "target": "ES2024",
+        "noImplicitAny": true,
+        "rootDir": ".",
+        "outDir": "./dist",
+        "sourceMap": true,
+        "strictNullChecks": true,
+        "esModuleInterop": true,
+        "lib": ["ES2024", "DOM"],
+        "baseUrl": "./src",
+    },
+    "include": ["src/**/*"]
+}
