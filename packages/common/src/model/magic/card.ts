@@ -3,12 +3,15 @@ import { Print as IPrint } from '@interface/magic/print';
 import { Ruling } from '@interface/magic/ruling';
 
 import { WithUpdation } from '../updation';
+import { Computed } from '../computed';
 
-export type ICardDatabase = WithUpdation<Omit<ICard, 'parts'> & {
-    parts: (ICard['parts'][0] & {
-        __costMap?: Record<string, number>;
-    })[];
-}>;
+export type ICardDatabase = Computed<WithUpdation<ICard>, [
+    {
+        source:   'parts.cost';
+        computed: '__costMap';
+        type:     Record<string, number>;
+    },
+]>;
 
 export type RelatedCard = {
     relation: string;
