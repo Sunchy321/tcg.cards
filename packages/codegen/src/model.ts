@@ -54,6 +54,10 @@ type Unknown = {
 
 export type Model = Primitive | ElementArray | Optional | SimpleSet | StringMap | Enum | Object | Union | Unknown;
 
+function isStringLiteral(type: Type): boolean {
+    return type.isStringLiteral() || type.isTemplateLiteral();
+}
+
 function createModelByType(type: Type): Model {
     if (type.isNever()) {
         throw new Error('never should not appear in a model');
@@ -108,14 +112,17 @@ function createModelByType(type: Type): Model {
         };
     }
 
+    if (isStringLiteral(type)) {
+        return {
+            kind:   'enum',
+            values: [type.getLiteralValue() as string],
+        };
+    }
+
     if (type.isUnion()) {
         const types = type.getUnionTypes();
 
-        if (types.every(
-            t =>
-                (t.isLiteral() && t.getBaseTypeOfLiteralType()?.isString())
-                || (t.isTemplateLiteral() && t.getBaseTypeOfLiteralType()?.isString()),
-        )) {
+        if (types.every(t => isStringLiteral(t))) {
             return {
                 kind:   'enum',
                 values: types.map(t => t.getLiteralValue() as string),
@@ -147,12 +154,7 @@ function createModelByType(type: Type): Model {
         };
     }
 
-    console.log('type:', type.getFlags(), type.getText());
-
-    return {
-        kind: 'unknown',
-        text: type.getText(),
-    };
+    throw new Error(`unknown type ${type.getText()}`);
 }
 
 export function createModel(declaration: TypeAliasDeclaration | InterfaceDeclaration): Model {
