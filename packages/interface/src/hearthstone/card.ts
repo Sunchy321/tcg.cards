@@ -5,7 +5,7 @@ export type Change = 'major' | 'minor' | 'significant' | 'unspecified';
 export interface Card {
     cardId: string;
 
-    entityId: string[];
+    change: Change;
 
     legality: Record<string, Legality>;
 }

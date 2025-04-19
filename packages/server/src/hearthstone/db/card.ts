@@ -9,7 +9,7 @@ import { ICardDatabase } from '@common/model/hearthstone/card';
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
-    entityId: [String],
+    change: String,
 
     legality: Object,
 
