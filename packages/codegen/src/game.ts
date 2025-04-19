@@ -23,7 +23,40 @@ export class Game {
     }
 
     generateDatabase(): void {
+        this.generateDatabaseConn().saveSync();
         this.generateCardDatabase().saveSync();
+    }
+
+    generateDatabaseConn(): SourceFile {
+        const dbName = `${this.#name}/db/db.ts`;
+
+        const source = serverSrc.addSourceFileAtPathIfExists(dbName) ?? serverSrc.createSourceFile(dbName);
+
+        source.removeText();
+
+        source.addStatements('/** AUTO GENERATED, DO NOT CHANGE **/');
+
+        source.addImportDeclaration({
+            moduleSpecifier: '@/db',
+            namedImports:    [{ name: 'connect' }],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   writer => writer.newLine(),
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'conn',
+                initializer: `connect('${this.#name}')`,
+            }],
+        });
+
+        source.addExportAssignment({
+            leadingTrivia:  writer => writer.newLine(),
+            isExportEquals: false,
+            expression:     'conn',
+        });
+
+        return source;
     }
 
     generateCardDatabase(): SourceFile {
@@ -52,16 +85,8 @@ export class Game {
         source.addStatements('/** AUTO GENERATED, DO NOT CHANGE **/');
 
         source.addImportDeclaration({
-            leadingTrivia:   writer => writer.newLine(),
             moduleSpecifier: 'mongoose',
-            namedImports:    [
-                {
-                    name: 'Model',
-                },
-                {
-                    name: 'Schema',
-                },
-            ],
+            namedImports:    [{ name: 'Model' }, { name: 'Schema' }],
         });
 
         source.addImportDeclaration({
@@ -73,11 +98,7 @@ export class Game {
         source.addImportDeclaration({
             leadingTrivia:   writer => writer.newLine(),
             moduleSpecifier: `@common/model/${this.#name}/card`,
-            namedImports:    [
-                {
-                    name: 'ICardDatabase',
-                },
-            ],
+            namedImports:    [{ name: 'ICardDatabase' }],
         });
 
         const cardDatabaseModel = cloneDeep(cardModel);
@@ -122,7 +143,6 @@ export class Game {
 
         source.addVariableStatement({
             leadingTrivia:   '// eslint-disable-next-line @typescript-eslint/no-empty-object-type',
-            trailingTrivia:  writer => writer.newLine(),
             declarationKind: VariableDeclarationKind.Const,
             declarations:    [{
                 name:        'CardSchema',

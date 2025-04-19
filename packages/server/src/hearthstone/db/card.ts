@@ -1,5 +1,4 @@
 /** AUTO GENERATED, DO NOT CHANGE **/
-
 import { Model, Schema } from 'mongoose';
 
 import conn from './db';
