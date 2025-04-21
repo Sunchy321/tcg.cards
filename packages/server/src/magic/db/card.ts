@@ -29,7 +29,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
             text:     String,
         }],
 
-        cost:           { $type: [String], default: undefined, watcher: costWatcher },
+        cost:           { $type: [String], default: undefined, set: costWatcher },
         __costMap:      Object,
         manaValue:      Number,
         color:          String,

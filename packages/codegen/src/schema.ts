@@ -132,13 +132,13 @@ function printBaseSchema(
         if (watcher === undefined) {
             return type;
         } else {
-            return `{ ${newLineChar} $type: ${type}, ${newLineChar} watcher: ${watcher} ${newLineChar} }`;
+            return `{ ${newLineChar} $type: ${type}, ${newLineChar} set: ${watcher} ${newLineChar} }`;
         }
     } else {
         if (watcher === undefined) {
             return `{ ${newLineChar} $type: ${type}, ${newLineChar} default: ${defaultValue === null ? 'undefined' : defaultValue} ${newLineChar} }`;
         } else {
-            return `{ ${newLineChar} $type: ${type}, ${newLineChar} default: ${defaultValue === null ? 'undefined' : defaultValue}, watcher: ${watcher} ${newLineChar} }`;
+            return `{ ${newLineChar} $type: ${type}, ${newLineChar} default: ${defaultValue === null ? 'undefined' : defaultValue}, set: ${watcher} ${newLineChar} }`;
         }
     }
 }
