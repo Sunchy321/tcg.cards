@@ -2,7 +2,7 @@ import { Card as ICard } from '@interface/magic/card';
 import { Print as IPrint } from '@interface/magic/print';
 import { Ruling } from '@interface/magic/ruling';
 
-import { WithUpdation } from '../updation';
+import { WithUpdation, defaultToJSON } from '../updation';
 import { Computed } from '../computed';
 
 export type ICardDatabase = Computed<WithUpdation<ICard>, [
@@ -10,8 +10,40 @@ export type ICardDatabase = Computed<WithUpdation<ICard>, [
         source:   'parts.cost';
         computed: '__costMap';
         type:     Record<string, number>;
+        watcher:  'costWatcher';
     },
 ]>;
+
+export function costWatcher(newValue: string[]) {
+    if (newValue == null) {
+        this.__costMap = undefined;
+        return newValue;
+    }
+
+    const costMap: Record<string, number> = { };
+
+    for (const c of newValue) {
+        if (/^\d+$/.test(c)) {
+            costMap[''] = Number.parseInt(c, 10);
+        } else {
+            costMap[c] = (costMap[c] ?? 0) + 1;
+        }
+    }
+
+    this.__costMap = costMap;
+
+    return newValue;
+}
+
+export function toJSON(doc: any, ret: any): any {
+    const newRet = defaultToJSON(doc, ret);
+
+    for (const p of newRet.parts) {
+        delete p.__costMap;
+    }
+
+    return newRet;
+}
 
 export type RelatedCard = {
     relation: string;

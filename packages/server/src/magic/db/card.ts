@@ -3,7 +3,7 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { ICardDatabase } from '@common/model/magic/card';
+import { ICardDatabase, toJSON, costWatcher } from '@common/model/magic/card';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
@@ -29,30 +29,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
             text:     String,
         }],
 
-        cost: {
-            $type: [String],
-            set(newValue: string[]) {
-                if (newValue == null) {
-                    this.__costMap = undefined;
-                    return newValue;
-                }
-
-                const costMap: Record<string, number> = { };
-
-                for (const c of newValue) {
-                    if (/^\d+$/.test(c)) {
-                        costMap[''] = Number.parseInt(c, 10);
-                    } else {
-                        costMap[c] = (costMap[c] ?? 0) + 1;
-                    }
-                }
-
-                this.__costMap = costMap;
-
-                return newValue;
-            },
-        },
-
+        cost:           { $type: [String], default: undefined, watcher: costWatcher },
         __costMap:      Object,
         manaValue:      Number,
         color:          String,
@@ -88,29 +65,15 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     __updations: [{
         _id: false,
 
-        key:       String,
-        partIndex: Number,
-        lang:      String,
-        oldValue:  Object,
-        newValue:  Object,
+        key:      String,
+        oldValue: Object,
+        newValue: Object,
     }],
+
     __lockedPaths: [String],
 }, {
     typeKey: '$type',
-    toJSON:  {
-        transform(doc, ret) {
-            delete ret._id;
-            delete ret.__v;
-            delete ret.__lockedPaths;
-            delete ret.__updations;
-
-            for (const p of ret.parts) {
-                delete p.__costMap;
-            }
-
-            return ret;
-        },
-    },
+    toJSON:  { transform: toJSON },
 });
 
 const Card = conn.model('card', CardSchema);

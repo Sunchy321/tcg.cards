@@ -51,7 +51,7 @@ router.post('/resolve-duplicate', async ctx => {
     for (const c of data) {
         if (c.cardId !== initial.cardId) {
             await Card.updateMany(
-                { cardId: initial.cardId, entityId: { $in: c.entityId } },
+                { cardId: initial.cardId, entityId: { $in: c.cardId } },
                 { $set: { cardId: c.cardId } },
             );
         }

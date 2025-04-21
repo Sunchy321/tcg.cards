@@ -1,7 +1,8 @@
-import { Directory, Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
+import { Directory, ExportedDeclarations, Project, SourceFile, SyntaxKind, VariableDeclarationKind } from 'ts-morph';
 
-import { createModel, modelIntoSchema } from './model';
-import { cloneDeep, last } from 'lodash';
+import { createModel } from './model';
+import { applyComputed, parseComputed } from './computed';
+import { modelIntoSchema, printSchema } from './schema';
 
 export const server = new Project({
     tsConfigFilePath: '../server/tsconfig.json',
@@ -10,12 +11,44 @@ export const server = new Project({
 export const serverSrc = server.getRootDirectories().find(d => d.getPath().endsWith('/server/src'))!;
 
 export class Game {
-    #source: Directory;
-    #name:   string;
+    #name:      string;
+    #interface: Directory;
+    #model:     Directory;
 
-    constructor(source: Directory) {
-        this.#source = source;
+    constructor(source: Directory, model: Directory) {
         this.#name = source.getBaseName();
+        this.#interface = source;
+        this.#model = model;
+    }
+
+    getInterface(name: string): SourceFile {
+        return this.#interface.getSourceFileOrThrow(name);
+    }
+
+    getModel(name: string): SourceFile {
+        return this.#model.getSourceFileOrThrow(name);
+    }
+
+    tryGetModel(name: string): SourceFile | undefined {
+        return this.#model.getSourceFile(name);
+    }
+
+    hasDeclaration(source: SourceFile, name: string): boolean {
+        return source.getExportedDeclarations().get(name) != null;
+    }
+
+    getDeclaration(source: SourceFile, name: string): ExportedDeclarations {
+        const result = source.getExportedDeclarations().get(name)?.[0];
+
+        if (result == null) {
+            throw new Error(`exported declaration ${name} not found in ${source.getBaseName()}`);
+        }
+
+        return result;
+    }
+
+    tryGetDeclaration(source: SourceFile | undefined, name: string): ExportedDeclarations | undefined {
+        return source?.getExportedDeclarations()?.get(name)?.[0];
     }
 
     generate(): void {
@@ -62,21 +95,62 @@ export class Game {
     generateCardDatabase(): SourceFile {
         const name = `${this.#name}/db/card.ts`;
 
-        const files = this.#source.getSourceFiles();
+        const card = this.getDeclaration(this.getInterface('card.ts'), 'Card');
 
-        const cardFile = files.find(f => f.getBaseName() === 'card.ts');
-
-        if (cardFile == null) {
-            throw new Error(`card.ts not found in ${this.#name}`);
-        }
-
-        const card = cardFile.getExportedDeclarations().get('Card')?.[0];
-
-        if (card == null) {
-            throw new Error(`Card class not found in ${cardFile.getBaseName()}`);
-        }
+        const cardDatabase = this.getDeclaration(this.getModel('card.ts'), 'ICardDatabase');
 
         const cardModel = createModel(card as any);
+
+        if (!cardDatabase.isKind(SyntaxKind.TypeAliasDeclaration)) {
+            throw new Error('Wrong card database type');
+        }
+
+        let cardDatabaseModel = createModel(cardDatabase as any);
+
+        const computedList = parseComputed(cardDatabase);
+
+        cardDatabaseModel = applyComputed(cardDatabaseModel, computedList ?? []);
+
+        if (cardModel.kind !== 'object' || cardDatabaseModel.kind !== 'object') {
+            throw new Error('Wrong card database model type');
+        }
+
+        cardDatabaseModel.keyValues.sort((a, b) => {
+            const aIndex = cardModel.keyValues.findIndex(v => v.key === a.key);
+            const bIndex = cardModel.keyValues.findIndex(v => v.key === b.key);
+
+            if (aIndex === -1) {
+                if (bIndex === -1) {
+                    return 0;
+                } else {
+                    return 1;
+                }
+            } else {
+                if (bIndex === -1) {
+                    return -1;
+                } else {
+                    return aIndex - bIndex;
+                }
+            }
+        });
+
+        for (const [i, kv] of cardDatabaseModel.keyValues.entries()) {
+            const cardItem = cardModel.keyValues.find(v => v.key === kv.key);
+
+            if (cardItem == null) {
+                if (i > 0) {
+                    const lastItem = cardDatabaseModel.keyValues[i - 1];
+
+                    const lastCardItem = cardModel.keyValues.find(v => v.key === lastItem.key);
+
+                    if (lastCardItem != null) {
+                        lastItem.hasTrailingNewline = true;
+                    }
+                }
+            } else {
+                kv.hasTrailingNewline = cardItem.hasTrailingNewline;
+            }
+        }
 
         const source = serverSrc.addSourceFileAtPathIfExists(name) ?? serverSrc.createSourceFile(name);
 
@@ -98,47 +172,11 @@ export class Game {
         source.addImportDeclaration({
             leadingTrivia:   writer => writer.newLine(),
             moduleSpecifier: `@common/model/${this.#name}/card`,
-            namedImports:    [{ name: 'ICardDatabase' }],
-        });
-
-        const cardDatabaseModel = cloneDeep(cardModel);
-
-        if (cardDatabaseModel.kind != 'object') {
-            throw new Error('Wrong card model type');
-        }
-
-        if (last(cardDatabaseModel.keyValues) != null) {
-            last(cardDatabaseModel.keyValues)!.hasTrailingEmptyLine = true;
-        }
-
-        cardDatabaseModel.keyValues.push(
-            {
-                key:   '__updations',
-                value: {
-                    kind:    'array',
-                    element: {
-                        kind:      'object',
-                        keyValues: [
-                            { key: 'key', value: { kind: 'primitive', type: 'string' } },
-                            { key: 'partIndex', value: { kind: 'primitive', type: 'number' } },
-                            { key: 'lang', value: { kind: 'primitive', type: 'string' } },
-                            { key: 'oldValue', value: { kind: 'primitive', type: 'any' } },
-                            { key: 'newValue', value: { kind: 'primitive', type: 'any' } },
-                        ],
-                    },
-                },
-            },
-        );
-
-        cardDatabaseModel.keyValues.push({
-            key:   '__lockedPaths',
-            value: {
-                kind:    'array',
-                element: {
-                    kind: 'primitive',
-                    type: 'string',
-                },
-            },
+            namedImports:    [
+                { name: 'ICardDatabase' },
+                { name: 'toJSON' },
+                ...(computedList ?? []).map(c => ({ name: c.watcher })),
+            ],
         });
 
         source.addVariableStatement({
@@ -149,20 +187,8 @@ export class Game {
                 initializer: writer => {
                     writer.write(
                         'new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, \'$type\'>('
-                        + modelIntoSchema(cardDatabaseModel)
-                        + `, {
-    typeKey: '$type',
-    toJSON:  {
-        transform(doc, ret) {
-            delete ret._id;
-            delete ret.__v;
-            delete ret.__lockedPaths;
-            delete ret.__updations;
-
-            return ret;
-        },
-    },
-})`,
+                        + printSchema(modelIntoSchema(cardDatabaseModel))
+                        + `, {\n typeKey: '$type',\n toJSON: { transform: toJSON } \n})`,
                     );
                 },
             }],

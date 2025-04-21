@@ -3,7 +3,7 @@ import { Print as IPrint } from '@interface/magic/print';
 import { ICardDatabase } from '@common/model/magic/card';
 import { IPrintDatabase } from '@common/model/magic/print';
 import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
-import { WithUpdation } from 'card-common/src/model/updation';
+import { WithUpdation } from '@common/model/updation';
 
 import { Document } from 'mongoose';
 

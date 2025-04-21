@@ -1,7 +1,6 @@
-import { InterfaceDeclaration, SyntaxKind, Type, TypeAliasDeclaration } from 'ts-morph';
+import { InterfaceDeclaration, SyntaxKind, Type, TypeAliasDeclaration, Node } from 'ts-morph';
 
 import * as fs from 'fs';
-import { last } from 'lodash';
 
 type Primitive = {
     kind: 'primitive';
@@ -41,9 +40,10 @@ type StringMap = {
 type Object = {
     kind:      'object';
     keyValues: {
-        key:                   string;
-        value:                 Model;
-        hasTrailingEmptyLine?: boolean;
+        key:                 string;
+        value:               Model;
+        hasTrailingNewline?: boolean;
+        watcher?:            string;
     }[];
 };
 
@@ -58,7 +58,7 @@ function isStringLiteral(type: Type): boolean {
     return type.isStringLiteral() || type.isTemplateLiteral();
 }
 
-function createModelByType(type: Type): Model {
+export function createModelByType(type: Type, node: Node): Model {
     if (type.isNever()) {
         throw new Error('never should not appear in a model');
     }
@@ -66,7 +66,7 @@ function createModelByType(type: Type): Model {
     if (type.isNullable()) {
         return {
             kind:     'optional',
-            baseType: createModelByType(type.getNonNullableType()),
+            baseType: createModelByType(type.getNonNullableType(), node),
         };
     }
 
@@ -101,14 +101,14 @@ function createModelByType(type: Type): Model {
     if (type.isArray()) {
         return {
             kind:    'array',
-            element: createModelByType(type.getArrayElementType()!),
+            element: createModelByType(type.getArrayElementType()!, node),
         };
     }
 
     if (type.getStringIndexType() != null) {
         return {
             kind:  'string-map',
-            value: createModelByType(type.getStringIndexType()!),
+            value: createModelByType(type.getStringIndexType()!, node),
         };
     }
 
@@ -130,27 +130,29 @@ function createModelByType(type: Type): Model {
         } else {
             return {
                 kind:    'union',
-                members: types.map(t => createModelByType(t)),
+                members: types.map(t => createModelByType(t, node)),
             };
         }
     }
 
     if (type.getProperties().length > 0) {
         const lines = type.getProperties().map(p => {
-            const decl = p.getValueDeclaration()!;
+            const decl = p.getValueDeclaration() ?? p.getDeclarations()[0];
 
-            return [decl.getStartLineNumber(), decl.getEndLineNumber()];
+            return [decl?.getStartLineNumber() ?? 0, decl?.getEndLineNumber() ?? 0];
         });
 
         return {
             kind:      'object',
-            keyValues: type.getProperties().map((p, i, a) => ({
-                key:                  p.getName(),
-                value:                createModelByType(p.getValueDeclarationOrThrow().getType()),
-                hasTrailingEmptyLine: i === a.length - 1
-                    ? false
-                    : lines[i + 1][0] - lines[i][1] > 1,
-            })),
+            keyValues: type.getProperties().map((p, i, a) => {
+                return {
+                    key:                p.getName(),
+                    value:              createModelByType(p.getTypeAtLocation(node), node),
+                    hasTrailingNewline: i === a.length - 1
+                        ? false
+                        : lines[i + 1][0] - lines[i][1] > 1,
+                };
+            }),
         };
     }
 
@@ -159,7 +161,7 @@ function createModelByType(type: Type): Model {
 
 export function createModel(declaration: TypeAliasDeclaration | InterfaceDeclaration): Model {
     if (declaration.isKind(SyntaxKind.TypeAliasDeclaration)) {
-        return createModelByType(declaration.getType());
+        return createModelByType(declaration.getType(), declaration.getTypeNode()!);
     } else {
         const properties = declaration.getProperties();
 
@@ -170,9 +172,9 @@ export function createModel(declaration: TypeAliasDeclaration | InterfaceDeclara
         return {
             kind:      'object',
             keyValues: properties.map((p, i, a) => ({
-                key:                  p.getName(),
-                value:                createModelByType(p.getType()),
-                hasTrailingEmptyLine: i === a.length - 1
+                key:                p.getName(),
+                value:              createModelByType(p.getType(), p.getTypeNode()!),
+                hasTrailingNewline: i === a.length - 1
                     ? false
                     : lines[i + 1][0] - lines[i][1] > 1,
             })),
@@ -182,68 +184,4 @@ export function createModel(declaration: TypeAliasDeclaration | InterfaceDeclara
 
 export function writeModel(model: Model, path: string): void {
     fs.writeFileSync(path, JSON.stringify(model, null, 4));
-}
-
-export function modelIntoSchema(model: Model, ignoreId = false): string {
-    switch (model.kind) {
-    case 'primitive':
-        switch (model.type) {
-        case 'boolean':
-            return 'Boolean';
-        case 'string':
-            return 'String';
-        case 'number':
-            return 'Number';
-        case 'any':
-            return 'Object';
-        default:
-            throw new Error(`Unknown primitive ${model.type}`);
-        }
-    case 'optional':
-        if (model.baseType.kind === 'array') {
-            return `{ $type: ${modelIntoSchema(model.baseType)}, default: undefined }`;
-        } else {
-            return modelIntoSchema(model.baseType);
-        }
-    case 'array':
-    case 'simpleSet':
-        return '[' + modelIntoSchema(model.element, true) + ']';
-    case 'enum':
-        return 'String';
-    case 'union':
-        return 'Object';
-    case 'string-map':
-        return 'Object';
-    case 'object': {
-        const items = [...model.keyValues.map(kv => ({
-            key:                  kv.key,
-            value:                modelIntoSchema(kv.value),
-            hasTrailingEmptyLine: kv.hasTrailingEmptyLine,
-        }))];
-
-        if (ignoreId) {
-            items.unshift({ key: '_id', value: 'false', hasTrailingEmptyLine: true });
-        }
-
-        if (last(items) != null) {
-            last(items)!.hasTrailingEmptyLine = true;
-        }
-
-        return `{\n${items.map((v, i, a) => {
-            let text = `${v.key}: ${v.value},`;
-
-            if (i !== a.length - 1) {
-                text += '\n';
-            }
-
-            if (v.hasTrailingEmptyLine) {
-                text += '\n';
-            }
-
-            return text;
-        }).join('')}}`;
-    }
-    default:
-        throw new Error(`Unknown kind ${model.kind}`);
-    }
 }

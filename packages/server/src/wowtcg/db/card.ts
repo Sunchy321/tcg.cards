@@ -3,7 +3,7 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { ICardDatabase } from '@common/model/wowtcg/card';
+import { ICardDatabase, toJSON } from '@common/model/wowtcg/card';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
@@ -42,16 +42,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     __lockedPaths: [String],
 }, {
     typeKey: '$type',
-    toJSON:  {
-        transform(doc, ret) {
-            delete ret._id;
-            delete ret.__v;
-            delete ret.__lockedPaths;
-            delete ret.__updations;
-
-            return ret;
-        },
-    },
+    toJSON:  { transform: toJSON },
 });
 
 const Card = conn.model('card', CardSchema);

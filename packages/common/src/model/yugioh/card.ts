@@ -1,9 +1,11 @@
 import { Card as ICard } from '@interface/yugioh/card';
 import { Print as IPrint } from '@interface/yugioh/print';
 
-import { WithUpdation } from '../updation';
+import { WithUpdation, defaultToJSON } from '../updation';
 
 export type ICardDatabase = WithUpdation<ICard>;
+
+export const toJSON = defaultToJSON;
 
 export type RelatedCard = {
     relation: string;
