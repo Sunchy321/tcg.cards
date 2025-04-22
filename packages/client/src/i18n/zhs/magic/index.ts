@@ -75,7 +75,7 @@ export default {
         unavailable:         '不可用',
         banned_as_commander: '禁止用作指挥官',
         banned_as_companion: '禁止用作行侣',
-        game_changer:        '大招',
+        game_changer:        '主宰牌',
     },
 
     'tag': {
