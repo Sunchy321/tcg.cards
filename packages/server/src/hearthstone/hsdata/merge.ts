@@ -5,7 +5,6 @@ export async function mergeCard(card: Document & ICard, data: ICard): Promise<vo
     for (const k of Object.keys(data) as (keyof ICard)[]) {
         switch (k) {
         case 'cardId':
-        case 'entityId':
         case 'legality':
             break;
         }
