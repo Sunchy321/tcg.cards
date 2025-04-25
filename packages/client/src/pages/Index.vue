@@ -20,11 +20,11 @@
 
 import { useI18n } from 'vue-i18n';
 
-import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
 
+import { games } from 'static/index';
+
 const i18n = useI18n();
-const { games } = basicSetup();
 
 pageSetup({ });
 

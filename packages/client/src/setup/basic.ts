@@ -7,7 +7,6 @@ import { useCore } from 'store/core';
 import { User, useUser } from 'store/user';
 
 export default function basicSetup(): {
-    games:   ComputedRef<Game[]>;
     game:    ComputedRef<Game | null>;
     user:    ComputedRef<User | null>;
     isAdmin: ComputedRef<boolean>;
@@ -17,7 +16,6 @@ export default function basicSetup(): {
     const core = useCore();
     const userStore = useUser();
 
-    const games = computed(() => core.games);
     const game = computed(() => core.game);
     const user = computed(() => userStore.user);
     const isAdmin = computed(() => userStore.isAdmin);
@@ -25,6 +23,6 @@ export default function basicSetup(): {
     const meta = computed(() => route.meta);
 
     return {
-        games, game, user, isAdmin, meta,
+        game, user, isAdmin, meta,
     };
 }

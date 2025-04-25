@@ -36,6 +36,8 @@ import UserProfile from 'components/setting/Profile.vue';
 
 import AppHeader from 'components/Header.vue';
 
+import { games } from 'static/index';
+
 export interface Menu {
     id:        string;
     label:     string;
@@ -51,7 +53,7 @@ export default defineComponent({
         const route = useRoute();
         const core = useCore();
 
-        const { games, user } = basicSetup();
+        const { user } = basicSetup();
 
         pageSetup({
             title: () => i18n.t('setting.$self'),
