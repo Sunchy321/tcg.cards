@@ -1,50 +1,17 @@
-const routes = [
+import { RouteRecordRaw } from 'vue-router';
+
+import { createDefaultRoute } from './routes';
+
+const routes: RouteRecordRaw[] = [
+    ...createDefaultRoute('magic'),
     {
         path:      '/magic',
         component: async () => import('layouts/Main.vue'),
         children:  [
             {
-                path:      '',
-                name:      'magic',
-                component: async () => import('pages/magic/Index.vue'),
-            },
-            {
-                path:      'data',
-                name:      'magic/data',
-                component: async () => import('pages/magic/Data.vue'),
-                meta:      {
-                    admin: true,
-                },
-            },
-            {
-                path:      'format/:id',
-                name:      'magic/format',
-                component: async () => import('pages/magic/Format.vue'),
-            },
-            {
-                path:      'set',
-                name:      'magic/sets',
-                component: async () => import('pages/magic/Sets.vue'),
-            },
-            {
-                path:      'set/:id',
-                name:      'magic/set',
-                component: async () => import('pages/magic/Set.vue'),
-            },
-            {
                 path:      'set/:setId/booster/:boosterId',
                 name:      'magic/set/booster',
                 component: async () => import('pages/magic/set/Booster.vue'),
-            },
-            {
-                path:      'card/:id',
-                name:      'magic/card',
-                component: async () => import('pages/magic/Card.vue'),
-            },
-            {
-                path:      'search',
-                name:      'magic/search',
-                component: async () => import('pages/magic/Search.vue'),
             },
             {
                 path:      'advanced-search',

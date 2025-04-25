@@ -1,40 +1,17 @@
-const routes = [
+import { RouteRecordRaw } from 'vue-router';
+
+import { createDefaultRoute } from './routes';
+
+const routes: RouteRecordRaw[] = [
+    ...createDefaultRoute('hearthstone'),
     {
         path:      '/hearthstone',
         component: async () => import('layouts/Main.vue'),
         children:  [
             {
-                path:      '',
-                name:      'hearthstone',
-                component: async () => import('pages/hearthstone/Index.vue'),
-            },
-            {
-                path:      'data',
-                name:      'hearthstone/data',
-                component: async () => import('pages/hearthstone/Data.vue'),
-                meta:      {
-                    admin: true,
-                },
-            },
-            {
-                path:      'format/:id',
-                name:      'hearthstone/format',
-                component: async () => import('pages/hearthstone/Format.vue'),
-            },
-            {
-                path:      'set/:id',
-                name:      'hearthstone/set',
-                component: async () => import('pages/hearthstone/Set.vue'),
-            },
-            {
                 path:      'entity/:id',
                 name:      'hearthstone/entity',
                 component: async () => import('pages/hearthstone/Entity.vue'),
-            },
-            {
-                path:      'search',
-                name:      'hearthstone/search',
-                component: async () => import('pages/hearthstone/Search.vue'),
             },
             {
                 path:      'log-parse',
