@@ -1,4 +1,5 @@
 import magic from './magic';
+import yugioh from './yugioh';
 import hearthstone from './hearthstone';
 import lorcana from './lorcana';
 
@@ -86,6 +87,7 @@ export default {
     },
 
     magic,
+    yugioh,
     hearthstone,
     lorcana,
 };

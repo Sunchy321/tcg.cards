@@ -1,7 +1,8 @@
 import KoaRouter from '@koa/router';
 
-import hearthstone from '@/hearthstone/router/api';
 import magic from '@/magic/router/api';
+import yugioh from '@/yugioh/router/api';
+import hearthstone from '@/hearthstone/router/api';
 import lorcana from '@/lorcana/router/api';
 
 import data, { Game, games } from '@static/index';
@@ -12,8 +13,9 @@ router.get('/', async ctx => {
     ctx.body = games;
 });
 
-router.use(hearthstone.routes());
 router.use(magic.routes());
+router.use(yugioh.routes());
+router.use(hearthstone.routes());
 router.use(lorcana.routes());
 
 router.get('/:game', async ctx => {
