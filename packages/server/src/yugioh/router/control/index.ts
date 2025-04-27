@@ -8,7 +8,7 @@ import lorcanaJson from './yugioh-history';
 
 const router = new KoaRouter();
 
-router.prefix('/lorcana');
+router.prefix('/yugioh');
 
 router.use(card.routes());
 router.use(print.routes());

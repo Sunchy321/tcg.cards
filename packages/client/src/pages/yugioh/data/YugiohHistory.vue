@@ -63,15 +63,12 @@
 
 <script setup lang="ts">
 import {
-    ref, computed, onMounted, watch,
+    ref, computed, onMounted,
 } from 'vue';
 
 import controlSetup from 'setup/control';
 
 import bytes from 'bytes';
-import { last } from 'lodash';
-
-type BulkList = string[];
 
 interface Database {
     card:  number;
@@ -121,10 +118,7 @@ function formatTime(time: number) {
 
 const { controlGet, controlWs } = controlSetup();
 
-const bulk = ref<BulkList>([]);
 const database = ref<Database>({ card: 0, print: 0, set: 0 });
-
-const bulkItem = ref<string>('');
 
 const progress = ref<Progress | null>(null);
 
@@ -176,11 +170,9 @@ const progressLabel = computed(() => {
 
 const loadBulk = async () => {
     const { data } = await controlGet<{
-        bulk:     BulkList;
         database: Database;
     }>('/yugioh/yugioh-history');
 
-    bulk.value = data.bulk;
     database.value = data.database;
 };
 
@@ -204,7 +196,4 @@ const loadCard = async () => {
 
 onMounted(loadBulk);
 
-watch(bulk, newBulk => {
-    bulkItem.value = last(newBulk) ?? '';
-});
 </script>

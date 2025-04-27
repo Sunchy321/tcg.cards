@@ -8,7 +8,7 @@ import { Card as ICard } from '@interface/yugioh/card';
 
 import { Status } from '../status';
 
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import internalData from '@/internal-data';
 import { toBucket, toGenerator } from '@/common/to-bucket';
@@ -27,9 +27,7 @@ export default class DataLoader extends Task<Status> {
         let type = 'card';
         let total = 0;
         let count = 0;
-
-        // start timer
-        const start = Date.now();
+        let start = Date.now();
 
         this.intervalProgress(500, () => {
             const prog: Status = {
@@ -51,7 +49,10 @@ export default class DataLoader extends Task<Status> {
 
         const path = join(dataPath, 'yugioh', 'yugioh-card-history');
 
-        const langs = readdirSync(path);
+        const langs = readdirSync(path).filter(l =>
+            !l.startsWith('.')
+            && statSync(join(path, l)).isDirectory(),
+        );
 
         const langMap = internalData<Record<string, string>>(`yugioh.lang-map`);
 
@@ -64,6 +65,8 @@ export default class DataLoader extends Task<Status> {
 
             type = `card/${lang}`;
             total = files.length;
+            count = 0;
+            start = Date.now();
 
             for (const fileBucket of toBucket(toGenerator(files), bucketSize)) {
                 if (this.status === 'idle') {
@@ -90,9 +93,11 @@ export default class DataLoader extends Task<Status> {
                     } else {
                         await mergeCard(oldCard, card);
                     }
+
+                    count += 1;
                 }
 
-                count += 1;
+                await Card.insertMany(cardsToInsert);
             }
         }
 

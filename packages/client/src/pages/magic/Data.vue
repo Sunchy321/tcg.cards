@@ -50,8 +50,6 @@ watch([tab], () => {
 
     const component = components[filename];
 
-    console.log(tab.value, component);
-
     if (component == null) {
         pageComponent.value = undefined;
 
