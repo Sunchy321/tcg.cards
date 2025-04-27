@@ -33,12 +33,11 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     __updations: [{
         _id: false,
 
-        key:       String,
-        partIndex: Number,
-        lang:      String,
-        oldValue:  Object,
-        newValue:  Object,
+        key:      String,
+        oldValue: Object,
+        newValue: Object,
     }],
+
     __lockedPaths: [String],
 }, {
     typeKey: '$type',

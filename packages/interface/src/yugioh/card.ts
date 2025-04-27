@@ -7,10 +7,6 @@ export type Legalities = Record<string, Legality>;
 export type Card = {
     cardId: string;
 
-    name:     string;
-    typeline: string;
-    text:     string;
-
     localization: {
         lang:     string;
         lastDate: string;

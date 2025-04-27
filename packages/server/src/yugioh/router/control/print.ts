@@ -3,25 +3,19 @@ import { DefaultState, Context } from 'koa';
 
 import { ObjectId } from 'mongoose';
 
-import Card from '@/magic/db/card';
-import Print from '@/magic/db/print';
+import Print from '@/lorcana/db/print';
 
-import { Print as IPrint } from '@interface/magic/print';
-import { PrintUpdationCollection, PrintUpdationView } from '@common/model/magic/print';
+import { Print as IPrint } from '@interface/lorcana/print';
+import { PrintUpdationCollection, PrintUpdationView } from '@common/model/lorcana/print';
 import { Updation, WithUpdation } from '@common/model/updation';
 
-import { existsSync, renameSync } from 'fs';
 import {
     omit, mapValues, isEqual, uniq,
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import parseGatherer, { saveGathererImage } from '@/magic/gatherer/parse';
-
-import searcher from '@/magic/search';
-import * as logger from '@/magic/logger';
-
-import { assetPath } from '@/config';
+import searcher from '@/lorcana/search';
+import * as logger from '@/lorcana/logger';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -80,14 +74,8 @@ router.get('/search', async ctx => {
 router.post('/update', async ctx => {
     const { data } = ctx.request.body as { data: IPrint & { _id: ObjectId } };
 
-    for (const p of data.parts) {
-        if (p.flavorText === '') {
-            delete p.flavorText;
-        }
-
-        if (p.flavorName === '') {
-            delete p.flavorName;
-        }
+    if (data.flavorText === '') {
+        delete data.flavorText;
     }
 
     const old = await Print.findById(data._id);
@@ -96,81 +84,6 @@ router.post('/update', async ctx => {
         await old.replaceOne(data);
     } else {
         await Print.create(omit(data, ['_id', '__v']) as IPrint);
-    }
-
-    ctx.status = 200;
-});
-
-router.get('/rename', async ctx => {
-    const { set } = mapValues(ctx.query, toSingle);
-
-    if (set == null) {
-        ctx.status = 404;
-        return;
-    }
-
-    const prints = await Print.find({ set, lang: 'zhs' });
-
-    const cards = await Card.find({ cadId: { $in: prints.map(p => p.cardId) } });
-
-    const renamed = [];
-    const missed = [];
-
-    for (const p of prints) {
-        const c = cards.find(c => c.cardId === p.cardId);
-
-        if (c == null) {
-            missed.push([p.cardId, p.parts.map(p => p.name)]);
-            continue;
-        }
-
-        const { name } = c.parts[0];
-
-        const oldPath = `${assetPath}/magic/card/large/${set}/zhs/${name.replace(':', '')}.full.jpg`;
-        const oldPathWithNumber = `${assetPath}/magic/card/large/${set}/zhs/${name.replace(':', '')}.${p.number}.full.jpg`;
-        const newPath = `${assetPath}/magic/card/large/${set}/zhs/${p.number}.jpg`;
-
-        if (existsSync(newPath)) {
-            continue;
-        }
-
-        if (existsSync(oldPath)) {
-            renameSync(oldPath, newPath);
-
-            renamed.push(`${name} -> ${p.number}`);
-        } else if (existsSync(oldPathWithNumber)) {
-            renameSync(oldPathWithNumber, newPath);
-
-            renamed.push(`${name}.${p.number} -> ${p.number}`);
-        } else {
-            missed.push([p.cardId, c.parts.map(p => p.name), p.number]);
-        }
-    }
-
-    ctx.body = { missed, renamed };
-});
-
-router.get('/parse-gatherer', async ctx => {
-    const {
-        id: mid, set, number, lang,
-    } = mapValues(ctx.query, toSingle);
-
-    const mids = mid.split(',').map(v => Number.parseInt(v.trim(), 10));
-
-    if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
-        await parseGatherer(mids, set, number, lang);
-    }
-});
-
-router.get('/save-gatherer-image', async ctx => {
-    const {
-        id: mid, set, number, lang,
-    } = mapValues(ctx.query, toSingle);
-
-    const mids = mid.split(',').map(v => Number.parseInt(v.trim(), 10));
-
-    if (mids.length >= 1 && mids.length <= 2 && mids.every(n => !Number.isNaN(n))) {
-        await saveGathererImage(mids, set, number, lang);
     }
 
     ctx.status = 200;

@@ -1,10 +1,11 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Set from '@/magic/db/set';
-import Print from '@/magic/db/print';
+import Set from '@/lorcana/db/set';
+import Print from '@/lorcana/db/print';
 
-import { Set as ISet } from '@interface/magic/set';
+import { Set as ISet } from '@interface/lorcana/set';
+import { Rarity } from '@interface/lorcana/print';
 
 import axios from 'axios';
 import cheerio from 'cheerio';
@@ -12,7 +13,7 @@ import cheerio from 'cheerio';
 import { mapValues, uniq } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import { locales, extendedLocales } from '@static/magic/basic';
+import { locales } from '@static/lorcana/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -59,7 +60,7 @@ router.post('/calc', async ctx => {
         set:    string;
         number: string;
         lang:   string;
-        rarity: string;
+        rarity: Rarity;
     }>().project({
         _id: 0, set: 1, number: 1, lang: 1, rarity: 1,
     });
@@ -71,7 +72,7 @@ router.post('/calc', async ctx => {
 
         set.cardCount = uniq(cards.map(c => c.number)).length;
         set.langs = uniq(cards.map(c => c.lang))
-            .sort((a, b) => extendedLocales.indexOf(a) - extendedLocales.indexOf(b));
+            .sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
         set.rarities = uniq(cards.map(c => c.rarity))
             .sort((a, b) => rarities.indexOf(a) - rarities.indexOf(b));
 

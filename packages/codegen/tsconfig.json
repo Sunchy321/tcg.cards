@@ -11,5 +11,5 @@
         "lib": ["ES2024", "DOM"],
         "baseUrl": "./src",
     },
-    "include": ["src/**/*"]
+    "include": ["src/**/*", "scripts/gen-model.ts"]
 }

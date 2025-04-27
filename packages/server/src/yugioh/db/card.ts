@@ -9,10 +9,6 @@ import { ICardDatabase, toJSON } from '@common/model/yugioh/card';
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
-    name:     String,
-    typeline: String,
-    text:     String,
-
     localization: [{
         _id: false,
 

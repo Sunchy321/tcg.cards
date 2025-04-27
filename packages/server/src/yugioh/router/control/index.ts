@@ -2,26 +2,18 @@ import KoaRouter from '@koa/router';
 
 import card from './card';
 import print from './print';
-import ruling from './ruling';
-import cr from './cr';
-import format from './format';
 import image from './image';
 import set from './set';
-import scryfall from './scryfall';
-import mtgjson from './mtgjson';
+import lorcanaJson from './yugioh-history';
 
 const router = new KoaRouter();
 
-router.prefix('/yugioh');
+router.prefix('/lorcana');
 
 router.use(card.routes());
 router.use(print.routes());
-router.use(ruling.routes());
-router.use(cr.routes());
-router.use(format.routes());
 router.use(image.routes());
 router.use(set.routes());
-router.use(scryfall.routes());
-router.use(mtgjson.routes());
+router.use(lorcanaJson.routes());
 
 export default router;

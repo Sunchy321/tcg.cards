@@ -3,6 +3,7 @@ import { RouteRecordRaw } from 'vue-router';
 import { capitalize } from 'lodash';
 
 import magic from './magic';
+import yugioh from './yugioh';
 import hearthstone from './hearthstone';
 import lorcana from './lorcana';
 
@@ -38,6 +39,7 @@ const routes: RouteRecordRaw[] = [
     },
 
     ...magic,
+    ...yugioh,
     ...hearthstone,
     ...lorcana,
 
