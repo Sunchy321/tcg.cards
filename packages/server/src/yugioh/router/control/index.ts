@@ -4,7 +4,7 @@ import card from './card';
 import print from './print';
 import image from './image';
 import set from './set';
-import lorcanaJson from './yugioh-history';
+import lorcanaJson from './data';
 
 const router = new KoaRouter();
 

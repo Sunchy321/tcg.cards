@@ -1,4 +1,4 @@
-import { Print as IPrint } from '@interface/lorcana/print';
+import { Print as IPrint } from '@interface/yugioh/print';
 
 import { WithUpdation } from '../updation';
 

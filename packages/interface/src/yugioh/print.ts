@@ -1,7 +1,7 @@
-export type Layout = 'normal';
+export type Layout = string;
 
 export type Print = {
-    cardId: string;
+    cardId: number;
 
     lang:   string;
     set:    string;

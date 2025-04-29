@@ -2,8 +2,8 @@ import { Card as ICard } from '@interface/yugioh/card';
 
 import { Card as HCard } from '@interface/yugioh/yugioh-history/card';
 
-function getId(data: HCard): string {
-    return data.id.toString();
+function getId(data: HCard) {
+    return data.id;
 }
 
 export function toCard(
@@ -24,7 +24,7 @@ export function toCard(
         localization: [{ lang, ...loc, lastDate: '' }],
 
         type: {
-            main: ['TODO'],
+            main: 'TODO',
             sub:  ['TODO'],
         },
 
@@ -41,5 +41,7 @@ export function toCard(
         legalities: {},
 
         tags: [],
+
+        code: data.id,
     };
 }

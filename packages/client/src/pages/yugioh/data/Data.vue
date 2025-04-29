@@ -22,9 +22,16 @@
         <div class="row q-gutter-md">
             <q-btn
                 dense outline
-                @click="loadCard"
+                @click="loadYGOProdeck"
             >
-                Card
+                YGOProdeck
+            </q-btn>
+
+            <q-btn
+                dense outline
+                @click="loadYugiohHistoryCard"
+            >
+                YugiohHistory
             </q-btn>
         </div>
 
@@ -171,13 +178,31 @@ const progressLabel = computed(() => {
 const loadBulk = async () => {
     const { data } = await controlGet<{
         database: Database;
-    }>('/yugioh/yugioh-history');
+    }>('/yugioh/data');
 
     database.value = data.database;
 };
 
-const loadCard = async () => {
-    const ws = controlWs('/yugioh/yugioh-history/load-card');
+const loadYGOProdeck = async () => {
+    const ws = controlWs('/yugioh/data/ygoprodeck');
+
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            progress.value = JSON.parse(data) as Progress;
+        };
+
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            void loadBulk();
+
+            resolve(undefined);
+        };
+    });
+};
+
+const loadYugiohHistoryCard = async () => {
+    const ws = controlWs('/yugioh/data/yugioh-history-card');
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {

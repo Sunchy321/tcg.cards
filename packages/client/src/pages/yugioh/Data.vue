@@ -15,7 +15,7 @@ const components = import.meta.glob<Component>('./data/*.vue');
 
 // keep order
 const tabs = [
-    'YugiohHistory',
+    'Data',
 ];
 
 const { tab } = pageSetup({

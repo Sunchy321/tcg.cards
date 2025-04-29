@@ -20,7 +20,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     }],
 
     type: {
-        main: [String],
+        main: String,
         sub:  { $type: [String], default: undefined },
     },
 
