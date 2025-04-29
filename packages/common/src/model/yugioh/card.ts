@@ -17,7 +17,7 @@ export type RelatedCard = {
     };
 };
 
-export type CardPrintView = ICard & IPrint & {
+export type CardPrintView = ICard & Omit<IPrint, 'name' | 'typeline' | 'text'> & {
     printName:     string;
     printTypeline: string;
     printText:     string;

@@ -4,7 +4,7 @@ import { Print as IPrint } from '@interface/yugioh/print';
 import { Card as HCard } from '@interface/yugioh/ygoprodeck/card';
 
 function getId(data: HCard): ICard['cardId'] {
-    return data.id;
+    return data.id.toString();
 }
 
 type CardPrint = { card: ICard, prints: IPrint[] };

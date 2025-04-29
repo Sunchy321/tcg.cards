@@ -5,7 +5,7 @@ import conn from './db';
 import { IPrintDatabase } from '@common/model/yugioh/print';
 
 const IPrintSchema = new Schema<IPrintDatabase>({
-    cardId: Number,
+    cardId: String,
 
     lang:   String,
     set:    String,

@@ -2,8 +2,8 @@ import { Card as ICard } from '@interface/yugioh/card';
 
 import { Card as HCard } from '@interface/yugioh/yugioh-history/card';
 
-function getId(data: HCard) {
-    return data.id;
+function getId(data: HCard): ICard['cardId'] {
+    return data.id.toString();
 }
 
 export function toCard(

@@ -1,25 +1,25 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Card from '@/lorcana/db/card';
-import Print from '@/lorcana/db/print';
-import CardRelation from '@/lorcana/db/card-relation';
+import Card from '@/yugioh/db/card';
+import Print from '@/yugioh/db/print';
+import CardRelation from '@/yugioh/db/card-relation';
 
-import { Card as ICard } from '@interface/lorcana/card';
-import { Print as IPrint } from '@interface/lorcana/print';
+import { Card as ICard } from '@interface/yugioh/card';
+import { Print as IPrint } from '@interface/yugioh/print';
 
-import { CardPrintView, RelatedCard } from '@common/model/lorcana/card';
+import { CardPrintView, RelatedCard } from '@common/model/yugioh/card';
 
 import { mapValues, omitBy, random } from 'lodash';
 import { toSingle, toMultiple } from '@/common/request-helper';
 
 import sorter from '@common/util/sorter';
 
-import searcher from '@/lorcana/search';
+import searcher from '@/yugioh/search';
 
 import Parser from '@searcher/parser';
 
-import { locales } from '@static/lorcana/basic';
+import { locales } from '@static/yugioh/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -189,15 +189,6 @@ router.get('/print-view', async ctx => {
         set:    print.set,
         number: print.number,
 
-        cost:  card.cost,
-        color: card.color,
-
-        inkwell: card.inkwell,
-
-        name:     card.name,
-        typeline: card.typeline,
-        text:     card.text,
-
         localization: card.localization,
 
         printName:     print.name,
@@ -206,29 +197,26 @@ router.get('/print-view', async ctx => {
 
         type: card.type,
 
-        lore:      card.lore,
-        strength:  card.strength,
-        willPower: card.willPower,
-        moveCost:  card.moveCost,
-
-        flavorText: print.flavorText,
-        artist:     print.artist,
-
-        imageUri: print.imageUri,
+        attribute:     card.attribute,
+        level:         card.level,
+        rank:          card.rank,
+        linkValue:     card.linkValue,
+        linkMarkers:   card.linkMarkers,
+        attack:        card.attack,
+        defense:       card.defense,
+        race:          card.race,
+        pendulumScale: card.pendulumScale,
 
         tags:      card.tags,
         printTags: print.tags,
 
-        layout:      print.layout,
-        rarity:      print.rarity,
-        releaseDate: print.releaseDate,
-        finishes:    print.finishes,
+        category:   card.category,
+        legalities: card.legalities,
 
-        id:           print.id,
-        code:         print.code,
-        tcgPlayerId:  print.tcgPlayerId,
-        cardMarketId: print.cardMarketId,
-        cardTraderId: print.cardTraderId,
+        code: card.code,
+
+        layout: print.layout,
+        rarity: print.rarity,
 
         versions,
         relatedCards: [...sourceRelation, ...targetRelation],

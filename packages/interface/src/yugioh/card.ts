@@ -5,7 +5,7 @@ export type Category = 'normal';
 export type Legalities = Record<string, Legality>;
 
 export type Card = {
-    cardId: number;
+    cardId: string;
 
     localization: {
         lang:     string;

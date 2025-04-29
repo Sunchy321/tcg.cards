@@ -1,7 +1,7 @@
 export type Layout = string;
 
 export type Print = {
-    cardId: number;
+    cardId: string;
 
     lang:   string;
     set:    string;
