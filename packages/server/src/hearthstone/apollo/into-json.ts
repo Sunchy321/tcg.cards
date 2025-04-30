@@ -10,6 +10,7 @@ export type TagMap = {
     field:            Record<number, ITag>;
     locField:         Record<number, keyof IEntity['localization'][0]>;
     type:             Record<number, string>;
+    classes:          Record<number, string>;
     race:             Record<number, string>;
     dualRace:         Record<number, string>;
     spellSchool:      Record<number, string>;
@@ -25,6 +26,7 @@ export function getEssentialMap(): TagMap {
         field:            internalData('hearthstone.tag.field'),
         locField:         internalData('hearthstone.tag.localization-field'),
         type:             internalData('hearthstone.tag.map.type'),
+        classes:          internalData('hearthstone.tag.map.class'),
         race:             internalData('hearthstone.tag.map.race'),
         dualRace:         internalData('hearthstone.tag.map.dual-race'),
         spellSchool:      internalData('hearthstone.tag.map.spell-school'),
@@ -81,7 +83,7 @@ export function intoApolloJson(
     const tags: Record<number, number> = {};
 
     const {
-        field, locField, type, race, dualRace, spellSchool, rune, set, rarity, mechanic, mercenaryFaction,
+        field, locField, type, classes, race, dualRace, spellSchool, rune, set, rarity, mechanic, mercenaryFaction,
     } = tagMap;
 
     const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
@@ -94,6 +96,24 @@ export function intoApolloJson(
     tags[fieldKey('attack')] = entity.attack ?? 0;
     tags[fieldKey('health')] = entity.health ?? entity.durability ?? 0;
     tags[fieldKey('armor')] = entity.armor ?? 0;
+
+    if (entity.classes.length === 0) {
+        tags[fieldKey('classes')] = invertFind(classes, 'neutral');
+        tags[fieldKey('multiClass' as any)] = 0;
+    } else if (entity.classes.length === 1) {
+        tags[fieldKey('classes')] = invertFind(classes, entity.classes[0]);
+        tags[fieldKey('multiClass' as any)] = 0;
+    } else {
+        let multiClass = 0;
+
+        for (const c of entity.classes) {
+            const num = invertFind(classes, c);
+
+            multiClass |= 1 << (num - 1);
+        }
+
+        tags[fieldKey('multiClass' as any)] = multiClass;
+    }
 
     if (entity.race != null) {
         tags[fieldKey('race')] = invertFind(race, entity.race[0]);
