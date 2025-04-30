@@ -33,6 +33,7 @@
 309:  ?immune_variant
 311:  cant_be_targeted_by_spells
 314:  cant_be_silenced
+326: healing_does_damage
 330:  enchantment_birth_visual
 331:  enchantment_idle_visual
 332:  cant_be_targeted_by_hero_powers
@@ -387,6 +388,7 @@
 2496: unlikely_duo
 2498: manathirst
 2500: concoction
+2505: immolating
 2506: ?mercenaries_2506
 2510: ?mercenaries_2510
 2514: one_turn_taunt
@@ -407,6 +409,7 @@
 2596: mercenaries_cho
 2598: mercenaries_cho_ability
 2599: mercenaries_gall_ability
+2600: immolate_stage
 2608: mercenaries_dilapidated_murloc_ability
 2609: mercenaries_skill_level
 2626: mercenaries_lineage_ability
@@ -619,6 +622,7 @@
 3738: turns_left_to_discover_trinket
 3740: trinket_active
 3744: end_of_turn_effect
+3767: ?battlegrounds_3767
 3768: count_element_played
 3770: count_bonus_keyword
 3798: reborn_with_full_attack
@@ -651,5 +655,14 @@
 4087: hide_hero_power_in_leaderboard
 4088: hero_power_unlimited_uses
 4110: ursol
+4128: ?4128
+4129: ?battlegrounds_4129
 4137: reborn_with_full_health_enchantment
 4173: imbue_hero_power
+4174: ?battlegrounds_4174
+4177: greater_trinket_related
+4185: gain_card_count
+4194: spell_cast_twice
+4206: demon_cost_health
+4207: tavern_spell_cost_health
+4213: smoldering

@@ -92,6 +92,7 @@
 - entity_threshold_value
 - extra_minion
 - fallback_enchantment_portrait_dbid
+- gain_card_count
 - game_button
 - hero_deck_id
 - hero_frame_type
@@ -99,6 +100,7 @@
 - hide_cost
 - hide_stats
 - hide_watermark
+- immolate_stage
 - lettuce_current_cooldown
 - magnetic_race
 - manathirst
