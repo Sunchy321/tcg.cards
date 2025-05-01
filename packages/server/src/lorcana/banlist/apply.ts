@@ -1,29 +1,22 @@
-import Format from '@/magic/db/format';
-import FormatAnnouncement from '@/magic/db/format-announcement';
-import FormatChange from '@/magic/db/format-change';
-import Set from '@/magic/db/set';
-import Card from '@/magic/db/card';
+import Format from '@/lorcana/db/format';
+import FormatAnnouncement from '@/lorcana/db/format-announcement';
+import FormatChange from '@/lorcana/db/format-change';
+import Set from '@/lorcana/db/set';
 
 import { Document } from 'mongoose';
 
-import { Card as ICard } from '@interface/magic/card';
-import { Format as IFormat } from '@interface/magic/format';
+import { Format as IFormat } from '@interface/lorcana/format';
 import {
     FormatAnnouncement as IFormatAnnouncement,
     FormatChange as IFormatChange,
     Legality,
-} from '@interface/magic/format-change';
+} from '@interface/lorcana/format-change';
 
 import { cloneDeep } from 'lodash';
-import internalData from '@/internal-data';
-import { toIdentifier } from '@common/util/id';
 
-import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
+import { banlistStatusOrder, banlistSourceOrder } from '@static/lorcana/misc';
 
-const formatWithSet = [
-    'standard', 'pioneer', 'modern', 'extended',
-    'alchemy', 'historic', 'explorer', 'timeless',
-];
+const formatWithSet = ['core'];
 
 function cmp<T>(a: T, b: T): number {
     return a < b ? -1 : a > b ? 1 : 0;
@@ -36,12 +29,6 @@ export class AnnouncementApplier {
     private eternalFormats: string[];
 
     private sets: { id: string, releaseDate: string }[];
-
-    private anteList:       string[];
-    private conspiracyList: string[];
-    private legendaryList:  string[];
-    private unfinityList:   string[];
-    private offensiveList:  string[];
 
     private cards: {
         cardId:            string;
@@ -73,108 +60,17 @@ export class AnnouncementApplier {
         this.eternalFormats = formats.filter(f => f.isEternal).map(f => f.formatId);
 
         // load sets
-        const sets = await Set.find({ type: { $in: ['core', 'expansion', 'draft_innovation', 'funny', 'alchemy', 'commander'] } });
+        const sets = await Set.find();
 
         this.sets = sets.map(s => ({ id: s.setId, releaseDate: s.releaseDate! }));
-
-        // preload group cards
-        this.anteList = internalData<string[]>('magic.banlist.ante').map(toIdentifier);
-        this.offensiveList = internalData<string[]>('magic.banlist.offensive').map(toIdentifier);
-        this.unfinityList = internalData<string[]>('magic.banlist.unfinity').map(toIdentifier);
-
-        // all conspiracy
-        this.conspiracyList = await Card.distinct('cardId', { 'parts.type.main': 'conspiracy' });
-
-        // legendary cards are legal after 1995-11-01
-        const result = await Card.aggregate<ICard>()
-            .match({ 'parts.type.super': 'legendary' })
-            .lookup({
-                from:         'prints',
-                localField:   'cardId',
-                foreignField: 'cardId',
-                as:           'prints',
-            })
-            .match({ 'prints.releaseDate': { $lte: '1995-11-01' } });
-
-        this.legendaryList = result.map(v => v.cardId);
     }
 
     private async loadCard(): Promise<void> {
-        const cards: string[] = [];
-
-        cards.push(...this.anteList);
-        cards.push(...this.conspiracyList);
-        cards.push(...this.offensiveList);
-        cards.push(...this.unfinityList);
-        cards.push(...this.legendaryList);
-
-        for (const a of this.announcements) {
-            for (const c of a.changes) {
-                if (c.banlist == null) {
-                    continue;
-                }
-
-                for (const b of c.banlist) {
-                    if (!cards.includes(b.id)) {
-                        cards.push(b.id);
-                    }
-                }
-            }
-        }
-
-        const data = await Card.aggregate<{
-            cardId:   string;
-            typeMain: string[][];
-            sets:     string[];
-            rarity:   string[];
-        }>()
-            .match({ cardId: { $in: cards } })
-            .lookup({
-                from:     'prints',
-                let:      { cardId: '$cardId' },
-                pipeline: [
-                    { $match: { $expr: { $eq: ['$cardId', '$$cardId'] } } },
-                    {
-                        $group: {
-                            _id:    '$cardId',
-                            sets:   { $addToSet: '$set' },
-                            rarity: { $addToSet: '$rarity' },
-                        },
-                    },
-                ],
-                as: 'prints',
-            })
-            .unwind('prints')
-            .project({
-                _id:      false,
-                cardId:   '$cardId',
-                typeMain: '$parts.type.main',
-                sets:     '$prints.sets',
-                rarity:   '$prints.rarity',
-            });
-
-        this.cards = data.map(d => ({
-            cardId:   d.cardId,
-            sets:     d.sets,
-            inPauper: d.rarity.includes('common'),
-
-            // rough code, ignore background
-            inPauperCommander:
-                d.typeMain[0].includes('creature')
-                    ? (d.rarity.includes('common') || d.rarity.includes('uncommon'))
-                    : d.rarity.includes('common'),
-        }));
+        this.cards = [];
     }
 
-    private getCardList(group: string): string[] {
-        switch (group) {
-        case 'ante': return this.anteList;
-        case 'conspiracy': return this.conspiracyList;
-        case 'offensive': return this.offensiveList;
-        case 'unfinity': return this.unfinityList;
-        case 'legendary': return this.legendaryList;
-        default: return [];
-        }
+    private getCardList(_group: string): string[] {
+        return [];
     }
 
     private detectGroup(group: string, format: string, sets?: string[]): string[] {
@@ -277,9 +173,6 @@ export class AnnouncementApplier {
         this.changes = [];
         this.groupWatcher = [];
 
-        const alchemyBirthday = this.formatMap.alchemy.birthday!;
-        const standardBrawlBirthday = this.formatMap.standard_brawl.birthday!;
-
         for (const f of Object.values(this.formatMap)) {
             f.sets = [];
             f.banlist = [];
@@ -290,7 +183,7 @@ export class AnnouncementApplier {
         const pseudoReleaseAnnouncement = this.sets.filter(
             s => !this.announcements.some(
                 a => a.changes.some(
-                    c => c.format === '#standard' && c.setIn?.includes(s.id),
+                    c => c.format === '#core' && c.setIn?.includes(s.id),
                 ),
             ),
         ).map(s => ({
@@ -317,11 +210,11 @@ export class AnnouncementApplier {
         ].sort((a, b) => cmp(a.date, b.date));
 
         for (const a of allAnnouncements) {
-            const date = a.effectiveDate?.tabletop ?? a.effectiveDate?.online ?? a.effectiveDate?.arena ?? a.date;
+            const date = a.effectiveDate ?? a.date;
 
             const changes: Required<IFormatAnnouncement['changes'][0]>[] = [];
 
-            // expand format group #standard and #eternal
+            // expand format group #core and #eternal
             for (const c of a.changes) {
                 if (c.banlist != null && c.format.startsWith('#')) {
                     throw new Error(`Banlist is incompatible with format group ${c.format}`);
@@ -329,18 +222,7 @@ export class AnnouncementApplier {
 
                 const formats = (() => {
                     switch (c.format) {
-                    case '#alchemy':
-                        return ['alchemy', 'historic', 'timeless'].filter(f => {
-                            const format = this.formatMap[f]!;
-                            // the change don't become effective now
-                            if (date > new Date().toISOString().split('T')[0]) { return false; }
-                            // the change is before the format exists
-                            if (format.birthday != null && date < format.birthday) { return false; }
-                            // the change is after the format died
-                            if (format.deathdate != null && date > format.deathdate) { return false; }
-                            return true;
-                        });
-                    case '#standard':
+                    case '#core':
                         return [...this.eternalFormats, ...formatWithSet].filter(f => {
                             const format = this.formatMap[f]!;
                             // the change don't become effective now
@@ -366,18 +248,6 @@ export class AnnouncementApplier {
                         return [c.format];
                     }
                 })();
-
-                if (formats.includes('standard')) {
-                    if (!formats.includes('standard_brawl') && date >= standardBrawlBirthday) {
-                        formats.push('standard_brawl');
-                    }
-                }
-
-                if (formats.includes('historic')) {
-                    if (!formats.includes('brawl')) {
-                        formats.push('brawl');
-                    }
-                }
 
                 for (const f of formats) {
                     const co = changes.find(v => v.format === f);
@@ -426,11 +296,6 @@ export class AnnouncementApplier {
                 // sets in
                 for (const s of c.setIn) {
                     if (fo.sets.includes(s)) {
-                        // Alchemy initial, ignore duplicate
-                        if (['historic', 'brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
-                            continue;
-                        }
-
                         throw new Error(`In set ${s} is already in ${c.format}, date: ${a.date}`);
                     }
 
@@ -448,7 +313,7 @@ export class AnnouncementApplier {
 
                 // banlist changes
                 for (const b of c.banlist) {
-                    const banlistDate = b.effectiveDate ?? date;
+                    const banlistDate = date;
 
                     if (b.id.startsWith('#{clone')) {
                         // clones from other format

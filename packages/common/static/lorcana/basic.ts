@@ -11,3 +11,7 @@ export const locales = [
 export const symbols = [
     'E', 'I', 'L', 'S', 'W', 'C',
 ];
+
+export const formats = [
+    'core',
+];

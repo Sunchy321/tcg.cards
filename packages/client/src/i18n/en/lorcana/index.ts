@@ -17,6 +17,12 @@ export default {
         $self: 'Set',
     },
 
+    format: {
+        $self: 'Format',
+
+        core: 'Core Constructed',
+    },
+
     ui,
     search,
 };

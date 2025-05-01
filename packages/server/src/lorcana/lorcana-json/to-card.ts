@@ -111,6 +111,9 @@ export function toCard(
             moveCost:  data.moveCost,
 
             tags: [],
+
+            category:   'normal',
+            legalities: {},
         },
         print: {
             cardId: getId(data),

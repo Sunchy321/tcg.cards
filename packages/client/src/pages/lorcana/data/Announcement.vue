@@ -57,27 +57,9 @@
                 </template>
             </date-input>
 
-            <date-input v-model="nextDate" class="q-ml-md" outlined dense>
-                <template #before>
-                    <q-icon name="mdi-arrow-right-circle" />
-                </template>
-            </date-input>
-
-            <date-input v-model="tabletopDate" class="q-ml-md" outlined dense>
+            <date-input v-model="effectiveDate" class="q-ml-md" outlined dense>
                 <template #before>
                     <q-icon name="mdi-cards-outline" />
-                </template>
-            </date-input>
-
-            <date-input v-model="onlineDate" class="q-ml-md" outlined dense>
-                <template #before>
-                    <q-icon name="mdi-alpha-o-circle-outline" />
-                </template>
-            </date-input>
-
-            <date-input v-model="arenaDate" class="q-ml-md" outlined dense>
-                <template #before>
-                    <q-icon name="mdi-alpha-a-circle-outline" />
                 </template>
             </date-input>
         </div>
@@ -165,19 +147,6 @@
                             color="white"
                             text-color="grey"
                         />
-
-                        <q-input
-                            class="q-ml-sm score-input"
-                            type="number"
-                            :model-value="scoreFor(b)"
-                            min="0" max="15"
-                            flat dense outlined
-                            @update:model-value="v => updateScoreFor(b, v as number)"
-                        >
-                            <template #prepend>
-                                <q-icon name="mdi-counter" />
-                            </template>
-                        </q-input>
                     </template>
                 </list>
             </template>
@@ -190,7 +159,7 @@ import {
     ref, computed, watch, onMounted, toRaw,
 } from 'vue';
 
-import { useMagic } from 'store/games/magic';
+import { useLorcana } from 'store/games/lorcana';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'src/setup/page';
@@ -199,7 +168,7 @@ import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 
-import { FormatAnnouncement } from 'interface/magic/format-change';
+import { FormatAnnouncement } from 'interface/lorcana/format-change';
 
 import { last } from 'lodash';
 
@@ -273,7 +242,7 @@ const statusOptions = [
     value: v,
 }));
 
-const magic = useMagic();
+const lorcana = useLorcana();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -292,16 +261,15 @@ const {
     appendParam: true,
 });
 
-const formats = computed(() => ['#standard', '#alchemy', ...magic.formats]);
+const formats = computed(() => ['#core', ...lorcana.formats]);
 const announcementList = ref<FormatAnnouncementProfile[]>([]);
 const selected = ref<FormatAnnouncementProfile | null>(null);
 
 const announcement = ref<FormatAnnouncement>({
-    date:          '',
-    source:        'wotc',
-    effectiveDate: {},
-    link:          [],
-    changes:       [],
+    date:    '',
+    source:  'disney',
+    link:    [],
+    changes: [],
 });
 
 const announcementFiltered = computed(() => {
@@ -335,33 +303,16 @@ const date = computed({
     },
 });
 
-const nextDate = computed({
-    get() { return announcement.value?.nextDate ?? ''; },
+const effectiveDate = computed({
+    get() { return announcement.value?.effectiveDate ?? ''; },
     set(newValue: string) {
         if (newValue === '') {
-            delete announcement.value.nextDate;
+            announcement.value.effectiveDate = undefined;
         } else {
-            announcement.value.nextDate = newValue;
+            announcement.value.effectiveDate = newValue;
         }
     },
 });
-
-const effectiveDate = (index: keyof Required<FormatAnnouncement>['effectiveDate']) => computed({
-    get() { return announcement.value?.effectiveDate?.[index] ?? ''; },
-    set(newValue: string) {
-        announcement.value.effectiveDate ??= {};
-
-        if (newValue == null || newValue === '') {
-            delete announcement.value.effectiveDate[index];
-        } else {
-            announcement.value.effectiveDate[index] = newValue;
-        }
-    },
-});
-
-const tabletopDate = effectiveDate('tabletop');
-const onlineDate = effectiveDate('online');
-const arenaDate = effectiveDate('arena');
 
 const link = computed({
     get() { return announcement.value?.link ?? []; },
@@ -394,24 +345,6 @@ const addBanlist = (banlist: BanlistItem[]) => [
     },
 ];
 
-const scoreFor = (banlist: BanlistItem) => {
-    if (banlist.status.startsWith('score-')) {
-        return Number.parseInt(banlist.status.slice('score-'.length), 10);
-    } else {
-        return 0;
-    }
-};
-
-const updateScoreFor = (banlist: BanlistItem, value: number | string) => {
-    value = typeof value === 'string' ? Number.parseInt(value, 10) : value;
-
-    if (value === 0) {
-        banlist.status = 'legal';
-    } else {
-        banlist.status = `score-${value}`;
-    }
-};
-
 const formatMap: Record<string, string> = {
     release:             '#standard',
     duelcommander:       'duelcommander',
@@ -439,7 +372,7 @@ const fillEmptyAnnouncement = () => {
 watch(source, fillEmptyAnnouncement);
 
 const loadData = async () => {
-    const { data } = await controlGet<FormatAnnouncementProfile[]>('/magic/format/announcement');
+    const { data } = await controlGet<FormatAnnouncementProfile[]>('/lorcana/format/announcement');
 
     announcementList.value = data;
 
@@ -455,7 +388,7 @@ const loadAnnouncement = async () => {
         return;
     }
 
-    const { data: result } = await controlGet<FormatAnnouncement>('/magic/format/announcement', {
+    const { data: result } = await controlGet<FormatAnnouncement>('/lorcana/format/announcement', {
         id: selected.value.id,
     });
 
@@ -493,7 +426,7 @@ const saveAnnouncement = async () => {
         }
     }
 
-    await controlPost('/magic/format/announcement/save', { data });
+    await controlPost('/lorcana/format/announcement/save', { data });
 
     await loadData();
 };
@@ -517,7 +450,7 @@ const newAnnouncement = async () => {
 const applyAnnouncements = async () => {
     await saveAnnouncement();
 
-    await controlPost('/magic/format/announcement/apply');
+    await controlPost('/lorcana/format/announcement/apply');
 };
 
 </script>

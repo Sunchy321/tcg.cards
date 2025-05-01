@@ -46,6 +46,17 @@
                 <lorcana-text detect-emph>{{ flavorText }}</lorcana-text>
             </div>
 
+            <grid
+                v-slot="v"
+                :value="Object.entries(legalities)" :item-width="160"
+                class="legalities"
+            >
+                <div class="flex items-center no-wrap">
+                    <banlist-icon class="q-mr-sm" :status="v[1]" />
+                    <span style="white-space: nowrap;"> {{ $t('lorcana.format.' + v[0]) }}</span>
+                </div>
+            </grid>
+
             <div class="links flex q-gutter-md">
                 <q-btn
                     v-if="jsonLink != null"
@@ -155,9 +166,11 @@ import basicSetup from 'setup/basic';
 import lorcanaSetup from 'setup/lorcana';
 import pageSetup from 'setup/page';
 
+import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/lorcana/CardAvatar.vue';
 import CardImage from 'components/lorcana/CardImage.vue';
 import LorcanaText from 'components/lorcana/Text.vue';
+import BanlistIcon from 'components/lorcana/BanlistIcon.vue';
 
 import { CardPrintView } from 'common/model/lorcana/card';
 
@@ -448,6 +461,7 @@ const flavorText = computed(() => data.value?.flavorText);
 const artist = computed(() => data.value?.artist);
 
 const relatedCards = computed(() => data.value?.relatedCards ?? []);
+const legalities = computed(() => data.value?.legalities ?? {});
 
 const editorLink = computed(() => ({
     name:  'lorcana/data',

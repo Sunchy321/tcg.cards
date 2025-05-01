@@ -1,7 +1,7 @@
 <template>
     <q-page class="q-pa-md">
         <div class="row items-center q-mb-lg text-h5">
-            <div class="q-mr-sm">{{ $t('magic.format.' + format) }}</div>
+            <div class="q-mr-sm">{{ $t('lorcana.format.' + format) }}</div>
             <div>{{ birthAndDeath }}</div>
 
             <q-space />
@@ -75,7 +75,7 @@
 
         <template v-else>
             <div class="flex items-center q-mb-md">
-                <span class="text-h6">{{ $t('magic.ui.format.banlist') }}</span>
+                <span class="text-h6">{{ $t('lorcana.ui.format.banlist') }}</span>
 
                 <q-btn-toggle
                     v-model="order"
@@ -106,7 +106,7 @@
             </grid>
 
             <div v-if="sets.length > 0" class="flex q-my-md">
-                <span class="text-h6">{{ $t('magic.ui.format.set') }}</span>
+                <span class="text-h6">{{ $t('lorcana.ui.format.set') }}</span>
             </div>
 
             <grid
@@ -125,25 +125,25 @@ import {
     ref, computed, watch,
 } from 'vue';
 
-import { useMagic } from 'store/games/magic';
+import { useLorcana } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
-import CardAvatar from 'components/magic/CardAvatar.vue';
-import BanlistIcon from 'components/magic/BanlistIcon.vue';
-import SetAvatar from 'components/magic/SetAvatar.vue';
+import CardAvatar from 'components/lorcana/CardAvatar.vue';
+import BanlistIcon from 'components/lorcana/BanlistIcon.vue';
+import SetAvatar from 'components/lorcana/SetAvatar.vue';
 
-import { Format } from 'interface/magic/format';
-import { FormatChange, Legality } from 'interface/magic/format-change';
+import { Format } from 'interface/lorcana/format';
+import { FormatChange, Legality } from 'interface/lorcana/format-change';
 
 import { last, uniq } from 'lodash';
 
 import { apiGet } from 'boot/server';
 
-import { banlistStatusOrder, banlistSourceOrder } from 'static/magic/misc';
+import { banlistStatusOrder, banlistSourceOrder } from 'static/lorcana/misc';
 
 interface BanlistItem {
     date: string;
@@ -162,10 +162,10 @@ interface TimelineNode {
     banlist: { id: string, status: Legality, group?: string }[];
 }
 
-const magic = useMagic();
+const lorcana = useLorcana();
 const i18n = useI18n();
 
-const formats = computed(() => magic.formats);
+const formats = computed(() => lorcana.formats);
 
 const {
     format,
@@ -173,7 +173,7 @@ const {
     date,
     order,
 } = pageSetup({
-    title: () => i18n.t('magic.format.$self'),
+    title: () => i18n.t('lorcana.format.$self'),
 
     params: {
         format: {
@@ -182,7 +182,7 @@ const {
             key:     'id',
             inTitle: true,
             values:  formats,
-            label:   (v: string) => i18n.t(`magic.format.${v}`),
+            label:   (v: string) => i18n.t(`lorcana.format.${v}`),
         },
         timeline: {
             type:    'boolean',
@@ -210,7 +210,7 @@ const orderOptions = ['name', 'date'].map(v => ({
     slot:  v,
 }));
 
-const dateFrom = computed(() => data.value?.birthday ?? magic.birthday);
+const dateFrom = computed(() => data.value?.birthday ?? lorcana.birthday);
 const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
 
 const birthAndDeath = computed(() => {
@@ -414,13 +414,13 @@ const timelineEvents = computed(() => {
 });
 
 const loadData = async () => {
-    const { data: formatResult } = await apiGet<Format>('/magic/format', {
+    const { data: formatResult } = await apiGet<Format>('/lorcana/format', {
         id: format.value,
     });
 
     data.value = formatResult;
 
-    const { data: changesResult } = await apiGet<FormatChange[]>('/magic/format/changes', {
+    const { data: changesResult } = await apiGet<FormatChange[]>('/lorcana/format/changes', {
         id: format.value,
     });
 

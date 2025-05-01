@@ -1,6 +1,12 @@
+import { Legality } from './format-change';
+
 export type Color = 'amber' | 'amethyst' | 'emerald' | 'ruby' | 'sapphire' | 'steel';
 
 export type MainType = 'action' | 'character' | 'item' | 'location';
+
+export type Category = 'normal';
+
+export type Legalities = Record<string, Legality>;
 
 export interface Card {
     cardId: string;
@@ -32,4 +38,7 @@ export interface Card {
     moveCost?:  number;
 
     tags: string[];
+
+    category:   Category;
+    legalities: Legalities;
 }

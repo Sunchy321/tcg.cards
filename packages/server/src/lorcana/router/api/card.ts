@@ -230,6 +230,9 @@ router.get('/print-view', async ctx => {
         cardMarketId: print.cardMarketId,
         cardTraderId: print.cardTraderId,
 
+        category:   card.category,
+        legalities: card.legalities,
+
         versions,
         relatedCards: [...sourceRelation, ...targetRelation],
     };

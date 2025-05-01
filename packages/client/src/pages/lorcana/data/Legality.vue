@@ -26,7 +26,7 @@
             class="q-ma-md"
         >
             <div>
-                <span>{{ $t(`magic.format.${w.format}`) }} {{ w.legality[0] }} {{ w.legality[1] }}</span>
+                <span>{{ $t(`lorcana.format.${w.format}`) }} {{ w.legality[0] }} {{ w.legality[1] }}</span>
                 <q-btn
                     flat round dense
                     icon="mdi-close"
@@ -51,7 +51,7 @@ import { defineComponent, ref, computed } from 'vue';
 import controlSetup from 'src/setup/control';
 
 import Grid from 'components/Grid.vue';
-import CardAvatar from 'components/magic/CardAvatar.vue';
+import CardAvatar from 'components/lorcana/CardAvatar.vue';
 
 interface Status {
     amount: {
@@ -134,7 +134,7 @@ export default defineComponent({
         const assign = async () => {
             progress.value = null;
 
-            const ws = controlWs('/magic/format/assign-legality');
+            const ws = controlWs('/lorcana/format/assign-legality');
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
                     progress.value = JSON.parse(data) as Status;
@@ -147,7 +147,7 @@ export default defineComponent({
         const test = async () => {
             progress.value = null;
 
-            const ws = controlWs('/magic/format/test-legality');
+            const ws = controlWs('/lorcana/format/test-legality');
             return new Promise((resolve, reject) => {
                 ws.onmessage = ({ data }) => {
                     progress.value = JSON.parse(data) as Status;

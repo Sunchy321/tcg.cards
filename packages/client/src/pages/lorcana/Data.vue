@@ -21,9 +21,9 @@ const tabs = [
     // 'Updation',
     // 'Duplicate',
     'Set',
-    // 'Format',
-    // 'Announcement',
-    // 'Legality',
+    'Format',
+    'Announcement',
+    'Legality',
     // 'CR',
 ];
 

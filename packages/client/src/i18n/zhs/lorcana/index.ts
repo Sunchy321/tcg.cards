@@ -17,6 +17,12 @@ export default {
         $self: '系列',
     },
 
+    format: {
+        $self: '赛制',
+
+        core: '核心构组赛',
+    },
+
     ui,
     search,
 };
