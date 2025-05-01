@@ -188,6 +188,10 @@ export function combineCard(card: ICardDatabase, data: ICard): void {
         case 'category':
             assign(card, data, k);
             break;
+
+        case 'code':
+            assign(card, data, k);
+            break;
         }
     }
 }

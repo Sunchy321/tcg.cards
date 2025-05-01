@@ -1,7 +1,7 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Print from '@/lorcana/db/print';
+import Print from '@/yugioh/db/print';
 
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';

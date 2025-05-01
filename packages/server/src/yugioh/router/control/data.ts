@@ -7,8 +7,8 @@ import Card from '@/yugioh/db/card';
 // import Print from '@/yugioh/db/print';
 // import Set from '@/yugioh/db/set';
 
-import YGOProdeckLoader from '@/yugioh/ygoprodeck/card';
-import YugiohHistoryCardLoader from '@/yugioh/yugioh-history/card';
+import YGOProdeckLoader from '@/yugioh/data/ygoprodeck/card';
+import YugiohHistoryCardLoader from '@/yugioh/data/yugioh-history/card';
 
 const router = new KoaRouter<DefaultState, Context>();
 

@@ -43,6 +43,8 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     category:   String,
     legalities: Object,
 
+    code: Number,
+
     __updations: [{
         _id: false,
 

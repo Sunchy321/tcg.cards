@@ -18,15 +18,8 @@ const raw = defineClientCommand({
 
 const stats = defineClientCommand({
     command: commands.stats,
-    explain({ pattern: { strength, willPower } }, i18n) {
-        return i18n('$.full-command.stats', { strength, willPower });
-    },
-});
-
-const fullStats = defineClientCommand({
-    command: commands.fullStats,
-    explain({ pattern: { cost, strength, willPower } }, i18n) {
-        return i18n('$.full-command.full-stats', { cost, strength, willPower });
+    explain({ pattern: { attack, defense } }, i18n) {
+        return i18n('$.full-command.stats', { attack, defense });
     },
 });
 
@@ -102,7 +95,6 @@ const order = defineClientCommand({
 const clientCommands: Record<string, CommonClientCommand> = {
     raw,
     stats,
-    fullStats,
     hash,
     set,
     num,

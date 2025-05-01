@@ -1,22 +1,18 @@
 import Task from '@/common/task';
 
 import Card from '@/yugioh/db/card';
-// import Print from '@/yugioh/db/print';
-// import Set from '@/yugioh/db/set';
 
-import { Card as ICard } from '@interface/yugioh/card';
-
-import { Status } from '../status';
+import { Status } from '../../status';
 
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join } from 'path';
 import internalData from '@/internal-data';
 import { toBucket, toGenerator } from '@/common/to-bucket';
 import { toCard } from './to-card';
-import { mergeCard } from './merge';
+import { mergeCard } from '../merge';
 
 import { dataPath } from '@/config';
-import { bulkUpdation } from '@/lorcana/logger';
+import { bulkUpdation } from '@/yugioh/logger';
 
 const bucketSize = 500;
 
@@ -52,7 +48,7 @@ export default class DataLoader extends Task<Status> {
         const langs = readdirSync(path).filter(l =>
             !l.startsWith('.')
             && statSync(join(path, l)).isDirectory(),
-        );
+        ).sort((a, b) => a === 'en' ? -1 : b === 'en' ? 1 : 0);
 
         const langMap = internalData<Record<string, string>>(`yugioh.lang-map`);
 
@@ -81,23 +77,27 @@ export default class DataLoader extends Task<Status> {
                     return toCard(json, lang);
                 });
 
-                const cardsToInsert: ICard[] = [];
-
-                const oldCards = await Card.find({ cardId: { $in: cards.map(c => c.cardId) } });
+                const oldCards = lang === 'en'
+                    ? await Card.find({ 'localization.name': { $in: cards.map(c => c.localization[0].name) } })
+                    : await Card.find({ code: { $in: cards.map(c => c.code) } });
 
                 for (const card of cards) {
-                    const oldCard = oldCards.find(c => c.cardId === card.cardId);
+                    const oldCard = lang === 'en'
+                        ? oldCards.find(c => c.localization.find(l => l.lang === 'en')?.name === card.localization[0].name)
+                        : oldCards.find(c => c.code === card.code);
 
                     if (oldCard == null) {
-                        cardsToInsert.push(card);
+                        bulkUpdation.error(`Unknown card: ${card.code} (${card.localization[0].name})`);
                     } else {
+                        card.cardId = oldCard.cardId;
+                        card.type = oldCard.type;
+                        card.race = oldCard.race;
+
                         await mergeCard(oldCard, card);
                     }
 
                     count += 1;
                 }
-
-                await Card.insertMany(cardsToInsert);
             }
         }
 

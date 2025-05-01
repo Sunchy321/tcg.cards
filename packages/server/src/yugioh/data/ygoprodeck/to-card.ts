@@ -76,7 +76,7 @@ export function toCard(data: HCard): CardPrint {
 
             name:     data.name,
             typeline: data.humanReadableCardType,
-            text:     data.type,
+            text:     data.desc,
 
             tags:   [],
             rarity: v.set_rarity_code.replace(/^\(/, '').replace(/\)$/, ''),

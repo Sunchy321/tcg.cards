@@ -8,13 +8,13 @@ import { File } from '@interface/yugioh/ygoprodeck/card';
 import { Card as ICard } from '@interface/yugioh/card';
 import { Print as IPrint } from '@interface/yugioh/print';
 
-import { Status } from '../status';
+import { Status } from '../../status';
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { toBucket, toGenerator } from '@/common/to-bucket';
 import { toCard } from './to-card';
-import { mergeCard, mergePrint } from './merge';
+import { mergeCard, mergePrint } from '../merge';
 
 import { dataPath } from '@/config';
 import { bulkUpdation } from '@/lorcana/logger';
