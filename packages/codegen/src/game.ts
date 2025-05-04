@@ -1,6 +1,6 @@
 import { Directory, ExportedDeclarations, Project, SourceFile, SyntaxKind, VariableDeclarationKind } from 'ts-morph';
 
-import { createModel } from './model';
+import { Model, createModel } from './model';
 import { applyComputed, parseComputed } from './computed';
 import { modelIntoSchema, printSchema } from './schema';
 
@@ -55,6 +55,18 @@ export class Game {
         return source?.getExportedDeclarations()?.get(name)?.[0];
     }
 
+    createInterfaceModel(filename: string, typename: string): Model {
+        const typeDecl = this.getDeclaration(this.getInterface(filename), typename);
+
+        return createModel(typeDecl as any);
+    }
+
+    createComputedModel(filename: string, typename: string): Model {
+        const typeDecl = this.getDeclaration(this.getModel(filename), typename);
+
+        return createModel(typeDecl as any);
+    }
+
     generate(): void {
         this.generateDatabase();
     }
@@ -68,6 +80,8 @@ export class Game {
         }
 
         this.generateFormatDatabase().saveSync();
+        this.generateFormatAnnouncementDatabase().saveSync();
+        this.generateFormatChangeDatabase().saveSync();
     }
 
     generateDatabaseConn(): SourceFile {
@@ -105,11 +119,9 @@ export class Game {
     generateCardDatabase(): SourceFile {
         const name = `${this.#name}/db/card.ts`;
 
-        const card = this.getDeclaration(this.getInterface('card.ts'), 'Card');
+        const cardModel = this.createInterfaceModel('card.ts', 'Card');
 
         const cardDatabase = this.getDeclaration(this.getModel('card.ts'), 'ICardDatabase');
-
-        const cardModel = createModel(card as any);
 
         if (!cardDatabase.isKind(SyntaxKind.TypeAliasDeclaration)) {
             throw new Error('Wrong card database type');
@@ -225,11 +237,9 @@ export class Game {
     generatePrintDatabase(): SourceFile {
         const name = `${this.#name}/db/print.ts`;
 
-        const print = this.getDeclaration(this.getInterface('print.ts'), 'Print');
+        const printModel = this.createInterfaceModel('print.ts', 'Print');
 
         const printDatabase = this.getDeclaration(this.getModel('print.ts'), 'IPrintDatabase');
-
-        const printModel = createModel(print as any);
 
         if (!printDatabase.isKind(SyntaxKind.TypeAliasDeclaration)) {
             throw new Error('Wrong print database type');
@@ -345,9 +355,7 @@ export class Game {
     generateFormatDatabase(): SourceFile {
         const name = `${this.#name}/db/format.ts`;
 
-        const format = this.getDeclaration(this.getInterface('format.ts'), 'Format');
-
-        const formatModel = createModel(format as any);
+        const model = this.createInterfaceModel('format.ts', 'Format');
 
         const source = serverSrc.addSourceFileAtPathIfExists(name) ?? serverSrc.createSourceFile(name);
 
@@ -390,7 +398,7 @@ export class Game {
                 initializer: writer => {
                     writer.write(
                         'new Schema<IFormat, Model<IFormat>, {}, {}, {}, {}, \'$type\'>('
-                        + printSchema(modelIntoSchema(formatModel))
+                        + printSchema(modelIntoSchema(model))
                         + `, {\n typeKey: '$type',\n toJSON: { transform: defaultToJSON } \n})`,
                     );
                 },
@@ -410,6 +418,148 @@ export class Game {
             leadingTrivia:  writer => writer.newLine(),
             isExportEquals: false,
             expression:     'Format',
+        });
+
+        return source;
+    }
+
+    generateFormatAnnouncementDatabase(): SourceFile {
+        const name = `${this.#name}/db/format-announcement.ts`;
+
+        const model = this.createInterfaceModel('format-change.ts', 'FormatAnnouncement');
+
+        const source = serverSrc.addSourceFileAtPathIfExists(name) ?? serverSrc.createSourceFile(name);
+
+        source.removeText();
+
+        source.addStatements('/** AUTO GENERATED, DO NOT CHANGE **/');
+
+        source.addImportDeclaration({
+            moduleSpecifier: 'mongoose',
+            namedImports:    [{ name: 'Model' }, { name: 'Schema' }],
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: './db',
+            defaultImport:   'conn',
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: `@interface/${this.#name}/format-change`,
+            namedImports:    [
+                { name: 'FormatAnnouncement', alias: 'IFormatAnnouncement' },
+            ],
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: `@common/model/updation`,
+            namedImports:    [
+                { name: 'defaultToJSON' },
+            ],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   '// eslint-disable-next-line @typescript-eslint/no-empty-object-type',
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'FormatAnnouncementSchema',
+                initializer: writer => {
+                    writer.write(
+                        'new Schema<IFormatAnnouncement, Model<IFormatAnnouncement>, {}, {}, {}, {}, \'$type\'>('
+                        + printSchema(modelIntoSchema(model))
+                        + `, {\n typeKey: '$type',\n toJSON: { transform: defaultToJSON } \n})`,
+                    );
+                },
+            }],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   writer => writer.newLine(),
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'FormatAnnouncement',
+                initializer: 'conn.model(\'format_announcement\', FormatAnnouncementSchema)',
+            }],
+        });
+
+        source.addExportAssignment({
+            leadingTrivia:  writer => writer.newLine(),
+            isExportEquals: false,
+            expression:     'FormatAnnouncement',
+        });
+
+        return source;
+    }
+
+    generateFormatChangeDatabase(): SourceFile {
+        const name = `${this.#name}/db/format-change.ts`;
+
+        const model = this.createInterfaceModel('format-change.ts', 'FormatChange');
+
+        const source = serverSrc.addSourceFileAtPathIfExists(name) ?? serverSrc.createSourceFile(name);
+
+        source.removeText();
+
+        source.addStatements('/** AUTO GENERATED, DO NOT CHANGE **/');
+
+        source.addImportDeclaration({
+            moduleSpecifier: 'mongoose',
+            namedImports:    [{ name: 'Model' }, { name: 'Schema' }],
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: './db',
+            defaultImport:   'conn',
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: `@interface/${this.#name}/format-change`,
+            namedImports:    [
+                { name: 'FormatChange', alias: 'IFormatChange' },
+            ],
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: `@common/model/updation`,
+            namedImports:    [
+                { name: 'defaultToJSON' },
+            ],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   '// eslint-disable-next-line @typescript-eslint/no-empty-object-type',
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'FormatChangeSchema',
+                initializer: writer => {
+                    writer.write(
+                        'new Schema<IFormatChange, Model<IFormatChange>, {}, {}, {}, {}, \'$type\'>('
+                        + printSchema(modelIntoSchema(model))
+                        + `, {\n typeKey: '$type',\n toJSON: { transform: defaultToJSON } \n})`,
+                    );
+                },
+            }],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   writer => writer.newLine(),
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'FormatChange',
+                initializer: 'conn.model(\'format_change\', FormatChangeSchema)',
+            }],
+        });
+
+        source.addExportAssignment({
+            leadingTrivia:  writer => writer.newLine(),
+            isExportEquals: false,
+            expression:     'FormatChange',
         });
 
         return source;

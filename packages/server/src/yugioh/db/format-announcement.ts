@@ -3,16 +3,19 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { FormatAnnouncement as IFormatAnnouncement } from '@interface/lorcana/format-change';
+import { FormatAnnouncement as IFormatAnnouncement } from '@interface/yugioh/format-change';
 
 import { defaultToJSON } from '@common/model/updation';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const FormatAnnouncementSchema = new Schema<IFormatAnnouncement, Model<IFormatAnnouncement>, {}, {}, {}, {}, '$type'>({
-    source:        String,
-    date:          String,
+    source: String,
+    date:   String,
+
     effectiveDate: String,
-    link:          { $type: [String], default: undefined },
+    nextDate:      String,
+
+    link: { $type: [String], default: undefined },
 
     changes: [{
         _id: false,
@@ -23,8 +26,9 @@ const FormatAnnouncementSchema = new Schema<IFormatAnnouncement, Model<IFormatAn
         banlist: { $type: [{
             _id: false,
 
-            id:     String,
-            status: String,
+            id:            String,
+            status:        String,
+            effectiveDate: String,
         }], default: undefined },
     }],
 }, {

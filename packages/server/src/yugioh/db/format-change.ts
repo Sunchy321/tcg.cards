@@ -3,7 +3,7 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { FormatChange as IFormatChange } from '@interface/lorcana/format-change';
+import { FormatChange as IFormatChange } from '@interface/yugioh/format-change';
 
 import { defaultToJSON } from '@common/model/updation';
 
