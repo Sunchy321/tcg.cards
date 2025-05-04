@@ -29,12 +29,13 @@ import { assetBase } from 'boot/server';
 // const yugioh = useYugioh();
 
 const props = withDefaults(defineProps<{
-    cardId:  string;
-    lang?:   string;
-    set:     string;
-    number:  string;
-    layout:  string;
-    rotate?: boolean | null;
+    cardId:   string;
+    passcode: number;
+    lang?:    string;
+    set:      string;
+    number:   string;
+    layout:   string;
+    rotate?:  boolean | null;
 }>(), {
     lang:   undefined,
     rotate: null,
@@ -65,9 +66,7 @@ const realRotate = computed({
 });
 
 const imageUrl = computed(() => {
-    const { cardId } = props;
-
-    return `${assetBase}/yugioh/card/image/ygopro/ja/${cardId}.jpg`;
+    return `${assetBase}/yugioh/card/image/ygopro/ja/${props.passcode}.jpg`;
 });
 
 watch(() => props.layout, () => { innerRotate.value = null; });

@@ -39,5 +39,6 @@ export type Card = {
     category:   Category;
     legalities: Legalities;
 
-    code: number;
+    konamiId?: number;
+    passcode?: number;
 };

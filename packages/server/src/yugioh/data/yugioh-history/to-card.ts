@@ -2,6 +2,10 @@ import { Card as ICard } from '@interface/yugioh/card';
 
 import { Card as HCard } from '@interface/yugioh/yugioh-history/card';
 
+function getId(data: HCard): ICard['cardId'] {
+    return data.id.toString();
+}
+
 export function toCard(
     data: HCard,
     lang: string,
@@ -15,7 +19,7 @@ export function toCard(
     };
 
     return {
-        cardId: 'TODO',
+        cardId: getId(data),
 
         localization: [{ lang, ...loc, lastDate: '' }],
 
@@ -38,6 +42,6 @@ export function toCard(
 
         tags: [],
 
-        code: data.id,
+        konamiId: data.id,
     };
 }

@@ -84,11 +84,8 @@ router.get('/print-view', async ctx => {
     }
 
     aggregate
-        .addFields({
-            langIsEnglish: { $eq: ['$lang', 'en'] },
-        })
         .sort({
-            langIsLocale: -1, langIsEnglish: -1, releaseDate: -1, number: 1,
+            releaseDate: -1, number: 1,
         })
         .collation({ locale: 'en', numericOrdering: true })
         .limit(1)
@@ -99,12 +96,8 @@ router.get('/print-view', async ctx => {
             as:           'cards',
         })
         .project({
-            '_id':                0,
-            '__v':                0,
-            'parts.__costMap':    0,
-            'langIsLocale':       0,
-            'langIsEnglish':      0,
-            'scryfall.imageUris': 0,
+            _id: 0,
+            __v: 0,
         });
 
     const prints = await aggregate;
@@ -213,7 +206,8 @@ router.get('/print-view', async ctx => {
         category:   card.category,
         legalities: card.legalities,
 
-        code: card.code,
+        konamiId: card.konamiId,
+        passcode: card.passcode,
 
         layout: print.layout,
         rarity: print.rarity,

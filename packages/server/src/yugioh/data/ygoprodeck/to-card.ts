@@ -4,7 +4,11 @@ import { Print as IPrint } from '@interface/yugioh/print';
 import { Card as HCard } from '@interface/yugioh/ygoprodeck/card';
 
 function getId(data: HCard): ICard['cardId'] {
-    return data.id.toString();
+    if (data.misc_info[0].konami_id != null) {
+        return data.misc_info[0].konami_id.toString();
+    } else {
+        return `code:${data.id}`;
+    }
 }
 
 type CardPrint = { card: ICard, prints: IPrint[] };
@@ -65,7 +69,8 @@ export function toCard(data: HCard): CardPrint {
 
             tags: [],
 
-            code: 0,
+            konamiId: data.misc_info[0].konami_id,
+            passcode: data.id,
         },
         prints: (data.card_sets ?? []).map(v => ({
             cardId: getId(data),
@@ -78,10 +83,12 @@ export function toCard(data: HCard): CardPrint {
             typeline: data.humanReadableCardType,
             text:     data.desc,
 
-            tags:   [],
-            rarity: v.set_rarity_code.replace(/^\(/, '').replace(/\)$/, ''),
+            passcode: data.id,
 
+            rarity: v.set_rarity_code.replace(/^\(/, '').replace(/\)$/, ''),
             layout: data.frameType,
+
+            tags: [],
         })),
     };
 }

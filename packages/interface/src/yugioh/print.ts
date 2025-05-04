@@ -11,8 +11,10 @@ export type Print = {
     typeline: string;
     text:     string;
 
-    tags:   string[];
-    rarity: string;
+    passcode?: number;
+    rarity:    string;
 
     layout: Layout;
+
+    tags: string[];
 };

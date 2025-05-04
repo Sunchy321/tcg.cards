@@ -12,6 +12,22 @@ export interface CardSet {
     set_price:       string;
 }
 
+export interface MiscInfo {
+    beta_name?:  string;
+    views:       number;
+    viewsweek:   number;
+    upvotes:     number;
+    downvotes:   number;
+    formats:     string[];
+    treated_as?: string;
+    beta_id:     number;
+    tcg_date:    string;
+    ocg_date:    string;
+    konami_id:   number;
+    has_effect:  number;
+    md_rarity:   string;
+}
+
 export interface Card {
     id:                    number;
     name:                  string;
@@ -25,6 +41,7 @@ export interface Card {
     card_sets?:            CardSet[];
     card_images:           object[];
     card_prices:           object[];
+    misc_info:             MiscInfo[];
     typeline?:             string[];
     atk?:                  number;
     def?:                  number;

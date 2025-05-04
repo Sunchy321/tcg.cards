@@ -5,6 +5,7 @@
                 v-if="data != null"
                 v-model:rotate="rotate"
                 :card-id="cardId"
+                :passcode="passcode"
                 :lang="imageLang"
                 :set="set"
                 :number="number"
@@ -19,6 +20,8 @@
                 </div>
 
                 <q-space />
+
+                <q-img v-if="attribute != null" :src="`/yugioh/attribute/${attribute}.svg`" class="attribute" />
             </div>
             <div class="stats-line" :class="effectClass">
                 <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
@@ -272,10 +275,6 @@ const langs = computed(() => uniq([
     ...data.value?.localization?.map(v => v.lang) ?? [],
 ]).sort((a, b) => locales.indexOf(a) - locales.indexOf(b)));
 
-watch(langs, () => {
-    console.log(locales, langs.value.sort((a, b) => locales.indexOf(a) - locales.indexOf(b)));
-});
-
 const lang = computed({
     get() { return data.value?.lang ?? route.query.lang as string ?? yugioh.locale; },
     set(newValue: string) {
@@ -410,6 +409,27 @@ const name = computed(() => selectedTextInfo(data.value)?.name);
 const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
 const text = computed(() => selectedTextInfo(data.value)?.text);
 
+const attribute = computed(() => {
+    if (data.value == null) {
+        return undefined;
+    }
+
+    if (data.value.attribute != null) {
+        return data.value.attribute;
+    }
+
+    if (data.value.type.main === 'spell') {
+        return 'spell';
+    }
+
+    if (data.value.type.main === 'trap') {
+        return 'trap';
+    }
+
+    return undefined;
+});
+
+const passcode = computed(() => data.value?.passcode ?? 0);
 const relatedCards = computed(() => data.value?.relatedCards ?? []);
 
 const editorLink = computed(() => ({
@@ -570,6 +590,11 @@ onBeforeRouteLeave((to, from, next) => {
     margin-top: 10px
     display: flex
     align-items: center
+
+.attribute
+    width: 1.2em
+    height: 1.2em
+    line-height: 1.2em
 
 .ability
     margin-top: 30px

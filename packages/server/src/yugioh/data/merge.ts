@@ -189,7 +189,8 @@ export function combineCard(card: ICardDatabase, data: ICard): void {
             assign(card, data, k);
             break;
 
-        case 'code':
+        case 'konamiId':
+        case 'passcode':
             assign(card, data, k);
             break;
         }

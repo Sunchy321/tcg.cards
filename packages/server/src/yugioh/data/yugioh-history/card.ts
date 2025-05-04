@@ -2,6 +2,8 @@ import Task from '@/common/task';
 
 import Card from '@/yugioh/db/card';
 
+import { Card as ICard } from '@interface/yugioh/card';
+
 import { Status } from '../../status';
 
 import { readdirSync, readFileSync, statSync } from 'fs';
@@ -69,6 +71,8 @@ export default class DataLoader extends Task<Status> {
                     return;
                 }
 
+                const cardsToInsert: ICard[] = [];
+
                 const cards = fileBucket.map(f => {
                     const text = readFileSync(join(fullPath, f)).toString();
 
@@ -77,19 +81,22 @@ export default class DataLoader extends Task<Status> {
                     return toCard(json, lang);
                 });
 
-                const oldCards = lang === 'en'
-                    ? await Card.find({ 'localization.name': { $in: cards.map(c => c.localization[0].name) } })
-                    : await Card.find({ code: { $in: cards.map(c => c.code) } });
+                const oldCards = await Card.find({ $or: [
+                    { cardId: { $in: cards.map(c => c.cardId) } },
+                    { 'localization.name': { $in: cards.map(c => c.localization[0].name) } },
+                ] });
 
                 for (const card of cards) {
-                    const oldCard = lang === 'en'
-                        ? oldCards.find(c => c.localization.find(l => l.lang === 'en')?.name === card.localization[0].name)
-                        : oldCards.find(c => c.code === card.code);
+                    const oldCard = oldCards.find(c => c.cardId === card.cardId)
+                      ?? oldCards.find(c => c.localization.find(l => l.lang === 'en')?.name === card.localization[0].name);
 
                     if (oldCard == null) {
-                        bulkUpdation.error(`Unknown card: ${card.code} (${card.localization[0].name})`);
+                        cardsToInsert.push(card);
                     } else {
-                        card.cardId = oldCard.cardId;
+                        if (oldCard.cardId.startsWith('code:')) {
+                            oldCard.cardId = card.cardId;
+                        }
+
                         card.type = oldCard.type;
                         card.race = oldCard.race;
 
@@ -98,6 +105,8 @@ export default class DataLoader extends Task<Status> {
 
                     count += 1;
                 }
+
+                await Card.insertMany(cardsToInsert);
             }
         }
 

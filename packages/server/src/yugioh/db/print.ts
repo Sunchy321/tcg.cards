@@ -15,10 +15,12 @@ const IPrintSchema = new Schema<IPrintDatabase>({
     typeline: String,
     text:     String,
 
-    tags:   [String],
-    rarity: String,
+    passcode: Number,
+    rarity:   String,
 
     layout: String,
+
+    tags: [String],
 
     __updations: [{
         _id:      false,
