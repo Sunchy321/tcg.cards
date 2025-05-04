@@ -1,11 +1,12 @@
-import { Schema } from 'mongoose';
+/** AUTO GENERATED, DO NOT CHANGE **/
+import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { Print as IPrint } from '@interface/magic/print';
-import { WithUpdation } from '@common/model/updation';
+import { IPrintDatabase, toJSON } from '@common/model/magic/print';
 
-const IPrintSchema = new Schema<WithUpdation<IPrint>>({
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+const PrintSchema = new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
     lang:   String,
@@ -19,9 +20,9 @@ const IPrintSchema = new Schema<WithUpdation<IPrint>>({
         typeline: String,
         text:     String,
 
-        attractionLights: { type: [Number], default: undefined },
+        attractionLights: { $type: [Number], default: undefined },
 
-        scryfallIllusId: { type: [String], default: undefined },
+        scryfallIllusId: { $type: [String], default: undefined },
         flavorName:      String,
         flavorText:      String,
         artist:          String,
@@ -36,7 +37,7 @@ const IPrintSchema = new Schema<WithUpdation<IPrint>>({
     borderColor:   String,
     cardBack:      String,
     securityStamp: String,
-    promoTypes:    { type: [String], default: undefined },
+    promoTypes:    { $type: [String], default: undefined },
     rarity:        String,
     releaseDate:   String,
 
@@ -51,52 +52,39 @@ const IPrintSchema = new Schema<WithUpdation<IPrint>>({
     games:     [String],
 
     preview: {
-        type: {
-            _id:    false,
-            date:   String,
-            source: String,
-            uri:    String,
-        },
-        default: undefined,
+        date:   String,
+        source: String,
+        uri:    String,
     },
 
     scryfall: {
         oracleId:  String,
         cardId:    String,
         face:      String,
-        imageUris: Array,
+        imageUris: [Object],
     },
 
     arenaId:      Number,
     mtgoId:       Number,
     mtgoFoilId:   Number,
-    multiverseId: { type: [Number], default: undefined },
+    multiverseId: [Number],
     tcgPlayerId:  Number,
     cardMarketId: Number,
 
     __updations: [{
-        _id:       false,
-        key:       String,
-        partIndex: Number,
-        lang:      String,
-        oldValue:  {},
-        newValue:  {},
+        _id: false,
+
+        key:      String,
+        oldValue: Object,
+        newValue: Object,
     }],
 
     __lockedPaths: [String],
 }, {
-    toJSON: {
-        transform(doc, ret) {
-            delete ret._id;
-            delete ret.__v;
-            delete ret.__updations;
-            delete ret.__lockedPaths;
-
-            return ret;
-        },
-    },
+    typeKey: '$type',
+    toJSON:  { transform: toJSON },
 });
 
-const Print = conn.model('print', IPrintSchema);
+const Print = conn.model('print', PrintSchema);
 
 export default Print;

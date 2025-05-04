@@ -3,26 +3,20 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { IPrintDatabase, toJSON } from '@common/model/yugioh/print';
+import { IPrintDatabase, toJSON } from '@common/model/wowtcg/print';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const PrintSchema = new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
-    lang:   String,
-    set:    String,
-    number: String,
+    lang: String,
 
-    name:     String,
-    typeline: String,
-    text:     String,
+    parts: [{
+        _id: false,
 
-    passcode: Number,
-    rarity:   String,
-
-    layout: String,
-
-    tags: [String],
+        flavorText: String,
+        artist:     String,
+    }],
 
     __updations: [{
         _id: false,

@@ -1,10 +1,12 @@
-import { Schema } from 'mongoose';
+/** AUTO GENERATED, DO NOT CHANGE **/
+import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { IPrintDatabase } from '@common/model/lorcana/print';
+import { IPrintDatabase, toJSON } from '@common/model/lorcana/print';
 
-const IPrintSchema = new Schema<IPrintDatabase>({
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+const PrintSchema = new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
     lang:   String,
@@ -25,7 +27,7 @@ const IPrintSchema = new Schema<IPrintDatabase>({
     layout:      String,
     rarity:      String,
     releaseDate: String,
-    finishes:    [String],
+    finishes:    { $type: [String], default: undefined },
 
     id:           Number,
     code:         String,
@@ -34,28 +36,19 @@ const IPrintSchema = new Schema<IPrintDatabase>({
     cardTraderId: Number,
 
     __updations: [{
-        _id:       false,
-        key:       String,
-        partIndex: Number,
-        lang:      String,
-        oldValue:  {},
-        newValue:  {},
+        _id: false,
+
+        key:      String,
+        oldValue: Object,
+        newValue: Object,
     }],
 
     __lockedPaths: [String],
 }, {
-    toJSON: {
-        transform(doc, ret) {
-            delete ret._id;
-            delete ret.__v;
-            delete ret.__updations;
-            delete ret.__lockedPaths;
-
-            return ret;
-        },
-    },
+    typeKey: '$type',
+    toJSON:  { transform: toJSON },
 });
 
-const Print = conn.model('print', IPrintSchema);
+const Print = conn.model('print', PrintSchema);
 
 export default Print;

@@ -25,6 +25,10 @@ export class Game {
         return this.#interface.getSourceFileOrThrow(name);
     }
 
+    tryGetInterface(name: string): SourceFile | undefined {
+        return this.#interface.getSourceFile(name);
+    }
+
     getModel(name: string): SourceFile {
         return this.#model.getSourceFileOrThrow(name);
     }
@@ -58,6 +62,10 @@ export class Game {
     generateDatabase(): void {
         this.generateDatabaseConn().saveSync();
         this.generateCardDatabase().saveSync();
+
+        if (this.tryGetInterface('print.ts') != null) {
+            this.generatePrintDatabase().saveSync();
+        }
     }
 
     generateDatabaseConn(): SourceFile {
@@ -207,6 +215,126 @@ export class Game {
             leadingTrivia:  writer => writer.newLine(),
             isExportEquals: false,
             expression:     'Card',
+        });
+
+        return source;
+    }
+
+    generatePrintDatabase(): SourceFile {
+        const name = `${this.#name}/db/print.ts`;
+
+        const print = this.getDeclaration(this.getInterface('print.ts'), 'Print');
+
+        const printDatabase = this.getDeclaration(this.getModel('print.ts'), 'IPrintDatabase');
+
+        const printModel = createModel(print as any);
+
+        if (!printDatabase.isKind(SyntaxKind.TypeAliasDeclaration)) {
+            throw new Error('Wrong print database type');
+        }
+
+        let printDatabaseModel = createModel(printDatabase as any);
+
+        const computedList = parseComputed(printDatabase);
+
+        printDatabaseModel = applyComputed(printDatabaseModel, computedList ?? []);
+
+        if (printModel.kind !== 'object' || printDatabaseModel.kind !== 'object') {
+            throw new Error('Wrong print database model type');
+        }
+
+        printDatabaseModel.keyValues.sort((a, b) => {
+            const aIndex = printModel.keyValues.findIndex(v => v.key === a.key);
+            const bIndex = printModel.keyValues.findIndex(v => v.key === b.key);
+
+            if (aIndex === -1) {
+                if (bIndex === -1) {
+                    return 0;
+                } else {
+                    return 1;
+                }
+            } else {
+                if (bIndex === -1) {
+                    return -1;
+                } else {
+                    return aIndex - bIndex;
+                }
+            }
+        });
+
+        for (const [i, kv] of printDatabaseModel.keyValues.entries()) {
+            const cardItem = printModel.keyValues.find(v => v.key === kv.key);
+
+            if (cardItem == null) {
+                if (i > 0) {
+                    const lastItem = printDatabaseModel.keyValues[i - 1];
+
+                    const lastCardItem = printModel.keyValues.find(v => v.key === lastItem.key);
+
+                    if (lastCardItem != null) {
+                        lastItem.hasTrailingNewline = true;
+                    }
+                }
+            } else {
+                kv.hasTrailingNewline = cardItem.hasTrailingNewline;
+            }
+        }
+
+        const source = serverSrc.addSourceFileAtPathIfExists(name) ?? serverSrc.createSourceFile(name);
+
+        source.removeText();
+
+        source.addStatements('/** AUTO GENERATED, DO NOT CHANGE **/');
+
+        source.addImportDeclaration({
+            moduleSpecifier: 'mongoose',
+            namedImports:    [{ name: 'Model' }, { name: 'Schema' }],
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: './db',
+            defaultImport:   'conn',
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: `@common/model/${this.#name}/print`,
+            namedImports:    [
+                { name: 'IPrintDatabase' },
+                { name: 'toJSON' },
+                ...(computedList ?? []).map(c => ({ name: c.watcher })),
+            ],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   '// eslint-disable-next-line @typescript-eslint/no-empty-object-type',
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'PrintSchema',
+                initializer: writer => {
+                    writer.write(
+                        'new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}, {}, \'$type\'>('
+                        + printSchema(modelIntoSchema(printDatabaseModel))
+                        + `, {\n typeKey: '$type',\n toJSON: { transform: toJSON } \n})`,
+                    );
+                },
+            }],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   writer => writer.newLine(),
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'Print',
+                initializer: 'conn.model(\'print\', PrintSchema)',
+            }],
+        });
+
+        source.addExportAssignment({
+            leadingTrivia:  writer => writer.newLine(),
+            isExportEquals: false,
+            expression:     'Print',
         });
 
         return source;

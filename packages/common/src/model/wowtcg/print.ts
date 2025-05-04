@@ -1,8 +1,10 @@
 import { Print as IPrint } from '@interface/wowtcg/print';
 
-import { WithUpdation } from '../updation';
+import { WithUpdation, defaultToJSON } from '../updation';
 
 export type IPrintDatabase = WithUpdation<IPrint>;
+
+export const toJSON = defaultToJSON;
 
 export type PrintUpdationView = {
     cardId:     string;
