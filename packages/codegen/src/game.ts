@@ -66,6 +66,8 @@ export class Game {
         if (this.tryGetInterface('print.ts') != null) {
             this.generatePrintDatabase().saveSync();
         }
+
+        this.generateFormatDatabase().saveSync();
     }
 
     generateDatabaseConn(): SourceFile {
@@ -335,6 +337,79 @@ export class Game {
             leadingTrivia:  writer => writer.newLine(),
             isExportEquals: false,
             expression:     'Print',
+        });
+
+        return source;
+    }
+
+    generateFormatDatabase(): SourceFile {
+        const name = `${this.#name}/db/format.ts`;
+
+        const format = this.getDeclaration(this.getInterface('format.ts'), 'Format');
+
+        const formatModel = createModel(format as any);
+
+        const source = serverSrc.addSourceFileAtPathIfExists(name) ?? serverSrc.createSourceFile(name);
+
+        source.removeText();
+
+        source.addStatements('/** AUTO GENERATED, DO NOT CHANGE **/');
+
+        source.addImportDeclaration({
+            moduleSpecifier: 'mongoose',
+            namedImports:    [{ name: 'Model' }, { name: 'Schema' }],
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: './db',
+            defaultImport:   'conn',
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: `@interface/${this.#name}/format`,
+            namedImports:    [
+                { name: 'Format', alias: 'IFormat' },
+            ],
+        });
+
+        source.addImportDeclaration({
+            leadingTrivia:   writer => writer.newLine(),
+            moduleSpecifier: `@common/model/updation`,
+            namedImports:    [
+                { name: 'defaultToJSON' },
+            ],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   '// eslint-disable-next-line @typescript-eslint/no-empty-object-type',
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'FormatSchema',
+                initializer: writer => {
+                    writer.write(
+                        'new Schema<IFormat, Model<IFormat>, {}, {}, {}, {}, \'$type\'>('
+                        + printSchema(modelIntoSchema(formatModel))
+                        + `, {\n typeKey: '$type',\n toJSON: { transform: defaultToJSON } \n})`,
+                    );
+                },
+            }],
+        });
+
+        source.addVariableStatement({
+            leadingTrivia:   writer => writer.newLine(),
+            declarationKind: VariableDeclarationKind.Const,
+            declarations:    [{
+                name:        'Format',
+                initializer: 'conn.model(\'format\', FormatSchema)',
+            }],
+        });
+
+        source.addExportAssignment({
+            leadingTrivia:  writer => writer.newLine(),
+            isExportEquals: false,
+            expression:     'Format',
         });
 
         return source;

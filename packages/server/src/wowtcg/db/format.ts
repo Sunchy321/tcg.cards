@@ -3,7 +3,7 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { Format as IFormat } from '@interface/hearthstone/format';
+import { Format as IFormat } from '@interface/wowtcg/format';
 
 import { defaultToJSON } from '@common/model/updation';
 
@@ -27,6 +27,7 @@ const FormatSchema = new Schema<IFormat, Model<IFormat>, {}, {}, {}, {}, '$type'
     }],
     birthday:  String,
     deathdate: String,
+    isEternal: Boolean,
 }, {
     typeKey: '$type',
     toJSON:  { transform: defaultToJSON },

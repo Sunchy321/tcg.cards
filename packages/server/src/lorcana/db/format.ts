@@ -1,35 +1,38 @@
-import { Schema } from 'mongoose';
+/** AUTO GENERATED, DO NOT CHANGE **/
+import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
 import { Format as IFormat } from '@interface/lorcana/format';
 
-const FormatSchema = new Schema<IFormat>({
-    formatId: {
-        type:     String,
-        required: true,
-        unique:   true,
-    },
+import { defaultToJSON } from '@common/model/updation';
 
-    localization: [{ _id: false, lang: String, name: String }],
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+const FormatSchema = new Schema<IFormat, Model<IFormat>, {}, {}, {}, {}, '$type'>({
+    formatId:     String,
+    localization: [{
+        _id: false,
 
-    sets:    { type: [String], default: undefined },
-    banlist: [{
-        _id: false, id: String, status: String, date: String, group: String,
+        lang: String,
+        name: String,
     }],
+    sets:    { $type: [String], default: undefined },
+    banlist: [{
+        _id: false,
 
+        id:     String,
+        status: String,
+        date:   String,
+        group:  String,
+    }],
     birthday:  String,
     deathdate: String,
+    isEternal: Boolean,
 }, {
-    toJSON: {
-        transform(doc, ret) {
-            delete ret._id;
-            delete ret.__v;
-            return ret;
-        },
-    },
+    typeKey: '$type',
+    toJSON:  { transform: defaultToJSON },
 });
 
-const Format = conn.model<IFormat>('format', FormatSchema);
+const Format = conn.model('format', FormatSchema);
 
 export default Format;
