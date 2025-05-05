@@ -44,15 +44,15 @@
                 /> -->
             </div>
             <div class="col column">
-                <!-- <q-btn
+                <q-btn
                     class="link"
                     type="a"
-                    :to="{ name: 'magic/format', params: { id: 'standard' } }"
+                    :to="{ name: 'yugioh/format', params: { id: 'ocg' } }"
                     icon="mdi-text-box-outline"
-                    :label="$t('magic.format.$self')"
+                    :label="$t('yugioh.format.$self')"
                     flat
                     :stack="$q.screen.xs"
-                /> -->
+                />
                 <q-btn
                     class="link"
                     type="a"

@@ -5,15 +5,16 @@
 <script setup lang="ts">
 import {
     ref, computed, watch, h,
+    onMounted,
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useLorcana } from 'store/games/lorcana';
+import { useYugioh } from 'store/games/yugioh';
 
 import { QTooltip } from 'quasar';
 import CardImage from './CardImage.vue';
 
-import cardProfile, { CardProfile } from 'src/common/lorcana/card';
+import cardProfile, { CardProfile } from 'src/common/yugioh/card';
 
 import { pick } from 'lodash';
 
@@ -45,7 +46,7 @@ const props = withDefaults(
 
 const router = useRouter();
 const route = useRoute();
-const lorcana = useLorcana();
+const yugioh = useYugioh();
 
 const innerShowId = ref(false);
 const profile = ref<CardProfile | null>(null);
@@ -54,12 +55,12 @@ const locale = computed(() => {
     if (props.useLang && props.version != null) {
         return props.version.lang;
     } else {
-        return lorcana.locale;
+        return yugioh.locale;
     }
 });
 
 const link = computed(() => router.resolve({
-    name:   'lorcana/card',
+    name:   'yugioh/card',
     params: { id: props.id },
     query:  {
         ...pick(props.version, ['set', 'number', 'lang']),
@@ -75,7 +76,7 @@ const name = computed(() => {
         return null;
     }
 
-    const { locales } = lorcana;
+    const { locales } = yugioh;
     const defaultLocale = locales[0];
 
     return profile.value.localization.find(l => l.lang === locale.value)?.name
@@ -116,7 +117,7 @@ const imageVersion = computed(() => {
 
         // filter for locale
         (vs: CardProfile['versions']) => {
-            const { locales } = lorcana;
+            const { locales } = yugioh;
             const defaultLocale = locales[0];
 
             const localeVersion = vs.filter(v => v.lang === locale.value);
@@ -176,10 +177,23 @@ const imageVersion = computed(() => {
     })[0];
 });
 
-const loadData = async () => cardProfile.get(
-    props.id,
-    v => { profile.value = v; },
-).catch(() => { innerShowId.value = true; });
+const quickLoadData = async () => {
+    const value = await cardProfile.getLocal(props.id);
+
+    if (value != null) {
+        profile.value = value;
+    }
+};
+
+onMounted(quickLoadData);
+
+const loadData = async () => {
+    if (profile.value != null && profile.value.cardId === props.id) {
+        return;
+    }
+
+    cardProfile.get(props.id, v => profile.value = v).catch(() => innerShowId.value = true);
+};
 
 watch(() => props.id, (newValue, oldValue) => {
     if (newValue != null && oldValue != null) {
@@ -202,12 +216,13 @@ const render = () => {
 
             if (profile.value != null && imageVersion.value != null) {
                 nodes.push(h(CardImage, {
-                    cardId: profile.value.cardId,
-                    lang:   imageVersion.value!.lang,
-                    set:    imageVersion.value!.set,
-                    number: imageVersion.value!.number,
-                    layout: imageVersion.value!.layout,
-                    part:   props.part,
+                    cardId:   profile.value.cardId,
+                    passcode: profile.value.passcode,
+                    lang:     imageVersion.value!.lang,
+                    set:      imageVersion.value!.set,
+                    number:   imageVersion.value!.number,
+                    layout:   imageVersion.value!.layout,
+                    part:     props.part,
                 }));
             }
 
@@ -231,13 +246,14 @@ const render = () => {
                     children.push(h(QTooltip, {
                         'content-class': 'card-popover',
                     }, () => [h(CardImage, {
-                        class:  'card-image-popover',
-                        cardId: profile.value.cardId,
-                        lang:   imageVersion.value!.lang,
-                        set:    imageVersion.value!.set,
-                        number: imageVersion.value!.number,
-                        layout: imageVersion.value!.layout,
-                        part:   props.part,
+                        class:    'card-image-popover',
+                        cardId:   profile.value.cardId,
+                        passcode: profile.value.passcode,
+                        lang:     imageVersion.value!.lang,
+                        set:      imageVersion.value!.set,
+                        number:   imageVersion.value!.number,
+                        layout:   imageVersion.value!.layout,
+                        part:     props.part,
                     })]));
                 }
 

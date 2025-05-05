@@ -17,6 +17,25 @@ export default {
         $self: 'Set',
     },
 
+    format: {
+        $self: 'Format',
+
+        ocg:   'OCG',
+        tcg:   'TCG',
+        cnocg: 'CNOCG',
+        goat:  'GOAT',
+    },
+
+    legality: {
+        '$self': 'Legality',
+
+        'legal':        'Legal',
+        'semi-limited': 'Semi-Limited',
+        'limited':      'Limited',
+        'forbidden':    'Forbidden',
+        'unavailable':  'Unavailable',
+    },
+
     ui,
     search,
 };

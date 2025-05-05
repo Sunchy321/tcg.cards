@@ -23,6 +23,14 @@ export default {
         core: 'Core Constructed',
     },
 
+    legality: {
+        $self: 'Legality',
+
+        legal:       'Legal',
+        banned:      'Banned',
+        unavailable: 'Unavailable',
+    },
+
     ui,
     search,
 };

@@ -8,6 +8,8 @@ export interface CardProfile {
         name: string;
     }[];
 
+    passcode?: number;
+
     versions: {
         lang:        string;
         set:         string;

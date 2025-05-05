@@ -12,3 +12,10 @@ export const locales = [
     'it',
     'pt',
 ];
+
+export const formats = [
+    'ocg',
+    'tcg',
+    'cnocg',
+    'goat',
+];

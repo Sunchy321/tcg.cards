@@ -17,8 +17,6 @@ import sorter from '@common/util/sorter';
 
 import searcher from '@/yugioh/search';
 
-import Parser from '@searcher/parser';
-
 import { locales } from '@static/yugioh/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -227,6 +225,8 @@ interface CardProfile {
         name: string;
     }[];
 
+    passcode?: number;
+
     versions: {
         lang:   string;
         set:    string;
@@ -259,6 +259,7 @@ router.get('/profile', async ctx => {
             result[c.cardId] = {
                 cardId:       c.cardId,
                 localization: c.localization,
+                passcode:     c.passcode,
                 versions:     [],
             };
         }
@@ -278,24 +279,17 @@ router.get('/profile', async ctx => {
     ctx.body = result;
 });
 
-router.get('/test', async ctx => {
-    const text = ctx.query.text as string ?? '';
+router.get('/name', async ctx => {
+    const { name } = mapValues(ctx.query, toSingle);
 
-    const parser = new Parser(text);
-
-    try {
-        const expr = parser.parse();
-
-        ctx.body = expr;
-    } catch (e: any) {
-        ctx.body = {
-            text,
-            type:     e.type,
-            value:    e.value,
-            location: e.location,
-            tokens:   parser.tokens,
-        };
+    if (name == null) {
+        ctx.status = 400;
+        return;
     }
+
+    const cards = await Card.find({ 'localization.name': name });
+
+    ctx.body = cards.map(c => c.toJSON());
 });
 
 export default router;

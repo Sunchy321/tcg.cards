@@ -6,3 +6,5 @@ export const banlistStatusOrder = [
     'legal',
     'unavailable',
 ];
+
+export const banlistSourceOrder: (string | null)[] = [];

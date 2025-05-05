@@ -17,6 +17,25 @@ export default {
         $self: '系列',
     },
 
+    format: {
+        $self: '赛制',
+
+        ocg:   'OCG',
+        tcg:   'TCG',
+        cnocg: '简中OCG',
+        goat:  'GOAT',
+    },
+
+    legality: {
+        '$self': '可用性',
+
+        'legal':        '可用',
+        'semi-limited': '准限制',
+        'limited':      '限制',
+        'forbidden':    '禁止',
+        'unavailable':  '不可用',
+    },
+
     ui,
     search,
 };

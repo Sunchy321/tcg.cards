@@ -23,6 +23,14 @@ export default {
         core: '核心构组赛',
     },
 
+    legality: {
+        $self: '可用性',
+
+        legal:       '可用',
+        banned:      '禁止',
+        unavailable: '不可用',
+    },
+
     ui,
     search,
 };

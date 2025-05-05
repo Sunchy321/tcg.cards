@@ -132,11 +132,11 @@
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
                     </template>
                     <template #summary="{ value: b }">
-                        <q-input
+                        <card-input
                             class="col-grow q-mr-sm"
                             :model-value="b.id"
                             outlined dense
-                            @update:model-value="v => b.id = adjustId(v as string)"
+                            @update:model-value="v => b.id = v"
                         />
 
                         <q-btn-toggle
@@ -155,11 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-    ref, computed, watch, onMounted, toRaw,
-} from 'vue';
-
-import { useLorcana } from 'store/games/lorcana';
+import { ref, computed, watch, onMounted, toRaw } from 'vue';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'src/setup/page';
@@ -167,12 +163,13 @@ import pageSetup from 'src/setup/page';
 import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
+import CardInput from 'src/components/yugioh/data/CardInput.vue';
 
-import { FormatAnnouncement } from 'interface/lorcana/format-change';
+import { FormatAnnouncement } from 'interface/yugioh/format-change';
 
 import { last } from 'lodash';
 
-import { toIdentifier } from 'common/util/id';
+import { formats as yugiohFormats } from 'static/yugioh/basic';
 
 type BanlistItem = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 
@@ -184,57 +181,39 @@ interface FormatAnnouncementProfile {
 
 const sources = [
     'release',
-    'disney',
+    'konami',
+    'konami_cn',
+    'goat',
 ];
 
-const statusIcon = (status: string, card?: string) => {
+const statusIcon = (status: string) => {
     switch (status) {
-    case 'banned':
-        return 'mdi-close-circle-outline';
-    case 'banned_in_bo1':
-        return 'mdi-progress-close';
-    case 'suspended':
-        return 'mdi-minus-circle-outline';
-    case 'banned_as_commander':
-        return 'mdi-crown-circle-outline';
-    case 'banned_as_companion':
-        return 'mdi-heart-circle-outline';
-    case 'game_changer':
-        return 'mdi-eye-circle-outline';
-    case 'restricted':
-        return 'mdi-alert-circle-outline';
     case 'legal':
         return 'mdi-check-circle-outline';
+    case 'forbidden':
+        return 'mdi-close-circle-outline';
+    case 'limited':
+        return 'mdi-numeric-1-circle-outline';
+    case 'semi-limited':
+        return 'mdi-numeric-2-circle-outline';
     case 'unavailable':
         return 'mdi-cancel';
-    case undefined:
-        if (card?.startsWith('#{clone:')) {
-            return 'mdi-content-copy';
-        } else {
-            return 'mdi-help-circle-outline';
-        }
     default:
-        return '';
+        return 'mdi-help-circle-outline';
     }
 };
 
 const statusOptions = [
     'legal',
-    'banned',
-    'banned_in_bo1',
-    'suspended',
-    'restricted',
-    'banned_as_commander',
-    'banned_as_companion',
-    'game_changer',
+    'semi-limited',
+    'limited',
+    'forbidden',
     'unavailable',
 ].map(v => ({
     icon:  statusIcon(v),
     class: `banlist-status-${v}`,
     value: v,
 }));
-
-const lorcana = useLorcana();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -253,15 +232,16 @@ const {
     appendParam: true,
 });
 
-const formats = computed(() => ['#core', ...lorcana.formats]);
+const formats = computed(() => ['#common', ...yugiohFormats]);
 const announcementList = ref<FormatAnnouncementProfile[]>([]);
 const selected = ref<FormatAnnouncementProfile | null>(null);
 
 const announcement = ref<FormatAnnouncement>({
-    date:    '',
-    source:  'disney',
-    link:    [],
-    changes: [],
+    date:          '',
+    effectiveDate: '',
+    source:        'konami',
+    link:          [],
+    changes:       [],
 });
 
 const announcementFiltered = computed(() => {
@@ -282,7 +262,7 @@ const announcementListWithLabel = computed(() => announcementFiltered.value.map(
 const dbId = computed(() => (announcement.value as any)?._id);
 
 const source = computed({
-    get() { return announcement.value?.source ?? 'disney'; },
+    get() { return announcement.value?.source ?? 'konami'; },
     set(newValue: string) {
         announcement.value.source = newValue;
     },
@@ -327,24 +307,17 @@ const addChange = (format = '') => {
     });
 };
 
-const adjustId = (id: string) => (id.startsWith('#') ? id : toIdentifier(id));
-
 const addBanlist = (banlist: BanlistItem[]) => [
     ...banlist,
     {
         id:     '',
-        status: last(banlist)?.status ?? 'banned',
+        status: last(banlist)?.status ?? 'forbidden',
     },
 ];
 
 const formatMap: Record<string, string> = {
-    release:             '#standard',
-    duelcommander:       'duelcommander',
-    mtgcommander:        'commander',
-    leviathan_commander: 'leviathan_commander',
-    oathbreaker:         'oathbreaker',
-    canadian_highlander: 'canadian_highlander',
-    pauper_commander:    'pauper_commander',
+    konami: 'ocg',
+    goat:   'goat',
 };
 
 const fillEmptyAnnouncement = () => {
@@ -364,7 +337,7 @@ const fillEmptyAnnouncement = () => {
 watch(source, fillEmptyAnnouncement);
 
 const loadData = async () => {
-    const { data } = await controlGet<FormatAnnouncementProfile[]>('/lorcana/format/announcement');
+    const { data } = await controlGet<FormatAnnouncementProfile[]>('/yugioh/format/announcement');
 
     announcementList.value = data;
 
@@ -380,7 +353,7 @@ const loadAnnouncement = async () => {
         return;
     }
 
-    const { data: result } = await controlGet<FormatAnnouncement>('/lorcana/format/announcement', {
+    const { data: result } = await controlGet<FormatAnnouncement>('/yugioh/format/announcement', {
         id: selected.value.id,
     });
 
@@ -418,7 +391,7 @@ const saveAnnouncement = async () => {
         }
     }
 
-    await controlPost('/lorcana/format/announcement/save', { data });
+    await controlPost('/yugioh/format/announcement/save', { data });
 
     await loadData();
 };
@@ -431,9 +404,10 @@ const newAnnouncement = async () => {
     selected.value = null;
 
     announcement.value = {
-        source:  filter.value === '' ? 'disney' : filter.value,
-        date:    todayDate,
-        changes: [],
+        source:        filter.value === '' ? 'konami' : filter.value,
+        date:          todayDate,
+        effectiveDate: todayDate,
+        changes:       [],
     };
 
     fillEmptyAnnouncement();
@@ -442,7 +416,7 @@ const newAnnouncement = async () => {
 const applyAnnouncements = async () => {
     await saveAnnouncement();
 
-    await controlPost('/lorcana/format/announcement/apply');
+    await controlPost('/yugioh/format/announcement/apply');
 };
 
 </script>

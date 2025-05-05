@@ -4,7 +4,8 @@ import card from './card';
 import print from './print';
 import image from './image';
 import set from './set';
-import lorcanaJson from './data';
+import format from './format';
+import data from './data';
 
 const router = new KoaRouter();
 
@@ -14,6 +15,7 @@ router.use(card.routes());
 router.use(print.routes());
 router.use(image.routes());
 router.use(set.routes());
-router.use(lorcanaJson.routes());
+router.use(format.routes());
+router.use(data.routes());
 
 export default router;

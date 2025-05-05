@@ -23,10 +23,11 @@ class Database<T> extends Dexie {
 }
 
 interface Profile<T> {
-    get:    (id: string, callback: (value: T) => void) => Promise<void>;
-    update: (value: T) => Promise<void>;
-    count:  () => Promise<number>;
-    clear:  () => Promise<void>;
+    get:      (id: string, callback: (value: T) => void) => Promise<void>;
+    getLocal: (id: string) => Promise<T | undefined>;
+    update:   (value: T) => Promise<void>;
+    count:    () => Promise<number>;
+    clear:    () => Promise<void>;
 }
 
 const debounceGap = 100;
@@ -68,10 +69,10 @@ export default function makeProfile<T>(
     const debouncedGetRemote = debounce(getRemote, debounceGap, { accumulate: true }) as
         unknown as (id: string) => Promise<T>;
 
-    const get = async (id: string, callback: (value: T) => void) => {
-        const local = db.profile.get({ [indexKey]: id });
+    const getLocal = async (id: string) => db.profile.get({ [indexKey]: id });
 
-        const localValue = await local;
+    const get = async (id: string, callback: (value: T) => void) => {
+        const localValue = await getLocal(id);
 
         if (localValue != null) {
             callback(localValue);
@@ -94,6 +95,10 @@ export default function makeProfile<T>(
     const clear = async () => db.profile.clear();
 
     return {
-        get, update, count, clear,
+        get,
+        getLocal,
+        update,
+        count,
+        clear,
     };
 }

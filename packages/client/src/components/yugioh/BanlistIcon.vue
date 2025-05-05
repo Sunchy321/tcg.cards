@@ -14,7 +14,7 @@ import { computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 
-import { Legality } from 'interface/lorcana/format-change';
+import { Legality } from 'interface/yugioh/format-change';
 
 const i18n = useI18n();
 
@@ -34,20 +34,16 @@ const icon = computed(() => {
     switch (status) {
     case 'legal':
         return 'mdi-check-circle-outline';
-    case 'banned':
+    case 'forbidden':
         return 'mdi-close-circle-outline';
+    case 'limited':
+        return 'mdi-numeric-1-circle-outline';
+    case 'semi-limited':
+        return 'mdi-numeric-2-circle-outline';
     case 'unavailable':
         return 'mdi-cancel';
     default:
-        if (score.value != null) {
-            if (score.value > 9) {
-                return 'mdi-numeric-9-plus-circle-outline';
-            } else {
-                return `mdi-numeric-${score.value}-circle-outline`;
-            }
-        } else {
-            return 'mdi-help-circle-outline';
-        }
+        return 'mdi-help-circle-outline';
     }
 });
 
@@ -55,7 +51,7 @@ const tooltip = computed(() => {
     if (score.value != null) {
         return score;
     } else {
-        return i18n.t(`lorcana.legality.${status}`);
+        return i18n.t(`yugioh.legality.${status}`);
     }
 });
 </script>

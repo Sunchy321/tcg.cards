@@ -22,8 +22,6 @@ import sorter from '@common/util/sorter';
 
 import searcher from '@/magic/search';
 
-import Parser from '@searcher/parser';
-
 import { extendedLocales } from '@static/magic/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -347,26 +345,6 @@ router.get('/profile', async ctx => {
     }
 
     ctx.body = result;
-});
-
-router.get('/test', async ctx => {
-    const text = ctx.query.text as string ?? '';
-
-    const parser = new Parser(text);
-
-    try {
-        const expr = parser.parse();
-
-        ctx.body = expr;
-    } catch (e: any) {
-        ctx.body = {
-            text,
-            type:     e.type,
-            value:    e.value,
-            location: e.location,
-            tokens:   parser.tokens,
-        };
-    }
 });
 
 export default router;
