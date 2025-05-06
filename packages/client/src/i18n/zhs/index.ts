@@ -29,6 +29,10 @@ export default {
         'ph':  '非瑞克西亚文',
 
         'en:asia': '英文（亚洲）',
+        'zhs:pro': '简体中文（YGOPro)',
+        'zhs:nw':  '简体中文（NW）',
+        'zhs:cn':  '简体中文（CN）',
+        'zhs:md':  '简体中文（MD）',
     },
 
     user: {

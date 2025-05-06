@@ -36,7 +36,7 @@
             :model-value="false"
             :label="gameLocale"
         >
-            <q-list link style="width: 150px">
+            <q-list link style="min-width: 150px">
                 <q-item
                     v-for="l in gameLocales" :key="l"
                     v-close-popup
@@ -182,5 +182,5 @@ export default defineComponent({
 <style lang="sass" scoped>
 .code
     color: #777
-    width: 40px
+    min-width: 40px
 </style>

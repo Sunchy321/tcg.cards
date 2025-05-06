@@ -9,6 +9,7 @@ import Card from '@/yugioh/db/card';
 
 import YGOProdeckLoader from '@/yugioh/data/ygoprodeck/card';
 import YugiohHistoryCardLoader from '@/yugioh/data/yugioh-history/card';
+import YGOCDBLoader from '@/yugioh/data/ygocdb/card';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -43,6 +44,18 @@ router.get(
     websocket,
     async ctx => {
         yugiohHistoryCardLoader.bind(await ctx.ws());
+
+        ctx.status = 200;
+    },
+);
+
+const ygocdbLoader = new YGOCDBLoader();
+
+router.get(
+    '/ygocdb',
+    websocket,
+    async ctx => {
+        ygocdbLoader.bind(await ctx.ws());
 
         ctx.status = 200;
     },

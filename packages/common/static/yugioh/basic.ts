@@ -11,6 +11,10 @@ export const locales = [
     'fr',
     'it',
     'pt',
+    'zhs:pro',
+    'zhs:nw',
+    'zhs:cn',
+    'zhs:md',
 ];
 
 export const formats = [

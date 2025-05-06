@@ -1,12 +1,9 @@
 import Task from '@/common/task';
 
 import Card from '@/yugioh/db/card';
-import Print from '@/yugioh/db/print';
-// import Set from '@/yugioh/db/set';
 
-import { File } from '@interface/yugioh/ygoprodeck/card';
+import { File } from '@interface/yugioh/ygocdb/card';
 import { Card as ICard } from '@interface/yugioh/card';
-import { Print as IPrint } from '@interface/yugioh/print';
 
 import { Status } from '../../status';
 
@@ -14,7 +11,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { toBucket, toGenerator } from '@/common/to-bucket';
 import { toCard } from './to-card';
-import { mergeCard, mergePrint } from '../merge';
+import { mergeCard } from './merge';
 
 import { dataPath } from '@/config';
 import { bulkUpdation } from '@/yugioh/logger';
@@ -23,7 +20,7 @@ const bucketSize = 500;
 
 export default class DataLoader extends Task<Status> {
     async startImpl(): Promise<void> {
-        bulkUpdation.info('================ LOAD YGOPRODECK ================');
+        bulkUpdation.info('================== LOAD YGOCDB ==================');
 
         let type = 'card';
         let total = 0;
@@ -48,57 +45,42 @@ export default class DataLoader extends Task<Status> {
             return prog;
         });
 
-        const path = join(dataPath, 'yugioh', 'ygoprodeck.json');
+        const path = join(dataPath, 'yugioh', 'ygocdb.json');
 
         const json = JSON.parse(readFileSync(path).toString()) as File;
 
         type = 'card';
-        total = json.data.length;
+        total = Object.values(json).length;
         count = 0;
         start = Date.now();
 
-        for (const jsons of toBucket(toGenerator(json.data), bucketSize)) {
+        for (const jsons of toBucket(toGenerator(Object.values(json)), bucketSize)) {
             if (this.status === 'idle') {
                 return;
             }
 
-            const cardPrints = jsons.map(json => toCard(json));
+            const cards = jsons.map(json => toCard(json));
 
             const cardsToInsert: ICard[] = [];
-            const printsToInsert: IPrint[] = [];
 
-            const oldCards = await Card.find({ cardId: { $in: cardPrints.map(c => c.card.cardId) } });
-            const oldPrints = await Print.find({ cardId: { $in: cardPrints.map(c => c.card.cardId) } });
+            const oldCards = await Card.find({ cardId: { $in: cards.map(c => c.cardId) } });
 
-            for (const cardPrint of cardPrints) {
-                const { card, prints } = cardPrint;
-
+            for (const card of cards) {
                 const oldCard = oldCards.find(c => c.cardId === card.cardId);
 
                 if (oldCard == null) {
-                    cardsToInsert.push(card);
+                    bulkUpdation.error(`Card ${card.cardId} not found in database`);
                 } else {
                     await mergeCard(oldCard, card);
-                }
-
-                for (const print of prints) {
-                    const oldPrint = oldPrints.find(p => p.cardId === print.cardId && p.set === print.set && p.number === print.number);
-
-                    if (oldPrint == null) {
-                        printsToInsert.push(print);
-                    } else {
-                        await mergePrint(oldPrint, print);
-                    }
                 }
 
                 count += 1;
             }
 
             await Card.insertMany(cardsToInsert);
-            await Print.insertMany(printsToInsert);
         }
 
-        bulkUpdation.info('=========== LOAD YGOPRODECK COMPLETE ===========');
+        bulkUpdation.info('============= LOAD YGOCDB COMPLETE =============');
     }
 
     stopImpl(): void { /* no-op */ }

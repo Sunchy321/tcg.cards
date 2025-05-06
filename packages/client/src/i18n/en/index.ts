@@ -29,6 +29,10 @@ export default {
         'ph':  'Phyrexian',
 
         'en:asia': 'English (Asia)',
+        'zhs:pro': 'Simplified Chinese (YGOPro)',
+        'zhs:nw':  'Simplified Chinese (NW)',
+        'zhs:cn':  'Simplified Chinese (CNOCG)',
+        'zhs:md':  'Simplified Chinese (Master Duel)',
     },
 
     user: {

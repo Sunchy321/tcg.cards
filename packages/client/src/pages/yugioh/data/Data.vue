@@ -20,19 +20,9 @@
         </div>
 
         <div class="row q-gutter-md">
-            <q-btn
-                dense outline
-                @click="loadYGOProdeck"
-            >
-                YGOProdeck
-            </q-btn>
-
-            <q-btn
-                dense outline
-                @click="loadYugiohHistoryCard"
-            >
-                YugiohHistory
-            </q-btn>
+            <q-btn dense outline @click="loadYGOProdeck">YGOProdeck </q-btn>
+            <q-btn dense outline @click="loadYugiohHistoryCard">YugiohHistory</q-btn>
+            <q-btn dense outline @click="loadYGOCDB">YGOCDB</q-btn>
         </div>
 
         <div class="q-mt-md q-mb-sm">
@@ -203,6 +193,24 @@ const loadYGOProdeck = async () => {
 
 const loadYugiohHistoryCard = async () => {
     const ws = controlWs('/yugioh/data/yugioh-history-card');
+
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            progress.value = JSON.parse(data) as Progress;
+        };
+
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+            void loadBulk();
+
+            resolve(undefined);
+        };
+    });
+};
+
+const loadYGOCDB = async () => {
+    const ws = controlWs('/yugioh/data/ygocdb');
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {
