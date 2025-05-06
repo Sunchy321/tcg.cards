@@ -32,10 +32,10 @@ const score = computed(() => {
 
 const icon = computed(() => {
     switch (status) {
-    case 'legal':
-        return 'mdi-check-circle-outline';
+    case 'unlimited':
+        return 'mdi-numeric-3-circle-outline';
     case 'forbidden':
-        return 'mdi-close-circle-outline';
+        return 'mdi-numeric-0-circle-outline';
     case 'limited':
         return 'mdi-numeric-1-circle-outline';
     case 'semi-limited':

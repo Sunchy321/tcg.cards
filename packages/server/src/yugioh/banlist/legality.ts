@@ -156,10 +156,10 @@ export function getLegality(
         };
 
         // This card is not released now
-        if (prints.length === 0) {
-            assign('unavailable', 'not-released');
-            continue;
-        }
+        // if (prints.length === 0) {
+        //     assign('unavailable', 'not-released');
+        //     continue;
+        // }
 
         const testResult = testRules(data, formatId, rules);
 
@@ -184,7 +184,7 @@ export function getLegality(
             }
         }
 
-        assign('legal', 'default');
+        assign('unlimited', 'default');
     }
 
     return result;
@@ -244,7 +244,7 @@ export class LegalityAssigner extends Task<Status> {
         lookupPrintsForLegality(allCards);
 
         let count = 0;
-        const total = (await Card.aggregate().group({ _id: '$cardId' })).length;
+        const total = await Card.count();
 
         const start = Date.now();
 

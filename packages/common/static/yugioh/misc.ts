@@ -3,7 +3,7 @@ export const banlistStatusOrder = [
     'limited',
     'semi-limited',
 
-    'legal',
+    'unlimited',
     'unavailable',
 ];
 

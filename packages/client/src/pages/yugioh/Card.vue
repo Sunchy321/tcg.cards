@@ -31,6 +31,17 @@
                 <yugioh-text>{{ text }}</yugioh-text>
             </div>
 
+            <grid
+                v-slot="v"
+                :value="Object.entries(legalities)" :item-width="160"
+                class="legalities"
+            >
+                <div class="flex items-center no-wrap">
+                    <banlist-icon class="q-mr-sm" :status="v[1]" />
+                    <span style="white-space: nowrap;"> {{ $t('yugioh.format.' + v[0]) }}</span>
+                </div>
+            </grid>
+
             <div class="links flex q-gutter-md">
                 <q-btn
                     v-if="jsonLink != null"
@@ -139,9 +150,11 @@ import basicSetup from 'setup/basic';
 import yugiohSetup from 'setup/yugioh';
 import pageSetup from 'setup/page';
 
+import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/yugioh/CardAvatar.vue';
 import CardImage from 'components/yugioh/CardImage.vue';
 import YugiohText from 'components/yugioh/Text.vue';
+import BanlistIcon from 'components/yugioh/BanlistIcon.vue';
 
 import { CardPrintView } from 'common/model/yugioh/card';
 
@@ -431,6 +444,7 @@ const attribute = computed(() => {
 
 const passcode = computed(() => data.value?.passcode ?? 0);
 const relatedCards = computed(() => data.value?.relatedCards ?? []);
+const legalities = computed(() => data.value?.legalities ?? {});
 
 const editorLink = computed(() => ({
     name:  'yugioh/data',

@@ -182,16 +182,17 @@ interface FormatAnnouncementProfile {
 const sources = [
     'release',
     'konami',
+    'konami_tcg',
     'konami_cn',
     'goat',
 ];
 
 const statusIcon = (status: string) => {
     switch (status) {
-    case 'legal':
-        return 'mdi-check-circle-outline';
+    case 'unlimited':
+        return 'mdi-numeric-3-circle-outline';
     case 'forbidden':
-        return 'mdi-close-circle-outline';
+        return 'mdi-numeric-0-circle-outline';
     case 'limited':
         return 'mdi-numeric-1-circle-outline';
     case 'semi-limited':
@@ -204,7 +205,7 @@ const statusIcon = (status: string) => {
 };
 
 const statusOptions = [
-    'legal',
+    'unlimited',
     'semi-limited',
     'limited',
     'forbidden',
@@ -316,8 +317,10 @@ const addBanlist = (banlist: BanlistItem[]) => [
 ];
 
 const formatMap: Record<string, string> = {
-    konami: 'ocg',
-    goat:   'goat',
+    konami:     'ocg',
+    konami_tcg: 'tcg',
+    konami_cn:  'cnocg',
+    goat:       'goat',
 };
 
 const fillEmptyAnnouncement = () => {

@@ -17,6 +17,7 @@ const components = import.meta.glob<Component>('./data/*.vue');
 const tabs = [
     'Data',
     'Announcement',
+    'Legality',
 ];
 
 const { tab } = pageSetup({

@@ -147,7 +147,7 @@ export class AnnouncementApplier {
             f.banlist = [];
         }
 
-        if (['legal', 'unavailable'].includes(status)) {
+        if (['unlimited', 'unavailable'].includes(status)) {
             f.banlist = f.banlist.filter(v => v.id !== card);
         } else {
             const b = f.banlist.find(v => v.id === card);
@@ -323,7 +323,7 @@ export class AnnouncementApplier {
                         // card banned as a group
                         const group = b.id.slice(1);
 
-                        if (!['legal', 'unavailable'].includes(b.status)) {
+                        if (!['unlimited', 'unavailable'].includes(b.status)) {
                             const index = this.groupWatcher.findIndex(g => g.id === group && g.format === c.format);
 
                             if (index === -1) {

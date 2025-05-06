@@ -29,7 +29,7 @@ export default {
     legality: {
         '$self': '可用性',
 
-        'legal':        '可用',
+        'unlimited':    '无限制',
         'semi-limited': '准限制',
         'limited':      '限制',
         'forbidden':    '禁止',

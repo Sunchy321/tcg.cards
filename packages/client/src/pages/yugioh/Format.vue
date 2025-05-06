@@ -326,7 +326,7 @@ const banlist = computed(() => {
                     break;
                 }
 
-                if (c.status === 'legal' || c.status === 'unavailable') {
+                if (c.status === 'unlimited' || c.status === 'unavailable') {
                     result = result.filter(v => v.id !== c.id);
                 } else {
                     const sameIndex = result.findIndex(b => b.id === c.id);
