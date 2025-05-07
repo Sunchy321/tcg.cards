@@ -52,7 +52,7 @@ export function toCard(data: HCard): CardPrint {
 
             type: {
                 main: getType(data),
-                sub:  data.typeline?.map(t => t.toLowerCase()),
+                sub:  data.typeline?.map(t => t.toLowerCase())?.filter(t => t != data.race.toLowerCase()),
             },
 
             attribute:   data.attribute?.toLowerCase(),
@@ -62,7 +62,7 @@ export function toCard(data: HCard): CardPrint {
             linkMarkers: data.linkmarkers,
             attack:      data.atk,
             defense:     data.def,
-            race:        data.race,
+            race:        data.race.toLowerCase(),
 
             category:   'normal',
             legalities: {},
