@@ -21,13 +21,13 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, passcode, print: { set, number, lang, layout }}"
+                v-slot="{ cardId, passcode, card, print: { set, number, lang, layout }}"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
                 <router-link
                     :key="cardId"
-                    :to="cardLink(cardId, set, number, lang)"
+                    :to="cardLink(cardId, set, number, (card.localization as any).lang)"
                     target="_blank"
                 >
                     <card-image
