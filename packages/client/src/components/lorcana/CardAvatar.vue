@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import {
     ref, computed, watch, h,
+    onMounted,
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
@@ -176,17 +177,29 @@ const imageVersion = computed(() => {
     })[0];
 });
 
-const loadData = async () => cardProfile.get(
-    props.id,
-    v => { profile.value = v; },
-).catch(() => { innerShowId.value = true; });
+const quickLoadData = async () => {
+    const value = await cardProfile.getLocal(props.id);
+
+    if (value != null) {
+        profile.value = value;
+    }
+};
+
+onMounted(quickLoadData);
+
+const loadData = async () => {
+    if (profile.value != null && profile.value.cardId === props.id) {
+        return;
+    }
+
+    cardProfile.get(props.id, v => profile.value = v).catch(() => innerShowId.value = true);
+};
 
 watch(() => props.id, (newValue, oldValue) => {
     if (newValue != null && oldValue != null) {
         loadData();
     }
 });
-
 const render = () => {
     const text = showId.value
         ? h('span', { class: 'code' }, props.id)

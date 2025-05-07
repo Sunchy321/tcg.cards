@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import {
     ref, computed, watch, h,
+    onMounted,
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
@@ -62,12 +63,29 @@ const name = computed(() => {
     return localization.name;
 });
 
-const loadData = async () => entityProfile.get(
-    props.cardId,
-    v => { profile.value = v; },
-).catch(() => { innerShowId.value = true; });
+const quickLoadData = async () => {
+    const value = await entityProfile.getLocal(props.cardId);
 
-watch(() => props.cardId, loadData, { immediate: true });
+    if (value != null) {
+        profile.value = value;
+    }
+};
+
+onMounted(quickLoadData);
+
+const loadData = async () => {
+    if (profile.value != null && profile.value.entityId === props.cardId) {
+        return;
+    }
+
+    entityProfile.get(props.cardId, v => profile.value = v).catch(() => innerShowId.value = true);
+};
+
+watch(() => props.cardId, (newValue, oldValue) => {
+    if (newValue != null && oldValue != null) {
+        loadData();
+    }
+});
 
 const render = () => {
     const text = showId.value
