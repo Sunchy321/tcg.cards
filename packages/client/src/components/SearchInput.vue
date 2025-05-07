@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { computed, h } from 'vue';
 
-import { QInput, QInputProps, QInputSlots } from 'quasar';
+import { QInput, QInputProps, QInputSlots, useQuasar } from 'quasar';
 
 import Parser from 'searcher/parser';
 import SearchError from 'searcher/parser/error';
@@ -15,6 +15,8 @@ import { last } from 'lodash';
 type Props = Omit<QInputProps, 'hideBottomSpace' | 'modelValue'> & {
     modelValue: string;
 };
+
+const quasar = useQuasar();
 
 const props = defineProps<Props>();
 
@@ -41,7 +43,19 @@ const result = computed(() => {
     }
 });
 
+const isMobile = computed(() => quasar.platform.is.mobile);
+
 const render = () => {
+    if (isMobile.value) {
+        return h(QInput, {
+            ...props,
+            'hideBottomSpace':     true,
+            'onUpdate:modelValue': (newValue: string) => { emit('update:modelValue', newValue); },
+        }, {
+            ...slots,
+        });
+    }
+
     const { tokens, error } = result.value;
 
     const spans = tokens.map(v => {
@@ -112,20 +126,19 @@ const render = () => {
         caret-color: rgba(0, 0, 0, 0.87)
 
     &.q-field--highlighted, &.q-field--filled
-
-        & .search-error
+        & :deep(.search-error)
             text-decoration: underline wavy red
 
-        & .token-id
+        & :deep(.token-id)
             color: black
 
-        & .token-punc
+        & :deep(.token-punc)
             color: $indigo
 
-        & .token-string
+        & :deep(.token-string)
             color: $blue-grey
 
-        & .token-regex
+        & :deep(.token-regex)
             color: $brown
 
 *:deep(.search-token), *:deep(.search-error)
