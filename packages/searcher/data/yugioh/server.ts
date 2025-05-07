@@ -19,53 +19,13 @@ import { commands } from './index';
 const raw = defineServerCommand({
     command: commands.raw,
     query:   ({ parameter }) => {
-        // search mana
-        if (typeof parameter === 'string' && /^(\{[^}]+\})+$/.test(parameter)) {
-            return {
-                $or: [
-                    builtin.text.query({
-                        key:       'card.text',
-                        multiline: false,
-                        parameter,
-                        operator:  ':',
-                        qualifier: [],
-                    }),
-                    builtin.text.query({
-                        key:       'card.localization.text',
-                        multiline: false,
-                        parameter,
-                        operator:  ':',
-                        qualifier: [],
-                    }),
-                    builtin.text.query({
-                        key:       'print.text',
-                        multiline: false,
-                        parameter,
-                        operator:  ':',
-                        qualifier: [],
-                    }),
-                ],
-            };
-        } else {
-            return {
-                $or: [
-                    builtin.text.query({
-                        key:       'card.name',
-                        multiline: false,
-                        parameter,
-                        operator:  ':',
-                        qualifier: [],
-                    }),
-                    builtin.text.query({
-                        key:       'card.localization.name',
-                        multiline: false,
-                        parameter,
-                        operator:  ':',
-                        qualifier: [],
-                    }),
-                ],
-            };
-        }
+        return builtin.text.query({
+            key:       'card.localization.name',
+            multiline: false,
+            parameter,
+            operator:  ':',
+            qualifier: [],
+        });
     },
 });
 
@@ -87,14 +47,14 @@ const stats = defineServerCommand({
             return {
                 $or: [
                     builtin.number.query({
-                        key:       'card.strength',
+                        key:       'card.attack',
                         parameter: attack,
                         operator:  operator ?? '=',
                         qualifier,
                         meta:      { allowFloat: false },
                     }),
                     builtin.number.query({
-                        key:       'card.willPower',
+                        key:       'card.defense',
                         parameter: defense,
                         operator:  operator ?? '=',
                         qualifier,
@@ -105,14 +65,14 @@ const stats = defineServerCommand({
         } else {
             return {
                 ...builtin.number.query({
-                    key:       'card.strength',
+                    key:       'card.attack',
                     parameter: attack,
                     operator:  operator ?? '=',
                     qualifier,
                     meta:      { allowFloat: false },
                 }),
                 ...builtin.number.query({
-                    key:       'card.willPower',
+                    key:       'card.defense',
                     parameter: defense,
                     operator:  operator ?? '=',
                     qualifier,
@@ -153,15 +113,6 @@ const hash = defineServerCommand({
 const set = builtin.simple(commands.set, { key: 'print.set' });
 const num = builtin.simple(commands.num, { key: 'print.number' });
 const lang = builtin.simple(commands.lang, { key: 'print.lang' });
-
-const cost = builtin.number(commands.cost, { key: 'card.cost' });
-
-const color = builtin.simpleSet(commands.color, { key: 'card.color' });
-
-const lore = builtin.number(commands.lore, { key: 'card.lore' });
-const strength = builtin.number(commands.strength, { key: 'card.strength' });
-const willPower = builtin.number(commands.willPower, { key: 'card.willPower' });
-const moveCost = builtin.number(commands.moveCost, { key: 'card.moveCost' });
 
 const name = defineServerCommand({
     command: commands.name,
@@ -327,12 +278,6 @@ const backedCommands: Record<string, CommonServerCommand> = {
     set,
     num,
     lang,
-    cost,
-    color,
-    lore,
-    strength,
-    willPower,
-    moveCost,
     name,
     type,
     text,
@@ -398,7 +343,8 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
 
                 aggregate
                     .addFields({
-                        cardId: '$card.cardId',
+                        cardId:   '$card.cardId',
+                        passcode: '$card.passcode',
                     })
                     .lookup({
                         from: 'prints',
@@ -413,7 +359,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                                     $expr: {
                                         $and: [
                                             { $eq: ['$cardId', '$$cardId'] },
-                                            { $eq: ['$lang', '$$lang'] },
+                                            // { $eq: ['$lang', '$$lang'] },
                                         ],
                                     },
                                 },
@@ -428,8 +374,9 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                     if (!justCount) {
                         aggregate
                             .addFields({
-                                langIsLocale:  { $eq: ['$print.lang', locale] },
-                                langIsEnglish: { $eq: ['$print.lang', 'en'] },
+                                langIsLocale:   { $eq: ['$print.lang', locale] },
+                                langIsJapanese: { $eq: ['$print.lang', 'ja'] },
+                                langIsEnglish:  { $eq: ['$print.lang', 'en'] },
                             })
                             .group({
                                 _id:   '$cardId',
@@ -437,6 +384,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                                     $top: {
                                         sortBy: {
                                             'langIsLocale':      -1,
+                                            'langIsJapanese':    -1,
                                             'langIsEnglish':     -1,
                                             'print.releaseDate': -1,
                                             'print.number':      1,
@@ -476,13 +424,14 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 .skip((page - 1) * pageSize)
                 .limit(pageSize)
                 .project({
-                    'card._id':           0,
-                    'card.__v':           0,
-                    'print.langIsLocale': 0,
-                    'print.langIsEn':     0,
+                    'card._id':             0,
+                    'card.__v':             0,
+                    'print.langIsLocale':   0,
+                    'print.langIsJapanese': 0,
+                    'print.langIsEnglish':  0,
                 });
 
-            const explain = await aggregate.explain('executionStats');
+            // const explain = await aggregate.explain('executionStats');
 
             const cards = await aggregate;
 
@@ -491,7 +440,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 elapsed: Date.now() - start,
                 total,
                 page,
-                explain,
+                // explain,
                 cards,
             };
         },

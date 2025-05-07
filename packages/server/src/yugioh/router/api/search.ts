@@ -1,7 +1,7 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import searcher from '@/lorcana/search';
+import searcher from '@/yugioh/search';
 
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';

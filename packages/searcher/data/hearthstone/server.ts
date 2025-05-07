@@ -353,7 +353,7 @@ export default defineServerModel<ServerActions, Model<IEntity>>({
                     __v: 0,
                 });
 
-            const explain = await aggregate.explain('executionStats');
+            // const explain = await aggregate.explain('executionStats');
 
             const cards = await aggregate;
 
@@ -362,7 +362,7 @@ export default defineServerModel<ServerActions, Model<IEntity>>({
                 elapsed: Date.now() - start,
                 total,
                 page,
-                explain,
+                // explain,
                 cards,
             };
         },

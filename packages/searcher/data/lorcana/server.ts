@@ -551,7 +551,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                     'print.langIsEn':     0,
                 });
 
-            const explain = await aggregate.explain('executionStats');
+            // const explain = await aggregate.explain('executionStats');
 
             const cards = await aggregate;
 
@@ -560,7 +560,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 elapsed: Date.now() - start,
                 total,
                 page,
-                explain,
+                // explain,
                 cards,
             };
         },
