@@ -3,25 +3,25 @@ import { DefaultState, Context } from 'koa';
 
 import { ObjectId } from 'mongoose';
 
-import Card from '@/lorcana/db/card';
-import Print from '@/lorcana/db/print';
-import CardRelation from '@/lorcana/db/card-relation';
+import Card from '@/yugioh/db/card';
+import Print from '@/yugioh/db/print';
+import CardRelation from '@/yugioh/db/card-relation';
 
-import { Card as ICard } from '@interface/lorcana/card';
+import { Card as ICard } from '@interface/yugioh/card';
 import {
     ICardDatabase,
     CardEditorView, CardUpdationCollection, CardUpdationView,
     RelatedCard,
-} from '@common/model/lorcana/card';
+} from '@common/model/yugioh/card';
 import { Updation } from '@common/model/updation';
 
 import { omit, mapValues, isEqual } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import searcher from '@/lorcana/search';
-import * as logger from '@/lorcana/logger';
+import searcher from '@/yugioh/search';
+import * as logger from '@/yugioh/logger';
 
-// import { formats as formatList } from '@static/lorcana/basic';
+// import { formats as formatList } from '@static/yugioh/basic';
 
 const router = new KoaRouter<DefaultState, Context>();
 

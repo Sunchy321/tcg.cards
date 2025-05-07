@@ -111,12 +111,12 @@ import controlSetup from 'setup/control';
 import pageSetup from 'src/setup/page';
 
 import Grid from 'components/Grid.vue';
-import CardAvatar from 'components/lorcana/CardAvatar.vue';
+import CardAvatar from 'components/yugioh/CardAvatar.vue';
 import DeferInput from 'components/DeferInput.vue';
 
 import { diffChars, diffString } from 'common/util/diff';
 
-import { locales } from 'static/lorcana/basic';
+import { locales } from 'static/yugioh/basic';
 
 export type Updation = {
     cardId:     string;
@@ -319,7 +319,7 @@ const diffContent = (lhs: string, rhs: string) => {
 };
 
 const loadData = async () => {
-    const { data: result } = await controlGet<UpdationData>(`/lorcana/${mode.value}/get-updation`);
+    const { data: result } = await controlGet<UpdationData>(`/yugioh/${mode.value}/get-updation`);
 
     data.value = result;
 };
@@ -339,7 +339,7 @@ const versionFor = (updation: Updation) => {
 };
 
 const commitUpdation = async (updation: Updation & { _id: string }, type: string) => {
-    await controlPost(`/lorcana/${mode.value}/commit-updation`, {
+    await controlPost(`/yugioh/${mode.value}/commit-updation`, {
         id:  updation._id,
         key: updation.key,
         type,
@@ -349,7 +349,7 @@ const commitUpdation = async (updation: Updation & { _id: string }, type: string
 };
 
 const acceptAndEdit = async (updation: Updation & { _id: string }) => {
-    await controlPost(`/lorcana/${mode.value}/commit-updation`, {
+    await controlPost(`/yugioh/${mode.value}/commit-updation`, {
         id:  updation._id,
         key: updation.key,
     });
@@ -357,7 +357,7 @@ const acceptAndEdit = async (updation: Updation & { _id: string }) => {
     await loadData();
 
     const route = router.resolve({
-        name:  'lorcana/data',
+        name:  'yugioh/data',
         query: {
             tab:    'Editor',
             id:     updation.cardId,
@@ -374,7 +374,7 @@ const acceptAllUpdation = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost(`/lorcana/${mode.value}/accept-all-updation`, { key: first.key });
+        await controlPost(`/yugioh/${mode.value}/accept-all-updation`, { key: first.key });
         await loadData();
     }
 };
@@ -383,7 +383,7 @@ const rejectAllUpdation = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost(`/lorcana/${mode.value}/reject-all-updation`, { key: first.key });
+        await controlPost(`/yugioh/${mode.value}/reject-all-updation`, { key: first.key });
         await loadData();
     }
 };
@@ -392,7 +392,7 @@ const acceptUnchanged = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost(`/lorcana/${mode.value}/accept-unchanged`, { key: first.key });
+        await controlPost(`/yugioh/${mode.value}/accept-unchanged`, { key: first.key });
         await loadData();
     }
 };
@@ -405,7 +405,7 @@ const commitFirst = async (type: 'accept' | 'reject', count: number) => {
             return;
         }
 
-        await controlPost(`/lorcana/${mode.value}/commit-updation`, {
+        await controlPost(`/yugioh/${mode.value}/commit-updation`, {
             id:  updation._id,
             key: updation.key,
             type,

@@ -16,6 +16,7 @@ const components = import.meta.glob<Component>('./data/*.vue');
 // keep order
 const tabs = [
     'Data',
+    'Updation',
     'Announcement',
     'Legality',
 ];
