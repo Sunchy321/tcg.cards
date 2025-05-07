@@ -289,50 +289,90 @@ const langs = computed(() => uniq([
 ]).sort((a, b) => locales.indexOf(a) - locales.indexOf(b)));
 
 const lang = computed({
-    get() { return data.value?.lang ?? route.query.lang as string ?? yugioh.locale; },
+    get() { return route.query.lang as string ?? yugioh.locale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
-        if (allowedVersions.length === 0) {
-            return;
-        }
+        if (allowedVersions.length > 0) {
+            const exactVersion = allowedVersions.find(v => v.number === number.value);
 
-        const exactVersion = allowedVersions.find(v => v.number === number.value);
+            if (exactVersion != null) {
+                void router.replace({
+                    query: {
+                        ...route.query,
+                        lang: newValue,
+                    },
+                });
+                return;
+            }
 
-        if (exactVersion != null) {
+            const keepSetVersions = allowedVersions.filter(v => v.set === set.value);
+
+            if (keepSetVersions.length > 0) {
+                void router.replace({
+                    query: {
+                        ...route.query,
+                        number: keepSetVersions[0].number,
+                        lang:   newValue,
+                    },
+                });
+                return;
+            }
+
+            if (allowedVersions.length > 0) {
+                void router.replace({
+                    query: {
+                        ...route.query,
+                        set:    allowedVersions[0].set,
+                        number: undefined,
+                        lang:   newValue,
+                    },
+                });
+                return;
+            }
+        } else {
             void router.replace({
                 query: {
                     ...route.query,
                     lang: newValue,
                 },
             });
-            return;
-        }
-
-        const keepSetVersions = allowedVersions.filter(v => v.set === set.value);
-
-        if (keepSetVersions.length > 0) {
-            void router.replace({
-                query: {
-                    ...route.query,
-                    number: keepSetVersions[0].number,
-                    lang:   newValue,
-                },
-            });
-            return;
-        }
-
-        if (allowedVersions.length > 0) {
-            void router.replace({
-                query: {
-                    ...route.query,
-                    set:    allowedVersions[0].set,
-                    number: undefined,
-                    lang:   newValue,
-                },
-            });
         }
     },
+});
+
+const fallbackLang = (lang: string) => {
+    switch (lang) {
+    case 'zhs:nw':
+    case 'zhs:cn':
+    case 'zhs:pro':
+    case 'zhs:md':
+        return 'ja';
+    }
+};
+
+const printLang = computed(() => {
+    const exactVersions = versions.value.filter(v => v.set === set.value && v.number === number.value);
+
+    if (exactVersions.some(v => v.lang === lang.value)) {
+        return lang.value;
+    } else if (exactVersions.some(v => v.lang === fallbackLang(lang.value))) {
+        return fallbackLang(lang.value);
+    } else if (exactVersions.length > 0) {
+        return exactVersions[0].lang;
+    }
+
+    const keepSetVersions = versions.value.filter(v => v.set === set.value);
+
+    if (keepSetVersions.some(v => v.lang === lang.value)) {
+        return lang.value;
+    } else if (keepSetVersions.some(v => v.lang === fallbackLang(lang.value))) {
+        return fallbackLang(lang.value);
+    } else if (keepSetVersions.length > 0) {
+        return keepSetVersions[0].lang;
+    }
+
+    return versions.value[0].lang;
 });
 
 const langWithMode = computed(() => lang.value);
