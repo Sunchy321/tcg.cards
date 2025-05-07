@@ -545,10 +545,16 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 .skip((page - 1) * pageSize)
                 .limit(pageSize)
                 .project({
-                    'card._id':           0,
-                    'card.__v':           0,
-                    'print.langIsLocale': 0,
-                    'print.langIsEn':     0,
+                    'card._id':            0,
+                    'card.__v':            0,
+                    'card.__updations':    0,
+                    'card.__lockedPaths':  0,
+                    'print._id':           0,
+                    'print.__v':           0,
+                    'print.__updations':   0,
+                    'print.__lockedPaths': 0,
+                    'langIsLocale':        0,
+                    'langIsEn':            0,
                 });
 
             // const explain = await aggregate.explain('executionStats');

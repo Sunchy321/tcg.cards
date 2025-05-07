@@ -1,7 +1,7 @@
 import { escapeRegExp } from 'lodash';
 
 export function matchPattern(pattern: string, parameter: string): Record<string, string> | undefined {
-    const regexText = pattern.split(/(\{\{[a-z_]+?\}\})/).map(t => {
+    const regexText = pattern.split(/(\{\{[A-Za-z_]+?\}\})/).map(t => {
         if (t.startsWith('{{') && t.endsWith('}}')) {
             return `(?<${t.slice(2, -2)}>.*?)`;
         } else {

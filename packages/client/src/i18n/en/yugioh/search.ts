@@ -1,8 +1,7 @@
 export default {
     'full-command': {
         'raw':              'name includes {parameter}',
-        'stats':            'strength is {strength} and will power is {willPower}',
-        'full-stats':       'cost is {cost} and strength is {strength} and will power is {willPower}',
+        'stats':            'attack is {attack} and defense is {defense}',
         'hash':             'has tag {tag}',
         'order':            'order by {parameter}',
         'order-ascending':  'order by {parameter} (ascending)',
