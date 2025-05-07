@@ -379,9 +379,9 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                     if (!justCount) {
                         aggregate
                             .addFields({
-                                langIsLocale:   { $eq: ['$print.lang', locale] },
-                                langIsJapanese: { $eq: ['$print.lang', 'ja'] },
-                                langIsEnglish:  { $eq: ['$print.lang', 'en'] },
+                                langIsLocale:   { $eq: ['$card.localization.lang', locale] },
+                                langIsJapanese: { $eq: ['$card.localization.lang', 'ja'] },
+                                langIsEnglish:  { $eq: ['$card.localization.lang', 'en'] },
                             })
                             .group({
                                 _id:   '$cardId',
