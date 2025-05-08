@@ -602,7 +602,7 @@ router.get('/scan-card-text', async ctx => {
                 content: [
                     {
                         type: 'text',
-                        text: '请提取图像中的卡牌名称、卡牌类别和效果文本，模糊或者强光遮挡的单个文字，以及无法识别的符号或图标用{?}代替。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\' }',
+                        text: '请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者强光遮挡的单个文字，以及无法识别的符号或图标用{?}代替。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
                     },
                     {
                         type:      'image_url',
