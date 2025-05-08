@@ -133,6 +133,12 @@
                 <q-space />
 
                 <q-btn
+                    icon="mdi-credit-card-scan-outline"
+                    dense flat round
+                    @click="scanCardText"
+                />
+
+                <q-btn
                     icon="mdi-merge"
                     :color="autoAssign ? 'primary' : 'black'"
                     dense flat round
@@ -1419,6 +1425,31 @@ const extractRulingCards = async () => {
     await controlGet('/magic/card/extract-ruling-cards', {
         id: ids.join(','),
     });
+};
+
+type ScanResult = {
+    name:     string;
+    typeline: string;
+    text:     string;
+};
+
+const scanCardText = async () => {
+    if (data.value == null) {
+        return;
+    }
+
+    const { data: result } = await controlGet<ScanResult>('/magic/card/scan-card-text', {
+        id:        id.value,
+        set:       set.value,
+        number:    number.value,
+        lang:      lang.value,
+        layout:    layout.value,
+        partIndex: partIndex.value,
+    });
+
+    printedName.value = result.name;
+    printedTypeline.value = result.typeline;
+    printedText.value = result.text;
 };
 
 const newData = () => {

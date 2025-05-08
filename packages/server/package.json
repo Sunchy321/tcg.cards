@@ -87,6 +87,7 @@
         "logform": "^2.3.0",
         "mime-types": "^2.1.27",
         "mongoose": "^6.4.6",
+        "openai": "^4.97.0",
         "patch-package": "^6.4.7",
         "pegjs": "^0.10.0",
         "simple-git": "^3.7.1",

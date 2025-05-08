@@ -18,6 +18,7 @@ export interface MongoDB {
 export interface Config {
     appKey:       string;
     jwtSecretKey: string;
+    openaiKey:    string;
 
     asset:         string;
     data:          string;

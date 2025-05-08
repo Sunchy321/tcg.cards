@@ -24,6 +24,7 @@ import {
 } from '@/magic/banlist/legality';
 import { GathererGetter } from '@/magic/gatherer/parse';
 
+import openai from '@/openai';
 import searcher from '@/magic/search';
 import * as logger from '@/magic/logger';
 
@@ -558,6 +559,76 @@ router.post('/accept-unchanged', async ctx => {
     }
 
     ctx.status = 200;
+});
+
+const assetBase = 'https://asset.tcg.cards';
+
+router.get('/scan-card-text', async ctx => {
+    const { set, number, lang, layout, partIndex = '0' } = mapValues(ctx.query, toSingle);
+
+    const urls = (() => {
+        if ([
+            'transform',
+            'modal_dfc',
+            'transform_token',
+            'minigame',
+            'reversible_card',
+            'double_faced',
+            'battle',
+            'art_series',
+        ].includes(layout)) {
+            return [
+                `${assetBase}/magic/card/large/${set}/${lang}/${number}-0.jpg`,
+                `${assetBase}/magic/card/large/${set}/${lang}/${number}-1.jpg`,
+            ];
+        } else if (['flip_token_top', 'flip_token_bottom'].includes(layout)) {
+            return [
+                `${assetBase}/magic/card/large/${set}/${lang}/${number.split('-')[0]}.jpg`,
+            ];
+        } else {
+            return [
+                `${assetBase}/magic/card/large/${set}/${lang}/${number}.jpg`,
+            ];
+        }
+    })();
+
+    const url = urls[Number.parseInt(partIndex, 10)] ?? urls[0];
+
+    const response = await openai.chat.completions.create({
+        model:    'qwen-vl-ocr-latest',
+        messages: [
+            {
+                role:    'user',
+                content: [
+                    {
+                        type: 'text',
+                        text: '请提取图像中的卡牌名称、卡牌类别和效果文本，模糊或者强光遮挡的单个文字，以及无法识别的符号或图标用{?}代替。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\' }',
+                    },
+                    {
+                        type:      'image_url',
+                        image_url: { url },
+
+                    },
+                ],
+            },
+        ],
+    });
+
+    const content = response.choices[0].message.content;
+
+    if (content == null) {
+        ctx.status = 404;
+        return;
+    }
+
+    if (content.startsWith('```json') && content.endsWith('```')) {
+        const json = JSON.parse(content.replace(/^```json/, '').replace(/```$/, ''));
+
+        ctx.body = json;
+        return;
+    }
+
+    ctx.status = 404;
 });
 
 export default router;
