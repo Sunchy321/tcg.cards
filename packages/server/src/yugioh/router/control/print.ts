@@ -3,10 +3,10 @@ import { DefaultState, Context } from 'koa';
 
 import { ObjectId } from 'mongoose';
 
-import Print from '@/lorcana/db/print';
+import Print from '@/yugioh/db/print';
 
-import { Print as IPrint } from '@interface/lorcana/print';
-import { PrintUpdationCollection, PrintUpdationView } from '@common/model/lorcana/print';
+import { Print as IPrint } from '@interface/yugioh/print';
+import { PrintUpdationCollection, PrintUpdationView } from '@common/model/yugioh/print';
 import { Updation, WithUpdation } from '@common/model/updation';
 
 import {
@@ -14,8 +14,8 @@ import {
 } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import searcher from '@/lorcana/search';
-import * as logger from '@/lorcana/logger';
+import searcher from '@/yugioh/search';
+import * as logger from '@/yugioh/logger';
 
 const router = new KoaRouter<DefaultState, Context>();
 
@@ -73,10 +73,6 @@ router.get('/search', async ctx => {
 
 router.post('/update', async ctx => {
     const { data } = ctx.request.body as { data: IPrint & { _id: ObjectId } };
-
-    if (data.flavorText === '') {
-        delete data.flavorText;
-    }
 
     const old = await Print.findById(data._id);
 

@@ -22,10 +22,10 @@ import {
 
 import controlSetup from 'setup/control';
 
-import { Print } from 'interface/lorcana/print';
+import { Print } from 'interface/yugioh/print';
 
 import JsonComparator from 'components/JSONComparator.vue';
-import CardAvatar from 'components/lorcana/CardAvatar.vue';
+import CardAvatar from 'components/yugioh/CardAvatar.vue';
 
 import { isEqual, set } from 'lodash';
 
@@ -90,7 +90,7 @@ export default defineComponent({
         };
 
         const loadData = async () => {
-            const { data: result } = await controlGet<DuplicateData>('/lorcana/print/get-duplicate');
+            const { data: result } = await controlGet<DuplicateData>('/yugioh/print/get-duplicate');
 
             data.value = result;
         };
@@ -102,7 +102,7 @@ export default defineComponent({
                 return;
             }
 
-            await controlPost('/lorcana/print/resolve-duplicate', { data: value });
+            await controlPost('/yugioh/print/resolve-duplicate', { data: value });
 
             await loadData();
         };
