@@ -1057,7 +1057,7 @@ const defaultTypelinePrettifier = (typeline: string, lang: string) => {
         .trim()
         .replace(/\s/g, ' ')
         .replace(/ *～ *-? */, '～')
-        .replace(/ *[―—] *-? */, ' — ')
+        .replace(/ *(--|[―—–]) *-? */, ' — ')
         .replace(/ *: *-? */, ' : ');
 
     if (lang === 'zhs' || lang === 'zht') {

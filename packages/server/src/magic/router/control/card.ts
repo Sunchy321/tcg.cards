@@ -622,11 +622,13 @@ router.get('/scan-card-text', async ctx => {
     }
 
     if (content.startsWith('```json') && content.endsWith('```')) {
-        const json = JSON.parse(content.replace(/^```json/, '').replace(/```$/, ''));
+        const json = JSON.parse(content.replace(/^```json/, '').replace(/,?\n*```$/, ''));
 
         ctx.body = json;
         return;
     }
+
+    console.log(content);
 
     ctx.status = 404;
 });
