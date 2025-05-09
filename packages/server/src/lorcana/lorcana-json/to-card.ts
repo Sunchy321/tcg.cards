@@ -121,13 +121,13 @@ export function toCard(
             lang,
             set:    set.setId,
             number: (() => {
-                const num = data.number.toString();
+                const num = data.number.toString() + (data.variant ?? '');
 
                 if (data.promoGrouping != null) {
                     return `${num}-${data.promoGrouping}`;
+                } else {
+                    return num;
                 }
-
-                return num;
             })(),
 
             ...loc,
