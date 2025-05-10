@@ -602,16 +602,18 @@ router.get('/scan-card-text', async ctx => {
                 content: [
                     {
                         type: 'text',
-                        text: '请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者强光遮挡的单个文字，以及无法识别的符号或图标用{?}代替。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
+                        text: '接下来将输入一张万智牌的卡牌图像，请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者无法识别的符号或图标用{?}代替。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
                     },
                     {
                         type:      'image_url',
                         image_url: { url },
-
                     },
                 ],
             },
         ],
+        response_format: {
+            type: 'json_object',
+        },
     });
 
     const content = response.choices[0].message.content;
@@ -621,16 +623,14 @@ router.get('/scan-card-text', async ctx => {
         return;
     }
 
-    if (content.startsWith('```json') && content.endsWith('```')) {
+    try {
         const json = JSON.parse(content.replace(/^```json/, '').replace(/,?\n*```$/, ''));
 
         ctx.body = json;
-        return;
+    } catch (e) {
+        console.log(content);
+        throw e;
     }
-
-    console.log(content);
-
-    ctx.status = 404;
 });
 
 export default router;
