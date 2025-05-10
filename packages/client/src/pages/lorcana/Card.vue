@@ -453,8 +453,8 @@ const name = computed(() => selectedTextInfo(data.value)?.name);
 const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
 const text = computed(() => selectedTextInfo(data.value)?.text);
 
-const mainName = computed(() => name?.value?.split('-')?.[0]?.trim());
-const subName = computed(() => name?.value?.split('-')?.slice(1)?.join('-')?.trim());
+const mainName = computed(() => name?.value?.split(' - ')?.[0]?.trim());
+const subName = computed(() => name?.value?.split(' - ')?.slice(1)?.join('-')?.trim());
 
 const flavorText = computed(() => data.value?.flavorText);
 

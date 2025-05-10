@@ -103,7 +103,7 @@ export function toCard(
                 ...data.subtypes != null ? { sub: data.subtypes.map(v => transform(v, lang, map)) } : {},
             },
 
-            localization: [{ lang, ...loc }],
+            localization: [{ lang, lastDate: set.releaseDate, ...loc }],
 
             lore:      data.lore,
             strength:  data.strength,

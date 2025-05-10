@@ -116,7 +116,7 @@
 
                 <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" outlined dense />
 
-                <div>{{ releaseDate }}</div>
+                <q-input v-model="releaseDate" flat dense outlined />
 
                 <span v-if="dataGroup != null" class="q-ml-md">{{ `${total} (${loaded})` }}</span>
 
@@ -195,35 +195,17 @@
                     <th>Printed</th>
                 </tr>
                 <tr>
-                    <td>
-                        <q-input
-                            v-model="standardName"
-                            tabindex="1" :readonly="!unlock"
-                            outlined dense
-                        />
-                    </td>
+                    <td><q-input v-model="standardName" tabindex="1" outlined dense /></td>
                     <td><q-input v-model="unifiedName" tabindex="2" outlined dense /></td>
                     <td><q-input v-model="printedName" tabindex="3" outlined dense /></td>
                 </tr>
                 <tr>
-                    <td>
-                        <q-input
-                            v-model="standardTypeline"
-                            tabindex="1" :readonly="!unlock"
-                            outlined dense
-                        />
-                    </td>
+                    <td><q-input v-model="standardTypeline" tabindex="1" outlined dense /></td>
                     <td><q-input v-model="unifiedTypeline" tabindex="2" outlined dense /></td>
                     <td><q-input v-model="printedTypeline" tabindex="3" outlined dense /></td>
                 </tr>
                 <tr class="text">
-                    <td>
-                        <q-input
-                            v-model="standardText"
-                            tabindex="1" :readonly="!unlock"
-                            outlined type="textarea" dense
-                        />
-                    </td>
+                    <td><q-input v-model="standardText" tabindex="1" outlined type="textarea" dense /></td>
                     <td><q-input v-model="unifiedText" tabindex="2" outlined type="textarea" dense /></td>
                     <td><q-input v-model="printedText" tabindex="3" outlined type="textarea" dense /></td>
                 </tr>
@@ -478,7 +460,7 @@ const lockPath = <T extends { __lockedPaths: string[] }>(value: ComputedRef<T | 
 const cardField = <F extends keyof Card>(firstKey: F, defaultValue?: Card[F], path?: string | (() => string)) => computed({
     get() { return (card.value?.[firstKey] ?? defaultValue)!; },
     set(newValue: Card[F]) {
-        if (data.value != null) {
+        if (data.value != null && !isEqual(card.value![firstKey], newValue)) {
             card.value![firstKey] = newValue;
 
             if (path != null) {
@@ -534,7 +516,7 @@ const unifiedName = computed({
 
         if (localization == null) {
             card.value.localization.push({
-                lang: lang.value, name: newValue, typeline: '', text: '',
+                lang: lang.value, lastDate: '', name: newValue, typeline: '', text: '',
             });
         } else if (localization.name !== newValue) {
             localization.name = newValue;
@@ -564,7 +546,7 @@ const unifiedTypeline = computed({
 
         if (localization == null) {
             card.value.localization.push({
-                lang: lang.value, name: '', typeline: newValue, text: '',
+                lang: lang.value, lastDate: '', name: '', typeline: newValue, text: '',
             });
         } else if (localization.typeline !== newValue) {
             localization.typeline = newValue;
@@ -594,7 +576,7 @@ const unifiedText = computed({
 
         if (localization == null) {
             card.value.localization.push({
-                lang: lang.value, name: '', typeline: '', text: newValue,
+                lang: lang.value, lastDate: '', name: '', typeline: '', text: newValue,
             });
         } else if (localization.text !== newValue) {
             localization.text = newValue;
@@ -604,8 +586,7 @@ const unifiedText = computed({
 });
 
 const flavorText = printField('flavorText', '', 'flavorText');
-
-const releaseDate = computed(() => print.value?.releaseDate);
+const releaseDate = printField('releaseDate', '', 'releaseDate');
 
 // dev only
 const cardTag = (name: string) => computed({
@@ -1017,6 +998,8 @@ const newData = () => {
 
     delete oldPrint._id;
 
+    delete oldPrint.id;
+    delete oldPrint.code;
     delete oldPrint.tcgPlayerId;
     delete oldPrint.cardMarketId;
     delete oldPrint.cardTraderId;

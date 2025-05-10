@@ -15,10 +15,10 @@
                 />
             </template>
             <template #hint>
-                <magic-text>{{ explained.text }}</magic-text>
+                <lorcana-text>{{ explained.text }}</lorcana-text>
             </template>
             <template #error>
-                <magic-text>{{ explained.text }}</magic-text>
+                <lorcana-text>{{ explained.text }}</lorcana-text>
             </template>
         </search-input>
         <div class="links q-pa-xl q-gutter-md row">
@@ -97,6 +97,7 @@ import lorcanaSetup from 'setup/lorcana';
 import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
+import LorcanaText from 'components/lorcana/Text.vue';
 
 import model from 'searcher-data/magic/client';
 

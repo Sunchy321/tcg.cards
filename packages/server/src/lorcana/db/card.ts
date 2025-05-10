@@ -27,6 +27,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         _id: false,
 
         lang:     String,
+        lastDate: String,
         name:     String,
         typeline: String,
         text:     String,

@@ -247,10 +247,12 @@ interface CardProfile {
     }[];
 
     versions: {
-        lang:   string;
-        set:    string;
-        number: string;
-        rarity: string;
+        lang:        string;
+        set:         string;
+        number:      string;
+        rarity:      string;
+        layout:      string;
+        releaseDate: string;
     }[];
 }
 
@@ -286,10 +288,12 @@ router.get('/profile', async ctx => {
 
         for (const p of c.prints) {
             profile.versions.push({
-                set:    p.set,
-                number: p.number,
-                lang:   p.lang,
-                rarity: p.rarity,
+                set:         p.set,
+                number:      p.number,
+                lang:        p.lang,
+                rarity:      p.rarity,
+                layout:      p.layout,
+                releaseDate: p.releaseDate,
             });
         }
     }
