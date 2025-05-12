@@ -1,0 +1,10 @@
+status:
+  format: explorer
+  value: [banned, unavailable]
+
+patterns:
+  - Arid Mesa
+  - Marsh Flats
+  - Misty Rainforest
+  - Scalding Tarn
+  - Verdant Catacombs

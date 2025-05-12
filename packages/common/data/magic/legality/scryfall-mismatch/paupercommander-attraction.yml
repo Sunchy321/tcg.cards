@@ -1,0 +1,14 @@
+status:
+  format: pauper_commander
+  value: [legal, unavailable]
+
+patterns:
+  - Clown Extruder
+  - Costume Shop
+  - Cursed Rack
+  - Drop Tower
+  - Foam Weapons Kiosk
+  - Fortune Teller
+  - Kiddie Coaster
+  - Pick-a-Beeble
+  - Spinny Ride

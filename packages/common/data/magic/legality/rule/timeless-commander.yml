@@ -1,16 +1,13 @@
 status:
   format:
-    - historic
-    - brawl
+    - timeless
   value: legal
 
 patterns:
-  - Shorecomber Crab
-
   # moc
   - Goro-Goro and Satoru
-  - Slimefoot and Squee
   - Katilda and Lier
+  - Slimefoot and Squee
 
   # drc
   - Hashaton, Scarab's Fist

@@ -1,5 +1,7 @@
 status:
   format: '*'
-  value: [unavailable, legal]
+  value: [legal, unavailable]
 
-patterns: []
+patterns:
+  - set: tdm
+  - set: tdc

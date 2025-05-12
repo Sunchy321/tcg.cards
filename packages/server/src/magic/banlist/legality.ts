@@ -362,47 +362,21 @@ export function getLegality(
             // Some set are not checked
             const pauperVersions = prints.filter(v => !setsPauperExclusive.includes(v.set));
 
-            const hasCommon = (() => {
-                // I don't know why
-                if (['assassin_s_blade'].includes(cardId)) {
-                    return false;
-                }
-
-                // Some cards marked as common in Gatherer are uncommon in Scryfall data
-                if (['delif_s_cone'].includes(cardId)) {
-                    return true;
-                }
-
-                return pauperVersions.some(v => v.rarity === 'common');
-            })();
+            const hasCommon = pauperVersions.some(v => v.rarity === 'common');
 
             if (!hasCommon) {
                 assign('unavailable', 'pauper: no-common');
                 continue;
             }
-        } else if (formatId === 'pauper_commander') {
+        } else if (formatId === 'pauper_commander' || formatId === 'pauper_duelcommander') {
             // Some set are not checked
             const pauperVersions = prints.filter(
                 v => !setsPauperCommanderExclusive.includes(v.set),
             );
 
-            const hasCommon = (() => {
-                if ([
-                    'assassin_s_blade', // I don't know why
-                    'swords_to_plowshares', // The common version is conjured by other cards
-                ].includes(cardId)) {
-                    return false;
-                }
+            const hasCommon = pauperVersions.some(v => v.rarity === 'common');
 
-                // Some cards marked as common in Gatherer are uncommon in Scryfall data
-                if (['delif_s_cone'].includes(cardId)) {
-                    return true;
-                }
-
-                return pauperVersions.some(v => v.rarity === 'common');
-            })();
-
-            const hasUncommon = (() => pauperVersions.some(v => v.rarity === 'uncommon'))();
+            const hasUncommon = pauperVersions.some(v => v.rarity === 'uncommon');
 
             const frontType = data.parts[0].type.main;
 
@@ -444,6 +418,13 @@ function legalityMatch(
                     return true;
                 }
             }
+        }
+    }
+
+    // commander game changer
+    if (format === 'commander') {
+        if (legality[0] === 'game_changer' && legality[1] === 'legal') {
+            return true;
         }
     }
 
