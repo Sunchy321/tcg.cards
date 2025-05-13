@@ -1,8 +1,7 @@
 import { Card as ICard } from '@interface/lorcana/card';
 import { Print as IPrint } from '@interface/lorcana/print';
 import { ICardDatabase } from '@common/model/lorcana/card';
-import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
-import { WithUpdation } from 'card-common/src/model/updation';
+import { WithUpdation } from '@common/model/updation';
 
 import { Document } from 'mongoose';
 
@@ -212,8 +211,6 @@ export async function mergeCard(card: Document & ICardDatabase, data: ICard): Pr
 }
 
 export async function mergePrint(print: Document & WithUpdation<IPrint>, data: IPrint): Promise<void> {
-    const updation: ICardUpdation[] = [];
-
     for (const k of Object.keys(data) as (keyof IPrint)[]) {
         switch (k) {
         case 'cardId':
@@ -257,6 +254,4 @@ export async function mergePrint(print: Document & WithUpdation<IPrint>, data: I
     if (print.modifiedPaths().length > 0) {
         await print.save();
     }
-
-    await CardUpdation.insertMany(updation);
 }

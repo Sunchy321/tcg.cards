@@ -2,7 +2,6 @@ import { Card as ICard } from '@interface/magic/card';
 import { Print as IPrint } from '@interface/magic/print';
 import { ICardDatabase } from '@common/model/magic/card';
 import { IPrintDatabase } from '@common/model/magic/print';
-import CardUpdation, { ICardUpdation } from '@/magic/db/card-updation';
 import { WithUpdation } from '@common/model/updation';
 
 import { Document } from 'mongoose';
@@ -328,8 +327,6 @@ export async function mergeCard(card: Document & ICardDatabase, data: ICard): Pr
 }
 
 export async function mergePrint(print: Document & IPrintDatabase, data: IPrint): Promise<void> {
-    const updation: ICardUpdation[] = [];
-
     for (const k of Object.keys(data) as (keyof IPrint)[]) {
         switch (k) {
         case 'cardId':
@@ -448,6 +445,4 @@ export async function mergePrint(print: Document & IPrintDatabase, data: IPrint)
     if (print.modifiedPaths().length > 0) {
         await print.save();
     }
-
-    await CardUpdation.insertMany(updation);
 }
