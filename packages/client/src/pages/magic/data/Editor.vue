@@ -139,13 +139,6 @@
                 />
 
                 <q-btn
-                    icon="mdi-merge"
-                    :color="autoAssign ? 'primary' : 'black'"
-                    dense flat round
-                    @click="autoAssign = !autoAssign"
-                />
-
-                <q-btn
                     v-if="devOracle"
                     color="red" icon="mdi-alpha-o-circle-outline"
                     dense flat round
@@ -285,15 +278,6 @@
 
             <div>
                 locked[print]: {{ printLockedPaths.join(', ') }}
-            </div>
-
-            <div v-if="searchResult != null" class="q-mt-sm">
-                <div v-for="(v, k) in searchResult" :key="k">
-                    <div>{{ k }}</div>
-                    <ul>
-                        <li v-for="(e, i) in v" :key="i">{{ e }}</li>
-                    </ul>
-                </div>
             </div>
         </div>
     </div>
@@ -443,7 +427,6 @@ const {
     rp: replacePrinted,
     rf: replaceFrom,
     rt: replaceTo,
-    aa: autoAssign,
     cp: clearDevPrinted,
 } = pageSetup({
     params: {
@@ -996,62 +979,6 @@ const printLockedPaths = computed({
     },
 });
 
-const searchResult = computed(() => {
-    const result = (data.value as any)?.result;
-
-    if (result == null) {
-        return null;
-    }
-
-    // if (result.method === 'oracle') {
-    //     return Object.fromEntries(
-    //         Object.entries(result)
-    //             .filter(([k, v]) => {
-    //                 switch (k) {
-    //                 case 'method':
-    //                 case '_id':
-    //                     return false;
-    //                 case '__oracle':
-    //                     return v.length > 0;
-    //                 default:
-    //                     return v.length > 1;
-    //                 }
-    //             })
-    //             .map(([k, v]) => {
-    //                 switch (k) {
-    //                 case 'relatedCards':
-    //                     return [
-    //                         k,
-    //                         v.map((e: CardTemp['relatedCards']) => e.map(
-    //                             ({ relation, cardId, version }) => (version != null
-    //                                 ? [relation, cardId, version.lang, version.set, version.number]
-    //                                 : [relation, cardId]
-    //                             ).join('|'),
-    //                         ).join('; ') ?? ''),
-    //                     ];
-    //                 default:
-    //                     return [k, v];
-    //                 }
-    //             }),
-    //     );
-    // } else if (result.method === 'unified') {
-    //     return Object.fromEntries(
-    //         Object.entries(result)
-    //             .filter(([k, v]) => {
-    //                 switch (k) {
-    //                 case 'method':
-    //                 case '_id':
-    //                     return false;
-    //                 default:
-    //                     return v.length > 1;
-    //                 }
-    //             }),
-    //     );
-    // }
-
-    return null;
-});
-
 const defaultTypelinePrettifier = (typeline: string, lang: string) => {
     typeline = typeline
         .trim()
@@ -1089,7 +1016,7 @@ const defaultTextPrettifier = (text: string, lang: string, name: string) => {
     if (lang === 'zhs' || lang === 'zht') {
         if (!/[a-wyz](?![/}])/.test(text)) {
             text = text
-                .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II)/g, '')
+                .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II|IV|V)/g, '')
                 .replace(/\(/g, '（')
                 .replace(/\)/g, '）')
                 .replace(/;/g, '；');
@@ -1320,26 +1247,6 @@ const prettify = () => {
             l => l.split(/[,，、;；] */g).map(v => upperFirst(v)).join('\n'),
         );
     }
-
-    // if (autoAssign.value && searchResult.value != null) {
-    //     const result = searchResult.value;
-
-    //     if (result.counters != null) {
-    //         const counterResult = result.counters.filter((c: any[]) => c.length > 0);
-
-    //         if (counterResult.length === 1) {
-    //             counters.value = counterResult[0];
-    //         }
-    //     }
-
-    //     if (result.relatedCards != null) {
-    //         const relatedCardsResult = result.relatedCards.filter((r: string) => r !== '');
-
-    //         if (relatedCardsResult.length === 1) {
-    //             relatedCardsString.value = relatedCardsResult[0];
-    //         }
-    //     }
-    // }
 
     const applyReplace = (v: string) => {
         const numberMap: Record<string, string> = {
