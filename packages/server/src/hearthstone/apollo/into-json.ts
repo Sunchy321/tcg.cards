@@ -74,7 +74,7 @@ export function intoApolloJson(
     adjustment?: Required<IFormatChange>['adjustment'][0]['detail'],
     variant: Variant = 'normal',
 ): ApolloJson {
-    const id = entity.entityId;
+    const id = entity.cardId;
 
     const loc = entity.localization.find(v => v.lang === 'zhs')
       ?? entity.localization.find(v => v.lang === 'en')

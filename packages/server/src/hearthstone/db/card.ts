@@ -9,7 +9,12 @@ import { ICardDatabase, toJSON } from '@common/model/hearthstone/card';
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
-    change: String,
+    changes: [{
+        _id: false,
+
+        version: [Number],
+        change:  String,
+    }],
 
     legality: Object,
 

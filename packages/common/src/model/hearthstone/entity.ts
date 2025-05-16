@@ -1,12 +1,12 @@
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
-export type RelatedEntity = {
+export type RelatedCard = {
     relation: string;
-    entityId: string;
+    cardId:   string;
     version:  number[];
 };
 
 export type EntityView = IEntity & {
     versions:     number[][];
-    relatedCards: RelatedEntity[];
+    relatedCards: RelatedCard[];
 };

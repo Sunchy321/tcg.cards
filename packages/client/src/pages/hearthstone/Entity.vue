@@ -95,9 +95,9 @@
         </div>
         <div class="version-column">
             <div v-if="relatedCards.length > 0" class="related-card-block">
-                <div v-for="r in relatedCards" :key="r.entityId" class="related-card q-pl-md">
+                <div v-for="r in relatedCards" :key="r.cardId" class="related-card q-pl-md">
                     <q-icon :name="relationIcon(r.relation)" />
-                    <card-avatar class="q-ml-sm" :card-id="r.entityId" :version="r.version[0]" />
+                    <card-avatar class="q-ml-sm" :card-id="r.cardId" :version="r.version[0]" />
                 </div>
             </div>
 
@@ -155,7 +155,7 @@ const data = ref<EntityView>();
 const patchProfiles = ref<Record<string, PatchProfile>>({});
 
 // data fields
-const id = computed(() => data.value?.entityId ?? route.params.id as string);
+const id = computed(() => data.value?.cardId ?? route.params.id as string);
 
 const versions = computed(() => data.value?.versions ?? []);
 

@@ -325,7 +325,7 @@ export class DisplayTextLoader extends Task<IDisplayTextStatus> {
                 l.displayText = getDisplayText(
                     text,
                     json?.m_cardTextBuilderType ?? TextBuilderType.default,
-                    e.entityId,
+                    e.cardId,
                     e.mechanics,
                     strings[l.lang],
                 );

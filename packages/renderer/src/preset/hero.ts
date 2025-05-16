@@ -116,7 +116,7 @@ export default async function renderHero(
     // illustration
     components.push({
         type:  'image',
-        image: join('..', 'card', 'illustration', 'jpg', `${data.entityId}.jpg`),
+        image: join('..', 'card', 'illustration', 'jpg', `${data.cardId}.jpg`),
         pos:   position.illustration,
         size:  illusSize,
         // clip omitted.

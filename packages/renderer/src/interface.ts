@@ -7,7 +7,7 @@ export interface EntityRenderData {
     format?:     string;
     adjustment?: { part: string, status: Adjustment }[];
 
-    entityId: string;
+    cardId: string;
 
     lang:     string;
     name:     string;

@@ -74,7 +74,7 @@ const quickLoadData = async () => {
 onMounted(quickLoadData);
 
 const loadData = async () => {
-    if (profile.value != null && profile.value.entityId === props.cardId) {
+    if (profile.value != null && profile.value.cardId === props.cardId) {
         return;
     }
 

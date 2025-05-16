@@ -5,6 +5,7 @@ import {
 } from '@interface/hearthstone/hsdata/xml';
 
 import Patch from '@/hearthstone/db/patch';
+import Card from '@/hearthstone/db/card';
 import Entity from '@/hearthstone/db/entity';
 import CardRelation from '@/hearthstone/db/card-relation';
 import Task from '@/common/task';
@@ -16,7 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { xml2js } from 'xml-js';
 import {
-    castArray, isEqual, last, omit, uniq,
+    castArray, intersection, isEqual, last, omit, uniq,
 } from 'lodash';
 
 import {
@@ -27,7 +28,6 @@ import { localPath, langMap } from './base';
 import * as logger from '@/logger';
 
 import { toBucket, toGenerator } from '@/common/to-bucket';
-import { toIdentifier } from '@common/util/id';
 import internalData from '@/internal-data';
 import { loadPatch } from '../logger';
 
@@ -375,35 +375,6 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 }
             }
 
-            const bucketEntities = await Entity.find({ entityId: { $in: newEntities.map(e => e.entityId) } });
-
-            for (const e of newEntities) {
-                const defaultCardId = (() => {
-                    let id = toIdentifier(e.localization?.find(l => l.lang === 'en')?.name ?? e.entityId);
-
-                    if (e.type === 'enchantment') {
-                        id += ';enchantment';
-                    }
-
-                    return id;
-                })();
-
-                const sameIdEntities = bucketEntities.filter(o => o.entityId === e.entityId);
-
-                if (sameIdEntities.length > 0) {
-                    const cardIds = uniq(sameIdEntities.map(e => e.cardId));
-
-                    if (cardIds.length > 1) {
-                        loadPatch.error(`Multiple card ids ${cardIds.join(', ')}`);
-                        e.cardId = defaultCardId;
-                    }
-
-                    e.cardId = cardIds[0];
-                } else {
-                    e.cardId = defaultCardId;
-                }
-            }
-
             entities.push(...newEntities);
         }
 
@@ -414,14 +385,15 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         }
 
         for (const r of cardRelations) {
-            r.targetId = entities.find(e => e.dbfId.toString() === r.targetId)?.entityId ?? '';
+            r.targetId = entities.find(e => e.dbfId.toString() === r.targetId)?.cardId ?? '';
         }
 
         const strings = getLangStrings();
         const fileJson = getDbfCardFile();
 
         for (const jsons of toBucket(toGenerator(entities), 500)) {
-            const oldData = await Entity.find({ entityId: { $in: jsons.map(j => j.entityId) } });
+            const oldData = await Entity.find({ cardId: { $in: jsons.map(j => j.cardId) } });
+            const oldCard = await Card.find({ cardId: { $in: jsons.map(j => j.cardId) } });
 
             for (const e of jsons) {
                 const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
@@ -432,7 +404,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                     l.displayText = getDisplayText(
                         text,
                         json?.m_cardTextBuilderType ?? TextBuilderType.default,
-                        e.entityId,
+                        e.cardId,
                         e.mechanics,
                         strings[l.lang],
                     );
@@ -442,7 +414,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                 const eJson = omit(new Entity(e).toJSON(), ['version']);
                 const oldJsons = oldData
-                    .filter(o => o.entityId === e.entityId)
+                    .filter(o => o.cardId === e.cardId)
                     .sort((a, b) => b.version[0] - a.version[0]);
 
                 let entitySaved = false;
@@ -465,6 +437,28 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                 if (!entitySaved) {
                     await Entity.create(e);
+                }
+
+                const c = oldCard.find(c => c.cardId === e.cardId);
+
+                if (c == null) {
+                    if (e.type !== 'enchantment') {
+                        await Card.create({ cardId: e.cardId, changes: [] });
+                    }
+                } else {
+                    const changes = c.changes;
+
+                    c.changes = oldJsons.map(j => j.version).map(ov => {
+                        const cv = changes.find(ch => intersection(ch.version, ov).length > 0);
+
+                        if (cv == null) {
+                            return { version: ov, change: 'unknown' };
+                        } else {
+                            return { version: ov, change: cv.change };
+                        }
+                    });
+
+                    await c.save();
                 }
 
                 count += 1;
@@ -514,7 +508,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         const errors: string[] = [];
 
         result.version = [this.version];
-        result.entityId = entity._attributes.CardID;
+        result.cardId = entity._attributes.CardID;
         result.dbfId = Number.parseInt(entity._attributes.ID, 10);
 
         result.classes = [];
@@ -626,7 +620,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         if (result.race != null) {
                             result.race!.push(dualRace);
                         } else {
-                            loadPatch.info(`${result.entityId} has dual-race but no race`);
+                            loadPatch.info(`${result.cardId} has dual-race but no race`);
                         }
 
                         continue;
@@ -645,7 +639,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                         relations.push({
                             relation: relatedEntity,
                             version:  [],
-                            sourceId: result.entityId,
+                            sourceId: result.cardId,
                             targetId: (t as XTag)._attributes.value,
                         });
 

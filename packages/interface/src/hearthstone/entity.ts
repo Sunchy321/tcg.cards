@@ -13,10 +13,9 @@ export interface Power {
 export interface Entity {
     version: number[];
 
-    entityId: string;
-    cardId:   string;
-    dbfId:    number;
-    slug?:    string;
+    cardId: string;
+    dbfId:  number;
+    slug?:  string;
 
     localization: {
         lang:             string;

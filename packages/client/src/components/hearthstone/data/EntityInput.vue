@@ -192,14 +192,14 @@ const getData = async (name: string, id: string): Promise<Entity | Entity[]> => 
     });
 
     if (props.format === 'mercenaries') {
-        if (data.some(d => mercenariesPreset.includes(d.entityId))) {
-            data = data.filter(d => mercenariesPreset.includes(d.entityId));
+        if (data.some(d => mercenariesPreset.includes(d.cardId))) {
+            data = data.filter(d => mercenariesPreset.includes(d.cardId));
         }
     }
 
     if (props.format === 'battlegrounds') {
         data = data.filter(d => {
-            if (d.entityId.endsWith('_G') && data.some(v => v.entityId === d.entityId.replace(/_G$/, ''))) {
+            if (d.cardId.endsWith('_G') && data.some(v => v.cardId === d.cardId.replace(/_G$/, ''))) {
                 return false;
             }
 
@@ -223,7 +223,7 @@ const search = async () => {
     const data = await getData(input.value, model.value);
 
     if (Array.isArray(data)) {
-        input.value = data.map(v => v.entityId).sort().join(', ');
+        input.value = data.map(v => v.cardId).sort().join(', ');
         return;
     }
 
@@ -236,7 +236,7 @@ const search = async () => {
 
     if (data != null) {
         input.value = loc.name;
-        model.value = data.entityId;
+        model.value = data.cardId;
     }
 };
 

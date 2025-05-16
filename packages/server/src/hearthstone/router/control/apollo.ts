@@ -31,8 +31,8 @@ router.post('/create-patch-json', async ctx => {
     const blacklist = internalData<string[]>('hearthstone.apollo-blacklist');
 
     const entities = version === 0
-        ? await Entity.find({ entityId: { $nin: blacklist }, type: { $exists: true, $ne: 'enchantment' } })
-        : await Entity.find({ entityId: { $nin: blacklist }, version, type: { $exists: true, $ne: 'enchantment' } });
+        ? await Entity.find({ cardId: { $nin: blacklist }, type: { $exists: true, $ne: 'enchantment' } })
+        : await Entity.find({ cardId: { $nin: blacklist }, version, type: { $exists: true, $ne: 'enchantment' } });
 
     const tagMap = getEssentialMap();
 
@@ -56,7 +56,7 @@ router.post('/create-patch-json', async ctx => {
                 continue;
             }
 
-            const outName = `image@${Math.min(...e.version)}@zhs@${v}@${e.entityId}`;
+            const outName = `image@${Math.min(...e.version)}@zhs@${v}@${e.cardId}`;
 
             const imagePath = `${path.join(assetPath, 'hearthstone', 'card', ...outName.split('@'))}.png`;
 
@@ -87,21 +87,21 @@ router.post('/create-adjustment-json', async ctx => {
 
     const result: Record<string, ApolloJson> = {};
 
-    const entityIds: string[] = [];
+    const cardIds: string[] = [];
 
     for (const c of changes) {
-        if (!entityIds.includes(c.id)) {
-            entityIds.push(c.id);
+        if (!cardIds.includes(c.id)) {
+            cardIds.push(c.id);
         }
 
         for (const a of c.adjustment!) {
-            if (a.id != null && !entityIds.includes(a.id)) {
-                entityIds.push(a.id);
+            if (a.id != null && !cardIds.includes(a.id)) {
+                cardIds.push(a.id);
             }
         }
     }
 
-    const entities = await Entity.find({ entityId: { $in: entityIds } });
+    const entities = await Entity.find({ cardId: { $in: cardIds } });
 
     for (const [_i, c] of changes.entries()) {
         for (const a of c.adjustment!) {
@@ -113,8 +113,8 @@ router.post('/create-adjustment-json', async ctx => {
 
             const fullName = `${id}-${adjustment}`;
 
-            const oldEntity = entities.find(e => e.entityId === id && e.version.includes(c.lastVersion ?? c.version));
-            const newEntity = entities.find(e => e.entityId === id && e.version.includes(c.version));
+            const oldEntity = entities.find(e => e.cardId === id && e.version.includes(c.lastVersion ?? c.version));
+            const newEntity = entities.find(e => e.cardId === id && e.version.includes(c.version));
 
             if (oldEntity == null) {
                 createAdjustmentJson.error(`Unknown card ${id} at version ${c.lastVersion ?? c.version}`);
@@ -145,7 +145,7 @@ router.post('/create-adjustment-json', async ctx => {
         if (!c.adjustment!.some(a => a.id == null || a.id === c.id)) {
             const { id } = c;
 
-            const cardEntity = entities.find(e => e.entityId === c.id && e.version.includes(c.version));
+            const cardEntity = entities.find(e => e.cardId === c.id && e.version.includes(c.version));
 
             if (cardEntity == null) {
                 createAdjustmentJson.error(`Unknown card ${c.id} at version ${c.version}`);

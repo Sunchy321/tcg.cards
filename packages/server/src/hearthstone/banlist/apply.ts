@@ -184,14 +184,14 @@ export class AnnouncementApplier {
         this.sets = sets.map(s => ({ id: s.setId, releaseDate: s.releaseDate! }));
 
         // preload group entities
-        this.entities.hero = await Entity.distinct('entityId', {
+        this.entities.hero = await Entity.distinct('cardId', {
             type:        'hero',
             collectible: true,
             cost:        { $gt: 0 },
-            entityId:    { $nin: ['EX1_323', 'CORE_EX1_323'] },
+            cardId:      { $nin: ['EX1_323', 'CORE_EX1_323'] },
         });
 
-        this.entities.quest = await Entity.distinct('entityId', {
+        this.entities.quest = await Entity.distinct('cardId', {
             'quest.type':  { $in: ['normal', 'questline'] },
             'collectible': true,
         });
@@ -233,17 +233,17 @@ export class AnnouncementApplier {
         }
 
         const data = await Entity.aggregate<{
-            entityId: string;
-            version:  number[];
-            set:      string;
+            cardId:  string;
+            version: number[];
+            set:     string;
         }>()
-            .match({ entityId: { $in: cards } })
+            .match({ cardId: { $in: cards } })
             .project({
-                _id: 0, entityId: 1, version: 1, set: 1,
+                _id: 0, cardId: 1, version: 1, set: 1,
             });
 
         this.cards = data.map(d => ({
-            id:      d.entityId,
+            id:      d.cardId,
             version: d.version,
             set:     d.set,
         }));

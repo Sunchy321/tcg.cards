@@ -21,17 +21,17 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ entityId, version }"
+                v-slot="{ cardId, version }"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
                 <router-link
-                    :key="entityId"
-                    :to="cardLink(entityId, version)"
+                    :key="cardId"
+                    :to="cardLink(cardId, version)"
                     target="_blank"
                 >
                     <card-image
-                        :id="entityId"
+                        :id="cardId"
                         :version="Math.min(...version)"
                     />
                 </router-link>
@@ -182,9 +182,9 @@ const changePage = (newPage: number) => {
     }
 };
 
-const cardLink = (entityId: string, version?: number[]) => router.resolve({
+const cardLink = (cardId: string, version?: number[]) => router.resolve({
     name:   'hearthstone/entity',
-    params: { id: entityId },
+    params: { id: cardId },
     query:  version != null ? { version: last(version) } : {},
 });
 

@@ -1,7 +1,7 @@
 import makeProfile from '../profile';
 
 export interface EntityProfile {
-    entityId: string;
+    cardId: string;
 
     localization: {
         lang: string;
@@ -11,4 +11,4 @@ export interface EntityProfile {
     versions: number[][];
 }
 
-export default makeProfile<EntityProfile>('hearthstone/entity/profile', 'entityId', '/hearthstone/entity/profile');
+export default makeProfile<EntityProfile>('hearthstone/entity/profile', 'cardId', '/hearthstone/entity/profile');

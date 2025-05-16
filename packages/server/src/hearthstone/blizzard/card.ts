@@ -73,7 +73,7 @@ export class CardGetter extends Task<ICardStatus> {
                 //     const parent = entities.find(e => e.dbfId === c.parentId);
 
                 //     if (parent != null) {
-                //         entity.parentCard = parent.entityId;
+                //         entity.parentCard = parent.cardId;
                 //     }
                 // }
 
@@ -81,7 +81,7 @@ export class CardGetter extends Task<ICardStatus> {
                 //     entity.childrenCard = entities
                 //         .filter(e => c.childIds?.includes(e.dbfId))
                 //         .sort((a, b) => a.dbfId - b.dbfId)
-                //         .map(c => c.entityId);
+                //         .map(c => c.cardId);
                 // }
 
                 await entity.save();

@@ -8,10 +8,9 @@ import { Entity as IEntity } from '@interface/hearthstone/entity';
 const EntitySchema = new Schema<IEntity, Model<IEntity>, {}, {}, {}, {}, '$type'>({
     version: [Number],
 
-    entityId: String,
-    cardId:   String,
-    dbfId:    Number,
-    slug:     String,
+    cardId: String,
+    dbfId:  Number,
+    slug:   String,
 
     localization: [{
         _id:             false,
