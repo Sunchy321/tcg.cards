@@ -395,6 +395,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             const oldData = await Entity.find({ cardId: { $in: jsons.map(j => j.cardId) } });
             const oldCard = await Card.find({ cardId: { $in: jsons.map(j => j.cardId) } });
 
+            const entityToInsert = [];
+            const cardToInsert = [];
+
             for (const e of jsons) {
                 const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
 
@@ -436,14 +439,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 }
 
                 if (!entitySaved) {
-                    await Entity.create(e);
+                    entityToInsert.push(e);
                 }
 
                 const c = oldCard.find(c => c.cardId === e.cardId);
 
                 if (c == null) {
                     if (e.type !== 'enchantment') {
-                        await Card.create({ cardId: e.cardId, changes: [] });
+                        cardToInsert.push({ cardId: e.cardId, changes: [] });
                     }
                 } else {
                     const changes = c.changes;
@@ -463,6 +466,9 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                 count += 1;
             }
+
+            await Card.insertMany(cardToInsert);
+            await Entity.insertMany(entityToInsert);
         }
 
         for (const relations of toBucket(toGenerator(cardRelations), 500)) {

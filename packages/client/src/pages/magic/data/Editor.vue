@@ -139,10 +139,9 @@
                 />
 
                 <q-btn
-                    v-if="devOracle"
-                    color="red" icon="mdi-alpha-o-circle-outline"
+                    :color="devOracleColor" icon="mdi-alpha-o-circle-outline"
                     dense flat round
-                    @click="devOracle = false"
+                    @click="clickDevOracle"
                 />
 
                 <q-btn
@@ -305,8 +304,7 @@ import { CardEditorView } from 'common/model/magic/card';
 import { AxiosResponse } from 'axios';
 
 import {
-    debounce, deburr, isEqual, uniq, upperFirst,
-    zip,
+    debounce, deburr, escapeRegExp, isEqual, uniq, upperFirst, zip,
 } from 'lodash';
 
 import { copyToClipboard } from 'quasar';
@@ -427,6 +425,7 @@ const {
     rp: replacePrinted,
     rf: replaceFrom,
     rt: replaceTo,
+    co: clearDevOracle,
     cp: clearDevPrinted,
 } = pageSetup({
     params: {
@@ -487,6 +486,12 @@ const {
         },
 
         aa: {
+            type:    'boolean',
+            bind:    'query',
+            default: false,
+        },
+
+        co: {
             type:    'boolean',
             bind:    'query',
             default: false,
@@ -832,6 +837,22 @@ const devOracle = cardTag('oracle');
 const devToken = cardTag('token');
 const devCounter = cardTag('counter');
 
+const devOracleColor = computed(() => {
+    if (clearDevOracle.value) {
+        if (devOracle.value) {
+            return 'purple';
+        } else {
+            return 'primary';
+        }
+    } else {
+        if (devOracle.value) {
+            return 'red';
+        } else {
+            return 'grey';
+        }
+    }
+});
+
 const devPrintedColor = computed(() => {
     if (clearDevPrinted.value) {
         if (devPrinted.value) {
@@ -847,6 +868,20 @@ const devPrintedColor = computed(() => {
         }
     }
 });
+
+const clickDevOracle = () => {
+    if (clearDevOracle.value) {
+        clearDevOracle.value = false;
+        return;
+    }
+
+    if (devOracle.value) {
+        devOracle.value = false;
+        return;
+    }
+
+    clearDevOracle.value = true;
+};
 
 const clickDevPrinted = () => {
     if (clearDevPrinted.value) {
@@ -1090,6 +1125,10 @@ const defaultPrettify = () => {
         }
     }
 
+    if (clearDevOracle.value) {
+        devOracle.value = false;
+    }
+
     if (clearDevPrinted.value) {
         devPrinted.value = false;
     }
@@ -1190,19 +1229,23 @@ const prettify = () => {
     defaultPrettify();
 
     if (replaceFrom.value !== '') {
-        const fromRegex = new RegExp(replaceFrom.value, 'ugm');
+        const fromTypelineRegex = new RegExp(replaceFrom.value, 'ugm');
         const toReplacer = (text: string, ...captures: string[]) => replaceTo.value
             .replace(/\\n/g, '\n')
             .replace(/\$(\d)/g, (_, num) => captures[Number.parseInt(num, 10) - 1]);
 
         if (replaceUnified.value) {
+            const fromRegex = new RegExp(replaceFrom.value.replace(/~~/g, escapeRegExp(unifiedName.value)), 'ugm');
+
             unifiedText.value = unifiedText.value!.replace(fromRegex, toReplacer);
-            unifiedTypeline.value = unifiedTypeline.value.replace(fromRegex, toReplacer);
+            unifiedTypeline.value = unifiedTypeline.value.replace(fromTypelineRegex, toReplacer);
         }
 
         if (replacePrinted.value) {
+            const fromRegex = new RegExp(replaceFrom.value.replace(/~~/g, escapeRegExp(printedName.value)), 'ugm');
+
             printedText.value = printedText.value!.replace(fromRegex, toReplacer);
-            printedTypeline.value = printedTypeline.value.replace(fromRegex, toReplacer);
+            printedTypeline.value = printedTypeline.value.replace(fromTypelineRegex, toReplacer);
         }
     }
 

@@ -304,7 +304,7 @@ const oracle = defineServerCommand({
 
 const flavorText = builtin.text(commands.flavorText, { key: 'print.parts.flavorText' });
 const flavorName = builtin.text(commands.flavorName, { key: 'print.parts.flavorName' });
-const layout = builtin.simple(commands.layout);
+const layout = builtin.simple(commands.layout, { key: 'print.layout' });
 
 const rarity = defineServerCommand({
     command: commands.rarity,
