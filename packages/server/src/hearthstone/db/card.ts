@@ -16,7 +16,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         change:  String,
     }],
 
-    legality: Object,
+    legalities: Object,
 
     __updations: [{
         _id: false,

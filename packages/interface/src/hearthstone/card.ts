@@ -2,6 +2,8 @@ import { Legality } from './format-change';
 
 export type Change = 'major' | 'minor' | 'wording' | 'bugged' | 'unknown';
 
+export type Legalities = Record<string, Legality>;
+
 export interface Card {
     cardId: string;
 
@@ -10,5 +12,5 @@ export interface Card {
         change:  Change;
     }[];
 
-    legality: Record<string, Legality>;
+    legalities: Legalities;
 }
