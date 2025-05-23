@@ -1,5 +1,5 @@
 export type Legality =
-    'forbidden' | 'limited' | 'semi-limited' | 'unlimited' | 'unavailable';
+    'banned' | 'legal' | 'unavailable';
 
 export type Banlist = Record<string, Legality>;
 

@@ -1,6 +1,9 @@
+/** AUTO GENERATED, DO NOT CHANGE **/
+
 import KoaRouter from '@koa/router';
 
 import magic from '@/magic/router/api';
+import ptcg from '@/ptcg/router/api';
 import yugioh from '@/yugioh/router/api';
 import hearthstone from '@/hearthstone/router/api';
 import lorcana from '@/lorcana/router/api';
@@ -14,6 +17,7 @@ router.get('/', async ctx => {
 });
 
 router.use(magic.routes());
+router.use(ptcg.routes());
 router.use(yugioh.routes());
 router.use(hearthstone.routes());
 router.use(lorcana.routes());

@@ -9,8 +9,15 @@ const raw = defineCommand({ id: '', operators: [''], allowRegex: true });
 
 const stats = defineCommand({
     id:         'stats',
-    pattern:    '{{attack}}/{{defense}}' as const,
+    pattern:    '{{strength}}/{{willPower}}' as const,
     operators:  ['', ...allOperator],
+    qualifiers: defaultQualifier,
+});
+
+const fullStats = defineCommand({
+    id:         'full-stats',
+    pattern:    '{{cost}}/{{strength}}/{{willPower}}' as const,
+    operators:  [':', '', '='],
     qualifiers: defaultQualifier,
 });
 
@@ -88,6 +95,7 @@ const order = defineCommand({
 export const commands = {
     raw,
     stats,
+    fullStats,
     hash,
     set,
     num,
@@ -108,6 +116,6 @@ export const commands = {
 };
 
 export default defineModel({
-    id:       'yugioh',
+    id:       'ptcg',
     commands: Object.values(commands),
 });
