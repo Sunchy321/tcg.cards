@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "exec": "ts-node ./src/app.ts",
+    "exec": "node -r ts-node/register -r tsconfig-paths/register ./src/app.ts",
     "lint": "cd ../server && pnpm dlx eslint src --fix"
   },
   "keywords": [],
@@ -15,9 +15,11 @@
     "@types/lodash": "^4.17.16",
     "@types/node": "^22.14.1",
     "ts-morph": "^25.0.1",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^3.9.0"
   },
   "dependencies": {
+    "card-common": "workspace:^1.0.0",
     "lodash": "^4.17.21"
   }
 }
