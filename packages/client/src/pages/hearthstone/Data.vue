@@ -23,6 +23,7 @@ const tabs = [
     'Set',
     'Format',
     'Announcement',
+    'Legality',
     'Duplicate',
 ];
 

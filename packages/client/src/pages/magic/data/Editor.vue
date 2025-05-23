@@ -1058,6 +1058,11 @@ const defaultTextPrettifier = (text: string, lang: string, name: string) => {
         }
     }
 
+    if (lang === 'en') {
+        text = text
+            .replace(/[‘’]/g, '\'');
+    }
+
     if (lang === 'de') {
         text = text
             .replace(/"/g, '“')
