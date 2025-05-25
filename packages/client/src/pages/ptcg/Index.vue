@@ -1,0 +1,145 @@
+<template>
+    <q-page>
+        <search-input
+            v-model="searchText"
+            class="main-input q-ma-xl"
+            filled clearable
+            :error="explained.type === 'error'"
+            @keypress.enter="search"
+        >
+            <template #append>
+                <q-btn
+                    icon="mdi-magnify"
+                    flat dense round
+                    @click="search"
+                />
+            </template>
+            <template #hint>
+                <ptcg-text>{{ explained.text }}</ptcg-text>
+            </template>
+            <template #error>
+                <ptcg-text>{{ explained.text }}</ptcg-text>
+            </template>
+        </search-input>
+        <div class="links q-pa-xl q-gutter-md row">
+            <div class="col column">
+                <!-- <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'ptcg/advanced-search' }"
+                    icon="mdi-magnify"
+                    :label="$t('magic.ui.advanced-search.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
+
+                <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'ptcg/search-docs' }"
+                    icon="mdi-information"
+                    :label="$t('magic.ui.search-docs.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                /> -->
+            </div>
+            <div class="col column">
+                <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'ptcg/format', params: { id: 'core' } }"
+                    icon="mdi-text-box-outline"
+                    :label="$t('ptcg.format.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
+                <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'ptcg/sets' }"
+                    icon="mdi-cards-outline"
+                    :label="$t('ptcg.set.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
+            </div>
+            <div class="col column">
+                <!-- <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'ptcg/rule' }"
+                    icon="mdi-book-open-variant"
+                    :label="$t('ptcg.cr.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
+                <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'ptcg/misc' }"
+                    icon="mdi-dots-horizontal-circle"
+                    :label="$t('ptcg.ui.misc.$self')"
+                    flat
+                    :stack="$q.screen.xs"
+                /> -->
+            </div>
+        </div>
+    </q-page>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue';
+
+import { useCore } from 'store/core';
+import { useI18n } from 'vue-i18n';
+
+import ptcgSetup from 'setup/ptcg';
+import pageSetup from 'setup/page';
+
+import SearchInput from 'components/SearchInput.vue';
+import PtcgText from 'components/ptcg/Text.vue';
+
+import model from 'searcher-data/magic/client';
+
+const core = useCore();
+const i18n = useI18n();
+
+const { search, random } = ptcgSetup();
+
+pageSetup({
+    title:   () => i18n.t('ptcg.$self'),
+    actions: [
+        {
+            action:  'search',
+            handler: search,
+        },
+        {
+            action:  'random',
+            icon:    'mdi-shuffle-variant',
+            handler: random,
+        },
+    ],
+});
+
+const searchText = computed({
+    get() { return core.search; },
+    set(newValue: string) { core.search = newValue; },
+});
+
+const explained = computed(() => model.explain(searchText.value, (key: string, named) => {
+    let realKey;
+
+    if (key.startsWith('$.')) {
+        realKey = `magic.search.${key.slice(2)}`;
+    } else {
+        realKey = `search.${key}`;
+    }
+
+    if (named != null) {
+        return i18n.t(realKey, named);
+    } else {
+        return i18n.t(realKey);
+    }
+}));
+
+</script>
