@@ -53,7 +53,7 @@ import {
 import type { QSelectProps } from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 
 import controlSetup from 'setup/control';
 
@@ -63,7 +63,7 @@ import { apiGet } from 'boot/server';
 
 const router = useRouter();
 const route = useRoute();
-const lorcana = useLorcana();
+const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -83,7 +83,7 @@ const id = computed({
     },
 });
 
-const localization = computed(() => lorcana.locales.map(
+const localization = computed(() => game.locales.map(
     l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
 ));
 

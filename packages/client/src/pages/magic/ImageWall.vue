@@ -22,7 +22,7 @@ import {
     defineComponent, ref, computed, onMounted,
 } from 'vue';
 
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -31,7 +31,7 @@ import { assetBase, apiGet } from 'boot/server';
 
 export default defineComponent({
     setup() {
-        const magic = useMagic();
+        const game = useGame();
         const i18n = useI18n();
 
         const { set, lang, type } = pageSetup({
@@ -47,7 +47,7 @@ export default defineComponent({
                     type:     'string',
                     bind:     'query',
                     readonly: true,
-                    default:  () => magic.locale,
+                    default:  () => game.locale,
                 },
                 type: {
                     type:     'enum',

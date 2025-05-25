@@ -46,7 +46,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useCore } from 'store/core';
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -94,7 +94,7 @@ interface SearchResult {
 }
 
 const core = useCore();
-const lorcana = useLorcana();
+const game = useGame();
 const i18n = useI18n();
 
 const { search } = lorcanaSetup();
@@ -171,7 +171,7 @@ const doSearch = async () => {
 
     const { data: result } = await apiGet<SearchResult>('/lorcana/search', {
         q:        q.value,
-        locale:   lorcana.locale,
+        locale:   game.locale,
         page:     page.value,
         pageSize: pageSize.value,
     });

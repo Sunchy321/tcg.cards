@@ -7,7 +7,7 @@ interface State {
     textMode: TextMode;
 }
 
-export const useLorcana = defineGameStore<'lorcana', State>('lorcana', {
+export const useGame = defineGameStore<'lorcana', State>('lorcana', {
     textMode: {
         type:    'enum',
         values:  textModes,

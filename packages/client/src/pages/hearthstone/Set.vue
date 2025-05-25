@@ -39,7 +39,7 @@ import {
 } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useHearthstone } from 'store/games/hearthstone';
+import { useGame } from 'store/games/hearthstone';
 
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
@@ -56,7 +56,7 @@ type Set = Omit<ISet, 'localization'> & {
 export default defineComponent({
     setup() {
         const route = useRoute();
-        const hearthstone = useHearthstone();
+        const game = useGame();
 
         const { isAdmin } = basicSetup();
 
@@ -69,8 +69,8 @@ export default defineComponent({
                 return '';
             }
 
-            return data.value.localization[hearthstone.locale]?.name
-              ?? data.value.localization[hearthstone.locales[0]]?.name;
+            return data.value.localization[game.locale]?.name
+              ?? data.value.localization[game.locales[0]]?.name;
         });
 
         pageSetup({

@@ -4,7 +4,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import setProfile, { SetProfile } from 'src/common/magic/set';
 
@@ -17,7 +17,7 @@ export default defineComponent({
     setup(props) {
         const router = useRouter();
         const route = useRoute();
-        const magic = useMagic();
+        const game = useGame();
 
         const innerShowId = ref(false);
         const profile = ref<SetProfile | null>(null);
@@ -34,7 +34,7 @@ export default defineComponent({
                 return null;
             }
 
-            const { locales, locale } = magic;
+            const { locales, locale } = game;
             const defaultLocale = locales[0];
 
             const { localization } = profile.value;

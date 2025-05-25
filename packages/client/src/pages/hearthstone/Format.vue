@@ -147,7 +147,7 @@ import {
     ref, computed, watch,
 } from 'vue';
 
-import { useHearthstone } from 'src/stores/games/hearthstone';
+import { useGame } from 'src/stores/games/hearthstone';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -201,10 +201,10 @@ const banlistSourceOrder = ['c_thun', 'quest', 'hero', 'odd_even', 'invoke', nul
 
 const adjustmentStatusOrder = ['nerf', 'buff', 'adjust'];
 
-const hearthstone = useHearthstone();
+const game = useGame();
 const i18n = useI18n();
 
-const formats = computed(() => hearthstone.formats);
+const formats = computed(() => game.formats);
 
 const {
     format,
@@ -249,7 +249,7 @@ const orderOptions = ['name', 'date'].map(v => ({
     slot:  v,
 }));
 
-const dateFrom = computed(() => data.value?.birthday ?? hearthstone.birthday);
+const dateFrom = computed(() => data.value?.birthday ?? game.birthday);
 const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
 
 const birthAndDeath = computed(() => {

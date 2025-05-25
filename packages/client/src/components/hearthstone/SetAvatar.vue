@@ -4,7 +4,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useHearthstone } from 'store/games/hearthstone';
+import { useGame } from 'store/games/hearthstone';
 
 import setProfile, { SetProfile } from 'src/common/hearthstone/set';
 
@@ -17,7 +17,7 @@ export default defineComponent({
     setup(props) {
         const router = useRouter();
         const route = useRoute();
-        const hearthstone = useHearthstone();
+        const game = useGame();
 
         const innerShowId = ref(false);
         const profile = ref<SetProfile | null>(null);
@@ -34,7 +34,7 @@ export default defineComponent({
                 return null;
             }
 
-            const { locales, locale } = hearthstone;
+            const { locales, locale } = game;
             const defaultLocale = locales[0];
 
             const { localization } = profile.value;

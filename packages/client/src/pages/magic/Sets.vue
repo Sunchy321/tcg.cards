@@ -32,7 +32,7 @@ import {
     defineComponent, ref, computed, watch, onMounted,
 } from 'vue';
 
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -44,7 +44,7 @@ import { isEqual, partition } from 'lodash';
 
 export default defineComponent({
     setup() {
-        const magic = useMagic();
+        const game = useGame();
         const i18n = useI18n();
 
         pageSetup({
@@ -189,7 +189,7 @@ export default defineComponent({
         };
 
         const nameOf = (localization: Record<string, SetLocalization>) => localization[magic.locale]?.name
-          ?? localization[magic.locales[0]]?.name;
+          ?? localization[game.locales[0]]?.name;
 
         const iconUrl = (set: string, type: string, parent?: string) => {
             if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(type)) {

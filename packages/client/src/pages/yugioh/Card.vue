@@ -143,7 +143,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
-import { useYugioh, TextMode, textModes } from 'store/games/yugioh';
+import { useGame, TextMode, textModes } from 'store/games/yugioh';
 import { useI18n } from 'vue-i18n';
 
 import basicSetup from 'setup/basic';
@@ -169,7 +169,7 @@ import { locales } from 'static/yugioh/basic';
 
 const router = useRouter();
 const route = useRoute();
-const yugioh = useYugioh();
+const game = useGame();
 const i18n = useI18n();
 const { isAdmin } = basicSetup();
 
@@ -180,8 +180,8 @@ const rotate = ref<boolean | null>(null);
 const setProfiles = ref<Record<string, SetProfile>>({});
 
 const textMode = computed({
-    get() { return yugioh.textMode; },
-    set(newValue: TextMode) { yugioh.textMode = newValue; },
+    get() { return game.textMode; },
+    set(newValue: TextMode) { game.textMode = newValue; },
 });
 
 const textModeOptions = computed(() => textModes.map(v => ({
@@ -279,7 +279,7 @@ const setInfos = computed(() => sets.value.map(s => {
         numbers,
         rarity,
         // iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
-        name:  name?.[yugioh.locale] ?? name?.[yugioh.locales[0]] ?? '',
+        name:  name?.[game.locale] ?? name?.[game.locales[0]] ?? '',
     };
 }));
 
@@ -289,7 +289,7 @@ const langs = computed(() => uniq([
 ]).sort((a, b) => locales.indexOf(a) - locales.indexOf(b)));
 
 const lang = computed({
-    get() { return route.query.lang as string ?? yugioh.locale; },
+    get() { return route.query.lang as string ?? game.locale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
@@ -501,7 +501,7 @@ const apiQuery = computed(() => (route.params.id == null
     ? null
     : omitBy({
         id:     route.params.id as string,
-        lang:   route.query.lang as string ?? yugioh.locale,
+        lang:   route.query.lang as string ?? game.locale,
         set:    route.query.set as string,
         number: route.query.number as string,
     }, v => v == null)));
@@ -558,7 +558,7 @@ watch(
     { immediate: true },
 );
 
-watch(() => yugioh.locale, loadData);
+watch(() => game.locale, loadData);
 
 // special effects
 watch([id, set, number], () => {

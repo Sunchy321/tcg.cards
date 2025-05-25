@@ -1,7 +1,6 @@
-import magic from './magic';
-import yugioh from './yugioh';
-import hearthstone from './hearthstone';
-import lorcana from './lorcana';
+import { games } from 'static/index';
+
+const gameI18n = import.meta.glob('./*/index.ts', { eager: true, import: 'default' });
 
 export default {
     lang: {
@@ -92,8 +91,5 @@ export default {
         },
     },
 
-    magic,
-    yugioh,
-    hearthstone,
-    lorcana,
+    ...Object.fromEntries(games.map(g => [g, gameI18n[`./${g}/index.ts`]])),
 };

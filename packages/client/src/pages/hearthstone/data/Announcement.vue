@@ -255,7 +255,7 @@ import {
 } from 'vue';
 
 import { useQuasar } from 'quasar';
-import { useHearthstone } from 'store/games/hearthstone';
+import { useGame } from 'store/games/hearthstone';
 
 import controlSetup from 'setup/control';
 
@@ -335,11 +335,11 @@ const adjustOptions = ['nerf', 'buff', 'adjust'].map(v => ({
 }));
 
 const { dialog } = useQuasar();
-const hearthstone = useHearthstone();
+const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
-const formats = computed(() => ['#hearthstone', ...hearthstone.formats]);
+const formats = computed(() => ['#hearthstone', ...game.formats]);
 const announcementList = ref<FormatAnnouncementProfile[]>([]);
 const selected = ref<FormatAnnouncementProfile | null>(null);
 

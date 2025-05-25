@@ -159,7 +159,7 @@ import {
     ref, computed, watch, onMounted, toRaw,
 } from 'vue';
 
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'src/setup/page';
@@ -234,7 +234,7 @@ const statusOptions = [
     value: v,
 }));
 
-const lorcana = useLorcana();
+const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -253,7 +253,7 @@ const {
     appendParam: true,
 });
 
-const formats = computed(() => ['#core', ...lorcana.formats]);
+const formats = computed(() => ['#core', ...game.formats]);
 const announcementList = ref<FormatAnnouncementProfile[]>([]);
 const selected = ref<FormatAnnouncementProfile | null>(null);
 

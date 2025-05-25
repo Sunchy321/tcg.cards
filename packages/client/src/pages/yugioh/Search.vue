@@ -48,7 +48,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useCore } from 'store/core';
-import { useYugioh } from 'store/games/yugioh';
+import { useGame } from 'store/games/yugioh';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -97,7 +97,7 @@ interface SearchResult {
 }
 
 const core = useCore();
-const yugioh = useYugioh();
+const game = useGame();
 const i18n = useI18n();
 
 const { search } = yugiohSetup();
@@ -174,7 +174,7 @@ const doSearch = async () => {
 
     const { data: result } = await apiGet<SearchResult>('/yugioh/search', {
         q:        q.value,
-        locale:   yugioh.locale,
+        locale:   game.locale,
         page:     page.value,
         pageSize: pageSize.value,
     });

@@ -22,7 +22,7 @@
 import { computed, ref } from 'vue';
 
 import { useRouter } from 'vue-router';
-import { useHearthstone } from 'src/stores/games/hearthstone';
+import { useGame } from 'src/stores/games/hearthstone';
 
 import { Entity } from 'interface/hearthstone/entity';
 
@@ -161,7 +161,7 @@ const props = defineProps<{
 const model = defineModel<string>({ required: true });
 
 const router = useRouter();
-const hearthstone = useHearthstone();
+const game = useGame();
 
 const input = ref('');
 
@@ -227,7 +227,7 @@ const search = async () => {
         return;
     }
 
-    const { locale, locales } = hearthstone;
+    const { locale, locales } = game;
     const defaultLocale = locales[0];
 
     const loc = data.localization.find(l => l.lang === locale)

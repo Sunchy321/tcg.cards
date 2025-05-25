@@ -125,7 +125,7 @@ import {
     ref, computed, watch,
 } from 'vue';
 
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -162,10 +162,10 @@ interface TimelineNode {
     banlist: { id: string, status: Legality, group?: string }[];
 }
 
-const lorcana = useLorcana();
+const game = useGame();
 const i18n = useI18n();
 
-const formats = computed(() => lorcana.formats);
+const formats = computed(() => game.formats);
 
 const {
     format,
@@ -210,7 +210,7 @@ const orderOptions = ['name', 'date'].map(v => ({
     slot:  v,
 }));
 
-const dateFrom = computed(() => data.value?.birthday ?? lorcana.birthday);
+const dateFrom = computed(() => data.value?.birthday ?? game.birthday);
 const dateTo = computed(() => data.value?.deathdate ?? new Date().toISOString().split('T')[0]);
 
 const birthAndDeath = computed(() => {

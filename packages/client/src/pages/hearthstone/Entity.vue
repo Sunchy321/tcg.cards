@@ -126,7 +126,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useHearthstone } from 'store/games/hearthstone';
+import { useGame } from 'store/games/hearthstone';
 import { useI18n } from 'vue-i18n';
 
 import hearthstoneSetup from 'setup/hearthstone';
@@ -146,7 +146,7 @@ import { apiBase, apiGet } from 'boot/server';
 
 const router = useRouter();
 const route = useRoute();
-const hearthstone = useHearthstone();
+const game = useGame();
 const i18n = useI18n();
 
 const { search, random } = hearthstoneSetup();
@@ -235,8 +235,8 @@ const localization = computed(() => {
         return undefined;
     }
 
-    return loc.find(l => l.lang === hearthstone.locale)
-      ?? loc.find(l => l.lang === hearthstone.locales[0])
+    return loc.find(l => l.lang === game.locale)
+      ?? loc.find(l => l.lang === game.locales[0])
       ?? loc[0];
 });
 

@@ -244,7 +244,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'setup/page';
@@ -275,7 +275,7 @@ type History = {
 
 const router = useRouter();
 const route = useRoute();
-const lorcana = useLorcana();
+const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -284,7 +284,7 @@ const dataGroup = ref<CardGroup>();
 const history = ref<History[]>([]);
 const unlock = ref(false);
 
-const locales = computed(() => ['', ...lorcana.locales]);
+const locales = computed(() => ['', ...game.locales]);
 
 const {
     locale,

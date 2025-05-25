@@ -59,7 +59,7 @@ import type {
 } from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useHearthstone } from 'store/games/hearthstone';
+import { useGame } from 'store/games/hearthstone';
 
 import controlSetup from 'setup/control';
 
@@ -71,7 +71,7 @@ export default defineComponent({
     setup() {
         const router = useRouter();
         const route = useRoute();
-        const hearthstone = useHearthstone();
+        const game = useGame();
 
         const { controlGet, controlPost } = controlSetup();
 
@@ -100,7 +100,7 @@ export default defineComponent({
             },
         });
 
-        const localization = computed(() => hearthstone.locales.map(
+        const localization = computed(() => game.locales.map(
             l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
         ));
 

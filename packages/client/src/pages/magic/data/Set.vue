@@ -118,7 +118,7 @@ import type {
 } from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
 
@@ -165,7 +165,7 @@ function symbolStyleOf(tap: string, white: string, flat: boolean) {
 
 const router = useRouter();
 const route = useRoute();
-const magic = useMagic();
+const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -185,7 +185,7 @@ const id = computed({
     },
 });
 
-const localization = computed(() => magic.locales.map(
+const localization = computed(() => game.locales.map(
     l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
 ));
 

@@ -190,7 +190,7 @@ import {
     ref, computed, watch, onMounted, toRaw,
 } from 'vue';
 
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'src/setup/page';
@@ -273,7 +273,7 @@ const statusOptions = [
     value: v,
 }));
 
-const magic = useMagic();
+const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -292,7 +292,7 @@ const {
     appendParam: true,
 });
 
-const formats = computed(() => ['#standard', '#alchemy', ...magic.formats]);
+const formats = computed(() => ['#standard', '#alchemy', ...game.formats]);
 const announcementList = ref<FormatAnnouncementProfile[]>([]);
 const selected = ref<FormatAnnouncementProfile | null>(null);
 

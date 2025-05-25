@@ -7,7 +7,7 @@ interface State {
     textMode: TextMode;
 }
 
-export const useMagic = defineGameStore<'magic', State>('magic', {
+export const useGame = defineGameStore<'magic', State>('magic', {
     textMode: {
         type:    'enum',
         values:  textModes,

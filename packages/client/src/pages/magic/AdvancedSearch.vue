@@ -131,7 +131,7 @@ import { defineComponent, ref } from 'vue';
 import pageSetup from 'setup/page';
 
 import { useRouter } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
@@ -143,7 +143,7 @@ export default defineComponent({
 
     setup() {
         const router = useRouter();
-        const magic = useMagic();
+        const game = useGame();
         const i18n = useI18n();
 
         pageSetup({
@@ -170,7 +170,7 @@ export default defineComponent({
                     .split(/\{([^{}]*)\}|(\d{2,})|(.(?:\/.)?)/)
                     .filter(v => v !== '' && v != null);
 
-                const valuesInSymbol = values.filter(v => magic.symbols.includes(v));
+                const valuesInSymbol = values.filter(v => game.symbols.includes(v));
 
                 if (valuesInSymbol.length > 0) {
                     cost.value.push(...valuesInSymbol);

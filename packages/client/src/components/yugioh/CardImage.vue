@@ -22,11 +22,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-// import { useYugioh } from 'src/stores/games/yugioh';
+// import { useGame } from 'src/stores/games/yugioh';
 
 import { assetBase } from 'boot/server';
 
-// const yugioh = useYugioh();
+// const game = useGame();
 
 const props = withDefaults(defineProps<{
     cardId:   string;

@@ -240,7 +240,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
-import { useMagic, TextMode, textModes } from 'store/games/magic';
+import { useGame, TextMode, textModes } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import basicSetup from 'setup/basic';
@@ -269,7 +269,7 @@ import { auxSetType } from 'static/magic/special';
 
 const router = useRouter();
 const route = useRoute();
-const magic = useMagic();
+const game = useGame();
 const i18n = useI18n();
 const { isAdmin } = basicSetup();
 
@@ -280,8 +280,8 @@ const rotate = ref<boolean | null>(null);
 const setProfiles = ref<Record<string, SetProfile>>({});
 
 const textMode = computed({
-    get() { return magic.textMode; },
-    set(newValue: TextMode) { magic.textMode = newValue; },
+    get() { return game.textMode; },
+    set(newValue: TextMode) { game.textMode = newValue; },
 });
 
 const textModeOptions = computed(() => textModes.map(v => ({
@@ -387,21 +387,21 @@ const setInfos = computed(() => sets.value.map(s => {
         numbers,
         rarity,
         iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
-        name:            name?.[magic.locale] ?? name?.[magic.locales[0]] ?? '',
+        name:            name?.[game.locale] ?? name?.[game.locales[0]] ?? '',
         symbolStyle:     profile?.symbolStyle,
         doubleFacedIcon: profile?.doubleFacedIcon,
     };
 }));
 
 const langs = computed(() => {
-    const locales = magic.extendedLocales;
+    const locales = game.extendedLocales;
 
     return uniq(versions.value.map(v => v.lang))
         .sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
 });
 
 const lang = computed({
-    get() { return data.value?.lang ?? route.query.lang as string ?? magic.locale; },
+    get() { return data.value?.lang ?? route.query.lang as string ?? game.locale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
@@ -706,7 +706,7 @@ const apiQuery = computed(() => (route.params.id == null
     ? null
     : omitBy({
         id:     route.params.id as string,
-        lang:   route.query.lang as string ?? magic.locale,
+        lang:   route.query.lang as string ?? game.locale,
         set:    route.query.set as string,
         number: route.query.number as string,
     }, v => v == null)));
@@ -776,7 +776,7 @@ watch(
     { immediate: true },
 );
 
-watch(() => magic.locale, loadData);
+watch(() => game.locale, loadData);
 
 // special effects
 watch([id, set, number], () => {

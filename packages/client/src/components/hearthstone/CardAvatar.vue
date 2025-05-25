@@ -9,7 +9,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useHearthstone } from 'store/games/hearthstone';
+import { useGame } from 'store/games/hearthstone';
 
 import { QTooltip } from 'quasar';
 
@@ -30,7 +30,7 @@ const props = withDefaults(defineProps<{
 
 const router = useRouter();
 const route = useRoute();
-const hearthstone = useHearthstone();
+const game = useGame();
 
 const innerShowId = ref(false);
 const profile = ref<EntityProfile | null>(null);
@@ -51,7 +51,7 @@ const name = computed(() => {
         return null;
     }
 
-    const { locales, locale } = hearthstone;
+    const { locales, locale } = game;
     const defaultLocale = locales[0];
 
     const localizations = profile.value.localization;

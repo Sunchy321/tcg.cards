@@ -38,13 +38,13 @@ export type Card = {
     rule?: string;
 
     weakness?: {
-        type:     string[];
-        multiple: number;
+        type:  string[];
+        value: string;
     };
 
     resistance?: {
         type:  string[];
-        value: number;
+        value: string;
     };
 
     retreat?: number;

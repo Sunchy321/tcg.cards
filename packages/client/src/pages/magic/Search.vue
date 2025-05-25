@@ -47,7 +47,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useCore } from 'store/core';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
@@ -100,7 +100,7 @@ interface SearchResult {
 }
 
 const core = useCore();
-const magic = useMagic();
+const game = useGame();
 const i18n = useI18n();
 
 const { search } = magicSetup();
@@ -183,7 +183,7 @@ const doSearch = async () => {
 
     const { data: result } = await apiGet<SearchResult>('/magic/search', {
         q:        q.value,
-        locale:   magic.locale,
+        locale:   game.locale,
         page:     page.value,
         pageSize: pageSize.value,
     });

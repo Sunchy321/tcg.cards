@@ -39,7 +39,7 @@ import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import pageSetup from 'setup/page';
 
@@ -57,7 +57,7 @@ type Set = Omit<ISet, 'localization'> & {
 
 const route = useRoute();
 const i18n = useI18n();
-const magic = useMagic();
+const game = useGame();
 
 const data = ref<Set | null>(null);
 
@@ -71,8 +71,8 @@ const setName = computed(() => {
         return '';
     }
 
-    return data.value.localization[magic.locale]?.name
-      ?? data.value.localization[magic.locales[0]]?.name;
+    return data.value.localization[game.locale]?.name
+      ?? data.value.localization[game.locales[0]]?.name;
 });
 
 const name = computed(() => i18n.t(`magic.set.booster.name.${boosterId.value}`));

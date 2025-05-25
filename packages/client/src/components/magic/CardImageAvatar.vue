@@ -8,7 +8,7 @@ import {
 } from 'vue';
 
 import { useRouter, RouterLink } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import CardImage from './CardImage.vue';
 
@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<{
 });
 
 const router = useRouter();
-const magic = useMagic();
+const game = useGame();
 
 const innerShowId = ref(false);
 const profile = ref<CardProfile | null>(null);
@@ -47,7 +47,7 @@ const locale = computed(() => {
     if (props.useLang && props.version != null) {
         return props.version.lang;
     } else {
-        return magic.locale;
+        return game.locale;
     }
 });
 
@@ -92,7 +92,7 @@ const imageVersion = computed(() => {
 
         // filter for locale
         (vs: CardProfile['versions']) => {
-            const { locales } = magic;
+            const { locales } = game;
             const defaultLocale = locales[0];
 
             const localeVersion = vs.filter(v => v.lang === locale.value);

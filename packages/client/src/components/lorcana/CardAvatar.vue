@@ -9,7 +9,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 
 import { QTooltip } from 'quasar';
 import CardImage from './CardImage.vue';
@@ -46,7 +46,7 @@ const props = withDefaults(
 
 const router = useRouter();
 const route = useRoute();
-const lorcana = useLorcana();
+const game = useGame();
 
 const innerShowId = ref(false);
 const profile = ref<CardProfile | null>(null);
@@ -55,7 +55,7 @@ const locale = computed(() => {
     if (props.useLang && props.version != null) {
         return props.version.lang;
     } else {
-        return lorcana.locale;
+        return game.locale;
     }
 });
 
@@ -76,7 +76,7 @@ const name = computed(() => {
         return null;
     }
 
-    const { locales } = lorcana;
+    const { locales } = game;
     const defaultLocale = locales[0];
 
     return profile.value.localization.find(l => l.lang === locale.value)?.name
@@ -117,7 +117,7 @@ const imageVersion = computed(() => {
 
         // filter for locale
         (vs: CardProfile['versions']) => {
-            const { locales } = lorcana;
+            const { locales } = game;
             const defaultLocale = locales[0];
 
             const localeVersion = vs.filter(v => v.lang === locale.value);

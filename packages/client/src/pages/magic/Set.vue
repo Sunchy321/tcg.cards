@@ -65,7 +65,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
@@ -84,7 +84,7 @@ type Set = Omit<ISet, 'localization'> & {
 };
 
 const route = useRoute();
-const magic = useMagic();
+const game = useGame();
 
 const { isAdmin } = basicSetup();
 
@@ -97,8 +97,8 @@ const name = computed(() => {
         return '';
     }
 
-    return data.value.localization[magic.locale]?.name
-      ?? data.value.localization[magic.locales[0]]?.name;
+    return data.value.localization[game.locale]?.name
+      ?? data.value.localization[game.locales[0]]?.name;
 });
 
 pageSetup({
@@ -118,8 +118,8 @@ const wotcLink = computed(() => {
         return '';
     }
 
-    return data.value.localization[magic.locale]?.link
-      ?? data.value.localization[magic.locales[0]]?.link;
+    return data.value.localization[game.locale]?.link
+      ?? data.value.localization[game.locales[0]]?.link;
 });
 
 const apiLink = computed(() => `${apiBase}/magic/set?id=${id.value}`);

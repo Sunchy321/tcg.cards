@@ -289,7 +289,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
 import pageSetup from 'setup/page';
@@ -404,7 +404,7 @@ const counterBlacklist = [
 
 const router = useRouter();
 const route = useRoute();
-const magic = useMagic();
+const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
@@ -413,7 +413,7 @@ const dataGroup = ref<CardGroup>();
 const history = ref<History[]>([]);
 const unlock = ref(false);
 
-const locales = computed(() => ['', ...magic.locales]);
+const locales = computed(() => ['', ...game.locales]);
 
 const {
     locale,

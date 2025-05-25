@@ -2,12 +2,12 @@ import { RouteRecordRaw } from 'vue-router';
 
 import { capitalize } from 'lodash';
 
-import magic from './magic';
-import yugioh from './yugioh';
-import hearthstone from './hearthstone';
-import lorcana from './lorcana';
-
 import { games } from 'static/index';
+
+const gameRoutes = import.meta.glob<true, undefined, RouteRecordRaw[]>(
+    ['./*.ts', '!./route.ts', '!./index.ts'],
+    { eager: true, import: 'default' },
+);
 
 const routes: RouteRecordRaw[] = [
     {
@@ -38,10 +38,7 @@ const routes: RouteRecordRaw[] = [
         ],
     },
 
-    ...magic,
-    ...yugioh,
-    ...hearthstone,
-    ...lorcana,
+    ...games.map(g => gameRoutes[`./${g}.ts`]).flat(),
 
     {
         path:      '/:pathMatch(.*)*',

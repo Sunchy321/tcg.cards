@@ -9,13 +9,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useHearthstone } from 'src/stores/games/hearthstone';
+import { useGame } from 'src/stores/games/hearthstone';
 
 import { Adjustment } from 'interface/hearthstone/format-change';
 
 import { assetBase } from 'boot/server';
 
-const hearthstone = useHearthstone();
+const game = useGame();
 
 type PartAdjustment = {
     part:   string;
@@ -39,7 +39,7 @@ const props = withDefaults(
 
 const imageUrl = computed(() => {
     const { version } = props;
-    const locale = props.lang ?? hearthstone.locale;
+    const locale = props.lang ?? game.locale;
     const { variant } = props;
     const { id } = props;
 

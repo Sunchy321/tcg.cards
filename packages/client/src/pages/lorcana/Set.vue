@@ -51,7 +51,7 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
@@ -67,7 +67,7 @@ type Set = Omit<ISet, 'localization'> & {
 };
 
 const route = useRoute();
-const lorcana = useLorcana();
+const game = useGame();
 
 const { isAdmin } = basicSetup();
 
@@ -80,8 +80,8 @@ const name = computed(() => {
         return '';
     }
 
-    return data.value.localization[lorcana.locale]?.name
-      ?? data.value.localization[lorcana.locales[0]]?.name;
+    return data.value.localization[game.locale]?.name
+      ?? data.value.localization[game.locales[0]]?.name;
 });
 
 pageSetup({

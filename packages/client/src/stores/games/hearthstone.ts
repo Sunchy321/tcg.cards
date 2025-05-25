@@ -1,3 +1,3 @@
 import { defineGameStore } from './game';
 
-export const useHearthstone = defineGameStore<'hearthstone', unknown>('hearthstone', { });
+export const useGame = defineGameStore<'hearthstone', unknown>('hearthstone', { });

@@ -22,7 +22,7 @@
 import { computed, ref } from 'vue';
 
 import { useRouter } from 'vue-router';
-import { useYugioh } from 'src/stores/games/yugioh';
+import { useGame } from 'src/stores/games/yugioh';
 
 import { Card } from 'interface/yugioh/card';
 
@@ -31,7 +31,7 @@ import { apiGet } from 'boot/server';
 const model = defineModel<string>({ required: true });
 
 const router = useRouter();
-const yugioh = useYugioh();
+const game = useGame();
 
 const input = ref('');
 
@@ -76,7 +76,7 @@ const search = async () => {
         return;
     }
 
-    const { locale, locales } = yugioh;
+    const { locale, locales } = game;
     const defaultLocale = locales[0];
 
     const loc = data.localization.find(l => l.lang === locale)

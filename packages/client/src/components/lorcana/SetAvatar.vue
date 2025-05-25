@@ -4,7 +4,7 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useLorcana } from 'store/games/lorcana';
+import { useGame } from 'store/games/lorcana';
 
 import setProfile, { SetProfile } from 'src/common/lorcana/set';
 
@@ -17,7 +17,7 @@ export default defineComponent({
     setup(props) {
         const router = useRouter();
         const route = useRoute();
-        const lorcana = useLorcana();
+        const game = useGame();
 
         const innerShowId = ref(false);
         const profile = ref<SetProfile | null>(null);
@@ -34,7 +34,7 @@ export default defineComponent({
                 return null;
             }
 
-            const { locales, locale } = lorcana;
+            const { locales, locale } = game;
             const defaultLocale = locales[0];
 
             const { localization } = profile.value;

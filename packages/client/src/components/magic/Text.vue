@@ -6,7 +6,7 @@
 import { VNode, h, useAttrs } from 'vue';
 
 import { RouterLink, useRoute } from 'vue-router';
-import { useMagic } from 'store/games/magic';
+import { useGame } from 'store/games/magic';
 
 import Symbol from './Symbol.vue';
 import CardAvatar from './CardAvatar.vue';
@@ -34,7 +34,7 @@ const slots = defineSlots<{
 }>();
 
 const route = useRoute();
-const magic = useMagic();
+const game = useGame();
 
 const render = () => {
     const symbolType = props.symbol ?? [];
@@ -78,7 +78,7 @@ const render = () => {
                 if (p.startsWith('{') && p.endsWith('}')) {
                     const content = p.slice(1, -1);
 
-                    if (magic.symbols.includes(content)) {
+                    if (game.symbols.includes(content)) {
                         result.push(h(Symbol, {
                             class: attrs.class,
                             value: p,

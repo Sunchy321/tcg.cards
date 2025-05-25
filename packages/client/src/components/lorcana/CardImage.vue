@@ -22,11 +22,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-import { useLorcana } from 'src/stores/games/lorcana';
+import { useGame } from 'src/stores/games/lorcana';
 
 import { assetBase } from 'boot/server';
 
-const lorcana = useLorcana();
+const game = useGame();
 
 const props = withDefaults(defineProps<{
     lang?:   string;
@@ -65,7 +65,7 @@ const realRotate = computed({
 
 const imageUrl = computed(() => {
     const {
-        lang = lorcana.locale, set, number,
+        lang = game.locale, set, number,
     } = props;
 
     return `${assetBase}/lorcana/card/image/${set}/${lang}/${number}.jpg`;

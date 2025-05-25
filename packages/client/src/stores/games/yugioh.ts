@@ -7,7 +7,7 @@ interface State {
     textMode: TextMode;
 }
 
-export const useYugioh = defineGameStore<'yugioh', State>('yugioh', {
+export const useGame = defineGameStore<'yugioh', State>('yugioh', {
     textMode: {
         type:    'enum',
         values:  textModes,
