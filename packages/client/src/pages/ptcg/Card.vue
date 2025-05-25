@@ -37,13 +37,13 @@
             <div class="stats-line" :class="effectClass">
                 <span class="typeline" :lang="langWithMode">{{ typeline }}</span>
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
-                <div v-if="lore != null && lore > 0" class="lore"><ptcg-text>{{ lore }} {L}</ptcg-text></div>
+                <div v-if="lore != null && lore > 0" class="lore"><rich-text>{{ lore }} {L}</rich-text></div>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
-                <ptcg-text>{{ text }}</ptcg-text>
+                <rich-text>{{ text }}</rich-text>
             </div>
             <div v-if="flavorText != null" class="flavor-text auto-align" :class="effectClass" :lang="lang">
-                <ptcg-text detect-emph>{{ flavorText }}</ptcg-text>
+                <rich-text detect-emph>{{ flavorText }}</rich-text>
             </div>
 
             <grid
@@ -169,7 +169,7 @@ import pageSetup from 'setup/page';
 import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/ptcg/CardAvatar.vue';
 import CardImage from 'components/ptcg/CardImage.vue';
-import LorcanaText from 'components/ptcg/Text.vue';
+import RichText from 'src/components/ptcg/RichText.vue';
 import BanlistIcon from 'components/ptcg/BanlistIcon.vue';
 
 import { CardPrintView } from 'common/model/ptcg/card';

@@ -8,10 +8,10 @@ import { defineComponent } from 'vue';
 import pageSetup from 'setup/page';
 
 // import SearchExample from 'components/SearchExample.vue';
-// import MagicText from 'components/magic/Text.vue';
+// import RichText from 'components/magic/Text.vue';
 
 export default defineComponent({
-    // components: { SearchExample, MagicText },
+    // components: { SearchExample, RichText },
 
     setup() {
         pageSetup({

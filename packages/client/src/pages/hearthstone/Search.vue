@@ -4,7 +4,7 @@
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
             <div>
-                <hearthstone-text>{{ explained.text }}</hearthstone-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </div>
 
             <q-space />
@@ -52,7 +52,7 @@ import hearthstoneSetup from 'setup/hearthstone';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/hearthstone/CardImage.vue';
-import HearthstoneText from 'components/hearthstone/Text.vue';
+import RichText from 'src/components/hearthstone/RichText.vue';
 
 import { Entity } from '@interface/hearthstone/entity';
 

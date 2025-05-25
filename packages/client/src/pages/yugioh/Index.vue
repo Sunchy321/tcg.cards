@@ -15,10 +15,10 @@
                 />
             </template>
             <template #hint>
-                <yugioh-text>{{ explained.text }}</yugioh-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </template>
             <template #error>
-                <yugioh-text>{{ explained.text }}</yugioh-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </template>
         </search-input>
         <div class="links q-pa-xl q-gutter-md row">
@@ -97,7 +97,7 @@ import yugiohSetup from 'setup/yugioh';
 import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
-import YugiohText from 'components/yugioh/Text.vue';
+import RichText from 'src/components/yugioh/RichText.vue';
 
 import model from 'searcher-data/magic/client';
 

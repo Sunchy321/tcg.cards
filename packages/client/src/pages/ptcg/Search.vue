@@ -4,7 +4,7 @@
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
             <div>
-                <ptcg-text>{{ explained.text }}</ptcg-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </div>
 
             <q-space />
@@ -54,7 +54,7 @@ import ptcgSetup from 'setup/ptcg';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/ptcg/CardImage.vue';
-import LorcanaText from 'components/ptcg/Text.vue';
+import RichText from 'src/components/ptcg/RichText.vue';
 
 import { Card } from '@interface/ptcg/card';
 import { Print } from '@interface/ptcg/print';

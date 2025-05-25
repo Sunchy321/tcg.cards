@@ -15,10 +15,10 @@
                 />
             </template>
             <template #hint>
-                <magic-text>{{ explained.text }}</magic-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </template>
             <template #error>
-                <magic-text>{{ explained.text }}</magic-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </template>
         </search-input>
         <div class="links q-pa-xl q-gutter-md row">
@@ -97,7 +97,7 @@ import magicSetup from 'setup/magic';
 import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
-import MagicText from 'components/magic/Text.vue';
+import RichText from 'src/components/magic/RichText.vue';
 
 import model from 'searcher-data/magic/client';
 

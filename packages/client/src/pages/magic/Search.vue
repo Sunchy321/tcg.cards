@@ -4,7 +4,7 @@
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
             <div>
-                <magic-text>{{ explained.text }}</magic-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </div>
 
             <q-space />
@@ -55,7 +55,7 @@ import magicSetup from 'setup/magic';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/magic/CardImage.vue';
-import MagicText from 'components/magic/Text.vue';
+import RichText from 'src/components/magic/RichText.vue';
 
 import { Card } from '@interface/magic/card';
 import { Print } from '@interface/magic/print';

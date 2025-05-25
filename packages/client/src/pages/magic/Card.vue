@@ -60,7 +60,7 @@
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
-                <magic-text :symbol="textSymbolStyle">{{ text }}</magic-text>
+                <rich-text :symbol="textSymbolStyle">{{ text }}</rich-text>
             </div>
             <div v-if="attractionLights != null" class="attraction-lights">
                 <div
@@ -75,7 +75,7 @@
                 </div>
             </div>
             <div v-if="flavorText != null" class="flavor-text auto-align" :class="effectClass" :lang="lang">
-                <magic-text :symbol="textSymbolStyle" detect-emph>{{ flavorText }}</magic-text>
+                <rich-text :symbol="textSymbolStyle" detect-emph>{{ flavorText }}</rich-text>
             </div>
             <div v-if="tags.length + printTags.length > 0" class="tag-list">
                 <q-chip
@@ -113,9 +113,9 @@
             </grid>
             <div v-if="rulings.length > 0" class="rulings">
                 <div v-for="(r, i) in rulings" :key="i">
-                    <magic-text :cards="r.cards" detect-url>
+                    <rich-text :cards="r.cards" detect-url>
                         {{ r.date }}: {{ r.text }}
-                    </magic-text>
+                    </rich-text>
                 </div>
             </div>
 
@@ -251,7 +251,7 @@ import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import MagicColor from 'components/magic/Color.vue';
-import MagicText from 'components/magic/Text.vue';
+import RichText from 'src/components/magic/RichText.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 

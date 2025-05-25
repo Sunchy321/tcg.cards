@@ -6,11 +6,11 @@
             :class="`cr-item depth-${c.depth} ${c.id === itemId && highlightItem(c) ? 'curr-item' : ''}`"
         >
             <span v-if="c.index != null">{{ c.index + ' ' }}</span>
-            <magic-text :cards="c.cards" detect-cr>{{ c.text }}</magic-text>
+            <rich-text :cards="c.cards" detect-cr>{{ c.text }}</rich-text>
 
             <div v-for="(e, i) in c.examples || []" :key="i" class="example">
                 <q-icon name="mdi-chevron-right" class="example-icon" />
-                <magic-text :cards="c.cards">{{ e }}</magic-text>
+                <rich-text :cards="c.cards">{{ e }}</rich-text>
             </div>
 
             <div class="cr-tool flex items-center">
@@ -36,7 +36,7 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import MagicText from 'components/magic/Text.vue';
+import RichText from 'src/components/magic/RichText.vue';
 
 import { CR, Content } from 'interface/magic/cr';
 

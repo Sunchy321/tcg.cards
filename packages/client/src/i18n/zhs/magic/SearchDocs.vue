@@ -25,7 +25,7 @@
             <tr>
                 <td :colspan="2"><code class="var string">{*}{*}.....{*}</code></td>
                 <td>法术力费用或文本中包含该符号的牌。</td>
-                <td><example query="{W}{U}{B}{R}{G}"><magic-text>法术力费用或文本中包含{W}{U}{B}{R}{G}的牌</magic-text></example></td>
+                <td><example query="{W}{U}{B}{R}{G}"><rich-text>法术力费用或文本中包含{W}{U}{B}{R}{G}的牌</rich-text></example></td>
             </tr>
             <tr>
                 <td :colspan="2"><code class="var param">param</code>，但并非上述情况</td>
@@ -132,14 +132,14 @@
                 <td><code>:<span class="var cost">cost</span></code></td>
                 <td>
                     法术力费用包含<code class="var cost">cost</code>中每个符号的牌。<br>
-                    与<code>&gt;=</code>不同。例如，法术力费用为<magic-text>{2}{B}</magic-text>的牌能被<code>m>=1B</code>匹配，但不能被<code>m:1B</code>匹配。
+                    与<code>&gt;=</code>不同。例如，法术力费用为<rich-text>{2}{B}</rich-text>的牌能被<code>m>=1B</code>匹配，但不能被<code>m:1B</code>匹配。
                 </td>
-                <td><example query="m:2/W"><magic-text>法术力费用包含{2/W}的牌</magic-text></example></td>
+                <td><example query="m:2/W"><rich-text>法术力费用包含{2/W}的牌</rich-text></example></td>
             </tr>
             <tr>
                 <td><code>&gt;<span class="var cost">cost</span></code></td>
                 <td>法术力费用大于<code class="var cost">cost</code>的牌。</td>
-                <td><example query="m=0"><magic-text>法术力费用为{0}的牌</magic-text></example></td>
+                <td><example query="m=0"><rich-text>法术力费用为{0}的牌</rich-text></example></td>
             </tr>
             <tr>
                 <td><code>mana-value</code>，<code>mv</code>，<code>cmc</code></td>
@@ -345,10 +345,10 @@ import { defineComponent } from 'vue';
 import pageSetup from 'setup/page';
 
 import Example from 'components/SearchExample.vue';
-import MagicText from 'components/magic/Text.vue';
+import RichText from 'src/components/magic/RichText.vue';
 
 export default defineComponent({
-    components: { Example, MagicText },
+    components: { Example, RichText },
 
     setup() {
         pageSetup({

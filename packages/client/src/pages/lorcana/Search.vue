@@ -4,7 +4,7 @@
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
             <div>
-                <lorcana-text>{{ explained.text }}</lorcana-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </div>
 
             <q-space />
@@ -54,7 +54,7 @@ import lorcanaSetup from 'setup/lorcana';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/lorcana/CardImage.vue';
-import LorcanaText from 'components/lorcana/Text.vue';
+import RichText from 'src/components/lorcana/RichText.vue';
 
 import { Card } from '@interface/lorcana/card';
 import { Print } from '@interface/lorcana/print';

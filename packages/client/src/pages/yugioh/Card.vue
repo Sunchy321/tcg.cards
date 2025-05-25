@@ -28,7 +28,7 @@
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
-                <yugioh-text>{{ text }}</yugioh-text>
+                <rich-text>{{ text }}</rich-text>
             </div>
 
             <grid
@@ -153,7 +153,7 @@ import pageSetup from 'setup/page';
 import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/yugioh/CardAvatar.vue';
 import CardImage from 'components/yugioh/CardImage.vue';
-import YugiohText from 'components/yugioh/Text.vue';
+import RichText from 'src/components/yugioh/RichText.vue';
 import BanlistIcon from 'components/yugioh/BanlistIcon.vue';
 
 import { CardPrintView } from 'common/model/yugioh/card';

@@ -4,7 +4,7 @@
             <q-icon v-show="searching" class="q-mr-sm" name="mdi-autorenew mdi-spin" size="sm" />
 
             <div>
-                <yugioh-text>{{ explained.text }}</yugioh-text>
+                <rich-text>{{ explained.text }}</rich-text>
             </div>
 
             <q-space />
@@ -56,7 +56,7 @@ import yugiohSetup from 'setup/yugioh';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/yugioh/CardImage.vue';
-import YugiohText from 'components/yugioh/Text.vue';
+import RichText from 'src/components/yugioh/RichText.vue';
 
 import { Card } from '@interface/yugioh/card';
 import { Print } from '@interface/yugioh/print';

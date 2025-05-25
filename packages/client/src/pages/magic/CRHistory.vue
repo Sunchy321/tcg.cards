@@ -19,22 +19,22 @@
                 </template>
             </div>
 
-            <magic-text
+            <rich-text
                 v-for="(d, i) in h.diff" :key="i"
                 :class="`text-${d.type}`"
             >
                 {{ d.value }}
-            </magic-text>
+            </rich-text>
 
             <template v-if="data?.type === 'content'">
                 <div v-for="(e, i) in (h as any).examplesDiff || []" :key="i" class="example">
                     <q-icon name="mdi-chevron-right" class="example-icon" />
-                    <magic-text
+                    <rich-text
                         v-for="(v, j) in e" :key="j"
                         :class="`text-${v.type}`"
                     >
                         {{ v.value }}
-                    </magic-text>
+                    </rich-text>
                 </div>
             </template>
         </div>
@@ -53,7 +53,7 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import MagicText from 'components/magic/Text.vue';
+import RichText from 'src/components/magic/RichText.vue';
 
 import { apiGet } from 'boot/server';
 
@@ -79,7 +79,7 @@ type History = {
 export default defineComponent({
     name: 'CRHistory',
 
-    components: { MagicText },
+    components: { RichText },
 
     setup() {
         const route = useRoute();

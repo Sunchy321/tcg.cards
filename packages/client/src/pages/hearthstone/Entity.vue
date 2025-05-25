@@ -39,10 +39,10 @@
                 <div v-if="stats != null" class="stats">{{ stats }}</div>
             </div>
             <div v-if="text != null" class="text">
-                <hearthstone-text disable-newline>{{ text }}</hearthstone-text>
+                <rich-text disable-newline>{{ text }}</rich-text>
             </div>
             <div v-if="flavorText != null" class="flavor-text">
-                <hearthstone-text disable-newline>{{ flavorText }}</hearthstone-text>
+                <rich-text disable-newline>{{ flavorText }}</rich-text>
             </div>
             <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="mechanics">
                 <q-chip
@@ -132,7 +132,7 @@ import { useI18n } from 'vue-i18n';
 import hearthstoneSetup from 'setup/hearthstone';
 import pageSetup from 'setup/page';
 
-import HearthstoneText from 'components/hearthstone/Text.vue';
+import RichText from 'src/components/hearthstone/RichText.vue';
 import CardAvatar from 'components/hearthstone/CardAvatar.vue';
 import CardImage from 'components/hearthstone/CardImage.vue';
 

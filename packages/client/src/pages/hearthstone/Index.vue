@@ -15,10 +15,14 @@
                 />
             </template>
             <template #hint>
-                <magic-text>{{ explained.text }}</magic-text>
+                <rich-text>
+                    {{ explained.text }}</rich-text>
+                </rich-text>
             </template>
             <template #error>
-                <magic-text>{{ explained.text }}</magic-text>
+                <rich-text>
+                    {{ explained.text }}</rich-text>
+                </rich-text>
             </template>
         </search-input>
         <div class="links q-pa-xl q-gutter-md row">
