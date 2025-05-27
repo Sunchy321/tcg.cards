@@ -1463,7 +1463,7 @@ const doUpdate = debounce(
             });
         }
     },
-    1000,
+    200,
     {
         leading:  true,
         trailing: false,
