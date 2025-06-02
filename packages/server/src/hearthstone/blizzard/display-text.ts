@@ -263,7 +263,7 @@ export function getLangStrings(): Record<string, Record<string, string>> {
     const strings: Record<string, Record<string, string>> = {};
 
     const langs = fs.readdirSync(stringsPath)
-        .filter(f => fs.statSync(join(stringsPath, f)).isDirectory);
+        .filter(f => fs.statSync(join(stringsPath, f)).isDirectory());
 
     for (const l of langs) {
         strings[langMap[l] ?? l] = {};
