@@ -77,9 +77,11 @@ export class Game {
             this.generatePrintDatabase().saveSync();
         }
 
-        this.generateFormatDatabase().saveSync();
-        this.generateFormatAnnouncementDatabase().saveSync();
-        this.generateFormatChangeDatabase().saveSync();
+        if (this.tryGetInterface('format.ts') != null) {
+            this.generateFormatDatabase().saveSync();
+            this.generateFormatAnnouncementDatabase().saveSync();
+            this.generateFormatChangeDatabase().saveSync();
+        }
     }
 
     generateDatabaseConn(): SourceFile {

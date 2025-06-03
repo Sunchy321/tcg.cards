@@ -1,0 +1,195 @@
+anomaly:
+    deDE: Anomalie
+    enUS: Anomaly
+    esES: Anomalía
+    esMX: Anomalía
+    frFR: Anomalie
+    itIT: Anomalia
+    jaJP: 異常
+    koKR: 변형물
+    plPL: Anomalia
+    ptBR: Anomalia
+    ruRU: Аномалия
+    thTH: ความผิดปกติ
+    zhCN: 畸变
+    zhTW: 異象
+baconherobuddy:
+    deDE: Heldenpartner
+    enUS: Hero Buddy
+    esES: Colega de héroe
+    esMX: Compa de héroe
+    frFR: Compagnon héroïque
+    itIT: Amico eroe
+    jaJP: ヒーローバディ
+    koKR: 영웅 전우
+    plPL: Towarzysz bohatera
+    ptBR: Camarada de Herói
+    ruRU: Компаньон героя
+    thTH: คู่หูฮีโร่
+    zhCN: 英雄伙伴
+    zhTW: 英雄夥伴
+baconquestreward:
+    deDE: Belohnung
+    enUS: Reward
+    esES: Recompensa
+    esMX: Recompensa
+    frFR: Récompense
+    itIT: Ricompensa
+    jaJP: 報酬
+    koKR: 보상
+    plPL: Nagroda
+    ptBR: Recompensa
+    ruRU: Награда
+    thTH: รางวัล
+    zhCN: 奖励
+    zhTW: 獎勵
+enchantment:
+    deDE: Verzauberung
+    enUS: Enchantment
+    esES: Encantamiento
+    esMX: Encantamiento
+    frFR: Enchantement
+    itIT: Incantamento
+    jaJP: 魔力付与
+    koKR: 강화
+    plPL: Urok
+    ptBR: Encantamento
+    ruRU: Чары
+    thTH: ผลพิเศษ
+    zhCN: 附加效果
+    zhTW: 附魔
+hero:
+    deDE: Held
+    enUS: Hero
+    esES: Héroe
+    esMX: Héroe
+    frFR: Héros
+    itIT: Eroe
+    jaJP: ヒーロー
+    koKR: 영웅
+    plPL: Bohater
+    ptBR: Herói
+    ruRU: Герой
+    thTH: ฮีโร่
+    zhCN: 英雄
+    zhTW: 英雄
+heropower:
+    deDE: Heldenfähigkeit
+    enUS: HeroPower
+    esES: Poder de héroe
+    esMX: Poder de héroe
+    frFR: Pouvoir héroïque
+    itIT: Potere Eroe
+    jaJP: ヒーローパワー
+    koKR: 영웅 능력
+    plPL: Moc specjalna
+    ptBR: Poder Heroico
+    ruRU: Сила героя
+    thTH: พลังฮีโร่
+    zhCN: 英雄技能
+    zhTW: 英雄能力
+item:
+    deDE: Gegenstand
+    enUS: Item
+    esES: Objeto
+    esMX: Objeto
+    frFR: Objet
+    itIT: Oggetto
+    jaJP: アイテム
+    koKR: 아이템
+    plPL: Przedmiot
+    ptBR: Item
+    ruRU: Предмет
+    thTH: ไอเท็ม
+    zhCN: 物品
+    zhTW: 物品
+location:
+    deDE: Schauplatz
+    enUS: Location
+    esES: Ubicación
+    esMX: Lugar
+    frFR: Lieu
+    itIT: Luogo
+    jaJP: 場所
+    koKR: 장소
+    plPL: Lokalizacja
+    ptBR: Lugar
+    ruRU: Область
+    thTH: สถานที่
+    zhCN: 地标
+    zhTW: 地點
+minion:
+    deDE: Diener
+    enUS: Minion
+    esES: Esbirro
+    esMX: Esbirro
+    frFR: Serviteur
+    itIT: Servitore
+    jaJP: ミニオン
+    koKR: 하수인
+    plPL: Stronnik
+    ptBR: Lacaio
+    ruRU: Существо
+    thTH: มินเนี่ยน
+    zhCN: 随从
+    zhTW: 手下
+spell:
+    deDE: Zauber
+    enUS: Spell
+    esES: Hechizo
+    esMX: Hechizo
+    frFR: Sort
+    itIT: Magia
+    jaJP: 呪文
+    koKR: 주문
+    plPL: Zaklęcie
+    ptBR: Feitiço
+    ruRU: Заклинание
+    thTH: เวทมนตร์
+    zhCN: 法术
+    zhTW: 法術
+token:
+    deDE: Marke
+    enUS: Token
+    esES: Ficha
+    esMX: Ficha
+    frFR: Jeton
+    itIT: Pedina
+    jaJP: トークン
+    koKR: 주화
+    plPL: Żeton
+    ptBR: Ficha
+    ruRU: Жетон
+    thTH: โทเค็น
+    zhCN: 替代物
+    zhTW: 印記
+trinket:
+    deDE: Schmuckstück
+    enUS: Trinket
+    esES: Abalorio
+    esMX: Abalorio
+    frFR: Bibelot
+    itIT: Monile
+    jaJP: 装飾品
+    koKR: 장신구
+    plPL: Ozdoba
+    ptBR: Berloque
+    ruRU: Аксессуар
+    thTH: เครื่องประดับ
+    zhCN: 饰品
+    zhTW: 飾品
+weapon:
+    deDE: Waffe
+    enUS: Weapon
+    esES: Arma
+    esMX: Arma
+    frFR: Arme
+    itIT: Arma
+    jaJP: 武器
+    koKR: 무기
+    plPL: Broń
+    ptBR: Arma
+    ruRU: Оружие
+    thTH: อาวุธ
+    zhCN: 武器
+    zhTW: 武器

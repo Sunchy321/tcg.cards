@@ -38,6 +38,18 @@ const routes: RouteRecordRaw[] = [
         ],
     },
 
+    {
+        path:      '/integrated',
+        component: async () => import('layouts/Main.vue'),
+        children:  [
+            {
+                path:      '/data',
+                name:      'integrated/data',
+                component: async () => import('pages/integrated/Data.vue'),
+            },
+        ],
+    },
+
     ...games.map(g => gameRoutes[`./${g}.ts`]).flat(),
 
     {

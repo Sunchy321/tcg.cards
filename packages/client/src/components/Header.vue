@@ -23,7 +23,7 @@
             <header-params v-if="!isMobile" key="params" class="params" />
 
             <q-btn
-                v-if="isAdmin && game != null"
+                v-if="isAdmin"
                 icon="mdi-database"
                 flat dense round
                 :to="dataPath"
@@ -50,8 +50,8 @@
     </q-header>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, computed } from 'vue';
+<script setup lang="ts">
+import { ref, computed } from 'vue';
 
 import { useQuasar } from 'quasar';
 
@@ -61,59 +61,50 @@ import HomeButton from 'components/HomeButton.vue';
 import AppTitle from 'components/Title.vue';
 import HeaderParams from 'components/HeaderParams.vue';
 
-export default defineComponent({
-    components: { HomeButton, AppTitle, HeaderParams },
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const props = defineProps<{
+    drawerOpen?: boolean;
+}>();
 
-    props: {
-        drawerOpen: { type: Boolean, default: undefined },
-    },
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const emit = defineEmits<{
+    'update:drawerOpen': [newValue: boolean];
+}>();
 
-    emits: ['update:drawerOpen'],
+const quasar = useQuasar();
+const { game, user, isAdmin } = basicSetup();
 
-    setup() {
-        const quasar = useQuasar();
-        const { game, user, isAdmin } = basicSetup();
+const isMobile = computed(() => quasar.platform.is.mobile);
+const showParams = ref(false);
 
-        const isMobile = computed(() => quasar.platform.is.mobile);
-        const showParams = ref(false);
-
-        const paramsIcon = computed(() => {
-            if (showParams.value) {
-                return 'mdi-chevron-up-circle';
-            } else {
-                return 'mdi-chevron-down-circle';
-            }
-        });
-
-        const dataPath = computed(() => {
-            if (isAdmin.value && game.value != null) {
-                return { name: `${game.value}/data` };
-            } else {
-                return undefined;
-            }
-        });
-
-        const settingPath = computed(() => {
-            if (game.value != null) {
-                return { name: `setting/${game.value}` };
-            } else {
-                return { name: 'setting' };
-            }
-        });
-
-        return {
-            game,
-            user,
-            isAdmin,
-            isMobile,
-            showParams,
-
-            dataPath,
-            settingPath,
-            paramsIcon,
-        };
-    },
+const paramsIcon = computed(() => {
+    if (showParams.value) {
+        return 'mdi-chevron-up-circle';
+    } else {
+        return 'mdi-chevron-down-circle';
+    }
 });
+
+const dataPath = computed(() => {
+    if (!isAdmin.value) {
+        return undefined;
+    }
+
+    if (game.value != null) {
+        return { name: `${game.value}/data` };
+    } else {
+        return { name: 'integrated/data' };
+    }
+});
+
+const settingPath = computed(() => {
+    if (game.value != null) {
+        return { name: `setting/${game.value}` };
+    } else {
+        return { name: 'setting' };
+    }
+});
+
 </script>
 
 <style lang="sass" scoped>
