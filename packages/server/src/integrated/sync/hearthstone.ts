@@ -8,9 +8,23 @@ import { Card as IIntergartedCard } from '@interface/integrated/card';
 import { GameStatus } from './index';
 import internalData from '@/internal-data';
 
+const filter = {
+    isCurrent: true,
+    type:      {
+        $exists: true,
+        $nin:    [
+            'enchantment',
+            'mercenary_ability',
+            'move_minion_hover_target',
+            'buddy_meter',
+            'game_mode_button',
+        ],
+    },
+};
+
 export class GameTask extends Task<GameStatus> {
     static async count(): Promise<number> {
-        return await Entity.count({ isCurrent: true, type: { $ne: 'enchantment' } });
+        return await Entity.count(filter);
     }
 
     async startImpl() {
@@ -27,7 +41,7 @@ export class GameTask extends Task<GameStatus> {
 
         const cardToInsert: IIntergartedCard[] = [];
 
-        await Entity.find({ isCurrent: true, type: { $ne: 'enchantment' } }).cursor().eachAsync(async c => {
+        await Entity.find(filter).cursor().eachAsync(async c => {
             const enLoc = c.localization.find(l => l.lang === 'en')!;
 
             cardToInsert.push({
