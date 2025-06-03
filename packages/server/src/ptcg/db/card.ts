@@ -9,8 +9,9 @@ import { ICardDatabase, toJSON } from '@common/model/ptcg/card';
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
 
-    name: String,
-    text: String,
+    name:       String,
+    text:       String,
+    evolveFrom: String,
 
     localization: [{
         _id: false,
@@ -19,6 +20,7 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
         __lastDate: String,
         name:       String,
         text:       String,
+        evolveFrom: String,
     }],
 
     type: {
@@ -28,7 +30,16 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
 
     hp:    Number,
     stage: String,
-    types: { $type: [String], default: undefined },
+    types: String,
+    level: String,
+
+    vstarPower: {
+        type:   String,
+        cost:   String,
+        name:   String,
+        damage: Object,
+        effect: String,
+    },
 
     abilities: { $type: [{
         _id: false,
@@ -40,30 +51,36 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     attacks: { $type: [{
         _id: false,
 
-        cost:   [String],
+        cost:   String,
         name:   String,
-        damage: {
-            amount: Number,
-            suffix: String,
-        },
+        damage: String,
         effect: String,
     }], default: undefined },
 
     rule: String,
 
     weakness: {
-        type:  [String],
+        type:  String,
         value: String,
     },
 
     resistance: {
-        type:  [String],
+        type:  String,
         value: String,
     },
 
     retreat: Number,
 
-    tags: [String],
+    pokedex: {
+        number:   Number,
+        category: String,
+        height:   String,
+        weight:   String,
+    },
+
+    category:   String,
+    tags:       [String],
+    legalities: Object,
 
     __updations: [{
         _id: false,
