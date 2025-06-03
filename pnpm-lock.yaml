@@ -61,9 +61,9 @@ importers:
       card-interface:
         specifier: workspace:^1.0.1
         version: link:../interface
-      card-searcher:
+      card-search:
         specifier: workspace:^0.0.1
-        version: link:../searcher
+        version: link:../search
       debounce-promise:
         specifier: ^3.1.2
         version: 3.1.2
@@ -323,7 +323,7 @@ importers:
         specifier: ^5.8.2
         version: 5.8.2
 
-  packages/searcher:
+  packages/search:
     dependencies:
       card-common:
         specifier: workspace:^1.0.0
@@ -386,9 +386,9 @@ importers:
       card-renderer:
         specifier: workspace:^1.1.0
         version: link:../renderer
-      card-searcher:
+      card-search:
         specifier: workspace:^0.0.1
-        version: link:../searcher
+        version: link:../search
       cheerio:
         specifier: ^1.0.0-rc.3
         version: 1.0.0-rc.12

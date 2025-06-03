@@ -1,7 +1,7 @@
-import model from '@searcher-data/ptcg/server';
+import model from '@search-data/ptcg/server';
 
 import Card from '@/ptcg/db/card';
 
-const searcher = model.bind(Card);
+const search = model.bind(Card);
 
-export default searcher;
+export default search;

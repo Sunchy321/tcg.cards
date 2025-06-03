@@ -61,7 +61,7 @@ import RichText from 'src/components/yugioh/RichText.vue';
 import { Card } from '@interface/yugioh/card';
 import { Print } from '@interface/yugioh/print';
 
-import model from 'searcher-data/yugioh/client';
+import model from 'search-data/yugioh/client';
 
 import { apiGet } from 'boot/server';
 

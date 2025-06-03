@@ -15,7 +15,7 @@ import { toSingle, toMultiple } from '@/common/request-helper';
 
 import sorter from '@common/util/sorter';
 
-import searcher from '@/yugioh/search';
+import search from '@/yugioh/search';
 
 import { locales } from '@static/yugioh/basic';
 
@@ -53,7 +53,7 @@ router.get('/random', async ctx => {
     const q = toSingle(ctx.query.q ?? '');
 
     const cardIds = q !== ''
-        ? (await searcher.search('searchId', q)).result ?? []
+        ? (await search.search('searchId', q)).result ?? []
         : await Card.distinct('cardId');
 
     ctx.body = cardIds[random(cardIds.length - 1)] ?? '';

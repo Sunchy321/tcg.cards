@@ -74,13 +74,13 @@ export default configure((/* ctx */) => ({
         // viteVuePluginOptions: {},
 
         alias: {
-            'setup':         path.join(__dirname, 'src/setup'),
-            'store':         path.join(__dirname, 'src/stores'),
-            'static':        path.join(__dirname, 'node_modules/card-common/static'),
-            'data':          path.join(__dirname, 'node_modules/card-common/data'),
-            'common':        path.join(__dirname, 'node_modules/card-common/src'),
-            'searcher':      path.join(__dirname, 'node_modules/card-searcher/src'),
-            'searcher-data': path.join(__dirname, 'node_modules/card-searcher/data'),
+            'setup':       path.join(__dirname, 'src/setup'),
+            'store':       path.join(__dirname, 'src/stores'),
+            'static':      path.join(__dirname, 'node_modules/card-common/static'),
+            'data':        path.join(__dirname, 'node_modules/card-common/data'),
+            'common':      path.join(__dirname, 'node_modules/card-common/src'),
+            'search':      path.join(__dirname, 'node_modules/card-search/src'),
+            'search-data': path.join(__dirname, 'node_modules/card-search/data'),
         },
 
         vitePlugins: [

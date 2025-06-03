@@ -1,7 +1,7 @@
-import model from '@searcher-data/lorcana/server';
+import model from '@search-data/lorcana/server';
 
 import Card from '@/lorcana/db/card';
 
-const searcher = model.bind(Card);
+const search = model.bind(Card);
 
-export default searcher;
+export default search;

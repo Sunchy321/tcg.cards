@@ -1,7 +1,7 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import searcher from '@/yugioh/search';
+import search from '@/yugioh/search';
 
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
@@ -18,7 +18,7 @@ router.get('/', async ctx => {
         return;
     }
 
-    ctx.body = await searcher.search('search', q, mapValues(ctx.query, toSingle));
+    ctx.body = await search.search('search', q, mapValues(ctx.query, toSingle));
 });
 
 export default router;

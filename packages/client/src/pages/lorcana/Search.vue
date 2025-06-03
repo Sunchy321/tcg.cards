@@ -59,7 +59,7 @@ import RichText from 'src/components/lorcana/RichText.vue';
 import { Card } from '@interface/lorcana/card';
 import { Print } from '@interface/lorcana/print';
 
-import model from 'searcher-data/lorcana/client';
+import model from 'search-data/lorcana/client';
 
 import { apiGet } from 'boot/server';
 

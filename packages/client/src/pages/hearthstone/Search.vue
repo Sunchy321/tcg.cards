@@ -56,7 +56,7 @@ import RichText from 'src/components/hearthstone/RichText.vue';
 
 import { Entity } from '@interface/hearthstone/entity';
 
-import model from 'searcher-data/hearthstone/client';
+import model from 'search-data/hearthstone/client';
 
 import { apiGet } from 'boot/server';
 import { last } from 'lodash';

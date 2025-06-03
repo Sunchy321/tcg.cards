@@ -8,8 +8,8 @@
         "../common/static",
         "../common/src",
         "../log-parser/src",
-        "../searcher/src",
-        "../searcher/data",
+        "../search/src",
+        "../search/data",
         "../renderer/src"
     ],
     "execMap": {

@@ -1,7 +1,7 @@
-import model from '@searcher-data/yugioh/server';
+import model from '@search-data/yugioh/server';
 
 import Card from '@/yugioh/db/card';
 
-const searcher = model.bind(Card);
+const search = model.bind(Card);
 
-export default searcher;
+export default search;

@@ -1,7 +1,7 @@
-import { ServerCommandOf, DBQuery, QueryOption } from '@searcher/command/server';
-import { QueryError } from '@searcher/command/error';
+import { ServerCommandOf, DBQuery, QueryOption } from '@search/command/server';
+import { QueryError } from '@search/command/error';
 
-import { ColorCommand } from '@searcher-data/magic/command/color';
+import { ColorCommand } from '@search-data/magic/command/color';
 
 const colorEnums = 'WUBRGOP'.split('');
 

@@ -59,7 +59,7 @@ import RichText from 'src/components/ptcg/RichText.vue';
 import { Card } from '@interface/ptcg/card';
 import { Print } from '@interface/ptcg/print';
 
-import model from 'searcher-data/ptcg/client';
+import model from 'search-data/ptcg/client';
 
 import { apiGet } from 'boot/server';
 

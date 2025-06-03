@@ -1,7 +1,7 @@
-import { ServerCommandOf, DBQuery, QueryOption } from '@searcher/command/server';
-import { QueryError } from '@searcher/command/error';
+import { ServerCommandOf, DBQuery, QueryOption } from '@search/command/server';
+import { QueryError } from '@search/command/error';
 
-import { HalfNumberCommand } from '@searcher-data/magic/command/half-number';
+import { HalfNumberCommand } from '@search-data/magic/command/half-number';
 
 import { range } from 'lodash';
 

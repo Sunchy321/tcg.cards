@@ -18,7 +18,7 @@ import { Updation } from '@common/model/updation';
 import { omit, mapValues, isEqual } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import searcher from '@/yugioh/search';
+import search from '@/yugioh/search';
 import * as logger from '@/yugioh/logger';
 
 // import { formats as formatList } from '@static/yugioh/basic';
@@ -68,7 +68,7 @@ router.get('/search', async ctx => {
         ? 100
         : Number.parseInt(sampleText, 10);
 
-    const result = await searcher.search('dev', q, {
+    const result = await search.search('dev', q, {
         sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
     });
 

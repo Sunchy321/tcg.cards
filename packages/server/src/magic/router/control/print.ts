@@ -18,7 +18,7 @@ import { toSingle } from '@/common/request-helper';
 
 import parseGatherer, { saveGathererImage } from '@/magic/gatherer/parse';
 
-import searcher from '@/magic/search';
+import search from '@/magic/search';
 import * as logger from '@/magic/logger';
 
 import { assetPath } from '@/config';
@@ -55,7 +55,7 @@ router.get('/search', async ctx => {
         ? 100
         : Number.parseInt(sampleText, 10);
 
-    const result = await searcher.search('dev', q, {
+    const result = await search.search('dev', q, {
         sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
     });
 

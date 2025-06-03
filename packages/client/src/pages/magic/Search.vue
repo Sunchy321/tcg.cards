@@ -60,7 +60,7 @@ import RichText from 'src/components/magic/RichText.vue';
 import { Card } from '@interface/magic/card';
 import { Print } from '@interface/magic/print';
 
-import model from 'searcher-data/magic/client';
+import model from 'search-data/magic/client';
 
 import { apiGet } from 'boot/server';
 

@@ -18,7 +18,7 @@ import { Updation } from '@common/model/updation';
 import { omit, mapValues, isEqual } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
-import searcher from '@/ptcg/search';
+import search from '@/ptcg/search';
 import * as logger from '@/ptcg/logger';
 
 // import { formats as formatList } from '@static/ptcg/basic';
@@ -68,7 +68,7 @@ router.get('/search', async ctx => {
         ? 100
         : Number.parseInt(sampleText, 10);
 
-    const result = await searcher.search('dev', q, {
+    const result = await search.search('dev', q, {
         sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
     });
 

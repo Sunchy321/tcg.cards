@@ -1,7 +1,7 @@
-import model from '@searcher-data/hearthstone/server';
+import model from '@search-data/hearthstone/server';
 
 import Entity from '@/hearthstone/db/entity';
 
-const searcher = model.bind(Entity);
+const search = model.bind(Entity);
 
-export default searcher;
+export default search;
