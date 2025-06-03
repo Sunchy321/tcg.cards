@@ -1,24 +1,48 @@
+import { Legality } from './format-change';
+
+export type MainType = 'pokemon' | 'trainer' | 'energy';
+
+export type SubType = 'basic' | 'special' | 'item' | 'supporter' | 'stadium' | 'technical_machine';
+
+export type Category = 'normal';
+
+export type Legalities = Record<string, Legality>;
+
 export type Card = {
     cardId: string;
 
-    name: string;
-    text: string;
+    name:        string;
+    text:        string;
+    evolveFrom?: string;
 
     localization: {
-        lang:       string;
-        __lastDate: string;
-        name:       string;
-        text:       string;
+        lang:        string;
+        __lastDate:  string;
+        name:        string;
+        text:        string;
+        evolveFrom?: string;
     }[];
 
     type: {
-        main: string;
-        sub:  string;
+        main: MainType;
+        sub?: SubType;
     };
 
     hp?:    number;
     stage?: string;
-    types?: string[];
+    types?: string;
+    level?: string;
+
+    vstarPower?: {
+        type:    string;
+        cost?:   string;
+        name:    string;
+        damage?: string | {
+            amount: number;
+            suffix: string;
+        } | null;
+        effect: string;
+    };
 
     abilities?: {
         name:   string;
@@ -26,28 +50,34 @@ export type Card = {
     }[];
 
     attacks?: {
-        cost:    string[];
+        cost:    string;
         name:    string;
-        damage?: {
-            amount: number;
-            suffix: string;
-        };
-        effect: string;
+        damage?: string;
+        effect:  string;
     }[];
 
     rule?: string;
 
     weakness?: {
-        type:  string[];
+        type:  string;
         value: string;
     };
 
     resistance?: {
-        type:  string[];
+        type:  string;
         value: string;
     };
 
     retreat?: number;
 
-    tags: string[];
+    pokedex?: {
+        number?:   number;
+        category?: string;
+        height?:   string;
+        weight?:   string;
+    };
+
+    category:   Category;
+    tags:       string[];
+    legalities: Legalities;
 };

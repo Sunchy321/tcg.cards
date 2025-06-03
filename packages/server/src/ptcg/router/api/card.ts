@@ -197,6 +197,9 @@ router.get('/print-view', async ctx => {
 
         type: card.type,
 
+        category:   card.category,
+        legalities: card.legalities,
+
         flavorText: print.flavorText,
         artist:     print.artist,
 
@@ -206,6 +209,8 @@ router.get('/print-view', async ctx => {
         layout:      print.layout,
         rarity:      print.rarity,
         releaseDate: print.releaseDate,
+
+        imageUrl: print.imageUrl,
 
         versions,
         relatedCards: [...sourceRelation, ...targetRelation],

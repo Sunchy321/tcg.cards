@@ -16,13 +16,12 @@ const PrintSchema = new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}
     name: String,
     text: String,
 
+    layout: String,
     rarity: String,
     tags:   [String],
 
-    typeline: String,
-    passcode: Number,
-    layout:   String,
-
+    typeline:    String,
+    passcode:    Number,
     __updations: [{
         _id: false,
 

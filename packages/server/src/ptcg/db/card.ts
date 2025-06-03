@@ -52,13 +52,13 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     rule: String,
 
     weakness: {
-        type:     [String],
-        multiple: Number,
+        type:  [String],
+        value: String,
     },
 
     resistance: {
         type:  [String],
-        value: Number,
+        value: String,
     },
 
     retreat: Number,

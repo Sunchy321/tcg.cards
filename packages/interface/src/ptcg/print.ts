@@ -22,4 +22,8 @@ export type Print = {
     releaseDate: string;
 
     tags: string[];
+
+    imageUrl: string;
+
+    jpId?: number;
 };
