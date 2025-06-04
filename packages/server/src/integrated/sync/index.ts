@@ -101,7 +101,7 @@ export class SyncTask extends Task<Status> {
             };
         });
 
-        Card.deleteMany();
+        await Card.deleteMany();
 
         for (const g of games) {
             const Task = Tasks[g];
