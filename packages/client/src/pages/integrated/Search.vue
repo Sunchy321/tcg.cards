@@ -19,7 +19,7 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ game, cardId}"
+                v-slot="{ game, cardId }"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
@@ -50,6 +50,7 @@ import integratedSetup from 'setup/integrated';
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/CardImage.vue';
 
+import { Game } from '@interface/index';
 import { Card } from '@interface/integrated/card';
 
 import model from 'search-data/integrated/client';
@@ -175,7 +176,7 @@ const changePage = (newPage: number) => {
     }
 };
 
-const cardLink = (game: string, cardId: string) => {
+const cardLink = (game: Game, cardId: string) => {
     if (game === 'hearthstone') {
         return `/${game}/entity/${cardId}`;
     } else {

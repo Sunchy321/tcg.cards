@@ -23,7 +23,7 @@ const profiles = import.meta.glob('/src/common/*/card.ts', { import: 'default' }
 import hearthstoneEntityProfile from 'src/common/hearthstone/entity';
 
 const props = defineProps<{
-    game:   string;
+    game:   Game;
     cardId: string;
 }>();
 
@@ -34,7 +34,7 @@ const componentMap = mapValues(imageComponents, promise => {
 const profile = ref<any>();
 
 watch(props, async () => {
-    if (!games.includes(props.game as Game)) {
+    if (!games.includes(props.game)) {
         profile.value = undefined;
     }
 
@@ -50,7 +50,7 @@ watch(props, async () => {
 const render = () => {
     const component = componentMap[`./${props.game}/CardImage.vue`];
 
-    const game = useGame(props.game as Game)();
+    const game = useGame(props.game)();
 
     const loading = h('div', h(QInnerLoading));
 

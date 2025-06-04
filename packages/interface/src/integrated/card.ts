@@ -1,5 +1,7 @@
+import { Game } from '../index';
+
 export interface Card {
-    game:   string;
+    game:   Game;
     cardId: string;
 
     name:     string;
