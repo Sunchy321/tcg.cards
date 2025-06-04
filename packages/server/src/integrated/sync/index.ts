@@ -6,7 +6,7 @@ import { GameTask as yugioh } from './yugioh';
 import { GameTask as lorcana } from './lorcana';
 import { GameTask as hearthstone } from './hearthstone';
 
-import { Game, games } from '@static/index';
+import { Game, games } from '@interface/index';
 
 import Card from '@/integrated/db/card';
 

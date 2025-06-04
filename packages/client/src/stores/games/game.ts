@@ -11,7 +11,8 @@ import {
 
 import { useCore } from '../core';
 
-import data, { Game } from 'static/index';
+import { Game } from 'interface/index';
+import data from 'static/index';
 
 function defaultValue(option: GameOption) {
     if (option.type === 'enum' && option.default != null) {

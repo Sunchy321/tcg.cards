@@ -53,7 +53,7 @@ import integratedSetup from 'src/setup/integrated';
 
 import SearchInput from 'components/SearchInput.vue';
 
-import { games } from 'static/index';
+import { games } from 'interface/index';
 
 import model from 'search-data/integrated/client';
 

@@ -3,7 +3,7 @@ import { Project } from 'ts-morph';
 import { Game } from './game';
 import { generateServer } from './server';
 
-import { games as gameList } from '@static/index';
+import { games as gameList } from '@interface/index';
 
 function main() {
     const interfaceProj = new Project({ tsConfigFilePath: '../interface/tsconfig.json' });

@@ -2,7 +2,7 @@ import { RouteRecordRaw } from 'vue-router';
 
 import { capitalize } from 'lodash';
 
-import { games } from 'static/index';
+import { games } from 'interface/index';
 
 const gameRoutes = import.meta.glob<true, undefined, RouteRecordRaw[]>(
     ['./*.ts', '!./route.ts', '!./index.ts'],

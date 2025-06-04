@@ -10,7 +10,8 @@ import yugioh from '@/yugioh/router/api';
 import hearthstone from '@/hearthstone/router/api';
 import lorcana from '@/lorcana/router/api';
 
-import data, { Game, games } from '@static/index';
+import { Game, games } from '@interface/index';
+import data from '@static/index';
 
 const router = new KoaRouter();
 

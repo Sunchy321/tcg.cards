@@ -7,7 +7,7 @@ import { h, ref, watch } from 'vue';
 
 import { useGame } from 'src/stores/games';
 
-import { Game, games } from 'static/index';
+import { Game, games } from 'interface/index';
 
 import { QInnerLoading } from 'quasar';
 
