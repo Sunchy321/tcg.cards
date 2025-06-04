@@ -1,6 +1,6 @@
 import makeProfile from '../profile';
 
-import { SetLocalization as RawSetLocalization } from 'interface/magic/set';
+import { SetLocalization as RawSetLocalization } from '@interface/magic/set';
 
 export type SetLocalization = Omit<RawSetLocalization, 'lang'>;
 

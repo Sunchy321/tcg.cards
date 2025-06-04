@@ -36,7 +36,7 @@ import UserProfile from 'components/setting/Profile.vue';
 
 import AppHeader from 'components/Header.vue';
 
-import { games } from 'interface/index';
+import { games } from '@interface/index';
 
 export interface Menu {
     id:        string;

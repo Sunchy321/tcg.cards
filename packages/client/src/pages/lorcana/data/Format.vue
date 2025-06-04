@@ -51,7 +51,7 @@ import controlSetup from 'setup/control';
 
 import DateInput from 'components/DateInput.vue';
 
-import { Format } from 'interface/magic/format';
+import { Format } from '@interface/magic/format';
 
 import { apiGet } from 'boot/server';
 

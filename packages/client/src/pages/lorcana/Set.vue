@@ -56,7 +56,7 @@ import { useGame } from 'store/games/lorcana';
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
 
-import { Set as ISet } from 'interface/lorcana/set';
+import { Set as ISet } from '@interface/lorcana/set';
 
 import setProfile from 'src/common/lorcana/set';
 

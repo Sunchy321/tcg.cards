@@ -168,11 +168,11 @@ import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 
-import { FormatAnnouncement } from 'interface/ptcg/format-change';
+import { FormatAnnouncement } from '@interface/ptcg/format-change';
 
 import { last } from 'lodash';
 
-import { toIdentifier } from 'common/util/id';
+import { toIdentifier } from '@common/util/id';
 
 type BanlistItem = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 

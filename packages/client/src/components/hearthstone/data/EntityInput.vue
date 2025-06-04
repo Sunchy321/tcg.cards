@@ -24,7 +24,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGame } from 'src/stores/games/hearthstone';
 
-import { Entity } from 'interface/hearthstone/entity';
+import { Entity } from '@interface/hearthstone/entity';
 
 import { apiGet } from 'boot/server';
 

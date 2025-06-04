@@ -38,7 +38,7 @@ import pageSetup from 'setup/page';
 
 import RichText from 'src/components/magic/RichText.vue';
 
-import { CR, Content } from 'interface/magic/cr';
+import { CR, Content } from '@interface/magic/cr';
 
 import { last } from 'lodash';
 import { copyToClipboard, Notify, scroll } from 'quasar';

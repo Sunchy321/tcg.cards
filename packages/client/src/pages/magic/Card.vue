@@ -256,7 +256,7 @@ import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
 // TODO fix @interface issue
-import { CardPrintView } from 'common/model/magic/card';
+import { CardPrintView } from '@common/model/magic/card';
 
 import {
     mapValues, omitBy, uniq,
@@ -265,7 +265,7 @@ import {
 import setProfile, { SetProfile } from 'src/common/magic/set';
 import { apiGet, apiBase, assetBase } from 'boot/server';
 
-import { auxSetType } from 'static/magic/special';
+import { auxSetType } from '@static/magic/special';
 
 const router = useRouter();
 const route = useRoute();

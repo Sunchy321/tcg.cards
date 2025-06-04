@@ -46,7 +46,7 @@ import pageSetup from 'setup/page';
 import BoosterAvatar from './BoosterAvatar.vue';
 import CardImageAvatar from 'components/magic/CardImageAvatar.vue';
 
-import { Booster, Set as ISet } from 'interface/magic/set';
+import { Booster, Set as ISet } from '@interface/magic/set';
 
 import setProfile from 'src/common/magic/set';
 import { apiGet } from 'boot/server';

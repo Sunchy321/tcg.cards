@@ -30,7 +30,7 @@ import { useQuasar } from 'quasar';
 
 import pageSetup from 'setup/page';
 
-// import { Log } from 'interface/hearthstone/log/file';
+// import { Log } from '@interface/hearthstone/log/file';
 
 import { apiBase } from 'boot/server';
 

@@ -57,7 +57,7 @@ import { useGame } from 'store/games/ptcg';
 
 import controlSetup from 'setup/control';
 
-import { Set, SetLocalization } from 'interface/ptcg/set';
+import { Set, SetLocalization } from '@interface/ptcg/set';
 
 import { apiGet } from 'boot/server';
 

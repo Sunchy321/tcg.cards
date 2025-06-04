@@ -24,7 +24,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGame } from 'src/stores/games/yugioh';
 
-import { Card } from 'interface/yugioh/card';
+import { Card } from '@interface/yugioh/card';
 
 import { apiGet } from 'boot/server';
 

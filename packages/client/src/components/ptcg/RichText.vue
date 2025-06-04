@@ -7,7 +7,7 @@ import { VNode, h, useAttrs } from 'vue';
 
 import Symbol from './Symbol.vue';
 
-import { symbols } from 'static/ptcg/basic';
+import { symbols } from '@static/ptcg/basic';
 
 const props = withDefaults(defineProps<{
     symbol?:     string[];

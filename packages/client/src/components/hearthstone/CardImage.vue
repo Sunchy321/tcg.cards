@@ -11,7 +11,7 @@ import { computed } from 'vue';
 
 import { useGame } from 'src/stores/games/hearthstone';
 
-import { Adjustment } from 'interface/hearthstone/format-change';
+import { Adjustment } from '@interface/hearthstone/format-change';
 
 import { assetBase } from 'boot/server';
 

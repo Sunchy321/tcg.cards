@@ -1,6 +1,6 @@
 import makeProfile from '../profile';
 
-import { SetLocalization as RawSetLocalization } from 'interface/hearthstone/set';
+import { SetLocalization as RawSetLocalization } from '@interface/hearthstone/set';
 
 export type SetLocalization = Omit<RawSetLocalization, 'lang'>;
 

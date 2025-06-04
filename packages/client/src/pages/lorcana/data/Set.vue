@@ -57,7 +57,7 @@ import { useGame } from 'store/games/lorcana';
 
 import controlSetup from 'setup/control';
 
-import { Set, SetLocalization } from 'interface/lorcana/set';
+import { Set, SetLocalization } from '@interface/lorcana/set';
 
 import { apiGet } from 'boot/server';
 

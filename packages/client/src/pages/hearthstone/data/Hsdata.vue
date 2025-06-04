@@ -59,7 +59,7 @@ import controlSetup from 'setup/control';
 import Grid from 'components/Grid.vue';
 import HsdataPatch from 'components/hearthstone/data/HsdataPatch.vue';
 
-import type { Patch } from 'interface/hearthstone/patch';
+import type { Patch } from '@interface/hearthstone/patch';
 
 import bytes from 'bytes';
 

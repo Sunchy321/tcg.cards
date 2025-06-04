@@ -114,9 +114,9 @@ import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/lorcana/CardAvatar.vue';
 import DeferInput from 'components/DeferInput.vue';
 
-import { diffChars, diffString } from 'common/util/diff';
+import { diffChars, diffString } from '@common/util/diff';
 
-import { locales } from 'static/lorcana/basic';
+import { locales } from '@static/lorcana/basic';
 
 export type Updation = {
     cardId:     string;

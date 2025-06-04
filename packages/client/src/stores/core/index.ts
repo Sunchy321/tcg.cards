@@ -4,7 +4,7 @@ import {
     Ref, computed, ref, watch, isRef,
 } from 'vue';
 
-import { Game, games as constGames } from 'interface/index';
+import { Game, games as constGames } from '@interface/index';
 
 import useBoot from './boot';
 import useLocale from './locale';

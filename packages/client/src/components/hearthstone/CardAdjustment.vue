@@ -15,7 +15,7 @@ import { QTooltip } from 'quasar';
 import StatusIcon from 'components/hearthstone/StatusIcon.vue';
 import CardImage from './CardImage.vue';
 
-import { Adjustment } from 'interface/hearthstone/format-change';
+import { Adjustment } from '@interface/hearthstone/format-change';
 
 import entityProfile, { EntityProfile } from 'src/common/hearthstone/entity';
 

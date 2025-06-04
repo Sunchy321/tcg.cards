@@ -63,7 +63,7 @@ import { useGame } from 'store/games/hearthstone';
 
 import controlSetup from 'setup/control';
 
-import { Set, SetLocalization } from 'interface/hearthstone/set';
+import { Set, SetLocalization } from '@interface/hearthstone/set';
 
 import { apiGet } from 'boot/server';
 

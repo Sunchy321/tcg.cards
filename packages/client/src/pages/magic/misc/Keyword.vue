@@ -37,21 +37,21 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import keywords from 'data/magic/keyword.yml';
+import keywords from '@data/magic/keyword.yml';
 
-import { locales } from 'static/magic/basic';
+import { locales } from '@static/magic/basic';
 
-import enKeywords from 'data/magic/localization/keyword/en.yml';
-import zhsKeywords from 'data/magic/localization/keyword/zhs.yml';
-import zhtKeywords from 'data/magic/localization/keyword/zht.yml';
-import deKeywords from 'data/magic/localization/keyword/de.yml';
-import frKeywords from 'data/magic/localization/keyword/fr.yml';
-import itKeywords from 'data/magic/localization/keyword/it.yml';
-import jaKeywords from 'data/magic/localization/keyword/ja.yml';
-import koKeywords from 'data/magic/localization/keyword/ko.yml';
-import ptKeywords from 'data/magic/localization/keyword/pt.yml';
-import ruKeywords from 'data/magic/localization/keyword/ru.yml';
-import esKeywords from 'data/magic/localization/keyword/es.yml';
+import enKeywords from '@data/magic/localization/keyword/en.yml';
+import zhsKeywords from '@data/magic/localization/keyword/zhs.yml';
+import zhtKeywords from '@data/magic/localization/keyword/zht.yml';
+import deKeywords from '@data/magic/localization/keyword/de.yml';
+import frKeywords from '@data/magic/localization/keyword/fr.yml';
+import itKeywords from '@data/magic/localization/keyword/it.yml';
+import jaKeywords from '@data/magic/localization/keyword/ja.yml';
+import koKeywords from '@data/magic/localization/keyword/ko.yml';
+import ptKeywords from '@data/magic/localization/keyword/pt.yml';
+import ruKeywords from '@data/magic/localization/keyword/ru.yml';
+import esKeywords from '@data/magic/localization/keyword/es.yml';
 
 const i18n = useI18n();
 

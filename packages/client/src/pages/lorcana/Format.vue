@@ -136,14 +136,14 @@ import CardAvatar from 'components/lorcana/CardAvatar.vue';
 import BanlistIcon from 'components/lorcana/BanlistIcon.vue';
 import SetAvatar from 'components/lorcana/SetAvatar.vue';
 
-import { Format } from 'interface/lorcana/format';
-import { FormatChange, Legality } from 'interface/lorcana/format-change';
+import { Format } from '@interface/lorcana/format';
+import { FormatChange, Legality } from '@interface/lorcana/format-change';
 
 import { last, uniq } from 'lodash';
 
 import { apiGet } from 'boot/server';
 
-import { banlistStatusOrder, banlistSourceOrder } from 'static/lorcana/misc';
+import { banlistStatusOrder, banlistSourceOrder } from '@static/lorcana/misc';
 
 interface BanlistItem {
     date: string;

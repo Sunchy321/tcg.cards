@@ -98,7 +98,7 @@ import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
 
-import model from 'search-data/hearthstone/client';
+import model from '@search-data/hearthstone/client';
 
 const core = useCore();
 const i18n = useI18n();

@@ -136,14 +136,14 @@ import CardAvatar from 'components/ptcg/CardAvatar.vue';
 import BanlistIcon from 'components/ptcg/BanlistIcon.vue';
 import SetAvatar from 'components/ptcg/SetAvatar.vue';
 
-import { Format } from 'interface/ptcg/format';
-import { FormatChange, Legality } from 'interface/ptcg/format-change';
+import { Format } from '@interface/ptcg/format';
+import { FormatChange, Legality } from '@interface/ptcg/format-change';
 
 import { last, uniq } from 'lodash';
 
 import { apiGet } from 'boot/server';
 
-import { banlistStatusOrder, banlistSourceOrder } from 'static/ptcg/misc';
+import { banlistStatusOrder, banlistSourceOrder } from '@static/ptcg/misc';
 
 interface BanlistItem {
     date: string;

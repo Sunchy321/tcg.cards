@@ -1,6 +1,6 @@
 import { StoreDefinition } from 'pinia';
 
-import data, { Game } from 'interface/index';
+import data, { Game } from '@interface/index';
 
 interface GameOptionNumber {
     type: 'number';

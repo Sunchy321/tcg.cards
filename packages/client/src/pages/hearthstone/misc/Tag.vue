@@ -18,10 +18,10 @@ import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
-import mechanics from 'data/hearthstone/tag/map/mechanic.yml';
-import relatedEntity from 'data/hearthstone/tag/map/related-entity.yml';
-import field from 'data/hearthstone/tag/field.yml';
-import locField from 'data/hearthstone/tag/localization-field.yml';
+import mechanics from '@data/hearthstone/tag/map/mechanic.yml';
+import relatedEntity from '@data/hearthstone/tag/map/related-entity.yml';
+import field from '@data/hearthstone/tag/field.yml';
+import locField from '@data/hearthstone/tag/localization-field.yml';
 
 const i18n = useI18n();
 

@@ -30,7 +30,7 @@ import { ref, computed, onMounted } from 'vue';
 
 import controlSetup from 'src/setup/control';
 
-import { Patch } from 'interface/hearthstone/patch';
+import { Patch } from '@interface/hearthstone/patch';
 
 import { apiGet } from 'boot/server';
 import pageSetup from 'src/setup/page';

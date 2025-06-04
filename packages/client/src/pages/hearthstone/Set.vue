@@ -44,7 +44,7 @@ import { useGame } from 'store/games/hearthstone';
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
 
-import { Set as ISet } from 'interface/hearthstone/set';
+import { Set as ISet } from '@interface/hearthstone/set';
 
 import setProfile from 'src/common/hearthstone/set';
 import { apiGet, apiBase } from 'boot/server';

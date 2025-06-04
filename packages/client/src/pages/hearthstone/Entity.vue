@@ -136,7 +136,7 @@ import RichText from 'src/components/hearthstone/RichText.vue';
 import CardAvatar from 'components/hearthstone/CardAvatar.vue';
 import CardImage from 'components/hearthstone/CardImage.vue';
 
-import { EntityView } from 'common/model/hearthstone/entity';
+import { EntityView } from '@common/model/hearthstone/entity';
 
 import { last, omitBy } from 'lodash';
 import { copyToClipboard, Notify } from 'quasar';

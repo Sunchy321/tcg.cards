@@ -22,7 +22,7 @@ import {
 
 import controlSetup from 'setup/control';
 
-import { Print } from 'interface/lorcana/print';
+import { Print } from '@interface/lorcana/print';
 
 import JsonComparator from 'components/JSONComparator.vue';
 import CardAvatar from 'components/lorcana/CardAvatar.vue';

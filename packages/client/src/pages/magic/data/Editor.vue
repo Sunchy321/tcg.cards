@@ -298,8 +298,8 @@ import ArrayInput from 'components/ArrayInput.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
-import { Layout } from 'interface/magic/print';
-import { CardEditorView } from 'common/model/magic/card';
+import { Layout } from '@interface/magic/print';
+import { CardEditorView } from '@common/model/magic/card';
 
 import { AxiosResponse } from 'axios';
 
@@ -309,7 +309,7 @@ import {
 
 import { copyToClipboard } from 'quasar';
 
-import { parenRegex, commaRegex } from 'static/magic/special';
+import { parenRegex, commaRegex } from '@static/magic/special';
 
 type CardGroup = {
     method: string;

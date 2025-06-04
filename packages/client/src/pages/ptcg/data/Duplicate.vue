@@ -22,7 +22,7 @@ import {
 
 import controlSetup from 'setup/control';
 
-import { Print } from 'interface/ptcg/print';
+import { Print } from '@interface/ptcg/print';
 
 import JsonComparator from 'components/JSONComparator.vue';
 import CardAvatar from 'components/ptcg/CardAvatar.vue';

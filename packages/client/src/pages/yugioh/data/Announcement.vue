@@ -165,11 +165,11 @@ import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 import CardInput from 'src/components/yugioh/data/CardInput.vue';
 
-import { FormatAnnouncement } from 'interface/yugioh/format-change';
+import { FormatAnnouncement } from '@interface/yugioh/format-change';
 
 import { last } from 'lodash';
 
-import { formats as yugiohFormats } from 'static/yugioh/basic';
+import { formats as yugiohFormats } from '@static/yugioh/basic';
 
 type BanlistItem = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 

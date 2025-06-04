@@ -49,7 +49,7 @@ import controlSetup from 'setup/control';
 
 import DateInput from 'components/DateInput.vue';
 
-import { Format } from 'interface/hearthstone/format';
+import { Format } from '@interface/hearthstone/format';
 
 import { apiGet } from 'boot/server';
 

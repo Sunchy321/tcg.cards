@@ -159,8 +159,8 @@ import CardAdjustment from 'components/hearthstone/CardAdjustment.vue';
 import StatusIcon from 'components/hearthstone/StatusIcon.vue';
 import SetAvatar from 'components/hearthstone/SetAvatar.vue';
 
-import { Format } from 'interface/hearthstone/format';
-import { FormatChange, Legality, Adjustment } from 'interface/hearthstone/format-change';
+import { Format } from '@interface/hearthstone/format';
+import { FormatChange, Legality, Adjustment } from '@interface/hearthstone/format-change';
 
 import { last, uniq } from 'lodash';
 

@@ -14,7 +14,7 @@ import { PropType, defineComponent, computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 
-import { Legality, Adjustment } from 'interface/hearthstone/format-change';
+import { Legality, Adjustment } from '@interface/hearthstone/format-change';
 
 export default defineComponent({
     props: {

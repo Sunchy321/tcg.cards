@@ -7,14 +7,14 @@ import { h, ref, watch } from 'vue';
 
 import { useGame } from 'src/stores/games';
 
-import { Game, games } from 'interface/index';
+import { Game, games } from '@interface/index';
 
 import { QInnerLoading } from 'quasar';
 
 import { last, mapValues } from 'lodash';
 import { defineAsyncComponent } from 'vue';
 
-import sorter from 'common/util/sorter';
+import sorter from '@common/util/sorter';
 
 const imageComponents = import.meta.glob('./*/CardImage.vue');
 

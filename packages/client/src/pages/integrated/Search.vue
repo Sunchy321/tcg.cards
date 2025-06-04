@@ -53,7 +53,7 @@ import CardImage from 'components/CardImage.vue';
 import { Game } from '@interface/index';
 import { Card } from '@interface/integrated/card';
 
-import model from 'search-data/integrated/client';
+import model from '@search-data/integrated/client';
 
 import { apiGet } from 'boot/server';
 

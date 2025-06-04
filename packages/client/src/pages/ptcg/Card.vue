@@ -172,7 +172,7 @@ import CardImage from 'components/lorcana/CardImage.vue';
 import RichText from 'src/components/lorcana/RichText.vue';
 import BanlistIcon from 'components/lorcana/BanlistIcon.vue';
 
-import { CardPrintView } from 'common/model/lorcana/card';
+import { CardPrintView } from '@common/model/lorcana/card';
 
 import {
     mapValues, omitBy, uniq,

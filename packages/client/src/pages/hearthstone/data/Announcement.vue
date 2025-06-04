@@ -264,8 +264,8 @@ import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 import EntityInput from 'components/hearthstone/data/EntityInput.vue';
 
-import { Entity } from 'interface/hearthstone/entity';
-import { FormatAnnouncement } from 'interface/hearthstone/format-change';
+import { Entity } from '@interface/hearthstone/entity';
+import { FormatAnnouncement } from '@interface/hearthstone/format-change';
 
 import { isEqual, last } from 'lodash';
 import { apiGet } from 'boot/server';

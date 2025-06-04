@@ -46,7 +46,7 @@ import {
     defineComponent, ref, computed, watch,
 } from 'vue';
 
-import { Content, Glossary } from 'interface/magic/cr';
+import { Content, Glossary } from '@interface/magic/cr';
 
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';

@@ -1,4 +1,4 @@
-import { Game } from 'interface/index';
+import { Game } from '@interface/index';
 import { GameStoreDefinition } from './interface';
 
 export const gameStores = import.meta.glob<true, undefined, GameStoreDefinition<Game, any>>(

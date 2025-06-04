@@ -136,14 +136,14 @@ import CardAvatar from 'components/yugioh/CardAvatar.vue';
 import BanlistIcon from 'components/yugioh/BanlistIcon.vue';
 // import SetAvatar from 'components/yugioh/SetAvatar.vue';
 
-import { Format } from 'interface/yugioh/format';
-import { FormatChange, Legality } from 'interface/yugioh/format-change';
+import { Format } from '@interface/yugioh/format';
+import { FormatChange, Legality } from '@interface/yugioh/format-change';
 
 import { last, uniq } from 'lodash';
 
 import { apiGet } from 'boot/server';
 
-import { banlistStatusOrder, banlistSourceOrder } from 'static/yugioh/misc';
+import { banlistStatusOrder, banlistSourceOrder } from '@static/yugioh/misc';
 
 interface BanlistItem {
     date: string;

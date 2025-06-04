@@ -11,7 +11,7 @@ import { useRoute } from 'vue-router';
 import { useFavicon } from '@vueuse/core';
 import { useCore } from 'store/core';
 
-import { Game } from 'interface/index';
+import { Game } from '@interface/index';
 
 const route = useRoute();
 const favicon = useFavicon();

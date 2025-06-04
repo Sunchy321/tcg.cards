@@ -1,4 +1,4 @@
-import { games } from 'interface/index';
+import { games } from '@interface/index';
 
 const gameI18n = import.meta.glob('./*/index.ts', { eager: true, import: 'default' });
 

@@ -53,9 +53,9 @@ import integratedSetup from 'src/setup/integrated';
 
 import SearchInput from 'components/SearchInput.vue';
 
-import { games } from 'interface/index';
+import { games } from '@interface/index';
 
-import model from 'search-data/integrated/client';
+import model from '@search-data/integrated/client';
 
 const core = useCore();
 const i18n = useI18n();

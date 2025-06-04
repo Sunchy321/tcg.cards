@@ -136,14 +136,14 @@ import CardAvatar from 'components/magic/CardAvatar.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 import SetAvatar from 'components/magic/SetAvatar.vue';
 
-import { Format } from 'interface/magic/format';
-import { FormatChange, Legality } from 'interface/magic/format-change';
+import { Format } from '@interface/magic/format';
+import { FormatChange, Legality } from '@interface/magic/format-change';
 
 import { last, uniq } from 'lodash';
 
 import { apiGet } from 'boot/server';
 
-import { banlistStatusOrder, banlistSourceOrder } from 'static/magic/misc';
+import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
 
 interface BanlistItem {
     date: string;

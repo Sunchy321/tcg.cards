@@ -252,8 +252,8 @@ import pageSetup from 'setup/page';
 import CardImage from 'components/ptcg/CardImage.vue';
 import CardAvatar from 'components/ptcg/CardAvatar.vue';
 
-import { Layout } from 'interface/ptcg/print';
-import { CardEditorView } from 'common/model/ptcg/card';
+import { Layout } from '@interface/ptcg/print';
+import { CardEditorView } from '@common/model/ptcg/card';
 
 import { AxiosResponse } from 'axios';
 

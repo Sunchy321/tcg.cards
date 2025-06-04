@@ -21,7 +21,7 @@ import {
 
 import controlSetup from 'setup/control';
 
-import { Print } from 'interface/magic/print';
+import { Print } from '@interface/magic/print';
 
 import JsonComparator from 'components/JSONComparator.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';

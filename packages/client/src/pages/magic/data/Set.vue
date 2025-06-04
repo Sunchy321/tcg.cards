@@ -124,7 +124,7 @@ import controlSetup from 'setup/control';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
 
-import { Set, SetLocalization } from 'interface/magic/set';
+import { Set, SetLocalization } from '@interface/magic/set';
 
 import { apiGet } from 'boot/server';
 

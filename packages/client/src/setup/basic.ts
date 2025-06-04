@@ -1,7 +1,7 @@
 import { ComputedRef, computed } from 'vue';
 import { RouteMeta, useRoute } from 'vue-router';
 
-import { Game } from 'interface/index';
+import { Game } from '@interface/index';
 
 import { useCore } from 'store/core';
 import { User, useUser } from 'store/user';

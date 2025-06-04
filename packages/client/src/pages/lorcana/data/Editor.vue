@@ -252,8 +252,8 @@ import pageSetup from 'setup/page';
 import CardImage from 'components/lorcana/CardImage.vue';
 import CardAvatar from 'components/lorcana/CardAvatar.vue';
 
-import { Layout } from 'interface/lorcana/print';
-import { CardEditorView } from 'common/model/lorcana/card';
+import { Layout } from '@interface/lorcana/print';
+import { CardEditorView } from '@common/model/lorcana/card';
 
 import { AxiosResponse } from 'axios';
 

@@ -1,6 +1,6 @@
 import makeProfile from '../profile';
 
-import { Patch } from 'interface/hearthstone/patch';
+import { Patch } from '@interface/hearthstone/patch';
 
 export type PatchProfile = Patch;
 

@@ -156,7 +156,7 @@ import CardImage from 'components/yugioh/CardImage.vue';
 import RichText from 'src/components/yugioh/RichText.vue';
 import BanlistIcon from 'components/yugioh/BanlistIcon.vue';
 
-import { CardPrintView } from 'common/model/yugioh/card';
+import { CardPrintView } from '@common/model/yugioh/card';
 
 import {
     mapValues, omitBy, uniq,
@@ -165,7 +165,7 @@ import {
 import setProfile, { SetProfile } from 'src/common/yugioh/set';
 import { apiGet, apiBase } from 'boot/server';
 
-import { locales } from 'static/yugioh/basic';
+import { locales } from '@static/yugioh/basic';
 
 const router = useRouter();
 const route = useRoute();

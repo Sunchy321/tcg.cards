@@ -7,8 +7,8 @@ import { computed, h } from 'vue';
 
 import { QInput, QInputProps, QInputSlots, useQuasar } from 'quasar';
 
-import Parser from 'search/parser';
-import SearchError from 'search/parser/error';
+import Parser from '@search/parser';
+import SearchError from '@search/parser/error';
 
 import { last } from 'lodash';
 
