@@ -1,4 +1,4 @@
-import { Print as IPrint } from '@interface/yugioh/print';
+import { Print as IPrint } from '@interface/ptcg/print';
 
 import { WithUpdation, defaultToJSON } from '../updation';
 

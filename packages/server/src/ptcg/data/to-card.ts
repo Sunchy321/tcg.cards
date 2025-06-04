@@ -158,7 +158,7 @@ export function toCard(
             flavorText: data.flavor_text,
             artist:     castArray(data.author ?? []),
 
-            imageUri: data.img,
+            imageUrl: data.img,
 
             layout:      'normal',
             rarity:      rarityMap[data.rarity ?? ''] as Rarity,

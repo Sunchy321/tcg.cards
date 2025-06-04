@@ -15,6 +15,21 @@ export const locales = [
     'pt',
 ];
 
+export const symbols = [
+    'C',
+    'D',
+    'F',
+    'G',
+    'M',
+    'N',
+    'P',
+    'R',
+    'W',
+    'Y',
+    'MEGA',
+    'PRISM',
+];
+
 export const formats = [
     'ocg',
     'tcg',

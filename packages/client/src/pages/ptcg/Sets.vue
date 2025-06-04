@@ -12,7 +12,7 @@
                 <q-btn
                     type="a"
                     target="_blank"
-                    :to="{ name: 'ptcg/set', params: { id: setId }}"
+                    :to="{ name: 'lorcana/set', params: { id: setId }}"
                     icon="mdi-menu-right"
                     flat dense round
                 />
@@ -26,21 +26,21 @@ import {
     ref, computed, watch, onMounted,
 } from 'vue';
 
-import { useGame } from 'store/games/ptcg';
+import { useGame } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
 
 import { apiGet } from 'boot/server';
 
-import setProfile, { SetProfile, SetLocalization } from 'src/common/ptcg/set';
+import setProfile, { SetProfile, SetLocalization } from 'src/common/lorcana/set';
 import { isEqual, partition } from 'lodash';
 
 const game = useGame();
 const i18n = useI18n();
 
 pageSetup({
-    title: () => i18n.t('ptcg.set.$self'),
+    title: () => i18n.t('lorcana.set.$self'),
 });
 
 const sets = ref<string[]>([]);
@@ -123,7 +123,7 @@ const profileList = computed(() => {
 });
 
 const loadData = async () => {
-    const { data } = await apiGet<string[]>('/ptcg/set');
+    const { data } = await apiGet<string[]>('/lorcana/set');
 
     sets.value = data;
 };

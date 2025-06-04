@@ -9,12 +9,12 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useGame } from 'store/games/ptcg';
+import { useGame } from 'store/games/lorcana';
 
 import { QTooltip } from 'quasar';
 import CardImage from './CardImage.vue';
 
-import cardProfile, { CardProfile } from 'src/common/ptcg/card';
+import cardProfile, { CardProfile } from 'src/common/lorcana/card';
 
 import { pick } from 'lodash';
 
@@ -60,7 +60,7 @@ const locale = computed(() => {
 });
 
 const link = computed(() => router.resolve({
-    name:   'ptcg/card',
+    name:   'lorcana/card',
     params: { id: props.id },
     query:  {
         ...pick(props.version, ['set', 'number', 'lang']),

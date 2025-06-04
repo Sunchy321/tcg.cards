@@ -16,12 +16,21 @@ const PrintSchema = new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}
     name: String,
     text: String,
 
-    layout: String,
-    rarity: String,
-    tags:   [String],
+    flavorText: String,
+    artist:     { $type: [String], default: undefined },
 
-    typeline:    String,
-    passcode:    Number,
+    regulation: String,
+
+    layout:      String,
+    rarity:      String,
+    releaseDate: String,
+
+    tags: [String],
+
+    imageUrl: String,
+
+    jpId: Number,
+
     __updations: [{
         _id: false,
 

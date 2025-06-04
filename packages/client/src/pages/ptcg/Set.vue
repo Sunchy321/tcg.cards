@@ -20,8 +20,8 @@
         </div>
         <div class="rarities q-my-md">
             <div v-for="r in rarities" :key="r" class="rarity column items-center">
-                <q-img :src="`ptcg/rarity/${r}.svg`" />
-                <div>{{ $t('ptcg.rarity.' + r) }}</div>
+                <q-img :src="`lorcana/rarity/${r}.svg`" />
+                <div>{{ $t('lorcana.rarity.' + r) }}</div>
             </div>
         </div>
         <div class="langs q-my-md">
@@ -36,7 +36,7 @@
             <q-btn
                 class="q-mr-sm"
                 type="a"
-                :to="{ name: 'ptcg/search', query: { q: `s:${id}` }}"
+                :to="{ name: 'lorcana/search', query: { q: `s:${id}` }}"
                 target="_blank"
                 icon="mdi-cards-outline"
                 flat round dense
@@ -51,14 +51,14 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useGame } from 'store/games/ptcg';
+import { useGame } from 'store/games/lorcana';
 
 import basicSetup from 'setup/basic';
 import pageSetup from 'setup/page';
 
-import { Set as ISet } from 'interface/ptcg/set';
+import { Set as ISet } from 'interface/lorcana/set';
 
-import setProfile from 'src/common/ptcg/set';
+import setProfile from 'src/common/lorcana/set';
 
 import { apiGet, apiBase } from 'boot/server';
 
@@ -92,11 +92,11 @@ const cardCount = computed(() => data.value?.cardCount ?? 0);
 const langs = computed(() => data.value?.langs ?? []);
 const rarities = computed(() => data.value?.rarities ?? []);
 
-const apiLink = computed(() => `${apiBase}/ptcg/set?id=${id.value}`);
-const editorLink = computed(() => ({ name: 'ptcg/data', query: { tab: 'Set', id: id.value } }));
+const apiLink = computed(() => `${apiBase}/lorcana/set?id=${id.value}`);
+const editorLink = computed(() => ({ name: 'lorcana/data', query: { tab: 'Set', id: id.value } }));
 
 const loadData = async () => {
-    const { data: result } = await apiGet<Set>('/ptcg/set', {
+    const { data: result } = await apiGet<Set>('/lorcana/set', {
         id: id.value,
     });
 

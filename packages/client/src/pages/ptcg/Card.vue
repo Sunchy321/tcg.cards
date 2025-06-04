@@ -24,7 +24,7 @@
                 <q-space />
 
                 <template v-for="c in color" :key="c">
-                    <q-img :src="`/ptcg/color/${c}.svg`" class="color" />
+                    <q-img :src="`/lorcana/color/${c}.svg`" class="color" />
                 </template>
 
                 <div v-if="cost != null" class="mana-cost" :class="{ inkwell }">
@@ -53,7 +53,7 @@
             >
                 <div class="flex items-center no-wrap">
                     <banlist-icon class="q-mr-sm" :status="v[1]" />
-                    <span style="white-space: nowrap;"> {{ $t('ptcg.format.' + v[0]) }}</span>
+                    <span style="white-space: nowrap;"> {{ $t('lorcana.format.' + v[0]) }}</span>
                 </div>
             </grid>
 
@@ -133,7 +133,7 @@
                             <span class="code q-mr-sm" :style="`width: ${setMaxWidth}ch;`">{{ i.set }}</span>
                             <span class="set-name">{{ i.name }}</span>
 
-                            <q-img class="rarity-icon q-mr-sm" :src="`/ptcg/rarity/${i.rarity}.svg`" />
+                            <q-img class="rarity-icon q-mr-sm" :src="`/lorcana/rarity/${i.rarity}.svg`" />
                             <span class="rarity">{{ i.rarity[0] }}</span>
                         </div>
                         <div>
@@ -159,26 +159,26 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
-import { useGame, TextMode, textModes } from 'store/games/ptcg';
+import { useGame, TextMode, textModes } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
 
 import basicSetup from 'setup/basic';
-import ptcgSetup from 'setup/ptcg';
+import lorcanaSetup from 'setup/lorcana';
 import pageSetup from 'setup/page';
 
 import Grid from 'components/Grid.vue';
-import CardAvatar from 'components/ptcg/CardAvatar.vue';
-import CardImage from 'components/ptcg/CardImage.vue';
-import RichText from 'src/components/ptcg/RichText.vue';
-import BanlistIcon from 'components/ptcg/BanlistIcon.vue';
+import CardAvatar from 'components/lorcana/CardAvatar.vue';
+import CardImage from 'components/lorcana/CardImage.vue';
+import RichText from 'src/components/lorcana/RichText.vue';
+import BanlistIcon from 'components/lorcana/BanlistIcon.vue';
 
-import { CardPrintView } from 'common/model/ptcg/card';
+import { CardPrintView } from 'common/model/lorcana/card';
 
 import {
     mapValues, omitBy, uniq,
 } from 'lodash';
 
-import setProfile, { SetProfile } from 'src/common/ptcg/set';
+import setProfile, { SetProfile } from 'src/common/lorcana/set';
 import { apiGet, apiBase } from 'boot/server';
 
 const router = useRouter();
@@ -187,7 +187,7 @@ const game = useGame();
 const i18n = useI18n();
 const { isAdmin } = basicSetup();
 
-const { search, random } = ptcgSetup();
+const { search, random } = lorcanaSetup();
 
 const data = ref<CardPrintView>();
 const rotate = ref<boolean | null>(null);
@@ -200,7 +200,7 @@ const textMode = computed({
 
 const textModeOptions = computed(() => textModes.map(v => ({
     value: v,
-    label: i18n.t(`ptcg.card.text-mode.${v}`),
+    label: i18n.t(`lorcana.card.text-mode.${v}`),
 })));
 
 // data fields
@@ -464,7 +464,7 @@ const relatedCards = computed(() => data.value?.relatedCards ?? []);
 const legalities = computed(() => data.value?.legalities ?? {});
 
 const editorLink = computed(() => ({
-    name:  'ptcg/data',
+    name:  'lorcana/data',
     query: {
         tab:    'Editor',
         id:     id.value,
@@ -484,7 +484,7 @@ const apiQuery = computed(() => (route.params.id == null
     }, v => v == null)));
 
 const jsonLink = computed(() => {
-    const url = new URL('ptcg/card', apiBase);
+    const url = new URL('lorcana/card', apiBase);
 
     url.search = new URLSearchParams({ id: id.value }).toString();
 
@@ -492,7 +492,7 @@ const jsonLink = computed(() => {
 });
 
 const jsonPrintLink = computed(() => {
-    const url = new URL('ptcg/print', apiBase);
+    const url = new URL('lorcana/print', apiBase);
 
     url.search = new URLSearchParams({
         id:     id.value,
@@ -510,7 +510,7 @@ const loadData = async () => {
         return;
     }
 
-    const { data: result } = await apiGet<CardPrintView>('/ptcg/card/print-view', apiQuery.value);
+    const { data: result } = await apiGet<CardPrintView>('/lorcana/card/print-view', apiQuery.value);
 
     rotate.value = null;
     data.value = result;
@@ -685,10 +685,10 @@ onBeforeRouteLeave((to, from, next) => {
     font-size: 75%
 
     &.inkwell
-        background: url('/ptcg/inkable.svg')
+        background: url('/lorcana/inkable.svg')
 
     &:not(.inkwell)
-        background: url('/ptcg/uninkable.svg')
+        background: url('/lorcana/uninkable.svg')
 
 .color-indicator
     height: 1em

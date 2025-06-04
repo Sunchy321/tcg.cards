@@ -4,9 +4,9 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { useGame } from 'store/games/ptcg';
+import { useGame } from 'store/games/lorcana';
 
-import setProfile, { SetProfile } from 'src/common/ptcg/set';
+import setProfile, { SetProfile } from 'src/common/lorcana/set';
 
 export default defineComponent({
     props: {
@@ -23,7 +23,7 @@ export default defineComponent({
         const profile = ref<SetProfile | null>(null);
 
         const link = computed(() => router.resolve({
-            name:   'ptcg/set',
+            name:   'lorcana/set',
             params: { id: props.id },
         }).href);
 
