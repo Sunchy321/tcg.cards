@@ -19,7 +19,7 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ game, cardId }"
+                v-slot="{ game, cardId, localization }"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
@@ -31,6 +31,7 @@
                     <card-image
                         :game="game"
                         :card-id="cardId"
+                        :lang="localization.lang"
                     />
                 </router-link>
             </grid>
@@ -68,7 +69,9 @@ interface QueryItem {
     param: QueryParam;
 }
 
-type QueryCard = Card;
+type QueryCard = Omit<Card, 'localization'> & {
+    localization: Card['localization'][0];
+};
 
 interface QueryResult {
     total: number;

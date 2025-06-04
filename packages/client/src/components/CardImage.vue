@@ -25,6 +25,7 @@ import hearthstoneEntityProfile from 'src/common/hearthstone/entity';
 const props = defineProps<{
     game:   Game;
     cardId: string;
+    lang:   string;
 }>();
 
 const componentMap = mapValues(imageComponents, promise => {
@@ -60,13 +61,17 @@ const render = () => {
 
     switch (props.game) {
     case 'hearthstone':
-        return h(component, { id: props.cardId, lang: game.locale, version: last(profile.value.versions[0]) });
+        return h(component, { id: props.cardId, lang: props.lang, version: last(profile.value.versions[0]) });
     case 'yugioh':
-        return h(component, { cardId: props.cardId, lang: game.locale, passcode: profile.value.passcode });
+        return h(component, { cardId: props.cardId, lang: props.lang, passcode: profile.value.passcode });
     case 'magic': {
         const versions = profile.value.versions;
 
-        let availVersion = versions.filter(v => v.lang === game.locale);
+        let availVersion = versions.filter(v => v.lang === props.lang);
+
+        if (availVersion.length == 0) {
+            availVersion = versions.filter(v => v.lang === game.locale);
+        }
 
         if (availVersion.length == 0) {
             availVersion = versions.filter(v => v.lang === game.locales[0]);
