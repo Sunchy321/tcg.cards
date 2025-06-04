@@ -1,32 +1,89 @@
 <template>
-    <q-page class="main q-pa-md">
-        <q-btn
-            v-for="g in games"
-            :key="g"
-            :to="`/${g}`"
-            no-caps
-            outline
-            class="tcg-item"
-        >
-            <div class="tcg-item-card">
-                <q-img class="tcg-icon" :src="`${g}/logo.svg`" />
-                <span class="tcg-label">{{ fullName(g) }}</span>
-            </div>
-        </q-btn>
+    <q-page>
+        <div>
+            <search-input
+                v-model="searchText"
+                class="main-input q-ma-xl"
+                filled clearable
+                :error="explained.type === 'error'"
+                @keypress.enter="search"
+            >
+                <template #append>
+                    <q-btn
+                        icon="mdi-magnify"
+                        flat dense round
+                        @click="search"
+                    />
+                </template>
+                <template #hint>
+                    <div>{{ explained.text }}</div>
+                </template>
+                <template #error>
+                    <div>{{ explained.text }}</div>
+                </template>
+            </search-input>
+        </div>
+
+        <div class="main q-pa-md">
+            <q-btn
+                v-for="g in games"
+                :key="g"
+                :to="`/${g}`"
+                no-caps
+                outline
+                class="tcg-item"
+            >
+                <div class="tcg-item-card">
+                    <q-img class="tcg-icon" :src="`${g}/logo.svg`" />
+                    <span class="tcg-label">{{ fullName(g) }}</span>
+                </div>
+            </q-btn>
+        </div>
     </q-page>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 
+import { useCore } from 'src/stores/core';
 import { useI18n } from 'vue-i18n';
 
 import pageSetup from 'setup/page';
+import integratedSetup from 'src/setup/integrated';
+
+import SearchInput from 'components/SearchInput.vue';
 
 import { games } from 'static/index';
 
+import model from 'search-data/integrated/client';
+
+const core = useCore();
 const i18n = useI18n();
 
 pageSetup({ });
+
+const { search } = integratedSetup();
+
+const searchText = computed({
+    get() { return core.search; },
+    set(newValue: string) { core.search = newValue; },
+});
+
+const explained = computed(() => model.explain(searchText.value, (key: string, named) => {
+    let realKey;
+
+    if (key.startsWith('$.')) {
+        realKey = `magic.search.${key.slice(2)}`;
+    } else {
+        realKey = `search.${key}`;
+    }
+
+    if (named != null) {
+        return i18n.t(realKey, named);
+    } else {
+        return i18n.t(realKey);
+    }
+}));
 
 const fullName = (g: string) => {
     if (i18n.te(`${g}.$selfFull`)) {

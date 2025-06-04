@@ -62,9 +62,11 @@ import AppTitle from 'components/Title.vue';
 import HeaderParams from 'components/HeaderParams.vue';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     drawerOpen?: boolean;
-}>();
+}>(), {
+    drawerOpen: undefined,
+});
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const emit = defineEmits<{

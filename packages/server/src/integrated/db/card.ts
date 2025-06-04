@@ -7,9 +7,8 @@ import { ICardDatabase, toJSON } from '@common/model/integrated/card';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
+    game:   String,
     cardId: String,
-
-    game: String,
 
     name:     String,
     typeline: String,

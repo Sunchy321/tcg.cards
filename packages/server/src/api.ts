@@ -2,6 +2,8 @@
 
 import KoaRouter from '@koa/router';
 
+import integrated from '@/integrated/router/api';
+
 import magic from '@/magic/router/api';
 import ptcg from '@/ptcg/router/api';
 import yugioh from '@/yugioh/router/api';
@@ -15,6 +17,8 @@ const router = new KoaRouter();
 router.get('/', async ctx => {
     ctx.body = games;
 });
+
+router.use(integrated.routes());
 
 router.use(magic.routes());
 router.use(ptcg.routes());

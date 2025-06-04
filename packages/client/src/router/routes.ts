@@ -43,10 +43,16 @@ const routes: RouteRecordRaw[] = [
         component: async () => import('layouts/Main.vue'),
         children:  [
             {
+                path:      '/search',
+                name:      'integrated/search',
+                component: async () => import('pages/integrated/Search.vue'),
+            },
+            {
                 path:      '/data',
                 name:      'integrated/data',
                 component: async () => import('pages/integrated/Data.vue'),
             },
+
         ],
     },
 

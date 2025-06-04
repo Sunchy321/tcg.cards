@@ -1,6 +1,6 @@
-import model from '@search-data/lorcana/server';
+import model from '@search-data/integrated/server';
 
-import Card from '@/lorcana/db/card';
+import Card from '@/integrated/db/card';
 
 const search = model.bind(Card);
 

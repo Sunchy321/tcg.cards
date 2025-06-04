@@ -95,5 +95,7 @@ export default {
         },
     },
 
+    integrated: gameI18n['./integrated/index.ts'],
+
     ...Object.fromEntries(games.map(g => [g, gameI18n[`./${g}/index.ts`]])),
 };

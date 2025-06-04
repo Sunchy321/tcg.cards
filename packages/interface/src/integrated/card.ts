@@ -1,7 +1,6 @@
 export interface Card {
+    game:   string;
     cardId: string;
-
-    game: string;
 
     name:     string;
     typeline: string;

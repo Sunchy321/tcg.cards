@@ -25,6 +25,12 @@ function generateApi(games: readonly string[]) {
         defaultImport:   'KoaRouter',
     });
 
+    source.addImportDeclaration({
+        leadingTrivia:   writer => writer.newLine(),
+        moduleSpecifier: `@/integrated/router/api`,
+        defaultImport:   'integrated',
+    });
+
     for (const [i, g] of games.entries()) {
         source.addImportDeclaration({
             leadingTrivia: writer => {
@@ -62,6 +68,11 @@ function generateApi(games: readonly string[]) {
         writer.writeLine('    ctx.body = games;');
         writer.writeLine('});');
         writer.newLine();
+    });
+
+    source.addStatements(writer => {
+        writer.newLine();
+        writer.writeLine(`router.use(integrated.routes());`);
     });
 
     for (const [i, g] of games.entries()) {
