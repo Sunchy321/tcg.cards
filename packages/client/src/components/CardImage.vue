@@ -83,7 +83,7 @@ const render = () => {
 
         const version = availVersion.sort(sorter.pick<any, 'releaseDate'>('releaseDate', sorter.string))[0];
 
-        return h(component, { lang: version.lang, set: version.set, number: version.number });
+        return h(component, { lang: version.lang, set: version.set, number: version.number, layout: version.layout });
     }
     }
 };
