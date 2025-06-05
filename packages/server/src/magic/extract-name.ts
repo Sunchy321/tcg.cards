@@ -206,7 +206,7 @@ export default class CardNameExtractor {
                     'parts.type.super': { $nin: ['token'] },
                 },
             },
-            { $project: { id: '$cardId', name: '$parts.oracle.name' } },
+            { $project: { id: '$cardId', name: '$parts.name' } },
         ]);
     }
 }
