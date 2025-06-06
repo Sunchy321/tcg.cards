@@ -2,7 +2,7 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import CR from '@/magic/db/cr';
-import { CR as ICR } from '@interface/magic/cr';
+import { Content, CR as ICR } from '@interface/magic/cr';
 
 import CardNameExtrator from '@/magic/extract-name';
 
@@ -41,6 +41,39 @@ router.get('/parse', async ctx => {
     }
 });
 
+function parseCard(c: Content, data: ICR, cardNames: { id: string, name: string[] }[]) {
+    const blacklist = [];
+
+    // Keywords are not treated as card name in its clause
+    if (/^70[12]/.test(c.index) && c.depth > 2) {
+        const parent = data.contents.find(co => co.depth === 2
+          && c.index.slice(0, -1) === co.index.slice(0, -1)
+          && /\w$/.test(co.text));
+
+        if (parent != null) {
+            blacklist.push(parent.text);
+        }
+    }
+
+    const cards = new CardNameExtrator({ text: c.text, cardNames, blacklist }).extract();
+
+    for (const e of c.examples ?? []) {
+        const exampleCards = new CardNameExtrator({ text: e, cardNames, blacklist }).extract();
+
+        for (const c of exampleCards) {
+            if (!cards.some(v => isEqual(c, v))) {
+                cards.push(c);
+            }
+        }
+    }
+
+    if (cards.length > 0) {
+        c.cards = cards;
+    } else {
+        delete c.cards;
+    }
+}
+
 router.get('/reparse', async ctx => {
     const { date } = mapValues(ctx.query, toSingle);
 
@@ -53,9 +86,24 @@ router.get('/reparse', async ctx => {
 
     const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
 
-    if (dataList.includes(date)) {
-        ctx.body = await reparse(date);
+    if (!dataList.includes(date)) {
+        return;
     }
+
+    const data = await reparse(date);
+
+    const cardNames = await CardNameExtrator.names();
+
+    for (const c of data.contents) {
+        if (c.examples == null && /\w$/.test(c.text)) {
+            delete c.cards;
+            continue;
+        }
+
+        parseCard(c, data, cardNames);
+    }
+
+    ctx.body = data;
 });
 
 router.post('/all-reparse', async () => {
@@ -92,36 +140,7 @@ router.post('/save', async ctx => {
             }
         }
 
-        const blacklist = [];
-
-        // Keywords are not treated as card name in its clause
-        if (/^70[12]/.test(c.index) && c.depth > 2) {
-            const parent = data.contents.find(co => co.depth === 2
-              && c.index.slice(0, -1) === co.index.slice(0, -1)
-              && /\w$/.test(co.text));
-
-            if (parent != null) {
-                blacklist.push(parent.text);
-            }
-        }
-
-        const cards = new CardNameExtrator({ text: c.text, cardNames, blacklist }).extract();
-
-        for (const e of c.examples ?? []) {
-            const exampleCards = new CardNameExtrator({ text: e, cardNames, blacklist }).extract();
-
-            for (const c of exampleCards) {
-                if (!cards.some(v => isEqual(c, v))) {
-                    cards.push(c);
-                }
-            }
-        }
-
-        if (cards.length > 0) {
-            c.cards = cards;
-        } else {
-            delete c.cards;
-        }
+        parseCard(c, data, cardNames);
     }
 
     if (oldData != null) {
@@ -160,36 +179,7 @@ router.get('/extract-cardname', async ctx => {
 
     const cardNames = await CardNameExtrator.names();
 
-    const blacklist = [];
-
-    // Keywords are not treated as card name in its clause
-    if (/^70[12]/.test(content.index) && content.depth > 2) {
-        const parent = cr.contents.find(co => co.depth === 2
-          && content.index.slice(0, -1) === co.index.slice(0, -1)
-          && /\w$/.test(co.text));
-
-        if (parent != null) {
-            blacklist.push(parent.text);
-        }
-    }
-
-    const cards = new CardNameExtrator({ text: content.text, cardNames, blacklist }).extract();
-
-    for (const e of content.examples ?? []) {
-        const exampleCards = new CardNameExtrator({ text: e, cardNames, blacklist }).extract();
-
-        for (const c of exampleCards) {
-            if (!cards.some(v => isEqual(c, v))) {
-                cards.push(c);
-            }
-        }
-    }
-
-    if (cards.length > 0) {
-        content.cards = cards;
-    } else {
-        content.cards = undefined;
-    }
+    parseCard(content, cr, cardNames);
 
     await cr.save();
 
