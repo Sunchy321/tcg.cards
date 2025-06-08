@@ -27,7 +27,7 @@ const lowercaseWords = [
     'with',
 ];
 
-const upper = '(?:[a-záâñöŠûü]+-)?[A-Z][-A-Za-záâñöŠûü\'’]+';
+const upper = '(?:[a-záâñöŠûü]+-|l’)?[A-Z][-A-Za-záâñöŠûü\'’]+';
 const word = `(?:${upper},?|${lowercaseWords.join('|')})`;
 
 const normalName = `(?:\\b${upper},?(?: ${word})* ${upper}|${upper}\\b)`;
