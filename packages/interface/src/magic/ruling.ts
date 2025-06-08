@@ -5,8 +5,8 @@ export type Ruling = {
     text:   string;
 
     cards: {
-        text:  string;
-        id:    string;
-        part?: number;
+        text:   string;
+        cardId: string;
+        part?:  number;
     }[];
 };

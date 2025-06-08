@@ -77,8 +77,8 @@ export type CardPrintView = Omit<ICard, 'parts' | 'scryfall'> & Omit<IPrint, 'pa
 };
 
 export type CardEditorView = {
-    card:         ICard & { _id?: string, __lockedPaths: string[] };
-    print:        IPrint & { _id?: string, __lockedPaths: string[] };
+    card:         WithUpdation<ICard> & { _id?: string };
+    print:        WithUpdation<IPrint> & { _id?: string };
     partIndex?:   number;
     relatedCards: RelatedCard[];
 };

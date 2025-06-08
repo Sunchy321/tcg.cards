@@ -162,7 +162,7 @@ router.get('/print-view', async ctx => {
 
     const rulings = await Ruling.aggregate<IRuling>()
         .match({ cardId: id })
-        .project({ _id: false });
+        .project({ _id: false, __v: false });
 
     const sourceRelation = await CardRelation.aggregate<RelatedCard>()
         .match({ sourceId: id })

@@ -41,6 +41,21 @@ function isChanged(change: TextChange[]) {
     }
 }
 
+const regex = /(\{[^}]+\}|\d+(?:\.\d+[a-z]?))/;
+
+// map '{XXX}' into a single char with unicode private area
+function ruleEncode(text: string, map: Record<string, string>): string {
+    return text.split(regex).filter(v => v !== '').map(p => {
+        if (regex.test(p)) {
+            map[p] ??= String.fromCodePoint(Object.keys(map).length + 0xF0000);
+
+            return map[p];
+        }
+
+        return p;
+    }).join('');
+}
+
 export async function diff(fromDate: string, toDate: string): Promise<Change | undefined> {
     if (fromDate === toDate) {
         return {
@@ -59,9 +74,9 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
         return undefined;
     }
 
-    const intro = diffString(from.intro, to.intro);
-    const credits = diffString(from.credits, to.credits);
-    const csi = diffString(from.csi ?? '', to.csi ?? '');
+    const intro = diffString(from.intro, to.intro, ruleEncode);
+    const credits = diffString(from.credits, to.credits, ruleEncode);
+    const csi = diffString(from.csi ?? '', to.csi ?? '', ruleEncode);
 
     let contents: Partial<ContentChange>[] = [];
 
@@ -102,9 +117,9 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
             d.type = 'move';
         }
 
-        d.text = diffString(oldItem?.text ?? '', newItem?.text ?? '');
+        d.text = diffString(oldItem?.text ?? '', newItem?.text ?? '', ruleEncode);
         d.examples = zip(oldItem?.examples ?? [], newItem?.examples ?? [])
-            .map(([l, r]) => diffString(l ?? '', r ?? ''));
+            .map(([l, r]) => diffString(l ?? '', r ?? '', ruleEncode));
     }
 
     contents = contents.filter(d => d.type != null
@@ -153,7 +168,7 @@ export async function diff(fromDate: string, toDate: string): Promise<Change | u
         const newItem = newGlossaryMap[g.ids!.join(' ')];
 
         g.words = newItem?.words ?? oldItem?.words;
-        g.text = diffString(oldItem?.text ?? '', newItem?.text ?? '');
+        g.text = diffString(oldItem?.text ?? '', newItem?.text ?? '', ruleEncode);
     }
 
     glossary = glossary.filter(d => d.type != null || (d.text && isChanged(d.text)));

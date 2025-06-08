@@ -15,7 +15,7 @@ import { escapeRegExp } from 'lodash';
 
 const props = withDefaults(defineProps<{
     symbol?:     string[];
-    cards?:      { text: string, id: string, part?: number }[];
+    cards?:      { text: string, cardId: string, part?: number }[];
     detectUrl?:  boolean;
     detectEmph?: boolean;
     detectCr?:   boolean;
@@ -134,22 +134,22 @@ const render = () => {
                 const card = props.cards.find(c => c.text === p);
 
                 if (card != null && insertedCards.every(c => c[0] !== card.text)) {
-                    if (!insertedCards.some(c => c[1] === card.id && c[2] === card.part)) {
+                    if (!insertedCards.some(c => c[1] === card.cardId && c[2] === card.part)) {
                         result.push(h(CardAvatar, {
                             class: `magic-text card ${attrs.class ?? ''}`,
-                            id:    card.id,
+                            id:    card.cardId,
                             part:  card.part,
                             text:  card.text,
                         }));
                     } else {
                         result.push(h('span', {
                             class: `magic-text card ${attrs.class ?? ''}`,
-                            id:    card.id,
+                            id:    card.cardId,
                             part:  card.part,
                         }, card.text));
                     }
 
-                    insertedCards.push([card.text, card.id, card.part]);
+                    insertedCards.push([card.text, card.cardId, card.part]);
                     continue;
                 }
 

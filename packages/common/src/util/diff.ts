@@ -69,13 +69,13 @@ function decode(text: string, map: Record<string, string>): string {
     }).join('');
 }
 
-export function diffString(lhs: string, rhs: string): TextChange[] {
+export function diffString(lhs: string, rhs: string, encoder = encode): TextChange[] {
     const map: Record<string, string> = {};
 
     const diffs: TextChange[] = [];
 
-    const lhsEncoded = encode(lhs, map);
-    const rhsEncoded = encode(rhs, map);
+    const lhsEncoded = encoder(lhs, map);
+    const rhsEncoded = encoder(rhs, map);
 
     for (const d of diffWordsWithSpace(lhsEncoded, rhsEncoded)) {
         if (d.added) {

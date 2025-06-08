@@ -243,13 +243,25 @@ const filteredValues = computed(() => {
     if (oldValueFilter.value !== '') {
         const regex = new RegExp(oldValueFilter.value);
 
-        result = result.filter(u => regex.test(u.oldValue));
+        result = result.filter(u => {
+            if (typeof u.oldValue === 'string') {
+                return regex.test(u.oldValue);
+            } else {
+                return regex.test(JSON.stringify(u.oldValue));
+            }
+        });
     }
 
     if (newValueFilter.value !== '') {
         const regex = new RegExp(newValueFilter.value);
 
-        result = result.filter(u => regex.test(u.newValue));
+        result = result.filter(u => {
+            if (typeof u.newValue === 'string') {
+                return regex.test(u.newValue);
+            } else {
+                return regex.test(JSON.stringify(u.newValue));
+            }
+        });
     }
 
     if (massiveChanged.value) {

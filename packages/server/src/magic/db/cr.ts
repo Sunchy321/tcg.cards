@@ -16,10 +16,10 @@ const CRMenuSchema = new Schema<ICR>({
         examples: { type: [String], default: undefined },
         cards:    {
             type: [{
-                _id:  false,
-                id:   String,
-                text: String,
-                part: Number,
+                _id:    false,
+                text:   String,
+                cardId: String,
+                part:   Number,
             }],
             default: undefined,
         },

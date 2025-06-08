@@ -49,7 +49,7 @@ export default class CardNameExtractor {
     thisName?: { id: string, name: string[] };
     blacklist: string[];
 
-    names: { id: string, text: string, part?: number }[];
+    names: { cardId: string, text: string, part?: number }[];
 
     constructor(option: CardNameExtractorOption) {
         this.text = option.text;
@@ -72,7 +72,7 @@ export default class CardNameExtractor {
         this.names = [];
     }
 
-    private insert(name: { id: string, text: string, part?: number }) {
+    private insert(name: { cardId: string, text: string, part?: number }) {
         if (this.blacklist.some(b => b === name.text)) {
             return;
         }
@@ -97,7 +97,7 @@ export default class CardNameExtractor {
             const cards = this.cardNames.filter(c => isEqual(c.name, names));
 
             if (cards.length === 1) {
-                this.insert({ id: cards[0].id, text: phrase });
+                this.insert({ cardId: cards[0].id, text: phrase });
 
                 return true;
             }
@@ -113,9 +113,9 @@ export default class CardNameExtractor {
                     if (thisName.length > 1) {
                         const part = thisName.indexOf(sanitizedPhrase);
 
-                        this.insert({ id: this.thisName.id, text: phrase, part });
+                        this.insert({ cardId: this.thisName.id, text: phrase, part });
                     } else {
-                        this.insert({ id: this.thisName.id, text: phrase });
+                        this.insert({ cardId: this.thisName.id, text: phrase });
                     }
 
                     return true;
@@ -128,9 +128,9 @@ export default class CardNameExtractor {
                 if (cards[0].name.length > 1) {
                     const part = cards[0].name.indexOf(sanitizedPhrase);
 
-                    this.insert({ id: cards[0].id, text: phrase, part });
+                    this.insert({ cardId: cards[0].id, text: phrase, part });
                 } else {
-                    this.insert({ id: cards[0].id, text: phrase });
+                    this.insert({ cardId: cards[0].id, text: phrase });
                 }
 
                 return true;
@@ -187,14 +187,14 @@ export default class CardNameExtractor {
         }
     }
 
-    extract(): { id: string, text: string }[] {
+    extract(): { cardId: string, text: string, part?: number }[] {
         const phrases = [...this.text.matchAll(phraseRegex)].map(m => m[0]);
 
         for (const phrase of phrases) {
             this.guess(phrase);
         }
 
-        return this.names.filter(n => !n.id.startsWith('pseudo:'));
+        return this.names.filter(n => !n.cardId.startsWith('pseudo:'));
     }
 
     static async names(): Promise<{ id: string, name: string[] }[]> {

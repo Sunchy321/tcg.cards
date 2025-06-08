@@ -139,6 +139,12 @@
                 />
 
                 <q-btn
+                    icon="mdi-image"
+                    dense flat round
+                    @click="reloadCardImage"
+                />
+
+                <q-btn
                     :color="devOracleColor" icon="mdi-alpha-o-circle-outline"
                     dense flat round
                     @click="clickDevOracle"
@@ -198,7 +204,15 @@
 
             <table>
                 <tr>
-                    <th>Oracle</th>
+                    <th>
+                        Oracle
+                        <q-toggle
+                            v-if="oracleUpdated"
+                            v-model="showBeforeOracle"
+                            icon="mdi-history"
+                            dense flat round
+                        />
+                    </th>
                     <th>Unified</th>
                     <th>Printed</th>
                 </tr>
@@ -227,8 +241,10 @@
                 <tr class="text">
                     <td>
                         <q-input
-                            v-model="oracleText"
-                            tabindex="1" :readonly="!unlock"
+                            v-model="displayOracleText"
+                            tabindex="1"
+                            :readonly="!unlock && !(oracleUpdated && showBeforeOracle)"
+                            :filled="oracleUpdated && showBeforeOracle"
                             outlined type="textarea" dense
                         />
                     </td>
@@ -427,6 +443,7 @@ const {
     rt: replaceTo,
     co: clearDevOracle,
     cp: clearDevPrinted,
+    bo: showBeforeOracle,
 } = pageSetup({
     params: {
         locale: {
@@ -498,6 +515,12 @@ const {
         },
 
         cp: {
+            type:    'boolean',
+            bind:    'query',
+            default: false,
+        },
+
+        bo: {
             type:    'boolean',
             bind:    'query',
             default: false,
@@ -631,9 +654,13 @@ type PrintPart = CardEditorView['print']['parts'][0];
 const cardPart = computed(() => card?.value?.parts?.[partIndex.value]);
 const printPart = computed(() => print?.value?.parts?.[partIndex.value]);
 
-const lockPath = <T extends { __lockedPaths: string[] }>(value: ComputedRef<T | undefined>, path: string) => {
+const lockPath = <T extends {
+    __lockedPaths: string[];
+    __updations:   { key: string }[];
+}>(value: ComputedRef<T | undefined>, path: string) => {
     if (value.value != null && !value.value.__lockedPaths.includes(path)) {
         value.value.__lockedPaths.push(path);
+        value.value.__updations = value.value.__updations.filter(u => u.key !== path);
     }
 };
 
@@ -685,6 +712,31 @@ const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: P
 const oracleName = cardPartField('name', '');
 const oracleTypeline = cardPartField('typeline', '');
 const oracleText = cardPartField('text', '');
+
+const oracleUpdated = computed(() => {
+    if (card.value == null) {
+        return false;
+    }
+
+    return card.value.__updations.some(u => u.key === `parts[${partIndex.value}].text`);
+});
+
+const displayOracleText = computed({
+    get() {
+        if (oracleUpdated.value && showBeforeOracle.value) {
+            return card.value.__updations.find(u => u.key === `parts[${partIndex.value}].text`)!.oldValue;
+        } else {
+            return oracleText.value;
+        }
+    },
+    set(newValue) {
+        if (oracleUpdated.value && showBeforeOracle.value) {
+            return;
+        }
+
+        oracleText.value = newValue;
+    },
+});
 
 const printedName = printPartField('name', '', () => `parts[${partIndex.value}].name`);
 const printedTypeline = printPartField('typeline', '', () => `parts[${partIndex.value}].typeline`);
@@ -1405,6 +1457,18 @@ const scanCardText = async () => {
     printedName.value = result.name;
     printedTypeline.value = result.typeline;
     printedText.value = result.text;
+};
+
+const reloadCardImage = async () => {
+    if (data.value == null) {
+        return;
+    }
+
+    console.log(data.value);
+
+    await controlPost('/magic/image/reload', { id: print.value._id });
+
+    refreshToken.value = crypto.randomUUID();
 };
 
 const newData = () => {
