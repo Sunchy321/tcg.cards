@@ -5,6 +5,6 @@ export function toIdentifier(text: string): string {
         .trim()
         .toLowerCase()
         .replace(/ \/\/ /g, '____')
-        .replace('/', '____')
+        .replace(/\/(?!Mog$)/, '____')
         .replace(/[^a-z0-9]/g, '_');
 }

@@ -216,6 +216,12 @@ export default class CardLoader extends Task<Status> {
 
                 if (print.parts.some(p => /[(（)）]/.test(p.text ?? ''))) {
                     print.tags.push('dev:printed');
+                    continue;
+                }
+
+                if (print.parts.some(p => p.flavorName != null)) {
+                    print.tags.push('dev:printed');
+                    continue;
                 }
             }
 

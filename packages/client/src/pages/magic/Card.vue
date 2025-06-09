@@ -47,8 +47,8 @@
                     />
                 </div>
             </div>
-            <div v-if="flavorName != null" class="flavor-name" :lang="lang">
-                {{ flavorName }}
+            <div v-if="realSubname != null" class="subname" :lang="lang">
+                {{ realSubname }}
             </div>
             <div class="stats-line" :class="effectClass">
                 <magic-color
@@ -575,7 +575,11 @@ const text = computed(() => selectedTextInfo(part.value)?.text);
 const isArenaVariant = computed(() => name.value?.startsWith('A-'));
 
 const realName = computed(() => {
-    const nameValue = name.value;
+    let nameValue = name.value;
+
+    if (flavorName.value != null) {
+        return flavorName.value;
+    }
 
     if (nameValue == null) {
         return undefined;
@@ -586,6 +590,14 @@ const realName = computed(() => {
     }
 
     return nameValue;
+});
+
+const realSubname = computed(() => {
+    if (flavorName.value != null) {
+        return name.value;
+    } else {
+        return undefined;
+    }
 });
 
 const attractionLights = computed(() => part.value?.attractionLights);
@@ -941,7 +953,7 @@ onBeforeRouteLeave((to, from, next) => {
     &.aftermath-1
         transform: rotate(90deg)
 
-.flavor-name
+.subname
     font-size: 120%
     color: grey
 
