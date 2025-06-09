@@ -654,10 +654,12 @@ type PrintPart = CardEditorView['print']['parts'][0];
 const cardPart = computed(() => card?.value?.parts?.[partIndex.value]);
 const printPart = computed(() => print?.value?.parts?.[partIndex.value]);
 
-const lockPath = <T extends {
+type WithUpdation = {
     __lockedPaths: string[];
     __updations:   { key: string }[];
-}>(value: ComputedRef<T | undefined>, path: string) => {
+};
+
+const lockPath = <T extends WithUpdation>(value: ComputedRef<T | undefined>, path: string) => {
     if (value.value != null && !value.value.__lockedPaths.includes(path)) {
         value.value.__lockedPaths.push(path);
         value.value.__updations = value.value.__updations.filter(u => u.key !== path);
@@ -1152,10 +1154,10 @@ const defaultPrettify = () => {
     for (const [i, p] of print.value!.parts.entries()) {
         if (i === partIndex.value) {
             printedTypeline.value = defaultTypelinePrettifier(printedTypeline.value, lang.value);
-            printedText.value = defaultTextPrettifier(printedText.value, lang.value, p.name);
+            printedText.value = defaultTextPrettifier(printedText.value, lang.value, p.flavorName ?? p.name);
         } else {
             p.typeline = defaultTypelinePrettifier(p.typeline, lang.value);
-            p.text = defaultTextPrettifier(p.text, lang.value, p.name);
+            p.text = defaultTextPrettifier(p.text, lang.value, p.flavorName ?? p.name);
         }
 
         if (p.flavorText != null && p.flavorText !== '') {
@@ -1299,7 +1301,7 @@ const prettify = () => {
         }
 
         if (replacePrinted.value) {
-            const fromRegex = new RegExp(replaceFrom.value.replace(/~~/g, escapeRegExp(printedName.value)), 'ugm');
+            const fromRegex = new RegExp(replaceFrom.value.replace(/~~/g, escapeRegExp(flavorName.value ?? printedName.value)), 'ugm');
 
             printedText.value = printedText.value!.replace(fromRegex, toReplacer);
             printedTypeline.value = printedTypeline.value.replace(fromTypelineRegex, toReplacer);
