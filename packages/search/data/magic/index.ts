@@ -102,6 +102,7 @@ const oracle = defineCommand({
 const flavorText = builtin.text({ id: 'flavor-text', alt: ['flavor', 'ft'] });
 const flavorName = builtin.text({ id: 'flavor-name', alt: 'fn' });
 const layout = builtin.simple({ id: 'layout' });
+const imageStatus = builtin.simple({ id: 'image-status' });
 
 const rarity = defineCommand({
     id:         'rarity',
@@ -163,6 +164,7 @@ export const commands = {
     flavorText,
     flavorName,
     layout,
+    imageStatus,
     rarity,
     date,
     format,

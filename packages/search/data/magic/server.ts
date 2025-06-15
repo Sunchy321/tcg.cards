@@ -305,6 +305,7 @@ const oracle = defineServerCommand({
 const flavorText = builtin.text(commands.flavorText, { key: 'print.parts.flavorText' });
 const flavorName = builtin.text(commands.flavorName, { key: 'print.parts.flavorName' });
 const layout = builtin.simple(commands.layout, { key: 'print.layout' });
+const imageStatus = builtin.simple(commands.imageStatus, { key: 'print.imageStatus' });
 
 const rarity = defineServerCommand({
     command: commands.rarity,
@@ -470,6 +471,7 @@ const backedCommands: Record<string, CommonServerCommand> = {
     flavorText,
     flavorName,
     layout,
+    imageStatus,
     rarity,
     date,
     format,

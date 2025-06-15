@@ -38,6 +38,7 @@ export default {
         'flavor-text':     'flavor text',
         'flavor-name':     'flavor name',
         'layout':          'layout',
+        'image-status':    'image status',
         'rarity':          'rarity',
         'release-date':    'release date',
         'format':          'format',
@@ -47,12 +48,19 @@ export default {
     },
 
     'parameter': {
-        layout: {
+        'layout': {
             transform: 'Transforming DFC',
             battle:    'Battle',
         },
 
-        order: {
+        'image-status': {
+            highres_scan: 'Highres Scan',
+            lowres:       'Lowres',
+            placeholder:  'Placeholder',
+            missing:      'Missing',
+        },
+
+        'order': {
             name: 'name',
             date: 'release date',
             id:   'card id',

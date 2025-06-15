@@ -82,6 +82,7 @@ const oracle = builtin.text(commands.oracle);
 const flavorText = builtin.text(commands.flavorText);
 const flavorName = builtin.text(commands.flavorName);
 const layout = builtin.simple(commands.layout, { map: true });
+const imageStatus = builtin.simple(commands.imageStatus, { map: true });
 
 const rarity = defineClientCommand(commands.rarity);
 const date = defineClientCommand(commands.date);
@@ -153,6 +154,7 @@ const clientCommands: Record<string, CommonClientCommand> = {
     flavorText,
     flavorName,
     layout,
+    imageStatus,
     rarity,
     date,
     format,

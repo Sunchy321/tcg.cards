@@ -38,6 +38,7 @@ export default {
         'flavor-text':     '风味文字',
         'flavor-name':     '风味名称',
         'layout':          '布局',
+        'image-status':    '图片状态',
         'rarity':          '稀有度',
         'release-date':    '发售日期',
         'format':          '赛制',
@@ -47,12 +48,19 @@ export default {
     },
 
     'parameter': {
-        layout: {
+        'layout': {
             transform: '转化式双面牌',
             battle:    '战役',
         },
 
-        order: {
+        'image-status': {
+            highres_scan: '高清晰度',
+            lowres:       '低清晰度',
+            placeholder:  '占位符',
+            missing:      '缺失',
+        },
+
+        'order': {
             name: '名称',
             date: '发售日期',
             id:   '卡牌ID',
