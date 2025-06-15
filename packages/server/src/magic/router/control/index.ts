@@ -7,6 +7,7 @@ import cr from './cr';
 import format from './format';
 import image from './image';
 import set from './set';
+import data from './data';
 import scryfall from './scryfall';
 import mtgjson from './mtgjson';
 
@@ -21,6 +22,7 @@ router.use(cr.routes());
 router.use(format.routes());
 router.use(image.routes());
 router.use(set.routes());
+router.use(data.routes());
 router.use(scryfall.routes());
 router.use(mtgjson.routes());
 

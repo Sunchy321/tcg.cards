@@ -67,7 +67,7 @@ type ParsedGatherer = {
 };
 
 async function parseGathererDetail(mids: number[]): Promise<ParsedGatherer> {
-    const { data:html } = await axios.get(`https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${mids[0]}&printed=true`);
+    const { data: html } = await axios.get(`https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${mids[0]}&printed=true`);
     const $ = cheerio.load(html);
 
     if ($('#ctl00_ctl00_ctl00_MainContent_SubContent_SubContent_ctl01_nameRow').length === 0) {

@@ -20,7 +20,8 @@
 
             <q-input v-model="set" class="q-mx-md col-grow" dense outlined />
 
-            <q-btn flat label="Get" @click="getGatherer" />
+            <q-btn dense outline class="q-mr-md" label="Get" @click="getGatherer" />
+            <q-btn dense outline label="Get Image" @click="getGathererImage" />
         </div>
 
         <div v-if="progress != null" class="q-mt-md">
@@ -176,6 +177,24 @@ const getGatherer = async () => {
         };
     });
 };
+
+const getGathererImage = async () => {
+    const ws = controlWs('/magic/data/gatherer/get-image', { set: set.value });
+
+    return new Promise((resolve, reject) => {
+        ws.onmessage = ({ data }) => {
+            progress.value = JSON.parse(data) as Progress;
+        };
+
+        ws.onerror = reject;
+        ws.onclose = () => {
+            progress.value = null;
+
+            resolve(undefined);
+        };
+    });
+};
+
 </script>
 
 <style lang="sass" scoped>
