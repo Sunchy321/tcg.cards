@@ -82,6 +82,10 @@ const statusKey = computed(() => Object.keys(status.value));
 const statusFor = (num: string) => {
     const value = status.value[num];
 
+    if (typeof value === 'string') {
+        return value;
+    }
+
     if (value == null || value[1] === 0) {
         return 'waiting';
     } else if (value[0] === value[1]) {
@@ -93,6 +97,10 @@ const statusFor = (num: string) => {
 
 const statusTextFor = (num: string) => {
     const value = status.value[num];
+
+    if (typeof value === 'string') {
+        return '';
+    }
 
     if (value == null) {
         return '';
