@@ -14,6 +14,9 @@ interface IImageTask {
 }
 
 interface IImageStatus {
+    method: string;
+    type:   string;
+
     amount: { count: number, total: number };
     time:   { elapsed: number, remaining: number };
     status: Record<string, string>;
@@ -68,7 +71,7 @@ export class GathererImageTask extends Task<IImageStatus> {
     }
 
     async startImpl(): Promise<void> {
-        const prints = await Print.find({ 'set': this.set, 'multiverseId.0': { $exists: true } });
+        const prints = await Print.find({ 'set': this.set, 'multiverseId.0': { $exists: true } }).sort({ lang: 1, number: 1 });
 
         this.count = 0;
         this.total = prints.length;
@@ -88,6 +91,8 @@ export class GathererImageTask extends Task<IImageStatus> {
             };
 
             return {
+                method: 'get',
+                type:   'image',
                 amount: { count: this.count, total: this.total },
                 time,
                 status: this.statusMap,
@@ -127,8 +132,8 @@ export class GathererImageTask extends Task<IImageStatus> {
 
         const [exists, nonexist] = partition(this.todoTasks, task => FileSaver.fileExists(task.path));
 
-        for (const task of exists) {
-            this.statusMap[task.name] = 'exists';
+        for (const task of nonexist) {
+            this.statusMap[task.name] = 'waiting';
         }
 
         this.count += exists.length;
@@ -181,6 +186,9 @@ export class GathererImageTask extends Task<IImageStatus> {
                 savers.on('end', () => {
                     delete this.taskMap[task.name];
                     this.statusMap[task.name] = 'success';
+
+                    this.count += 1;
+
                     this.pushTask();
 
                     if (this.rest() === 0 && this.working() === 0) {

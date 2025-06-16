@@ -118,6 +118,8 @@
 
                 <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" outlined dense />
 
+                <q-select v-model="imageStatus" class="q-mr-md" :options="imageStatusOptions" outlined dense />
+
                 <q-btn-toggle
                     v-if="partCount > 1"
                     v-model="partIndex"
@@ -179,7 +181,6 @@
 
                 <q-btn icon="mdi-new-box" dense flat round @click="newData" />
                 <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
-                <q-btn v-if="lang == 'en'" icon="mdi-arrow-right-bold" dense flat round @click="overwriteUnified" />
                 <q-btn icon="mdi-scale-balance" dense flat round @click="getLegality" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
 
@@ -212,9 +213,14 @@
                             icon="mdi-history"
                             dense flat round
                         />
+
+                        <q-btn v-if="lang == 'en'" icon="mdi-menu-right" flat dense round @click="oracleOverwriteUnified" />
                     </th>
                     <th>Unified</th>
-                    <th>Printed</th>
+                    <th>
+                        <q-btn icon="mdi-menu-left" flat dense round @click="printedOverwriteUnified" />
+                        Printed
+                    </th>
                 </tr>
                 <tr>
                     <td>
@@ -660,7 +666,10 @@ type WithUpdation = {
 };
 
 const lockPath = <T extends WithUpdation>(value: ComputedRef<T | undefined>, path: string) => {
-    if (value.value != null && !value.value.__lockedPaths.includes(path)) {
+    if (value.value != null && !(value.value.__lockedPaths ?? []).includes(path)) {
+        value.value.__updations ??= [];
+        value.value.__lockedPaths ??= [];
+
         value.value.__lockedPaths.push(path);
         value.value.__updations = value.value.__updations.filter(u => u.key !== path);
     }
@@ -695,21 +704,6 @@ const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: P
         }
     },
 });
-
-// const partField2 = <
-//     F extends keyof Part,
-//     L extends keyof Part[F],
-// >(firstKey: F, lastKey: L, defaultValue?: Part[F][L]) => computed({
-//     get(): Part[F][L] {
-//         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-//         return ((part.value as any)?.[firstKey]?.[lastKey] ?? defaultValue)!;
-//     },
-//     set(newValue: Part[F][L]) {
-//         if (data.value != null) {
-//             (part.value as any)![firstKey][lastKey] = newValue;
-//         }
-//     },
-// });
 
 const oracleName = cardPartField('name', '');
 const oracleTypeline = cardPartField('typeline', '');
@@ -838,6 +832,21 @@ const flavorText = printPartField('flavorText', '');
 const flavorName = printPartField('flavorName', '');
 
 const releaseDate = computed(() => print.value?.releaseDate);
+
+const imageStatus = computed({
+    get() {
+        return print.value?.imageStatus ?? 'placeholder';
+    },
+    set(newValue) {
+        if (print.value == null) {
+            return;
+        }
+
+        print.value.imageStatus = newValue;
+    },
+});
+
+const imageStatusOptions = ['highres_scan', 'lowres', 'placeholder', 'missing'];
 
 // dev only
 const cardTag = (name: string) => computed({
@@ -1070,7 +1079,6 @@ const printLockedPaths = computed({
 
 const defaultTypelinePrettifier = (typeline: string, lang: string) => {
     typeline = typeline
-        .trim()
         .replace(/\s/g, ' ')
         .replace(/ *～ *-? */, '～')
         .replace(/ *(--|[―—–]) *-? */, ' — ')
@@ -1079,10 +1087,14 @@ const defaultTypelinePrettifier = (typeline: string, lang: string) => {
     if (lang === 'zhs' || lang === 'zht') {
         typeline = typeline.replace(/~/g, '～').replace(/\//g, '／');
     } else {
-        typeline = typeline.replace(/ - /g, ' — ').trim();
+        typeline = typeline.replace(/ - /g, ' — ');
+
+        if (lang == 'ja') {
+            typeline = typeline.replace(/·/g, '・');
+        }
     }
 
-    return typeline;
+    return typeline.trim();
 };
 
 const defaultTextPrettifier = (text: string, lang: string, name: string) => {
@@ -1127,6 +1139,10 @@ const defaultTextPrettifier = (text: string, lang: string, name: string) => {
         text = text
             .replace(/<</g, '«')
             .replace(/>>/g, '»');
+    }
+
+    if (lang == 'ja') {
+        text = text.replace(/·/g, '・');
     }
 
     return text;
@@ -1267,7 +1283,7 @@ const prettify = () => {
             const replacer = (nums: string) => (/\d{2}/.test(nums) ? nums : nums.split('').map(c => charMap[c] ?? c).join(''));
 
             return v
-                .replace(/[-+0-9X()]+(?!\})/g, replacer);
+                .replace(/(?<!K-?|ED|Vault |d\d+|\/)[-+0-9X()]+(?!\d*[}/]|.* \| )/g, replacer);
         };
 
         unifiedText.value = applyReplace(unifiedText.value!);
@@ -1404,14 +1420,20 @@ const prettify = () => {
     }
 };
 
-const overwriteUnified = () => {
+const oracleOverwriteUnified = () => {
     if (lang.value !== 'en') {
         return;
     }
 
     unifiedName.value = oracleName.value;
     unifiedTypeline.value = oracleTypeline.value;
-    unifiedText.value = oracleText.value!.replace(/ *[(（][^)）]+[)）] */g, '').trim();
+    unifiedText.value = oracleText.value;
+};
+
+const printedOverwriteUnified = () => {
+    unifiedName.value = printedName.value;
+    unifiedTypeline.value = printedTypeline.value;
+    unifiedText.value = printedText.value;
 };
 
 const getLegality = async () => {

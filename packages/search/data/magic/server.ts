@@ -651,6 +651,19 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                 aggregate
                     .allowDiskUse(true)
                     .unwind('print')
+                    .match(q)
+                    .addFields({ __card: '$card', __print: '$print' })
+                    .unwind({ path: '$card.parts', includeArrayIndex: 'cardPartIndex' })
+                    .unwind({ path: '$print.parts', includeArrayIndex: 'printPartIndex' })
+                    .unwind({ path: '$card.parts.localization' })
+                    .match({
+                        $expr: {
+                            $and: [
+                                { $eq: ['$cardPartIndex', '$printPartIndex'] },
+                                { $eq: ['$card.parts.localization.lang', '$print.lang'] },
+                            ],
+                        },
+                    })
                     .match(q);
 
                 return aggregate;
@@ -662,9 +675,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
             )[0]?.count ?? 0;
 
             const cards = await fullGen<ServerModel>()
-                .project({
-                    'card.relatedCards': false,
-                })
+                .replaceRoot({ card: '$__card', print: '$__print' })
                 .lookup({
                     from: 'card_relations',
                     let:  {

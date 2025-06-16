@@ -178,11 +178,7 @@ const getGatherer = async () => {
         };
 
         ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = null;
-
-            resolve(undefined);
-        };
+        ws.onclose = () => { resolve(undefined); };
     });
 };
 
@@ -195,11 +191,7 @@ const getGathererImage = async () => {
         };
 
         ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = null;
-
-            resolve(undefined);
-        };
+        ws.onclose = () => { resolve(undefined); };
     });
 };
 

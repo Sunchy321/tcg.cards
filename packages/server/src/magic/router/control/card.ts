@@ -198,7 +198,7 @@ function aggregate({ lang, match }: AggregateOption): Aggregate<INeedEditResult[
 
     agg
         .match(match)
-        .group({ _id: '$info', date: { $max: '$print.releaseDate' } });
+        .group({ _id: '$info', releaseDate: { $max: '$print.releaseDate' } });
 
     return agg;
 }
@@ -259,7 +259,7 @@ router.get('/need-edit', async ctx => {
     }
 
     const result = await getter(lang)
-        .sort({ 'print.releaseDate': -1 })
+        .sort({ releaseDate: -1 })
         .limit(sample);
 
     const cards = await Print.aggregate().allowDiskUse(true)
@@ -272,7 +272,8 @@ router.get('/need-edit', async ctx => {
             foreignField: 'cardId',
             as:           'card',
         })
-        .unwind('card');
+        .unwind('card')
+        .sort({ 'print.releaseDate': -1 });
 
     const resultCards = result.map(r => {
         const card = cards.find(c => c._id.id === r._id.id && c._id.lang === r._id.lang);
