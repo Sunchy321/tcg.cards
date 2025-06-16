@@ -26,6 +26,16 @@ export default {
         $self: '搜索文档',
     },
 
+    'card': {
+        'external-link': '外部链接',
+
+        'link-name': {
+            scryfall: 'Scryfall',
+            gatherer: 'Gatherer',
+            sbwsz:    'Sbwsz',
+        },
+    },
+
     'format': {
         'banlist':  '禁限牌表',
         'set':      '可用系列',

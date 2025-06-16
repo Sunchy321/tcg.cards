@@ -120,31 +120,28 @@
             </div>
 
             <div class="links flex q-gutter-md">
-                <q-btn
-                    v-if="scryfallLink != null"
-                    class="link"
-                    :href="scryfallLink" target="_blank"
-                    outline no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    Scryfall
-                </q-btn>
-
-                <q-btn
-                    v-if="gathererLink != null"
-                    class="link"
-                    :href="gathererLink" target="_blank"
-                    outline no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    Gatherer
-                </q-btn>
+                <q-btn-dropdown class="external-link" color="primary" :label="$t('magic.ui.card.external-link')">
+                    <q-list>
+                        <q-item
+                            v-for="{ name: linkName, link } in links" :key="linkName"
+                            v-close-popup :href="link" target="_blank"
+                        >
+                            <q-item-section avatar>
+                                <q-avatar color="primary" text-color="white" :icon="`img:/magic/${linkName}.svg`" />
+                            </q-item-section>
+                            <q-item-section>
+                                <q-item-label>{{ $t(`magic.ui.card.link-name.${linkName}`) }}</q-item-label>
+                            </q-item-section>
+                        </q-item>
+                    </q-list>
+                </q-btn-dropdown>
 
                 <q-btn
                     v-if="jsonLink != null"
                     class="link"
+                    color="primary"
                     :href="jsonLink" target="_blank"
-                    outline no-caps
+                    no-caps
                 >
                     <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
                     JSON
@@ -153,8 +150,9 @@
                 <q-btn
                     v-if="jsonPrintLink != null"
                     class="link"
+                    color="primary"
                     :href="jsonPrintLink" target="_blank"
-                    outline no-caps
+                    no-caps
                 >
                     <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
                     JSON(Print)
@@ -714,6 +712,29 @@ const gathererLink = computed(() => {
     return `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${multiverseId}&printed=true`;
 });
 
+const sbwszLink = computed(() => {
+    if (lang.value != 'zhs') {
+        return null;
+    }
+
+    return `https://sbwsz.com/card/${set.value}/${number.value}`;
+});
+
+const links = computed (() => [
+    {
+        name: 'scryfall',
+        link: scryfallLink.value,
+    },
+    {
+        name: 'gatherer',
+        link: gathererLink.value,
+    },
+    {
+        name: 'sbwsz',
+        link: sbwszLink.value,
+    },
+].filter(v => v.link != null));
+
 const apiQuery = computed(() => (route.params.id == null
     ? null
     : omitBy({
@@ -969,7 +990,7 @@ onBeforeRouteLeave((to, from, next) => {
 .other-stats
     margin-left: 15px
 
-.link
+.external-link, .link
     width: 150px
 
 .lang-selector

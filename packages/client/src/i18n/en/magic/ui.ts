@@ -26,6 +26,16 @@ export default {
         $self: 'Search Docs',
     },
 
+    'card': {
+        'external-link': 'External Link',
+
+        'link-name': {
+            scryfall: 'Scryfall',
+            gatherer: 'Gatherer',
+            sbwsz:    'Sbwsz',
+        },
+    },
+
     'format': {
         'banlist':  'Banlist',
         'set':      'Sets',
