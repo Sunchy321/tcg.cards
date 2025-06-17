@@ -232,9 +232,6 @@ importers:
 
   packages/interface:
     dependencies:
-      card-common:
-        specifier: workspace:^1.0.0
-        version: link:../common
       tst-reflect:
         specifier: ^0.7.4
         version: 0.7.9
@@ -375,7 +372,7 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0
       axios:
-        specifier: ^1.6.7
+        specifier: ^1.8.4
         version: 1.8.4
       axios-retry:
         specifier: ^4.0.0
@@ -532,7 +529,7 @@ importers:
         specifier: ^8.0.3
         version: 8.0.11
       '@types/lodash':
-        specifier: ^4.14.165
+        specifier: ^4.17.16
         version: 4.17.16
       '@types/mime-types':
         specifier: ^2.1.0

@@ -29,6 +29,7 @@
         ]
     },
     "include": [
+        "node_modules/card-interface/src/**/*",
         "node_modules/card-common/static/**/*",
         "node_modules/card-common/data/**/*",
         "node_modules/card-common/src/**/*",

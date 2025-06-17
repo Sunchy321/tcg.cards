@@ -1,3 +1,5 @@
+export type FAQContent = any;
+
 export interface FAQ {
     cid:          number;
     databaseDate: string;
