@@ -21,7 +21,7 @@ const app = new Koa();
 
 app.keys = [config.appKey];
 
-const port = process.env.NODE_ENV === 'production' ? 3000 : 8889;
+const port = 3000;
 
 app
     .use(session({}, app))

@@ -1,7 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
 
 function base(subdomain: string) {
-    return process.env.PROD ? `https://${subdomain}.tcg.cards` : `http://${subdomain}.tcg.cards:8889`;
+    return process.env.PROD ? `https://${subdomain}.tcg.cards` : `https://${subdomain}.tcg.cards:8889`;
 }
 
 export const apiBase = base('api');
