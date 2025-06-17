@@ -33,6 +33,9 @@ export default {
             scryfall: 'Scryfall',
             gatherer: 'Gatherer',
             sbwsz:    'Sbwsz',
+
+            card:  'Card',
+            print: 'Print',
         },
     },
 

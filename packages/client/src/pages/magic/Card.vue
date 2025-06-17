@@ -120,7 +120,7 @@
             </div>
 
             <div class="links flex q-gutter-md">
-                <q-btn-dropdown class="external-link" color="primary" :label="$t('magic.ui.card.external-link')">
+                <q-btn-dropdown class="link" color="primary" :label="$t('magic.ui.card.external-link')">
                     <q-list>
                         <q-item
                             v-for="{ name: linkName, link } in links" :key="linkName"
@@ -136,27 +136,34 @@
                     </q-list>
                 </q-btn-dropdown>
 
-                <q-btn
-                    v-if="jsonLink != null"
-                    class="link"
-                    color="primary"
-                    :href="jsonLink" target="_blank"
-                    no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    JSON
-                </q-btn>
+                <q-btn-group class="link">
+                    <q-btn
+                        class="q-btn--no-hover"
+                        style="width: 30px"
+                        icon="mdi-code-json"
+                        color="primary"
+                        :ripple="false"
+                    />
+                    <q-btn
+                        v-if="jsonCardLink != null"
+                        class="col-grow"
+                        color="primary"
+                        :href="jsonCardLink" target="_blank"
+                        no-caps
+                    >
+                        {{ $t('magic.ui.card.link-name.card') }}
+                    </q-btn>
 
-                <q-btn
-                    v-if="jsonPrintLink != null"
-                    class="link"
-                    color="primary"
-                    :href="jsonPrintLink" target="_blank"
-                    no-caps
-                >
-                    <q-icon name="mdi-open-in-new" size="14px" class="q-mr-sm" />
-                    JSON(Print)
-                </q-btn>
+                    <q-btn
+                        v-if="jsonPrintLink != null"
+                        class="col-grow"
+                        color="primary"
+                        :href="jsonPrintLink" target="_blank"
+                        no-caps
+                    >
+                        {{ $t('magic.ui.card.link-name.print') }}
+                    </q-btn>
+                </q-btn-group>
             </div>
         </div>
 
@@ -253,7 +260,6 @@ import RichText from 'src/components/magic/RichText.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
-// TODO fix @interface issue
 import { CardPrintView } from '@common/model/magic/card';
 
 import {
@@ -744,7 +750,7 @@ const apiQuery = computed(() => (route.params.id == null
         number: route.query.number as string,
     }, v => v == null)));
 
-const jsonLink = computed(() => {
+const jsonCardLink = computed(() => {
     const url = new URL('magic/card', apiBase);
 
     url.search = new URLSearchParams({ id: id.value }).toString();
@@ -990,8 +996,8 @@ onBeforeRouteLeave((to, from, next) => {
 .other-stats
     margin-left: 15px
 
-.external-link, .link
-    width: 150px
+.link
+    min-width: 180px
 
 .lang-selector
     display: inline

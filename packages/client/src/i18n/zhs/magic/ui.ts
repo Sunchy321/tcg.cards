@@ -32,7 +32,10 @@ export default {
         'link-name': {
             scryfall: 'Scryfall',
             gatherer: 'Gatherer',
-            sbwsz:    'Sbwsz',
+            sbwsz:    '大学院废墟',
+
+            card:  '卡牌',
+            print: '印刷版本',
         },
     },
 
