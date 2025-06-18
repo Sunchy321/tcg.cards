@@ -46,11 +46,16 @@ function generateApi(games: readonly string[]) {
     source.addImportDeclaration({
         leadingTrivia:   writer => writer.newLine(),
         moduleSpecifier: '@interface/index',
-        defaultImport:   'data',
         namedImports:    [
             { name: 'Game' },
             { name: 'games' },
         ],
+    });
+
+    source.addImportDeclaration({
+        leadingTrivia:   writer => writer.newLine(),
+        moduleSpecifier: '@static/index',
+        defaultImport:   'data',
     });
 
     source.addVariableStatement({

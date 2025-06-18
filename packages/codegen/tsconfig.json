@@ -14,6 +14,7 @@
             "*": ["@types/*"],
             "@/*": ["./*"],
             "@static/*": ["../node_modules/card-common/static/*"],
+            "@interface/*": ["../node_modules/card-interface/src/*"],
         },
     },
     "include": ["src/**/*", "scripts/gen-model.ts"]

@@ -172,6 +172,10 @@ export class Game {
             } else {
                 kv.hasTrailingNewline = cardItem.hasTrailingNewline;
             }
+
+            if (kv.key === '__updations') {
+                kv.hasTrailingNewline = true;
+            }
         }
 
         const source = serverSrc.addSourceFileAtPathIfExists(name) ?? serverSrc.createSourceFile(name);
@@ -289,6 +293,10 @@ export class Game {
                 }
             } else {
                 kv.hasTrailingNewline = cardItem.hasTrailingNewline;
+            }
+
+            if (kv.key === '__updations') {
+                kv.hasTrailingNewline = true;
             }
         }
 

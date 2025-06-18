@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "card-common": "workspace:^1.0.0",
+    "card-interface": "workspace:^1.0.0",
     "lodash": "^4.17.21"
   }
 }

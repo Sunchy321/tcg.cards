@@ -167,6 +167,9 @@ importers:
       card-common:
         specifier: workspace:^1.0.0
         version: link:../common
+      card-interface:
+        specifier: workspace:^1.0.0
+        version: link:../interface
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
