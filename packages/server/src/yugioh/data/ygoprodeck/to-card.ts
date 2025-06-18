@@ -48,7 +48,7 @@ export function toCard(data: HCard): CardPrint {
         card: {
             cardId: getId(data),
 
-            localization: [{ lang: 'en', ...loc, lastDate: '' }],
+            localization: [{ lang: 'en', ...loc }],
 
             type: {
                 main: getType(data),

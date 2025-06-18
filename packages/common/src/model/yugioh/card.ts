@@ -3,9 +3,17 @@ import { Print as IPrint } from '@interface/yugioh/print';
 
 import { WithUpdation, defaultToJSON } from '../updation';
 
-export type ICardDatabase = WithUpdation<ICard>;
+export type ICardDatabase = WithUpdation<Omit<ICard, 'localization'> & {
+    localization: (ICard['localization'][0] & { __lastDate: string })[];
+}>;
 
-export const toJSON = defaultToJSON;
+export const toJSON = (doc: any, ret: any) => {
+    const json = defaultToJSON(doc, ret);
+
+    for (const loc of json.localization) {
+        delete loc.__lastDate;
+    }
+};
 
 export type RelatedCard = {
     relation: string;

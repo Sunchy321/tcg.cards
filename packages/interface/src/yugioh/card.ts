@@ -8,11 +8,12 @@ export type Card = {
     cardId: string;
 
     localization: {
-        lang:     string;
-        lastDate: string;
-        name:     string;
-        typeline: string;
-        text:     string;
+        lang:      string;
+        name:      string;
+        rubyName?: string;
+        typeline:  string;
+        text:      string;
+        comment?:  string;
     }[];
 
     type: {

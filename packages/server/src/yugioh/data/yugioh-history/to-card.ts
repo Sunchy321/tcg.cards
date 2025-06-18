@@ -21,7 +21,7 @@ export function toCard(
     return {
         cardId: getId(data),
 
-        localization: [{ lang, ...loc, lastDate: '' }],
+        localization: [{ lang, ...loc }],
 
         type: {
             main: 'TODO',

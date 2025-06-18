@@ -7,9 +7,11 @@ export type Print = {
     set:    string;
     number: string;
 
-    name:     string;
-    typeline: string;
-    text:     string;
+    name:      string;
+    rubyName?: string;
+    typeline:  string;
+    text:      string;
+    comment?:  string;
 
     passcode?: number;
     rarity:    string;

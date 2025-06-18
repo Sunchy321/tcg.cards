@@ -12,11 +12,13 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     localization: [{
         _id: false,
 
-        lang:     String,
-        lastDate: String,
-        name:     String,
-        typeline: String,
-        text:     String,
+        lang:       String,
+        name:       String,
+        rubyName:   String,
+        typeline:   String,
+        text:       String,
+        comment:    String,
+        __lastDate: String,
     }],
 
     type: {

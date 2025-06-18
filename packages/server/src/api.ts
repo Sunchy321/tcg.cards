@@ -11,6 +11,7 @@ import hearthstone from '@/hearthstone/router/api';
 import lorcana from '@/lorcana/router/api';
 
 import { Game, games } from '@interface/index';
+
 import data from '@static/index';
 
 const router = new KoaRouter();

@@ -11,7 +11,8 @@ import { bulkUpdation } from '@/yugioh/logger';
 function assignCardLocalization(
     card: ICardDatabase,
     cLocs: ICardDatabase['localization'],
-    dLocs: ICardDatabase['localization'],
+    dLocs: Omit<ICardDatabase['localization'][0], '__lastDate'>[],
+    date: string,
 ) {
     const locs = uniq([
         ...cLocs.map(c => c.lang),
@@ -20,12 +21,14 @@ function assignCardLocalization(
 
     for (const loc of locs) {
         const cLoc = cLocs.find(c => c.lang === loc);
-        const dLoc = dLocs.find(d => d.lang === loc);
+        const dLocOrig = dLocs.find(d => d.lang === loc);
 
-        if (dLoc == null) {
+        if (dLocOrig == null) {
             // won't delete, skip
             continue;
         }
+
+        const dLoc = { ...dLocOrig, __lastDate: date };
 
         if (cLoc == null) {
             cLocs.push(dLoc);
@@ -39,7 +42,7 @@ function assignCardLocalization(
             card.__updations.push({
                 key:      fullKey,
                 oldValue: cLoc,
-                newValue: dLoc,
+                newValue: dLocOrig,
             });
 
             continue;
@@ -49,45 +52,45 @@ function assignCardLocalization(
         const fullTypelineKey = `localization[${loc}].typeline`;
         const fullTextKey = `localization[${loc}].text`;
 
-        if (cLoc.name !== dLoc.name) {
+        if (cLoc.name !== dLocOrig.name) {
             if (!card.__lockedPaths.includes(fullNameKey)) {
                 card.__updations.push({
                     key:      fullNameKey,
                     oldValue: cLoc.name,
-                    newValue: dLoc.name,
+                    newValue: dLocOrig.name,
                 });
 
-                cLoc.name = dLoc.name;
+                cLoc.name = dLocOrig.name;
             }
         } else if (card.__lockedPaths.includes(fullNameKey)) {
             bulkUpdation.info(`Remove lockedPaths ${fullNameKey} (${cLoc.name}) for ${card.cardId}:${loc}`);
             card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullNameKey);
         }
 
-        if (cLoc.typeline !== dLoc.typeline) {
+        if (cLoc.typeline !== dLocOrig.typeline) {
             if (!card.__lockedPaths.includes(fullTypelineKey)) {
                 card.__updations.push({
                     key:      fullTypelineKey,
                     oldValue: cLoc.typeline,
-                    newValue: dLoc.typeline,
+                    newValue: dLocOrig.typeline,
                 });
 
-                cLoc.typeline = dLoc.typeline;
+                cLoc.typeline = dLocOrig.typeline;
             }
         } else if (card.__lockedPaths.includes(fullTypelineKey)) {
             bulkUpdation.info(`Remove lockedPaths ${fullTypelineKey} (${cLoc.typeline}) for ${card.cardId}:${loc}`);
             card.__lockedPaths = card.__lockedPaths.filter(v => v !== fullTypelineKey);
         }
 
-        if (cLoc.text !== dLoc.text) {
+        if (cLoc.text !== dLocOrig.text) {
             if (!card.__lockedPaths.includes(fullTextKey)) {
                 card.__updations.push({
                     key:      fullTextKey,
                     oldValue: cLoc.text,
-                    newValue: dLoc.text,
+                    newValue: dLocOrig.text,
                 });
 
-                cLoc.text = dLoc.text;
+                cLoc.text = dLocOrig.text;
             }
         } else if (card.__lockedPaths.includes(fullTextKey)) {
             bulkUpdation.info(`Remove lockedPaths ${fullTextKey} (${cLoc.text}) for ${card.cardId}:${loc}`);
@@ -103,7 +106,7 @@ export function combineCard(card: ICardDatabase, data: CCard): void {
             break;
 
         case 'localization':
-            assignCardLocalization(card, card.localization, data.localization);
+            assignCardLocalization(card, card.localization, data.localization, '');
             break;
         }
     }

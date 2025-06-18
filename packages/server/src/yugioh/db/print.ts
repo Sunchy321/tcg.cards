@@ -14,8 +14,10 @@ const PrintSchema = new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}
     number: String,
 
     name:     String,
+    rubyName: String,
     typeline: String,
     text:     String,
+    comment:  String,
 
     passcode: Number,
     rarity:   String,
