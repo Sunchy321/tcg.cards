@@ -207,8 +207,9 @@ router.get('/print-view', async ctx => {
         konamiId: card.konamiId,
         passcode: card.passcode,
 
-        layout: print.layout,
-        rarity: print.rarity,
+        layout:      print.layout,
+        rarity:      print.rarity,
+        releaseDate: print.releaseDate,
 
         versions,
         relatedCards: [...sourceRelation, ...targetRelation],

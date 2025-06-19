@@ -19,10 +19,10 @@ const PrintSchema = new Schema<IPrintDatabase, Model<IPrintDatabase>, {}, {}, {}
     text:     String,
     comment:  String,
 
-    passcode: Number,
-    rarity:   String,
-
-    layout: String,
+    layout:      String,
+    passcode:    Number,
+    rarity:      String,
+    releaseDate: String,
 
     tags: [String],
 

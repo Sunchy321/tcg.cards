@@ -85,8 +85,9 @@ export function toCard(data: HCard): CardPrint {
 
             passcode: data.id,
 
-            rarity: v.set_rarity_code.replace(/^\(/, '').replace(/\)$/, ''),
-            layout: data.frameType,
+            layout:      data.frameType,
+            rarity:      v.set_rarity_code.replace(/^\(/, '').replace(/\)$/, ''),
+            releaseDate: '',
 
             tags: [],
         })),

@@ -13,10 +13,10 @@ export type Print = {
     text:      string;
     comment?:  string;
 
-    passcode?: number;
-    rarity:    string;
-
-    layout: Layout;
+    layout:      Layout;
+    passcode?:   number;
+    rarity:      string;
+    releaseDate: string;
 
     tags: string[];
 };
