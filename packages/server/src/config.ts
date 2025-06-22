@@ -15,6 +15,11 @@ export interface MongoDB {
     database: Record<string, Database>;
 }
 
+export type Elastic = {
+    node:   string;
+    apiKey: string;
+};
+
 export interface Config {
     appKey:       string;
     jwtSecretKey: string;
@@ -28,6 +33,8 @@ export interface Config {
     axiosProxy?: AxiosProxyConfig;
 
     mongodb: MongoDB;
+
+    elastic: Elastic;
 
     hearthstone: {
         blizzard: {

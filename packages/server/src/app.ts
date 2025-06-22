@@ -17,6 +17,8 @@ import asset from '@/asset';
 
 import { config } from '@/config';
 
+import './elastic';
+
 const app = new Koa();
 
 app.keys = [config.appKey];
