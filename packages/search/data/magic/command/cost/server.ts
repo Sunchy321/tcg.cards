@@ -44,12 +44,12 @@ function query(options: CostQueryOption): DBQuery {
         .filter(v => v !== '' && v != null);
 
     const costMap = Object.fromEntries(
-        ['', ...specificManaSymbols].map(s => [s, 0]),
+        ['<generic>', ...specificManaSymbols].map(s => [s, 0]),
     );
 
     for (const c of costs) {
         if (/^\d+$/.test(c)) {
-            costMap[''] += Number.parseInt(c, 10);
+            costMap['<generic>'] += Number.parseInt(c, 10);
         } else {
             costMap[c] += 1;
         }

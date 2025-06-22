@@ -40,7 +40,7 @@ function toCostMap(cost: string) {
 
     for (const c of splitCost(cost)) {
         if (/^\d+$/.test(c)) {
-            result[''] = Number.parseInt(c, 10);
+            result['<generic>'] = Number.parseInt(c, 10);
         } else {
             result[c] = (result[c] ?? 0) + 1;
         }

@@ -24,7 +24,7 @@ export function costWatcher(newValue: string[]) {
 
     for (const c of newValue) {
         if (/^\d+$/.test(c)) {
-            costMap[''] = Number.parseInt(c, 10);
+            costMap['<generic>'] = Number.parseInt(c, 10);
         } else {
             costMap[c] = (costMap[c] ?? 0) + 1;
         }
