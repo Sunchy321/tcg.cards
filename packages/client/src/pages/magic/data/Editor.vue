@@ -321,12 +321,13 @@ import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
 import { Layout } from '@interface/magic/print';
+import { Legality } from '@interface/magic/format-change';
 import { CardEditorView } from '@common/model/magic/card';
 
 import { AxiosResponse } from 'axios';
 
 import {
-    debounce, deburr, escapeRegExp, isEqual, uniq, upperFirst, zip,
+    debounce, deburr, escapeRegExp, isEqual, mapValues, uniq, upperFirst, zip,
 } from 'lodash';
 
 import { copyToClipboard } from 'quasar';
@@ -1437,11 +1438,13 @@ const printedOverwriteUnified = () => {
 };
 
 const getLegality = async () => {
-    const { data: result } = await controlGet('/magic/card/get-legality', {
+    const { data: result } = await controlGet<Record<string, { reason: string, result: Legality }>>('/magic/card/get-legality', {
         id: id.value,
     });
 
     console.log(result);
+
+    card.value.legalities = mapValues(result, v => v.result);
 };
 
 const extractRulingCards = async () => {

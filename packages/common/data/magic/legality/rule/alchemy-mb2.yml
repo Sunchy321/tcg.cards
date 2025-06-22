@@ -7,6 +7,10 @@ status:
     - oathbreaker
     - pauper
     - pauper_commander
+    - pauper_duelcommander
+    - leviathan_commander
+    - commander1v1
+    - canadian_highlander
   value: unavailable
 
 patterns:
