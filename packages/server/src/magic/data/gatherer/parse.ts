@@ -7,7 +7,9 @@ function toText(elem: cheerio.Element, $: cheerio.Root): string {
     }
 
     if ($(elem).attr('data-manacost') != null) {
-        return '{' + $(elem).attr('data-manacost') + '}';
+        const manaCost = $(elem).attr('data-manacost')!;
+
+        return '{' + manaCost.replace(/[()]/g, '') + '}';
     }
 
     if ($(elem).hasClass('block')) {
