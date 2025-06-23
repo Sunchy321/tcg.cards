@@ -6,12 +6,13 @@ import websocket from '@/middlewares/websocket';
 import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 import { GathererImageTask } from '@/magic/data/gatherer/image';
+import { parseGatherer } from '@/magic/data/gatherer/parse';
 
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/gatherer');
 
-router.get('/get-image', websocket, async ctx => {
+router.get('/load-image', websocket, async ctx => {
     const ws = await ctx.ws();
 
     const { set } = mapValues(ctx.query, toSingle);
@@ -26,6 +27,19 @@ router.get('/get-image', websocket, async ctx => {
     }
 
     ctx.status = 200;
+});
+
+router.get('/parse-card', async ctx => {
+    const { multiverseId: multiverseIdText } = mapValues(ctx.query, toSingle);
+
+    const multiverseId = parseInt(multiverseIdText, 10);
+
+    if (Number.isNaN(multiverseId)) {
+        ctx.status = 400;
+        return;
+    }
+
+    ctx.body = await parseGatherer(multiverseId);
 });
 
 export default router;

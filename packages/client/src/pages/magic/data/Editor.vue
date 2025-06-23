@@ -31,7 +31,7 @@
                     <template #append>
                         <q-btn
                             icon="mdi-magnify"
-                            flat dense round
+                            dense flat round
                             @click="doSearch"
                         />
                     </template>
@@ -135,27 +135,9 @@
                 <q-space />
 
                 <q-btn
-                    icon="mdi-credit-card-scan-outline"
-                    dense flat round
-                    @click="scanCardText"
-                />
-
-                <q-btn
                     icon="mdi-image"
                     dense flat round
                     @click="reloadCardImage"
-                />
-
-                <q-btn
-                    :color="devOracleColor" icon="mdi-alpha-o-circle-outline"
-                    dense flat round
-                    @click="clickDevOracle"
-                />
-
-                <q-btn
-                    :color="devPrintedColor" icon="mdi-alert-circle-outline"
-                    dense flat round
-                    @click="clickDevPrinted"
                 />
 
                 <q-btn
@@ -180,16 +162,8 @@
                 />
 
                 <q-btn icon="mdi-new-box" dense flat round @click="newData" />
-                <q-btn :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'" dense flat round @click="unlock = !unlock" />
                 <q-btn icon="mdi-scale-balance" dense flat round @click="getLegality" />
                 <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
-
-                <q-btn
-                    icon="mdi-ab-testing"
-                    :color="separateKeyword ? 'primary' : 'black'"
-                    dense flat round
-                    @click="separateKeyword = !separateKeyword"
-                />
 
                 <q-btn
                     icon="mdi-card-multiple-outline"
@@ -206,20 +180,77 @@
             <table>
                 <tr>
                     <th>
-                        Oracle
-                        <q-toggle
-                            v-if="oracleUpdated"
-                            v-model="showBeforeOracle"
-                            icon="mdi-history"
-                            dense flat round
-                        />
+                        <div class="flex justify-center items-center">
+                            <span class="q-mx-sm">Oracle</span>
 
-                        <q-btn v-if="lang == 'en'" icon="mdi-menu-right" flat dense round @click="oracleOverwriteUnified" />
+                            <q-toggle
+                                v-if="oracleUpdated"
+                                v-model="showBeforeOracle"
+                                icon="mdi-history"
+                                dense flat round size="sm"
+                            />
+
+                            <q-btn
+                                v-if="lang == 'en'"
+                                icon="mdi-menu-right"
+                                dense flat round size="sm"
+                                @click="oracleOverwriteUnified"
+                            />
+
+                            <q-btn
+                                :icon="unlock ? 'mdi-lock-open' : 'mdi-lock'"
+                                dense flat round size="sm"
+                                @click="unlock = !unlock"
+                            />
+                        </div>
                     </th>
-                    <th>Unified</th>
                     <th>
-                        <q-btn icon="mdi-menu-left" flat dense round @click="printedOverwriteUnified" />
-                        Printed
+                        <div class="flex justify-center items-center">
+                            <q-btn
+                                :color="devOracleColor" icon="mdi-alpha-o-circle-outline"
+                                dense flat round size="sm"
+                                @click="clickDevOracle"
+                            />
+
+                            <span class="q-mx-sm">Unified</span>
+
+                            <q-btn
+                                icon="mdi-ab-testing"
+                                :color="separateKeyword ? 'primary' : 'black'"
+                                dense flat round size="sm"
+                                @click="separateKeyword = !separateKeyword"
+                            />
+                        </div>
+                    </th>
+                    <th>
+                        <div class="flex justify-center items-center">
+                            <q-btn
+                                :color="devPrintedColor" icon="mdi-alert-circle-outline"
+                                dense flat round size="sm"
+                                @click="clickDevPrinted"
+                            />
+
+                            <span class="q-mx-sm">Printed</span>
+
+                            <q-btn
+                                icon="mdi-menu-left"
+                                dense flat round size="sm"
+                                @click="printedOverwriteUnified"
+                            />
+
+                            <q-btn
+                                v-if="currentMultiverseId != null"
+                                icon="mdi-alpha-g-circle"
+                                dense flat round size="sm"
+                                @click="parseGatherer"
+                            />
+
+                            <q-btn
+                                icon="mdi-credit-card-scan-outline"
+                                dense flat round size="sm"
+                                @click="scanCardText"
+                            />
+                        </div>
                     </th>
                 </tr>
                 <tr>
@@ -267,8 +298,8 @@
                 <!-- eslint-disable-next-line max-len -->
                 <array-input v-model="multiverseId" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
                     <template #append>
-                        <q-btn icon="mdi-image" flat dense round @click="saveGathererImage" />
-                        <q-btn icon="mdi-magnify" flat dense round @click="loadGatherer" />
+                        <q-btn icon="mdi-image" dense flat round @click="saveGathererImage" />
+                        <q-btn icon="mdi-magnify" dense flat round @click="loadGatherer" />
                     </template>
                 </array-input>
             </div>
@@ -282,13 +313,13 @@
                     outlined dense
                 >
                     <template #append>
-                        <q-btn icon="mdi-card-plus-outline" flat dense round @click="guessToken" />
+                        <q-btn icon="mdi-card-plus-outline" dense flat round @click="guessToken" />
                     </template>
                 </q-input>
 
                 <array-input v-model="counters" class="col q-ml-sm" label="Counters" outlined dense>
                     <template #append>
-                        <q-btn icon="mdi-magnify" flat dense round @click="guessCounter" />
+                        <q-btn icon="mdi-magnify" dense flat round @click="guessCounter" />
                     </template>
                 </array-input>
             </div>
@@ -1747,6 +1778,41 @@ const loadGatherer = async () => {
     });
 
     refreshToken.value = crypto.randomUUID();
+};
+
+type ParseGatherer = {
+    name:        string;
+    typeline:    string;
+    text:        string;
+    flavorText?: string;
+};
+
+const currentMultiverseId = computed(() => {
+    if (data.value == null) {
+        return undefined;
+    }
+
+    return print.value.multiverseId[partIndex.value] ?? print.value.multiverseId[0];
+});
+
+const parseGatherer = async () => {
+    const multiverseId = currentMultiverseId.value;
+
+    if (multiverseId == null) {
+        return;
+    }
+
+    const { data: result } = await controlGet<ParseGatherer>('/magic/data/gatherer/parse-card', {
+        multiverseId,
+    });
+
+    printedName.value = result.name;
+    printedTypeline.value = result.typeline;
+    printedText.value = result.text;
+
+    if (result.flavorText != null) {
+        flavorText.value = result.flavorText;
+    }
 };
 
 const saveGathererImage = async () => {
