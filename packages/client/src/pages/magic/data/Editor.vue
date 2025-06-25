@@ -238,17 +238,19 @@
                                 @click="printedOverwriteUnified"
                             />
 
-                            <q-btn
+                            <remote-btn
                                 v-if="currentMultiverseId != null"
                                 icon="mdi-alpha-g-circle"
                                 dense flat round size="sm"
-                                @click="parseGatherer"
+                                :remote="parseGatherer"
+                                :resolve="applyParseGatherer"
                             />
 
-                            <q-btn
+                            <remote-btn
                                 icon="mdi-credit-card-scan-outline"
                                 dense flat round size="sm"
-                                @click="scanCardText"
+                                :remote="scanCardText"
+                                :resolve="applyScanCardText"
                             />
                         </div>
                     </th>
@@ -348,6 +350,7 @@ import controlSetup from 'setup/control';
 import pageSetup from 'setup/page';
 
 import ArrayInput from 'components/ArrayInput.vue';
+import RemoteBtn from 'components/RemoteBtn.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
@@ -1512,6 +1515,10 @@ const scanCardText = async () => {
         partIndex: partIndex.value,
     });
 
+    return result;
+};
+
+const applyScanCardText = (result: ScanResult) => {
     printedName.value = result.name;
     printedTypeline.value = result.typeline;
     printedText.value = result.text;
@@ -1806,8 +1813,12 @@ const parseGatherer = async () => {
         multiverseId,
     });
 
-    printedName.value = result.name;
-    printedText.value = result.text;
+    return result;
+};
+
+const applyParseGatherer = (value: ParseGatherer) => {
+    printedName.value = value.name;
+    printedText.value = value.text;
 };
 
 const saveGathererImage = async () => {
