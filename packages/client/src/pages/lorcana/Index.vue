@@ -135,6 +135,8 @@ const explained = computed(() => model.explain(searchText.value, (key: string, n
         realKey = `search.${key}`;
     }
 
+    console.log(key, named);
+
     if (named != null) {
         return i18n.t(realKey, named);
     } else {

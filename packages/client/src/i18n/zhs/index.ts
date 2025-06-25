@@ -62,7 +62,8 @@ export default {
 
     search: {
         error: {
-            'unknown-token': '未知符号',
+            'unknown-token':   '未知符号',
+            'unknown-command': '未知命令{name}',
         },
 
         separator: {

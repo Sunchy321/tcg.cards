@@ -32,8 +32,8 @@ function query(options: CostQueryOption): DBQuery {
             }
         default:
             throw new QueryError({
-                type:  'unsupported-operator',
-                value: { op: operator, qual: qualifier, param: parameter },
+                type:    'unsupported-operator',
+                payload: { op: operator, qual: qualifier, param: parameter },
             });
         }
     }

@@ -50,9 +50,11 @@ export class ClientModel {
                 text: explainText,
             };
         } catch (e) {
+            console.log(e.type, e.payload);
+
             return {
                 type: 'error',
-                text: i18n(`error.${(e as QueryError).type}`),
+                text: i18n(`error.${(e as QueryError).type}`, (e as QueryError).payload),
             };
         }
     }

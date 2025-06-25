@@ -23,7 +23,7 @@ function simpleTranslate(
     }
 
     if (!command.operators.includes(operator)) {
-        throw new QueryError({ type: 'invalid-operator' });
+        throw new QueryError({ type: 'invalid-operator', payload: { operator } });
     }
 
     if (command.post == null) {
@@ -107,8 +107,8 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
                     return new RegExp(expr.arg.slice(1, -1));
                 } catch (_e) {
                     throw new QueryError({
-                        type:  'invalid-regex',
-                        value: expr.arg.slice(1, -1),
+                        type:    'invalid-regex',
+                        payload: expr.arg.slice(1, -1),
                     });
                 }
             } else if (expr.argType === 'string') {
@@ -158,7 +158,7 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
         })();
 
         if (command == null) {
-            throw new QueryError({ type: 'unknown-command' });
+            throw new QueryError({ type: 'unknown-command', payload: { name: cmd } });
         }
 
         const operator = expr.type === 'simple' ? expr.op : '' as const;
@@ -203,7 +203,7 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
     const raw = commands.find(c => c.id === '');
 
     if (raw == null) {
-        throw new QueryError({ type: 'unknown-command' });
+        throw new QueryError({ type: 'unknown-command', payload: { name: '<raw>' } });
     }
 
     return simpleTranslate(raw, expr, {

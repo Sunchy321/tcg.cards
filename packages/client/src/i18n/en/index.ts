@@ -63,7 +63,8 @@ export default {
 
     search: {
         error: {
-            'unknown-token': 'unknown token',
+            'unknown-token':   'unknown token',
+            'unknown-command': 'unknown command {name}',
         },
 
         separator: {
