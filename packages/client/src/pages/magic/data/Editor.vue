@@ -1807,12 +1807,7 @@ const parseGatherer = async () => {
     });
 
     printedName.value = result.name;
-    printedTypeline.value = result.typeline;
     printedText.value = result.text;
-
-    if (result.flavorText != null) {
-        flavorText.value = result.flavorText;
-    }
 };
 
 const saveGathererImage = async () => {

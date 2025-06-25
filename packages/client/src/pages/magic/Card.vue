@@ -719,10 +719,6 @@ const gathererLink = computed(() => {
 });
 
 const sbwszLink = computed(() => {
-    if (lang.value != 'zhs') {
-        return null;
-    }
-
     return `https://sbwsz.com/card/${set.value}/${number.value}`;
 });
 
