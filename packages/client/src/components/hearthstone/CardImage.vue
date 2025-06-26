@@ -39,19 +39,20 @@ const props = withDefaults(
 
 const imageUrl = computed(() => {
     const { version } = props;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const locale = props.lang ?? game.locale;
     const { variant } = props;
     const { id } = props;
 
     if (props.adjustment == null) {
-        return `${assetBase}/hearthstone/card/image/${version}/${locale}/${variant}/${id}.png`;
+        return `${assetBase}/hearthstone/card/image/webp/${version}/zhs/${variant}/${id}.webp`;
     } else {
         const adjustment = [...props.adjustment]
             .sort((a, b) => (a.part < b.part ? -1 : a.part > b.part ? 1 : 0))
             .map(v => `${v.part}${v.status[0]}`)
             .join('-');
 
-        return `${assetBase}/hearthstone/card/adjusted/${version}/${locale}/${variant}/${id}-${adjustment}.png`;
+        return `${assetBase}/hearthstone/card/adjusted/webp/${version}/zhs/${variant}/${id}-${adjustment}.webp`;
     }
 });
 
