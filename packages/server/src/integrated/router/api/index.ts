@@ -4,7 +4,7 @@ import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
 import search from '@/lorcana/search';
-import { client } from '@/elastic';
+import { elastic } from '@/elastic';
 
 const router = new KoaRouter();
 
@@ -22,7 +22,7 @@ router.get('/search', async ctx => {
 });
 
 router.get('/try-search', async ctx => {
-    const result = await client.search({
+    const result = await elastic.search({
         index: '*.cards',
         query: {
             match: {
