@@ -1,0 +1,17 @@
+status:
+  format:
+    - historic
+    - timeless
+    - explorer
+    - brawl
+  value: legal
+
+patterns:
+  - Battle at the Bridge
+  - Borborygmos Enraged
+  - Encroaching Wastes
+  - Magmatic Insight
+  - Nissa's Defeat
+  - Rakdos Charm
+  - Roast
+  - Sanctum of Ugin

@@ -1,0 +1,19 @@
+status:
+  format:
+    - historic
+    - brawl
+    - timeless
+  value: legal
+
+patterns:
+  - Felothar the Steadfast
+  - Betor, Ancestor's Voice
+  - Shiko and Narset, Unified
+  - Neriv, Crackling Vanguard
+  - Teval, the Balanced Scale
+  - Kotis, Sibsig Champion
+  - Zurgo Stormrender
+  - Elsha, Threefold Master
+  - Ureni of the Unwritten
+  - Eshki, Temur's Roar
+
