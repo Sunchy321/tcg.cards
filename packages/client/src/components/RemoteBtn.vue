@@ -1,9 +1,9 @@
 <template>
-    <q-btn :loading="loading" @click="click" />
+    <q-btn :loading="loading" :color="color" @click="click" />
 </template>
 
 <script setup lang="ts" generic="T">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps<{
     remote:  () => Promise<T>;
@@ -12,14 +12,27 @@ const props = defineProps<{
 
 const loading = ref(false);
 
+const failed = ref(false);
+
+const color = computed(() => failed.value ? 'red' : undefined);
+
 const click = async () => {
     loading.value = true;
+    failed.value = false;
 
-    const data = await props.remote();
+    try {
+        const data = await props.remote();
 
-    loading.value = false;
+        loading.value = false;
+        failed.value = false;
 
-    props.resolve(data);
+        props.resolve(data);
+    } catch (e) {
+        loading.value = false;
+        failed.value = true;
+
+        throw e;
+    }
 };
 
 </script>
