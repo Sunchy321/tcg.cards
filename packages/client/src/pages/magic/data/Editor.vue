@@ -1152,10 +1152,12 @@ const defaultTextPrettifier = (text: string, lang: string, name: string) => {
     if (lang === 'zhs' || lang === 'zht') {
         if (!/[a-wyz](?![/}])/.test(text)) {
             text = text
-                .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—) (?!—|II|IV|V)/g, '')
+                .replace(/^\[[A-Z]+\].*$/mg, text => text.replace(/ /g, '<placeholder>'))
+                .replace(/(?<!•)(?<!\d-\d)(?<!\d\+)(?<!—)(?<!^\[[A-Z]+\].*) (?!—|II|IV|V)/g, '')
                 .replace(/\(/g, '（')
                 .replace(/\)/g, '）')
-                .replace(/;/g, '；');
+                .replace(/;/g, '；')
+                .replace(/<placeholder>/g, ' ');
         }
     }
 
@@ -1318,7 +1320,12 @@ const prettify = () => {
             const replacer = (nums: string) => (/\d{2}/.test(nums) ? nums : nums.split('').map(c => charMap[c] ?? c).join(''));
 
             return v
-                .replace(/(?<!K-?|ED|Vault |d\d+|\/)[-+0-9X()]+(?!\d*[}/]|.* \| )/g, replacer);
+                .replace(/(?<!K-?|ED|Vault |d\d+|\/)[-+0-9X()]+(?!\d*[}/]|.* \| )/g, replacer)
+                .replace(/^\[[A-Z]+\] .*$/gm, text => {
+                    return text.replace(/[０-９Ｘ＋－]/g, t => {
+                        return Object.keys(charMap)[Object.values(charMap).indexOf(t)];
+                    });
+                });
         };
 
         unifiedText.value = applyReplace(unifiedText.value!);

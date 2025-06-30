@@ -34,7 +34,8 @@ export default {
 
         'alchemy':  '炼金',
         'historic': '史迹',
-        'explorer': '探险',
+        'explorer': '史迹（MTGA）',
+        'timeless': 'Timeless',
 
         'standard/arena': 'MTGA标准',
 
@@ -48,6 +49,7 @@ export default {
         'pauper':               '纯普',
         'oathbreaker':          '破誓人',
         'penny':                'Penny Dreadful',
+        'canadian_highlander':  'Canadian Highlander',
         'pauper_commander':     '纯普指挥官',
         'pauper_duelcommander': '纯普指挥官1v1',
 

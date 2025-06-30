@@ -60,7 +60,7 @@
                 <span v-if="stats != null" class="other-stats">{{ stats }}</span>
             </div>
             <div class="ability auto-align" :class="effectClass" :lang="langWithMode">
-                <rich-text :symbol="textSymbolStyle">{{ text }}</rich-text>
+                <rich-text :lang="langWithMode" :symbol="textSymbolStyle">{{ text }}</rich-text>
             </div>
             <div v-if="attractionLights != null" class="attraction-lights">
                 <div

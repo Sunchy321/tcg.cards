@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { VNode, h, useAttrs } from 'vue';
+import { VNode, h, useAttrs, ref, onMounted, computed } from 'vue';
 
 import { RouterLink, useRoute } from 'vue-router';
 import { useGame } from 'store/games/magic';
@@ -13,15 +13,19 @@ import CardAvatar from './CardAvatar.vue';
 
 import { escapeRegExp } from 'lodash';
 
+const regionImports = import.meta.glob<Record<string, string>>('@data/magic/localization/region/*.yml');
+
 const props = withDefaults(defineProps<{
     symbol?:     string[];
     cards?:      { text: string, cardId: string, part?: number }[];
+    lang?:       string;
     detectUrl?:  boolean;
     detectEmph?: boolean;
     detectCr?:   boolean;
 }>(), {
     symbol:     () => [],
     cards:      () => [],
+    lang:       undefined,
     detectUrl:  false,
     detectEmph: false,
     detectCr:   false,
@@ -36,6 +40,10 @@ const slots = defineSlots<{
 const route = useRoute();
 const game = useGame();
 
+const regions = ref<Record<string, Record<string, string>>>({});
+
+const lang = computed(() => props.lang ?? game.locale);
+
 const render = () => {
     const symbolType = props.symbol ?? [];
 
@@ -49,6 +57,8 @@ const render = () => {
                 '[\\n☐]',
                 '\\{[^}]+\\}',
                 '\\[(?:0|[+-](?:[1-9][0-9]*|X))\\]',
+                '={20,}\n?',
+                '\\[[A-Z]+\\]',
                 ...[...props.cards]
                     .sort((a, b) => b.text.length - a.text.length)
                     .map(c => `\\b${escapeRegExp(c.text)}(?=s|\\b)`),
@@ -72,6 +82,26 @@ const render = () => {
                         type:  'checkbox',
                         style: 'vertical-align: middle; transform: translateY(-10%)',
                     }));
+                    continue;
+                }
+
+                if (/^={20,}\n?$/.test(p)) {
+                    result.push(h('div', { class: 'copyable-hr' }));
+
+                    continue;
+                }
+
+                if (/\[[A-Z]+\]/.test(p)) {
+                    const region = p.slice(1, -1).toLowerCase();
+
+                    const regionMap = regions.value[lang.value];
+
+                    const text = (regionMap?.[region] ?? region).toUpperCase();
+
+                    result.push(h('span', {
+                        class: `magic-text-title ${attrs.class ?? ''}`,
+                    }, `[${text}]`));
+
                     continue;
                 }
 
@@ -164,6 +194,19 @@ const render = () => {
 
     return result;
 };
+
+onMounted(async () => {
+    const result: Record<string, any> = {};
+
+    for (const path of Object.keys(regionImports)) {
+        const lang = /([a-z]+)\.yml$/.exec(path)![1];
+
+        result[lang] = await regionImports[path]();
+    }
+
+    regions.value = result;
+});
+
 </script>
 
 <style lang="sass">
@@ -173,4 +216,24 @@ const render = () => {
 
 .magic-text.emph
     font-weight: italic
+
+.magic-text-title
+    font-weight: bold
+    margin-right: 5px
+
+.copyable-hr
+    position:   relative
+    height:     1px
+    background: #ccc
+    margin:     1em 0
+    user-select: all
+
+.copyable-hr::before
+    content: '===================='
+    position: absolute
+    left: 0
+    right: 0
+    color: transparent
+    user-select: all
+    pointer-events: none
 </style>
