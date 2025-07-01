@@ -34,7 +34,7 @@ export default {
 
         'alchemy':  '炼金',
         'historic': '史迹',
-        'explorer': '史迹（MTGA）',
+        'explorer': '先驱（MTGA）',
         'timeless': 'Timeless',
 
         'standard/arena': 'MTGA标准',
