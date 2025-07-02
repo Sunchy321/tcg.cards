@@ -14,6 +14,7 @@ export default {
         tavern_spell:      'Tavern Spell',
         anomaly:           'Anomaly',
         trinket:           'Trinket',
+        pet:               'Pet',
     },
 
     race: {

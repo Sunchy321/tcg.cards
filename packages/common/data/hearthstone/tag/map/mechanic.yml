@@ -450,7 +450,7 @@
 2821: overheal
 2823: excavate_treasure
 2831: treant
-2837: always_spend_corpse
+2837: alternate_cost
 2839: emote_character
 2840: has_active_power
 2848: ?unknown_blessing_of_might
@@ -616,6 +616,7 @@
 3639: trinket_shop
 3661: battlegrounds_dont_show_pair_triple_discover_vfx
 3664: fallback_enchantment_portrait_dbid
+3674: lcu_quest
 3684: starship_piece_variant
 3692: imbue_card
 3705: battlegrounds_is_potential_trinket
@@ -641,8 +642,10 @@
 3970: young_murk_eye
 3982: knockoff_wisdomball
 4013: starship_launch_trigger
+4018: ?pet_4018
 4020: battlegrounds_start_of_game
 4021: select_minion_at_start
+4028: kindred
 4044: ?anomaly_4044
 4046: battlecruiser_upgrade
 4050: give_dark_gift
@@ -654,6 +657,7 @@
 4071: _loc_prince
 4087: hide_hero_power_in_leaderboard
 4088: hero_power_unlimited_uses
+4089: interactable_object
 4110: ursol
 4128: ?4128
 4129: ?battlegrounds_4129
@@ -667,6 +671,10 @@
 4207: tavern_spell_cost_health
 4213: smoldering
 4221: ?anomaly_4221
+4238: repeatable
+4257: uses_charges
 4290: ?forest_s_bounty
+4296: possibly_awake
 4300: peek_card
 4303: ?blood_gem_4303
+4310: quest_double_reward

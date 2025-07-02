@@ -14,6 +14,7 @@ export default {
         tavern_spell:      '酒馆法术',
         anomaly:           '畸变',
         trinket:           '饰品',
+        pet:               '宠物',
     },
 
     race: {
