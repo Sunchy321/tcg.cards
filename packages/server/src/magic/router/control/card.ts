@@ -112,7 +112,9 @@ router.post('/update', async ctx => {
     const old = await Card.findById(data._id);
 
     if (old != null) {
-        await old.replaceOne(data);
+        old.overwrite(data);
+
+        await old.save();
     } else {
         await Card.create(omit(data, ['_id', '__v']) as ICard);
     }

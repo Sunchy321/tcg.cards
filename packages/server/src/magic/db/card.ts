@@ -3,7 +3,7 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { ICardDatabase, toJSON, costWatcher, infoWatcher } from '@common/model/magic/card';
+import { ICardDatabase, toJSON, costWatcher, onSave } from '@common/model/magic/card';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
@@ -28,17 +28,18 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     parts: [{
         _id: false,
 
-        name:         { $type: String, set: infoWatcher },
-        typeline:     { $type: String, set: infoWatcher },
-        text:         { $type: String, set: infoWatcher },
+        name:     String,
+        typeline: String,
+        text:     String,
+
         localization: [{
             _id: false,
 
             lang:     String,
             lastDate: String,
-            name:     { $type: String, set: infoWatcher },
-            typeline: { $type: String, set: infoWatcher },
-            text:     { $type: String, set: infoWatcher },
+            name:     String,
+            typeline: String,
+            text:     String,
         }],
 
         cost:           { $type: [String], default: undefined, set: costWatcher },
@@ -86,6 +87,10 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
 }, {
     typeKey: '$type',
     toJSON:  { transform: toJSON },
+});
+
+CardSchema.pre('save', async function () {
+    onSave.call(this);
 });
 
 const Card = conn.model('card', CardSchema);

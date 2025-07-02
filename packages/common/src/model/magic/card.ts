@@ -14,30 +14,6 @@ export type ICardDatabase = Computed<WithUpdation<ICard>, [
         type:     Record<string, number>;
         watcher:  'costWatcher';
     },
-    {
-        source:  'parts.name';
-        watcher: 'infoWatcher';
-    },
-    {
-        source:  'parts.typeline';
-        watcher: 'infoWatcher';
-    },
-    {
-        source:  'parts.text';
-        watcher: 'infoWatcher';
-    },
-    {
-        source:  'parts.localization.name';
-        watcher: 'infoWatcher';
-    },
-    {
-        source:  'parts.localization.typeline';
-        watcher: 'infoWatcher';
-    },
-    {
-        source:  'parts.localization.text';
-        watcher: 'infoWatcher';
-    },
 ]>;
 
 export function costWatcher(newValue: string[]) {
@@ -61,7 +37,7 @@ export function costWatcher(newValue: string[]) {
     return newValue;
 }
 
-export function infoWatcher(this: ICardDatabase, newValue: any) {
+export function onSave(this: ICardDatabase) {
     this.name = this.parts.map(p => p.name).join(' // ');
     this.typeline = this.parts.map(p => p.typeline).join(' // ');
     this.text = this.parts.map(p => p.text).join(' // ');
@@ -85,7 +61,7 @@ export function infoWatcher(this: ICardDatabase, newValue: any) {
         });
     }
 
-    return newValue;
+    this.localization = localization;
 }
 
 export function toJSON(doc: any, ret: any): any {
