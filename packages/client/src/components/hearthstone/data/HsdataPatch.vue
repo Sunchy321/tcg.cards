@@ -56,7 +56,7 @@ interface Progress {
     total:   number;
 }
 
-const { controlWs } = controlSetup();
+const { controlPost, controlWs } = controlSetup();
 
 const progress = ref<Progress | null>();
 
@@ -77,26 +77,7 @@ const progressLabel = computed(() => {
 });
 
 const clearPatch = async () => {
-    const ws = controlWs('/hearthstone/hsdata/clear-patch', { version: props.number });
-
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            if (data.error != null) {
-                console.error(data);
-            } else {
-                const prog = JSON.parse(data) as Progress;
-                progress.value = prog;
-            }
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = undefined;
-            emit('load-data');
-
-            resolve(undefined);
-        };
-    });
+    await controlPost('/hearthstone/hsdata/clear-patch', { version: props.number });
 };
 
 const loadPatch = async () => {

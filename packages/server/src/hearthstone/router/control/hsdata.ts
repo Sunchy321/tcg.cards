@@ -3,9 +3,7 @@ import { Context, DefaultState } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import {
-    DataGetter, DataLoader, PatchLoader, PatchClearer,
-} from '@/hearthstone/hsdata';
+import { clearPatch, DataGetter, DataLoader, PatchLoader } from '@/hearthstone/hsdata';
 import { ImageGetter } from '@/hearthstone/hsdata/image';
 
 import { toSingle } from '@/common/request-helper';
@@ -36,36 +34,18 @@ router.get(
     },
 );
 
-const patchClearer: Record<string, PatchClearer> = { };
+router.post('/clear-patch', async ctx => {
+    const version = ctx.request.body?.version;
 
-router.get(
-    '/clear-patch',
-    websocket,
-    async ctx => {
-        const ws = await ctx.ws();
+    if (typeof version !== 'number' || Number.isNaN(version)) {
+        ctx.status = 400;
+        return;
+    }
 
-        if (ctx.query.version == null) {
-            ctx.status = 400;
-            ws.close();
-        } else {
-            const versionText = toSingle(ctx.query.version);
+    const result = await clearPatch(version);
 
-            const version = Number.parseInt(versionText ?? '', 10);
-
-            if (Number.isNaN(version)) {
-                ctx.status = 400;
-                return;
-            }
-
-            if (patchClearer[version] == null) {
-                patchClearer[version] = new PatchClearer(version);
-            }
-
-            patchClearer[version].on('end', () => delete patchClearer[version]);
-            patchClearer[version].bind(ws);
-        }
-    },
-);
+    ctx.status = result ? 200 : 400;
+});
 
 const patchLoaders: Record<string, PatchLoader> = { };
 

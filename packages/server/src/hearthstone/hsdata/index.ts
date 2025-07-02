@@ -138,65 +138,24 @@ export class DataLoader extends Task<ILoaderStatus> {
     stopImpl(): void { /* no-op */ }
 }
 
-export interface IClearPatchStatus {
-    type:    'clear-patch';
-    version: number;
-    count:   number;
-    total:   number;
-}
+export async function clearPatch(version: number) {
+    const patch = await Patch.findOne({ number: version });
 
-export class PatchClearer extends Task<IClearPatchStatus> {
-    version: number;
-
-    constructor(version: number) {
-        super();
-        this.version = version;
+    if (patch == null) {
+        return false;
     }
 
-    async startImpl(): Promise<void> {
-        if (!hasData()) {
-            return;
-        }
+    await Entity.updateMany({ version }, { $pull: { version } });
 
-        const patch = await Patch.findOne({ number: this.version });
+    await Entity.deleteMany({ version: { $size: 0 } });
 
-        if (patch == null) {
-            return;
-        }
+    patch.isUpdated = false;
 
-        let count = 0;
-        const total = await Entity.countDocuments({ version: this.version });
+    await patch.save();
 
-        this.intervalProgress(500, () => ({
-            type:    'clear-patch',
-            version: this.version,
-            count,
-            total,
-        }));
+    logger.data.info(`Patch ${version} has been removed`, { category: 'hsdata' });
 
-        const entities = await Entity.find({ version: this.version });
-
-        for (const e of entities) {
-            if (e.version.length > 1) {
-                e.version = e.version.filter(v => v !== this.version);
-                await e.save();
-            } else {
-                await e.delete();
-            }
-
-            count += 1;
-        }
-
-        count = 0;
-
-        patch.isUpdated = false;
-
-        await patch.save();
-
-        logger.data.info(`Patch ${this.version} has been removed`, { category: 'hsdata' });
-    }
-
-    stopImpl(): void { /* no-op */ }
+    return true;
 }
 
 export interface ILoadPatchStatus {
