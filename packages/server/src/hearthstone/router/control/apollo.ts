@@ -56,7 +56,7 @@ router.post('/create-patch-json', async ctx => {
                 continue;
             }
 
-            const outName = `image@${Math.min(...e.version)}@zhs@${v}@${e.cardId}`;
+            const outName = `image@png@${Math.min(...e.version)}@zhs@${v}@${e.cardId}`;
 
             const imagePath = `${path.join(assetPath, 'hearthstone', 'card', ...outName.split('@'))}.png`;
 
@@ -128,8 +128,8 @@ router.post('/create-adjustment-json', async ctx => {
 
             const variant = c.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
 
-            const oldName = `image@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`;
-            const newName = `adjusted@${c.version}@zhs@${variant}@${fullName}`;
+            const oldName = `image@png@${c.lastVersion ?? c.version}@zhs@${variant}@${id}`;
+            const newName = `adjusted@png@${c.version}@zhs@${variant}@${fullName}`;
 
             result[oldName] = {
                 ...intoApolloJson(oldEntity, tagMap, undefined, variant),
@@ -154,7 +154,7 @@ router.post('/create-adjustment-json', async ctx => {
 
             const variant = c.format === 'battlegrounds' ? 'battlegrounds' : 'normal';
 
-            const outName = `image@${c.version}@zhs@${variant}@${id}`;
+            const outName = `image@png@${c.version}@zhs@${variant}@${id}`;
 
             result[outName] = {
                 ...intoApolloJson(cardEntity, tagMap, undefined, variant),
