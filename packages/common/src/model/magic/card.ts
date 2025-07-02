@@ -40,7 +40,7 @@ export function costWatcher(newValue: string[]) {
 export function onSave(this: ICardDatabase) {
     this.name = this.parts.map(p => p.name).join(' // ');
     this.typeline = this.parts.map(p => p.typeline).join(' // ');
-    this.text = this.parts.map(p => p.text).join(' // ');
+    this.text = this.parts.map(p => p.text).join('\n////////////////////\n');
 
     const localization = [];
 
@@ -55,9 +55,9 @@ export function onSave(this: ICardDatabase) {
 
         localization.push({
             lang:     l,
-            name:     locs.map(loc => loc?.name ?? '').join('//'),
-            typeline: locs.map(loc => loc?.typeline ?? '').join('//'),
-            text:     locs.map(loc => loc?.text ?? '').join('//'),
+            name:     locs.map(loc => loc?.name ?? '').join(' // '),
+            typeline: locs.map(loc => loc?.typeline ?? '').join(' // '),
+            text:     locs.map(loc => loc?.text ?? '').join('\n////////////////////\n'),
         });
     }
 
