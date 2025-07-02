@@ -5,12 +5,38 @@ import { Ruling } from '@interface/magic/ruling';
 import { WithUpdation, defaultToJSON } from '../updation';
 import { Computed } from '../computed';
 
+import { uniq } from 'lodash';
+
 export type ICardDatabase = Computed<WithUpdation<ICard>, [
     {
         source:   'parts.cost';
         computed: '__costMap';
         type:     Record<string, number>;
         watcher:  'costWatcher';
+    },
+    {
+        source:  'parts.name';
+        watcher: 'infoWatcher';
+    },
+    {
+        source:  'parts.typeline';
+        watcher: 'infoWatcher';
+    },
+    {
+        source:  'parts.text';
+        watcher: 'infoWatcher';
+    },
+    {
+        source:  'parts.localization.name';
+        watcher: 'infoWatcher';
+    },
+    {
+        source:  'parts.localization.typeline';
+        watcher: 'infoWatcher';
+    },
+    {
+        source:  'parts.localization.text';
+        watcher: 'infoWatcher';
     },
 ]>;
 
@@ -31,6 +57,33 @@ export function costWatcher(newValue: string[]) {
     }
 
     this.__costMap = costMap;
+
+    return newValue;
+}
+
+export function infoWatcher(this: ICardDatabase, newValue: any) {
+    this.name = this.parts.map(p => p.name).join(' // ');
+    this.typeline = this.parts.map(p => p.typeline).join(' // ');
+    this.text = this.parts.map(p => p.text).join(' // ');
+
+    const localization = [];
+
+    const langs = [];
+
+    for (const p of this.parts) {
+        langs.push(...p.localization.map(l => l.lang));
+    }
+
+    for (const l of uniq(langs)) {
+        const locs = this.parts.map(p => p.localization.find(loc => loc.lang === l));
+
+        localization.push({
+            lang:     l,
+            name:     locs.map(loc => loc?.name ?? '').join('//'),
+            typeline: locs.map(loc => loc?.typeline ?? '').join('//'),
+            text:     locs.map(loc => loc?.text ?? '').join('//'),
+        });
+    }
 
     return newValue;
 }

@@ -196,6 +196,12 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
         card: {
             cardId: getId(data),
 
+            name:     cardFaces.map(f => f.name).join(' // '),
+            typeline: cardFaces.map(f => f.type_line ?? '').join(' // '),
+            text:     purifyText(cardFaces.map(f => f.oracle_text ?? '').join(' // ')),
+
+            localization: [],
+
             manaValue:     data.cmc,
             colorIdentity: convertColor(data.color_identity),
 

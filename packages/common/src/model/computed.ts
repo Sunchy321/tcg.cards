@@ -19,5 +19,10 @@ export type Computed<T, A> = A extends [infer F, ...infer R]
                 ? ApplyComputed<T, SplitPath<S>, C, V>
                 : Computed<ApplyComputed<T, SplitPath<S>, C, V>, R>
             : never
-        : never
+        : (F extends { source: infer _S }
+            ? R extends []
+                ? T
+                : Computed<T, R>
+            : never
+        )
     : never;

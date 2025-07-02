@@ -4,10 +4,10 @@ import { Model, createModelByType } from './model';
 import { last } from 'lodash';
 
 type ComputedConfig = {
-    source:   string;
-    computed: string;
-    type:     Model;
-    watcher:  string;
+    source:    string;
+    computed?: string;
+    type?:     Model;
+    watcher:   string;
 };
 
 export function parseComputed(decl: ExportedDeclarations): ComputedConfig[] | undefined {
@@ -51,20 +51,20 @@ export function parseComputed(decl: ExportedDeclarations): ComputedConfig[] | un
         const type = props.find(p => p.getName() === 'type');
         const watcher = props.find(p => p.getName() === 'watcher');
 
-        if (source == null || computed == null || type == null || watcher == null) {
+        if (source == null || watcher == null) {
             return undefined;
         }
 
         if (!source.getType().isStringLiteral()
-          || !computed.getType().isStringLiteral()
+          || (computed != null && !computed.getType().isStringLiteral())
           || !watcher.getType().isStringLiteral()) {
             return undefined;
         }
 
         result.push({
             source:   source.getType().getLiteralValue() as string,
-            computed: computed.getType().getLiteralValue() as string,
-            type:     createModelByType(type.getType(), type.getTypeNode()!),
+            computed: computed?.getType()?.getLiteralValue() as string,
+            type:     type != null ? createModelByType(type.getType(), type.getTypeNode()!) : undefined,
             watcher:  watcher.getType().getLiteralValue() as string,
         });
     }
@@ -86,13 +86,13 @@ export function applyComputed(model: Model, computed: ComputedConfig[]): Model {
             }
 
             if (ref.kind !== 'object') {
-                throw new Error(`wrong computed index: ${source}`);
+                throw new Error(`wrong computed index #1: ${source}`);
             }
 
             const item = ref.keyValues.find(kv => kv.key === p);
 
             if (item == null) {
-                throw new Error(`wrong computed index: ${source}`);
+                throw new Error(`wrong computed index #2: ${source}`);
             }
 
             ref = item.value;
@@ -103,13 +103,13 @@ export function applyComputed(model: Model, computed: ComputedConfig[]): Model {
         }
 
         if (ref.kind !== 'object') {
-            throw new Error(`wrong computed index: ${source}`);
+            throw new Error(`wrong computed index #3: ${source}`);
         }
 
         const sourceItem = ref.keyValues.find(v => v.key === last(parts));
 
         if (sourceItem == null) {
-            throw new Error(`wrong computed index: ${source}`);
+            throw new Error(`wrong computed index #4: ${source}`);
         }
 
         sourceItem.watcher = watcher;
@@ -117,13 +117,15 @@ export function applyComputed(model: Model, computed: ComputedConfig[]): Model {
         if (sourceItem.hasTrailingNewline) {
             sourceItem.hasTrailingNewline = false;
 
-            const computedItem = ref.keyValues.find(v => v.key == c.computed);
+            if (c.computed != null) {
+                const computedItem = ref.keyValues.find(v => v.key == c.computed);
 
-            if (computedItem == null) {
-                throw new Error(`wrong computed index: ${source}`);
+                if (computedItem == null) {
+                    throw new Error(`wrong computed index #5: ${source}`);
+                }
+
+                computedItem.hasTrailingNewline = true;
             }
-
-            computedItem.hasTrailingNewline = true;
         }
 
         const valueIndex: Record<string, number> = {};
@@ -132,7 +134,9 @@ export function applyComputed(model: Model, computed: ComputedConfig[]): Model {
             valueIndex[kv.key] = i;
         }
 
-        valueIndex[c.computed] = valueIndex[last(parts)!] + 0.5;
+        if (c.computed != null) {
+            valueIndex[c.computed] = valueIndex[last(parts)!] + 0.5;
+        }
 
         ref.keyValues = ref.keyValues.sort((a, b) => valueIndex[a.key] - valueIndex[b.key]);
     }

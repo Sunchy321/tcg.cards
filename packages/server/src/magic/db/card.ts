@@ -3,11 +3,24 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { ICardDatabase, toJSON, costWatcher } from '@common/model/magic/card';
+import { ICardDatabase, toJSON, costWatcher, infoWatcher } from '@common/model/magic/card';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {}, '$type'>({
     cardId: String,
+
+    name:     String,
+    typeline: String,
+    text:     String,
+
+    localization: [{
+        _id: false,
+
+        lang:     String,
+        name:     String,
+        typeline: String,
+        text:     String,
+    }],
 
     manaValue:     Number,
     colorIdentity: String,
@@ -15,18 +28,17 @@ const CardSchema = new Schema<ICardDatabase, Model<ICardDatabase>, {}, {}, {}, {
     parts: [{
         _id: false,
 
-        name:     String,
-        typeline: String,
-        text:     String,
-
+        name:         { $type: String, set: infoWatcher },
+        typeline:     { $type: String, set: infoWatcher },
+        text:         { $type: String, set: infoWatcher },
         localization: [{
             _id: false,
 
             lang:     String,
             lastDate: String,
-            name:     String,
-            typeline: String,
-            text:     String,
+            name:     { $type: String, set: infoWatcher },
+            typeline: { $type: String, set: infoWatcher },
+            text:     { $type: String, set: infoWatcher },
         }],
 
         cost:           { $type: [String], default: undefined, set: costWatcher },

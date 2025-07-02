@@ -196,6 +196,12 @@ router.get('/print-view', async ctx => {
         set:    print.set,
         number: print.number,
 
+        name:     card.name,
+        typeline: card.typeline,
+        text:     card.text,
+
+        localization: card.localization,
+
         manaValue:     card.manaValue,
         colorIdentity: card.colorIdentity,
 
