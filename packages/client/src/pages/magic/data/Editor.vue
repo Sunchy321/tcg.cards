@@ -242,8 +242,16 @@
                                 v-if="currentMultiverseId != null"
                                 icon="mdi-alpha-g-circle"
                                 dense flat round size="sm"
-                                :remote="parseGatherer"
+                                :remote="parseGathererDefault"
                                 :resolve="applyParseGatherer"
+                            />
+
+                            <remote-btn
+                                v-if="cloningTextEnabled"
+                                icon="mdi-magnify"
+                                dense flat round size="sm"
+                                :remote="getCloningSourceText"
+                                :resolve="applyCloningSourceText"
                             />
 
                             <remote-btn
@@ -1809,23 +1817,115 @@ const currentMultiverseId = computed(() => {
     return print.value.multiverseId[partIndex.value] ?? print.value.multiverseId[0];
 });
 
-const parseGatherer = async () => {
+const parseGatherer = async (mid: number) => {
+    const { data: result } = await controlGet<ParseGatherer>('/magic/data/gatherer/parse-card', {
+        multiverseId: mid,
+    });
+
+    return result;
+};
+
+const parseGathererDefault = async () => {
     const multiverseId = currentMultiverseId.value;
 
     if (multiverseId == null) {
         return;
     }
 
-    const { data: result } = await controlGet<ParseGatherer>('/magic/data/gatherer/parse-card', {
-        multiverseId,
-    });
-
-    return result;
+    return parseGatherer(multiverseId);
 };
 
 const applyParseGatherer = (value: ParseGatherer) => {
     printedName.value = value.name;
     printedText.value = value.text;
+};
+
+const promoWithoutBaseSet = [
+    'pmei', 'parl', 'psus', 'p2hg', 'plst', 'pidw', 'past', 'pdci', 'ppro',
+];
+
+const getOriginalInfo = (set: string, number: string) => {
+    if (set === 'plst' && number.split('-').length === 2) {
+        const [newSet, newNumber] = number.split('-');
+
+        return { set: newSet.toLowerCase(), number: newNumber };
+    }
+
+    if (set.length === 4 && set.startsWith('p') && !promoWithoutBaseSet.includes(set)) {
+        return { set: set.slice(1), number: number.replace(/[ps]$/, '') };
+    }
+
+    if (['cei', 'ced'].includes(set)) {
+        return { set: 'leb', number };
+    }
+};
+
+const cloningTextEnabled = computed(() => {
+    if (data.value == null) {
+        return false;
+    }
+
+    const { set, number } = print.value;
+
+    return getOriginalInfo(set, number) != null;
+});
+
+type ParsePlst = {
+    name:      string;
+    typeline?: string;
+    text:      string;
+};
+
+const getCloningSourceText = async () => {
+    if (data.value == null) {
+        return;
+    }
+
+    const info = getOriginalInfo(print.value.set, print.value.number);
+
+    if (info == null) {
+        return;
+    }
+
+    const { set, number } = info;
+
+    const { data: origData } = await controlGet<CardEditorView>('/magic/card/raw', {
+        id:   id.value,
+        lang: 'en',
+        set,
+        number,
+    });
+
+    if (!origData.print.tags.includes('dev:printed')) {
+        return {
+            name:     origData.print.parts[partIndex.value].name,
+            typeline: origData.print.parts[partIndex.value].typeline,
+            text:     origData.print.parts[partIndex.value].text,
+        };
+    }
+
+    const mid = origData.print.multiverseId[partIndex.value];
+
+    if (mid == null) {
+        return undefined;
+    }
+
+    const gathererResult = await parseGatherer(mid);
+
+    return {
+        name: gathererResult.name,
+        text: gathererResult.text,
+    };
+};
+
+const applyCloningSourceText = (result: ParsePlst) => {
+    printedName.value = result.name;
+
+    if (result.typeline != null) {
+        printedTypeline.value = result.typeline;
+    }
+
+    printedText.value = result.text;
 };
 
 const saveGathererImage = async () => {

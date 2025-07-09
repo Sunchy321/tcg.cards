@@ -188,7 +188,7 @@ export default defineComponent({
             }
         };
 
-        const nameOf = (localization: Record<string, SetLocalization>) => localization[magic.locale]?.name
+        const nameOf = (localization: Record<string, SetLocalization>) => localization[game.locale]?.name
           ?? localization[game.locales[0]]?.name;
 
         const iconUrl = (set: string, type: string, parent?: string) => {

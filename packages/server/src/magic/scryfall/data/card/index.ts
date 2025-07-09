@@ -209,6 +209,11 @@ export default class CardLoader extends Task<Status> {
                     continue;
                 }
 
+                if (print.releaseDate < '2020') {
+                    print.tags.push('dev:printed');
+                    continue;
+                }
+
                 if (print.set === 'plst' || print.set === 'pagl') {
                     print.tags.push('dev:printed');
                     continue;

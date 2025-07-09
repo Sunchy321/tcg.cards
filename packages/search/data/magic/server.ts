@@ -13,7 +13,7 @@ import { IPrintDatabase } from '@common/model/magic/print';
 import * as builtin from '../../src/command/builtin/server';
 import * as magic from './command/server';
 
-import { isEmpty, mapKeys, pickBy } from 'lodash';
+import { isEmpty, last, mapKeys, pickBy } from 'lodash';
 import { toIdentifier } from '@common/util/id';
 
 import { commands } from './index';
@@ -407,44 +407,47 @@ const order = defineServerCommand({
     query() {},
     phase:   'order',
     post:    ({ parameter }) => {
-        parameter = parameter.toLowerCase();
-
-        const [type, dir] = ((): [string, -1 | 1] => {
-            if (parameter.endsWith('+')) {
-                return [parameter.slice(0, -1), 1];
+        const parts = parameter.toLowerCase().split(',').map(v => {
+            if (v.endsWith('+')) {
+                return { type: v.slice(0, -1), dir: 1 as const };
             }
 
-            if (parameter.endsWith('-')) {
-                return [parameter.slice(0, -1), -1];
+            if (v.endsWith('-')) {
+                return { type: v.slice(0, -1), dir: -1 as const };
             }
 
-            return [parameter, 1];
-        })();
+            return { type: v, dir: 1 as const };
+        });
 
-        return agg => {
+        const sorter: Record<string, 1 | -1> = {};
+
+        for (const { type, dir } of parts) {
             switch (type) {
             case 'name':
-                agg.sort({ 'card.parts.name': dir });
+                sorter['card.name'] = dir;
                 break;
             case 'set':
             case 'number':
-                agg.sort({ 'print.set': 1, 'print.number': 1 });
+                sorter['print.set'] = dir;
+                sorter['print.number'] = dir;
                 break;
             case 'date':
-                agg.sort({ 'print.releaseDate': dir });
+                sorter['print.releaseDate'] = dir;
                 break;
             case 'id':
-                agg.sort({ 'card.cardId': dir });
+                sorter['card.cardId'] = dir;
                 break;
             case 'cmc':
             case 'mv':
             case 'cost':
-                agg.sort({ 'card.manaValue': dir });
+                sorter['card.manaValue'] = dir;
                 break;
             default:
                 throw new QueryError({ type: 'invalid-query' });
             }
-        };
+        }
+
+        return agg => agg.sort(sorter);
     },
 });
 
@@ -606,7 +609,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
 
             const countElapsed = Date.now() - start;
 
-            const orderAction = p.find(v => v.phase === 'order');
+            const orderAction = last(p.filter(v => v.phase === 'order'));
 
             if (orderAction != null) {
                 orderAction.action(aggregate);
@@ -674,7 +677,7 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                     .group({ _id: null, count: { $sum: 1 } })
             )[0]?.count ?? 0;
 
-            const cards = await fullGen<ServerModel>()
+            const aggregate = fullGen<ServerModel>()
                 .replaceRoot({ card: '$__card', print: '$__print' })
                 .lookup({
                     from: 'card_relations',
@@ -695,9 +698,19 @@ export default defineServerModel<ServerActions, Model<ICardDatabase>>({
                         },
                     ],
                     as: 'relatedCards',
-                })
-                .sort({ 'print.releaseDate': -1, 'card.cardId': 1 })
-                .limit(o.sample);
+                });
+
+            const orderAction = last(p.filter(v => v.phase === 'order'));
+
+            if (orderAction != null) {
+                orderAction.action(aggregate);
+            } else {
+                order.post!({ parameter: 'date-,id+', operator: ':', qualifier: [] })(aggregate);
+            }
+
+            aggregate.limit(o.sample);
+
+            const cards = await aggregate;
 
             return {
                 cards,
