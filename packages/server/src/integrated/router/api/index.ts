@@ -4,7 +4,6 @@ import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
 
 import search from '@/lorcana/search';
-import { elastic } from '@/elastic';
 
 const router = new KoaRouter();
 
@@ -19,19 +18,6 @@ router.get('/search', async ctx => {
     }
 
     ctx.body = await search.search('search', q, mapValues(ctx.query, toSingle));
-});
-
-router.get('/try-search', async ctx => {
-    const result = await elastic.search({
-        index: '*.cards',
-        query: {
-            match: {
-                'parts.localization.name': '野兽',
-            },
-        },
-    });
-
-    ctx.body = result;
 });
 
 export default router;

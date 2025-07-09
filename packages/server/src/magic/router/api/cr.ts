@@ -4,8 +4,6 @@ import { DefaultState, Context } from 'koa';
 import CR from '@/magic/db/cr';
 import { CR as ICR, Content, Glossary } from '@interface/magic/cr';
 
-import { elastic } from '@/elastic';
-
 import { isEqual, mapValues, zip } from 'lodash';
 import { diffThreeString } from '@common/util/diff';
 import { toSingle } from '@/common/request-helper';
@@ -142,44 +140,6 @@ router.get('/history', async ctx => {
 
         ctx.body = { type: 'content', id, result };
     }
-});
-
-router.get('/search', async ctx => {
-    const { date, text } = mapValues(ctx.query, toSingle);
-
-    const result = await elastic.search({
-        index: 'magic.crs',
-        query: {
-            bool: {
-                must: [
-                    {
-                        term: {
-                            date,
-                        },
-                    },
-                    {
-                        simple_query_string: {
-                            query: text,
-                        },
-                    },
-                ],
-            },
-        },
-        highlight: {
-            fields: {
-                'contents.text': {
-                    fragment_size:       200,
-                    number_of_fragments: 3,
-                },
-                'glossary.text': {
-                    fragment_size:       200,
-                    number_of_fragments: 3,
-                },
-            },
-        },
-    });
-
-    ctx.body = result;
 });
 
 export default router;
