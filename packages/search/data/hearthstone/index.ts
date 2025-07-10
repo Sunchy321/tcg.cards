@@ -7,16 +7,16 @@ import * as builtin from '../../src/command/builtin';
 
 const raw = defineCommand({ id: '', operators: [''] });
 
-const stats = defineCommand({
-    id:         'stats',
-    pattern:    '{{attack}}/{{health}}' as const,
+const fullStats = defineCommand({
+    id:         'full-stats',
+    pattern:    '{{cost}}/{{attack}}/{{health}}' as const,
     operators:  [':', '', '='],
     qualifiers: defaultQualifier,
 });
 
-const fullStats = defineCommand({
-    id:         'full-stats',
-    pattern:    '{{cost}}/{{attack}}/{{health}}' as const,
+const stats = defineCommand({
+    id:         'stats',
+    pattern:    '{{attack}}/{{health}}' as const,
     operators:  [':', '', '='],
     qualifiers: defaultQualifier,
 });
@@ -78,8 +78,8 @@ const order = defineCommand({
 
 export const commands = {
     raw,
-    stats,
     fullStats,
+    stats,
     hash,
     name,
     text,

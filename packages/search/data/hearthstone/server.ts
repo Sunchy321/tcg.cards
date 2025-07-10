@@ -37,6 +37,74 @@ const raw = defineServerCommand({
     }),
 });
 
+const fullStats = defineServerCommand({
+    command: commands.fullStats,
+
+    query({ pattern, operator, qualifier }) {
+        if (pattern == null) {
+            throw new QueryError({ type: 'invalid-query' });
+        }
+
+        if (operator === '' || operator === ':') {
+            operator = '=';
+        }
+
+        const { cost, attack, health } = pattern;
+
+        if (qualifier?.includes('!')) {
+            return {
+                $or: [
+                    builtin.number.query({
+                        key:       'cost',
+                        parameter: cost,
+                        operator:  operator ?? '=',
+                        qualifier,
+                        meta:      { allowFloat: false },
+                    }),
+                    builtin.number.query({
+                        key:       'attack',
+                        parameter: attack,
+                        operator:  operator ?? '=',
+                        qualifier,
+                        meta:      { allowFloat: false },
+                    }),
+                    builtin.number.query({
+                        key:       'health',
+                        parameter: health,
+                        operator:  operator ?? '=',
+                        qualifier,
+                        meta:      { allowFloat: false },
+                    }),
+                ],
+            };
+        } else {
+            return {
+                ...builtin.number.query({
+                    key:       'cost',
+                    parameter: cost,
+                    operator:  operator ?? '=',
+                    qualifier,
+                    meta:      { allowFloat: false },
+                }),
+                ...builtin.number.query({
+                    key:       'attack',
+                    parameter: attack,
+                    operator:  operator ?? '=',
+                    qualifier,
+                    meta:      { allowFloat: false },
+                }),
+                ...builtin.number.query({
+                    key:       'health',
+                    parameter: health,
+                    operator:  operator ?? '=',
+                    qualifier,
+                    meta:      { allowFloat: false },
+                }),
+            };
+        }
+    },
+});
+
 const stats = defineServerCommand({
     command: commands.stats,
 
@@ -72,74 +140,6 @@ const stats = defineServerCommand({
             };
         } else {
             return {
-                ...builtin.number.query({
-                    key:       'attack',
-                    parameter: attack,
-                    operator:  operator ?? '=',
-                    qualifier,
-                    meta:      { allowFloat: false },
-                }),
-                ...builtin.number.query({
-                    key:       'health',
-                    parameter: health,
-                    operator:  operator ?? '=',
-                    qualifier,
-                    meta:      { allowFloat: false },
-                }),
-            };
-        }
-    },
-});
-
-const fullStats = defineServerCommand({
-    command: commands.fullStats,
-
-    query({ pattern, operator, qualifier }) {
-        if (pattern == null) {
-            throw new QueryError({ type: 'invalid-query' });
-        }
-
-        if (operator === '' || operator === ':') {
-            operator = '=';
-        }
-
-        const { attack, health } = pattern;
-
-        if (qualifier?.includes('!')) {
-            return {
-                $or: [
-                    builtin.number.query({
-                        key:       'cost',
-                        parameter: attack,
-                        operator:  operator ?? '=',
-                        qualifier,
-                        meta:      { allowFloat: false },
-                    }),
-                    builtin.number.query({
-                        key:       'attack',
-                        parameter: attack,
-                        operator:  operator ?? '=',
-                        qualifier,
-                        meta:      { allowFloat: false },
-                    }),
-                    builtin.number.query({
-                        key:       'health',
-                        parameter: health,
-                        operator:  operator ?? '=',
-                        qualifier,
-                        meta:      { allowFloat: false },
-                    }),
-                ],
-            };
-        } else {
-            return {
-                ...builtin.number.query({
-                    key:       'attack',
-                    parameter: attack,
-                    operator:  operator ?? '=',
-                    qualifier,
-                    meta:      { allowFloat: false },
-                }),
                 ...builtin.number.query({
                     key:       'attack',
                     parameter: attack,
@@ -260,8 +260,8 @@ const order = defineServerCommand({
 
 const backedCommands: Record<string, CommonServerCommand> = {
     raw,
-    stats,
     fullStats,
+    stats,
     hash,
     name,
     text,

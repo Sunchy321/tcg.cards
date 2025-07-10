@@ -1,13 +1,7 @@
 import { defineClientModel } from '../../src/model/client';
 import { defineClientCommand, CommonClientCommand } from '../../src/command/client';
 
-import * as builtin from '../../src/command/builtin/client';
-
 import model, { commands } from './index';
-
-import { defaultTranslate } from '../../src/model/client/translate';
-
-import { textMap } from '../../src/command/builtin/text/client';
 
 const raw = defineClientCommand({
     command: commands.raw,
@@ -20,17 +14,17 @@ const raw = defineClientCommand({
     },
 });
 
-const stats = defineClientCommand({
-    command: commands.stats,
-    explain({ pattern: { attack, health } }, i18n) {
-        return i18n('$.full-command.stats', { attack, health });
-    },
-});
-
 const fullStats = defineClientCommand({
     command: commands.fullStats,
     explain({ pattern: { cost, attack, health } }, i18n) {
         return i18n('$.full-command.full-stats', { cost, attack, health });
+    },
+});
+
+const stats = defineClientCommand({
+    command: commands.stats,
+    explain({ pattern: { attack, health } }, i18n) {
+        return i18n('$.full-command.stats', { attack, health });
     },
 });
 
@@ -72,8 +66,8 @@ const artist = defineClientCommand(commands.artist);
 
 const clientCommands: Record<string, CommonClientCommand> = {
     raw,
-    stats,
     fullStats,
+    stats,
     hash,
     name,
     text,

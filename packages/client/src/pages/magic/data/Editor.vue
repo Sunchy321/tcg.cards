@@ -1841,7 +1841,7 @@ const applyParseGatherer = (value: ParseGatherer) => {
 };
 
 const promoWithoutBaseSet = [
-    'pmei', 'parl', 'psus', 'p2hg', 'plst', 'pidw', 'past', 'pdci', 'ppro',
+    'pmei', 'parl', 'psus', 'p2hg', 'plst', 'pidw', 'past', 'pdci', 'ppro', 'pcel',
 ];
 
 const getOriginalInfo = (set: string, number: string) => {
