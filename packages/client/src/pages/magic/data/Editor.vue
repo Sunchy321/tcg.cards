@@ -1841,7 +1841,7 @@ const applyParseGatherer = (value: ParseGatherer) => {
 };
 
 const promoWithoutBaseSet = [
-    'pmei', 'parl', 'psus', 'p2hg', 'plst', 'pidw', 'past', 'pdci', 'ppro', 'pcel',
+    'pmei', 'parl', 'psus', 'p2hg', 'plst', 'pidw', 'past', 'pdci', 'ppro', 'pcel', 'pgpx',
 ];
 
 const getOriginalInfo = (set: string, number: string) => {
@@ -1852,7 +1852,7 @@ const getOriginalInfo = (set: string, number: string) => {
     }
 
     if (set.length === 4 && set.startsWith('p') && !promoWithoutBaseSet.includes(set)) {
-        return { set: set.slice(1), number: number.replace(/[ps]$/, '') };
+        return { set: set.slice(1), number: number.replace(/[ps★]$/, '') };
     }
 
     if (['cei', 'ced'].includes(set)) {
