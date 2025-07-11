@@ -283,6 +283,7 @@ const backedCommands: Record<string, CommonServerCommand> = {
     mercenaryFaction,
     rarity,
     artist,
+    order,
 };
 
 function parseOption(optionText: string | undefined, defaultValue: number): number {

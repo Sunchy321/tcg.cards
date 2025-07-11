@@ -1,6 +1,8 @@
 import { defineClientModel } from '../../src/model/client';
 import { defineClientCommand, CommonClientCommand } from '../../src/command/client';
 
+import * as builtin from '../../src/command/builtin/client';
+
 import model, { commands } from './index';
 
 const raw = defineClientCommand({
@@ -61,8 +63,46 @@ const raceBucket = defineClientCommand(commands.raceBucket);
 const mercenaryRole = defineClientCommand(commands.mercenaryRole);
 const mercenaryFaction = defineClientCommand(commands.mercenaryFaction);
 
-const rarity = defineClientCommand(commands.rarity);
+const rarity = builtin.simple(commands.rarity, { map: true });
 const artist = defineClientCommand(commands.artist);
+
+const order = defineClientCommand({
+    command: commands.order,
+    explain({ parameter }, i18n) {
+        parameter = parameter.toLowerCase();
+
+        const [type, dir] = ((): [string, -1 | 0 | 1] => {
+            if (parameter.endsWith('+')) {
+                return [parameter.slice(0, -1), 1];
+            }
+
+            if (parameter.endsWith('-')) {
+                return [parameter.slice(0, -1), -1];
+            }
+
+            return [parameter, 0];
+        })();
+
+        const realType = (() => {
+            switch (type) {
+            case 'name':
+                return 'name';
+            case 'date':
+                return 'date';
+            case 'id':
+                return 'id';
+            case 'cost':
+                return 'cost';
+            default:
+                return type;
+            }
+        })();
+
+        const commandKey = dir === 0 ? 'order' : dir === 1 ? 'order-ascending' : 'order-descending';
+
+        return i18n(`$.full-command.${commandKey}`, { parameter: i18n(`$.parameter.order.${realType}`) });
+    },
+});
 
 const clientCommands: Record<string, CommonClientCommand> = {
     raw,
@@ -89,6 +129,7 @@ const clientCommands: Record<string, CommonClientCommand> = {
     mercenaryFaction,
     rarity,
     artist,
+    order,
 };
 
 export default defineClientModel({

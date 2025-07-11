@@ -18,16 +18,25 @@ export default {
         'spell-school': 'spell school',
         'attack':       'attack',
         'health':       'health',
+        'text':         'text',
+        'rarity':       'rarity',
         'format':       'format',
         'order':        'order',
     },
 
     'parameter': {
+        rarity: {
+            common:    'common',
+            rare:      'rare',
+            epic:      'epic',
+            legendary: ' legendary',
+        },
+
         order: {
             name: 'name',
             date: 'release date',
             id:   'card id',
-            cost: 'mana value',
+            cost: 'mana cost',
         },
     },
 };

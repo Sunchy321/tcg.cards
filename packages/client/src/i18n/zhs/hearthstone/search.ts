@@ -18,16 +18,25 @@ export default {
         'spell-school': '法术派系',
         'attack':       '攻击力',
         'health':       '生命值',
+        'text':         '文本',
+        'rarity':       '稀有度',
         'format':       '赛制',
         'order':        '顺序',
     },
 
     'parameter': {
+        rarity: {
+            common:    '普通',
+            rare:      '稀有',
+            epic:      '史诗',
+            legendary: '传说',
+        },
+
         order: {
             name: '名称',
             date: '发售日期',
             id:   '卡牌ID',
-            cost: '法术力值',
+            cost: '法力费用',
         },
     },
 };
