@@ -83,15 +83,26 @@ import { ref, computed, watch } from 'vue';
 
 import { assetBase } from 'boot/server';
 
-const props = defineProps<{
-    lang?:         string;
-    set?:          string;
-    number?:       string;
-    part?:         number;
-    layout?:       string;
-    rotate?:       boolean | null;
-    refreshToken?: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        lang?:         string;
+        set?:          string;
+        number?:       string;
+        part?:         number;
+        layout?:       string;
+        rotate?:       boolean | null;
+        refreshToken?: string;
+    }>(),
+    {
+        lang:         undefined,
+        set:          undefined,
+        number:       undefined,
+        part:         undefined,
+        layout:       undefined,
+        rotate:       undefined,
+        refreshToken: undefined,
+    },
+);
 
 const emit = defineEmits<{
     'update:part':   [newPart: number];

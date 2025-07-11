@@ -1858,6 +1858,10 @@ const getOriginalInfo = (set: string, number: string) => {
     if (['cei', 'ced'].includes(set)) {
         return { set: 'leb', number };
     }
+
+    if (number.endsWith('★')) {
+        return { set, number: number.replace(/★$/, '') };
+    }
 };
 
 const cloningTextEnabled = computed(() => {
