@@ -1,5 +1,7 @@
 <template>
-    <q-btn :loading="loading" :color="color" @click="click" />
+    <q-btn :loading="loading" :color="color" @click="click">
+        <slot />
+    </q-btn>
 </template>
 
 <script setup lang="ts" generic="T">

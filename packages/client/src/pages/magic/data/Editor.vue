@@ -244,7 +244,16 @@
                                 dense flat round size="sm"
                                 :remote="parseGathererDefault"
                                 :resolve="applyParseGatherer"
-                            />
+                            >
+                                <q-menu
+                                    touch-position
+                                    context-menu
+                                >
+                                    <q-btn-group size="sm">
+                                        <q-btn size="sm" icon="mdi-lock" flat dense />
+                                    </q-btn-group>
+                                </q-menu>
+                            </remote-btn>
 
                             <remote-btn
                                 v-if="cloningTextEnabled"
@@ -1841,7 +1850,9 @@ const applyParseGatherer = (value: ParseGatherer) => {
 };
 
 const promoWithoutBaseSet = [
-    'pmei', 'parl', 'psus', 'p2hg', 'plst', 'pidw', 'past', 'pdci', 'ppro', 'pcel', 'pgpx',
+    'pmei', 'parl', 'psus', 'p2hg', 'plst',
+    'pidw', 'past', 'pdci', 'ppro', 'pcel',
+    'pgpx', 'pwcq', 'pxtc',
 ];
 
 const getOriginalInfo = (set: string, number: string) => {
@@ -1852,7 +1863,7 @@ const getOriginalInfo = (set: string, number: string) => {
     }
 
     if (set.length === 4 && set.startsWith('p') && !promoWithoutBaseSet.includes(set)) {
-        return { set: set.slice(1), number: number.replace(/[ps★]$/, '') };
+        return { set: set.slice(1), number: number.replace(/[aps★]$/, '') };
     }
 
     if (['cei', 'ced'].includes(set)) {
