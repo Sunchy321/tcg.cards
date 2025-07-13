@@ -39,9 +39,8 @@ import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { useTitle } from 'store/core';
 import { useGame } from 'store/games/magic';
-
-import pageSetup from 'setup/page';
 
 import BoosterAvatar from './BoosterAvatar.vue';
 import CardImageAvatar from 'components/magic/CardImageAvatar.vue';
@@ -77,9 +76,7 @@ const setName = computed(() => {
 
 const name = computed(() => i18n.t(`magic.set.booster.name.${boosterId.value}`));
 
-pageSetup({
-    title: () => setName.value ?? setId.value,
-});
+useTitle(() => setName.value ?? setId.value);
 
 const packs = computed(() => booster.value?.packs ?? []);
 

@@ -244,10 +244,10 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
+import { useParam } from 'store/core';
 import { useGame } from 'store/games/ptcg';
 
 import controlSetup from 'setup/control';
-import pageSetup from 'setup/page';
 
 import CardImage from 'components/ptcg/CardImage.vue';
 import CardAvatar from 'components/ptcg/CardAvatar.vue';
@@ -286,90 +286,82 @@ const unlock = ref(false);
 
 const locales = computed(() => ['', ...game.locales]);
 
-const {
-    locale,
-    sp: sample,
-    fp: forcePrettify,
-    fb: filterBy,
-    sk: separateKeyword,
-    ru: replaceUnified,
-    rp: replacePrinted,
-    rf: replaceFrom,
-    rt: replaceTo,
-    aa: autoAssign,
-    cp: clearDevPrinted,
-} = pageSetup({
-    params: {
-        locale: {
-            type:    'enum',
-            bind:    'query',
-            values:  locales,
-            default: '',
-        },
+const locale = useParam('locale', {
+    type:    'enum',
+    bind:    'query',
+    values:  locales,
+    default: '',
+});
 
-        sp: {
-            type:    'boolean',
-            bind:    'query',
-            default: true,
-        },
+const sample = useParam('sample', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'sp',
+    default: true,
+});
 
-        fb: {
-            type:    'enum',
-            bind:    'query',
-            values:  ['none', 'lang', 'card'],
-            default: 'none',
-        },
+const forcePrettify = useParam('forcePrettify', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'fp',
+    default: false,
+});
 
-        fp: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const filterBy = useParam('filterBy', {
+    type:    'enum',
+    bind:    'query',
+    name:    'fb',
+    values:  ['none', 'lang', 'card'],
+    default: 'none',
+});
 
-        sk: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const separateKeyword = useParam('separateKeyword', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'sk',
+    default: false,
+});
 
-        ru: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const replaceUnified = useParam('replaceUnified', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'ru',
+    default: false,
+});
 
-        rp: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const replacePrinted = useParam('replacePrinted', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'rp',
+    default: false,
+});
 
-        rf: {
-            type:    'string',
-            bind:    'query',
-            default: '',
-        },
+const replaceFrom = useParam('replaceFrom', {
+    type:    'string',
+    bind:    'query',
+    name:    'rf',
+    default: '',
+});
 
-        rt: {
-            type:    'string',
-            bind:    'query',
-            default: '',
-        },
+const replaceTo = useParam('replaceTo', {
+    type:    'string',
+    bind:    'query',
+    name:    'rt',
+    default: '',
+});
 
-        aa: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const autoAssign = useParam('autoAssign', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'aa',
+    default: false,
+});
 
-        cp: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
-    },
-
-    appendParam: true,
+const clearDevPrinted = useParam('clearDevPrinted', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'cp',
+    default: false,
 });
 
 const search = computed({

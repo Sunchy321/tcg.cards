@@ -1,5 +1,7 @@
 import { Ref, ref } from 'vue';
 
+import { useCore } from './index';
+
 export type FilePopup = {
     type:    'file';
     url:     string;
@@ -20,7 +22,7 @@ export interface ActionInfo {
     payload?:  any;
 }
 
-export default function useAction(): {
+export function setupAction(): {
     actions:      Ref<Action[]>;
     invokeAction: (actionInfo: ActionInfo) => void;
 } {
@@ -49,4 +51,10 @@ export default function useAction(): {
     };
 
     return { actions, invokeAction };
+}
+
+export function useAction(actions: Action[]) {
+    const core = useCore();
+
+    core.actions = actions;
 }

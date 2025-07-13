@@ -26,10 +26,9 @@ import { defineComponent, ref, computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
-import { useCore } from 'store/core';
+import { useCore, useTitle } from 'store/core';
 
 import basicSetup from 'setup/basic';
-import pageSetup from 'setup/page';
 
 import UserLogin from 'components/setting/Login.vue';
 import UserProfile from 'components/setting/Profile.vue';
@@ -55,9 +54,7 @@ export default defineComponent({
 
         const { user } = basicSetup();
 
-        pageSetup({
-            title: () => i18n.t('setting.$self'),
-        });
+        useTitle(() => i18n.t('setting.$self'));
 
         const drawerOpen = ref(false);
 

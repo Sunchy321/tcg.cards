@@ -124,256 +124,219 @@
     </q-page>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import type { Ref } from 'vue';
-import { defineComponent, ref } from 'vue';
-
-import pageSetup from 'setup/page';
+import { ref } from 'vue';
 
 import { useRouter } from 'vue-router';
-import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
+import { useGame } from 'store/games/magic';
+import { useTitle } from 'store/core';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
 
 type SelectType = 'at-most' | 'exact' | 'include';
 
-export default defineComponent({
-    components: { MagicSymbol },
+const router = useRouter();
+const game = useGame();
+const i18n = useI18n();
 
-    setup() {
-        const router = useRouter();
-        const game = useGame();
-        const i18n = useI18n();
+useTitle(() => i18n.t('magic.ui.advanced-search.$self'));
 
-        pageSetup({
-            title: () => i18n.t('magic.ui.advanced-search.$self'),
+const selectOptions = ['include', 'exact', 'at-most'].map(v => ({
+    value: v,
+    label: i18n.t(`magic.ui.advanced-search.color-option.${v}`),
+}));
+
+const name = ref('');
+const cost = ref<string[]>([]);
+const types = ref<{ include: boolean, value: string }[]>([]);
+const text = ref('');
+
+const costType = ref<SelectType>('include');
+const costInput = ref('');
+
+const newCost = () => {
+    if (costInput.value !== '') {
+        const values = costInput.value
+            .toUpperCase()
+            .split(/\{([^{}]*)\}|(\d{2,})|(.(?:\/.)?)/)
+            .filter(v => v !== '' && v != null);
+
+        const valuesInSymbol = values.filter(v => game.symbols.includes(v));
+
+        if (valuesInSymbol.length > 0) {
+            cost.value.push(...valuesInSymbol);
+
+            costInput.value = '';
+        }
+    }
+};
+
+const removeCost = (index: number) => cost.value.splice(index, 1);
+
+const typeInput = ref('');
+
+const newType = () => {
+    if (typeInput.value !== '') {
+        types.value.push({
+            include: true,
+            value:   typeInput.value,
         });
 
-        const selectOptions = ['include', 'exact', 'at-most'].map(v => ({
-            value: v,
-            label: i18n.t(`magic.ui.advanced-search.color-option.${v}`),
-        }));
+        typeInput.value = '';
+    }
+};
 
-        const name = ref('');
-        const cost = ref<string[]>([]);
-        const types = ref<{ include: boolean, value: string }[]>([]);
-        const text = ref('');
+const typeIcon = (index: number) => {
+    if (types.value[index].include) {
+        return 'mdi-check';
+    } else {
+        return 'mdi-close';
+    }
+};
 
-        const costType = ref<SelectType>('include');
-        const costInput = ref('');
+const removeType = (index: number) => types.value.splice(index, 1);
 
-        const newCost = () => {
-            if (costInput.value !== '') {
-                const values = costInput.value
-                    .toUpperCase()
-                    .split(/\{([^{}]*)\}|(\d{2,})|(.(?:\/.)?)/)
-                    .filter(v => v !== '' && v != null);
+const switchType = (index: number) => {
+    if (types.value[index] != null) {
+        types.value[index].include = !types.value[index].include;
+    }
+};
 
-                const valuesInSymbol = values.filter(v => game.symbols.includes(v));
+// ref.value:
+//     null -> no query
+//     [] -> colorless
+//     [A, B] -> with color
+const colorChecker = (colorRef: Ref<string[] | null>) => (color: string, value: boolean) => {
+    if (color === 'C') {
+        if (value) {
+            colorRef.value = [];
+        } else {
+            colorRef.value = null;
+        }
+    } else if (value) {
+        if (colorRef.value == null) {
+            colorRef.value = [color];
+        } else if (!colorRef.value.includes(color)) {
+            colorRef.value = ['W', 'U', 'B', 'R', 'G'].filter(
+                c => colorRef.value!.includes(c) || color === c,
+            );
+        }
+    } else if (colorRef.value != null) {
+        const colorValue = colorRef.value.filter(c => c !== color);
 
-                if (valuesInSymbol.length > 0) {
-                    cost.value.push(...valuesInSymbol);
+        colorRef.value = colorValue.length === 0 ? null : colorValue;
+    }
+};
 
-                    costInput.value = '';
-                }
-            }
-        };
+const colorType = ref<SelectType>('include');
+const colors = ref<string[] | null>(null);
+const checkColor = colorChecker(colors);
 
-        const removeCost = (index: number) => cost.value.splice(index, 1);
+const colorIdentityType = ref<SelectType>('include');
+const colorIdentities = ref<string[] | null>(null);
+const checkColorIdentity = colorChecker(colorIdentities);
 
-        const typeInput = ref('');
+const escapeText = (textToEscape: string) => {
+    if (textToEscape.startsWith('/') && textToEscape.endsWith('/')) {
+        return textToEscape;
+    }
 
-        const newType = () => {
-            if (typeInput.value !== '') {
-                types.value.push({
-                    include: true,
-                    value:   typeInput.value,
-                });
+    if (textToEscape.includes(' ')) {
+        if (textToEscape.includes('"')) {
+            return `'${textToEscape.replace(/'/g, '\\\'')}'`;
+        } else {
+            return `"${textToEscape}"`;
+        }
+    }
 
-                typeInput.value = '';
-            }
-        };
+    return textToEscape;
+};
 
-        const typeIcon = (index: number) => {
-            if (types.value[index].include) {
-                return 'mdi-check';
-            } else {
-                return 'mdi-close';
-            }
-        };
+const doSearch = () => {
+    newCost();
+    newType();
 
-        const removeType = (index: number) => types.value.splice(index, 1);
+    let query = '';
 
-        const switchType = (index: number) => {
-            if (types.value[index] != null) {
-                types.value[index].include = !types.value[index].include;
-            }
-        };
+    if (name.value !== '') {
+        query += ` n:${escapeText(name.value)}`;
+    }
 
-        // ref.value:
-        //     null -> no query
-        //     [] -> colorless
-        //     [A, B] -> with color
-        const colorChecker = (colorRef: Ref<string[] | null>) => (color: string, value: boolean) => {
-            if (color === 'C') {
-                if (value) {
-                    colorRef.value = [];
-                } else {
-                    colorRef.value = null;
-                }
-            } else if (value) {
-                if (colorRef.value == null) {
-                    colorRef.value = [color];
-                } else if (!colorRef.value.includes(color)) {
-                    colorRef.value = ['W', 'U', 'B', 'R', 'G'].filter(
-                        c => colorRef.value!.includes(c) || color === c,
-                    );
-                }
-            } else if (colorRef.value != null) {
-                const colorValue = colorRef.value.filter(c => c !== color);
+    if (cost.value.length > 0) {
+        const costQuery = cost.value.map(v => `{${v}}`).join('');
 
-                colorRef.value = colorValue.length === 0 ? null : colorValue;
-            }
-        };
+        switch (costType.value) {
+        case 'include':
+            query += ` m:${costQuery}`;
+            break;
+        case 'exact':
+            query += ` m=${costQuery}`;
+            break;
+        case 'at-most':
+            query += ` m<=${costQuery}`;
+            break;
+        default:
+        }
+    }
 
-        const colorType = ref<SelectType>('include');
-        const colors = ref<string[] | null>(null);
-        const checkColor = colorChecker(colors);
+    for (const type of types.value) {
+        if (type.include) {
+            query += ` t:${escapeText(type.value)}`;
+        } else {
+            query += ` t!:${escapeText(type.value)}`;
+        }
+    }
 
-        const colorIdentityType = ref<SelectType>('include');
-        const colorIdentities = ref<string[] | null>(null);
-        const checkColorIdentity = colorChecker(colorIdentities);
+    if (colors.value != null) {
+        const q = colors.value.length === 0 ? 'C' : colors.value.join('');
 
-        const escapeText = (textToEscape: string) => {
-            if (textToEscape.startsWith('/') && textToEscape.endsWith('/')) {
-                return textToEscape;
-            }
+        switch (colorType.value) {
+        case 'include':
+            query += ` c:${q}`;
+            break;
+        case 'exact':
+            query += ` c=${q}`;
+            break;
+        case 'at-most':
+            query += ` c<=${q}`;
+            break;
+        default:
+        }
+    }
 
-            if (textToEscape.includes(' ')) {
-                if (textToEscape.includes('"')) {
-                    return `'${textToEscape.replace(/'/g, '\\\'')}'`;
-                } else {
-                    return `"${textToEscape}"`;
-                }
-            }
+    if (colorIdentities.value != null) {
+        const q = colorIdentities.value.length === 0 ? 'C' : colorIdentities.value.join('');
 
-            return textToEscape;
-        };
+        switch (colorIdentityType.value) {
+        case 'include':
+            query += ` cd:${q}`;
+            break;
+        case 'exact':
+            query += ` cd=${q}`;
+            break;
+        case 'at-most':
+            query += ` cd<=${q}`;
+            break;
+        default:
+        }
+    }
 
-        const doSearch = () => {
-            newCost();
-            newType();
+    if (text.value !== '') {
+        query += ` x:${escapeText(text.value)}`;
+    }
 
-            let query = '';
+    if (query === '') {
+        return;
+    }
 
-            if (name.value !== '') {
-                query += ` n:${escapeText(name.value)}`;
-            }
+    void router.push({
+        name: 'magic/search',
 
-            if (cost.value.length > 0) {
-                const costQuery = cost.value.map(v => `{${v}}`).join('');
-
-                switch (costType.value) {
-                case 'include':
-                    query += ` m:${costQuery}`;
-                    break;
-                case 'exact':
-                    query += ` m=${costQuery}`;
-                    break;
-                case 'at-most':
-                    query += ` m<=${costQuery}`;
-                    break;
-                default:
-                }
-            }
-
-            for (const type of types.value) {
-                if (type.include) {
-                    query += ` t:${escapeText(type.value)}`;
-                } else {
-                    query += ` t!:${escapeText(type.value)}`;
-                }
-            }
-
-            if (colors.value != null) {
-                const q = colors.value.length === 0 ? 'C' : colors.value.join('');
-
-                switch (colorType.value) {
-                case 'include':
-                    query += ` c:${q}`;
-                    break;
-                case 'exact':
-                    query += ` c=${q}`;
-                    break;
-                case 'at-most':
-                    query += ` c<=${q}`;
-                    break;
-                default:
-                }
-            }
-
-            if (colorIdentities.value != null) {
-                const q = colorIdentities.value.length === 0 ? 'C' : colorIdentities.value.join('');
-
-                switch (colorIdentityType.value) {
-                case 'include':
-                    query += ` cd:${q}`;
-                    break;
-                case 'exact':
-                    query += ` cd=${q}`;
-                    break;
-                case 'at-most':
-                    query += ` cd<=${q}`;
-                    break;
-                default:
-                }
-            }
-
-            if (text.value !== '') {
-                query += ` x:${escapeText(text.value)}`;
-            }
-
-            if (query === '') {
-                return;
-            }
-
-            void router.push({
-                name: 'magic/search',
-
-                query: { q: query.trim() },
-            });
-        };
-
-        return {
-            name,
-            types,
-            text,
-
-            cost,
-            costType,
-            costInput,
-            newCost,
-            removeCost,
-
-            typeInput,
-            typeIcon,
-            newType,
-            removeType,
-            switchType,
-
-            selectOptions,
-            colors,
-            colorType,
-            checkColor,
-            colorIdentities,
-            colorIdentityType,
-            checkColorIdentity,
-
-            doSearch,
-        };
-    },
-});
+        query: { q: query.trim() },
+    });
+};
 </script>
 
 <style lang="sass" scoped>

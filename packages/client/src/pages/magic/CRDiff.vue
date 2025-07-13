@@ -218,15 +218,12 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import {
-    defineComponent, ref, computed, watch, onMounted,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useTitle } from 'store/core';
 
 import RichText from 'src/components/magic/RichText.vue';
 
@@ -258,106 +255,78 @@ interface Change {
     csi:      TextChange[];
 }
 
-export default defineComponent({
-    name: 'CRDiff',
+const router = useRouter();
+const route = useRoute();
+const i18n = useI18n();
 
-    components: { RichText },
+const date = ref<string[]>([]);
+const crDiff = ref<Change | null>(null);
+const splitter = ref(50);
 
-    setup() {
-        const router = useRouter();
-        const route = useRoute();
-        const i18n = useI18n();
+useTitle(() => i18n.t('magic.cr.diff'));
 
-        const date = ref<string[]>([]);
-        const crDiff = ref<Change | null>(null);
-        const splitter = ref(50);
-
-        pageSetup({
-            title: () => i18n.t('magic.cr.diff'),
-        });
-
-        const from = computed({
-            get() { return route.query.from as string ?? date.value.slice(-2)[0]; },
-            set(newValue: string) {
-                if (date.value.includes(newValue) && newValue !== from.value) {
-                    void router.push({ query: { ...route.query, from: newValue } });
-                }
-            },
-        });
-
-        const to = computed({
-            get() { return route.query.to as string ?? date.value.slice(-1)[0]; },
-            set(newValue: string) {
-                if (date.value.includes(newValue) && newValue !== to.value) {
-                    void router.push({ query: { ...route.query, to: newValue } });
-                }
-            },
-        });
-
-        const loadList = async () => {
-            const { data } = await apiGet<string[]>('/magic/cr');
-
-            date.value = data;
-        };
-
-        const loadData = async () => {
-            const { data: result } = await apiGet<Change>('/magic/cr/diff', {
-                from: from.value,
-                to:   to.value,
-            });
-
-            crDiff.value = result;
-        };
-
-        const intro = computed(() => crDiff.value?.intro ?? []);
-        const contents = computed(() => crDiff.value?.contents ?? []);
-        const glossary = computed(() => crDiff.value?.glossary ?? []);
-        const credits = computed(() => crDiff.value?.credits ?? []);
-        const csi = computed(() => crDiff.value?.csi ?? []);
-
-        watch([from, to], loadData, { immediate: true });
-
-        onMounted(() => {
-            void loadList();
-            void loadData();
-        });
-
-        const textClass = (value: TextChange, type: string) => {
-            if (typeof value === 'string') {
-                return '';
-            } else {
-                return `text-${type}`;
-            }
-        };
-
-        const textValue = (value: TextChange, type: string) => {
-            if (typeof value === 'string') {
-                return value;
-            } else {
-                return type === 'remove' ? value[0] : value[1];
-            }
-        };
-
-        return {
-            splitter,
-
-            date,
-            from,
-            to,
-
-            loadData,
-
-            intro,
-            contents,
-            glossary,
-            credits,
-            csi,
-
-            textClass,
-            textValue,
-        };
+const from = computed({
+    get() { return route.query.from as string ?? date.value.slice(-2)[0]; },
+    set(newValue: string) {
+        if (date.value.includes(newValue) && newValue !== from.value) {
+            void router.push({ query: { ...route.query, from: newValue } });
+        }
     },
 });
+
+const to = computed({
+    get() { return route.query.to as string ?? date.value.slice(-1)[0]; },
+    set(newValue: string) {
+        if (date.value.includes(newValue) && newValue !== to.value) {
+            void router.push({ query: { ...route.query, to: newValue } });
+        }
+    },
+});
+
+const loadList = async () => {
+    const { data } = await apiGet<string[]>('/magic/cr');
+
+    date.value = data;
+};
+
+const loadData = async () => {
+    const { data: result } = await apiGet<Change>('/magic/cr/diff', {
+        from: from.value,
+        to:   to.value,
+    });
+
+    crDiff.value = result;
+};
+
+const intro = computed(() => crDiff.value?.intro ?? []);
+const contents = computed(() => crDiff.value?.contents ?? []);
+const glossary = computed(() => crDiff.value?.glossary ?? []);
+const credits = computed(() => crDiff.value?.credits ?? []);
+const csi = computed(() => crDiff.value?.csi ?? []);
+
+watch([from, to], loadData, { immediate: true });
+
+onMounted(() => {
+    void loadList();
+    void loadData();
+});
+
+const textClass = (value: TextChange, type: string) => {
+    if (typeof value === 'string') {
+        return '';
+    } else {
+        return `text-${type}`;
+    }
+};
+
+const textValue = (value: TextChange, type: string) => {
+    if (typeof value === 'string') {
+        return value;
+    } else {
+        return type === 'remove' ? value[0] : value[1];
+    }
+};
+
 </script>
 
 <style lang="sass" scoped>

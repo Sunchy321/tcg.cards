@@ -3,7 +3,7 @@ declare module '*.yml' {
     export default data;
 }
 
-declare module 'data/magic/keyword.yml' {
+declare module '@data/magic/keyword.yml' {
     type KeywordList = {
         keyword:        string[];
         keyword_action: string[];
@@ -16,27 +16,27 @@ declare module 'data/magic/keyword.yml' {
     export default data;
 }
 
-declare module 'data/magic/localization/keyword/*.yml' {
+declare module '@data/magic/localization/keyword/*.yml' {
     const data: Record<string, string>;
     export default data;
 }
 
-declare module 'data/hearthstone/tag/map/mechanic.yml' {
+declare module '@data/hearthstone/tag/map/mechanic.yml' {
     const data: Record<number, string>;
     export default data;
 }
 
-declare module 'data/hearthstone/tag/map/related-entity.yml' {
+declare module '@data/hearthstone/tag/map/related-entity.yml' {
     const data: Record<number, string>;
     export default data;
 }
 
-declare module 'data/hearthstone/tag/field.yml' {
+declare module '@data/hearthstone/tag/field.yml' {
     const data: Record<number, { index: string }>;
     export default data;
 }
 
-declare module 'data/hearthstone/tag/localization-field.yml' {
+declare module '@data/hearthstone/tag/localization-field.yml' {
     const data: Record<number, string>;
     export default data;
 }

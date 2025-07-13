@@ -33,16 +33,14 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import {
-    defineComponent, ref, computed, watch,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
+import { useTitle } from 'store/core';
 import { useGame } from 'store/games/hearthstone';
 
 import basicSetup from 'setup/basic';
-import pageSetup from 'setup/page';
 
 import { Set as ISet } from '@interface/hearthstone/set';
 
@@ -53,61 +51,47 @@ type Set = Omit<ISet, 'localization'> & {
     localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
 };
 
-export default defineComponent({
-    setup() {
-        const route = useRoute();
-        const game = useGame();
+const route = useRoute();
+const game = useGame();
 
-        const { isAdmin } = basicSetup();
+const { isAdmin } = basicSetup();
 
-        const data = ref<Set | null>(null);
+const data = ref<Set | null>(null);
 
-        const id = computed(() => route.params.id as string);
+const id = computed(() => route.params.id as string);
 
-        const name = computed(() => {
-            if (data.value == null) {
-                return '';
-            }
+const name = computed(() => {
+    if (data.value == null) {
+        return '';
+    }
 
-            return data.value.localization[game.locale]?.name
-              ?? data.value.localization[game.locales[0]]?.name;
-        });
-
-        pageSetup({
-            title: () => name.value ?? id.value,
-        });
-
-        // const cardCount = computed(() => data.value?.cardCount ?? 0);
-
-        const apiLink = computed(() => `${apiBase}/hearthstone/set?id=${id.value}`);
-        const editorLink = computed(() => ({ name: 'hearthstone/data', query: { tab: 'Set', id: id.value } }));
-
-        const loadData = async () => {
-            const { data: result } = await apiGet<Set>('/hearthstone/set', {
-                id: id.value,
-            });
-
-            data.value = result;
-
-            setProfile.update({
-                setId:        result.setId,
-                localization: result.localization,
-                releaseDate:  result.releaseDate,
-            });
-        };
-
-        watch(() => id.value, loadData, { immediate: true });
-
-        return {
-            isAdmin,
-
-            name,
-
-            apiLink,
-            editorLink,
-        };
-    },
+    return data.value.localization[game.locale]?.name
+      ?? data.value.localization[game.locales[0]]?.name;
 });
+
+useTitle(() => name.value ?? id.value);
+
+// const cardCount = computed(() => data.value?.cardCount ?? 0);
+
+const apiLink = computed(() => `${apiBase}/hearthstone/set?id=${id.value}`);
+const editorLink = computed(() => ({ name: 'hearthstone/data', query: { tab: 'Set', id: id.value } }));
+
+const loadData = async () => {
+    const { data: result } = await apiGet<Set>('/hearthstone/set', {
+        id: id.value,
+    });
+
+    data.value = result;
+
+    setProfile.update({
+        setId:        result.setId,
+        localization: result.localization,
+        releaseDate:  result.releaseDate,
+    });
+};
+
+watch(() => id.value, loadData, { immediate: true });
+
 </script>
 
 <style lang="sass" scoped>

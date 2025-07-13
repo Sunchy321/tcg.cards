@@ -126,11 +126,11 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useGame } from 'store/games/hearthstone';
 import { useI18n } from 'vue-i18n';
+import { useCore, useTitle } from 'store/core';
+import { useGame } from 'store/games/hearthstone';
 
 import hearthstoneSetup from 'setup/hearthstone';
-import pageSetup from 'setup/page';
 
 import RichText from 'src/components/hearthstone/RichText.vue';
 import CardAvatar from 'components/hearthstone/CardAvatar.vue';
@@ -146,8 +146,9 @@ import { apiBase, apiGet } from 'boot/server';
 
 const router = useRouter();
 const route = useRoute();
-const game = useGame();
 const i18n = useI18n();
+const core = useCore();
+const game = useGame();
 
 const { search, random } = hearthstoneSetup();
 
@@ -242,23 +243,21 @@ const localization = computed(() => {
 
 const name = computed(() => localization.value?.name);
 
-pageSetup({
-    title: () => name.value ?? '',
+useTitle(() => name.value ?? '');
 
-    titleType: 'input',
+core.titleType = 'input';
 
-    actions: [
-        {
-            action:  'search',
-            handler: search,
-        },
-        {
-            action:  'random',
-            icon:    'mdi-shuffle-variant',
-            handler: random,
-        },
-    ],
-});
+core.actions = [
+    {
+        action:  'search',
+        handler: search,
+    },
+    {
+        action:  'random',
+        icon:    'mdi-shuffle-variant',
+        handler: random,
+    },
+];
 
 const hasCost = computed(() => {
     if (data.value?.cost == null) {

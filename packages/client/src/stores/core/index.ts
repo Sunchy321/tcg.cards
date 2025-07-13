@@ -1,17 +1,20 @@
 import { defineStore } from 'pinia';
 
-import {
-    Ref, computed, ref, watch, isRef,
-} from 'vue';
+import { Ref, MaybeRefOrGetter, computed, ref, watch, toRef, shallowReactive } from 'vue';
+import { useTitle as useVueUseTitle } from '@vueuse/core';
 
 import { Game, games as constGames } from '@interface/index';
 
 import useBoot from './boot';
 import useLocale from './locale';
-import useParams, { Parameter } from './params';
-import useAction, { Action } from './action';
+import { Action, setupAction } from './action';
 
-export type Value<T> = Ref<T> | T | (() => T);
+import { getValue, Parameter, setValue } from './params';
+
+export type { Parameter, ParamOption } from './params';
+export { useParam, clearParam } from './params';
+
+export { useAction } from './action';
 
 export type TitleType = 'input' | 'text';
 
@@ -20,37 +23,14 @@ export interface State {
     locale: string;
     search: string;
 
-    title:        string;
-    titleType:    string;
-    params:       Record<string, any>;
-    paramOptions: Record<string, Parameter>;
-    actions:      Action[];
-}
-
-export function valueOf<T>(value: Value<T>): T {
-    if (typeof value === 'function') {
-        return (value as any)();
-    } else if (isRef(value)) {
-        return value.value;
-    } else {
-        return value;
-    }
-}
-
-export function toRef<T>(value: Value<T>): Ref<T> {
-    if (typeof value === 'function') {
-        return computed(value as any);
-    } else if (isRef(value)) {
-        return value;
-    } else {
-        return computed(() => value);
-    }
+    title:     string;
+    titleType: string;
+    actions:   Action[];
 }
 
 export const useCore = defineStore('core', () => {
     // games
     const game = ref<Game | null>(null);
-    const games = computed(() => constGames as readonly Game[]);
     const isGame = (value: string): value is Game => (constGames as readonly string[]).includes(value);
 
     // locale
@@ -66,25 +46,24 @@ export const useCore = defineStore('core', () => {
         set(newValue: string) { innerSearch.value = newValue ?? ''; },
     });
 
-    const setTitle = (titleOption: Value<string> | undefined) => {
-        watch(
-            () => valueOf(titleOption ?? ''),
-            newValue => { title.value = newValue; },
-            { immediate: true },
-        );
-    };
-
     watch(title, () => { document.title = title.value; });
 
-    const {
-        params, paramOptions, initParams, deinitParams,
-    } = useParams();
+    // params
+    const params = shallowReactive<Record<string, Parameter>>({});
 
-    const { actions, invokeAction } = useAction();
+    const getParam = <T>(name: string): T => {
+        return getValue(name);
+    };
+
+    const setParam = (name: string, value: any) => {
+        setValue(name, value);
+    };
+
+    // actions
+    const { actions, invokeAction } = setupAction();
 
     return {
         game,
-        games,
 
         locale,
         locales,
@@ -92,11 +71,11 @@ export const useCore = defineStore('core', () => {
         search,
         title,
         titleType,
-        setTitle,
+
         params,
-        paramOptions,
-        initParams,
-        deinitParams,
+        getParam,
+        setParam,
+
         actions,
 
         isGame,
@@ -105,3 +84,15 @@ export const useCore = defineStore('core', () => {
         boot: useBoot(locale),
     };
 });
+
+export function useTitle(newTitle: MaybeRefOrGetter<string>, titleType?: TitleType) {
+    const core = useCore();
+
+    const title = toRef(newTitle);
+
+    useVueUseTitle(title);
+
+    watch(title, newValue => { core.title = newValue; }, { immediate: true });
+
+    core.titleType = titleType ?? 'text';
+}

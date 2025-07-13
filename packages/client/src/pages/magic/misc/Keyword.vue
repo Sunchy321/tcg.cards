@@ -22,7 +22,7 @@
             <tbody>
                 <tr v-for="k in keywordOf(t)" :key="k">
                     <td v-for="l in locales" :key="l">
-                        {{ keyMap[l][k] }}
+                        {{ keywordMap[l][k] }}
                     </td>
                 </tr>
             </tbody>
@@ -34,44 +34,22 @@
 import { ref } from 'vue';
 
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useTitle } from 'store/core';
 
 import keywords from '@data/magic/keyword.yml';
 
+import { mapKeys } from 'lodash';
+
 import { locales } from '@static/magic/basic';
 
-import enKeywords from '@data/magic/localization/keyword/en.yml';
-import zhsKeywords from '@data/magic/localization/keyword/zhs.yml';
-import zhtKeywords from '@data/magic/localization/keyword/zht.yml';
-import deKeywords from '@data/magic/localization/keyword/de.yml';
-import frKeywords from '@data/magic/localization/keyword/fr.yml';
-import itKeywords from '@data/magic/localization/keyword/it.yml';
-import jaKeywords from '@data/magic/localization/keyword/ja.yml';
-import koKeywords from '@data/magic/localization/keyword/ko.yml';
-import ptKeywords from '@data/magic/localization/keyword/pt.yml';
-import ruKeywords from '@data/magic/localization/keyword/ru.yml';
-import esKeywords from '@data/magic/localization/keyword/es.yml';
+const keywordMap = mapKeys(
+    import.meta.glob('@data/magic/localization/keyword/*.yml', { eager: true }),
+    (_, k) => /^@data\/magic\/localization\/keyword\/(.*?)\.yml$/.exec(k)![1],
+);
 
 const i18n = useI18n();
 
-pageSetup({
-    title: () => i18n.t('magic.ui.misc.keyword'),
-});
-
-const keyMap: Record<string, Record<string, string>> = {
-    en:  enKeywords,
-    zhs: zhsKeywords,
-    zht: zhtKeywords,
-    de:  deKeywords,
-    fr:  frKeywords,
-    it:  itKeywords,
-    ja:  jaKeywords,
-    ko:  koKeywords,
-    pt:  ptKeywords,
-    ru:  ruKeywords,
-    es:  esKeywords,
-};
+useTitle(() => i18n.t('magic.ui.misc.keyword'));
 
 const mode = ref('variant');
 

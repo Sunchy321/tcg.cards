@@ -28,26 +28,22 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 
+import { useParam } from 'store/core';
+
 import controlSetup from 'src/setup/control';
 
 import { Patch } from '@interface/hearthstone/patch';
 
 import { apiGet } from 'boot/server';
-import pageSetup from 'src/setup/page';
 
 const { controlPost } = controlSetup();
 
 const patches = ref<Patch[]>([]);
 
-const { version } = pageSetup({
-    appendParam: true,
-    params:      {
-        version: {
-            type:    'string',
-            bind:    'query',
-            default: () => patches.value[0]?.number.toString() ?? 0,
-        },
-    },
+const version = useParam('version', {
+    type:    'string',
+    bind:    'query',
+    default: () => patches.value[0]?.number.toString() ?? '',
 });
 
 const versions = computed(() => patches.value.map(p => p.number.toString()));

@@ -16,7 +16,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
 
-import pageSetup from 'setup/page';
+import { useTitle } from 'store/core';
 
 import mechanics from '@data/hearthstone/tag/map/mechanic.yml';
 import relatedEntity from '@data/hearthstone/tag/map/related-entity.yml';
@@ -25,9 +25,7 @@ import locField from '@data/hearthstone/tag/localization-field.yml';
 
 const i18n = useI18n();
 
-pageSetup({
-    title: () => i18n.t('hearthstone.ui.misc.tag'),
-});
+useTitle(() => i18n.t('hearthstone.ui.misc.tag'));
 
 const tagDesc = (tag: string) => {
     if (tag.startsWith('?')) {

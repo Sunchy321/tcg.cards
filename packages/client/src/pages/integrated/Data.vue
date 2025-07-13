@@ -9,7 +9,7 @@ import {
     Component, shallowRef, watch, defineAsyncComponent,
 } from 'vue';
 
-import pageSetup from 'setup/page';
+import { useTitle, useParam } from 'store/core';
 
 const components = import.meta.glob<Component>('./data/*.vue');
 
@@ -18,19 +18,15 @@ const tabs = [
     'Sync',
 ];
 
-const { tab } = pageSetup({
-    params: {
-        tab: {
-            type:    'enum',
-            bind:    'query',
-            inTitle: true,
-            values:  tabs,
-            label:   v => v,
-        },
-    },
+const tab = useParam('tab', {
+    type:    'enum',
+    bind:    'query',
+    inTitle: true,
+    values:  tabs,
+    label:   v => v,
 });
 
-pageSetup({ title: () => `Data - ${tab.value}`, appendParam: true });
+useTitle(() => `Data - ${tab.value}`);
 
 const pageComponent = shallowRef<Component>();
 

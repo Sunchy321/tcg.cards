@@ -2,29 +2,28 @@
     <div class="display: contents">
         <template v-for="(p, k) in paramsInTitle" :key="k">
             <q-btn-dropdown
-                v-if="p.type === 'enum'"
+                v-if="p.option.type === 'enum'"
                 :model-value="false"
                 flat dense
-                :label="paramLabel(p, p.value)"
+                :label="paramLabel(p.option, core.getParam<string>(k))"
             >
                 <q-list link style="width: 150px">
                     <q-item
-                        v-for="o in (p as any).values" :key="o"
+                        v-for="o in p.option.values.value" :key="o"
                         v-close-popup
-
                         clickable
                         @click="commitParam(k as string, o)"
                     >
                         <q-item-section>
-                            {{ paramLabel(p, o) }}
+                            {{ paramLabel(p.option, o) }}
                         </q-item-section>
                     </q-item>
                 </q-list>
             </q-btn-dropdown>
 
             <q-btn
-                v-if="p.type === 'boolean'"
-                :icon="(p as any).icon[p.value ? 1:0]"
+                v-if="p.option.type === 'boolean'"
+                :icon="p.option.icon[p.value ? 1:0]"
                 flat round dense
                 @click="commitParam(k as string, !p.value)"
             />
@@ -74,109 +73,80 @@
     </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, computed } from 'vue';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-import { useCore } from 'store/core';
+import { Parameter, ParamOption, useCore } from 'store/core';
 import { useGame } from 'store/games';
 
 import basicSetup from 'setup/basic';
 
 import UploaderBtn from 'components/UploaderBtn.vue';
 
-import { Parameter } from 'src/stores/core/params';
-import { ActionInfo } from 'src/stores/core/action';
+import { ActionInfo } from 'store/core/action';
 
-export default defineComponent({
-    components: { UploaderBtn },
+const core = useCore();
+const { game } = basicSetup();
 
-    props: {
-        drawerOpen: { type: Boolean, default: undefined },
+const gameLocale = computed({
+    get(): string {
+        if (game.value != null) {
+            return useGame(game.value)().locale;
+        } else {
+            return 'en';
+        }
     },
-
-    emits: ['update:drawerOpen'],
-
-    setup() {
-        const core = useCore();
-        const { game } = basicSetup();
-
-        const gameLocale = computed({
-            get(): string {
-                if (game.value != null) {
-                    return useGame(game.value)().locale;
-                } else {
-                    return 'en';
-                }
-            },
-            set(newValue: string) {
-                if (game.value != null) {
-                    useGame(game.value)().locale = newValue;
-                }
-            },
-        });
-
-        const gameLocales = computed(() => {
-            if (game.value != null) {
-                return useGame(game.value)().locales;
-            } else {
-                return [];
-            }
-        });
-
-        const paramsInTitle = computed(() => {
-            const result: Record<string, Parameter & { value: any }> = {};
-
-            for (const k of Object.keys(core.paramOptions)) {
-                if (core.paramOptions[k].inTitle as boolean) {
-                    result[k] = {
-                        ...core.paramOptions[k],
-                        value: core.params[k],
-                    };
-                }
-            }
-
-            return result;
-        });
-
-        const actionsWithIcon = computed(() => core.actions.filter(a => a.icon != null));
-
-        const paramLabel = (p: any, v: string) => {
-            if (p.label != null) {
-                return p.label(v) as string;
-            } else {
-                return v;
-            }
-        };
-
-        const commitParam = (key: string, value: any) => {
-            core.params = {
-                ...core.params,
-                [key]: value,
-            };
-        };
-
-        const invokeAction = (action: ActionInfo, payload?: any) => {
-            if (payload != null) {
-                core.invokeAction({ ...action, payload });
-            } else {
-                core.invokeAction(action);
-            }
-        };
-
-        return {
-            game,
-            gameLocale,
-            gameLocales,
-
-            paramsInTitle,
-            actionsWithIcon,
-
-            paramLabel,
-            commitParam,
-            invokeAction,
-        };
+    set(newValue: string) {
+        if (game.value != null) {
+            useGame(game.value)().locale = newValue;
+        }
     },
 });
+
+const gameLocales = computed(() => {
+    if (game.value != null) {
+        return useGame(game.value)().locales;
+    } else {
+        return [];
+    }
+});
+
+const paramsInTitle = computed(() => {
+    const result: Record<string, Parameter> = {};
+
+    for (const k of Object.keys(core.params)) {
+        const item = core.params[k];
+
+        if (item.option.inTitle) {
+            result[k] = item;
+        }
+    }
+
+    return result;
+});
+
+const actionsWithIcon = computed(() => core.actions.filter(a => a.icon != null));
+
+const paramLabel = (p: ParamOption, v: string) => {
+    if (p.label != null) {
+        return p.label(v) as string;
+    } else {
+        return v;
+    }
+};
+
+const commitParam = (key: string, value: any) => {
+    core.setParam(key, value);
+};
+
+const invokeAction = (action: ActionInfo, payload?: any) => {
+    if (payload != null) {
+        core.invokeAction({ ...action, payload });
+    } else {
+        core.invokeAction(action);
+    }
+};
+
 </script>
 
 <style lang="sass" scoped>

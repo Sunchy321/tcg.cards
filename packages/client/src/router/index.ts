@@ -9,7 +9,8 @@ import {
 
 import routes from './routes';
 
-import { useUser } from 'src/stores/user';
+import { clearParam } from 'store/core';
+import { useUser } from 'store/user';
 /*
  * If not building with SSR mode, you can
  * directly export the Router instantiation;
@@ -36,6 +37,10 @@ export default route(() => {
 
     Router.beforeEach((to, from, next) => {
         const user = useUser();
+
+        if (to.name != from.name) {
+            clearParam();
+        }
 
         if (to.meta.admin as boolean | null) {
             if (!user.isAdmin) {

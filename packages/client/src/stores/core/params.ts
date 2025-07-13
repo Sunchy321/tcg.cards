@@ -1,239 +1,250 @@
-import {
-    Ref, computed, ref, ComputedRef, WritableComputedRef,
-} from 'vue';
+import { ComputedRef, MaybeRefOrGetter, computed, WritableComputedRef, Ref, toRef } from 'vue';
 
-import { Value, toRef } from './index';
+import { useRouteParams, useRouteQuery } from '@vueuse/router';
 
-import { useRouter, useRoute } from 'vue-router';
-
-import { omit } from 'lodash';
-import { parseInt } from 'src/numeric';
+import { useCore } from './index';
 
 type ParamBase = {
     readonly?: boolean;
     bind:      'params' | 'query' | 'state';
-    key?:      string;
+    name?:     string;
     inTitle?:  boolean;
     label?:    (id: string) => string;
 };
 
-type ParamOptionBoolean = { type: 'boolean', default?: Value<boolean>, icon?: [string, string] };
-type ParamOptionString = { type: 'string', default?: Value<string> };
-type ParamOptionNumber = { type: 'number', default?: Value<number> };
-type ParamOptionEnum = { type: 'enum', values: Value<string[]>, default?: Value<string> };
-type ParamOptionDate = { type: 'date', default?: Value<string> };
+type ParamOptionBoolean = { type: 'boolean', default?: MaybeRefOrGetter<boolean>, icon?: [string, string] };
+type ParamOptionString = { type: 'string', default?: MaybeRefOrGetter<string> };
+type ParamOptionNumber = { type: 'number', default?: MaybeRefOrGetter<number> };
+type ParamOptionEnum = { type: 'enum', values: MaybeRefOrGetter<string[]>, default?: MaybeRefOrGetter<string> };
+type ParamOptionDate = { type: 'date', default?: MaybeRefOrGetter<string> };
 
 export type ParamOption = ParamBase & (
     ParamOptionBoolean | ParamOptionDate | ParamOptionEnum | ParamOptionNumber | ParamOptionString
 );
 
-type ParamBoolean = { type: 'boolean', default?: boolean, icon?: [string, string] };
-type ParamString = { type: 'string', default?: string };
-type ParamNumber = { type: 'number', default?: number };
-type ParamEnum = { type: 'enum', values: string[], default?: string };
-type ParamDate = { type: 'date', default?: string };
+type ReactiveParamOptionBoolean = { type: 'boolean', default?: Ref<boolean>, icon?: [string, string] };
+type ReactiveParamOptionString = { type: 'string', default?: Ref<string> };
+type ReactiveParamOptionNumber = { type: 'number', default?: Ref<number> };
+type ReactiveParamOptionEnum = { type: 'enum', values: Ref<string[]>, default?: Ref<string> };
+type ReactiveParamOptionDate = { type: 'date', default?: Ref<string> };
 
-export type Parameter = ParamBase & (
-    ParamBoolean | ParamDate | ParamEnum | ParamNumber | ParamString
+export type ReactiveParamOption = ParamBase & (
+    ReactiveParamOptionBoolean | ReactiveParamOptionDate | ReactiveParamOptionEnum |
+    ReactiveParamOptionNumber | ReactiveParamOptionString
 );
 
-type ParamType<T extends { type: string }> =
-    T['type'] extends 'boolean' ? boolean :
-        T['type'] extends 'number' ? number : string;
-
-export type ParamResult<T> = {
-    [K in keyof T]: T[K] extends { type: string }
-        ? T[K] extends { readonly: true }
-            ? ComputedRef<ParamType<T[K]>>
-            : WritableComputedRef<ParamType<T[K]>>
-        : never
+type ParamTypeMap = {
+    boolean: boolean;
+    string:  string;
+    number:  number;
+    date:    string;
+    enum:    string;
 };
 
-function getDefault(def: Parameter): any {
-    switch (def.type) {
+export type ParamType<T> = T extends ParamOption
+    ? T extends ParamOptionEnum
+        ? (T['values'] extends [...any] ? T['values'][number] : string)
+        : ParamTypeMap[T['type']]
+    : never;
+
+export type ParamRefType<T> = T extends ParamOption
+    ? T['readonly'] extends true
+        ? ComputedRef<ParamType<T>>
+        : WritableComputedRef<ParamType<T>>
+    : never;
+
+export type Parameter = {
+    option: ReactiveParamOption;
+    value?: any;
+    ref?:   Ref<string | string[] | undefined>;
+};
+
+function toReactiveOption(option: ParamOption): ReactiveParamOption {
+    const base = { ...option };
+
+    // Convert values and default properties to refs based on the type
+    switch (option.type) {
     case 'boolean':
-        return false;
+        return {
+            ...base,
+            default: option.default !== undefined ? toRef(option.default) : undefined,
+        } as ReactiveParamOption;
     case 'string':
-        return null;
-    case 'enum':
-        return def.values[0];
+        return {
+            ...base,
+            default: option.default !== undefined ? toRef(option.default) : undefined,
+        } as ReactiveParamOption;
     case 'number':
-        return 0;
+        return {
+            ...base,
+            default: option.default !== undefined ? toRef(option.default) : undefined,
+        } as ReactiveParamOption;
+    case 'enum':
+        return {
+            ...base,
+            values:  toRef(option.values),
+            default: option.default !== undefined ? toRef(option.default) : undefined,
+        } as ReactiveParamOption;
     case 'date':
-        return new Date().toISOString().split('T')[0];
+        return {
+            ...base,
+            default: option.default !== undefined ? toRef(option.default) : undefined,
+        } as ReactiveParamOption;
+    default:
+        return base as ReactiveParamOption;
+    }
+}
+
+function getDefault(option: ReactiveParamOption): any {
+    switch (option.type) {
+    case 'boolean':
+        return option.default?.value ?? false;
+    case 'string':
+        return option.default?.value ?? '';
+    case 'enum':
+        return option.default?.value ?? option.values.value[0];
+    case 'number':
+        return option.default?.value ?? 0;
+    case 'date':
+        return option.default?.value ?? new Date().toISOString().split('T')[0];
     default:
         return null;
     }
 }
 
-export default function useParams(): {
-    params:       Ref<Record<string, any>>;
-    paramOptions: Ref<Record<string, Parameter>>;
-    initParams:   (definition: Record<string, ParamOption>, append?: boolean) => void;
-    deinitParams: (keys: string[]) => void;
-} {
-    const router = useRouter();
-    const route = useRoute();
+function useRouterRef(bind: ParamOption['bind'], name: string): Ref<string | string[] | undefined> | undefined {
+    switch (bind) {
+    case 'state':
+        return undefined;
+    case 'params':
+        return useRouteParams(name);
+    case 'query':
+        return useRouteQuery(name);
+    }
+}
 
-    const paramState = ref<Record<string, any>>({});
+const getInnerValue = (name: string, option: ReactiveParamOption) => {
+    const core = useCore();
 
-    const paramOptions = ref<Record<string, Parameter>>({});
+    if (option.bind === 'state') {
+        return core.params[name].value;
+    }
 
-    const initParams = (options: Record<string, ParamOption>, append = false) => {
-        if (!append) {
-            paramOptions.value = {};
+    const ref = core.params[name]?.ref;
+
+    const result = Array.isArray(ref?.value) ? ref?.value[0] : ref?.value;
+
+    if (option.type === 'boolean') {
+        if (option.default != null) {
+            return result !== undefined ? !option.default : option.default;
+        } else {
+            return result !== undefined;
         }
+    }
 
-        for (const k of Object.keys(options)) {
-            const opt = options[k];
+    if (result == null) {
+        return null;
+    }
 
-            const def: Partial<Parameter> = {
-                ...opt,
-                ...opt.default != null ? { default: toRef(opt.default) } : {},
-                ...opt.type === 'enum' ? { values: toRef(opt.values) } : {},
-            } as any;
-
-            (paramOptions.value as any)[k] = def as Parameter;
-        }
-    };
-
-    const deinitParams = (keys: string[]) => {
-        for (const k of keys) {
-            delete paramOptions.value[k];
-        }
-    };
-
-    const getValue = (def: Parameter, key: string) => {
-        const realKey = def.key ?? key;
-
-        if (def.bind === 'state') {
-            return paramState.value[realKey];
-        }
-
-        const result = (
-            def.bind === 'params'
-                ? route.params[realKey]
-                : route.query[realKey]
-        ) as string;
-
-        if (def.type === 'boolean') {
-            if (def.default != null) {
-                return result !== undefined ? !def.default : def.default;
-            } else {
-                return result !== undefined;
-            }
-        }
-
-        if (result == null) {
+    switch (option.type) {
+    case 'number':
+        return Number.parseInt(result, 10);
+    case 'enum':
+        if (option.values.value.includes(result)) {
+            return result;
+        } else {
             return null;
         }
+    default:
+        return result;
+    }
+};
 
-        switch (def.type) {
-        case 'number':
-            return parseInt(result);
-        case 'enum':
-            if (def.values.includes(result)) {
-                return result;
+export const getValue = (name: string) => {
+    const core = useCore();
+
+    return getInnerValue(name, core.params[name].option)
+      ?? getDefault(core.params[name].option);
+};
+
+export const setValue = (name: string, newValue: any) => {
+    const core = useCore();
+
+    const option = core.params[name]?.option;
+
+    if (option.readonly) {
+        return;
+    }
+
+    const realKey = option.name ?? name;
+
+    if (option.bind === 'state') {
+        core.params[name].value = newValue;
+        return;
+    }
+
+    const ref = core.params[name].ref;
+
+    if (option.bind === 'params') {
+        if (option.type === 'boolean') {
+            if (newValue === true) {
+                ref.value = realKey;
             } else {
-                return null;
-            }
-        default:
-            return result;
-        }
-    };
-
-    const setValue = (def: Parameter, key: string, newValue: any) => {
-        if (def.readonly) {
-            return;
-        }
-
-        const realKey = def.key ?? key;
-
-        if (def.bind === 'state') {
-            paramState.value[realKey] = newValue;
-        } else if (def.bind === 'params') {
-            if (def.type === 'boolean') {
-                if (newValue === true) {
-                    void router.push({
-                        params: { ...route.params, [realKey]: null },
-                        query:  route.query,
-                    });
-                } else {
-                    void router.push({
-                        params: omit(route.params, [realKey]),
-                        query:  route.query,
-                    });
-                }
-            } else {
-                void router.push({
-                    params: { ...route.params, [realKey]: newValue ?? undefined },
-                    query:  route.query,
-                });
+                ref.value = null;
             }
         } else {
-            if (def.type === 'boolean') {
-                if (def.default != null) {
-                    if (newValue !== def.default) {
-                        void router.push({
-                            query: { ...route.query, [realKey]: null },
-                        });
-                    } else {
-                        void router.push({
-                            query: omit(route.query, [realKey]),
-                        });
-                    }
+            ref.value = newValue ?? undefined;
+        }
+    } else {
+        if (option.type === 'boolean') {
+            if (option.default != null) {
+                if (newValue != option.default) {
+                    ref.value = null;
                 } else {
-                    if (newValue === true) {
-                        void router.push({
-                            query: { ...route.query, [realKey]: null },
-                        });
-                    } else {
-                        void router.push({
-                            query: omit(route.query, [realKey]),
-                        });
-                    }
+                    ref.value = undefined;
                 }
             } else {
-                if (newValue === def.default) {
-                    void router.push({
-                        query: omit(route.query, [realKey]),
-                    });
+                if (newValue === true) {
+                    ref.value = null;
                 } else {
-                    void router.push({
-                        query: { ...route.query, [realKey]: newValue ?? undefined },
-                    });
+                    ref.value = undefined;
                 }
+            }
+        } else {
+            if (newValue === option.default) {
+                ref.value = undefined;
+            } else {
+                ref.value = newValue ?? undefined;
             }
         }
+    }
+};
+
+export function useParam<T extends ParamOption>(name: string, option: T): ParamRefType<T> {
+    const core = useCore();
+
+    const ref = useRouterRef(option.bind, option.name ?? name);
+
+    core.params[name] = {
+        option: toReactiveOption(option),
+        value:  undefined,
+        ref,
     };
 
-    const params = computed<Record<string, any>>({
-        get() {
-            const result: Record<string, any> = {};
+    if (option.readonly) {
+        return computed(() => getValue(name)) as any;
+    } else {
+        return computed({
+            get() { return getValue(name); },
+            set(newValue) { setValue(name, newValue); },
+        }) as any;
+    }
+}
 
-            for (const k of Object.keys(paramOptions.value)) {
-                const def = paramOptions.value[k] as Parameter;
+export function clearParam(): void {
+    const core = useCore();
 
-                result[k] = getValue(def, k) ?? def.default ?? getDefault(def);
-            }
-
-            return result;
-        },
-        set(newValue) {
-            const oldValue = params.value;
-
-            for (const k of Object.keys(oldValue)) {
-                if (oldValue[k] !== newValue[k]) {
-                    setValue(paramOptions.value[k] as Parameter, k, newValue[k]);
-                }
-            }
-        },
-    });
-
-    return {
-        params,
-        paramOptions,
-        initParams,
-        deinitParams,
-    };
+    for (const key of Object.keys(core.params)) {
+        delete core.params[key];
+    }
 }

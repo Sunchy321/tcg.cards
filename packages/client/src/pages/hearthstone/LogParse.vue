@@ -22,62 +22,47 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref } from 'vue';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
-
-import pageSetup from 'setup/page';
-
-// import { Log } from '@interface/hearthstone/log/file';
+import { useCore, useTitle } from 'store/core';
 
 import { apiBase } from 'boot/server';
 
-export default defineComponent({
-    name: 'LogParse',
+const i18n = useI18n();
+const quasar = useQuasar();
+const core = useCore();
 
-    setup() {
-        const i18n = useI18n();
-        const quasar = useQuasar();
+const log = ref<any>([]);
 
-        const log = ref<any>([]);
+useTitle(() => i18n.t('hearthstone.ui.log-parse.$self'));
 
-        pageSetup({
-            title:   () => i18n.t('hearthstone.ui.log-parse.$self'),
-            actions: [
-                {
-                    action: 'upload',
-                    icon:   'mdi-upload',
-                    popup:  {
-                        type:   'file',
-                        url:    `${apiBase}/hearthstone/log-parse`,
-                        accept: '.log',
-                    },
-                    handler: {
-                        uploaded: ({ xhr }: { file: File[], xhr: XMLHttpRequest }) => {
-                            log.value = JSON.parse(xhr.response);
-                        },
-                        failed: ({ xhr }: { file: File[], xhr: XMLHttpRequest }) => {
-                            quasar.notify({
-                                type:    'negative',
-                                message: xhr.response,
-                            });
-                        },
-                    },
-                },
-            ],
-        });
-
-        const prettify = (value: any) => JSON.stringify(value, null, 4);
-
-        return {
-            log,
-
-            prettify,
-        };
+core.actions = [
+    {
+        action: 'upload',
+        icon:   'mdi-upload',
+        popup:  {
+            type:   'file',
+            url:    `${apiBase}/hearthstone/log-parse`,
+            accept: '.log',
+        },
+        handler: {
+            uploaded: ({ xhr }: { file: File[], xhr: XMLHttpRequest }) => {
+                log.value = JSON.parse(xhr.response);
+            },
+            failed: ({ xhr }: { file: File[], xhr: XMLHttpRequest }) => {
+                quasar.notify({
+                    type:    'negative',
+                    message: xhr.response,
+                });
+            },
+        },
     },
-});
+];
+
+const prettify = (value: any) => JSON.stringify(value, null, 4);
 
 </script>
 

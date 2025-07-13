@@ -160,9 +160,9 @@ import {
 } from 'vue';
 
 import { useGame } from 'store/games/lorcana';
+import { useParam } from 'store/core';
 
 import controlSetup from 'setup/control';
-import pageSetup from 'src/setup/page';
 
 import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
@@ -238,19 +238,11 @@ const game = useGame();
 
 const { controlGet, controlPost } = controlSetup();
 
-const {
-    filter,
-} = pageSetup({
-    params: {
-        filter: {
-            type:    'enum',
-            bind:    'query',
-            values:  ['', ...sources],
-            default: '',
-        },
-    },
-
-    appendParam: true,
+const filter = useParam('filter', {
+    type:    'enum',
+    bind:    'query',
+    values:  ['', ...sources],
+    default: '',
 });
 
 const formats = computed(() => ['#core', ...game.formats]);

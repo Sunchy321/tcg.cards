@@ -90,11 +90,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useCore } from 'store/core';
 import { useI18n } from 'vue-i18n';
+import { useAction, useCore, useTitle } from 'store/core';
 
 import yugiohSetup from 'setup/yugioh';
-import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
 import RichText from 'src/components/yugioh/RichText.vue';
@@ -106,20 +105,19 @@ const i18n = useI18n();
 
 const { search, random } = yugiohSetup();
 
-pageSetup({
-    title:   () => i18n.t('yugioh.$self'),
-    actions: [
-        {
-            action:  'search',
-            handler: search,
-        },
-        {
-            action:  'random',
-            icon:    'mdi-shuffle-variant',
-            handler: random,
-        },
-    ],
-});
+useTitle(() => i18n.t('yugioh.$self'));
+
+useAction([
+    {
+        action:  'search',
+        handler: search,
+    },
+    {
+        action:  'random',
+        icon:    'mdi-shuffle-variant',
+        handler: random,
+    },
+]);
 
 const searchText = computed({
     get() { return core.search; },

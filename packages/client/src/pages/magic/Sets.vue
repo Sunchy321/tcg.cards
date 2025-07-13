@@ -27,53 +27,45 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import {
-    defineComponent, ref, computed, watch, onMounted,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue';
 
-import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useTitle } from 'store/core';
+import { useGame } from 'store/games/magic';
 
 import { apiGet, assetBase } from 'boot/server';
 
 import setProfile, { SetProfile, SetLocalization } from 'src/common/magic/set';
 import { isEqual, partition } from 'lodash';
+const game = useGame();
+const i18n = useI18n();
 
-export default defineComponent({
-    setup() {
-        const game = useGame();
-        const i18n = useI18n();
+useTitle(() => i18n.t('magic.set.$self'));
 
-        pageSetup({
-            title: () => i18n.t('magic.set.$self'),
+const sets = ref<string[]>([]);
+const profiles = ref<Record<string, SetProfile>>({});
+
+const profileList = computed(() => {
+    // Make a set list which parent occur before child.
+    let profilesDump = Object.values(profiles.value);
+
+    const profilesOrdered: SetProfile[] = [];
+
+    while (profilesDump.length > 0) {
+        const [profilesToInsert, profilesRest] = partition(profilesDump, p => {
+            if (p.parent == null) {
+                return true;
+            }
+
+            const parent = profilesOrdered.find(po => po.setId === p.parent);
+
+            return parent != null;
         });
 
-        const sets = ref<string[]>([]);
-        const profiles = ref<Record<string, SetProfile>>({});
-
-        const profileList = computed(() => {
-            // Make a set list which parent occur before child.
-            let profilesDump = Object.values(profiles.value);
-
-            const profilesOrdered: SetProfile[] = [];
-
-            while (profilesDump.length > 0) {
-                const [profilesToInsert, profilesRest] = partition(profilesDump, p => {
-                    if (p.parent == null) {
-                        return true;
-                    }
-
-                    const parent = profilesOrdered.find(po => po.setId === p.parent);
-
-                    return parent != null;
-                });
-
-                profilesOrdered.push(...profilesToInsert);
-                profilesDump = profilesRest;
-            }
+        profilesOrdered.push(...profilesToInsert);
+        profilesDump = profilesRest;
+    }
 
             // Make a set map.
             type SetMap = { profile: SetProfile, children?: SetMap[] };
@@ -162,55 +154,47 @@ export default defineComponent({
             flatten(setMap);
 
             return list;
-        });
-
-        const loadData = async () => {
-            const { data } = await apiGet<string[]>('/magic/set');
-
-            sets.value = data;
-        };
-
-        const loadProfile = async (setList: string[]) => {
-            profiles.value = {};
-
-            const profileMap: Record<string, SetProfile> = { };
-
-            for (const s of setList) {
-                setProfile.get(s, v => {
-                    if (!isEqual(v, profileMap[s])) {
-                        profileMap[s] = v;
-
-                        if (isEqual(setList.sort(), Object.keys(profileMap).sort())) {
-                            profiles.value = profileMap;
-                        }
-                    }
-                });
-            }
-        };
-
-        const nameOf = (localization: Record<string, SetLocalization>) => localization[game.locale]?.name
-          ?? localization[game.locales[0]]?.name;
-
-        const iconUrl = (set: string, type: string, parent?: string) => {
-            if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(type)) {
-                return undefined;
-            }
-
-            return `${assetBase}/magic/set/icon/${set}/default.svg`;
-        };
-
-        watch(sets, loadProfile);
-
-        onMounted(loadData);
-
-        return {
-            profileList,
-
-            nameOf,
-            iconUrl,
-        };
-    },
 });
+
+const loadData = async () => {
+    const { data } = await apiGet<string[]>('/magic/set');
+
+    sets.value = data;
+};
+
+const loadProfile = async (setList: string[]) => {
+    profiles.value = {};
+
+    const profileMap: Record<string, SetProfile> = { };
+
+    for (const s of setList) {
+        setProfile.get(s, v => {
+            if (!isEqual(v, profileMap[s])) {
+                profileMap[s] = v;
+
+                if (isEqual(setList.sort(), Object.keys(profileMap).sort())) {
+                    profiles.value = profileMap;
+                }
+            }
+        });
+    }
+};
+
+const nameOf = (localization: Record<string, SetLocalization>) => localization[game.locale]?.name
+  ?? localization[game.locales[0]]?.name;
+
+const iconUrl = (set: string, type: string, parent?: string) => {
+    if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(type)) {
+        return undefined;
+    }
+
+    return `${assetBase}/magic/set/icon/${set}/default.svg`;
+};
+
+watch(sets, loadProfile);
+
+onMounted(loadData);
+
 </script>
 
 <style lang="sass" scoped>

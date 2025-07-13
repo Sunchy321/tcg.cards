@@ -41,17 +41,14 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import {
-    defineComponent, ref, computed, watch,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
 
 import { Content, Glossary } from '@interface/magic/cr';
 
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useTitle } from 'store/core';
 
 import RichText from 'src/components/magic/RichText.vue';
 
@@ -76,46 +73,30 @@ type History = {
     })[];
 };
 
-export default defineComponent({
-    name: 'CRHistory',
+const route = useRoute();
+const i18n = useI18n();
 
-    components: { RichText },
+useTitle(() => i18n.t('magic.cr.history'));
 
-    setup() {
-        const route = useRoute();
-        const i18n = useI18n();
+const id = computed(() => route.query.id);
+const data = ref<History | null>(null);
 
-        pageSetup({
-            title: () => i18n.t('magic.cr.history'),
-        });
+watch(id, async () => {
+    const { data: result } = await apiGet<History>('/magic/cr/history', {
+        id: id.value,
+    });
 
-        const id = computed(() => route.query.id);
-        const data = ref<History | null>(null);
+    data.value = result;
+}, { immediate: true });
 
-        watch(id, async () => {
-            const { data: result } = await apiGet<History>('/magic/cr/history', {
-                id: id.value,
-            });
-
-            data.value = result;
-        }, { immediate: true });
-
-        const versionLink = (version: string) => ({
-            name:  'magic/rule',
-            query: {
-                date: version,
-            },
-            hash: `#${id.value}`,
-        });
-
-        return {
-            id,
-            data,
-
-            versionLink,
-        };
+const versionLink = (version: string) => ({
+    name:  'magic/rule',
+    query: {
+        date: version,
     },
+    hash: `#${id.value}`,
 });
+
 </script>
 
 <style lang="sass" scoped>

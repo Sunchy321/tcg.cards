@@ -90,11 +90,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useCore } from 'store/core';
+import { useCore, useTitle } from 'store/core';
 import { useI18n } from 'vue-i18n';
 
 import lorcanaSetup from 'setup/lorcana';
-import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
 import RichText from 'src/components/lorcana/RichText.vue';
@@ -106,20 +105,19 @@ const i18n = useI18n();
 
 const { search, random } = lorcanaSetup();
 
-pageSetup({
-    title:   () => i18n.t('lorcana.$self'),
-    actions: [
-        {
-            action:  'search',
-            handler: search,
-        },
-        {
-            action:  'random',
-            icon:    'mdi-shuffle-variant',
-            handler: random,
-        },
-    ],
-});
+useTitle (() => i18n.t('lorcana.$self'));
+
+core.actions = [
+    {
+        action:  'search',
+        handler: search,
+    },
+    {
+        action:  'random',
+        icon:    'mdi-shuffle-variant',
+        handler: random,
+    },
+];
 
 const searchText = computed({
     get() { return core.search; },

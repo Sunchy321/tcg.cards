@@ -339,23 +339,13 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
-
-import pageSetup from 'setup/page';
+<script setup lang="ts">
+import { useTitle } from 'store/core';
 
 import Example from 'components/SearchExample.vue';
 import RichText from 'src/components/magic/RichText.vue';
 
-export default defineComponent({
-    components: { Example, RichText },
-
-    setup() {
-        pageSetup({
-            title: '搜索文档',
-        });
-    },
-});
+useTitle('搜索文档');
 </script>
 
 <style lang="sass" scoped src="../../search-docs.sass" />

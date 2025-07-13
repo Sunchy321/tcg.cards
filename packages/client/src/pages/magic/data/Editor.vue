@@ -361,10 +361,10 @@ import {
 } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
+import { useParam } from 'store/core';
 import { useGame } from 'store/games/magic';
 
 import controlSetup from 'setup/control';
-import pageSetup from 'setup/page';
 
 import ArrayInput from 'components/ArrayInput.vue';
 import RemoteBtn from 'components/RemoteBtn.vue';
@@ -489,103 +489,89 @@ const unlock = ref(false);
 
 const locales = computed(() => ['', ...game.locales]);
 
-const {
-    locale,
-    sp: sample,
-    fp: forcePrettify,
-    fb: filterBy,
-    sk: separateKeyword,
-    ru: replaceUnified,
-    rp: replacePrinted,
-    rf: replaceFrom,
-    rt: replaceTo,
-    co: clearDevOracle,
-    cp: clearDevPrinted,
-    bo: showBeforeOracle,
-} = pageSetup({
-    params: {
-        locale: {
-            type:    'enum',
-            bind:    'query',
-            values:  locales,
-            default: '',
-        },
+const locale = useParam('locale', {
+    type:    'enum',
+    bind:    'query',
+    values:  locales,
+    default: '',
+});
 
-        sp: {
-            type:    'boolean',
-            bind:    'query',
-            default: true,
-        },
+const sample = useParam('sample', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'sp',
+    default: true,
+});
 
-        fb: {
-            type:    'enum',
-            bind:    'query',
-            values:  ['none', 'lang', 'card'],
-            default: 'none',
-        },
+const filterBy = useParam('filterBy', {
+    type:    'enum',
+    bind:    'query',
+    name:    'fb',
+    values:  ['none', 'lang', 'card'],
+    default: 'none',
+});
 
-        fp: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const forcePrettify = useParam('forcePrettify', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'fp',
+    default: false,
+});
 
-        sk: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const separateKeyword = useParam('separateKeyword', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'sk',
+    default: false,
+});
 
-        ru: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const replaceUnified = useParam('replaceUnified', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'ru',
+    default: false,
+});
 
-        rp: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const replacePrinted = useParam('replacePrinted', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'rp',
+    default: false,
+});
 
-        rf: {
-            type:    'string',
-            bind:    'query',
-            default: '',
-        },
+const replaceFrom = useParam('replaceFrom', {
+    type:    'string',
+    bind:    'query',
+    name:    'rf',
+    default: '',
+});
 
-        rt: {
-            type:    'string',
-            bind:    'query',
-            default: '',
-        },
+const replaceTo = useParam('replaceTo', {
+    type:    'string',
+    bind:    'query',
+    name:    'rt',
+    default: '',
+});
 
-        aa: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const clearDevOracle = useParam('clearDevOracle', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'co',
+    default: false,
+});
 
-        co: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
+const clearDevPrinted = useParam('clearDevPrinted', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'cp',
+    default: false,
+});
 
-        cp: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
-
-        bo: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
-    },
-
-    appendParam: true,
+const showBeforeOracle = useParam('showBeforeOracle', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'bo',
+    default: false,
 });
 
 const search = computed({

@@ -17,74 +17,64 @@
     </q-page>
 </template>
 
-<script lang="ts">
-import {
-    defineComponent, ref, computed, onMounted,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
 
 import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useParam, useTitle } from 'store/core';
 
 import { assetBase, apiGet } from 'boot/server';
 
-export default defineComponent({
-    setup() {
-        const game = useGame();
-        const i18n = useI18n();
+const game = useGame();
+const i18n = useI18n();
 
-        const { set, lang, type } = pageSetup({
-            title: () => i18n.t('magic.image-wall'),
+useTitle(() => i18n.t('magic.image-wall'));
 
-            params: {
-                set: {
-                    type:     'string',
-                    bind:     'query',
-                    readonly: true,
-                },
-                lang: {
-                    type:     'string',
-                    bind:     'query',
-                    readonly: true,
-                    default:  () => game.locale,
-                },
-                type: {
-                    type:     'enum',
-                    bind:     'query',
-                    values:   ['png'],
-                    readonly: true,
-                },
-            },
-        });
-
-        const data = ref<string[]>([]);
-
-        const urls = computed(() => data.value.map(name => {
-            const [number, part] = name.split('-');
-
-            if (part != null) {
-                return `${assetBase}/magic/card/large/${set.value}/${lang.value}/${number}-${part}.jpg`;
-            } else {
-                return `${assetBase}/magic/card/large/${set.value}/${lang.value}/${number}.jpg`;
-            }
-        }));
-
-        const loadData = async () => {
-            const { data: result } = await apiGet<string[]>('/magic/set/image-all', {
-                id:   set.value,
-                lang: lang.value,
-                type: type.value,
-            });
-
-            data.value = result;
-        };
-
-        onMounted(loadData);
-
-        return { urls };
-    },
+const set = useParam('set', {
+    type:     'string',
+    bind:     'query',
+    readonly: true,
 });
+
+const lang = useParam('lang', {
+    type:     'string',
+    bind:     'query',
+    readonly: true,
+    default:  () => game.locale,
+});
+
+const type = useParam('type', {
+    type:     'enum',
+    bind:     'query',
+    values:   ['png'],
+    readonly: true,
+});
+
+const data = ref<string[]>([]);
+
+const urls = computed(() => data.value.map(name => {
+    const [number, part] = name.split('-');
+
+    if (part != null) {
+        return `${assetBase}/magic/card/large/${set.value}/${lang.value}/${number}-${part}.jpg`;
+    } else {
+        return `${assetBase}/magic/card/large/${set.value}/${lang.value}/${number}.jpg`;
+    }
+}));
+
+const loadData = async () => {
+    const { data: result } = await apiGet<string[]>('/magic/set/image-all', {
+        id:   set.value,
+        lang: lang.value,
+        type: type.value,
+    });
+
+    data.value = result;
+};
+
+onMounted(loadData);
+
 </script>
 
 <style lang="sass" scoped>

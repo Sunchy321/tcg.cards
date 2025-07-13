@@ -26,10 +26,9 @@ import {
     ref, computed, watch, onMounted,
 } from 'vue';
 
-import { useGame } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useGame } from 'store/games/lorcana';
+import { useTitle } from 'store/core';
 
 import { apiGet } from 'boot/server';
 
@@ -39,9 +38,7 @@ import { isEqual, partition } from 'lodash';
 const game = useGame();
 const i18n = useI18n();
 
-pageSetup({
-    title: () => i18n.t('lorcana.set.$self'),
-});
+useTitle(() => i18n.t('lorcana.set.$self'));
 
 const sets = ref<string[]>([]);
 const profiles = ref<Record<string, SetProfile>>({});
@@ -146,7 +143,7 @@ const loadProfile = async (setList: string[]) => {
     }
 };
 
-const nameOf = (localization: Record<string, SetLocalization>) => localization[lorcana.locale]?.name
+const nameOf = (localization: Record<string, SetLocalization>) => localization[game.locale]?.name
   ?? localization[game.locales[0]]?.name;
 
 watch(sets, loadProfile);

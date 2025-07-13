@@ -90,11 +90,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useCore } from 'store/core';
 import { useI18n } from 'vue-i18n';
+import { useCore, useTitle } from 'store/core';
 
 import ptcgSetup from 'setup/ptcg';
-import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
 import RichText from 'src/components/ptcg/RichText.vue';
@@ -106,20 +105,19 @@ const i18n = useI18n();
 
 const { search, random } = ptcgSetup();
 
-pageSetup({
-    title:   () => i18n.t('ptcg.$self'),
-    actions: [
-        {
-            action:  'search',
-            handler: search,
-        },
-        {
-            action:  'random',
-            icon:    'mdi-shuffle-variant',
-            handler: random,
-        },
-    ],
-});
+useTitle(() => i18n.t('ptcg.$self'));
+
+core.actions = [
+    {
+        action:  'search',
+        handler: search,
+    },
+    {
+        action:  'random',
+        icon:    'mdi-shuffle-variant',
+        handler: random,
+    },
+];
 
 const searchText = computed({
     get() { return core.search; },

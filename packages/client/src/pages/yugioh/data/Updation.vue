@@ -106,9 +106,9 @@ import {
 } from 'vue';
 
 import { useRouter } from 'vue-router';
+import { useParam } from 'store/core';
 
 import controlSetup from 'setup/control';
-import pageSetup from 'src/setup/page';
 
 import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/yugioh/CardAvatar.vue';
@@ -152,61 +152,59 @@ const key = computed(() => data.value.key);
 const current = computed(() => data.value.current);
 const values = computed(() => data.value.values);
 
-const {
-    mode,
-    lang,
-    tk: takeMulti,
-    si: showImage,
-    of: oldValueFilter,
-    nf: newValueFilter,
-    cc: commitCount,
-    mc: massiveChanged,
-} = pageSetup({
-    params: {
-        mode: {
-            type:    'enum',
-            bind:    'query',
-            values:  ['card', 'print'],
-            default: 'card',
-        },
-        lang: {
-            type:    'string',
-            bind:    'query',
-            default: '',
-        },
-        tk: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
-        si: {
-            type:    'boolean',
-            bind:    'query',
-            default: true,
-        },
-        of: {
-            type:    'string',
-            bind:    'query',
-            default: '',
-        },
-        nf: {
-            type:    'string',
-            bind:    'query',
-            default: '',
-        },
-        cc: {
-            type:    'number',
-            bind:    'query',
-            default: 50,
-        },
-        mc: {
-            type:    'boolean',
-            bind:    'query',
-            default: false,
-        },
-    },
+const mode = useParam('mode', {
+    type:    'enum',
+    bind:    'query',
+    values:  ['card', 'print'],
+    default: 'card',
+});
 
-    appendParam: true,
+const lang = useParam('lang', {
+    type:    'string',
+    bind:    'query',
+    default: '',
+});
+
+const takeMulti = useParam('takeMulti', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'tk',
+    default: false,
+});
+
+const showImage = useParam('showImage', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'si',
+    default: true,
+});
+
+const oldValueFilter = useParam('oldValueFilter', {
+    type:    'string',
+    bind:    'query',
+    name:    'of',
+    default: '',
+});
+
+const newValueFilter = useParam('newValueFilter', {
+    type:    'string',
+    bind:    'query',
+    name:    'nf',
+    default: '',
+});
+
+const commitCount = useParam('commitCount', {
+    type:    'number',
+    bind:    'query',
+    name:    'cc',
+    default: 50,
+});
+
+const massiveChanged = useParam('massiveChanged', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'mc',
+    default: false,
 });
 
 const diffValue = (lhs: string, rhs: string) => {

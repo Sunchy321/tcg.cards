@@ -41,16 +41,13 @@
 import { ref, computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useTitle } from 'store/core';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
 
 const i18n = useI18n();
 
-pageSetup({
-    title: () => i18n.t('magic.ui.misc.symbol'),
-});
+useTitle(() => i18n.t('magic.ui.misc.symbol'));
 
 const style = ref('normal');
 const styleOptions = ['raw', 'normal', 'shadow', 'flat'].map(v => ({

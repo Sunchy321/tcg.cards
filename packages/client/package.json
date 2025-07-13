@@ -23,6 +23,7 @@
     "@intlify/unplugin-vue-i18n": "^2.0.0",
     "@quasar/extras": "^1.0.0",
     "@vueuse/core": "^13.1.0",
+    "@vueuse/router": "^13.5.0",
     "axios": "^1.8.4",
     "bytes": "^3.1.2",
     "card-common": "workspace:^1.0.0",

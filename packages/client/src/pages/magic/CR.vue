@@ -33,8 +33,7 @@ import { Menu } from 'layouts/WithMenu.vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useCore, useTitle, useParam } from 'store/core';
 
 import RichText from 'src/components/magic/RichText.vue';
 
@@ -54,6 +53,7 @@ const emit = defineEmits<{
 const router = useRouter();
 const route = useRoute();
 const i18n = useI18n();
+const core = useCore();
 
 const list = ref<string[]>([]);
 const cr = ref<CR | null>(null);
@@ -63,50 +63,46 @@ const selected = defineModel<string | null>('selected');
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const expanded = defineModel<string[]>('expanded');
 
-const { date } = pageSetup({
-    title: () => i18n.t('magic.cr.$self'),
+useTitle(() => i18n.t('magic.cr.$self'));
 
-    params: {
-        date: {
-            type:    'enum',
-            bind:    'query',
-            inTitle: true,
-            values:  list,
+const date = useParam('date', {
+    type:    'enum',
+    bind:    'query',
+    inTitle: true,
+    values:  list,
+});
+
+core.actions = [
+    {
+        icon:   'mdi-vector-difference',
+        action: 'diff',
+        handler() {
+            const index = list.value.indexOf(date.value);
+
+            if (index === -1) {
+                return;
+            }
+
+            if (index === list.value.length - 1) {
+                void router.push({
+                    name:  'magic/rule/diff',
+                    query: {
+                        from: date.value,
+                        to:   list.value[list.value.length - 2],
+                    },
+                });
+            } else {
+                void router.push({
+                    name:  'magic/rule/diff',
+                    query: {
+                        from: list.value[index + 1],
+                        to:   date.value,
+                    },
+                });
+            }
         },
     },
-
-    actions: [
-        {
-            icon:   'mdi-vector-difference',
-            action: 'diff',
-            handler() {
-                const index = list.value.indexOf(date.value);
-
-                if (index === -1) {
-                    return;
-                }
-
-                if (index === list.value.length - 1) {
-                    void router.push({
-                        name:  'magic/rule/diff',
-                        query: {
-                            from: date.value,
-                            to:   list.value[list.value.length - 2],
-                        },
-                    });
-                } else {
-                    void router.push({
-                        name:  'magic/rule/diff',
-                        query: {
-                            from: list.value[index + 1],
-                            to:   date.value,
-                        },
-                    });
-                }
-            },
-        },
-    ],
-});
+];
 
 const contents = computed(() => cr.value?.contents ?? []);
 const glossary = computed(() => cr.value?.glossary ?? []);

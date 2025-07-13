@@ -159,12 +159,12 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
-import { useGame, TextMode, textModes } from 'store/games/lorcana';
 import { useI18n } from 'vue-i18n';
+import { useCore, useTitle } from 'store/core';
+import { useGame, TextMode, textModes } from 'store/games/lorcana';
 
 import basicSetup from 'setup/basic';
 import lorcanaSetup from 'setup/lorcana';
-import pageSetup from 'setup/page';
 
 import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/lorcana/CardAvatar.vue';
@@ -185,6 +185,8 @@ const router = useRouter();
 const route = useRoute();
 const game = useGame();
 const i18n = useI18n();
+const core = useCore();
+
 const { isAdmin } = basicSetup();
 
 const { search, random } = lorcanaSetup();
@@ -402,29 +404,27 @@ const selectedTextInfo = (view: CardPrintView | undefined) => {
     }
 };
 
-pageSetup({
-    title: () => {
-        if (data.value == null) {
-            return '';
-        }
+useTitle(() => {
+    if (data.value == null) {
+        return '';
+    }
 
-        return selectedTextInfo(data.value)?.name ?? '';
-    },
-
-    titleType: 'input',
-
-    actions: [
-        {
-            action:  'search',
-            handler: search,
-        },
-        {
-            action:  'random',
-            icon:    'mdi-shuffle-variant',
-            handler: random,
-        },
-    ],
+    return selectedTextInfo(data.value)?.name ?? '';
 });
+
+core.titleType = 'input';
+
+core.actions = [
+    {
+        action:  'search',
+        handler: search,
+    },
+    {
+        action:  'random',
+        icon:    'mdi-shuffle-variant',
+        handler: random,
+    },
+];
 
 const cost = computed(() => data.value?.cost);
 const inkwell = computed(() => data.value?.inkwell ?? true);

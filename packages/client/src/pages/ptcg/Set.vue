@@ -51,10 +51,10 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
+import { useTitle } from 'store/core';
 import { useGame } from 'store/games/lorcana';
 
 import basicSetup from 'setup/basic';
-import pageSetup from 'setup/page';
 
 import { Set as ISet } from '@interface/lorcana/set';
 
@@ -84,9 +84,7 @@ const name = computed(() => {
       ?? data.value.localization[game.locales[0]]?.name;
 });
 
-pageSetup({
-    title: () => name.value ?? id.value,
-});
+useTitle(() => name.value ?? id.value);
 
 const cardCount = computed(() => data.value?.cardCount ?? 0);
 const langs = computed(() => data.value?.langs ?? []);

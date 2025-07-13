@@ -2,23 +2,12 @@
     <q-page />
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue';
+<script setup lang="ts">
 
-import pageSetup from 'setup/page';
+import { useTitle } from 'store/core';
 
-// import SearchExample from 'components/SearchExample.vue';
-// import RichText from 'components/magic/Text.vue';
+useTitle('Search Docs');
 
-export default defineComponent({
-    // components: { SearchExample, RichText },
-
-    setup() {
-        pageSetup({
-            title: 'Search Docs',
-        });
-    },
-});
 </script>
 
 <style lang="sass" scoped src="../../search-docs.sass" />

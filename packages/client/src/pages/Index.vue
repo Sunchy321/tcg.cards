@@ -45,10 +45,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useCore } from 'src/stores/core';
 import { useI18n } from 'vue-i18n';
+import { useCore } from 'store/core';
 
-import pageSetup from 'setup/page';
 import integratedSetup from 'src/setup/integrated';
 
 import SearchInput from 'components/SearchInput.vue';
@@ -59,8 +58,6 @@ import model from '@search-data/integrated/client';
 
 const core = useCore();
 const i18n = useI18n();
-
-pageSetup({ });
 
 const { search } = integratedSetup();
 

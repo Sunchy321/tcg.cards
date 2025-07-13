@@ -49,6 +49,9 @@ importers:
       '@vueuse/core':
         specifier: ^13.1.0
         version: 13.1.0(vue@3.5.11(typescript@5.8.2))
+      '@vueuse/router':
+        specifier: ^13.5.0
+        version: 13.5.0(vue-router@4.1.5(vue@3.5.11(typescript@5.8.2)))(vue@3.5.11(typescript@5.8.2))
       axios:
         specifier: ^1.8.4
         version: 1.8.4
@@ -1107,6 +1110,7 @@ packages:
   '@koa/router@13.1.0':
     resolution: {integrity: sha512-mNVu1nvkpSd8Q8gMebGbCkDWJ51ODetrFvLKYusej+V0ByD4btqHYnPIzTBLXnQMVUlm/oxVwqmWBY3zQfZilw==}
     engines: {node: '>= 18'}
+    deprecated: Please upgrade to v13.1.1+ per <https://github.com/koajs/router/pull/181>
 
   '@kwsites/file-exists@1.1.1':
     resolution: {integrity: sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==}
@@ -1750,8 +1754,19 @@ packages:
   '@vueuse/metadata@13.1.0':
     resolution: {integrity: sha512-+TDd7/a78jale5YbHX9KHW3cEDav1lz1JptwDvep2zSG8XjCsVE+9mHIzjTOaPbHUAk5XiE4jXLz51/tS+aKQw==}
 
+  '@vueuse/router@13.5.0':
+    resolution: {integrity: sha512-QI735rn3FPMnEAqiwJKdYN2byMn1orRBcBq9YuZS/QSYUNV7tR8jhU99s7Vix+BL0YEIk/nU7lUZA0IOCarGzg==}
+    peerDependencies:
+      vue: ^3.5.0
+      vue-router: ^4.0.0
+
   '@vueuse/shared@13.1.0':
     resolution: {integrity: sha512-IVS/qRRjhPTZ6C2/AM3jieqXACGwFZwWTdw5sNTSKk2m/ZpkuuN+ri+WCVUP8TqaKwJYt/KuMwmXspMAw8E6ew==}
+    peerDependencies:
+      vue: ^3.5.0
+
+  '@vueuse/shared@13.5.0':
+    resolution: {integrity: sha512-K7GrQIxJ/ANtucxIXbQlUHdB0TPA8c+q5i+zbrjxuhJCnJ9GtBg75sBSnvmLSxHKPg2Yo8w62PWksl9kwH0Q8g==}
     peerDependencies:
       vue: ^3.5.0
 
@@ -6079,7 +6094,17 @@ snapshots:
 
   '@vueuse/metadata@13.1.0': {}
 
+  '@vueuse/router@13.5.0(vue-router@4.1.5(vue@3.5.11(typescript@5.8.2)))(vue@3.5.11(typescript@5.8.2))':
+    dependencies:
+      '@vueuse/shared': 13.5.0(vue@3.5.11(typescript@5.8.2))
+      vue: 3.5.11(typescript@5.8.2)
+      vue-router: 4.1.5(vue@3.5.11(typescript@5.8.2))
+
   '@vueuse/shared@13.1.0(vue@3.5.11(typescript@5.8.2))':
+    dependencies:
+      vue: 3.5.11(typescript@5.8.2)
+
+  '@vueuse/shared@13.5.0(vue@3.5.11(typescript@5.8.2))':
     dependencies:
       vue: 3.5.11(typescript@5.8.2)
 
@@ -7681,7 +7706,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 14.18.31
+      '@types/node': 18.19.98
       merge-stream: 2.0.0
       supports-color: 8.1.1
 

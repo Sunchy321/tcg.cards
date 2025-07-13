@@ -43,11 +43,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 
-import { useCore } from 'store/core';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
+import { useCore, useTitle, useParam } from 'store/core';
 
-import pageSetup from 'setup/page';
 import hearthstoneSetup from 'setup/hearthstone';
 
 import Grid from 'components/Grid.vue';
@@ -96,35 +95,34 @@ const { search } = hearthstoneSetup();
 const data = ref<SearchResult | null>(null);
 const searching = ref(false);
 
-const { q, page, pageSize } = pageSetup({
-    title:     () => i18n.t('ui.search'),
-    titleType: 'input',
+useTitle(() => i18n.t('ui.search'));
 
-    params: {
-        q: {
-            type:     'string',
-            bind:     'query',
-            readonly: true,
-        },
-        page: {
-            type:    'number',
-            bind:    'query',
-            default: 1,
-        },
-        pageSize: {
-            type:    'number',
-            bind:    'query',
-            default: 100,
-        },
-    },
+core.titleType = 'input';
 
-    actions: [
-        {
-            action:  'search',
-            handler: search,
-        },
-    ],
+const q = useParam('q', {
+    type:     'string',
+    bind:     'query',
+    readonly: true,
 });
+
+const page = useParam('page', {
+    type:    'number',
+    bind:    'query',
+    default: 1,
+});
+
+const pageSize = useParam('pageSize', {
+    type:    'number',
+    bind:    'query',
+    default: 100,
+});
+
+core.actions = [
+    {
+        action:  'search',
+        handler: search,
+    },
+];
 
 const searchText = computed({
     get() { return core.search; },

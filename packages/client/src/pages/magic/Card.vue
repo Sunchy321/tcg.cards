@@ -245,12 +245,12 @@
 import { ref, computed, watch } from 'vue';
 
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
-import { useGame, TextMode, textModes } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
+import { useCore, useTitle } from 'store/core';
+import { useGame, TextMode, textModes } from 'store/games/magic';
 
 import basicSetup from 'setup/basic';
 import magicSetup from 'setup/magic';
-import pageSetup from 'setup/page';
 
 import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
@@ -273,8 +273,9 @@ import { auxSetType } from '@static/magic/special';
 
 const router = useRouter();
 const route = useRoute();
-const game = useGame();
 const i18n = useI18n();
+const core = useCore();
+const game = useGame();
 const { isAdmin } = basicSetup();
 
 const { search, random } = magicSetup();
@@ -515,33 +516,31 @@ const selectedTextInfo = (partValue?: CardPrintView['parts'][0]) => {
     }
 };
 
-pageSetup({
-    title: () => {
-        if (data.value == null) {
-            return '';
-        }
+useTitle(() => {
+    if (data.value == null) {
+        return '';
+    }
 
-        if (['ph', 'qya'].includes(lang.value)) {
-            return data.value.parts.map(p => p.name).join(' // ');
-        } else {
-            return data.value.parts.map(p => selectedTextInfo(p)!.name).join(' // ');
-        }
-    },
-
-    titleType: 'input',
-
-    actions: [
-        {
-            action:  'search',
-            handler: search,
-        },
-        {
-            action:  'random',
-            icon:    'mdi-shuffle-variant',
-            handler: random,
-        },
-    ],
+    if (['ph', 'qya'].includes(lang.value)) {
+        return data.value.parts.map(p => p.name).join(' // ');
+    } else {
+        return data.value.parts.map(p => selectedTextInfo(p)!.name).join(' // ');
+    }
 });
+
+core.titleType = 'input',
+
+core.actions = [
+    {
+        action:  'search',
+        handler: search,
+    },
+    {
+        action:  'random',
+        icon:    'mdi-shuffle-variant',
+        handler: random,
+    },
+];
 
 const layout = computed(() => data.value?.layout);
 const cost = computed(() => part.value?.cost);

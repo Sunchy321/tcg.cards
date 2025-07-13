@@ -147,10 +147,9 @@ import {
     ref, computed, watch,
 } from 'vue';
 
-import { useGame } from 'src/stores/games/hearthstone';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useTitle, useParam } from 'store/core';
+import { useGame } from 'store/games/hearthstone';
 
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
@@ -204,41 +203,35 @@ const adjustmentStatusOrder = ['nerf', 'buff', 'adjust'];
 const game = useGame();
 const i18n = useI18n();
 
+useTitle(() => i18n.t('hearthstone.formar.$self'));
+
 const formats = computed(() => game.formats);
 
-const {
-    format,
-    timeline: showTimeline,
-    date,
-    order,
-} = pageSetup({
-    title: () => i18n.t('hearthstone.format.$self'),
+const format = useParam('format', {
+    type:    'enum',
+    bind:    'params',
+    key:     'id',
+    inTitle: true,
+    values:  formats,
+    label:   (v: string) => i18n.t(`hearthstone.format.${v}`),
+});
 
-    params: {
-        format: {
-            type:    'enum',
-            bind:    'params',
-            key:     'id',
-            inTitle: true,
-            values:  formats,
-            label:   (v: string) => i18n.t(`hearthstone.format.${v}`),
-        },
-        timeline: {
-            type:    'boolean',
-            bind:    'query',
-            inTitle: true,
-            icon:    ['mdi-timeline-outline', 'mdi-timeline'],
-        },
-        date: {
-            type: 'date',
-            bind: 'query',
-        },
-        order: {
-            type:   'enum',
-            bind:   'query',
-            values: ['name', 'date'],
-        },
-    },
+const showTimeline = useParam('timeline', {
+    type:    'boolean',
+    bind:    'query',
+    inTitle: true,
+    icon:    ['mdi-timeline-outline', 'mdi-timeline'],
+});
+
+const date = useParam('date', {
+    type: 'date',
+    bind: 'query',
+});
+
+const order = useParam('order', {
+    type:   'enum',
+    bind:   'query',
+    values: ['name', 'date'] as const,
 });
 
 const data = ref<Format | null>(null);
@@ -435,7 +428,7 @@ const banlist = computed(() => {
 });
 
 const timelineEvents = computed(() => {
-    const result = [];
+    const result: { date: string, color: string }[] = [];
 
     for (const c of changes.value) {
         const v = result.find(r => r.date === c.date);
@@ -482,7 +475,7 @@ const toPrevDate = () => {
 
     for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
         if (dateValue < currDate) {
-            date.value = dateValue;
+            date.value = dateValue as string;
             return;
         }
     }

@@ -91,10 +91,9 @@
 import { computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
-import { useCore } from 'store/core';
+import { useCore, useTitle } from 'store/core';
 
 import hearthstoneSetup from 'setup/hearthstone';
-import pageSetup from 'setup/page';
 
 import SearchInput from 'components/SearchInput.vue';
 
@@ -105,16 +104,15 @@ const i18n = useI18n();
 
 const { random, search } = hearthstoneSetup();
 
-pageSetup({
-    title:   () => i18n.t('hearthstone.$self'),
-    actions: [
-        {
-            action:  'random',
-            icon:    'mdi-shuffle-variant',
-            handler: random,
-        },
-    ],
-});
+useTitle(() => i18n.t('hearthstone.$self'));
+
+core.actions = [
+    {
+        action:  'random',
+        icon:    'mdi-shuffle-variant',
+        handler: random,
+    },
+];
 
 const searchText = computed({
     get() { return core.search; },

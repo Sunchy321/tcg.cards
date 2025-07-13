@@ -125,10 +125,9 @@ import {
     ref, computed, watch,
 } from 'vue';
 
-import { useGame } from 'store/games/yugioh';
 import { useI18n } from 'vue-i18n';
-
-import pageSetup from 'setup/page';
+import { useParam } from 'store/core';
+import { useGame } from 'store/games/yugioh';
 
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
@@ -167,39 +166,32 @@ const i18n = useI18n();
 
 const formats = computed(() => game.formats);
 
-const {
-    format,
-    timeline: showTimeline,
-    date,
-    order,
-} = pageSetup({
-    title: () => i18n.t('yugioh.format.$self'),
+const format = useParam('format', {
+    type:    'enum',
+    bind:    'params',
+    name:    'id',
+    inTitle: true,
+    values:  formats,
+    label:   (v: string) => i18n.t(`yugioh.format.${v}`),
+});
 
-    params: {
-        format: {
-            type:    'enum',
-            bind:    'params',
-            key:     'id',
-            inTitle: true,
-            values:  formats,
-            label:   (v: string) => i18n.t(`yugioh.format.${v}`),
-        },
-        timeline: {
-            type:    'boolean',
-            bind:    'query',
-            inTitle: true,
-            icon:    ['mdi-timeline-outline', 'mdi-timeline'],
-        },
-        date: {
-            type: 'date',
-            bind: 'query',
-        },
-        order: {
-            type:   'enum',
-            bind:   'query',
-            values: ['name', 'date'],
-        },
-    },
+const showTimeline = useParam('showTimeline', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'timeline',
+    inTitle: true,
+    icon:    ['mdi-timeline-outline', 'mdi-timeline'],
+});
+
+const date = useParam('date', {
+    type: 'date',
+    bind: 'query',
+});
+
+const order = useParam('order', {
+    type:   'enum',
+    bind:   'query',
+    values: ['name', 'date'],
 });
 
 const data = ref<Format | null>(null);
