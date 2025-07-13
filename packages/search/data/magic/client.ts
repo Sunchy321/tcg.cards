@@ -91,6 +91,8 @@ const format = defineClientCommand(commands.format);
 const counter = defineClientCommand(commands.counter);
 const keyword = defineClientCommand(commands.keyword);
 
+const multiverseId = defineClientCommand(commands.multiverseId);
+
 const order = defineClientCommand({
     command: commands.order,
     explain({ parameter }, i18n) {
@@ -160,6 +162,7 @@ const clientCommands: Record<string, CommonClientCommand> = {
     format,
     counter,
     keyword,
+    multiverseId,
     order,
 };
 

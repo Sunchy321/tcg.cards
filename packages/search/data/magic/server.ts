@@ -402,6 +402,31 @@ const keyword = defineServerCommand({
     },
 });
 
+const multiverseId = defineServerCommand({
+    command: commands.multiverseId,
+    query:   ({ parameter, qualifier }) => {
+        if (parameter === '*') {
+            if (!qualifier.includes('!')) {
+                return { 'print.multiverseId.0': { $exists: true } };
+            } else {
+                return { 'print.multiverseId.0': { $exists: false } };
+            }
+        } else {
+            const num = Number.parseInt(parameter, 10);
+
+            if (Number.isNaN(num)) {
+                throw new QueryError({ type: 'invalid-query' });
+            }
+
+            if (!qualifier.includes('!')) {
+                return { 'print.multiverseId': num };
+            } else {
+                return { 'print.multiverseId': { $ne: num } };
+            }
+        }
+    },
+});
+
 const order = defineServerCommand({
     command: commands.order,
     query() {},
@@ -480,6 +505,7 @@ const backedCommands: Record<string, CommonServerCommand> = {
     format,
     counter,
     keyword,
+    multiverseId,
     order,
 };
 

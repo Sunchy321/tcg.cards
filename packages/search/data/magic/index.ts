@@ -136,6 +136,12 @@ const keyword = defineCommand({
     operators: [':'],
 });
 
+const multiverseId = defineCommand({
+    id:        'multiverse-id',
+    alt:       ['mid'],
+    operators: [':'],
+});
+
 const order = defineCommand({
     id:        'order',
     operators: [':'],
@@ -170,6 +176,7 @@ export const commands = {
     format,
     counter,
     keyword,
+    multiverseId,
     order,
 };
 
