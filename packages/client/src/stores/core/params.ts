@@ -135,8 +135,8 @@ const getInnerValue = (name: string, option: ReactiveParamOption) => {
     const result = Array.isArray(ref?.value) ? ref?.value[0] : ref?.value;
 
     if (option.type === 'boolean') {
-        if (option.default != null) {
-            return result !== undefined ? !option.default : option.default;
+        if (option.default?.value != null) {
+            return result !== undefined ? !option.default?.value : option.default?.value;
         } else {
             return result !== undefined;
         }
@@ -197,8 +197,8 @@ export const setValue = (name: string, newValue: any) => {
         }
     } else {
         if (option.type === 'boolean') {
-            if (option.default != null) {
-                if (newValue != option.default) {
+            if (option.default?.value != null) {
+                if (newValue != option.default?.value) {
                     ref.value = null;
                 } else {
                     ref.value = undefined;
@@ -211,7 +211,7 @@ export const setValue = (name: string, newValue: any) => {
                 }
             }
         } else {
-            if (newValue === option.default) {
+            if (newValue === option.default?.value) {
                 ref.value = undefined;
             } else {
                 ref.value = newValue ?? undefined;
