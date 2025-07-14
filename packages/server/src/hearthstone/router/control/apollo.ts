@@ -58,9 +58,12 @@ router.post('/create-patch-json', async ctx => {
 
             const outName = `image@png@${Math.min(...e.version)}@zhs@${v}@${e.cardId}`;
 
-            const imagePath = `${path.join(assetPath, 'hearthstone', 'card', ...outName.split('@'))}.png`;
+            const webpPath = `${path.join(
+                assetPath, 'hearthstone', 'card',
+                ...outName.split('@').map(v => v === 'png' ? 'webp' : v),
+            )}.webp`;
 
-            if (fs.existsSync(imagePath)) {
+            if (fs.existsSync(webpPath)) {
                 continue;
             }
 
@@ -166,9 +169,12 @@ router.post('/create-adjustment-json', async ctx => {
     ctx.status = 200;
 
     ctx.body = omitBy(result, (value, key) => {
-        const imagePath = `${path.join(assetPath, 'hearthstone', 'card', ...key.split('@'))}.png`;
+        const webpPath = `${path.join(
+            assetPath, 'hearthstone', 'card',
+            ...key.split('@').map(v => v === 'png' ? 'webp' : v))
+        }.webp`;
 
-        return fs.existsSync(imagePath);
+        return fs.existsSync(webpPath);
     });
 });
 
