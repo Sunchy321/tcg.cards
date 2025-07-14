@@ -150,9 +150,9 @@ export function intoApolloJson(
     tags[fieldKey('elite')] = entity.elite ? 1 : 0;
     tags[fieldKey('techLevel')] = entity.techLevel ?? 0;
 
-    tags[invertFind(rune, 'blood')] = entity.rune?.includes('blood') ? 1 : 0;
-    tags[invertFind(rune, 'frost')] = entity.rune?.includes('frost') ? 1 : 0;
-    tags[invertFind(rune, 'unholy')] = entity.rune?.includes('unholy') ? 1 : 0;
+    tags[invertFind(rune, 'blood')] = (entity.rune ?? []).filter(r => r === 'blood').length;
+    tags[invertFind(rune, 'frost')] = (entity.rune ?? []).filter(r => r === 'frost').length;
+    tags[invertFind(rune, 'unholy')] = (entity.rune ?? []).filter(r => r === 'unholy').length;
     tags[invertFind(mechanic, 'tradable')] = entity.mechanics.includes('tradable') ? 1 : 0;
     tags[invertFind(mechanic, 'forge')] = entity.mechanics.includes('forge') ? 1 : 0;
     tags[invertFind(mechanic, 'hide_cost')] = entity.mechanics.includes('hide_cost') ? 1 : 0;
