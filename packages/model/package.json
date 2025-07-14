@@ -1,0 +1,32 @@
+{
+  "name": "card-model",
+  "version": "1.0.0",
+  "description": "Models for tcg.cards",
+  "author": "Sunchy321 <sunchy321@qq.com>",
+  "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
+  "license": "MIT",
+  "private": true,
+  "main": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sunchy321/tcg.cards.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Sunchy321/tcg.cards/issues"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.0",
+    "@eslint/js": "^9.22.0",
+    "@types/diff": "^4.0.2",
+    "@types/lodash": "^4.14.182",
+    "@types/node": "^18.11.17",
+    "eslint": "^9.22.0",
+    "globals": "^16.0.0",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "diff": "^5.0.0",
+    "lodash": "^4.17.21",
+    "yaml": "^2.1.3"
+  }
+}
