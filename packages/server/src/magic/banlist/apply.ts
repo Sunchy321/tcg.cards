@@ -9,7 +9,7 @@ import { Document } from 'mongoose';
 import { Card as ICard } from '@interface/magic/card';
 import { Format as IFormat } from '@interface/magic/format';
 import {
-    FormatAnnouncement as IFormatAnnouncement,
+    Announcement as IFormatAnnouncement,
     FormatChange as IFormatChange,
     Legality,
 } from '@interface/magic/format-change';

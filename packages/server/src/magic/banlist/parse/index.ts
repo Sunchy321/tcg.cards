@@ -2,7 +2,7 @@ import { parseWizardsBanlist, parseWizardsOldBanlist } from './wizards';
 import { parseDuelCommanderBanlist } from './duelcommander';
 import { parseMTGCommanderBanlist } from './mtgcommander';
 
-import { FormatAnnouncement as IFormatAnnouncement } from '@interface/magic/format-change';
+import { Announcement as IFormatAnnouncement } from '@interface/magic/format-change';
 
 export default async function parseBanlist(url: string): Promise<IFormatAnnouncement> {
     if (url.startsWith('https://magic.wizards.com/')) {

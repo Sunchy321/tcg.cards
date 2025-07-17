@@ -3,7 +3,7 @@ import { Model, Schema } from 'mongoose';
 
 import conn from './db';
 
-import { FormatAnnouncement as IFormatAnnouncement } from '@interface/magic/format-change';
+import { Announcement as IFormatAnnouncement } from '@interface/magic/format-change';
 
 import { defaultToJSON } from '@common/model/updation';
 

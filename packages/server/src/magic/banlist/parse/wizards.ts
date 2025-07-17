@@ -1,7 +1,7 @@
 import cheerio from 'cheerio';
 import request from 'request-promise-native';
 
-import { FormatAnnouncement as IFormatAnnouncement, Legality } from '@interface/magic/format-change';
+import { Announcement as IFormatAnnouncement, Legality } from '@interface/magic/format-change';
 
 import { escapeRegExp } from 'lodash';
 

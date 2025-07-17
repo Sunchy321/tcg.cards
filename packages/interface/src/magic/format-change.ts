@@ -3,7 +3,7 @@ export type Legality =
 
 export type Banlist = Record<string, Legality>;
 
-export interface FormatAnnouncement {
+export interface Announcement {
     source: string;
     date:   string;
 
