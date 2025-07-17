@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 
 import { AxiosProxyConfig } from 'axios';
 
-const configPath = process.argv[2];
+const configPath = process.env.CONFIG_PATH || './config.json';
 
 export interface Database {
     user:     string;
