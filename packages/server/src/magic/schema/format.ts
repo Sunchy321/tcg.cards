@@ -8,7 +8,7 @@ export const formats = schema.table('formats', {
     formatId:     text('format_id').primaryKey(),
     localization: jsonb().$type<IFormat['localization']>().notNull(),
 
-    sets:    text().array().default([]),
+    sets:    text().array(),
     banlist: jsonb().$type<IFormat['banlist']>().default([]),
 
     birthday:  text(),

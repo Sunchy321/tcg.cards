@@ -27,7 +27,7 @@ export interface Entity {
         textInPlay?:      string;
         howToEarn?:       string;
         howToEarnGolden?: string;
-        flavor:           string;
+        flavor?:          string;
         illusId?:         string;
     }[];
 

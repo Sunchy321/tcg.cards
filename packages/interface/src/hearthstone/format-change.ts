@@ -4,6 +4,8 @@ export type Adjustment = 'adjust' | 'buff' | 'nerf';
 
 export type Banlist = Record<string, Legality>;
 
+export type AdjustmentDetail = { part: string, status: Adjustment };
+
 export interface FormatAnnouncement {
     source:         string;
     date:           string;
@@ -22,7 +24,7 @@ export interface FormatAnnouncement {
         adjustment?: {
             id:       string;
             status:   Adjustment;
-            detail:   { part: string, status: Adjustment }[];
+            detail:   AdjustmentDetail[];
             related?: string[];
         }[];
     }[];
