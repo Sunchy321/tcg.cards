@@ -1,10 +1,12 @@
 import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
-import Patch from '@/hearthstone/db/patch';
+import { db } from '@/drizzle';
+import { Patch } from '@/hearthstone/schema/patch';
 
 import { Patch as IPatch } from '@interface/hearthstone/patch';
 
+import { desc, eq } from 'drizzle-orm';
 import { mapValues } from 'lodash';
 import { toMultiple, toSingle } from '@/common/request-helper';
 
@@ -13,42 +15,51 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/patch');
 
 router.get('/', async ctx => {
-    const { version } = mapValues(ctx.query, toSingle);
+    const { number: buildNumberText } = mapValues(ctx.query, toSingle);
 
-    if (version == null) {
-        const patches = await Patch.find().sort({ number: -1 });
-        ctx.body = patches.map(p => p.toJSON());
+    if (buildNumberText == null) {
+        const values = await db.select().from(Patch).orderBy(desc(Patch.buildNumber));
+
+        ctx.body = values;
         return;
     }
 
-    const patch = await Patch.findOne({ version });
+    const buildNumber = Number.parseInt(buildNumberText, 10);
 
-    if (patch != null) {
-        const json = patch.toJSON();
-
-        ctx.body = json;
-    }
-});
-
-type PatchProfile = IPatch;
-
-router.get('/profile', async ctx => {
-    const numbers = toMultiple(ctx.query.ids ?? '');
-
-    if (numbers == null) {
+    if (Number.isNaN(buildNumber)) {
         ctx.status = 400;
         return;
     }
 
-    const patches = await Patch.find({ number: { $in: numbers } });
+    const value = await db.select().from(Patch).where(eq(Patch.buildNumber, buildNumber)).limit(1);
 
-    const result: Record<string, PatchProfile> = {};
-
-    for (const p of patches) {
-        result[p.number] = p.toJSON();
+    if (value.length == 0) {
+        ctx.status = 404;
+        return;
     }
 
-    ctx.body = result;
+    ctx.body = value[0];
 });
+
+// type PatchProfile = Patch;
+
+// router.get('/profile', async ctx => {
+//     const numbers = toMultiple(ctx.query.ids ?? '');
+
+//     if (numbers == null) {
+//         ctx.status = 400;
+//         return;
+//     }
+
+//     const patches = await Patch.find({ number: { $in: numbers } });
+
+//     const result: Record<string, PatchProfile> = {};
+
+//     for (const p of patches) {
+//         result[p.number] = p.toJSON();
+//     }
+
+//     ctx.body = result;
+// });
 
 export default router;

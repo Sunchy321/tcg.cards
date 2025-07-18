@@ -4,11 +4,15 @@ import {
     XCardDefs, XEntity, XLocStringTag, XTag,
 } from '@interface/hearthstone/hsdata/xml';
 
-import Patch from '@/hearthstone/db/patch';
 import Card from '@/hearthstone/db/card';
 import Entity from '@/hearthstone/db/entity';
 import CardRelation from '@/hearthstone/db/card-relation';
 import Task from '@/common/task';
+
+import { db } from '@/drizzle';
+import { Patch } from '@/hearthstone/schema/patch';
+
+import { eq } from 'drizzle-orm';
 
 import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthstone/entity';
 import { CardRelation as ICardRelation } from '@interface/hearthstone/card-relation';
@@ -79,81 +83,19 @@ export interface ILoaderStatus {
     total: number;
 }
 
-const messagePrefix = 'Update to patch';
-
-export class DataLoader extends Task<ILoaderStatus> {
-    async startImpl(): Promise<void> {
-        const repo = git({
-            baseDir:  localPath,
-            progress: p => {
-                this.emit('progress', { type: 'git', ...p });
-            },
-        });
-
-        const log = await repo.log();
-        const commits = log.all.filter(v => v.message.startsWith(messagePrefix));
-
-        let count = 0;
-        const total = commits.length;
-
-        for (const c of commits) {
-            const version = c.message.slice(messagePrefix.length).trim();
-            const number = Number.parseInt(last(version.split('.'))!, 10);
-            const { hash } = c;
-
-            const patch = await Patch.findOne({ version });
-
-            if (patch == null) {
-                const newPatch = new Patch({ version, number, hash });
-
-                await newPatch.save();
-            } else {
-                patch.hash = hash;
-
-                await patch.save();
-            }
-
-            count += 1;
-
-            this.emit('progress', { type: 'load', count, total });
-        }
-
-        const patches = await Patch.find();
-
-        const maxVersion = Math.max(...patches.map(p => p.number));
-
-        for (const p of patches) {
-            if (p.isCurrent && p.number !== maxVersion) {
-                p.isCurrent = false;
-
-                await p.save();
-            } else if (!p.isCurrent && p.number === maxVersion) {
-                p.isCurrent = true;
-
-                await p.save();
-            }
-        }
-    }
-
-    stopImpl(): void { /* no-op */ }
-}
-
-export async function clearPatch(version: number) {
-    const patch = await Patch.findOne({ number: version });
+export async function clearPatch(buildNumber: number) {
+    const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, buildNumber)).limit(1).then(r => last(r));
 
     if (patch == null) {
         return false;
     }
 
-    await Entity.updateMany({ version }, { $pull: { version } });
-
+    await Entity.updateMany({ version: buildNumber }, { $pull: { version: buildNumber } });
     await Entity.deleteMany({ version: { $size: 0 } });
 
-    patch.isUpdated = false;
+    await db.update(Patch).set({ isUpdated: false }).where(eq(Patch.buildNumber, buildNumber));
 
-    await patch.save();
-
-    logger.data.info(`Patch ${version} has been removed`, { category: 'hsdata' });
+    logger.data.info(`Patch ${buildNumber} has been removed`, { category: 'hsdata' });
 
     return true;
 }
@@ -166,13 +108,13 @@ export interface ILoadPatchStatus {
 }
 
 export class PatchLoader extends Task<ILoadPatchStatus> {
-    version: number;
+    buildNumber: number;
 
     data: Record<string, any> = { };
 
     constructor(version: number) {
         super();
-        this.version = version;
+        this.buildNumber = version;
     }
 
     private addData(name: string) {
@@ -272,7 +214,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             return;
         }
 
-        const patch = await Patch.findOne({ number: this.version });
+        const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, this.buildNumber)).limit(1).then(r => last(r));
 
         if (patch == null) {
             return;
@@ -292,12 +234,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         this.intervalProgress(500, () => ({
             type:    'load-patch',
-            version: this.version,
+            version: this.buildNumber,
             count,
             total,
         }));
 
-        loadPatch.info(`${'='.repeat(20)} ${patch.version} ${'='.repeat(20)}`);
+        loadPatch.info(`${'='.repeat(20)} ${patch.name} ${'='.repeat(20)}`);
 
         const cardDefs = fs
             .readFileSync(path.join(localPath, 'CardDefs.xml'))
@@ -439,13 +381,13 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 const exactRelation = maybeRelations.find(r => r.relation == relation.relation && r.sourceId === relation.sourceId && r.targetId == relation.relation);
 
                 if (exactRelation != null) {
-                    exactRelation.version = uniq([...exactRelation.version, this.version]).sort((a, b) => a - b);
+                    exactRelation.version = uniq([...exactRelation.version, this.buildNumber]).sort((a, b) => a - b);
 
                     await exactRelation.save();
                 } else {
                     relationToInsert.push({
                         ...relation,
-                        version: [this.version],
+                        version: [this.buildNumber],
                     });
                 }
             }
@@ -453,16 +395,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             await CardRelation.insertMany(relationToInsert);
         }
 
-        patch.isUpdated = true;
-
-        await patch.save();
+        await db.update(Patch).set({ isUpdated: true });
 
         if (patch.isCurrent) {
             await Entity.updateMany({}, { isCurrent: false });
-            await Entity.updateMany({ version: patch.number }, { isCurrent: true });
+            await Entity.updateMany({ version: patch.buildNumber }, { isCurrent: true });
         }
 
-        logger.data.info(`Patch ${this.version} has been loaded`, { category: 'hsdata' });
+        logger.data.info(`Patch ${this.buildNumber} has been loaded`, { category: 'hsdata' });
     }
 
     private convert(entity: XEntity): [IEntity, ICardRelation[]] {
@@ -472,7 +412,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         const masters: string[] = [];
         const errors: string[] = [];
 
-        result.version = [this.version];
+        result.version = [this.buildNumber];
         result.cardId = entity._attributes.CardID;
         result.dbfId = Number.parseInt(entity._attributes.ID, 10);
 

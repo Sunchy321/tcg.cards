@@ -3,8 +3,9 @@ import { Context, DefaultState } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import { clearPatch, DataGetter, DataLoader, PatchLoader } from '@/hearthstone/hsdata';
+import { clearPatch, PatchLoader as PatchLoaderOld } from '@/hearthstone/hsdata';
 import { ImageGetter } from '@/hearthstone/hsdata/image';
+import { RepoPuller, PatchImporter } from '@/hearthstone/data/hsdata/patch';
 
 import { toSingle } from '@/common/request-helper';
 
@@ -12,10 +13,10 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/hsdata');
 
-const getter = new DataGetter();
+const getter = new RepoPuller();
 
 router.get(
-    '/get-data',
+    '/pull-repo',
     websocket,
     async ctx => {
         getter.bind(await ctx.ws());
@@ -23,13 +24,13 @@ router.get(
     },
 );
 
-const loader = new DataLoader();
+const importer = new PatchImporter();
 
 router.get(
-    '/load-data',
+    '/import-patch',
     websocket,
     async ctx => {
-        loader.bind(await ctx.ws());
+        importer.bind(await ctx.ws());
         ctx.status = 200;
     },
 );
@@ -47,7 +48,7 @@ router.post('/clear-patch', async ctx => {
     ctx.status = result ? 200 : 400;
 });
 
-const patchLoaders: Record<string, PatchLoader> = { };
+const patchLoaders: Record<string, PatchLoaderOld> = { };
 
 router.get(
     '/load-patch',
@@ -69,7 +70,7 @@ router.get(
             }
 
             if (patchLoaders[version] == null) {
-                patchLoaders[version] = new PatchLoader(version);
+                patchLoaders[version] = new PatchLoaderOld(version);
             }
 
             patchLoaders[version].on('end', () => delete patchLoaders[version]);

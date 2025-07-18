@@ -1,8 +1,8 @@
 export interface Patch {
-    version:   string;
-    shortName: string;
-    number:    number;
-    hash:      string;
-    isCurrent: boolean;
-    isUpdated: boolean;
+    buildNumber: number;
+    name:        string;
+    shortName:   string;
+    hash:        string;
+    isCurrent:   boolean;
+    isUpdated:   boolean;
 }

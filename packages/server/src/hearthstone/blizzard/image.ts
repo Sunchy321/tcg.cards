@@ -4,7 +4,10 @@ import Entity from '../db/entity';
 import { ICard, Locale } from '@interface/hearthstone/blizzard';
 
 import blzApi from './api';
-import Patch from '../db/patch';
+
+import { desc } from 'drizzle-orm';
+import { db } from '@/drizzle';
+import { Patch } from '@/hearthstone/schema/patch';
 
 import { assetPath } from '@/config';
 import FileSaver from '@/common/save-file';
@@ -75,11 +78,11 @@ export class ImageGetter extends Task<IImageStatus> {
 
             total = data.cardCount;
 
-            const patches = await Patch.find().sort({ number: -1 });
+            const patches = await db.select().from(Patch).orderBy(desc(Patch.buildNumber));
 
             const entities = await Entity.find({
                 dbfId:   { $in: data.cards.map(c => c.id) },
-                version: patches[0].number,
+                version: patches[0].buildNumber,
             });
 
             this.todoTasks = [];
@@ -134,11 +137,11 @@ export class ImageGetter extends Task<IImageStatus> {
             count = 0;
             total = data.cardCount;
 
-            const patches = await Patch.find().sort({ number: -1 });
+            const patches = await db.select().from(Patch).orderBy(desc(Patch.buildNumber));
 
             const entities = await Entity.find({
                 dbfId:   { $in: data.cards.map(c => c.id) },
-                version: patches[0].number,
+                version: patches[0].buildNumber,
             });
 
             this.todoTasks = [];

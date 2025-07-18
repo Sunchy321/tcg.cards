@@ -1,6 +1,6 @@
 <template>
     <div class="hsdata-patch row items-center">
-        <div class="version">{{ version }}</div>
+        <div class="name">{{ name }}</div>
 
         <q-btn
             class="clear-button"
@@ -15,8 +15,6 @@
             icon="mdi-import"
             @click="loadPatch"
         />
-
-        <span v-if="duplicate > 0" class="duplicate">{{ duplicate }}</span>
 
         <q-circular-progress
             v-show="progress !== undefined"
@@ -39,10 +37,9 @@ import { ref, computed } from 'vue';
 import controlSetup from 'setup/control';
 
 const props = defineProps<{
-    version:   string;
-    number:    number;
-    isUpdated: boolean;
-    duplicate: number;
+    buildNumber: number;
+    name:        string;
+    isUpdated:   boolean;
 }>();
 
 const emit = defineEmits<{
@@ -77,13 +74,13 @@ const progressLabel = computed(() => {
 });
 
 const clearPatch = async () => {
-    await controlPost('/hearthstone/hsdata/clear-patch', { version: props.number });
+    await controlPost('/hearthstone/hsdata/clear-patch', { version: props.buildNumber });
 };
 
 const loadPatch = async () => {
     progress.value = null;
 
-    const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.number });
+    const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.buildNumber });
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {
@@ -107,7 +104,7 @@ const loadPatch = async () => {
 </script>
 
 <style lang="sass" scoped>
-.version
+.name
     width: 100px
 
 .duplicate

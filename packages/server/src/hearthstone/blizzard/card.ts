@@ -1,10 +1,13 @@
 import Task from '@/common/task';
 
 import Entity from '@/hearthstone/db/entity';
+import { db } from '@/drizzle';
+import { Patch } from '@/hearthstone/schema/patch';
+
 import { ICard } from '@interface/hearthstone/blizzard';
 
 import blzApi from './api';
-import Patch from '../db/patch';
+import { desc } from 'drizzle-orm';
 
 interface ICardResponse {
     cards:     ICard[];
@@ -56,9 +59,9 @@ export class CardGetter extends Task<ICardStatus> {
                 if (c.childIds != null) { ids.push(...c.childIds); }
             }
 
-            const patches = await Patch.find().sort({ number: -1 });
+            const patches = await db.select().from(Patch).orderBy(desc(Patch.buildNumber));
 
-            const entities = await Entity.find({ dbfId: { $in: ids }, version: patches[0].number });
+            const entities = await Entity.find({ dbfId: { $in: ids }, version: patches[0].buildNumber });
 
             for (const c of data.cards) {
                 const entity = entities.find(e => e.dbfId === c.id);

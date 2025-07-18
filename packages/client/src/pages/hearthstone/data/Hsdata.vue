@@ -5,14 +5,14 @@
                 class="q-mr-md"
                 flat dense round
                 icon="mdi-download"
-                @click="getHsdata"
+                @click="pullRepo"
             />
 
             <q-btn
                 class="q-mr-md"
                 flat dense round
                 icon="mdi-merge"
-                @click="loadHsdata"
+                @click="importPatches"
             />
 
             <q-btn
@@ -36,13 +36,12 @@
                 size="15px"
             />
         </div>
-        <grid v-slot="{ version, number, isUpdated, duplicate }" :value="sortedPatches" :item-width="300">
+        <grid v-slot="{ name, buildNumber, isUpdated }" :value="sortedPatches" :item-width="300">
             <hsdata-patch
-                :key="number"
-                :version="version"
-                :number="number"
+                :key="buildNumber"
+                :build-number="buildNumber"
+                :name="name"
                 :is-updated="isUpdated"
-                :duplicate="duplicate"
                 @load-data="loadData"
             />
         </grid>
@@ -63,7 +62,7 @@ import type { Patch } from '@interface/hearthstone/patch';
 
 import bytes from 'bytes';
 
-type ControlPatch = Patch & { duplicate: number };
+import { apiGet } from 'src/boot/server';
 
 interface TransferProgress {
     type:            'get';
@@ -91,14 +90,14 @@ interface PatchProgress {
 
 type Progress = LoaderProgress | PatchProgress | TransferProgress;
 
-const { controlGet, controlWs } = controlSetup();
+const { controlWs } = controlSetup();
 
-const patches = ref<ControlPatch[]>([]);
+const patches = ref<Patch[]>([]);
 const progress = ref<Progress | undefined>(undefined);
 
 const sortedPatches = computed(() => [
-    ...patches.value.filter(v => !v.isUpdated).sort((a, b) => a.number - b.number),
-    ...patches.value.filter(v => v.isUpdated).sort((a, b) => a.number - b.number),
+    ...patches.value.filter(v => !v.isUpdated).sort((a, b) => a.buildNumber - b.buildNumber),
+    ...patches.value.filter(v => v.isUpdated).sort((a, b) => a.buildNumber - b.buildNumber),
 ]);
 
 const progressValue = computed(() => {
@@ -140,13 +139,13 @@ const progressLabel = computed(() => {
 });
 
 const loadData = async () => {
-    const { data } = await controlGet<ControlPatch[]>('/hearthstone/patch');
+    const { data } = await apiGet<Patch[]>('/hearthstone/patch');
 
     patches.value = data;
 };
 
-const getHsdata = async () => {
-    const ws = controlWs('/hearthstone/hsdata/get-data');
+const pullRepo = async () => {
+    const ws = controlWs('/hearthstone/hsdata/pull-repo');
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {
@@ -163,8 +162,8 @@ const getHsdata = async () => {
     });
 };
 
-const loadHsdata = async () => {
-    const ws = controlWs('/hearthstone/hsdata/load-data');
+const importPatches = async () => {
+    const ws = controlWs('/hearthstone/hsdata/import-patch');
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {
@@ -182,13 +181,13 @@ const loadHsdata = async () => {
 };
 
 const loadPatches = async () => {
-    const patch = patches.value.filter(v => !v.isUpdated).sort((a, b) => a.number - b.number)[0];
+    const patch = patches.value.filter(v => !v.isUpdated).sort((a, b) => a.buildNumber - b.buildNumber)[0];
 
     if (patch == null) {
         return;
     }
 
-    const ws = controlWs('/hearthstone/hsdata/load-patch', { version: patch.number });
+    const ws = controlWs('/hearthstone/hsdata/load-patch', { number: patch.buildNumber });
 
     await new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {
