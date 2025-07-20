@@ -83,23 +83,6 @@ export interface ILoaderStatus {
     total: number;
 }
 
-export async function clearPatch(buildNumber: number) {
-    const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, buildNumber)).limit(1).then(r => last(r));
-
-    if (patch == null) {
-        return false;
-    }
-
-    await Entity.updateMany({ version: buildNumber }, { $pull: { version: buildNumber } });
-    await Entity.deleteMany({ version: { $size: 0 } });
-
-    await db.update(Patch).set({ isUpdated: false }).where(eq(Patch.buildNumber, buildNumber));
-
-    logger.data.info(`Patch ${buildNumber} has been removed`, { category: 'hsdata' });
-
-    return true;
-}
-
 export interface ILoadPatchStatus {
     type:    'load-patch';
     version: number;
@@ -303,7 +286,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
                 const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
 
                 for (const l of e.localization) {
-                    const text = l.rawText.replace(/[$#](\d+)/g, (_, m) => m);
+                    const text = l.richText.replace(/[$#](\d+)/g, (_, m) => m);
 
                     l.displayText = getDisplayText(
                         text,
@@ -724,12 +707,12 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         result.localization = localization as IEntity['localization'];
 
         for (const l of result.localization) {
-            if (l.rawText == null) {
-                l.rawText = '';
+            if (l.richText == null) {
+                l.richText = '';
             }
 
-            l.displayText = l.rawText;
-            l.text = l.rawText
+            l.displayText = l.richText;
+            l.text = l.richText
                 .replace(/[$#](\d+)/g, (_, m) => m)
                 .replace(/<\/?.>|\[.\]/g, '');
         }

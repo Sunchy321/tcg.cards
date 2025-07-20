@@ -3,9 +3,9 @@ import { boolean, integer, primaryKey, text } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
 
 import { omit } from 'lodash';
-import { and, eq, getTableColumns } from 'drizzle-orm';
+import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 
-export const entityLocalizations = schema.table('entity_localizations', {
+export const EntityLocalization = schema.table('entity_localizations', {
     cardId:  text('card_id').notNull(),
     version: integer('version').array().notNull(),
     lang:    text('lang').notNull(),
@@ -23,7 +23,7 @@ export const entityLocalizations = schema.table('entity_localizations', {
     primaryKey({ columns: [table.cardId, table.version, table.lang] }),
 ]);
 
-export const entities = schema.table('entities', {
+export const Entity = schema.table('entities', {
     cardId:  text('card_id').notNull(),
     version: integer('version').array().notNull(),
 
@@ -80,18 +80,22 @@ export const entities = schema.table('entities', {
     primaryKey({ columns: [table.cardId, table.version] }),
 ]);
 
-export const entityView = schema.view('entity_view').as(qb => {
+export const EntityView = schema.view('entity_view').as(qb => {
     return qb.select({
-        cardId:  entities.cardId,
-        version: entities.version,
-        lang:    entityLocalizations.lang,
+        cardId:  Entity.cardId,
+        version: sql`${Entity.version} & ${EntityLocalization.version}`.as('version'),
+        lang:    EntityLocalization.lang,
 
-        card:         { ...omit(getTableColumns(entities), ['cardId', 'version']) },
-        localization: { ...omit(getTableColumns(entityLocalizations), ['cardId', 'version', 'lang']) },
+        ...omit(getTableColumns(Entity), ['cardId', 'version']) as any,
+
+        localization: {
+            ...omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
+        },
     })
-        .from(entities)
-        .leftJoin(entityLocalizations, and(
-            eq(entities.cardId, entityLocalizations.cardId),
-            eq(entities.version, entityLocalizations.version),
-        ));
+        .from(Entity)
+        .leftJoin(EntityLocalization, and(
+            eq(Entity.cardId, EntityLocalization.cardId),
+            eq(Entity.version, EntityLocalization.version),
+        ))
+        .where(sql`#version > 0`);
 });

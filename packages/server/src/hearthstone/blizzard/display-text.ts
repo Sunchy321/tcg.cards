@@ -320,7 +320,7 @@ export class DisplayTextLoader extends Task<IDisplayTextStatus> {
             const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
 
             for (const l of e.localization) {
-                const text = l.rawText.replace(/[$#](\d+)/g, (_, m) => m);
+                const text = l.richText.replace(/[$#](\d+)/g, (_, m) => m);
 
                 l.displayText = getDisplayText(
                     text,

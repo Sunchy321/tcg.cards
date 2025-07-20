@@ -169,7 +169,7 @@ export function intoApolloJson(
         health:        fieldKey('health'),
         durability:    fieldKey('health'),
         armor:         fieldKey('armor'),
-        text:          locFieldKey('rawText'),
+        text:          locFieldKey('richText'),
         race:          fieldKey('race'),
         techLevel:     fieldKey('techLevel'),
         rarity:        fieldKey('rarity'),
@@ -206,7 +206,7 @@ export function intoApolloJson(
     return {
         cardID:   id,
         cardName: loc.name,
-        cardText: loc.rawText,
+        cardText: loc.richText,
         tags,
         ...adjustment != null ? { nerf } : {},
         ...variantInput[variant],

@@ -2,12 +2,13 @@ import git, { SimpleGitProgressEvent, ResetMode } from 'simple-git';
 
 import { db } from '@/drizzle';
 import { Patch } from '@/hearthstone/schema/patch';
+import { Entity, EntityLocalization } from '@/hearthstone/schema/entity';
 
 import Task from '@/common/task';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
-import { eq, max } from 'drizzle-orm';
+import { eq, max, sql } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { last } from 'lodash';
@@ -141,4 +142,32 @@ export class PatchImporter extends Task<ILoaderStatus> {
     }
 
     stopImpl(): void { /* no-op */ }
+}
+
+export async function clearPatch(buildNumber: number) {
+    const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, buildNumber)).limit(1).then(r => last(r));
+
+    if (patch == null) {
+        return false;
+    }
+
+    await db.update(Entity)
+        .set({ version: sql`array_remove(${Entity.version}, ${buildNumber})` })
+        .where(sql`${buildNumber} = any(${Entity.version})`);
+
+    await db.update(EntityLocalization)
+        .set({ version: sql`array_remove(${EntityLocalization.version}, ${buildNumber})` })
+        .where(sql`${buildNumber} = any(${EntityLocalization.version})`);
+
+    await db.delete(Entity)
+        .where(sql`array_length(${Entity.version}, 1) = 0`);
+
+    await db.delete(EntityLocalization)
+        .where(sql`array_length(${EntityLocalization.version}, 1) = 0`);
+
+    await db.update(Patch).set({ isUpdated: false }).where(eq(Patch.buildNumber, buildNumber));
+
+    main.info(`Patch ${buildNumber} has been removed`, { category: 'hsdata' });
+
+    return true;
 }

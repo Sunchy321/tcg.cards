@@ -21,14 +21,13 @@ export interface Entity {
         lang:             string;
         name:             string;
         text:             string;
+        richText:         string;
         displayText:      string;
-        rawText:          string;
         targetText?:      string;
         textInPlay?:      string;
         howToEarn?:       string;
         howToEarnGolden?: string;
         flavor?:          string;
-        illusId?:         string;
     }[];
 
     set:          string;

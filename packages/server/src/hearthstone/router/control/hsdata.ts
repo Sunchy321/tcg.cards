@@ -3,9 +3,9 @@ import { Context, DefaultState } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import { clearPatch, PatchLoader as PatchLoaderOld } from '@/hearthstone/hsdata';
+import { PatchLoader as PatchLoaderOld } from '@/hearthstone/hsdata';
 import { ImageGetter } from '@/hearthstone/hsdata/image';
-import { RepoPuller, PatchImporter } from '@/hearthstone/data/hsdata/patch';
+import { RepoPuller, PatchImporter, clearPatch } from '@/hearthstone/data/hsdata/patch';
 
 import { toSingle } from '@/common/request-helper';
 
