@@ -56,6 +56,7 @@
     "@vitejs/plugin-vue": "^5.0.3",
     "@vue/runtime-core": "^3.5.16",
     "autoprefixer": "^10.4.2",
+    "card-server": "link:../server",
     "esbuild": "^0.15.10",
     "eslint": "^9.22.0",
     "eslint-plugin-vue": "^9.28.0",

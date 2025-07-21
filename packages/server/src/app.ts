@@ -10,6 +10,10 @@ import body from 'koa-body';
 import compress from 'koa-compress';
 import websocket from 'koa-easy-ws';
 
+import fastify from 'fastify';
+import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
+import { fastifyTRPCOpenApiPlugin } from 'trpc-to-openapi';
+
 import { main } from '@/logger';
 
 import subdomain from '@/middlewares/subdomain';
@@ -20,15 +24,16 @@ import control from '@/control';
 import asset from '@/asset';
 
 import { config } from '@/config';
+import { appRouter } from './router';
 
-const app = new Koa();
+const koaApp = new Koa();
 
-app.keys = [config.appKey];
+koaApp.keys = [config.appKey];
 
 const port = 3000;
 
-app
-    .use(session({}, app))
+koaApp
+    .use(session({}, koaApp))
     .use(cors())
     .use(body({ multipart: true, jsonLimit: 2 * 1024 * 1024 }))
     .use(logger())
@@ -39,7 +44,26 @@ app
     .use(subdomain('control', control))
     .use(compress({ threshold: 2048 }));
 
-app.listen(port, () => {
+koaApp.listen(port, () => {
     main.info(`Server is running at ${port}`, { category: 'server' });
     console.log(`Server is running at ${port}`);
 });
+
+async function run() {
+    const app = fastify();
+
+    await app.register(fastifyTRPCOpenApiPlugin, {
+        router:   appRouter,
+        basePath: '/openapi',
+    });
+
+    await app.register(fastifyTRPCPlugin, {
+        trpcOptions: {
+            router: appRouter,
+        },
+    });
+
+    await app.listen({ port: 8989 });
+}
+
+run();
