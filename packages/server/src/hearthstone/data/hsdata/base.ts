@@ -2,6 +2,9 @@ import { join } from 'path';
 
 import { dataPath } from '@/config';
 
+import { XLocStringTag, XTag } from '@interface/hearthstone/hsdata/xml';
+import { ITag } from './task';
+
 export const localPath = join(dataPath, 'hearthstone', 'hsdata');
 
 export const langMap: Record<string, string> = {
@@ -20,3 +23,11 @@ export const langMap: Record<string, string> = {
     zhCN: 'zhs',
     zhTW: 'zht',
 };
+
+export interface HsdataParser {
+    buildNumber: number;
+
+    getMapData<T>(name: string): Record<string, T>;
+    getSpecialData<T>(name: string): T;
+    getValue(tag: XLocStringTag | XTag, info: ITag): any;
+}

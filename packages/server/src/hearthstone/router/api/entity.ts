@@ -1,17 +1,19 @@
 import KoaRouter from '@koa/router';
 import { Context, DefaultState } from 'koa';
 
-import Entity from '@/hearthstone/db/entity';
-import CardRelation from '@/hearthstone/db/card-relation';
+import EntityOld from '@/hearthstone/db/entity';
+
+import { db } from '@/drizzle';
+import { Entity, EntityView } from '@/hearthstone/schema/entity';
+import { CardRelation } from '@/hearthstone/schema/card-relation';
+import { and, desc, eq, notInArray, sql } from 'drizzle-orm';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { RelatedCard } from '@common/model/hearthstone/entity';
 
 import {
-    flatten, last, mapValues, omit, random, uniq,
+    flatten, groupBy, last, mapValues, random, uniq,
 } from 'lodash';
 
-import sorter from '@common/util/sorter';
 import { toMultiple, toSingle } from '@/common/request-helper';
 
 const router = new KoaRouter<DefaultState, Context>();
@@ -19,9 +21,9 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/entity');
 
 router.get('/', async ctx => {
-    const { id, version: versionText } = mapValues(ctx.query, toSingle);
+    const { id, lang, version: versionText } = mapValues(ctx.query, toSingle);
 
-    if (id == null) {
+    if (id == null || lang == null) {
         ctx.status = 400;
         return;
     }
@@ -33,7 +35,14 @@ router.get('/', async ctx => {
         return;
     }
 
-    const entities = await Entity.find({ cardId: id }).sort({ version: -1 });
+    const entities = await db.select()
+        .from(EntityView)
+        .where(and(
+            eq(EntityView.cardId, id),
+            eq(sql`any(${Entity.version})`, version),
+            eq(EntityView.lang, lang),
+        ))
+        .orderBy(desc(EntityView.version));
 
     if (entities.length === 0) {
         ctx.status = 404;
@@ -64,117 +73,35 @@ router.get('/', async ctx => {
         }
     }
 
-    const sourceRelation = await CardRelation.aggregate<RelatedCard>()
-        .match({ sourceId: id, version: { $in: entity.version } })
-        .project({
-            _id:      false,
-            relation: '$relation',
-            cardId:   '$targetId',
-        })
-        .group({
-            _id: {
-                relation: '$relation',
-                cardId:   '$cardId',
-            },
-        })
-        .lookup({
-            from: 'entities',
-            let:  {
-                cardId: '$_id.cardId',
-            },
-            pipeline: [
-                { $match: {
-                    $expr:   { $eq: ['$cardId', '$$cardId'] },
-                    version: { $in: entity.version },
-                } },
-                { $sort: { version: -1 } },
-                { $project: {
-                    _id: '$version',
-                } },
-            ],
-            as: 'version',
-        })
-        .unwind('version')
-        .group({
-            _id: {
-                relation: '$_id.relation',
-                cardId:   '$_id.cardId',
-            },
-            version: {
-                $first: '$version._id',
-            },
-        })
-        .replaceRoot({
-            relation: '$_id.relation',
-            cardId:   '$_id.cardId',
-            version:  '$version',
-        });
+    const sourceRelation = await db.select({
+        relation: CardRelation.relation,
+        cardId:   CardRelation.targetId,
+        version:  CardRelation.version,
+    })
+        .from(CardRelation)
+        .where(eq(CardRelation.sourceId, id))
+        .orderBy(CardRelation.relation, CardRelation.targetId);
 
-    sourceRelation.sort(
-        sorter.pick<RelatedCard, 'relation'>('relation', sorter.string).or(
-            sorter.pick<RelatedCard, 'cardId'>('cardId', sorter.string),
-        ),
-    );
-
-    const targetRelation = await CardRelation.aggregate<RelatedCard>()
-        .match({ targetId: id, version: { $in: entity.version } })
-        .project({
-            _id:      false,
-            relation: 'source',
-            cardId:   '$sourceId',
-        })
-        .group({
-            _id: {
-                relation: '$relation',
-                cardId:   '$cardId',
-            },
-        })
-        .lookup({
-            from: 'entities',
-            let:  {
-                cardId: '$_id.cardId',
-            },
-            pipeline: [
-                { $match: {
-                    $expr:   { $eq: ['$cardId', '$$cardId'] },
-                    version: { $in: entity.version },
-                } },
-                { $sort: { version: -1 } },
-                { $project: {
-                    _id: '$version',
-                } },
-            ],
-            as: 'version',
-        })
-        .unwind('version')
-        .group({
-            _id: {
-                relation: '$_id.relation',
-                cardId:   '$_id.cardId',
-            },
-            version: {
-                $first: '$version._id',
-            },
-        })
-        .replaceRoot({
-            relation: '$_id.relation',
-            cardId:   '$_id.cardId',
-            version:  '$version',
-        });
-
-    targetRelation.sort(sorter.pick('cardId', sorter.string));
+    const targetRelation = await db.select({
+        relation: sql`source`.as('relation'),
+        cardId:   CardRelation.sourceId,
+        version:  CardRelation.version,
+    })
+        .from(CardRelation)
+        .where(eq(CardRelation.targetId, id))
+        .orderBy(CardRelation.sourceId);
 
     ctx.body = {
-        ...entity.toJSON(),
+        entity,
         versions,
         relatedCards: [...sourceRelation, ...targetRelation],
     };
 });
 
 router.get('/name', async ctx => {
-    const { name, version: versionText } = mapValues(ctx.query, toSingle);
+    const { name, version: versionText, lang } = mapValues(ctx.query, toSingle);
 
-    if (name == null) {
+    if (name == null || lang == null) {
         ctx.status = 400;
         return;
     }
@@ -192,31 +119,32 @@ router.get('/name', async ctx => {
         query.version = version;
     }
 
-    const entities = await Entity.aggregate<{ _id: string, data: IEntity[] }>()
-        .match(query)
-        .sort({ version: -1 })
-        .group({ _id: '$cardId', data: { $push: '$$ROOT' } });
+    const entities = await db.select()
+        .from(EntityView)
+        .where(and(
+            eq(EntityView.lang, lang),
+            ...(version != null ? [eq(sql`any(${Entity.version})`, version)] : []),
+            eq(EntityView.localization.name, name),
+        )) as (Omit<IEntity, 'localization'> & { localization: IEntity['localization'][0] })[];
 
-    ctx.body = entities.map(v => {
-        const entity = (
-            version != null ? v.data.filter(d => d.version.includes(version)) : v.data
-        )[0];
+    ctx.body = Object.values(groupBy(entities, e => e.cardId))
+        .map(group => {
+            const entities = version != null ? group.filter(e => e.version.includes(version)) : group;
+            const entity = entities[0];
 
-        return {
-            ...omit(entity, ['_id', '__v']),
-            versions: v.data.map(e => e.version.sort((a, b) => a - b)),
-        };
-    });
+            return {
+                entity,
+                versions: group.map(e => e.version.sort((a, b) => a - b)),
+            };
+        });
 });
 
 router.get('/random', async ctx => {
-    const cardIds = await Entity.distinct('cardId', {
-        type: {
-            $nin: ['enchantment', 'mercenary_ability'],
-        },
-    });
+    const cardIds = await db.selectDistinct({ cardId: Entity.cardId })
+        .from(Entity)
+        .where(notInArray(Entity.type, ['enchantment', 'mercenary_ability']));
 
-    ctx.body = cardIds[random(cardIds.length - 1)] ?? '';
+    ctx.body = cardIds[random(cardIds.length - 1)].cardId ?? '';
 });
 
 interface EntityProfile {
@@ -238,7 +166,7 @@ router.get('/profile', async ctx => {
         return;
     }
 
-    const fullEntities = await Entity.find({ cardId: { $in: ids } });
+    const fullEntities = await EntityOld.find({ cardId: { $in: ids } });
 
     const result: Record<string, EntityProfile> = {};
 
@@ -358,7 +286,7 @@ router.get('/compare', async ctx => {
         return;
     }
 
-    const entities = await Entity.find({ cardId: id, version: { $in: [lvm, rvm] } }).sort({ version: 1 });
+    const entities = await EntityOld.find({ cardId: id, version: { $in: [lvm, rvm] } }).sort({ version: 1 });
 
     if (entities.length !== 2) {
         ctx.status = 400;

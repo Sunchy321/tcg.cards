@@ -2,11 +2,11 @@ import { integer, text, uuid } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
-export const cardRelations = schema.table('card_relations', {
+export const CardRelation = schema.table('card_relations', {
     id: uuid('id').primaryKey().defaultRandom(),
 
     relation: text('relation').notNull(),
-    version:  integer('version').array(),
+    version:  integer('version').array().notNull(),
     sourceId: text('source_id').notNull(),
     targetId: text('target_id').notNull(),
 });

@@ -1,11 +1,13 @@
 import { db } from '@/drizzle';
 import { Entity, EntityLocalization } from '@/hearthstone/schema/entity';
+import { CardRelation } from '@/hearthstone/schema/card-relation';
 import { and, eq, getTableColumns } from 'drizzle-orm';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
+import { CardRelation as ICardRelation } from '@interface/hearthstone/card-relation';
 
 export async function insert(entity: IEntity) {
-    db.transaction(async tx => {
+    await db.transaction(async tx => {
         const existingEntity = await db.select()
             .from(Entity)
             .where(and(
@@ -46,6 +48,30 @@ export async function insert(entity: IEntity) {
                 await tx.insert(EntityLocalization)
                     .values({ cardId: entity.cardId, version: entity.version, ...loc });
             }
+        }
+    });
+}
+
+export async function insertRelation(relation: ICardRelation) {
+    await db.transaction(async tx => {
+        const existingRelation = await tx.select()
+            .from(CardRelation)
+            .where(and(
+                eq(CardRelation.sourceId, relation.sourceId),
+                eq(CardRelation.targetId, relation.targetId),
+                eq(CardRelation.relation, relation.relation),
+            ));
+
+        if (existingRelation.length > 0) {
+            await tx.update(Entity)
+                .set({ version: [...existingRelation[0].version, ...relation.version].sort() })
+                .where(and(
+                    eq(CardRelation.sourceId, relation.sourceId),
+                    eq(CardRelation.targetId, relation.targetId),
+                    eq(CardRelation.relation, relation.relation),
+                ));
+        } else {
+            await tx.insert(CardRelation).values(relation);
         }
     });
 }
