@@ -7,7 +7,7 @@
                 v-if="drawerOpen != null && !(isMobile && showParams)"
                 icon="mdi-menu"
                 flat dense round
-                @click="$emit('update:drawerOpen',!drawerOpen)"
+                @click="drawerOpen = !drawerOpen"
             />
 
             <app-title />
@@ -23,7 +23,7 @@
             <header-params v-if="!isMobile" key="params" class="params" />
 
             <q-btn
-                v-if="isAdmin"
+                v-if="hasDataAdmin"
                 icon="mdi-database"
                 flat dense round
                 :to="dataPath"
@@ -40,7 +40,7 @@
                 v-if="drawerOpen != null"
                 icon="mdi-menu"
                 flat dense round
-                @click="$emit('update:drawerOpen',!drawerOpen)"
+                @click="drawerOpen = !drawerOpen"
             />
 
             <q-space />
@@ -61,20 +61,14 @@ import HomeButton from 'components/HomeButton.vue';
 import AppTitle from 'components/Title.vue';
 import HeaderParams from 'components/HeaderParams.vue';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const props = withDefaults(defineProps<{
-    drawerOpen?: boolean;
-}>(), {
-    drawerOpen: undefined,
-});
+import { auth, checkAdmin } from '@/auth';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const emit = defineEmits<{
-    'update:drawerOpen': [newValue: boolean];
-}>();
+const drawerOpen = defineModel<boolean>('drawerOpen');
+
+const { game } = basicSetup();
 
 const quasar = useQuasar();
-const { game, user, isAdmin } = basicSetup();
+const session = auth.useSession();
 
 const isMobile = computed(() => quasar.platform.is.mobile);
 const showParams = ref(false);
@@ -87,8 +81,24 @@ const paramsIcon = computed(() => {
     }
 });
 
+const user = computed(() => {
+    return session.value?.data?.user;
+});
+
+const roles = computed(() => {
+    return session.value.data?.user.role.split(',') ?? [];
+});
+
+const hasDataAdmin = computed(() => {
+    if (game.value != null) {
+        return checkAdmin(roles.value, `admin/${game.value}`);
+    } else {
+        return checkAdmin(roles.value, 'admin');
+    }
+});
+
 const dataPath = computed(() => {
-    if (!isAdmin.value) {
+    if (!hasDataAdmin.value) {
         return undefined;
     }
 

@@ -1,5 +1,3 @@
-import { useUser } from 'store/user';
-
 import { controlBase, control } from 'boot/server';
 
 import { AxiosResponse } from 'axios';
@@ -9,7 +7,9 @@ export default function controlSetup(): {
     controlPost: <T>(url: string, params?: Record<string, any>) => Promise<AxiosResponse<T>>;
     controlWs:   (url: string, params?: Record<string, any>) => WebSocket;
 } {
-    const user = useUser();
+    const user = {
+        token: 'TOKEN_PLACEHOLDER', // Replace with actual token retrieval logic
+    };
 
     async function controlGet<T>(path: string, params: Record<string, any> = { }) {
         const { token } = user;

@@ -11,7 +11,7 @@
         "sourceMap": true,
         "strictNullChecks": true,
         "esModuleInterop": true,
-        "lib": ["ES2022"],
+        "lib": ["ES2022", "DOM"],
         "baseUrl": "./src",
         "paths": {
             "@/*": ["./*"],

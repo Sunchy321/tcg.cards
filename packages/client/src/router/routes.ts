@@ -37,6 +37,17 @@ const routes: RouteRecordRaw[] = [
             })),
         ],
     },
+    {
+        path:      '/register',
+        component: async () => import('layouts/Main.vue'),
+        children:  [
+            {
+                path:      '',
+                name:      'register',
+                component: async () => import('pages/Register.vue'),
+            },
+        ],
+    },
 
     {
         path:      '/integrated',
@@ -81,7 +92,7 @@ export function createDefaultRoute(game: string): RouteRecordRaw[] {
                     name:      `${game}/data`,
                     component: async () => import(`pages/${game}/Data.vue`),
                     meta:      {
-                        admin: true,
+                        admin: `admin/${game}`,
                     },
                 },
                 {

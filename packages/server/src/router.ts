@@ -1,7 +1,7 @@
 import { publicProcedure, router } from './trpc';
 import z from 'zod';
 
-import { Game, games } from '@interface/index';
+import { games } from '@interface/index';
 import { generateOpenApiDocument } from 'trpc-to-openapi';
 
 export const appRouter = router({

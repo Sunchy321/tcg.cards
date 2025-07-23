@@ -1,29 +1,15 @@
-import { configDotenv } from 'dotenv';
-
-configDotenv();
+import 'dotenv/config.js';
 
 import Koa from 'koa';
-import cors from '@koa/cors';
-import session from 'koa-session';
-import logger from 'koa-logger';
-import body from 'koa-body';
-import compress from 'koa-compress';
-import websocket from 'koa-easy-ws';
 
 import fastify from 'fastify';
+import fastifyCors from '@fastify/cors';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { fastifyTRPCOpenApiPlugin } from 'trpc-to-openapi';
 
-import { main } from '@/logger';
-
-import subdomain from '@/middlewares/subdomain';
-
-import api from '@/api';
-import user from '@/user/router';
-import control from '@/control';
-import asset from '@/asset';
-
 import { config } from '@/config';
+
+import { auth } from './auth';
 import { appRouter } from './router';
 
 const koaApp = new Koa();
@@ -32,38 +18,70 @@ koaApp.keys = [config.appKey];
 
 const port = 3000;
 
-koaApp
-    .use(session({}, koaApp))
-    .use(cors())
-    .use(body({ multipart: true, jsonLimit: 2 * 1024 * 1024 }))
-    .use(logger())
-    .use(websocket())
-    .use(subdomain('api', api))
-    .use(subdomain('asset', asset))
-    .use(subdomain('user', user))
-    .use(subdomain('control', control))
-    .use(compress({ threshold: 2048 }));
+const app = fastify();
 
-koaApp.listen(port, () => {
-    main.info(`Server is running at ${port}`, { category: 'server' });
-    console.log(`Server is running at ${port}`);
+await app.register(fastifyCors, {
+    origin:         process.env.CLIENT_ORIGIN ?? 'https://tcg.cards:8080',
+    methods:        ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+    ],
+    credentials: true,
+    maxAge:      86400,
 });
 
-async function run() {
-    const app = fastify();
+app.route({
+    method: ['GET', 'POST'],
+    url:    '/api/auth/*',
+    async handler(request, reply) {
+        try {
+            // Construct request URL
+            const url = new URL(request.url, `http://${request.headers.host}`);
 
-    await app.register(fastifyTRPCOpenApiPlugin, {
-        router:   appRouter,
-        basePath: '/openapi',
-    });
+            // Convert Fastify headers to standard Headers object
+            const headers = new Headers();
+            Object.entries(request.headers).forEach(([key, value]) => {
+                if (value) headers.append(key, value.toString());
+            });
 
-    await app.register(fastifyTRPCPlugin, {
-        trpcOptions: {
-            router: appRouter,
-        },
-    });
+            // Create Fetch API-compatible request
+            const req = new Request(url.toString(), {
+                method: request.method,
+                headers,
+                body:   request.body ? JSON.stringify(request.body) : undefined,
+            });
 
-    await app.listen({ port: 8989 });
-}
+            // Process authentication request
+            const response = await auth.handler(req);
 
-run();
+            // Forward response to client
+            reply.status(response.status);
+            response.headers.forEach((value, key) => reply.header(key, value));
+            reply.send(response.body ? await response.text() : null);
+        } catch (error) {
+            app.log.error('Authentication Error:', error);
+            reply.status(500).send({
+                error: 'Internal authentication error',
+                code:  'AUTH_FAILURE',
+            });
+        }
+    },
+});
+
+await app.register(fastifyTRPCOpenApiPlugin, {
+    router:   appRouter,
+    basePath: '/openapi',
+});
+
+await app.register(fastifyTRPCPlugin, {
+    trpcOptions: {
+        router: appRouter,
+    },
+    prefix: '/trpc',
+});
+
+await app.listen({ port });
+
+console.log(`Server is running at ${port}`);

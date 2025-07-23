@@ -1,8 +1,6 @@
 import { Ref } from 'vue';
 import { LocalStorage } from 'quasar';
 
-import { useUser } from '../user';
-
 import { gameStores } from '../games';
 
 import { localeList } from './locale';
@@ -32,9 +30,5 @@ export default function useBoot(locale: Ref<string>) {
 
             store.init();
         }
-
-        const userStore = useUser();
-
-        userStore.refresh();
     };
 }

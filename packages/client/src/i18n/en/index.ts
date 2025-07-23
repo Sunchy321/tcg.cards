@@ -35,19 +35,30 @@ export default {
     },
 
     user: {
-        username: 'Username',
-        password: 'Password',
-        login:    'Log in',
-        logout:   'Log out',
-        register: 'Sign up',
+        'username':        'Username',
+        'email':           'Email',
+        'password':        'Password',
+        'repeat-password': 'Repeat Password',
+        'login':           'Log in',
+        'logout':          'Log out',
+        'register':        'Sign up',
 
-        passwordHint:
+        'passwordHint':
             'At least 8 characters, and must includes lower & upper letters, digits and special characters',
-        weakPassword: 'Your password is too weak',
+        'weakPassword': 'Your password is too weak',
 
-        role: {
-            normal: 'Normal user',
-            admin:  'Administrator',
+        'error': {
+            REQUIRE_USERNAME:        'Username Required',
+            REQUIRE_EMAIL:           'Email Required',
+            INVALID_EMAIL:           'Invalid Email Address',
+            REQUIRE_PASSWORD:        'Password Required',
+            WRONG_REPEATED_PASSWORD: 'Wrong Repeated Password',
+        },
+
+        'role': {
+            user:  'User',
+            admin: 'Administrator',
+            owner: 'Owner',
         },
     },
 

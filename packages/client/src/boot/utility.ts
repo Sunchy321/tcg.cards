@@ -6,8 +6,10 @@ declare module '@vue/runtime-core' {
     }
 }
 
+export async function sleep(time: number) {
+    return new Promise(resolve => { setTimeout(resolve, time); });
+}
+
 export default boot(({ app }) => {
-    app.config.globalProperties.$sleep = async function (time: number) {
-        return new Promise(resolve => { setTimeout(resolve, time); });
-    };
+    app.config.globalProperties.$sleep = sleep;
 });

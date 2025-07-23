@@ -6,7 +6,8 @@
         "lint": "eslint ./src ./data --ext js,ts --cache --fix",
         "dev": "tsx watch ./src/app.ts",
         "build": "npx tspc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist",
-        "gen-openapi": "node -r ts-node/register -r tsconfig-paths/register scripts/gen-doc.ts"
+        "gen-openapi": "node -r ts-node/register -r tsconfig-paths/register scripts/gen-doc.ts",
+        "gen-auth": "pnpm dlx @better-auth/cli generate --config src/auth/index.ts --output src/auth/schema.ts -y"
     },
     "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
     "license": "MIT",

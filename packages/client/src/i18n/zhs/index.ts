@@ -35,18 +35,29 @@ export default {
     },
 
     user: {
-        username: '用户名',
-        password: '密码',
-        login:    '登录',
-        logout:   '退出账号',
-        register: '注册',
+        'username':        '用户名',
+        'email':           '邮箱',
+        'password':        '密码',
+        'repeat-password': '重复密码',
+        'login':           '登录',
+        'logout':          '退出账号',
+        'register':        '注册',
 
-        passwordHint: '至少8位，且须包含大小写字母、数字和特殊字符',
-        weakPassword: '你设置的密码太弱',
+        'passwordHint': '至少8位，且须包含大小写字母、数字和特殊字符',
+        'weakPassword': '你设置的密码太弱',
 
-        role: {
-            normal: '普通用户',
-            admin:  '管理员',
+        'error': {
+            'REQUIRE_USERNAME':        '需要用户名',
+            'REQUIRE_EMAIL':           '需要电子邮件地址',
+            'invalid-email':           '不合法的电子邮件地址',
+            'REQUIRE_PASSWORD':        '需要密码',
+            'WRONG_REPEATED_PASSWORD': '两次密码不相同',
+        },
+
+        'role': {
+            user:  '用户',
+            admin: '管理员',
+            owner: '站长',
         },
     },
 

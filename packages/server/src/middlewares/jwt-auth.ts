@@ -1,6 +1,6 @@
 import { Context, Next, Middleware } from 'koa';
 
-import User, { IUser } from '@/user/db/user';
+import User, { IUser } from '@/auth/db/user';
 
 declare module 'koa' {
     interface DefaultState {

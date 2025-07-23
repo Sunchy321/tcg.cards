@@ -10,7 +10,8 @@ import {
 import routes from './routes';
 
 import { clearParam } from 'store/core';
-import { useUser } from 'store/user';
+
+import { auth, checkAdmin } from 'src/auth';
 /*
  * If not building with SSR mode, you can
  * directly export the Router instantiation;
@@ -35,39 +36,29 @@ export default route(() => {
         history: createHistory(process.env.VUE_ROUTER_BASE),
     });
 
-    Router.beforeEach((to, from, next) => {
-        const user = useUser();
+    const session = auth.useSession();
 
+    Router.beforeEach(async (to, from, next) => {
         if (to.name != from.name) {
             clearParam();
         }
 
-        if (to.meta.admin as boolean | null) {
-            if (!user.isAdmin) {
+        if (to.meta.admin != null) {
+            const roles = (session.value.data.user.role ?? '').split(',');
+
+            if (!checkAdmin(roles, to.meta.admin as string)) {
                 next({
                     name:  'setting',
                     query: {
                         redirect: to.path,
-                        admin:    '',
+                        admin:    to.meta.admin as string,
                     },
                 });
-            } else {
-                next();
+                return;
             }
-        } else if (to.meta.requireAuth as boolean | null) {
-            if (!user.loggedIn) {
-                next({
-                    name:  'setting',
-                    query: {
-                        redirect: to.path,
-                    },
-                });
-            } else {
-                next();
-            }
-        } else {
-            next();
         }
+
+        next();
     });
 
     return Router;

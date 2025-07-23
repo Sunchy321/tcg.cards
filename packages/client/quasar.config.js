@@ -74,6 +74,7 @@ export default configure((/* ctx */) => ({
         // viteVuePluginOptions: {},
 
         alias: {
+            '@':            path.join(__dirname, 'src'),
             'setup':        path.join(__dirname, 'src/setup'),
             'store':        path.join(__dirname, 'src/stores'),
             '@static':      path.join(__dirname, 'node_modules/card-common/static'),

@@ -24,7 +24,7 @@
             <q-btn
                 class="col q-ma-sm"
                 :label="$t('user.register')"
-                @click="register"
+                href="register"
             />
             <q-btn
                 class="col q-ma-sm"
@@ -36,61 +36,32 @@
     </q-form>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref } from 'vue';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
-import { useUser } from 'store/user';
 
-import { camelCase } from 'lodash';
+import { auth } from 'src/auth';
 
-export default defineComponent({
-    name: 'Login',
+const quasar = useQuasar();
+const i18n = useI18n();
 
-    setup() {
-        const quasar = useQuasar();
-        const userStore = useUser();
-        const i18n = useI18n();
+const username = ref('');
+const password = ref('');
+const showPassword = ref(false);
 
-        const username = ref('');
-        const password = ref('');
-        const showPassword = ref(false);
+const login = async () => {
+    const user = await auth.signIn.username({
+        username: username.value,
+        password: password.value,
+    });
 
-        const register = () => {
-            try {
-                userStore.register({
-                    username: username.value,
-                    password: password.value,
-                });
-            } catch (e) {
-                if (e instanceof Error) {
-                    quasar.notify(i18n.t(`user.${camelCase(e.message)}`));
-                }
-            }
-        };
-
-        const login = () => {
-            try {
-                userStore.login({
-                    username: username.value,
-                    password: password.value,
-                });
-            } catch (e) {
-                if (e instanceof Error) {
-                    quasar.notify(i18n.t(`user.${camelCase(e.message)}`));
-                }
-            }
-        };
-
-        return {
-            username,
-            password,
-            showPassword,
-
-            register,
-            login,
-        };
-    },
-});
+    if (user.error != null) {
+        quasar.notify({
+            type:    'negative',
+            message: i18n.t(`user.error.${user.error.code}`),
+        });
+    }
+};
 </script>
