@@ -105,7 +105,7 @@ const dataPath = computed(() => {
     if (game.value != null) {
         return { name: `${game.value}/data` };
     } else {
-        return { name: 'integrated/data' };
+        return { name: 'main/data' };
     }
 });
 

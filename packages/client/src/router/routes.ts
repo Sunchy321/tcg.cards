@@ -17,7 +17,7 @@ const routes: RouteRecordRaw[] = [
             {
                 path:      '',
                 name:      '',
-                component: async () => import('pages/Index.vue'),
+                component: async () => import('src/pages/main/Index.vue'),
             },
         ],
     },
@@ -46,6 +46,27 @@ const routes: RouteRecordRaw[] = [
                 name:      'register',
                 component: async () => import('pages/Register.vue'),
             },
+        ],
+    },
+
+    {
+        path:      '/main',
+        component: async () => import('layouts/Main.vue'),
+        children:  [
+            // {
+            //     path:      '/search',
+            //     name:      'integrated/search',
+            //     component: async () => import('pages/integrated/Search.vue'),
+            // },
+            {
+                path: '/data',
+                name: 'main/data',
+                meta: {
+                    admin: 'admin',
+                },
+                component: async () => import('pages/main/Data.vue'),
+            },
+
         ],
     },
 

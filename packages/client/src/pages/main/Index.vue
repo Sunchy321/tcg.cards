@@ -46,7 +46,7 @@
 import { computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
-import { useCore } from 'store/core';
+import { useCore, useTitle } from 'store/core';
 
 import integratedSetup from 'src/setup/integrated';
 
@@ -60,6 +60,8 @@ const core = useCore();
 const i18n = useI18n();
 
 const { search } = integratedSetup();
+
+useTitle('TCG Card Database');
 
 const searchText = computed({
     get() { return core.search; },

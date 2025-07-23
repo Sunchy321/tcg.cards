@@ -35,13 +35,17 @@ export default {
     },
 
     user: {
-        'username':        'Username',
-        'email':           'Email',
-        'password':        'Password',
+        'username':  'Username',
+        'email':     'Email',
+        'password':  'Password',
+        'roles':     'Role',
+        'createdAt': 'Created At',
+
         'repeat-password': 'Repeat Password',
-        'login':           'Log in',
-        'logout':          'Log out',
-        'register':        'Sign up',
+
+        'login':    'Log in',
+        'logout':   'Log out',
+        'register': 'Sign up',
 
         'passwordHint':
             'At least 8 characters, and must includes lower & upper letters, digits and special characters',

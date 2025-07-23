@@ -36,15 +36,15 @@ export default route(() => {
         history: createHistory(process.env.VUE_ROUTER_BASE),
     });
 
-    const session = auth.useSession();
-
     Router.beforeEach(async (to, from, next) => {
         if (to.name != from.name) {
             clearParam();
         }
 
         if (to.meta.admin != null) {
-            const roles = (session.value.data.user.role ?? '').split(',');
+            const session = await auth.getSession();
+
+            const roles = session.data?.user.role?.split(',') ?? [];
 
             if (!checkAdmin(roles, to.meta.admin as string)) {
                 next({
