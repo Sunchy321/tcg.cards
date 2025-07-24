@@ -1,6 +1,9 @@
-import { defineEnum, defineModel, IntoType } from '@/model/model';
+import 'zod-metadata/register';
+import { z } from 'zod';
 
-const categoryModel = defineEnum(
+import { legalityModel } from './format-change';
+
+export const categoryModel = z.enum([
     'advertisement',
     'art',
     'auxiliary',
@@ -9,138 +12,79 @@ const categoryModel = defineEnum(
     'minigame',
     'player',
     'token',
-);
+]);
 
-export type Category = IntoType<typeof categoryModel>;
+export type Category = z.infer<typeof categoryModel>;
 
-export const cardModel = defineModel({
-    type: 'object',
+export const cardModel = z.strictObject({
+    cardId:    z.string(),
+    lang:      z.string().meta({ foreign: true }),
+    partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
 
-    properties: {
-        cardId: { type: 'id' },
+    partCount: z.number().meta({ type: 'small-int' }),
 
-        name:     { type: 'string' },
-        typeline: { type: 'string' },
-        text:     { type: 'string' },
+    name:     z.string(),
+    typeline: z.string(),
+    text:     z.string(),
 
-        localization: {
-            type: 'index-set',
+    localization: z.strictObject({
+        name:     z.string(),
+        typeline: z.string(),
+        text:     z.string(),
+    }).meta({
+        primaryKey: ['cardId', 'lang'],
+    }),
 
-            element: {
-                type: 'object',
+    manaValue:     z.number().meta({ type: 'int' }),
+    colorIdentity: z.string().meta({ type: 'bitset', map: 'WUBRG' }),
 
-                properties: {
-                    lang:     { type: 'string', index: true },
-                    name:     { type: 'string' },
-                    typeline: { type: 'string' },
-                    text:     { type: 'string' },
-                },
-            },
-        },
+    parts: z.strictObject({
+        name:     z.string(),
+        typeline: z.string(),
+        text:     z.string(),
 
-        manaValue:     { type: 'number' },
-        colorIdentity: { type: 'string-set' },
+        localization: z.strictObject({
+            name:     z.string(),
+            typeline: z.string(),
+            text:     z.string(),
+        }).meta({
+            primaryKey: ['cardId', 'lang', 'partIndex'],
+        }),
 
-        parts: {
-            type: 'array',
+        cost:           z.array(z.string()).optional(),
+        manaValue:      z.number().optional(),
+        color:          z.string().meta({ type: 'bitset', map: 'WUBRG' }).optional(),
+        colorIndicator: z.string().meta({ type: 'bitset', map: 'WUBRG' }).optional(),
 
-            element: {
-                type: 'object',
+        typeSuper: z.array(z.string()).meta({ type: 'set' }).optional(),
+        typeMain:  z.array(z.string()).meta({ type: 'set' }),
+        typeSub:   z.array(z.string()).meta({ type: 'set' }).optional(),
 
-                properties: {
-                    name:     { type: 'string' },
-                    typeline: { type: 'string' },
-                    text:     { type: 'string' },
+        power:        z.string().meta({ type: 'numeric' }).optional(),
+        toughness:    z.string().meta({ type: 'numeric' }).optional(),
+        loyalty:      z.string().meta({ type: 'numeric' }).optional(),
+        defense:      z.string().meta({ type: 'numeric' }).optional(),
+        handModifier: z.string().optional(),
+        lifeModifier: z.string().optional(),
+    }).meta({
+        primaryKey: ['cardId', 'partIndex'],
+    }),
 
-                    localization: {
-                        type: 'index-set',
+    keywords:       z.array(z.string()).meta({ type: 'set' }),
+    counters:       z.array(z.string()).meta({ type: 'set' }),
+    producibleMana: z.string().meta({ type: 'bitset', map: 'WUBRGC' }).optional(),
 
-                        element: {
-                            type: 'object',
+    tags: z.array(z.string()).meta({ type: 'set' }),
 
-                            properties: {
-                                lang:       { type: 'string', index: true },
-                                __lastDate: { type: 'string' },
-                                name:       { type: 'string' },
-                                typeline:   { type: 'string' },
-                                text:       { type: 'string' },
-                            },
-                        },
-                    },
+    category: categoryModel,
 
-                    cost:           { type: 'array', element: { type: 'string' }, optional: true },
-                    manaValue:      { type: 'number', optional: true },
-                    color:          { type: 'string-set', optional: true },
-                    colorIndicator: { type: 'string-set', optional: true },
+    legalities: z.record(legalityModel),
 
-                    type: {
-                        type: 'object',
+    contentWarning: z.boolean().optional(),
 
-                        properties: {
-                            super: { type: 'simple-set', element: { type: 'string' }, optional: true },
-                            main:  { type: 'simple-set', element: { type: 'string' } },
-                            sub:   { type: 'simple-set', element: { type: 'string' }, optional: true },
-                        },
-                    },
-
-                    power:        { type: 'numeric', optional: true },
-                    toughness:    { type: 'numeric', optional: true },
-                    loyalty:      { type: 'numeric', optional: true },
-                    defense:      { type: 'numeric', optional: true },
-                    handModifier: { type: 'string', optional: true },
-                    lifeModifier: { type: 'string', optional: true },
-                },
-            },
-        },
-
-        keywords:       { type: 'simple-set', element: { type: 'string' } },
-        counters:       { type: 'simple-set', element: { type: 'string' } },
-        producibleMana: { type: 'string-set', optional: true },
-        tags:           { type: 'simple-set', element: { type: 'string' } },
-
-        category: categoryModel,
-
-        legalities: {
-            type: 'map',
-
-            value: {
-                type:   'enum',
-                values: [
-                    'banned_as_commander',
-                    'banned_as_companion',
-                    'banned_in_bo1',
-                    'banned',
-                    'game_changer',
-                    'legal',
-                    'restricted',
-                    'suspended',
-                    'unavailable',
-                    'score-1',
-                    'score-2',
-                    'score-3',
-                    'score-4',
-                    'score-5',
-                    'score-6',
-                    'score-7',
-                    'score-8',
-                    'score-9',
-                    'score-10',
-                ] as const,
-            },
-        },
-
-        contentWarning: {
-            type:     'boolean',
-            optional: true,
-        },
-
-        scryfall: {
-            type:       'object',
-            properties: {
-                oracleId: { type: 'array', element: { type: 'uuid' } },
-            },
-        },
-    },
+    scryfallOracleId: z.array(z.string().meta({ type: 'uuid' })),
+}).meta({
+    primaryKey: ['cardId'],
 });
 
-export type Card = IntoType<typeof cardModel>;
+export type Card = z.infer<typeof cardModel>;

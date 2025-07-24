@@ -1,119 +1,96 @@
-import { defineEnum, defineModel, IntoType } from '@/model/model';
+import 'zod-metadata/register';
+import { z } from 'zod';
 
-const layoutModel = defineEnum(
+const layoutModel = z.enum([
     'adventure', 'aftermath', 'augment', 'battle', 'class', 'double_faced',
     'emblem', 'flip_token_bottom', 'flip_token_top', 'flip', 'host',
     'leveler', 'meld', 'modal_dfc', 'multipart', 'normal', 'planar',
     'reversible_card', 'saga', 'scheme', 'split_arena', 'split', 'token',
     'transform_token', 'transform', 'vanguard',
-);
+]);
 
-const frameModel = defineEnum('1993', '1997', '2003', '2015', 'future');
-const borderColorModel = defineEnum('black', 'borderless', 'gold', 'silver', 'white', 'yellow');
-const securityStampModel = defineEnum('acorn', 'arena', 'circle', 'heart', 'oval', 'triangle');
-const rarityModel = defineEnum('bonus', 'common', 'mythic', 'rare', 'special', 'uncommon');
-const finishModel = defineEnum('etched', 'foil', 'nonfoil');
-const imageStatusModel = defineEnum('highres_scan', 'lowres', 'missing', 'placeholder');
-const gameModel = defineEnum('arena', 'astral', 'mtgo', 'paper', 'sega');
+const frameModel = z.enum(['1993', '1997', '2003', '2015', 'future']);
+const borderColorModel = z.enum(['black', 'borderless', 'gold', 'silver', 'white', 'yellow']);
+const securityStampModel = z.enum(['acorn', 'arena', 'circle', 'heart', 'oval', 'triangle']);
+const rarityModel = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
+const finishModel = z.enum(['etched', 'foil', 'nonfoil']);
+const imageStatusModel = z.enum(['highres_scan', 'lowres', 'missing', 'placeholder']);
+const gameModel = z.enum(['arena', 'astral', 'mtgo', 'paper', 'sega']);
 
-export type Layout = IntoType<typeof layoutModel>;
-export type Frame = IntoType<typeof frameModel>;
-export type BorderColor = IntoType<typeof borderColorModel>;
-export type SecurityStamp = IntoType<typeof securityStampModel>;
-export type Rarity = IntoType<typeof rarityModel>;
-export type Finish = IntoType<typeof finishModel>;
-export type ImageStatus = IntoType<typeof imageStatusModel>;
-export type Game = IntoType<typeof gameModel>;
+export type Layout = z.infer<typeof layoutModel>;
+export type Frame = z.infer<typeof frameModel>;
+export type BorderColor = z.infer<typeof borderColorModel>;
+export type SecurityStamp = z.infer<typeof securityStampModel>;
+export type Rarity = z.infer<typeof rarityModel>;
+export type Finish = z.infer<typeof finishModel>;
+export type ImageStatus = z.infer<typeof imageStatusModel>;
+export type Game = z.infer<typeof gameModel>;
 
-export const printModel = defineModel({
-    type: 'object',
+export const printModel = z.strictObject({
+    cardId:    z.string(),
+    set:       z.string(),
+    number:    z.string(),
+    lang:      z.string(),
+    partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
 
-    properties: {
-        cardId: { type: 'id' },
+    partCount: z.number().meta({ type: 'small-int' }),
 
-        lang:   { type: 'string' },
-        set:    { type: 'string' },
-        number: { type: 'string' },
+    parts: z.strictObject({
+        name:     z.string(),
+        typeline: z.string(),
+        text:     z.string(),
 
-        parts: {
-            type:    'array',
-            element: {
-                type:       'object',
-                properties: {
-                    name:     { type: 'string' },
-                    typeline: { type: 'string' },
-                    text:     { type: 'string' },
+        attractionLights: z.string().meta({ type: 'bitset', map: '123456' }).optional(),
 
-                    attractionLights: { type: 'array', element: { type: 'number' }, optional: true },
+        flavorName: z.string().optional(),
+        flavorText: z.string().optional(),
+        artist:     z.string().optional(),
+        watermark:  z.string().meta({ type: 'loose-enum' }).optional(),
 
-                    scryfallIllusId: { type: 'array', element: { type: 'string' }, optional: true },
-                    flavorName:      { type: 'string', optional: true },
-                    flavorText:      { type: 'string', optional: true },
-                    artist:          { type: 'string', optional: true },
-                    watermark:       { type: 'loose-enum', optional: true },
-                },
-            },
-        },
+        scryfallIllusId: z.string().meta({ type: 'uuid' }).array().optional(),
+    }).meta({
+        primaryKey: ['cardId', 'set', 'number', 'lang', 'partIndex'],
+    }),
 
-        tags: { type: 'simple-set', element: { type: 'string' } },
+    printTags: z.string().array().meta({ type: 'set' }),
 
-        layout:        layoutModel,
-        frame:         frameModel,
-        frameEffects:  { type: 'simple-set', element: { type: 'loose-enum' } },
-        borderColor:   borderColorModel,
-        cardBack:      { type: 'uuid' },
-        securityStamp: { ...securityStampModel, optional: true },
-        promoTypes:    { type: 'simple-set', element: { type: 'loose-enum' }, optional: true },
-        rarity:        rarityModel,
-        releaseDate:   { type: 'string-date' },
+    layout:        layoutModel,
+    frame:         frameModel,
+    frameEffects:  z.string().meta({ type: 'loose-enum' }).array(),
+    borderColor:   borderColorModel,
+    cardBack:      z.string().meta({ type: 'uuid' }),
+    securityStamp: securityStampModel.optional(),
+    promoTypes:    z.string().meta({ type: 'loose-enum' }).array().optional(),
+    rarity:        rarityModel,
+    releaseDate:   z.string().meta({ type: 'date' }),
 
-        isDigital:       { type: 'boolean' },
-        isPromo:         { type: 'boolean' },
-        isReprint:       { type: 'boolean' },
-        finishes:        { type: 'simple-set', element: finishModel },
-        hasHighResImage: { type: 'boolean' },
-        imageStatus:     imageStatusModel,
+    isDigital:       z.boolean(),
+    isPromo:         z.boolean(),
+    isReprint:       z.boolean(),
+    finishes:        finishModel.array(),
+    hasHighResImage: z.boolean(),
+    imageStatus:     imageStatusModel,
 
-        inBooster: { type: 'boolean' },
-        games:     { type: 'simple-set', element: gameModel },
+    inBooster: z.boolean(),
+    games:     gameModel.array(),
 
-        preview: {
-            type:       'object',
-            optional:   true,
-            properties: {
-                date:   { type: 'string-date' },
-                source: { type: 'string' },
-                uri:    { type: 'url' },
-            },
-        },
+    previewDate:   z.string().meta({ type: 'date' }).optional(),
+    previewSource: z.string().optional(),
+    previewUri:    z.string().meta({ type: 'url' }).optional(),
 
-        scryfall: {
-            type:       'object',
-            properties: {
-                oracleId: { type: 'uuid' },
-                cardId:   { type: 'uuid', optional: true },
-                face:     {
-                    type:     'enum',
-                    values:   ['back', 'bottom', 'front', 'top'] as const,
-                    optional: true,
-                },
-                imageUris: {
-                    type:    'array',
-                    element: {
-                        type:  'map',
-                        value: { type: 'url' },
-                    },
-                },
-            },
-        },
+    scryfallOracleId:  z.string().meta({ type: 'uuid' }),
+    scryfallCardId:    z.string().meta({ type: 'uuid' }).optional(),
+    scryfallFace:      z.enum(['back', 'bottom', 'front', 'top']).optional(),
+    scryfallImageUris: z.record(z.string().meta({ type: 'url' })).array(),
 
-        arenaId:      { type: 'number-id', optional: true },
-        mtgoId:       { type: 'number-id', optional: true },
-        mtgoFoilId:   { type: 'number-id', optional: true },
-        multiverseId: { type: 'array', element: { type: 'number-id' } },
-        tcgPlayerId:  { type: 'number-id', optional: true },
-        cardMarketId: { type: 'number-id', optional: true },
-    },
+    arenaId:      z.number().meta({ type: 'number-id' }).optional(),
+    mtgoId:       z.number().meta({ type: 'number-id' }).optional(),
+    mtgoFoilId:   z.number().meta({ type: 'number-id' }).optional(),
+    multiverseId: z.number().meta({ type: 'number-id' }).array(),
+    tcgPlayerId:  z.number().meta({ type: 'number-id' }).optional(),
+    cardMarketId: z.number().meta({ type: 'number-id' }).optional(),
+}).meta({
+    primaryKey: ['cardId', 'set', 'number', 'lang'],
 });
 
-export type Print = IntoType<typeof printModel>;
+export type Print = z.infer<typeof printModel>;
