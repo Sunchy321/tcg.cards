@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 declare namespace NodeJS {
     interface ProcessEnv {
         DEV:             boolean;
@@ -9,4 +11,11 @@ declare namespace NodeJS {
         VUE_ROUTER_MODE: 'abstract' | 'hash' | 'history' | undefined;
         VUE_ROUTER_BASE: string | undefined;
     }
+}
+
+interface ImportMetaEnv {
+    readonly VITE_TRPC_URL: string;
+}
+interface ImportMeta {
+    readonly env: ImportMetaEnv;
 }

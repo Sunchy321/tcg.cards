@@ -16,6 +16,7 @@ import { useI18n } from 'vue-i18n';
 import { QTableColumn } from 'quasar';
 
 import { auth } from '@/auth';
+import { trpc } from 'src/trpc';
 
 const i18n = useI18n();
 
@@ -66,5 +67,7 @@ const columns = computed(() => [
         sortable: true,
     },
 ] satisfies QTableColumn[]);
+
+trpc;
 
 </script>

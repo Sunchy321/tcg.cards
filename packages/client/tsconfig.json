@@ -21,7 +21,8 @@
             "@data/*": ["node_modules/card-common/data/*"],
             "@common/*": ["node_modules/card-common/src/*"],
             "@search/*": ["node_modules/card-search/src/*"],
-            "@search-data/*": ["node_modules/card-search/data/*"]
+            "@search-data/*": ["node_modules/card-search/data/*"],
+            "@server/*": ["node_modules/card-server/src/*"],
         },
     },
     "include": [

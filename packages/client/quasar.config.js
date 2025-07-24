@@ -83,6 +83,7 @@ export default configure((/* ctx */) => ({
             '@interface':   path.join(__dirname, 'node_modules/card-interface/src'),
             '@search':      path.join(__dirname, 'node_modules/card-search/src'),
             '@search-data': path.join(__dirname, 'node_modules/card-search/data'),
+            '@server':      path.join(__dirname, 'node_modules/card-server/src'),
         },
 
         vitePlugins: [
