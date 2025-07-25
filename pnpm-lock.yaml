@@ -637,6 +637,9 @@ importers:
       '@types/node':
         specifier: ^14.14.14
         version: 14.18.31
+      '@types/pascalcase':
+        specifier: ^1.0.3
+        version: 1.0.3
       '@types/pegjs':
         specifier: ^0.10.2
         version: 0.10.3
@@ -667,6 +670,9 @@ importers:
       nodemon:
         specifier: ^2.0.18
         version: 2.0.20
+      pascalcase:
+        specifier: ^2.0.0
+        version: 2.0.0
       plur:
         specifier: ^5.1.0
         version: 5.1.0
@@ -2303,6 +2309,9 @@ packages:
   '@types/parse-json@4.0.0':
     resolution: {integrity: sha512-//oorEZjL6sbPcKUaCdIGlIUeH26mgzimjBB77G6XRgnDl/L5wOnpyBGRe/Mmf5CVW3PwEBE1NjiMZ/ssFh4wA==}
 
+  '@types/pascalcase@1.0.3':
+    resolution: {integrity: sha512-0BoqLWFpsQYlv5iyYsXVYaiDc2f4Y04/CBDGXZLYeTs6LLaFwHyxOGgZ8V4m9ZCiaORO8muP0ipA1EHYUOiVvA==}
+
   '@types/passport@1.0.11':
     resolution: {integrity: sha512-pz1cx9ptZvozyGKKKIPLcVDVHwae4hrH5d6g5J+DkMRRjR3cVETb4jMabhXAUbg3Ov7T22nFHEgaK2jj+5CBpw==}
 
@@ -2851,6 +2860,10 @@ packages:
 
   camel-case@4.1.2:
     resolution: {integrity: sha512-gxGWBrTT1JuMx6R+o5PTXMmUnhnVzLQ9SNutD4YqKtI6ap897t3tKECYla6gCWEkplXnlNybEkZg9GEGxKFCgw==}
+
+  camelcase@6.3.0:
+    resolution: {integrity: sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==}
+    engines: {node: '>=10'}
 
   caniuse-lite@1.0.30001418:
     resolution: {integrity: sha512-oIs7+JL3K9JRQ3jPZjlH6qyYDp+nBTCais7hjh0s+fuBwufc7uZ7hPYMXrDOJhV360KGMTcczMRObk0/iMqZRg==}
@@ -4961,6 +4974,10 @@ packages:
 
   pascal-case@3.1.2:
     resolution: {integrity: sha512-uWlGT3YSnK9x3BQJaOdcZwrnV6hPpd8jFH1/ucpiLRPh/2zCVJKS19E4GvYHvaCcACn3foXZ0cLB9Wrx1KGe5g==}
+
+  pascalcase@2.0.0:
+    resolution: {integrity: sha512-DHpENy5Qm/FaX+x3iBLoMLG/XHNCTgL+yErm1TwuVaj6u4fiOSkYkf60vGtITk7hrKHOO4uCl9vRrD4hqjNKjg==}
+    engines: {node: '>=14'}
 
   passthrough-counter@1.0.0:
     resolution: {integrity: sha512-Wy8PXTLqPAN0oEgBrlnsXPMww3SYJ44tQ8aVrGAI4h4JZYCS0oYqsPqtPR8OhJpv6qFbpbB7XAn0liKV7EXubA==}
@@ -7862,6 +7879,8 @@ snapshots:
 
   '@types/parse-json@4.0.0': {}
 
+  '@types/pascalcase@1.0.3': {}
+
   '@types/passport@1.0.11':
     dependencies:
       '@types/express': 4.17.14
@@ -8569,6 +8588,8 @@ snapshots:
     dependencies:
       pascal-case: 3.1.2
       tslib: 2.4.0
+
+  camelcase@6.3.0: {}
 
   caniuse-lite@1.0.30001418: {}
 
@@ -10034,7 +10055,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 14.18.31
+      '@types/node': 18.19.98
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
@@ -10678,6 +10699,10 @@ snapshots:
     dependencies:
       no-case: 3.0.4
       tslib: 2.4.0
+
+  pascalcase@2.0.0:
+    dependencies:
+      camelcase: 6.3.0
 
   passthrough-counter@1.0.0: {}
 

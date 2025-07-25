@@ -65,8 +65,6 @@ export function genFromTemplate(g: Game, src: string) {
     };
 
     const newFile = ts.visitEachChild(sourceFile, node => {
-        console.log(node.kind);
-
         if (ts.isImportDeclaration(node)) {
             const clause = node.importClause;
 

@@ -16,7 +16,7 @@ export const category = z.enum([
 export type Category = z.infer<typeof category>;
 
 export const card = z.strictObject({
-    cardId:    z.string(),
+    cardId:    z.string().meta({ primary: true }),
     lang:      z.string().meta({ foreign: true }),
     partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
 
@@ -27,9 +27,9 @@ export const card = z.strictObject({
     text:     z.string(),
 
     localization: z.strictObject({
-        name:     z.string(),
-        typeline: z.string(),
-        text:     z.string(),
+        name:     z.string().meta({ colName: 'loc_name' }),
+        typeline: z.string().meta({ colName: 'loc_typeline' }),
+        text:     z.string().meta({ colName: 'loc_text' }),
     }).meta({
         primaryKey: ['cardId', 'lang'],
     }),
@@ -37,21 +37,21 @@ export const card = z.strictObject({
     manaValue:     z.number().meta({ type: 'int' }),
     colorIdentity: z.string().meta({ type: 'bitset', map: 'WUBRG' }),
 
-    parts: z.strictObject({
-        name:     z.string(),
-        typeline: z.string(),
-        text:     z.string(),
+    part: z.strictObject({
+        name:     z.string().meta({ colName: 'part_name' }),
+        typeline: z.string().meta({ colName: 'part_typeline' }),
+        text:     z.string().meta({ colName: 'part_text' }),
 
         localization: z.strictObject({
-            name:     z.string(),
-            typeline: z.string(),
-            text:     z.string(),
+            name:     z.string().meta({ colName: 'part_loc_name' }),
+            typeline: z.string().meta({ colName: 'part_loc_typeline' }),
+            text:     z.string().meta({ colName: 'part_loc_text' }),
         }).meta({
             primaryKey: ['cardId', 'lang', 'partIndex'],
         }),
 
         cost:           z.array(z.string()).optional(),
-        manaValue:      z.number().optional(),
+        manaValue:      z.number().meta({ colName: 'part_mana_value' }).optional(),
         color:          z.string().meta({ type: 'bitset', map: 'WUBRG' }).optional(),
         colorIndicator: z.string().meta({ type: 'bitset', map: 'WUBRG' }).optional(),
 

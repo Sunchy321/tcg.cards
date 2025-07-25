@@ -4,7 +4,6 @@ import { and, eq, getTableColumns } from 'drizzle-orm';
 import { schema } from './schema';
 
 import { omit } from 'lodash';
-import { cardView } from './card';
 
 export const printParts = schema.table('print_parts', {
     cardId:    text('card_id').notNull(),
@@ -100,25 +99,25 @@ export const printView = schema.view('print_view').as(qb => {
         ));
 });
 
-export const cardPrintView = schema.view('card_print_view').as(qb => {
-    return qb.select({
-        cardId:    printView.cardId,
-        lang:      printView.lang,
-        set:       printView.set,
-        number:    printView.number,
-        partIndex: printView.partIndex,
+// export const cardPrintView = schema.view('card_print_view').as(qb => {
+//     return qb.select({
+//         cardId:    printView.cardId,
+//         lang:      printView.lang,
+//         set:       printView.set,
+//         number:    printView.number,
+//         partIndex: printView.partIndex,
 
-        card:             cardView.card,
-        localization:     cardView.localization,
-        part:             cardView.part,
-        partLocalization: cardView.partLocalization,
+//         card:             cardView.card,
+//         localization:     cardView.localization,
+//         part:             cardView.part,
+//         partLocalization: cardView.partLocalization,
 
-        print:     printView.print,
-        printPart: printView.printPart,
-    }).from(cardView)
-        .leftJoin(printView, and(
-            eq(cardView.cardId, printView.cardId),
-            eq(cardView.lang, printView.lang),
-            eq(cardView.partIndex, printView.partIndex),
-        ));
-});
+//         print:     printView.print,
+//         printPart: printView.printPart,
+//     }).from(cardView)
+//         .leftJoin(printView, and(
+//             eq(cardView.cardId, printView.cardId),
+//             eq(cardView.lang, printView.lang),
+//             eq(cardView.partIndex, printView.partIndex),
+//         ));
+// });

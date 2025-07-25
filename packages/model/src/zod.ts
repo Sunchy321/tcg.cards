@@ -6,8 +6,11 @@ register(z);
 declare module 'zod' {
     interface ZodMeta {
         type?:       string;
-        primaryKey?: string[];
+        primary?:    boolean;
+        foreign?:    boolean;
         map?:        string;
+        primaryKey?: string[];
+        colName?:    string;
     }
 }
 

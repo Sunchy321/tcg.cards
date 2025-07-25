@@ -2,19 +2,17 @@ import { publicProcedure, router } from '@/trpc';
 import { z } from 'zod';
 export const gameRouter = router({
     root: publicProcedure
-        .meta({ openapi: { method: 'GET', path: '/magic' } })
+        .meta({ openapi: { method: "GET", path: '/magic' } })
         .input(z.void())
         .output(z.string())
         .query(() => {
-            return 'magic';
-        }),
+        return 'magic';
+    }),
     random: publicProcedure
-        .meta({ openapi: { method: 'GET', path: '/magic/random' } })
+        .meta({ openapi: { method: "GET", path: '/magic/random' } })
         .input(z.void())
         .output(z.string())
         .query(async () => {
-            return 'magic';
-        }),
+        return 'magic';
+    }),
 });
-const r = '1';
-const g = `/magic/tests/${r}/123`;
