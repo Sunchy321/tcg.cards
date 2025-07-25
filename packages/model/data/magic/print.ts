@@ -1,7 +1,6 @@
-import 'zod-metadata/register';
-import { z } from 'zod';
+import { z } from '@model/zod';
 
-const layoutModel = z.enum([
+const layout = z.enum([
     'adventure', 'aftermath', 'augment', 'battle', 'class', 'double_faced',
     'emblem', 'flip_token_bottom', 'flip_token_top', 'flip', 'host',
     'leveler', 'meld', 'modal_dfc', 'multipart', 'normal', 'planar',
@@ -9,24 +8,24 @@ const layoutModel = z.enum([
     'transform_token', 'transform', 'vanguard',
 ]);
 
-const frameModel = z.enum(['1993', '1997', '2003', '2015', 'future']);
-const borderColorModel = z.enum(['black', 'borderless', 'gold', 'silver', 'white', 'yellow']);
-const securityStampModel = z.enum(['acorn', 'arena', 'circle', 'heart', 'oval', 'triangle']);
-const rarityModel = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
-const finishModel = z.enum(['etched', 'foil', 'nonfoil']);
-const imageStatusModel = z.enum(['highres_scan', 'lowres', 'missing', 'placeholder']);
-const gameModel = z.enum(['arena', 'astral', 'mtgo', 'paper', 'sega']);
+const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
+const borderColor = z.enum(['black', 'borderless', 'gold', 'silver', 'white', 'yellow']);
+const securityStamp = z.enum(['acorn', 'arena', 'circle', 'heart', 'oval', 'triangle']);
+const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
+const finish = z.enum(['etched', 'foil', 'nonfoil']);
+const imageStatus = z.enum(['highres_scan', 'lowres', 'missing', 'placeholder']);
+const game = z.enum(['arena', 'astral', 'mtgo', 'paper', 'sega']);
 
-export type Layout = z.infer<typeof layoutModel>;
-export type Frame = z.infer<typeof frameModel>;
-export type BorderColor = z.infer<typeof borderColorModel>;
-export type SecurityStamp = z.infer<typeof securityStampModel>;
-export type Rarity = z.infer<typeof rarityModel>;
-export type Finish = z.infer<typeof finishModel>;
-export type ImageStatus = z.infer<typeof imageStatusModel>;
-export type Game = z.infer<typeof gameModel>;
+export type Layout = z.infer<typeof layout>;
+export type Frame = z.infer<typeof frame>;
+export type BorderColor = z.infer<typeof borderColor>;
+export type SecurityStamp = z.infer<typeof securityStamp>;
+export type Rarity = z.infer<typeof rarity>;
+export type Finish = z.infer<typeof finish>;
+export type ImageStatus = z.infer<typeof imageStatus>;
+export type Game = z.infer<typeof game>;
 
-export const printModel = z.strictObject({
+export const print = z.strictObject({
     cardId:    z.string(),
     set:       z.string(),
     number:    z.string(),
@@ -54,25 +53,25 @@ export const printModel = z.strictObject({
 
     printTags: z.string().array().meta({ type: 'set' }),
 
-    layout:        layoutModel,
-    frame:         frameModel,
+    layout:        layout,
+    frame:         frame,
     frameEffects:  z.string().meta({ type: 'loose-enum' }).array(),
-    borderColor:   borderColorModel,
+    borderColor:   borderColor,
     cardBack:      z.string().meta({ type: 'uuid' }),
-    securityStamp: securityStampModel.optional(),
+    securityStamp: securityStamp.optional(),
     promoTypes:    z.string().meta({ type: 'loose-enum' }).array().optional(),
-    rarity:        rarityModel,
+    rarity:        rarity,
     releaseDate:   z.string().meta({ type: 'date' }),
 
     isDigital:       z.boolean(),
     isPromo:         z.boolean(),
     isReprint:       z.boolean(),
-    finishes:        finishModel.array(),
+    finishes:        finish.array(),
     hasHighResImage: z.boolean(),
-    imageStatus:     imageStatusModel,
+    imageStatus:     imageStatus,
 
     inBooster: z.boolean(),
-    games:     gameModel.array(),
+    games:     game.array(),
 
     previewDate:   z.string().meta({ type: 'date' }).optional(),
     previewSource: z.string().optional(),
@@ -93,4 +92,4 @@ export const printModel = z.strictObject({
     primaryKey: ['cardId', 'set', 'number', 'lang'],
 });
 
-export type Print = z.infer<typeof printModel>;
+export type Print = z.infer<typeof print>;

@@ -1,9 +1,8 @@
-import 'zod-metadata/register';
-import { z } from 'zod';
+import { z } from '@model/zod';
 
-import { legalityModel } from './format-change';
+import { legality } from './format-change';
 
-export const categoryModel = z.enum([
+export const category = z.enum([
     'advertisement',
     'art',
     'auxiliary',
@@ -14,9 +13,9 @@ export const categoryModel = z.enum([
     'token',
 ]);
 
-export type Category = z.infer<typeof categoryModel>;
+export type Category = z.infer<typeof category>;
 
-export const cardModel = z.strictObject({
+export const card = z.strictObject({
     cardId:    z.string(),
     lang:      z.string().meta({ foreign: true }),
     partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
@@ -76,9 +75,9 @@ export const cardModel = z.strictObject({
 
     tags: z.array(z.string()).meta({ type: 'set' }),
 
-    category: categoryModel,
+    category: category,
 
-    legalities: z.record(legalityModel),
+    legalities: z.record(legality),
 
     contentWarning: z.boolean().optional(),
 
@@ -87,4 +86,4 @@ export const cardModel = z.strictObject({
     primaryKey: ['cardId'],
 });
 
-export type Card = z.infer<typeof cardModel>;
+export type Card = z.infer<typeof card>;

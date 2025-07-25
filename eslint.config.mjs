@@ -132,6 +132,10 @@ export default tsEslint.config(
                     TSTypeAnnotation: true,
                 },
             }],
+
+            '@stylistic/quotes': ['warn', 'single', {
+                allowTemplateLiterals: 'never',
+            }],
         },
     },
 );

@@ -4,8 +4,10 @@ import z from 'zod';
 import { games } from '@interface/index';
 import { generateOpenApiDocument } from 'trpc-to-openapi';
 
+import { gameRouter as magicRouter } from '@/magic/router';
+
 export const appRouter = router({
-    '': publicProcedure
+    root: publicProcedure
         .meta({ openapi: { method: 'GET', path: '/' } })
         .input(z.void())
         .output(z.object({
@@ -14,6 +16,8 @@ export const appRouter = router({
         .query(() => {
             return { games };
         }),
+
+    magic: magicRouter,
 });
 
 export type AppRouter = typeof appRouter;

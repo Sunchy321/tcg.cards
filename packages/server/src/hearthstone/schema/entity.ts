@@ -96,6 +96,5 @@ export const EntityView = schema.view('entity_view').as(qb => {
         .leftJoin(EntityLocalization, and(
             eq(Entity.cardId, EntityLocalization.cardId),
             eq(Entity.version, EntityLocalization.version),
-        ))
-        .where(sql`#version > 0`);
+        ));
 });

@@ -1,7 +1,6 @@
-import 'zod-metadata/register';
-import { z } from 'zod';
+import { z } from '@model/zod';
 
-export const legalityModel = z.enum([
+export const legality = z.enum([
     'banned_as_commander',
     'banned_as_companion',
     'banned_in_bo1',
@@ -23,4 +22,4 @@ export const legalityModel = z.enum([
     'score-10',
 ]);
 
-export type Legality = z.infer<typeof legalityModel>;
+export type Legality = z.infer<typeof legality>;

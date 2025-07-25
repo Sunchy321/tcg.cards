@@ -1,20 +1,12 @@
 import 'dotenv/config.js';
 
-import Koa from 'koa';
-
 import fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { fastifyTRPCOpenApiPlugin } from 'trpc-to-openapi';
 
-import { config } from '@/config';
-
 import { auth } from './auth';
 import { appRouter } from './router';
-
-const koaApp = new Koa();
-
-koaApp.keys = [config.appKey];
 
 const port = 3000;
 

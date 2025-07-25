@@ -15,12 +15,15 @@
         "baseUrl": "./src",
         "paths": {
             "@/*": ["./*"],
+            "@template/*": ["../template/*"],
             "@interface/*": ["../node_modules/card-interface/src/*"],
             "@static/*": ["../node_modules/card-common/static/*"],
             "@data/*": ["../node_modules/card-common/data/*"],
             "@common/*": ["../node_modules/card-common/src/*"],
             "@search/*": ["../node_modules/card-search/src/*"],
             "@search-data/*": ["../node_modules/card-search/data/*"],
+            "@model/*": ["../node_modules/card-model/src/*"],
+            "@model-data/*": ["../node_modules/card-model/data/*"],
             "@renderer/*": ["../node_modules/card-renderer/src/*"]
         },
         "plugins": [
@@ -37,6 +40,7 @@
         "node_modules/card-search/data/**/*",
         "node_modules/card-renderer/src/**/*",
         "src/**/*",
-        "scripts/**/*"
+        "scripts/**/*",
+        "template/**/*"
     ]
 }
