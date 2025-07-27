@@ -14,7 +14,16 @@ export function genFromTemplate(g: Game, src: string) {
     const sourcePath = `./template/${src}`;
     const targetPath = `./src/${g}/${src}`;
 
-    const program = ts.createProgram({ rootNames: [sourcePath], options: {} });
+    const program = ts.createProgram(
+        [sourcePath],
+        {
+            target:          ts.ScriptTarget.ESNext,
+            module:          ts.ModuleKind.ESNext,
+            strict:          true,
+            esModuleInterop: true,
+            skipLibCheck:    true,
+        },
+    );
 
     const sourceFile = program.getSourceFile(sourcePath)!;
 

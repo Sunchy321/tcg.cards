@@ -7,6 +7,10 @@ import _ from 'lodash';
 import pascalcase from 'pascalcase';
 import plur from 'plur';
 
+function createEmptyLine(): any {
+    return f.createIdentifier('\n');
+}
+
 export function genTables(g: Game, model: z.ZodType, name: string) {
     console.log(`Gen file ${g}/schema/${name}.ts`);
 
@@ -14,9 +18,11 @@ export function genTables(g: Game, model: z.ZodType, name: string) {
         throw new Error(`Model ${name} is not a ZodObject.`);
     }
 
+    const sourcePath = `./src/${g}/schema/${name}.ts`;
+
     const tables = findDrizzleTables('card', model);
 
-    const tableDecls = [];
+    const tableDecls: [string, ts.Statement][] = [];
     const allImports = [];
 
     const foreignKeys: Record<string, z.ZodType> = {};
@@ -34,69 +40,115 @@ export function genTables(g: Game, model: z.ZodType, name: string) {
 
         const [table, imports] = createDrizzleTable(name, model, foreignKeys);
 
-        tableDecls.push(table);
+        tableDecls.push([name, table] as const);
         allImports.push(...imports);
     }
 
-    const statements: ts.Statement[] = [];
-
-    statements.push(
-        f.createImportDeclaration(
+    const libImport = f.createImportDeclaration(
+        undefined,
+        f.createImportClause(
+            false,
             undefined,
-            f.createImportClause(
-                false,
-                undefined,
-                f.createNamedImports(
-                    _.uniq([...allImports, 'primaryKey']).sort().map(imp => f.createImportSpecifier(
+            f.createNamedImports(
+                _.uniq([...allImports, 'primaryKey']).sort().map(imp => f.createImportSpecifier(
+                    false,
+                    undefined,
+                    f.createIdentifier(imp),
+                )),
+            ),
+        ),
+        f.createStringLiteral('drizzle-orm/pg-core', true),
+    );
+
+    const schemaImport = f.createImportDeclaration(
+        undefined,
+        f.createImportClause(
+            false,
+            undefined,
+            f.createNamedImports(
+                [
+                    f.createImportSpecifier(
                         false,
                         undefined,
-                        f.createIdentifier(imp),
-                    )),
-                ),
+                        f.createIdentifier('schema'),
+                    ),
+                ],
             ),
-            f.createStringLiteral('drizzle-orm/pg-core', true),
         ),
+        f.createStringLiteral('./schema', true),
     );
 
-    statements.push(f.createIdentifier('\n') as any);
+    const statements: ts.Statement[] = [];
 
-    statements.push(
-        f.createImportDeclaration(
-            undefined,
-            f.createImportClause(
-                false,
-                undefined,
-                f.createNamedImports(
-                    [
-                        f.createImportSpecifier(
-                            false,
-                            undefined,
-                            f.createIdentifier('schema'),
-                        ),
-                    ],
-                ),
-            ),
-            f.createStringLiteral('./schema', true),
-        ),
-    );
-
-    statements.push(f.createIdentifier('\n') as any);
+    statements.push(libImport);
+    statements.push(createEmptyLine());
+    statements.push(schemaImport);
+    statements.push(createEmptyLine());
 
     for (const decl of tableDecls) {
-        statements.push(decl);
-        statements.push(f.createIdentifier('\n') as any);
+        statements.push(decl[1]);
+        statements.push(createEmptyLine());
     }
 
-    const sourceFile = f.createSourceFile(
-        statements,
-        f.createToken(ts.SyntaxKind.EndOfFileToken),
-        ts.NodeFlags.None,
+    let sourceFile: ts.Node;
+
+    const program = ts.createProgram(
+        [sourcePath],
+        {
+            target:          ts.ScriptTarget.ESNext,
+            module:          ts.ModuleKind.ESNext,
+            strict:          true,
+            esModuleInterop: true,
+            skipLibCheck:    true,
+        },
     );
 
-    const path = `./src/${g}/schema/${name}.ts`;
+    const origSource = program.getSourceFile(sourcePath);
+
+    if (origSource != null) {
+        sourceFile = ts.visitEachChild(origSource, node => {
+            if (ts.isImportDeclaration(node)) {
+                const specifier = node.moduleSpecifier;
+
+                if (ts.isStringLiteral(specifier)) {
+                    if (specifier.text === 'drizzle-orm/pg-core') {
+                        return [libImport, createEmptyLine()];
+                    }
+
+                    if (specifier.text === './schema') {
+                        return [schemaImport, createEmptyLine()];
+                    }
+                }
+            }
+
+            if (ts.isVariableStatement(node)) {
+                const declarations = node.declarationList.declarations;
+
+                for (const decl of declarations) {
+                    if (ts.isIdentifier(decl.name)) {
+                        const name = decl.name.text;
+
+                        for (const tableDecl of tableDecls) {
+                            if (pascalcase(tableDecl[0]) === name) {
+                                return [tableDecl[1], createEmptyLine()];
+                            }
+                        }
+                    }
+                }
+            }
+
+            return node;
+        }, undefined);
+    } else {
+        sourceFile = f.createSourceFile(
+            statements,
+            f.createToken(ts.SyntaxKind.EndOfFileToken),
+            ts.NodeFlags.None,
+        );
+    }
 
     const resultFile = ts.createSourceFile(
-        path,
+        sourcePath,
         '',
         ts.ScriptTarget.Latest,
         false,
@@ -107,13 +159,13 @@ export function genTables(g: Game, model: z.ZodType, name: string) {
 
     const result = printer.printNode(ts.EmitHint.SourceFile, sourceFile, resultFile);
 
-    const dir = path.substring(0, path.lastIndexOf('/'));
+    const dir = sourcePath.substring(0, sourcePath.lastIndexOf('/'));
 
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
 
-    fs.writeFileSync(path, result);
+    fs.writeFileSync(sourcePath, result);
 }
 
 export function findDrizzleTables(name: string, model: z.ZodType): [string, z.ZodType][] {
