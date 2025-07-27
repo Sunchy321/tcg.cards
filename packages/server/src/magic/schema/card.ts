@@ -1,4 +1,7 @@
+import { and, eq, getTableColumns } from 'drizzle-orm';
 import { bit, boolean, doublePrecision, integer, jsonb, primaryKey, smallint, text } from 'drizzle-orm/pg-core';
+
+import { omit } from 'lodash';
 
 import { schema } from './schema';
 
@@ -65,3 +68,25 @@ export const CardPartLocalization = schema.table('card_part_localizations', {
 }, table => [
     primaryKey({ columns: [table.cardId, table.lang, table.partIndex] }),
 ]);
+
+export const CardView = schema.view('card_view').as(qb => {
+    return qb.select({
+        cardId:       Card.cardId,
+        lang:         CardLocalization.lang,
+        partIndex:    CardPart.partIndex,
+        ...omit(getTableColumns(Card), 'cardId'),
+        localization: {
+            ...omit(getTableColumns(CardLocalization), ['cardId', 'lang']),
+        },
+        parts: {
+            ...omit(getTableColumns(CardPart), ['cardId', 'partIndex']),
+        },
+        partLocalization: {
+            ...omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex']),
+        },
+    })
+        .from(Card)
+        .leftJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId))
+        .leftJoin(CardPart, eq(CardPart.cardId, Card.cardId))
+        .leftJoin(CardPartLocalization, and(eq(CardPartLocalization.cardId, CardPart.cardId), eq(CardPartLocalization.lang, CardLocalization.lang), eq(CardPartLocalization.partIndex, CardPart.partIndex)));
+});

@@ -7,6 +7,10 @@ import _ from 'lodash';
 import pascalcase from 'pascalcase';
 import plur from 'plur';
 
+function underscore(text: string): string {
+    return text.replace(/[A-Z]/g, t => '_' + t.toLowerCase());
+}
+
 function createEmptyLine(): any {
     return f.createIdentifier('\n');
 }
@@ -172,22 +176,26 @@ export function findDrizzleTables(name: string, model: z.ZodType): [string, z.Zo
     const result: [string, any][] = [];
 
     if (model instanceof z.ZodObject) {
-        result.push([name, model]);
+        if (model.getMeta()?.primaryKey != null) {
+            result.push([name, model]);
+        }
 
         const shape = model.shape as Record<any, z.ZodType>;
 
         for (const [key, subModel] of Object.entries(shape)) {
+            const tableName = `${name}_${underscore(key)}`;
+
             if (subModel.getMeta()?.primaryKey != null) {
-                result.push([`${name}_${key}`, subModel]);
+                result.push([tableName, subModel]);
             }
 
             if (subModel instanceof z.ZodArray) {
                 const elementType = subModel.element;
-                result.push(...findDrizzleTables(`${name}_${key}`, elementType));
+                result.push(...findDrizzleTables(tableName, elementType));
             }
 
             if (subModel instanceof z.ZodObject) {
-                const nestedTables = findDrizzleTables(`${name}_${key}`, subModel);
+                const nestedTables = findDrizzleTables(tableName, subModel);
                 // Only add nested tables that are not already in the result
                 for (const nestedTable of nestedTables) {
                     if (!result.some(([tableName]) => tableName === nestedTable[0])) {
@@ -212,6 +220,12 @@ function createDrizzleTable<T>(
 
     if (meta.primaryKey == null) {
         throw new Error(`Model ${name} does not have a primary key defined.`);
+    }
+
+    const primaryKey = meta.primaryKey;
+
+    if (model instanceof z.ZodArray) {
+        model = model.element;
     }
 
     if (!(model instanceof z.ZodObject)) {
@@ -239,13 +253,13 @@ function createDrizzleTable<T>(
             return true;
         });
 
-    const primaryKeys: [string, z.ZodType][] = [];
+    const primaryKeyWithType: [string, z.ZodType][] = [];
 
-    for (const p of model.getMeta()?.primaryKey ?? []) {
-        primaryKeys.push([p, foreignKeys[p]]);
+    for (const p of primaryKey ?? []) {
+        primaryKeyWithType.push([p, foreignKeys[p]]);
     }
 
-    entries.unshift(...primaryKeys);
+    entries.unshift(...primaryKeyWithType);
 
     const definitions = entries.map(([k, v]) => {
         if (v instanceof z.ZodOptional) {
@@ -279,7 +293,7 @@ function createDrizzleTable<T>(
 
     const imports = _.uniq(definitions.map(d => d[2]).flat());
 
-    const primaryKeyExprList = primaryKeys
+    const primaryKeyExprList = primaryKeyWithType
         .map(([k]) => f.createPropertyAccessExpression(
             f.createIdentifier('table'),
             f.createIdentifier(k),
@@ -352,7 +366,7 @@ function createTableKeyDefinition<T>(
     model: z.ZodType<T>,
     name: string | undefined,
 ): [ts.Expression, string[]] {
-    const columnName = model.getMeta()?.colName ?? (name ?? '').replace(/[A-Z]/g, t => '_' + t.toLowerCase());
+    const columnName = model.getMeta()?.colName ?? underscore(name ?? '');
 
     const nameIdentArray = name != null
         ? [f.createStringLiteral(columnName)]

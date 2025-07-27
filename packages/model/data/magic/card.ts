@@ -1,4 +1,5 @@
 import { z } from '@model/zod';
+import { InferView } from '@model/helper';
 
 import { legality } from './format-change';
 
@@ -30,7 +31,7 @@ export const card = z.strictObject({
         name:     z.string().meta({ colName: 'loc_name' }),
         typeline: z.string().meta({ colName: 'loc_typeline' }),
         text:     z.string().meta({ colName: 'loc_text' }),
-    }).meta({
+    }).array().meta({
         primaryKey: ['cardId', 'lang'],
     }),
 
@@ -41,14 +42,6 @@ export const card = z.strictObject({
         name:     z.string().meta({ colName: 'part_name' }),
         typeline: z.string().meta({ colName: 'part_typeline' }),
         text:     z.string().meta({ colName: 'part_text' }),
-
-        localization: z.strictObject({
-            name:     z.string().meta({ colName: 'part_loc_name' }),
-            typeline: z.string().meta({ colName: 'part_loc_typeline' }),
-            text:     z.string().meta({ colName: 'part_loc_text' }),
-        }).meta({
-            primaryKey: ['cardId', 'lang', 'partIndex'],
-        }),
 
         cost:           z.array(z.string()).optional(),
         manaValue:      z.number().meta({ colName: 'part_mana_value' }).optional(),
@@ -65,8 +58,16 @@ export const card = z.strictObject({
         defense:      z.string().meta({ type: 'numeric' }).optional(),
         handModifier: z.string().optional(),
         lifeModifier: z.string().optional(),
-    }).meta({
+    }).array().meta({
         primaryKey: ['cardId', 'partIndex'],
+    }),
+
+    partLocalization: z.strictObject({
+        name:     z.string().meta({ colName: 'part_loc_name' }),
+        typeline: z.string().meta({ colName: 'part_loc_typeline' }),
+        text:     z.string().meta({ colName: 'part_loc_text' }),
+    }).array().meta({
+        primaryKey: ['cardId', 'lang', 'partIndex'],
     }),
 
     keywords:       z.array(z.string()).meta({ type: 'set' }),
@@ -87,3 +88,4 @@ export const card = z.strictObject({
 });
 
 export type Card = z.infer<typeof card>;
+export type CardView = InferView<typeof card>;
