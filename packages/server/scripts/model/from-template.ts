@@ -11,7 +11,7 @@ function isGameIdentifier(node: ts.Node): boolean {
 export function genFromTemplate(g: Game, src: string) {
     console.log(`Gen file ${g}/${src}`);
 
-    const sourcePath = `./template/${src}`;
+    const sourcePath = `./scripts/template/${src}`;
     const targetPath = `./src/${g}/${src}`;
 
     const program = ts.createProgram(
