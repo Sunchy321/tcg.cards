@@ -71,7 +71,7 @@ router.post('/calc', async ctx => {
 
         set.cardCount = uniq(cards.map(c => c.number)).length;
         set.langs = uniq(cards.map(c => c.lang))
-            .sort((a, b) => extendedLocales.indexOf(a) - extendedLocales.indexOf(b));
+            .sort((a, b) => extendedLocales.indexOf(a as any) - extendedLocales.indexOf(b as any));
         set.rarities = uniq(cards.map(c => c.rarity))
             .sort((a, b) => rarities.indexOf(a) - rarities.indexOf(b));
 

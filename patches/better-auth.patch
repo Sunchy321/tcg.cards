@@ -1,0 +1,60 @@
+diff --git a/dist/plugins/admin/index.d.cts b/dist/plugins/admin/index.d.cts
+index 350ccec49cf78149a6e7843ac73807aba5938d10..4f90b794b97ad03b800f18ba9d7ac2759a58e2cd 100644
+--- a/dist/plugins/admin/index.d.cts
++++ b/dist/plugins/admin/index.d.cts
+@@ -48,13 +48,13 @@ declare const schema: {
+ };
+ type AdminSchema = typeof schema;
+ 
+-interface UserWithRole extends User {
++export interface UserWithRole extends User {
+     role?: string;
+     banned?: boolean | null;
+     banReason?: string | null;
+     banExpires?: Date | null;
+ }
+-interface SessionWithImpersonatedBy extends Session {
++export interface SessionWithImpersonatedBy extends Session {
+     impersonatedBy?: string;
+ }
+ interface AdminOptions {
+diff --git a/dist/plugins/admin/index.d.mts b/dist/plugins/admin/index.d.mts
+index 100139c548a5c335fdd6bae3b6731a79f12cff34..16433e8315fde7ee218dd64cbf82543f6b1bca9e 100644
+--- a/dist/plugins/admin/index.d.mts
++++ b/dist/plugins/admin/index.d.mts
+@@ -48,13 +48,13 @@ declare const schema: {
+ };
+ type AdminSchema = typeof schema;
+ 
+-interface UserWithRole extends User {
++export interface UserWithRole extends User {
+     role?: string;
+     banned?: boolean | null;
+     banReason?: string | null;
+     banExpires?: Date | null;
+ }
+-interface SessionWithImpersonatedBy extends Session {
++export interface SessionWithImpersonatedBy extends Session {
+     impersonatedBy?: string;
+ }
+ interface AdminOptions {
+diff --git a/dist/plugins/admin/index.d.ts b/dist/plugins/admin/index.d.ts
+index fa026161404c47bf759357b2cef92dc0b22ca22b..d9f1f1e1725f0752ad92ec5aa32d81cfdaf9c352 100644
+--- a/dist/plugins/admin/index.d.ts
++++ b/dist/plugins/admin/index.d.ts
+@@ -48,13 +48,13 @@ declare const schema: {
+ };
+ type AdminSchema = typeof schema;
+ 
+-interface UserWithRole extends User {
++export interface UserWithRole extends User {
+     role?: string;
+     banned?: boolean | null;
+     banReason?: string | null;
+     banExpires?: Date | null;
+ }
+-interface SessionWithImpersonatedBy extends Session {
++export interface SessionWithImpersonatedBy extends Session {
+     impersonatedBy?: string;
+ }
+ interface AdminOptions {

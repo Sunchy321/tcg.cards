@@ -5,6 +5,7 @@
         "module": "esnext",
         "moduleResolution": "bundler",
         "noImplicitAny": true,
+        "declaration": true,
         "sourceMap": true,
         "strictNullChecks": true,
         "esModuleInterop": true,

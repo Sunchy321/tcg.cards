@@ -8,6 +8,9 @@ patchedDependencies:
   '@types/koa-bodyparser@4.3.8':
     hash: d8dfe7f9b83c935a79d15bd457535e33a1f627780a8f8928345bf71a27772ae9
     path: patches/@types__koa-bodyparser@4.3.8.patch
+  better-auth:
+    hash: 3f0b296496525ad25356bac3d406a4b2ce9440a8af9931cdef3acc4d2e798042
+    path: patches/better-auth.patch
   koa-logger:
     hash: 1b763ec9aa9bbcaf763dfd0c1fbe009467ac3a3288d864131f7b8e9fa3ef7248
     path: patches/koa-logger.patch
@@ -62,8 +65,8 @@ importers:
         specifier: ^1.8.4
         version: 1.8.4
       better-auth:
-        specifier: ^1.3.2
-        version: 1.3.2
+        specifier: ^1.3.4
+        version: 1.3.4(patch_hash=3f0b296496525ad25356bac3d406a4b2ce9440a8af9931cdef3acc4d2e798042)
       bytes:
         specifier: ^3.1.2
         version: 3.1.2
@@ -235,6 +238,9 @@ importers:
       '@types/node':
         specifier: ^18.11.17
         version: 18.19.98
+      '@types/yaml':
+        specifier: ^1.9.7
+        version: 1.9.7
       card-interface:
         specifier: workspace:^
         version: link:../interface
@@ -451,8 +457,8 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       better-auth:
-        specifier: ^1.3.2
-        version: 1.3.2
+        specifier: ^1.3.4
+        version: 1.3.4(patch_hash=3f0b296496525ad25356bac3d406a4b2ce9440a8af9931cdef3acc4d2e798042)
       card-common:
         specifier: workspace:^1.0.0
         version: link:../common
@@ -578,8 +584,8 @@ importers:
         version: 3.25.76
     devDependencies:
       '@better-auth/cli':
-        specifier: ^1.3.2
-        version: 1.3.2(@types/pg@8.15.4)(kysely@0.28.3)(pg@8.16.3)(postgres@3.4.7)
+        specifier: ^1.3.4
+        version: 1.3.4(@types/pg@8.15.4)(kysely@0.28.3)(pg@8.16.3)(postgres@3.4.7)
       '@eslint/eslintrc':
         specifier: ^3.3.0
         version: 3.3.0
@@ -661,6 +667,9 @@ importers:
       '@types/ws':
         specifier: ^7.4.0
         version: 7.4.7
+      '@types/yaml':
+        specifier: ^1.9.7
+        version: 1.9.7
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.4
@@ -927,8 +936,8 @@ packages:
     resolution: {integrity: sha512-x0LvFTekgSX+83TI28Y9wYPUfzrnl2aT5+5QLnO6v7mSJYtEEevuDRN0F0uSHRk1G1IWZC43o00Y0xDDrpBGPQ==}
     engines: {node: '>=6.9.0'}
 
-  '@better-auth/cli@1.3.2':
-    resolution: {integrity: sha512-d2RwqaBsqTsDugzBCjxcyqRK52pWqFFqNSEXOXJ4JZCaxiIxE0W0lUjnOa85gaPlVM9+gpc3+UfpXKCSw0JAGg==}
+  '@better-auth/cli@1.3.4':
+    resolution: {integrity: sha512-nEVd/j2d2CQd+62+AxuD2v/NxFwaEYr0tkM0A8pVMv/b2TWHL09P7NzRVWCn7QlU1grAlPudMNolAzZ4IyLmNQ==}
     hasBin: true
 
   '@better-auth/utils@0.2.5':
@@ -1714,16 +1723,8 @@ packages:
   '@jridgewell/gen-mapping@0.3.12':
     resolution: {integrity: sha512-OuLGC46TjB5BbN1dH8JULVVZY4WTdkF7tV9Ys6wLL1rubZnCMstOhNHueU5bLCrnRuDhKPDM4g6sw4Bel5Gzqg==}
 
-  '@jridgewell/gen-mapping@0.3.8':
-    resolution: {integrity: sha512-imAbBGkb+ebQyxKgzv5Hu2nmROxoDOXHh80evxdoXNOrvAnVx7zimzc1Oo5h9RlfV4vPXaE2iM5pOFbvOCClWA==}
-    engines: {node: '>=6.0.0'}
-
   '@jridgewell/resolve-uri@3.1.2':
     resolution: {integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==}
-    engines: {node: '>=6.0.0'}
-
-  '@jridgewell/set-array@1.2.1':
-    resolution: {integrity: sha512-R8gLRTZeyp03ymzP/6Lil/28tGeGEzhx1q2k703KGWRAI1VdvPIXdG70VJc2pAMw3NA6JKL5hhFu1sJX0Mnn/A==}
     engines: {node: '>=6.0.0'}
 
   '@jridgewell/source-map@0.3.6':
@@ -1734,9 +1735,6 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.0':
     resolution: {integrity: sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==}
-
-  '@jridgewell/trace-mapping@0.3.25':
-    resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
 
   '@jridgewell/trace-mapping@0.3.29':
     resolution: {integrity: sha512-uw6guiW/gcAGPDhLmd77/6lW8QLeiV5RUTsAX46Db6oLhGaVj4lhnPwb184s1bkc8kdVg/+h988dro8GRDpmYQ==}
@@ -2363,6 +2361,10 @@ packages:
   '@types/ws@7.4.7':
     resolution: {integrity: sha512-JQbbmxZTZehdc2iszGKs5oC3NFnjeay7mtAWrdt7qNtAVK0g19muApzAy4bm9byz79xa2ZnO/BOBC2R8RC5Lww==}
 
+  '@types/yaml@1.9.7':
+    resolution: {integrity: sha512-8WMXRDD1D+wCohjfslHDgICd2JtMATZU8CkhH8LVJqcJs6dyYj5TGptzP8wApbmEullGBSsCEzzap73DQ1HJaA==}
+    deprecated: This is a stub types definition. yaml provides its own type definitions, so you do not need this installed.
+
   '@typescript-eslint/eslint-plugin@8.26.1':
     resolution: {integrity: sha512-2X3mwqsj9Bd3Ciz508ZUtoQQYpOhU/kWoUqIf49H8Z0+Vbh6UF/y0OEYp0Q0axOGzaBGs7QxRwq0knSQ8khQNA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -2748,8 +2750,8 @@ packages:
     resolution: {integrity: sha512-cU8v/EGSrnH+HnxV2z0J7/blxH8gq7Xh2JFT6Aroax7UohdmiJJlxApMxtKfuI7z68NvvVcmR78k2LbT6efhRg==}
     engines: {node: '>= 18'}
 
-  better-auth@1.3.2:
-    resolution: {integrity: sha512-510kOtFBTdp4z51hWtTEqk9yqSinXzyg7PkDFnXYMq1K0KvdXRY1A9t9J998i0CSf/tJA0wNoN3S8exkOgBvTw==}
+  better-auth@1.3.4:
+    resolution: {integrity: sha512-JbZYam6Cs3Eu5CSoMK120zSshfaKvrCftSo/+v7524H1RvhryQ7UtMbzagBcXj0Digjj8hZtVkkR4tTZD/wK2g==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
@@ -6429,8 +6431,8 @@ snapshots:
 
   '@ampproject/remapping@2.3.0':
     dependencies:
-      '@jridgewell/gen-mapping': 0.3.8
-      '@jridgewell/trace-mapping': 0.3.25
+      '@jridgewell/gen-mapping': 0.3.12
+      '@jridgewell/trace-mapping': 0.3.29
 
   '@babel/code-frame@7.18.6':
     dependencies:
@@ -6697,7 +6699,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
 
-  '@better-auth/cli@1.3.2(@types/pg@8.15.4)(kysely@0.28.3)(pg@8.16.3)(postgres@3.4.7)':
+  '@better-auth/cli@1.3.4(@types/pg@8.15.4)(kysely@0.28.3)(pg@8.16.3)(postgres@3.4.7)':
     dependencies:
       '@babel/core': 7.28.0
       '@babel/preset-react': 7.27.1(@babel/core@7.28.0)
@@ -6707,7 +6709,7 @@ snapshots:
       '@prisma/client': 5.22.0(prisma@5.22.0)
       '@types/better-sqlite3': 7.6.13
       '@types/prompts': 2.4.9
-      better-auth: 1.3.2
+      better-auth: 1.3.4(patch_hash=3f0b296496525ad25356bac3d406a4b2ce9440a8af9931cdef3acc4d2e798042)
       better-sqlite3: 11.10.0
       c12: 2.0.4
       chalk: 5.4.1
@@ -6722,7 +6724,7 @@ snapshots:
       semver: 7.7.2
       tinyexec: 0.3.2
       yocto-spinner: 0.1.2
-      zod: 3.25.76
+      zod: 4.0.5
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -7266,15 +7268,7 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.0
       '@jridgewell/trace-mapping': 0.3.29
 
-  '@jridgewell/gen-mapping@0.3.8':
-    dependencies:
-      '@jridgewell/set-array': 1.2.1
-      '@jridgewell/sourcemap-codec': 1.5.0
-      '@jridgewell/trace-mapping': 0.3.25
-
   '@jridgewell/resolve-uri@3.1.2': {}
-
-  '@jridgewell/set-array@1.2.1': {}
 
   '@jridgewell/source-map@0.3.6':
     dependencies:
@@ -7284,11 +7278,6 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.4.15': {}
 
   '@jridgewell/sourcemap-codec@1.5.0': {}
-
-  '@jridgewell/trace-mapping@0.3.25':
-    dependencies:
-      '@jridgewell/resolve-uri': 3.1.2
-      '@jridgewell/sourcemap-codec': 1.5.0
 
   '@jridgewell/trace-mapping@0.3.29':
     dependencies:
@@ -7944,6 +7933,10 @@ snapshots:
     dependencies:
       '@types/node': 18.19.98
 
+  '@types/yaml@1.9.7':
+    dependencies:
+      yaml: 2.8.0
+
   '@typescript-eslint/eslint-plugin@8.26.1(@typescript-eslint/parser@8.26.1(eslint@9.22.0(jiti@2.4.2))(typescript@5.8.2))(eslint@9.22.0(jiti@2.4.2))(typescript@5.8.2)':
     dependencies:
       '@eslint-community/regexpp': 4.12.1
@@ -8436,7 +8429,7 @@ snapshots:
       node-addon-api: 8.5.0
       node-gyp-build: 4.8.4
 
-  better-auth@1.3.2:
+  better-auth@1.3.4(patch_hash=3f0b296496525ad25356bac3d406a4b2ce9440a8af9931cdef3acc4d2e798042):
     dependencies:
       '@better-auth/utils': 0.2.5
       '@better-fetch/fetch': 1.1.18
@@ -10501,7 +10494,7 @@ snapshots:
   no-case@3.0.4:
     dependencies:
       lower-case: 2.0.2
-      tslib: 2.4.0
+      tslib: 2.8.1
 
   node-abi@3.73.0:
     dependencies:

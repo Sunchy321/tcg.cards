@@ -24,7 +24,7 @@ import {
 } from '@/magic/banlist/legality';
 import { GathererGetter } from '@/magic/gatherer/parse';
 
-import openai from '@/openai';
+import openai from '@/ai';
 import search from '@/magic/search';
 import * as logger from '@/magic/logger';
 
