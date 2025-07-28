@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { apiGet } from 'boot/server';
+import { trpc } from '@/trpc';
 
 export default function magicSetup(): {
     search: () => void;
@@ -22,16 +22,12 @@ export default function magicSetup(): {
     };
 
     const random = async () => {
-        const { data: id } = await apiGet<string>('/magic/card/random', {
-            q: core.search,
-        });
+        const cardId = await trpc.magic.random.query();
 
-        if (id !== '') {
-            void router.push({
-                name:   'magic/card',
-                params: { id },
-            });
-        }
+        router.push({
+            name:   'magic/card',
+            params: { id: cardId },
+        });
     };
 
     return {

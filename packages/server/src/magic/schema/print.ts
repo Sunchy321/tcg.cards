@@ -1,8 +1,22 @@
+import { getTableColumns, and, eq } from 'drizzle-orm';
 import { bit, boolean, integer, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
 
-import { and, eq, getTableColumns } from 'drizzle-orm';
 import _ from 'lodash';
+
 import { schema } from './schema';
+
+import { borderColor, finish, frame, game, imageStatus, layout, rarity, scryfallFace, securityStamp } from '@model/magic/print';
+import { Card, CardLocalization, CardPart, CardPartLocalization } from './card';
+
+export const Layout = schema.enum('layout', layout.options);
+export const Frame = schema.enum('frame', frame.options);
+export const BorderColor = schema.enum('border_color', borderColor.options);
+export const SecurityStamp = schema.enum('security_stamp', securityStamp.options);
+export const Rarity = schema.enum('rarity', rarity.options);
+export const Finish = schema.enum('finish', finish.options);
+export const ImageStatus = schema.enum('image_status', imageStatus.options);
+export const Game = schema.enum('game', game.options);
+export const ScryfallFace = schema.enum('scryfall_face', scryfallFace.options);
 
 export const Print = schema.table('prints', {
     cardId:            text('card_id').notNull(),
@@ -10,30 +24,30 @@ export const Print = schema.table('prints', {
     number:            text('number').notNull(),
     lang:              text('lang').notNull(),
     printTags:         text('print_tags').array().notNull(),
-    layout:            text('layout'),
-    frame:             text('frame'),
+    layout:            Layout('layout').notNull(),
+    frame:             Frame('frame').notNull(),
     frameEffects:      text('frame_effects').array().notNull(),
-    borderColor:       text('border_color'),
+    borderColor:       BorderColor('border_color').notNull(),
     cardBack:          uuid('card_back'),
-    securityStamp:     text('security_stamp'),
+    securityStamp:     SecurityStamp('security_stamp'),
     promoTypes:        text('promo_types').array(),
-    rarity:            text('rarity'),
+    rarity:            Rarity('rarity').notNull(),
     releaseDate:       text('release_date').notNull(),
     isDigital:         boolean('is_digital').notNull(),
     isPromo:           boolean('is_promo').notNull(),
     isReprint:         boolean('is_reprint').notNull(),
-    finishes:          text('finishes').array().notNull(),
+    finishes:          Finish('finishes').array().notNull(),
     hasHighResImage:   boolean('has_high_res_image').notNull(),
-    imageStatus:       text('image_status'),
+    imageStatus:       ImageStatus('image_status').notNull(),
     inBooster:         boolean('in_booster').notNull(),
-    games:             text('games').array().notNull(),
+    games:             Game('games').array().notNull(),
     previewDate:       text('preview_date'),
     previewSource:     text('preview_source'),
     previewUri:        text('preview_uri'),
-    scryfallOracleId:  uuid('scryfall_oracle_id').notNull(),
+    scryfallOracleId:  uuid('print_scryfall_oracle_id').notNull(),
     scryfallCardId:    uuid('scryfall_card_id'),
-    scryfallFace:      text('scryfall_face'),
-    scryfallImageUris: jsonb('scryfall_image_uris').array(),
+    scryfallFace:      ScryfallFace('scryfall_face'),
+    scryfallImageUris: jsonb('scryfall_image_uris').$type<Record<string, string>[]>(),
     arenaId:           integer('arena_id'),
     mtgoId:            integer('mtgo_id'),
     mtgoFoilId:        integer('mtgo_foil_id'),
@@ -70,11 +84,66 @@ export const PrintView = schema.view('print_view').as(qb => {
         number:    Print.number,
         lang:      Print.lang,
         partIndex: PrintPart.partIndex,
+
         ..._.omit(getTableColumns(Print), ['cardId', 'set', 'number', 'lang']),
-        parts:     {
+
+        part: {
             ..._.omit(getTableColumns(PrintPart), ['cardId', 'set', 'number', 'lang', 'partIndex']),
         },
     })
         .from(Print)
-        .leftJoin(PrintPart, and(eq(Print.cardId, PrintPart.cardId), eq(Print.set, PrintPart.set), eq(Print.number, PrintPart.number), eq(Print.lang, PrintPart.lang)));
+        .innerJoin(PrintPart, and(eq(Print.cardId, PrintPart.cardId), eq(Print.set, PrintPart.set), eq(Print.number, PrintPart.number), eq(Print.lang, PrintPart.lang)));
+});
+
+export const CardPrintView = schema.view('card_print_view').as(qb => {
+    return qb.select({
+        cardId:    Card.cardId,
+        lang:      CardLocalization.lang,
+        partIndex: CardPart.partIndex,
+        set:       Print.set,
+        number:    Print.number,
+
+        card: {
+            ..._.omit(getTableColumns(Card), 'cardId'),
+        },
+
+        cardLocalization: {
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang']),
+        },
+
+        cardPart: {
+            ..._.omit(getTableColumns(CardPart), ['cardId', 'partIndex']),
+        },
+
+        cardPartLocalization: {
+            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex']),
+        },
+
+        print: {
+            ..._.omit(getTableColumns(Print), ['cardId', 'set', 'number', 'lang']),
+        },
+
+        printPart: {
+            ..._.omit(getTableColumns(PrintPart), ['cardId', 'set', 'number', 'lang', 'partIndex']),
+        },
+    })
+        .from(Card)
+        .innerJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId))
+        .innerJoin(CardPart, eq(CardPart.cardId, Card.cardId))
+        .innerJoin(CardPartLocalization, and(
+            eq(CardPartLocalization.cardId, CardPart.cardId),
+            eq(CardPartLocalization.lang, CardLocalization.lang),
+            eq(CardPartLocalization.partIndex, CardPart.partIndex),
+        ))
+        .innerJoin(Print, and(
+            eq(Card.cardId, Print.cardId),
+            eq(CardLocalization.lang, Print.lang),
+        ))
+        .innerJoin(PrintPart, and(
+            eq(Card.cardId, PrintPart.cardId),
+            eq(Print.set, PrintPart.set),
+            eq(Print.number, PrintPart.number),
+            eq(CardLocalization.lang, PrintPart.lang),
+            eq(CardPart.partIndex, PrintPart.partIndex),
+        ));
 });

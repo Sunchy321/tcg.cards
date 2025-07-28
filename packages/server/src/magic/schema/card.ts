@@ -1,11 +1,17 @@
-import { and, eq, getTableColumns } from 'drizzle-orm';
+import { getTableColumns, and, eq } from 'drizzle-orm';
 import { bit, boolean, doublePrecision, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
 
 import _ from 'lodash';
+
 import { schema } from './schema';
 
+import { category } from '@model/magic/card';
+import { Legality } from '@model/magic/format-change';
+
+export const Category = schema.enum('category', category.options);
+
 export const Card = schema.table('cards', {
-    cardId:           text('card_id').notNull(),
+    cardId:           text('card_id').primaryKey(),
     partCount:        smallint('part_count').notNull(),
     name:             text('name').notNull(),
     typeline:         text('typeline').notNull(),
@@ -16,13 +22,11 @@ export const Card = schema.table('cards', {
     counters:         text('counters').array().notNull(),
     producibleMana:   bit('producible_mana', { dimensions: 6 }),
     tags:             text('tags').array().notNull(),
-    category:         text('category'),
-    legalities:       jsonb('legalities').notNull(),
+    category:         Category('category').notNull(),
+    legalities:       jsonb('legalities').$type<Record<string, Legality>>().notNull(),
     contentWarning:   boolean('content_warning'),
     scryfallOracleId: uuid('scryfall_oracle_id').array().notNull(),
-}, table => [
-    primaryKey({ columns: [table.cardId] }),
-]);
+});
 
 export const CardLocalization = schema.table('card_localizations', {
     cardId:   text('card_id').notNull(),
@@ -71,22 +75,26 @@ export const CardPartLocalization = schema.table('card_part_localizations', {
 
 export const CardView = schema.view('card_view').as(qb => {
     return qb.select({
-        cardId:       Card.cardId,
-        lang:         CardLocalization.lang,
-        partIndex:    CardPart.partIndex,
+        cardId:    Card.cardId,
+        lang:      CardLocalization.lang,
+        partIndex: CardPart.partIndex,
+
         ..._.omit(getTableColumns(Card), 'cardId'),
+
         localization: {
             ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang']),
         },
-        parts: {
+
+        part: {
             ..._.omit(getTableColumns(CardPart), ['cardId', 'partIndex']),
         },
+
         partLocalization: {
             ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex']),
         },
     })
         .from(Card)
-        .leftJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId))
-        .leftJoin(CardPart, eq(CardPart.cardId, Card.cardId))
-        .leftJoin(CardPartLocalization, and(eq(CardPartLocalization.cardId, CardPart.cardId), eq(CardPartLocalization.lang, CardLocalization.lang), eq(CardPartLocalization.partIndex, CardPart.partIndex)));
+        .innerJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId))
+        .innerJoin(CardPart, eq(CardPart.cardId, Card.cardId))
+        .innerJoin(CardPartLocalization, and(eq(CardPartLocalization.cardId, CardPart.cardId), eq(CardPartLocalization.lang, CardLocalization.lang), eq(CardPartLocalization.partIndex, CardPart.partIndex)));
 });

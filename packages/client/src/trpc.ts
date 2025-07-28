@@ -4,8 +4,6 @@ import type { AppRouter } from '@server/router';
 
 const url = import.meta.env.VITE_TRPC_URL;
 
-console.log(httpBatchLink({ url }));
-
 export const trpc = createTRPCProxyClient<AppRouter>({
     links: [httpBatchLink({ url })],
 });

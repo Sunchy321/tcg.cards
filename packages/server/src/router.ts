@@ -1,4 +1,4 @@
-import { publicProcedure, router } from './trpc';
+import { t } from '@/trpc';
 import z from 'zod';
 
 import { games } from '@interface/index';
@@ -6,8 +6,8 @@ import { generateOpenApiDocument } from 'trpc-to-openapi';
 
 import { gameRouter as magicRouter } from '@/magic/router';
 
-export const appRouter = router({
-    root: publicProcedure
+export const appRouter = t.router({
+    root: t.procedure
         .meta({ openapi: { method: 'GET', path: '/' } })
         .input(z.void())
         .output(z.object({

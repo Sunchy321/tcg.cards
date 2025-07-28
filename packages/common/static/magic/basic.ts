@@ -1,3 +1,5 @@
+export const id = 'magic';
+
 export const birthday = '1993-08-05';
 
 export const locales = [
@@ -12,7 +14,7 @@ export const locales = [
     'pt',
     'ru',
     'es',
-];
+] as const;
 
 export const extendedLocales = [
     ...locales,
@@ -23,7 +25,7 @@ export const extendedLocales = [
     'grc',
     'la',
     'qya',
-];
+] as const;
 
 export const specificManaSymbols = [
     'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',

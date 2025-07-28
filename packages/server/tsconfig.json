@@ -22,8 +22,8 @@
             "@common/*": ["../node_modules/card-common/src/*"],
             "@search/*": ["../node_modules/card-search/src/*"],
             "@search-data/*": ["../node_modules/card-search/data/*"],
-            "@model/*": ["../node_modules/card-model/src/*"],
-            "@model-data/*": ["../node_modules/card-model/data/*"],
+            "@model-code/*": ["../node_modules/card-model/src/*"],
+            "@model/*": ["../node_modules/card-model/data/*"],
             "@renderer/*": ["../node_modules/card-renderer/src/*"]
         },
         "plugins": [

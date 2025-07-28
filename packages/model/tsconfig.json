@@ -11,7 +11,7 @@
         "lib": ["ES2021"],
         "baseUrl": ".",
         "paths": {
-            "@model/*": ["./src/*"],
+            "@model-code/*": ["./src/*"],
         },
     },
     "include": ["data/**/*", "src/**/*"]

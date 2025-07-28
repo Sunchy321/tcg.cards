@@ -1,4 +1,4 @@
-import { z } from '@model/zod';
+import { z } from '@model-code/zod';
 
 export const legality = z.enum([
     'banned_as_commander',
