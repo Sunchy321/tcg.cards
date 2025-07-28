@@ -260,7 +260,7 @@ import RichText from 'src/components/magic/RichText.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
-import { CardPrintView } from '@common/model/magic/card';
+import { CardPrintView } from '@model/magic/print';
 
 import {
     mapValues, omitBy, uniq,
@@ -268,8 +268,10 @@ import {
 
 import setProfile, { SetProfile } from 'src/common/magic/set';
 import { apiGet, apiBase, assetBase } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 import { auxSetType } from '@static/magic/special';
+import { useRouteQuery } from '@vueuse/router';
 
 const router = useRouter();
 const route = useRoute();
@@ -459,7 +461,7 @@ const imageLang = computed(() => {
         return lang.value;
     }
 
-    if (data.value.imageStatus !== 'placeholder') {
+    if (data.value.print.imageStatus !== 'placeholder') {
         return lang.value;
     }
 
@@ -771,6 +773,8 @@ const loadData = async () => {
     if (apiQuery.value == null) {
         return;
     }
+
+    data.value = await trpc.magic.card.cardPrintView();
 
     const { data: result } = await apiGet<CardPrintView>('/magic/card/print-view', apiQuery.value);
 

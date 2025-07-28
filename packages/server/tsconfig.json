@@ -1,7 +1,4 @@
 {
-    "ts-node": {
-        "compiler": "ts-patch/compiler",
-    },
     "compilerOptions": {
         "target": "ES2022",
         "outDir": "./dist",
@@ -26,10 +23,6 @@
             "@model/*": ["../node_modules/card-model/data/*"],
             "@renderer/*": ["../node_modules/card-renderer/src/*"]
         },
-        "plugins": [
-            { "transform": "tst-reflect-transformer" },
-            { "transform": "tsc-progress" }
-        ]
     },
     "include": [
         "node_modules/card-interface/src/**/*",
@@ -40,7 +33,5 @@
         "node_modules/card-search/data/**/*",
         "node_modules/card-renderer/src/**/*",
         "src/**/*",
-        "scripts/**/*",
-        "template/**/*"
     ]
 }

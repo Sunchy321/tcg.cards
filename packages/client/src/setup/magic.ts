@@ -22,7 +22,7 @@ export default function magicSetup(): {
     };
 
     const random = async () => {
-        const cardId = await trpc.magic.random.query();
+        const cardId = await trpc.magic.card.random.query();
 
         router.push({
             name:   'magic/card',

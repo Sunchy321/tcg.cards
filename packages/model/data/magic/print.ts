@@ -3,11 +3,11 @@ import { z } from '@model-code/zod';
 import { cardSchema, cardView } from './card';
 
 export const layout = z.enum([
-    'adventure', 'aftermath', 'augment', 'battle', 'class', 'double_faced',
-    'emblem', 'flip_token_bottom', 'flip_token_top', 'flip', 'host',
-    'leveler', 'meld', 'modal_dfc', 'multipart', 'normal', 'planar',
-    'reversible_card', 'saga', 'scheme', 'split_arena', 'split', 'token',
-    'transform_token', 'transform', 'vanguard',
+    'adventure', 'aftermath', 'augment', 'battle', 'case', 'class',
+    'double_faced', 'emblem', 'flip', 'flip_token_bottom', 'flip_token_top',
+    'host', 'leveler', 'meld', 'modal_dfc', 'multipart', 'mutate', 'normal',
+    'planar', 'prototype', 'reversible_card', 'saga', 'scheme', 'split',
+    'split_arena', 'token', 'transform', 'transform_token', 'vanguard',
 ]);
 
 export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
@@ -134,3 +134,4 @@ export const cardPrintView = z.object({
 
 export type Print = z.infer<typeof printSchema>;
 export type PrintView = z.infer<typeof printView>;
+export type CardPrintView = z.infer<typeof cardPrintView>;

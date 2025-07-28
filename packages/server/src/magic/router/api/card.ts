@@ -29,7 +29,7 @@ const router = new KoaRouter<DefaultState, Context>();
 router.prefix('/card');
 
 type Version = {
-    lang:        string;
+    lang:        (typeof extendedLocales)[number];
     set:         string;
     number:      string;
     rarity:      string;

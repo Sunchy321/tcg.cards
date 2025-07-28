@@ -16,16 +16,14 @@ import { useI18n } from 'vue-i18n';
 import { QTableColumn } from 'quasar';
 
 import { auth } from '@/auth';
-import { trpc } from 'src/trpc';
+import { trpc } from '@/trpc';
 
 const i18n = useI18n();
 
 const listUsers = async () => {
-    const data = await auth.admin.listUsers();
+    const data = await auth.admin.listUsers({ query: {} });
 
-    console.log(data.data.users);
-
-    return data.data.users ?? [];
+    return data.data?.users ?? [];
 };
 
 type User = Awaited<ReturnType<typeof listUsers>>[0];

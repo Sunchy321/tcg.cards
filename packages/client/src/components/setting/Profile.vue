@@ -22,15 +22,15 @@ import { auth } from '@/auth';
 const session = auth.useSession();
 
 const user = computed(() => {
-    return session.value.data.user;
+    return session.value.data?.user;
 });
 
 const username = computed(() => {
-    return user.value.name;
+    return user.value?.name ?? '';
 });
 
 const role = computed(() => {
-    return user.value.role;
+    return user.value?.role ?? 'user';
 });
 
 const logout = () => {

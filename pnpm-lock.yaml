@@ -49,6 +49,9 @@ importers:
       '@trpc/client':
         specifier: ^11.4.3
         version: 11.4.3(@trpc/server@11.4.3(typescript@5.8.2))(typescript@5.8.2)
+      '@trpc/server':
+        specifier: ^11.4.3
+        version: 11.4.3(typescript@5.8.2)
       '@vueuse/core':
         specifier: ^13.1.0
         version: 13.1.0(vue@3.5.11(typescript@5.8.2))
@@ -70,6 +73,9 @@ importers:
       card-interface:
         specifier: workspace:^1.0.1
         version: link:../interface
+      card-model:
+        specifier: workspace:^0.0.1
+        version: link:../model
       card-search:
         specifier: workspace:^0.0.1
         version: link:../search

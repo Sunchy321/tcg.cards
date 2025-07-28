@@ -2,6 +2,7 @@
     "extends": "./.quasar/tsconfig.json",
     "compilerOptions": {
         "target": "ES2019",
+        "strict": true,
         "baseUrl": ".",
         "jsx": "preserve",
         "types": ["vite/client", "@intlify/unplugin-vue-i18n/messages"],
@@ -20,9 +21,11 @@
             "@static/*": ["node_modules/card-common/static/*"],
             "@data/*": ["node_modules/card-common/data/*"],
             "@common/*": ["node_modules/card-common/src/*"],
+            "@model/*": ["node_modules/card-model/data/*"],
+            "@model-code/*": ["node_modules/card-model/src/*"],
             "@search/*": ["node_modules/card-search/src/*"],
             "@search-data/*": ["node_modules/card-search/data/*"],
-            "@server/*": ["node_modules/card-server/src/*"],
+            "@server/*": ["../server/src/*"],
         },
     },
     "include": [
