@@ -26,7 +26,7 @@ export function genTables(g: Game, model: z.ZodType, name: string) {
 
     const sourcePath = `./src/${g}/schema/${name}.ts`;
 
-    const tables = findDrizzleTables('card', model);
+    const tables = findDrizzleTables(name, model);
 
     const tableDecls: [string, ts.Statement][] = [];
     const allImports = [];
@@ -381,7 +381,9 @@ function createTableKeyDefinition<T>(
     }
 
     if (model instanceof z.ZodString) {
-        if (model.getMeta()?.type == 'bitset') {
+        const type = model.getMeta()?.type;
+
+        if (type == 'bitset') {
             const dimensions = model.getMeta()?.map?.length ?? 0;
 
             const dimExpr = f.createObjectLiteralExpression([
@@ -392,6 +394,8 @@ function createTableKeyDefinition<T>(
             ]);
 
             return [createSimpleCallExpr('bit', [...nameIdentArray, dimExpr]), ['bit']];
+        } else if (type === 'uuid') {
+            return [createSimpleCallExpr('uuid', nameIdentArray), ['uuid']];
         }
 
         return [createSimpleCallExpr('text', nameIdentArray), ['text']];
@@ -402,7 +406,7 @@ function createTableKeyDefinition<T>(
 
         if (type === 'small-int') {
             return [createSimpleCallExpr('smallint', nameIdentArray), ['smallint']];
-        } else if (type === 'int') {
+        } else if (type === 'int' || type === 'number-id') {
             return [createSimpleCallExpr('integer', nameIdentArray), ['integer']];
         } else {
             return [createSimpleCallExpr('doublePrecision', nameIdentArray), ['doublePrecision']];

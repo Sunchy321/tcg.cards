@@ -1,4 +1,5 @@
 import { z } from '@model/zod';
+import { InferView } from '@model/helper';
 
 const layout = z.enum([
     'adventure', 'aftermath', 'augment', 'battle', 'class', 'double_faced',
@@ -26,18 +27,16 @@ export type ImageStatus = z.infer<typeof imageStatus>;
 export type Game = z.infer<typeof game>;
 
 export const print = z.strictObject({
-    cardId:    z.string(),
-    set:       z.string(),
-    number:    z.string(),
-    lang:      z.string(),
+    cardId:    z.string().meta({ primary: true }),
+    set:       z.string().meta({ primary: true }),
+    number:    z.string().meta({ primary: true }),
+    lang:      z.string().meta({ primary: true }),
     partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
 
-    partCount: z.number().meta({ type: 'small-int' }),
-
-    parts: z.strictObject({
-        name:     z.string(),
-        typeline: z.string(),
-        text:     z.string(),
+    part: z.strictObject({
+        name:     z.string().meta({ colName: 'print_name' }),
+        typeline: z.string().meta({ colName: 'print_typeline' }),
+        text:     z.string().meta({ colName: 'print_text' }),
 
         attractionLights: z.string().meta({ type: 'bitset', map: '123456' }).optional(),
 
@@ -47,7 +46,7 @@ export const print = z.strictObject({
         watermark:  z.string().meta({ type: 'loose-enum' }).optional(),
 
         scryfallIllusId: z.string().meta({ type: 'uuid' }).array().optional(),
-    }).meta({
+    }).array().meta({
         primaryKey: ['cardId', 'set', 'number', 'lang', 'partIndex'],
     }),
 
@@ -93,3 +92,4 @@ export const print = z.strictObject({
 });
 
 export type Print = z.infer<typeof print>;
+export type PrintView = InferView<typeof print>;

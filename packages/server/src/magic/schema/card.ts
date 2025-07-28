@@ -1,5 +1,5 @@
 import { and, eq, getTableColumns } from 'drizzle-orm';
-import { bit, boolean, doublePrecision, jsonb, primaryKey, smallint, text } from 'drizzle-orm/pg-core';
+import { bit, boolean, doublePrecision, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
 
 import _ from 'lodash';
 import { schema } from './schema';
@@ -19,7 +19,7 @@ export const Card = schema.table('cards', {
     category:         text('category'),
     legalities:       jsonb('legalities').notNull(),
     contentWarning:   boolean('content_warning'),
-    scryfallOracleId: text('scryfall_oracle_id').array().notNull(),
+    scryfallOracleId: uuid('scryfall_oracle_id').array().notNull(),
 }, table => [
     primaryKey({ columns: [table.cardId] }),
 ]);

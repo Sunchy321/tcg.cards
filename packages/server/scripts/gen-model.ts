@@ -17,5 +17,11 @@ for (const g of games) {
 
     const model = allModels[g];
 
-    genTables(g, model.card.card, 'card');
+    if (model.card.card) {
+        genTables(g, model.card.card, 'card');
+    }
+
+    if (model.print.print) {
+        genTables(g, model.print.print, 'print');
+    }
 }
