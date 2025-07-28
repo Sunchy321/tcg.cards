@@ -52,7 +52,7 @@ export default class DataLoader extends Task<Status> {
             && statSync(join(path, l)).isDirectory(),
         ).sort((a, b) => a === 'en' ? -1 : b === 'en' ? 1 : 0);
 
-        const langMap = internalData<Record<string, string>>(`yugioh.lang-map`);
+        const langMap = internalData<Record<string, string>>('yugioh.lang-map');
 
         for (const l of langs) {
             const fullPath = join(path, l);

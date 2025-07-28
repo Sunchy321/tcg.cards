@@ -56,7 +56,7 @@ export const print = z.strictObject({
     frame:         frame,
     frameEffects:  z.string().meta({ type: 'loose-enum' }).array(),
     borderColor:   borderColor,
-    cardBack:      z.string().meta({ type: 'uuid' }),
+    cardBack:      z.string().meta({ type: 'uuid' }).optional(),
     securityStamp: securityStamp.optional(),
     promoTypes:    z.string().meta({ type: 'loose-enum' }).array().optional(),
     rarity:        rarity,
@@ -79,7 +79,7 @@ export const print = z.strictObject({
     scryfallOracleId:  z.string().meta({ type: 'uuid' }),
     scryfallCardId:    z.string().meta({ type: 'uuid' }).optional(),
     scryfallFace:      z.enum(['back', 'bottom', 'front', 'top']).optional(),
-    scryfallImageUris: z.record(z.string().meta({ type: 'url' })).array(),
+    scryfallImageUris: z.record(z.string().meta({ type: 'url' })).array().optional(),
 
     arenaId:      z.number().meta({ type: 'number-id' }).optional(),
     mtgoId:       z.number().meta({ type: 'number-id' }).optional(),

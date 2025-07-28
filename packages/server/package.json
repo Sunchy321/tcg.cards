@@ -8,7 +8,7 @@
         "build": "npx tspc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist",
         "gen-openapi": "node -r ts-node/register -r tsconfig-paths/register scripts/gen-doc.ts",
         "gen-auth": "pnpm dlx @better-auth/cli generate --config src/auth/index.ts --output src/auth/schema.ts -y",
-        "gen-model": "tsx scripts/gen-model.ts"
+        "gen-model": "tsx scripts/gen-model.ts && pnpm dlx eslint src --fix"
     },
     "homepage": "https://github.com/Sunchy321/tcg.cards#readme",
     "license": "MIT",

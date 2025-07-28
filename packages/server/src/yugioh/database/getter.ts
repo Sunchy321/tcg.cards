@@ -19,7 +19,7 @@ type Status = {
     };
 };
 
-const baseUrl = `https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=1&sess=1&rp=100&request_locale=ja`;
+const baseUrl = 'https://www.db.yugioh-card.com/yugiohdb/card_search.action?ope=1&sess=1&rp=100&request_locale=ja';
 
 export class DatabaseGetter extends Task<Status> {
     async startImpl(): Promise<void> {
