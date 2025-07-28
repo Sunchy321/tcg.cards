@@ -12,7 +12,8 @@ import jwtAuth from './middlewares/jwt-auth';
 
 const router = new KoaRouter<DefaultState, Context>();
 
-router.use(jwtAuth({ admin: true }));
+// TODO: use better-auth authentication
+router.use(jwtAuth());
 
 router.use(integrated.routes());
 

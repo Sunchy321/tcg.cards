@@ -8,15 +8,15 @@ import { schema } from './schema';
 import { borderColor, finish, frame, game, imageStatus, layout, rarity, scryfallFace, securityStamp } from '@model/magic/print';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from './card';
 
-export const Layout = schema.enum('layout', layout.options);
-export const Frame = schema.enum('frame', frame.options);
-export const BorderColor = schema.enum('border_color', borderColor.options);
-export const SecurityStamp = schema.enum('security_stamp', securityStamp.options);
-export const Rarity = schema.enum('rarity', rarity.options);
-export const Finish = schema.enum('finish', finish.options);
-export const ImageStatus = schema.enum('image_status', imageStatus.options);
-export const Game = schema.enum('game', game.options);
-export const ScryfallFace = schema.enum('scryfall_face', scryfallFace.options);
+export const Layout = schema.enum('layout', layout.enum);
+export const Frame = schema.enum('frame', frame.enum);
+export const BorderColor = schema.enum('border_color', borderColor.enum);
+export const SecurityStamp = schema.enum('security_stamp', securityStamp.enum);
+export const Rarity = schema.enum('rarity', rarity.enum);
+export const Finish = schema.enum('finish', finish.enum);
+export const ImageStatus = schema.enum('image_status', imageStatus.enum);
+export const Game = schema.enum('game', game.enum);
+export const ScryfallFace = schema.enum('scryfall_face', scryfallFace.enum);
 
 export const Print = schema.table('prints', {
     cardId:            text('card_id').notNull(),

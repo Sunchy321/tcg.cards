@@ -80,7 +80,7 @@ export const printSchema = z.strictObject({
     scryfallOracleId:  z.string().meta({ colName: 'print_scryfall_oracle_id', type: 'uuid' }),
     scryfallCardId:    z.string().meta({ type: 'uuid' }).nullable(),
     scryfallFace:      scryfallFace.nullable(),
-    scryfallImageUris: z.record(z.string().meta({ type: 'url' })).array().nullable(),
+    scryfallImageUris: z.record(z.string(), z.string().meta({ type: 'url' })).array().nullable(),
 
     arenaId:      z.number().meta({ type: 'number-id' }).nullable(),
     mtgoId:       z.number().meta({ type: 'number-id' }).nullable(),

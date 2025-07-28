@@ -1,7 +1,4 @@
-import { register } from 'zod-metadata';
 import { z } from 'zod';
-
-register(z);
 
 declare module 'zod' {
     interface ZodMeta {

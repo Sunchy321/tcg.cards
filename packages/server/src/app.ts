@@ -3,7 +3,6 @@ import 'dotenv/config.js';
 import fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
-import { fastifyTRPCOpenApiPlugin } from 'trpc-to-openapi';
 
 import { auth } from './auth';
 import { appRouter } from './router';
@@ -60,11 +59,6 @@ app.route({
             });
         }
     },
-});
-
-await app.register(fastifyTRPCOpenApiPlugin, {
-    router:   appRouter,
-    basePath: '/openapi',
 });
 
 await app.register(fastifyTRPCPlugin, {

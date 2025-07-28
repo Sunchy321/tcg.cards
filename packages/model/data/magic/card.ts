@@ -72,7 +72,7 @@ export const cardSchema = z.strictObject({
 
     category: category,
 
-    legalities: z.record(legality),
+    legalities: z.record(z.string(), legality),
 
     contentWarning: z.boolean().nullable(),
 

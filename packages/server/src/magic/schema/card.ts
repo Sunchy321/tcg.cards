@@ -8,7 +8,7 @@ import { schema } from './schema';
 import { category } from '@model/magic/card';
 import { Legality } from '@model/magic/format-change';
 
-export const Category = schema.enum('category', category.options);
+export const Category = schema.enum('category', category.enum);
 
 export const Card = schema.table('cards', {
     cardId:           text('card_id').primaryKey(),
