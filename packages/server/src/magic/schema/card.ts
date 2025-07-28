@@ -1,8 +1,7 @@
 import { and, eq, getTableColumns } from 'drizzle-orm';
-import { bit, boolean, doublePrecision, integer, jsonb, primaryKey, smallint, text } from 'drizzle-orm/pg-core';
+import { bit, boolean, doublePrecision, jsonb, primaryKey, smallint, text } from 'drizzle-orm/pg-core';
 
-import { omit } from 'lodash';
-
+import _ from 'lodash';
 import { schema } from './schema';
 
 export const Card = schema.table('cards', {
@@ -11,7 +10,7 @@ export const Card = schema.table('cards', {
     name:             text('name').notNull(),
     typeline:         text('typeline').notNull(),
     text:             text('text').notNull(),
-    manaValue:        integer('mana_value').notNull(),
+    manaValue:        doublePrecision('mana_value').notNull(),
     colorIdentity:    bit('color_identity', { dimensions: 5 }).notNull(),
     keywords:         text('keywords').array().notNull(),
     counters:         text('counters').array().notNull(),
@@ -59,12 +58,13 @@ export const CardPart = schema.table('card_parts', {
 ]);
 
 export const CardPartLocalization = schema.table('card_part_localizations', {
-    cardId:    text('card_id').notNull(),
-    lang:      text('lang').notNull(),
-    partIndex: smallint('part_index').notNull(),
-    name:      text('part_loc_name').notNull(),
-    typeline:  text('part_loc_typeline').notNull(),
-    text:      text('part_loc_text').notNull(),
+    cardId:     text('card_id').notNull(),
+    lang:       text('lang').notNull(),
+    partIndex:  smallint('part_index').notNull(),
+    name:       text('part_loc_name').notNull(),
+    typeline:   text('part_loc_typeline').notNull(),
+    text:       text('part_loc_text').notNull(),
+    __lastDate: text('last_date').notNull(),
 }, table => [
     primaryKey({ columns: [table.cardId, table.lang, table.partIndex] }),
 ]);
@@ -74,15 +74,15 @@ export const CardView = schema.view('card_view').as(qb => {
         cardId:       Card.cardId,
         lang:         CardLocalization.lang,
         partIndex:    CardPart.partIndex,
-        ...omit(getTableColumns(Card), 'cardId'),
+        ..._.omit(getTableColumns(Card), 'cardId'),
         localization: {
-            ...omit(getTableColumns(CardLocalization), ['cardId', 'lang']),
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang']),
         },
         parts: {
-            ...omit(getTableColumns(CardPart), ['cardId', 'partIndex']),
+            ..._.omit(getTableColumns(CardPart), ['cardId', 'partIndex']),
         },
         partLocalization: {
-            ...omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex']),
+            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex']),
         },
     })
         .from(Card)

@@ -8,7 +8,9 @@ import pascalcase from 'pascalcase';
 import plur from 'plur';
 
 function underscore(text: string): string {
-    return text.replace(/[A-Z]/g, t => '_' + t.toLowerCase());
+    return text
+        .replace(/[A-Z]/g, t => '_' + t.toLowerCase())
+        .replace(/^_+/, '');
 }
 
 function createEmptyLine(): any {

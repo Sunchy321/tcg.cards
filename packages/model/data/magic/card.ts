@@ -35,7 +35,7 @@ export const card = z.strictObject({
         primaryKey: ['cardId', 'lang'],
     }),
 
-    manaValue:     z.number().meta({ type: 'int' }),
+    manaValue:     z.number(),
     colorIdentity: z.string().meta({ type: 'bitset', map: 'WUBRG' }),
 
     part: z.strictObject({
@@ -63,9 +63,10 @@ export const card = z.strictObject({
     }),
 
     partLocalization: z.strictObject({
-        name:     z.string().meta({ colName: 'part_loc_name' }),
-        typeline: z.string().meta({ colName: 'part_loc_typeline' }),
-        text:     z.string().meta({ colName: 'part_loc_text' }),
+        name:       z.string().meta({ colName: 'part_loc_name' }),
+        typeline:   z.string().meta({ colName: 'part_loc_typeline' }),
+        text:       z.string().meta({ colName: 'part_loc_text' }),
+        __lastDate: z.string(),
     }).array().meta({
         primaryKey: ['cardId', 'lang', 'partIndex'],
     }),
