@@ -85,15 +85,11 @@ const user = computed(() => {
     return session.value?.data?.user;
 });
 
-const roles = computed(() => {
-    return session.value.data?.user.role.split(',') ?? [];
-});
-
 const hasDataAdmin = computed(() => {
     if (game.value != null) {
-        return checkAdmin(roles.value, `admin/${game.value}`);
+        return checkAdmin(session.value, `admin/${game.value}`);
     } else {
-        return checkAdmin(roles.value, 'admin');
+        return checkAdmin(session.value, 'admin');
     }
 });
 

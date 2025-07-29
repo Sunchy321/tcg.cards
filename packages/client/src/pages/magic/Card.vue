@@ -68,7 +68,7 @@
                     class="attraction-light"
                     :class="{
                         [`light-${i}`]: true,
-                        enabled: attractionLights.includes(i)
+                        enabled: attractionLights[i] === '1'
                     }"
                 >
                     {{ i }}
@@ -113,8 +113,8 @@
             </grid>
             <div v-if="rulings.length > 0" class="rulings">
                 <div v-for="(r, i) in rulings" :key="i">
-                    <rich-text :cards="r.cards" detect-url>
-                        {{ r.date }}: {{ r.text }}
+                    <rich-text detect-url>
+                        {{ r.date }}: {{ r.richText }}
                     </rich-text>
                 </div>
             </div>
@@ -170,7 +170,7 @@
         <div class="version-column">
             <div class="text-mode row no-wrap">
                 <q-btn
-                    v-if="isAdmin"
+                    v-if="editorEnabled"
                     :to="editorLink"
                     icon="mdi-file-edit"
                     class="q-mr-sm"
@@ -249,7 +249,6 @@ import { useI18n } from 'vue-i18n';
 import { useCore, useTitle } from 'store/core';
 import { useGame, TextMode, textModes } from 'store/games/magic';
 
-import basicSetup from 'setup/basic';
 import magicSetup from 'setup/magic';
 
 import Grid from 'components/Grid.vue';
@@ -260,31 +259,36 @@ import RichText from 'src/components/magic/RichText.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
-import { CardPrintView } from '@model/magic/print';
+import { CardFullView } from '@model/magic/print';
 
 import {
     mapValues, omitBy, uniq,
 } from 'lodash';
 
 import setProfile, { SetProfile } from 'src/common/magic/set';
-import { apiGet, apiBase, assetBase } from 'boot/server';
-import { trpc } from 'src/trpc';
+import { apiBase, assetBase } from 'boot/server';
+import { trpc } from '@/trpc';
+import { auth, checkAdmin } from '@/auth';
 
 import { auxSetType } from '@static/magic/special';
-import { useRouteQuery } from '@vueuse/router';
+import { extendedLocales } from '@static/magic/basic';
 
 const router = useRouter();
 const route = useRoute();
 const i18n = useI18n();
 const core = useCore();
 const game = useGame();
-const { isAdmin } = basicSetup();
+const session = auth.useSession();
 
 const { search, random } = magicSetup();
 
-const data = ref<CardPrintView | null>(null);
+const data = ref<CardFullView | null>(null);
 const rotate = ref<boolean | null>(null);
 const setProfiles = ref<Record<string, SetProfile>>({});
+
+const editorEnabled = computed(() => {
+    return checkAdmin(session.value, 'admin/magic');
+});
 
 const textMode = computed({
     get() { return game.textMode; },
@@ -476,47 +480,26 @@ const langInfos = computed(() => langs.value.map(l => ({
     current: l === lang.value,
 })));
 
-const partCount = computed(() => data.value?.parts?.length ?? 1);
+const partCount = computed(() => data.value?.card.partCount ?? 1);
 
-const part = computed(() => data.value?.parts?.[partIndex.value]);
+const part = computed(() => data.value?.cardPart);
 
-const selectedTextInfo = (partValue?: CardPrintView['parts'][0]) => {
-    if (partValue == null) {
-        return null;
+const selectedTextInfo = computed(() => {
+    if (data.value == null) {
+        return undefined;
     }
 
     switch (textMode.value) {
-    case 'unified': {
-        const loc = partValue.localization.find(l => l.lang === lang.value);
-
-        if (loc != null) {
-            return {
-                name:     loc.name,
-                typeline: loc.typeline,
-                text:     loc.text,
-            };
-        }
-    }
-
-    // fallthrough
+    case 'unified':
+        return data.value.cardLocalization;
     case 'oracle':
-        return {
-            name:     partValue.name,
-            typeline: partValue.typeline,
-            text:     partValue.text,
-        };
-
+        return data.value.card;
     case 'printed':
-        return {
-            name:     partValue.printName,
-            typeline: partValue.printTypeline,
-            text:     partValue.printText,
-        };
-
+        return data.value.print;
     default:
         throw new Error('unreachable');
     }
-};
+});
 
 useTitle(() => {
     if (data.value == null) {
@@ -524,9 +507,9 @@ useTitle(() => {
     }
 
     if (['ph', 'qya'].includes(lang.value)) {
-        return data.value.parts.map(p => p.name).join(' // ');
+        return data.value.card.name;
     } else {
-        return data.value.parts.map(p => selectedTextInfo(p)!.name).join(' // ');
+        return selectedTextInfo.value!.name;
     }
 });
 
@@ -544,7 +527,7 @@ core.actions = [
     },
 ];
 
-const layout = computed(() => data.value?.layout);
+const layout = computed(() => data.value?.print.layout);
 const cost = computed(() => part.value?.cost);
 
 const stats = computed(() => {
@@ -573,9 +556,9 @@ const stats = computed(() => {
 
 const colorIndicator = computed(() => part.value?.colorIndicator);
 
-const name = computed(() => selectedTextInfo(part.value)?.name);
-const typeline = computed(() => selectedTextInfo(part.value)?.typeline);
-const text = computed(() => selectedTextInfo(part.value)?.text);
+const name = computed(() => selectedTextInfo.value?.name);
+const typeline = computed(() => selectedTextInfo.value?.typeline);
+const text = computed(() => selectedTextInfo.value?.text);
 
 const isArenaVariant = computed(() => name.value?.startsWith('A-'));
 
@@ -605,18 +588,18 @@ const realSubname = computed(() => {
     }
 });
 
-const attractionLights = computed(() => part.value?.attractionLights);
+const attractionLights = computed(() => data.value?.printPart.attractionLights);
 
-const flavorText = computed(() => part.value?.flavorText);
-const flavorName = computed(() => part.value?.flavorName);
-const artist = computed(() => part.value?.artist);
+const flavorText = computed(() => data.value?.printPart.flavorText);
+const flavorName = computed(() => data.value?.printPart.flavorName);
+const artist = computed(() => data.value?.printPart.artist);
 
 const relatedCards = computed(() => data.value?.relatedCards ?? []);
 const rulings = computed(() => data.value?.rulings ?? []);
-const legalities = computed(() => data.value?.legalities ?? {});
+const legalities = computed(() => data.value?.card.legalities ?? {});
 
-const tags = computed(() => data.value?.tags?.filter(v => !v.startsWith('dev:')) ?? []);
-const printTags = computed(() => data.value?.printTags?.filter(v => !v.startsWith('dev:')) ?? []);
+const tags = computed(() => data.value?.card.tags?.filter(v => !v.startsWith('dev:')) ?? []);
+const printTags = computed(() => data.value?.print.printTags?.filter(v => !v.startsWith('dev:')) ?? []);
 
 const doubleFacedIcon = computed(() => setInfos.value
     .filter(v => v.doubleFacedIcon != null)[0]
@@ -688,7 +671,7 @@ const editorLink = computed(() => ({
 }));
 
 const scryfallLink = computed(() => {
-    const cardId = data.value?.scryfall?.cardId;
+    const cardId = data.value?.print.scryfallCardId;
 
     if (cardId == null) {
         return null;
@@ -699,7 +682,7 @@ const scryfallLink = computed(() => {
 
 const gathererLink = computed(() => {
     const multiverseId = (() => {
-        const multiverseIds = data.value?.multiverseId;
+        const multiverseIds = data.value?.print.multiverseId;
 
         if (multiverseIds == null) {
             return null;
@@ -719,33 +702,56 @@ const gathererLink = computed(() => {
     return `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${multiverseId}&printed=true`;
 });
 
-const sbwszLink = computed(() => {
-    return `https://sbwsz.com/card/${set.value}/${number.value}`;
+const mtgchLink = computed(() => {
+    return `https://mtgch.com/card/${set.value}/${number.value}`;
 });
 
-const links = computed (() => [
-    {
-        name: 'scryfall',
-        link: scryfallLink.value,
-    },
-    {
-        name: 'gatherer',
-        link: gathererLink.value,
-    },
-    {
-        name: 'sbwsz',
-        link: sbwszLink.value,
-    },
-].filter(v => v.link != null));
+const links = computed(() => {
+    const result = [];
 
-const apiQuery = computed(() => (route.params.id == null
-    ? null
-    : omitBy({
+    if (scryfallLink.value != null) {
+        result.push({
+            name: 'scryfall',
+            link: scryfallLink.value,
+        });
+    }
+
+    if (gathererLink.value != null) {
+        result.push({
+            name: 'gatherer',
+            link: gathererLink.value,
+        });
+    }
+
+    if (mtgchLink.value != null) {
+        result.push({
+            name: 'mtgch',
+            link: mtgchLink.value,
+        });
+    }
+
+    return result;
+});
+
+const apiQuery = computed(() => {
+    if (route.params.id == null) {
+        return undefined;
+    }
+
+    const query = {
         id:     route.params.id as string,
-        lang:   route.query.lang as string ?? game.locale,
+        lang:   route.query.lang as (typeof extendedLocales)[number] ?? game.locale,
         set:    route.query.set as string,
         number: route.query.number as string,
-    }, v => v == null)));
+    };
+
+    return omitBy(query, v => v == null) as {
+        id:      string;
+        lang:    (typeof extendedLocales)[number];
+        set?:    string;
+        number?: string;
+    };
+});
 
 const jsonCardLink = computed(() => {
     const url = new URL('magic/card', apiBase);
@@ -774,12 +780,12 @@ const loadData = async () => {
         return;
     }
 
-    data.value = await trpc.magic.card.cardPrintView();
+    const result = await trpc.magic.card.rough.query(apiQuery.value);
 
-    const { data: result } = await apiGet<CardPrintView>('/magic/card/print-view', apiQuery.value);
-
-    rotate.value = null;
-    data.value = result;
+    if (result != null) {
+        rotate.value = null;
+        data.value = result;
+    }
 };
 
 const switchPart = () => {

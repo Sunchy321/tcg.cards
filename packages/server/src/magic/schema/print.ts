@@ -5,48 +5,56 @@ import _ from 'lodash';
 
 import { schema } from './schema';
 
-import { borderColor, finish, frame, game, imageStatus, layout, rarity, scryfallFace, securityStamp } from '@model/magic/print';
-import { Card, CardLocalization, CardPart, CardPartLocalization } from './card';
+import * as printModel from '@model/magic/print';
+import { Card, CardLocalization, CardPart, CardPartLocalization, fullLocale } from './card';
 
-export const Layout = schema.enum('layout', layout.enum);
-export const Frame = schema.enum('frame', frame.enum);
-export const BorderColor = schema.enum('border_color', borderColor.enum);
-export const SecurityStamp = schema.enum('security_stamp', securityStamp.enum);
-export const Rarity = schema.enum('rarity', rarity.enum);
-export const Finish = schema.enum('finish', finish.enum);
-export const ImageStatus = schema.enum('image_status', imageStatus.enum);
-export const Game = schema.enum('game', game.enum);
-export const ScryfallFace = schema.enum('scryfall_face', scryfallFace.enum);
+export const layout = schema.enum('layout', printModel.layout.enum);
+export const frame = schema.enum('frame', printModel.frame.enum);
+export const borderColor = schema.enum('border_color', printModel.borderColor.enum);
+export const securityStamp = schema.enum('security_stamp', printModel.securityStamp.enum);
+export const rarity = schema.enum('rarity', printModel.rarity.enum);
+export const finish = schema.enum('finish', printModel.finish.enum);
+export const imageStatus = schema.enum('image_status', printModel.imageStatus.enum);
+export const game = schema.enum('game', printModel.game.enum);
+export const scryfallFace = schema.enum('scryfall_face', printModel.scryfallFace.enum);
 
 export const Print = schema.table('prints', {
-    cardId:            text('card_id').notNull(),
-    set:               text('set').notNull(),
-    number:            text('number').notNull(),
-    lang:              text('lang').notNull(),
-    printTags:         text('print_tags').array().notNull(),
-    layout:            Layout('layout').notNull(),
-    frame:             Frame('frame').notNull(),
-    frameEffects:      text('frame_effects').array().notNull(),
-    borderColor:       BorderColor('border_color').notNull(),
-    cardBack:          uuid('card_back'),
-    securityStamp:     SecurityStamp('security_stamp'),
-    promoTypes:        text('promo_types').array(),
-    rarity:            Rarity('rarity').notNull(),
-    releaseDate:       text('release_date').notNull(),
-    isDigital:         boolean('is_digital').notNull(),
-    isPromo:           boolean('is_promo').notNull(),
-    isReprint:         boolean('is_reprint').notNull(),
-    finishes:          Finish('finishes').array().notNull(),
-    hasHighResImage:   boolean('has_high_res_image').notNull(),
-    imageStatus:       ImageStatus('image_status').notNull(),
-    inBooster:         boolean('in_booster').notNull(),
-    games:             Game('games').array().notNull(),
-    previewDate:       text('preview_date'),
-    previewSource:     text('preview_source'),
-    previewUri:        text('preview_uri'),
+    cardId: text('card_id').notNull(),
+    set:    text('set').notNull(),
+    number: text('number').notNull(),
+    lang:   fullLocale('lang').notNull(),
+
+    name:     text('print_name').notNull(),
+    typeline: text('print_typeline').notNull(),
+    text:     text('print_text').notNull(),
+
+    layout:          layout('layout').notNull(),
+    frame:           frame('frame').notNull(),
+    frameEffects:    text('frame_effects').array().notNull(),
+    borderColor:     borderColor('border_color').notNull(),
+    cardBack:        uuid('card_back'),
+    securityStamp:   securityStamp('security_stamp'),
+    promoTypes:      text('promo_types').array(),
+    rarity:          rarity('rarity').notNull(),
+    releaseDate:     text('release_date').notNull(),
+    isDigital:       boolean('is_digital').notNull(),
+    isPromo:         boolean('is_promo').notNull(),
+    isReprint:       boolean('is_reprint').notNull(),
+    finishes:        finish('finishes').array().notNull(),
+    hasHighResImage: boolean('has_high_res_image').notNull(),
+    imageStatus:     imageStatus('image_status').notNull(),
+    inBooster:       boolean('in_booster').notNull(),
+    games:           game('games').array().notNull(),
+
+    previewDate:   text('preview_date'),
+    previewSource: text('preview_source'),
+    previewUri:    text('preview_uri'),
+
+    printTags: text('print_tags').array().notNull(),
+
     scryfallOracleId:  uuid('print_scryfall_oracle_id').notNull(),
     scryfallCardId:    uuid('scryfall_card_id'),
-    scryfallFace:      ScryfallFace('scryfall_face'),
+    scryfallFace:      scryfallFace('scryfall_face'),
     scryfallImageUris: jsonb('scryfall_image_uris').$type<Record<string, string>[]>(),
     arenaId:           integer('arena_id'),
     mtgoId:            integer('mtgo_id'),
@@ -59,14 +67,16 @@ export const Print = schema.table('prints', {
 ]);
 
 export const PrintPart = schema.table('print_parts', {
-    cardId:           text('card_id').notNull(),
-    set:              text('set').notNull(),
-    number:           text('number').notNull(),
-    lang:             text('lang').notNull(),
-    partIndex:        smallint('part_index').notNull(),
-    name:             text('print_name').notNull(),
-    typeline:         text('print_typeline').notNull(),
-    text:             text('print_text').notNull(),
+    cardId:    text('card_id').notNull(),
+    set:       text('set').notNull(),
+    number:    text('number').notNull(),
+    lang:      fullLocale('lang').notNull(),
+    partIndex: smallint('part_index').notNull(),
+
+    name:     text('print_part_name').notNull(),
+    typeline: text('print_part_typeline').notNull(),
+    text:     text('print_part_text').notNull(),
+
     attractionLights: bit('attraction_lights', { dimensions: 6 }),
     flavorName:       text('flavor_name'),
     flavorText:       text('flavor_text'),

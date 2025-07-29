@@ -44,9 +44,7 @@ export default route(() => {
         if (to.meta.admin != null) {
             const session = await auth.getSession();
 
-            const roles = session.data?.user.role?.split(',') ?? [];
-
-            if (!checkAdmin(roles, to.meta.admin as string)) {
+            if (!checkAdmin(session, to.meta.admin as string)) {
                 next({
                     name:  'setting',
                     query: {

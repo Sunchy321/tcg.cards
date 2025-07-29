@@ -36,10 +36,14 @@ export const printSchema = z.strictObject({
     lang:      z.string().meta({ primary: true }),
     partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
 
+    name:     z.string().meta({ colName: 'print_name' }),
+    typeline: z.string().meta({ colName: 'print_typeline' }),
+    text:     z.string().meta({ colName: 'print_text' }),
+
     part: z.strictObject({
-        name:     z.string().meta({ colName: 'print_name' }),
-        typeline: z.string().meta({ colName: 'print_typeline' }),
-        text:     z.string().meta({ colName: 'print_text' }),
+        name:     z.string().meta({ colName: 'print_part_name' }),
+        typeline: z.string().meta({ colName: 'print_part_typeline' }),
+        text:     z.string().meta({ colName: 'print_part_text' }),
 
         attractionLights: z.string().meta({ type: 'bitset', map: '123456' }).nullable(),
 
@@ -50,8 +54,6 @@ export const printSchema = z.strictObject({
 
         scryfallIllusId: z.string().meta({ type: 'uuid' }).array().nullable(),
     }).array(),
-
-    printTags: z.string().array().meta({ type: 'set' }),
 
     layout:        layout,
     frame:         frame,
@@ -76,6 +78,8 @@ export const printSchema = z.strictObject({
     previewDate:   z.string().meta({ type: 'date' }).nullable(),
     previewSource: z.string().nullable(),
     previewUri:    z.string().meta({ type: 'url' }).nullable(),
+
+    printTags: z.string().array().meta({ type: 'set' }),
 
     scryfallOracleId:  z.string().meta({ colName: 'print_scryfall_oracle_id', type: 'uuid' }),
     scryfallCardId:    z.string().meta({ type: 'uuid' }).nullable(),
@@ -132,6 +136,32 @@ export const cardPrintView = z.object({
     printPart: printView.shape.part,
 });
 
+export const version = z.strictObject({
+    set:    z.string(),
+    number: z.string(),
+    lang:   z.string(),
+    rarity: rarity,
+});
+
+export const cardFullView = cardPrintView.extend({
+    versions: version.array(),
+
+    relatedCards: z.strictObject({
+        relation: z.string(),
+        cardId:   z.string(),
+        version:  version.optional(),
+    }).array(),
+
+    rulings: z.strictObject({
+        cardId:   z.string(),
+        source:   z.string(),
+        date:     z.string(),
+        text:     z.string(),
+        richText: z.string(),
+    }).array(),
+});
+
 export type Print = z.infer<typeof printSchema>;
 export type PrintView = z.infer<typeof printView>;
 export type CardPrintView = z.infer<typeof cardPrintView>;
+export type CardFullView = z.infer<typeof cardFullView>;
