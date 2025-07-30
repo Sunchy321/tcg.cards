@@ -34,8 +34,9 @@ await app.register(fastifyCors, {
 });
 
 app.route({
-    method: ['GET', 'POST'],
-    url:    '/api/auth/*',
+    method:      ['GET', 'POST'],
+    url:         '/api/auth/*',
+    constraints: { host: 'service.tcg.cards' },
     async handler(request, reply) {
         try {
             // Construct request URL

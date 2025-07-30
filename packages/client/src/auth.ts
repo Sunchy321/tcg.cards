@@ -1,10 +1,8 @@
 import { createAuthClient } from 'better-auth/vue';
 import { adminClient, usernameClient } from 'better-auth/client/plugins';
 
-import { apiBase } from 'src/boot/server';
-
 export const auth = createAuthClient({
-    baseURL: apiBase,
+    baseURL: import.meta.env.VITE_AUTH_URL,
 
     plugins: [
         usernameClient(),

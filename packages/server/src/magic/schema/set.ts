@@ -50,7 +50,7 @@ export const Sheet = schema.table('booster_sheets', {
 
     typeId: text('type_id').notNull(),
 
-    totalWeight: bigint('total_weight', { type: 'number' }).notNull(),
+    totalWeight: bigint('total_weight', { mode: 'number' }).notNull(),
 
     allowDuplicates: boolean('allow_duplicates').notNull(),
     balanceColors:   boolean('balance_colors').notNull(),
