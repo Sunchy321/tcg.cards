@@ -1,7 +1,7 @@
 import { t } from '@/trpc';
 import { z } from 'zod';
 
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import _ from 'lodash';
 
 import { cardFullView } from '@model/magic/print';
@@ -12,6 +12,8 @@ import { Card } from '../schema/card';
 import { CardPrintView } from '../schema/print';
 
 import { extendedLocales } from '@static/magic/basic';
+import { Ruling } from '../schema/ruling';
+import { CardRelation } from '../schema/card-relation';
 
 export const cardRouter = t.router({
     random: t.procedure
@@ -24,7 +26,7 @@ export const cardRouter = t.router({
             return cards[_.random(0, cards.length - 1)].cardId;
         }),
 
-    rough: t.procedure
+    fuzzy: t.procedure
         .input(
             z.strictObject({
                 id:        z.string(),
@@ -95,13 +97,32 @@ export const cardRouter = t.router({
                 rarity: Print.rarity,
             }).from(Print).where(eq(Print.cardId, id));
 
+            const rulings = await db.select({
+                ..._.omit(getTableColumns(Ruling), 'id'),
+            }).from(Ruling).where(eq(Ruling.cardId, id));
+
+            const sourceRelation = await db.select({
+                relation: CardRelation.relation,
+                cardId:   CardRelation.targetId,
+            }).from(CardRelation).where(eq(CardRelation.sourceId, id));
+
+            const targetRelation = await db.select({
+                relation: sql<string>`'source'`.as('relation'),
+                cardId:   CardRelation.sourceId,
+            }).from(CardRelation).where(eq(CardRelation.targetId, id));
+
+            const relatedCards = [
+                ...sourceRelation,
+                ...targetRelation,
+            ];
+
+            console.log(rulings, relatedCards);
+
             return {
                 ...cardPrint,
                 versions,
-
-                // TODO: missed fields
-                rulings:      [],
-                relatedCards: [],
+                rulings,
+                relatedCards,
             };
         }),
 });

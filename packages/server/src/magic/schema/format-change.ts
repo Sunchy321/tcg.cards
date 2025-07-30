@@ -1,7 +1,7 @@
 import { text, uuid } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
 
-export const formatChanges = schema.table('format_changes', {
+export const FormatChange = schema.table('format_changes', {
     id: uuid('id').primaryKey().defaultRandom(),
 
     source: text('source').notNull(),

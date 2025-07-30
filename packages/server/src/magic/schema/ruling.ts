@@ -2,7 +2,7 @@ import { text, uuid } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
-export const rulings = schema.table('rulings', {
+export const Ruling = schema.table('rulings', {
     id: uuid().primaryKey().defaultRandom(),
 
     cardId:   text('card_id').notNull(),

@@ -28,7 +28,7 @@ export declare const appRouter: import('@trpc/server').TRPCBuiltRouter<{
                             output: string;
                             meta:   object;
                         }>;
-                        rough: import('@trpc/server').TRPCQueryProcedure<{
+                        fuzzy: import('@trpc/server').TRPCQueryProcedure<{
                             input: {
                                 id:         string;
                                 lang?:      'en' | 'zhs' | 'zht' | 'de' | 'fr' | 'it' | 'ja' | 'ko' | 'pt' | 'ru' | 'es' | 'ph' | 'he' | 'ar' | 'sa' | 'grc' | 'la' | 'qya' | undefined;

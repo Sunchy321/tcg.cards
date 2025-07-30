@@ -3,7 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 
 import { schema } from './schema';
 
-export const announcementItems = schema.table('announcement_items', {
+export const AnnouncementItem = schema.table('announcement_items', {
     id: uuid('id').primaryKey().defaultRandom(),
 
     announcementId: uuid('announcement_id').notNull(),
@@ -19,7 +19,7 @@ export const announcementItems = schema.table('announcement_items', {
     effectiveDate: text('effective_date'),
 });
 
-export const announcements = schema.table('announcements', {
+export const Announcement = schema.table('announcements', {
     id: uuid('id').primaryKey().defaultRandom(),
 
     source: text('source').notNull(),
@@ -35,31 +35,31 @@ export const announcements = schema.table('announcements', {
     links: text('links').array().default([]),
 });
 
-export const announcementView = schema.view('announcement_view').as(qb => {
+export const AnnouncementView = schema.view('announcement_view').as(qb => {
     return qb.select({
-        id: announcements.id,
+        id: Announcement.id,
 
-        source: announcements.source,
-        date:   announcements.date,
+        source: Announcement.source,
+        date:   Announcement.date,
 
-        effectiveDate:         announcements.effectiveDate,
-        effectiveDateTabletop: announcements.effectiveDateTabletop,
-        effectiveDateOnline:   announcements.effectiveDateOnline,
-        effectiveDateArena:    announcements.effectiveDateArena,
+        effectiveDate:         Announcement.effectiveDate,
+        effectiveDateTabletop: Announcement.effectiveDateTabletop,
+        effectiveDateOnline:   Announcement.effectiveDateOnline,
+        effectiveDateArena:    Announcement.effectiveDateArena,
 
-        nextDate: announcements.nextDate,
+        nextDate: Announcement.nextDate,
 
-        links: announcements.links,
+        links: Announcement.links,
 
-        format: announcementItems.format,
+        format: AnnouncementItem.format,
 
-        setIn:  announcementItems.setId,
-        cardId: announcementItems.cardId,
+        setIn:  AnnouncementItem.setId,
+        cardId: AnnouncementItem.cardId,
 
-        status: announcementItems.status,
+        status: AnnouncementItem.status,
 
-        realEffectiveDate: sql`coalesce(${announcementItems.effectiveDate}, ${announcements.effectiveDate})`.as('real_effective_date'),
+        realEffectiveDate: sql`coalesce(${AnnouncementItem.effectiveDate}, ${Announcement.effectiveDate})`.as('real_effective_date'),
     })
-        .from(announcements)
-        .leftJoin(announcementItems, eq(announcements.id, announcementItems.announcementId));
+        .from(Announcement)
+        .leftJoin(AnnouncementItem, eq(Announcement.id, AnnouncementItem.announcementId));
 });

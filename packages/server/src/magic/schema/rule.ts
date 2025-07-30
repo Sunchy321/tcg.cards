@@ -1,36 +1,45 @@
 import { integer, primaryKey, text } from 'drizzle-orm/pg-core';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { schema } from './schema';
 
-export const ruleItems = schema.table('rule_items', {
+export const RuleItem = schema.table('rule_items', {
     date:   text('date').notNull(),
+    lang:   text('lang').notNull(),
     itemId: text('item_id').notNull(),
 
-    index: text('index'),
+    index: integer('index').notNull(),
     depth: integer('depth').notNull(),
 
+    serial:   text('serial'),
     text:     text('text').notNull(),
     richText: text('rich_text').notNull(),
 }, table => [
-    primaryKey({ columns: [table.date, table.itemId] }),
+    primaryKey({ columns: [table.date, table.lang, table.itemId] }),
 ]);
 
-export const rules = schema.table('rules', {
-    date: text('date').primaryKey(),
-});
+export const Rule = schema.table('rules', {
+    date: text('date').notNull(),
+    lang: text('lang').notNull(),
+}, table => [
+    primaryKey({ columns: [table.date, table.lang] }),
+]);
 
 export const ruleView = schema.view('rule_view').as(qb => {
     return qb.select({
-        date:   rules.date,
-        itemId: ruleItems.itemId,
+        date:   Rule.date,
+        lang:   Rule.lang,
+        itemId: RuleItem.itemId,
 
-        index: ruleItems.index,
-        depth: ruleItems.depth,
+        index: RuleItem.index,
+        depth: RuleItem.depth,
 
-        text:     ruleItems.text,
-        richText: ruleItems.richText,
+        text:     RuleItem.text,
+        richText: RuleItem.richText,
     })
-        .from(rules)
-        .leftJoin(ruleItems, eq(rules.date, ruleItems.date));
+        .from(Rule)
+        .leftJoin(RuleItem, and(
+            eq(Rule.date, RuleItem.date),
+            eq(Rule.lang, RuleItem.lang),
+        ));
 });

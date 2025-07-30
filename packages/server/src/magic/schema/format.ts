@@ -4,7 +4,7 @@ import { schema } from './schema';
 
 import { Format as IFormat } from '@interface/magic/format';
 
-export const formats = schema.table('formats', {
+export const Format = schema.table('formats', {
     formatId:     text('format_id').primaryKey(),
     localization: jsonb().$type<IFormat['localization']>().notNull(),
 

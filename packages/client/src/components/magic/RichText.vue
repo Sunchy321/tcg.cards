@@ -11,13 +11,10 @@ import { useGame } from 'store/games/magic';
 import Symbol from './Symbol.vue';
 import CardAvatar from './CardAvatar.vue';
 
-import { escapeRegExp } from 'lodash';
-
 const regionImports = import.meta.glob<Record<string, string>>('@data/magic/localization/region/*.yml');
 
 const props = withDefaults(defineProps<{
     symbol?:     string[];
-    cards?:      { text: string, cardId: string, part?: number }[];
     lang?:       string;
     detectUrl?:  boolean;
     detectEmph?: boolean;
@@ -59,9 +56,7 @@ const render = () => {
                 '\\[(?:0|[+-](?:[1-9][0-9]*|X))\\]',
                 '={20,}\n?',
                 '\\[[A-Z]+\\]',
-                ...[...props.cards]
-                    .sort((a, b) => b.text.length - a.text.length)
-                    .map(c => `\\b${escapeRegExp(c.text)}(?=s|\\b)`),
+                '@card\\(.*?\\)\\{.*?\\}',
                 ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.?=&]+[-a-zA-Z0-9/]'] : [],
                 ...props.detectEmph ? ['\\*[^*]+\\*'] : [],
                 ...props.detectCr ? ['\\d+(?:\\.\\d+[a-z]?)?'] : [],
@@ -161,25 +156,34 @@ const render = () => {
                     continue;
                 }
 
-                const card = props.cards.find(c => c.text === p);
+                let match;
 
-                if (card != null && insertedCards.every(c => c[0] !== card.text)) {
-                    if (!insertedCards.some(c => c[1] === card.cardId && c[2] === card.part)) {
+                if ((match = /@card\((.*?)\)\{(.*?)\}/.exec(p))) {
+                    const [cardId, partIndexText = '0'] = match[1].split('/');
+                    const text = match[2];
+
+                    let partIndex = Number.parseInt(partIndexText);
+
+                    if (Number.isNaN(partIndex)) {
+                        partIndex = 0;
+                    }
+
+                    if (!insertedCards.some(c => c[1] === cardId && c[2] === partIndex)) {
                         result.push(h(CardAvatar, {
                             class: `magic-text card ${attrs.class ?? ''}`,
-                            id:    card.cardId,
-                            part:  card.part,
-                            text:  card.text,
+                            id:    cardId,
+                            part:  partIndex,
+                            text:  text,
                         }));
                     } else {
                         result.push(h('span', {
                             class: `magic-text card ${attrs.class ?? ''}`,
-                            id:    card.cardId,
-                            part:  card.part,
-                        }, card.text));
+                            id:    cardId,
+                            part:  partIndex,
+                        }, text));
                     }
 
-                    insertedCards.push([card.text, card.cardId, card.part]);
+                    insertedCards.push([text, cardId, partIndex]);
                     continue;
                 }
 

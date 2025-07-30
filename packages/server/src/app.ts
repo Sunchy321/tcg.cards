@@ -9,7 +9,17 @@ import { appRouter } from './router';
 
 const port = 3000;
 
-const app = fastify();
+const app = fastify({
+    logger: {
+        transport: {
+            target:  'pino-pretty',
+            options: {
+                translateTime: 'HH:MM:ss',
+                ignore:        'pid,hostname',
+            },
+        },
+    },
+});
 
 await app.register(fastifyCors, {
     origin:         process.env.CLIENT_ORIGIN ?? 'https://tcg.cards:8080',

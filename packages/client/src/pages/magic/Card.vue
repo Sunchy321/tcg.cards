@@ -780,7 +780,7 @@ const loadData = async () => {
         return;
     }
 
-    const result = await trpc.magic.card.rough.query(apiQuery.value);
+    const result = await trpc.magic.card.fuzzy.query(apiQuery.value);
 
     if (result != null) {
         rotate.value = null;
