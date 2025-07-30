@@ -32,7 +32,7 @@ export default {
         'link-name': {
             scryfall: 'Scryfall',
             gatherer: 'Gatherer',
-            sbwsz:    'Sbwsz',
+            mtgch:    'Mtgch',
 
             card:  'Card',
             print: 'Print',

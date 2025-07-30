@@ -109,12 +109,7 @@ export const cardRouter = t.router({
                 cardId:   CardRelation.sourceId,
             }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
 
-            const relatedCards = [
-                ...sourceRelation,
-                ...targetRelation,
-            ];
-
-            console.log(rulings, relatedCards);
+            const relatedCards = [...sourceRelation, ...targetRelation];
 
             return {
                 ...cardPrint,

@@ -1,6 +1,8 @@
 import { z } from '@model-code/zod';
 
 import { legality } from './format-change';
+import { fullLocale, rarity } from './basic';
+import { layout } from './basic';
 
 export const category = z.enum([
     'advertisement',
@@ -93,5 +95,24 @@ export const cardView = cardSchema.extend({
     partLocalization: cardSchema.shape.partLocalization.element,
 });
 
+export const cardProfile = z.strictObject({
+    cardId: z.string(),
+
+    localization: z.strictObject({
+        lang: z.string(),
+        name: z.string(),
+    }).array(),
+
+    versions: z.strictObject({
+        lang:        fullLocale,
+        set:         z.string(),
+        number:      z.string(),
+        rarity:      rarity,
+        layout:      layout,
+        releaseDate: z.string(),
+    }).array(),
+});
+
 export type Card = z.infer<typeof cardSchema>;
 export type CardView = z.infer<typeof cardView>;
+export type CardProfile = z.infer<typeof cardProfile>;

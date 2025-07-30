@@ -30,8 +30,8 @@ export declare const appRouter: import('@trpc/server').TRPCBuiltRouter<{
                         }>;
                         fuzzy: import('@trpc/server').TRPCQueryProcedure<{
                             input: {
-                                id:         string;
-                                lang?:      'en' | 'zhs' | 'zht' | 'de' | 'fr' | 'it' | 'ja' | 'ko' | 'pt' | 'ru' | 'es' | 'ph' | 'he' | 'ar' | 'sa' | 'grc' | 'la' | 'qya' | undefined;
+                                cardId:     string;
+                                lang:       'en' | 'zhs' | 'zht' | 'de' | 'fr' | 'it' | 'ja' | 'ko' | 'pt' | 'ru' | 'es' | 'ph' | 'he' | 'ar' | 'sa' | 'grc' | 'la' | 'qya';
                                 set?:       string | undefined;
                                 number?:    string | undefined;
                                 partIndex?: number | undefined;
@@ -157,6 +157,53 @@ export declare const appRouter: import('@trpc/server').TRPCBuiltRouter<{
                                     text:     string;
                                     richText: string;
                                 }[];
+                            } | undefined;
+                            meta: object;
+                        }>;
+                        profile: import('@trpc/server').TRPCQueryProcedure<{
+                            input: {
+                                cardId: string;
+                            };
+                            output: {
+                                cardId:       string;
+                                localization: {
+                                    lang: string;
+                                    name: string;
+                                }[];
+                                versions: {
+                                    lang:        'en' | 'zhs' | 'zht' | 'de' | 'fr' | 'it' | 'ja' | 'ko' | 'pt' | 'ru' | 'es' | 'ph' | 'he' | 'ar' | 'sa' | 'grc' | 'la' | 'qya';
+                                    set:         string;
+                                    number:      string;
+                                    rarity:      'common' | 'rare' | 'special' | 'uncommon' | 'mythic' | 'bonus';
+                                    layout:      'normal' | 'token' | 'adventure' | 'aftermath' | 'augment' | 'battle' | 'class' | 'double_faced' | 'emblem' | 'flip_token_bottom' | 'flip_token_top' | 'flip' | 'host' | 'leveler' | 'meld' | 'modal_dfc' | 'multipart' | 'planar' | 'reversible_card' | 'saga' | 'scheme' | 'split_arena' | 'split' | 'transform_token' | 'transform' | 'vanguard' | 'case' | 'mutate' | 'prototype';
+                                    releaseDate: string;
+                                }[];
+                            } | undefined;
+                            meta: object;
+                        }>;
+                    }>>;
+                set: import('@trpc/server').TRPCBuiltRouter<{
+                    ctx:         object;
+                    meta:        object;
+                    errorShape:  import('@trpc/server').TRPCDefaultErrorShape;
+                    transformer: false;
+                }, import('@trpc/server').TRPCDecorateCreateRouterOptions<{
+                        profile: import('@trpc/server').TRPCQueryProcedure<{
+                            input: {
+                                setId: string;
+                            };
+                            output: {
+                                localization: {
+                                    lang: string;
+                                    name: string | null;
+                                    link: string | null;
+                                }[];
+                                releaseDate:     string | null;
+                                type:            string;
+                                setId:           string;
+                                parent:          string | null;
+                                symbolStyle:     string[] | null;
+                                doubleFacedIcon: string[] | null;
                             } | undefined;
                             meta: object;
                         }>;

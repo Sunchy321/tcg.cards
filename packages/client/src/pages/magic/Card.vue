@@ -260,12 +260,10 @@ import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
 import { CardFullView } from '@model/magic/print';
+import { SetProfile } from '@model/magic/set';
 
-import {
-    mapValues, omitBy, uniq,
-} from 'lodash';
+import { mapValues, omitBy, uniq } from 'lodash';
 
-import setProfile, { SetProfile } from 'src/common/magic/set';
 import { apiBase, assetBase } from 'boot/server';
 import { trpc } from '@/trpc';
 import { auth, checkAdmin } from '@/auth';
@@ -307,15 +305,12 @@ const versions = computed(() => data.value?.versions ?? []);
 const sets = computed(() => uniq(versions.value.map(v => v.set)));
 
 watch(sets, async values => {
-    setProfiles.value = {};
-
     for (const s of values) {
-        setProfile.get(s, v => {
-            setProfiles.value = {
-                ...setProfiles.value,
-                [s]: v,
-            };
-        });
+        const result = await trpc.magic.set.profile.query({ setId: s });
+
+        if (result != null) {
+            setProfiles.value[s] = result;
+        }
     }
 }, { immediate: true });
 
@@ -390,7 +385,12 @@ const setInfos = computed(() => sets.value.map(s => {
     const profile = setProfiles.value[currVersion.set];
 
     const iconSet = (auxSetType.includes(profile?.type) ? profile?.parent : undefined) ?? s;
-    const name = mapValues(profile?.localization ?? { }, loc => loc.name);
+
+    const localizations = profile?.localization;
+
+    const localization = localizations?.find(loc => loc.lang === game.locale)
+      ?? localizations?.find(loc => loc.lang === game.locales[0])
+      ?? localizations?.[0];
 
     return {
         set:             s,
@@ -398,7 +398,7 @@ const setInfos = computed(() => sets.value.map(s => {
         numbers,
         rarity,
         iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
-        name:            name?.[game.locale] ?? name?.[game.locales[0]] ?? '',
+        name:            localization?.name ?? '',
         symbolStyle:     profile?.symbolStyle,
         doubleFacedIcon: profile?.doubleFacedIcon,
     };
@@ -739,14 +739,14 @@ const apiQuery = computed(() => {
     }
 
     const query = {
-        id:     route.params.id as string,
+        cardId: route.params.id as string,
         lang:   route.query.lang as (typeof extendedLocales)[number] ?? game.locale,
         set:    route.query.set as string,
         number: route.query.number as string,
     };
 
     return omitBy(query, v => v == null) as {
-        id:      string;
+        cardId:  string;
         lang:    (typeof extendedLocales)[number];
         set?:    string;
         number?: string;

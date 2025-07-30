@@ -14,9 +14,11 @@ import { useGame } from 'store/games/magic';
 import { QTooltip } from 'quasar';
 import CardImage from './CardImage.vue';
 
-import cardProfile, { CardProfile } from 'src/common/magic/card';
+import { CardProfile } from '@model/magic/card';
 
 import { pick } from 'lodash';
+
+import { trpc } from '@/trpc';
 
 type Version = {
     set?:    string;
@@ -49,7 +51,7 @@ const route = useRoute();
 const game = useGame();
 
 const innerShowId = ref(false);
-const profile = ref<CardProfile | null>(null);
+const profile = ref<CardProfile>();
 
 const locale = computed(() => {
     if (props.useLang && props.version != null) {
@@ -79,8 +81,9 @@ const name = computed(() => {
     const { locales } = game;
     const defaultLocale = locales[0];
 
-    return profile.value.parts.map(p => p.localization.find(l => l.lang === locale.value)?.name
-      ?? p.localization.find(l => l.lang === defaultLocale)?.name ?? '').join(' // ');
+    return profile.value.localization.find(l => l.lang === locale.value)?.name
+      ?? profile.value.localization.find(l => l.lang === defaultLocale)?.name
+      ?? props.id;
 });
 
 const imageVersion = computed(() => {
@@ -177,7 +180,7 @@ const imageVersion = computed(() => {
 });
 
 const quickLoadData = async () => {
-    const value = await cardProfile.getLocal(props.id);
+    const value = await trpc.magic.card.profile.query({ cardId: props.id });
 
     if (value != null) {
         profile.value = value;
@@ -191,7 +194,13 @@ const loadData = async () => {
         return;
     }
 
-    cardProfile.get(props.id, v => profile.value = v).catch(() => innerShowId.value = true);
+    try {
+        profile.value = await trpc.magic.card.profile.query({ cardId: props.id });
+    } catch (error) {
+        console.error('Failed to load card profile:', error);
+        innerShowId.value = true;
+        profile.value = undefined;
+    }
 };
 
 watch(() => props.id, (newValue, oldValue) => {

@@ -4,32 +4,9 @@ export const id = 'magic';
 
 export const birthday = '1993-08-05';
 
-export const locale = z.enum([
-    'en',
-    'zhs',
-    'zht',
-    'de',
-    'fr',
-    'it',
-    'ja',
-    'ko',
-    'pt',
-    'ru',
-    'es',
-]);
+export const locale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']);
 
-export const fullLocale = z.enum([
-    ...locale.options,
-    'ph',
-    'he',
-    'ar',
-    'sa',
-    'grc',
-    'la',
-    'qya',
-]);
-
-export type FullLocale = z.infer<typeof fullLocale>;
+export const fullLocale = z.enum([...locale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya']);
 
 export const specificManaSymbols = [
     'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',
@@ -48,12 +25,7 @@ export const manaSymbols = [
     ...specificManaSymbols,
 ];
 
-export const symbols = [
-    ...manaSymbols,
-    'T', 'Q',
-    'H', 'E', 'A', 'P',
-    'PW', 'CHAOS', 'TK',
-];
+export const symbols = [...manaSymbols, 'T', 'Q', 'H', 'E', 'A', 'P', 'PW', 'CHAOS', 'TK'];
 
 export const formats = [
     'standard',
@@ -79,3 +51,18 @@ export const formats = [
     'pauper_commander',
     'pauper_duelcommander',
 ];
+
+export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
+
+export const layout = z.enum([
+    'adventure', 'aftermath', 'augment', 'battle', 'case', 'class',
+    'double_faced', 'emblem', 'flip', 'flip_token_bottom', 'flip_token_top',
+    'host', 'leveler', 'meld', 'modal_dfc', 'multipart', 'mutate', 'normal',
+    'planar', 'prototype', 'reversible_card', 'saga', 'scheme', 'split',
+    'split_arena', 'token', 'transform', 'transform_token', 'vanguard',
+]);
+
+export type Locale = z.infer<typeof locale>;
+export type FullLocale = z.infer<typeof fullLocale>;
+export type Rarity = z.infer<typeof rarity>;
+export type Layout = z.infer<typeof layout>;

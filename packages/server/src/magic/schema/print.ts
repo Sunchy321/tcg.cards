@@ -5,14 +5,16 @@ import _ from 'lodash';
 
 import { schema } from './schema';
 
+import * as basicModel from '@model/magic/basic';
 import * as printModel from '@model/magic/print';
+
 import { Card, CardLocalization, CardPart, CardPartLocalization, fullLocale } from './card';
 
-export const layout = schema.enum('layout', printModel.layout.enum);
+export const layout = schema.enum('layout', basicModel.layout.enum);
 export const frame = schema.enum('frame', printModel.frame.enum);
 export const borderColor = schema.enum('border_color', printModel.borderColor.enum);
 export const securityStamp = schema.enum('security_stamp', printModel.securityStamp.enum);
-export const rarity = schema.enum('rarity', printModel.rarity.enum);
+export const rarity = schema.enum('rarity', basicModel.rarity.enum);
 export const finish = schema.enum('finish', printModel.finish.enum);
 export const imageStatus = schema.enum('image_status', printModel.imageStatus.enum);
 export const game = schema.enum('game', printModel.game.enum);
