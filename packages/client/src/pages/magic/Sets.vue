@@ -34,10 +34,13 @@ import { useI18n } from 'vue-i18n';
 import { useTitle } from 'store/core';
 import { useGame } from 'store/games/magic';
 
-import { apiGet, assetBase } from 'boot/server';
+import { SetProfile, SetLocalization } from '@model/magic/set';
 
-import setProfile, { SetProfile, SetLocalization } from 'src/common/magic/set';
-import { isEqual, partition } from 'lodash';
+import { partition } from 'lodash';
+
+import { assetBase } from 'boot/server';
+import { getValue, trpc } from 'src/hono';
+
 const game = useGame();
 const i18n = useI18n();
 
@@ -157,9 +160,11 @@ const profileList = computed(() => {
 });
 
 const loadData = async () => {
-    const { data } = await apiGet<string[]>('/magic/set');
+    const value = await getValue(trpc.magic.set.list, {});
 
-    sets.value = data;
+    if (value != null) {
+        sets.value = value;
+    }
 };
 
 const loadProfile = async (setList: string[]) => {
@@ -168,22 +173,26 @@ const loadProfile = async (setList: string[]) => {
     const profileMap: Record<string, SetProfile> = { };
 
     for (const s of setList) {
-        setProfile.get(s, v => {
-            if (!isEqual(v, profileMap[s])) {
-                profileMap[s] = v;
+        const value = await getValue(trpc.magic.set.profile, { setId: s });
 
-                if (isEqual(setList.sort(), Object.keys(profileMap).sort())) {
-                    profiles.value = profileMap;
-                }
-            }
-        });
+        if (value != null) {
+            profileMap[s] = value;
+        } else {
+            console.warn(`Set profile for ${s} not found.`);
+        }
     }
+
+    profiles.value = profileMap;
 };
 
-const nameOf = (localization: Record<string, SetLocalization>) => localization[game.locale]?.name
-  ?? localization[game.locales[0]]?.name;
+const nameOf = (localizations: SetLocalization[]) => {
+    const localization = localizations.find(l => l.lang === game.locale)
+      ?? localizations.find(l => l.lang === game.locales[0]);
 
-const iconUrl = (set: string, type: string, parent?: string) => {
+    return localization?.name;
+};
+
+const iconUrl = (set: string, type: string, parent: string | null) => {
     if (parent != null && ['promo', 'token', 'memorabilia', 'funny'].includes(type)) {
         return undefined;
     }

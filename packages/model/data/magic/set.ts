@@ -39,6 +39,12 @@ export const booster = z.strictObject({
     }).array(),
 });
 
+export const setLocalization = z.strictObject({
+    lang: z.string(),
+    name: z.string().nullable(),
+    link: z.string().nullable(),
+});
+
 export const set = z.strictObject({
     setId: z.string(),
 
@@ -50,11 +56,7 @@ export const set = z.strictObject({
     langs:       fullLocale.array(),
     rarities:    rarity.array(),
 
-    localization: z.strictObject({
-        lang: z.string(),
-        name: z.string().nullable(),
-        link: z.string().nullable(),
-    }).array(),
+    localization: setLocalization.array(),
 
     type:            z.string(),
     isDigital:       z.boolean(),
@@ -85,5 +87,6 @@ export const setProfile = set.pick({
 });
 
 export type Set = z.infer<typeof set>;
+export type SetLocalization = z.infer<typeof setLocalization>;
 export type Booster = z.infer<typeof booster>;
 export type SetProfile = z.infer<typeof setProfile>;
