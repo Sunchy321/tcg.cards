@@ -16,7 +16,7 @@ import { useI18n } from 'vue-i18n';
 import { QTableColumn } from 'quasar';
 
 import { auth } from '@/auth';
-import { trpc } from '@/trpc';
+import { trpc } from 'src/hono';
 
 const i18n = useI18n();
 

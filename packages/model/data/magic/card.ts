@@ -1,4 +1,4 @@
-import { z } from '@model-code/zod';
+import { z } from 'zod';
 
 import { legality } from './format-change';
 import { fullLocale, rarity } from './basic';

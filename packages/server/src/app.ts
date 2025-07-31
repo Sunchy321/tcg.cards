@@ -1,84 +1,61 @@
 import 'dotenv/config.js';
 
-import fastify from 'fastify';
-import fastifyCors from '@fastify/cors';
-import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
+import { Hono } from 'hono';
+import { serve } from '@hono/node-server';
+import { poweredBy } from 'hono/powered-by';
+import { logger } from 'hono/logger';
+import { cors } from 'hono/cors';
 
 import { auth } from './auth';
-import { appRouter } from './router';
+
+import service from './service';
 
 const port = 3000;
 
-const app = fastify({
-    logger: {
-        transport: {
-            target:  'pino-pretty',
-            options: {
-                translateTime: 'HH:MM:ss',
-                ignore:        'pid,hostname',
-            },
-        },
-    },
+const app = new Hono<{
+    Variables: {
+        user:    typeof auth.$Infer.Session.user | null;
+        session: typeof auth.$Infer.Session.session | null;
+    };
+}>();
+
+app.use(poweredBy());
+app.use(logger());
+
+app.use(
+    '*',
+    cors({
+        origin:       process.env.CLIENT_ORIGIN ?? 'https://tcg.cards:8080',
+        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowHeaders: [
+            'Content-Type',
+            'Authorization',
+            'X-Requested-With',
+        ],
+        credentials: true,
+        maxAge:      86400, // 1 day
+    }),
+);
+
+app.use('*', async (c, next) => {
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+
+    if (!session) {
+        c.set('user', null);
+        c.set('session', null);
+        return next();
+    }
+
+    c.set('user', session.user);
+    c.set('session', session.session);
+    return next();
 });
 
-await app.register(fastifyCors, {
-    origin:         process.env.CLIENT_ORIGIN ?? 'https://tcg.cards:8080',
-    methods:        ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-    ],
-    credentials: true,
-    maxAge:      86400,
+app.route('/', service);
+
+serve({
+    fetch: app.fetch,
+    port,
 });
-
-app.route({
-    method:      ['GET', 'POST'],
-    url:         '/api/auth/*',
-    constraints: { host: 'service.tcg.cards' },
-    async handler(request, reply) {
-        try {
-            // Construct request URL
-            const url = new URL(request.url, `http://${request.headers.host}`);
-
-            // Convert Fastify headers to standard Headers object
-            const headers = new Headers();
-            Object.entries(request.headers).forEach(([key, value]) => {
-                if (value) headers.append(key, value.toString());
-            });
-
-            // Create Fetch API-compatible request
-            const req = new Request(url.toString(), {
-                method: request.method,
-                headers,
-                body:   request.body ? JSON.stringify(request.body) : undefined,
-            });
-
-            // Process authentication request
-            const response = await auth.handler(req);
-
-            // Forward response to client
-            reply.status(response.status);
-            response.headers.forEach((value, key) => reply.header(key, value));
-            reply.send(response.body ? await response.text() : null);
-        } catch (error) {
-            app.log.error('Authentication Error:', error);
-            reply.status(500).send({
-                error: 'Internal authentication error',
-                code:  'AUTH_FAILURE',
-            });
-        }
-    },
-});
-
-await app.register(fastifyTRPCPlugin, {
-    trpcOptions: {
-        router: appRouter,
-    },
-    prefix: '/trpc',
-});
-
-await app.listen({ port });
 
 console.log(`Server is running at ${port}`);

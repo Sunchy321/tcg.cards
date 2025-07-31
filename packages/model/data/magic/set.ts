@@ -1,4 +1,4 @@
-import { z } from '@model-code/zod';
+import { z } from 'zod';
 
 import { fullLocale, rarity } from './basic';
 

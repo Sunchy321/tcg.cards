@@ -22,8 +22,6 @@
   "dependencies": {
     "@intlify/unplugin-vue-i18n": "^2.0.0",
     "@quasar/extras": "^1.0.0",
-    "@trpc/client": "^11.4.3",
-    "@trpc/server": "^11.4.3",
     "@vueuse/core": "^13.1.0",
     "@vueuse/router": "^13.5.0",
     "axios": "^1.8.4",
@@ -36,6 +34,7 @@
     "debounce-promise": "^3.1.2",
     "dexie": "^3.2.1",
     "diff": "^5.1.0",
+    "hono": "^4.8.10",
     "jwt-decode": "^4.0.0",
     "lodash": "^4.17.21",
     "pinia": "^2.0.11",

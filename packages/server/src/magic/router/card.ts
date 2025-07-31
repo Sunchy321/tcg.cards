@@ -1,5 +1,9 @@
-import { t } from '@/trpc';
-import { z } from 'zod';
+import { Hono } from 'hono';
+import { describeRoute } from 'hono-openapi';
+import { resolver, validator as zValidator } from 'hono-openapi/zod';
+
+import z from 'zod';
+// import 'zod-openapi/extend.js';
 
 import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import _ from 'lodash';
@@ -15,28 +19,56 @@ import { CardPrintView } from '../schema/print';
 import { Ruling } from '../schema/ruling';
 import { CardRelation } from '../schema/card-relation';
 
-export const cardRouter = t.router({
-    random: t.procedure
-        .meta({ openapi: { method: 'GET', path: '/magic/random' } })
-        .input(z.void())
-        .output(z.string())
-        .query(async () => {
-            const cards = await db.select({ cardId: Card.cardId }).from(Card);
-
-            return cards[_.random(0, cards.length - 1)].cardId;
+const router = new Hono()
+    .basePath('/card')
+    .get(
+        '/random',
+        describeRoute({
+            description: 'Get a random card ID',
+            responses:   {
+                200: {
+                    description: 'Random card ID',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(z.string()),
+                        },
+                    },
+                },
+            },
+            validateResponse: true,
         }),
+        async c => {
+            const cards = await db.select({ cardId: Card.cardId }).from(Card);
+            const cardId = cards[_.random(0, cards.length - 1)].cardId;
 
-    fuzzy: t.procedure
-        .input(z.object({
+            return c.json(cardId);
+        },
+    )
+    .get(
+        '/fuzzy',
+        describeRoute({
+            description: 'Get a card by fuzzy match',
+            responses:   {
+                200: {
+                    description: 'Card full view',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(cardFullView.optional()),
+                        },
+                    },
+                },
+            },
+            validateResponse: true,
+        }),
+        zValidator('query', z.object({
             cardId:    z.string(),
             lang:      fullLocale,
             set:       z.string().optional(),
             number:    z.string().optional(),
             partIndex: z.number().optional(),
-        }))
-        .output(cardFullView.optional())
-        .query(async ({ input }) => {
-            const { cardId, lang, set, number, partIndex } = input;
+        })),
+        async c => {
+            const { cardId, lang, set, number, partIndex } = c.req.valid('query');
 
             const fullViews = await db.select()
                 .from(CardPrintView)
@@ -85,7 +117,7 @@ export const cardRouter = t.router({
             })();
 
             if (cardPrint == null) {
-                return undefined;
+                return c.json(null);
             }
 
             const versions = await db.select({
@@ -111,24 +143,38 @@ export const cardRouter = t.router({
 
             const relatedCards = [...sourceRelation, ...targetRelation];
 
-            return {
+            return c.json({
                 ...cardPrint,
                 versions,
                 rulings,
                 relatedCards,
-            };
+            });
+        },
+    )
+    .get(
+        '/profile',
+        describeRoute({
+            description: 'Get card profile by card ID',
+            responses:   {
+                200: {
+                    description: 'Card profile',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(cardProfile.optional()),
+                        },
+                    },
+                },
+            },
+            validateResponse: true,
         }),
-
-    profile: t.procedure
-        .input(z.object({ cardId: z.string() }))
-        .output(cardProfile.optional())
-        .query(async ({ input }) => {
-            const { cardId } = input;
+        zValidator('query', z.object({ cardId: z.string() })),
+        async c => {
+            const { cardId } = c.req.valid('query');
 
             const cardLocalizations = await db.select().from(CardLocalization).where(eq(CardLocalization.cardId, cardId));
 
             if (cardLocalizations.length === 0) {
-                return undefined;
+                return c.json(null);
             }
 
             const versions = await db.select({
@@ -140,10 +186,12 @@ export const cardRouter = t.router({
                 releaseDate: Print.releaseDate,
             }).from(Print).where(eq(Print.cardId, cardId));
 
-            return {
+            return c.json({
                 cardId,
                 localization: cardLocalizations,
                 versions,
-            };
-        }),
-});
+            });
+        },
+    );
+
+export default router;

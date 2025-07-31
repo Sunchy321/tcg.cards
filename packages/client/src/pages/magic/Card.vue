@@ -262,10 +262,10 @@ import BanlistIcon from 'components/magic/BanlistIcon.vue';
 import { CardFullView } from '@model/magic/print';
 import { SetProfile } from '@model/magic/set';
 
-import { mapValues, omitBy, uniq } from 'lodash';
+import { omitBy, uniq } from 'lodash';
 
 import { apiBase, assetBase } from 'boot/server';
-import { trpc } from '@/trpc';
+import { getValue, trpc } from 'src/hono';
 import { auth, checkAdmin } from '@/auth';
 
 import { auxSetType } from '@static/magic/special';
@@ -306,7 +306,7 @@ const sets = computed(() => uniq(versions.value.map(v => v.set)));
 
 watch(sets, async values => {
     for (const s of values) {
-        const result = await trpc.magic.set.profile.query({ setId: s });
+        const result = await getValue(trpc.magic.set.profile, { setId: s });
 
         if (result != null) {
             setProfiles.value[s] = result;
@@ -780,7 +780,7 @@ const loadData = async () => {
         return;
     }
 
-    const result = await trpc.magic.card.fuzzy.query(apiQuery.value);
+    const result = await getValue(trpc.magic.card.fuzzy, apiQuery.value);
 
     if (result != null) {
         rotate.value = null;

@@ -1,9 +1,10 @@
-import { t } from '@/trpc';
+import { Hono } from 'hono';
 
-import { cardRouter } from './card';
-import { setRouter } from './set';
+import card from './card';
+import set from './set';
 
-export const gameRouter = t.router({
-    card: cardRouter,
-    set:  setRouter,
-});
+const router = new Hono().basePath('/magic')
+    .route('/', card)
+    .route('/', set);
+
+export default router;

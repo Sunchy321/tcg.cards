@@ -1,4 +1,4 @@
-import { z } from '@model-code/zod';
+import { z } from 'zod';
 
 import { layout, rarity } from './basic';
 import { cardSchema as card, cardView } from './card';

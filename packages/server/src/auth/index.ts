@@ -32,7 +32,7 @@ export const auth = betterAuth({
             adminRoles:   ['admin', 'owner'],
             adminUserIds: ['Sunchy321'],
         }),
-        openAPI(),
+        openAPI({ disableDefaultReference: true }),
         apiKey(),
     ],
 });
