@@ -76,6 +76,7 @@
         "@hono/zod-validator": "^0.7.2",
         "@koa/cors": "^3.1.0",
         "@koa/router": "^13.1.0",
+        "@scalar/hono-api-reference": "^0.9.13",
         "async-stream-reader": "^1.2.0",
         "axios": "^1.8.4",
         "axios-retry": "^4.0.0",

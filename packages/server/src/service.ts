@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
-
 import { generateSpecs } from 'hono-openapi';
-import { merge } from 'openapi-merge';
+import { Scalar } from '@scalar/hono-api-reference';
+
+import { isErrorResult, merge } from 'openapi-merge';
 
 import magic from '@/magic/router';
 
@@ -43,8 +44,19 @@ router.get('/openapi', async c => {
         { oas: authSpecs as any, pathModification: { prepend: AUTH_PREFIX } },
     ]);
 
-    return c.json(specs);
+    if (isErrorResult(specs)) {
+        return c.json(null);
+    }
+
+    return c.json(specs.output);
 });
+
+router.get('/scalar', Scalar({
+    url:     '/openapi',
+    servers: [
+        process.env.SERVICE_URL,
+    ],
+}));
 
 export type Router = typeof router;
 
