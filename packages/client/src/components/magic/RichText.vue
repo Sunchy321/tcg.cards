@@ -159,14 +159,22 @@ const render = () => {
                 let match;
 
                 if ((match = /@card\((.*?)\)\{(.*?)\}/.exec(p))) {
-                    const [cardId, partIndexText = '0'] = match[1].split('/');
+                    const [cardId, partIndexText] = match[1].split('/');
                     const text = match[2];
 
-                    let partIndex = Number.parseInt(partIndexText);
+                    let partIndex = (() => {
+                        if (partIndexText == null) {
+                            return undefined;
+                        }
 
-                    if (Number.isNaN(partIndex)) {
-                        partIndex = 0;
-                    }
+                        const partIndex = Number.parseInt(partIndexText);
+
+                        if (Number.isNaN(partIndex)) {
+                            return 0;
+                        }
+
+                        return partIndex;
+                    })();
 
                     if (!insertedCards.some(c => c[1] === cardId && c[2] === partIndex)) {
                         result.push(h(CardAvatar, {

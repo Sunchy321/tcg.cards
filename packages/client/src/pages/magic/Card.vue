@@ -103,7 +103,7 @@
             </div>
             <grid
                 v-slot="v"
-                :value="Object.entries(legalities)" :item-width="160"
+                :value="legalityEntries" :item-width="160"
                 class="legalities"
             >
                 <div class="flex items-center no-wrap">
@@ -112,7 +112,7 @@
                 </div>
             </grid>
             <div v-if="rulings.length > 0" class="rulings">
-                <div v-for="(r, i) in rulings" :key="i">
+                <div v-for="r in rulings" :key="r.date + r.richText">
                     <rich-text detect-url>
                         {{ r.date }}: {{ r.richText }}
                     </rich-text>
@@ -269,7 +269,7 @@ import { getValue, trpc } from 'src/hono';
 import { auth, checkAdmin } from '@/auth';
 
 import { auxSetType } from '@static/magic/special';
-import { extendedLocales } from '@static/magic/basic';
+import { formats, FullLocale, fullLocale } from '@model/magic/basic';
 
 const router = useRouter();
 const route = useRoute();
@@ -388,9 +388,10 @@ const setInfos = computed(() => sets.value.map(s => {
 
     const localizations = profile?.localization;
 
-    const localization = localizations?.find(loc => loc.lang === game.locale)
-      ?? localizations?.find(loc => loc.lang === game.locales[0])
-      ?? localizations?.[0];
+    const name = localizations?.find(loc => loc.lang === game.locale)?.name
+      ?? localizations?.find(loc => loc.lang === game.locales[0])?.name
+      ?? localizations?.[0]?.name
+      ?? '';
 
     return {
         set:             s,
@@ -398,21 +399,19 @@ const setInfos = computed(() => sets.value.map(s => {
         numbers,
         rarity,
         iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
-        name:            localization?.name ?? '',
+        name,
         symbolStyle:     profile?.symbolStyle,
         doubleFacedIcon: profile?.doubleFacedIcon,
     };
 }));
 
 const langs = computed(() => {
-    const locales = game.extendedLocales;
-
     return uniq(versions.value.map(v => v.lang))
-        .sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
+        .sort((a, b) => fullLocale.options.indexOf(a) - fullLocale.options.indexOf(b));
 });
 
 const lang = computed({
-    get() { return data.value?.lang ?? route.query.lang as string ?? game.locale; },
+    get() { return (data.value?.lang ?? route.query.lang ?? game.locale) as FullLocale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
@@ -491,9 +490,9 @@ const selectedTextInfo = computed(() => {
 
     switch (textMode.value) {
     case 'unified':
-        return data.value.cardLocalization;
+        return data.value.cardPartLocalization;
     case 'oracle':
-        return data.value.card;
+        return data.value.cardPart;
     case 'printed':
         return data.value.print;
     default:
@@ -597,6 +596,10 @@ const artist = computed(() => data.value?.printPart.artist);
 const relatedCards = computed(() => data.value?.relatedCards ?? []);
 const rulings = computed(() => data.value?.rulings ?? []);
 const legalities = computed(() => data.value?.card.legalities ?? {});
+
+const legalityEntries = computed(() => Object.entries(legalities.value).sort(
+    (a, b) => formats.indexOf(a[0]) - formats.indexOf(b[0]),
+));
 
 const tags = computed(() => data.value?.card.tags?.filter(v => !v.startsWith('dev:')) ?? []);
 const printTags = computed(() => data.value?.print.printTags?.filter(v => !v.startsWith('dev:')) ?? []);
@@ -740,14 +743,14 @@ const apiQuery = computed(() => {
 
     const query = {
         cardId: route.params.id as string,
-        lang:   route.query.lang as (typeof extendedLocales)[number] ?? game.locale,
+        lang:   route.query.lang as FullLocale ?? game.locale,
         set:    route.query.set as string,
         number: route.query.number as string,
     };
 
     return omitBy(query, v => v == null) as {
         cardId:  string;
-        lang:    (typeof extendedLocales)[number];
+        lang:    FullLocale;
         set?:    string;
         number?: string;
     };

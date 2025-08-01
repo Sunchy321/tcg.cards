@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { layout, rarity } from './basic';
+import { fullLocale, layout, rarity } from './basic';
 import { cardSchema as card, cardView } from './card';
 
 export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
@@ -129,7 +129,7 @@ export const cardPrintView = z.object({
 export const version = z.strictObject({
     set:    z.string(),
     number: z.string(),
-    lang:   z.string(),
+    lang:   fullLocale,
     rarity: rarity,
 });
 

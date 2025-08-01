@@ -80,6 +80,7 @@ export default configure((/* ctx */) => ({
             '@static':      path.join(__dirname, 'node_modules/card-common/static'),
             '@data':        path.join(__dirname, 'node_modules/card-common/data'),
             '@common':      path.join(__dirname, 'node_modules/card-common/src'),
+            '@model':       path.join(__dirname, 'node_modules/card-model/data'),
             '@interface':   path.join(__dirname, 'node_modules/card-interface/src'),
             '@search':      path.join(__dirname, 'node_modules/card-search/src'),
             '@search-data': path.join(__dirname, 'node_modules/card-search/data'),

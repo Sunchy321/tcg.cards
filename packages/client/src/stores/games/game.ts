@@ -23,12 +23,12 @@ function defaultValue(option: GameOption) {
 }
 
 export function defineGameStore<
-    G extends Game, S,
+    G extends Game, S, L,
 >(game: G, options: GameOptions<S>): GameStoreDefinition<G, S> {
     return defineStore(game, () => {
         const core = useCore();
 
-        const locale = ref('en');
+        const locale = ref<L>('en' as L);
 
         const locales = computed(() => data[game].locales);
 
@@ -54,7 +54,7 @@ export function defineGameStore<
             } else {
                 const appLocale = core.locale;
 
-                if (locales.value.includes(appLocale)) {
+                if (locales.value.includes(appLocale as any)) {
                     locale.value = appLocale;
                 } else {
                     locale.value = locales.value[0] ?? 'en';

@@ -18,6 +18,7 @@ const router = new Hono()
         '/list',
         describeRoute({
             description: 'Get list of sets',
+            tags:        ['Magic', 'Set'],
             responses:   {
                 200: {
                     description: 'List of sets',
@@ -39,6 +40,7 @@ const router = new Hono()
         '/profile',
         describeRoute({
             description: 'Get set profile by set ID',
+            tags:        ['Magic', 'Set'],
             responses:   {
                 200: {
                     description: 'Set profile',

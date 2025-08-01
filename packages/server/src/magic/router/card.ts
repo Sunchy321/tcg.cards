@@ -25,6 +25,7 @@ const router = new Hono()
         '/random',
         describeRoute({
             description: 'Get a random card ID',
+            tags:        ['Magic', 'Card'],
             responses:   {
                 200: {
                     description: 'Random card ID',
@@ -48,6 +49,7 @@ const router = new Hono()
         '/fuzzy',
         describeRoute({
             description: 'Get a card by fuzzy match',
+            tags:        ['Magic', 'Card'],
             responses:   {
                 200: {
                     description: 'Card full view',
@@ -155,6 +157,7 @@ const router = new Hono()
         '/profile',
         describeRoute({
             description: 'Get card profile by card ID',
+            tags:        ['Magic', 'Card'],
             responses:   {
                 200: {
                     description: 'Card profile',
@@ -171,7 +174,10 @@ const router = new Hono()
         async c => {
             const { cardId } = c.req.valid('query');
 
-            const cardLocalizations = await db.select().from(CardLocalization).where(eq(CardLocalization.cardId, cardId));
+            const cardLocalizations = await db.select({
+                lang: CardLocalization.lang,
+                name: CardLocalization.name,
+            }).from(CardLocalization).where(eq(CardLocalization.cardId, cardId));
 
             if (cardLocalizations.length === 0) {
                 return c.json(null);
