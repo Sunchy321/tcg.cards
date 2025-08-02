@@ -108,6 +108,20 @@ export const cardRouter = new Hono()
                     }
                 };
 
+                if (number != null) {
+                    const langNumber = fullViews.find(view => view.lang === lang && view.number === number);
+
+                    if (langNumber != null) {
+                        return langNumber;
+                    }
+
+                    const numberOnly = fullViews.find(view => view.number === number);
+
+                    if (numberOnly != null) {
+                        return numberOnly;
+                    }
+                }
+
                 const langOnly = fullViews.find(view => view.lang === lang);
 
                 if (langOnly != null) {
@@ -126,7 +140,7 @@ export const cardRouter = new Hono()
                 number: Print.number,
                 lang:   Print.lang,
                 rarity: Print.rarity,
-            }).from(Print).where(eq(Print.cardId, cardId));
+            }).from(Print).where(eq(Print.cardId, cardId)).orderBy(desc(Print.releaseDate));
 
             const rulings = await db.select({
                 ..._.omit(getTableColumns(Ruling), 'id'),
@@ -183,12 +197,13 @@ export const cardRouter = new Hono()
             }
 
             const versions = await db.select({
-                lang:        Print.lang,
-                set:         Print.set,
-                number:      Print.number,
-                rarity:      Print.rarity,
-                layout:      Print.layout,
-                releaseDate: Print.releaseDate,
+                lang:          Print.lang,
+                set:           Print.set,
+                number:        Print.number,
+                rarity:        Print.rarity,
+                layout:        Print.layout,
+                fullImageType: Print.fullImageType,
+                releaseDate:   Print.releaseDate,
             }).from(Print).where(eq(Print.cardId, cardId));
 
             return c.json({
