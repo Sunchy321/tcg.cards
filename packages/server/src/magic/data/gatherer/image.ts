@@ -1,16 +1,21 @@
 import Task from '@/common/task';
 
-import Print from '@/magic/db/print';
+import { db } from '@/drizzle';
+import { Print } from '@/magic/schema/print';
 
 import FileSaver from '@/common/save-file';
 
-import { partition } from 'lodash';
+import { eq } from 'drizzle-orm';
+import _ from 'lodash';
+import axios from 'axios';
+import cheerio from 'cheerio';
+
 import { cardImagePath } from '@/magic/image';
 
 interface IImageTask {
-    name: string;
-    uri:  string;
-    path: string;
+    name:         string;
+    multiverseId: number;
+    path:         string;
 }
 
 interface IImageStatus {
@@ -51,10 +56,6 @@ export async function saveGathererImage(mids: number[], set: string, number: str
     }
 }
 
-function gathererImageUrl(multiverseId: number): string {
-    return `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${multiverseId}&type=card`;
-}
-
 export class GathererImageTask extends Task<IImageStatus> {
     set:       string;
     count = 0;
@@ -71,7 +72,14 @@ export class GathererImageTask extends Task<IImageStatus> {
     }
 
     async startImpl(): Promise<void> {
-        const prints = await Print.find({ 'set': this.set, 'multiverseId.0': { $exists: true } }).sort({ lang: 1, number: 1 });
+        const prints = await db.select({
+            set:          Print.set,
+            number:       Print.number,
+            lang:         Print.lang,
+            multiverseId: Print.multiverseId,
+        })
+            .from(Print)
+            .where(eq(Print.set, this.set));
 
         this.count = 0;
         this.total = prints.length;
@@ -111,26 +119,29 @@ export class GathererImageTask extends Task<IImageStatus> {
 
             if (p.multiverseId.length === 1) {
                 this.todoTasks.push({
-                    name: `${p.number}:${p.lang}`,
-                    uri:  gathererImageUrl(p.multiverseId[0]),
-                    path: cardImagePath('large', p.set, p.lang, p.number),
+                    name:         `${p.number}:${p.lang}`,
+                    multiverseId: p.multiverseId[0],
+                    path:         cardImagePath('large', p.set, p.lang, p.number),
                 });
-            } else {
+            } else if (p.multiverseId.length === 2) {
                 this.todoTasks.push({
-                    name: `${p.number}:${p.lang}-0`,
-                    uri:  gathererImageUrl(p.multiverseId[0]),
-                    path: cardImagePath('large', p.set, p.lang, p.number, 0),
+                    name:         `${p.number}:${p.lang}-0`,
+                    multiverseId: p.multiverseId[0],
+                    path:         cardImagePath('large', p.set, p.lang, p.number, 0),
                 });
 
                 this.todoTasks.push({
-                    name: `${p.number}:${p.lang}-1`,
-                    uri:  gathererImageUrl(p.multiverseId[1]),
-                    path: cardImagePath('large', p.set, p.lang, p.number, 1),
+                    name:         `${p.number}:${p.lang}-1`,
+                    multiverseId: p.multiverseId[1],
+                    path:         cardImagePath('large', p.set, p.lang, p.number, 1),
                 });
+            } else {
+                console.warn(`Invalid multiverseId length for ${p.set} ${p.number} (${p.lang}): ${p.multiverseId.length}`);
+                continue;
             }
         }
 
-        const [exists, nonexist] = partition(this.todoTasks, task => FileSaver.fileExists(task.path));
+        const [exists, nonexist] = _.partition(this.todoTasks, task => FileSaver.fileExists(task.path));
 
         for (const task of nonexist) {
             this.statusMap[task.name] = 'waiting';
@@ -168,7 +179,7 @@ export class GathererImageTask extends Task<IImageStatus> {
         return promise;
     }
 
-    private pushTask() {
+    private async pushTask() {
         while (this.working() < 20 && this.rest() > 0) {
             const randomIndex = Math.floor(Math.random() * this.todoTasks.length);
 
@@ -177,7 +188,15 @@ export class GathererImageTask extends Task<IImageStatus> {
             this.todoTasks.splice(randomIndex, 1);
 
             if (task != null) {
-                const savers = new FileSaver(task.uri, task.path, {
+                const url = `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${task.multiverseId}&printed=true`;
+
+                const html = await axios.get(url);
+
+                const $ = cheerio.load(html.data);
+
+                const imageUrl = $('[data-testid=cardFrontImage]').attr('src')!;
+
+                const savers = new FileSaver(imageUrl, task.path, {
                     axiosOption: {
                         timeout: 5000,
                     },

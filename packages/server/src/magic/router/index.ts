@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
 
-import card from './card';
-import set from './set';
+import { cardRouter } from './card';
+import { setRouter } from './set';
+import { dataSSE } from './data';
 
-const router = new Hono().basePath('/magic')
-    .route('/', card)
-    .route('/', set);
+export const magicRouter = new Hono()
+    .route('/card', cardRouter)
+    .route('/set', setRouter);
 
-export default router;
+export const magicSSE = new Hono()
+    .route('/data', dataSSE);

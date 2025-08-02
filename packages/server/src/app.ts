@@ -1,10 +1,11 @@
 import 'dotenv/config.js';
 
 import { Hono } from 'hono';
-import { serve } from '@hono/node-server';
+import { showRoutes } from 'hono/dev';
 import { poweredBy } from 'hono/powered-by';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
+import { serve } from '@hono/node-server';
 
 import { auth } from './auth';
 
@@ -52,6 +53,8 @@ app.use('*', async (c, next) => {
 });
 
 app.route('/', service);
+
+showRoutes(app, { verbose: true });
 
 serve({
     fetch: app.fetch,

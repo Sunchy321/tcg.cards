@@ -12,8 +12,7 @@ import { SetProfile, setProfile } from '@model/magic/set';
 import { db } from '@/drizzle';
 import { Set, SetLocalization } from '../schema/set';
 
-const router = new Hono()
-    .basePath('/set')
+export const setRouter = new Hono()
     .get(
         '/list',
         describeRoute({
@@ -80,5 +79,3 @@ async function getProfile(setId: string): Promise<SetProfile | null> {
         releaseDate:     set.releaseDate,
     };
 }
-
-export default router;

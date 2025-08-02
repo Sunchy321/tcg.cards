@@ -4,12 +4,36 @@ import { Scalar } from '@scalar/hono-api-reference';
 
 import { isErrorResult, merge } from 'openapi-merge';
 
-import magic from '@/magic/router';
+import { magicRouter, magicSSE } from '@/magic/router';
 
 import { auth } from './auth';
+import { streamSSE } from 'hono/streaming';
 
 const SERVICE_URL = 'service.tcg.cards';
 const AUTH_PREFIX = '/api/auth';
+
+const trpc = new Hono()
+    .route('/magic', magicRouter);
+
+const sse = new Hono()
+    .route('/magic', magicSSE)
+    .get('/test', async c => {
+        return streamSSE(c, async stream => {
+            for (let i = 0; i < 10; i++) {
+                await stream.writeSSE({
+                    data:  JSON.stringify({ time: new Date().toISOString(), text: `Hello ${i}` }),
+                    event: 'progress',
+                });
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            await stream.writeSSE({
+                data:  '',
+                event: 'close',
+            });
+        });
+    });
 
 const router = new Hono()
     .use('/*', async (c, next) => {
@@ -20,7 +44,8 @@ const router = new Hono()
     .on(['GET', 'POST'], `${AUTH_PREFIX}/*`, c => {
         return auth.handler(c.req.raw);
     })
-    .route('/trpc', magic);
+    .route('/trpc', trpc)
+    .route('/sse', sse);
 
 router.get('/openapi', async c => {
     const apiSpecs = await generateSpecs(router, {

@@ -41,6 +41,10 @@ import controlSetup from 'setup/control';
 
 import bytes from 'bytes';
 
+import { useParam } from 'store/core';
+
+import { actionWithProgress } from 'src/progress';
+
 interface Progress {
     method: string;
     type:   string;
@@ -61,7 +65,11 @@ interface Progress {
 
 const { controlWs } = controlSetup();
 
-const set = ref<string>('');
+const set = useParam('set', {
+    bind:    'query',
+    type:    'string',
+    default: '',
+});
 
 const progress = ref<Progress | null>(null);
 
@@ -183,16 +191,21 @@ const getGatherer = async () => {
 };
 
 const loadGathererImage = async () => {
-    const ws = controlWs('/magic/data/gatherer/load-image', { set: set.value });
+    actionWithProgress<Progress>(
+        `${import.meta.env.VITE_SSE_URL}/magic/data/gatherer/load-image?setId=${set.value}`,
+        prog => {
+            console.log(prog);
 
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as Progress;
-        };
+            progress.value = prog;
+        },
+    );
 
-        ws.onerror = reject;
-        ws.onclose = () => { resolve(undefined); };
-    });
+    // actionWithProgress<string>(
+    //     `${import.meta.env.VITE_SSE_URL}/test`,
+    //     prog => {
+    //         console.log(prog);
+    //     },
+    // );
 };
 
 </script>

@@ -19,8 +19,7 @@ import { CardPrintView } from '../schema/print';
 import { Ruling } from '../schema/ruling';
 import { CardRelation } from '../schema/card-relation';
 
-const router = new Hono()
-    .basePath('/card')
+export const cardRouter = new Hono()
     .get(
         '/random',
         describeRoute({
@@ -199,5 +198,3 @@ const router = new Hono()
             });
         },
     );
-
-export default router;

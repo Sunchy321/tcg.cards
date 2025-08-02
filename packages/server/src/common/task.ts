@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { SSEStreamingApi } from 'hono/streaming';
 
 import WebSocket from 'ws';
 
@@ -28,19 +29,49 @@ abstract class Task<T> extends EventEmitter {
         });
     }
 
-    bind(ws: WebSocket): void {
-        this
-            .on('progress', p => { ws.send(JSON.stringify(p)); })
-            .on('error', e => {
-                ws.send(JSON.stringify({ error: true, ...e }));
-                console.log(e);
-                ws.close();
-            })
-            .on('end', () => { ws.close(); });
+    bind(stream: WebSocket | SSEStreamingApi): void {
+        if (stream instanceof WebSocket) {
+            this
+                .on('progress', p => { stream.send(JSON.stringify(p)); })
+                .on('error', e => {
+                    stream.send(JSON.stringify({ error: true, ...e }));
+                    console.log(e);
+                    stream.close();
+                })
+                .on('end', () => { stream.close(); });
 
-        ws.on('close', () => { this.stop(); });
+            stream.on('close', () => { this.stop(); });
 
-        this.start();
+            this.start();
+        } else {
+            this
+                .on('progress', p => {
+                    stream.writeSSE({
+                        data:  JSON.stringify(p),
+                        event: 'progress',
+                    });
+                })
+                .on('error', async e => {
+                    await stream.writeSSE({
+                        data:  JSON.stringify({ error: e }),
+                        event: 'close',
+                    });
+
+                    stream.close();
+                })
+                .on('end', async () => {
+                    await stream.writeSSE({
+                        data:  '',
+                        event: 'close',
+                    });
+
+                    stream.close();
+                });
+
+            stream.onAbort(() => { this.stop(); });
+
+            this.start();
+        }
     }
 
     async start(): Promise<void> {

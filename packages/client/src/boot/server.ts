@@ -7,7 +7,7 @@ function base(subdomain: string) {
 export const apiBase = base('api');
 export const assetBase = base('asset');
 export const userBase = base('user');
-export const controlBase = base('control');
+export const controlBase = base('service');
 
 export const api = axios.create({ baseURL: apiBase });
 export const user = axios.create({ baseURL: userBase });
