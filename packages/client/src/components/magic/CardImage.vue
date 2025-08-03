@@ -70,8 +70,8 @@
 import { ref, computed, watch } from 'vue';
 
 import { assetBase } from 'boot/server';
-import { Layout } from '@model/magic/basic';
-import { FullImageType } from '@model/magic/basic';
+import { Layout } from '@model/magic/schema/basic';
+import { FullImageType } from '@model/magic/schema/basic';
 
 const props = withDefaults(
     defineProps<{

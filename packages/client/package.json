@@ -29,7 +29,7 @@
     "bytes": "^3.1.2",
     "card-common": "workspace:^1.0.0",
     "card-interface": "workspace:^1.0.1",
-    "card-model": "workspace:^",
+    "card-model": "workspace:^0.0.1",
     "card-search": "workspace:^0.0.1",
     "debounce-promise": "^3.1.2",
     "dexie": "^3.2.1",
@@ -43,7 +43,8 @@
     "vite": "^5.1.1",
     "vue": "^3.5.11",
     "vue-i18n": "^11.1.5",
-    "vue-router": "^4.0.0"
+    "vue-router": "^4.0.0",
+    "zod": "^4.0.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.0",

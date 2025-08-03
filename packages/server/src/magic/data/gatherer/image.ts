@@ -12,7 +12,7 @@ import cheerio from 'cheerio';
 import { unlinkSync } from 'fs';
 
 import { cardImagePath } from '@/magic/image';
-import { FullLocale } from '@model/magic/basic';
+import { FullLocale } from '@model/magic/schema/basic';
 
 interface IImageTask {
     name:         string;
@@ -216,6 +216,7 @@ export class GathererImageTask extends Task<IImageStatus> {
                         delete this.taskMap[task.name];
                         this.statusMap[task.name] = 'failed';
                         this.failed += 1;
+                        this.count += 1;
                         this.pushTask();
 
                         if (this.rest() === 0 && this.working() === 0) {
@@ -252,7 +253,6 @@ export class GathererImageTask extends Task<IImageStatus> {
 
                             delete this.taskMap[task.name];
                             this.statusMap[task.name] = 'success';
-                            this.count += 1;
                         } catch (err) {
                             console.error(`Failed to update print for ${task.name}:`, err);
 
@@ -261,6 +261,7 @@ export class GathererImageTask extends Task<IImageStatus> {
                             this.failed += 1;
                         }
 
+                        this.count += 1;
                         this.pushTask();
 
                         if (this.rest() === 0 && this.working() === 0) {
@@ -290,12 +291,13 @@ export class GathererImageTask extends Task<IImageStatus> {
                     this.taskMap[task.name] = [task, savers];
                     this.statusMap[task.name] = 'working';
                     savers.start();
-                } catch (err) {
-                    console.error(`Failed to fetch image for ${task.name}:`, err);
+                } catch (_err) {
+                    console.error(`Failed to fetch image for ${task.name}`);
 
                     delete this.taskMap[task.name];
                     this.statusMap[task.name] = 'failed';
                     this.failed += 1;
+                    this.count += 1;
 
                     this.pushTask();
 

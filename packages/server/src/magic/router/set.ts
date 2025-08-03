@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { eq, getTableColumns } from 'drizzle-orm';
 import _ from 'lodash';
 
-import { SetProfile, setProfile } from '@model/magic/set';
+import { SetProfile, setProfile } from '@model/magic/schema/set';
 
 import { db } from '@/drizzle';
 import { Set, SetLocalization } from '../schema/set';

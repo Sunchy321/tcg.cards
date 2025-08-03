@@ -34,7 +34,7 @@ import { useI18n } from 'vue-i18n';
 import { useTitle } from 'store/core';
 import { useGame } from 'store/games/magic';
 
-import { SetProfile, SetLocalization } from '@model/magic/set';
+import { SetProfile, SetLocalization } from '@model/magic/schema/set';
 
 import { partition } from 'lodash';
 

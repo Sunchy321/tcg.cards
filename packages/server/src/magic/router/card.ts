@@ -8,9 +8,9 @@ import z from 'zod';
 import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import _ from 'lodash';
 
-import { fullLocale } from '@model/magic/basic';
-import { cardProfile, cardView } from '@model/magic/card';
-import { cardFullView } from '@model/magic/print';
+import { fullLocale } from '@model/magic/schema/basic';
+import { cardProfile, cardView } from '@model/magic/schema/card';
+import { cardFullView } from '@model/magic/schema/print';
 
 import { db } from '@/drizzle';
 import { Print } from '../schema/print';
@@ -66,7 +66,7 @@ export const cardRouter = new Hono()
             lang:      fullLocale,
             set:       z.string().optional(),
             number:    z.string().optional(),
-            partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).optional(),
+            partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).pipe(z.number()).optional(),
         })),
         async c => {
             const { cardId, lang, set, number, partIndex } = c.req.valid('query');
@@ -235,7 +235,7 @@ export const cardApi = new Hono()
         zValidator('query', z.object({
             id:        z.string(),
             lang:      fullLocale.default('en'),
-            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0),
+            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.number()),
         })),
         async c => {
             const { id: cardId, lang, partIndex } = c.req.valid('query');

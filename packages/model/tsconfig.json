@@ -12,6 +12,7 @@
         "baseUrl": ".",
         "paths": {
             "@model-code/*": ["./src/*"],
+            "@search/*": ["./src/search/*"],
         },
     },
     "include": ["data/**/*", "src/**/*"]

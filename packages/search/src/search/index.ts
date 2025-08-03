@@ -1,5 +1,3 @@
-export type SearchOption = Record<string, any>;
-
 export type SearchResult = {
     text:    string;
     // queries: RawQuery[];

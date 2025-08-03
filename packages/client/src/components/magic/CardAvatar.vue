@@ -14,7 +14,7 @@ import { useGame } from 'store/games/magic';
 import { QTooltip } from 'quasar';
 import CardImage from './CardImage.vue';
 
-import { CardProfile } from '@model/magic/card';
+import { CardProfile } from '@model/magic/schema/card';
 
 import { pick } from 'lodash';
 

@@ -21,7 +21,7 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, print: { set, number, lang, layout, partIndex, imageStatus }}"
+                v-slot="{ cardId, set, number, lang, partIndex, print: { layout, imageStatus, fullImageType } }"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
@@ -35,6 +35,7 @@
                         :number="number"
                         :lang="imageLang(lang, imageStatus, set)"
                         :layout="layout"
+                        :full-image-type="fullImageType"
                         :part="partIndex"
                     />
                 </router-link>
@@ -56,47 +57,11 @@ import Grid from 'components/Grid.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import RichText from 'src/components/magic/RichText.vue';
 
-import { Card } from '@interface/magic/card';
-import { Print } from '@interface/magic/print';
+import { SearchResult } from '@model/magic/schema/search';
 
 import model from '@search-data/magic/client';
 
-import { apiGet } from 'boot/server';
-
-interface QueryParam {
-    type:  'regex' | 'string';
-    value: string;
-}
-
-interface QueryItem {
-    type:  string;
-    op:    string;
-    param: QueryParam;
-}
-
-type Unwind<T extends { parts: any[] }> = Omit<T, 'parts'> & {
-    parts:     T['parts'][0];
-    partIndex: number;
-};
-
-interface QueryCard {
-    cardId: string;
-    card:   Unwind<Card>;
-    print:  Unwind<Print>;
-}
-
-interface QueryResult {
-    total: number;
-    cards: QueryCard[];
-}
-
-interface SearchResult {
-    text:     string;
-    commands: QueryItem[];
-    queries:  any[];
-    errors:   { type: string, value: string, query?: string }[];
-    result:   QueryResult | null;
-}
+import { getValue, trpc } from 'src/hono';
 
 const core = useCore();
 const game = useGame();
@@ -104,7 +69,7 @@ const i18n = useI18n();
 
 const { search } = magicSetup();
 
-const data = ref<SearchResult | null>(null);
+const data = ref<SearchResult>();
 const searching = ref(false);
 
 useTitle (() => i18n.t('ui.search'));
@@ -157,7 +122,7 @@ const explained = computed(() => model.explain(q.value, (key: string, named) => 
     }
 }));
 
-const cards = computed(() => data.value?.result?.cards ?? []);
+const cards = computed(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
@@ -179,17 +144,15 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const { data: result } = await apiGet<SearchResult>('/magic/search', {
+    const value = await getValue(trpc.magic.search, {
         q:        q.value,
         locale:   game.locale,
-        page:     page.value,
-        pageSize: pageSize.value,
+        page:     page.value.toString(),
+        pageSize: pageSize.value.toString(),
     });
 
-    if (result.text === q.value) {
-        data.value = result;
-
-        console.log(result);
+    if (value?.text === q.value) {
+        data.value = value as any;
 
         searching.value = false;
     }

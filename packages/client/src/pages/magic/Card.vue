@@ -260,8 +260,9 @@ import RichText from 'src/components/magic/RichText.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
-import { CardFullView } from '@model/magic/print';
-import { SetProfile } from '@model/magic/set';
+import { FullLocale, formats, fullLocale } from '@model/magic/schema/basic';
+import { CardFullView } from '@model/magic/schema/print';
+import { SetProfile } from '@model/magic/schema/set';
 
 import { omitBy, uniq } from 'lodash';
 
@@ -270,7 +271,6 @@ import { getValue, trpc } from 'src/hono';
 import { auth, checkAdmin } from '@/auth';
 
 import { auxSetType } from '@static/magic/special';
-import { formats, FullLocale, fullLocale } from '@model/magic/basic';
 
 const router = useRouter();
 const route = useRoute();

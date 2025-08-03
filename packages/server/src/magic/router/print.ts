@@ -10,8 +10,8 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/drizzle';
 import { PrintView } from '../schema/print';
 
-import { fullLocale } from '@model/magic/basic';
-import { printView } from '@model/magic/print';
+import { fullLocale } from '@model/magic/schema/basic';
+import { printView } from '@model/magic/schema/print';
 
 export const printApi = new Hono()
     .get(
@@ -36,7 +36,7 @@ export const printApi = new Hono()
             set:       z.string(),
             number:    z.string(),
             lang:      fullLocale,
-            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0),
+            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.number()),
         })),
         async c => {
             const { id: cardId, set, number, lang, partIndex } = c.req.valid('query');

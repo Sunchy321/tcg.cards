@@ -5,8 +5,8 @@ import _ from 'lodash';
 
 import { schema } from './schema';
 
-import * as basicModel from '@model/magic/basic';
-import * as printModel from '@model/magic/print';
+import * as basicModel from '@model/magic/schema/basic';
+import * as printModel from '@model/magic/schema/print';
 
 import { Card, CardLocalization, CardPart, CardPartLocalization, fullLocale } from './card';
 
