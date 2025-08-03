@@ -232,13 +232,21 @@ export const cardApi = new Hono()
             },
             validateResponse: true,
         }),
-        zValidator('query', z.object({ id: z.string() })),
+        zValidator('query', z.object({
+            id:        z.string(),
+            lang:      fullLocale.default('en'),
+            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0),
+        })),
         async c => {
-            const { id: cardId } = c.req.valid('query');
+            const { id: cardId, lang, partIndex } = c.req.valid('query');
 
             const views = await db.select()
                 .from(CardView)
-                .where(eq(CardView.cardId, cardId));
+                .where(and(
+                    eq(CardView.cardId, cardId),
+                    eq(CardView.lang, lang),
+                    eq(CardView.partIndex, partIndex),
+                ));
 
             if (views.length === 0) {
                 return c.json(null);

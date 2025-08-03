@@ -32,13 +32,14 @@ export const printApi = new Hono()
             validateResponse: true,
         }),
         zValidator('query', z.object({
-            id:     z.string(),
-            set:    z.string(),
-            number: z.string(),
-            lang:   fullLocale,
+            id:        z.string(),
+            set:       z.string(),
+            number:    z.string(),
+            lang:      fullLocale,
+            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0),
         })),
         async c => {
-            const { id: cardId, set, number, lang } = c.req.valid('query');
+            const { id: cardId, set, number, lang, partIndex } = c.req.valid('query');
 
             const views = await db.select()
                 .from(PrintView)
@@ -47,6 +48,7 @@ export const printApi = new Hono()
                     eq(PrintView.set, set),
                     eq(PrintView.number, number),
                     eq(PrintView.lang, lang),
+                    eq(PrintView.partIndex, partIndex),
                 ));
 
             if (views.length === 0) {

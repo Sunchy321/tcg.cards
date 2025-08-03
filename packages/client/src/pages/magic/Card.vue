@@ -762,7 +762,11 @@ const apiQuery = computed(() => {
 const jsonCardLink = computed(() => {
     const url = new URL('magic/card', apiBase);
 
-    url.search = new URLSearchParams({ id: id.value }).toString();
+    url.search = new URLSearchParams({
+        id:        id.value,
+        lang:      lang.value,
+        partIndex: partIndex.value.toString(),
+    }).toString();
 
     return url.toString();
 });
@@ -771,10 +775,11 @@ const jsonPrintLink = computed(() => {
     const url = new URL('magic/print', apiBase);
 
     url.search = new URLSearchParams({
-        id:     id.value,
-        set:    set.value,
-        number: number.value,
-        lang:   lang.value,
+        id:        id.value,
+        set:       set.value,
+        number:    number.value,
+        lang:      lang.value,
+        partIndex: partIndex.value.toString(),
     }).toString();
 
     return url.toString();
