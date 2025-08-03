@@ -9,12 +9,12 @@ import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import _ from 'lodash';
 
 import { fullLocale } from '@model/magic/basic';
-import { cardProfile } from '@model/magic/card';
+import { cardProfile, cardView } from '@model/magic/card';
 import { cardFullView } from '@model/magic/print';
 
 import { db } from '@/drizzle';
 import { Print } from '../schema/print';
-import { Card, CardLocalization } from '../schema/card';
+import { Card, CardLocalization, CardView } from '../schema/card';
 import { CardPrintView } from '../schema/print';
 import { Ruling } from '../schema/ruling';
 import { CardRelation } from '../schema/card-relation';
@@ -211,5 +211,39 @@ export const cardRouter = new Hono()
                 localization: cardLocalizations,
                 versions,
             });
+        },
+    );
+
+export const cardApi = new Hono()
+    .get(
+        '/',
+        describeRoute({
+            description: 'Get card by ID',
+            tags:        ['Magic', 'Card'],
+            responses:   {
+                200: {
+                    description: 'Card full view',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(cardView.optional()),
+                        },
+                    },
+                },
+            },
+            validateResponse: true,
+        }),
+        zValidator('query', z.object({ id: z.string() })),
+        async c => {
+            const { id: cardId } = c.req.valid('query');
+
+            const views = await db.select()
+                .from(CardView)
+                .where(eq(CardView.cardId, cardId));
+
+            if (views.length === 0) {
+                return c.json(null);
+            }
+
+            return c.json(views[0]);
         },
     );

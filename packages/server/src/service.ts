@@ -36,11 +36,6 @@ const sse = new Hono()
     });
 
 const router = new Hono()
-    .use('/*', async (c, next) => {
-        if (c.req.raw.headers.get('Host') === SERVICE_URL) {
-            return next();
-        }
-    })
     .on(['GET', 'POST'], `${AUTH_PREFIX}/*`, c => {
         return auth.handler(c.req.raw);
     })

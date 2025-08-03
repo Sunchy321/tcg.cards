@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
-import { cardRouter } from './card';
+import { cardApi, cardRouter } from './card';
+import { printApi } from './print';
 import { setRouter } from './set';
 import { dataSSE } from './data';
 
@@ -10,3 +11,7 @@ export const magicRouter = new Hono()
 
 export const magicSSE = new Hono()
     .route('/data', dataSSE);
+
+export const magicApi = new Hono()
+    .route('/card', cardApi)
+    .route('/print', printApi);

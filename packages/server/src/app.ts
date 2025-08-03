@@ -9,7 +9,10 @@ import { serve } from '@hono/node-server';
 
 import { auth } from './auth';
 
+import { getPath } from 'hono/utils/url';
+
 import service from './service';
+import api from './api';
 
 const port = 3000;
 
@@ -18,7 +21,14 @@ const app = new Hono<{
         user:    typeof auth.$Infer.Session.user | null;
         session: typeof auth.$Infer.Session.session | null;
     };
-}>();
+}>({
+    getPath: req => {
+        const path = getPath(req);
+        const host = req.headers.get('Host');
+        // validate the value of the host header, if necessary.
+        return `/${host}${path === '/' ? '' : path}`;
+    },
+});
 
 app.use(poweredBy());
 app.use(logger());
@@ -52,7 +62,8 @@ app.use('*', async (c, next) => {
     return next();
 });
 
-app.route('/', service);
+app.route('/service.tcg.cards', service);
+app.route('/api.tcg.cards', api);
 
 showRoutes(app, { verbose: true });
 
