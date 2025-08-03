@@ -66,7 +66,7 @@ export const cardRouter = new Hono()
             lang:      fullLocale,
             set:       z.string().optional(),
             number:    z.string().optional(),
-            partIndex: z.number().optional(),
+            partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).optional(),
         })),
         async c => {
             const { cardId, lang, set, number, partIndex } = c.req.valid('query');

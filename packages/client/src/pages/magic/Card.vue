@@ -495,7 +495,7 @@ const selectedTextInfo = computed(() => {
     case 'oracle':
         return data.value.cardPart;
     case 'printed':
-        return data.value.print;
+        return data.value.printPart;
     default:
         throw new Error('unreachable');
     }
@@ -745,10 +745,11 @@ const apiQuery = computed(() => {
     }
 
     const query = {
-        cardId: route.params.id as string,
-        lang:   route.query.lang as FullLocale ?? game.locale,
-        set:    route.query.set as string,
-        number: route.query.number as string,
+        cardId:    route.params.id as string,
+        lang:      route.query.lang as FullLocale ?? game.locale,
+        set:       route.query.set as string,
+        number:    route.query.number as string,
+        partIndex: route.query.part as string ?? '0',
     };
 
     return omitBy(query, v => v == null) as {
@@ -825,6 +826,7 @@ watch(
         () => route.query.lang,
         () => route.query.set,
         () => route.query.number,
+        () => route.query.part,
     ],
     loadData,
 
