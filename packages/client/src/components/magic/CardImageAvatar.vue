@@ -176,7 +176,7 @@ const render = () => h(RouterLink, {
         part:   props.part,
     })];
 });
-</script>
+</script>``
 
 <style lang="sass">
 .card-image-avatar

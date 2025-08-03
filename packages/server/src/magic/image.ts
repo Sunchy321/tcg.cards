@@ -16,8 +16,9 @@ export function cardImagePath(
     lang: string,
     number: string,
     part?: number,
+    ext?: string,
 ): string {
-    const ext = type === 'png' ? 'png' : 'jpg';
+    ext ??= type === 'png' ? 'png' : 'jpg';
 
     const baseUrl = cardImageBase(type, set, lang);
 

@@ -1,8 +1,5 @@
 <template>
-    <div
-        v-scroll-fire="() => visible = true"
-        class="card-image"
-    >
+    <div class="card-image">
         <div
             class="image"
             :class="[
@@ -12,32 +9,23 @@
             ]"
         >
             <q-img
-                v-if="visible"
                 class="front"
                 :src="imageUrls[0]"
+                :error-src="'/magic/card-not-found.svg'"
                 :ratio="745/1040"
+                loading="lazy"
                 native-context-menu
-            >
-                <template #error>
-                    <div class="not-found">
-                        <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
-                    </div>
-                </template>
-            </q-img>
+            />
 
             <q-img
                 v-if="imageUrls[1] != null"
                 class="back"
                 :src="imageUrls[1]"
+                :error-src="'/magic/card-not-found.svg'"
                 :ratio="745/1040"
+                loading="lazy"
                 native-context-menu
-            >
-                <template #error>
-                    <div class="not-found">
-                        <q-img src="/magic/card-not-found.svg" :ratio="745/1040" />
-                    </div>
-                </template>
-            </q-img>
+            />
         </div>
 
         <q-btn
@@ -82,23 +70,22 @@
 import { ref, computed, watch } from 'vue';
 
 import { assetBase } from 'boot/server';
+import { Layout } from '@model/magic/basic';
+import { FullImageType } from '@model/magic/basic';
 
 const props = withDefaults(
     defineProps<{
-        lang?:         string;
-        set?:          string;
-        number?:       string;
+        lang:          string;
+        set:           string;
+        number:        string;
         part?:         number;
-        layout?:       string;
+        layout:        Layout;
+        fullImageType: FullImageType;
         rotate?:       boolean | null;
         refreshToken?: string;
     }>(),
     {
-        lang:         undefined,
-        set:          undefined,
-        number:       undefined,
         part:         undefined,
-        layout:       undefined,
         rotate:       undefined,
         refreshToken: undefined,
     },
@@ -109,7 +96,6 @@ const emit = defineEmits<{
     'update:rotate': [newRotate: boolean | null];
 }>();
 
-const visible = ref<boolean | null>(null);
 const innerPart = ref(0);
 const innerRotate = ref<boolean | null>(null);
 
@@ -160,16 +146,16 @@ const turnable = computed(() => [
 const imageUrlValues = computed(() => {
     if (turnable.value) {
         return [
-            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.jpg`,
-            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.jpg`,
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-0.${props.fullImageType}`,
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}-1.${props.fullImageType}`,
         ];
     } else if (['flip_token_top', 'flip_token_bottom'].includes(props.layout)) {
         return [
-            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.jpg`,
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number.split('-')[0]}.${props.fullImageType}`,
         ];
     } else {
         return [
-            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}.jpg`,
+            `${assetBase}/magic/card/large/${props.set}/${props.lang}/${props.number}.${props.fullImageType}`,
         ];
     }
 });

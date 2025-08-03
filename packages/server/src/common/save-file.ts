@@ -1,6 +1,7 @@
 import {
     createWriteStream, existsSync, mkdirSync, statSync, unlinkSync,
 } from 'fs';
+import { dirname, join } from 'path';
 import axios, { AxiosRequestConfig, AxiosProgressEvent } from 'axios';
 
 import axiosRetry from 'axios-retry';
@@ -40,7 +41,7 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
     }
 
     async startImpl(): Promise<string | void> {
-        const dir = this.path.split('/').slice(0, -1).join('/');
+        const dir = dirname(this.path);
 
         if (!existsSync(dir)) {
             mkdirSync(dir, { recursive: true });
@@ -79,7 +80,13 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
         }
     }
 
-    static fileExists(path: string): boolean {
+    static fileExists(path: string, checkAutosave = false): boolean {
+        const dir = dirname(path);
+
+        if (checkAutosave && existsSync(join(dir, '.no-auto-save'))) {
+            return true;
+        }
+
         return existsSync(path) && statSync(path).size > 0;
     }
 }

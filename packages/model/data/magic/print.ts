@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { fullLocale, layout, rarity } from './basic';
+import { fullImageType, fullLocale, layout, rarity } from './basic';
 import { cardSchema as card, cardView } from './card';
 
 export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
@@ -60,7 +60,8 @@ export const print = z.strictObject({
     isReprint:       z.boolean(),
     finishes:        finish.array(),
     hasHighResImage: z.boolean(),
-    imageStatus:     imageStatus,
+    imageStatus,
+    fullImageType,
 
     inBooster: z.boolean(),
     games:     game.array(),

@@ -9,6 +9,7 @@
                 :set="set"
                 :number="number"
                 :layout="layout"
+                :full-image-type="fullImageType"
             />
 
             <div class="artist">
@@ -526,7 +527,7 @@ core.actions = [
     },
 ];
 
-const layout = computed(() => data.value?.print.layout);
+const layout = computed(() => data.value?.print.layout ?? 'normal');
 const cost = computed(() => part.value?.cost);
 
 const stats = computed(() => {
@@ -660,6 +661,8 @@ const costStyle = computed(() => {
 });
 
 const textSymbolStyle = computed(() => symbolStyle.value);
+
+const fullImageType = computed(() => data.value?.print.fullImageType ?? 'jpg');
 
 const editorLink = computed(() => ({
     name:  'magic/data',

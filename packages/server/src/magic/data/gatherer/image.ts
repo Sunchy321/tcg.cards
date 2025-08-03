@@ -5,17 +5,24 @@ import { Print } from '@/magic/schema/print';
 
 import FileSaver from '@/common/save-file';
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import _ from 'lodash';
 import axios from 'axios';
 import cheerio from 'cheerio';
+import { unlinkSync } from 'fs';
 
 import { cardImagePath } from '@/magic/image';
+import { FullLocale } from '@model/magic/basic';
 
 interface IImageTask {
     name:         string;
+    cardId:       string;
+    set:          string;
+    number:       string;
+    lang:         FullLocale;
     multiverseId: number;
-    path:         string;
+    partIndex:    number | undefined;
+    exists:       boolean;
 }
 
 interface IImageStatus {
@@ -27,6 +34,8 @@ interface IImageStatus {
     status: Record<string, string>;
     failed: number;
 }
+
+const PARALLEL_TASKS = 50;
 
 export async function saveGathererImage(mids: number[], set: string, number: string, lang: string): Promise<void> {
     if (mids.length === 1) {
@@ -73,6 +82,7 @@ export class GathererImageTask extends Task<IImageStatus> {
 
     async startImpl(): Promise<void> {
         const prints = await db.select({
+            cardId:       Print.cardId,
             set:          Print.set,
             number:       Print.number,
             lang:         Print.lang,
@@ -82,7 +92,7 @@ export class GathererImageTask extends Task<IImageStatus> {
             .where(eq(Print.set, this.set));
 
         this.count = 0;
-        this.total = prints.length;
+        this.total = prints.reduce((prev, p) => prev + p.multiverseId.length, 0);
 
         this.todoTasks = [];
         this.taskMap = {};
@@ -117,31 +127,33 @@ export class GathererImageTask extends Task<IImageStatus> {
                 return;
             }
 
-            if (p.multiverseId.length === 1) {
-                this.todoTasks.push({
-                    name:         `${p.number}:${p.lang}`,
-                    multiverseId: p.multiverseId[0],
-                    path:         cardImagePath('large', p.set, p.lang, p.number),
-                });
-            } else if (p.multiverseId.length === 2) {
-                this.todoTasks.push({
-                    name:         `${p.number}:${p.lang}-0`,
-                    multiverseId: p.multiverseId[0],
-                    path:         cardImagePath('large', p.set, p.lang, p.number, 0),
-                });
+            const addTodoTask = (name: string, multiverseId: number, partIndex: number | undefined) => {
+                const path = cardImagePath('large', p.set, p.lang, p.number, partIndex, 'webp');
 
                 this.todoTasks.push({
-                    name:         `${p.number}:${p.lang}-1`,
-                    multiverseId: p.multiverseId[1],
-                    path:         cardImagePath('large', p.set, p.lang, p.number, 1),
+                    name,
+                    cardId: p.cardId,
+                    set:    p.set,
+                    number: p.number,
+                    lang:   p.lang,
+                    multiverseId,
+                    partIndex,
+                    exists: FileSaver.fileExists(path, true),
                 });
+            };
+
+            if (p.multiverseId.length === 1) {
+                addTodoTask(`${p.number}:${p.lang}`, p.multiverseId[0], undefined);
+            } else if (p.multiverseId.length === 2) {
+                addTodoTask(`${p.number}:${p.lang}-0`, p.multiverseId[0], 0);
+                addTodoTask(`${p.number}:${p.lang}-1`, p.multiverseId[1], 1);
             } else {
                 console.warn(`Invalid multiverseId length for ${p.set} ${p.number} (${p.lang}): ${p.multiverseId.length}`);
                 continue;
             }
         }
 
-        const [exists, nonexist] = _.partition(this.todoTasks, task => FileSaver.fileExists(task.path));
+        const [exists, nonexist] = _.partition(this.todoTasks, task => task.exists);
 
         for (const task of nonexist) {
             this.statusMap[task.name] = 'waiting';
@@ -180,7 +192,7 @@ export class GathererImageTask extends Task<IImageStatus> {
     }
 
     private async pushTask() {
-        while (this.working() < 20 && this.rest() > 0) {
+        while (this.working() < PARALLEL_TASKS && this.rest() > 0) {
             const randomIndex = Math.floor(Math.random() * this.todoTasks.length);
 
             const task = this.todoTasks[randomIndex];
@@ -188,55 +200,109 @@ export class GathererImageTask extends Task<IImageStatus> {
             this.todoTasks.splice(randomIndex, 1);
 
             if (task != null) {
-                const url = `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${task.multiverseId}&printed=true`;
+                try {
+                    const url = `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${task.multiverseId}&printed=true`;
 
-                const html = await axios.get(url);
+                    const html = await axios.get(url);
 
-                const $ = cheerio.load(html.data);
+                    const $ = cheerio.load(html.data);
 
-                const imageUrl = $('[data-testid=cardFrontImage]').attr('src')!;
+                    const imageUrl = $('[data-testid=cardFrontImage]').attr('src')!;
 
-                const savers = new FileSaver(imageUrl, task.path, {
-                    axiosOption: {
-                        timeout: 5000,
-                    },
-                });
+                    const extension = _.last(imageUrl.split('.'));
 
-                savers.on('end', () => {
-                    delete this.taskMap[task.name];
-                    this.statusMap[task.name] = 'success';
+                    if (extension != 'webp') {
+                        console.warn(`Invalid image extension for ${task.name}: ${extension}`);
+                        delete this.taskMap[task.name];
+                        this.statusMap[task.name] = 'failed';
+                        this.failed += 1;
+                        this.pushTask();
 
-                    this.count += 1;
+                        if (this.rest() === 0 && this.working() === 0) {
+                            this.emit('all-end');
+                        }
 
-                    this.pushTask();
-
-                    if (this.rest() === 0 && this.working() === 0) {
-                        this.emit('all-end');
-                    }
-                }).on('error', (err: Error) => {
-                    if (err.message === 'aborted') {
-                        return;
+                        continue;
                     }
 
-                    console.log(task.name, err.message);
+                    const path = cardImagePath('large', task.set, task.lang, task.number, task.partIndex, 'webp');
+
+                    const savers = new FileSaver(imageUrl, path, {
+                        axiosOption: {
+                            timeout: 5000,
+                        },
+                    });
+
+                    savers.on('end', async () => {
+                        try {
+                            await db.update(Print)
+                                .set({ fullImageType: 'webp' })
+                                .where(and(
+                                    eq(Print.cardId, task.cardId),
+                                    eq(Print.set, task.set),
+                                    eq(Print.number, task.number),
+                                    eq(Print.lang, task.lang),
+                                ));
+
+                            const jpgPath = cardImagePath('large', task.set, task.lang, task.number, task.partIndex, 'jpg');
+
+                            if (FileSaver.fileExists(jpgPath)) {
+                                unlinkSync(jpgPath);
+                            };
+
+                            delete this.taskMap[task.name];
+                            this.statusMap[task.name] = 'success';
+                            this.count += 1;
+                        } catch (err) {
+                            console.error(`Failed to update print for ${task.name}:`, err);
+
+                            delete this.taskMap[task.name];
+                            this.statusMap[task.name] = 'failed';
+                            this.failed += 1;
+                        }
+
+                        this.pushTask();
+
+                        if (this.rest() === 0 && this.working() === 0) {
+                            this.emit('all-end');
+                        }
+                    }).on('error', (err: Error) => {
+                        if (err.message === 'aborted') {
+                            return;
+                        }
+
+                        console.log(task.name, err.message);
+
+                        delete this.taskMap[task.name];
+                        this.statusMap[task.name] = 'failed';
+
+                        this.failed += 1;
+
+                        this.taskMap[task.name]?.[1]?.stop();
+
+                        this.pushTask();
+
+                        if (this.rest() === 0 && this.working() === 0) {
+                            this.emit('all-end');
+                        }
+                    });
+
+                    this.taskMap[task.name] = [task, savers];
+                    this.statusMap[task.name] = 'working';
+                    savers.start();
+                } catch (err) {
+                    console.error(`Failed to fetch image for ${task.name}:`, err);
 
                     delete this.taskMap[task.name];
                     this.statusMap[task.name] = 'failed';
-
                     this.failed += 1;
-
-                    this.taskMap[task.name]?.[1]?.stop();
 
                     this.pushTask();
 
                     if (this.rest() === 0 && this.working() === 0) {
                         this.emit('all-end');
                     }
-                });
-
-                this.taskMap[task.name] = [task, savers];
-                this.statusMap[task.name] = 'working';
-                savers.start();
+                }
             } else if (this.rest() === 0 && this.working() === 0) {
                 this.emit('all-end');
             }

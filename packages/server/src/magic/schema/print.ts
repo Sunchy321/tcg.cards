@@ -17,6 +17,7 @@ export const securityStamp = schema.enum('security_stamp', printModel.securitySt
 export const rarity = schema.enum('rarity', basicModel.rarity.enum);
 export const finish = schema.enum('finish', printModel.finish.enum);
 export const imageStatus = schema.enum('image_status', printModel.imageStatus.enum);
+export const fullImageType = schema.enum('full_image_type', basicModel.fullImageType.enum);
 export const game = schema.enum('game', printModel.game.enum);
 export const scryfallFace = schema.enum('scryfall_face', printModel.scryfallFace.enum);
 
@@ -45,6 +46,7 @@ export const Print = schema.table('prints', {
     finishes:        finish('finishes').array().notNull(),
     hasHighResImage: boolean('has_high_res_image').notNull(),
     imageStatus:     imageStatus('image_status').notNull(),
+    fullImageType:   fullImageType('full_image_type').notNull(),
     inBooster:       boolean('in_booster').notNull(),
     games:           game('games').array().notNull(),
 

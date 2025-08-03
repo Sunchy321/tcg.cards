@@ -227,11 +227,12 @@ const render = () => {
 
             if (profile.value != null && imageVersion.value != null) {
                 nodes.push(h(CardImage, {
-                    lang:   imageVersion.value!.lang,
-                    set:    imageVersion.value!.set,
-                    number: imageVersion.value!.number,
-                    layout: imageVersion.value!.layout,
-                    part:   props.part,
+                    lang:          imageVersion.value.lang,
+                    set:           imageVersion.value.set,
+                    number:        imageVersion.value.number,
+                    layout:        imageVersion.value.layout,
+                    fullImageType: imageVersion.value.fullImageType,
+                    part:          props.part,
                 }));
             }
 
@@ -255,12 +256,13 @@ const render = () => {
                     children.push(h(QTooltip, {
                         'content-class': 'card-popover',
                     }, () => [h(CardImage, {
-                        class:  'card-image-popover',
-                        lang:   imageVersion.value!.lang,
-                        set:    imageVersion.value!.set,
-                        number: imageVersion.value!.number,
-                        layout: imageVersion.value!.layout,
-                        part:   props.part,
+                        class:         'card-image-popover',
+                        lang:          imageVersion.value!.lang,
+                        set:           imageVersion.value!.set,
+                        number:        imageVersion.value!.number,
+                        layout:        imageVersion.value!.layout,
+                        fullImageType: imageVersion.value!.fullImageType,
+                        part:          props.part,
                     })]));
                 }
 

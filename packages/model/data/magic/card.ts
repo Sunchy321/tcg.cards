@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './format-change';
-import { fullLocale, rarity } from './basic';
-import { layout } from './basic';
+import { fullImageType, fullLocale, layout, rarity } from './basic';
 
 export const category = z.enum([
     'advertisement',
@@ -107,8 +106,9 @@ export const cardProfile = z.strictObject({
         lang:        fullLocale,
         set:         z.string(),
         number:      z.string(),
-        rarity:      rarity,
-        layout:      layout,
+        rarity,
+        layout,
+        fullImageType,
         releaseDate: z.string(),
     }).array(),
 });

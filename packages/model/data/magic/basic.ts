@@ -62,7 +62,10 @@ export const layout = z.enum([
     'split_arena', 'token', 'transform', 'transform_token', 'vanguard',
 ]);
 
+export const fullImageType = z.enum(['webp', 'jpg', 'png']);
+
 export type Locale = z.infer<typeof locale>;
 export type FullLocale = z.infer<typeof fullLocale>;
 export type Rarity = z.infer<typeof rarity>;
 export type Layout = z.infer<typeof layout>;
+export type FullImageType = z.infer<typeof fullImageType>;
