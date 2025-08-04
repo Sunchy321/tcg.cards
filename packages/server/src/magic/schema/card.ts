@@ -21,7 +21,7 @@ export const Card = schema.table('cards', {
     text:     text('text').notNull(),
 
     manaValue:     doublePrecision('mana_value').notNull(),
-    colorIdentity: bit('color_identity', { dimensions: 5 }).notNull(),
+    colorIdentity: bit('color_identity', { dimensions: 16 }).notNull(),
 
     keywords:       text('keywords').array().notNull(),
     counters:       text('counters').array().notNull(),
@@ -58,7 +58,7 @@ export const CardPart = schema.table('card_parts', {
     cost:      text('cost').array(),
     manaValue: doublePrecision('part_mana_value'),
 
-    color:          bit('color', { dimensions: 5 }),
+    color:          bit('color', { dimensions: 16 }),
     colorIndicator: bit('color_indicator', { dimensions: 5 }),
 
     typeSuper: text('type_super').array(),

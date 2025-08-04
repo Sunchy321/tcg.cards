@@ -2,14 +2,14 @@ import {
     Command, defineCommand, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
 } from '@search/command';
 
-export type HalfNumberCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
+export type NumericCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
 
-export type HalfNumberOption = {
+export type NumericOption = {
     id:   string;
     alt?: string[] | string;
 };
 
-export default function halfNumber(options: HalfNumberOption): HalfNumberCommand {
+export default function numeric(options: NumericOption): NumericCommand {
     const { id, alt } = options;
 
     return defineCommand({

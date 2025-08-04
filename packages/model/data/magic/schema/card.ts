@@ -34,7 +34,7 @@ export const cardSchema = z.strictObject({
     }).array(),
 
     manaValue:     z.number(),
-    colorIdentity: z.string().meta({ type: 'bitset', map: 'WUBRG' }),
+    colorIdentity: z.string().meta({ type: 'bitset', map: 'WUBRGPO' }),
 
     part: z.strictObject({
         name:     z.string().meta({ colName: 'part_name' }),
@@ -43,8 +43,8 @@ export const cardSchema = z.strictObject({
 
         cost:           z.array(z.string()).nullable(),
         manaValue:      z.number().meta({ colName: 'part_mana_value' }).nullable(),
-        color:          z.string().meta({ type: 'bitset', map: 'WUBRG' }).nullable(),
-        colorIndicator: z.string().meta({ type: 'bitset', map: 'WUBRG' }).nullable(),
+        color:          z.string().meta({ type: 'bitset', map: 'WUBRGPO' }).nullable(),
+        colorIndicator: z.string().meta({ type: 'bitset', map: 'WUBRGPO' }).nullable(),
 
         typeSuper: z.array(z.string()).meta({ type: 'set' }).nullable(),
         typeMain:  z.array(z.string()).meta({ type: 'set' }),

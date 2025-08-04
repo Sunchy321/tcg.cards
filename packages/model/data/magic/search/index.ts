@@ -4,6 +4,8 @@ import { defineCommand, allOperator, defaultOperator, defaultQualifier } from '@
 import * as builtin from '@search/command/builtin';
 import * as magic from './command';
 
+import { colorWords } from './bitmap';
+
 const raw = defineCommand({ id: '', operators: [''], allowRegex: true });
 
 const stats = defineCommand({
@@ -27,9 +29,26 @@ const lang = builtin.simple({ id: 'lang', alt: ['l'] });
 const cost = magic.cost({ id: 'cost', alt: ['mana', 'mana-cost', 'm'] });
 const manaValue = builtin.number({ id: 'mana-value', alt: ['mv', 'cmc'] });
 
-const color = magic.color({ id: 'color', alt: ['c'] });
-const colorIdentity = magic.color({ id: 'color-identity', alt: ['identity', 'cd'] });
-const colorIndicator = magic.color({ id: 'color-indicator', alt: ['indicator', 'ci'] });
+const color = builtin.bit({
+    id:     'color',
+    alt:    ['c'],
+    values: 'WUBRGOP         ',
+    words:  colorWords,
+});
+
+const colorIdentity = builtin.bit({
+    id:     'color-identity',
+    alt:    ['identity', 'cd'],
+    values: 'WUBRGOP         ',
+    words:  colorWords,
+});
+
+const colorIndicator = builtin.bit({
+    id:     'color-indicator',
+    alt:    ['ci'],
+    values: 'WUBRG',
+    words:  colorWords,
+});
 
 const power = magic.numberic({ id: 'power', alt: ['pow'] });
 const toughness = magic.numberic({ id: 'toughness', alt: ['tou'] });

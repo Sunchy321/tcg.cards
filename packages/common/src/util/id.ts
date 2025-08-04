@@ -1,7 +1,7 @@
-import { deburr } from 'lodash';
+import _ from 'lodash';
 
 export function toIdentifier(text: string): string {
-    return deburr(text)
+    return _.deburr(text)
         .trim()
         .toLowerCase()
         .replace(/ \/\/ /g, '____')
