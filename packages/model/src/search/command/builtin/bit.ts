@@ -4,9 +4,14 @@ import {
 
 import _ from 'lodash';
 
+export type Word =
+  { type: 'count', value: string } |
+  { type: 'exact', value: string } |
+  { type: 'enum', value: string[] };
+
 type BitMeta = {
     values: string;
-    words?: Record<string, string[]>;
+    words?: Record<string, Word>;
 };
 
 export type BitCommand = Command<never, AllOperator, DefaultQualifier, false, never, BitMeta>;
@@ -15,7 +20,7 @@ export type BitOption = {
     id:     string;
     alt?:   string[] | string;
     values: string;
-    words?: Record<string, string[]>;
+    words?: Record<string, Word>;
 };
 
 export default function number(options: BitOption): BitCommand {
@@ -28,7 +33,7 @@ export default function number(options: BitOption): BitCommand {
         qualifiers: defaultQualifier,
         meta:       {
             values: values.toUpperCase(),
-            words:  words != null ? _.mapValues(words, v => v.map(c => c.toUpperCase())) : undefined,
+            words,
         },
     });
 }
