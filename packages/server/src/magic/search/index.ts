@@ -568,8 +568,8 @@ export default defineServerModel({
             const { page, pageSize, lang, groupBy, orderBy } = options;
 
             const groupByColumn = groupBy === 'card'
-                ? [CardPrintView.cardId, CardPrintView.partIndex]
-                : [CardPrintView.cardId, CardPrintView.set, CardPrintView.number, CardPrintView.partIndex];
+                ? [CardPrintView.cardId]
+                : [CardPrintView.cardId, CardPrintView.set, CardPrintView.number];
 
             const groupByCount = groupBy === 'card'
                 ? sql`count(distinct card_id)`.as('count')
