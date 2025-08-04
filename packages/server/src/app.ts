@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { showRoutes } from 'hono/dev';
 import { poweredBy } from 'hono/powered-by';
 import { logger } from 'hono/logger';
+import { prettyJSON } from 'hono/pretty-json';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 
@@ -32,6 +33,7 @@ const app = new Hono<{
 
 app.use(poweredBy());
 app.use(logger());
+app.use(prettyJSON({ space: 4 }));
 
 app.use(
     '*',
