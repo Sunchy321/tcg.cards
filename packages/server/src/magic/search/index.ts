@@ -582,7 +582,16 @@ export default defineServerModel({
                 .selectDistinctOn(groupByColumn)
                 .from(CardPrintView)
                 .where(query)
-                .orderBy(CardPrintView.partIndex, ...orderByAction.orders)
+                .orderBy(
+                    ...groupByColumn,
+                    CardPrintView.partIndex,
+                    sql`CASE
+                        WHEN ${CardPrintView.lang} = ${lang} THEN 0
+                        WHEN ${CardPrintView.lang} = 'en' THEN 1
+                        ELSE 2
+                    END`,
+                    ...orderByAction.orders,
+                )
                 .limit(pageSize)
                 .offset((page - 1) * pageSize);
 

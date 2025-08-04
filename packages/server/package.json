@@ -4,7 +4,7 @@
     "description": "Card Server",
     "scripts": {
         "lint": "eslint ./src ./data --ext js,ts --cache --fix",
-        "dev": "tsx watch ./src/app.ts",
+        "dev": "tsx watch --inspect ./src/app.ts",
         "build": "npx tspc -p tsconfig.json && tsconfig-replace-paths --project tsconfig.json -s . -o ./dist",
         "gen-openapi": "node -r ts-node/register -r tsconfig-paths/register scripts/gen-doc.ts",
         "gen-auth": "pnpm dlx @better-auth/cli generate --config src/auth/index.ts --output src/auth/schema.ts -y",

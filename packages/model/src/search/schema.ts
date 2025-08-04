@@ -48,6 +48,6 @@ export function createSearchNormalResult<Z extends z.ZodType>(schema: Z): Search
 
 export const searchInput = z.object({
     q:        z.string().min(1).max(1000),
-    page:     z.string().transform(v => Number.parseInt(v, 10) || 0).pipe(z.number().int().nonnegative()),
+    page:     z.string().transform(v => Number.parseInt(v, 10) || 1).pipe(z.number().int().positive()),
     pageSize: z.string().transform(v => Number.parseInt(v, 10) || 100).pipe(z.number().int().positive()),
 });
