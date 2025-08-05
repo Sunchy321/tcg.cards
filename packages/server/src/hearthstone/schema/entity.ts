@@ -47,7 +47,7 @@ export const Entity = schema.table('entities', {
     techLevel:    integer('tech_level'),
     inBobsTavern: boolean('in_bobs_tavern').default(false),
     tripleCard:   text('triple_card'),
-    raceBucket:   race('race'),
+    raceBucket:   race('race_bucket'),
     coin:         integer('coin'),
     armorBucket:  integer('armor_bucket'),
     buddy:        text('buddy'),
