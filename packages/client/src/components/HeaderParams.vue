@@ -23,7 +23,7 @@
 
             <q-btn
                 v-if="p.option.type === 'boolean'"
-                :icon="p.option.icon[p.value ? 1:0]"
+                :icon="p.option.icon![p.value ? 1 : 0]"
                 flat round dense
                 @click="commitParam(k as string, !p.value)"
             />
@@ -85,6 +85,8 @@ import UploaderBtn from 'components/UploaderBtn.vue';
 
 import { ActionInfo } from 'store/core/action';
 
+import { getValue } from 'src/stores/core/params';
+
 const core = useCore();
 const { game } = basicSetup();
 
@@ -119,6 +121,8 @@ const paramsInTitle = computed(() => {
 
         if (item.option.inTitle) {
             result[k] = item;
+
+            result[k].value = getValue(k);
         }
     }
 

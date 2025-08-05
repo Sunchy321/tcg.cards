@@ -56,7 +56,7 @@ export type ParamRefType<T> = T extends ParamOption
 export type Parameter = {
     option: ReactiveParamOption;
     value?: any;
-    ref?:   Ref<string | string[] | undefined>;
+    ref?:   Ref<string | string[] | null | undefined>;
 };
 
 function toReactiveOption(option: ParamOption): ReactiveParamOption {
@@ -112,7 +112,7 @@ function getDefault(option: ReactiveParamOption): any {
     }
 }
 
-function useRouterRef(bind: ParamOption['bind'], name: string): Ref<string | string[] | undefined> | undefined {
+function useRouterRef(bind: ParamOption['bind'], name: string): Ref<string | string[] | null | undefined> | undefined {
     switch (bind) {
     case 'state':
         return undefined;
@@ -183,7 +183,7 @@ export const setValue = (name: string, newValue: any) => {
         return;
     }
 
-    const ref = core.params[name].ref;
+    const ref = core.params[name].ref!;
 
     if (option.bind === 'params') {
         if (option.type === 'boolean') {
