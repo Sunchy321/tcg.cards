@@ -2,7 +2,7 @@ import { jsonb, text } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
-import { Format as IFormat } from '@interface/magic/format';
+import { Format as IFormat } from '@model/magic/schema/format';
 
 export const Format = schema.table('formats', {
     formatId:     text('format_id').primaryKey(),

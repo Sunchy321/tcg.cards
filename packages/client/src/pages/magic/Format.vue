@@ -135,12 +135,12 @@ import CardAvatar from 'components/magic/CardAvatar.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 import SetAvatar from 'components/magic/SetAvatar.vue';
 
-import { Format } from '@interface/magic/format';
+import { Format } from '@model/magic/schema/format';
 import { FormatChange, Legality } from '@interface/magic/format-change';
 
 import { last, uniq } from 'lodash';
 
-import { apiGet } from 'boot/server';
+import { getValue, trpc } from 'src/hono';
 
 import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
 
@@ -196,7 +196,7 @@ const order = useParam('order', {
     values: ['name', 'date'],
 });
 
-const data = ref<Format | null>(null);
+const data = ref<Format>();
 const changes = ref<FormatChange[]>([]);
 
 const orderOptions = ['name', 'date'].map(v => ({
@@ -408,17 +408,19 @@ const timelineEvents = computed(() => {
 });
 
 const loadData = async () => {
-    const { data: formatResult } = await apiGet<Format>('/magic/format', {
-        id: format.value,
-    });
+    const formatValue = await getValue(trpc.magic.format.full, { formatId: format.value });
 
-    data.value = formatResult;
+    if (formatValue == null) {
+        return;
+    }
 
-    const { data: changesResult } = await apiGet<FormatChange[]>('/magic/format/changes', {
-        id: format.value,
-    });
+    data.value = formatValue;
 
-    changes.value = changesResult;
+    // const { data: changesResult } = await apiGet<FormatChange[]>('/magic/format/changes', {
+    //     id: format.value,
+    // });
+
+    // changes.value = changesResult;
 };
 
 const groupShort = (group: string) => {
