@@ -8,13 +8,13 @@ export const booster = z.strictObject({
     packs: z.strictObject({
         contents: z.strictObject({
             type:  z.string(),
-            count: z.number(),
+            count: z.int(),
         }).array(),
 
-        weight: z.number(),
+        weight: z.int(),
     }).array(),
 
-    totalWeight: z.number(),
+    totalWeight: z.int(),
 
     sheets: z.strictObject({
         typeId: z.string(),
@@ -27,10 +27,10 @@ export const booster = z.strictObject({
                 lang:   z.string().nullable(),
             }),
 
-            weight: z.number(),
+            weight: z.int(),
         }).array(),
 
-        totalWeight: z.number(),
+        totalWeight: z.int(),
 
         allowDuplicates: z.boolean(),
         balanceColors:   z.boolean(),
@@ -51,8 +51,8 @@ export const set = z.strictObject({
     block:  z.string().nullable(),
     parent: z.string().nullable(),
 
-    printedSize: z.number().nullable(),
-    cardCount:   z.number(),
+    printedSize: z.int().nullable(),
+    cardCount:   z.int(),
     langs:       fullLocale.array(),
     rarities:    rarity.array(),
 
@@ -71,7 +71,7 @@ export const set = z.strictObject({
     scryfallCode: z.string(),
 
     mtgoCode:    z.string().nullable(),
-    tcgPlayerId: z.number().nullable(),
+    tcgPlayerId: z.int().nullable(),
 
     boosters: booster.array().nullable(),
 });

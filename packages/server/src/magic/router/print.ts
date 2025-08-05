@@ -36,7 +36,7 @@ export const printApi = new Hono()
             set:       z.string(),
             number:    z.string(),
             lang:      fullLocale,
-            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.number()),
+            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()),
         })),
         async c => {
             const { id: cardId, set, number, lang, partIndex } = c.req.valid('query');

@@ -66,7 +66,7 @@ export const cardRouter = new Hono()
             lang:      fullLocale,
             set:       z.string().optional(),
             number:    z.string().optional(),
-            partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).pipe(z.number()).optional(),
+            partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()).optional(),
         })),
         async c => {
             const { cardId, lang, set, number, partIndex } = c.req.valid('query');
@@ -235,7 +235,7 @@ export const cardApi = new Hono()
         zValidator('query', z.object({
             id:        z.string(),
             lang:      fullLocale.default('en'),
-            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.number()),
+            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()),
         })),
         async c => {
             const { id: cardId, lang, partIndex } = c.req.valid('query');

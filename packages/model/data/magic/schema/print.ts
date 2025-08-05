@@ -24,7 +24,7 @@ export const print = z.strictObject({
     set:       z.string().meta({ primary: true }),
     number:    z.string().meta({ primary: true }),
     lang:      z.string().meta({ primary: true }),
-    partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
+    partIndex: z.int().meta({ foreign: true, type: 'small-int' }),
 
     name:     z.string().meta({ colName: 'print_name' }),
     typeline: z.string().meta({ colName: 'print_typeline' }),
@@ -77,12 +77,12 @@ export const print = z.strictObject({
     scryfallFace:      scryfallFace.nullable(),
     scryfallImageUris: z.record(z.string(), z.string().meta({ type: 'url' })).array().nullable(),
 
-    arenaId:      z.number().meta({ type: 'number-id' }).nullable(),
-    mtgoId:       z.number().meta({ type: 'number-id' }).nullable(),
-    mtgoFoilId:   z.number().meta({ type: 'number-id' }).nullable(),
-    multiverseId: z.number().meta({ type: 'number-id' }).array(),
-    tcgPlayerId:  z.number().meta({ type: 'number-id' }).nullable(),
-    cardMarketId: z.number().meta({ type: 'number-id' }).nullable(),
+    arenaId:      z.int().meta({ type: 'number-id' }).nullable(),
+    mtgoId:       z.int().meta({ type: 'number-id' }).nullable(),
+    mtgoFoilId:   z.int().meta({ type: 'number-id' }).nullable(),
+    multiverseId: z.int().meta({ type: 'number-id' }).array(),
+    tcgPlayerId:  z.int().meta({ type: 'number-id' }).nullable(),
+    cardMarketId: z.int().meta({ type: 'number-id' }).nullable(),
 });
 
 export const printModel = print.extend({

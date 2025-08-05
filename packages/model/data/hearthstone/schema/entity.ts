@@ -28,38 +28,38 @@ export const entitySchema = z.strictObject({
     cardId:  z.string(),
     version: z.string(),
 
-    dfbId: z.number(),
+    dfbId: z.int(),
     slug:  z.string().nullable(),
 
     set:             z.string(),
     classes:         z.array(classes),
     type:            types,
-    cost:            z.number(),
-    attack:          z.number().nullable(),
-    health:          z.number().nullable(),
-    durability:      z.number().nullable(),
-    armor:           z.number().nullable(),
+    cost:            z.int(),
+    attack:          z.int().nullable(),
+    health:          z.int().nullable(),
+    durability:      z.int().nullable(),
+    armor:           z.int().nullable(),
     rune:            rune.array().nullable(),
     race:            z.array(race).nullable(),
     spellSchool:     spellSchool.nullable(),
     questType:       questType.nullable(),
-    questProgress:   z.number().nullable(),
-    questPart:       z.number().nullable(),
+    questProgress:   z.int().nullable(),
+    questPart:       z.int().nullable(),
     heroPower:       z.string().nullable(),
     heroicHeroPower: z.string().nullable(),
 
-    techLevel:    z.number().nullable(),
+    techLevel:    z.int().nullable(),
     inBobsTavern: z.boolean(),
     tripleCard:   z.string().nullable(),
     raceBucket:   race.nullable(),
-    coin:         z.number().nullable(),
-    armorBucket:  z.number().nullable(),
+    coin:         z.int().nullable(),
+    armorBucket:  z.int().nullable(),
     buddy:        z.string().nullable(),
     bannedRace:   z.string().nullable(),
 
     mercenaryRole:    mercenaryRole.nullable(),
     mercenaryFaction: mercenaryFaction.nullable(),
-    colddown:         z.number().nullable(),
+    colddown:         z.int().nullable(),
 
     collectible: z.boolean(),
     elite:       z.boolean(),
@@ -73,9 +73,9 @@ export const entitySchema = z.strictObject({
     referencedTags: z.array(z.string()),
     entourages:     z.array(z.string()).nullable(),
 
-    deckOrder:         z.number().nullable(),
+    deckOrder:         z.int().nullable(),
     overrideWatermark: z.string().nullable(),
-    deckSize:          z.number().nullable(),
+    deckSize:          z.int().nullable(),
     localizationNotes: z.string().nullable(),
 
     changeType: changeType.default('unknown'),
@@ -103,7 +103,7 @@ export const entityLocalization = z.strictObject({
 export const power = z.strictObject({
     cardId:  z.string(),
     version: z.string(),
-    index:   z.number(),
+    index:   z.int(),
 
     definition:    z.string(),
     isMaster:      z.boolean().optional(),
@@ -111,7 +111,7 @@ export const power = z.strictObject({
 
     playRequirements: z.strictObject({
         type:  z.string(),
-        param: z.number(),
+        param: z.int(),
     }).array(),
 });
 

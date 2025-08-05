@@ -39,15 +39,15 @@ export type SearchNormalResult<Z extends z.ZodType> = z.infer<SearchNormalResult
 export function createSearchNormalResult<Z extends z.ZodType>(schema: Z): SearchNormalResultSchema<Z> {
     return z.strictObject({
         result:    z.array(schema),
-        total:     z.number().int().nonnegative(),
-        totalPage: z.number().int().nonnegative(),
-        page:      z.number().int().nonnegative(),
-        elapsed:   z.number().int().nonnegative(),
+        total:     z.int().int().nonnegative(),
+        totalPage: z.int().int().nonnegative(),
+        page:      z.int().int().nonnegative(),
+        elapsed:   z.int().int().nonnegative(),
     });
 }
 
 export const searchInput = z.object({
     q:        z.string().min(1).max(1000),
-    page:     z.string().transform(v => Number.parseInt(v, 10) || 1).pipe(z.number().int().positive()),
-    pageSize: z.string().transform(v => Number.parseInt(v, 10) || 100).pipe(z.number().int().positive()),
+    page:     z.string().transform(v => Number.parseInt(v, 10) || 1).pipe(z.int().int().positive()),
+    pageSize: z.string().transform(v => Number.parseInt(v, 10) || 100).pipe(z.int().int().positive()),
 });

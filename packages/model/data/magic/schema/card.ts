@@ -19,9 +19,9 @@ export type Category = z.infer<typeof category>;
 export const cardSchema = z.strictObject({
     cardId:    z.string().meta({ primary: true }),
     lang:      z.string().meta({ foreign: true }),
-    partIndex: z.number().meta({ foreign: true, type: 'small-int' }),
+    partIndex: z.int().meta({ foreign: true, type: 'small-int' }),
 
-    partCount: z.number().meta({ type: 'small-int' }),
+    partCount: z.int().meta({ type: 'small-int' }),
 
     name:     z.string(),
     typeline: z.string(),
