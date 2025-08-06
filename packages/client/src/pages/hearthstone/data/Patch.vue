@@ -32,7 +32,7 @@ import { useParam } from 'store/core';
 
 import controlSetup from 'src/setup/control';
 
-import { Patch } from '@interface/hearthstone/patch';
+import { Patch } from '@model/hearthstone/schema/patch';
 
 import { apiGet } from 'boot/server';
 
@@ -43,13 +43,13 @@ const patches = ref<Patch[]>([]);
 const version = useParam('version', {
     type:    'string',
     bind:    'query',
-    default: () => patches.value[0]?.number.toString() ?? '',
+    default: () => patches.value[0]?.buildNumber.toString() ?? '',
 });
 
-const versions = computed(() => patches.value.map(p => p.number.toString()));
+const versions = computed(() => patches.value.map(p => p.buildNumber.toString()));
 
 const data = computed(() => {
-    const patch = patches.value.find(p => p.number.toString() === version.value);
+    const patch = patches.value.find(p => p.buildNumber.toString() === version.value);
 
     if (patch != null) {
         return patch;
@@ -58,7 +58,7 @@ const data = computed(() => {
     }
 });
 
-const fullName = computed(() => data.value?.version ?? '');
+const fullName = computed(() => data.value?.name ?? '');
 
 const shortName = computed({
     get() { return data.value?.shortName ?? ''; },

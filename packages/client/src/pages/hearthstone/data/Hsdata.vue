@@ -12,7 +12,7 @@
                 class="q-mr-md"
                 flat dense round
                 icon="mdi-merge"
-                @click="importPatches"
+                @click="loadPatchList"
             />
 
             <q-btn
@@ -58,11 +58,13 @@ import controlSetup from 'setup/control';
 import Grid from 'components/Grid.vue';
 import HsdataPatch from 'components/hearthstone/data/HsdataPatch.vue';
 
-import type { Patch } from '@interface/hearthstone/patch';
+import { Patch } from '@model/hearthstone/schema/patch';
 
 import bytes from 'bytes';
 
-import { apiGet } from 'src/boot/server';
+import { actionWithProgress } from 'src/progress';
+
+import { getValue, trpc } from 'src/hono';
 
 interface TransferProgress {
     type:            'get';
@@ -93,7 +95,7 @@ type Progress = LoaderProgress | PatchProgress | TransferProgress;
 const { controlWs } = controlSetup();
 
 const patches = ref<Patch[]>([]);
-const progress = ref<Progress | undefined>(undefined);
+const progress = ref<Progress>();
 
 const sortedPatches = computed(() => [
     ...patches.value.filter(v => !v.isUpdated).sort((a, b) => a.buildNumber - b.buildNumber),
@@ -139,46 +141,26 @@ const progressLabel = computed(() => {
 });
 
 const loadData = async () => {
-    const { data } = await apiGet<Patch[]>('/hearthstone/patch');
+    const value = await getValue(trpc.hearthstone.patch.list, {});
 
-    patches.value = data;
+    if (value != null) {
+        patches.value = value;
+    }
 };
 
-const pullRepo = async () => {
-    const ws = controlWs('/hearthstone/hsdata/pull-repo');
+const pullRepo = () => actionWithProgress<Progress>(
+    `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/pull-repo`,
+    prog => {
+        progress.value = prog;
+    },
+);
 
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as TransferProgress;
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = undefined;
-            void loadData();
-
-            resolve(undefined);
-        };
-    });
-};
-
-const importPatches = async () => {
-    const ws = controlWs('/hearthstone/hsdata/import-patch');
-
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as LoaderProgress;
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = undefined;
-            void loadData();
-
-            resolve(undefined);
-        };
-    });
-};
+const loadPatchList = () => actionWithProgress<Progress>(
+    `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/load-patch-list`,
+    prog => {
+        progress.value = prog;
+    },
+);
 
 const loadPatches = async () => {
     const patch = patches.value.filter(v => !v.isUpdated).sort((a, b) => a.buildNumber - b.buildNumber)[0];

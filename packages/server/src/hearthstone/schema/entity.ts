@@ -2,7 +2,7 @@ import { boolean, integer, primaryKey, text } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
-import { omit } from 'lodash';
+import _ from 'lodash';
 import { and, eq, getTableColumns } from 'drizzle-orm';
 
 import * as basicModel from '@model/hearthstone/schema/basic';
@@ -106,10 +106,10 @@ export const EntityView = schema.view('entity_view').as(qb => {
         version: Entity.version,
         lang:    EntityLocalization.lang,
 
-        ...omit(getTableColumns(Entity), ['cardId', 'version']) as any,
+        ..._.omit(getTableColumns(Entity), ['cardId', 'version']) as any,
 
         localization: {
-            ...omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
+            ..._.omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
         },
     })
         .from(Entity)

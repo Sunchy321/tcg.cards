@@ -11,7 +11,7 @@ import { Entity as IEntity } from '@interface/hearthstone/entity';
 import { eq, max, sql } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
-import { last } from 'lodash';
+import _ from 'lodash';
 
 import { localPath } from './base';
 
@@ -63,7 +63,7 @@ export interface ILoaderStatus {
 
 const messagePrefix = 'Update to patch';
 
-export class PatchImporter extends Task<ILoaderStatus> {
+export class PatchListLoader extends Task<ILoaderStatus> {
     async startImpl(): Promise<void> {
         const repo = git({
             baseDir:  localPath,
@@ -80,7 +80,7 @@ export class PatchImporter extends Task<ILoaderStatus> {
 
         for (const c of commits) {
             const name = c.message.slice(messagePrefix.length).trim();
-            const buildNumber = Number.parseInt(last(name.split('.'))!, 10);
+            const buildNumber = Number.parseInt(_.last(name.split('.'))!, 10);
             const { hash } = c;
 
             await db.insert(Patch)
@@ -113,12 +113,12 @@ export class PatchImporter extends Task<ILoaderStatus> {
 
         // Update all patches to set isCurrent=false
         await db.update(Patch)
-            .set({ isCurrent: false });
+            .set({ isLatest: false });
 
         // Update the patch with max buildNumber to set isCurrent=true
         if (maxBuildNumber) {
             await db.update(Patch)
-                .set({ isCurrent: true })
+                .set({ isLatest: true })
                 .where(eq(Patch.buildNumber, maxBuildNumber));
         }
 
@@ -145,7 +145,7 @@ export class PatchImporter extends Task<ILoaderStatus> {
 }
 
 export async function clearPatch(buildNumber: number) {
-    const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, buildNumber)).limit(1).then(r => last(r));
+    const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, buildNumber)).limit(1).then(r => _.last(r));
 
     if (patch == null) {
         return false;

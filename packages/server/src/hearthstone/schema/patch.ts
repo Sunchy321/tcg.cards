@@ -7,6 +7,6 @@ export const Patch = schema.table('patches', {
     name:        text('name').notNull(),
     shortName:   text('short_name').notNull(),
     hash:        text('hash').notNull(),
-    isCurrent:   boolean('is_current').notNull().default(false),
+    isLatest:    boolean('is_latest').notNull().default(false),
     isUpdated:   boolean('is_updated').notNull().default(false),
 });

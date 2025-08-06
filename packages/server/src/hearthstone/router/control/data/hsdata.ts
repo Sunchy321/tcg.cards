@@ -3,7 +3,7 @@ import { Context, DefaultState } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import { RepoPuller, PatchImporter, clearPatch } from '@/hearthstone/data/hsdata/patch';
+import { RepoPuller, PatchListLoader, clearPatch } from '@/hearthstone/data/hsdata/patch';
 import { PatchLoader } from '@/hearthstone/data/hsdata/task';
 
 import { toSingle } from '@/common/request-helper';
@@ -11,28 +11,6 @@ import { toSingle } from '@/common/request-helper';
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/hsdata');
-
-const getter = new RepoPuller();
-
-router.get(
-    '/pull-repo',
-    websocket,
-    async ctx => {
-        getter.bind(await ctx.ws());
-        ctx.status = 200;
-    },
-);
-
-const importer = new PatchImporter();
-
-router.get(
-    '/import-patch',
-    websocket,
-    async ctx => {
-        importer.bind(await ctx.ws());
-        ctx.status = 200;
-    },
-);
 
 router.post('/clear-patch', async ctx => {
     const version = ctx.request.body?.version;

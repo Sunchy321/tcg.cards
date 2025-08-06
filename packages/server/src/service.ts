@@ -5,35 +5,19 @@ import { Scalar } from '@scalar/hono-api-reference';
 import { isErrorResult, merge } from 'openapi-merge';
 
 import { magicRouter, magicSSE } from '@/magic/router';
+import { hearthstoneRouter, hearthstoneSSE } from '@/hearthstone/router';
 
 import { auth } from './auth';
-import { streamSSE } from 'hono/streaming';
 
-const SERVICE_URL = 'service.tcg.cards';
 const AUTH_PREFIX = '/api/auth';
 
 const trpc = new Hono()
-    .route('/magic', magicRouter);
+    .route('/magic', magicRouter)
+    .route('/hearthstone', hearthstoneRouter);
 
 const sse = new Hono()
     .route('/magic', magicSSE)
-    .get('/test', async c => {
-        return streamSSE(c, async stream => {
-            for (let i = 0; i < 10; i++) {
-                await stream.writeSSE({
-                    data:  JSON.stringify({ time: new Date().toISOString(), text: `Hello ${i}` }),
-                    event: 'progress',
-                });
-
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-
-            await stream.writeSSE({
-                data:  '',
-                event: 'close',
-            });
-        });
-    });
+    .route('/hearthstone', hearthstoneSSE);
 
 const router = new Hono()
     .on(['GET', 'POST'], `${AUTH_PREFIX}/*`, c => {
