@@ -1,5 +1,4 @@
 import { ClientResponse, hc } from 'hono/client';
-import { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import type { Router } from '@server/service';
 
@@ -11,7 +10,7 @@ export const trpc = hono.trpc;
 
 export async function getValue<T, R>(
     func: {
-        $get: (arg: { query: T }) => Promise<ClientResponse<R, ContentfulStatusCode, 'json'>>;
+        $get: (arg: { query: T }) => Promise<ClientResponse<R, any, 'json'>>;
     },
     arg: T,
 ): Promise<R | null> {

@@ -24,7 +24,7 @@ export const printApi = new Hono()
                     description: 'Card full view',
                     content:     {
                         'application/json': {
-                            schema: resolver(printView.optional()),
+                            schema: resolver(printView),
                         },
                     },
                 },
@@ -52,7 +52,7 @@ export const printApi = new Hono()
                 ));
 
             if (views.length === 0) {
-                return c.json(null);
+                return c.notFound();
             }
 
             return c.json(views[0]);

@@ -54,7 +54,7 @@ export const cardRouter = new Hono()
                     description: 'Card full view',
                     content:     {
                         'application/json': {
-                            schema: resolver(cardFullView.optional()),
+                            schema: resolver(cardFullView),
                         },
                     },
                 },
@@ -132,7 +132,7 @@ export const cardRouter = new Hono()
             })();
 
             if (cardPrint == null) {
-                return c.json(null);
+                return c.notFound();
             }
 
             const versions = await db.select({
@@ -176,7 +176,7 @@ export const cardRouter = new Hono()
                     description: 'Card profile',
                     content:     {
                         'application/json': {
-                            schema: resolver(cardProfile.optional()),
+                            schema: resolver(cardProfile),
                         },
                     },
                 },
@@ -193,7 +193,7 @@ export const cardRouter = new Hono()
             }).from(CardLocalization).where(eq(CardLocalization.cardId, cardId));
 
             if (cardLocalizations.length === 0) {
-                return c.json(null);
+                return c.notFound();
             }
 
             const versions = await db.select({
@@ -225,7 +225,7 @@ export const cardApi = new Hono()
                     description: 'Card full view',
                     content:     {
                         'application/json': {
-                            schema: resolver(cardView.optional()),
+                            schema: resolver(cardView),
                         },
                     },
                 },
@@ -249,7 +249,7 @@ export const cardApi = new Hono()
                 ));
 
             if (views.length === 0) {
-                return c.json(null);
+                return c.notFound();
             }
 
             return c.json(views[0]);

@@ -49,7 +49,7 @@ router.get('/openapi', async c => {
     ]);
 
     if (isErrorResult(specs)) {
-        return c.json(null);
+        return c.notFound();
     }
 
     return c.json(specs.output);

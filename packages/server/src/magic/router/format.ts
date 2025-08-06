@@ -22,7 +22,7 @@ const formatBase = new Hono()
                     description: 'Format details',
                     content:     {
                         'application/json': {
-                            schema: resolver(formatSchema.optional()),
+                            schema: resolver(formatSchema),
                         },
                     },
                 },
@@ -37,7 +37,7 @@ const formatBase = new Hono()
                 .where(eq(Format.formatId, formatId));
 
             if (format[0] == null) {
-                return c.json(null);
+                return c.notFound();
             }
 
             return c.json(format[0]);

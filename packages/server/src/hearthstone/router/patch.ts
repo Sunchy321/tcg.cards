@@ -64,7 +64,7 @@ export const patchRouter = new Hono()
                 .then(rows => rows[0]);
 
             if (!patch) {
-                return c.json(null);
+                return c.notFound();
             }
 
             return c.json(patch);
