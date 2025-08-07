@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watchEffect } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 import { useRouter, useRoute } from 'vue-router';
@@ -83,6 +83,12 @@ const fullName = (g: string) => {
         return i18n.t(`${g}.$self`);
     }
 };
+
+watchEffect(() => {
+    if (session.value.data != null && route.query.redirect != null) {
+        router.push(route.query.redirect as string);
+    }
+});
 
 </script>
 
