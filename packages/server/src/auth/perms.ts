@@ -1,7 +1,7 @@
 import { createAccessControl } from 'better-auth/plugins/access';
 import { defaultStatements, adminAc, userAc } from 'better-auth/plugins/admin/access';
 
-import { games } from '@interface/index';
+import { games } from '@model/schema';
 
 export const ac = createAccessControl({
     ...defaultStatements,
@@ -10,6 +10,7 @@ export const ac = createAccessControl({
 
 const owner = ac.newRole({
     ...adminAc.statements,
+    data: [...games],
 });
 
 const admin = ac.newRole ({

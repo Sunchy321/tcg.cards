@@ -4,7 +4,11 @@ import type { Router } from '@server/service';
 
 const url = import.meta.env.VITE_HONO_URL;
 
-export const hono = hc<Router>(url);
+export const hono = hc<Router>(url, {
+    init: {
+        credentials: 'include',
+    },
+});
 
 export const trpc = hono.trpc;
 

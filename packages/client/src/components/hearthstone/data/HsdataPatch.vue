@@ -36,6 +36,8 @@ import { ref, computed } from 'vue';
 
 import controlSetup from 'setup/control';
 
+import { trpc } from 'src/hono';
+
 const props = defineProps<{
     buildNumber: number;
     name:        string;
@@ -53,7 +55,7 @@ interface Progress {
     total:   number;
 }
 
-const { controlPost, controlWs } = controlSetup();
+const { controlWs } = controlSetup();
 
 const progress = ref<Progress | null>();
 
@@ -74,7 +76,7 @@ const progressLabel = computed(() => {
 });
 
 const clearPatch = async () => {
-    await controlPost('/hearthstone/hsdata/clear-patch', { version: props.buildNumber });
+    await trpc.hearthstone.data.hsdata['clear-patch'].$post();
 };
 
 const loadPatch = async () => {

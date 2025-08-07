@@ -8,6 +8,8 @@ import { prettyJSON } from 'hono/pretty-json';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 
+import { HonoEnv } from './hono-env';
+
 import { auth } from './auth';
 
 import { getPath } from 'hono/utils/url';
@@ -17,12 +19,7 @@ import api from './api';
 
 const port = 3000;
 
-const app = new Hono<{
-    Variables: {
-        user:    typeof auth.$Infer.Session.user | null;
-        session: typeof auth.$Infer.Session.session | null;
-    };
-}>({
+const app = new Hono<HonoEnv>({
     getPath: req => {
         const path = getPath(req);
         const host = req.headers.get('Host');

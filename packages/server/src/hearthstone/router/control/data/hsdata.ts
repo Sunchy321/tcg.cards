@@ -3,7 +3,7 @@ import { Context, DefaultState } from 'koa';
 
 import websocket from '@/middlewares/websocket';
 
-import { RepoPuller, PatchListLoader, clearPatch } from '@/hearthstone/data/hsdata/patch';
+import { clearPatch } from '@/hearthstone/data/hsdata/patch';
 import { PatchLoader } from '@/hearthstone/data/hsdata/task';
 
 import { toSingle } from '@/common/request-helper';
