@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { streamSSE } from 'hono/streaming';
 import { zValidator } from '@hono/zod-validator';
 
 import z from 'zod';
@@ -14,12 +13,6 @@ export const gathererSSE = new Hono()
 
             const task = new GathererImageTask(setId);
 
-            return streamSSE(c, async stream => {
-                task.bind(stream);
-
-                while (!stream.aborted && !stream.closed) {
-                    await stream.sleep(100);
-                }
-            });
+            return task.bind(c);
         },
     );

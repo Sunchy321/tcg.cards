@@ -24,7 +24,7 @@ export const classes = z.enum([
 ]);
 
 export const types = z.enum([
-    'game', 'player', 'hero', 'minion', 'spell', 'enchantment', 'weapon', 'item', 'token', 'hero_power', 'blank', 'game_mode_button', 'move_minion_hover_target', 'mercenary_ability', 'buddy_meter', 'location', 'quest_reward', 'tavern_spell', 'anomaly', 'trinket', 'pet',
+    'null', 'game', 'player', 'hero', 'minion', 'spell', 'enchantment', 'weapon', 'item', 'token', 'hero_power', 'blank', 'game_mode_button', 'move_minion_hover_target', 'mercenary_ability', 'buddy_meter', 'location', 'quest_reward', 'tavern_spell', 'anomaly', 'trinket', 'pet',
 ]);
 
 export const race = z.enum([
@@ -48,6 +48,10 @@ export const layout = z.enum([
 export const fullImageType = z.enum(['webp', 'jpg', 'png']);
 
 export type Locale = z.infer<typeof locale>;
+export type Classes = z.infer<typeof classes>;
+export type Types = z.infer<typeof types>;
+export type Race = z.infer<typeof race>;
+export type SpellSchool = z.infer<typeof spellSchool>;
 export type Rarity = z.infer<typeof rarity>;
 export type Layout = z.infer<typeof layout>;
 export type FullImageType = z.infer<typeof fullImageType>;

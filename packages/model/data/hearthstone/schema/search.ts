@@ -2,9 +2,9 @@ import z from 'zod';
 
 import { createSearchNormalResult, createSearchResult } from '@search/schema';
 
-import { cardPrintView } from './entity';
+import { cardEntityView } from './entity';
 
-export const normalResult = createSearchNormalResult(cardPrintView);
+export const normalResult = createSearchNormalResult(cardEntityView);
 
 export type NormalResult = z.infer<typeof normalResult>;
 

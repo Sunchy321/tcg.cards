@@ -22,7 +22,7 @@ export const changeType = schema.enum('change_type', entityModel.changeType.enum
 
 export const Entity = schema.table('entities', {
     cardId:  text('card_id').notNull(),
-    version: integer('version').notNull(),
+    version: integer('version').array().notNull(),
 
     dbfId: integer('dbf_id').notNull(),
     slug:  text('slug'),
@@ -82,7 +82,7 @@ export const Entity = schema.table('entities', {
 
 export const EntityLocalization = schema.table('entity_localizations', {
     cardId:  text('card_id').notNull(),
-    version: integer('version').notNull(),
+    version: integer('version').array().notNull(),
     lang:    text('lang').notNull(),
 
     name:            text('name'),

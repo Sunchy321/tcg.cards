@@ -2,12 +2,13 @@ import { join } from 'path';
 
 import { dataPath } from '@/config';
 
-import { XLocStringTag, XTag } from '@interface/hearthstone/hsdata/xml';
+import { Locale } from '@model/hearthstone/schema/basic';
+import { XLocStringTag, XTag } from '@model/hearthstone/schema/data/hsdata';
 import { ITag } from './task';
 
 export const localPath = join(dataPath, 'hearthstone', 'hsdata');
 
-export const langMap: Record<string, string> = {
+export const langMap: Record<string, Locale> = {
     deDE: 'de',
     enUS: 'en',
     esES: 'es',
@@ -29,5 +30,5 @@ export interface HsdataParser {
 
     getMapData<T>(name: string): Record<string, T>;
     getSpecialData<T>(name: string): T;
-    getValue(tag: XLocStringTag | XTag, info: ITag): any;
+    getValue(tag: XLocStringTag | XTag, info: ITag, cardIdMap: Record<number, string>): any;
 }

@@ -1,7 +1,6 @@
 import { EventEmitter } from 'events';
-import { SSEStreamingApi } from 'hono/streaming';
-
-import WebSocket from 'ws';
+import { Context } from 'hono';
+import { streamSSE } from 'hono/streaming';
 
 abstract class Task<T> extends EventEmitter {
     status: 'error' | 'idle' | 'working';
@@ -29,21 +28,12 @@ abstract class Task<T> extends EventEmitter {
         });
     }
 
-    bind(stream: WebSocket | SSEStreamingApi): void {
-        if (stream instanceof WebSocket) {
-            this
-                .on('progress', p => { stream.send(JSON.stringify(p)); })
-                .on('error', e => {
-                    stream.send(JSON.stringify({ error: true, ...e }));
-                    console.log(e);
-                    stream.close();
-                })
-                .on('end', () => { stream.close(); });
+    bind(c: Context): Response {
+        c.req.raw.signal.addEventListener('abort', () => {
+            this.stop();
+        });
 
-            stream.on('close', () => { this.stop(); });
-
-            this.start();
-        } else {
+        return streamSSE(c, async stream => {
             this
                 .on('progress', p => {
                     stream.writeSSE({
@@ -71,7 +61,11 @@ abstract class Task<T> extends EventEmitter {
             stream.onAbort(() => { this.stop(); });
 
             this.start();
-        }
+
+            while (!stream.aborted && !stream.closed) {
+                await stream.sleep(100);
+            }
+        });
     }
 
     async start(): Promise<void> {

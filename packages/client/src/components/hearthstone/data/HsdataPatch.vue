@@ -34,9 +34,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 
-import controlSetup from 'setup/control';
+import { useQuasar } from 'quasar';
 
 import { trpc } from 'src/hono';
+import { actionWithProgress } from 'src/progress';
+
+const quasar = useQuasar();
 
 const props = defineProps<{
     buildNumber: number;
@@ -54,8 +57,6 @@ interface Progress {
     count:   number;
     total:   number;
 }
-
-const { controlWs } = controlSetup();
 
 const progress = ref<Progress | null>();
 
@@ -76,33 +77,31 @@ const progressLabel = computed(() => {
 });
 
 const clearPatch = async () => {
-    await trpc.hearthstone.data.hsdata['clear-patch'].$post();
+    const result = await trpc.hearthstone.data.hsdata['clear-patch'].$post({ query: { buildNumber: props.buildNumber.toString() } });
+
+    if (result.ok) {
+        const value = await result.json();
+
+        quasar.notify({
+            message: `Patch ${props.buildNumber} has been cleared, ${value.deletedEntity.length} entities and ${value.deletedEntityLocalization.length} localizations removed.`,
+            color:   'positive',
+        });
+
+        emit('load-data');
+    }
 };
 
-const loadPatch = async () => {
-    progress.value = null;
+const loadPatch = async () => actionWithProgress<Progress>(
+    `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/load-patch?buildNumber=${props.buildNumber}`,
+    prog => {
+        progress.value = prog;
+    },
+    () => {
+        progress.value = null;
+        emit('load-data');
+    },
+);
 
-    const ws = controlWs('/hearthstone/hsdata/load-patch', { version: props.buildNumber });
-
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            if (data.error != null) {
-                console.error(data);
-            } else {
-                const prog = JSON.parse(data) as Progress;
-                progress.value = prog;
-            }
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = undefined;
-            emit('load-data');
-
-            resolve(undefined);
-        };
-    });
-};
 </script>
 
 <style lang="sass" scoped>

@@ -148,26 +148,35 @@ export async function clearPatch(buildNumber: number) {
     const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, buildNumber)).limit(1).then(r => _.last(r));
 
     if (patch == null) {
-        return false;
+        return {
+            deletedEntity:             [],
+            deletedEntityLocalization: [],
+        };
     }
 
-    await db.update(Entity)
-        .set({ version: sql`array_remove(${Entity.version}, ${buildNumber})` })
-        .where(sql`${buildNumber} = any(${Entity.version})`);
+    const result = await db.transaction(async tx => {
+        await tx.update(Entity)
+            .set({ version: sql`array_remove(${Entity.version}, ${buildNumber.toString()})` })
+            .where(sql`${buildNumber} = any(${Entity.version})`);
 
-    await db.update(EntityLocalization)
-        .set({ version: sql`array_remove(${EntityLocalization.version}, ${buildNumber})` })
-        .where(sql`${buildNumber} = any(${EntityLocalization.version})`);
+        await tx.update(EntityLocalization)
+            .set({ version: sql`array_remove(${EntityLocalization.version}, ${buildNumber.toString()})` })
+            .where(sql`${buildNumber} = any(${EntityLocalization.version})`);
 
-    await db.delete(Entity)
-        .where(sql`array_length(${Entity.version}, 1) = 0`);
+        const deletedEntity = await tx.delete(Entity)
+            .where(sql`cardinality(${Entity.version}) = 0`)
+            .returning({ cardId: Entity.cardId });
 
-    await db.delete(EntityLocalization)
-        .where(sql`array_length(${EntityLocalization.version}, 1) = 0`);
+        const deletedEntityLocalization = await tx.delete(EntityLocalization)
+            .where(sql`cardinality(${EntityLocalization.version}) = 0`)
+            .returning({ cardId: EntityLocalization.cardId });
 
-    await db.update(Patch).set({ isUpdated: false }).where(eq(Patch.buildNumber, buildNumber));
+        await tx.update(Patch).set({ isUpdated: false }).where(eq(Patch.buildNumber, buildNumber));
+
+        return { deletedEntity, deletedEntityLocalization };
+    });
 
     main.info(`Patch ${buildNumber} has been removed`, { category: 'hsdata' });
 
-    return true;
+    return result;
 }

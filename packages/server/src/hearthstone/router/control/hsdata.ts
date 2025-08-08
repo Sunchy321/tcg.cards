@@ -5,7 +5,7 @@ import websocket from '@/middlewares/websocket';
 
 import { PatchLoader as PatchLoaderOld } from '@/hearthstone/hsdata';
 import { ImageGetter } from '@/hearthstone/hsdata/image';
-import { RepoPuller, PatchImporter, clearPatch } from '@/hearthstone/data/hsdata/patch';
+import { RepoPuller, PatchListLoader, clearPatch } from '@/hearthstone/data/hsdata/patch';
 
 import { toSingle } from '@/common/request-helper';
 
@@ -24,7 +24,7 @@ router.get(
     },
 );
 
-const importer = new PatchImporter();
+const importer = new PatchListLoader();
 
 router.get(
     '/import-patch',

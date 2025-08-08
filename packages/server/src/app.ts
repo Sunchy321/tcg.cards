@@ -1,7 +1,6 @@
 import 'dotenv/config.js';
 
 import { Hono } from 'hono';
-import { showRoutes } from 'hono/dev';
 import { poweredBy } from 'hono/powered-by';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
@@ -63,8 +62,6 @@ app.use('*', async (c, next) => {
 
 app.route('/service.tcg.cards', service);
 app.route('/api.tcg.cards', api);
-
-showRoutes(app, { verbose: true });
 
 serve({
     fetch: app.fetch,

@@ -1,16 +1,41 @@
 import { HsdataParser, langMap } from './base';
 
-import { Entity as IEntity, PlayRequirement, Power } from '@interface/hearthstone/entity';
-import { CardRelation as ICardRelation } from '@interface/hearthstone/card-relation';
-import { XEntity, XLocStringTag, XTag } from '@interface/hearthstone/hsdata/xml';
+import {
+    EntityLocalization, entityLocalization as entityLocalizationSchema,
+    Entity as IEntity, entity as entitySchema,
+    PlayRequirement, playRequirement as playRequirementSchema,
+    Power, power as powerSchema,
+    Rune,
+} from '@model/hearthstone/schema/entity';
+
+import { Classes, Race } from '@model/hearthstone/schema/basic';
+import { CardRelation as ICardRelation } from '@model/hearthstone/schema/card-relation';
+import { XEntity, XLocStringTag, XTag } from '@model/hearthstone/schema/data/hsdata';
 import { ITag } from './task';
 
-import { castArray } from 'lodash';
+import _ from 'lodash';
 
 import { loadPatch } from '@/hearthstone/logger';
 
-export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICardRelation[]] {
-    const result: Partial<IEntity> = { };
+type Nullable<T> = {
+    [P in keyof T]: T[P] | null;
+};
+
+export function parseCardId(entity: XEntity): { cardId: string, dbfId: number } {
+    const cardId = entity._attributes.CardID;
+    const dbfId = Number.parseInt(entity._attributes.ID, 10);
+
+    if (cardId == null || dbfId == null) {
+        throw new Error(`Invalid entity: ${JSON.stringify(entity)}`);
+    }
+
+    return { cardId, dbfId };
+}
+
+export function parseEntity(this: HsdataParser, entity: XEntity, cardIdMap: Record<number, string>): [IEntity, Power[], ICardRelation[]] {
+    const result = Object.fromEntries(Object.keys(entitySchema.shape).map(k => [k, null])) as Nullable<IEntity>;
+
+    const powers: Power[] = [];
     const relations: ICardRelation[] = [];
 
     const masters: string[] = [];
@@ -27,15 +52,20 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
     const locFields = this.getSpecialData<Record<string, keyof IEntity['localization'][0]>>('localization-field');
     const fields = this.getSpecialData<Record<string, ITag>>('field');
 
-    const localization: Partial<IEntity['localization'][0]>[] = [];
-    const quest: Partial<IEntity['quest']> = { };
+    const localization: Nullable<IEntity['localization'][0]>[] = [];
+
+    const quest: Nullable<Pick<IEntity, 'questPart' | 'questProgress' | 'questType'>> = {
+        questPart:     null,
+        questProgress: null,
+        questType:     null,
+    };
 
     for (const k of Object.keys(entity)) {
         switch (k) {
         case '_attributes':
             break;
         case 'Tag': {
-            for (const t of castArray(entity[k])) {
+            for (const t of _.castArray(entity[k])) {
                 const id = t._attributes.enumID;
 
                 const { type } = t._attributes;
@@ -56,9 +86,18 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                         const loc = localization.find(l => l.lang === lang);
 
                         if (loc != null) {
-                            loc[locField] = text;
+                            (loc as any)[locField] = text;
                         } else {
-                            localization.push({ lang, [locField]: text });
+                            localization.push({
+                                ...Object.fromEntries(Object.keys(entityLocalizationSchema.shape).map(
+                                    k => [k, null],
+                                )) as Nullable<EntityLocalization>,
+
+                                locChangeType: 'unknown',
+
+                                [locField]: text,
+                                lang,
+                            });
                         }
                     }
 
@@ -68,9 +107,9 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                 const field = fields[id];
 
                 if (field?.index === 'multiClass') {
-                    const classMap = this.getMapData<string>('class');
+                    const classMap = this.getMapData<Classes>('class');
 
-                    const classes = [];
+                    const classes: Classes[] = [];
 
                     for (const [k, v] of Object.entries(classMap)) {
                         const num = Number.parseInt(k, 10) - 1;
@@ -85,7 +124,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                     continue;
                 } else if (field != null) {
                     try {
-                        const tagValue = this.getValue(t, field);
+                        const tagValue = this.getValue(t, field, cardIdMap);
 
                         if (tagValue == null) {
                             errors.push(`Unknown tag ${
@@ -109,7 +148,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                     continue;
                 }
 
-                const rune = this.getMapData<string>('rune')[id];
+                const rune = this.getMapData<Rune>('rune')[id];
 
                 if (rune != null) {
                     if (result.rune == null) {
@@ -123,7 +162,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                     continue;
                 }
 
-                const dualRace = this.getMapData<string>('dual-race')[id];
+                const dualRace = this.getMapData<Race>('dual-race')[id];
 
                 if (dualRace != null) {
                     if (result.race != null) {
@@ -135,7 +174,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                     continue;
                 }
 
-                const raceBucket = this.getMapData<string>('race-bucket')[id];
+                const raceBucket = this.getMapData<Race>('race-bucket')[id];
 
                 if (raceBucket != null) {
                     result.raceBucket = raceBucket;
@@ -149,7 +188,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                         relation: relatedEntity,
                         version:  [],
                         sourceId: result.cardId,
-                        targetId: (t as XTag)._attributes.value,
+                        targetId: cardIdMap[Number.parseInt((t as XTag)._attributes.value, 10)] ?? '',
                     });
 
                     continue;
@@ -164,21 +203,21 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                 if (mechanic != null) {
                     switch (mechanic) {
                     case 'quest':
-                        if (quest.type == null) {
-                            quest.type = 'normal';
+                        if (quest.questType == null) {
+                            quest.questType = 'normal';
                         }
                         break;
                     case 'sidequest':
-                        quest.type = 'side';
+                        quest.questType = 'side';
                         break;
                     case 'quest_progress':
-                        quest.progress = value;
+                        quest.questProgress = value;
                         break;
                     case 'questline':
-                        quest.type = 'questline';
+                        quest.questType = 'questline';
                         break;
                     case 'questline_part':
-                        quest.part = value;
+                        quest.questPart = value;
                         break;
                     default:
                         break;
@@ -200,16 +239,14 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                 errors.push(`Unknown tag ${id}`);
             }
 
-            if (quest.type != null) {
-                result.quest = quest as IEntity['quest'];
-            }
+            result.questType = quest.questType;
+            result.questProgress = quest.questProgress;
+            result.questPart = quest.questPart;
 
             break;
         }
         case 'Power': {
-            result.powers = [];
-
-            for (const p of castArray(entity[k])) {
+            for (const p of _.castArray(entity[k])) {
                 const power: Partial<Power> = {};
 
                 power.definition = p._attributes.definition;
@@ -217,7 +254,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                 if (p.PlayRequirement != null) {
                     power.playRequirements = [];
 
-                    for (const r of castArray(p.PlayRequirement)) {
+                    for (const r of _.castArray(p.PlayRequirement)) {
                         const type = this.getMapData<string>('play-requirement')[r._attributes.reqID];
 
                         const { param } = r._attributes;
@@ -234,11 +271,11 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
                             req.param = Number.parseInt(param, 10);
                         }
 
-                        power.playRequirements.push(req as PlayRequirement);
+                        power.playRequirements.push(playRequirementSchema.parse(req));
                     }
                 }
 
-                result.powers.push(power as Power);
+                powers.push(powerSchema.parse(power));
             }
 
             break;
@@ -246,7 +283,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
         case 'ReferencedTag': {
             result.referencedTags = [];
 
-            for (const r of castArray(entity[k])) {
+            for (const r of _.castArray(entity[k])) {
                 const id = r._attributes.enumID;
 
                 const req = this.getMapData<string>('mechanic')[id];
@@ -280,24 +317,24 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
             break;
         }
         case 'EntourageCard': {
-            result.entourages = castArray(entity[k]).map(
+            result.entourages = _.castArray(entity[k]).map(
                 v => v._attributes.cardID,
             );
 
             break;
         }
         case 'MasterPower': {
-            for (const m of castArray(entity[k])) {
+            for (const m of _.castArray(entity[k])) {
                 masters.push(m._text);
             }
             break;
         }
         case 'TriggeredPowerHistoryInfo': {
-            for (const t of castArray(entity[k])) {
+            for (const t of _.castArray(entity[k])) {
                 const index = Number.parseInt(t._attributes.effectIndex, 10);
                 const inHistory = t._attributes.showInHistory;
 
-                const p = result.powers?.[index];
+                const p = powers[index];
 
                 if (p != null) {
                     p.showInHistory = inHistory === 'True';
@@ -315,9 +352,9 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
         throw errors;
     }
 
-    if (result.powers != null && masters.length > 0) {
+    if (masters.length > 0) {
         for (const m of masters) {
-            for (const p of result.powers) {
+            for (const p of powers) {
                 if (p.definition === m) {
                     p.isMaster = true;
                 }
@@ -325,17 +362,29 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
         }
     }
 
-    result.localization = localization as IEntity['localization'];
+    result.localization = localization as EntityLocalization[];
 
     for (const l of result.localization) {
         if (l.richText == null) {
             l.richText = '';
         }
 
+        if (l.name == null) {
+            l.name = '';
+        }
+
         l.displayText = l.richText;
         l.text = l.richText
             .replace(/[$#](\d+)/g, (_, m) => m)
             .replace(/<\/?.>|\[.\]/g, '');
+    }
+
+    if (result.type == null) {
+        result.type = 'null';
+    }
+
+    if (result.set == null) {
+        result.set = '';
     }
 
     // fix 0 issue
@@ -361,5 +410,25 @@ export function parseEntity(this: HsdataParser, entity: XEntity): [IEntity, ICar
         }
     }
 
-    return [result as IEntity, relations];
+    if (result.inBobsTavern == null) {
+        result.inBobsTavern = false;
+    }
+
+    if (result.collectible == null) {
+        result.collectible = false;
+    }
+
+    if (result.elite == null) {
+        result.elite = false;
+    }
+
+    if (result.artist == null) {
+        result.artist = '';
+    }
+
+    result.textBuilderType = 'default';
+    result.changeType = 'unknown';
+    result.isLatest = false;
+
+    return [entitySchema.parse(result), powers, relations];
 }

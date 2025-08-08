@@ -8,6 +8,7 @@ import { HonoEnv } from '@/hono-env';
 import z from 'zod';
 
 import { clearPatch, PatchListLoader, RepoPuller } from '@/hearthstone/data/hsdata/patch';
+import { PatchLoader } from '@/hearthstone/data/hsdata/task';
 
 export const hsdataRouter = new Hono<HonoEnv>()
     .post(
@@ -20,7 +21,9 @@ export const hsdataRouter = new Hono<HonoEnv>()
                     description: 'Patch data cleared successfully',
                     content:     {
                         'application/json': {
-                            schema: resolver(z.object({ success: z.boolean() })),
+                            schema: resolver(z.object({
+                                success: z.boolean(),
+                            })),
                         },
                     },
                 },
@@ -32,11 +35,9 @@ export const hsdataRouter = new Hono<HonoEnv>()
         async c => {
             const buildNumber = c.req.valid('query').buildNumber;
 
-            await clearPatch(buildNumber);
+            const result = await clearPatch(buildNumber);
 
-            return c.json({
-                success: true,
-            });
+            return c.json(result);
         });
 
 export const hsdataSSE = new Hono()
@@ -46,7 +47,7 @@ export const hsdataSSE = new Hono()
             const task = new RepoPuller();
 
             return streamSSE(c, async stream => {
-                task.bind(stream);
+                task.bind(stream, c);
 
                 while (!stream.aborted && !stream.closed) {
                     await stream.sleep(100);
@@ -59,12 +60,19 @@ export const hsdataSSE = new Hono()
         async c => {
             const task = new PatchListLoader();
 
-            return streamSSE(c, async stream => {
-                task.bind(stream);
+            return task.bind(c);
+        },
+    )
+    .get(
+        '/load-patch',
+        zValidator('query', z.object({
+            buildNumber: z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive()),
+        })),
+        async c => {
+            const buildNumber = c.req.valid('query').buildNumber;
 
-                while (!stream.aborted && !stream.closed) {
-                    await stream.sleep(100);
-                }
-            });
+            const task = new PatchLoader(buildNumber);
+
+            return task.bind(c);
         },
     );

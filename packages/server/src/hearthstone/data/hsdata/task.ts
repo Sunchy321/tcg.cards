@@ -1,35 +1,29 @@
-import git, { ResetMode } from 'simple-git';
-
-import { XCardDefs, XLocStringTag, XTag } from '@interface/hearthstone/hsdata/xml';
-
-import Card from '@/hearthstone/db/card';
-import Entity from '@/hearthstone/db/entity';
-import CardRelation from '@/hearthstone/db/card-relation';
 import Task from '@/common/task';
 
-import { db } from '@/drizzle';
-import { Patch } from '@/hearthstone/schema/patch';
+import git, { ResetMode } from 'simple-git';
 
-import { eq } from 'drizzle-orm';
+import { Entity as IEntity } from '@model/hearthstone/schema/entity';
+import { XCardDefs, XLocStringTag, XTag } from '@model/hearthstone/schema/data/hsdata';
 
-import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { CardRelation as ICardRelation } from '@interface/hearthstone/card-relation';
+import { arrayContains, desc, eq, lt } from 'drizzle-orm';
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { xml2js } from 'xml-js';
-import { intersection, isEqual, last, omit, uniq } from 'lodash';
+import _ from 'lodash';
 
-import {
-    TextBuilderType, getLangStrings, getDbfCardFile, getDisplayText,
-} from '@/hearthstone/blizzard/display-text';
+import { db } from '@/drizzle';
+import { Patch } from '@/hearthstone/schema/patch';
+import { Entity } from '@/hearthstone/schema/entity';
+
+import internalData from '@/internal-data';
+import { TextBuilderType, getLangStrings, getDbfCardFile, getDisplayText } from '@/hearthstone/blizzard/display-text';
+import { insertCards, insertEntities, insertRelation } from '../insert';
+import { parseCardId, parseEntity } from './parse';
 
 import { localPath, langMap } from './base';
 
-import { toBucket, toGenerator } from '@/common/to-bucket';
-import internalData from '@/internal-data';
 import { loadPatch } from '@/hearthstone/logger';
-import { parseEntity } from './parse';
 
 function hasData(): boolean {
     return fs.existsSync(path.join(localPath, '.git'));
@@ -80,7 +74,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         return this.data[`tag.${name}`];
     }
 
-    private getValue(tag: XLocStringTag | XTag, info: ITag) {
+    private getValue(tag: XLocStringTag | XTag, info: ITag, cardIdMap: Record<number, string>): any {
         if (tag._attributes.type === 'LocString') {
             return Object.entries(tag)
                 .filter(v => v[0] !== '_attributes')
@@ -99,6 +93,10 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         } else if (info.enum != null) {
             const enumId = info.enum === true ? info.index : info.enum;
             const id = tag._attributes.value;
+
+            if (info.enum === 'cardId') {
+                return cardIdMap[Number.parseInt(id, 10)] ?? '';
+            }
 
             const filename = (() => {
                 switch (enumId) {
@@ -157,11 +155,23 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             return;
         }
 
-        const patch = await db.select().from(Patch).where(eq(Patch.buildNumber, this.buildNumber)).limit(1).then(r => last(r));
+        const patch = await db.select()
+            .from(Patch)
+            .where(eq(Patch.buildNumber, this.buildNumber))
+            .limit(1)
+            .then(rows => rows[0]);
 
         if (patch == null) {
             return;
         }
+
+        const lastPatch = await db.select()
+            .from(Patch)
+            .where(lt(Patch.buildNumber, this.buildNumber))
+            .orderBy(desc(Patch.buildNumber))
+            .then(rows => rows[0]);
+
+        const lastNumber = lastPatch?.buildNumber ?? 0;
 
         const repo = git({
             baseDir:  localPath,
@@ -199,150 +209,96 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         let hasError = false;
 
-        for (const bucket of toBucket(toGenerator(xml.CardDefs.Entity), 500)) {
-            const newEntities = [];
+        const cardIdMap: Record<number, string> = {};
 
-            for (const e of bucket) {
-                try {
-                    const [entity, relations] = parseEntity.call(this, e);
+        for (const entity of xml.CardDefs.Entity) {
+            const { cardId, dbfId } = parseCardId(entity);
 
-                    newEntities.push(entity);
-                    cardRelations.push(...relations);
+            cardIdMap[dbfId] = cardId;
+        }
 
-                    total += 1;
-                } catch (errs) {
-                    hasError = true;
+        for (const e of xml.CardDefs.Entity) {
+            try {
+                const [entity, _powers, relations] = parseEntity.call(this, e, cardIdMap);
 
-                    for (const err of errs) {
-                        loadPatch.error(`${e._attributes.CardID}: ${err}`);
+                entities.push(entity);
+                cardRelations.push(...relations);
+
+                total += 1;
+            } catch (err: any) {
+                hasError = true;
+
+                if (!Array.isArray(err)) {
+                    loadPatch.error(`${e._attributes.CardID}: ${err}`);
+
+                    throw err;
+                } else {
+                    for (const e of err) {
+                        loadPatch.error(`${e._attributes.CardID}: ${e}`);
                     }
                 }
             }
-
-            entities.push(...newEntities);
         }
 
         loadPatch.info('='.repeat(54));
 
         if (hasError) {
-            return;
-        }
-
-        for (const r of cardRelations) {
-            r.targetId = entities.find(e => e.dbfId.toString() === r.targetId)?.cardId ?? '';
+            throw new Error('Some entities failed to parse, see log for details');
         }
 
         const strings = getLangStrings();
         const fileJson = getDbfCardFile();
 
-        for (const jsons of toBucket(toGenerator(entities), 500)) {
-            const oldData = await Entity.find({ cardId: { $in: jsons.map(j => j.cardId) } });
-            const oldCard = await Card.find({ cardId: { $in: jsons.map(j => j.cardId) } });
-
-            const entityToInsert = [];
-            const cardToInsert = [];
-
-            for (const e of jsons) {
-                const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
-
-                for (const l of e.localization) {
-                    const text = l.richText.replace(/[$#](\d+)/g, (_, m) => m);
-
-                    l.displayText = getDisplayText(
-                        text,
-                        json?.m_cardTextBuilderType ?? TextBuilderType.default,
-                        e.cardId,
-                        e.mechanics,
-                        strings[l.lang],
-                    );
-
-                    l.text = l.displayText.replace(/<\/?.>|\[.\]/g, '');
-                }
-
-                const eJson = omit(new Entity(e).toJSON(), ['version']);
-                const oldJsons = oldData
-                    .filter(o => o.cardId === e.cardId)
-                    .sort((a, b) => b.version[0] - a.version[0]);
-
-                let entitySaved = false;
-
-                for (const oe of oldJsons) {
-                    const oJson = omit(oe.toJSON(), ['version', 'isCurrent']);
-
-                    if (isEqual(oJson, eJson)) {
-                        oe.version = uniq([...oe.version, e.version[0]]).sort((a, b) => a - b);
-                        await oe.save();
-                        entitySaved = true;
-                        break;
-                    } else if (oJson.powers == null && eJson.powers != null && isEqual(omit(oJson, 'powers'), omit(eJson, 'powers'))) {
-                        oe.version = uniq([...oe.version, e.version[0]]).sort((a, b) => a - b);
-                        await oe.save();
-                        entitySaved = true;
-                        break;
-                    }
-                }
-
-                if (!entitySaved) {
-                    entityToInsert.push(e);
-                }
-
-                const c = oldCard.find(c => c.cardId === e.cardId);
-
-                if (c == null) {
-                    if (e.type !== 'enchantment') {
-                        cardToInsert.push({ cardId: e.cardId, changes: [] });
-                    }
-                } else {
-                    const changes = c.changes;
-
-                    c.changes = oldJsons.map(j => j.version).map(ov => {
-                        const cv = changes.find(ch => intersection(ch.version, ov).length > 0);
-
-                        if (cv == null) {
-                            return { version: ov, change: 'unknown' };
-                        } else {
-                            return { version: ov, change: cv.change };
-                        }
-                    });
-
-                    await c.save();
-                }
-
-                count += 1;
+        for (const entity of entities) {
+            if (this.status === 'idle') {
+                return;
             }
 
-            await Card.insertMany(cardToInsert);
-            await Entity.insertMany(entityToInsert);
-        }
+            const json = fileJson.Records.find(r => r.m_ID === entity.dbfId);
 
-        for (const relations of toBucket(toGenerator(cardRelations), 500)) {
-            const maybeRelations = await CardRelation.find({ sourceId: { $in: relations.map(r => r.sourceId) } });
+            for (const l of entity.localization) {
+                const text = l.richText.replace(/[$#](\d+)/g, (_, m) => m);
 
-            const relationToInsert: ICardRelation[] = [];
+                l.displayText = getDisplayText(
+                    text,
+                    json?.m_cardTextBuilderType ?? TextBuilderType.default,
+                    entity.cardId,
+                    entity.mechanics,
+                    strings[l.lang],
+                );
 
-            for (const relation of relations) {
-                const exactRelation = maybeRelations.find(r => r.relation == relation.relation && r.sourceId === relation.sourceId && r.targetId == relation.relation);
-
-                if (exactRelation != null) {
-                    exactRelation.version = uniq([...exactRelation.version, this.buildNumber]).sort((a, b) => a - b);
-
-                    await exactRelation.save();
-                } else {
-                    relationToInsert.push({
-                        ...relation,
-                        version: [this.buildNumber],
-                    });
-                }
+                l.text = l.displayText.replace(/<\/?.>|\[.\]/g, '');
             }
-
-            await CardRelation.insertMany(relationToInsert);
         }
 
-        await db.update(Patch).set({ isUpdated: true });
+        for (const bucket of _.chunk(entities, 500)) {
+            const cards = bucket.filter(c => c.type !== 'enchantment').map(c => ({
+                cardId:     c.cardId,
+                legalities: {},
+            }));
 
-        if (patch.isCurrent) {
-            await Entity.updateMany({}, { isCurrent: false });
-            await Entity.updateMany({ version: patch.buildNumber }, { isCurrent: true });
+            await insertCards(cards);
+            await insertEntities(bucket, this.buildNumber, lastNumber);
+
+            count += bucket.length;
+        }
+
+        for (const relation of cardRelations) {
+            await insertRelation(relation);
+        }
+
+        await db.update(Patch)
+            .set({ isUpdated: true })
+            .where(eq(Patch.buildNumber, this.buildNumber));
+
+        if (patch.isLatest) {
+            await db.transaction(async tx => {
+                await tx.update(Entity).set({ isLatest: false });
+
+                await tx.update(Entity)
+                    .set({ isLatest: true })
+                    .where(arrayContains(Entity.version, [patch.buildNumber]));
+            });
         }
 
         loadPatch.info(`Patch ${this.buildNumber} has been loaded`, { category: 'hsdata' });

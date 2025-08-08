@@ -18,8 +18,18 @@ export function actionWithProgress<T>(
         }
     });
 
-    es.addEventListener('close', () => {
+    es.addEventListener('error', event => {
+        console.error('EventSource error:', event);
+    });
+
+    es.addEventListener('close', event => {
         console.log('EventSource connection closed');
+
+        if (event.data != null && event.data !== '') {
+            console.error('EventSource close error:', event.data);
+            throw new Error(event.data);
+        }
+
         es.close();
 
         onClose?.();

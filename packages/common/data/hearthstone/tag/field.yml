@@ -40,6 +40,7 @@
     index: 'localizationNotes'
 380:
     index: 'heroPower'
+    enum: 'cardId'
 476:
     index: 'multiClass'
 997:
@@ -48,8 +49,10 @@
     index: 'deckOrder'
 1282:
     index: 'heroicHeroPower'
+    enum: 'cardId'
 1429:
     index: 'tripleCard'
+    enum: 'cardId'
 1440:
     index: 'techLevel'
 1456:
@@ -72,6 +75,7 @@
     index: 'armorBucket'
 2130:
     index: 'buddy'
+    enum: 'cardId'
 2703:
     index: 'bannedRace'
     enum: 'race'

@@ -27,16 +27,13 @@ export const set = z.strictObject({
 });
 
 export const setProfile = set.pick({
-    setId:           true,
-    parent:          true,
-    localization:    true,
-    type:            true,
-    symbolStyle:     true,
-    doubleFacedIcon: true,
-    releaseDate:     true,
+    setId:        true,
+    parent:       true,
+    localization: true,
+    type:         true,
+    releaseDate:  true,
 });
 
 export type Set = z.infer<typeof set>;
 export type SetLocalization = z.infer<typeof setLocalization>;
-export type Booster = z.infer<typeof booster>;
 export type SetProfile = z.infer<typeof setProfile>;

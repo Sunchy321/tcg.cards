@@ -49,11 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-    ref, computed, onMounted,
-} from 'vue';
-
-import controlSetup from 'setup/control';
+import { ref, computed, onMounted } from 'vue';
 
 import Grid from 'components/Grid.vue';
 import HsdataPatch from 'components/hearthstone/data/HsdataPatch.vue';
@@ -91,8 +87,6 @@ interface PatchProgress {
 }
 
 type Progress = LoaderProgress | PatchProgress | TransferProgress;
-
-const { controlWs } = controlSetup();
 
 const patches = ref<Patch[]>([]);
 const progress = ref<Progress>();
@@ -169,24 +163,16 @@ const loadPatches = async () => {
         return;
     }
 
-    const ws = controlWs('/hearthstone/hsdata/load-patch', { number: patch.buildNumber });
+    await new Promise(resolve => {
+        actionWithProgress<Progress>(
+            `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/load-patch?buildNumber=${patch.buildNumber}`,
+            prog => progress.value = prog,
+            () => {
+                console.info(`Patch ${patch.buildNumber} has been loaded`);
 
-    await new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            if (data.error != null) {
-                console.error(data);
-            } else {
-                const prog = JSON.parse(data) as Progress;
-                progress.value = prog;
-            }
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = undefined;
-
-            resolve(undefined);
-        };
+                resolve(undefined);
+            },
+        );
     });
 
     await loadData();
