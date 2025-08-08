@@ -198,6 +198,7 @@
 1506: start_of_combat_3 # only on 8 battlegrounds hero power
 1508: ?helper_1508
 1518: dormant
+1519: dormant_awaken_condition_enchant
 1524: corrupt
 1530: zapp_slywick
 1531: start_of_combat
@@ -626,6 +627,8 @@
 3767: ?battlegrounds_3767
 3768: count_element_played
 3770: count_bonus_keyword
+3771: ?battlegrounds_3771
+3772: ?battlegrounds_3772
 3798: reborn_with_full_attack
 3800: reborn_with_full_health
 3822: colorful_compass
@@ -667,14 +670,25 @@
 4177: greater_trinket_related
 4185: gain_card_count
 4194: spell_cast_twice
+4204: rally
 4206: demon_cost_health
 4207: tavern_spell_cost_health
 4213: smoldering
 4221: ?anomaly_4221
+4231: bounty
+4237: ?battlegrounds_enchantment_4237
 4238: repeatable
+4241: ?additional_rally
+4254: ?battlegrounds_4254
 4257: uses_charges
+4279: ?battlegrounds_4279
 4290: ?forest_s_bounty
 4296: possibly_awake
 4300: peek_card
 4303: ?blood_gem_4303
+4304: sell_minion
+4305: ?battlegrounds_4305
 4310: quest_double_reward
+4344: ?battlegrounds_4344
+4390: ?enchantment_dormant_4390
+4392: ysera

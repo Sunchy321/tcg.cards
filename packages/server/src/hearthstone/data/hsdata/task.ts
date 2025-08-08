@@ -233,9 +233,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                     throw err;
                 } else {
-                    for (const e of err) {
-                        loadPatch.error(`${e._attributes.CardID}: ${e}`);
-                    }
+                    loadPatch.error(`Errors parsing entity ${e._attributes.CardID}: ${err}`);
                 }
             }
         }
