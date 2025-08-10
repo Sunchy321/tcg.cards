@@ -53,6 +53,7 @@ const emit = defineEmits<{
 
 interface Progress {
     type:    'clear-patch' | 'load-patch';
+    method?: 'entity' | 'relation';
     version: number;
     count:   number;
     total:   number;

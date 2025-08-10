@@ -5,7 +5,7 @@ import git, { ResetMode } from 'simple-git';
 import { Entity as IEntity } from '@model/hearthstone/schema/entity';
 import { XCardDefs, XLocStringTag, XTag } from '@model/hearthstone/schema/data/hsdata';
 
-import { arrayContains, desc, eq, lt } from 'drizzle-orm';
+import { desc, eq, lt, sql } from 'drizzle-orm';
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -39,6 +39,7 @@ export interface ITag {
 
 export interface ILoadPatchStatus {
     type:    'load-patch';
+    method:  'entity' | 'relation';
     version: number;
     count:   number;
     total:   number;
@@ -182,17 +183,19 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
         await repo.reset(ResetMode.HARD, [patch.hash]);
 
+        let method: ILoadPatchStatus['method'] = 'entity';
         let count = 0;
         let total = 0;
 
         this.intervalProgress(500, () => ({
             type:    'load-patch',
+            method,
             version: this.buildNumber,
             count,
             total,
         }));
 
-        loadPatch.info(`${'='.repeat(20)} ${patch.name} ${'='.repeat(20)}`);
+        loadPatch.info(`${'='.repeat(20)} ${patch.name} ${'='.repeat(20)}`, { category: 'hsdata' });
 
         const cardDefs = fs
             .readFileSync(path.join(localPath, 'CardDefs.xml'))
@@ -238,7 +241,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             }
         }
 
-        loadPatch.info('='.repeat(54));
+        loadPatch.info('='.repeat(54), { category: 'hsdata' });
 
         if (hasError) {
             throw new Error('Some entities failed to parse, see log for details');
@@ -281,8 +284,14 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
             count += bucket.length;
         }
 
+        method = 'relation';
+        total = cardRelations.length;
+        count = 0;
+
         for (const relation of cardRelations) {
             await insertRelation(relation);
+
+            count += 1;
         }
 
         await db.update(Patch)
@@ -295,7 +304,7 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
                 await tx.update(Entity)
                     .set({ isLatest: true })
-                    .where(arrayContains(Entity.version, [patch.buildNumber]));
+                    .where(sql`${this.buildNumber} = any(${Entity.version})`);
             });
         }
 

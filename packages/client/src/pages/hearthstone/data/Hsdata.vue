@@ -81,6 +81,7 @@ interface LoaderProgress {
 
 interface PatchProgress {
     type:    'clear-patch' | 'load-patch';
+    method?: 'entity' | 'relation';
     version: number;
     count:   number;
     total:   number;
@@ -128,7 +129,7 @@ const progressLabel = computed(() => {
     } else if (prog.type === 'load') {
         return `${prog.count}/${prog.total}`;
     } else if (prog.type === 'load-patch') {
-        return `${prog.version}: ${prog.count}/${prog.total}`;
+        return `${prog.version} [${prog.method!}]: ${prog.count}/${prog.total}`;
     } else {
         return null;
     }

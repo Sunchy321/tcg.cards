@@ -186,7 +186,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity, cardIdMap: Reco
                 if (relatedEntity != null) {
                     relations.push({
                         relation: relatedEntity,
-                        version:  [],
+                        version:  [this.buildNumber],
                         sourceId: result.cardId,
                         targetId: cardIdMap[Number.parseInt((t as XTag)._attributes.value, 10)] ?? '',
                     });

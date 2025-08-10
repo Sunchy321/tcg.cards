@@ -86,7 +86,7 @@ export const cardRouter = new Hono()
                     eq(CardEntityView.lang, lang),
                 ))
                 .orderBy(desc(CardEntityView.version))
-                .then(rows => rows.map(row => row.version));
+                .then(rows => rows.map(row => row.version.reverse()));
 
             const sourceRelation = await db.select({
                 relation: CardRelation.relation,

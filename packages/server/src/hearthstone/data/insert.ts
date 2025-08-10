@@ -5,6 +5,7 @@ import { Card } from '@/hearthstone/schema/card';
 import { Entity, EntityLocalization } from '@/hearthstone/schema/entity';
 import { CardRelation } from '@/hearthstone/schema/card-relation';
 
+import { Locale } from '@model/hearthstone/schema/basic';
 import { Card as ICard } from '@model/hearthstone/schema/card';
 import { Entity as IEntity } from '@model/hearthstone/schema/entity';
 import { CardRelation as ICardRelation } from '@model/hearthstone/schema/card-relation';
@@ -52,7 +53,7 @@ export async function insertEntities(entities: IEntity[], version: number, lastV
         const entitiesToUpdate: { cardId: string }[] = [];
 
         const localizationToInsert: (IEntity['localization'][0] & { cardId: string, version: number[] })[] = [];
-        const localizationToUpdate: { cardId: string, lang: string }[] = [];
+        const localizationToUpdate: { cardId: string, lang: Locale }[] = [];
 
         for (const entity of newEntities) {
             const prevEntity = prevEntities.find(e => e.cardId === entity.cardId);
@@ -127,7 +128,7 @@ export async function insertEntities(entities: IEntity[], version: number, lastV
         }
 
         if (localizationToUpdate.length > 0) {
-            const group = _.groupBy(localizationToUpdate, l => `${l.lang}`);
+            const group = _.groupBy(localizationToUpdate, l => l.lang);
 
             for (const lang in group) {
                 const locs = group[lang];
@@ -135,7 +136,7 @@ export async function insertEntities(entities: IEntity[], version: number, lastV
                     .set({ version: sql`sort(array_append(${EntityLocalization.version}, ${version}))` })
                     .where(and(
                         inArray(EntityLocalization.cardId, locs.map(l => l.cardId)),
-                        eq(EntityLocalization.lang, lang),
+                        eq(EntityLocalization.lang, lang as Locale),
                         arrayContains(EntityLocalization.version, [lastVersion]),
                     ));
             }
@@ -155,7 +156,7 @@ export async function insertRelation(relation: ICardRelation) {
 
         if (prevRelation.length > 0) {
             await tx.update(CardRelation)
-                .set({ version: [...prevRelation[0].version, ...relation.version].sort((a, b) => a - b) })
+                .set({ version: sql`sort(array_append(${CardRelation.version}, ${relation.version}))` })
                 .where(and(
                     eq(CardRelation.sourceId, relation.sourceId),
                     eq(CardRelation.targetId, relation.targetId),
