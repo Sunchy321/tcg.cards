@@ -3,10 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-    ref, computed, watch, h,
-    onMounted,
-} from 'vue';
+import { ref, computed, watch, h } from 'vue';
 
 import { useRouter, useRoute, RouterLink } from 'vue-router';
 import { useGame } from 'store/games/hearthstone';
@@ -15,7 +12,9 @@ import { QTooltip } from 'quasar';
 
 import CardImage from './CardImage.vue';
 
-import entityProfile, { EntityProfile } from 'src/common/hearthstone/entity';
+import { CardProfile } from '@model/hearthstone/schema/card';
+
+import { getValue, trpc } from 'src/hono';
 
 const props = withDefaults(defineProps<{
     cardId:   string;
@@ -33,10 +32,10 @@ const route = useRoute();
 const game = useGame();
 
 const innerShowId = ref(false);
-const profile = ref<EntityProfile | null>(null);
+const profile = ref<CardProfile>();
 
 const link = computed(() => router.resolve({
-    name:   'hearthstone/entity',
+    name:   'hearthstone/card',
     params: { id: props.cardId },
     query:  {
         version: props.version,
@@ -63,29 +62,21 @@ const name = computed(() => {
     return localization.name;
 });
 
-const quickLoadData = async () => {
-    const value = await entityProfile.getLocal(props.cardId);
-
-    if (value != null) {
-        profile.value = value;
-    }
-};
-
-onMounted(quickLoadData);
-
 const loadData = async () => {
     if (profile.value != null && profile.value.cardId === props.cardId) {
         return;
     }
 
-    entityProfile.get(props.cardId, v => profile.value = v).catch(() => innerShowId.value = true);
+    const value = await getValue(trpc.hearthstone.card.profile, { cardId: props.cardId });
+
+    if (value != null) {
+        profile.value = value as CardProfile;
+    }
 };
 
-watch(() => props.cardId, (newValue, oldValue) => {
-    if (newValue != null && oldValue != null) {
-        loadData();
-    }
-});
+watch(() => props.cardId, () => {
+    loadData();
+}, { immediate: true });
 
 const render = () => {
     const text = showId.value

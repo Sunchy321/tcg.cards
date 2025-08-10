@@ -8,10 +8,11 @@ import _ from 'lodash';
 
 import { db } from '@/drizzle';
 import { Card } from '../schema/card';
-import { CardEntityView } from '../schema/entity';
+import { CardEntityView, EntityView } from '../schema/entity';
 import { CardRelation } from '../schema/card-relation';
 
 import { locale } from '@model/hearthstone/schema/basic';
+import { cardProfile } from '@model/hearthstone/schema/card';
 import { cardFullView } from '@model/hearthstone/schema/entity';
 
 export const cardRouter = new Hono()
@@ -108,4 +109,50 @@ export const cardRouter = new Hono()
                 relatedCards,
             });
         },
-    );
+    )
+    .get(
+        '/profile',
+        describeRoute({
+            description: 'Get card profile by card ID',
+            tags:        ['Hearthstone', 'Card'],
+            responses:   {
+                200: {
+                    description: 'Card profile',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(cardProfile),
+                        },
+                    },
+                },
+            },
+            validateResponse: true,
+        }),
+        validator('query', z.object({ cardId: z.string() })),
+        async c => {
+            const { cardId } = c.req.valid('query');
+
+            const localization = await db.select({
+                lang: EntityView.lang,
+                name: EntityView.localization.name,
+            }).from(EntityView).where(and(
+                eq(EntityView.cardId, cardId),
+                eq(EntityView.isLatest, true),
+            ));
+
+            if (localization.length === 0) {
+                return c.notFound();
+            }
+
+            const version = await db.select({ version: CardEntityView.version })
+                .from(CardEntityView)
+                .where(eq(CardEntityView.cardId, cardId))
+                .orderBy(desc(CardEntityView.version))
+                .then(rows => rows.map(row => row.version.reverse()));
+
+            return c.json({
+                cardId,
+                localization,
+                version,
+            });
+        },
+    ); ;
