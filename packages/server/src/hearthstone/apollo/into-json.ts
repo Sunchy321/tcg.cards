@@ -1,14 +1,16 @@
-import { Entity as IEntity } from '@interface/hearthstone/entity';
-import { FormatChange as IFormatChange } from '@interface/hearthstone/format-change';
+import { EntityView } from '@model/hearthstone/schema/entity';
+import { FormatChange as IFormatChange } from '@model/hearthstone/schema/format-change';
 
 import { ITag } from '../hsdata';
 
+import _ from 'lodash';
 import internalData from '@/internal-data';
-import { pickBy } from 'lodash';
+
+export type EntityApolloClip = Pick<EntityView, 'cardId' | 'lang' | 'type' | 'cost' | 'attack' | 'health' | 'durability' | 'armor' | 'classes' | 'race' | 'spellSchool' | 'rune' | 'elite' | 'mechanics' | 'set' | 'rarity' | 'techLevel' | 'mercenaryFaction' | 'localization'>;
 
 export type TagMap = {
     field:            Record<number, ITag>;
-    locField:         Record<number, keyof IEntity['localization'][0]>;
+    locField:         Record<number, keyof EntityView['localization']>;
     type:             Record<number, string>;
     classes:          Record<number, string>;
     race:             Record<number, string>;
@@ -69,16 +71,14 @@ export type ApolloJson = {
 };
 
 export function intoApolloJson(
-    entity: IEntity,
+    entity: EntityApolloClip,
     tagMap: TagMap,
     adjustment?: Required<IFormatChange>['adjustment'][0]['detail'],
     variant: Variant = 'normal',
 ): ApolloJson {
     const id = entity.cardId;
 
-    const loc = entity.localization.find(v => v.lang === 'zhs')
-      ?? entity.localization.find(v => v.lang === 'en')
-      ?? entity.localization[0];
+    const loc = entity.localization;
 
     const tags: Record<number, number> = {};
 
@@ -86,8 +86,8 @@ export function intoApolloJson(
         field, locField, type, classes, race, dualRace, spellSchool, rune, set, rarity, mechanic, mercenaryFaction,
     } = tagMap;
 
-    const fieldKey = (key: keyof IEntity) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
-    const locFieldKey = (key: keyof IEntity['localization'][0]) => Number.parseInt(Object.entries(locField).find(v => v[1] === key)![0], 10);
+    const fieldKey = (key: keyof EntityView) => Number.parseInt(Object.entries(field).find(v => v[1].index === key)![0], 10);
+    const locFieldKey = (key: keyof EntityView['localization']) => Number.parseInt(Object.entries(locField).find(v => v[1] === key)![0], 10);
 
     const invertFind = (map: Record<number, string>, value: string) => Number.parseInt(Object.entries(map).find(v => v[1] === value)?.[0] ?? '0', 10);
 
@@ -161,7 +161,7 @@ export function intoApolloJson(
     tags[invertFind(mechanic, 'in_mini_set')] = entity.mechanics.includes('in_mini_set') ? 1 : 0;
     tags[invertFind(mechanic, 'hide_watermark')] = entity.mechanics.includes('hide_watermark') ? 1 : 0;
 
-    let nerf: Record<number, number> = {};
+    const nerf: Record<number, number> = {};
 
     const partMap: Record<string, number> = {
         cost:          fieldKey('cost'),
@@ -179,29 +179,30 @@ export function intoApolloJson(
         rune:          2196, // hardcoded blood rune
     };
 
-    if (adjustment != null && adjustment.length > 0) {
-        for (const d of adjustment) {
-            if (partMap[d.part] != null) {
-                nerf[partMap[d.part]] = d.status === 'buff' ? 1 : 2;
-            } else {
-                console.error(`Unknown part ${d.part}`);
-            }
-        }
+    // TODO: Enable after nerf data is ready
+    // if (adjustment != null && adjustment.length > 0) {
+    //     for (const d of adjustment) {
+    //         if (partMap[d.part] != null) {
+    //             nerf[partMap[d.part]] = d.status === 'buff' ? 1 : 2;
+    //         } else {
+    //             console.error(`Unknown part ${d.part}`);
+    //         }
+    //     }
 
-        nerf = pickBy(nerf, (_value, _key) => {
-            // Hero Power has no nerf effect
-            if (entity.type === 'hero_power') {
-                return false;
-            }
+    //     nerf = pickBy(nerf, (_value, _key) => {
+    //         // Hero Power has no nerf effect
+    //         if (entity.type === 'hero_power') {
+    //             return false;
+    //         }
 
-            // Trinket's nerf effect is at wrong place
-            if (entity.mechanics.includes('trinket')) {
-                return false;
-            }
+    //         // Trinket's nerf effect is at wrong place
+    //         if (entity.mechanics.includes('trinket')) {
+    //             return false;
+    //         }
 
-            return true;
-        });
-    }
+    //         return true;
+    //     });
+    // }
 
     return {
         cardID:   id,

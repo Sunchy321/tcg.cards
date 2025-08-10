@@ -16,6 +16,7 @@
 import { useParam } from 'store/core';
 
 import controlSetup from 'src/setup/control';
+import { trpc } from 'src/hono';
 
 const { controlPost } = controlSetup();
 
@@ -26,13 +27,14 @@ const version = useParam('version', {
 });
 
 const createPatchJson = async () => {
-    const { data } = await controlPost('/hearthstone/apollo/create-patch-json', {
-        version: version.value,
+    const res = await trpc.hearthstone.data.apollo['create-patch-json'].$post({
+        query: {
+            version: version.value.toString(),
+        },
     });
 
     try {
-        const jsonStr = JSON.stringify(data, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const blob = await res.blob();
         const url = URL.createObjectURL(blob);
 
         const link = document.createElement('a');

@@ -109,7 +109,7 @@ export const EntityLocalization = schema.table('entity_localizations', {
 export const EntityView = schema.view('entity_view').as(qb => {
     return qb.select({
         cardId:  Entity.cardId,
-        version: sql`${Entity.version} & ${EntityLocalization.version}`.as('version'),
+        version: sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
         lang:    EntityLocalization.lang,
 
         ..._.omit(getTableColumns(Entity), ['cardId', 'version']),

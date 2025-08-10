@@ -10,4 +10,8 @@ export const legality = z.enum([
     'unavailable',
 ]);
 
+export const formatChange = z.object({
+});
+
 export type Legality = z.infer<typeof legality>;
+export type FormatChange = z.infer<typeof formatChange>;

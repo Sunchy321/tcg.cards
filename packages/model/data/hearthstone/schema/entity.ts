@@ -155,11 +155,12 @@ export const power = z.strictObject({
     playRequirements: playRequirement.array().optional(),
 });
 
-export const cardEntityView = entity.extend({
-    lang: locale,
-
+export const entityView = entity.extend({
+    lang:         locale,
     localization: entityLocalization.omit({ lang: true }),
+});
 
+export const cardEntityView = entityView.extend({
     legalities: card.shape.legalities,
 });
 
@@ -177,5 +178,6 @@ export type Entity = z.infer<typeof entity>;
 export type EntityLocalization = z.infer<typeof entityLocalization>;
 export type PlayRequirement = z.infer<typeof playRequirement>;
 export type Power = z.infer<typeof power>;
+export type EntityView = z.infer<typeof entityView>;
 export type CardEntityView = z.infer<typeof cardEntityView>;
 export type CardFullView = z.infer<typeof cardFullView>;
