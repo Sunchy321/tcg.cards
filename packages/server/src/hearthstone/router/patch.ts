@@ -29,6 +29,8 @@ export const patchRouter = new Hono()
             },
         }),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const patches = await db.select().from(Patch).orderBy(Patch.buildNumber);
 
             return c.json(patches);
@@ -54,6 +56,8 @@ export const patchRouter = new Hono()
             buildNumber: z.string().transform(val => parseInt(val, 10)).pipe(z.int().positive()).describe('Build number of the patch'),
         })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { buildNumber } = c.req.valid('query');
 
             const patch = await db

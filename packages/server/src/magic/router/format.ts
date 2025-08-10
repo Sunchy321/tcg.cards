@@ -30,6 +30,8 @@ const formatBase = new Hono()
         }),
         zValidator('query', z.object({ formatId: z.string() })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { formatId } = c.req.valid('query');
 
             const format = await db.select()

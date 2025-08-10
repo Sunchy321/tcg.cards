@@ -30,6 +30,8 @@ export const setRouter = new Hono()
             },
         }),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const sets = await db.select({ setId: Set.setId }).from(Set);
 
             return c.json(sets.map(s => s.setId));
@@ -53,6 +55,8 @@ export const setRouter = new Hono()
         }),
         zValidator('query', z.object({ setId: z.string() })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { setId } = c.req.valid('query');
 
             return c.json(await getProfile(setId));

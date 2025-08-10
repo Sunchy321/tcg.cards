@@ -64,6 +64,8 @@ export const cardRouter = new Hono()
                 .describe('Card version'),
         })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { cardId, lang, version } = c.req.valid('query');
 
             const card = await db.select().from(CardEntityView)
@@ -129,6 +131,8 @@ export const cardRouter = new Hono()
         }),
         validator('query', z.object({ cardId: z.string() })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { cardId } = c.req.valid('query');
 
             const localization = await db.select({

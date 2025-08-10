@@ -39,6 +39,8 @@ export const printApi = new Hono()
             partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()),
         })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { id: cardId, set, number, lang, partIndex } = c.req.valid('query');
 
             const views = await db.select()

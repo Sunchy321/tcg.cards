@@ -68,6 +68,8 @@ export const cardRouter = new Hono()
             partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()).optional(),
         })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { cardId, lang, set, number, partIndex } = c.req.valid('query');
 
             const fullViews = await db.select()
@@ -184,6 +186,8 @@ export const cardRouter = new Hono()
         }),
         zValidator('query', z.object({ cardId: z.string() })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { cardId } = c.req.valid('query');
 
             const cardLocalizations = await db.select({
@@ -237,6 +241,8 @@ export const cardApi = new Hono()
             partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()),
         })),
         async c => {
+            c.header('Cache-Control', 'public, max-age=3600');
+
             const { id: cardId, lang, partIndex } = c.req.valid('query');
 
             const views = await db.select()
