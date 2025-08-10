@@ -84,9 +84,9 @@ export const apolloRouter = new Hono()
 
                     const outName = `image@png@${Math.min(...e.version)}@${lang}@${v}@${e.cardId}`;
 
-                    const imagePath = `${path.join(assetPath, 'hearthstone', 'card', ...outName.split('@'))}.png`;
+                    const webpPath = `${path.join(assetPath, 'hearthstone', 'card', ...outName.split('@').map(p => p === 'png' ? 'webp' : p))}.webp`;
 
-                    if (fs.existsSync(imagePath)) {
+                    if (fs.existsSync(webpPath)) {
                         continue;
                     }
 
