@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 
+import { cardRouter } from './card';
 import { patchRouter } from './patch';
 import { dataRouter, dataSSE } from './data';
 
 export const hearthstoneRouter = new Hono()
+    .route('/card', cardRouter)
     .route('/patch', patchRouter)
     .route('/data', dataRouter);
 

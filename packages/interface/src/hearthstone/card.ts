@@ -14,3 +14,4 @@ export interface Card {
 
     legalities: Legalities;
 }
+

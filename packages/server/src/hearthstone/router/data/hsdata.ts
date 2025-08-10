@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { resolver, validator as zValidator } from 'hono-openapi/zod';
-import { streamSSE } from 'hono/streaming';
 
 import { HonoEnv } from '@/hono-env';
 
@@ -46,13 +45,7 @@ export const hsdataSSE = new Hono()
         async c => {
             const task = new RepoPuller();
 
-            return streamSSE(c, async stream => {
-                task.bind(stream, c);
-
-                while (!stream.aborted && !stream.closed) {
-                    await stream.sleep(100);
-                }
-            });
+            return task.bind(c);
         },
     )
     .get(

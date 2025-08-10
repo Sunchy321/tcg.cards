@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { api } from 'boot/server';
+import { getValue, trpc } from 'src/hono';
 
 export default function hearthstoneSetup(): {
     search: () => void;
@@ -22,14 +22,12 @@ export default function hearthstoneSetup(): {
     };
 
     const random = async () => {
-        const { data: id } = await api.get<string>('/hearthstone/entity/random', {
-            params: { q: core.search },
-        });
+        const value = await getValue(trpc.hearthstone.card.random, {});
 
-        if (id !== '') {
+        if (value != null) {
             void router.push({
-                name:   'hearthstone/entity',
-                params: { id },
+                name:   'hearthstone/card',
+                params: { id: value },
             });
         }
     };

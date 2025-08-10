@@ -141,7 +141,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity, cardIdMap: Reco
                         } else {
                             (result as any)[field.index] = tagValue;
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         errors.push(e.message);
                     }
 

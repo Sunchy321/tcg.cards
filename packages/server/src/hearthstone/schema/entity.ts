@@ -3,10 +3,11 @@ import { boolean, integer, primaryKey, text } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
 
 import _ from 'lodash';
-import { and, eq, getTableColumns } from 'drizzle-orm';
+import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 
 import * as basicModel from '@model/hearthstone/schema/basic';
 import * as entityModel from '@model/hearthstone/schema/entity';
+import { Card } from './card';
 
 export const classes = schema.enum('class', basicModel.classes.enum);
 export const types = schema.enum('type', basicModel.types.enum);
@@ -18,6 +19,7 @@ export const mercenaryRole = schema.enum('mercenary_role', entityModel.mercenary
 export const mercenaryFaction = schema.enum('mercenary_faction', entityModel.mercenaryFaction.enum);
 export const faction = schema.enum('faction', entityModel.faction.enum);
 export const rarity = schema.enum('rarity', basicModel.rarity.enum);
+export const textBuilderType = schema.enum('text_builder_type', entityModel.textBuilderType.enum);
 export const changeType = schema.enum('change_type', entityModel.changeType.enum);
 
 export const Entity = schema.table('entities', {
@@ -74,8 +76,10 @@ export const Entity = schema.table('entities', {
     deckSize:          integer('deck_size'),
     localizationNotes: text('localization_notes'),
 
-    changeType: changeType('change_type').default('unknown'),
-    isLatest:   boolean('is_latest').default(false),
+    textBuilderType: textBuilderType('text_builder_type').notNull().default('default'),
+
+    changeType: changeType('change_type').notNull().default('unknown'),
+    isLatest:   boolean('is_latest').notNull().default(false),
 }, table => [
     primaryKey({ columns: [table.cardId, table.version] }),
 ]);
@@ -95,7 +99,7 @@ export const EntityLocalization = schema.table('entity_localizations', {
     howToEarnGolden: text('how_to_earn_golden'),
     flavorText:      text('flavor_text'),
 
-    locChangeType: changeType('loc_change_type').default('unknown'),
+    locChangeType: changeType('loc_change_type').notNull().default('unknown'),
 }, table => [
     primaryKey({ columns: [table.cardId, table.version, table.lang] }),
 ]);
@@ -103,7 +107,7 @@ export const EntityLocalization = schema.table('entity_localizations', {
 export const EntityView = schema.view('entity_view').as(qb => {
     return qb.select({
         cardId:  Entity.cardId,
-        version: Entity.version,
+        version: sql`${Entity.version} & ${EntityLocalization.version}`.as('version'),
         lang:    EntityLocalization.lang,
 
         ..._.omit(getTableColumns(Entity), ['cardId', 'version']) as any,
@@ -113,8 +117,30 @@ export const EntityView = schema.view('entity_view').as(qb => {
         },
     })
         .from(Entity)
-        .leftJoin(EntityLocalization, and(
+        .innerJoin(EntityLocalization, and(
             eq(Entity.cardId, EntityLocalization.cardId),
-            eq(Entity.version, EntityLocalization.version),
+            sql`${Entity.version} && ${EntityLocalization.version}`,
         ));
+});
+
+export const CardEntityView = schema.view('card_entity_view').as(qb => {
+    return qb.select({
+        cardId:  Entity.cardId,
+        version: sql`${Entity.version} & ${EntityLocalization.version}`.as('version'),
+        lang:    EntityLocalization.lang,
+
+        ..._.omit(getTableColumns(Entity), ['cardId', 'version']) as any,
+
+        localization: {
+            ..._.omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
+        },
+
+        legalities: Card.legalities,
+    })
+        .from(Entity)
+        .innerJoin(EntityLocalization, and(
+            eq(Entity.cardId, EntityLocalization.cardId),
+            sql`${Entity.version} && ${EntityLocalization.version}`,
+        ))
+        .innerJoin(Card, eq(Entity.cardId, Card.cardId));
 });

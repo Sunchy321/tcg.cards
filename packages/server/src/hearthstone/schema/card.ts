@@ -2,7 +2,9 @@ import { jsonb, text } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
-import { Card as ICard } from '@interface/hearthstone/card';
+import { Card as ICard } from '@model/hearthstone/schema/card';
+
+import _ from 'lodash';
 
 export const Card = schema.table('cards', {
     cardId: text('card_id').primaryKey(),

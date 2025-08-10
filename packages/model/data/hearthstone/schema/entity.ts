@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { classes, locale, race, rarity, spellSchool, types } from './basic';
 
-import { card as card } from './card';
+import { card } from './card';
 
 export const rune = z.enum(['blood', 'frost', 'unholy']);
 export const questType = z.enum(['normal', 'questline', 'side']);
@@ -156,10 +156,26 @@ export const power = z.strictObject({
 });
 
 export const cardEntityView = entity.extend({
+    lang: locale,
+
+    localization: entityLocalization.omit({ lang: true }),
+
     legalities: card.shape.legalities,
+});
+
+export const cardFullView = cardEntityView.extend({
+    versions: z.number().array().array(),
+
+    relatedCards: z.strictObject({
+        relation: z.string(),
+        cardId:   z.string(),
+        version:  z.number().array(),
+    }).array(),
 });
 
 export type Entity = z.infer<typeof entity>;
 export type EntityLocalization = z.infer<typeof entityLocalization>;
 export type PlayRequirement = z.infer<typeof playRequirement>;
 export type Power = z.infer<typeof power>;
+export type CardEntityView = z.infer<typeof cardEntityView>;
+export type CardFullView = z.infer<typeof cardFullView>;

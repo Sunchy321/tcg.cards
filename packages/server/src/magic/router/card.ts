@@ -3,7 +3,6 @@ import { describeRoute } from 'hono-openapi';
 import { resolver, validator as zValidator } from 'hono-openapi/zod';
 
 import z from 'zod';
-// import 'zod-openapi/extend.js';
 
 import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import _ from 'lodash';
