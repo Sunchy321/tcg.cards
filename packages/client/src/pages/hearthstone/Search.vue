@@ -46,6 +46,7 @@ import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { useCore, useTitle, useParam } from 'store/core';
+import { useGame } from 'store/games/hearthstone';
 
 import hearthstoneSetup from 'setup/hearthstone';
 
@@ -53,46 +54,22 @@ import Grid from 'components/Grid.vue';
 import CardImage from 'components/hearthstone/CardImage.vue';
 import RichText from 'src/components/hearthstone/RichText.vue';
 
-import { Entity } from '@interface/hearthstone/entity';
+import { SearchResult } from '@model/hearthstone/schema/search';
+
+import { last } from 'lodash';
 
 import model from '@search-data/hearthstone/client';
 
-import { apiGet } from 'boot/server';
-import { last } from 'lodash';
-
-interface QueryParam {
-    type:  'regex' | 'string';
-    value: string;
-}
-
-interface QueryItem {
-    type:  string;
-    op:    string;
-    param: QueryParam;
-}
-
-type QueryCard = Entity;
-
-interface QueryResult {
-    total: number;
-    cards: QueryCard[];
-}
-
-interface SearchResult {
-    text:     string;
-    commands: QueryItem[];
-    queries:  any[];
-    errors:   { type: string, value: string, query?: string }[];
-    result:   QueryResult | null;
-}
+import { getValue, trpc } from 'src/hono';
 
 const core = useCore();
 const i18n = useI18n();
 const router = useRouter();
+const game = useGame();
 
 const { search } = hearthstoneSetup();
 
-const data = ref<SearchResult | null>(null);
+const data = ref<SearchResult>();
 const searching = ref(false);
 
 useTitle(() => i18n.t('ui.search'));
@@ -145,7 +122,7 @@ const explained = computed(() => model.explain(q.value, (key: string, named) => 
     }
 }));
 
-const cards = computed(() => data.value?.result?.cards ?? []);
+const cards = computed(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
@@ -159,16 +136,15 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const { data: result } = await apiGet<SearchResult>('/hearthstone/search', {
+    const value = await getValue(trpc.hearthstone.search, {
         q:        q.value,
-        page:     page.value,
-        pageSize: pageSize.value,
+        lang:     game.locale,
+        page:     page.value.toString(),
+        pageSize: pageSize.value.toString(),
     });
 
-    if (result.text === q.value) {
-        data.value = result;
-
-        console.log(result);
+    if (value?.text === q.value) {
+        data.value = value as any;
 
         searching.value = false;
     }
@@ -181,7 +157,7 @@ const changePage = (newPage: number) => {
 };
 
 const cardLink = (cardId: string, version?: number[]) => router.resolve({
-    name:   'hearthstone/entity',
+    name:   'hearthstone/card',
     params: { id: cardId },
     query:  version != null ? { version: last(version) } : {},
 });

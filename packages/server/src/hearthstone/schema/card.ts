@@ -9,5 +9,5 @@ import _ from 'lodash';
 export const Card = schema.table('cards', {
     cardId: text('card_id').primaryKey(),
 
-    legalities: jsonb('legalities').$type<ICard['legalities']>().default({}),
+    legalities: jsonb('legalities').$type<ICard['legalities']>().notNull().default({}),
 });

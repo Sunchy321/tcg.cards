@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { resolver, validator } from 'hono-openapi/zod';
 
-import { and, arrayContains, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import z from 'zod';
 import _ from 'lodash';
 
@@ -90,11 +90,13 @@ export const cardRouter = new Hono()
 
             const sourceRelation = await db.select({
                 relation: CardRelation.relation,
+                version:  CardRelation.version,
                 cardId:   CardRelation.targetId,
             }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
 
             const targetRelation = await db.select({
                 relation: sql<string>`'source'`.as('relation'),
+                version:  CardRelation.version,
                 cardId:   CardRelation.sourceId,
             }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
 

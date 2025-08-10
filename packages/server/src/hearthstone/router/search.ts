@@ -1,0 +1,50 @@
+import { Hono } from 'hono';
+import { describeRoute } from 'hono-openapi';
+import { resolver, validator as zValidator } from 'hono-openapi/zod';
+
+import z from 'zod';
+
+import { locale } from '@model/hearthstone/schema/basic';
+import { searchResult } from '@model/hearthstone/schema/search';
+
+import { searchInput } from '@search/schema';
+
+import search from '../search';
+
+export const searchRouter = new Hono()
+    .get(
+        '/',
+        describeRoute({
+            description: 'Search for cards',
+            tags:        ['Hearthstone', 'Search'],
+            responses:   {
+                200: {
+                    description: 'Successful search',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(searchResult),
+                        },
+                    },
+                },
+            },
+            validateResponse: true,
+        }),
+        zValidator('query', searchInput.extend({
+            lang:    locale.default('en'),
+            groupBy: z.enum(['card']).default('card'),
+            orderBy: z.string().default('id+'),
+        })),
+        async c => {
+            const { q, page, pageSize, lang, groupBy, orderBy } = c.req.valid('query');
+
+            const output = await search.search('search', q, {
+                page,
+                pageSize,
+                lang,
+                groupBy,
+                orderBy,
+            });
+
+            return c.json(output);
+        },
+    );

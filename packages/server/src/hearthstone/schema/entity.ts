@@ -9,17 +9,19 @@ import * as basicModel from '@model/hearthstone/schema/basic';
 import * as entityModel from '@model/hearthstone/schema/entity';
 import { Card } from './card';
 
+export const locale = schema.enum('locale', basicModel.locale.enum);
 export const classes = schema.enum('class', basicModel.classes.enum);
 export const types = schema.enum('type', basicModel.types.enum);
 export const rune = schema.enum('rune', entityModel.rune.enum);
 export const race = schema.enum('race', basicModel.race.enum);
 export const spellSchool = schema.enum('spell_school', basicModel.spellSchool.enum);
+export const rarity = schema.enum('rarity', basicModel.rarity.enum);
 export const questType = schema.enum('quest_type', entityModel.questType.enum);
 export const mercenaryRole = schema.enum('mercenary_role', entityModel.mercenaryRole.enum);
 export const mercenaryFaction = schema.enum('mercenary_faction', entityModel.mercenaryFaction.enum);
 export const faction = schema.enum('faction', entityModel.faction.enum);
-export const rarity = schema.enum('rarity', basicModel.rarity.enum);
-export const textBuilderType = schema.enum('text_builder_type', entityModel.textBuilderType.enum);
+// FIXME: drizzle-orm cannot recognize enum start with text. fix after drizzle-orm support it.
+export const textBuilderType = schema.enum('card_text_builder_type', entityModel.textBuilderType.enum);
 export const changeType = schema.enum('change_type', entityModel.changeType.enum);
 
 export const Entity = schema.table('entities', {
@@ -47,7 +49,7 @@ export const Entity = schema.table('entities', {
     heroicHeroPower: text('heroic_hero_power'),
 
     techLevel:    integer('tech_level'),
-    inBobsTavern: boolean('in_bobs_tavern').default(false),
+    inBobsTavern: boolean('in_bobs_tavern').notNull().default(false),
     tripleCard:   text('triple_card'),
     raceBucket:   race('race_bucket'),
     coin:         integer('coin'),
@@ -59,16 +61,16 @@ export const Entity = schema.table('entities', {
     mercenaryFaction: mercenaryFaction('mercenary_faction'),
     colddown:         integer('colddown'),
 
-    collectible: boolean('collectible'),
-    elite:       boolean('elite'),
+    collectible: boolean('collectible').notNull(),
+    elite:       boolean('elite').notNull(),
     rarity:      rarity('rarity'),
 
-    artist: text('artist'),
+    artist: text('artist').notNull(),
 
     faction: faction('faction'),
 
-    mechanics:      text('mechanics').array(),
-    referencedTags: text('referenced_tags').array(),
+    mechanics:      text('mechanics').array().notNull(),
+    referencedTags: text('referenced_tags').array().notNull(),
     entourages:     text('entourages').array(),
 
     deckOrder:         integer('deck_order'),
@@ -87,9 +89,9 @@ export const Entity = schema.table('entities', {
 export const EntityLocalization = schema.table('entity_localizations', {
     cardId:  text('card_id').notNull(),
     version: integer('version').array().notNull(),
-    lang:    text('lang').notNull(),
+    lang:    locale('lang').notNull(),
 
-    name:            text('name'),
+    name:            text('name').notNull(),
     text:            text('text').notNull(),
     richText:        text('rich_text').notNull(),
     displayText:     text('display_text').notNull(),
@@ -110,7 +112,7 @@ export const EntityView = schema.view('entity_view').as(qb => {
         version: sql`${Entity.version} & ${EntityLocalization.version}`.as('version'),
         lang:    EntityLocalization.lang,
 
-        ..._.omit(getTableColumns(Entity), ['cardId', 'version']) as any,
+        ..._.omit(getTableColumns(Entity), ['cardId', 'version']),
 
         localization: {
             ..._.omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
@@ -126,10 +128,10 @@ export const EntityView = schema.view('entity_view').as(qb => {
 export const CardEntityView = schema.view('card_entity_view').as(qb => {
     return qb.select({
         cardId:  Entity.cardId,
-        version: sql`${Entity.version} & ${EntityLocalization.version}`.as('version'),
+        version: sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
         lang:    EntityLocalization.lang,
 
-        ..._.omit(getTableColumns(Entity), ['cardId', 'version']) as any,
+        ..._.omit(getTableColumns(Entity), ['cardId', 'version']),
 
         localization: {
             ..._.omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
