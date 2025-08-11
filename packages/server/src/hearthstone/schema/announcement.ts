@@ -3,72 +3,77 @@ import { eq, sql } from 'drizzle-orm';
 
 import { schema } from './schema';
 
-import { AdjustmentDetail } from '@interface/hearthstone/format-change';
+import { Adjustment as IAdjustment, GameChange as IGameChange } from '@model/hearthstone/schema/game-change';
 
-export const announcementItems = schema.table('announcement_items', {
-    id: uuid('id').primaryKey().defaultRandom(),
+import * as gameChangeModel from '@model/hearthstone/schema/game-change';
 
+export const GameChangeType = schema.enum('game_change_type', gameChangeModel.gameChangeType.enum);
+export const Legality = schema.enum('legality', gameChangeModel.legality.enum);
+export const Status = schema.enum('status', gameChangeModel.status.enum);
+
+export const GameChange = schema.table('game_changes', {
+    id:             uuid('id').primaryKey().defaultRandom(),
     announcementId: uuid('announcement_id').notNull(),
-    format:         text('format').notNull(),
 
-    type: text('type'),
-
-    setId:  text('set_id'),
-    cardId: text('card_id'),
-
-    status:        text('status'),
-    adjustedParts: jsonb('adjusted_parts').$type<AdjustmentDetail[]>().array(),
-    relatedCard:   text('related_card').array(),
-
+    type:          GameChangeType('type').notNull(),
     effectiveDate: text('effective_date'),
-    lastVersion:   integer('version'),
+    range:         text('range').array(),
+
+    cardId:  text('card_id'),
+    groupId: text('group_id'),
+    setId:   text('set_id'),
+    ruleId:  text('rule_id'),
+
+    status: Status('status'),
+
+    adjustments: jsonb('adjustments').$type<IAdjustment[]>().array(),
+
+    relatedCards: text('related_cards').array(),
 });
 
-export const announcements = schema.table('announcements', {
-    id: uuid('id').primaryKey().defaultRandom(),
+export const GameChangeRuleText = schema.table('game_change_rule_texts', {
+    id:   uuid('id').primaryKey().defaultRandom(),
+    lang: text('lang').notNull(),
 
-    source: text('source').notNull(),
-    date:   text('date').notNull(),
-    name:   text('name').notNull(),
-
-    version:     integer('version').notNull(),
-    lastVersion: integer('last_version'),
-
-    effectiveDate: text('effective_date'),
-
-    links: text('links').array().default([]),
+    text: text('text').notNull(),
 });
 
-export const announcementView = schema.view('announcement_view').as(qb => {
-    return qb.select({
-        id: announcements.id,
+export const Announcement = schema.table('announcements', {
+    id:            uuid('id').primaryKey().defaultRandom(),
+    source:        text('source').notNull(),
+    date:          text('date').notNull(),
+    effectiveDate: text('effective_date'),
+    name:          text('name').notNull(),
+    links:         text('links').array(),
+    version:       integer('version').notNull(),
+    lastVersion:   integer('last_version'),
+});
 
-        source: announcements.source,
-        date:   announcements.date,
-        name:   announcements.name,
+export const AnnouncementView = schema.view('announcement_view').as(qb => {
+    return qb
+        .select({
+            id:            Announcement.id,
+            source:        Announcement.source,
+            date:          Announcement.date,
+            effectiveDate: Announcement.effectiveDate,
+            name:          Announcement.name,
+            links:         Announcement.links,
+            version:       Announcement.version,
+            lastVersion:   Announcement.lastVersion,
 
-        version:     announcements.version,
-        lastVersion: announcements.lastVersion,
-
-        effectiveDate: announcements.effectiveDate,
-
-        links: announcements.links,
-
-        format: announcementItems.format,
-
-        type: announcementItems.type,
-
-        setId:  announcementItems.setId,
-        cardId: announcementItems.cardId,
-
-        status:        announcementItems.status,
-        adjustedParts: announcementItems.adjustedParts,
-        relatedCard:   announcementItems.relatedCard,
-
-        realEffectiveDate: sql`coalesce(${announcementItems.effectiveDate}, ${announcements.effectiveDate})`.as('real_effective_date'),
-        realLastVersion:   sql`coalesce(${announcementItems.lastVersion}, ${announcements.lastVersion})`.as('real_last_version'),
-
-    })
-        .from(announcements)
-        .leftJoin(announcementItems, eq(announcements.id, announcementItems.announcementId));
+            changes: sql<IGameChange[]>`jsonb_agg(jsonb_build_object(
+                'type', ${GameChange.type},
+                'effectiveDate', ${GameChange.effectiveDate},
+                'range', ${GameChange.range},
+                'cardId', ${GameChange.cardId},
+                'groupId', ${GameChange.groupId},
+                'setId', ${GameChange.setId},
+                'ruleId', ${GameChange.ruleId},
+                'status', ${GameChange.status},
+                'adjustments', ${GameChange.adjustments}
+            ))`.as('changes'),
+        })
+        .from(Announcement)
+        .leftJoin(GameChange, eq(Announcement.id, GameChange.announcementId))
+        .groupBy(Announcement.id);
 });

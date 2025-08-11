@@ -6,7 +6,7 @@ export const birthday = '2013-05-23';
 
 export const locale = z.enum(['en', 'de', 'es', 'fr', 'it', 'ja', 'ko', 'mx', 'pl', 'pt', 'ru', 'th', 'zhs', 'zht']);
 
-export const formats = [
+export const format = z.enum([
     'standard',
     'wild',
     'twist',
@@ -17,7 +17,7 @@ export const formats = [
     'duel',
     'tavern_brawl',
     'adventure',
-];
+]);
 
 export const classes = z.enum([
     'death_knight', 'druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior', 'dream', 'neutral', 'whizbang', 'demon_hunter',
