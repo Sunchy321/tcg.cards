@@ -166,8 +166,8 @@ const hash = defineServerCommand({
         const escape = (text: string) => text.replace(/[%_|*+?{}()[\]]/g, '\\$&');
 
         const tester = (column: PgColumn) => match == null
-            ? sql`${column} similar to ${`${escape(tag)}|${escape(tag)}:%`}`
-            : sql`${column} similar to ${`${escape(match[1])}:${escape(match[2])}`}`;
+            ? sql`exists (select 1 from unnest(${column}) as value where value similar to ${`${escape(tag)}|${escape(tag)}:%`})`
+            : sql`exists (select 1 from unnest(${column}) as value where value similar to ${`${escape(match[1])}:${escape(match[2])}`})`;
 
         if (!qualifier.includes('!')) {
             return or(
