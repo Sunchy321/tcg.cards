@@ -123,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, watchEffect } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -356,23 +356,6 @@ const compareLink = computed(() => {
 });
 
 // methods
-const loadData = async () => {
-    const query = omitBy({
-        id:      route.params.id,
-        version: route.query.version,
-    }, v => v == null);
-
-    const value = await getValue(trpc.hearthstone.card.full, {
-        cardId:  query.id as string,
-        lang:    query.lang ?? game.locale,
-        version: query.version as string,
-    });
-
-    if (value != null) {
-        data.value = value as CardFullView;
-    }
-};
-
 const mechanicText = (m: string) => {
     if (m.includes(':')) {
         const [mid, arg] = m.split(':');
@@ -404,13 +387,18 @@ const relationIcon = (relation: string) => ({
     token:          'mdi-shape-outline',
 })[relation] ?? 'mdi-cards-outline';
 
-// watches
-watch(
-    [() => route.params.id, () => route.query.version],
-    loadData,
+// methods
+watchEffect(async () => {
+    const value = await getValue(trpc.hearthstone.card.full, {
+        cardId:  route.params.id as string,
+        version: route.query.version as string,
+        lang:    route.query.lang as string ?? game.locale,
+    });
 
-    { immediate: true },
-);
+    if (value != null) {
+        data.value = value as CardFullView;
+    }
+});
 </script>
 
 <style lang="sass" scoped>
