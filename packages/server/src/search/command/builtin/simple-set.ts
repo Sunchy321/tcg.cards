@@ -1,4 +1,4 @@
-import { Column, notInArray, SQL, eq, inArray, ne } from 'drizzle-orm';
+import { arrayContains, Column, not, SQL, eq, ne } from 'drizzle-orm';
 
 import { QueryOption, ServerCommandOf } from '../index';
 import { QueryError } from '@search/command/error';
@@ -32,9 +32,9 @@ function query(options: SimpleSetQueryOption): SQL {
     switch (operator) {
     case ':':
         if (!qualifier.includes('!')) {
-            return inArray(column, words);
+            return arrayContains(column, words);
         } else {
-            return notInArray(column, words);
+            return not(arrayContains(column, words));
         }
     case '=':
         if (!qualifier.includes('!')) {

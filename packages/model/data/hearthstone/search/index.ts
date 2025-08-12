@@ -54,7 +54,7 @@ const rune = builtin.simpleSet({
     },
 });
 
-const race = builtin.simple({ id: 'race' });
+const race = builtin.simpleSet({ id: 'race' });
 const spellSchool = builtin.simple({ id: 'spell-school', alt: 'school' });
 
 const techLevel = builtin.number({ id: 'tech-level' });

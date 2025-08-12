@@ -211,7 +211,7 @@ const durability = builtin.number(commands.durability, { column: CardEntityView.
 const armor = builtin.number(commands.armor, { column: CardEntityView.armor });
 
 const rune = builtin.simpleSet(commands.rune, { column: CardEntityView.rune });
-const race = builtin.simple(commands.race, { column: CardEntityView.race });
+const race = builtin.simpleSet(commands.race, { column: CardEntityView.race });
 const spellSchool = builtin.simple(commands.spellSchool, { column: CardEntityView.spellSchool });
 
 const techLevel = builtin.number(commands.techLevel, { column: CardEntityView.techLevel });
