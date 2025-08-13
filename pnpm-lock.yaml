@@ -11,6 +11,9 @@ patchedDependencies:
   better-auth:
     hash: 3f0b296496525ad25356bac3d406a4b2ce9440a8af9931cdef3acc4d2e798042
     path: patches/better-auth.patch
+  drizzle-kit:
+    hash: 6e5ceaca449ec97cf8a2cb91e9fad06c425e8d54c77218e1870af2bf427cfa4c
+    path: patches/drizzle-kit.patch
   drizzle-orm:
     hash: 75be86adf121194c770faa13391fc6a6a6f1ca33e1adb8d8001fd4049431f8f0
     path: patches/drizzle-orm.patch
@@ -480,6 +483,9 @@ importers:
       drizzle-orm:
         specifier: ^0.44.2
         version: 0.44.2(patch_hash=75be86adf121194c770faa13391fc6a6a6f1ca33e1adb8d8001fd4049431f8f0)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(better-sqlite3@11.10.0)(kysely@0.28.3)(pg@8.16.3)(postgres@3.4.7)(prisma@5.22.0)
+      fast-json-patch:
+        specifier: ^3.1.1
+        version: 3.1.1
       hono:
         specifier: ^4.8.10
         version: 4.8.10
@@ -666,7 +672,7 @@ importers:
         version: 7.4.7
       drizzle-kit:
         specifier: ^0.31.4
-        version: 0.31.4
+        version: 0.31.4(patch_hash=6e5ceaca449ec97cf8a2cb91e9fad06c425e8d54c77218e1870af2bf427cfa4c)
       eslint:
         specifier: ^9.22.0
         version: 9.22.0(jiti@2.4.2)
@@ -3809,6 +3815,9 @@ packages:
   fast-glob@3.3.3:
     resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
     engines: {node: '>=8.6.0'}
+
+  fast-json-patch@3.1.1:
+    resolution: {integrity: sha512-vf6IHUX2SBcA+5/+4883dsIjpBTqmfBjmYiWK1savxQmFk4JfBMLa7ynTYOs1Rolp/T1betJxHiGD3g1Mn8lUQ==}
 
   fast-json-stable-stringify@2.1.0:
     resolution: {integrity: sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw==}
@@ -8829,7 +8838,7 @@ snapshots:
 
   dotenv@17.2.0: {}
 
-  drizzle-kit@0.31.4:
+  drizzle-kit@0.31.4(patch_hash=6e5ceaca449ec97cf8a2cb91e9fad06c425e8d54c77218e1870af2bf427cfa4c):
     dependencies:
       '@drizzle-team/brocli': 0.10.2
       '@esbuild-kit/esm-loader': 2.6.5
@@ -9335,6 +9344,8 @@ snapshots:
       glob-parent: 5.1.2
       merge2: 1.4.1
       micromatch: 4.0.8
+
+  fast-json-patch@3.1.1: {}
 
   fast-json-stable-stringify@2.1.0: {}
 

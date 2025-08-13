@@ -83,9 +83,9 @@
                 </q-btn>
 
                 <q-btn
-                    v-if="compareLink != null"
+                    v-if="diffLink != null"
                     class="link"
-                    :href="compareLink" target="_blank"
+                    :href="diffLink" target="_blank"
                     outline no-caps
                 >
                     <q-icon name="mdi-vector-difference" size="14px" class="q-mr-sm" />
@@ -226,6 +226,18 @@ const versionInfos = computed(() => versions.value.map(v => {
     };
 }));
 
+const lang = computed({
+    get() { return data.value?.lang ?? route.query.lang as string ?? game.locale; },
+    set(newValue: string) {
+        void router.replace({
+            query: {
+                ...route.query,
+                lang: newValue,
+            },
+        });
+    },
+});
+
 const localization = computed(() => data.value?.localization);
 
 const name = computed(() => localization.value?.name);
@@ -315,12 +327,13 @@ watch(hasTechLevel, () => {
 const apiQuery = computed(() => (route.params.id == null
     ? null
     : omitBy({
-        id:      route.params.id as string,
+        cardId:  route.params.id as string,
+        lang:    lang.value,
         version: route.query.version as string,
     }, v => v == null)));
 
 const jsonLink = computed(() => {
-    const url = new URL('hearthstone/entity', apiBase);
+    const url = new URL('hearthstone/card', apiBase);
 
     const query = apiQuery.value;
 
@@ -331,12 +344,12 @@ const jsonLink = computed(() => {
     return url.toString();
 });
 
-const compareLink = computed(() => {
+const diffLink = computed(() => {
     if (versions.value.length < 2) {
         return null;
     }
 
-    const url = new URL('hearthstone/entity/compare', apiBase);
+    const url = new URL('hearthstone/card/diff', apiBase);
 
     const index = versions.value.findIndex(v => v.includes(version.value));
 
@@ -345,9 +358,10 @@ const compareLink = computed(() => {
     const anotherVersion = versions.value[anotherIndex];
 
     const query = {
-        id: route.params.id,
-        lv: anotherVersion[0].toString(),
-        rv: version.value.toString(),
+        cardId: route.params.id,
+        lang:   lang.value,
+        from:   anotherVersion[0].toString(),
+        to:     version.value.toString(),
     } as Record<string, string>;
 
     url.search = new URLSearchParams(query).toString();
@@ -392,7 +406,7 @@ watchEffect(async () => {
     const value = await getValue(trpc.hearthstone.card.full, {
         cardId:  route.params.id as string,
         version: route.query.version as string,
-        lang:    route.query.lang as string ?? game.locale,
+        lang:    lang.value,
     });
 
     if (value != null) {
