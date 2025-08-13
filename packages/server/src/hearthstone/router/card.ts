@@ -5,14 +5,13 @@ import { resolver, validator } from 'hono-openapi/zod';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import z from 'zod';
 import _ from 'lodash';
-import fastJsonPatch from 'fast-json-patch';
+import { diff } from 'jsondiffpatch';
 
 import { db } from '@/drizzle';
 import { Card } from '../schema/card';
 import { CardEntityView, EntityView } from '../schema/entity';
 import { CardRelation } from '../schema/card-relation';
 
-import { jsonPatch } from '@model/json-patch';
 import { locale } from '@model/hearthstone/schema/basic';
 import { cardProfile } from '@model/hearthstone/schema/card';
 import { cardEntityView, cardFullView } from '@model/hearthstone/schema/entity';
@@ -287,7 +286,7 @@ export const cardApi = new Hono()
                     description: 'Card view',
                     content:     {
                         'application/json': {
-                            schema: resolver(jsonPatch.array()),
+                            schema: resolver(z.any()),
                         },
                     },
                 },
@@ -331,9 +330,9 @@ export const cardApi = new Hono()
                 return c.notFound();
             }
 
-            const patch = fastJsonPatch.compare(
-                _.omit(fromCard, 'version'),
-                _.omit(toCard, 'version'),
+            const patch = diff(
+                _.omit(fromCard, ['version', 'isLatest']),
+                _.omit(toCard, ['version', 'isLatest']),
             );
 
             return c.json(patch);

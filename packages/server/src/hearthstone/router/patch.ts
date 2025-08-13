@@ -29,8 +29,6 @@ export const patchRouter = new Hono()
             },
         }),
         async c => {
-            c.header('Cache-Control', 'public, max-age=3600');
-
             const patches = await db.select().from(Patch).orderBy(Patch.buildNumber);
 
             return c.json(patches);

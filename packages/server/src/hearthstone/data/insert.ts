@@ -35,6 +35,10 @@ export async function insertEntities(entities: IEntity[], version: number, lastV
             !existingEntity.some(existing => existing.cardId === entity.cardId),
         );
 
+        if (newEntities.length === 0) {
+            return;
+        }
+
         const prevEntities = await tx.select()
             .from(Entity)
             .where(and(
@@ -152,11 +156,12 @@ export async function insertRelation(relation: ICardRelation) {
                 eq(CardRelation.sourceId, relation.sourceId),
                 eq(CardRelation.targetId, relation.targetId),
                 eq(CardRelation.relation, relation.relation),
-            ));
+            ))
+            .then(rows => rows[0]);
 
-        if (prevRelation.length > 0) {
+        if (prevRelation != null && !prevRelation.version.includes(relation.version[0])) {
             await tx.update(CardRelation)
-                .set({ version: sql`sort(array_append(${CardRelation.version}, ${relation.version}))` })
+                .set({ version: sql`uniq(sort(array_append(${CardRelation.version}, ${relation.version})))` })
                 .where(and(
                     eq(CardRelation.sourceId, relation.sourceId),
                     eq(CardRelation.targetId, relation.targetId),
