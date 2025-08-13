@@ -90,7 +90,7 @@ export default {
 
     'image-wall': '图片墙',
 
-    'cr': {
+    'rule': {
         $self:    '规则',
         intro:    '前言',
         glossary: '词汇表',

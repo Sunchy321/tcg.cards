@@ -69,7 +69,7 @@
                     type="a"
                     :to="{ name: 'magic/rule' }"
                     icon="mdi-book-open-variant"
-                    :label="$t('magic.cr.$self')"
+                    :label="$t('magic.rule.$self')"
                     flat
                     :stack="$q.screen.xs"
                 />

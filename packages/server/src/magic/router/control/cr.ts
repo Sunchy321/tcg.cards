@@ -6,7 +6,7 @@ import { Content, CR as ICR } from '@interface/magic/cr';
 
 import CardNameExtrator from '@/magic/extract-name';
 
-import { parse, reparse } from '@/magic/cr/parse';
+import { parse, reparse } from '@/magic/rule/parse';
 import { readdirSync } from 'fs';
 import { join } from 'path';
 import { isEqual, mapValues } from 'lodash';

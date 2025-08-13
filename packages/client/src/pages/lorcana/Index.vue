@@ -69,7 +69,7 @@
                     type="a"
                     :to="{ name: 'lorcana/rule' }"
                     icon="mdi-book-open-variant"
-                    :label="$t('lorcana.cr.$self')"
+                    :label="$t('lorcana.rule.$self')"
                     flat
                     :stack="$q.screen.xs"
                 />

@@ -69,7 +69,7 @@
                     type="a"
                     :to="{ name: 'yugioh/rule' }"
                     icon="mdi-book-open-variant"
-                    :label="$t('yugioh.cr.$self')"
+                    :label="$t('yugioh.rule.$self')"
                     flat
                     :stack="$q.screen.xs"
                 />

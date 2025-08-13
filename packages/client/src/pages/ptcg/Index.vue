@@ -69,7 +69,7 @@
                     type="a"
                     :to="{ name: 'ptcg/rule' }"
                     icon="mdi-book-open-variant"
-                    :label="$t('ptcg.cr.$self')"
+                    :label="$t('ptcg.rule.$self')"
                     flat
                     :stack="$q.screen.xs"
                 />

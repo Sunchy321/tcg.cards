@@ -30,12 +30,12 @@ const routes: RouteRecordRaw[] = [
             {
                 path:      'rule/diff',
                 name:      'magic/rule/diff',
-                component: async () => import('pages/magic/CRDiff.vue'),
+                component: async () => import('src/pages/magic/RuleDiff.vue'),
             },
             {
                 path:      'rule/history',
                 name:      'magic/rule/history',
-                component: async () => import('pages/magic/CRHistory.vue'),
+                component: async () => import('src/pages/magic/RuleHistory.vue'),
             },
             {
                 path:      'misc',
@@ -64,7 +64,7 @@ const routes: RouteRecordRaw[] = [
             {
                 path:      'rule',
                 name:      'magic/rule',
-                component: async () => import('pages/magic/CR.vue'),
+                component: async () => import('src/pages/magic/Rule.vue'),
             },
         ],
     },

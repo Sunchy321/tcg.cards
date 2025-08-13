@@ -5,13 +5,15 @@ import { printApi } from './print';
 import { searchRouter } from './search';
 import { setRouter } from './set';
 import { formatApi, formatRouter } from './format';
+import { ruleRouter } from './rule';
 import { dataSSE } from './data';
 
 export const magicRouter = new Hono()
     .route('/card', cardRouter)
     .route('/search', searchRouter)
     .route('/set', setRouter)
-    .route('/format', formatRouter);
+    .route('/format', formatRouter)
+    .route('/rule', ruleRouter);
 
 export const magicSSE = new Hono()
     .route('/data', dataSSE);

@@ -99,7 +99,7 @@ export default {
 
     'image-wall': 'Image Wall',
 
-    'cr': {
+    'rule': {
         $self:    'CompRules',
         intro:    'Introduction',
         glossary: 'Glossary',

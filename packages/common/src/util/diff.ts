@@ -1,5 +1,5 @@
 import { diffChars as diffCharsImpl, diffWordsWithSpace } from 'diff';
-import { last } from 'lodash';
+import _ from 'lodash';
 
 type TextChange = string | [string, string];
 
@@ -8,7 +8,7 @@ export function diffChars(lhs: string, rhs: string): TextChange[] {
 
     for (const d of diffCharsImpl(lhs, rhs)) {
         if (d.added) {
-            const lastDiff = last(diffs);
+            const lastDiff = _.last(diffs);
 
             if (lastDiff == null) {
                 diffs.push(['', d.value]);
@@ -18,7 +18,7 @@ export function diffChars(lhs: string, rhs: string): TextChange[] {
                 lastDiff[1] += d.value;
             }
         } else if (d.removed) {
-            const lastDiff = last(diffs);
+            const lastDiff = _.last(diffs);
 
             if (lastDiff == null) {
                 diffs.push([d.value, '']);
@@ -28,7 +28,7 @@ export function diffChars(lhs: string, rhs: string): TextChange[] {
                 lastDiff[0] += d.value;
             }
         } else {
-            const lastDiff = last(diffs);
+            const lastDiff = _.last(diffs);
 
             if (lastDiff == null) {
                 diffs.push(d.value);
@@ -79,7 +79,7 @@ export function diffString(lhs: string, rhs: string, encoder = encode): TextChan
 
     for (const d of diffWordsWithSpace(lhsEncoded, rhsEncoded)) {
         if (d.added) {
-            const lastDiff = last(diffs);
+            const lastDiff = _.last(diffs);
 
             if (lastDiff == null) {
                 diffs.push(['', d.value]);
@@ -89,7 +89,7 @@ export function diffString(lhs: string, rhs: string, encoder = encode): TextChan
                 lastDiff[1] += d.value;
             }
         } else if (d.removed) {
-            const lastDiff = last(diffs);
+            const lastDiff = _.last(diffs);
 
             if (lastDiff == null) {
                 diffs.push([d.value, '']);
@@ -99,7 +99,7 @@ export function diffString(lhs: string, rhs: string, encoder = encode): TextChan
                 lastDiff[0] += d.value;
             }
         } else {
-            const lastDiff = last(diffs);
+            const lastDiff = _.last(diffs);
 
             if (lastDiff == null) {
                 diffs.push(d.value);
@@ -214,7 +214,7 @@ export function diffThreeString(prev: string, curr: string, next: string): Three
             continue;
         }
 
-        const lastDiff = last(mergedDiffs);
+        const lastDiff = _.last(mergedDiffs);
 
         if (lastDiff == null) {
             mergedDiffs.push(d);
