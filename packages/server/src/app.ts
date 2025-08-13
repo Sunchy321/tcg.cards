@@ -6,6 +6,7 @@ import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
+import { prometheus } from '@hono/prometheus';
 
 import { HonoEnv } from './hono-env';
 
@@ -17,6 +18,8 @@ import service from './service';
 import api from './api';
 
 const port = 3000;
+
+const { printMetrics, registerMetrics } = prometheus();
 
 const app = new Hono<HonoEnv>({
     getPath: req => {
@@ -60,6 +63,9 @@ app.use('*', async (c, next) => {
     return next();
 });
 
+app.use('*', registerMetrics);
+
+app.get('/service.tcg.cards/metrics', printMetrics);
 app.route('/service.tcg.cards', service);
 app.route('/api.tcg.cards', api);
 
