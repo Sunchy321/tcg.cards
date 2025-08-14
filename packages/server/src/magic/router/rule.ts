@@ -165,7 +165,7 @@ export const ruleRouter = new Hono()
         '/diff',
         describeRoute({
             tags:      ['Magic', 'Rule'],
-            summary:   'Get rule history',
+            summary:   'Diff two revisions of rule',
             responses: {
                 200: {
                     description: 'Rule history retrieved successfully',
@@ -191,8 +191,6 @@ export const ruleRouter = new Hono()
             if (diff == null) {
                 return c.notFound();
             }
-
-            console.log(ruleDiff.safeParse(diff));
 
             return c.json(diff);
         },

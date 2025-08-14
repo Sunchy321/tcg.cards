@@ -13,7 +13,7 @@ function isChanged(change: TextDiff[]) {
     if (change.length === 0) {
         return false;
     } else if (change.length === 1) {
-        return typeof change[0] !== 'string';
+        return change[0].type !== 'common';
     } else {
         return true;
     }
@@ -98,7 +98,30 @@ export async function getRuleDiff(fromDate: string, toDate: string, lang: string
             d.type = 'move';
         }
 
-        d.text = diffString(oldItem?.text ?? '', newItem?.text ?? '', ruleEncode);
+        const diffs = diffString(oldItem?.text ?? '', newItem?.text ?? '', ruleEncode);
+
+        d.text = [];
+
+        for (const diff of diffs) {
+            if (typeof diff === 'string') {
+                d.text.push({ type: 'common', value: diff });
+            } else {
+                let isMinor = false;
+
+                const fromId = fromItems.find(c => c.serial?.replace(/\.$/, '') === diff[0].replace(/[.,;–]$/, ''))?.itemId;
+                const toId = toItems.find(c => c.serial?.replace(/\.$/, '') === diff[1].replace(/[.,;–]$/, ''))?.itemId;
+
+                if (fromId != null && toId != null && fromId === toId) {
+                    isMinor = true;
+                }
+
+                d.text.push({
+                    type:  'diff',
+                    isMinor,
+                    value: diff,
+                });
+            }
+        }
     }
 
     diff = diff.filter(d => d.type != null || (d.text && isChanged(d.text)));

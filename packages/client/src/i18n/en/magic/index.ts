@@ -100,14 +100,12 @@ export default {
     'image-wall': 'Image Wall',
 
     'rule': {
-        $self:    'CompRules',
-        intro:    'Introduction',
-        glossary: 'Glossary',
-        credits:  'Credits',
-        csi:      'Customer Service Information',
+        '$self': 'CompRules',
 
-        diff:    'CR Differences',
-        history: 'CR History',
+        'diff':    'CR Differences',
+        'history': 'CR History',
+
+        'show-minor': 'Show Minors',
     },
 
     ui,

@@ -25,7 +25,14 @@ export const ruleSummary = z.strictObject({
     }).array(),
 });
 
-export const textDiff = z.string().or(z.tuple([z.string(), z.string()]));
+export const textDiff = z.object({
+    type:  z.enum(['common']),
+    value: z.string(),
+}).or(z.object({
+    type:    z.enum(['diff']),
+    isMinor: z.boolean(),
+    value:   z.tuple([z.string(), z.string()]),
+}));
 
 export const ruleDiffItem = z.strictObject({
     itemId: z.string(),

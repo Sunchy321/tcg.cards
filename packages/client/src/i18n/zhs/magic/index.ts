@@ -91,13 +91,12 @@ export default {
     'image-wall': '图片墙',
 
     'rule': {
-        $self:    '规则',
-        intro:    '前言',
-        glossary: '词汇表',
-        credits:  '版权信息',
+        '$self': '规则',
 
-        diff:    '规则版本间差异',
-        history: '规则历史',
+        'diff':    '规则版本间差异',
+        'history': '规则历史',
+
+        'show-minor': '显示小改动',
     },
 
     ui,

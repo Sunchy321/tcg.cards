@@ -1,14 +1,17 @@
 <template>
     <q-page>
         <div class="row items-center q-gutter-md q-pa-md">
-            <q-space />
+            <q-space class="flex-balance" />
             <q-select v-model="from" dense outlined :options="date" />
             <q-btn icon="mdi-vector-difference" flat dense round @click="loadData" />
             <q-select v-model="to" dense outlined :options="date" />
-            <q-space />
+
+            <div class="flex-balance">
+                <q-checkbox v-model="showMinor">{{ $t('magic.rule.show-minor') }}</q-checkbox>
+            </div>
         </div>
 
-        <q-splitter v-for="d in diff" :key="d.itemId" v-model="splitter" emit-immediately>
+        <q-splitter v-for="d in computedDiff" :key="d.itemId" v-model="splitter" emit-immediately>
             <template #before>
                 <div
                     v-if="d.type !== 'add'"
@@ -58,7 +61,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useTitle } from 'store/core';
+import { useParam, useTitle } from 'store/core';
 
 import RichText from 'src/components/magic/RichText.vue';
 
@@ -69,6 +72,11 @@ import _ from 'lodash';
 const router = useRouter();
 const route = useRoute();
 const i18n = useI18n();
+
+const showMinor = useParam('timeline', {
+    type: 'boolean',
+    bind: 'query',
+});
 
 const date = ref<string[]>([]);
 const ruleDiff = ref<RuleDiff>();
@@ -94,6 +102,16 @@ const to = computed({
             void router.push({ query: { ...route.query, to: newValue } });
         }
     },
+});
+
+const computedDiff = computed(() => {
+    return diff.value.filter(d => {
+        if (showMinor.value) {
+            return true;
+        } else {
+            return d.text?.some(t => t.type === 'diff' && !t.isMinor) ?? false;
+        }
+    });
 });
 
 const loadList = async () => {
@@ -124,28 +142,32 @@ onMounted(() => {
 });
 
 const textClass = (value: TextDiff, type: string) => {
-    if (typeof value === 'string') {
+    if (value.type === 'common') {
         return '';
     } else {
-        return `text-${type}`;
+        if (value.isMinor) {
+            return `text-${type} minor`;
+        } else {
+            return `text-${type}`;
+        }
     }
 };
 
-const textValue = (value: TextDiff, type: string) => {
-    if (typeof value === 'string') {
-        return value;
+const textValue = (diff: TextDiff, type: string) => {
+    if (diff.type === 'common') {
+        return diff.value;
     } else {
-        return type === 'remove' ? value[0] : value[1];
+        return type === 'remove' ? diff.value[0] : diff.value[1];
     }
 };
 
 const isMenu = (d: RuleDiffItem) => {
     const last = _.last(d.text)!;
 
-    if (Array.isArray(last)) {
-        return /[a-z!]$/.test(last[0]);
+    if (last.type === 'common') {
+        return /[a-z!]$/.test(last.value);
     } else {
-        return /[a-z!]$/.test(last);
+        return /[a-z!]$/.test(last.value[0]);
     }
 };
 
@@ -155,11 +177,20 @@ const isMenu = (d: RuleDiffItem) => {
 *:deep(.text-add)
     background-color: $green-2
 
+    &.minor
+        background-color: $green-1
+
 *:deep(.text-remove)
     background-color: $red-2
 
+    &.minor
+        background-color: $red-1
+
 *:deep(.text-move)
     background-color: $amber-2
+
+    &.minor
+        background-color: $amber-1
 
 .depth-0.is-menu
     font-size: 200%
@@ -171,4 +202,7 @@ const isMenu = (d: RuleDiffItem) => {
 
 .depth-2, .depth-3, .depth-4
     margin-bottom: 15px
+
+.flex-balance
+    flex: 1 0 0
 </style>
