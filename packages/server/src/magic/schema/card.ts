@@ -7,7 +7,7 @@ import { schema } from './schema';
 
 import * as basicModel from '@model/magic/schema/basic';
 import * as cardModel from '@model/magic/schema/card';
-import { Legality } from '@model/magic/schema/format-change';
+import { Legality } from '@model/magic/schema/game-change';
 
 export const fullLocale = schema.enum('full_locale', basicModel.fullLocale.enum);
 export const category = schema.enum('category', cardModel.category.enum);

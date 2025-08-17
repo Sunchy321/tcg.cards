@@ -9,10 +9,10 @@ export const Format = schema.table('formats', {
     localization: jsonb().$type<IFormat['localization']>().notNull(),
 
     sets:    text().array(),
-    banlist: jsonb().$type<IFormat['banlist']>().default([]),
+    banlist: jsonb().$type<IFormat['banlist']>().notNull().default([]),
 
     birthday:  text(),
     deathdate: text(),
 
-    tags: text().array().default([]),
+    tags: text().array().notNull().default([]),
 });

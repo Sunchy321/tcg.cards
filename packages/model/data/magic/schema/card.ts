@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { legality } from './format-change';
+import { legality } from './game-change';
 import { fullImageType, fullLocale, layout, rarity } from './basic';
 
 export const category = z.enum([

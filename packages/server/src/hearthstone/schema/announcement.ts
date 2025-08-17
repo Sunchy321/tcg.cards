@@ -19,10 +19,9 @@ export const GameChange = schema.table('game_changes', {
     effectiveDate: text('effective_date'),
     range:         text('range').array(),
 
-    cardId:  text('card_id'),
-    groupId: text('group_id'),
-    setId:   text('set_id'),
-    ruleId:  text('rule_id'),
+    cardId: text('card_id'),
+    setId:  text('set_id'),
+    ruleId: text('rule_id'),
 
     status: Status('status'),
 
@@ -66,7 +65,6 @@ export const AnnouncementView = schema.view('announcement_view').as(qb => {
                 'effectiveDate', ${GameChange.effectiveDate},
                 'range', ${GameChange.range},
                 'cardId', ${GameChange.cardId},
-                'groupId', ${GameChange.groupId},
                 'setId', ${GameChange.setId},
                 'ruleId', ${GameChange.ruleId},
                 'status', ${GameChange.status},

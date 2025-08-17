@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { legality } from './format-change';
+import { legality } from './game-change';
 
 export const formatSchema = z.strictObject({
     formatId: z.string(),
@@ -17,10 +17,12 @@ export const formatSchema = z.strictObject({
         status: legality,
         date:   z.string(),
         group:  z.string().nullable(),
-    }).array().nullable(),
+    }).array(),
 
     birthday:  z.string().nullable(),
     deathdate: z.string().nullable(),
+
+    tags: z.string().array().default([]),
 });
 
 export type Format = z.infer<typeof formatSchema>;

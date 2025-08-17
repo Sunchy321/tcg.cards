@@ -6,6 +6,7 @@ import { searchRouter } from './search';
 import { setRouter } from './set';
 import { formatApi, formatRouter } from './format';
 import { ruleRouter } from './rule';
+import { announcementRouter } from './announcement';
 import { dataSSE } from './data';
 
 export const magicRouter = new Hono()
@@ -13,6 +14,7 @@ export const magicRouter = new Hono()
     .route('/search', searchRouter)
     .route('/set', setRouter)
     .route('/format', formatRouter)
+    .route('/announcement', announcementRouter)
     .route('/rule', ruleRouter);
 
 export const magicSSE = new Hono()

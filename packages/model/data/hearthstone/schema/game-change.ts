@@ -1,4 +1,4 @@
-import z, { never } from 'zod';
+import z from 'zod';
 
 export const gameChangeType = z.enum([
     'card_change',
@@ -53,10 +53,9 @@ export const gameChange = z.strictObject({
     effectiveDate: z.iso.date().nullable(),
     range:         z.string().array().nullable(),
 
-    cardId:  z.string().nullable(),
-    groupId: z.string().nullable(),
-    setId:   z.string().nullable(),
-    ruleId:  z.string().nullable(),
+    cardId: z.string().nullable(),
+    setId:  z.string().nullable(),
+    ruleId: z.string().nullable(),
 
     status: status.nullable(),
     group:  z.string().nullable(),

@@ -1,9 +1,9 @@
 import * as card from './card';
 import * as print from './print';
-import * as formatChange from './format-change';
+import * as gameChange from './game-change';
 
 export default {
     card,
     print,
-    formatChange,
+    gameChange,
 };
