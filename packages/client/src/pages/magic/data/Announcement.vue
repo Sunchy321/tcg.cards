@@ -106,7 +106,7 @@
             v-model="groupedItems"
             class="change-list q-mt-md"
             item-class="change q-mt-sm q-pa-sm"
-            @insert="() => pushItem()"
+            @insert="pushItem"
         >
             <template #title>
                 <q-icon name="mdi-text-box-outline" size="sm" />
@@ -119,8 +119,8 @@
                     class="q-mt-sm"
                     item-class="q-mt-sm"
                     :model-value="g.items"
-                    @update:model-value="b => g.items = b"
-                    @insert="g.items = addItem(g.items ?? [])"
+                    @update:model-value="b => updateItem(g.range, b)"
+                    @insert="() => pushItem(g.range)"
                 >
                     <template #title>
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
@@ -178,8 +178,6 @@ import {
 
 import { useParam } from 'store/core';
 import { useGame } from 'store/games/magic';
-
-import controlSetup from 'setup/control';
 
 import List from 'components/List.vue';
 import DateInput from 'components/DateInput.vue';
@@ -268,8 +266,6 @@ const statusOptions = [
 }));
 
 const game = useGame();
-
-const { controlPost } = controlSetup();
 
 const filter = useParam('filter', {
     type:    'enum',
@@ -395,11 +391,13 @@ const groupedItems = computed(() => {
     return groups;
 });
 
-const pushItem = (format = '') => {
+const pushItem = (range: string[] | null = []) => {
+    console.log('pushItem', range);
+
     items.value.push({
         type:          'card_change',
         effectiveDate: null,
-        range:         [format],
+        range,
 
         cardId: null,
         setId:  null,
@@ -410,6 +408,20 @@ const pushItem = (format = '') => {
         adjustment:   null,
         relatedCards: null,
     });
+};
+
+const updateItem = (range: AnnouncementItem['range'], newItems: AnnouncementItem[]) => {
+    const oldItems = items.value.filter(item => !_.isEqual(item.range, range));
+    const insertPoint = items.value.findIndex(item => _.isEqual(item.range, range));
+
+    if (insertPoint >= 0) {
+        // Insert new items at the position of the first matching item
+        const result = [...oldItems.slice(0, insertPoint), ...newItems, ...oldItems.slice(insertPoint)];
+        items.value = result;
+    } else {
+        // If no matching items were found, just append the new items
+        items.value = [...oldItems, ...newItems];
+    }
 };
 
 const getId = (item: AnnouncementItem) => {
@@ -442,18 +454,9 @@ const updateId = (item: AnnouncementItem, id: string) => {
     } else if (item.type === 'set_change') {
         item.setId = adjustId(id);
     } else if (item.type === 'rule_change') {
-        item.ruleId = adjustId(id);
+        item.ruleId = id;
     }
 };
-
-const addItem = (items: AnnouncementItem[]) => [
-    ...items,
-    {
-        id:     '',
-        type:   _.last(items)?.type ?? 'card_change',
-        status: _.last(items)?.status ?? 'banned',
-    },
-] as AnnouncementItem[];
 
 const switchChangeType = (item: AnnouncementItem) => {
     if (item.type === 'card_change') {
@@ -510,7 +513,7 @@ const fillEmptyAnnouncement = () => {
         return;
     }
 
-    pushItem(format);
+    pushItem([format]);
 };
 
 watch(source, fillEmptyAnnouncement);
@@ -554,9 +557,7 @@ const saveAnnouncement = async () => {
 
     const data = toRaw(announcement.value);
 
-    if (data.name == '') {
-        data.name = `${data.source} - ${data.date}`;
-    }
+    data.name = `${data.source} - ${data.date}`;
 
     for (const c of data.items) {
         if (c.type === 'card_change') {
@@ -575,7 +576,9 @@ const saveAnnouncement = async () => {
         }
     }
 
-    await controlPost('/magic/format/announcement/save', { data });
+    await trpc.magic.announcement.save.$post({
+        json: data,
+    });
 
     await loadData();
 };
@@ -611,7 +614,7 @@ const newAnnouncement = async () => {
 const applyAnnouncements = async () => {
     await saveAnnouncement();
 
-    await controlPost('/magic/format/announcement/apply');
+    await trpc.magic.announcement.apply.$post();
 };
 
 </script>

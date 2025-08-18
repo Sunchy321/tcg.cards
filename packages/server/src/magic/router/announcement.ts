@@ -98,15 +98,19 @@ export const announcementRouter = new Hono()
             },
             validateResponse: true,
         }),
-        validator('json', announcement),
+        validator('json', announcement.extend({ id: z.uuid().or(z.literal('')) })),
         async c => {
             const data = c.req.valid('json');
 
-            const existing = await db.select().from(Announcement)
-                .where(eq(Announcement.id, data.id))
-                .then(rows => rows[0]);
+            const existing = data.id !== ''
+                ? await db.select().from(Announcement)
+                    .where(eq(Announcement.id, data.id))
+                    .then(rows => rows[0])
+                : null;
 
-            if (existing) {
+            let id = data.id;
+
+            if (existing != null) {
                 await db.update(Announcement)
                     .set({
                         source: data.source,
@@ -124,25 +128,37 @@ export const announcementRouter = new Hono()
                     })
                     .where(eq(Announcement.id, data.id));
             } else {
-                await db.insert(Announcement).values(data);
+                const result = await db.insert(Announcement).values(_.omit(data, 'id')).returning();
+
+                id = result[0].id;
+            }
+
+            await db.delete(AnnouncementItem)
+                .where(eq(AnnouncementItem.announcementId, id));
+
+            for (const item of data.items) {
+                await db.insert(AnnouncementItem).values({
+                    announcementId: id,
+                    ...item,
+                });
             }
 
             return c.json({ id: data.id });
         },
+    )
+    .post(
+        '/apply',
+        describeRoute({
+            description: 'Get a random card ID',
+            tags:        ['Magic', 'Card'],
+            responses:   {
+                200: {
+                    description: 'Random card ID',
+                },
+            },
+            validateResponse: true,
+        }),
+        async () => {
+            // await applyAnnouncement();
+        },
     );
-    // .post(
-    //     '/apply',
-    //     describeRoute({
-    //         description: 'Get a random card ID',
-    //         tags:        ['Magic', 'Card'],
-    //         responses:   {
-    //             200: {
-    //                 description: 'Random card ID',
-    //             },
-    //         },
-    //         validateResponse: true,
-    //     }),
-    //     async () => {
-    //         // await applyAnnouncement();
-    //     },
-    // );

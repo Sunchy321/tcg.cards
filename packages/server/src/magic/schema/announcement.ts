@@ -7,7 +7,7 @@ import { schema } from './schema';
 import { gameChangeType } from './game-change';
 
 export const AnnouncementRuleItem = schema.table('announcement_rule_items', {
-    id:   uuid('id').primaryKey().defaultRandom(),
+    id:   text('id').primaryKey(),
     lang: text('lang').notNull(),
     text: text('text').notNull(),
 });
@@ -22,7 +22,7 @@ export const AnnouncementItem = schema.table('announcement_items', {
 
     cardId: text('card_id'),
     setId:  text('set_id'),
-    ruleId: uuid('rule_id'),
+    ruleId: text('rule_id'),
 
     status: text('status'),
 
