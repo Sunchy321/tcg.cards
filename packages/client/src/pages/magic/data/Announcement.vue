@@ -83,10 +83,10 @@
         </div>
 
         <list
-            v-model="links"
+            v-model="link"
             class="q-mt-md"
             item-class="q-mt-sm"
-            @insert="links = [...links, '']"
+            @insert="link.push('')"
         >
             <template #title>
                 <q-icon name="mdi-link" size="sm" />
@@ -112,15 +112,15 @@
                 <q-icon name="mdi-text-box-outline" size="sm" />
             </template>
             <template #summary="{ value: c }">
-                <q-select v-model="c.range" multiple class="col-grow" :options="formats" outlined dense />
+                <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
             </template>
             <template #body="{ value: g }">
                 <list
                     class="q-mt-sm"
                     item-class="q-mt-sm"
                     :model-value="g.items"
-                    @update:model-value="b => updateItem(g.range, b)"
-                    @insert="() => pushItem(g.range)"
+                    @update:model-value="b => updateItem(g.format, b)"
+                    @insert="() => pushItem(g.format)"
                 >
                     <template #title>
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
@@ -292,7 +292,7 @@ const announcement = ref<Announcement>({
 
     nextDate: null,
 
-    links: [],
+    link:  [],
     items: [],
 });
 
@@ -357,9 +357,9 @@ const tabletopDate = effectiveDate('tabletop');
 const onlineDate = effectiveDate('online');
 const arenaDate = effectiveDate('arena');
 
-const links = computed({
-    get() { return announcement.value.links; },
-    set(newValue: string[]) { announcement.value.links = newValue; },
+const link = computed({
+    get() { return announcement.value.link; },
+    set(newValue: string[]) { announcement.value.link = newValue; },
 });
 
 const items = computed({
@@ -369,35 +369,49 @@ const items = computed({
     },
 });
 
-const groupedItems = computed(() => {
-    const groups: {
-        range: AnnouncementItem['range'];
-        items: AnnouncementItem[];
-    }[] = [];
+const groupedItems = computed({
+    get() {
+        const groups: {
+            format: AnnouncementItem['format'];
+            items:  AnnouncementItem[];
+        }[] = [];
 
-    for (const item of items.value) {
-        const group = groups.find(g => _.isEqual(g.range, item.range));
+        for (const item of items.value) {
+            const group = groups.find(g => _.isEqual(g.format, item.format));
 
-        if (group == null) {
-            groups.push({
-                range: item.range,
-                items: [item],
-            });
-        } else {
-            group.items.push(item);
+            if (group == null) {
+                groups.push({
+                    format: item.format,
+                    items:  [item],
+                });
+            } else {
+                group.items.push(item);
+            }
         }
-    }
 
-    return groups;
+        return groups;
+    },
+    set(newValue) {
+        const newItems: AnnouncementItem[] = [];
+
+        for (const group of newValue) {
+            for (const item of group.items) {
+                newItems.push({
+                    ...item,
+                    format: group.format,
+                });
+            }
+        }
+
+        items.value = newItems;
+    },
 });
 
-const pushItem = (range: string[] | null = []) => {
-    console.log('pushItem', range);
-
+const pushItem = (format: string | null = '') => {
     items.value.push({
         type:          'card_change',
         effectiveDate: null,
-        range,
+        format,
 
         cardId: null,
         setId:  null,
@@ -410,9 +424,9 @@ const pushItem = (range: string[] | null = []) => {
     });
 };
 
-const updateItem = (range: AnnouncementItem['range'], newItems: AnnouncementItem[]) => {
-    const oldItems = items.value.filter(item => !_.isEqual(item.range, range));
-    const insertPoint = items.value.findIndex(item => _.isEqual(item.range, range));
+const updateItem = (format: AnnouncementItem['format'], newItems: AnnouncementItem[]) => {
+    const oldItems = items.value.filter(item => item.format != format);
+    const insertPoint = items.value.findIndex(item => item.format == format);
 
     if (insertPoint >= 0) {
         // Insert new items at the position of the first matching item
@@ -513,7 +527,7 @@ const fillEmptyAnnouncement = () => {
         return;
     }
 
-    pushItem([format]);
+    pushItem(format);
 };
 
 watch(source, fillEmptyAnnouncement);
@@ -604,7 +618,7 @@ const newAnnouncement = async () => {
 
         nextDate: null,
 
-        links: [],
+        link:  [],
         items: [],
     };
 

@@ -15,7 +15,7 @@ export const formatChanges = schema.table('format_changes', {
     version:     integer('version'),
     lastVersion: integer('last_version'),
 
-    links: text('links').array(),
+    link: text('link').array(),
 
     type:  text('type').notNull(),
     group: text('group'),

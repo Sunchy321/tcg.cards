@@ -29,6 +29,10 @@ export const legality = z.enum([
     'score-8',
     'score-9',
     'score-10',
+    'score-11',
+    'score-12',
+    'score-13',
+    'score-14',
 ]);
 
 export const status = z.enum([
@@ -53,13 +57,13 @@ export const cardChange = z.strictObject({
     type:   gameChangeType,
     format: z.string().nullable(),
 
-    cardId: z.string().nullable(),
+    cardId: z.string(),
     setId:  z.string().nullable(),
     group:  z.string().nullable(),
 
-    status: status.nullable(),
+    status,
 
-    adjustments: adjustment.array().nullable(),
+    adjustment: adjustment.array().nullable(),
 });
 
 export const setChange = z.strictObject({
@@ -72,9 +76,9 @@ export const setChange = z.strictObject({
     type:   gameChangeType,
     format: z.string().nullable(),
 
-    setId: z.string().nullable(),
+    setId: z.string(),
 
-    status: status.nullable(),
+    status,
 });
 
 export const formatChange = z.strictObject({
@@ -87,17 +91,21 @@ export const formatChange = z.strictObject({
     type:   gameChangeType,
     format: z.string().nullable(),
 
-    formatId: z.string().nullable(),
-    cardId:   z.string().nullable(),
-    setId:    z.string().nullable(),
-    group:    z.string().nullable(),
+    cardId: z.string().nullable(),
+    setId:  z.string().nullable(),
+    ruleId: z.string().nullable(),
+    group:  z.string().nullable(),
 
     status: status.nullable(),
 
-    adjustments: adjustment.array().nullable(),
+    adjustment: adjustment.array().nullable(),
 });
 
 export type GameChangeType = z.infer<typeof gameChangeType>;
 export type Legality = z.infer<typeof legality>;
 export type Adjustment = z.infer<typeof adjustment>;
 export type Status = z.infer<typeof status>;
+
+export type CardChange = z.infer<typeof cardChange>;
+export type SetChange = z.infer<typeof setChange>;
+export type FormatChange = z.infer<typeof formatChange>;

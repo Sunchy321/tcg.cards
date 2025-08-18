@@ -75,7 +75,7 @@ export const announcement = z.strictObject({
     date:          z.iso.date(),
     effectiveDate: z.iso.date().nullable(),
     name:          z.string(),
-    links:         z.url().array(),
+    link:          z.url().array(),
     version:       z.number().positive(),
     lastVersion:   z.number().positive().nullable(),
 

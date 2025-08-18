@@ -43,7 +43,7 @@ export const Announcement = schema.table('announcements', {
     date:          text('date').notNull(),
     effectiveDate: text('effective_date'),
     name:          text('name').notNull(),
-    links:         text('links').array(),
+    link:          text('link').array(),
     version:       integer('version').notNull(),
     lastVersion:   integer('last_version'),
 });
@@ -56,7 +56,7 @@ export const AnnouncementView = schema.view('announcement_view').as(qb => {
             date:          Announcement.date,
             effectiveDate: Announcement.effectiveDate,
             name:          Announcement.name,
-            links:         Announcement.links,
+            link:          Announcement.link,
             version:       Announcement.version,
             lastVersion:   Announcement.lastVersion,
 

@@ -4,7 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { Adjustment } from '@model/magic/schema/game-change';
 
 import { schema } from './schema';
-import { gameChangeType } from './game-change';
+import { gameChangeType, status } from './game-change';
 
 export const AnnouncementRuleItem = schema.table('announcement_rule_items', {
     id:   text('id').primaryKey(),
@@ -18,13 +18,13 @@ export const AnnouncementItem = schema.table('announcement_items', {
 
     type:          gameChangeType('type').notNull(),
     effectiveDate: text('effective_date'),
-    range:         text('range').array().default([]),
+    format:        text('format'),
 
     cardId: text('card_id'),
     setId:  text('set_id'),
     ruleId: text('rule_id'),
 
-    status: text('status'),
+    status: status('status'),
 
     adjustment:   jsonb('adjustment').$type<Adjustment[]>(),
     relatedCards: text('related_cards').array().default([]),
@@ -44,7 +44,7 @@ export const Announcement = schema.table('announcements', {
 
     nextDate: text('next_date'),
 
-    links: text('links').array().default([]),
+    link: text('link').array().notNull().default([]),
 });
 
 export const AnnouncementView = schema.view('announcement_view').as(qb => {
@@ -53,18 +53,20 @@ export const AnnouncementView = schema.view('announcement_view').as(qb => {
 
         source: Announcement.source,
         date:   Announcement.date,
+        name:   Announcement.name,
 
-        effectiveDate:         sql`coalesce(${AnnouncementItem.effectiveDate}, ${Announcement.effectiveDate})`.as('effective_date'),
+        effectiveDate: sql<string | null>`coalesce(${AnnouncementItem.effectiveDate}, ${Announcement.effectiveDate})`
+            .as('effective_date'),
         effectiveDateTabletop: Announcement.effectiveDateTabletop,
         effectiveDateOnline:   Announcement.effectiveDateOnline,
         effectiveDateArena:    Announcement.effectiveDateArena,
 
         nextDate: Announcement.nextDate,
 
-        links: Announcement.links,
+        link: Announcement.link,
 
-        type:  AnnouncementItem.type,
-        range: AnnouncementItem.range,
+        type:   AnnouncementItem.type,
+        format: AnnouncementItem.format,
 
         cardId: AnnouncementItem.cardId,
         setId:  AnnouncementItem.setId,
@@ -74,11 +76,7 @@ export const AnnouncementView = schema.view('announcement_view').as(qb => {
 
         adjustment:   AnnouncementItem.adjustment,
         relatedCards: AnnouncementItem.relatedCards,
-
-        lang: AnnouncementRuleItem.lang,
-        text: AnnouncementRuleItem.text,
     })
         .from(Announcement)
-        .leftJoin(AnnouncementItem, eq(Announcement.id, AnnouncementItem.announcementId))
-        .leftJoin(AnnouncementRuleItem, eq(AnnouncementItem.ruleId, AnnouncementRuleItem.id));
+        .leftJoin(AnnouncementItem, eq(Announcement.id, AnnouncementItem.announcementId));
 });

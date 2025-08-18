@@ -5,7 +5,7 @@ import { adjustment, gameChangeType, status } from './game-change';
 export const announcementItem = z.strictObject({
     type:          gameChangeType,
     effectiveDate: z.string().nullable(),
-    range:         z.string().array().nullable(),
+    format:        z.string().nullable(),
 
     cardId: z.string().nullable(),
     setId:  z.string().nullable(),
@@ -31,7 +31,7 @@ export const announcement = z.strictObject({
 
     nextDate: z.string().nullable(),
 
-    links: z.url().array(),
+    link: z.url().array(),
 
     items: announcementItem.array(),
 });

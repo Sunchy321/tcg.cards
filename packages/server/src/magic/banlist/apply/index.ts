@@ -1,6 +1,12 @@
-import { Card as ICard } from '@model/magic/schema/card';
 import { Format as IFormat } from '@model/magic/schema/format';
-import { Announcement as IFormatAnnouncement, GameChange as IGameChange, Legality } from '@model/magic/schema/game-change';
+
+import {
+    FormatChange as IFormatChange,
+    SetChange as ISetChange,
+    CardChange as ICardChange,
+    Legality,
+    Status,
+} from '@model/magic/schema/game-change';
 
 import _ from 'lodash';
 import { and, eq, inArray, sql } from 'drizzle-orm';
@@ -8,14 +14,16 @@ import internalData from '@/internal-data';
 import { toIdentifier } from '@common/util/id';
 
 import { db } from '@/drizzle';
-import { AnnouncementView } from '@/magic/schema/announcement';
-import { Format } from '@/magic/schema/format';
-import { GameChange } from '@/magic/schema/game-change';
-import { Set } from '@/magic/schema/set';
 import { CardView } from '@/magic/schema/card';
+import { CardPrintView } from '@/magic/schema/print';
+import { Set } from '@/magic/schema/set';
+import { Format } from '@/magic/schema/format';
+import { AnnouncementView } from '@/magic/schema/announcement';
+import { CardChange, SetChange, FormatChange } from '@/magic/schema/game-change';
 
 import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
-import { CardPrintView } from '@/magic/schema/print';
+
+import { announcement as log } from '@/magic/logger';
 
 const formatWithSet = [
     'standard', 'pioneer', 'modern', 'extended',
@@ -26,10 +34,10 @@ function cmp<T>(a: T, b: T): number {
     return a < b ? -1 : a > b ? 1 : 0;
 }
 
-type AnnouncementItemView = (typeof AnnouncementView)['$inferSelect'];
+type IAnnouncementView = (typeof AnnouncementView)['$inferSelect'];
 
 export class AnnouncementApplier {
-    private announcements: AnnouncementItemView[];
+    private announcements: IAnnouncementView[];
 
     private formatMap:      Record<string, IFormat>;
     private eternalFormats: string[];
@@ -49,14 +57,17 @@ export class AnnouncementApplier {
         inPauperCommander: boolean;
     }[];
 
-    private changes: IGameChange[];
+    private formatChanges: IFormatChange[];
+    private setChanges:    ISetChange[];
+    private cardChanges:   ICardChange[];
 
     private groupWatcher: {
-        source: string;
-        link?:  string[];
-        format: string;
-        id:     string;
-        status: Legality;
+        source:  string;
+        link:    string[];
+        name:    string;
+        format:  string;
+        groupId: string;
+        status:  Legality;
     }[];
 
     private async initialize(): Promise<void> {
@@ -167,8 +178,8 @@ export class AnnouncementApplier {
 
     private setChange(
         setId: string,
-        status:        'legal' | 'unavailable',
-        format:        string,
+        status: Status,
+        format: string,
         options: {
             source:        string;
             date:          string;
@@ -185,25 +196,46 @@ export class AnnouncementApplier {
             return;
         }
 
+        if (status !== 'legal' && status !== 'unavailable') {
+            throw new Error(`Invalid status ${status} for set ${setId} in format ${format}`);
+        }
+
+        log.info(`SET   - ${date} ${format} ${setId} ${status}`);
+
+        this.setChanges.push({
+            source,
+            date,
+            effectiveDate,
+            name,
+            link,
+
+            type: 'set_change',
+            format,
+
+            setId,
+
+            status,
+        });
+
         if (!f.tags.includes('eternal')) {
-            this.changes.push({
+            this.formatChanges.push({
                 source,
                 date,
                 effectiveDate,
                 name,
                 link,
 
-                type:  'format_change',
-                range: [format],
+                type: 'set_change',
+                format,
 
-                formatId: null,
-                cardId:   null,
+                cardId: null,
                 setId,
-                group:    null,
+                ruleId: null,
+                group:  null,
 
-                status: status,
+                status,
 
-                adjustments: null,
+                adjustment: null,
             });
         }
 
@@ -220,7 +252,7 @@ export class AnnouncementApplier {
 
     private cardChange(
         cardId: string,
-        status: Legality,
+        status: Status,
         format: string,
         options: {
             group:         string | undefined;
@@ -239,24 +271,49 @@ export class AnnouncementApplier {
             return;
         }
 
-        this.changes.push({
+        if (status === 'buff' || status === 'nerf' || status === 'adjust') {
+            throw new Error(`Invalid status ${status} for card ${cardId} in format ${format}`);
+        }
+
+        log.info(`CARD  - ${date} ${format} ${cardId} ${status}${group != null ? ` (${group})` : ''}`);
+
+        this.cardChanges.push({
             source,
             date,
             effectiveDate,
             name,
             link,
 
-            type:  'format_change',
-            range: [format],
+            type: 'card_change',
+            format,
 
-            formatId: null,
             cardId,
-            setId:    null,
-            group:    group ?? null,
+            setId: null,
+            group: group ?? null,
 
-            status: status,
+            status,
 
-            adjustments: null,
+            adjustment: null,
+        });
+
+        this.formatChanges.push({
+            source,
+            date,
+            effectiveDate,
+            name,
+            link,
+
+            type: 'card_change',
+            format,
+
+            cardId,
+            setId:  null,
+            ruleId: null,
+            group:  group ?? null,
+
+            status,
+
+            adjustment: null,
         });
 
         if (f.banlist == null) {
@@ -284,10 +341,17 @@ export class AnnouncementApplier {
     }
 
     async apply(): Promise<void> {
+        log.info('================ Applying Magic banlist... ================');
+
         await this.initialize();
         await this.loadCard();
 
-        this.changes = [];
+        log.info('Loaded Magic banlist data');
+
+        this.formatChanges = [];
+        this.setChanges = [];
+        this.cardChanges = [];
+
         this.groupWatcher = [];
 
         const alchemyBirthday = this.formatMap.alchemy.birthday!;
@@ -298,20 +362,58 @@ export class AnnouncementApplier {
             f.banlist = [];
         }
 
-        await db.delete(GameChange);
+        await db.delete(CardChange);
+        await db.delete(SetChange);
+        await db.delete(FormatChange);
 
         const pseudoReleaseAnnouncement = this.sets.filter(
             s => !this.announcements.some(a => a.format === '#standard' && a.setId === s.setId && a.status === 'legal'),
         ).map(s => ({
-            source:        'release',
-            date:          s.releaseDate,
-            effectiveDate: s.releaseDate,
-            name:          `release - ${s.releaseDate}`,
-            links:         [],
-            changes:       [{
-                type:          'format_change',
-                effectiveDate: null,
-                range:         ['#eternal'],
+            id: '',
+
+            source:                'release',
+            date:                  s.releaseDate,
+            effectiveDate:         s.releaseDate,
+            effectiveDateTabletop: s.releaseDate,
+            effectiveDateOnline:   s.releaseDate,
+            effectiveDateArena:    s.releaseDate,
+            nextDate:              null,
+
+            name: `release - ${s.releaseDate}`,
+            link: [],
+
+            type:   'set_change',
+            format: '#eternal',
+
+            cardId: null,
+            setId:  s.setId,
+            ruleId: null,
+
+            status: 'legal',
+            group:  null,
+
+            adjustment:   null,
+            relatedCards: null,
+        } as IAnnouncementView));
+
+        const pseudoInitialAnnouncement = Object.values(this.formatMap)
+            .filter(f => f.tags.includes('eternal') && f.birthday != null)
+            .map(f => this.sets.filter(s => s.releaseDate < f.birthday!).map(s => ({
+                id: '',
+
+                source:                'initial',
+                date:                  f.birthday!,
+                effectiveDate:         f.birthday!,
+                effectiveDateTabletop: f.birthday!,
+                effectiveDateOnline:   f.birthday!,
+                effectiveDateArena:    f.birthday!,
+                nextDate:              null,
+
+                name: `release - ${f.birthday!}`,
+                link: [],
+
+                type:   'set_change',
+                format: f.formatId,
 
                 cardId: null,
                 setId:  s.setId,
@@ -322,281 +424,294 @@ export class AnnouncementApplier {
 
                 adjustment:   null,
                 relatedCards: null,
+            }) as IAnnouncementView))
+            .flat();
 
-                ruleText: null,
-            }],
-        } as AnnouncementItemView));
-
-        const pseudoInitialAnnouncement = Object.values(this.formatMap)
-            .filter(f => f.tags.includes('eternal') && f.birthday != null)
-            .map(f => ({
-                source:        'initial',
-                date:          f.birthday!,
-                effectiveDate: f.birthday!,
-                name:          `release - ${f.birthday!}`,
-                links:         [],
-                changes:       this.sets.filter(s => s.releaseDate < f.birthday!).map(s => ({
-                    type:          'format_change',
-                    effectiveDate: null,
-                    range:         [f.formatId],
-
-                    cardId: null,
-                    setId:  s.setId,
-                    ruleId: null,
-
-                    status: 'legal',
-                    group:  null,
-
-                    adjustment:   null,
-                    relatedCards: null,
-
-                    ruleText: null,
-                })),
-            }) as IFormatAnnouncement);
-
-        const allAnnouncements = [
+        const allAnnouncements: IAnnouncementView[] = [
             ...this.announcements,
             ...pseudoReleaseAnnouncement,
             ...pseudoInitialAnnouncement,
         ].sort((a, b) => cmp(a.date, b.date));
 
         for (const a of allAnnouncements) {
-            const date = a.effectiveDate;
+            const effectiveDate = a.effectiveDate ?? a.date;
 
-            const changes: Required<IFormatAnnouncement['changes'][0]>[] = [];
-
-            // if (a.cardId != null && a.)
-
-            // expand format group #standard and #eternal
-            for (const c of a.changes) {
-                if (c.banlist != null && c.format.startsWith('#')) {
-                    throw new Error(`Banlist is incompatible with format group ${c.format}`);
+            const formats = (() => {
+                switch (a.format) {
+                case '#alchemy':
+                    return ['alchemy', 'historic', 'timeless'].filter(f => {
+                        const format = this.formatMap[f]!;
+                        // the change don't become effective now
+                        if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
+                        // the change is before the format exists
+                        if (format.birthday != null && effectiveDate < format.birthday) { return false; }
+                        // the change is after the format died
+                        if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
+                        return true;
+                    });
+                case '#standard':
+                    return [...this.eternalFormats, ...formatWithSet].filter(f => {
+                        const format = this.formatMap[f]!;
+                        // the change don't become effective now
+                        if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
+                        // the change is before the format exists
+                        if (format.birthday != null && effectiveDate < format.birthday) { return false; }
+                        // the change is after the format died
+                        if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
+                        return true;
+                    });
+                case '#eternal':
+                    return [...this.eternalFormats].filter(f => {
+                        const format = this.formatMap[f]!;
+                        // the change don't become effective now
+                        if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
+                        // the change is before the format exists
+                        if (format.birthday != null && effectiveDate < format.birthday) { return false; }
+                        // the change is after the format died
+                        if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
+                        return true;
+                    });
+                default:
+                    return a.format == null ? [] : [a.format];
                 }
+            })();
 
-                const formats = (() => {
-                    switch (c.format) {
-                    case '#alchemy':
-                        return ['alchemy', 'historic', 'timeless'].filter(f => {
-                            const format = this.formatMap[f]!;
-                            // the change don't become effective now
-                            if (date > new Date().toISOString().split('T')[0]) { return false; }
-                            // the change is before the format exists
-                            if (format.birthday != null && date < format.birthday) { return false; }
-                            // the change is after the format died
-                            if (format.deathdate != null && date > format.deathdate) { return false; }
-                            return true;
-                        });
-                    case '#standard':
-                        return [...this.eternalFormats, ...formatWithSet].filter(f => {
-                            const format = this.formatMap[f]!;
-                            // the change don't become effective now
-                            if (date > new Date().toISOString().split('T')[0]) { return false; }
-                            // the change is before the format exists
-                            if (format.birthday != null && date < format.birthday) { return false; }
-                            // the change is after the format died
-                            if (format.deathdate != null && date > format.deathdate) { return false; }
-                            return true;
-                        });
-                    case '#eternal':
-                        return [...this.eternalFormats].filter(f => {
-                            const format = this.formatMap[f]!;
-                            // the change don't become effective now
-                            if (date > new Date().toISOString().split('T')[0]) { return false; }
-                            // the change is before the format exists
-                            if (format.birthday != null && date < format.birthday) { return false; }
-                            // the change is after the format died
-                            if (format.deathdate != null && date > format.deathdate) { return false; }
-                            return true;
-                        });
-                    default:
-                        return [c.format];
-                    }
-                })();
-
-                if (formats.includes('standard')) {
-                    if (!formats.includes('standard_brawl') && date >= standardBrawlBirthday) {
-                        formats.push('standard_brawl');
-                    }
+            if (formats.includes('standard')) {
+                if (!formats.includes('standard_brawl') && effectiveDate >= standardBrawlBirthday) {
+                    formats.push('standard_brawl');
                 }
+            }
 
-                if (formats.includes('historic')) {
-                    if (!formats.includes('brawl')) {
-                        formats.push('brawl');
-                    }
-                }
-
-                for (const f of formats) {
-                    const co = changes.find(v => v.format === f);
-
-                    if (co == null) {
-                        changes.push({
-                            format:  f,
-                            setIn:   _.cloneDeep(c.setIn ?? []),
-                            setOut:  _.cloneDeep(c.setOut ?? []),
-                            banlist: [],
-                        });
-                    } else {
-                        co.setIn.push(..._.cloneDeep(c.setIn ?? []));
-                        co.setOut.push(..._.cloneDeep(c.setOut ?? []));
-                    }
-                }
-
-                if (c.banlist != null && c.banlist.length > 0) {
-                    const co = changes.find(v => v.format === c.format)!;
-
-                    if (co == null) {
-                        changes.push({
-                            format:  c.format,
-                            setIn:   _.cloneDeep(c.setIn ?? []),
-                            setOut:  _.cloneDeep(c.setOut ?? []),
-                            banlist: _.cloneDeep(c.banlist ?? []),
-                        });
-                    } else {
-                        co.banlist.push(..._.cloneDeep(c.banlist ?? []));
-                    }
+            if (formats.includes('historic')) {
+                if (!formats.includes('brawl')) {
+                    formats.push('brawl');
                 }
             }
 
             // apply changes
-            for (const c of changes) {
-                const fo = this.formatMap[c.format];
+            for (const f of formats) {
+                const fo = this.formatMap[f];
 
                 if (fo == null) {
                     continue;
                 }
 
-                if (fo.sets == null) {
-                    fo.sets = [];
-                }
+                fo.sets ??= [];
 
-                // sets in
-                for (const s of c.setIn) {
-                    if (fo.sets.includes(s)) {
-                        // Alchemy initial, ignore duplicate
-                        if (['historic', 'brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
-                            continue;
+                if (a.type === 'set_change') {
+                    if (a.setId == null) {
+                        throw new Error(`Set change without setId, date: ${a.date}`);
+                    }
+
+                    if (a.status === 'legal') {
+                        if (fo.sets.includes(a.setId!)) {
+                            if (['historic', 'brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
+                            // Alchemy initial, ignore duplicate
+                            } else {
+                                throw new Error(`In set ${a.setId} is already in ${f}, date: ${a.date}`);
+                            }
                         }
-
-                        throw new Error(`In set ${s} is already in ${c.format}, date: ${a.date}`);
+                    } else if (a.status === 'unavailable') {
+                        if (!fo.sets.includes(a.setId!)) {
+                            throw new Error(`Out set ${a.setId} is not in ${f}, date: ${a.date}`);
+                        }
+                    } else {
+                        throw new Error(`Invalid status ${a.status} for set ${a.setId} in format ${f}`);
                     }
 
-                    this.setChange(s, 'in', c.format, a.source, date, a.link);
-                }
+                    this.setChange(a.setId!, a.status!, f, {
+                        source: a.source,
+                        date:   a.date,
+                        name:   a.name,
+                        effectiveDate,
+                        link:   a.link,
+                    });
 
-                // sets out
-                for (const s of c.setOut) {
-                    if (fo.sets == null || !fo.sets.includes(s)) {
-                        throw new Error(`Out set ${s} is not in ${c.format}, date: ${a.date}`);
+                    if (a.status === 'legal') {
+                        for (const g of this.groupWatcher.filter(g => g.format === f)) {
+                            const detectedCards = this.detectGroup(g.groupId, f, [a.setId]);
+
+                            const cards = detectedCards.filter(
+                                c => !fo.banlist.some(b => b.cardId === c && b.status === g.status),
+                            );
+
+                            for (const v of cards) {
+                                this.cardChange(v, g.status, f, {
+                                    group:         g.groupId,
+                                    source:        g.source,
+                                    date:          effectiveDate,
+                                    name:          g.name,
+                                    effectiveDate: effectiveDate,
+                                    link:          g.link,
+                                });
+                            }
+                        }
+                    } else if (a.status === 'unavailable') {
+                        for (const b of fo.banlist) {
+                            const sets = this.cards.find(c => c.cardId === b.cardId)?.sets ?? [];
+
+                            const setInFormat = sets.filter(s => [...fo.sets ?? [], a.setId]!.includes(s));
+
+                            if (setInFormat.every(s => s === a.setId)) {
+                                this.cardChange(b.cardId, 'unavailable', f, {
+                                    group:  b.group ?? undefined,
+                                    source: a.source,
+                                    date:   a.date,
+                                    name:   a.name,
+                                    effectiveDate,
+                                    link:   a.link,
+                                });
+                            }
+                        }
+                    }
+                } else if (a.type === 'card_change') {
+                    if (a.cardId == null) {
+                        throw new Error(`Card change without cardId, date: ${a.date}`);
                     }
 
-                    this.setChange(s, 'out', c.format, a.source, date, a.link);
-                }
+                    if (a.status == 'buff' || a.status == 'nerf' || a.status == 'adjust') {
+                        throw new Error(`Invalid status ${a.status} for card ${a.cardId} in format ${f}`);
+                    }
 
-                // banlist changes
-                for (const b of c.banlist) {
-                    const banlistDate = b.effectiveDate ?? date;
-
-                    if (b.id.startsWith('#{clone')) {
+                    if (a.cardId.startsWith('#{clone')) {
                         // clones from other format
-                        const srcFormats = /^#\{clone:(.*)\}/.exec(b.id)![1].split(',');
+                        const srcFormats = /^#\{clone:(.*)\}/.exec(a.cardId)![1].split(',');
 
-                        const newChanges: { id: string, status: Legality, group?: string }[] = [];
+                        const newChanges: { cardId: string, status: Legality, group: string | null }[] = [];
 
                         for (const f of srcFormats) {
                             for (const bo of this.formatMap[f].banlist) {
-                                if (!fo.banlist.some(bf => bf.id === bo.id)) {
+                                if (!fo.banlist.some(bf => bf.cardId === bo.cardId)) {
                                     newChanges.push({
-                                        id:     bo.id,
-                                        status: b.status ?? bo.status,
+                                        cardId: bo.cardId,
+                                        status: a.status ?? bo.status,
                                         group:  bo.group,
                                     });
                                 }
                             }
                         }
 
-                        newChanges.sort((a, b) => cmp(a.id, b.id));
+                        newChanges.sort((a, b) => cmp(a.cardId, b.cardId));
 
                         for (const n of newChanges) {
-                            this.cardChange(n.id, n.status, c.format, n.group, a.source, banlistDate, a.link);
+                            this.cardChange(n.cardId, n.status, f, {
+                                group:  n.group ?? undefined,
+                                source: a.source,
+                                date:   a.date,
+                                name:   a.name,
+                                effectiveDate,
+                                link:   a.link,
+                            });
                         }
-                    } else if (b.id.startsWith('#')) {
-                        // card banned as a group
-                        const group = b.id.slice(1);
 
-                        if (!['legal', 'unavailable'].includes(b.status)) {
-                            const index = this.groupWatcher.findIndex(g => g.id === group && g.format === c.format);
+                        continue;
+                    }
+
+                    if (a.status == null) {
+                        throw new Error(`Card change without status for card ${a.cardId} in format ${f}, date: ${a.date}`);
+                    }
+
+                    if (a.cardId.startsWith('#')) {
+                        // card banned as a group
+                        const group = a.cardId.slice(1);
+
+                        if (!['legal', 'unavailable'].includes(a.status)) {
+                            const index = this.groupWatcher.findIndex(g => g.groupId === group && g.format === f);
 
                             if (index === -1) {
                                 this.groupWatcher.push({
-                                    source: a.source,
-                                    link:   a.link,
-                                    id:     group,
-                                    format: c.format,
-                                    status: b.status,
+                                    source:  a.source,
+                                    link:    a.link,
+                                    name:    a.name,
+                                    groupId: group,
+                                    format:  f,
+                                    status:  a.status,
                                 });
                             } else {
                                 this.groupWatcher[index].source = a.source;
                                 this.groupWatcher[index].link = a.link;
-                                this.groupWatcher[index].status = b.status;
+                                this.groupWatcher[index].name = a.name;
+                                this.groupWatcher[index].status = a.status;
                             }
 
-                            const cards = this.detectGroup(group, c.format, fo.sets);
+                            const cards = this.detectGroup(group, f, fo.sets);
 
                             for (const v of cards) {
-                                this.cardChange(v, b.status, c.format, group, a.source, banlistDate, a.link);
+                                this.cardChange(v, a.status, f, {
+                                    group:  group ?? null,
+                                    source: a.source,
+                                    date:   effectiveDate,
+                                    name:   a.name,
+                                    effectiveDate,
+                                    link:   a.link,
+                                });
                             }
                         } else {
-                            const index = this.groupWatcher.findIndex(g => g.id === group && g.format === c.format);
+                            const index = this.groupWatcher.findIndex(g => g.groupId === group && g.format === f);
 
                             if (index === -1) {
-                                throw new Error(`Out group ${group} is not in ${c.format}, date: ${a.date}`);
+                                throw new Error(`Out group ${group} is not in ${f}, date: ${a.date}`);
                             }
 
                             this.groupWatcher.splice(index, 1);
 
-                            const cardsRemoved = fo.banlist.filter(v => v.group === group).map(v => v.id);
+                            const cardsRemoved = fo.banlist.filter(v => v.group === group).map(v => v.cardId);
 
                             for (const v of cardsRemoved) {
-                                this.cardChange(v, b.status, c.format, group, a.source, banlistDate, a.link);
+                                this.cardChange(v, a.status, f, {
+                                    group,
+                                    source: a.source,
+                                    date:   effectiveDate,
+                                    name:   a.name,
+                                    effectiveDate,
+                                    link:   a.link,
+                                });
                             }
                         }
                     } else {
-                        this.cardChange(b.id, b.status, c.format, undefined, a.source, banlistDate, a.link);
+                        this.cardChange(a.cardId, a.status, f, {
+                            group:  undefined,
+                            source: a.source,
+                            date:   a.date,
+                            name:   a.name,
+                            effectiveDate,
+                            link:   a.link,
+                        });
                     }
-                }
+                } else if (a.type === 'rule_change') {
+                    this.formatChanges.push({
+                        source:        a.source,
+                        date:          a.date,
+                        effectiveDate: a.effectiveDate,
+                        name:          a.name,
+                        link:          a.link,
 
-                // banlist item enters by group
-                if (c.setIn != null && c.setIn.length > 0) {
-                    for (const g of this.groupWatcher.filter(g => g.format === c.format)) {
-                        const detectedCards = this.detectGroup(g.id, c.format, c.setIn);
+                        type:   'rule_change',
+                        format: a.format,
 
-                        const cards = detectedCards.filter(
-                            c => !fo.banlist.some(b => b.id === c && b.status === g.status),
-                        );
+                        cardId: a.cardId,
+                        setId:  a.setId,
+                        ruleId: a.ruleId,
+                        group:  null,
 
-                        for (const v of cards) {
-                            this.cardChange(v, g.status, c.format, g.id, g.source, date, g.link);
-                        }
-                    }
-                }
+                        status: a.status,
 
-                // banlist item rotated out
-                if (c.setOut != null && c.setOut.length > 0) {
-                    for (const b of fo.banlist) {
-                        const sets = this.cards.find(c => c.cardId === b.id)?.sets ?? [];
-
-                        const setInFormat = sets.filter(s => [...fo.sets ?? [], c.setOut]!.includes(s));
-
-                        if (setInFormat.every(s => c.setOut!.includes(s))) {
-                            this.cardChange(b.id, 'unavailable', c.format, b.group, a.source, date, a.link);
-                        }
-                    }
+                        adjustment: a.adjustment,
+                    });
                 }
             }
         }
 
-        for (const chunk of _.chunk(this.changes, 500)) {
-            await db.insert(GameChange).values(chunk);
+        for (const chunk of _.chunk(this.cardChanges, 500)) {
+            await db.insert(CardChange).values(chunk);
+        }
+
+        for (const chunk of _.chunk(this.setChanges, 500)) {
+            await db.insert(SetChange).values(chunk);
+        }
+
+        for (const chunk of _.chunk(this.formatChanges, 500)) {
+            await db.insert(FormatChange).values(chunk);
         }
 
         for (const format of Object.values(this.formatMap)) {
@@ -620,5 +735,9 @@ export class AnnouncementApplier {
                 .set(format)
                 .where(eq(Format.formatId, format.formatId));
         }
+
+        log.info(`Applied ${this.cardChanges.length} card changes, ${this.setChanges.length} set changes, and ${this.formatChanges.length} format changes.`);
+
+        log.info('===========================================================');
     }
 }

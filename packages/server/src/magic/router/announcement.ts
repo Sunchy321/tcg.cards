@@ -6,6 +6,8 @@ import z from 'zod';
 import _ from 'lodash';
 import { desc, eq } from 'drizzle-orm';
 
+import { AnnouncementApplier } from '@/magic/banlist/apply';
+
 import { announcement, AnnouncementProfile, announcementProfile } from '@model/magic/schema/announcement';
 
 import { db } from '@/drizzle';
@@ -124,7 +126,7 @@ export const announcementRouter = new Hono()
 
                         nextDate: data.nextDate,
 
-                        links: data.links,
+                        link: data.link,
                     })
                     .where(eq(Announcement.id, data.id));
             } else {
@@ -158,7 +160,11 @@ export const announcementRouter = new Hono()
             },
             validateResponse: true,
         }),
-        async () => {
-            // await applyAnnouncement();
+        async c => {
+            const applier = new AnnouncementApplier();
+
+            await applier.apply();
+
+            return c.json({ success: true });
         },
     );
