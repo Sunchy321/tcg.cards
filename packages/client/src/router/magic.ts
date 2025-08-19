@@ -24,10 +24,6 @@ const routes: RouteRecordRaw[] = [
                 component: async () => import('pages/magic/SearchDocs.vue'),
             },
             {
-                path:      'image-wall',
-                component: async () => import('pages/magic/ImageWall.vue'),
-            },
-            {
                 path:      'rule/diff',
                 name:      'magic/rule/diff',
                 component: async () => import('src/pages/magic/RuleDiff.vue'),

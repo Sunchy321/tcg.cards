@@ -11,7 +11,7 @@ import { searchInput } from '@search/schema';
 
 import search from '../search';
 
-export const searchRouter = new Hono()
+export const searchBase = new Hono()
     .get(
         '/',
         describeRoute({
@@ -48,3 +48,9 @@ export const searchRouter = new Hono()
             return c.json(output);
         },
     );
+
+export const searchRouter = new Hono()
+    .route('/', searchBase);
+
+export const searchApi = new Hono()
+    .route('/', searchBase);

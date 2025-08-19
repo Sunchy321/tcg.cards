@@ -29,6 +29,7 @@ const formatBase = new Hono()
                     },
                 },
             },
+            validateResponse: true,
         }),
         zValidator('query', z.object({ formatId: z.string() })),
         async c => {
@@ -61,6 +62,7 @@ const formatBase = new Hono()
                     },
                 },
             },
+            validateResponse: true,
         }),
         zValidator('query', z.object({ formatId: z.string() })),
         async c => {

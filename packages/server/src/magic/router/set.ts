@@ -7,12 +7,12 @@ import { z } from 'zod';
 import { eq, getTableColumns } from 'drizzle-orm';
 import _ from 'lodash';
 
-import { SetProfile, setProfile } from '@model/magic/schema/set';
+import { SetProfile, set, setProfile } from '@model/magic/schema/set';
 
 import { db } from '@/drizzle';
 import { Set, SetLocalization } from '../schema/set';
 
-export const setRouter = new Hono()
+const setBase = new Hono()
     .get(
         '/list',
         describeRoute({
@@ -28,15 +28,82 @@ export const setRouter = new Hono()
                     },
                 },
             },
+            validateResponse: true,
         }),
         async c => {
-            c.header('Cache-Control', 'public, max-age=3600');
-
             const sets = await db.select({ setId: Set.setId }).from(Set);
 
             return c.json(sets.map(s => s.setId));
         },
     )
+    .get(
+        '/full',
+        describeRoute({
+            description: 'Get full set infos',
+            tags:        ['Magic', 'Set'],
+            responses:   {
+                200: {
+                    description: 'Full set infos',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(set),
+                        },
+                    },
+                },
+            },
+            validateResponse: true,
+        }),
+        zValidator('query', z.object({ setId: z.string() })),
+        async c => {
+            const { setId } = c.req.valid('query');
+
+            const set = await db.select()
+                .from(Set)
+                .where(eq(Set.setId, setId))
+                .then(rows => rows[0]);
+
+            if (set == null) {
+                return c.notFound();
+            }
+
+            const setLocalizations = await db.select({
+                ..._.omit(getTableColumns(SetLocalization), 'setId'),
+            }).from(SetLocalization).where(eq(SetLocalization.setId, setId));
+
+            return c.json({
+                ...set,
+                localization: setLocalizations,
+            });
+        },
+    );
+
+async function getProfile(setId: string): Promise<SetProfile | null> {
+    const set = await db.select()
+        .from(Set)
+        .where(eq(Set.setId, setId))
+        .then(rows => rows[0]);
+
+    if (set == null) {
+        return null;
+    }
+
+    const setLocalizations = await db.select({
+        ..._.omit(getTableColumns(SetLocalization), 'setId'),
+    }).from(SetLocalization).where(eq(SetLocalization.setId, setId));
+
+    return {
+        setId:           set.setId,
+        parent:          set.parent,
+        localization:    setLocalizations,
+        type:            set.type,
+        symbolStyle:     set.symbolStyle,
+        doubleFacedIcon: set.doubleFacedIcon,
+        releaseDate:     set.releaseDate,
+    };
+}
+
+export const setRouter = new Hono()
+    .route('/', setBase)
     .get(
         '/profile',
         describeRoute({
@@ -60,26 +127,7 @@ export const setRouter = new Hono()
             const { setId } = c.req.valid('query');
 
             return c.json(await getProfile(setId));
-        });
+        }); ;
 
-async function getProfile(setId: string): Promise<SetProfile | null> {
-    const [set] = await db.select().from(Set).where(eq(Set.setId, setId)).limit(1);
-
-    if (set == null) {
-        return null;
-    }
-
-    const setLocalizations = await db.select({
-        ..._.omit(getTableColumns(SetLocalization), 'setId'),
-    }).from(SetLocalization).where(eq(SetLocalization.setId, setId));
-
-    return {
-        setId:           set.setId,
-        parent:          set.parent,
-        localization:    setLocalizations,
-        type:            set.type,
-        symbolStyle:     set.symbolStyle,
-        doubleFacedIcon: set.doubleFacedIcon,
-        releaseDate:     set.releaseDate,
-    };
-}
+export const setApi = new Hono()
+    .route('/', setBase);
