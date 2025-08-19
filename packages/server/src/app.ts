@@ -1,11 +1,8 @@
-import 'dotenv/config.js';
-
 import { Hono } from 'hono';
 import { poweredBy } from 'hono/powered-by';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import { cors } from 'hono/cors';
-import { serve } from '@hono/node-server';
 import { prometheus } from '@hono/prometheus';
 
 import { HonoEnv } from './hono-env';
@@ -69,9 +66,7 @@ app.get('/service.tcg.cards/metrics', printMetrics);
 app.route('/service.tcg.cards', service);
 app.route('/api.tcg.cards', api);
 
-serve({
-    fetch: app.fetch,
+export default {
     port,
-});
-
-console.log(`Server is running at ${port}`);
+    fetch: app.fetch,
+};
