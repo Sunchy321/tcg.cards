@@ -2,7 +2,7 @@ import z from 'zod';
 
 import { legality } from './game-change';
 
-export const formatSchema = z.strictObject({
+export const format = z.strictObject({
     formatId: z.string(),
 
     localization: z.strictObject({
@@ -25,4 +25,4 @@ export const formatSchema = z.strictObject({
     tags: z.string().array().default([]),
 });
 
-export type Format = z.infer<typeof formatSchema>;
+export type Format = z.infer<typeof format>;

@@ -8,21 +8,23 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '@/drizzle';
 import { Format } from '../schema/format';
+import { FormatChange } from '../schema/game-change';
 
-import { formatSchema } from '@model/magic/schema/format';
+import { format } from '@model/magic/schema/format';
+import { formatChange } from '@model/magic/schema/game-change';
 
 const formatBase = new Hono()
     .get(
         '/full',
         describeRoute({
-            tags:      ['Format'],
+            tags:      ['Magic', 'Format'],
             summary:   'Get format by ID',
             responses: {
                 200: {
                     description: 'Format details',
                     content:     {
                         'application/json': {
-                            schema: resolver(formatSchema),
+                            schema: resolver(format),
                         },
                     },
                 },
@@ -30,19 +32,50 @@ const formatBase = new Hono()
         }),
         zValidator('query', z.object({ formatId: z.string() })),
         async c => {
-            c.header('Cache-Control', 'public, max-age=3600');
-
             const { formatId } = c.req.valid('query');
 
             const format = await db.select()
                 .from(Format)
-                .where(eq(Format.formatId, formatId));
+                .where(eq(Format.formatId, formatId))
+                .then(rows => rows[0]);
 
-            if (format[0] == null) {
+            if (format == null) {
                 return c.notFound();
             }
 
-            return c.json(format[0]);
+            return c.json(format);
+        },
+    )
+    .get(
+        '/changes',
+        describeRoute({
+            tags:      ['Magic', 'Format'],
+            summary:   'Get format changes by ID',
+            responses: {
+                200: {
+                    description: 'Format details',
+                    content:     {
+                        'application/json': {
+                            schema: resolver(formatChange.array()),
+                        },
+                    },
+                },
+            },
+        }),
+        zValidator('query', z.object({ formatId: z.string() })),
+        async c => {
+            const { formatId } = c.req.valid('query');
+
+            const formatChanges = await db.select()
+                .from(FormatChange)
+                .where(eq(FormatChange.format, formatId))
+                .orderBy(FormatChange.effectiveDate);
+
+            if (formatChanges == null) {
+                return c.notFound();
+            }
+
+            return c.json(formatChanges);
         },
     );
 
