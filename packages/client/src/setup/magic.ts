@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 export default function magicSetup(): {
     search: () => void;
@@ -22,7 +22,7 @@ export default function magicSetup(): {
     };
 
     const random = async () => {
-        const cardId = await getValue(trpc.magic.card.random, {});
+        const cardId = await trpc.magic.card.random();
 
         router.push({
             name:   'magic/card',

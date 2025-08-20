@@ -66,7 +66,7 @@ import { useParam, useTitle } from 'store/core';
 import RichText from 'src/components/magic/RichText.vue';
 
 import { RuleDiff, RuleDiffItem, TextDiff } from '@model/magic/schema/rule';
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 import _ from 'lodash';
 
 const router = useRouter();
@@ -115,23 +115,14 @@ const computedDiff = computed(() => {
 });
 
 const loadList = async () => {
-    const value = await getValue(trpc.magic.rule.list, {});
-
-    if (value != null) {
-        date.value = value;
-    }
+    date.value = await trpc.magic.rule.list();
 };
 
 const loadData = async () => {
-    const value = await getValue(trpc.magic.rule.diff, {
+    ruleDiff.value = await trpc.magic.rule.diff({
         from: from.value,
         to:   to.value,
-        lang: 'en',
     });
-
-    if (value != null) {
-        ruleDiff.value = value as RuleDiff;
-    }
 };
 
 watch([from, to], loadData, { immediate: true });

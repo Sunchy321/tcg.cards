@@ -16,7 +16,7 @@
 import { useParam } from 'store/core';
 
 import controlSetup from 'src/setup/control';
-import { trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const { controlPost } = controlSetup();
 

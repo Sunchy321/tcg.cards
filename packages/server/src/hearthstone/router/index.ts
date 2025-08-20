@@ -1,15 +1,16 @@
 import { Hono } from 'hono';
 
-import { cardRouter, cardApi } from './card';
-import { patchRouter } from './patch';
-import { searchRouter } from './search';
-import { dataRouter, dataSSE } from './data';
+import { cardApi, cardTrpc } from './card';
+import { searchTrpc } from './search';
+import { patchTrpc } from './patch';
+import { dataSSE, dataTrpc } from './data';
 
-export const hearthstoneRouter = new Hono()
-    .route('/card', cardRouter)
-    .route('/patch', patchRouter)
-    .route('/search', searchRouter)
-    .route('/data', dataRouter);
+export const hearthstoneTrpc = {
+    card:   cardTrpc,
+    search: searchTrpc,
+    patch:  patchTrpc,
+    data:   dataTrpc,
+};
 
 export const hearthstoneSSE = new Hono()
     .route('/data', dataSSE);

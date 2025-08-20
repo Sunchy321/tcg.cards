@@ -187,7 +187,7 @@ import { GameChangeType, Legality } from '@model/magic/schema/game-change';
 import _ from 'lodash';
 
 import { toIdentifier } from '@common/util/id';
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 import { Announcement, AnnouncementItem, AnnouncementProfile } from '@model/magic/schema/announcement';
 
 const sources = [
@@ -533,13 +533,7 @@ const fillEmptyAnnouncement = () => {
 watch(source, fillEmptyAnnouncement);
 
 const loadData = async () => {
-    const value = await getValue(trpc.magic.announcement.list, {});
-
-    if (value != null) {
-        announcementList.value = value;
-    } else {
-        announcementList.value = [];
-    }
+    announcementList.value = await trpc.magic.announcement.list();
 
     if (announcementFiltered.value.length > 0 && selected.value == null) {
         selected.value = announcementFiltered.value[0];
@@ -553,13 +547,7 @@ const loadAnnouncement = async () => {
         return;
     }
 
-    const value = await getValue(trpc.magic.announcement.full, {
-        id: selected.value.id,
-    });
-
-    if (value != null) {
-        announcement.value = value as Announcement & { id?: string };
-    }
+    announcement.value = await trpc.magic.announcement.full(selected.value.id);
 };
 
 watch(selected, loadAnnouncement);
@@ -590,9 +578,7 @@ const saveAnnouncement = async () => {
         }
     }
 
-    await trpc.magic.announcement.save.$post({
-        json: data,
-    });
+    await trpc.magic.announcement.save(data);
 
     await loadData();
 };
@@ -628,7 +614,7 @@ const newAnnouncement = async () => {
 const applyAnnouncements = async () => {
     await saveAnnouncement();
 
-    await trpc.magic.announcement.apply.$post();
+    await trpc.magic.announcement.apply();
 };
 
 </script>

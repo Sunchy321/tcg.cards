@@ -21,6 +21,8 @@
   "type": "module",
   "dependencies": {
     "@intlify/unplugin-vue-i18n": "^2.0.0",
+    "@orpc/client": "^1.8.1",
+    "@orpc/server": "^1.8.1",
     "@quasar/extras": "^1.0.0",
     "@vueuse/core": "^13.1.0",
     "@vueuse/router": "^13.5.0",

@@ -14,7 +14,7 @@ import CardImage from './CardImage.vue';
 
 import { CardProfile } from '@model/hearthstone/schema/card';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const props = withDefaults(defineProps<{
     cardId:   string;

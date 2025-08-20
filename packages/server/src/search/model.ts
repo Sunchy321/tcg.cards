@@ -60,7 +60,7 @@ export class ServerModel<S extends ServerSchema> {
             const { query, post } = translate(simplified, this.commands);
 
             if (query == null) {
-                return { text, errors: [], result: [] };
+                return { text, errors: [] };
             }
 
             const result = await action(query, post, options);

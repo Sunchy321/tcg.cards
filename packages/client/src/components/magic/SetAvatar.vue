@@ -10,7 +10,7 @@ import { useGame } from 'store/games/magic';
 
 import { SetProfile } from '@model/magic/schema/set';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const props = withDefaults(defineProps<{
     setId: string;
@@ -48,14 +48,9 @@ const name = computed(() => {
 });
 
 const loadData = async () => {
-    const value = await getValue(trpc.magic.set.profile, { setId: props.setId });
+    profile.value = await trpc.magic.set.profile(props.setId);
 
-    if (value != null) {
-        profile.value = value;
-        innerShowId.value = false;
-    } else {
-        innerShowId.value = true;
-    }
+    innerShowId.value = false;
 };
 
 watch(() => props.setId, loadData, { immediate: true });

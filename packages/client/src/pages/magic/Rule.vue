@@ -38,15 +38,12 @@ import { useCore, useTitle, useParam } from 'store/core';
 
 import RichText from 'src/components/magic/RichText.vue';
 
-import { CR, Content } from '@interface/magic/cr';
 import { RuleItem, RuleSummary, RuleSummaryItem } from '@model/magic/schema/rule';
 
 import _, { last } from 'lodash';
 import { copyToClipboard, Notify, scroll } from 'quasar';
 
-import { getValue, trpc } from 'src/hono';
-
-type GeneralContent = Omit<Content, 'index'> & { index?: Content['index'] };
+import { trpc } from 'src/trpc';
 
 type Chapter = {
     title:    RuleSummaryItem;
@@ -230,11 +227,7 @@ const chapter = computed(() => {
 
 // methods
 const loadList = async () => {
-    const value = await getValue(trpc.magic.rule.list, {});
-
-    if (value != null) {
-        list.value = value;
-    }
+    list.value = await trpc.magic.rule.list();
 };
 
 const loadSummary = async () => {
@@ -244,11 +237,7 @@ const loadSummary = async () => {
 
     selected.value = null;
 
-    const value = await getValue(trpc.magic.rule.summary, { date: date.value });
-
-    if (value != null) {
-        summary.value = value as RuleSummary;
-    }
+    summary.value = await trpc.magic.rule.summary({ date: date.value });
 };
 
 const loadChapter = async () => {
@@ -261,16 +250,12 @@ const loadChapter = async () => {
     const from = chapterItem.title.index;
     const to = _.last(chapterItem.contents)?.index ?? chapterItem.title.index;
 
-    const value = await getValue(trpc.magic.rule.chapter, {
+    chapterContent.value = await trpc.magic.rule.chapter({
         date: date.value,
         lang: summary.value?.lang,
-        from: from.toString(),
-        to:   to.toString(),
+        from,
+        to,
     });
-
-    if (value != null) {
-        chapterContent.value = value as RuleItem[];
-    }
 };
 
 const scrollIntoItem = async () => {

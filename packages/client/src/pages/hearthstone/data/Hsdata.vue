@@ -60,7 +60,7 @@ import bytes from 'bytes';
 
 import { actionWithProgress } from 'src/progress';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 interface TransferProgress {
     type:            'get';
@@ -136,11 +136,7 @@ const progressLabel = computed(() => {
 });
 
 const loadData = async () => {
-    const value = await getValue(trpc.hearthstone.patch.list, {});
-
-    if (value != null) {
-        patches.value = value;
-    }
+    patches.value = await trpc.hearthstone.patch.list();
 };
 
 const pullRepo = () => actionWithProgress<Progress>(

@@ -60,7 +60,7 @@ import { last } from 'lodash';
 
 import model from '@search-data/hearthstone/client';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const core = useCore();
 const i18n = useI18n();
@@ -136,15 +136,15 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const value = await getValue(trpc.hearthstone.search, {
+    const value = await trpc.hearthstone.search({
         q:        q.value,
         lang:     game.locale,
-        page:     page.value.toString(),
-        pageSize: pageSize.value.toString(),
+        page:     page.value,
+        pageSize: pageSize.value,
     });
 
-    if (value?.text === q.value) {
-        data.value = value as any;
+    if (value.text === q.value) {
+        data.value = value;
 
         searching.value = false;
     }

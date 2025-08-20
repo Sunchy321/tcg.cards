@@ -267,7 +267,7 @@ import { SetProfile } from '@model/magic/schema/set';
 import { omitBy, uniq } from 'lodash';
 
 import { apiBase, assetBase } from 'boot/server';
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 import { auth, checkAdmin } from '@/auth';
 
 import { auxSetType } from '@static/magic/special';
@@ -307,11 +307,7 @@ const sets = computed(() => uniq(versions.value.map(v => v.set)));
 
 watch(sets, async values => {
     for (const s of values) {
-        const result = await getValue(trpc.magic.set.profile, { setId: s });
-
-        if (result != null) {
-            setProfiles.value[s] = result;
-        }
+        setProfiles.value[s] = await trpc.magic.set.profile(s);
     }
 }, { immediate: true });
 
@@ -792,12 +788,8 @@ const loadData = async () => {
         return;
     }
 
-    const result = await getValue(trpc.magic.card.fuzzy, apiQuery.value);
-
-    if (result != null) {
-        rotate.value = null;
-        data.value = result;
-    }
+    data.value = await trpc.magic.card.fuzzy(apiQuery.value);
+    rotate.value = null;
 };
 
 const switchPart = () => {

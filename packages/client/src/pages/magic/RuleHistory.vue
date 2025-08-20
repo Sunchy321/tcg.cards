@@ -34,18 +34,16 @@ import { ref, computed, watch } from 'vue';
 
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useGame } from 'src/stores/games/magic';
 import { useTitle } from 'store/core';
 
 import RichText from 'src/components/magic/RichText.vue';
 
 import { RuleHistory } from '@model/magic/schema/rule';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const route = useRoute();
 const i18n = useI18n();
-const game = useGame();
 
 useTitle(() => i18n.t('magic.rule.history'));
 
@@ -53,16 +51,7 @@ const id = computed(() => route.query.id as string);
 const data = ref<RuleHistory>();
 
 watch(id, async () => {
-    const value = await getValue(trpc.magic.rule.history, {
-        itemId: id.value,
-        lang:   game.locale,
-    });
-
-    if (value != null) {
-        data.value = value as RuleHistory;
-    } else {
-        data.value = undefined;
-    }
+    data.value = await trpc.magic.rule.history({ itemId: id.value });
 }, { immediate: true });
 
 const versionLink = (version: string) => ({

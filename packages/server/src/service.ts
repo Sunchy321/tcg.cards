@@ -6,17 +6,38 @@ import { HonoEnv } from './hono-env';
 
 import { isErrorResult, merge } from 'openapi-merge';
 
-import { magicRouter, magicSSE } from '@/magic/router';
-import { hearthstoneRouter, hearthstoneSSE } from '@/hearthstone/router';
+import { magicSSE, magicTrpc } from '@/magic/router';
+import { hearthstoneSSE, hearthstoneTrpc } from '@/hearthstone/router';
 
 import { auth } from './auth';
 
 import { Game, games } from '@model/schema';
 
+import { RPCHandler } from '@orpc/server/fetch';
+import { BatchHandlerPlugin } from '@orpc/server/plugins';
+
 const AUTH_PREFIX = '/api/auth';
 
-const trpc = new Hono<HonoEnv>()
-    .on('POST', '/:game/*', async (c, next) => {
+export const trpc = {
+    magic:       magicTrpc,
+    hearthstone: hearthstoneTrpc,
+};
+
+export type TRPC = typeof trpc;
+
+const handler = new RPCHandler(trpc, {
+    plugins: [new BatchHandlerPlugin()],
+});
+
+const sse = new Hono()
+    .route('/magic', magicSSE)
+    .route('/hearthstone', hearthstoneSSE);
+
+const router = new Hono<HonoEnv>()
+    .on(['GET', 'POST'], `${AUTH_PREFIX}/*`, c => {
+        return auth.handler(c.req.raw);
+    })
+    .on('POST', '/trpc/:game/data/*', async (c, next) => {
         const game = c.req.param('game');
 
         if (games.includes(game as Game)) {
@@ -41,18 +62,18 @@ const trpc = new Hono<HonoEnv>()
 
         return next();
     })
-    .route('/magic', magicRouter)
-    .route('/hearthstone', hearthstoneRouter);
+    .use('/trpc/*', async (c, next) => {
+        const { matched, response } = await handler.handle(c.req.raw, {
+            prefix:  '/trpc',
+            context: {}, // Provide initial context if needed
+        });
 
-const sse = new Hono()
-    .route('/magic', magicSSE)
-    .route('/hearthstone', hearthstoneSSE);
+        if (matched) {
+            return c.newResponse(response.body, response);
+        }
 
-const router = new Hono<HonoEnv>()
-    .on(['GET', 'POST'], `${AUTH_PREFIX}/*`, c => {
-        return auth.handler(c.req.raw);
+        await next();
     })
-    .route('/trpc', trpc)
     .route('/sse', sse);
 
 router.get('/openapi', async c => {
@@ -90,7 +111,5 @@ router.get('/scalar', Scalar({
         process.env.SERVICE_URL,
     ],
 }));
-
-export type Router = typeof router;
 
 export default router;

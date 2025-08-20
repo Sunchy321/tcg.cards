@@ -36,7 +36,7 @@ import { ref, computed } from 'vue';
 
 import { useQuasar } from 'quasar';
 
-import { trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 import { actionWithProgress } from 'src/progress';
 
 const quasar = useQuasar();

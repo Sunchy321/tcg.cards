@@ -2,9 +2,11 @@ import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { resolver, validator } from 'hono-openapi/zod';
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { ORPCError, os } from '@orpc/server';
+
 import z from 'zod';
 import _ from 'lodash';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { diff } from 'jsondiffpatch';
 
 import { db } from '@/drizzle';
@@ -16,151 +18,107 @@ import { locale } from '@model/hearthstone/schema/basic';
 import { cardProfile } from '@model/hearthstone/schema/card';
 import { cardEntityView, cardFullView } from '@model/hearthstone/schema/entity';
 
-export const cardRouter = new Hono()
-    .get(
-        '/random',
-        describeRoute({
-            description: 'Get a random card ID',
-            tags:        ['Hearthstone', 'Card'],
-            responses:   {
-                200: {
-                    description: 'Random card ID',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(z.string()),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        async c => {
-            const cards = await db.select({ cardId: Card.cardId }).from(Card);
-            const cardId = cards[_.random(0, cards.length - 1)].cardId;
+const random = os
+    .input(z.void())
+    .output(z.string())
+    .handler(async () => {
+        const cards = await db.select({ cardId: Card.cardId }).from(Card);
+        const cardId = cards[_.random(0, cards.length - 1)].cardId;
 
-            return c.json(cardId);
-        },
-    )
-    .get(
-        '/full',
-        describeRoute({
-            description: 'Get card by ID',
-            tags:        ['Hearthstone', 'Card'],
-            responses:   {
-                200: {
-                    description: 'Card full view',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(cardFullView),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            cardId:  z.string().describe('Card ID'),
-            lang:    locale.default('en'),
-            version: z.preprocess(val => val ? Number.parseInt(val as string, 0) : undefined, z.int().positive().optional())
-                .describe('Card version'),
-        })),
-        async c => {
-            c.header('Cache-Control', 'public, max-age=3600');
+        return cardId;
+    });
 
-            const { cardId, lang, version } = c.req.valid('query');
+const full = os
+    .input(z.object({
+        cardId:  z.string().describe('Card ID'),
+        lang:    locale.default('en').describe('Language'),
+        version: z.int().positive().optional(),
+    }))
+    .output(cardFullView)
+    .handler(async ({ input }) => {
+        const { cardId, lang, version } = input;
 
-            const card = await db.select().from(CardEntityView)
-                .where(and(
-                    eq(CardEntityView.cardId, cardId),
-                    eq(CardEntityView.lang, lang),
-                    ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
-                ))
-                .orderBy(desc(CardEntityView.version))
-                .limit(1)
-                .then(rows => rows[0]);
+        const card = await db.select().from(CardEntityView)
+            .where(and(
+                eq(CardEntityView.cardId, cardId),
+                eq(CardEntityView.lang, lang),
+                ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
+            ))
+            .orderBy(desc(CardEntityView.version))
+            .limit(1)
+            .then(rows => rows[0]);
 
-            if (!card) {
-                return c.notFound();
-            }
+        if (card == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
 
-            const versions = await db.select({ version: CardEntityView.version })
-                .from(CardEntityView)
-                .where(and(
-                    eq(CardEntityView.cardId, cardId),
-                    eq(CardEntityView.lang, lang),
-                ))
-                .orderBy(desc(CardEntityView.version))
-                .then(rows => rows.map(row => row.version.reverse()));
+        const versions = await db.select({ version: CardEntityView.version })
+            .from(CardEntityView)
+            .where(and(
+                eq(CardEntityView.cardId, cardId),
+                eq(CardEntityView.lang, lang),
+            ))
+            .orderBy(desc(CardEntityView.version))
+            .then(rows => rows.map(row => row.version.reverse()));
 
-            const sourceRelation = await db.select({
-                relation: CardRelation.relation,
-                version:  CardRelation.version,
-                cardId:   CardRelation.targetId,
-            }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
+        const sourceRelation = await db.select({
+            relation: CardRelation.relation,
+            version:  CardRelation.version,
+            cardId:   CardRelation.targetId,
+        }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
 
-            const targetRelation = await db.select({
-                relation: sql<string>`'source'`.as('relation'),
-                version:  CardRelation.version,
-                cardId:   CardRelation.sourceId,
-            }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
+        const targetRelation = await db.select({
+            relation: sql<string>`'source'`.as('relation'),
+            version:  CardRelation.version,
+            cardId:   CardRelation.sourceId,
+        }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
 
-            const relatedCards = [...sourceRelation, ...targetRelation];
+        const relatedCards = [...sourceRelation, ...targetRelation];
 
-            return c.json({
-                ...card,
-                versions,
-                relatedCards,
-            });
-        },
-    )
-    .get(
-        '/profile',
-        describeRoute({
-            description: 'Get card profile by card ID',
-            tags:        ['Hearthstone', 'Card'],
-            responses:   {
-                200: {
-                    description: 'Card profile',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(cardProfile),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({ cardId: z.string() })),
-        async c => {
-            c.header('Cache-Control', 'public, max-age=3600');
+        return {
+            ...card,
+            versions,
+            relatedCards,
+        };
+    })
+    .callable();
 
-            const { cardId } = c.req.valid('query');
+const profile = os
+    .input(z.string())
+    .output(cardProfile)
+    .handler(async ({ input }) => {
+        const cardId = input;
 
-            const localization = await db.select({
-                lang: EntityView.lang,
-                name: EntityView.localization.name,
-            }).from(EntityView).where(and(
-                eq(EntityView.cardId, cardId),
-                eq(EntityView.isLatest, true),
-            ));
+        const localization = await db.select({
+            lang: EntityView.lang,
+            name: EntityView.localization.name,
+        }).from(EntityView).where(and(
+            eq(EntityView.cardId, cardId),
+            eq(EntityView.isLatest, true),
+        ));
 
-            if (localization.length === 0) {
-                return c.notFound();
-            }
+        if (localization.length === 0) {
+            throw new ORPCError('NOT_FOUND');
+        }
 
-            const version = await db.select({ version: CardEntityView.version })
-                .from(CardEntityView)
-                .where(eq(CardEntityView.cardId, cardId))
-                .orderBy(desc(CardEntityView.version))
-                .then(rows => rows.map(row => row.version.reverse()));
+        const version = await db.select({ version: CardEntityView.version })
+            .from(CardEntityView)
+            .where(eq(CardEntityView.cardId, cardId))
+            .orderBy(desc(CardEntityView.version))
+            .then(rows => rows.map(row => row.version.reverse()));
 
-            return c.json({
-                cardId,
-                localization,
-                version,
-            });
-        },
-    );
+        return {
+            cardId,
+            localization,
+            version,
+        };
+    });
+
+export const cardTrpc = {
+    random,
+    full,
+    profile,
+};
 
 export const cardApi = new Hono()
     .get(
@@ -229,52 +187,7 @@ export const cardApi = new Hono()
             version: z.preprocess(val => val ? Number.parseInt(val as string, 0) : undefined, z.int().positive().optional())
                 .describe('Card version'),
         })),
-        async c => {
-            const { cardId, lang, version } = c.req.valid('query');
-
-            const card = await db.select().from(CardEntityView)
-                .where(and(
-                    eq(CardEntityView.cardId, cardId),
-                    eq(CardEntityView.lang, lang),
-                    ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
-                ))
-                .orderBy(desc(CardEntityView.version))
-                .limit(1)
-                .then(rows => rows[0]);
-
-            if (!card) {
-                return c.notFound();
-            }
-
-            const versions = await db.select({ version: CardEntityView.version })
-                .from(CardEntityView)
-                .where(and(
-                    eq(CardEntityView.cardId, cardId),
-                    eq(CardEntityView.lang, lang),
-                ))
-                .orderBy(desc(CardEntityView.version))
-                .then(rows => rows.map(row => row.version.reverse()));
-
-            const sourceRelation = await db.select({
-                relation: CardRelation.relation,
-                version:  CardRelation.version,
-                cardId:   CardRelation.targetId,
-            }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
-
-            const targetRelation = await db.select({
-                relation: sql<string>`'source'`.as('relation'),
-                version:  CardRelation.version,
-                cardId:   CardRelation.sourceId,
-            }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
-
-            const relatedCards = [...sourceRelation, ...targetRelation];
-
-            return c.json({
-                ...card,
-                versions,
-                relatedCards,
-            });
-        },
+        async c => c.json(await full(c.req.valid('query'))),
     )
     .get(
         '/diff',

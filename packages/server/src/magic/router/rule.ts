@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { describeRoute } from 'hono-openapi';
 import { resolver, validator } from 'hono-openapi/zod';
 
+import { ORPCError, os } from '@orpc/server';
+
 import z from 'zod';
 import _ from 'lodash';
 import { and, desc, eq, gte, lte, or } from 'drizzle-orm';
@@ -9,12 +11,185 @@ import { and, desc, eq, gte, lte, or } from 'drizzle-orm';
 import { diffThreeString } from '@common/util/diff';
 import { getRuleDiff } from '@/magic/rule/diff';
 
-import { ruleDiff, RuleHistory, ruleHistory, ruleItem, ruleSummary } from '@model/magic/schema/rule';
+import { ruleDiff, ruleHistory, ruleItem, ruleSummary } from '@model/magic/schema/rule';
 
 import { db } from '@/drizzle';
 import { Rule, RuleItem } from '../schema/rule';
 
-export const ruleRouter = new Hono()
+const list = os
+    .input(z.void())
+    .output(z.string().array())
+    .handler(async () => {
+        return await db.select({ date: Rule.date })
+            .from(Rule)
+            .orderBy(desc(Rule.date))
+            .then(rules => rules.map(r => r.date));
+    })
+    .callable();
+
+const summary = os
+    .input(z.object({
+        date: z.iso.date(),
+        lang: z.string().default('en'),
+    }))
+    .output(ruleSummary)
+    .handler(async ({ input }) => {
+        const { date, lang } = input;
+
+        const rule = await db.select()
+            .from(Rule)
+            .where(and(
+                eq(Rule.date, date),
+                or(eq(Rule.lang, 'en'), eq(Rule.lang, lang)),
+            ))
+            .then(rows => rows[0]);
+
+        if (rule == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const items = await db.select({
+            itemId: RuleItem.itemId,
+            index:  RuleItem.index,
+            depth:  RuleItem.depth,
+            serial: RuleItem.serial,
+            text:   RuleItem.text,
+        }).from(RuleItem)
+            .where(and(
+                eq(RuleItem.date, rule.date),
+                eq(RuleItem.lang, rule.lang),
+            ))
+            .orderBy(RuleItem.index);
+
+        const contents = items.map(item => {
+            return _.omit(item, /[a-z!]$/.test(item.text) ? [] : ['text']);
+        });
+
+        return {
+            date,
+            lang,
+            contents,
+        };
+    })
+    .callable();
+
+const chapter = os
+    .input(z.object({
+        date: z.iso.date(),
+        lang: z.string().default('en'),
+        from: z.int().min(0),
+        to:   z.int().min(0),
+    }))
+    .output(ruleItem.array())
+    .handler(async ({ input }) => {
+        const { date, lang, from, to } = input;
+
+        const rule = await db.select()
+            .from(Rule)
+            .where(and(
+                eq(Rule.date, date),
+                or(eq(Rule.lang, 'en'), eq(Rule.lang, lang)),
+            ))
+            .then(rows => rows[0]);
+
+        if (rule == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const items = await db.select({
+            itemId:   RuleItem.itemId,
+            index:    RuleItem.index,
+            depth:    RuleItem.depth,
+            serial:   RuleItem.serial,
+            text:     RuleItem.text,
+            richText: RuleItem.richText,
+        }).from(RuleItem)
+            .where(and(
+                eq(RuleItem.date, rule.date),
+                eq(RuleItem.lang, rule.lang),
+                gte(RuleItem.index, from),
+                lte(RuleItem.index, to),
+            ))
+            .orderBy(RuleItem.index);
+
+        return items;
+    })
+    .callable();
+
+const diff = os
+    .input(z.object({
+        from: z.iso.date(),
+        to:   z.iso.date(),
+        lang: z.string().default('en'),
+    }))
+    .output(ruleDiff)
+    .handler(async ({ input }) => {
+        const { from, to, lang } = input;
+
+        const diff = await getRuleDiff(from, to, lang);
+
+        if (diff == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        return diff;
+    })
+    .callable();
+
+const history = os
+    .input(z.object({
+        itemId: z.string(),
+        lang:   z.string().default('en'),
+    }))
+    .output(ruleHistory)
+    .handler(async ({ input }) => {
+        const { itemId } = input;
+
+        const items = await db.select()
+            .from(RuleItem)
+            .where(eq(RuleItem.itemId, itemId))
+            .orderBy(RuleItem.date);
+
+        if (items.length === 0) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const groups = [];
+
+        for (const item of items) {
+            if (groups.length === 0 || groups[groups.length - 1].text !== item.text) {
+                groups.push({ dates: [item.date], text: item.text });
+            } else {
+                groups[groups.length - 1].dates.push(item.date);
+            }
+        }
+
+        const result = groups.map((curr, i, arr) => {
+            const prev = arr[i - 1];
+            const next = arr[i + 1];
+
+            return {
+                dates: curr.dates,
+                text:  diffThreeString(prev?.text ?? curr.text, curr.text, next?.text ?? curr.text),
+            };
+        });
+
+        return {
+            itemId,
+            diff: result,
+        };
+    })
+    .callable();
+
+export const ruleTrpc = {
+    list,
+    summary,
+    chapter,
+    diff,
+    history,
+};
+
+export const ruleApi = new Hono()
     .get(
         '/list',
         describeRoute({
@@ -32,13 +207,7 @@ export const ruleRouter = new Hono()
             },
             validateResponse: true,
         }),
-        async c => {
-            const rules = await db.select()
-                .from(Rule)
-                .orderBy(desc(Rule.date));
-
-            return c.json(rules.map(r => r.date));
-        },
+        async c => c.json(await list()),
     )
     .get(
         '/summary',
@@ -61,44 +230,7 @@ export const ruleRouter = new Hono()
             date: z.iso.date(),
             lang: z.string().default('en'),
         })),
-        async c => {
-            const { date, lang } = c.req.valid('query');
-
-            const rule = await db.select()
-                .from(Rule)
-                .where(and(
-                    eq(Rule.date, date),
-                    or(eq(Rule.lang, 'en'), eq(Rule.lang, lang)),
-                ))
-                .then(rows => rows[0]);
-
-            if (rule == null) {
-                return c.notFound();
-            }
-
-            const items = await db.select({
-                itemId: RuleItem.itemId,
-                index:  RuleItem.index,
-                depth:  RuleItem.depth,
-                serial: RuleItem.serial,
-                text:   RuleItem.text,
-            }).from(RuleItem)
-                .where(and(
-                    eq(RuleItem.date, rule.date),
-                    eq(RuleItem.lang, rule.lang),
-                ))
-                .orderBy(RuleItem.index);
-
-            const contents = items.map(item => {
-                return _.omit(item, /[a-z!]$/.test(item.text) ? [] : ['text']);
-            });
-
-            return c.json({
-                date,
-                lang,
-                contents,
-            });
-        },
+        async c => c.json(await summary(c.req.valid('query'))),
     )
     .get(
         '/chapter',
@@ -123,43 +255,7 @@ export const ruleRouter = new Hono()
             from: z.preprocess(val => Number.parseInt(val as string, 10), z.number().int().min(0)),
             to:   z.preprocess(val => Number.parseInt(val as string, 10), z.number().int().min(0)),
         })),
-        async c => {
-            const { date, lang, from, to } = c.req.valid('query');
-
-            const rule = await db.select()
-                .from(Rule)
-                .where(and(
-                    eq(Rule.date, date),
-                    or(eq(Rule.lang, 'en'), eq(Rule.lang, lang)),
-                ))
-                .then(rows => rows[0]);
-
-            if (rule == null) {
-                return c.notFound();
-            }
-
-            const items = await db.select({
-                itemId:   RuleItem.itemId,
-                index:    RuleItem.index,
-                depth:    RuleItem.depth,
-                serial:   RuleItem.serial,
-                text:     RuleItem.text,
-                richText: RuleItem.richText,
-            }).from(RuleItem)
-                .where(and(
-                    eq(RuleItem.date, rule.date),
-                    eq(RuleItem.lang, rule.lang),
-                    gte(RuleItem.index, from),
-                    lte(RuleItem.index, to),
-                ))
-                .orderBy(RuleItem.index);
-
-            const val = ruleItem.array().safeParse(items);
-
-            console.log(val);
-
-            return c.json(items);
-        },
+        async c => c.json(await chapter(c.req.valid('query'))),
     )
     .get(
         '/diff',
@@ -183,17 +279,7 @@ export const ruleRouter = new Hono()
             to:   z.iso.date(),
             lang: z.string().default('en'),
         })),
-        async c => {
-            const { from, to, lang } = c.req.valid('query');
-
-            const diff = await getRuleDiff(from, to, lang);
-
-            if (diff == null) {
-                return c.notFound();
-            }
-
-            return c.json(diff);
-        },
+        async c => c.json(await diff(c.req.valid('query'))),
     )
     .get(
         '/history',
@@ -215,41 +301,5 @@ export const ruleRouter = new Hono()
         validator('query', z.object({
             itemId: z.string().default('en'),
         })),
-        async c => {
-            const { itemId } = c.req.valid('query');
-
-            const items = await db.select()
-                .from(RuleItem)
-                .where(eq(RuleItem.itemId, itemId))
-                .orderBy(RuleItem.date);
-
-            if (items.length === 0) {
-                return c.notFound();
-            }
-
-            const groups = [];
-
-            for (const item of items) {
-                if (groups.length === 0 || groups[groups.length - 1].text !== item.text) {
-                    groups.push({ dates: [item.date], text: item.text });
-                } else {
-                    groups[groups.length - 1].dates.push(item.date);
-                }
-            }
-
-            const result = groups.map((curr, i, arr) => {
-                const prev = arr[i - 1];
-                const next = arr[i + 1];
-
-                return {
-                    dates: curr.dates,
-                    text:  diffThreeString(prev?.text ?? curr.text, curr.text, next?.text ?? curr.text),
-                };
-            });
-
-            return c.json({
-                itemId,
-                diff: result,
-            } satisfies RuleHistory);
-        },
+        async c => c.json(await history(c.req.valid('query'))),
     );

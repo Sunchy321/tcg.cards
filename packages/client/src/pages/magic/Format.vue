@@ -140,7 +140,7 @@ import { FormatChange, Legality } from '@model/magic/schema/game-change';
 
 import { last, uniq } from 'lodash';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
 
@@ -410,21 +410,9 @@ const timelineEvents = computed(() => {
 });
 
 const loadData = async () => {
-    const formatValue = await getValue(trpc.magic.format.full, { formatId: format.value });
+    data.value = await trpc.magic.format.full(format.value);
 
-    if (formatValue == null) {
-        return;
-    }
-
-    data.value = formatValue as Format;
-
-    const changesValue = await getValue(trpc.magic.format.changes, { formatId: format.value });
-
-    if (changesValue != null) {
-        changes.value = changesValue as FormatChange[];
-    } else {
-        changes.value = [];
-    }
+    changes.value = await trpc.magic.format.changes(format.value);
 };
 
 const groupShort = (group: string) => {

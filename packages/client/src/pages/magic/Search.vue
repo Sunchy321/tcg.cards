@@ -61,7 +61,7 @@ import { SearchResult } from '@model/magic/schema/search';
 
 import model from '@search-data/magic/client';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const core = useCore();
 const game = useGame();
@@ -144,11 +144,11 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const value = await getValue(trpc.magic.search, {
+    const value = await trpc.magic.search({
         q:        q.value,
         lang:     game.locale,
-        page:     page.value.toString(),
-        pageSize: pageSize.value.toString(),
+        page:     page.value,
+        pageSize: pageSize.value,
     });
 
     if (value?.text === q.value) {

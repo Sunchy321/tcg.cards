@@ -11,7 +11,7 @@ import { auth } from './auth';
 
 import { getPath } from 'hono/utils/url';
 
-import service from './service';
+import router from './service';
 import api from './api';
 
 const port = 3000;
@@ -40,6 +40,7 @@ app.use(
             'Content-Type',
             'Authorization',
             'X-Requested-With',
+            'x-orpc-batch',
         ],
         credentials: true,
         maxAge:      86400, // 1 day
@@ -63,7 +64,7 @@ app.use('*', async (c, next) => {
 app.use('*', registerMetrics);
 
 app.get('/service.tcg.cards/metrics', printMetrics);
-app.route('/service.tcg.cards', service);
+app.route('/service.tcg.cards', router);
 app.route('/api.tcg.cards', api);
 
 export default {

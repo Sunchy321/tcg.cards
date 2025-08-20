@@ -136,6 +136,7 @@ import RichText from 'src/components/hearthstone/RichText.vue';
 import CardAvatar from 'components/hearthstone/CardAvatar.vue';
 import CardImage from 'components/hearthstone/CardImage.vue';
 
+import { Locale } from '@model/hearthstone/schema/basic';
 import { Patch } from '@model/hearthstone/schema/patch';
 import { CardFullView } from '@model/hearthstone/schema/entity';
 
@@ -143,7 +144,7 @@ import { last, omitBy } from 'lodash';
 import { copyToClipboard, Notify } from 'quasar';
 
 import { apiBase } from 'boot/server';
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const router = useRouter();
 const route = useRoute();
@@ -193,13 +194,7 @@ watch(versions, async values => {
 
     for (const version of values) {
         for (const s of [version[0], last(version)!]) {
-            const value = await getValue(trpc.hearthstone.patch.full, {
-                buildNumber: s.toString(),
-            });
-
-            if (value != null) {
-                patchProfiles.value[s] = value as Patch;
-            }
+            patchProfiles.value[s] = await trpc.hearthstone.patch.full(s);
         }
     }
 }, { immediate: true });
@@ -403,15 +398,11 @@ const relationIcon = (relation: string) => ({
 
 // methods
 watchEffect(async () => {
-    const value = await getValue(trpc.hearthstone.card.full, {
+    data.value = await trpc.hearthstone.card.full({
         cardId:  route.params.id as string,
-        version: route.query.version as string,
-        lang:    lang.value,
+        version: route.query.version != null ? Number.parseInt(route.query.version as string, 10) : undefined,
+        lang:    lang.value as Locale,
     });
-
-    if (value != null) {
-        data.value = value as CardFullView;
-    }
 });
 </script>
 

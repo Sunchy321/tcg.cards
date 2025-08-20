@@ -39,7 +39,7 @@ import { SetProfile, SetLocalization } from '@model/magic/schema/set';
 import { partition } from 'lodash';
 
 import { assetBase } from 'boot/server';
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 const game = useGame();
 const i18n = useI18n();
@@ -160,11 +160,7 @@ const profileList = computed(() => {
 });
 
 const loadData = async () => {
-    const value = await getValue(trpc.magic.set.list, {});
-
-    if (value != null) {
-        sets.value = value;
-    }
+    sets.value = await trpc.magic.set.list();
 };
 
 const loadProfile = async (setList: string[]) => {
@@ -173,13 +169,7 @@ const loadProfile = async (setList: string[]) => {
     const profileMap: Record<string, SetProfile> = { };
 
     for (const s of setList) {
-        const value = await getValue(trpc.magic.set.profile, { setId: s });
-
-        if (value != null) {
-            profileMap[s] = value;
-        } else {
-            console.warn(`Set profile for ${s} not found.`);
-        }
+        profileMap[s] = await trpc.magic.set.profile(s);
     }
 
     profiles.value = profileMap;

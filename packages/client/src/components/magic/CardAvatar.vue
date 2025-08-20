@@ -18,7 +18,7 @@ import { CardProfile } from '@model/magic/schema/card';
 
 import { pick } from 'lodash';
 
-import { getValue, trpc } from 'src/hono';
+import { trpc } from 'src/trpc';
 
 type Version = {
     set?:    string;
@@ -180,11 +180,7 @@ const imageVersion = computed(() => {
 });
 
 const quickLoadData = async () => {
-    const value = await getValue(trpc.magic.card.profile, { cardId: props.id });
-
-    if (value != null) {
-        profile.value = value;
-    }
+    profile.value = await trpc.magic.card.profile(props.id);
 };
 
 onMounted(quickLoadData);
@@ -194,16 +190,8 @@ const loadData = async () => {
         return;
     }
 
-    const value = await getValue(trpc.magic.card.profile, { cardId: props.id });
-
-    if (value != null) {
-        innerShowId.value = false;
-        profile.value = value;
-    } else {
-        console.error('Card profile not found:', props.id);
-        innerShowId.value = true;
-        profile.value = undefined;
-    }
+    profile.value = await trpc.magic.card.profile(props.id);
+    innerShowId.value = false;
 };
 
 watch(() => props.id, (newValue, oldValue) => {
