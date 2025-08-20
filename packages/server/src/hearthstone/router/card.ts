@@ -1,13 +1,9 @@
-import { Hono } from 'hono';
-import { describeRoute } from 'hono-openapi';
-import { resolver, validator } from 'hono-openapi/zod';
-
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
 import _ from 'lodash';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { diff } from 'jsondiffpatch';
+import { diff as jsonDiff } from 'jsondiffpatch';
 
 import { db } from '@/drizzle';
 import { Card } from '../schema/card';
@@ -28,7 +24,45 @@ const random = os
         return cardId;
     });
 
+const summary = os
+    .route({
+        method:      'GET',
+        description: 'Get card by ID',
+        tags:        ['Hearthstone', 'Card'],
+    })
+    .input(z.object({
+        cardId:  z.string().describe('Card ID'),
+        lang:    locale.default('en').describe('Language'),
+        version: z.preprocess(val => val ? Number.parseInt(val as string, 0) : undefined, z.int().positive().optional())
+            .describe('Card version'),
+    }))
+    .output(cardEntityView)
+    .handler(async ({ input }) => {
+        const { cardId, lang, version } = input;
+
+        const card = await db.select().from(CardEntityView)
+            .where(and(
+                eq(CardEntityView.cardId, cardId),
+                eq(CardEntityView.lang, lang),
+                ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
+            ))
+            .orderBy(desc(CardEntityView.version))
+            .limit(1)
+            .then(rows => rows[0]);
+
+        if (!card) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        return card;
+    });
+
 const full = os
+    .route({
+        method:      'GET',
+        description: 'Get complete card by ID',
+        tags:        ['Hearthstone', 'Card'],
+    })
     .input(z.object({
         cardId:  z.string().describe('Card ID'),
         lang:    locale.default('en').describe('Language'),
@@ -114,140 +148,66 @@ const profile = os
         };
     });
 
+const diff = os
+    .route({
+        method:      'GET',
+        description: 'Get card by ID',
+        tags:        ['Hearthstone', 'Card'],
+    })
+    .input(z.object({
+        cardId: z.string().describe('Card ID'),
+        lang:   locale.default('en').describe('Language'),
+        from:   z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive())
+            .describe('From version'),
+        to: z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive())
+            .describe('To version'),
+    }))
+    .output(z.any())
+    .handler(async ({ input }) => {
+        const { cardId, lang, from, to } = input;
+
+        const fromCard = await db.select().from(CardEntityView)
+            .where(and(
+                eq(CardEntityView.cardId, cardId),
+                eq(CardEntityView.lang, lang),
+                sql`${from} = any(${CardEntityView.version})`,
+            ))
+            .orderBy(desc(CardEntityView.version))
+            .limit(1)
+            .then(rows => rows[0]);
+
+        const toCard = await db.select(
+
+        ).from(CardEntityView)
+            .where(and(
+                eq(CardEntityView.cardId, cardId),
+                eq(CardEntityView.lang, lang),
+                sql`${to} = any(${CardEntityView.version})`,
+            ))
+            .orderBy(desc(CardEntityView.version))
+            .limit(1)
+            .then(rows => rows[0]);
+
+        if (fromCard == null || toCard == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const patch = jsonDiff(
+            _.omit(fromCard, ['version', 'isLatest']),
+            _.omit(toCard, ['version', 'isLatest']),
+        );
+
+        return patch;
+    });
+
 export const cardTrpc = {
     random,
     full,
     profile,
 };
 
-export const cardApi = new Hono()
-    .get(
-        '/',
-        describeRoute({
-            description: 'Get card by ID',
-            tags:        ['Hearthstone', 'Card'],
-            responses:   {
-                200: {
-                    description: 'Card view',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(cardEntityView),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            cardId:  z.string().describe('Card ID'),
-            lang:    locale.default('en').describe('Language'),
-            version: z.preprocess(val => val ? Number.parseInt(val as string, 0) : undefined, z.int().positive().optional())
-                .describe('Card version'),
-        })),
-        async c => {
-            const { cardId, lang, version } = c.req.valid('query');
-
-            const card = await db.select().from(CardEntityView)
-                .where(and(
-                    eq(CardEntityView.cardId, cardId),
-                    eq(CardEntityView.lang, lang),
-                    ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
-                ))
-                .orderBy(desc(CardEntityView.version))
-                .limit(1)
-                .then(rows => rows[0]);
-
-            if (!card) {
-                return c.notFound();
-            }
-
-            return c.json(card);
-        },
-    )
-    .get(
-        '/full',
-        describeRoute({
-            description: 'Get full card by ID',
-            tags:        ['Hearthstone', 'Card'],
-            responses:   {
-                200: {
-                    description: 'Card full view',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(cardFullView),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            cardId:  z.string().describe('Card ID'),
-            lang:    locale.default('en').describe('Language'),
-            version: z.preprocess(val => val ? Number.parseInt(val as string, 0) : undefined, z.int().positive().optional())
-                .describe('Card version'),
-        })),
-        async c => c.json(await full(c.req.valid('query'))),
-    )
-    .get(
-        '/diff',
-        describeRoute({
-            description: 'Get card by ID',
-            tags:        ['Hearthstone', 'Card'],
-            responses:   {
-                200: {
-                    description: 'Card view',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(z.any()),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            cardId: z.string().describe('Card ID'),
-            lang:   locale.default('en').describe('Language'),
-            from:   z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive())
-                .describe('From version'),
-            to: z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive())
-                .describe('To version'),
-        })),
-        async c => {
-            const { cardId, lang, from, to } = c.req.valid('query');
-
-            const fromCard = await db.select().from(CardEntityView)
-                .where(and(
-                    eq(CardEntityView.cardId, cardId),
-                    eq(CardEntityView.lang, lang),
-                    sql`${from} = any(${CardEntityView.version})`,
-                ))
-                .orderBy(desc(CardEntityView.version))
-                .limit(1)
-                .then(rows => rows[0]);
-
-            const toCard = await db.select(
-
-            ).from(CardEntityView)
-                .where(and(
-                    eq(CardEntityView.cardId, cardId),
-                    eq(CardEntityView.lang, lang),
-                    sql`${to} = any(${CardEntityView.version})`,
-                ))
-                .orderBy(desc(CardEntityView.version))
-                .limit(1)
-                .then(rows => rows[0]);
-
-            if (fromCard == null || toCard == null) {
-                return c.notFound();
-            }
-
-            const patch = diff(
-                _.omit(fromCard, ['version', 'isLatest']),
-                _.omit(toCard, ['version', 'isLatest']),
-            );
-
-            return c.json(patch);
-        },
-    );
+export const cardApi = {
+    '': summary,
+    full,
+    diff,
+};

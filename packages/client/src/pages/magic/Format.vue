@@ -410,9 +410,9 @@ const timelineEvents = computed(() => {
 });
 
 const loadData = async () => {
-    data.value = await trpc.magic.format.full(format.value);
+    data.value = await trpc.magic.format.full({ formatId: format.value });
 
-    changes.value = await trpc.magic.format.changes(format.value);
+    changes.value = await trpc.magic.format.changes({ formatId: format.value });
 };
 
 const groupShort = (group: string) => {

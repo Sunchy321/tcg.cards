@@ -547,7 +547,7 @@ const loadAnnouncement = async () => {
         return;
     }
 
-    announcement.value = await trpc.magic.announcement.full(selected.value.id);
+    announcement.value = await trpc.magic.announcement.full({ id: selected.value.id });
 };
 
 watch(selected, loadAnnouncement);

@@ -14,7 +14,7 @@ export const SetLocalization = schema.table('set_localizations', {
     primaryKey({ columns: [table.setId, table.lang] }),
 ]);
 
-export const PackContents = schema.table('pack_contents', {
+export const PackContent = schema.table('pack_contents', {
     id:     uuid('id').primaryKey().defaultRandom(),
     packId: uuid('pack_id').notNull(),
 
@@ -25,8 +25,6 @@ export const PackContents = schema.table('pack_contents', {
 export const Pack = schema.table('packs', {
     id:        uuid('id').primaryKey().defaultRandom(),
     boosterId: uuid('booster_id').notNull(),
-
-    setId: text('set_id').notNull(),
 
     weight: integer('weight').notNull(),
 });

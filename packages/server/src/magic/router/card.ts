@@ -1,7 +1,3 @@
-import { Hono } from 'hono';
-import { describeRoute } from 'hono-openapi';
-import { resolver, validator as zValidator } from 'hono-openapi/zod';
-
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
@@ -30,6 +26,9 @@ const random = os
     });
 
 const fuzzy = os
+    .route({
+        method: 'GET',
+    })
     .input(z.object({
         cardId:    z.string(),
         lang:      fullLocale,
@@ -174,46 +173,33 @@ export const cardTrpc = {
     profile,
 };
 
-export const cardApi = new Hono()
-    .get(
-        '/',
-        describeRoute({
-            description: 'Get card by ID',
-            tags:        ['Magic', 'Card'],
-            responses:   {
-                200: {
-                    description: 'Card full view',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(cardView),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        zValidator('query', z.object({
-            id:        z.string(),
-            lang:      fullLocale.default('en'),
-            partIndex: z.string().default('0').transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()),
-        })),
-        async c => {
-            c.header('Cache-Control', 'public, max-age=3600');
+export const cardApi = os
+    .route({
+        method:      'GET',
+        description: 'Get card by ID',
+        tags:        ['Magic', 'Card'],
+    })
+    .input(z.object({
+        id:        z.string().describe('Card ID'),
+        lang:      fullLocale.default('en').describe('Language of the card'),
+        partIndex: z.int().min(0).default(0).describe('Part index of the card, if it has multiple parts (e.g. split cards)'),
+    }))
+    .output(cardView)
+    .handler(async ({ input }) => {
+        const { id: cardId, lang, partIndex } = input;
 
-            const { id: cardId, lang, partIndex } = c.req.valid('query');
+        const view = await db.select()
+            .from(CardView)
+            .where(and(
+                eq(CardView.cardId, cardId),
+                eq(CardView.lang, lang),
+                eq(CardView.partIndex, partIndex),
+            ))
+            .then(rows => rows[0]);
 
-            const views = await db.select()
-                .from(CardView)
-                .where(and(
-                    eq(CardView.cardId, cardId),
-                    eq(CardView.lang, lang),
-                    eq(CardView.partIndex, partIndex),
-                ));
+        if (view == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
 
-            if (views.length === 0) {
-                return c.notFound();
-            }
-
-            return c.json(views[0]);
-        },
-    );
+        return view;
+    });

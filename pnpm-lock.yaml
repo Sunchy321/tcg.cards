@@ -444,6 +444,9 @@ importers:
       '@koa/router':
         specifier: ^13.1.0
         version: 13.1.0
+      '@orpc/json-schema':
+        specifier: ^1.8.1
+        version: 1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0)
       '@orpc/openapi':
         specifier: ^1.8.1
         version: 1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0)

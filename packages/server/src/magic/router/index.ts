@@ -21,11 +21,12 @@ export const magicTrpc = {
 export const magicSSE = new Hono()
     .route('/data', dataSSE);
 
-export const magicApi = new Hono()
-    .route('/card', cardApi)
-    .route('/search', searchApi)
-    .route('/print', printApi)
-    .route('/set', setApi)
-    .route('/format', formatApi)
-    .route('/announcement', announcementApi)
-    .route('/rule', ruleApi);
+export const magicApi = {
+    card:         cardApi,
+    search:       searchApi,
+    print:        printApi,
+    set:          setApi,
+    format:       formatApi,
+    announcement: announcementApi,
+    rule:         ruleApi,
+};

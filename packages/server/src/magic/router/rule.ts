@@ -1,7 +1,3 @@
-import { Hono } from 'hono';
-import { describeRoute } from 'hono-openapi';
-import { resolver, validator } from 'hono-openapi/zod';
-
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
@@ -17,7 +13,12 @@ import { db } from '@/drizzle';
 import { Rule, RuleItem } from '../schema/rule';
 
 const list = os
-    .input(z.void())
+    .route({
+        method:      'GET',
+        description: 'List all rule dates',
+        tags:        ['Magic', 'Rule'],
+    })
+    .input(z.any())
     .output(z.string().array())
     .handler(async () => {
         return await db.select({ date: Rule.date })
@@ -28,6 +29,11 @@ const list = os
     .callable();
 
 const summary = os
+    .route({
+        method:      'GET',
+        description: 'Get rule summary',
+        tags:        ['Magic', 'Rule'],
+    })
     .input(z.object({
         date: z.iso.date(),
         lang: z.string().default('en'),
@@ -74,6 +80,11 @@ const summary = os
     .callable();
 
 const chapter = os
+    .route({
+        method:      'GET',
+        description: 'Get rule chapter',
+        tags:        ['Magic', 'Rule'],
+    })
     .input(z.object({
         date: z.iso.date(),
         lang: z.string().default('en'),
@@ -117,6 +128,11 @@ const chapter = os
     .callable();
 
 const diff = os
+    .route({
+        method:      'GET',
+        description: 'Get rule difference',
+        tags:        ['Magic', 'Rule'],
+    })
     .input(z.object({
         from: z.iso.date(),
         to:   z.iso.date(),
@@ -137,6 +153,11 @@ const diff = os
     .callable();
 
 const history = os
+    .route({
+        method:      'GET',
+        description: 'Get rule item history',
+        tags:        ['Magic', 'Rule'],
+    })
     .input(z.object({
         itemId: z.string(),
         lang:   z.string().default('en'),
@@ -189,117 +210,10 @@ export const ruleTrpc = {
     history,
 };
 
-export const ruleApi = new Hono()
-    .get(
-        '/list',
-        describeRoute({
-            tags:      ['Magic', 'Rule'],
-            summary:   'List rules',
-            responses: {
-                200: {
-                    description: 'List of rules retrieved successfully',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(z.string().array()),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        async c => c.json(await list()),
-    )
-    .get(
-        '/summary',
-        describeRoute({
-            tags:      ['Magic', 'Rule'],
-            summary:   'Get rule summary',
-            responses: {
-                200: {
-                    description: 'Rule summary retrieved successfully',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(ruleSummary),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            date: z.iso.date(),
-            lang: z.string().default('en'),
-        })),
-        async c => c.json(await summary(c.req.valid('query'))),
-    )
-    .get(
-        '/chapter',
-        describeRoute({
-            tags:      ['Magic', 'Rule'],
-            summary:   'Get rule chapter',
-            responses: {
-                200: {
-                    description: 'Rule chapter retrieved successfully',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(ruleItem.array()),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            date: z.iso.date(),
-            lang: z.string().default('en'),
-            from: z.preprocess(val => Number.parseInt(val as string, 10), z.number().int().min(0)),
-            to:   z.preprocess(val => Number.parseInt(val as string, 10), z.number().int().min(0)),
-        })),
-        async c => c.json(await chapter(c.req.valid('query'))),
-    )
-    .get(
-        '/diff',
-        describeRoute({
-            tags:      ['Magic', 'Rule'],
-            summary:   'Diff two revisions of rule',
-            responses: {
-                200: {
-                    description: 'Rule history retrieved successfully',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(ruleDiff),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            from: z.iso.date(),
-            to:   z.iso.date(),
-            lang: z.string().default('en'),
-        })),
-        async c => c.json(await diff(c.req.valid('query'))),
-    )
-    .get(
-        '/history',
-        describeRoute({
-            tags:      ['Magic', 'Rule'],
-            summary:   'Get rule history',
-            responses: {
-                200: {
-                    description: 'Rule history retrieved successfully',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(ruleHistory),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({
-            itemId: z.string().default('en'),
-        })),
-        async c => c.json(await history(c.req.valid('query'))),
-    );
+export const ruleApi = {
+    list,
+    summary,
+    chapter,
+    diff,
+    history,
+};

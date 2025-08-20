@@ -78,7 +78,7 @@ const progressLabel = computed(() => {
 });
 
 const clearPatch = async () => {
-    const result = await trpc.hearthstone.data.hsdata['clear-patch'].$post({ query: { buildNumber: props.buildNumber.toString() } });
+    const result = await trpc.hearthstone.data.hsdata.clearPatch(props.buildNumber);
 
     if (result.ok) {
         const value = await result.json();

@@ -20,12 +20,11 @@ export const booster = z.strictObject({
         typeId: z.string(),
 
         cards: z.strictObject({
-            cardId:  z.string(),
-            version: z.strictObject({
-                set:    z.string(),
-                number: z.string(),
-                lang:   z.string().nullable(),
-            }),
+            cardId: z.string(),
+
+            set:    z.string(),
+            number: z.string(),
+            lang:   z.string().nullable(),
 
             weight: z.int(),
         }).array(),

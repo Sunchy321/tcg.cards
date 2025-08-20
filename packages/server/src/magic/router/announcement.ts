@@ -1,7 +1,3 @@
-import { Hono } from 'hono';
-import { describeRoute } from 'hono-openapi';
-import { resolver, validator } from 'hono-openapi/zod';
-
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
@@ -16,7 +12,12 @@ import { db } from '@/drizzle';
 import { Announcement, AnnouncementItem } from '@/magic/schema/announcement';
 
 const list = os
-    .input(z.void())
+    .route({
+        method:      'GET',
+        description: 'Get the list of announcements',
+        tags:        ['Magic', 'Announcement'],
+    })
+    .input(z.any())
     .output(announcementProfile.array())
     .handler(async () => {
         const announcements = await db.select({
@@ -33,10 +34,15 @@ const list = os
     .callable();
 
 const full = os
-    .input(z.uuid())
+    .route({
+        method:      'GET',
+        description: 'Get the full announcement by ID',
+        tags:        ['Magic', 'Announcement'],
+    })
+    .input(z.object({ id: z.uuid() }))
     .output(announcement)
     .handler(async ({ input }) => {
-        const id = input;
+        const { id } = input;
 
         const announcement = await db.select().from(Announcement)
             .where(eq(Announcement.id, id))
@@ -121,43 +127,7 @@ export const announcementTrpc = {
     apply,
 };
 
-export const announcementApi = new Hono()
-    .get(
-        '/list',
-        describeRoute({
-            description: 'Get the list of announcements',
-            tags:        ['Magic', 'Announcement'],
-            responses:   {
-                200: {
-                    description: 'List of announcements',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(announcementProfile.array()),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        async c => c.json(await list()),
-    )
-    .get(
-        '/full',
-        describeRoute({
-            description: 'Get the list of announcements',
-            tags:        ['Magic', 'Announcement'],
-            responses:   {
-                200: {
-                    description: 'List of announcements',
-                    content:     {
-                        'application/json': {
-                            schema: resolver(announcement),
-                        },
-                    },
-                },
-            },
-            validateResponse: true,
-        }),
-        validator('query', z.object({ id: z.uuid() })),
-        async c => c.json(await full(c.req.valid('query').id)),
-    );
+export const announcementApi = {
+    list,
+    '': full,
+};

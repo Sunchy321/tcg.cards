@@ -15,5 +15,6 @@ export const hearthstoneTrpc = {
 export const hearthstoneSSE = new Hono()
     .route('/data', dataSSE);
 
-export const hearthstoneApi = new Hono()
-    .route('/card', cardApi);
+export const hearthstoneApi = {
+    card: cardApi,
+};
