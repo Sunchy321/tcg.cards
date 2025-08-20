@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Scalar } from '@scalar/hono-api-reference';
 
 import { os } from '@orpc/server';
-import { OpenAPIGenerator } from '@orpc/openapi';
+
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
+import { OpenAPIReferencePlugin } from '@orpc/openapi/plugins';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 import { experimental_SmartCoercionPlugin as SmartCoercionPlugin } from '@orpc/json-schema';
 
@@ -13,12 +13,6 @@ import { games } from '@model/schema';
 
 import { magicApi } from '@/magic/router';
 import { hearthstoneApi } from '@/hearthstone/router';
-
-const openapiGenerator = new OpenAPIGenerator({
-    schemaConverters: [
-        new ZodToJsonSchemaConverter(),
-    ],
-});
 
 const root = os
     .route({
@@ -42,6 +36,36 @@ const handler = new OpenAPIHandler(router, {
                 new ZodToJsonSchemaConverter(),
             ],
         }),
+        new OpenAPIReferencePlugin({
+            docsPath:         '/scalar',
+            specPath:         '/openapi',
+            schemaConverters: [
+                new ZodToJsonSchemaConverter(),
+            ],
+            specGenerateOptions: {
+                info: {
+                    title:   'ORPC Playground',
+                    version: '1.0.0',
+                },
+                servers: [
+                    {
+                        url: process.env.API_URL!,
+                    },
+                ],
+                components: {
+                    securitySchemes: {
+                        'api-key': {
+                            type: 'apiKey',
+                            in:   'header',
+                            name: 'x-api-key',
+                        },
+                    },
+                },
+                security: [
+                    { 'api-key': [] },
+                ],
+            },
+        }),
     ],
 });
 
@@ -58,23 +82,5 @@ const api = new Hono()
 
         await next();
     });
-
-api.get('/openapi', async c => {
-    const apiSpecs = await openapiGenerator.generate(router, {
-        info: {
-            title:   'tcg.cards API',
-            version: '1.0.0',
-        },
-    });
-
-    return c.json(apiSpecs);
-});
-
-api.get('/scalar', Scalar({
-    url:     '/openapi',
-    servers: [
-        process.env.SERVICE_URL,
-    ],
-}));
 
 export default api;

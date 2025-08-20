@@ -80,7 +80,6 @@
         "@orpc/openapi": "^1.8.1",
         "@orpc/server": "^1.8.1",
         "@orpc/zod": "^1.8.1",
-        "@scalar/hono-api-reference": "^0.9.13",
         "@types/bun": "^1.2.20",
         "async-stream-reader": "^1.2.0",
         "axios": "^1.8.4",
