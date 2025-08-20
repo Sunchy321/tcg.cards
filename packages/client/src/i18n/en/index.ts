@@ -67,9 +67,25 @@ export default {
     },
 
     setting: {
-        $self: 'Settings',
-        basic: 'Basic Settings',
-        lang:  'Language',
+        '$self': 'Settings',
+        'basic': 'Basic Settings',
+        'lang':  'Language',
+
+        'api-key': {
+            '$self':      'API Keys',
+            'name':       'Name',
+            'created-at': 'Created At',
+            'delete':     'Delete',
+            'cancel':     'Cancel',
+
+            'create-success': 'API Key created successfully.',
+            'create-hint':    'API Key only shows once, please save it.',
+            'copied':         'API Key copied.',
+
+            'delete-key':  'Delete API Key',
+            'delete-hint': 'Are you sure to delete this API Key? This action cannot be undone! Please repeat {name} in the text box to confirm deletion.',
+            'deleted':     'API Key deleted successfully.',
+        },
     },
 
     ui: {

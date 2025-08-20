@@ -1,5 +1,5 @@
 import { createAuthClient } from 'better-auth/vue';
-import { adminClient, usernameClient } from 'better-auth/client/plugins';
+import { adminClient, apiKeyClient, usernameClient } from 'better-auth/client/plugins';
 
 export const auth = createAuthClient({
     baseURL: import.meta.env.VITE_AUTH_URL,
@@ -7,6 +7,7 @@ export const auth = createAuthClient({
     plugins: [
         usernameClient(),
         adminClient(),
+        apiKeyClient(),
     ],
 });
 

@@ -66,9 +66,25 @@ export default {
     },
 
     setting: {
-        $self: '设置',
-        basic: '基本设置',
-        lang:  '语言',
+        '$self': '设置',
+        'basic': '基本设置',
+        'lang':  '语言',
+
+        'api-key': {
+            '$self':      'API密钥',
+            'name':       '名称',
+            'created-at': '创建时间',
+            'delete':     '删除',
+            'cancel':     '取消',
+
+            'create-success': 'API密钥创建成功。',
+            'create-hint':    'API密钥只会显示一次，请妥善保存。',
+            'copied':         'API密钥已复制！',
+
+            'delete-key':  '删除API密钥',
+            'delete-hint': '确定要删除该API密钥吗？此操作无法撤销！请在文本框中重复 {name} 以确认删除',
+            'deleted':     'API密钥删除成功！',
+        },
     },
 
     ui: {
