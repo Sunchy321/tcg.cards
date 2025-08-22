@@ -49,8 +49,8 @@ export const adjustment = z.strictObject({
 
 export const cardChange = z.strictObject({
     source:        z.string(),
-    date:          z.iso.date(),
-    effectiveDate: z.iso.date().nullable(),
+    date:          z.string(),
+    effectiveDate: z.string().nullable(),
     name:          z.string(),
     link:          z.url().array(),
 
@@ -68,8 +68,8 @@ export const cardChange = z.strictObject({
 
 export const setChange = z.strictObject({
     source:        z.string(),
-    date:          z.iso.date(),
-    effectiveDate: z.iso.date().nullable(),
+    date:          z.string(),
+    effectiveDate: z.string().nullable(),
     name:          z.string(),
     link:          z.url().array(),
 
@@ -83,8 +83,8 @@ export const setChange = z.strictObject({
 
 export const formatChange = z.strictObject({
     source:        z.string(),
-    date:          z.iso.date(),
-    effectiveDate: z.iso.date().nullable(),
+    date:          z.string(),
+    effectiveDate: z.string().nullable(),
     name:          z.string(),
     link:          z.url().array(),
 
@@ -109,3 +109,5 @@ export type Status = z.infer<typeof status>;
 export type CardChange = z.infer<typeof cardChange>;
 export type SetChange = z.infer<typeof setChange>;
 export type FormatChange = z.infer<typeof formatChange>;
+
+export type Legalities = Record<string, Legality>;
