@@ -1,10 +1,12 @@
-import { getTableColumns, and, eq } from 'drizzle-orm';
+import { getTableColumns, and, eq, sql } from 'drizzle-orm';
 import { bit, boolean, integer, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
 
 import _ from 'lodash';
 
 import { schema } from './schema';
 
+import { Updation } from '@model/basic';
+import { CardEditorView as ICardEditorView } from '@model/magic/schema/print';
 import * as basicModel from '@model/magic/schema/basic';
 import * as printModel from '@model/magic/schema/print';
 
@@ -66,6 +68,9 @@ export const Print = schema.table('prints', {
     multiverseId:      integer('multiverse_id').array().notNull(),
     tcgPlayerId:       integer('tcg_player_id'),
     cardMarketId:      integer('card_market_id'),
+
+    __lockedPaths: text('print_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('print_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
     primaryKey({ columns: [table.cardId, table.set, table.number, table.lang] }),
 ]);
@@ -87,6 +92,9 @@ export const PrintPart = schema.table('print_parts', {
     artist:           text('artist'),
     watermark:        text('watermark'),
     scryfallIllusId:  uuid('scryfall_illus_id').array(),
+
+    __lockedPaths: text('print_part_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('print_part_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
     primaryKey({ columns: [table.cardId, table.set, table.number, table.lang, table.partIndex] }),
 ]);
@@ -99,10 +107,10 @@ export const PrintView = schema.view('print_view').as(qb => {
         lang:      Print.lang,
         partIndex: PrintPart.partIndex,
 
-        ..._.omit(getTableColumns(Print), ['cardId', 'set', 'number', 'lang']),
+        ..._.omit(getTableColumns(Print), ['cardId', 'set', 'number', 'lang', '__lockedPaths', '__updations']),
 
         part: {
-            ..._.omit(getTableColumns(PrintPart), ['cardId', 'set', 'number', 'lang', 'partIndex']),
+            ..._.omit(getTableColumns(PrintPart), ['cardId', 'set', 'number', 'lang', 'partIndex', '__lockedPaths', '__updations']),
         },
     })
         .from(Print)
@@ -118,7 +126,60 @@ export const CardPrintView = schema.view('card_print_view').as(qb => {
         number:    Print.number,
 
         card: {
-            ..._.omit(getTableColumns(Card), 'cardId'),
+            ..._.omit(getTableColumns(Card), ['cardId', '__lockedPaths', '__updations']),
+        },
+
+        cardLocalization: {
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang', '__lockedPaths', '__updations']),
+        },
+
+        cardPart: {
+            ..._.omit(getTableColumns(CardPart), ['cardId', 'partIndex', '__lockedPaths', '__updations']),
+        },
+
+        cardPartLocalization: {
+            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex', '__lockedPaths', '__updations']),
+        },
+
+        print: {
+            ..._.omit(getTableColumns(Print), ['cardId', 'set', 'number', 'lang', '__lockedPaths', '__updations']),
+        },
+
+        printPart: {
+            ..._.omit(getTableColumns(PrintPart), ['cardId', 'set', 'number', 'lang', 'partIndex', '__lockedPaths', '__updations']),
+        },
+    })
+        .from(Card)
+        .innerJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId))
+        .innerJoin(CardPart, eq(CardPart.cardId, Card.cardId))
+        .innerJoin(CardPartLocalization, and(
+            eq(CardPartLocalization.cardId, CardPart.cardId),
+            eq(CardPartLocalization.lang, CardLocalization.lang),
+            eq(CardPartLocalization.partIndex, CardPart.partIndex),
+        ))
+        .innerJoin(Print, and(
+            eq(Card.cardId, Print.cardId),
+            eq(CardLocalization.lang, Print.lang),
+        ))
+        .innerJoin(PrintPart, and(
+            eq(Card.cardId, PrintPart.cardId),
+            eq(Print.set, PrintPart.set),
+            eq(Print.number, PrintPart.number),
+            eq(CardLocalization.lang, PrintPart.lang),
+            eq(CardPart.partIndex, PrintPart.partIndex),
+        ));
+});
+
+export const CardEditorView = schema.view('card_editor_view').as(qb => {
+    return qb.select({
+        cardId:    Card.cardId,
+        lang:      CardLocalization.lang,
+        partIndex: CardPart.partIndex,
+        set:       Print.set,
+        number:    Print.number,
+
+        card: {
+            ..._.omit(getTableColumns(Card), ['cardId']),
         },
 
         cardLocalization: {
@@ -140,6 +201,9 @@ export const CardPrintView = schema.view('card_print_view').as(qb => {
         printPart: {
             ..._.omit(getTableColumns(PrintPart), ['cardId', 'set', 'number', 'lang', 'partIndex']),
         },
+
+        __inDatabase: sql<boolean>`true`.as('in_database'),
+        __original:   sql<ICardEditorView['__original']>`jsonb_build_object()`.as('original'),
     })
         .from(Card)
         .innerJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId))

@@ -2,14 +2,14 @@ import { and, arrayContains, SQL, asc, desc, eq, gt, gte, inArray, lt, lte, ne, 
 
 import { QueryError } from '@search/command/error';
 import { OrderBy, PostAction, defineServerCommand } from '@/search/command';
-import { NormalResult } from '@model/magic/schema/search';
+import { DevResult, NormalResult } from '@model/magic/schema/search';
 import { FullLocale } from '@model/magic/schema/basic';
 
 import { defineServerModel } from '@/search/model';
 import { toIdentifier } from '@common/util/id';
 
 import { db } from '@/drizzle';
-import { CardPrintView } from '../schema/print';
+import { CardEditorView, CardPrintView } from '../schema/print';
 
 import * as builtin from '@/search/command/builtin';
 import * as magic from './command';
@@ -528,6 +528,11 @@ type SearchOption = {
     orderBy:  string;
 };
 
+type DevSearchOption = {
+    pageSize: number;
+    groupBy:  string;
+};
+
 export default defineServerModel({
     commands: [
         raw,
@@ -613,6 +618,63 @@ export default defineServerModel({
                 total,
                 page,
                 totalPage,
+                elapsed,
+            };
+        },
+
+        async dev(query: SQL, post: PostAction[], options: DevSearchOption): Promise<DevResult> {
+            const startTime = Date.now();
+
+            const groupBy = options.groupBy;
+            let pageSize = options.pageSize;
+
+            if (pageSize > 200) {
+                pageSize = 200;
+            }
+
+            const groupByColumn = groupBy === 'card'
+                ? [CardEditorView.cardId]
+                : groupBy === 'lang'
+                    ? [CardEditorView.cardId, CardEditorView.set, CardEditorView.number, CardEditorView.partIndex]
+                    : [CardEditorView.cardId, CardEditorView.set, CardEditorView.number, CardEditorView.lang, CardEditorView.partIndex];
+
+            const groupByCount = groupBy === 'card'
+                ? sql`count(distinct card_id)`.as('count')
+                : sql`count(distinct (card_id, set, number, lang))`.as('count');
+
+            const orderByAction = post.find(p => p.type === 'order-by') as OrderBy
+              ?? order.post!({ operator: ':', qualifier: [], parameter: 'id+' });
+
+            const result = await db
+                .selectDistinctOn(groupByColumn)
+                .from(CardEditorView)
+                .where(query)
+                .orderBy(
+                    ...groupByColumn,
+                    CardEditorView.partIndex,
+                    sql`CASE
+                        WHEN ${CardEditorView.lang} = ${lang} THEN 0
+                        WHEN ${CardEditorView.lang} = 'en' THEN 1
+                        ELSE 2
+                    END`,
+                    ...orderByAction.orders,
+                )
+                .limit(pageSize);
+
+            // Count the total records matching the same SQL query
+            const countResult = await db
+                .select({ count: groupByCount })
+                .from(CardEditorView)
+                .where(query);
+
+            const total = Number(countResult[0]?.count || 0);
+
+            const endTime = Date.now();
+            const elapsed = endTime - startTime;
+
+            return {
+                result,
+                total,
                 elapsed,
             };
         },

@@ -77,7 +77,7 @@ router.get('/search', async ctx => {
         : Number.parseInt(sampleText, 10);
 
     const result = await search.search('dev', q, {
-        sample: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
+        page: ['card', 'lang'].includes(filterBy) ? sample * 2 : sample,
     });
 
     const cards = ((values: { card: { cardId: string }, print: { lang: string } }[]) => {

@@ -10,7 +10,7 @@ import { PrintView } from '../schema/print';
 import { fullLocale } from '@model/magic/schema/basic';
 import { printView } from '@model/magic/schema/print';
 
-export const printApi = os
+const basic = os
     .route({
         method:      'GET',
         description: 'Get print by ID',
@@ -44,3 +44,11 @@ export const printApi = os
 
         return view;
     });
+
+export const printTrpc = {
+
+};
+
+export const printApi = {
+    '': basic,
+};

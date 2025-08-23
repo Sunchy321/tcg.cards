@@ -1,21 +1,25 @@
 import { Hono } from 'hono';
 
 import { cardApi, cardTrpc } from './card';
-import { printApi } from './print';
+import { printApi, printTrpc } from './print';
 import { searchApi, searchTrpc } from './search';
 import { setApi, setTrpc } from './set';
 import { formatApi, formatTrpc } from './format';
 import { announcementApi, announcementTrpc } from './announcement';
 import { ruleApi, ruleTrpc } from './rule';
-import { dataSSE } from './data';
+import { dataSSE, dataTrpc } from './data';
+import { imageTrpc } from './image';
 
 export const magicTrpc = {
     card:         cardTrpc,
     search:       searchTrpc,
+    print:        printTrpc,
     set:          setTrpc,
     format:       formatTrpc,
     announcement: announcementTrpc,
     rule:         ruleTrpc,
+    data:         dataTrpc,
+    image:        imageTrpc,
 };
 
 export const magicSSE = new Hono()

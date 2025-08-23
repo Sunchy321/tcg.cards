@@ -18,7 +18,9 @@ const list = os
     .input(z.any())
     .output(z.string().array())
     .handler(async () => {
-        const sets = await db.select({ setId: Set.setId }).from(Set);
+        const sets = await db.select({ setId: Set.setId })
+            .from(Set)
+            .orderBy(Set.releaseDate);
 
         return sets.map(s => s.setId);
     });

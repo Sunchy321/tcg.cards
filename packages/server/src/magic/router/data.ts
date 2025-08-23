@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
 
-import { gathererSSE } from './data/gatherer';
+import { gathererSSE, gathererTrpc } from './data/gatherer';
+
+export const dataTrpc = {
+    gatherer: gathererTrpc,
+};
 
 export const dataSSE = new Hono()
     .route('/gatherer', gathererSSE);

@@ -5,6 +5,7 @@ import _ from 'lodash';
 
 import { schema } from './schema';
 
+import { Updation } from '@model/basic';
 import * as basicModel from '@model/magic/schema/basic';
 import * as cardModel from '@model/magic/schema/card';
 import { Legality } from '@model/magic/schema/game-change';
@@ -34,6 +35,9 @@ export const Card = schema.table('cards', {
     legalities: jsonb('legalities').$type<Record<string, Legality>>().notNull(),
 
     scryfallOracleId: uuid('scryfall_oracle_id').array().notNull(),
+
+    __lockedPaths: text('card_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('card_updations').$type<Updation[]>().notNull().default([]),
 });
 
 export const CardLocalization = schema.table('card_localizations', {
@@ -43,6 +47,9 @@ export const CardLocalization = schema.table('card_localizations', {
     name:     text('loc_name').notNull(),
     typeline: text('loc_typeline').notNull(),
     text:     text('loc_text').notNull(),
+
+    __lockedPaths: text('card_localization_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('card_localization_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
     primaryKey({ columns: [table.cardId, table.lang] }),
 ]);
@@ -71,6 +78,9 @@ export const CardPart = schema.table('card_parts', {
     defense:      text('defense'),
     handModifier: text('hand_modifier'),
     lifeModifier: text('life_modifier'),
+
+    __lockedPaths: text('card_part_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('card_part_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
     primaryKey({ columns: [table.cardId, table.partIndex] }),
 ]);
@@ -84,7 +94,9 @@ export const CardPartLocalization = schema.table('card_part_localizations', {
     typeline: text('part_loc_typeline').notNull(),
     text:     text('part_loc_text').notNull(),
 
-    __lastDate: text('last_date').notNull(),
+    __lastDate:    text('last_date').notNull(),
+    __lockedPaths: text('card_part_localization_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('card_part_localization_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
     primaryKey({ columns: [table.cardId, table.lang, table.partIndex] }),
 ]);
@@ -95,18 +107,18 @@ export const CardView = schema.view('card_view').as(qb => {
         lang:      CardLocalization.lang,
         partIndex: CardPart.partIndex,
 
-        ..._.omit(getTableColumns(Card), 'cardId'),
+        ..._.omit(getTableColumns(Card), ['cardId', '__lockedPaths', '__updations']),
 
         localization: {
-            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang']),
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang', '__lockedPaths', '__updations']),
         },
 
         part: {
-            ..._.omit(getTableColumns(CardPart), ['cardId', 'partIndex']),
+            ..._.omit(getTableColumns(CardPart), ['cardId', 'partIndex', '__lockedPaths', '__updations']),
         },
 
         partLocalization: {
-            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex']),
+            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex', '__lockedPaths', '__updations']),
         },
     })
         .from(Card)

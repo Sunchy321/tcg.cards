@@ -4,7 +4,7 @@ export const searchError = z.object({
     type:  z.string(),
     value: z.string().optional(),
     query: z.string().optional(),
-});
+}).or(z.any());
 
 export type SearchResultSchema<Z extends z.ZodType> = z.ZodObject<{
     text:   z.ZodOptional<z.ZodString>;
@@ -39,10 +39,10 @@ export type SearchNormalResult<Z extends z.ZodType> = z.infer<SearchNormalResult
 export function createSearchNormalResult<Z extends z.ZodType>(schema: Z): SearchNormalResultSchema<Z> {
     return z.strictObject({
         result:    z.array(schema),
-        total:     z.int().int().nonnegative(),
-        totalPage: z.int().int().nonnegative(),
-        page:      z.int().int().nonnegative(),
-        elapsed:   z.int().int().nonnegative(),
+        total:     z.int().min(0),
+        totalPage: z.int().min(0),
+        page:      z.int().min(0),
+        elapsed:   z.int().min(0),
     });
 }
 

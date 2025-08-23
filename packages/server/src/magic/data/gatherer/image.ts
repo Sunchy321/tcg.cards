@@ -68,7 +68,7 @@ export async function saveGathererImage(mids: number[], set: string, number: str
 export class GathererImageTask extends Task<IImageStatus> {
     set:       string;
     count = 0;
-    total:     number;
+    total = 0;
     failed = 0;
     todoTasks: IImageTask[] = [];
     taskMap:   Record<string, [IImageTask, FileSaver]> = {};

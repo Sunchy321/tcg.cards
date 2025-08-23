@@ -8,6 +8,7 @@
                 :set="set"
                 :number="number"
                 :layout="layout"
+                :full-image-type="fullImageType"
                 :refresh-token="refreshToken"
             />
             <div class="history q-mt-md">
@@ -25,7 +26,7 @@
             <div class="q-mb-md flex items-center">
                 <q-input v-model="search" class="search col-grow" outlined dense @keypress.enter="doSearch">
                     <template #prepend>
-                        <q-select v-model="filterBy" class="q-mr-md" :options="['none', 'lang', 'card']" outlined dense />
+                        <q-select v-model="groupBy" class="q-mr-md" :options="['print', 'lang', 'card']" outlined dense />
                     </template>
 
                     <template #append>
@@ -163,7 +164,6 @@
 
                 <q-btn icon="mdi-new-box" dense flat round @click="newData" />
                 <q-btn icon="mdi-scale-balance" dense flat round @click="getLegality" />
-                <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
 
                 <q-btn
                     icon="mdi-card-multiple-outline"
@@ -318,7 +318,6 @@
                 <array-input v-model="multiverseId" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
                     <template #append>
                         <q-btn icon="mdi-image" dense flat round @click="saveGathererImage" />
-                        <q-btn icon="mdi-magnify" dense flat round @click="loadGatherer" />
                     </template>
                 </array-input>
             </div>
@@ -364,30 +363,27 @@ import { useRouter, useRoute } from 'vue-router';
 import { useParam } from 'store/core';
 import { useGame } from 'store/games/magic';
 
-import controlSetup from 'setup/control';
-
 import ArrayInput from 'components/ArrayInput.vue';
 import RemoteBtn from 'components/RemoteBtn.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
-import { Layout } from '@interface/magic/print';
-import { Legality } from '@interface/magic/format-change';
-import { CardEditorView } from '@common/model/magic/card';
-
-import { AxiosResponse } from 'axios';
+import { FullLocale, Layout } from '@model/magic/schema/basic';
+import { CardEditorView } from '@model/magic/schema/print';
 
 import {
-    debounce, deburr, escapeRegExp, isEqual, mapValues, uniq, upperFirst, zip,
+    debounce, deburr, escapeRegExp, isEqual, mapValues, uniq, upperFirst,
 } from 'lodash';
 
 import { copyToClipboard } from 'quasar';
 
 import { parenRegex, commaRegex } from '@static/magic/special';
 
+import { trpc } from '@/trpc';
+
 type CardGroup = {
     method: string;
-    cards:  CardEditorView[];
+    result: CardEditorView[];
     total:  number;
 };
 
@@ -480,8 +476,6 @@ const router = useRouter();
 const route = useRoute();
 const game = useGame();
 
-const { controlGet, controlPost } = controlSetup();
-
 const data = ref<CardEditorView>();
 const dataGroup = ref<CardGroup>();
 const history = ref<History[]>([]);
@@ -503,7 +497,7 @@ const sample = useParam('sample', {
     default: true,
 });
 
-const filterBy = useParam('filterBy', {
+const groupBy = useParam('filterBy', {
     type:    'enum',
     bind:    'query',
     name:    'fb',
@@ -586,37 +580,66 @@ const search = computed({
     },
 });
 
+type CardPart = CardEditorView['cardPart'];
+type PrintPart = CardEditorView['printPart'];
+
 const card = computed(() => data.value?.card);
+const cardLocalization = computed(() => data.value?.cardLocalization);
+const cardPart = computed(() => data.value?.cardPart);
+const cardPartLocalization = computed(() => data.value?.cardPartLocalization);
 const print = computed(() => data.value?.print);
+const printPart = computed(() => data.value?.printPart);
 
-const inDatabase = computed(() => {
-    if (data.value == null) {
-        return false;
-    }
-
-    return card.value?._id != null && print.value?._id != null;
-});
+const inDatabase = computed(() => data.value?.__inDatabase ?? false);
 
 const id = computed({
-    get() { return card.value?.cardId ?? route.query.id as string; },
+    get() { return data.value?.cardId ?? route.query.id as string; },
     set(newValue: string) {
-        if (card.value != null) {
-            card.value.cardId = newValue;
-        }
-
-        if (print.value != null) {
-            print.value.cardId = newValue;
+        if (data.value != null) {
+            data.value.__original.cardId = data.value.cardId;
+            data.value.cardId = newValue;
         }
     },
 });
 
 const lang = computed({
-    get() { return print.value?.lang ?? route.query.lang as string; },
-    set(newValue: string) { if (print.value != null) { print.value.lang = newValue; } },
+    get() { return (data.value?.lang ?? route.query.lang) as FullLocale; },
+    set(newValue) {
+        if (data.value != null) {
+            data.value.__original.lang = data.value.lang;
+            data.value.lang = newValue;
+        }
+    },
 });
 
-const set = computed(() => print.value?.set ?? route.query.set as string);
-const number = computed(() => print.value?.number ?? route.query.number as string);
+const set = computed(() => data.value?.set ?? route.query.set as string);
+const number = computed(() => data.value?.number ?? route.query.number as string);
+
+const partIndex = computed({
+    get() {
+        if (data.value?.partIndex != null) {
+            return data.value.partIndex;
+        }
+
+        if (route.query.part != null) {
+            const result = parseInt(route.query.part as string, 10);
+
+            if (!Number.isNaN(result)) {
+                return result;
+            }
+        }
+
+        return 0;
+    },
+    set(newValue: number) {
+        router.replace({
+            query: {
+                ...route.query,
+                part: newValue,
+            },
+        });
+    },
+});
 
 const info = computed(() => {
     if (data.value != null) {
@@ -636,39 +659,9 @@ const cardLink = computed(() => ({
     },
 }));
 
-const partCount = computed(() => data.value?.card.parts.length ?? 0);
+const partCount = computed(() => data.value?.card.partCount ?? 0);
 
-const partIndex = computed({
-    get() {
-        if (data.value?.partIndex != null) {
-            return data.value.partIndex;
-        }
-
-        if (route.query.part != null) {
-            const result = parseInt(route.query.part as string, 10);
-
-            if (result < partCount.value) {
-                return result;
-            }
-        }
-
-        return 0;
-    },
-    set(newValue: number) {
-        if (data.value?.partIndex != null) {
-            data.value.partIndex = newValue;
-        } else {
-            router.replace({
-                query: {
-                    ...route.query,
-                    part: newValue,
-                },
-            });
-        }
-    },
-});
-
-const loaded = computed(() => dataGroup.value?.cards.length);
+const loaded = computed(() => dataGroup.value?.result.length);
 const total = computed(() => dataGroup.value?.total);
 
 const layout = computed({
@@ -692,24 +685,15 @@ const partOptions = computed(() => {
     return result;
 });
 
-type CardPart = CardEditorView['card']['parts'][0];
-type PrintPart = CardEditorView['print']['parts'][0];
-
-const cardPart = computed(() => card?.value?.parts?.[partIndex.value]);
-const printPart = computed(() => print?.value?.parts?.[partIndex.value]);
-
-type WithUpdation = {
+type WithLockedPaths = {
     __lockedPaths: string[];
-    __updations:   { key: string }[];
 };
 
-const lockPath = <T extends WithUpdation>(value: ComputedRef<T | undefined>, path: string) => {
+const lockPath = <T extends WithLockedPaths>(value: ComputedRef<T | undefined>, path: string) => {
     if (value.value != null && !(value.value.__lockedPaths ?? []).includes(path)) {
-        value.value.__updations ??= [];
         value.value.__lockedPaths ??= [];
 
         value.value.__lockedPaths.push(path);
-        value.value.__updations = value.value.__updations.filter(u => u.key !== path);
     }
 };
 
@@ -747,18 +731,12 @@ const oracleName = cardPartField('name', '');
 const oracleTypeline = cardPartField('typeline', '');
 const oracleText = cardPartField('text', '');
 
-const oracleUpdated = computed(() => {
-    if (card.value == null) {
-        return false;
-    }
-
-    return card.value.__updations.some(u => u.key === `parts[${partIndex.value}].text`);
-});
+const oracleUpdated = computed(() => cardPart.value?.__updations.some(u => u.key === 'text') ?? false);
 
 const displayOracleText = computed({
     get() {
         if (oracleUpdated.value && showBeforeOracle.value) {
-            return card.value.__updations.find(u => u.key === `parts[${partIndex.value}].text`)!.oldValue;
+            return cardPart.value?.__updations.find(u => u.key === 'text')!.oldValue;
         } else {
             return oracleText.value;
         }
@@ -778,91 +756,61 @@ const printedText = printPartField('text', '', () => `parts[${partIndex.value}].
 
 const unifiedName = computed({
     get() {
-        if (cardPart.value == null) {
-            return '';
-        }
-
-        return cardPart.value.localization.find(
-            l => l.lang === lang.value,
-        )?.name ?? '';
+        return cardPartLocalization.value?.name ?? '';
     },
     set(newValue) {
-        if (cardPart.value == null) {
+        if (cardPartLocalization.value == null) {
             return;
         }
 
-        const localization = cardPart.value.localization.find(
-            l => l.lang === lang.value,
-        );
+        cardPartLocalization.value.name = newValue;
 
-        if (localization == null) {
-            cardPart.value.localization.push({
-                lang: lang.value, name: newValue, typeline: '', text: '', lastDate: releaseDate.value,
-            });
-        } else if (localization.name !== newValue) {
-            localization.name = newValue;
-            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].name`);
-        }
+        cardLocalization.value!.name = cardLocalization.value!.name
+            .split('//')
+            .map((v, i) => i === partIndex.value ? newValue.trim() : v.trim())
+            .join(' // ');
+
+        lockPath(cardPartLocalization, 'name');
     },
 });
 
 const unifiedTypeline = computed({
     get() {
-        if (cardPart.value == null) {
-            return '';
-        }
-
-        return cardPart.value.localization.find(
-            l => l.lang === lang.value,
-        )?.typeline ?? '';
+        return cardPartLocalization.value?.typeline ?? '';
     },
     set(newValue) {
-        if (cardPart.value == null) {
+        if (cardPartLocalization.value == null) {
             return;
         }
 
-        const localization = cardPart.value.localization.find(
-            l => l.lang === lang.value,
-        );
+        cardPartLocalization.value.typeline = newValue;
 
-        if (localization == null) {
-            cardPart.value.localization.push({
-                lang: lang.value, name: '', typeline: newValue, text: '', lastDate: releaseDate.value,
-            });
-        } else if (localization.typeline !== newValue) {
-            localization.typeline = newValue;
-            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].typeline`);
-        }
+        cardLocalization.value!.typeline = cardLocalization.value!.typeline
+            .split('//')
+            .map((v, i) => i === partIndex.value ? newValue.trim() : v.trim())
+            .join(' // ');
+
+        lockPath(cardPartLocalization, 'typeline');
     },
 });
 
 const unifiedText = computed({
     get() {
-        if (cardPart.value == null) {
-            return '';
-        }
-
-        return cardPart.value.localization.find(
-            l => l.lang === lang.value,
-        )?.text ?? '';
+        return cardPartLocalization.value?.text ?? '';
     },
     set(newValue) {
-        if (cardPart.value == null) {
+        if (cardPartLocalization.value == null) {
             return;
         }
 
-        const localization = cardPart.value.localization.find(
-            l => l.lang === lang.value,
-        );
+        cardPartLocalization.value.text = newValue;
 
-        if (localization == null) {
-            cardPart.value.localization.push({
-                lang: lang.value, name: '', typeline: '', text: newValue, lastDate: releaseDate.value,
-            });
-        } else if (localization.text !== newValue) {
-            localization.text = newValue;
-            lockPath(card, `parts[${partIndex.value}].localization[${lang.value}].text`);
-        }
+        cardLocalization.value!.text = cardLocalization.value!.text
+            .split('////////////////////')
+            .map((v, i) => i === partIndex.value ? newValue.trim() : v.trim())
+            .join('\n////////////////////\n');
+
+        lockPath(cardPartLocalization, 'text');
     },
 });
 
@@ -885,6 +833,8 @@ const imageStatus = computed({
 });
 
 const imageStatusOptions = ['highres_scan', 'lowres', 'placeholder', 'missing'];
+
+const fullImageType = computed(() => data.value?.print.fullImageType ?? 'jpg');
 
 // dev only
 const cardTag = (name: string) => computed({
@@ -916,7 +866,7 @@ const printTag = (name: string) => computed({
             return false;
         }
 
-        return (print.value.tags ?? []).includes(`dev:${name}`);
+        return print.value.printTags.includes(`dev:${name}`);
     },
     set(newValue: boolean) {
         if (print.value == null) {
@@ -924,11 +874,11 @@ const printTag = (name: string) => computed({
         }
 
         if (newValue) {
-            if (print.value.tags != null && !print.value.tags.includes(`dev:${name}`)) {
-                print.value.tags.push(`dev:${name}`);
+            if (!print.value.printTags.includes(`dev:${name}`)) {
+                print.value.printTags.push(`dev:${name}`);
             }
         } else {
-            print.value.tags = print.value.tags.filter(v => v !== `dev:${name}`);
+            print.value.printTags = print.value.printTags.filter(v => v !== `dev:${name}`);
         }
     },
 });
@@ -1059,7 +1009,7 @@ const relatedCardsString = computed({
                 .replace(/[^a-z0-9!*+]/g, '_');
 
             if (lang != null) {
-                return { relation, cardId, version: { lang, set, number } };
+                return { relation, cardId, version: { lang: lang as FullLocale, set, number } };
             } else {
                 return { relation, cardId };
             }
@@ -1071,7 +1021,7 @@ const relatedCardsString = computed({
 
 const counters = computed({
     get() { return card.value?.counters ?? []; },
-    set(newValue: string[]) {
+    set(newValue) {
         if (card.value == null) {
             return;
         }
@@ -1080,17 +1030,13 @@ const counters = computed({
 
         devCounter.value = false;
 
-        if (newValue.length === 0) {
-            delete card.value?.counters;
-        } else {
-            card.value.counters = newValue.sort();
-        }
+        card.value.counters = newValue.sort();
     },
 });
 
 const multiverseId = computed({
     get() { return print.value?.multiverseId ?? []; },
-    set(newValue: number[]) {
+    set(newValue) {
         if (print.value != null) {
             print.value.multiverseId = newValue;
         }
@@ -1193,50 +1139,32 @@ const defaultPrettify = () => {
         return;
     }
 
-    for (const [i, p] of card.value!.parts.entries()) {
-        const loc = p.localization.find(l => l.lang === lang.value);
+    cardPartLocalization.value!.typeline = defaultTypelinePrettifier(cardPartLocalization.value!.typeline, lang.value);
+    cardPartLocalization.value!.text = defaultTextPrettifier(cardPartLocalization.value!.text, lang.value, cardPartLocalization.value!.name);
 
-        if (loc != null) {
-            if (i === partIndex.value) {
-                unifiedTypeline.value = defaultTypelinePrettifier(unifiedTypeline.value, lang.value);
-                unifiedText.value = defaultTextPrettifier(unifiedText.value, lang.value, loc.name);
-            } else {
-                loc.typeline = defaultTypelinePrettifier(loc.typeline, lang.value);
-                loc.text = defaultTextPrettifier(loc.text, lang.value, loc.name);
-            }
-        }
-    }
+    printPart.value!.typeline = defaultTypelinePrettifier(printPart.value!.typeline, lang.value);
+    printPart.value!.text = defaultTextPrettifier(printPart.value!.text, lang.value, printPart.value!.flavorName ?? printPart.value!.name);
 
-    for (const [i, p] of print.value!.parts.entries()) {
-        if (i === partIndex.value) {
-            printedTypeline.value = defaultTypelinePrettifier(printedTypeline.value, lang.value);
-            printedText.value = defaultTextPrettifier(printedText.value, lang.value, p.flavorName ?? p.name);
-        } else {
-            p.typeline = defaultTypelinePrettifier(p.typeline, lang.value);
-            p.text = defaultTextPrettifier(p.text, lang.value, p.flavorName ?? p.name);
+    if (printPart.value!.flavorText != null && printPart.value!.flavorText !== '') {
+        if (lang.value === 'zhs' || lang.value === 'zht') {
+            printPart.value!.flavorText = printPart.value!.flavorText
+                .replace(/~/g, '～')
+                .replace(/\.\.\./g, '…')
+                .replace(/」 ?～/g, '」\n～')
+                .replace(/。 ?～/g, '。\n～')
+                .replace(/([，。！？：；]) /g, (m: any, m1: string) => m1);
         }
 
-        if (p.flavorText != null && p.flavorText !== '') {
-            if (lang.value === 'zhs' || lang.value === 'zht') {
-                p.flavorText = p.flavorText
-                    .replace(/~/g, '～')
-                    .replace(/\.\.\./g, '…')
-                    .replace(/」 ?～/g, '」\n～')
-                    .replace(/。 ?～/g, '。\n～')
-                    .replace(/([，。！？：；]) /g, (m: any, m1: string) => m1);
-            }
+        if (lang.value === 'de') {
+            printPart.value!.flavorText = printPart.value!.flavorText
+                .replace(/"/g, '“')
+                .replace(/'/g, '‘');
+        }
 
-            if (lang.value === 'de') {
-                p.flavorText = p.flavorText
-                    .replace(/"/g, '“')
-                    .replace(/'/g, '‘');
-            }
-
-            if (lang.value === 'fr') {
-                p.flavorText = p.flavorText
-                    .replace(/<</g, '«')
-                    .replace(/>>/g, '»');
-            }
+        if (lang.value === 'fr') {
+            printPart.value!.flavorText = printPart.value!.flavorText
+                .replace(/<</g, '«')
+                .replace(/>>/g, '»');
         }
     }
 
@@ -1371,36 +1299,6 @@ const prettify = () => {
 
     defaultPrettify();
 
-    if (data.value.card.parts.length === 2) {
-        const [front, back] = data.value.card.parts;
-
-        for (const [frontLoc, backLoc] of zip(front.localization, back.localization)) {
-            if (frontLoc == null || backLoc == null) {
-                continue;
-            }
-
-            if (frontLoc.name === backLoc.name && frontLoc.name.includes(' // ')) {
-                [frontLoc.name, backLoc.name] = frontLoc.name.split(' // ');
-            }
-
-            if (frontLoc.typeline === backLoc.typeline && frontLoc.typeline.includes(' // ')) {
-                [frontLoc.typeline, backLoc.typeline] = frontLoc.typeline.split(' // ');
-            }
-        }
-    }
-
-    if (data.value.print.parts.length === 2) {
-        const [front, back] = data.value.print.parts;
-
-        if (front.name === back.name && front.name.includes(' // ')) {
-            [front.name, back.name] = front.name.split(' // ');
-        }
-
-        if (front.typeline === back.typeline && front.typeline.includes(' // ')) {
-            [front.typeline, back.typeline] = front.typeline.split(' // ');
-        }
-    }
-
     unifiedText.value = unifiedText.value!
         .replace(new RegExp(parenRegex.source, 'g'), '').trim();
 
@@ -1482,27 +1380,13 @@ const printedOverwriteUnified = () => {
 };
 
 const getLegality = async () => {
-    const { data: result } = await controlGet<Record<string, { reason: string, result: Legality }>>('/magic/card/get-legality', {
-        id: id.value,
-    });
+    const result = await trpc.magic.card.getLegality(id.value);
 
     console.log(result);
 
-    card.value.legalities = mapValues(result, v => v.result);
-};
-
-const extractRulingCards = async () => {
-    const { data: cards } = await controlGet('/magic/card/extract-ruling-cards', {
-        id: id.value,
-    });
-
-    console.log(cards);
-};
-
-(window as any).extract = async (ids: string[]) => {
-    await controlGet('/magic/card/extract-ruling-cards', {
-        id: ids.join(','),
-    });
+    if (card.value != null) {
+        card.value.legalities = mapValues(result, v => v.result);
+    }
 };
 
 type ScanResult = {
@@ -1516,16 +1400,13 @@ const scanCardText = async () => {
         return;
     }
 
-    const { data: result } = await controlGet<ScanResult>('/magic/card/scan-card-text', {
-        id:        id.value,
+    return await trpc.magic.card.scanCardText({
         set:       set.value,
         number:    number.value,
         lang:      lang.value,
         layout:    layout.value,
         partIndex: partIndex.value,
     });
-
-    return result;
 };
 
 const applyScanCardText = (result: ScanResult) => {
@@ -1539,9 +1420,12 @@ const reloadCardImage = async () => {
         return;
     }
 
-    console.log(data.value);
-
-    await controlPost('/magic/image/reload', { id: print.value._id });
+    await trpc.magic.image.reload({
+        cardId: id.value,
+        set:    set.value,
+        number: number.value,
+        lang:   lang.value,
+    });
 
     refreshToken.value = crypto.randomUUID();
 };
@@ -1551,22 +1435,18 @@ const newData = () => {
         return;
     }
 
-    const oldPrint = data.value.print;
+    data.value.__inDatabase = false;
 
-    delete oldPrint._id;
+    data.value.printPart.scryfallIllusId = null;
 
-    for (const p of oldPrint.parts) {
-        delete p.scryfallIllusId;
-    }
-
-    delete oldPrint.scryfall.cardId;
-    oldPrint.scryfall.imageUris = [];
-    delete oldPrint.arenaId;
-    delete oldPrint.mtgoId;
-    delete oldPrint.mtgoFoilId;
-    oldPrint.multiverseId = [];
-    delete oldPrint.tcgPlayerId;
-    delete oldPrint.cardMarketId;
+    data.value.print.scryfallCardId = null;
+    data.value.print.scryfallImageUris = [];
+    data.value.print.arenaId = null;
+    data.value.print.mtgoId = null;
+    data.value.print.mtgoFoilId = null;
+    data.value.print.multiverseId = [];
+    data.value.print.tcgPlayerId = null;
+    data.value.print.cardMarketId = null;
 
     unlock.value = true;
 };
@@ -1592,20 +1472,7 @@ const doUpdate = debounce(
             lang:   lang.value,
         });
 
-        await controlPost('/magic/card/update', {
-            data: card.value,
-        });
-
-        await controlPost('/magic/print/update', {
-            data: print.value,
-        });
-
-        if (dataGroup.value?.method == null || dataGroup.value.method.startsWith('search:')) {
-            await controlPost('/magic/card/update-related', {
-                id:      card.value!.cardId,
-                related: relatedCards.value,
-            });
-        }
+        await trpc.magic.card.update(data.value);
     },
     200,
     {
@@ -1615,16 +1482,17 @@ const doUpdate = debounce(
 );
 
 const loadData = async () => {
-    if (id.value != null && lang.value != null && set.value != null && number.value != null) {
-        const { data: result } = await controlGet<CardEditorView>('/magic/card/raw', {
-            id:     id.value,
-            lang:   lang.value,
-            set:    set.value,
-            number: number.value,
-        });
-
-        data.value = result;
+    if (id.value == null || lang.value == null || set.value == null || number.value == null || partIndex.value == null) {
+        return;
     }
+
+    data.value = await trpc.magic.card.editorView({
+        cardId:    id.value,
+        lang:      lang.value,
+        set:       set.value,
+        number:    number.value,
+        partIndex: partIndex.value,
+    });
 };
 
 onMounted(loadData);
@@ -1636,43 +1504,49 @@ const loadGroup = async (method: string, skip = false) => {
         await (async (time: number) => new Promise(resolve => { setTimeout(resolve, time); }))(100);
     }
 
-    if (dataGroup.value != null && dataGroup.value.method === method && dataGroup.value.cards?.length > 0) {
-        data.value = dataGroup.value.cards.shift();
+    if (dataGroup.value != null && dataGroup.value.method === method && dataGroup.value.result.length > 0) {
+        data.value = dataGroup.value.result.shift();
         dataGroup.value.total -= 1;
         return;
     }
 
-    let request: AxiosResponse<CardGroup>;
-
     const sampleValue = sample.value ? 50 : 1;
 
-    if (method.startsWith('search:')) {
-        request = await controlGet<CardGroup>('/magic/card/search', {
-            'q':         search.value,
-            'sample':    sampleValue,
-            'filter-by': filterBy.value,
-        });
-    } else {
-        request = await controlGet<CardGroup>('/magic/card/need-edit', {
-            method,
-            'lang':      locale.value === '' ? null : locale.value,
-            'sample':    sampleValue,
-            'filter-by': filterBy.value,
-        });
-    }
+    const result: CardGroup = await (async () => {
+        if (method.startsWith('search:')) {
+            const search = await trpc.magic.search.dev({
+                q:        method.slice(7),
+                pageSize: sampleValue,
+                groupBy:  groupBy.value as any,
+            });
 
-    const result = request.data;
+            if (search.result != null) {
+                return {
+                    method: search.method,
+                    ...search.result,
+                };
+            } else {
+                throw new Error('Search failed');
+            }
+        } else {
+            return await trpc.magic.card.needEdit({
+                method: method as any,
+                lang:   locale.value === '' ? undefined : locale.value as FullLocale,
+                sample: sampleValue,
+            });
+        }
+    })();
 
     if (result != null && result.total !== 0) {
         dataGroup.value = result;
-        data.value = dataGroup.value.cards.shift();
+        data.value = dataGroup.value.result.shift();
     } else {
         dataGroup.value = undefined;
         data.value = undefined;
     }
 };
 
-watch([sample, locale, filterBy], () => { dataGroup.value = undefined; });
+watch([sample, locale, groupBy], () => { dataGroup.value = undefined; });
 
 const doSearch = async () => {
     if (search.value === '') {
@@ -1704,60 +1578,56 @@ const guessToken = () => {
         return;
     }
 
-    const relatedCardsCopy = [...relatedCards.value];
+    const text = oracleText.value;
 
-    for (const text of data.value.card.parts.map(p => p.text ?? '')) {
-        for (const m of text.matchAll(guessRegex)) {
-            let tokenId = '';
+    for (const m of text.matchAll(guessRegex)) {
+        let tokenId = '';
 
-            const mp = predefinedCheckRegex.exec(m[0]);
+        const mp = predefinedCheckRegex.exec(m[0]);
 
-            if (mp != null) {
-                if (mp[1] === 'colorless Clue artifact') {
-                    tokenId = 'clue!';
-                } else {
-                    tokenId = `${mp[1].toLowerCase()}!`;
-                }
-            } else if (m[0].includes(' Role ')) {
-                tokenId = `${m[6].toLowerCase().replaceAll(/[ -]/g, '_')}!`;
+        if (mp != null) {
+            if (mp[1] === 'colorless Clue artifact') {
+                tokenId = 'clue!';
             } else {
-                tokenId += m[3].toLowerCase().replaceAll(/[ -]/g, '_');
-                tokenId += `!${colorMap[m[2]]}`;
+                tokenId = `${mp[1].toLowerCase()}!`;
+            }
+        } else if (m[0].includes(' Role ')) {
+            tokenId = `${m[6].toLowerCase().replaceAll(/[ -]/g, '_')}!`;
+        } else {
+            tokenId += m[3].toLowerCase().replaceAll(/[ -]/g, '_');
+            tokenId += `!${colorMap[m[2]]}`;
 
-                if (m[1] == null) {
-                    tokenId += '!**';
-                } else {
-                    tokenId += `!${m[1].split('/').map(v => (v === 'X' ? '*' : v)).join('')}`;
-                }
-
-                if (m[4] != null) {
-                    tokenId += `!${
-                        m[4].split('and')
-                            .map(a => keywordMap[a.trim()] ?? 'a')
-                            .join('')
-                    }`;
-                }
-
-                if (tokenId === 'eldrazi_scion!c!11' || tokenId === 'eldrazi_spawn!c!01') {
-                    tokenId += '!a';
-                }
+            if (m[1] == null) {
+                tokenId += '!**';
+            } else {
+                tokenId += `!${m[1].split('/').map(v => (v === 'X' ? '*' : v)).join('')}`;
             }
 
-            if (relatedCardsCopy.every(r => r.cardId !== tokenId)) {
-                relatedCardsCopy.push({ relation: 'token', cardId: tokenId });
+            if (m[4] != null) {
+                tokenId += `!${
+                    m[4].split('and')
+                        .map(a => keywordMap[a.trim()] ?? 'a')
+                        .join('')
+                }`;
+            }
+
+            if (tokenId === 'eldrazi_scion!c!11' || tokenId === 'eldrazi_spawn!c!01') {
+                tokenId += '!a';
             }
         }
 
-        if (/^(Embalm|Eternalize|Squad|Offspring)/m.test(text)) {
-            relatedCardsCopy.push({ relation: 'token', cardId: `${id.value}!` });
-        }
-
-        if (/\bincubates?\b/i.test(text)) {
-            relatedCardsCopy.push({ relation: 'token', cardId: 'incubator!' });
+        if (relatedCards.value.every(r => r.cardId !== tokenId)) {
+            relatedCards.value.push({ relation: 'token', cardId: tokenId });
         }
     }
 
-    relatedCards.value = relatedCardsCopy;
+    if (/^(Embalm|Eternalize|Squad|Offspring)/m.test(text)) {
+        relatedCards.value.push({ relation: 'token', cardId: `${id.value}!` });
+    }
+
+    if (/\bincubates?\b/i.test(text)) {
+        relatedCards.value.push({ relation: 'token', cardId: 'incubator!' });
+    }
 };
 
 const guessCounter = () => {
@@ -1765,37 +1635,21 @@ const guessCounter = () => {
         return;
     }
 
-    for (const text of data.value.card.parts.map(p => p.text ?? '')) {
-        const matches = text.matchAll(/(\b(?:first|double) strike|\b[a-z!]+|[+-]\d\/[+-]\d) counters?\b/g);
+    const text = oracleText.value;
 
-        counters.value = [
-            ...counters.value,
-            ...[...matches]
-                .map(m => m[1])
-                .map(c => (/^[+-]\d\/[+-]\d$/.test(c)
-                    ? c
-                    : c.toLowerCase().replace(/[^a-z0-9]/g, '_')))
-                .filter(c => !counterBlacklist.includes(c)),
-        ];
-    }
+    const matches = text.matchAll(/(\b(?:first|double) strike|\b[a-z!]+|[+-]\d\/[+-]\d) counters?\b/g);
+
+    counters.value.push(
+        ...[...matches]
+            .map(m => m[1])
+            .map(c => (/^[+-]\d\/[+-]\d$/.test(c)
+                ? c
+                : c.toLowerCase().replace(/[^a-z0-9]/g, '_')))
+            .filter(c => !counterBlacklist.includes(c)),
+    );
 };
 
 const refreshToken = ref('');
-
-const loadGatherer = async () => {
-    if (data.value == null) {
-        return;
-    }
-
-    await controlGet('/magic/print/parse-gatherer', {
-        id:     multiverseId.value.join(','),
-        set:    set.value,
-        number: number.value,
-        lang:   lang.value,
-    });
-
-    refreshToken.value = crypto.randomUUID();
-};
 
 type ParseGatherer = {
     name:        string;
@@ -1804,20 +1658,10 @@ type ParseGatherer = {
     flavorText?: string;
 };
 
-const currentMultiverseId = computed(() => {
-    if (data.value == null) {
-        return undefined;
-    }
-
-    return print.value.multiverseId[partIndex.value] ?? print.value.multiverseId[0];
-});
+const currentMultiverseId = computed(() => print.value?.multiverseId[partIndex.value] ?? undefined);
 
 const parseGatherer = async (mid: number) => {
-    const { data: result } = await controlGet<ParseGatherer>('/magic/data/gatherer/parse-card', {
-        multiverseId: mid,
-    });
-
-    return result;
+    return await trpc.magic.data.gatherer.parseCard(mid);
 };
 
 const parseGathererDefault = async () => {
@@ -1830,7 +1674,11 @@ const parseGathererDefault = async () => {
     return parseGatherer(multiverseId);
 };
 
-const applyParseGatherer = (value: ParseGatherer) => {
+const applyParseGatherer = (value: ParseGatherer | undefined) => {
+    if (value == null) {
+        return;
+    }
+
     printedName.value = value.name;
     printedText.value = value.text;
 };
@@ -1866,7 +1714,7 @@ const cloningTextEnabled = computed(() => {
         return false;
     }
 
-    const { set, number } = print.value;
+    const { set, number } = data.value;
 
     return getOriginalInfo(set, number) != null;
 });
@@ -1879,29 +1727,30 @@ type ParsePlst = {
 
 const getCloningSourceText = async () => {
     if (data.value == null) {
-        return;
+        return undefined;
     }
 
-    const info = getOriginalInfo(print.value.set, print.value.number);
+    const info = getOriginalInfo(data.value.set, data.value.number);
 
     if (info == null) {
-        return;
+        return undefined;
     }
 
     const { set, number } = info;
 
-    const { data: origData } = await controlGet<CardEditorView>('/magic/card/raw', {
-        id:   id.value,
-        lang: 'en',
+    const origData = await trpc.magic.card.editorView({
+        cardId:    id.value,
         set,
         number,
+        lang:      'en',
+        partIndex: partIndex.value,
     });
 
-    if (!origData.print.tags.includes('dev:printed')) {
+    if (!origData.print.printTags.includes('dev:printed')) {
         return {
-            name:     origData.print.parts[partIndex.value].name,
-            typeline: origData.print.parts[partIndex.value].typeline,
-            text:     origData.print.parts[partIndex.value].text,
+            name:     origData.printPart.name,
+            typeline: origData.printPart.typeline,
+            text:     origData.printPart.text,
         };
     }
 
@@ -1919,7 +1768,11 @@ const getCloningSourceText = async () => {
     };
 };
 
-const applyCloningSourceText = (result: ParsePlst) => {
+const applyCloningSourceText = (result: ParsePlst | undefined) => {
+    if (result == null) {
+        return;
+    }
+
     printedName.value = result.name;
 
     if (result.typeline != null) {
@@ -1934,8 +1787,8 @@ const saveGathererImage = async () => {
         return;
     }
 
-    await controlGet('/magic/print/save-gatherer-image', {
-        id:     multiverseId.value.join(','),
+    await trpc.magic.data.gatherer.saveImage({
+        mids:   multiverseId.value,
         set:    set.value,
         number: number.value,
         lang:   lang.value,

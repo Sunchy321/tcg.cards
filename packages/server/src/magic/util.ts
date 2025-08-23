@@ -1,8 +1,8 @@
 import {
     Colors, Legalities as SLegalities, Legality as SLegality, Manas,
-} from '@interface/magic/scryfall/basic';
-import { Legalities } from '@interface/magic/card';
-import { Legality } from '@interface/magic/format-change';
+} from '@model/magic/schema/data/scryfall/basic';
+
+import { Legality, Legalities } from '@model/magic/schema/game-change';
 
 import { toIdentifier } from '@common/util/id';
 
