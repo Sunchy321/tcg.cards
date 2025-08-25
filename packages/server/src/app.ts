@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { poweredBy } from 'hono/powered-by';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
+import { compress } from '@hono/bun-compress';
 import { cors } from 'hono/cors';
 import { prometheus } from '@hono/prometheus';
 
@@ -30,6 +31,7 @@ const app = new Hono<HonoEnv>({
 app.use(poweredBy());
 app.use(logger());
 app.use(prettyJSON({ space: 4 }));
+app.use(compress());
 
 app.use(
     '*',

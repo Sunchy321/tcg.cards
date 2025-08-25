@@ -144,7 +144,7 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const value = await trpc.magic.search({
+    const value = await trpc.magic.search.basic({
         q:        q.value,
         lang:     game.locale,
         page:     page.value,

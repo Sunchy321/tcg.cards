@@ -344,7 +344,11 @@ export default defineServerModel({
             const countResult = await db
                 .select({ count: groupByCount })
                 .from(CardEntityView)
-                .where(query);
+                .where(and(
+                    eq(CardEntityView.isLatest, true),
+                    eq(CardEntityView.lang, lang),
+                    query,
+                ));
 
             const total = Number(countResult[0]?.count || 0);
 

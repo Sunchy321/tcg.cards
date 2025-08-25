@@ -52,7 +52,7 @@ import hearthstoneSetup from 'setup/hearthstone';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/hearthstone/CardImage.vue';
-import RichText from 'src/components/hearthstone/RichText.vue';
+import RichText from 'components/hearthstone/RichText.vue';
 
 import { SearchResult } from '@model/hearthstone/schema/search';
 

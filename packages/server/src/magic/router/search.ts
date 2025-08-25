@@ -57,7 +57,7 @@ const dev = os
     });
 
 export const searchTrpc = {
-    '': basic,
+    basic,
     dev,
 };
 

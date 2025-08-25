@@ -72,6 +72,7 @@
         "typescript-eslint": "^8.26.1"
     },
     "dependencies": {
+        "@hono/bun-compress": "^0.1.0",
         "@hono/prometheus": "^1.0.2",
         "@hono/zod-validator": "^0.7.2",
         "@koa/cors": "^3.1.0",
