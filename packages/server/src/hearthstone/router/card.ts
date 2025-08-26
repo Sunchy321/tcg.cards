@@ -15,7 +15,12 @@ import { cardProfile } from '@model/hearthstone/schema/card';
 import { cardEntityView, cardFullView } from '@model/hearthstone/schema/entity';
 
 const random = os
-    .input(z.void())
+    .route({
+        method:      'GET',
+        description: 'Get random card ID',
+        tags:        ['Magic', 'Card'],
+    })
+    .input(z.any())
     .output(z.string())
     .handler(async () => {
         const cards = await db.select({ cardId: Card.cardId }).from(Card);
@@ -234,6 +239,7 @@ export const cardTrpc = {
 
 export const cardApi = {
     '': summary,
+    random,
     full,
     diff,
 };

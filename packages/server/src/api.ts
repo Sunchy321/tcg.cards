@@ -12,7 +12,10 @@ import z from 'zod';
 import { games } from '@model/schema';
 
 import { magicApi } from '@/magic/router';
+import { ptcgApi } from './ptcg/router';
+import { yugiohApi } from '@/yugioh/router';
 import { hearthstoneApi } from '@/hearthstone/router';
+import { lorcanaApi } from '@/lorcana/router';
 
 const root = os
     .route({
@@ -26,7 +29,10 @@ const root = os
 const router = {
     '':            root,
     'magic':       magicApi,
+    'ptcg':        ptcgApi,
+    'yugioh':      yugiohApi,
     'hearthstone': hearthstoneApi,
+    'lorcana':     lorcanaApi,
 };
 
 const handler = new OpenAPIHandler(router, {

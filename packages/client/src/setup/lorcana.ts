@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 export default function lorcanaSetup(): {
     search: () => void;
@@ -22,16 +22,12 @@ export default function lorcanaSetup(): {
     };
 
     const random = async () => {
-        const { data: id } = await apiGet<string>('/lorcana/card/random', {
-            q: core.search,
-        });
+        const id = await trpc.lorcana.card.random();
 
-        if (id !== '') {
-            void router.push({
-                name:   'lorcana/card',
-                params: { id },
-            });
-        }
+        router.push({
+            name:   'lorcana/card',
+            params: { id },
+        });
     };
 
     return {

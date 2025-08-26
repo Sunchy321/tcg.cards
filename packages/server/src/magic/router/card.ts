@@ -25,7 +25,12 @@ import { commaRegex, parenRegex } from '@static/magic/special';
 import openai from '@/ai';
 
 const random = os
-    .input(z.void())
+    .route({
+        method:      'GET',
+        description: 'Get random card ID',
+        tags:        ['Magic', 'Card'],
+    })
+    .input(z.any())
     .output(z.string())
     .handler(async () => {
         const cards = await db.select({ cardId: Card.cardId }).from(Card);
@@ -484,4 +489,5 @@ export const cardTrpc = {
 
 export const cardApi = {
     '': summary,
+    random,
 };

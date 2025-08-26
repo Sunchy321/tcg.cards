@@ -379,7 +379,7 @@ import { copyToClipboard } from 'quasar';
 
 import { parenRegex, commaRegex } from '@static/magic/special';
 
-import { trpc } from '@/trpc';
+import { trpc } from 'src/trpc';
 
 type CardGroup = {
     method: string;

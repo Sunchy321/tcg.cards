@@ -1,7 +1,7 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 export default function yugiohSetup(): {
     search: () => void;
@@ -22,16 +22,12 @@ export default function yugiohSetup(): {
     };
 
     const random = async () => {
-        const { data: id } = await apiGet<string>('/yugioh/card/random', {
-            q: core.search,
-        });
+        const id = await trpc.yugioh.card.random();
 
-        if (id !== '') {
-            void router.push({
-                name:   'yugioh/card',
-                params: { id },
-            });
-        }
+        router.push({
+            name:   'yugioh/card',
+            params: { id },
+        });
     };
 
     return {

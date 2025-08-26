@@ -2,21 +2,27 @@ import { Hono } from 'hono';
 
 import { HonoEnv } from './hono-env';
 
-import { magicSSE, magicTrpc } from '@/magic/router';
-import { hearthstoneSSE, hearthstoneTrpc } from '@/hearthstone/router';
+import { RPCHandler } from '@orpc/server/fetch';
+import { BatchHandlerPlugin } from '@orpc/server/plugins';
 
 import { auth } from './auth';
 
 import { Game, games } from '@model/schema';
 
-import { RPCHandler } from '@orpc/server/fetch';
-import { BatchHandlerPlugin } from '@orpc/server/plugins';
+import { magicSSE, magicTrpc } from '@/magic/router';
+import { ptcgTrpc } from './ptcg/router';
+import { yugiohTrpc } from './yugioh/router';
+import { hearthstoneSSE, hearthstoneTrpc } from '@/hearthstone/router';
+import { lorcanaTrpc } from './lorcana/router';
 
 const AUTH_PREFIX = '/api/auth';
 
-export const trpc = {
+const trpc = {
     magic:       magicTrpc,
+    ptcg:        ptcgTrpc,
+    yugioh:      yugiohTrpc,
     hearthstone: hearthstoneTrpc,
+    lorcana:     lorcanaTrpc,
 };
 
 export type TRPC = typeof trpc;
