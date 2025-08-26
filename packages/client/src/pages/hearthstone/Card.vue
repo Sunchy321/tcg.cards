@@ -222,7 +222,7 @@ const versionInfos = computed(() => versions.value.map(v => {
 }));
 
 const lang = computed({
-    get() { return data.value?.lang ?? route.query.lang as string ?? game.locale; },
+    get() { return route.query.lang as string ?? game.locale; },
     set(newValue: string) {
         void router.replace({
             query: {
