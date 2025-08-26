@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { updation } from '../../basic';
 import { fullImageType, fullLocale, layout, rarity } from './basic';
-import { cardSchema as card, cardView } from './card';
+import { card as card, cardView } from './card';
 
 export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
 export const borderColor = z.enum(['black', 'borderless', 'gold', 'silver', 'white', 'yellow']);

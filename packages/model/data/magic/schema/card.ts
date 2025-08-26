@@ -16,60 +16,60 @@ export const category = z.enum([
 
 export type Category = z.infer<typeof category>;
 
-export const cardSchema = z.strictObject({
-    cardId:    z.string().meta({ primary: true }),
-    lang:      z.string().meta({ foreign: true }),
-    partIndex: z.int().meta({ foreign: true, type: 'small-int' }),
+export const card = z.strictObject({
+    cardId:    z.string(),
+    lang:      z.string(),
+    partIndex: z.int(),
 
-    partCount: z.int().meta({ type: 'small-int' }),
+    partCount: z.int(),
 
     name:     z.string(),
     typeline: z.string(),
     text:     z.string(),
 
     localization: z.strictObject({
-        name:     z.string().meta({ colName: 'loc_name' }),
-        typeline: z.string().meta({ colName: 'loc_typeline' }),
-        text:     z.string().meta({ colName: 'loc_text' }),
+        name:     z.string(),
+        typeline: z.string(),
+        text:     z.string(),
     }).array(),
 
     manaValue:     z.number(),
-    colorIdentity: z.string().meta({ type: 'bitset', map: 'WUBRGPO' }),
+    colorIdentity: z.string(),
 
     part: z.strictObject({
-        name:     z.string().meta({ colName: 'part_name' }),
-        typeline: z.string().meta({ colName: 'part_typeline' }),
-        text:     z.string().meta({ colName: 'part_text' }),
+        name:     z.string(),
+        typeline: z.string(),
+        text:     z.string(),
 
         cost:           z.array(z.string()).nullable(),
-        manaValue:      z.number().meta({ colName: 'part_mana_value' }).nullable(),
-        color:          z.string().meta({ type: 'bitset', map: 'WUBRGPO' }).nullable(),
-        colorIndicator: z.string().meta({ type: 'bitset', map: 'WUBRGPO' }).nullable(),
+        manaValue:      z.number().nullable(),
+        color:          z.string().nullable(),
+        colorIndicator: z.string().nullable(),
 
-        typeSuper: z.array(z.string()).meta({ type: 'set' }).nullable(),
-        typeMain:  z.array(z.string()).meta({ type: 'set' }),
-        typeSub:   z.array(z.string()).meta({ type: 'set' }).nullable(),
+        typeSuper: z.array(z.string()).nullable(),
+        typeMain:  z.array(z.string()),
+        typeSub:   z.array(z.string()).nullable(),
 
-        power:        z.string().meta({ type: 'numeric' }).nullable(),
-        toughness:    z.string().meta({ type: 'numeric' }).nullable(),
-        loyalty:      z.string().meta({ type: 'numeric' }).nullable(),
-        defense:      z.string().meta({ type: 'numeric' }).nullable(),
+        power:        z.string().nullable(),
+        toughness:    z.string().nullable(),
+        loyalty:      z.string().nullable(),
+        defense:      z.string().nullable(),
         handModifier: z.string().nullable(),
         lifeModifier: z.string().nullable(),
     }).array(),
 
     partLocalization: z.strictObject({
-        name:       z.string().meta({ colName: 'part_loc_name' }),
-        typeline:   z.string().meta({ colName: 'part_loc_typeline' }),
-        text:       z.string().meta({ colName: 'part_loc_text' }),
+        name:       z.string(),
+        typeline:   z.string(),
+        text:       z.string(),
         __lastDate: z.string(),
     }).array(),
 
-    keywords:       z.array(z.string()).meta({ type: 'set' }),
-    counters:       z.array(z.string()).meta({ type: 'set' }),
-    producibleMana: z.string().meta({ type: 'bitset', map: 'WUBRGC' }).nullable(),
+    keywords:       z.array(z.string()),
+    counters:       z.array(z.string()),
+    producibleMana: z.string().nullable(),
 
-    tags: z.array(z.string()).meta({ type: 'set' }),
+    tags: z.array(z.string()),
 
     category: category,
 
@@ -77,21 +77,13 @@ export const cardSchema = z.strictObject({
 
     contentWarning: z.boolean().nullable(),
 
-    scryfallOracleId: z.array(z.string().meta({ type: 'uuid' })),
+    scryfallOracleId: z.array(z.string()),
 });
 
-export const cardModel = cardSchema.extend({
-    localization:     cardSchema.shape.cardId.meta({ primaryKey: ['cardId', 'lang'] }),
-    part:             cardSchema.shape.part.meta({ primaryKey: ['cardId', 'partIndex'] }),
-    partLocalization: cardSchema.shape.partLocalization.meta({ primaryKey: ['cardId', 'lang', 'partIndex'] }),
-}).meta({
-    primaryKey: ['cardId'],
-});
-
-export const cardView = cardSchema.extend({
-    localization:     cardSchema.shape.localization.element,
-    part:             cardSchema.shape.part.element,
-    partLocalization: cardSchema.shape.partLocalization.element,
+export const cardView = card.extend({
+    localization:     card.shape.localization.element,
+    part:             card.shape.part.element,
+    partLocalization: card.shape.partLocalization.element,
 });
 
 export const cardProfile = z.strictObject({
@@ -113,6 +105,6 @@ export const cardProfile = z.strictObject({
     }).array(),
 });
 
-export type Card = z.infer<typeof cardSchema>;
+export type Card = z.infer<typeof card>;
 export type CardView = z.infer<typeof cardView>;
 export type CardProfile = z.infer<typeof cardProfile>;
