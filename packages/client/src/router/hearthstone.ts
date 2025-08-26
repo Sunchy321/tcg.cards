@@ -9,11 +9,6 @@ const routes: RouteRecordRaw[] = [
         component: async () => import('layouts/Main.vue'),
         children:  [
             {
-                path:      'entity/:id',
-                name:      'hearthstone/entity',
-                component: async () => import('pages/hearthstone/Entity.vue'),
-            },
-            {
                 path:      'log-parse',
                 name:      'hearthstone/log-parse',
                 component: async () => import('pages/hearthstone/LogParse.vue'),
