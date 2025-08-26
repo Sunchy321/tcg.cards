@@ -24,9 +24,9 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGame } from 'src/stores/games/hearthstone';
 
-import { Entity } from '@interface/hearthstone/entity';
+import { CardEntityView } from '@model/hearthstone/schema/entity';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 const mercenariesPreset = [
     'BARL_002H_01',
@@ -165,12 +165,13 @@ const game = useGame();
 
 const input = ref('');
 
-const getData = async (name: string, id: string): Promise<Entity | Entity[]> => {
+const getData = async (name: string, id: string): Promise<CardEntityView | CardEntityView[]> => {
     name = name.trim();
 
     if (name.startsWith('!') || name.includes('_')) {
-        const { data } = await apiGet<Entity>('/hearthstone/entity', {
-            id:      name.replace(/^!/, '').trim(),
+        const data = await trpc.hearthstone.card.summary({
+            cardId:  name.replace(/^!/, '').trim(),
+            lang:    game.locale,
             version: props.version,
         });
 
@@ -178,16 +179,18 @@ const getData = async (name: string, id: string): Promise<Entity | Entity[]> => 
     }
 
     if (name === '') {
-        const { data } = await apiGet<Entity>('/hearthstone/entity', {
-            id,
+        const data = await trpc.hearthstone.card.summary({
+            cardId:  id,
+            lang:    game.locale,
             version: props.version,
         });
 
         return data;
     }
 
-    let { data } = await apiGet<Entity[]>('/hearthstone/entity/name', {
+    let data = await trpc.hearthstone.card.summaryByName({
         name:    name.replace(/’/g, '\''),
+        lang:    game.locale,
         version: props.version,
     });
 
@@ -227,15 +230,8 @@ const search = async () => {
         return;
     }
 
-    const { locale, locales } = game;
-    const defaultLocale = locales[0];
-
-    const loc = data.localization.find(l => l.lang === locale)
-      ?? data.localization.find(l => l.lang === defaultLocale)
-      ?? data.localization[0];
-
     if (data != null) {
-        input.value = loc.name;
+        input.value = data.localization.name;
         model.value = data.cardId;
     }
 };

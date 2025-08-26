@@ -139,7 +139,7 @@
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
                     </template>
                     <template #summary="{ value: b }">
-                        <entity-input
+                        <CardInput
                             v-model="b.id"
                             class="col-grow q-mr-sm"
                             :format="c.format"
@@ -224,7 +224,7 @@
                         <div v-if="a.related != null && a.related.length > 0" class="flex items-center q-mt-sm">
                             <q-icon name="mdi-cards-outline" size="sm" />
 
-                            <entity-input
+                            <CardInput
                                 v-for="(r, i) in a.related" :key="i"
                                 class="col-grow q-ml-sm"
                                 :format="c.format"
@@ -240,7 +240,7 @@
                                         @click="a.related.splice(i, 1)"
                                     />
                                 </template>
-                            </entity-input>
+                            </CardInput>
                         </div>
                     </template>
                 </list>
@@ -262,7 +262,7 @@ import controlSetup from 'setup/control';
 import List from 'components/List.vue';
 import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
-import EntityInput from 'components/hearthstone/data/EntityInput.vue';
+import CardInput from 'src/components/hearthstone/data/CardInput.vue';
 
 import { Entity } from '@interface/hearthstone/entity';
 import { FormatAnnouncement } from '@interface/hearthstone/format-change';

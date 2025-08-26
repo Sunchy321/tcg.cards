@@ -98,47 +98,6 @@ router.get('/', async ctx => {
     };
 });
 
-router.get('/name', async ctx => {
-    const { name, version: versionText, lang } = mapValues(ctx.query, toSingle);
-
-    if (name == null || lang == null) {
-        ctx.status = 400;
-        return;
-    }
-
-    const version = versionText != null ? Number.parseInt(versionText, 10) : null;
-
-    if (versionText != null && Number.isNaN(version)) {
-        ctx.status = 400;
-        return;
-    }
-
-    const query: any = { 'localization.name': name, 'type': { $ne: 'enchantment' } };
-
-    if (version != null) {
-        query.version = version;
-    }
-
-    const entities = await db.select()
-        .from(EntityView)
-        .where(and(
-            eq(EntityView.lang, lang),
-            ...(version != null ? [eq(sql`any(${Entity.version})`, version)] : []),
-            eq(EntityView.localization.name, name),
-        )) as (Omit<IEntity, 'localization'> & { localization: IEntity['localization'][0] })[];
-
-    ctx.body = Object.values(groupBy(entities, e => e.cardId))
-        .map(group => {
-            const entities = version != null ? group.filter(e => e.version.includes(version)) : group;
-            const entity = entities[0];
-
-            return {
-                entity,
-                versions: group.map(e => e.version.sort((a, b) => a - b)),
-            };
-        });
-});
-
 router.get('/random', async ctx => {
     const cardIds = await db.selectDistinct({ cardId: Entity.cardId })
         .from(Entity)

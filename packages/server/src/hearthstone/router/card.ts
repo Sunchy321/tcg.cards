@@ -33,8 +33,7 @@ const summary = os
     .input(z.object({
         cardId:  z.string().describe('Card ID'),
         lang:    locale.default('en').describe('Language'),
-        version: z.preprocess(val => val ? Number.parseInt(val as string, 0) : undefined, z.int().positive().optional())
-            .describe('Card version'),
+        version: z.int().min(0).optional().describe('Version'),
     }))
     .output(cardEntityView)
     .handler(async ({ input }) => {
@@ -55,6 +54,31 @@ const summary = os
         }
 
         return card;
+    });
+
+const summaryByName = os
+    .input(z.object({
+        name:    z.string(),
+        lang:    locale.default('en'),
+        version: z.int().min(0).optional(),
+    }))
+    .output(cardEntityView.array())
+    .handler(async ({ input }) => {
+        const { name, lang, version } = input;
+
+        const cards = await db.select().from(CardEntityView)
+            .where(and(
+                eq(CardEntityView.localization.name, name),
+                eq(CardEntityView.lang, lang),
+                ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
+            ))
+            .orderBy(desc(CardEntityView.version));
+
+        if (cards.length == 0) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        return cards;
     });
 
 const full = os
@@ -202,6 +226,8 @@ const diff = os
 
 export const cardTrpc = {
     random,
+    summary,
+    summaryByName,
     full,
     profile,
 };
