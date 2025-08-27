@@ -150,13 +150,7 @@ const changePage = (newPage: number) => {
     }
 };
 
-const cardLink = (game: Game, cardId: string) => {
-    if (game === 'hearthstone') {
-        return `/${game}/entity/${cardId}`;
-    } else {
-        return `/${game}/card/${cardId}`;
-    }
-};
+const cardLink = (game: Game, cardId: string) => `/${game}/card/${cardId}`;
 
 watch([q, page, pageSize], doSearch, { immediate: true });
 </script>
