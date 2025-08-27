@@ -150,6 +150,10 @@ const menu = computed(() => {
     const result: Menu[] = [];
 
     function insert(menuToInsert: Menu[], item: RuleSummaryItem, depth: number) {
+        if (item.text == null) {
+            return;
+        }
+
         if (depth === 0) {
             menuToInsert.push({ id: item.itemId, label: item.text! });
         } else {
@@ -256,6 +260,10 @@ const loadChapter = async () => {
         from,
         to,
     });
+
+    await nextTick();
+
+    scrollIntoItem();
 };
 
 const scrollIntoItem = async () => {
