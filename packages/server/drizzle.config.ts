@@ -8,7 +8,7 @@ configDotenv();
 export default defineConfig({
     dialect:      'postgresql',
     schema:       ['./src/*/schema/*.ts', './src/auth/schema.ts'],
-    schemaFilter: ['public', ...games],
+    schemaFilter: ['public', 'omnisearch', ...games],
     casing:       'snake_case',
 
     dbCredentials: {

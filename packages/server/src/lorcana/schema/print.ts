@@ -4,10 +4,12 @@ import { schema } from './schema';
 
 import { Layout, Rarity } from '@model/lorcana/schema/basic';
 
+import { locale } from './card';
+
 export const Print = schema.table('prints', {
     cardId: text('card_id').notNull(),
 
-    lang:   text('lang').notNull(),
+    lang:   locale('lang').notNull(),
     set:    text('set').notNull(),
     number: text('number').notNull(),
 

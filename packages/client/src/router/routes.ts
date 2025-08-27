@@ -4,7 +4,7 @@ import { capitalize } from 'lodash';
 
 import { games } from '@interface/index';
 
-const gameRoutes = import.meta.glob<true, undefined, RouteRecordRaw[]>(
+const gameRoutes = import.meta.glob<true, string, RouteRecordRaw[]>(
     ['./*.ts', '!./route.ts', '!./index.ts'],
     { eager: true, import: 'default' },
 );
@@ -53,11 +53,11 @@ const routes: RouteRecordRaw[] = [
         path:      '/main',
         component: async () => import('layouts/Main.vue'),
         children:  [
-            // {
-            //     path:      '/search',
-            //     name:      'integrated/search',
-            //     component: async () => import('pages/integrated/Search.vue'),
-            // },
+            {
+                path:      '/search',
+                name:      'omnisearch',
+                component: async () => import('pages/omnisearch/Search.vue'),
+            },
             {
                 path: '/data',
                 name: 'main/data',
@@ -71,20 +71,14 @@ const routes: RouteRecordRaw[] = [
     },
 
     {
-        path:      '/integrated',
+        path:      '/omnisearch',
         component: async () => import('layouts/Main.vue'),
         children:  [
             {
-                path:      '/search',
-                name:      'integrated/search',
-                component: async () => import('pages/integrated/Search.vue'),
+                path:      '',
+                name:      'omnisearch',
+                component: async () => import('pages/omnisearch/Search.vue'),
             },
-            {
-                path:      '/data',
-                name:      'integrated/data',
-                component: async () => import('pages/integrated/Data.vue'),
-            },
-
         ],
     },
 

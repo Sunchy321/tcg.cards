@@ -27,7 +27,7 @@ function generateApi(games: readonly string[]) {
 
     source.addImportDeclaration({
         leadingTrivia:   writer => writer.newLine(),
-        moduleSpecifier: `@/integrated/router/api`,
+        moduleSpecifier: '@/omnisearch/router/api',
         defaultImport:   'integrated',
     });
 
@@ -77,7 +77,7 @@ function generateApi(games: readonly string[]) {
 
     source.addStatements(writer => {
         writer.newLine();
-        writer.writeLine(`router.use(integrated.routes());`);
+        writer.writeLine('router.use(integrated.routes());');
     });
 
     for (const [i, g] of games.entries()) {

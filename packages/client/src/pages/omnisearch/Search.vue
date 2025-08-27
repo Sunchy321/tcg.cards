@@ -19,7 +19,7 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ game, cardId, localization }"
+                v-slot="{ game, cardId, lang }"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
@@ -31,7 +31,7 @@
                     <card-image
                         :game="game"
                         :card-id="cardId"
-                        :lang="localization.lang"
+                        :lang="lang"
                     />
                 </router-link>
             </grid>
@@ -45,52 +45,25 @@ import { ref, computed, watch } from 'vue';
 import { useCore, useParam, useTitle } from 'store/core';
 import { useI18n } from 'vue-i18n';
 
-import integratedSetup from 'setup/integrated';
+import omnisearchSetup from 'src/setup/omnisearch';
 
 import Grid from 'components/Grid.vue';
 import CardImage from 'components/CardImage.vue';
 
 import { Game } from '@interface/index';
-import { Card } from '@interface/integrated/card';
 
-import model from '@search-data/integrated/client';
+import { SearchResult } from '@model/omnisearch/schema/search';
 
-import { apiGet } from 'boot/server';
+import model from 'src/search/omnisearch';
 
-interface QueryParam {
-    type:  'regex' | 'string';
-    value: string;
-}
-
-interface QueryItem {
-    type:  string;
-    op:    string;
-    param: QueryParam;
-}
-
-type QueryCard = Omit<Card, 'localization'> & {
-    localization: Card['localization'][0];
-};
-
-interface QueryResult {
-    total: number;
-    cards: QueryCard[];
-}
-
-interface SearchResult {
-    text:     string;
-    commands: QueryItem[];
-    queries:  any[];
-    errors:   { type: string, value: string, query?: string }[];
-    result:   QueryResult | null;
-}
+import { trpc } from 'src/trpc';
 
 const core = useCore();
 const i18n = useI18n();
 
-const { search } = integratedSetup();
+const { search } = omnisearchSetup();
 
-const data = ref<SearchResult | null>(null);
+const data = ref<SearchResult>();
 const searching = ref(false);
 
 useTitle(() => i18n.t('ui.search'));
@@ -131,7 +104,7 @@ const explained = computed(() => model.explain(q.value, (key: string, named) => 
     let realKey: string;
 
     if (key.startsWith('$.')) {
-        realKey = `integrated.search.${key.slice(2)}`;
+        realKey = `omnisearch.search.${key.slice(2)}`;
     } else {
         realKey = `search.${key}`;
     }
@@ -143,7 +116,7 @@ const explained = computed(() => model.explain(q.value, (key: string, named) => 
     }
 }));
 
-const cards = computed(() => data.value?.result?.cards ?? []);
+const cards = computed(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
@@ -157,9 +130,9 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const { data: result } = await apiGet<SearchResult>('/integrated/search', {
+    const result = await trpc.omni.search({
         q:        q.value,
-        locale:   core.locale,
+        lang:     core.locale,
         page:     page.value,
         pageSize: pageSize.value,
     });

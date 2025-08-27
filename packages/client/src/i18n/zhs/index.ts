@@ -123,7 +123,7 @@ export default {
         },
     },
 
-    integrated: gameI18n['./integrated/index.ts'],
+    omnisearch: gameI18n['./omnisearch/index.ts'],
 
     ...Object.fromEntries(games.map(g => [g, gameI18n[`./${g}/index.ts`]])),
 };

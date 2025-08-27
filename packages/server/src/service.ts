@@ -9,15 +9,17 @@ import { auth } from './auth';
 
 import { Game, games } from '@model/schema';
 
+import { omniTrpc } from '@/omnisearch/router';
 import { magicSSE, magicTrpc } from '@/magic/router';
-import { ptcgTrpc } from './ptcg/router';
-import { yugiohTrpc } from './yugioh/router';
+import { ptcgTrpc } from '@/ptcg/router';
+import { yugiohTrpc } from '@/yugioh/router';
 import { hearthstoneSSE, hearthstoneTrpc } from '@/hearthstone/router';
-import { lorcanaTrpc } from './lorcana/router';
+import { lorcanaTrpc } from '@/lorcana/router';
 
 const AUTH_PREFIX = '/api/auth';
 
 const trpc = {
+    omni:        omniTrpc,
     magic:       magicTrpc,
     ptcg:        ptcgTrpc,
     yugioh:      yugiohTrpc,

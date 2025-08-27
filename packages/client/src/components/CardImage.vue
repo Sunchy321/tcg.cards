@@ -3,34 +3,31 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, watch } from 'vue';
+import { Component, h, ref, watch } from 'vue';
 
 import { useGame } from 'src/stores/games';
 
-import { Game, games } from '@interface/index';
+import { Game, games } from '@model/schema';
 
 import { QInnerLoading } from 'quasar';
 
-import { last, mapValues } from 'lodash';
-import { defineAsyncComponent } from 'vue';
+import { CardProfile as MagicCardProfile } from '@model/magic/schema/card';
+
+import { last } from 'lodash';
 
 import sorter from '@common/util/sorter';
+import { trpc } from 'src/trpc';
 
-const imageComponents = import.meta.glob('./*/CardImage.vue');
-
-const profiles = import.meta.glob('/src/common/*/card.ts', { import: 'default' });
-
-import hearthstoneEntityProfile from 'src/common/hearthstone/entity';
+const imageComponents = import.meta.glob<Component>('./*/CardImage.vue', {
+    eager:  true,
+    import: 'default',
+});
 
 const props = defineProps<{
     game:   Game;
     cardId: string;
     lang:   string;
 }>();
-
-const componentMap = mapValues(imageComponents, promise => {
-    return defineAsyncComponent(promise);
-});
 
 const profile = ref<any>();
 
@@ -39,17 +36,11 @@ watch(props, async () => {
         profile.value = undefined;
     }
 
-    if (props.game === 'hearthstone') {
-        hearthstoneEntityProfile.get(props.cardId, (v: any) => { profile.value = v; });
-    } else {
-        const profileEntry = await profiles[`/src/common/${props.game}/card.ts`]() as any;
-
-        profileEntry.get(props.cardId, (v: any) => { profile.value = v; });
-    }
+    profile.value = await trpc[props.game].card.profile(props.cardId);
 }, { immediate: true });
 
 const render = () => {
-    const component = componentMap[`./${props.game}/CardImage.vue`];
+    const component = imageComponents[`./${props.game}/CardImage.vue`];
 
     const game = useGame(props.game)();
 
@@ -61,11 +52,11 @@ const render = () => {
 
     switch (props.game) {
     case 'hearthstone':
-        return h(component, { id: props.cardId, lang: props.lang, version: last(profile.value.versions[0]) });
+        return h(component, { id: props.cardId, lang: props.lang, version: last(profile.value.version[0]) });
     case 'yugioh':
         return h(component, { cardId: props.cardId, lang: props.lang, passcode: profile.value.passcode });
     case 'magic': {
-        const versions = profile.value.versions;
+        const versions = (profile.value as MagicCardProfile).versions;
 
         let availVersion = versions.filter(v => v.lang === props.lang);
 
@@ -83,7 +74,13 @@ const render = () => {
 
         const version = availVersion.sort(sorter.pick<any, 'releaseDate'>('releaseDate', sorter.string))[0];
 
-        return h(component, { lang: version.lang, set: version.set, number: version.number, layout: version.layout });
+        return h(component, {
+            lang:          version.lang,
+            set:           version.set,
+            number:        version.number,
+            layout:        version.layout,
+            fullImageType: version.fullImageType,
+        });
     }
     }
 };

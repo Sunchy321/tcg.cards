@@ -1,6 +1,6 @@
-import model from '@search-data/integrated/server';
+import model from '@search-data/lorcana/server';
 
-import Card from '@/integrated/db/card';
+import Card from '@/omnisearch/db/card';
 
 const search = model.bind(Card);
 

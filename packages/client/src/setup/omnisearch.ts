@@ -1,9 +1,9 @@
 import { useRouter } from 'vue-router';
 import { useCore } from 'store/core';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
-export default function integratedSetup(): {
+export default function omnisearchSetup(): {
     search: () => void;
     random: () => Promise<void>;
 } {
@@ -15,23 +15,19 @@ export default function integratedSetup(): {
 
         if (searchText !== '') {
             void router.push({
-                name:  'integrated/search',
+                name:  'omnisearch',
                 query: { q: searchText },
             });
         }
     };
 
     const random = async () => {
-        const { data } = await apiGet<{ game: string, id: string }>('/integrated/card/random', {
-            q: core.search,
-        });
+        const data = await trpc.omni.random();
 
-        if (data.id !== '') {
-            void router.push({
-                name:   `${data.game}/card`,
-                params: { id: data.id },
-            });
-        }
+        void router.push({
+            name:   `${data.game}/card`,
+            params: { id: data.cardId },
+        });
     };
 
     return {

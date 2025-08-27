@@ -1,6 +1,9 @@
 import { integer, jsonb, primaryKey, text } from 'drizzle-orm/pg-core';
+import { eq, getTableColumns } from 'drizzle-orm';
 
 import { schema } from './schema';
+
+import _ from 'lodash';
 
 import { Updation } from '@model/basic';
 
@@ -56,3 +59,18 @@ export const CardLocalization = schema.table('card_localizations', {
 }, table => [
     primaryKey({ columns: [table.cardId, table.lang] }),
 ]);
+
+export const CardView = schema.view('card_view').as(qb => {
+    return qb.select({
+        cardId: Card.cardId,
+        lang:   CardLocalization.lang,
+
+        ..._.omit(getTableColumns(Card), ['cardId', '__lockedPaths', '__updations']),
+
+        localization: {
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang', '__lockedPaths', '__updations']),
+        },
+    })
+        .from(Card)
+        .innerJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId));
+});

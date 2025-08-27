@@ -48,18 +48,18 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCore, useTitle } from 'store/core';
 
-import integratedSetup from 'src/setup/integrated';
+import omnisearchSetup from 'src/setup/omnisearch';
 
 import SearchInput from 'components/SearchInput.vue';
 
 import { games } from '@interface/index';
 
-import model from '@search-data/integrated/client';
+import model from 'src/search/omnisearch';
 
 const core = useCore();
 const i18n = useI18n();
 
-const { search } = integratedSetup();
+const { search } = omnisearchSetup();
 
 useTitle('TCG Card Database');
 

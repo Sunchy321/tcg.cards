@@ -11,6 +11,7 @@ import z from 'zod';
 
 import { games } from '@model/schema';
 
+import { omniApi } from '@/omnisearch/router';
 import { magicApi } from '@/magic/router';
 import { ptcgApi } from './ptcg/router';
 import { yugiohApi } from '@/yugioh/router';
@@ -20,6 +21,7 @@ import { lorcanaApi } from '@/lorcana/router';
 const root = os
     .route({
         method:      'GET',
+        tags:        ['Default'],
         description: 'List all games',
     })
     .input(z.any())
@@ -28,6 +30,7 @@ const root = os
 
 const router = {
     '':            root,
+    'omni':        omniApi,
     'magic':       magicApi,
     'ptcg':        ptcgApi,
     'yugioh':      yugiohApi,
