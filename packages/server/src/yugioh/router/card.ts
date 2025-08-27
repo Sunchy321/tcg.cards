@@ -1,10 +1,15 @@
-import { os } from '@orpc/server';
+import { ORPCError, os } from '@orpc/server';
 
 import _ from 'lodash';
 import z from 'zod';
 
+import { eq } from 'drizzle-orm';
+
+import { cardProfile } from '@model/yugioh/schema/card';
+
 import { db } from '@/drizzle';
-import { Card } from '@/yugioh/schema/card';
+import { Card, CardLocalization } from '../schema/card';
+import { Print } from '../schema/print';
 
 const random = os
     .route({
@@ -21,8 +26,44 @@ const random = os
         return cardId;
     });
 
+const profile = os
+    .input(z.string())
+    .output(cardProfile)
+    .handler(async ({ input }) => {
+        const cardId = input;
+
+        const card = await db.select().from(Card)
+            .where(eq(Card.cardId, cardId))
+            .limit(1)
+            .then(rows => rows[0]);
+
+        if (card == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const cardLocalizations = await db.select({
+            lang: CardLocalization.lang,
+            name: CardLocalization.name,
+        }).from(CardLocalization).where(eq(CardLocalization.cardId, cardId));
+
+        const versions = await db.select({
+            lang:   Print.lang,
+            set:    Print.set,
+            number: Print.number,
+            rarity: Print.rarity,
+        }).from(Print).where(eq(Print.cardId, cardId));
+
+        return {
+            cardId,
+            localization: cardLocalizations,
+            passcode:     card.passcode,
+            versions,
+        };
+    });
+
 export const cardTrpc = {
     random,
+    profile,
 };
 
 export const cardApi = {

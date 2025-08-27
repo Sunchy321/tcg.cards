@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './format-change';
-import { category, color, locale, mainType } from './basic';
+import { category, color, layout, locale, mainType, rarity } from './basic';
 
 export const card = z.strictObject({
     cardId: z.string(),
@@ -37,6 +37,24 @@ export const card = z.strictObject({
 
     category:   category,
     legalities: z.record(z.string(), legality),
+});
+
+export const cardProfile = z.strictObject({
+    cardId: z.string(),
+
+    localization: z.strictObject({
+        lang: locale,
+        name: z.string(),
+    }).array(),
+
+    versions: z.strictObject({
+        set:         z.string(),
+        number:      z.string(),
+        lang:        locale,
+        rarity:      rarity,
+        layout:      layout,
+        releaseDate: z.string(),
+    }).array(),
 });
 
 export type Card = z.infer<typeof card>;

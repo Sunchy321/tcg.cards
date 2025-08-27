@@ -1,10 +1,15 @@
-import { os } from '@orpc/server';
+import { ORPCError, os } from '@orpc/server';
 
 import _ from 'lodash';
 import z from 'zod';
 
+import { eq } from 'drizzle-orm';
+
+import { cardProfile } from '@model/lorcana/schema/card';
+
 import { db } from '@/drizzle';
-import { Card } from '@/lorcana/schema/card';
+import { Card, CardLocalization } from '../schema/card';
+import { Print } from '../schema/print';
 
 const random = os
     .route({
@@ -21,8 +26,40 @@ const random = os
         return cardId;
     });
 
+const profile = os
+    .input(z.string())
+    .output(cardProfile)
+    .handler(async ({ input }) => {
+        const cardId = input;
+
+        const cardLocalizations = await db.select({
+            lang: CardLocalization.lang,
+            name: CardLocalization.name,
+        }).from(CardLocalization).where(eq(CardLocalization.cardId, cardId));
+
+        if (cardLocalizations.length === 0) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const versions = await db.select({
+            lang:        Print.lang,
+            set:         Print.set,
+            number:      Print.number,
+            rarity:      Print.rarity,
+            layout:      Print.layout,
+            releaseDate: Print.releaseDate,
+        }).from(Print).where(eq(Print.cardId, cardId));
+
+        return {
+            cardId,
+            localization: cardLocalizations,
+            versions,
+        };
+    });
+
 export const cardTrpc = {
     random,
+    profile,
 };
 
 export const cardApi = {

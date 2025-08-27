@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { attribute, fullLocale, layout } from './basic';
+import { attribute, fullLocale } from './basic';
 import { legality } from './game-change';
 
 export const category = z.enum(['normal']);
@@ -57,13 +57,13 @@ export const cardProfile = z.strictObject({
         name: z.string(),
     }).array(),
 
+    passcode: z.number().positive().nullable(),
+
     versions: z.strictObject({
-        lang:        fullLocale,
-        set:         z.string(),
-        number:      z.string(),
-        rarity:      z.string(),
-        layout,
-        releaseDate: z.string(),
+        lang:   fullLocale,
+        set:    z.string(),
+        number: z.string(),
+        rarity: z.string(),
     }).array(),
 });
 

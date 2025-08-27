@@ -15,8 +15,16 @@ const random = os
         throw new ORPCError('NOT_IMPLEMENTED');
     });
 
+const profile = os
+    .input(z.string())
+    .output(z.any())
+    .handler(async () => {
+        throw new ORPCError('NOT_IMPLEMENTED');
+    });
+
 export const cardTrpc = {
     random,
+    profile,
 };
 
 export const cardApi = {
