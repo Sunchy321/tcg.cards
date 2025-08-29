@@ -41,12 +41,7 @@ export const cardPrintView = z.object({
     lang:   print.shape.lang,
 
     card: card.omit({
-        cardId:           true,
-        lang:             true,
-        partIndex:        true,
-        localization:     true,
-        part:             true,
-        partLocalization: true,
+        cardId: true,
     }),
 
     cardLocalization: cardLocalization.omit({
@@ -55,12 +50,10 @@ export const cardPrintView = z.object({
     }),
 
     print: print.omit({
-        cardId:    true,
-        set:       true,
-        number:    true,
-        lang:      true,
-        partIndex: true,
-        part:      true,
+        cardId: true,
+        set:    true,
+        number: true,
+        lang:   true,
     }),
 });
 

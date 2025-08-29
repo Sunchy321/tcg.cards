@@ -1,5 +1,5 @@
 import { EntityView } from '@model/hearthstone/schema/entity';
-import { FormatChange as IFormatChange } from '@model/hearthstone/schema/format-change';
+import { Adjustment } from '@model/hearthstone/schema/game-change';
 
 import { ITag } from '../hsdata';
 
@@ -73,7 +73,7 @@ export type ApolloJson = {
 export function intoApolloJson(
     entity: EntityApolloClip,
     tagMap: TagMap,
-    adjustment?: Required<IFormatChange>['adjustment'][0]['detail'],
+    adjustment?: Adjustment[],
     variant: Variant = 'normal',
 ): ApolloJson {
     const id = entity.cardId;

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './format-change';
-import { category, color, layout, locale, mainType, rarity } from './basic';
+import { category, color, layout, locale, rarity } from './basic';
 
 export const card = z.strictObject({
     cardId: z.string(),
@@ -30,6 +30,7 @@ export const card = z.strictObject({
 });
 
 export const cardLocalization = z.strictObject({
+    cardId:     z.string(),
     lang:       locale,
     name:       z.string(),
     typeline:   z.string(),

@@ -1,9 +1,4 @@
-import Task from '@/common/task';
-
-import Entity from '@/hearthstone/db/entity';
-
 import fs from 'fs';
-import git, { ResetMode } from 'simple-git';
 
 import { join } from 'path';
 
@@ -54,13 +49,6 @@ interface IDbfCardFile {
     };
     m_Name:  'CARD';
     Records: IDbfCard[];
-}
-
-interface IDisplayTextStatus {
-    method: 'get';
-    type:   'display-text';
-    count:  number;
-    total:  number;
 }
 
 export enum TextBuilderType {
@@ -286,58 +274,4 @@ export function getDbfCardFile(): IDbfCardFile {
     const version = versions.sort((a, b) => (a > b ? -1 : a < b ? 1 : 0))[0];
 
     return JSON.parse(fs.readFileSync(join(dbfPath, version, 'CARD.json')).toString()) as IDbfCardFile;
-}
-
-export class DisplayTextLoader extends Task<IDisplayTextStatus> {
-    async startImpl(): Promise<void> {
-        const repo = git({
-            baseDir:  hsdataPath,
-            progress: p => {
-                this.emit('progress', { type: 'git', ...p });
-            },
-        });
-
-        await repo.reset(ResetMode.HARD, ['HEAD']);
-
-        const strings = getLangStrings();
-        const fileJson = getDbfCardFile();
-
-        let count = 0;
-        const total = await Entity.estimatedDocumentCount({});
-
-        this.intervalProgress(500, () => ({
-            method: 'get',
-            type:   'display-text',
-            count,
-            total,
-        }));
-
-        for await (const e of Entity.find()) {
-            if (this.status === 'idle') {
-                return;
-            }
-
-            const json = fileJson.Records.find(r => r.m_ID === e.dbfId);
-
-            for (const l of e.localization) {
-                const text = l.richText.replace(/[$#](\d+)/g, (_, m) => m);
-
-                l.displayText = getDisplayText(
-                    text,
-                    json?.m_cardTextBuilderType ?? TextBuilderType.default,
-                    e.cardId,
-                    e.mechanics,
-                    strings[l.lang],
-                );
-
-                l.text = l.displayText.replace(/<\/?.>|\[.\]/g, '');
-            }
-
-            await e.save();
-
-            count += 1;
-        }
-    }
-
-    stopImpl(): void { /* no-op */ }
 }
