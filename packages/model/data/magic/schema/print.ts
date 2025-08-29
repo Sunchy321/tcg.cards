@@ -69,7 +69,7 @@ export const print = z.strictObject({
 
     previewDate:   z.iso.date().nullable(),
     previewSource: z.string().nullable(),
-    previewUri:    z.url().nullable(),
+    previewUri:    z.string().nullable(),
 
     printTags: z.string().array(),
 
