@@ -12,7 +12,7 @@
                 flat round dense
             />
             <q-btn
-                v-if="isAdmin"
+                v-if="editorEnabled"
                 :to="editorLink"
                 icon="mdi-file-edit"
                 flat round dense
@@ -40,12 +40,11 @@ import { useRoute } from 'vue-router';
 import { useTitle } from 'store/core';
 import { useGame } from 'store/games/hearthstone';
 
-import basicSetup from 'setup/basic';
-
 import { Set as ISet } from '@interface/hearthstone/set';
 
 import setProfile from 'src/common/hearthstone/set';
 import { apiGet, apiBase } from 'boot/server';
+import { auth, checkAdmin } from 'src/auth';
 
 type Set = Omit<ISet, 'localization'> & {
     localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
@@ -53,10 +52,13 @@ type Set = Omit<ISet, 'localization'> & {
 
 const route = useRoute();
 const game = useGame();
+const session = auth.useSession();
 
-const { isAdmin } = basicSetup();
+const editorEnabled = computed(() => {
+    return checkAdmin(session.value, 'admin/magic');
+});
 
-const data = ref<Set | null>(null);
+const data = ref<Set>();
 
 const id = computed(() => route.params.id as string);
 

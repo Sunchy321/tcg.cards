@@ -1,29 +1,18 @@
 import { z } from 'zod';
 
-import { locale, rarity } from './basic';
-
 export const setLocalization = z.strictObject({
     lang: z.string(),
-    name: z.string().nullable(),
-    link: z.string().nullable(),
+    name: z.string(),
 });
 
 export const set = z.strictObject({
     setId: z.string(),
 
-    block:  z.string().nullable(),
-    parent: z.string().nullable(),
+    dbfId: z.number().nullable(),
 
-    printedSize: z.int().nullable(),
-    cardCount:   z.int(),
-    langs:       locale.array(),
-    rarities:    rarity.array(),
-
-    localization: setLocalization.array(),
-
-    type: z.string(),
-
-    releaseDate: z.string().nullable(),
+    type:        z.string(),
+    releaseDate: z.string(),
+    cardCount:   z.tuple([z.number(), z.number()]),
 });
 
 export const setProfile = set.pick({
