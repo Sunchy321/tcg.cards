@@ -6,6 +6,7 @@ import { schema } from './schema';
 import _ from 'lodash';
 
 import { Updation } from '@model/basic';
+import { Card as ICard } from '@model/yugioh/schema/card';
 
 import * as basicModel from '@model/yugioh/schema/basic';
 import * as cardModel from '@model/yugioh/schema/card';
@@ -24,7 +25,7 @@ export const Card = schema.table('cards', {
     level:              integer('level'),
     rank:               integer('rank'),
     linkValue:          integer('link_value'),
-    linkMarkers:        text('link_markers').array(),
+    linkMarkers:        integer('link_markers').array(),
     attack:             text('attack'),
     defense:            text('defense'),
     race:               text('race'),
@@ -34,7 +35,7 @@ export const Card = schema.table('cards', {
     tags: text('tags').array().notNull().default([]),
 
     category:   category('category').notNull(),
-    legalities: jsonb('legalities').notNull().default({}),
+    legalities: jsonb('legalities').$type<ICard['legalities']>().notNull().default({}),
 
     konamiId: integer('konami_id'),
     passcode: integer('passcode'),

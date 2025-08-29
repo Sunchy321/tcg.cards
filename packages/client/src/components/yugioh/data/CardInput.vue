@@ -24,9 +24,9 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGame } from 'src/stores/games/yugioh';
 
-import { Card } from '@interface/yugioh/card';
+import { CardView } from '@model/yugioh/schema/card';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 const model = defineModel<string>({ required: true });
 
@@ -35,25 +35,26 @@ const game = useGame();
 
 const input = ref('');
 
-const getData = async (name: string, id: string): Promise<Card | Card[]> => {
+const getData = async (name: string, id: string): Promise<CardView | CardView[]> => {
     name = name.trim();
 
     if (name.startsWith('!') || name.includes('_')) {
-        const { data } = await apiGet<Card>('/yugioh/card', {
-            id: name.replace(/^!/, '').trim(),
+        return await trpc.yugioh.card.summary({
+            cardId: name.replace(/^!/, '').trim(),
+            lang:   game.locale,
         });
-
-        return data;
     }
 
     if (name === '') {
-        const { data } = await apiGet<Card>('/yugioh/card', { id });
-
-        return data;
+        return await trpc.yugioh.card.summary({
+            cardId: id,
+            lang:   game.locale,
+        });
     }
 
-    let { data } = await apiGet<Card[]>('/yugioh/card/name', {
+    const data = await trpc.yugioh.card.summaryByName({
         name: name.replace(/’/g, '\'').replace(/^"(.*)"$/, (_, m1) => m1),
+        lang: game.locale,
     });
 
     if (data.length === 1) {
@@ -76,15 +77,8 @@ const search = async () => {
         return;
     }
 
-    const { locale, locales } = game;
-    const defaultLocale = locales[0];
-
-    const loc = data.localization.find(l => l.lang === locale)
-      ?? data.localization.find(l => l.lang === defaultLocale)
-      ?? data.localization[0];
-
     if (data != null) {
-        input.value = loc.name;
+        input.value = data.localization.name;
         model.value = data.cardId;
     }
 };

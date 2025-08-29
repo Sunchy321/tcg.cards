@@ -1,8 +1,8 @@
 import z from 'zod';
 
-import { legality } from './format-change';
+import { legality } from './game-change';
 
-export const formatSchema = z.strictObject({
+export const format = z.strictObject({
     formatId: z.string(),
 
     localization: z.strictObject({
@@ -23,4 +23,4 @@ export const formatSchema = z.strictObject({
     deathdate: z.string().nullable(),
 });
 
-export type Format = z.infer<typeof formatSchema>;
+export type Format = z.infer<typeof format>;

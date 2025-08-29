@@ -24,8 +24,8 @@ export const card = z.strictObject({
     rank:               z.int().nonnegative().nullable(),
     linkValue:          z.int().nonnegative().nullable(),
     linkMarkers:        z.int().nonnegative().array().nullable(),
-    attack:             z.string(),
-    defense:            z.string(),
+    attack:             z.string().nullable(),
+    defense:            z.string().nullable(),
     race:               z.string().nullable(),
     leftPendulumScale:  z.int().nonnegative().nullable(),
     rightPendulumScale: z.int().nonnegative().nullable(),
@@ -39,14 +39,10 @@ export const card = z.strictObject({
     passcode: z.int().positive().nullable(),
 });
 
-export const cardModel = card.extend({
-    localization: card.shape.cardId,
-}).meta({
-    primaryKey: ['cardId'],
-});
-
 export const cardView = card.extend({
-    localization: card.shape.localization.element,
+    lang: card.shape.localization.element.shape.lang,
+
+    localization: card.shape.localization.element.omit({ lang: true }),
 });
 
 export const cardProfile = z.strictObject({

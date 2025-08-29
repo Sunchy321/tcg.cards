@@ -5,7 +5,6 @@ export const gameChangeType = z.enum([
     'set_change',
     'rule_change',
     'format_death',
-
     'card_adjustment',
 ]);
 

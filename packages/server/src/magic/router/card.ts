@@ -46,13 +46,13 @@ const summary = os
         tags:        ['Magic', 'Card'],
     })
     .input(z.object({
-        id:        z.string().describe('Card ID'),
+        cardId:    z.string().describe('Card ID'),
         lang:      fullLocale.default('en').describe('Language of the card'),
         partIndex: z.int().min(0).default(0).describe('Part index of the card, if it has multiple parts (e.g. split cards)'),
     }))
     .output(cardView)
     .handler(async ({ input }) => {
-        const { id: cardId, lang, partIndex } = input;
+        const { cardId, lang, partIndex } = input;
 
         const view = await db.select()
             .from(CardView)

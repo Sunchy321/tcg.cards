@@ -3,12 +3,13 @@ import { ORPCError, os } from '@orpc/server';
 import _ from 'lodash';
 import z from 'zod';
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
-import { cardProfile } from '@model/yugioh/schema/card';
+import { locale } from '@model/yugioh/schema/basic';
+import { cardProfile, cardView } from '@model/yugioh/schema/card';
 
 import { db } from '@/drizzle';
-import { Card, CardLocalization } from '../schema/card';
+import { Card, CardLocalization, CardView } from '../schema/card';
 import { Print } from '../schema/print';
 
 const random = os
@@ -24,6 +25,57 @@ const random = os
         const cardId = cards[_.random(0, cards.length - 1)].cardId;
 
         return cardId;
+    });
+
+const summary = os
+    .route({
+        method:      'GET',
+        description: 'Get card by ID',
+        tags:        ['Yugioh', 'Card'],
+    })
+    .input(z.object({
+        cardId: z.string().describe('Card ID'),
+        lang:   locale.default('en').describe('Language of the card'),
+    }))
+    .output(cardView)
+    .handler(async ({ input }) => {
+        const { cardId, lang } = input;
+
+        const view = await db.select()
+            .from(CardView)
+            .where(and(
+                eq(CardView.cardId, cardId),
+                eq(CardView.lang, lang),
+            ))
+            .then(rows => rows[0]);
+
+        if (view == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        return view;
+    });
+
+const summaryByName = os
+    .input(z.object({
+        name: z.string(),
+        lang: locale.default('en'),
+    }))
+    .output(cardView.array())
+    .handler(async ({ input }) => {
+        const { name, lang } = input;
+
+        const cards = await db.select().from(CardView)
+            .where(and(
+                eq(CardView.localization.name, name),
+                eq(CardView.lang, lang),
+            ));
+
+        if (cards.length == 0) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        return cards;
     });
 
 const profile = os
@@ -63,9 +115,12 @@ const profile = os
 
 export const cardTrpc = {
     random,
+    summary,
+    summaryByName,
     profile,
 };
 
 export const cardApi = {
+    '': summary,
     random,
 };

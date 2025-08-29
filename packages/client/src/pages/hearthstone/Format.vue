@@ -48,39 +48,39 @@
 
                 <grid
                     v-if="n.sets.length > 0"
-                    v-slot="{ id, status }"
+                    v-slot="{ setId, status }"
                     :value="n.sets" :item-width="300" item-class="flex items-center"
                 >
                     <div class="sets flex items-center q-gutter-sm">
                         <q-icon
-                            :name="status === 'in' ? 'mdi-plus' : 'mdi-minus'"
-                            :class="status === 'in' ? 'color-positive' : 'color-negative'"
+                            :name="status === 'legal' ? 'mdi-plus' : 'mdi-minus'"
+                            :class="status === 'legal' ? 'color-positive' : 'color-negative'"
                         />
-                        <set-avatar :id="id" />
+                        <set-avatar :id="setId" />
                     </div>
                 </grid>
 
                 <grid
                     v-if="n.banlist.length>0"
-                    v-slot="{ id, status, group }"
-                    :value="n.banlist" :item-width="300" item-key="id" item-class="flex items-center"
+                    v-slot="{ cardId, status, group }"
+                    :value="n.banlist" :item-width="300" item-key="cardId" item-class="flex items-center"
                 >
                     <div class="banlist flex items-center q-gutter-sm">
                         <status-icon :status="status" />
-                        <card-avatar class="avatar" :card-id="id" :format="format" :version="n.version" />
+                        <card-avatar class="avatar" :card-id="cardId" :format="format" :version="n.version" />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
                 </grid>
 
                 <grid
                     v-if="n.adjustment.length>0"
-                    v-slot="{ id, status, adjustment, group }"
-                    :value="n.adjustment" :item-width="400" item-key="id" item-class="flex items-center"
+                    v-slot="{ cardId, status, adjustment, group }"
+                    :value="n.adjustment" :item-width="400" item-key="cardId" item-class="flex items-center"
                 >
                     <div class="adjustment flex items-center">
                         <card-adjustment
                             class="avatar"
-                            :card-id="id"
+                            :card-id="cardId"
                             :status="status"
                             :format="format"
                             :version="n.version"
@@ -127,14 +127,14 @@
 
             <grid
                 v-if="banlist.length > 0"
-                v-slot="{ id, status, date: effectiveDate, group, link }"
-                :value="banlist" :item-width="300" item-key="id" item-class="flex items-center"
+                v-slot="{ cardId, status, date: effectiveDate, group, link }"
+                :value="banlist" :item-width="300" item-key="cardId" item-class="flex items-center"
             >
                 <div class="banlist flex items-center q-gutter-sm">
                     <status-icon :status="status" />
                     <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                     <div v-else class="date">{{ effectiveDate }}</div>
-                    <card-avatar class="avatar" :card-id="id" :format="format" />
+                    <card-avatar class="avatar" :card-id="cardId" :format="format" />
                     <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                 </div>
             </grid>
@@ -158,18 +158,18 @@ import CardAdjustment from 'components/hearthstone/CardAdjustment.vue';
 import StatusIcon from 'components/hearthstone/StatusIcon.vue';
 import SetAvatar from 'components/hearthstone/SetAvatar.vue';
 
-import { Format } from '@interface/hearthstone/format';
-import { FormatChange, Legality, Adjustment } from '@interface/hearthstone/format-change';
+import { Format } from '@model/hearthstone/schema/format';
+import { FormatChange, Legality, AdjustmentType } from '@model/hearthstone/schema/game-change';
 
 import { last, uniq } from 'lodash';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 interface BanlistItem {
     date: string;
     link: string[];
 
-    id:     string;
+    cardId: string;
     status: Legality;
     group?: string;
 }
@@ -181,16 +181,16 @@ interface TimelineNode {
     lastVersion?: number;
     link:         string[];
 
-    sets:    { id: string, status: 'in' | 'out' }[];
-    banlist: { id: string, status: Legality, group?: string }[];
+    sets:    { setId: string, status: 'legal' | 'unavailable' }[];
+    banlist: { cardId: string, status: Legality, group?: string }[];
 
     adjustment: {
-        id:         string;
-        status:     Adjustment;
+        cardId:     string;
+        status:     AdjustmentType;
         group?:     string;
         adjustment: {
-            id?:    string;
-            detail: { part: string, status: Adjustment }[];
+            cardId?: string | undefined;
+            detail:  { part: string, status: AdjustmentType }[];
         }[];
     }[];
 }
@@ -203,7 +203,7 @@ const adjustmentStatusOrder = ['nerf', 'buff', 'adjust'];
 const game = useGame();
 const i18n = useI18n();
 
-useTitle(() => i18n.t('hearthstone.formar.$self'));
+useTitle(() => i18n.t('hearthstone.format.$self'));
 
 const formats = computed(() => game.formats);
 
@@ -234,7 +234,7 @@ const order = useParam('order', {
     values: ['name', 'date'] as const,
 });
 
-const data = ref<Format | null>(null);
+const data = ref<Format>();
 const changes = ref<FormatChange[]>([]);
 
 const orderOptions = ['name', 'date'].map(v => ({
@@ -271,7 +271,7 @@ const nodes = computed(() => {
                     date:        c.date,
                     name:        c.name,
                     version:     c.version,
-                    lastVersion: c.lastVersion,
+                    lastVersion: c.lastVersion ?? undefined,
                     link:        c.link ?? [],
                     sets:        [],
                     banlist:     [],
@@ -282,20 +282,20 @@ const nodes = computed(() => {
             }
         })();
 
-        if (c.type === 'set') {
-            node.sets.push({ id: c.id, status: c.status as 'in' | 'out' });
-        } else if (c.type === 'banlist') {
+        if (c.type === 'set_change') {
+            node.sets.push({ setId: c.setId!, status: c.status as 'legal' | 'unavailable' });
+        } else if (c.type === 'card_change') {
             node.banlist.push({
-                id:     c.id,
+                cardId: c.cardId!,
                 status: c.status as Legality,
-                group:  c.group,
+                group:  c.group ?? undefined,
             });
         } else {
             node.adjustment.push({
-                id:         c.id,
-                status:     c.status as Adjustment,
+                cardId:     c.cardId!,
+                status:     c.status as AdjustmentType,
                 adjustment: c.adjustment ?? [],
-                group:      c.group,
+                group:      c.group ?? undefined,
             });
         }
     }
@@ -305,9 +305,9 @@ const nodes = computed(() => {
 
         v.sets.sort((a, b) => {
             if (a.status !== b.status) {
-                return a.status === 'in' ? -1 : 1;
+                return a.status === 'legal' ? -1 : 1;
             } else {
-                return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+                return a.setId < b.setId ? -1 : a.setId > b.setId ? 1 : 0;
             }
         });
 
@@ -316,7 +316,7 @@ const nodes = computed(() => {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
             } else {
-                return a.id < b.id ? -1 : 1;
+                return a.cardId < b.cardId ? -1 : 1;
             }
         });
 
@@ -325,7 +325,7 @@ const nodes = computed(() => {
                 return adjustmentStatusOrder.indexOf(a.status)
                   - adjustmentStatusOrder.indexOf(b.status);
             } else {
-                return a.id < b.id ? -1 : 1;
+                return a.cardId < b.cardId ? -1 : 1;
             }
         });
     }
@@ -337,15 +337,15 @@ const sets = computed(() => {
     let result: string[] = [];
 
     for (const c of changes.value) {
-        if (c.type === 'set') {
+        if (c.type === 'set_change') {
             if (c.date > date.value) {
                 break;
             }
 
-            if (c.status === 'in') {
-                result.push(c.id);
+            if (c.status === 'legal') {
+                result.push(c.setId!);
             } else {
-                result = result.filter(s => s !== c.id);
+                result = result.filter(s => s !== c.setId);
             }
         }
     }
@@ -358,22 +358,22 @@ const banlist = computed(() => {
         let result: BanlistItem[] = [];
 
         for (const c of changes.value) {
-            if (c.type === 'banlist') {
+            if (c.type === 'card_change') {
                 if (c.date > date.value) {
                     break;
                 }
 
                 if (c.status === 'legal' || c.status === 'unavailable') {
-                    result = result.filter(v => v.id !== c.id);
+                    result = result.filter(v => v.cardId !== c.cardId);
                 } else {
-                    const sameIndex = result.findIndex(b => b.id === c.id);
+                    const sameIndex = result.findIndex(b => b.cardId === c.cardId);
 
                     const value: BanlistItem = {
                         date:   c.date,
                         link:   c.link ?? [],
-                        id:     c.id,
+                        cardId: c.cardId!,
                         status: c.status as Legality,
-                        group:  c.group,
+                        group:  c.group ?? undefined,
                     };
 
                     if (sameIndex === -1) {
@@ -398,7 +398,7 @@ const banlist = computed(() => {
                 return banlistSourceOrder.indexOf(a.group ?? null)
                   - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
-                return a.id < b.id ? -1 : 1;
+                return a.cardId < b.cardId ? -1 : 1;
             }
         });
         break;
@@ -417,7 +417,7 @@ const banlist = computed(() => {
                 return banlistSourceOrder.indexOf(a.group ?? null)
                   - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
-                return a.id < b.id ? -1 : 1;
+                return a.cardId < b.cardId ? -1 : 1;
             }
         });
         break;
@@ -434,13 +434,13 @@ const timelineEvents = computed(() => {
         const v = result.find(r => r.date === c.date);
 
         if (v != null) {
-            if (c.type === 'set') {
+            if (c.type === 'set_change') {
                 v.color = 'cyan';
             }
         } else {
             result.push({
                 date:  c.date,
-                color: c.type === 'set' ? 'cyan' : 'orange',
+                color: c.type === 'set_change' ? 'cyan' : 'orange',
             });
         }
     }
@@ -449,17 +449,13 @@ const timelineEvents = computed(() => {
 });
 
 const loadData = async () => {
-    const { data: formatResult } = await apiGet<Format>('/hearthstone/format', {
-        id: format.value,
+    data.value = await trpc.hearthstone.format.full({
+        formatId: format.value,
     });
 
-    data.value = formatResult;
-
-    const { data: changesResult } = await apiGet<FormatChange[]>('/hearthstone/format/changes', {
-        id: format.value,
+    changes.value = await trpc.hearthstone.format.changes({
+        formatId: format.value,
     });
-
-    changes.value = changesResult;
 };
 
 const groupShort = (group: string) => {

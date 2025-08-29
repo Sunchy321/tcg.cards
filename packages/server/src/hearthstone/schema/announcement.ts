@@ -3,38 +3,31 @@ import { eq, sql } from 'drizzle-orm';
 
 import { schema } from './schema';
 
-import { Adjustment as IAdjustment, GameChange as IGameChange } from '@model/hearthstone/schema/game-change';
+import { Adjustment } from '@model/hearthstone/schema/game-change';
+import { AnnouncementItem as IAnnouncementItem } from '@model/hearthstone/schema/announcement';
 
 import * as gameChangeModel from '@model/hearthstone/schema/game-change';
 
-export const GameChangeType = schema.enum('game_change_type', gameChangeModel.gameChangeType.enum);
-export const Legality = schema.enum('legality', gameChangeModel.legality.enum);
-export const Status = schema.enum('status', gameChangeModel.status.enum);
+export const gameChangeType = schema.enum('game_change_type', gameChangeModel.gameChangeType.enum);
+export const legality = schema.enum('legality', gameChangeModel.legality.enum);
+export const status = schema.enum('status', gameChangeModel.status.enum);
 
-export const GameChange = schema.table('game_changes', {
+export const AnnouncementItem = schema.table('announcement_items', {
     id:             uuid('id').primaryKey().defaultRandom(),
     announcementId: uuid('announcement_id').notNull(),
 
-    type:          GameChangeType('type').notNull(),
+    type:          gameChangeType('type').notNull(),
     effectiveDate: text('effective_date'),
-    range:         text('range').array(),
+    format:        text('format'),
 
     cardId: text('card_id'),
     setId:  text('set_id'),
     ruleId: text('rule_id'),
 
-    status: Status('status'),
+    status: status('status'),
 
-    adjustments: jsonb('adjustments').$type<IAdjustment[]>().array(),
-
+    adjustment:   jsonb('adjustment').$type<Adjustment[]>(),
     relatedCards: text('related_cards').array(),
-});
-
-export const GameChangeRuleText = schema.table('game_change_rule_texts', {
-    id:   uuid('id').primaryKey().defaultRandom(),
-    lang: text('lang').notNull(),
-
-    text: text('text').notNull(),
 });
 
 export const Announcement = schema.table('announcements', {
@@ -60,18 +53,19 @@ export const AnnouncementView = schema.view('announcement_view').as(qb => {
             version:       Announcement.version,
             lastVersion:   Announcement.lastVersion,
 
-            changes: sql<IGameChange[]>`jsonb_agg(jsonb_build_object(
-                'type', ${GameChange.type},
-                'effectiveDate', ${GameChange.effectiveDate},
-                'range', ${GameChange.range},
-                'cardId', ${GameChange.cardId},
-                'setId', ${GameChange.setId},
-                'ruleId', ${GameChange.ruleId},
-                'status', ${GameChange.status},
-                'adjustments', ${GameChange.adjustments}
+            changes: sql<IAnnouncementItem[]>`jsonb_agg(jsonb_build_object(
+                'type', ${AnnouncementItem.type},
+                'effectiveDate', ${AnnouncementItem.effectiveDate},
+                'format', ${AnnouncementItem.format},
+                'cardId', ${AnnouncementItem.cardId},
+                'setId', ${AnnouncementItem.setId},
+                'ruleId', ${AnnouncementItem.ruleId},
+                'status', ${AnnouncementItem.status},
+                'adjustment', ${AnnouncementItem.adjustment},
+                'relatedCards', ${AnnouncementItem.relatedCards}
             ))`.as('changes'),
         })
         .from(Announcement)
-        .leftJoin(GameChange, eq(Announcement.id, GameChange.announcementId))
+        .leftJoin(AnnouncementItem, eq(Announcement.id, AnnouncementItem.announcementId))
         .groupBy(Announcement.id);
 });
