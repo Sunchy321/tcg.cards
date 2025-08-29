@@ -151,8 +151,8 @@ const doSearch = async () => {
         pageSize: pageSize.value,
     });
 
-    if (value?.text === q.value) {
-        data.value = value as any;
+    if (value.text === q.value) {
+        data.value = value;
 
         searching.value = false;
     }

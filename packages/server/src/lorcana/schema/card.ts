@@ -7,7 +7,7 @@ import _ from 'lodash';
 
 import { Updation } from '@model/basic';
 import { Card as ICard } from '@model/lorcana/schema/card';
-import { Color, MainType, Category } from '@model/lorcana/schema/basic';
+import { Color, Category } from '@model/lorcana/schema/basic';
 
 import * as basicModel from '@model/lorcana/schema/basic';
 
@@ -25,7 +25,8 @@ export const Card = schema.table('cards', {
     typeline: text('typeline').notNull(),
     text:     text('text').notNull(),
 
-    type: jsonb('type').$type<{ main: MainType, sub?: string[] }>().notNull(),
+    typeMain: text('type_main').notNull(),
+    typeSub:  text('type_sub').array(),
 
     lore:      integer('lore'),
     strength:  integer('strength'),
@@ -36,6 +37,9 @@ export const Card = schema.table('cards', {
 
     category:   jsonb('category').$type<Category>().notNull(),
     legalities: jsonb('legalities').$type<ICard['legalities']>().notNull().default({}),
+
+    __lockedPaths: text('card_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('card_updations').$type<Updation[]>().notNull().default([]),
 });
 
 export const CardLocalization = schema.table('card_localizations', {

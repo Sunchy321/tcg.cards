@@ -1,9 +1,12 @@
 import { cardApi, cardTrpc } from './card';
+import { searchApi, searchTrpc } from '../schema/search';
 
 export const lorcanaTrpc = {
-    card: cardTrpc,
+    card:   cardTrpc,
+    search: searchTrpc,
 };
 
 export const lorcanaApi = {
-    card: cardApi,
+    card:   cardApi,
+    search: searchApi,
 };

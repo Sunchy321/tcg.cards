@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-import { layout, rarity } from './basic';
+import { updation } from '../../basic';
+import { layout, locale, rarity } from './basic';
+import { card, cardLocalization } from './card';
 
 export const print = z.strictObject({
     cardId: z.string(),
@@ -13,23 +15,95 @@ export const print = z.strictObject({
     typeline: z.string(),
     text:     z.string(),
 
-    flavorText: z.string().optional(),
+    flavorText: z.string().nullable(),
     artist:     z.string(),
 
     imageUri: z.record(z.string(), z.string()),
 
-    tags: z.array(z.string()),
+    printTags: z.string().array(),
 
     layout:      layout,
     rarity:      rarity,
     releaseDate: z.string(),
-    finishes:    z.array(z.string()).optional(),
+    finishes:    z.array(z.string()).nullable(),
 
-    id:           z.number(),
-    code:         z.string(),
-    tcgPlayerId:  z.number().optional(),
-    cardMarketId: z.number().optional(),
-    cardTraderId: z.number().optional(),
+    id:           z.number().nullable(),
+    code:         z.string().nullable(),
+    tcgPlayerId:  z.number().nullable(),
+    cardMarketId: z.number().nullable(),
+    cardTraderId: z.number().nullable(),
+});
+
+export const cardPrintView = z.object({
+    cardId: card.shape.cardId,
+    set:    print.shape.set,
+    number: print.shape.number,
+    lang:   print.shape.lang,
+
+    card: card.omit({
+        cardId:           true,
+        lang:             true,
+        partIndex:        true,
+        localization:     true,
+        part:             true,
+        partLocalization: true,
+    }),
+
+    cardLocalization: cardLocalization.omit({
+        cardId: true,
+        lang:   true,
+    }),
+
+    print: print.omit({
+        cardId:    true,
+        set:       true,
+        number:    true,
+        lang:      true,
+        partIndex: true,
+        part:      true,
+    }),
+});
+
+export const version = z.strictObject({
+    set:    z.string(),
+    number: z.string(),
+    lang:   locale,
+    rarity: rarity,
+});
+
+export const cardEditorView = z.strictObject({
+    cardId: card.shape.cardId,
+    set:    print.shape.set,
+    number: print.shape.number,
+    lang:   print.shape.lang,
+
+    card: cardPrintView.shape.card.extend({
+        __lockedPaths: z.string().array().default([]),
+        __updations:   updation.array().default([]),
+    }),
+
+    cardLocalization: cardPrintView.shape.cardLocalization.extend({
+        __lockedPaths: z.string().array().default([]),
+        __updations:   updation.array().default([]),
+    }),
+
+    print: cardPrintView.shape.print.extend({
+        __lockedPaths: z.string().array().default([]),
+        __updations:   updation.array().default([]),
+    }),
+
+    relatedCards: z.strictObject({
+        relation: z.string(),
+        cardId:   z.string(),
+        version:  version.omit({ rarity: true }).optional(),
+    }).array().optional(),
+
+    __inDatabase: z.boolean(),
+
+    __original: z.strictObject({
+        cardId: card.shape.cardId.optional(),
+        lang:   print.shape.lang.optional(),
+    }).default({}),
 });
 
 export type Print = z.infer<typeof print>;

@@ -21,7 +21,7 @@
         </div>
         <div class="result q-py-md">
             <grid
-                v-slot="{ cardId, print: { set, number, lang, layout }}"
+                v-slot="{ cardId, set, number, lang, print: { layout }}"
                 :value="cards" :item-width="200" item-key="cardId"
                 item-class="q-pb-sm"
             >
@@ -55,42 +55,11 @@ import Grid from 'components/Grid.vue';
 import CardImage from 'components/lorcana/CardImage.vue';
 import RichText from 'src/components/lorcana/RichText.vue';
 
-import { Card } from '@interface/lorcana/card';
-import { Print } from '@interface/lorcana/print';
+import { SearchResult } from '@model/lorcana/schema/search';
 
 import model from '@search-data/lorcana/client';
 
-import { apiGet } from 'boot/server';
-
-interface QueryParam {
-    type:  'regex' | 'string';
-    value: string;
-}
-
-interface QueryItem {
-    type:  string;
-    op:    string;
-    param: QueryParam;
-}
-
-interface QueryCard {
-    cardId: string;
-    card:   Card;
-    print:  Print;
-}
-
-interface QueryResult {
-    total: number;
-    cards: QueryCard[];
-}
-
-interface SearchResult {
-    text:     string;
-    commands: QueryItem[];
-    queries:  any[];
-    errors:   { type: string, value: string, query?: string }[];
-    result:   QueryResult | null;
-}
+import { trpc } from 'src/trpc';
 
 const core = useCore();
 const game = useGame();
@@ -98,7 +67,7 @@ const i18n = useI18n();
 
 const { search } = lorcanaSetup();
 
-const data = ref<SearchResult | null>(null);
+const data = ref<SearchResult>();
 const searching = ref(false);
 
 useTitle(() => i18n.t('ui.search'));
@@ -151,7 +120,7 @@ const explained = computed(() => model.explain(q.value, (key: string, named) => 
     }
 }));
 
-const cards = computed(() => data.value?.result?.cards ?? []);
+const cards = computed(() => data.value?.result?.result ?? []);
 const total = computed(() => data.value?.result?.total ?? 0);
 
 const pageCount = computed(() => Math.ceil(total.value / pageSize.value));
@@ -167,17 +136,15 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const { data: result } = await apiGet<SearchResult>('/lorcana/search', {
+    const value = await trpc.lorcana.search.basic({
         q:        q.value,
-        locale:   game.locale,
+        lang:     game.locale,
         page:     page.value,
         pageSize: pageSize.value,
     });
 
-    if (result.text === q.value) {
-        data.value = result;
-
-        console.log(result);
+    if (value.text === q.value) {
+        data.value = value;
 
         searching.value = false;
     }

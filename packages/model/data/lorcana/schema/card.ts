@@ -15,28 +15,26 @@ export const card = z.strictObject({
     typeline: z.string(),
     text:     z.string(),
 
-    type: z.strictObject({
-        main: mainType,
-        sub:  z.array(z.string()).optional(),
-    }),
+    typeMain: z.string(),
+    typeSub:  z.string().array().nullable(),
 
-    localization: z.strictObject({
-        lang:       locale,
-        name:       z.string(),
-        typeline:   z.string(),
-        text:       z.string(),
-        __lastDate: z.string(),
-    }).array(),
+    lore:      z.number().nullable(),
+    strength:  z.number().nullable(),
+    willPower: z.number().nullable(),
+    moveCost:  z.number().nullable(),
 
-    lore:      z.number().optional(),
-    strength:  z.number().optional(),
-    willPower: z.number().optional(),
-    moveCost:  z.number().optional(),
-
-    tags: z.array(z.string()),
+    tags: z.string().array(),
 
     category:   category,
     legalities: z.record(z.string(), legality),
+});
+
+export const cardLocalization = z.strictObject({
+    lang:       locale,
+    name:       z.string(),
+    typeline:   z.string(),
+    text:       z.string(),
+    __lastDate: z.string(),
 });
 
 export const cardProfile = z.strictObject({

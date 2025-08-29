@@ -201,29 +201,16 @@ const name = defineServerCommand({
                 column: CardPrintView.printPart.name, parameter, operator, qualifier, multiline: false,
             });
         default:
-            if (!qualifier.includes('!')) {
-                return or(
-                    builtin.text.query({
-                        column:    CardPrintView.cardPart.name,
-                        parameter, operator, qualifier, multiline: false,
-                    }),
-                    builtin.text.query({
-                        column:    CardPrintView.cardPartLocalization.name,
-                        parameter, operator, qualifier, multiline: false,
-                    }),
-                )!;
-            } else {
-                return and(
-                    not(builtin.text.query({
-                        column:    CardPrintView.cardPart.name,
-                        parameter, operator, qualifier, multiline: false,
-                    })),
-                    not(builtin.text.query({
-                        column:    CardPrintView.cardPartLocalization.name,
-                        parameter, operator, qualifier, multiline: false,
-                    })),
-                )!;
-            }
+            return (!qualifier.includes('!') ? or : and)(
+                builtin.text.query({
+                    column:    CardPrintView.cardPart.name,
+                    parameter, operator, qualifier, multiline: false,
+                }),
+                builtin.text.query({
+                    column:    CardPrintView.cardPartLocalization.name,
+                    parameter, operator, qualifier, multiline: false,
+                }),
+            )!;
         }
     },
 });
@@ -578,7 +565,7 @@ export default defineServerModel({
 
             const groupByCount = groupBy === 'card'
                 ? sql`count(distinct card_id)`.as('count')
-                : sql`count(distinct (card_id, set, number, lang))`.as('count');
+                : sql`count(distinct (card_id, set, number))`.as('count');
 
             const orderByAction = post.find(p => p.type === 'order-by') as OrderBy
               ?? order.post!({ operator: ':', qualifier: [], parameter: orderBy });
