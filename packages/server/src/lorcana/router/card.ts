@@ -3,14 +3,14 @@ import { ORPCError, os } from '@orpc/server';
 import _ from 'lodash';
 import z from 'zod';
 
-import { asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 
 import { locale } from '@model/lorcana/schema/basic';
-import { cardProfile } from '@model/lorcana/schema/card';
+import { cardProfile, cardView } from '@model/lorcana/schema/card';
 import { cardFullView } from '@model/lorcana/schema/print';
 
 import { db } from '@/drizzle';
-import { Card, CardLocalization } from '../schema/card';
+import { Card, CardLocalization, CardView } from '../schema/card';
 import { CardPrintView, Print } from '../schema/print';
 import { CardRelation } from '../schema/card-relation';
 
@@ -27,6 +27,35 @@ const random = os
         const cardId = cards[_.random(0, cards.length - 1)].cardId;
 
         return cardId;
+    });
+
+const summary = os
+    .route({
+        method:      'GET',
+        description: 'Get card by ID',
+        tags:        ['Lorcana', 'Card'],
+    })
+    .input(z.object({
+        cardId: z.string().describe('Card ID'),
+        lang:   locale.default('en').describe('Language of the card'),
+    }))
+    .output(cardView)
+    .handler(async ({ input }) => {
+        const { cardId, lang } = input;
+
+        const view = await db.select()
+            .from(CardView)
+            .where(and(
+                eq(CardView.cardId, cardId),
+                eq(CardView.lang, lang),
+            ))
+            .then(rows => rows[0]);
+
+        if (view == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        return view;
     });
 
 const fuzzy = os
@@ -163,10 +192,12 @@ const profile = os
 
 export const cardTrpc = {
     random,
+    summary,
     fuzzy,
     profile,
 };
 
 export const cardApi = {
+    '': summary,
     random,
 };

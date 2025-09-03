@@ -40,12 +40,14 @@ export const Print = schema.table('prints', {
     cardMarketId: integer('card_market_id'),
     cardTraderId: integer('card_trader_id'),
 
-    __lockedPaths: text('card_locked_paths').array().notNull().default([]),
-    __updations:   jsonb('card_updations').$type<Updation[]>().notNull().default([]),
+    __lockedPaths: text('print_locked_paths').array().notNull().default([]),
+    __updations:   jsonb('print_updations').$type<Updation[]>().notNull().default([]),
 });
 
 export const PrintView = schema.view('print_view').as(qb => {
-    return qb.select()
+    return qb.select({
+        ..._.omit(getTableColumns(Print), ['__lockedPaths', '__updations']),
+    })
         .from(Print);
 });
 

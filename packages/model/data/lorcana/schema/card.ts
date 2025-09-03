@@ -38,6 +38,12 @@ export const cardLocalization = z.strictObject({
     __lastDate: z.string(),
 });
 
+export const cardView = card.extend({
+    lang: cardLocalization.shape.lang,
+
+    localization: cardLocalization.omit({ cardId: true, lang: true }),
+});
+
 export const cardProfile = z.strictObject({
     cardId: z.string(),
 

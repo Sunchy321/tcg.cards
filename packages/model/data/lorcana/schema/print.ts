@@ -34,6 +34,8 @@ export const print = z.strictObject({
     cardTraderId: z.number().nullable(),
 });
 
+export const printView = print;
+
 export const cardPrintView = z.object({
     cardId: card.shape.cardId,
     set:    print.shape.set,

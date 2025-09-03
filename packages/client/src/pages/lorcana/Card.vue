@@ -490,7 +490,10 @@ const apiQuery = computed(() => {
 const jsonLink = computed(() => {
     const url = new URL('lorcana/card', apiBase);
 
-    url.search = new URLSearchParams({ id: id.value }).toString();
+    url.search = new URLSearchParams({
+        cardId: id.value,
+        lang:   lang.value,
+    }).toString();
 
     return url.toString();
 });
