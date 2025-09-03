@@ -75,17 +75,17 @@ export default defineComponent({
     $feature: ()
 
     @if $type == 'shadow'
-        $feature: append($feature, 'salt' 1, $separator: comma)
-    @else if $type == 'flat'
-        $feature: append($feature, 'salt' 2, $separator: comma)
-
-    @if $tap == 'old1'
         $feature: append($feature, 'ss01', $separator: comma)
-    @else if $tap == 'old2'
+    @else if $type == 'flat'
         $feature: append($feature, 'ss02', $separator: comma)
 
+    @if $tap == 'old1'
+        $feature: append($feature, 'salt' 1, $separator: comma)
+    @else if $tap == 'old2'
+        $feature: append($feature, 'salt' 2, $separator: comma)
+
     @if $white == 'old'
-        $feature: append($feature, 'ss03', $separator: comma)
+        $feature: append($feature, 'salt' 1, $separator: comma)
 
     @return $feature
 
