@@ -26,5 +26,13 @@ export const set = z.strictObject({
     lorcanaJsonId: z.string(),
 });
 
+export const setProfile = set.pick({
+    setId:        true,
+    localization: true,
+    type:         true,
+    releaseDate:  true,
+});
+
 export type Set = z.infer<typeof set>;
 export type SetLocalization = z.infer<typeof setLocalization>;
+export type SetProfile = z.infer<typeof setProfile>;

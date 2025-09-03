@@ -1,9 +1,17 @@
-import { jsonb, text, integer } from 'drizzle-orm/pg-core';
+import { jsonb, primaryKey, text, integer } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
-import { Set as ISet } from '@model/lorcana/schema/set';
 import { Rarity } from '@model/lorcana/schema/basic';
+
+export const SetLocalization = schema.table('set_localizations', {
+    setId: text('set_id').notNull(),
+    lang:  text('lang').notNull(),
+
+    name: text('name').notNull(),
+}, table => [
+    primaryKey({ columns: [table.setId, table.lang] }),
+]);
 
 export const Set = schema.table('sets', {
     setId:  text('set_id').primaryKey(),
@@ -12,8 +20,6 @@ export const Set = schema.table('sets', {
     cardCount: integer('card_count').notNull(),
     langs:     jsonb('langs').$type<string[]>().notNull().default([]),
     rarities:  jsonb('rarities').$type<Rarity[]>().notNull().default([]),
-
-    localization: jsonb('localization').$type<ISet['localization']>().notNull().default([]),
 
     type: text('type').notNull(),
 

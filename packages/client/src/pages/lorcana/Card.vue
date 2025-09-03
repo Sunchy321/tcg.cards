@@ -83,7 +83,7 @@
         <div class="version-column">
             <div class="text-mode row no-wrap">
                 <q-btn
-                    v-if="isAdmin"
+                    v-if="editorEnabled"
                     :to="editorLink"
                     icon="mdi-file-edit"
                     class="q-mr-sm"
@@ -163,7 +163,6 @@ import { useI18n } from 'vue-i18n';
 import { useCore, useTitle } from 'store/core';
 import { useGame, TextMode, textModes } from 'store/games/lorcana';
 
-import basicSetup from 'setup/basic';
 import lorcanaSetup from 'setup/lorcana';
 
 import Grid from 'components/Grid.vue';
@@ -172,28 +171,36 @@ import CardImage from 'components/lorcana/CardImage.vue';
 import RichText from 'src/components/lorcana/RichText.vue';
 import BanlistIcon from 'components/lorcana/BanlistIcon.vue';
 
-import { CardPrintView } from '@common/model/lorcana/card';
+import { CardFullView } from '@model/lorcana/schema/print';
+import { SetProfile } from '@model/lorcana/schema/set';
 
 import {
     mapValues, omitBy, uniq,
 } from 'lodash';
 
-import setProfile, { SetProfile } from 'src/common/lorcana/set';
-import { apiGet, apiBase } from 'boot/server';
+import { apiBase } from 'boot/server';
+
+import { Locale } from '@model/lorcana/schema/basic';
+
+import { trpc } from 'src/trpc';
+import { auth, checkAdmin } from 'src/auth';
 
 const router = useRouter();
 const route = useRoute();
 const game = useGame();
 const i18n = useI18n();
 const core = useCore();
-
-const { isAdmin } = basicSetup();
+const session = auth.useSession();
 
 const { search, random } = lorcanaSetup();
 
-const data = ref<CardPrintView>();
+const data = ref<CardFullView>();
 const rotate = ref<boolean | null>(null);
 const setProfiles = ref<Record<string, SetProfile>>({});
+
+const editorEnabled = computed(() => {
+    return checkAdmin(session.value, 'admin/magic');
+});
 
 const textMode = computed({
     get() { return game.textMode; },
@@ -212,15 +219,8 @@ const versions = computed(() => data.value?.versions ?? []);
 const sets = computed(() => uniq(versions.value.map(v => v.set)));
 
 watch(sets, async values => {
-    setProfiles.value = {};
-
     for (const s of values) {
-        setProfile.get(s, v => {
-            setProfiles.value = {
-                ...setProfiles.value,
-                [s]: v,
-            };
-        });
+        setProfiles.value[s] = await trpc.lorcana.set.profile(s);
     }
 }, { immediate: true });
 
@@ -307,7 +307,7 @@ const langs = computed(() => {
 });
 
 const lang = computed({
-    get() { return data.value?.lang ?? route.query.lang as string ?? game.locale; },
+    get() { return (data.value?.lang ?? route.query.lang ?? game.locale) as Locale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
@@ -369,34 +369,24 @@ const langInfos = computed(() => langs.value.map(l => ({
     current: l === lang.value,
 })));
 
-const selectedTextInfo = (view: CardPrintView | undefined) => {
+const selectedTextInfo = (view: CardFullView | undefined) => {
     if (view == null) {
         return null;
     }
 
     switch (textMode.value) {
     case 'unified': {
-        const loc = view.localization.find(l => l.lang === lang.value);
-
-        if (loc != null) {
-            return {
-                name:     loc.name,
-                typeline: loc.typeline,
-                text:     loc.text,
-            };
-        } else {
-            return {
-                name:     view.name,
-                typeline: view.typeline,
-                text:     view.text,
-            };
-        }
+        return view.cardLocalization ?? {
+            name:     view.card.name,
+            typeline: view.card.typeline,
+            text:     view.card.text,
+        };
     }
     case 'printed':
         return {
-            name:     view.printName,
-            typeline: view.printTypeline,
-            text:     view.printText,
+            name:     view.print.name,
+            typeline: view.print.typeline,
+            text:     view.print.text,
         };
 
     default:
@@ -426,28 +416,31 @@ core.actions = [
     },
 ];
 
-const cost = computed(() => data.value?.cost);
-const inkwell = computed(() => data.value?.inkwell ?? true);
-const color = computed(() => data.value?.color ?? []);
-const layout = computed(() => data.value?.layout ?? 'normal');
+const card = computed(() => data.value?.card);
+const print = computed(() => data.value?.print);
+
+const cost = computed(() => card.value?.cost);
+const inkwell = computed(() => card.value?.inkwell ?? true);
+const color = computed(() => card.value?.color ?? []);
+const layout = computed(() => print.value?.layout ?? 'normal');
 
 const stats = computed(() => {
     if (data.value == null) {
         return '';
     }
 
-    if (data.value.strength != null && data.value.willPower != null) {
-        return `${data.value.strength}/${data.value.willPower}`;
+    if (data.value.card.strength != null && data.value.card.willPower != null) {
+        return `${data.value.card.strength}/${data.value.card.willPower}`;
     }
 
-    if (data.value.moveCost != null && data.value.willPower != null) {
-        return `[${data.value.moveCost}] ${data.value.willPower}`;
+    if (data.value.card.moveCost != null && data.value.card.willPower != null) {
+        return `[${data.value.card.moveCost}] ${data.value.card.willPower}`;
     }
 
     return '';
 });
 
-const lore = computed(() => data.value?.lore);
+const lore = computed(() => card.value?.lore);
 
 const name = computed(() => selectedTextInfo(data.value)?.name);
 const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
@@ -456,12 +449,12 @@ const text = computed(() => selectedTextInfo(data.value)?.text);
 const mainName = computed(() => name?.value?.split(' - ')?.[0]?.trim());
 const subName = computed(() => name?.value?.split(' - ')?.slice(1)?.join('-')?.trim());
 
-const flavorText = computed(() => data.value?.flavorText);
+const flavorText = computed(() => print.value?.flavorText);
 
-const artist = computed(() => data.value?.artist);
+const artist = computed(() => print.value?.artist);
 
 const relatedCards = computed(() => data.value?.relatedCards ?? []);
-const legalities = computed(() => data.value?.legalities ?? {});
+const legalities = computed(() => card.value?.legalities ?? {});
 
 const editorLink = computed(() => ({
     name:  'lorcana/data',
@@ -474,14 +467,25 @@ const editorLink = computed(() => ({
     },
 }));
 
-const apiQuery = computed(() => (route.params.id == null
-    ? null
-    : omitBy({
-        id:     route.params.id as string,
-        lang:   route.query.lang as string ?? game.locale,
+const apiQuery = computed(() => {
+    if (route.params.id == null) {
+        return undefined;
+    }
+
+    const query = {
+        cardId: route.params.id as string,
+        lang:   route.query.lang as Locale ?? game.locale,
         set:    route.query.set as string,
         number: route.query.number as string,
-    }, v => v == null)));
+    };
+
+    return omitBy(query, v => v == null) as {
+        cardId:  string;
+        lang:    Locale;
+        set?:    string;
+        number?: string;
+    };
+});
 
 const jsonLink = computed(() => {
     const url = new URL('lorcana/card', apiBase);
@@ -495,7 +499,7 @@ const jsonPrintLink = computed(() => {
     const url = new URL('lorcana/print', apiBase);
 
     url.search = new URLSearchParams({
-        id:     id.value,
+        cardId: id.value,
         set:    set.value,
         number: number.value,
         lang:   lang.value,
@@ -510,10 +514,8 @@ const loadData = async () => {
         return;
     }
 
-    const { data: result } = await apiGet<CardPrintView>('/lorcana/card/print-view', apiQuery.value);
-
+    data.value = await trpc.lorcana.card.fuzzy(apiQuery.value);
     rotate.value = null;
-    data.value = result;
 };
 
 const relationIcon = (relation: string) => ({

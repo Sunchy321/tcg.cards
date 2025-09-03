@@ -68,7 +68,7 @@ const imageUrl = computed(() => {
         lang = game.locale, set, number,
     } = props;
 
-    return `${assetBase}/lorcana/card/image/${set}/${lang}/${number}.jpg`;
+    return `${assetBase}/lorcana/card/image/webp/${set}/${lang}/${number}.webp`;
 });
 
 watch(() => props.layout, () => { innerRotate.value = null; });

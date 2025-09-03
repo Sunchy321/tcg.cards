@@ -99,4 +99,17 @@ export const cardEditorView = z.strictObject({
     }).default({}),
 });
 
+export const cardFullView = cardPrintView.extend({
+    versions: version.array(),
+
+    relatedCards: z.strictObject({
+        relation: z.string(),
+        cardId:   z.string(),
+        version:  version.optional(),
+    }).array(),
+});
+
 export type Print = z.infer<typeof print>;
+export type CardPrintView = z.infer<typeof cardPrintView>;
+export type CardEditorView = z.infer<typeof cardEditorView>;
+export type CardFullView = z.infer<typeof cardFullView>;
