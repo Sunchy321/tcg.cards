@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { legality } from './format-change';
+import { legality } from './game-change';
 import { category, color, layout, locale, rarity } from './basic';
 
 export const card = z.strictObject({
