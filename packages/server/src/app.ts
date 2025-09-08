@@ -69,7 +69,7 @@ app.get('/service.tcg.cards/metrics', printMetrics);
 app.route('/service.tcg.cards', router);
 app.route('/api.tcg.cards', api);
 
-export default {
+Bun.serve({
     port,
     fetch: app.fetch,
-};
+});
