@@ -102,25 +102,11 @@ import {
 
 import controlSetup from 'setup/control';
 
+import { Database, database as databaseSchema, ScryfallBulk } from '@model/magic/schema/data/database';
+
 import bytes from 'bytes';
 import { last } from 'lodash';
-
-interface BulkList {
-    allCard: string[];
-    ruling:  string[];
-}
-
-interface Scryfall {
-    card:   number;
-    ruling: number;
-    set:    number;
-}
-
-interface Database {
-    card:  number;
-    print: number;
-    set:   number;
-}
+import { trpc } from 'src/trpc';
 
 interface Progress {
     method: string;
@@ -162,11 +148,10 @@ function formatTime(time: number) {
     return result;
 }
 
-const { controlGet, controlWs } = controlSetup();
+const { controlWs } = controlSetup();
 
-const bulk = ref<BulkList>({ allCard: [], ruling: [] });
-const scryfall = ref<Scryfall>({ card: 0, ruling: 0, set: 0 });
-const database = ref<Database>({ card: 0, print: 0, set: 0 });
+const bulk = ref<ScryfallBulk>({ allCard: [], ruling: [] });
+const database = ref<Database>(databaseSchema.parse({}));
 
 const bulkAllCard = ref<string>('');
 const bulkRuling = ref<string>('');
@@ -220,15 +205,9 @@ const progressLabel = computed(() => {
 });
 
 const loadData = async () => {
-    const { data } = await controlGet<{
-        bulk:     BulkList;
-        scryfall: Scryfall;
-        database: Database;
-    }>('/magic/scryfall');
+    database.value = await trpc.magic.data.database.count();
 
-    bulk.value = data.bulk;
-    scryfall.value = data.scryfall;
-    database.value = data.database;
+    bulk.value = await trpc.magic.data.scryfall.bulk();
 };
 
 const getBulk = async () => {
