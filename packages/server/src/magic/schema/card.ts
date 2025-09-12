@@ -107,7 +107,9 @@ export const CardView = schema.view('card_view').as(qb => {
         lang:      CardLocalization.lang,
         partIndex: CardPart.partIndex,
 
-        ..._.omit(getTableColumns(Card), ['cardId', '__lockedPaths', '__updations']),
+        card: {
+            ..._.omit(getTableColumns(Card), ['cardId', '__lockedPaths', '__updations']),
+        },
 
         localization: {
             ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang', '__lockedPaths', '__updations']),

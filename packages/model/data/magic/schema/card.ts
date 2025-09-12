@@ -17,53 +17,16 @@ export const category = z.enum([
 export type Category = z.infer<typeof category>;
 
 export const card = z.strictObject({
-    cardId:    z.string(),
-    lang:      z.string(),
-    partIndex: z.int(),
+    cardId: z.string(),
 
-    partCount: z.int(),
+    partCount: z.int().min(1).default(1),
 
     name:     z.string(),
     typeline: z.string(),
     text:     z.string(),
 
-    localization: z.strictObject({
-        name:     z.string(),
-        typeline: z.string(),
-        text:     z.string(),
-    }).array(),
-
     manaValue:     z.number(),
     colorIdentity: z.string(),
-
-    part: z.strictObject({
-        name:     z.string(),
-        typeline: z.string(),
-        text:     z.string(),
-
-        cost:           z.array(z.string()).nullable(),
-        manaValue:      z.number().nullable(),
-        color:          z.string().nullable(),
-        colorIndicator: z.string().nullable(),
-
-        typeSuper: z.array(z.string()).nullable(),
-        typeMain:  z.array(z.string()),
-        typeSub:   z.array(z.string()).nullable(),
-
-        power:        z.string().nullable(),
-        toughness:    z.string().nullable(),
-        loyalty:      z.string().nullable(),
-        defense:      z.string().nullable(),
-        handModifier: z.string().nullable(),
-        lifeModifier: z.string().nullable(),
-    }).array(),
-
-    partLocalization: z.strictObject({
-        name:       z.string(),
-        typeline:   z.string(),
-        text:       z.string(),
-        __lastDate: z.string(),
-    }).array(),
 
     keywords:       z.array(z.string()),
     counters:       z.array(z.string()),
@@ -80,10 +43,60 @@ export const card = z.strictObject({
     scryfallOracleId: z.array(z.string()),
 });
 
-export const cardView = card.extend({
-    localization:     card.shape.localization.element,
-    part:             card.shape.part.element,
-    partLocalization: card.shape.partLocalization.element,
+export const cardLocalization = z.strictObject({
+    cardId: z.string(),
+    lang:   fullLocale,
+
+    name:     z.string(),
+    typeline: z.string(),
+    text:     z.string(),
+});
+
+export const cardPart = z.strictObject({
+    cardId:    z.string(),
+    partIndex: z.int().min(0),
+
+    name:     z.string(),
+    typeline: z.string(),
+    text:     z.string(),
+
+    cost:           z.array(z.string()).nullable(),
+    manaValue:      z.number().nullable(),
+    color:          z.string().nullable(),
+    colorIndicator: z.string().nullable(),
+
+    typeSuper: z.array(z.string()).nullable(),
+    typeMain:  z.array(z.string()),
+    typeSub:   z.array(z.string()).nullable(),
+
+    power:        z.string().nullable(),
+    toughness:    z.string().nullable(),
+    loyalty:      z.string().nullable(),
+    defense:      z.string().nullable(),
+    handModifier: z.string().nullable(),
+    lifeModifier: z.string().nullable(),
+});
+
+export const cardPartLocalization = z.strictObject({
+    cardId:    z.string(),
+    partIndex: z.int().min(0),
+    lang:      fullLocale,
+
+    name:       z.string(),
+    typeline:   z.string(),
+    text:       z.string(),
+    __lastDate: z.string(),
+});
+
+export const cardView = z.strictObject({
+    cardId:    z.string(),
+    partIndex: z.int().min(0),
+    lang:      fullLocale,
+
+    card:                 card.omit({ cardId: true }),
+    cardLocalization:     cardLocalization.omit({ cardId: true, lang: true }),
+    cardPart:             cardPart.omit({ cardId: true, partIndex: true }),
+    cardPartLocalization: cardPartLocalization.omit({ cardId: true, partIndex: true, lang: true }),
 });
 
 export const cardProfile = z.strictObject({
@@ -106,5 +119,9 @@ export const cardProfile = z.strictObject({
 });
 
 export type Card = z.infer<typeof card>;
+export type CardLocalization = z.infer<typeof cardLocalization>;
+export type CardPart = z.infer<typeof cardPart>;
+export type CardPartLocalization = z.infer<typeof cardPartLocalization>;
+
 export type CardView = z.infer<typeof cardView>;
 export type CardProfile = z.infer<typeof cardProfile>;

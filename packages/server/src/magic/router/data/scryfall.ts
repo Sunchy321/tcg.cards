@@ -1,9 +1,12 @@
-import { os } from '@orpc/server';
+import { eventIterator, os } from '@orpc/server';
 
 import z from 'zod';
 import { scryfallBulk } from '@model/magic/schema/data/database';
 
+import { status } from '@model/magic/schema/data/status';
+
 import { BulkGetter } from '@/magic/data/scryfall/bulk';
+import { CardLoader } from '@/magic/data/scryfall/card';
 
 const bulk = os
     .input(z.void())
@@ -12,6 +15,28 @@ const bulk = os
         return BulkGetter.data();
     });
 
+const downloadBulk = os
+    .input(z.void())
+    .output(eventIterator(status))
+    .handler(async function* () {
+        const getter = new BulkGetter();
+
+        yield* getter.intoGenerator();
+    });
+
+const loadCard = os
+    .input(z.object({ file: z.string() }))
+    .output(eventIterator(status))
+    .handler(async function* ({ input }) {
+        const { file } = input;
+
+        const loader = new CardLoader(file);
+
+        yield* loader.intoGenerator();
+    });
+
 export const scryfallTrpc = {
     bulk,
+    downloadBulk,
+    loadCard,
 };

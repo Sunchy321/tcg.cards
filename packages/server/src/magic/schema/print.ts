@@ -107,9 +107,11 @@ export const PrintView = schema.view('print_view').as(qb => {
         lang:      Print.lang,
         partIndex: PrintPart.partIndex,
 
-        ..._.omit(getTableColumns(Print), ['cardId', 'set', 'number', 'lang', '__lockedPaths', '__updations']),
+        print: {
+            ..._.omit(getTableColumns(Print), ['cardId', 'set', 'number', 'lang', '__lockedPaths', '__updations']),
+        },
 
-        part: {
+        printPart: {
             ..._.omit(getTableColumns(PrintPart), ['cardId', 'set', 'number', 'lang', 'partIndex', '__lockedPaths', '__updations']),
         },
     })

@@ -19,28 +19,6 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/scryfall');
 
-router.get('/', async ctx => {
-    ctx.body = {
-        bulk:     BulkGetter.data(),
-        database: {
-            card:  await Card.estimatedDocumentCount(),
-            print: await Print.estimatedDocumentCount(),
-            set:   await Set.estimatedDocumentCount(),
-        },
-    };
-});
-
-const bulkGetter = new BulkGetter();
-
-router.get(
-    '/get-bulk',
-    websocket,
-    async ctx => {
-        bulkGetter.bind(await ctx.ws());
-        ctx.status = 200;
-    },
-);
-
 const cardLoader = new CardLoader();
 
 router.get(

@@ -211,39 +211,19 @@ const loadData = async () => {
 };
 
 const getBulk = async () => {
-    const ws = controlWs('/magic/scryfall/get-bulk');
+    const sse = await trpc.magic.data.scryfall.downloadBulk();
 
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as Progress;
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = null;
-            void loadData();
-
-            resolve(undefined);
-        };
-    });
+    for await (const msg of sse) {
+        progress.value = msg;
+    }
 };
 
 const loadCard = async (file: string) => {
-    const ws = controlWs('/magic/scryfall/load-card', { file });
+    const sse = await trpc.magic.data.scryfall.loadCard({ file });
 
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as Progress;
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = null;
-            void loadData();
-
-            resolve(undefined);
-        };
-    });
+    for await (const msg of sse) {
+        progress.value = msg;
+    }
 };
 
 const loadRuling = async (file: string) => {

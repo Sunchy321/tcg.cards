@@ -7,9 +7,9 @@ import { Legality, Legalities } from '@model/magic/schema/game-change';
 import { toIdentifier } from '@common/util/id';
 
 type Type = {
-    super?: string[];
-    main:   string[];
-    sub?:   string[];
+    typeSuper: string[] | null;
+    typeMain:  string[];
+    typeSub:   string[] | null;
 };
 
 const superList = [
@@ -47,15 +47,15 @@ export function parseTypeline(typeline: string): Type {
         ? mainWord.includes('plane')
             ? [toIdentifier(sub)]
             : sub.split(/ |(time lord)/i).filter(v => v != null && v !== '').map(toIdentifier)
-        : undefined;
+        : null;
 
     const typeSuper = mainWord.filter(w => superList.includes(w));
     const typeMain = mainWord.filter(w => !superList.includes(w));
 
     return {
-        super: typeSuper.length > 0 ? typeSuper : undefined,
-        main:  typeMain,
-        sub:   typeSub,
+        typeSuper: typeSuper.length > 0 ? typeSuper : null,
+        typeMain,
+        typeSub,
     };
 }
 

@@ -2,12 +2,12 @@ import { z } from 'zod';
 
 import { updation } from '../../basic';
 import { fullImageType, fullLocale, layout, rarity } from './basic';
-import { card as card, cardView } from './card';
+import { card as card, cardLocalization, cardPart, cardPartLocalization } from './card';
 
 export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
 export const borderColor = z.enum(['black', 'borderless', 'gold', 'silver', 'white', 'yellow']);
 export const securityStamp = z.enum(['acorn', 'arena', 'circle', 'heart', 'oval', 'triangle']);
-export const finish = z.enum(['etched', 'foil', 'nonfoil']);
+export const finish = z.enum(['nonfoil', 'foil', 'etched', 'glossy']);
 export const imageStatus = z.enum(['highres_scan', 'lowres', 'missing', 'placeholder']);
 export const game = z.enum(['arena', 'astral', 'mtgo', 'paper', 'sega']);
 export const scryfallFace = z.enum(['back', 'bottom', 'front', 'top']);
@@ -21,30 +21,14 @@ export type Game = z.infer<typeof game>;
 export type ScryfallFace = z.infer<typeof scryfallFace>;
 
 export const print = z.strictObject({
-    cardId:    z.string(),
-    set:       z.string(),
-    number:    z.string(),
-    lang:      fullLocale,
-    partIndex: z.int().min(0),
+    cardId: z.string(),
+    set:    z.string(),
+    number: z.string(),
+    lang:   fullLocale,
 
     name:     z.string(),
     typeline: z.string(),
     text:     z.string(),
-
-    part: z.strictObject({
-        name:     z.string(),
-        typeline: z.string(),
-        text:     z.string(),
-
-        attractionLights: z.string().nullable(),
-
-        flavorName: z.string().nullable(),
-        flavorText: z.string().nullable(),
-        artist:     z.string().nullable(),
-        watermark:  z.string().nullable(),
-
-        scryfallIllusId: z.uuid().array().nullable(),
-    }).array(),
 
     layout:        layout,
     frame:         frame,
@@ -86,8 +70,48 @@ export const print = z.strictObject({
     cardMarketId: z.int().nullable(),
 });
 
-export const printView = print.extend({
-    part: print.shape.part.element,
+const printPart = z.strictObject({
+    cardId:    print.shape.cardId,
+    set:       print.shape.set,
+    number:    print.shape.number,
+    lang:      print.shape.lang,
+    partIndex: cardPart.shape.partIndex,
+
+    name:     z.string(),
+    typeline: z.string(),
+    text:     z.string(),
+
+    attractionLights: z.string().nullable(),
+
+    flavorName: z.string().nullable(),
+    flavorText: z.string().nullable(),
+    artist:     z.string().nullable(),
+    watermark:  z.string().nullable(),
+
+    scryfallIllusId: z.uuid().array().nullable(),
+});
+
+export const printView = z.strictObject({
+    cardId:    print.shape.cardId,
+    set:       print.shape.set,
+    number:    print.shape.number,
+    lang:      print.shape.lang,
+    partIndex: printPart.shape.partIndex,
+
+    print: print.omit({
+        cardId: true,
+        set:    true,
+        number: true,
+        lang:   true,
+    }),
+
+    printPart: printPart.omit({
+        cardId:    true,
+        set:       true,
+        number:    true,
+        lang:      true,
+        partIndex: true,
+    }),
 });
 
 export const cardPrintView = z.object({
@@ -95,31 +119,27 @@ export const cardPrintView = z.object({
     set:       print.shape.set,
     number:    print.shape.number,
     lang:      print.shape.lang,
-    partIndex: card.shape.partIndex,
+    partIndex: cardPart.shape.partIndex,
 
-    card: card.omit({
-        cardId:           true,
-        lang:             true,
-        partIndex:        true,
-        localization:     true,
-        part:             true,
-        partLocalization: true,
-    }),
-
-    cardLocalization:     cardView.shape.localization,
-    cardPart:             cardView.shape.part,
-    cardPartLocalization: cardView.shape.partLocalization,
+    card:                 card.omit({ cardId: true }),
+    cardLocalization:     cardLocalization.omit({ cardId: true, lang: true }),
+    cardPart:             cardPart.omit({ cardId: true, partIndex: true }),
+    cardPartLocalization: cardPartLocalization.omit({ cardId: true, partIndex: true, lang: true }),
 
     print: print.omit({
+        cardId: true,
+        set:    true,
+        number: true,
+        lang:   true,
+    }),
+
+    printPart: printPart.omit({
         cardId:    true,
         set:       true,
         number:    true,
         lang:      true,
         partIndex: true,
-        part:      true,
     }),
-
-    printPart: printView.shape.part,
 });
 
 export const version = z.strictObject({
@@ -134,7 +154,7 @@ export const cardEditorView = z.strictObject({
     set:       print.shape.set,
     number:    print.shape.number,
     lang:      print.shape.lang,
-    partIndex: card.shape.partIndex,
+    partIndex: cardPart.shape.partIndex,
 
     card: cardPrintView.shape.card.extend({
         __lockedPaths: z.string().array().default([]),
@@ -199,6 +219,8 @@ export const cardFullView = cardPrintView.extend({
 });
 
 export type Print = z.infer<typeof print>;
+export type PrintPart = z.infer<typeof printPart>;
+
 export type PrintView = z.infer<typeof printView>;
 export type CardPrintView = z.infer<typeof cardPrintView>;
 export type CardEditorView = z.infer<typeof cardEditorView>;

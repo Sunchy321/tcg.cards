@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosProgressEvent } from 'axios';
 
 import FileSaver from '@/common/save-file';
 import { existsSync, readdirSync } from 'fs';
@@ -30,13 +30,15 @@ export class BulkGetter extends Task<Status> {
 
                 this.saver = new FileSaver(uri, path, { override: true });
 
-                this.saver.on('progress', prog => {
+                this.saver.on('progress', (prog: AxiosProgressEvent) => {
+                    console.log(prog);
+
                     this.emit('progress', {
                         method: 'get',
                         type:   'card',
 
                         amount: {
-                            count: prog.size.transferred,
+                            count: prog.bytes,
                         },
                     });
                 });
@@ -55,13 +57,13 @@ export class BulkGetter extends Task<Status> {
 
                 this.saver = new FileSaver(uri, path, { override: true });
 
-                this.saver.on('progress', prog => {
+                this.saver.on('progress', (prog: AxiosProgressEvent) => {
                     this.emit('progress', {
                         method: 'get',
                         type:   'ruling',
 
                         amount: {
-                            count: prog.size.transferred,
+                            count: prog.bytes,
                         },
                     });
                 });

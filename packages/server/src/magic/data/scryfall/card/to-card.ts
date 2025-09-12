@@ -1,5 +1,6 @@
-import { Card as ICard, Category } from '@interface/magic/card';
-import { Print as IPrint } from '@interface/magic/print';
+import { fullLocale, rarity } from '@model/magic/schema/basic';
+import { Card, CardLocalization, CardPart, CardPartLocalization, Category } from '@model/magic/schema/card';
+import { borderColor, frame, imageStatus, Print, PrintPart, securityStamp } from '@model/magic/schema/print';
 
 import { Colors } from '@interface/magic/scryfall/basic';
 import { CardFace, RawCard } from '@interface/magic/scryfall/card';
@@ -29,7 +30,14 @@ type NCardSplit = NCardBase & {
     layout: Exclude<NCardFaceExtracted['layout'], 'double_faced_token'> | 'double_faced' | 'flip_token_bottom' | 'flip_token_top' | 'transform_token';
 };
 
-type CardPrint = { card: ICard, print: IPrint };
+type CardPrint = {
+    card:                 Card;
+    cardLocalization:     CardLocalization;
+    cardPart:             CardPart[];
+    cardPartLocalization: CardPartLocalization[];
+    print:                Print;
+    printPart:            PrintPart[];
+};
 
 function splitCost(cost: string) {
     return cost.split(/\{([^}]+)\}/).filter(v => v !== '');
@@ -114,7 +122,7 @@ function getId(data: NCardBase & { layout: string }): string {
     if (data.card_faces[0]?.name === 'Incubator') {
         return 'incubator!';
     } else if (['token', 'flip_token_top', 'flip_token_bottom'].includes(data.layout)) {
-        const { main: typeMain, sub: typeSub } = parseTypeline(cardFaces[0].type_line ?? '');
+        const { typeMain, typeSub } = parseTypeline(cardFaces[0].type_line ?? '');
 
         if (typeSub == null) {
             if (typeMain.includes('card')) {
@@ -192,55 +200,29 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
         ? [data.card_faces[0]]
         : data.card_faces;
 
+    const cardId = getId(data);
+    const set = setCodeMap[data.set] ?? data.set;
+    const number = data.collector_number;
+    const lang = fullLocale.parse(data.lang);
+
     return {
         card: {
-            cardId: getId(data),
+            cardId,
+
+            partCount: cardFaces.length,
 
             name:     cardFaces.map(f => f.name).join(' // '),
             typeline: cardFaces.map(f => f.type_line ?? '').join(' // '),
-            text:     purifyText(cardFaces.map(f => f.oracle_text ?? '').join(' // ')),
-
-            localization: [],
+            text:     purifyText(cardFaces.map(f => f.oracle_text ?? '').join('\n////////////////////\n')),
 
             manaValue:     data.cmc,
             colorIdentity: convertColor(data.color_identity),
 
-            parts: cardFaces.map(f => ({
-                name:     f.name,
-                typeline: f.type_line ?? '',
-                text:     purifyText(f.oracle_text ?? ''),
-
-                localization: [{
-                    lang:     data.lang,
-                    lastDate: data.released_at,
-                    name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
-                    typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
-                    text:     purifyText(f.printed_text ?? f.oracle_text ?? ''),
-                }],
-
-                cost:           f.mana_cost != null && f.mana_cost !== '' ? splitCost(f.mana_cost) : undefined,
-                __costMap:      f.mana_cost != null && f.mana_cost !== '' ? toCostMap(f.mana_cost) : undefined,
-                manaValue:      f.cmc,
-                color:          convertColor(f.colors),
-                colorIndicator: f.color_indicator != null
-                    ? convertColor(f.color_indicator)
-                    : undefined,
-
-                type: parseTypeline(f.type_line ?? ''),
-
-                power:        f.power,
-                toughness:    f.toughness,
-                loyalty:      f.loyalty,
-                defense:      f.defense,
-                handModifier: f.hand_modifier,
-                lifeModifier: f.life_modifier,
-            })),
-
             keywords:       data.keywords.map(v => toIdentifier(v)),
-            counters:       cardFaces.some(c => (c.oracle_text ?? '').includes('counter')) ? [] : undefined,
+            counters:       [],
             producibleMana: data.produced_mana != null
                 ? convertMana(data.produced_mana)
-                : undefined,
+                : null,
             tags: [
                 ...data.reserved ? ['reserved'] : [],
                 ...cardFaces.some(c => /\bcreates?|embalm|eternalize|squad|offspring\b/i.test(c.oracle_text ?? '')) ? ['dev:token'] : [],
@@ -258,47 +240,68 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
             })(),
 
             legalities:     {},
-            contentWarning: data.content_warning,
+            contentWarning: data.content_warning ?? null,
 
-            scryfall: {
-                oracleId: [data.oracle_id],
-            },
+            scryfallOracleId: [data.oracle_id],
         },
+
+        cardLocalization: {
+            cardId,
+            lang,
+
+            name:     cardFaces.map(f => f.printed_name).join(' // '),
+            typeline: cardFaces.map(f => f.printed_type_line).join(' // '),
+            text:     cardFaces.map(f => f.printed_text).join('\n////////////////////\n'),
+        },
+
+        cardPart: cardFaces.map((f, i) => ({
+            cardId,
+            partIndex: i,
+
+            name:     f.name,
+            typeline: f.type_line ?? '',
+            text:     purifyText(f.oracle_text ?? ''),
+
+            cost:           f.mana_cost != null && f.mana_cost !== '' ? splitCost(f.mana_cost) : null,
+            __costMap:      f.mana_cost != null && f.mana_cost !== '' ? toCostMap(f.mana_cost) : null,
+            manaValue:      f.cmc ?? null,
+            color:          convertColor(f.colors),
+            colorIndicator: f.color_indicator != null
+                ? convertColor(f.color_indicator)
+                : null,
+
+            ...parseTypeline(f.type_line ?? ''),
+
+            power:        f.power ?? null,
+            toughness:    f.toughness ?? null,
+            loyalty:      f.loyalty ?? null,
+            defense:      f.defense ?? null,
+            handModifier: f.hand_modifier ?? null,
+            lifeModifier: f.life_modifier ?? null,
+        })),
+
+        cardPartLocalization: cardFaces.map((f, i) => ({
+            cardId,
+            partIndex: i,
+            lang,
+
+            name:       f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
+            typeline:   (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
+            text:       purifyText(f.printed_text ?? f.oracle_text ?? ''),
+            __lastDate: data.released_at,
+        })),
+
         print: {
-            cardId: getId(data),
+            cardId,
+            set,
+            number,
+            lang,
 
-            lang:   data.lang,
-            set:    setCodeMap[data.set] ?? data.set,
-            number: data.collector_number,
+            name:     cardFaces.map(f => f.flavor_name === f.name ? f.name : f.printed_name ?? f.name).join(' // '),
+            typeline: cardFaces.map(f => (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～')).join(' // '),
+            text:     cardFaces.map(f => purifyText(f.printed_text ?? f.oracle_text ?? '')).join('\n////////////////////\n'),
 
-            parts: cardFaces.map(f => ({
-                name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
-                typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
-                text:     purifyText(f.printed_text ?? f.oracle_text ?? ''),
-
-                attractionLights: f.attraction_lights,
-
-                scryfallIllusId: (() => {
-                    const illusId = f.illustration_id;
-
-                    if (illusId == null) {
-                        return undefined;
-                    }
-
-                    if (data.layout === 'reversible_card') {
-                        return data.card_faces.map(f => f.illustration_id).filter(v => v != null) as string[];
-                    } else {
-                        return [illusId];
-                    }
-                })(),
-
-                flavorName: f.flavor_name,
-                flavorText: f.flavor_text,
-                artist:     f.artist,
-                watermark:  f.watermark,
-            })),
-
-            tags: [
+            printTags: [
                 ...data.full_art ? ['full-art'] : [],
                 ...data.oversized ? ['oversized'] : [],
                 ...data.story_spotlight ? ['story-spotlight'] : [],
@@ -323,13 +326,13 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
                 return data.layout;
             })(),
 
-            frame:         data.frame,
+            frame:         frame.parse(data.frame),
             frameEffects:  data.frame_effects ?? [],
-            borderColor:   data.border_color,
+            borderColor:   borderColor.parse(data.border_color),
             cardBack:      data.card_back_id,
-            securityStamp: data.security_stamp,
-            promoTypes:    data.promo_types,
-            rarity:        data.rarity,
+            securityStamp: securityStamp.parse(data.security_stamp),
+            promoTypes:    data.promo_types ?? null,
+            rarity:        rarity.parse (data.rarity),
             releaseDate:   data.released_at,
 
             isDigital:       data.digital,
@@ -337,32 +340,62 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
             isReprint:       data.reprint,
             finishes:        data.finishes,
             hasHighResImage: data.highres_image,
-            imageStatus:     data.image_status,
+            imageStatus:     imageStatus.parse(data.image_status),
+            fullImageType:   'jpg',
 
             inBooster: data.booster,
             games:     data.games,
 
-            preview: data.preview != null
-                ? {
-                    date:   data.preview.previewed_at,
-                    source: data.preview.source,
-                    uri:    data.preview.source_uri,
-                }
-                : undefined,
+            previewDate:   data.preview?.previewed_at ?? null,
+            previewSource: data.preview?.source ?? null,
+            previewUri:    data.preview?.source_uri ?? null,
 
-            scryfall: {
-                oracleId:  data.oracle_id,
-                cardId:    data.id,
-                ...data.face == null ? { } : { face: data.face },
-                imageUris: data.image_uris != null ? [data.image_uris] : data.card_faces.map(v => v.image_uris ?? {}),
-            },
+            scryfallOracleId:  data.oracle_id,
+            scryfallCardId:    data.id,
+            scryfallFace:      data.face ?? null,
+            scryfallImageUris: data.image_uris != null ? [data.image_uris] : data.card_faces.map(v => v.image_uris ?? {}),
 
-            arenaId:      data.arena_id,
-            mtgoId:       data.mtgo_id,
-            mtgoFoilId:   data.mtgo_foil_id,
+            arenaId:      data.arena_id ?? null,
+            mtgoId:       data.mtgo_id ?? null,
+            mtgoFoilId:   data.mtgo_foil_id ?? null,
             multiverseId: data.multiverse_ids,
-            tcgPlayerId:  data.tcgplayer_id,
-            cardMarketId: data.cardmarket_id,
+            tcgPlayerId:  data.tcgplayer_id ?? null,
+            cardMarketId: data.cardmarket_id ?? null,
         },
+
+        printPart: cardFaces.map((f, i) => ({
+            cardId,
+            set,
+            number,
+            lang,
+            partIndex: i,
+
+            name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
+            typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
+            text:     purifyText(f.printed_text ?? f.oracle_text ?? ''),
+
+            attractionLights: f.attraction_lights == null
+                ? null
+                : [1, 2, 3, 4, 5, 6].map(n => f.attraction_lights!.includes(n) ? '1' : '0').join(''),
+
+            scryfallIllusId: (() => {
+                const illusId = f.illustration_id;
+
+                if (illusId == null) {
+                    return null;
+                }
+
+                if (data.layout === 'reversible_card') {
+                    return data.card_faces.map(f => f.illustration_id).filter(v => v != null) as string[];
+                } else {
+                    return [illusId];
+                }
+            })(),
+
+            flavorName: f.flavor_name ?? null,
+            flavorText: f.flavor_text ?? null,
+            artist:     f.artist ?? null,
+            watermark:  f.watermark ?? null,
+        })),
     };
 }

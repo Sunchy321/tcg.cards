@@ -1,6 +1,6 @@
 import { jsonb, uuid } from 'drizzle-orm/pg-core';
 
-import { schema } from '../../hearthstone/schema/schema';
+import { schema } from './schema';
 
 import { Legality } from '@model/magic/schema/data/scryfall/basic';
 

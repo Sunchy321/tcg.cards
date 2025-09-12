@@ -1,15 +1,19 @@
 import Task from '@/common/task';
 
-import Card from '@/magic/db/card';
-import Print from '@/magic/db/print';
-import SCard from '@/magic/db/scryfall-card';
-import Set from '@/magic/db/set';
-
-import { RawCard } from '@interface/magic/scryfall/card';
+import { RawCard } from '@model/magic/schema/data/scryfall/card';
 import { Card as ICard } from '@interface/magic/card';
 import { Print as IPrint } from '@interface/magic/print';
 
-import { Status } from '../../status';
+import { db } from '@/drizzle';
+
+// import Card from '@/magic/db/card';
+// import Print from '@/magic/db/print';
+// import SCard from '@/magic/db/scryfall-card';
+// import Set from '@/magic/db/set';
+import { Set } from '@/magic/schema/set';
+import { Scryfall } from '@/magic/schema/scryfall';
+
+import { Status } from '@model/magic/schema/data/status';
 
 import { join } from 'path';
 import { omit, uniq } from 'lodash';
@@ -27,12 +31,14 @@ import { bulkUpdation } from '@/magic/logger';
 
 const bucketSize = 500;
 
-export default class CardLoader extends Task<Status> {
+export class CardLoader extends Task<Status> {
     file:       string;
     filePath:   string;
     lineReader: LineReader;
 
-    init(fileName: string): void {
+    constructor(fileName: string) {
+        super();
+
         this.file = fileName;
         this.filePath = join(bulkPath, `${fileName}.json`);
         this.lineReader = new LineReader(this.filePath);
@@ -46,11 +52,11 @@ export default class CardLoader extends Task<Status> {
         // initialize set code map
         const setCodeMap: Record<string, string> = {};
 
-        const sets = await Set.find();
+        const sets = await db.select().from(Set);
 
         for (const set of sets) {
-            if (set.setId !== set.scryfall.code) {
-                setCodeMap[set.scryfall.code] = set.setId;
+            if (set.setId !== set.scryfallCode) {
+                setCodeMap[set.scryfallCode] = set.setId;
             }
         }
 
@@ -87,7 +93,7 @@ export default class CardLoader extends Task<Status> {
 
         this.lineReader.reset();
 
-        await SCard.deleteMany({});
+        await db.delete(Scryfall);
 
         start = Date.now();
 
@@ -99,9 +105,10 @@ export default class CardLoader extends Task<Status> {
                 return;
             }
 
-            await SCard.insertMany(jsons.map(json => ({
-                ...omit(json, 'id'),
-                card_id: json.id,
+            await db.insert(Scryfall).values(jsons.map(j => ({
+                cardId:     j.id,
+                oracleId:   j.oracle_id,
+                legalities: j.legalities,
             })));
 
             const oracleIds = [];

@@ -113,6 +113,36 @@ abstract class Task<T> extends EventEmitter {
     postIntervalProgress(): void {
         this.intervalProgressFunc?.();
     }
+
+    async* intoGenerator() {
+        this.start();
+
+        while (true) {
+            const { promise, resolve, reject } = Promise.withResolvers<
+                { type: 'progress', value: T } | { type: 'end' }
+            >();
+
+            this.once('progress', (p: T) => {
+                resolve({ type: 'progress', value: p });
+            });
+
+            this.once('end', () => {
+                resolve({ type: 'end' });
+            });
+
+            this.once('error', (e: any) => {
+                reject(e);
+            });
+
+            const result = await promise;
+
+            if (result.type === 'progress') {
+                yield result.value;
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 export default Task;

@@ -3,7 +3,6 @@ import { SQL, asc, desc, sql } from 'drizzle-orm';
 import { QueryError } from '@search/command/error';
 import { OrderBy, PostAction, defineServerCommand } from '@/search/command';
 import { NormalResult } from '@model/omnisearch/schema/search';
-import { FullLocale } from '@model/magic/schema/basic';
 
 import { defineServerModel } from '@/search/model';
 
@@ -119,7 +118,7 @@ const order = defineServerCommand({
 type SearchOption = {
     page:     number;
     pageSize: number;
-    lang:     FullLocale;
+    lang:     string;
     orderBy:  string;
 };
 
