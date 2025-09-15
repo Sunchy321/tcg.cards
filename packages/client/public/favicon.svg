@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+  <!-- 调整：原 scale 1.25 改 1.15 并平移使卡牌完整居中 -->
+  <g transform="translate(-0.843 -1.843) scale(1.15)">
+    <!-- 背景卡牌 -->
+    <rect x="3" y="2" width="8" height="12" rx="1.5" fill="#4DA3FF"/>
+    <!-- 前景卡牌 -->
+    <g>
+      <!-- 外框 -->
+      <rect x="4.6" y="2.8" width="8" height="12" rx="1.1" fill="#0E3F95" stroke="#CFAF56" stroke-width="0.25"/>
+      <!-- 名称框 -->
+      <rect x="5.2" y="3.4" width="6.8" height="0.9" rx="0.5" fill="#1A55B5"/>
+      <rect x="11.1" y="3.67" width="0.6" height="0.34" rx="0.12" fill="#E4D08A"/>
+      <!-- 画面窗口：高度=6.8*0.6=4.08 -->
+      <rect x="5.2" y="4.6" width="6.8" height="4.08" rx="0.5" fill="#174D9F"/>
+      <!-- 中心符号重新居中 (中心 y = 4.6 + 2.04 = 6.64) -->
+      <path d="M8.6 5.49 9.75 6.64 8.6 7.79 7.45 6.64 8.6 5.49Z" fill="#E4D08A"/>
+      <circle cx="8.6" cy="6.64" r="0.34" fill="#0E3F95"/>
+      <!-- 文字框：顶 = 4.6 + 4.08 + 0.3 = 8.98，高度 = 14.2 - 8.98 = 5.22 -->
+      <rect x="5.2" y="8.98" width="6.8" height="5.22" rx="0.5" fill="#1A4C8F"/>
+      <!-- 文字占位线 -->
+      <rect x="5.5" y="9.55" width="6.2" height="0.38" rx="0.19" fill="#C4DCF6" opacity="0.85"/>
+      <rect x="5.5" y="10.2" width="5.5" height="0.34" rx="0.17" fill="#C4DCF6" opacity="0.55"/>
+    </g>
+    <!-- 背景层淡化点缀 -->
+    <circle cx="11.1" cy="5.3" r="1.1" fill="#66D1FF" opacity="0.08"/>
+  </g>
+</svg>

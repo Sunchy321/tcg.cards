@@ -8,13 +8,11 @@
 import { watch } from 'vue';
 
 import { useRoute } from 'vue-router';
-import { useFavicon } from '@vueuse/core';
 import { useCore } from 'store/core';
 
 import { Game } from '@interface/index';
 
 const route = useRoute();
-const favicon = useFavicon();
 const core = useCore();
 
 watch(
@@ -42,14 +40,6 @@ watch(
     },
     { immediate: true },
 );
-
-watch(() => core.game, game => {
-    if (game == null) {
-        favicon.value = '/logo.png';
-    } else {
-        favicon.value = `/${game}/logo.svg`;
-    }
-}, { immediate: true });
 
 core.boot();
 
