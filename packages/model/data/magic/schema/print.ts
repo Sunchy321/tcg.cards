@@ -70,7 +70,7 @@ export const print = z.strictObject({
     cardMarketId: z.int().nullable(),
 });
 
-const printPart = z.strictObject({
+export const printPart = z.strictObject({
     cardId:    print.shape.cardId,
     set:       print.shape.set,
     number:    print.shape.number,

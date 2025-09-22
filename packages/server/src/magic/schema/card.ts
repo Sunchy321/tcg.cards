@@ -48,6 +48,7 @@ export const CardLocalization = schema.table('card_localizations', {
     typeline: text('loc_typeline').notNull(),
     text:     text('loc_text').notNull(),
 
+    __lastDate:    text('last_date').notNull(),
     __lockedPaths: text('card_localization_locked_paths').array().notNull().default([]),
     __updations:   jsonb('card_localization_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
@@ -94,7 +95,6 @@ export const CardPartLocalization = schema.table('card_part_localizations', {
     typeline: text('part_loc_typeline').notNull(),
     text:     text('part_loc_text').notNull(),
 
-    __lastDate:    text('last_date').notNull(),
     __lockedPaths: text('card_part_localization_locked_paths').array().notNull().default([]),
     __updations:   jsonb('card_part_localization_updations').$type<Updation[]>().notNull().default([]),
 }, table => [

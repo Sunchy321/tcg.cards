@@ -249,9 +249,10 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
             cardId,
             lang,
 
-            name:     cardFaces.map(f => f.printed_name).join(' // '),
-            typeline: cardFaces.map(f => f.printed_type_line).join(' // '),
-            text:     cardFaces.map(f => f.printed_text).join('\n////////////////////\n'),
+            name:       cardFaces.map(f => f.printed_name).join(' // '),
+            typeline:   cardFaces.map(f => f.printed_type_line).join(' // '),
+            text:       cardFaces.map(f => f.printed_text).join('\n////////////////////\n'),
+            __lastDate: data.released_at,
         },
 
         cardPart: cardFaces.map((f, i) => ({
@@ -285,10 +286,9 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
             partIndex: i,
             lang,
 
-            name:       f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
-            typeline:   (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
-            text:       purifyText(f.printed_text ?? f.oracle_text ?? ''),
-            __lastDate: data.released_at,
+            name:     f.flavor_name === f.name ? f.name : f.printed_name ?? f.name,
+            typeline: (f.printed_type_line ?? f.type_line ?? '').replace(/ ～/, '～'),
+            text:     purifyText(f.printed_text ?? f.oracle_text ?? ''),
         })),
 
         print: {

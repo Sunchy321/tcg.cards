@@ -50,6 +50,8 @@ export const cardLocalization = z.strictObject({
     name:     z.string(),
     typeline: z.string(),
     text:     z.string(),
+
+    __lastDate: z.string(),
 });
 
 export const cardPart = z.strictObject({
@@ -82,10 +84,9 @@ export const cardPartLocalization = z.strictObject({
     partIndex: z.int().min(0),
     lang:      fullLocale,
 
-    name:       z.string(),
-    typeline:   z.string(),
-    text:       z.string(),
-    __lastDate: z.string(),
+    name:     z.string(),
+    typeline: z.string(),
+    text:     z.string(),
 });
 
 export const cardView = z.strictObject({
@@ -93,10 +94,10 @@ export const cardView = z.strictObject({
     partIndex: z.int().min(0),
     lang:      fullLocale,
 
-    card:                 card.omit({ cardId: true }),
-    cardLocalization:     cardLocalization.omit({ cardId: true, lang: true }),
-    cardPart:             cardPart.omit({ cardId: true, partIndex: true }),
-    cardPartLocalization: cardPartLocalization.omit({ cardId: true, partIndex: true, lang: true }),
+    card:             card.omit({ cardId: true }),
+    localization:     cardLocalization.omit({ cardId: true, lang: true }),
+    part:             cardPart.omit({ cardId: true, partIndex: true }),
+    partLocalization: cardPartLocalization.omit({ cardId: true, partIndex: true, lang: true }),
 });
 
 export const cardProfile = z.strictObject({

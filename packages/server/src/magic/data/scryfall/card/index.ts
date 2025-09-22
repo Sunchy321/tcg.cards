@@ -1,22 +1,16 @@
 import Task from '@/common/task';
 
-import { RawCard } from '@model/magic/schema/data/scryfall/card';
-import { Card as ICard } from '@interface/magic/card';
-import { Print as IPrint } from '@interface/magic/print';
-
 import { db } from '@/drizzle';
-
-// import Card from '@/magic/db/card';
-// import Print from '@/magic/db/print';
-// import SCard from '@/magic/db/scryfall-card';
-// import Set from '@/magic/db/set';
+import { Card, CardLocalization, CardPart, CardPartLocalization } from '@/magic/schema/card';
+import { Print, PrintPart } from '@/magic/schema/print';
 import { Set } from '@/magic/schema/set';
 import { Scryfall } from '@/magic/schema/scryfall';
 
 import { Status } from '@model/magic/schema/data/status';
+import { RawCard } from '@model/magic/schema/data/scryfall/card';
 
+import { and, eq, sql } from 'drizzle-orm';
 import { join } from 'path';
-import { omit, uniq } from 'lodash';
 import internalData from '@/internal-data';
 import { toAsyncBucket } from '@/common/to-bucket';
 import LineReader from '@/common/line-reader';
@@ -25,8 +19,7 @@ import { bulkPath, convertJson } from '../common';
 import { toNSCard, RawCardNoArtSeries } from './to-ns-card';
 import { splitDFT } from './split-dft';
 import { toCard } from './to-card';
-import { combineCard, mergeCard, mergePrint } from './merge';
-import { ICardDatabase } from 'card-common/src/model/magic/card';
+import { mergeCard, mergeCardLocalization, mergeCardPart, mergeCardPartLocalization, mergePrint, mergePrintPart } from './merge';
 import { bulkUpdation } from '@/magic/logger';
 
 const bucketSize = 500;
@@ -127,12 +120,6 @@ export class CardLoader extends Task<Status> {
                 }
             }
 
-            const cards = await Card.find({ 'scryfall.oracleId': { $in: oracleIds } });
-            const prints = await Print.find({ 'scryfall.cardId': { $in: jsons.map(j => j.id) } });
-
-            const cardsToInsert: ICard[] = [];
-            const printsToInsert: IPrint[] = [];
-
             for (const json of jsons) {
                 if (json.layout === 'art_series' || frontCardSet.includes(json.set)) {
                     continue;
@@ -140,126 +127,152 @@ export class CardLoader extends Task<Status> {
 
                 const cardPrints = splitDFT(toNSCard(json as RawCardNoArtSeries)).map(c => toCard(c, setCodeMap));
 
-                const oldCards = cards.filter(c => {
-                    if (json.oracle_id != null) {
-                        return c.scryfall.oracleId.includes(json.oracle_id);
-                    } else if (json.card_faces?.every(f => f.oracle_id === json.card_faces![0].oracle_id)) {
-                        return c.scryfall.oracleId.includes(json.card_faces![0].oracle_id!);
-                    } else {
-                        throw new Error('Unknown oracle Id');
-                    }
-                });
+                for (const cp of cardPrints) {
+                    await db.transaction(async tx => {
+                        // update Card
+                        const card = await tx.select()
+                            .from(Card)
+                            .where(sql`${cp.card.scryfallOracleId} = ANY(${Card.scryfallOracleId})`)
+                            .then(rows => rows[0]);
 
-                const oldPrints = prints.filter(p => p.scryfall.cardId === json.id
-                  || (p.set === json.set && p.number === json.collector_number && p.lang === json.lang));
+                        if (card == null) {
+                            await tx.insert(Card).values(cp.card);
+                        } else {
+                            await mergeCard(card, cp.card);
 
-                if (cardPrints.length === 1) {
-                    // a single card
-                    if (oldCards.length === 0) {
-                        cardsToInsert.push(...cardPrints.map(v => v.card));
-                    } else if (oldCards.length === 1) {
-                        await mergeCard(oldCards[0], cardPrints[0].card);
-                    } else {
-                        // Scryfall mowu is bugged. ignore.
-                        if (json.id !== 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
-                            bulkUpdation.warn(`mismatch object count: ${json.id}`);
-                        }
-                    }
-
-                    if (oldPrints.length === 0) {
-                        printsToInsert.push(...cardPrints.map(v => v.print));
-                    } else if (oldPrints.length === 1) {
-                        await mergePrint(oldPrints[0], cardPrints[0].print);
-                    } else {
-                        // Scryfall mowu is bugged. ignore.
-                        if (json.id === 'b10441dd-9029-4f95-9566-d3771ebd36bd') {
-                            continue;
+                            await tx.update(Card).set(card).where(eq(Card.cardId, card.cardId));
                         }
 
-                        bulkUpdation.warn(`mismatch object count: ${json.id}`);
-                    }
-                } else if (cardPrints.length === 2) {
-                    if (oldCards.length === 0) {
-                        cardsToInsert.push(...cardPrints.map(c => c.card));
-                    } else if (oldCards.length === 1 || oldCards.length === 2) {
-                        for (const n of cardPrints) {
-                            if (n.print.scryfall.face != null) {
-                                const oldPrint = oldPrints.find(p => p.scryfall.face === n.print.scryfall.face);
-                                const oldCard = oldCards.find(c => c.cardId === oldPrint?.cardId);
+                        // update CardLocalization
+                        const cardLocalization = await tx.select()
+                            .from(CardLocalization)
+                            .where(and(
+                                eq(CardLocalization.cardId, cp.print.cardId),
+                                eq(CardLocalization.lang, cp.print.lang),
+                            ))
+                            .then(rows => rows[0]);
 
-                                if (oldCard != null) {
-                                    await mergeCard(oldCard, n.card);
-                                } else {
-                                    cardsToInsert.push(n.card);
-                                }
+                        let updateActivated: boolean;
 
-                                if (oldPrint != null) {
-                                    await mergePrint(oldPrint, n.print);
-                                } else {
-                                    printsToInsert.push(n.print);
-                                }
+                        if (cardLocalization == null) {
+                            await tx.insert(CardLocalization).values(cp.cardLocalization);
+
+                            updateActivated = true;
+                        } else {
+                            if (cardLocalization.lang == 'en' || cardLocalization.__lastDate < cp.cardLocalization.__lastDate) {
+                                mergeCardLocalization(cardLocalization, cp.cardLocalization);
+
+                                await tx.update(CardLocalization).set(cardLocalization).where(and(
+                                    eq(CardLocalization.cardId, cardLocalization.cardId),
+                                    eq(CardLocalization.lang, cardLocalization.lang),
+                                ));
+
+                                updateActivated = true;
                             } else {
-                                // eslint-disable-next-line no-debugger
-                                debugger;
+                                updateActivated = false;
                             }
                         }
-                    } else {
-                        bulkUpdation.warn(`mismatch object count: ${json.id}`);
-                    }
+
+                        // update CardPart
+                        for (const part of cp.cardPart) {
+                            const cardPart = await tx.select()
+                                .from(CardPart)
+                                .where(eq(CardPart.cardId, part.cardId))
+                                .then(rows => rows[0]);
+
+                            if (cardPart == null) {
+                                await tx.insert(CardPart).values(part);
+                            } else {
+                                mergeCardPart(cardPart, part);
+
+                                await tx.update(CardPart).set(cardPart).where(eq(CardPart.cardId, cardPart.cardId));
+                            }
+                        }
+
+                        // update CardPartLocalization
+                        for (const loc of cp.cardPartLocalization) {
+                            const cardPartLocalization = await tx.select()
+                                .from(CardPartLocalization)
+                                .where(and(
+                                    eq(CardPartLocalization.cardId, loc.cardId),
+                                    eq(CardPartLocalization.partIndex, loc.partIndex),
+                                    eq(CardPartLocalization.lang, loc.lang),
+                                ))
+                                .then(rows => rows[0]);
+
+                            if (cardPartLocalization == null) {
+                                await tx.insert(CardPartLocalization).values(loc);
+                            } else {
+                                if (updateActivated) {
+                                    mergeCardPartLocalization(cardPartLocalization, loc);
+
+                                    await tx.update(CardPartLocalization).set(cardPartLocalization).where(and(
+                                        eq(CardPartLocalization.cardId, cardPartLocalization.cardId),
+                                        eq(CardPartLocalization.partIndex, cardPartLocalization.partIndex),
+                                        eq(CardPartLocalization.lang, cardPartLocalization.lang),
+                                    ));
+                                }
+                            }
+                        }
+
+                        // update Print
+                        const print = await tx.select()
+                            .from(Print)
+                            .where(and(
+                                eq(Print.cardId, cp.print.cardId),
+                                eq(Print.set, cp.print.set),
+                                eq(Print.number, cp.print.number),
+                                eq(Print.lang, cp.print.lang),
+                            ))
+                            .then(rows => rows[0]);
+
+                        if (print == null) {
+                            if (cp.print.lang === 'en') {
+                                cp.print.printTags.push('dev:printed');
+                            }
+
+                            await tx.insert(Print).values(cp.print);
+                        } else {
+                            await mergePrint(print, cp.print);
+
+                            await tx.update(Print).set(print).where(and(
+                                eq(Print.cardId, cp.print.cardId),
+                                eq(Print.set, cp.print.set),
+                                eq(Print.number, cp.print.number),
+                                eq(Print.lang, cp.print.lang),
+                            ));
+                        }
+
+                        // update PrintPart
+                        for (const part of cp.printPart) {
+                            const printPart = await tx.select()
+                                .from(PrintPart)
+                                .where(and(
+                                    eq(PrintPart.cardId, part.cardId),
+                                    eq(PrintPart.set, part.set),
+                                    eq(PrintPart.number, part.number),
+                                    eq(PrintPart.partIndex, part.partIndex),
+                                ))
+                                .then(rows => rows[0]);
+
+                            if (printPart == null) {
+                                await tx.insert(PrintPart).values(part);
+                            } else {
+                                mergePrintPart(printPart, part);
+
+                                await tx.update(PrintPart).set(printPart).where(and(
+                                    eq(PrintPart.cardId, printPart.cardId),
+                                    eq(PrintPart.set, printPart.set),
+                                    eq(PrintPart.number, printPart.number),
+                                    eq(PrintPart.partIndex, printPart.partIndex),
+                                ));
+                            }
+                        }
+                    });
                 }
 
                 count += 1;
             }
-
-            for (const print of printsToInsert) {
-                if (print.lang !== 'en') {
-                    continue;
-                }
-
-                print.tags.push('dev:printed');
-            }
-
-            // process duplicate card in once process.
-            const cardsToInsertIds = uniq(cardsToInsert.map(c => c.cardId));
-
-            const cardsToInsertUniq = cardsToInsertIds.map(id => {
-                const matchedCards = cardsToInsert.filter(c => c.cardId === id);
-
-                const combineResult = matchedCards.map(c => ({
-                    ...c,
-                    parts:         c.parts.map(p => ({ ...p, __costMap: {} })),
-                    __updations:   [],
-                    __lockedPaths: [],
-                }) as ICardDatabase).reduce((prev, curr) => {
-                    combineCard(prev, curr);
-
-                    return prev;
-                });
-
-                return omit({
-                    ...combineResult,
-                    parts: combineResult.parts.map(p => omit(p, '__costMap')),
-                }, ['__updations', '__lockedPaths']) as ICard;
-            });
-
-            cardsToInsert.splice(0, cardsToInsert.length, ...cardsToInsertUniq);
-
-            const dups = await Card.find({ cardId: { $in: cardsToInsert.map(c => c.cardId) } });
-
-            for (const c of cardsToInsert) {
-                if (dups.some(d => d.cardId === c.cardId)) {
-                    c.cardId += `::dup${Math.round(Math.random() * 1000)}`;
-
-                    for (const p of printsToInsert) {
-                        if (c.scryfall.oracleId.includes(p.scryfall.oracleId)) {
-                            p.cardId = c.cardId;
-                        }
-                    }
-                }
-            }
-
-            await Card.insertMany(cardsToInsert);
-            await Print.insertMany(printsToInsert);
         }
 
         bulkUpdation.info('============== MERGE CARD COMPLETE =============');
