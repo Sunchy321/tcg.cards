@@ -14,21 +14,14 @@ import { computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 
-import { Legality } from '@interface/magic/format-change';
+import { Legality } from '@model/magic/schema/game-change';
 
 const i18n = useI18n();
 
-const { status } = defineProps<{
+const { status, score } = defineProps<{
     status: Legality;
+    score?: number;
 }>();
-
-const score = computed(() => {
-    if (status.startsWith('score-')) {
-        return Number.parseInt(status.slice('score-'.length), 10);
-    } else {
-        return null;
-    }
-});
 
 const icon = computed(() => {
     switch (status) {
@@ -51,11 +44,11 @@ const icon = computed(() => {
     case 'unavailable':
         return 'mdi-cancel';
     default:
-        if (score.value != null) {
-            if (score.value > 9) {
+        if (score != null) {
+            if (score > 9) {
                 return 'mdi-numeric-9-plus-circle-outline';
             } else {
-                return `mdi-numeric-${score.value}-circle-outline`;
+                return `mdi-numeric-${score}-circle-outline`;
             }
         } else {
             return 'mdi-help-circle-outline';
@@ -64,7 +57,7 @@ const icon = computed(() => {
 });
 
 const tooltip = computed(() => {
-    if (score.value != null) {
+    if (score != null) {
         return score;
     } else {
         return i18n.t(`magic.legality.${status}`);

@@ -18,20 +18,7 @@ export const legality = z.enum([
     'restricted',
     'suspended',
     'unavailable',
-    'score-1',
-    'score-2',
-    'score-3',
-    'score-4',
-    'score-5',
-    'score-6',
-    'score-7',
-    'score-8',
-    'score-9',
-    'score-10',
-    'score-11',
-    'score-12',
-    'score-13',
-    'score-14',
+    'score',
 ]);
 
 export const status = z.enum([
@@ -61,6 +48,7 @@ export const cardChange = z.strictObject({
     group:  z.string().nullable(),
 
     status,
+    score: z.int().min(1).nullable(),
 
     adjustment: adjustment.array().nullable(),
 });
@@ -96,6 +84,7 @@ export const formatChange = z.strictObject({
     group:  z.string().nullable(),
 
     status: status.nullable(),
+    score:  z.int().min(1).nullable(),
 
     adjustment: adjustment.array().nullable(),
 });

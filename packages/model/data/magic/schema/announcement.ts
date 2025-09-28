@@ -12,6 +12,7 @@ export const announcementItem = z.strictObject({
     ruleId: z.string().nullable(),
 
     status: status.nullable(),
+    score:  z.int().min(1).nullable(),
 
     adjustment:   adjustment.array().nullable(),
     relatedCards: z.string().array().nullable(),

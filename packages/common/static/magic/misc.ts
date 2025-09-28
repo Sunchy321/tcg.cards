@@ -6,14 +6,7 @@ export const banlistStatusOrder = [
     'banned_as_companion',
     'restricted',
 
-    'score-8',
-    'score-7',
-    'score-6',
-    'score-5',
-    'score-4',
-    'score-3',
-    'score-2',
-    'score-1',
+    'score',
 
     'game_changer',
 

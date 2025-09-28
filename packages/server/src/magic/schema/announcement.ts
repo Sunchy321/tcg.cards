@@ -1,10 +1,10 @@
-import { jsonb, text, uuid } from 'drizzle-orm/pg-core';
+import { integer, jsonb, text, uuid } from 'drizzle-orm/pg-core';
 import { eq, sql } from 'drizzle-orm';
 
-import { Adjustment } from '@model/magic/schema/game-change';
+import { Adjustment, Status } from '@model/magic/schema/game-change';
 
 import { schema } from './schema';
-import { gameChangeType, status } from './game-change';
+import { gameChangeType } from './game-change';
 
 export const AnnouncementRuleItem = schema.table('announcement_rule_items', {
     id:   text('id').primaryKey(),
@@ -24,7 +24,8 @@ export const AnnouncementItem = schema.table('announcement_items', {
     setId:  text('set_id'),
     ruleId: text('rule_id'),
 
-    status: status('status'),
+    status: text('status').$type<Status>(),
+    score:  integer('score'),
 
     adjustment:   jsonb('adjustment').$type<Adjustment[]>(),
     relatedCards: text('related_cards').array().default([]),
@@ -73,6 +74,7 @@ export const AnnouncementView = schema.view('announcement_view').as(qb => {
         ruleId: AnnouncementItem.ruleId,
 
         status: AnnouncementItem.status,
+        score:  AnnouncementItem.score,
 
         adjustment:   AnnouncementItem.adjustment,
         relatedCards: AnnouncementItem.relatedCards,

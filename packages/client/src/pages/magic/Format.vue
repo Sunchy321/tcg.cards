@@ -61,11 +61,11 @@
 
                 <grid
                     v-if="n.banlist.length>0"
-                    v-slot="{ cardId: id, status, group }"
+                    v-slot="{ cardId: id, status, score, group }"
                     :value="n.banlist" :item-width="300" item-class="flex items-center"
                 >
                     <div class="banlist flex items-center q-gutter-sm">
-                        <banlist-icon :status="status" />
+                        <banlist-icon :status="status" :score="score" />
                         <card-avatar :id="id" class="avatar" :pauper="formatIsPauper" />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
@@ -150,6 +150,7 @@ interface BanlistItem {
 
     cardId: string;
     status: Legality;
+    score?: number;
     group?: string;
 }
 
@@ -158,7 +159,7 @@ interface TimelineNode {
     link: string[];
 
     sets:    { setId: string, status: 'legal' | 'unavailable' }[];
-    banlist: { cardId: string, status: Legality, group?: string }[];
+    banlist: { cardId: string, status: Legality, score?: number, group?: string }[];
 }
 
 const game = useGame();
@@ -332,6 +333,7 @@ const banlist = computed(() => {
                         link:   c.link ?? [],
                         cardId: c.cardId!,
                         status: c.status as Legality,
+                        score:  c.score ?? undefined,
                         group:  c.group ?? undefined,
                     };
 
@@ -353,12 +355,18 @@ const banlist = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
-            } else if (a.group !== b.group) {
+            }
+
+            if (a.score !== b.score) {
+                return (a.score ?? 0) - (b.score ?? 0);
+            }
+
+            if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
                   - banlistSourceOrder.indexOf(b.group ?? null);
-            } else {
-                return a.cardId < b.cardId ? -1 : 1;
             }
+
+            return a.cardId < b.cardId ? -1 : 1;
         });
         break;
     case 'date':
@@ -377,9 +385,13 @@ const banlist = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
-            } else {
-                return a.cardId < b.cardId ? -1 : 1;
             }
+
+            if (a.score !== b.score) {
+                return (a.score ?? 0) - (b.score ?? 0);
+            }
+
+            return a.cardId < b.cardId ? -1 : 1;
         });
         break;
     default:

@@ -68,6 +68,7 @@ export class AnnouncementApplier {
         format:  string;
         groupId: string;
         status:  Legality;
+        score:   number | null;
     }[];
 
     private async initialize(): Promise<void> {
@@ -179,6 +180,7 @@ export class AnnouncementApplier {
     private setChange(
         setId: string,
         status: Status,
+        score: number | null,
         format: string,
         options: {
             source:        string;
@@ -234,6 +236,7 @@ export class AnnouncementApplier {
                 group:  null,
 
                 status,
+                score,
 
                 adjustment: null,
             });
@@ -253,6 +256,7 @@ export class AnnouncementApplier {
     private cardChange(
         cardId: string,
         status: Status,
+        score: number | null,
         format: string,
         options: {
             group:         string | undefined;
@@ -292,6 +296,7 @@ export class AnnouncementApplier {
             group: group ?? null,
 
             status,
+            score,
 
             adjustment: null,
         });
@@ -312,6 +317,7 @@ export class AnnouncementApplier {
             group:  group ?? null,
 
             status,
+            score,
 
             adjustment: null,
         });
@@ -329,11 +335,13 @@ export class AnnouncementApplier {
                 f.banlist.push({
                     cardId,
                     status,
+                    score,
                     date,
                     group: group ?? null,
                 });
             } else {
                 b.status = status;
+                b.score = score;
                 b.date = date;
                 b.group = group ?? null;
             }
@@ -390,6 +398,7 @@ export class AnnouncementApplier {
             ruleId: null,
 
             status: 'legal',
+            score:  null,
             group:  null,
 
             adjustment:   null,
@@ -420,6 +429,7 @@ export class AnnouncementApplier {
                 ruleId: null,
 
                 status: 'legal',
+                score:  null,
                 group:  null,
 
                 adjustment:   null,
@@ -519,7 +529,7 @@ export class AnnouncementApplier {
                         throw new Error(`Invalid status ${a.status} for set ${a.setId} in format ${f}`);
                     }
 
-                    this.setChange(a.setId!, a.status!, f, {
+                    this.setChange(a.setId!, a.status!, a.score, f, {
                         source: a.source,
                         date:   a.date,
                         name:   a.name,
@@ -536,7 +546,7 @@ export class AnnouncementApplier {
                             );
 
                             for (const v of cards) {
-                                this.cardChange(v, g.status, f, {
+                                this.cardChange(v, g.status, g.score, f, {
                                     group:         g.groupId,
                                     source:        g.source,
                                     date:          effectiveDate,
@@ -553,7 +563,7 @@ export class AnnouncementApplier {
                             const setInFormat = sets.filter(s => [...fo.sets ?? [], a.setId]!.includes(s));
 
                             if (setInFormat.every(s => s === a.setId)) {
-                                this.cardChange(b.cardId, 'unavailable', f, {
+                                this.cardChange(b.cardId, 'unavailable', null, f, {
                                     group:  b.group ?? undefined,
                                     source: a.source,
                                     date:   a.date,
@@ -577,7 +587,7 @@ export class AnnouncementApplier {
                         // clones from other format
                         const srcFormats = /^#\{clone:(.*)\}/.exec(a.cardId)![1].split(',');
 
-                        const newChanges: { cardId: string, status: Legality, group: string | null }[] = [];
+                        const newChanges: { cardId: string, status: Legality, score: number | null, group: string | null }[] = [];
 
                         for (const f of srcFormats) {
                             for (const bo of this.formatMap[f].banlist) {
@@ -585,6 +595,7 @@ export class AnnouncementApplier {
                                     newChanges.push({
                                         cardId: bo.cardId,
                                         status: a.status ?? bo.status,
+                                        score:  a.score ?? bo.score,
                                         group:  bo.group,
                                     });
                                 }
@@ -594,7 +605,7 @@ export class AnnouncementApplier {
                         newChanges.sort((a, b) => cmp(a.cardId, b.cardId));
 
                         for (const n of newChanges) {
-                            this.cardChange(n.cardId, n.status, f, {
+                            this.cardChange(n.cardId, n.status, n.score, f, {
                                 group:  n.group ?? undefined,
                                 source: a.source,
                                 date:   a.date,
@@ -626,18 +637,20 @@ export class AnnouncementApplier {
                                     groupId: group,
                                     format:  f,
                                     status:  a.status,
+                                    score:   a.score,
                                 });
                             } else {
                                 this.groupWatcher[index].source = a.source;
                                 this.groupWatcher[index].link = a.link;
                                 this.groupWatcher[index].name = a.name;
                                 this.groupWatcher[index].status = a.status;
+                                this.groupWatcher[index].score = a.score;
                             }
 
                             const cards = this.detectGroup(group, f, fo.sets);
 
                             for (const v of cards) {
-                                this.cardChange(v, a.status, f, {
+                                this.cardChange(v, a.status, a.score, f, {
                                     group:  group ?? null,
                                     source: a.source,
                                     date:   effectiveDate,
@@ -658,7 +671,7 @@ export class AnnouncementApplier {
                             const cardsRemoved = fo.banlist.filter(v => v.group === group).map(v => v.cardId);
 
                             for (const v of cardsRemoved) {
-                                this.cardChange(v, a.status, f, {
+                                this.cardChange(v, a.status, a.score, f, {
                                     group,
                                     source: a.source,
                                     date:   effectiveDate,
@@ -669,7 +682,7 @@ export class AnnouncementApplier {
                             }
                         }
                     } else {
-                        this.cardChange(a.cardId, a.status, f, {
+                        this.cardChange(a.cardId, a.status, a.score, f, {
                             group:  undefined,
                             source: a.source,
                             date:   a.date,
@@ -695,6 +708,7 @@ export class AnnouncementApplier {
                         group:  null,
 
                         status: a.status,
+                        score:  a.score,
 
                         adjustment: a.adjustment,
                     });

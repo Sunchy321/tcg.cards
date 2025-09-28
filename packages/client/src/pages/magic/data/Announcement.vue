@@ -418,6 +418,7 @@ const pushItem = (format: string | null = '') => {
         ruleId: null,
 
         status: null,
+        score:  null,
 
         adjustment:   null,
         relatedCards: null,
@@ -485,24 +486,25 @@ const switchChangeType = (item: AnnouncementItem) => {
 };
 
 const scoreFor = (item: AnnouncementItem) => {
-    if (item.status != null && item.status.startsWith('score-')) {
-        return Number.parseInt(item.status.slice('score-'.length), 10);
+    if (item.status == 'score') {
+        return item.score!;
     } else {
         return 0;
     }
 };
 
-const updateScoreFor = (item: AnnouncementItem, value: number | string) => {
+const updateScoreFor = (item: AnnouncementItem, score: number | string) => {
     if (item.type != 'card_change') {
         return;
     }
 
-    value = typeof value === 'string' ? Number.parseInt(value, 10) : value;
+    score = typeof score === 'string' ? Number.parseInt(score, 10) : score;
 
-    if (value === 0) {
+    if (score === 0) {
         item.status = 'legal';
     } else {
-        item.status = `score-${value}` as Legality;
+        item.status = 'score';
+        item.score = score;
     }
 };
 

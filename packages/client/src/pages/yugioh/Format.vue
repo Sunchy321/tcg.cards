@@ -150,6 +150,7 @@ interface BanlistItem {
 
     id:     string;
     status: Legality;
+    score?: number;
     group?: string;
 }
 

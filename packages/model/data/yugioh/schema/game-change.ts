@@ -15,6 +15,7 @@ export const legality = z.enum([
     'semi-limited',
     'unlimited',
     'unavailable',
+    'score',
 ]);
 
 export const status = z.enum([
@@ -79,6 +80,7 @@ export const formatChange = z.strictObject({
     group:  z.string().nullable(),
 
     status: status.nullable(),
+    score:  z.int().positive().nullable(),
 
     adjustment: adjustment.array().nullable(),
 });

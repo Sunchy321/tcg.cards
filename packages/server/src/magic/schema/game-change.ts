@@ -1,11 +1,10 @@
-import { jsonb, text } from 'drizzle-orm/pg-core';
+import { integer, jsonb, text } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
 
 import * as gameChangeModel from '@model/magic/schema/game-change';
-import { Adjustment } from '@model/magic/schema/game-change';
+import { Adjustment, Status } from '@model/magic/schema/game-change';
 
 export const gameChangeType = schema.enum('game_change_type', gameChangeModel.gameChangeType.enum);
-export const status = schema.enum('game_change_status', gameChangeModel.status.enum);
 
 export const CardChange = schema.table('card_changes', {
     source:        text('source').notNull(),
@@ -21,7 +20,8 @@ export const CardChange = schema.table('card_changes', {
     setId:  text('set_id'),
     group:  text('group'),
 
-    status: status('status').notNull(),
+    status: text('status').$type<Status>().notNull(),
+    score:  integer('score'),
 
     adjustment: jsonb('adjustment').$type<Adjustment[]>(),
 });
@@ -38,7 +38,8 @@ export const SetChange = schema.table('set_changes', {
 
     setId: text('set_id').notNull(),
 
-    status: status('status').notNull(),
+    status: text('status').$type<Status>().notNull(),
+    score:  integer('score'),
 });
 
 export const FormatChange = schema.table('format_changes', {
@@ -56,7 +57,8 @@ export const FormatChange = schema.table('format_changes', {
     ruleId: text('rule_id'),
     group:  text('group'),
 
-    status: status('status'),
+    status: text('status').$type<Status>(),
+    score:  integer('score'),
 
     adjustment: jsonb('adjustment').$type<Adjustment[]>(),
 });
