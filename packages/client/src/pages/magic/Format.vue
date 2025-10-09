@@ -93,11 +93,11 @@
             </div>
 
             <grid
-                v-slot="{ cardId, status, date: effectiveDate, group, link }"
+                v-slot="{ cardId, status, score, date: effectiveDate, group, link }"
                 :value="banlist" :item-width="300" item-class="flex items-center"
             >
                 <div class="banlist flex items-center q-gutter-sm">
-                    <banlist-icon :status="status" />
+                    <banlist-icon :status="status" :score="score" />
                     <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                     <div v-else class="date">{{ effectiveDate }}</div>
                     <card-avatar :id="cardId" class="avatar" :pauper="formatIsPauper" />
@@ -281,6 +281,8 @@ const nodes = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
+            } else if (a.score !== b.score) {
+                return (b.score ?? 0) - (a.score ?? 0);
             } else if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
                   - banlistSourceOrder.indexOf(b.group ?? null);
@@ -358,7 +360,7 @@ const banlist = computed(() => {
             }
 
             if (a.score !== b.score) {
-                return (a.score ?? 0) - (b.score ?? 0);
+                return (b.score ?? 0) - (a.score ?? 0);
             }
 
             if (a.group !== b.group) {
@@ -388,7 +390,7 @@ const banlist = computed(() => {
             }
 
             if (a.score !== b.score) {
-                return (a.score ?? 0) - (b.score ?? 0);
+                return (b.score ?? 0) - (a.score ?? 0);
             }
 
             return a.cardId < b.cardId ? -1 : 1;

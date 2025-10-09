@@ -1,7 +1,7 @@
 <template>
     <q-icon
         :name="icon"
-        :class="'banlist-status-' + status"
+        :class="'banlist-status-' + fullStatus"
     >
         <q-tooltip>
             {{ tooltip }}
@@ -53,6 +53,14 @@ const icon = computed(() => {
         } else {
             return 'mdi-help-circle-outline';
         }
+    }
+});
+
+const fullStatus = computed(() => {
+    if (score != null) {
+        return `score-${score}`;
+    } else {
+        return status;
     }
 });
 
