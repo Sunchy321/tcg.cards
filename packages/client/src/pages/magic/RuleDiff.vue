@@ -41,7 +41,7 @@
                         ...(isMenu(d) ? ['is-menu'] : []),
                     ]"
                 >
-                    <span v-if="d.serial[0] != null" :class="d.type ? `text-${d.type}` : ''">{{ d.serial[1] + ' ' }}</span>
+                    <span v-if="d.serial[1] != null" :class="d.type ? `text-${d.type}` : ''">{{ d.serial[1] + ' ' }}</span>
                     <span v-else-if="d.itemId.includes(':e')" :class="d.type ? `text-${d.type}` : ''" class="example">EXAMPLE</span>
 
                     <rich-text
@@ -73,7 +73,7 @@ const router = useRouter();
 const route = useRoute();
 const i18n = useI18n();
 
-const showMinor = useParam('timeline', {
+const showMinor = useParam('show-minor', {
     type: 'boolean',
     bind: 'query',
 });

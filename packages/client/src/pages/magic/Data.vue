@@ -26,7 +26,7 @@ const tabs = [
     'Format',
     'Announcement',
     'Legality',
-    'CR',
+    'Rule',
 ];
 
 const tab = useParam('tab', {

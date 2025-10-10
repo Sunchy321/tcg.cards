@@ -4,6 +4,7 @@ import {
 
 import { Legality, Legalities } from '@model/magic/schema/game-change';
 
+import { escapeRegExp } from 'lodash';
 import { toIdentifier } from '@common/util/id';
 
 type Type = {
@@ -93,4 +94,28 @@ export function convertLegality(legalities: SLegalities): Legalities {
 
 export function force<T>(value: T): T {
     return value;
+}
+
+export function intoRichText(text: string, cards: { text: string, cardId: string, part?: number }[]) {
+    if (cards.length === 0) {
+        return text;
+    }
+
+    const regex = new RegExp(cards.map(c => escapeRegExp(c.text)).join('|'), 'g');
+
+    return text.replace(regex, text => {
+        if (text == '') {
+            return '';
+        }
+
+        const match = cards.find(c => c.text == text);
+
+        if (match == null) {
+            throw new Error(`Card text "${text}" not found in cards list.`);
+        }
+
+        const cardInfo = match.part != null ? `${match.cardId}/${match.part}` : match.cardId;
+
+        return `@card(${cardInfo}){${match.text}}`;
+    });
 }

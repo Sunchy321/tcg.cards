@@ -1,6 +1,9 @@
-import Card from '@/magic/db/card';
+import { db } from '@/drizzle';
+import { CardView } from '@/magic/schema/card';
 
+import { and, eq, sql } from 'drizzle-orm';
 import { isEqual } from 'lodash';
+
 import internalData from '@/internal-data';
 
 const lowercaseWords = [
@@ -198,15 +201,18 @@ export default class CardNameExtractor {
     }
 
     static async names(): Promise<{ id: string, name: string[] }[]> {
-        return Card.aggregate([
-            {
-                $match: {
-                    'category':         'default',
-                    'parts.type.main':  { $nin: ['vanguard'] },
-                    'parts.type.super': { $nin: ['token'] },
-                },
-            },
-            { $project: { id: '$cardId', name: '$parts.name' } },
-        ]);
+        return await db
+            .select({
+                id:   CardView.cardId,
+                name: sql<string[]>`array_agg(${CardView.part.name})`.as('name'),
+            })
+            .from(CardView)
+            .where(and(
+                eq(CardView.card.category, 'default'),
+                sql`${'vanguard'} != ALL(${CardView.part.typeMain})`,
+                sql`${'token'} != ALL(${CardView.part.typeSuper})`,
+            ))
+            .groupBy(CardView.cardId)
+        ;
     }
 }

@@ -38,8 +38,15 @@ export const ruleDiffItem = z.strictObject({
     itemId: z.string(),
     type:   z.enum(['add', 'move', 'remove']).optional(),
     serial: z.tuple([z.string().nullable(), z.string().nullable()]),
-    depth:  z.tuple([z.number().nullable(), z.number().nullable()]),
+    depth:  z.tuple([z.number().nullish(), z.number().nullish()]),
     text:   textDiff.array(),
+});
+
+export const rule = z.strictObject({
+    date: z.iso.date(),
+    lang: z.string(),
+
+    contents: ruleItem.array(),
 });
 
 export const ruleDiff = z.strictObject({
@@ -63,6 +70,7 @@ export const ruleHistory = z.strictObject({
 
 export type RuleItem = z.infer<typeof ruleItem>;
 export type RuleSummary = z.infer<typeof ruleSummary>;
+export type Rule = z.infer<typeof rule>;
 export type TextDiff = z.infer<typeof textDiff>;
 export type RuleDiffItem = z.infer<typeof ruleDiffItem>;
 export type RuleDiff = z.infer<typeof ruleDiff>;
