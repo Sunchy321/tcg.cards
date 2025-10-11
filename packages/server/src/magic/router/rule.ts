@@ -22,7 +22,7 @@ import { join } from 'path';
 import { diffThreeString } from '@common/util/diff';
 import { intoRichText } from '@/magic/util';
 import { getRuleDiff } from '@/magic/rule/diff';
-import { parse as parseDetail } from '@/magic/rule/parse';
+import { parse as parseDetail, reparse as reparseDetail } from '@/magic/rule/parse';
 
 import { dataPath } from '@/config';
 
@@ -369,6 +369,22 @@ const save = os
         }
     });
 
+const reparse = os
+    .input(z.string())
+    .output(rule)
+    .handler(async ({ input }) => {
+        const date = input;
+
+        try {
+            const result = await reparseDetail(date);
+
+            return result;
+        } catch (e) {
+            console.error(e);
+            throw e;
+        }
+    });
+
 export const ruleTrpc = {
     list,
     files,
@@ -379,6 +395,7 @@ export const ruleTrpc = {
     full,
     parse,
     save,
+    reparse,
 };
 
 export const ruleApi = {

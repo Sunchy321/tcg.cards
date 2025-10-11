@@ -136,5 +136,9 @@ export async function getRuleDiff(fromDate: string, toDate: string, lang: string
         from: fromDate,
         to:   toDate,
         diff: diff as RuleDiffItem[],
+
+        __from: fromItems.map(c => c.itemId),
+        __to:   toItems.map(c => c.itemId),
+        __diff: diffArrays(fromItems.map(c => c.itemId), toItems.map(c => c.itemId)),
     } satisfies RuleDiff;
 }

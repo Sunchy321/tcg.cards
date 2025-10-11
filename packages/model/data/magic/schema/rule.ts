@@ -49,7 +49,7 @@ export const rule = z.strictObject({
     contents: ruleItem.array(),
 });
 
-export const ruleDiff = z.strictObject({
+export const ruleDiff = z.looseObject({
     from: z.iso.date(),
     to:   z.iso.date(),
 

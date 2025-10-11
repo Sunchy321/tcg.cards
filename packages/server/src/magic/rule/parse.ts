@@ -152,14 +152,14 @@ export async function parse(date: string): Promise<IRule> {
                             return {
                                 itemId: `${lastItem.itemId.slice(0, -m[0].length)}:e${Number(m[1]) + 1}`,
                                 depth:  lastItem.depth,
-                                serial: null,
+                                serial: lastItem.serial!.replace(/:e\d+$/, '') + `:e${Number(m[1]) + 1}`,
                                 text:   content.text,
                             };
                         } else {
                             return {
                                 itemId: `${lastItem.itemId}:e0`,
-                                depth:  lastItem.depth,
-                                serial: null,
+                                depth:  lastItem.depth + 1,
+                                serial: lastItem.serial + ':e0',
                                 text:   content.text,
                             };
                         }
@@ -307,16 +307,27 @@ export async function reparse(date: string): Promise<IRule> {
         throw new Error(`cr ${date} doesn't exist`);
     }
 
-    const contents = await db.select()
+    const contents = await db.select({
+        itemId: RuleItem.itemId,
+
+        index: RuleItem.index,
+        depth: RuleItem.depth,
+
+        serial:   RuleItem.serial,
+        text:     RuleItem.text,
+        richText: RuleItem.richText,
+    })
         .from(RuleItem)
         .where(and(
-            eq(RuleItem.itemId, parseResult.contents[0].itemId),
+            eq(RuleItem.date, date),
             eq(RuleItem.lang, 'en'),
         ))
-        .orderBy(RuleItem.date);
+        .orderBy(RuleItem.index);
 
     for (const [co, cn] of zip(contents, parseResult.contents)) {
         if (co == null || cn == null) {
+            console.log(co, cn, contents.length, parseResult.contents.length);
+
             throw new Error(`cr ${date} contents mismatch`);
         }
 
@@ -324,19 +335,10 @@ export async function reparse(date: string): Promise<IRule> {
             co.itemId = cn.itemId;
         }
 
+        co.depth = cn.depth;
         co.serial = cn.serial;
         co.text = cn.text;
         co.richText = cn.richText;
-    }
-
-    for (const co of contents) {
-        await db.update(RuleItem)
-            .set(co)
-            .where(and(
-                eq(RuleItem.date, co.date),
-                eq(RuleItem.lang, 'en'),
-                eq(RuleItem.itemId, co.itemId),
-            ));
     }
 
     return {

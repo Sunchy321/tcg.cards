@@ -238,11 +238,12 @@ const save = async () => {
 };
 
 const reparse = async () => {
-    // if (date.value != null && cr.value.includes(date.value)) {
-    //     const { data: result } = await controlGet<CR>('/magic/cr/reparse', { date: date.value });
+    if (date.value == null || !cr.value.includes(date.value)) {
+        data.value = undefined;
+        return;
+    }
 
-    //     data.value = result;
-    // }
+    data.value = await trpc.magic.rule.reparse(date.value);
 };
 
 const allReparse = async () => {
