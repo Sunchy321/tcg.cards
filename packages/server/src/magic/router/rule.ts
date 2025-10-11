@@ -367,7 +367,8 @@ const save = os
             console.log(e);
             throw e;
         }
-    });
+    })
+    .callable();
 
 const reparse = os
     .input(z.string())
@@ -376,12 +377,52 @@ const reparse = os
         const date = input;
 
         try {
-            const result = await reparseDetail(date);
+            const data = await reparseDetail(date);
 
-            return result;
+            const oldItems = await db.select()
+                .from(RuleItem)
+                .where(and(
+                    eq(RuleItem.date, date),
+                    eq(RuleItem.lang, 'en'),
+                ));
+
+            const cardNames = await CardNameExtrator.names();
+
+            for (const c of data.contents) {
+                const oldItem = oldItems.find(co => co.itemId == c.itemId);
+
+                if (oldItem == null || oldItem.text != c.text) {
+                    parseCard(c, data, cardNames);
+                }
+            }
+
+            return data;
         } catch (e) {
             console.error(e);
             throw e;
+        }
+    })
+    .callable();
+
+const allReparse = os
+    .input(z.void())
+    .output(z.void())
+    .handler(async () => {
+        const rules = await db.select()
+            .from(Rule)
+            .where(eq(Rule.lang, 'en'))
+            .orderBy(Rule.date);
+
+        for (const r of rules) {
+            try {
+                const result = await reparse(r.date);
+
+                await save(result);
+
+                console.log(r.date);
+            } catch (e) {
+                console.error(e);
+            }
         }
     });
 
@@ -396,6 +437,7 @@ export const ruleTrpc = {
     parse,
     save,
     reparse,
+    allReparse,
 };
 
 export const ruleApi = {

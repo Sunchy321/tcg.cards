@@ -247,7 +247,7 @@ const reparse = async () => {
 };
 
 const allReparse = async () => {
-    await controlPost('/magic/cr/all-reparse');
+    await trpc.magic.rule.allReparse();
 };
 
 const extractCard = async (id: string) => {

@@ -2,66 +2,15 @@ import KoaRouter from '@koa/router';
 import { DefaultState, Context } from 'koa';
 
 import CR from '@/magic/db/cr';
-import { Content, CR as ICR } from '@interface/magic/cr';
 
 import CardNameExtrator from '@/magic/extract-name';
 
-import { parse, reparse } from '@/magic/rule/parse';
-import { readdirSync } from 'fs';
-import { join } from 'path';
-import { isEqual, mapValues } from 'lodash';
+import { mapValues } from 'lodash';
 import { toSingle } from '@/common/request-helper';
-
-import { dataPath } from '@/config';
 
 const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/cr');
-
-router.get('/reparse', async ctx => {
-    const { date } = mapValues(ctx.query, toSingle);
-
-    if (date == null) {
-        ctx.status = 400;
-        return;
-    }
-
-    const dir = join(dataPath, 'magic', 'rule');
-
-    const dataList = readdirSync(dir).filter(t => t.endsWith('txt')).map(t => t.slice(0, -4));
-
-    if (!dataList.includes(date)) {
-        return;
-    }
-
-    const data = await reparse(date);
-
-    const cardNames = await CardNameExtrator.names();
-
-    for (const c of data.contents) {
-        if (c.examples == null && /\w$/.test(c.text)) {
-            delete c.cards;
-            continue;
-        }
-
-        parseCard(c, data, cardNames);
-    }
-
-    ctx.body = data;
-});
-
-router.post('/all-reparse', async () => {
-    const crs = await CR.find();
-
-    for (const cr of crs) {
-        try {
-            await reparse(cr.date);
-            console.log(cr.date);
-        } catch (e) {
-            console.log(e);
-        }
-    }
-});
 
 router.get('/extract-cardname', async ctx => {
     const { date, id } = mapValues(ctx.query, toSingle);
