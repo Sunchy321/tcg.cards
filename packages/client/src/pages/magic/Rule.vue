@@ -10,8 +10,7 @@
                 ...(c.itemId === itemId && highlightItem(c) ? ['curr-item'] : [])
             ]"
         >
-            <span v-if="c.serial != null">{{ c.serial + ' ' }}</span>
-            <span v-else-if="c.itemId.includes(':e')" class="example">EXAMPLE</span>
+            <rule-serial :item-id="c.itemId" :serial="c.serial" />
 
             <rich-text detect-cr>{{ c.richText }}</rich-text>
 
@@ -36,7 +35,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useCore, useTitle, useParam } from 'store/core';
 
-import RichText from 'src/components/magic/RichText.vue';
+import RichText from 'components/magic/RichText.vue';
+import RuleSerial from 'components/magic/RuleSerial.vue';
 
 import { RuleItem, RuleSummary, RuleSummaryItem } from '@model/magic/schema/rule';
 

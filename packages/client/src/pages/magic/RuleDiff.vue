@@ -21,8 +21,7 @@
                         ...(isMenu(d) ? ['is-menu'] : []),
                     ]"
                 >
-                    <span v-if="d.serial[0] != null" :class="d.type ? `text-${d.type}` : ''">{{ d.serial[0] + ' ' }}</span>
-                    <span v-else-if="d.itemId.includes(':e')" :class="d.type ? `text-${d.type}` : ''" class="example">EXAMPLE</span>
+                    <rule-serial out-of-chapter :item-id="d.itemId" :serial="d.serial[0]" :class="d.type ? `text-${d.type}` : ''" />
 
                     <rich-text
                         v-for="(v, i) in d.text ?? []" :key="i"
@@ -41,8 +40,7 @@
                         ...(isMenu(d) ? ['is-menu'] : []),
                     ]"
                 >
-                    <span v-if="d.serial[1] != null" :class="d.type ? `text-${d.type}` : ''">{{ d.serial[1] + ' ' }}</span>
-                    <span v-else-if="d.itemId.includes(':e')" :class="d.type ? `text-${d.type}` : ''" class="example">EXAMPLE</span>
+                    <rule-serial out-of-chapter :item-id="d.itemId" :serial="d.serial[1]" :class="d.type ? `text-${d.type}` : ''" />
 
                     <rich-text
                         v-for="(v, i) in d.text ?? []" :key="i"
@@ -63,7 +61,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useParam, useTitle } from 'store/core';
 
-import RichText from 'src/components/magic/RichText.vue';
+import RichText from 'components/magic/RichText.vue';
+import RuleSerial from 'components/magic/RuleSerial.vue';
 
 import { RuleDiff, RuleDiffItem, TextDiff } from '@model/magic/schema/rule';
 import { trpc } from 'src/trpc';
