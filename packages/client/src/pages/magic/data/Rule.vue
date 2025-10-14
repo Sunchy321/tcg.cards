@@ -5,7 +5,7 @@
                 v-model="date"
                 dense outlined
                 emit-value map-options
-                :options="crOptions"
+                :options="ruleOptions"
             >
                 <template #option="scope">
                     <q-item v-bind="scope.itemProps">
@@ -21,7 +21,7 @@
             </q-select>
 
             <q-btn
-                v-if="!cr.includes(date)"
+                v-if="!rule.includes(date)"
                 label="Parse"
                 dense outline
                 @click="parse"
@@ -41,7 +41,7 @@
             />
 
             <q-btn
-                v-if="cr.includes(date)"
+                v-if="rule.includes(date)"
                 label="Reparse"
                 dense outline
                 @click="reparse"
@@ -115,7 +115,7 @@
                         <q-btn
                             icon="mdi-magnify"
                             flat dense round
-                            @click="extractCard(props.row.id)"
+                            @click="extractCard(props.row.itemId)"
                         />
                     </q-td>
                 </q-tr>
@@ -131,8 +131,6 @@ import {
 
 import { useRouter, useRoute } from 'vue-router';
 
-import controlSetup from 'setup/control';
-
 import DeferInput from 'components/DeferInput.vue';
 
 import { Rule } from '@model/magic/schema/rule';
@@ -144,9 +142,7 @@ import { trpc } from 'src/trpc';
 const router = useRouter();
 const route = useRoute();
 
-const { controlGet, controlPost } = controlSetup();
-
-const cr = ref<string[]>([]);
+const rule = ref<string[]>([]);
 const txt = ref<string[]>([]);
 const data = ref<Rule>();
 
@@ -157,17 +153,17 @@ const newId = ref('');
 
 const date = computed({
     get() {
-        return route.query.date as string ?? last(cr.value);
+        return route.query.date as string ?? last(rule.value);
     },
     set(newValue: string) {
         void router.push({ query: { ...route.query, date: newValue } });
     },
 });
 
-const crOptions = computed(() => txt.value.map(d => ({
+const ruleOptions = computed(() => txt.value.map(d => ({
     value:   d,
     label:   d,
-    hasData: cr.value.includes(d),
+    hasData: rule.value.includes(d),
 })));
 
 const contents = computed(() => data.value?.contents ?? []);
@@ -201,7 +197,7 @@ const duplicatedID = computed(() => {
 });
 
 const loadData = async () => {
-    if (date.value == null || !cr.value.includes(date.value)) {
+    if (date.value == null || !rule.value.includes(date.value)) {
         data.value = undefined;
         return;
     }
@@ -210,7 +206,7 @@ const loadData = async () => {
 };
 
 const loadList = async () => {
-    cr.value = await trpc.magic.rule.list();
+    rule.value = await trpc.magic.rule.list();
     txt.value = await trpc.magic.rule.files();
 
     if (data.value == null) {
@@ -219,7 +215,7 @@ const loadList = async () => {
 };
 
 const parse = async () => {
-    if (date.value == null || cr.value.includes(date.value)) {
+    if (date.value == null || rule.value.includes(date.value)) {
         data.value = undefined;
         return;
     }
@@ -238,7 +234,7 @@ const save = async () => {
 };
 
 const reparse = async () => {
-    if (date.value == null || !cr.value.includes(date.value)) {
+    if (date.value == null || !rule.value.includes(date.value)) {
         data.value = undefined;
         return;
     }
@@ -250,12 +246,22 @@ const allReparse = async () => {
     await trpc.magic.rule.allReparse();
 };
 
-const extractCard = async (id: string) => {
-    await controlGet('/magic/cr/extract-cardname', { date: date.value, id });
+const extractCard = async (itemId: string) => {
+    if (data.value == null) {
+        return;
+    }
+
+    const text = await trpc.magic.rule.extractCard({ date: date.value, itemId });
+
+    const item = data.value.contents.find(c => c.itemId === itemId);
+
+    if (item != null) {
+        item.richText = text;
+    }
 };
 
 const renameAll = async () => {
-    await controlPost('/magic/cr/rename-all', { old: oldId.value, new: newId.value });
+    await trpc.magic.rule.renameAll({ old: oldId.value, new: newId.value });
     await loadData();
 };
 

@@ -426,6 +426,70 @@ const allReparse = os
         }
     });
 
+const extractCard = os
+    .input(z.object({
+        date:   z.string(),
+        itemId: z.string(),
+    }))
+    .output(z.string())
+    .handler(async ({ input }) => {
+        const { date, itemId } = input;
+
+        const items = await db.select()
+            .from(RuleItem)
+            .where(and(
+                eq(RuleItem.date, date),
+                eq(RuleItem.lang, 'en'),
+            ));
+
+        const item = items.find(i => i.itemId === itemId);
+
+        if (item == null) {
+            return '';
+        }
+
+        const cardNames = await CardNameExtrator.names();
+
+        parseCard(item, {
+            date, lang: 'en', contents: items,
+        }, cardNames);
+
+        await db.update(RuleItem)
+            .set({ richText: item.richText })
+            .where(and(
+                eq(RuleItem.date, date),
+                eq(RuleItem.lang, 'en'),
+                eq(RuleItem.itemId, itemId),
+            ));
+
+        console.log(`Extracted card name for ${date} - ${itemId}`);
+        console.log(`Rich text: ${item.richText}`);
+
+        return item.richText;
+    });
+
+const renameAll = os
+    .input(z.object({
+        old: z.string(),
+        new: z.string(),
+    }))
+    .output(z.void())
+    .handler(async ({ input }) => {
+        const { old: oldValue, new: newValue } = input;
+
+        if (oldValue == null || oldValue === '') {
+            return;
+        }
+
+        if (newValue == null || newValue === '') {
+            return;
+        }
+
+        await db.update(RuleItem)
+            .set({ itemId: newValue })
+            .where(eq(RuleItem.itemId, oldValue));
+    });
+
 export const ruleTrpc = {
     list,
     files,
@@ -438,6 +502,8 @@ export const ruleTrpc = {
     save,
     reparse,
     allReparse,
+    extractCard,
+    renameAll,
 };
 
 export const ruleApi = {
