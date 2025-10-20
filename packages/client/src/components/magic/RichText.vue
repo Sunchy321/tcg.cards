@@ -185,7 +185,7 @@ const render = () => {
                         }));
                     } else {
                         result.push(h('span', {
-                            class: `magic-text card ${attrs.class ?? ''}`,
+                            class: `magic-text card repeated ${attrs.class ?? ''}`,
                             id:    cardId,
                             part:  partIndex,
                         }, text));
@@ -225,6 +225,10 @@ onMounted(async () => {
 .magic-text.card
     display: inline
     text-decoration: underline
+
+.magic-text.card.repeated
+    display: inline
+    text-decoration: dashed underline
 
 .magic-text.emph
     font-weight: italic
