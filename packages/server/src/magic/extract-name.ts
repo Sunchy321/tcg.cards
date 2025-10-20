@@ -144,13 +144,21 @@ export default class CardNameExtractor {
         const rawMatches = this.ahoCorasick.search(this.text);
         const longestMatches: { start: number, end: number, text: string }[] = [];
 
+        // 判断是否为“词字符”（支持 Unicode 字母、数字、下划线和撇号变体）
+        const isWordChar = (ch?: string) => ch != null && /[\p{L}\p{N}_'’]/u.test(ch);
+
         for (const group of rawMatches) {
             const longest = group[1].sort((a, b) => b.length - a.length)[0];
-            longestMatches.push({
-                start: group[0] - longest.length + 1,
-                end:   group[0],
-                text:  longest,
-            });
+            const start = group[0] - longest.length + 1;
+            const end = group[0];
+
+            // 边界检查：匹配前后都不是词字符或为文本边界，视为完整单词
+            const before = start > 0 ? this.text[start - 1] : undefined;
+            const after = end + 1 < this.text.length ? this.text[end + 1] : undefined;
+
+            if (!isWordChar(before) && !isWordChar(after)) {
+                longestMatches.push({ start, end, text: longest });
+            }
         }
 
         // 按长度降序，过滤重叠
