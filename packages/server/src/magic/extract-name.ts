@@ -5,39 +5,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { isEqual } from 'lodash';
 
 import internalData from '@/internal-data';
-
-const lowercaseWords = [
-    'a',
-    'à',
-    'and',
-    'as',
-    'at',
-    'but',
-    'by',
-    'for',
-    'from',
-    'in',
-    'into',
-    'la',
-    'le',
-    'of',
-    'on',
-    'or',
-    'the',
-    'this',
-    'to',
-    'upon',
-    'with',
-];
-
-const upper = '(?:[a-záâñöŠûü]+-|l’)?[A-Z][-A-Za-záâñöŠûü\'’]+';
-const word = `(?:${upper},?|${lowercaseWords.join('|')})`;
-
-const normalName = `(?:\\b${upper},?(?: ${word})* ${upper}|${upper}\\b)`;
-
-const nameRegex = `(?:Celebr-8000|B\\.F\\.M\\. \\(Big Furry Monster\\))|\\b_{5,}\\b|${normalName}`;
-
-const phraseRegex = new RegExp(`${nameRegex}( */{1,2} *${nameRegex})*`, 'g');
+import AhoCorasick from 'ahocorasick';
 
 export interface CardNameExtractorOption {
     text:       string;
@@ -47,10 +15,12 @@ export interface CardNameExtractorOption {
 }
 
 export default class CardNameExtractor {
-    text:      string;
-    cardNames: { id: string, name: string[] }[];
-    thisName?: { id: string, name: string[] };
-    blacklist: string[];
+    text:          string;
+    cardNames:     { id: string, name: string[] }[];
+    thisName?:     { id: string, name: string[] };
+    blacklist:     string[];
+    ahoCorasick:   AhoCorasick;
+    nameToCardMap: Map<string, { cardId: string, part?: number }>;
 
     names: { cardId: string, text: string, part?: number }[];
 
@@ -71,6 +41,33 @@ export default class CardNameExtractor {
                 });
             }
         }
+
+        // 构建Aho-Corasick自动机和名称映射表
+        const patterns: string[] = [];
+        this.nameToCardMap = new Map();
+
+        for (const c of this.cardNames) {
+            for (let i = 0; i < c.name.length; i++) {
+                const name = c.name[i];
+                patterns.push(name);
+                this.nameToCardMap.set(name, {
+                    cardId: c.id,
+                    part:   c.name.length > 1 ? i : undefined,
+                });
+
+                // 处理撇号变体
+                if (name.includes('\'')) {
+                    const altName = name.replace(/'/g, '’');
+                    patterns.push(altName);
+                    this.nameToCardMap.set(altName, {
+                        cardId: c.id,
+                        part:   c.name.length > 1 ? i : undefined,
+                    });
+                }
+            }
+        }
+
+        this.ahoCorasick = new AhoCorasick(patterns);
 
         this.names = [];
     }
@@ -143,58 +140,28 @@ export default class CardNameExtractor {
         }
     }
 
-    private guess(phrase: string) {
-        const possibleMatches = [];
-
-        const words = phrase.split(/ *\/{1,2} *| /).map(w => this.sanitize(w.replace(/,$/, '')));
-
-        for (const c of this.cardNames) {
-            for (const n of c.name) {
-                if (words.some(w => n.startsWith(w) || w.startsWith(n))) {
-                    if (n === '_____') {
-                        possibleMatches.push({
-                            match: '_{5,}',
-                            name:  n,
-                        });
-                    } else {
-                        possibleMatches.push({
-                            match: n.replace(/'/g, '[\'’]'),
-                            name:  n,
-                        });
-                    }
-                }
-            }
-
-            if (c.name.length > 1) {
-                if (words.some(w => c.name[0].startsWith(w))) {
-                    possibleMatches.push({
-                        match: c.name.map(n => n.replace(/'/g, '[\'’]')).join(' */{1,2} *'),
-                        name:  c.name.join(' // '),
-                    });
-                }
-            }
-        }
-
-        if (possibleMatches.length === 0) {
-            return;
-        }
-
-        possibleMatches.sort((a, b) => b.name.length - a.name.length);
-
-        const regex = new RegExp(`\\b(${possibleMatches.map(m => m.match).join('|')})(?:s)?\\b`, 'g');
-
-        const matches = phrase.matchAll(regex);
-
-        for (const m of matches) {
-            this.match(m[1]);
-        }
-    }
-
     extract(): { cardId: string, text: string, part?: number }[] {
-        const phrases = [...this.text.matchAll(phraseRegex)].map(m => m[0]);
+        const rawMatches = this.ahoCorasick.search(this.text);
+        const longestMatches: { start: number, end: number, text: string }[] = [];
 
-        for (const phrase of phrases) {
-            this.guess(phrase);
+        for (const group of rawMatches) {
+            const longest = group[1].sort((a, b) => b.length - a.length)[0];
+            longestMatches.push({
+                start: group[0] - longest.length + 1,
+                end:   group[0],
+                text:  longest,
+            });
+        }
+
+        // 按长度降序，过滤重叠
+        longestMatches.sort((a, b) => b.text.length - a.text.length);
+
+        const finalMatches: typeof longestMatches = [];
+        for (const m of longestMatches) {
+            if (!finalMatches.some(f => m.start < f.end && m.end > f.start)) {
+                finalMatches.push(m);
+                this.match(m.text);
+            }
         }
 
         return this.names.filter(n => !n.cardId.startsWith('pseudo:'));
@@ -204,7 +171,7 @@ export default class CardNameExtractor {
         return await db
             .select({
                 id:   CardView.cardId,
-                name: sql<string[]>`array_agg(${CardView.part.name})`.as('name'),
+                name: sql<string[]>`array_agg(${CardView.partLocalization.name})`.as('name'),
             })
             .from(CardView)
             .where(and(

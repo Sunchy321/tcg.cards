@@ -302,7 +302,7 @@ watch(selected, () => {
 
 watch(itemId, scrollIntoItem, { immediate: true });
 
-watch(chapter, loadChapter, { immediate: true });
+watch([date, chapter], loadChapter, { immediate: true });
 
 onMounted(loadList);
 
