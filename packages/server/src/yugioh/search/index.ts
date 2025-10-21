@@ -1,20 +1,20 @@
-import { defineServerModel } from '../../src/model/server';
-import { defineServerCommand, DBQuery, CommonServerCommand } from '../../src/command/server';
+import { and, arrayContains, SQL, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
 
-import { Model } from 'mongoose';
+import { QueryError } from '@search/command/error';
+import { OrderBy, PostAction, defineServerCommand } from '@/search/command';
+import { DevResult, NormalResult } from '@model/yugioh/schema/search';
+import { Locale } from '@model/yugioh/schema/basic';
 
-import { PostAction } from '../../src/model/type';
-import { SearchOption } from '../../src/search';
-import { QueryError } from '../../src/command/error';
+import { defineServerModel } from '@/search/model';
 
-import * as builtin from '../../src/command/builtin/server';
+import { db } from '@/drizzle';
+import { CardEditorView, CardPrintView } from '../schema/print';
 
-import { ICardDatabase } from '@common/model/yugioh/card';
-import { IPrintDatabase } from '@common/model/yugioh/print';
+import * as builtin from '@/search/command/builtin';
 
 import { isEmpty, mapKeys, pickBy } from 'lodash';
 
-import { commands } from './index';
+import { commands } from '@model/yugioh/search';
 
 const raw = defineServerCommand({
     command: commands.raw,

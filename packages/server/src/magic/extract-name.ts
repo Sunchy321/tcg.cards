@@ -15,12 +15,11 @@ export interface CardNameExtractorOption {
 }
 
 export default class CardNameExtractor {
-    text:          string;
-    cardNames:     { id: string, name: string[] }[];
-    thisName?:     { id: string, name: string[] };
-    blacklist:     string[];
-    ahoCorasick:   AhoCorasick;
-    nameToCardMap: Map<string, { cardId: string, part?: number }>;
+    text:        string;
+    cardNames:   { id: string, name: string[] }[];
+    thisName?:   { id: string, name: string[] };
+    blacklist:   string[];
+    ahoCorasick: AhoCorasick;
 
     names: { cardId: string, text: string, part?: number }[];
 
@@ -44,25 +43,28 @@ export default class CardNameExtractor {
 
         // Build Aho-Corasick automaton and the name lookup map
         const patterns: string[] = [];
-        this.nameToCardMap = new Map();
 
         for (const c of this.cardNames) {
-            for (let i = 0; i < c.name.length; i++) {
-                const name = c.name[i];
+            for (const name of c.name) {
                 patterns.push(name);
-                this.nameToCardMap.set(name, {
-                    cardId: c.id,
-                    part:   c.name.length > 1 ? i : undefined,
-                });
 
                 // Handle apostrophe variants
                 if (name.includes('\'')) {
                     const altName = name.replace(/'/g, '’');
                     patterns.push(altName);
-                    this.nameToCardMap.set(altName, {
-                        cardId: c.id,
-                        part:   c.name.length > 1 ? i : undefined,
-                    });
+                }
+            }
+
+            if (c.name.length >= 2) {
+                patterns.push(c.name.join('/'));
+                patterns.push(c.name.join('//'));
+                patterns.push(c.name.join(' // '));
+
+                if (c.name.some(n => n.includes('\''))) {
+                    const altNames = c.name.map(n => n.replace(/'/g, '’'));
+                    patterns.push(altNames.join('/'));
+                    patterns.push(altNames.join('//'));
+                    patterns.push(altNames.join(' // '));
                 }
             }
         }
@@ -141,8 +143,13 @@ export default class CardNameExtractor {
     }
 
     extract(): { cardId: string, text: string, part?: number }[] {
+        console.log('Start match');
+        const now = Date.now();
+
         const rawMatches = this.ahoCorasick.search(this.text);
         const longestMatches: { start: number, end: number, text: string }[] = [];
+
+        console.log('Elapsed:', Date.now() - now);
 
         // Determine whether a character is a word character (supports Unicode letters, digits, underscore, and apostrophes)
         const isWordChar = (ch?: string) => ch != null && /[\p{L}\p{N}_'’]/u.test(ch);
@@ -159,6 +166,15 @@ export default class CardNameExtractor {
             // Treat the position before an apostrophe as a word boundary to allow matches like "xxx's"
             const isApostrophe = after === '\'' || after === '’';
 
+            console.debug({
+                longest,
+                before,
+                after,
+                isApostrophe,
+                isWordCharBefore: isWordChar(before),
+                isWordCharAfter:  isWordChar(after),
+            });
+
             if (!isWordChar(before) && (!isWordChar(after) || isApostrophe)) {
                 longestMatches.push({ start, end, text: longest });
             }
@@ -168,6 +184,7 @@ export default class CardNameExtractor {
         longestMatches.sort((a, b) => b.text.length - a.text.length);
 
         const finalMatches: typeof longestMatches = [];
+
         for (const m of longestMatches) {
             if (!finalMatches.some(f => m.start < f.end && m.end > f.start)) {
                 finalMatches.push(m);
@@ -182,6 +199,7 @@ export default class CardNameExtractor {
         return await db
             .select({
                 id:   CardView.cardId,
+                lang: CardView.lang,
                 name: sql<string[]>`array_agg(${CardView.partLocalization.name})`.as('name'),
             })
             .from(CardView)
@@ -190,7 +208,7 @@ export default class CardNameExtractor {
                 sql`${'vanguard'} != ALL(${CardView.part.typeMain})`,
                 sql`${'token'} != ALL(${CardView.part.typeSuper})`,
             ))
-            .groupBy(CardView.cardId)
+            .groupBy(CardView.cardId, CardView.lang)
         ;
     }
 }
