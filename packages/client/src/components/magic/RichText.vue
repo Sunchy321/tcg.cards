@@ -55,7 +55,7 @@ const render = () => {
                 '\\{[^}]+\\}',
                 '\\[(?:0|[+-](?:[1-9][0-9]*|X|N))\\]',
                 '={20,}\n?',
-                '\\[[A-Z]+\\]',
+                '\\[[A-Z]{2,}\\]',
                 '@card\\(.*?\\)\\{.*?\\}',
                 ...props.detectUrl ? ['https?://[-a-zA-Z0-9/.?=&]+[-a-zA-Z0-9/]'] : [],
                 ...props.detectEmph ? ['\\*[^*]+\\*'] : [],
@@ -86,7 +86,7 @@ const render = () => {
                     continue;
                 }
 
-                if (/\[[A-Z]+\]/.test(p)) {
+                if (/\[[A-Z]{2,}\]/.test(p)) {
                     const region = p.slice(1, -1).toLowerCase();
 
                     const regionMap = regions.value[lang.value];
