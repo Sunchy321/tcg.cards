@@ -2,7 +2,7 @@ import { db } from '@/drizzle';
 import { CardView } from '@/magic/schema/card';
 
 import { and, eq, sql } from 'drizzle-orm';
-import { isEqual } from 'lodash';
+import { isEqual, uniq } from 'lodash';
 
 import internalData from '@/internal-data';
 import AhoCorasick from 'ahocorasick';
@@ -126,7 +126,9 @@ export default class CardNameExtractor {
 
             const cards = this.cardNames.filter(c => c.name.includes(sanitizedPhrase));
 
-            if (cards.length === 1) {
+            const cardIds = uniq(cards.map(c => c.id));
+
+            if (cardIds.length === 1) {
                 if (cards[0].name.length > 1) {
                     const part = cards[0].name.indexOf(sanitizedPhrase);
 
@@ -143,13 +145,13 @@ export default class CardNameExtractor {
     }
 
     extract(): { cardId: string, text: string, part?: number }[] {
-        console.log('Start match');
+        console.debug('Start match');
         const now = Date.now();
 
         const rawMatches = this.ahoCorasick.search(this.text);
         const longestMatches: { start: number, end: number, text: string }[] = [];
 
-        console.log('Elapsed:', Date.now() - now);
+        console.debug('Elapsed:', Date.now() - now);
 
         // Determine whether a character is a word character (supports Unicode letters, digits, underscore, and apostrophes)
         const isWordChar = (ch?: string) => ch != null && /[\p{L}\p{N}_'’]/u.test(ch);
@@ -209,6 +211,6 @@ export default class CardNameExtractor {
                 sql`${'token'} != ALL(${CardView.part.typeSuper})`,
             ))
             .groupBy(CardView.cardId, CardView.lang)
-        ;
+            .orderBy(CardView.lang);
     }
 }
