@@ -2,7 +2,7 @@
     <q-page class="content q-pa-md">
         <div
             v-for="c in chapterContent"
-            :id="c.itemId" :key="c.itemId"
+            :id="c.itemId" :key="`${c.itemId}-${simpleHash(c.richText)}`"
             :class="[
                 'cr-item' ,
                 `depth-${c.depth}`,
@@ -18,6 +18,15 @@
                 <q-btn icon="mdi-content-copy" size="sm" flat dense round @click="copyItem(c)" />
                 <q-btn icon="mdi-link" size="sm" :to="itemLink(c)" flat dense round />
                 <q-btn v-if="hasHistory(c)" icon="mdi-history" size="sm" :to="historyLink(c)" target="_blank" flat dense round />
+
+                <remote-btn
+                    v-if="editorEnabled"
+                    icon="mdi-pencil"
+                    size="sm" flat dense round
+                    :remote="() => extractCard(c)"
+                    :resolve="() => { }"
+                />
+
                 <div class="item-id q-ml-md code">{{ c.itemId }}</div>
             </div>
         </div>
@@ -35,6 +44,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useCore, useTitle, useParam } from 'store/core';
 
+import RemoteBtn from 'components/RemoteBtn.vue';
 import RichText from 'components/magic/RichText.vue';
 import RuleSerial from 'components/magic/RuleSerial.vue';
 
@@ -44,6 +54,18 @@ import _, { last } from 'lodash';
 import { copyToClipboard, Notify, scroll } from 'quasar';
 
 import { trpc } from 'src/trpc';
+import { auth, checkAdmin } from 'src/auth';
+
+// 简单的哈希函数
+const simpleHash = (str: string): string => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // 转换为32位整数
+    }
+    return Math.abs(hash).toString(36);
+};
 
 type Chapter = {
     title:    RuleSummaryItem;
@@ -67,6 +89,12 @@ const selected = defineModel<string | null>('selected');
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const expanded = defineModel<string[]>('expanded');
+
+const session = auth.useSession();
+
+const editorEnabled = computed(() => {
+    return checkAdmin(session.value, 'admin/magic');
+});
 
 useTitle(() => i18n.t('magic.rule.$self'));
 
@@ -244,7 +272,7 @@ const loadSummary = async () => {
     summary.value = await trpc.magic.rule.summary({ date: date.value });
 };
 
-const loadChapter = async () => {
+const loadChapter = async (scroll = true) => {
     if (date.value == null || chapter.value == null) {
         return;
     }
@@ -263,7 +291,9 @@ const loadChapter = async () => {
 
     await nextTick();
 
-    scrollIntoItem();
+    if (scroll) {
+        scrollIntoItem();
+    }
 };
 
 const scrollIntoItem = async () => {
@@ -290,6 +320,16 @@ const copyItem = async (item: RuleItem) => {
     Notify.create(i18n.t('magic.ui.rule.copy-text'));
 };
 
+const extractCard = async (item: RuleItem) => {
+    if (summary.value == null) {
+        return;
+    }
+
+    await trpc.magic.rule.extractCard({ date: date.value, itemId: item.itemId });
+
+    await loadChapter(false);
+};
+
 // watch
 watch(date, loadSummary, { immediate: true });
 
@@ -302,7 +342,7 @@ watch(selected, () => {
 
 watch(itemId, scrollIntoItem, { immediate: true });
 
-watch([date, chapter], loadChapter, { immediate: true });
+watch([date, chapter], () => loadChapter(), { immediate: true });
 
 onMounted(loadList);
 
