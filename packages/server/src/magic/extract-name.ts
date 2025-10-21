@@ -42,7 +42,7 @@ export default class CardNameExtractor {
             }
         }
 
-        // 构建Aho-Corasick自动机和名称映射表
+        // Build Aho-Corasick automaton and the name lookup map
         const patterns: string[] = [];
         this.nameToCardMap = new Map();
 
@@ -55,7 +55,7 @@ export default class CardNameExtractor {
                     part:   c.name.length > 1 ? i : undefined,
                 });
 
-                // 处理撇号变体
+                // Handle apostrophe variants
                 if (name.includes('\'')) {
                     const altName = name.replace(/'/g, '’');
                     patterns.push(altName);
@@ -144,7 +144,7 @@ export default class CardNameExtractor {
         const rawMatches = this.ahoCorasick.search(this.text);
         const longestMatches: { start: number, end: number, text: string }[] = [];
 
-        // 判断是否为“词字符”（支持 Unicode 字母、数字、下划线和撇号变体）
+        // Determine whether a character is a word character (supports Unicode letters, digits, underscore, and apostrophes)
         const isWordChar = (ch?: string) => ch != null && /[\p{L}\p{N}_'’]/u.test(ch);
 
         for (const group of rawMatches) {
@@ -152,16 +152,19 @@ export default class CardNameExtractor {
             const start = group[0] - longest.length + 1;
             const end = group[0];
 
-            // 边界检查：匹配前后都不是词字符或为文本边界，视为完整单词
+            // Boundary check: treat as a whole word if both sides are non-word characters or at text boundary
             const before = start > 0 ? this.text[start - 1] : undefined;
             const after = end + 1 < this.text.length ? this.text[end + 1] : undefined;
 
-            if (!isWordChar(before) && !isWordChar(after)) {
+            // Treat the position before an apostrophe as a word boundary to allow matches like "xxx's"
+            const isApostrophe = after === '\'' || after === '’';
+
+            if (!isWordChar(before) && (!isWordChar(after) || isApostrophe)) {
                 longestMatches.push({ start, end, text: longest });
             }
         }
 
-        // 按长度降序，过滤重叠
+        // Sort by length (desc) and filter overlaps
         longestMatches.sort((a, b) => b.text.length - a.text.length);
 
         const finalMatches: typeof longestMatches = [];
