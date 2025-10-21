@@ -194,7 +194,8 @@ export default class CardNameExtractor {
             }
         }
 
-        return this.names.filter(n => !n.cardId.startsWith('pseudo:'));
+        return this.names.filter(n => !n.cardId.startsWith('pseudo:'))
+            .sort((a, b) => b.text.length - a.text.length);
     }
 
     static async names(): Promise<{ id: string, name: string[] }[]> {
@@ -202,7 +203,7 @@ export default class CardNameExtractor {
             .select({
                 id:   CardView.cardId,
                 lang: CardView.lang,
-                name: sql<string[]>`array_agg(${CardView.partLocalization.name})`.as('name'),
+                name: sql<string[]>`array_agg(${CardView.partLocalization.name} order by ${CardView.partIndex})`.as('name'),
             })
             .from(CardView)
             .where(and(
