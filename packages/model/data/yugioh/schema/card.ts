@@ -8,15 +8,6 @@ export const category = z.enum(['normal']);
 export const card = z.strictObject({
     cardId: z.string(),
 
-    localization: z.strictObject({
-        lang:     fullLocale,
-        name:     z.string(),
-        rubyName: z.string().nullable(),
-        typeline: z.string(),
-        text:     z.string(),
-        comment:  z.string().nullable(),
-    }).array(),
-
     typeMain:           z.string(),
     typeSub:            z.string().array().nullable(),
     attribute:          attribute.nullable(),
@@ -39,10 +30,23 @@ export const card = z.strictObject({
     passcode: z.int().positive().nullable(),
 });
 
-export const cardView = card.extend({
-    lang: card.shape.localization.element.shape.lang,
+export const cardLocalization = z.strictObject({
+    cardId: z.string(),
+    lang:   fullLocale,
 
-    localization: card.shape.localization.element.omit({ lang: true }),
+    name:     z.string(),
+    rubyName: z.string().nullable(),
+    typeline: z.string(),
+    text:     z.string(),
+    comment:  z.string().nullable(),
+});
+
+export const cardView = z.strictObject({
+    cardId: card.shape.cardId,
+    lang:   cardLocalization.shape.lang,
+
+    card:             card.omit({ cardId: true }),
+    cardLocalization: cardLocalization.omit({ cardId: true, lang: true }),
 });
 
 export const cardProfile = z.strictObject({

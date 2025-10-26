@@ -30,6 +30,8 @@ export const Print = schema.table('prints', {
     rarity:      text('rarity').notNull(),
     releaseDate: text('release_date'),
 
+    printTags: text('print_tags').array().notNull().default([]),
+
     __lockedPaths: text('print_locked_paths').array().notNull().default([]),
     __updations:   jsonb('print_updations').$type<Updation[]>().notNull().default([]),
 }, table => [

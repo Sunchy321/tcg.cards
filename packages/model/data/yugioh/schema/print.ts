@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { updation } from '../../basic';
 import { fullLocale, layout } from './basic';
-import { card, cardView } from './card';
+import { card, cardLocalization } from './card';
 
 export const print = z.strictObject({
     cardId: z.string(),
@@ -33,12 +33,12 @@ export const cardPrintView = z.object({
     lang:   print.shape.lang,
 
     card: card.omit({
-        cardId:       true,
-        localization: true,
+        cardId: true,
     }),
 
-    cardLocalization: cardView.shape.localization.omit({
-        lang: true,
+    cardLocalization: cardLocalization.omit({
+        cardId: true,
+        lang:   true,
     }),
 
     print: print.omit({

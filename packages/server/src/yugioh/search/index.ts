@@ -1,4 +1,4 @@
-import { and, arrayContains, SQL, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
+import { and, arrayContains, SQL, asc, desc, not, or, sql } from 'drizzle-orm';
 
 import { QueryError } from '@search/command/error';
 import { OrderBy, PostAction, defineServerCommand } from '@/search/command';
@@ -12,15 +12,13 @@ import { CardEditorView, CardPrintView } from '../schema/print';
 
 import * as builtin from '@/search/command/builtin';
 
-import { isEmpty, mapKeys, pickBy } from 'lodash';
-
 import { commands } from '@model/yugioh/search';
 
 const raw = defineServerCommand({
     command: commands.raw,
     query:   ({ parameter }) => {
         return builtin.text.query({
-            key:       'card.localization.name',
+            column:    CardPrintView.cardLocalization.name,
             multiline: false,
             parameter,
             operator:  ':',
@@ -43,42 +41,40 @@ const stats = defineServerCommand({
 
         const { attack, defense } = pattern;
 
-        if (qualifier?.includes('!')) {
-            return {
-                $or: [
-                    builtin.number.query({
-                        key:       'card.attack',
-                        parameter: attack,
-                        operator:  operator ?? '=',
-                        qualifier,
-                        meta:      { allowFloat: false },
-                    }),
-                    builtin.number.query({
-                        key:       'card.defense',
-                        parameter: defense,
-                        operator:  operator ?? '=',
-                        qualifier,
-                        meta:      { allowFloat: false },
-                    }),
-                ],
-            };
-        } else {
-            return {
-                ...builtin.number.query({
-                    key:       'card.attack',
+        if (!qualifier?.includes('!')) {
+            return and(
+                builtin.number.query({
+                    column:    CardPrintView.card.attack,
                     parameter: attack,
                     operator:  operator ?? '=',
                     qualifier,
                     meta:      { allowFloat: false },
                 }),
-                ...builtin.number.query({
-                    key:       'card.defense',
+                builtin.number.query({
+                    column:    CardPrintView.card.defense,
                     parameter: defense,
                     operator:  operator ?? '=',
                     qualifier,
                     meta:      { allowFloat: false },
                 }),
-            };
+            )!;
+        } else {
+            return or(
+                builtin.number.query({
+                    column:    CardPrintView.card.attack,
+                    parameter: attack,
+                    operator:  operator ?? '=',
+                    qualifier,
+                    meta:      { allowFloat: false },
+                }),
+                builtin.number.query({
+                    column:    CardPrintView.card.defense,
+                    parameter: defense,
+                    operator:  operator ?? '=',
+                    qualifier,
+                    meta:      { allowFloat: false },
+                }),
+            )!;
         }
     },
 });
@@ -93,26 +89,22 @@ const hash = defineServerCommand({
         const { tag } = pattern;
 
         if (!qualifier.includes('!')) {
-            return {
-                $or: [
-                    { 'card.tags': tag },
-                    { 'print.tags': tag },
-                ],
-            };
+            return or(
+                arrayContains(CardPrintView.card.tags, [tag]),
+                // arrayContains(CardPrintView.print.printTags, [tag]),
+            )!;
         } else {
-            return {
-                $and: [
-                    { 'card.tags': { $ne: tag } },
-                    { 'print.tags': { $ne: tag } },
-                ],
-            };
+            return and(
+                not(arrayContains(CardPrintView.card.tags, [tag])),
+                // not(arrayContains(CardPrintView.print.printTags, [tag])),
+            )!;
         }
     },
 });
 
-const set = builtin.simple(commands.set, { key: 'print.set' });
-const num = builtin.simple(commands.num, { key: 'print.number' });
-const lang = builtin.simple(commands.lang, { key: 'print.lang' });
+const set = builtin.simple(commands.set, { column: CardPrintView.set });
+const num = builtin.simple(commands.num, { column: CardPrintView.number });
+const lang = builtin.simple(commands.lang, { column: CardPrintView.lang });
 
 const name = defineServerCommand({
     command: commands.name,
@@ -122,26 +114,17 @@ const name = defineServerCommand({
         switch (modifier) {
         case 'unified':
             return builtin.text.query({
-                key: 'card.localization.name', parameter, operator, qualifier,
+                column: CardPrintView.cardLocalization.name, parameter, operator, qualifier, multiline: false,
             });
         case 'printed':
             return builtin.text.query({
-                key: 'print.name', parameter, operator, qualifier,
+                column: CardPrintView.print.name, parameter, operator, qualifier, multiline: false,
             });
         default:
-            return {
-                [!qualifier.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query({
-                        key: 'card.name', parameter, operator, qualifier,
-                    }),
-                    builtin.text.query({
-                        key: 'card.localization.name', parameter, operator, qualifier,
-                    }),
-                    builtin.text.query({
-                        key: 'print.name', parameter, operator, qualifier,
-                    }),
-                ],
-            };
+            return builtin.text.query({
+                column:    CardPrintView.cardLocalization.name,
+                parameter, operator, qualifier, multiline: false,
+            });
         }
     },
 });
@@ -154,23 +137,16 @@ const type = defineServerCommand({
         switch (modifier) {
         case 'unified':
             return builtin.text.query({
-                key: 'card.localization.typeline', parameter, operator, qualifier,
+                column: CardPrintView.cardLocalization.typeline, parameter, operator, qualifier, multiline: false,
             });
         case 'printed':
             return builtin.text.query({
-                key: 'print.typeline', parameter, operator, qualifier,
+                column: CardPrintView.print.typeline, parameter, operator, qualifier, multiline: false,
             });
         default:
-            return {
-                [!qualifier.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query({
-                        key: 'card.localization.typeline', parameter, operator, qualifier,
-                    }),
-                    builtin.text.query({
-                        key: 'print.typeline', parameter, operator, qualifier,
-                    }),
-                ],
-            };
+            return builtin.text.query({
+                column: CardPrintView.cardLocalization.typeline, parameter, operator, qualifier, multiline: false,
+            });
         }
     },
 });
@@ -183,332 +159,221 @@ const text = defineServerCommand({
         switch (modifier) {
         case 'unified':
             return builtin.text.query({
-                key: 'card.localization.text', parameter, operator, qualifier,
+                column: CardPrintView.cardLocalization.text, parameter, operator, qualifier, multiline: true,
             });
         case 'printed':
             return builtin.text.query({
-                key: 'print.text', parameter, operator, qualifier,
+                column: CardPrintView.print.text, parameter, operator, qualifier, multiline: true,
             });
         default:
-            return {
-                [!qualifier.includes('!') ? '$or' : '$and']: [
-                    builtin.text.query({
-                        key: 'card.localization.text', parameter, operator, qualifier,
-                    }),
-                    builtin.text.query({
-                        key: 'print.text', parameter, operator, qualifier,
-                    }),
-                ],
-            };
+            return builtin.text.query({
+                column: CardPrintView.cardLocalization.text, parameter, operator, qualifier, multiline: true,
+            });
         }
     },
 });
 
-const flavorText = builtin.text(commands.flavorText, { key: 'print.flavorText' });
-const layout = builtin.simple(commands.layout);
+const layout = builtin.simple(commands.layout, { column: CardPrintView.print.layout });
 
 const rarity = defineServerCommand({
     command: commands.rarity,
     query:   ({ parameter, operator, qualifier }) => {
-        const rarities = (
-            {
-                c: 'common',
-                u: 'uncommon',
-                r: 'rare',
-                s: 'super_rare',
-                l: 'legendary',
-                e: 'enchanted',
-            } as Record<string, string>
-        )[parameter] ?? parameter;
+        const rarities = ({})[parameter] ?? parameter;
 
         return builtin.simple.query({
-            key: 'print.rarity', parameter: rarities, operator, qualifier,
+            column: CardPrintView.print.rarity, parameter: rarities, operator, qualifier,
         });
     },
 });
 
 const order = defineServerCommand({
     command: commands.order,
-    query() {},
+    query(): never { throw new QueryError({ type: 'unreachable' }); },
     phase:   'order',
     post:    ({ parameter }) => {
-        parameter = parameter.toLowerCase();
-
-        const [type, dir] = ((): [string, -1 | 1] => {
-            if (parameter.endsWith('+')) {
-                return [parameter.slice(0, -1), 1];
+        const parts = parameter.toLowerCase().split(',').map(v => {
+            if (v.endsWith('+')) {
+                return { type: v.slice(0, -1), dir: 1 as const };
             }
 
-            if (parameter.endsWith('-')) {
-                return [parameter.slice(0, -1), -1];
+            if (v.endsWith('-')) {
+                return { type: v.slice(0, -1), dir: -1 as const };
             }
 
-            return [parameter, 1];
-        })();
+            return { type: v, dir: 1 as const };
+        });
 
-        return agg => {
+        const sorter: SQL[] = [];
+
+        for (const { type, dir } of parts) {
+            const func = dir === 1 ? asc : desc;
+
             switch (type) {
             case 'name':
-                agg.sort({ 'card.name': dir });
+                sorter.push(func(CardPrintView.cardLocalization.name));
                 break;
             case 'set':
             case 'number':
-                agg.sort({ 'print.set': 1, 'print.number': 1 });
+                sorter.push(func(CardPrintView.set));
+                sorter.push(func(CardPrintView.number));
                 break;
             case 'date':
-                agg.sort({ 'print.releaseDate': dir });
+                sorter.push(func(CardPrintView.print.releaseDate));
                 break;
             case 'id':
-                agg.sort({ 'card.cardId': dir });
-                break;
-            case 'cost':
-                agg.sort({ 'card.cost': dir });
+                sorter.push(func(CardPrintView.cardId));
                 break;
             default:
                 throw new QueryError({ type: 'invalid-query' });
             }
+        }
+
+        return {
+            type:   'order-by',
+            orders: sorter,
         };
     },
 });
 
-const backedCommands: Record<string, CommonServerCommand> = {
-    raw,
-    stats,
-    hash,
-    set,
-    num,
-    lang,
-    name,
-    type,
-    text,
-    flavorText,
-    layout,
-    rarity,
-    order,
+type SearchOption = {
+    page:     number;
+    pageSize: number;
+    lang:     Locale;
+    groupBy:  string;
+    orderBy:  string;
 };
 
-function parseOption(optionText: string | undefined, defaultValue: number): number {
-    if (optionText == null) {
-        return defaultValue;
-    }
-
-    const optionNumber = Number.parseInt(optionText, 10);
-
-    if (Number.isNaN(optionNumber)) {
-        return defaultValue;
-    }
-
-    return optionNumber;
-}
-
-type ServerModel = {
-    card:  ICardDatabase;
-    print: IPrintDatabase;
+type DevSearchOption = {
+    pageSize: number;
+    groupBy:  string;
 };
 
-type ServerActions = {
-    search:   { cards: ServerModel[], total: number, page: number };
-    dev:      { cards: ServerModel[], total: number };
-    searchId: string[];
-};
-
-export default defineServerModel<ServerActions, Model<ICardDatabase>>({
-    commands: Object.values(backedCommands),
+export default defineServerModel({
+    commands: [
+        raw,
+        stats,
+        hash,
+        set,
+        num,
+        lang,
+        name,
+        type,
+        text,
+        layout,
+        rarity,
+        order,
+    ],
 
     actions: {
-        search: async (gen, q: DBQuery, p: PostAction[], o: SearchOption) => {
-            const groupBy = o['group-by'] ?? 'card';
-            const orderBy = o['order-by'] ?? 'id+';
-            const page = parseOption(o.page, 1);
-            const pageSize = parseOption(o['page-size'], 100);
-            const locale = o.locale ?? 'en';
+        async search(query: SQL, post: PostAction[], options: SearchOption): Promise<NormalResult> {
+            const startTime = Date.now();
+            const { page, pageSize, lang, groupBy, orderBy } = options;
 
-            const start = Date.now();
+            const groupByColumn = groupBy === 'card'
+                ? [CardPrintView.cardId]
+                : [CardPrintView.cardId, CardPrintView.set, CardPrintView.number];
 
-            const cardQuery = pickBy(q, (v, k) => k.startsWith('card.'));
-            const printQuery = mapKeys(pickBy(q, (v, k) => k.startsWith('print.')), (v, k) => k.replace(/^print\./, ''));
+            const groupByCount = groupBy === 'card'
+                ? sql`count(distinct card_id)`.as('count')
+                : sql`count(distinct (card_id, set, number))`.as('count');
 
-            const fullGen = <T>(justCount = false) => {
-                const aggregate = gen<T>();
+            const orderByAction = post.find(p => p.type === 'order-by') as OrderBy
+              ?? order.post!({ operator: ':', qualifier: [], parameter: orderBy });
 
-                aggregate
-                    .collation({ locale: 'en', numericOrdering: true })
-                    .allowDiskUse(true)
-                    .replaceRoot({ card: '$$ROOT' });
-
-                if (!isEmpty(cardQuery)) {
-                    aggregate.match(cardQuery);
-                }
-
-                aggregate.unwind('card.localization');
-
-                if (!isEmpty(cardQuery)) {
-                    aggregate.match(cardQuery);
-                }
-
-                aggregate
-                    .addFields({
-                        cardId:   '$card.cardId',
-                        passcode: '$card.passcode',
-                    })
-                    .lookup({
-                        from: 'prints',
-                        let:  {
-                            cardId: '$cardId',
-                            lang:   '$card.localization.lang',
-                        },
-                        pipeline: [
-                            ...isEmpty(printQuery) ? [] : [{ $match: printQuery }],
-                            {
-                                $match: {
-                                    $expr: {
-                                        $and: [
-                                            { $eq: ['$cardId', '$$cardId'] },
-                                            // { $eq: ['$lang', '$$lang'] },
-                                        ],
-                                    },
-                                },
-                            },
-                        ],
-                        as: 'print',
-                    })
-                    .unwind('print')
-                    .match(q);
-
-                if (groupBy === 'card') {
-                    if (!justCount) {
-                        aggregate
-                            .addFields({
-                                langIsLocale:   { $eq: ['$card.localization.lang', locale] },
-                                langIsJapanese: { $eq: ['$card.localization.lang', 'ja'] },
-                                langIsEnglish:  { $eq: ['$card.localization.lang', 'en'] },
-                            })
-                            .group({
-                                _id:   '$cardId',
-                                value: {
-                                    $top: {
-                                        sortBy: {
-                                            'langIsLocale':      -1,
-                                            'langIsJapanese':    -1,
-                                            'langIsEnglish':     -1,
-                                            'print.releaseDate': -1,
-                                            'print.number':      1,
-                                        },
-
-                                        output: '$$ROOT',
-                                    },
-                                } as any,
-                            })
-                            .replaceRoot('$value');
-                    } else {
-                        aggregate.group({ _id: '$cardId' });
-                    }
-                }
-
-                return aggregate;
-            };
-
-            const aggregate = fullGen<ServerModel>();
-
-            const total = (
-                await fullGen<{ count: number }>(true)
-                    .group({ _id: null, count: { $sum: 1 } })
-            )[0]?.count ?? 0;
-
-            const countElapsed = Date.now() - start;
-
-            const orderAction = p.find(v => v.phase === 'order');
-
-            if (orderAction != null) {
-                orderAction.action(aggregate);
-            } else {
-                order.post!({ parameter: orderBy, operator: ':', qualifier: [] })(aggregate);
-            }
-
-            aggregate
-                .skip((page - 1) * pageSize)
+            const result = await db
+                .selectDistinctOn(groupByColumn)
+                .from(CardPrintView)
+                .where(query)
+                .orderBy(
+                    ...groupByColumn,
+                    sql`CASE
+                        WHEN ${CardPrintView.lang} = ${lang} THEN 0
+                        WHEN ${CardPrintView.lang} = 'ja' THEN 1
+                        WHEN ${CardPrintView.lang} = 'en' THEN 2
+                        ELSE 3
+                    END`,
+                    ...orderByAction.orders,
+                )
                 .limit(pageSize)
-                .project({
-                    'card._id':            0,
-                    'card.__v':            0,
-                    'card.__updations':    0,
-                    'card.__lockedPaths':  0,
-                    'print._id':           0,
-                    'print.__v':           0,
-                    'print.__updations':   0,
-                    'print.__lockedPaths': 0,
-                    'langIsLocale':        0,
-                    'langIsJapanese':      0,
-                    'langIsEnglish':       0,
-                });
+                .offset((page - 1) * pageSize);
 
-            // const explain = await aggregate.explain('executionStats');
+            // Count the total records matching the same SQL query
+            const countResult = await db
+                .select({ count: groupByCount })
+                .from(CardPrintView)
+                .where(query);
 
-            const cards = await aggregate;
+            const total = Number(countResult[0]?.count || 0);
+
+            const totalPage = Math.ceil(total / pageSize);
+
+            const endTime = Date.now();
+            const elapsed = endTime - startTime;
 
             return {
-                countElapsed,
-                elapsed: Date.now() - start,
+                result,
                 total,
                 page,
-                // explain,
-                cards,
+                totalPage,
+                elapsed,
             };
         },
 
-        dev: async (gen, q: DBQuery, p: PostAction[], o: SearchOption) => {
-            const fullGen = <T>() => {
-                const aggregate = gen<T>();
+        async dev(query: SQL, post: PostAction[], options: DevSearchOption): Promise<DevResult> {
+            const startTime = Date.now();
 
-                aggregate
-                    .allowDiskUse(true)
-                    .unwind('print')
-                    .match(q);
+            const groupBy = options.groupBy;
+            let pageSize = options.pageSize;
 
-                return aggregate;
-            };
+            if (pageSize > 200) {
+                pageSize = 200;
+            }
 
-            const total = (
-                await fullGen<{ count: number }>()
-                    .group({ _id: null, count: { $sum: 1 } })
-            )[0]?.count ?? 0;
+            const groupByColumn = groupBy === 'card'
+                ? [CardEditorView.cardId]
+                : groupBy === 'lang'
+                    ? [CardEditorView.cardId, CardEditorView.set, CardEditorView.number]
+                    : [CardEditorView.cardId, CardEditorView.set, CardEditorView.number, CardEditorView.lang];
 
-            const cards = await fullGen<ServerModel>()
-                .sort({ 'card.cardId': 1 })
-                .limit(o.sample);
+            const groupByCount = groupBy === 'card'
+                ? sql`count(distinct card_id)`.as('count')
+                : sql`count(distinct (card_id, set, number, lang))`.as('count');
+
+            const orderByAction = post.find(p => p.type === 'order-by') as OrderBy
+              ?? order.post!({ operator: ':', qualifier: [], parameter: 'id+' });
+
+            const result = await db
+                .selectDistinctOn(groupByColumn)
+                .from(CardEditorView)
+                .where(query)
+                .orderBy(
+                    ...groupByColumn,
+                    sql`CASE
+                        WHEN ${CardPrintView.lang} = ${lang} THEN 0
+                        WHEN ${CardPrintView.lang} = 'ja' THEN 1
+                        WHEN ${CardPrintView.lang} = 'en' THEN 2
+                        ELSE 3
+                    END`,
+                    ...orderByAction.orders,
+                )
+                .limit(pageSize);
+
+            // Count the total records matching the same SQL query
+            const countResult = await db
+                .select({ count: groupByCount })
+                .from(CardEditorView)
+                .where(query);
+
+            const total = Number(countResult[0]?.count || 0);
+
+            const endTime = Date.now();
+            const elapsed = endTime - startTime;
 
             return {
-                cards,
+                result,
                 total,
+                elapsed,
             };
         },
-
-        searchId: async (generator, q: DBQuery) => {
-            const result = await generator<{ _id: string }>()
-                .allowDiskUse(true)
-                .match(q)
-                .group({ _id: '$cardId' });
-
-            return result.map(v => v._id) as string[];
-        },
     },
-}, card => ({
-    search: <V> () => card.aggregate<V>(),
-
-    dev: <V>() => card.aggregate<V>()
-        .replaceRoot({ card: '$$ROOT' })
-        .lookup({
-            from:         'prints',
-            as:           'print',
-            localField:   'card.cardId',
-            foreignField: 'cardId',
-        }),
-
-    searchId: <V>() => card.aggregate<V>()
-        .lookup({
-            from:         'prints',
-            as:           'print',
-            localField:   'cardId',
-            foreignField: 'cardId',
-        }),
-}));
+});
