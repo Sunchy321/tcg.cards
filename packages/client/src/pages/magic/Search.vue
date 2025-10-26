@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 
-import { useCore, useParam, useTitle } from 'store/core';
+import { useAction, useCore, useParam, useTitle } from 'store/core';
 import { useGame } from 'store/games/magic';
 import { useI18n } from 'vue-i18n';
 
@@ -72,16 +72,14 @@ const { search } = magicSetup();
 const data = ref<SearchResult>();
 const searching = ref(false);
 
-useTitle (() => i18n.t('ui.search'));
+useTitle (() => i18n.t('ui.search'), 'input');
 
-core.titleType = 'input';
-
-core.actions = [
+useAction([
     {
         action:  'search',
         handler: search,
     },
-];
+]);
 
 const q = useParam('q', {
     type:     'string',

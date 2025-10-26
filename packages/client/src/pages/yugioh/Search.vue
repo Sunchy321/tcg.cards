@@ -57,43 +57,11 @@ import Grid from 'components/Grid.vue';
 import CardImage from 'components/yugioh/CardImage.vue';
 import RichText from 'src/components/yugioh/RichText.vue';
 
-import { Card } from '@interface/yugioh/card';
-import { Print } from '@interface/yugioh/print';
+import { SearchResult } from '@model/yugioh/schema/search';
 
 import model from '@search-data/yugioh/client';
 
-import { apiGet } from 'boot/server';
-
-interface QueryParam {
-    type:  'regex' | 'string';
-    value: string;
-}
-
-interface QueryItem {
-    type:  string;
-    op:    string;
-    param: QueryParam;
-}
-
-interface QueryCard {
-    cardId:   string;
-    passcode: number;
-    card:     Card;
-    print:    Print;
-}
-
-interface QueryResult {
-    total: number;
-    cards: QueryCard[];
-}
-
-interface SearchResult {
-    text:     string;
-    commands: QueryItem[];
-    queries:  any[];
-    errors:   { type: string, value: string, query?: string }[];
-    result:   QueryResult | null;
-}
+import { trpc } from 'src/trpc';
 
 const core = useCore();
 const game = useGame();
@@ -101,7 +69,7 @@ const i18n = useI18n();
 
 const { search } = yugiohSetup();
 
-const data = ref<SearchResult | null>(null);
+const data = ref<SearchResult>();
 const searching = ref(false);
 
 useTitle(() => i18n.t('ui.search'), 'input');
@@ -168,17 +136,15 @@ const doSearch = async () => {
 
     searching.value = true;
 
-    const { data: result } = await apiGet<SearchResult>('/yugioh/search', {
+    const value = await trpc.yugioh.search.basic({
         q:        q.value,
-        locale:   game.locale,
+        lang:     game.locale,
         page:     page.value,
         pageSize: pageSize.value,
     });
 
-    if (result.text === q.value) {
-        data.value = result;
-
-        console.log(result);
+    if (value.text === q.value) {
+        data.value = value;
 
         searching.value = false;
     }
