@@ -40,15 +40,13 @@ import { useRoute } from 'vue-router';
 import { useTitle } from 'store/core';
 import { useGame } from 'store/games/hearthstone';
 
-import { Set as ISet } from '@interface/hearthstone/set';
+import { Set } from '@model/hearthstone/schema/set';
 
 import setProfile from 'src/common/hearthstone/set';
-import { apiGet, apiBase } from 'boot/server';
-import { auth, checkAdmin } from 'src/auth';
+import { apiBase } from 'boot/server';
 
-type Set = Omit<ISet, 'localization'> & {
-    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
-};
+import { auth, checkAdmin } from 'src/auth';
+import { trpc } from 'src/trpc';
 
 const route = useRoute();
 const game = useGame();
@@ -79,9 +77,7 @@ const apiLink = computed(() => `${apiBase}/hearthstone/set?id=${id.value}`);
 const editorLink = computed(() => ({ name: 'hearthstone/data', query: { tab: 'Set', id: id.value } }));
 
 const loadData = async () => {
-    const { data: result } = await apiGet<Set>('/hearthstone/set', {
-        id: id.value,
-    });
+    const result = await trpc.hearthstone.set.full({ setId: id.value });
 
     data.value = result;
 

@@ -10,14 +10,16 @@ export const set = z.strictObject({
 
     dbfId: z.number().nullable(),
 
-    type:        z.string(),
-    releaseDate: z.string(),
-    cardCount:   z.tuple([z.number(), z.number()]),
+    localization: setLocalization.array(),
+
+    type:          z.string(),
+    releaseDate:   z.string(),
+    cardCountFull: z.number().nullable(),
+    cardCount:     z.number().nullable(),
 });
 
 export const setProfile = set.pick({
     setId:        true,
-    parent:       true,
     localization: true,
     type:         true,
     releaseDate:  true,

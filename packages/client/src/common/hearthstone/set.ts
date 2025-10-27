@@ -1,12 +1,10 @@
 import makeProfile from '../profile';
 
-import { SetLocalization as RawSetLocalization } from '@interface/hearthstone/set';
-
-export type SetLocalization = Omit<RawSetLocalization, 'lang'>;
+import { SetLocalization } from '@model/hearthstone/schema/set';
 
 export interface SetProfile {
     setId:        string;
-    localization: Record<string, SetLocalization>;
+    localization: SetLocalization[];
     releaseDate?: string;
 }
 

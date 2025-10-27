@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 
 import { cardApi, cardTrpc } from './card';
 import { searchTrpc } from './search';
+import { setApi, setTrpc } from './set';
 import { patchTrpc } from './patch';
 import { formatApi, formatTrpc } from './format';
 import { dataSSE, dataTrpc } from './data';
@@ -9,6 +10,7 @@ import { dataSSE, dataTrpc } from './data';
 export const hearthstoneTrpc = {
     card:   cardTrpc,
     search: searchTrpc,
+    set:    setTrpc,
     patch:  patchTrpc,
     format: formatTrpc,
     data:   dataTrpc,
@@ -20,4 +22,5 @@ export const hearthstoneSSE = new Hono()
 export const hearthstoneApi = {
     card:   cardApi,
     format: formatApi,
+    set:    setApi,
 };
