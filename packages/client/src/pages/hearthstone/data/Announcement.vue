@@ -264,15 +264,16 @@ import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 import CardInput from 'src/components/hearthstone/data/CardInput.vue';
 
-import { Entity } from '@interface/hearthstone/entity';
 import { FormatAnnouncement } from '@interface/hearthstone/format-change';
+import { CardEntityView } from '@model/hearthstone/schema/entity';
 
 import { isEqual, last } from 'lodash';
-import { apiGet } from 'boot/server';
+
+import { trpc } from 'src/trpc';
 
 type EntityNumberKey = {
-    [K in keyof Required<Entity>]: Required<Entity>[K] extends number ? K : never;
-}[keyof Entity];
+    [K in keyof Required<CardEntityView>]: Required<CardEntityView>[K] extends number | null ? K : never;
+}[keyof CardEntityView];
 
 type Banlist = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
 type Adjustment = Required<FormatAnnouncement['changes'][0]>['adjustment'][0];
@@ -421,8 +422,8 @@ const getStatus = (oldValue: number, newValue: number, prefer: 'greater' | 'less
 const pushDetail = <K extends EntityNumberKey>(
     array: Adjustment['detail'],
     key: K,
-    oldValue: Entity,
-    newValue: Entity,
+    oldValue: CardEntityView,
+    newValue: CardEntityView,
     prefer: 'greater' | 'lesser',
 ) => {
     const oldField = oldValue[key];
@@ -480,13 +481,15 @@ const calcStatus = async (a: Adjustment) => {
         return;
     }
 
-    const { data: oldData } = await apiGet<Entity>('/hearthstone/entity', {
-        id:      a.id,
+    const oldData = await trpc.hearthstone.card.summary({
+        cardId:  a.id,
+        lang:    'en',
         version: lastVersion.value,
     });
 
-    const { data: newData } = await apiGet<Entity>('/hearthstone/entity', {
-        id:      a.id,
+    const newData = await trpc.hearthstone.card.summary({
+        cardId:  a.id,
+        lang:    'en',
         version: version.value,
     });
 
@@ -501,8 +504,8 @@ const calcStatus = async (a: Adjustment) => {
     pushDetail(newDetail, 'armorBucket', oldData, newData, 'greater');
     pushDetail(newDetail, 'colddown', oldData, newData, 'lesser');
 
-    const oldLoc = oldData.localization.find(l => l.lang === 'en') ?? oldData.localization[0];
-    const newLoc = newData.localization.find(l => l.lang === 'en') ?? newData.localization[0];
+    const oldLoc = oldData.localization;
+    const newLoc = newData.localization;
 
     if (oldLoc.text !== newLoc.text) {
         newDetail.push({ part: 'text', status: 'adjust' });
