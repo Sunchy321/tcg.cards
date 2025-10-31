@@ -2,7 +2,7 @@ import { integer, jsonb, text } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
 
 import * as gameChangeModel from '@model/hearthstone/schema/game-change';
-import { Adjustment } from '@model/hearthstone/schema/game-change';
+import { CardChange as ICardChange, FormatChange as IFormatChange } from '@model/hearthstone/schema/game-change';
 
 export const gameChangeType = schema.enum('game_change_type', gameChangeModel.gameChangeType.enum);
 export const status = schema.enum('game_change_status', gameChangeModel.status.enum);
@@ -24,8 +24,9 @@ export const CardChange = schema.table('card_changes', {
     group:  text('group'),
 
     status: status('status').notNull(),
+    score:  integer('score'),
 
-    adjustment: jsonb('adjustment').$type<Adjustment[]>(),
+    adjustment: jsonb('adjustment').$type<ICardChange['adjustment']>(),
 });
 
 export const SetChange = schema.table('set_changes', {
@@ -43,6 +44,7 @@ export const SetChange = schema.table('set_changes', {
     setId: text('set_id').notNull(),
 
     status: status('status').notNull(),
+    score:  integer('score'),
 });
 
 export const FormatChange = schema.table('format_changes', {
@@ -63,7 +65,8 @@ export const FormatChange = schema.table('format_changes', {
     group:  text('group'),
 
     status: status('status'),
+    score:  integer('score'),
 
-    adjustment:   jsonb('adjustment').$type<Adjustment[]>(),
+    adjustment:   jsonb('adjustment').$type<IFormatChange['adjustment']>(),
     relatedCards: text('related_cards').array(),
 });

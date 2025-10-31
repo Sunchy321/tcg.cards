@@ -163,6 +163,8 @@ import { FormatChange, Legality, AdjustmentType } from '@model/hearthstone/schem
 
 import { last, uniq } from 'lodash';
 
+import { banlistStatusOrder, banlistSourceOrder, adjustmentStatusOrder } from '@static/hearthstone/misc';
+
 import { trpc } from 'src/trpc';
 
 interface BanlistItem {
@@ -194,11 +196,6 @@ interface TimelineNode {
         }[];
     }[];
 }
-
-const banlistStatusOrder = ['banned', 'banned_in_deck', 'banned_in_card_pool', 'legal', 'unavailable'];
-const banlistSourceOrder = ['c_thun', 'quest', 'hero', 'odd_even', 'invoke', null];
-
-const adjustmentStatusOrder = ['nerf', 'buff', 'adjust'];
 
 const game = useGame();
 const i18n = useI18n();

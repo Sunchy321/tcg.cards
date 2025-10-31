@@ -24,14 +24,12 @@ export const announcement = z.strictObject({
     date:   z.string(),
     name:   z.string(),
 
-    effectiveDate:         z.string().nullable(),
-    effectiveDateTabletop: z.string().nullable(),
-    effectiveDateOnline:   z.string().nullable(),
-    effectiveDateArena:    z.string().nullable(),
-
-    nextDate: z.string().nullable(),
+    effectiveDate: z.string().nullable(),
 
     link: z.url().array(),
+
+    version:     z.int(),
+    lastVersion: z.int().nullable(),
 
     items: announcementItem.array(),
 });

@@ -43,3 +43,13 @@ export const createAdjustmentJson = createLogger({
         }),
     ],
 });
+
+export const announcement = createLogger({
+    level:      'info',
+    format:     format.combine(format.timestamp(), format.printf(formatter)),
+    transports: [
+        new transports.File({
+            filename: `${logPath}/magic/announcement.log`,
+        }),
+    ],
+});

@@ -4,7 +4,6 @@ import { eq, sql } from 'drizzle-orm';
 import { schema } from './schema';
 
 import { Adjustment } from '@model/hearthstone/schema/game-change';
-import { AnnouncementItem as IAnnouncementItem } from '@model/hearthstone/schema/announcement';
 
 import * as gameChangeModel from '@model/hearthstone/schema/game-change';
 
@@ -25,6 +24,7 @@ export const AnnouncementItem = schema.table('announcement_items', {
     ruleId: text('rule_id'),
 
     status: status('status'),
+    score:  integer('score'),
 
     adjustment:   jsonb('adjustment').$type<Adjustment[]>(),
     relatedCards: text('related_cards').array(),
@@ -36,7 +36,7 @@ export const Announcement = schema.table('announcements', {
     date:          text('date').notNull(),
     effectiveDate: text('effective_date'),
     name:          text('name').notNull(),
-    link:          text('link').array(),
+    link:          text('link').array().notNull().default([]),
     version:       integer('version').notNull(),
     lastVersion:   integer('last_version'),
 });
@@ -44,28 +44,32 @@ export const Announcement = schema.table('announcements', {
 export const AnnouncementView = schema.view('announcement_view').as(qb => {
     return qb
         .select({
-            id:            Announcement.id,
-            source:        Announcement.source,
-            date:          Announcement.date,
-            effectiveDate: Announcement.effectiveDate,
-            name:          Announcement.name,
-            link:          Announcement.link,
-            version:       Announcement.version,
-            lastVersion:   Announcement.lastVersion,
+            id: Announcement.id,
 
-            changes: sql<IAnnouncementItem[]>`jsonb_agg(jsonb_build_object(
-                'type', ${AnnouncementItem.type},
-                'effectiveDate', ${AnnouncementItem.effectiveDate},
-                'format', ${AnnouncementItem.format},
-                'cardId', ${AnnouncementItem.cardId},
-                'setId', ${AnnouncementItem.setId},
-                'ruleId', ${AnnouncementItem.ruleId},
-                'status', ${AnnouncementItem.status},
-                'adjustment', ${AnnouncementItem.adjustment},
-                'relatedCards', ${AnnouncementItem.relatedCards}
-            ))`.as('changes'),
+            source:      Announcement.source,
+            date:        Announcement.date,
+            name:        Announcement.name,
+            version:     Announcement.version,
+            lastVersion: Announcement.lastVersion,
+
+            effectiveDate: sql<string | null>`coalesce(${AnnouncementItem.effectiveDate}, ${Announcement.effectiveDate})`
+                .as('effective_date'),
+
+            link: Announcement.link,
+
+            type:   AnnouncementItem.type,
+            format: AnnouncementItem.format,
+
+            cardId: AnnouncementItem.cardId,
+            setId:  AnnouncementItem.setId,
+            ruleId: AnnouncementItem.ruleId,
+
+            status: AnnouncementItem.status,
+            score:  AnnouncementItem.score,
+
+            adjustment:   AnnouncementItem.adjustment,
+            relatedCards: AnnouncementItem.relatedCards,
         })
         .from(Announcement)
-        .leftJoin(AnnouncementItem, eq(Announcement.id, AnnouncementItem.announcementId))
-        .groupBy(Announcement.id);
+        .leftJoin(AnnouncementItem, eq(Announcement.id, AnnouncementItem.announcementId));
 });

@@ -51,6 +51,7 @@ export const cardChange = z.strictObject({
     group:  z.string().nullable(),
 
     status,
+    score: z.int().min(1).nullable(),
 
     adjustment: adjustment.array().nullable(),
 });
@@ -70,6 +71,7 @@ export const setChange = z.strictObject({
     setId: z.string(),
 
     status,
+    score: z.int().min(1).nullable(),
 });
 
 export const formatChange = z.strictObject({
@@ -90,6 +92,7 @@ export const formatChange = z.strictObject({
     group:  z.string().nullable(),
 
     status: status.nullable(),
+    score:  z.int().min(1).nullable(),
 
     adjustment: z.object({
         cardId: z.string().optional(),

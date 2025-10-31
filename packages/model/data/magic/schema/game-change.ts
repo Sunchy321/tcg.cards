@@ -66,6 +66,7 @@ export const setChange = z.strictObject({
     setId: z.string(),
 
     status,
+    score: z.int().min(1).nullable(),
 });
 
 export const formatChange = z.strictObject({

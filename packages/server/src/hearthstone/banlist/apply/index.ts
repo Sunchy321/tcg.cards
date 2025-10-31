@@ -1,4 +1,4 @@
-import { Format as IFormat } from '@model/magic/schema/format';
+import { Format as IFormat } from '@model/hearthstone/schema/format';
 
 import {
     FormatChange as IFormatChange,
@@ -6,29 +6,21 @@ import {
     CardChange as ICardChange,
     Legality,
     Status,
-} from '@model/magic/schema/game-change';
+} from '@model/hearthstone/schema/game-change';
 
 import _ from 'lodash';
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import internalData from '@/internal-data';
-import { toIdentifier } from '@common/util/id';
+import { and, eq, gt, inArray, notInArray } from 'drizzle-orm';
 
 import { db } from '@/drizzle';
-import { CardView } from '@/magic/schema/card';
-import { CardPrintView } from '@/magic/schema/print';
-import { Set } from '@/magic/schema/set';
-import { Format } from '@/magic/schema/format';
-import { AnnouncementView } from '@/magic/schema/announcement';
-import { CardChange, SetChange, FormatChange } from '@/magic/schema/game-change';
+import { CardEntityView } from '@/hearthstone/schema/entity';
+import { Set } from '@/hearthstone/schema/set';
+import { Format } from '@/hearthstone/schema/format';
+import { AnnouncementView } from '@/hearthstone/schema/announcement';
+import { CardChange, SetChange, FormatChange } from '@/hearthstone/schema/game-change';
 
-import { banlistStatusOrder, banlistSourceOrder } from '@static/magic/misc';
+import { banlistStatusOrder, banlistSourceOrder } from '@static/hearthstone/misc';
 
-import { announcement as log } from '@/magic/logger';
-
-const formatWithSet = [
-    'standard', 'pioneer', 'modern', 'extended',
-    'alchemy', 'historic', 'explorer', 'timeless',
-];
+import { announcement as log } from '@/hearthstone/logger';
 
 function cmp<T>(a: T, b: T): number {
     return a < b ? -1 : a > b ? 1 : 0;
@@ -39,22 +31,64 @@ type IAnnouncementView = (typeof AnnouncementView)['$inferSelect'];
 export class AnnouncementApplier {
     private announcements: IAnnouncementView[];
 
-    private formatMap:      Record<string, IFormat>;
-    private eternalFormats: string[];
+    private formatMap: Record<string, IFormat>;
 
     private sets: { setId: string, releaseDate: string }[];
 
-    private anteList:       string[];
-    private conspiracyList: string[];
-    private legendaryList:  string[];
-    private unfinityList:   string[];
-    private offensiveList:  string[];
+    private groups: Record<string, string[]> = {
+        cThun: [
+            'OG_096',
+            'OG_131',
+            'OG_162',
+            'OG_188',
+            'OG_255',
+            'OG_280',
+            'OG_281',
+            'OG_282',
+            'OG_283',
+            'OG_284',
+            'OG_286',
+            'OG_293',
+            'OG_301',
+            'OG_302',
+            'OG_303',
+            'OG_321',
+            'OG_334',
+            'OG_339',
+        ],
+        oddEven: [
+            'GIL_130',
+            'GIL_530',
+            'GIL_692',
+            'GIL_826',
+            'GIL_837',
+            'GIL_838',
+        ],
+        invoke: [
+            'DRG_019',
+            'DRG_021',
+            'DRG_027',
+            'DRG_030',
+            'DRG_050',
+            'DRG_202',
+            'DRG_203',
+            'DRG_217',
+            'DRG_218',
+            'DRG_242',
+            'DRG_246',
+            'DRG_247',
+            'DRG_248',
+            'DRG_249',
+            'DRG_250',
+            'DRG_300',
+            'DRG_303',
+        ],
+    };
 
     private cards: {
-        cardId:            string;
-        sets:              string[];
-        inPauper:          boolean;
-        inPauperCommander: boolean;
+        cardId:  string;
+        version: number[];
+        sets:    string[];
     }[];
 
     private formatChanges: IFormatChange[];
@@ -79,44 +113,48 @@ export class AnnouncementApplier {
         const formats = await db.select().from(Format);
 
         this.formatMap = Object.fromEntries(formats.map(f => [f.formatId, f]));
-        this.eternalFormats = formats.filter(f => f.tags?.includes('eternal')).map(f => f.formatId);
 
         // load sets
-        const sets = await db.select()
+        this.sets = await db.select({
+            setId:       Set.setId,
+            releaseDate: Set.releaseDate,
+        })
             .from(Set)
-            .where(inArray(Set.type, ['core', 'expansion', 'draft_innovation', 'funny', 'alchemy', 'commander']));
-
-        this.sets = sets.map(s => ({ setId: s.setId, releaseDate: s.releaseDate! }));
+            .then(sets => sets.map(s => ({
+                setId:       s.setId,
+                releaseDate: s.releaseDate,
+            })));
 
         // preload group cards
-        this.anteList = internalData<string[]>('magic.banlist.ante').map(toIdentifier);
-        this.offensiveList = internalData<string[]>('magic.banlist.offensive').map(toIdentifier);
-        this.unfinityList = internalData<string[]>('magic.banlist.unfinity').map(toIdentifier);
-
-        // all conspiracy
-        this.conspiracyList = await db.select({ cardId: CardView.cardId })
-            .from(CardView)
-            .where(sql`'conspiracy' = any(${CardView.part.typeMain})`)
-            .then(cards => cards.map(c => c.cardId));
-
-        // legendary cards are legal after 1995-11-01
-        this.legendaryList = await db.select({ cardId: CardPrintView.cardId })
-            .from(CardPrintView)
+        this.groups.hero = await db.selectDistinctOn([CardEntityView.cardId], {
+            cardId: CardEntityView.cardId,
+        })
+            .from(CardEntityView)
             .where(and(
-                sql`'legendary' = any(${CardPrintView.cardPart.typeSuper})`,
-                sql`${CardPrintView.print.releaseDate} <= '1995-11-01'`,
+                eq(CardEntityView.type, 'hero'),
+                eq(CardEntityView.collectible, true),
+                gt(CardEntityView.cost, 0),
+                notInArray(CardEntityView.cardId, ['EX1_323', 'CORE_EX1_323']),
             ))
-            .then(cards => cards.map(c => c.cardId));
+            .then(rows => rows.map(r => r.cardId));
+
+        this.groups.quest = await db.selectDistinctOn([CardEntityView.cardId], {
+            cardId: CardEntityView.cardId,
+        })
+            .from(CardEntityView)
+            .where(and(
+                inArray(CardEntityView.questType, ['normal', 'questline']),
+                eq(CardEntityView.collectible, true),
+            ))
+            .then(rows => rows.map(r => r.cardId));
     }
 
     private async loadCard(): Promise<void> {
         const cards: string[] = [];
 
-        cards.push(...this.anteList);
-        cards.push(...this.conspiracyList);
-        cards.push(...this.offensiveList);
-        cards.push(...this.unfinityList);
-        cards.push(...this.legendaryList);
+        for (const k of Object.keys(this.groups)) {
+            cards.push(...this.groups[k]);
+        }
 
         for (const a of this.announcements) {
             if (a.cardId != null && !cards.includes(a.cardId)) {
@@ -125,34 +163,21 @@ export class AnnouncementApplier {
         }
 
         this.cards = await db.select({
-            cardId:   CardPrintView.cardId,
-            typeMain: CardPrintView.cardPart.typeMain,
-            sets:     sql<string[]>`array_agg(distinct ${CardPrintView.set})`,
-            rarity:   sql<string[]>`array_agg(distinct ${CardPrintView.print.rarity})`,
+            cardId:  CardEntityView.cardId,
+            version: CardEntityView.version,
+            set:     CardEntityView.set,
         })
-            .from(CardPrintView)
-            .where(inArray(CardPrintView.cardId, cards))
-            .groupBy(CardPrintView.cardId, CardPrintView.cardPart.typeMain)
+            .from(CardEntityView)
+            .where(inArray(CardEntityView.cardId, cards))
             .then(cards => cards.map(c => ({
-                cardId:   c.cardId,
-                sets:     c.sets,
-                inPauper: c.rarity.includes('common'),
-                inPauperCommander:
-                    c.typeMain.includes('creature')
-                        ? (c.rarity.includes('common') || c.rarity.includes('uncommon'))
-                        : c.rarity.includes('common'),
+                cardId:  c.cardId,
+                version: c.version,
+                sets:    [c.set],
             })));
     }
 
     private getCardList(group: string): string[] {
-        switch (group) {
-        case 'ante': return this.anteList;
-        case 'conspiracy': return this.conspiracyList;
-        case 'offensive': return this.offensiveList;
-        case 'unfinity': return this.unfinityList;
-        case 'legendary': return this.legendaryList;
-        default: return [];
-        }
+        return this.groups[group] ?? [];
     }
 
     private detectGroup(group: string, format: string, sets?: string[]): string[] {
@@ -160,12 +185,6 @@ export class AnnouncementApplier {
             const data = this.cards.find(d => d.cardId === c);
 
             if (data == null) {
-                return false;
-            }
-
-            if (format === 'pauper' && !data.inPauper) {
-                return false;
-            } else if ((format === 'pauper_commander' || format === 'pauper_duelcommander') && !data.inPauperCommander) {
                 return false;
             }
 
@@ -188,9 +207,11 @@ export class AnnouncementApplier {
             name:          string;
             effectiveDate: string;
             link:          string[];
+            version:       number;
+            lastVersion:   number | null;
         },
     ): void {
-        const { source, date, name, effectiveDate, link } = options;
+        const { source, date, name, effectiveDate, link, version, lastVersion } = options;
 
         const f = this.formatMap[format];
 
@@ -210,6 +231,8 @@ export class AnnouncementApplier {
             effectiveDate,
             name,
             link,
+            version,
+            lastVersion,
 
             type: 'set_change',
             format,
@@ -220,28 +243,28 @@ export class AnnouncementApplier {
             score,
         });
 
-        if (!f.tags.includes('eternal')) {
-            this.formatChanges.push({
-                source,
-                date,
-                effectiveDate,
-                name,
-                link,
+        this.formatChanges.push({
+            source,
+            date,
+            effectiveDate,
+            name,
+            link,
+            version,
+            lastVersion,
 
-                type: 'set_change',
-                format,
+            type: 'set_change',
+            format,
 
-                cardId: null,
-                setId,
-                ruleId: null,
-                group:  null,
+            cardId: null,
+            setId,
+            ruleId: null,
+            group:  null,
 
-                status,
-                score,
+            status,
+            score,
 
-                adjustment: null,
-            });
-        }
+            adjustment: null,
+        });
 
         if (f.sets == null) {
             f.sets = [];
@@ -266,9 +289,11 @@ export class AnnouncementApplier {
             name:          string;
             effectiveDate: string;
             link:          string[];
+            version:       number;
+            lastVersion:   number | null;
         },
     ): void {
-        const { group, source, date, name, effectiveDate, link } = options;
+        const { group, source, date, name, effectiveDate, link, version, lastVersion } = options;
 
         const f = this.formatMap[format];
 
@@ -288,6 +313,8 @@ export class AnnouncementApplier {
             effectiveDate,
             name,
             link,
+            version,
+            lastVersion,
 
             type: 'card_change',
             format,
@@ -308,6 +335,8 @@ export class AnnouncementApplier {
             effectiveDate,
             name,
             link,
+            version,
+            lastVersion,
 
             type: 'card_change',
             format,
@@ -350,21 +379,18 @@ export class AnnouncementApplier {
     }
 
     async apply(): Promise<void> {
-        log.info('================ Applying Magic banlist... ================');
+        log.info('============= Applying Hearthstone banlist... =============');
 
         await this.initialize();
         await this.loadCard();
 
-        log.info('Loaded Magic banlist data');
+        log.info('Loaded Hearthstone banlist data');
 
         this.formatChanges = [];
         this.setChanges = [];
         this.cardChanges = [];
 
         this.groupWatcher = [];
-
-        const alchemyBirthday = this.formatMap.alchemy.birthday!;
-        const standardBrawlBirthday = this.formatMap.standard_brawl.birthday!;
 
         for (const f of Object.values(this.formatMap)) {
             f.sets = [];
@@ -375,104 +401,15 @@ export class AnnouncementApplier {
         await db.delete(SetChange);
         await db.delete(FormatChange);
 
-        const pseudoReleaseAnnouncement = this.sets.filter(
-            s => !this.announcements.some(a => a.format === '#standard' && a.setId === s.setId && a.status === 'legal'),
-        ).map(s => ({
-            id: '',
-
-            source:                'release',
-            date:                  s.releaseDate,
-            effectiveDate:         s.releaseDate,
-            effectiveDateTabletop: s.releaseDate,
-            effectiveDateOnline:   s.releaseDate,
-            effectiveDateArena:    s.releaseDate,
-            nextDate:              null,
-
-            name: `release - ${s.releaseDate}`,
-            link: [],
-
-            type:   'set_change',
-            format: '#eternal',
-
-            cardId: null,
-            setId:  s.setId,
-            ruleId: null,
-
-            status: 'legal',
-            score:  null,
-            group:  null,
-
-            adjustment:   null,
-            relatedCards: null,
-        } as IAnnouncementView));
-
-        const pseudoInitialAnnouncement = Object.values(this.formatMap)
-            .filter(f => f.tags.includes('eternal') && f.birthday != null)
-            .map(f => this.sets.filter(s => s.releaseDate < f.birthday!).map(s => ({
-                id: '',
-
-                source:                'initial',
-                date:                  f.birthday!,
-                effectiveDate:         f.birthday!,
-                effectiveDateTabletop: f.birthday!,
-                effectiveDateOnline:   f.birthday!,
-                effectiveDateArena:    f.birthday!,
-                nextDate:              null,
-
-                name: `release - ${f.birthday!}`,
-                link: [],
-
-                type:   'set_change',
-                format: f.formatId,
-
-                cardId: null,
-                setId:  s.setId,
-                ruleId: null,
-
-                status: 'legal',
-                score:  null,
-                group:  null,
-
-                adjustment:   null,
-                relatedCards: null,
-            }) as IAnnouncementView))
-            .flat();
-
-        const allAnnouncements: IAnnouncementView[] = [
-            ...this.announcements,
-            ...pseudoReleaseAnnouncement,
-            ...pseudoInitialAnnouncement,
-        ].sort((a, b) => cmp(a.date, b.date));
+        const allAnnouncements = this.announcements.sort((a, b) => cmp(a.date, b.date));
 
         for (const a of allAnnouncements) {
             const effectiveDate = a.effectiveDate ?? a.date;
 
             const formats = (() => {
                 switch (a.format) {
-                case '#alchemy':
-                    return ['alchemy', 'historic', 'timeless'].filter(f => {
-                        const format = this.formatMap[f]!;
-                        // the change don't become effective now
-                        if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
-                        // the change is before the format exists
-                        if (format.birthday != null && effectiveDate < format.birthday) { return false; }
-                        // the change is after the format died
-                        if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
-                        return true;
-                    });
-                case '#standard':
-                    return [...this.eternalFormats, ...formatWithSet].filter(f => {
-                        const format = this.formatMap[f]!;
-                        // the change don't become effective now
-                        if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
-                        // the change is before the format exists
-                        if (format.birthday != null && effectiveDate < format.birthday) { return false; }
-                        // the change is after the format died
-                        if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
-                        return true;
-                    });
-                case '#eternal':
-                    return [...this.eternalFormats].filter(f => {
+                case '#hearthstone':
+                    return ['standard', 'wild', 'arena', 'duel', 'twist'].filter(f => {
                         const format = this.formatMap[f]!;
                         // the change don't become effective now
                         if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
@@ -486,18 +423,6 @@ export class AnnouncementApplier {
                     return a.format == null ? [] : [a.format];
                 }
             })();
-
-            if (formats.includes('standard')) {
-                if (!formats.includes('standard_brawl') && effectiveDate >= standardBrawlBirthday) {
-                    formats.push('standard_brawl');
-                }
-            }
-
-            if (formats.includes('historic')) {
-                if (!formats.includes('brawl')) {
-                    formats.push('brawl');
-                }
-            }
 
             // apply changes
             for (const f of formats) {
@@ -516,11 +441,7 @@ export class AnnouncementApplier {
 
                     if (a.status === 'legal') {
                         if (fo.sets.includes(a.setId!)) {
-                            if (['historic', 'brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
-                            // Alchemy initial, ignore duplicate
-                            } else {
-                                throw new Error(`In set ${a.setId} is already in ${f}, date: ${a.date}`);
-                            }
+                            throw new Error(`In set ${a.setId} is already in ${f}, date: ${a.date}`);
                         }
                     } else if (a.status === 'unavailable') {
                         if (!fo.sets.includes(a.setId!)) {
@@ -531,11 +452,13 @@ export class AnnouncementApplier {
                     }
 
                     this.setChange(a.setId!, a.status!, a.score, f, {
-                        source: a.source,
-                        date:   a.date,
-                        name:   a.name,
+                        source:      a.source,
+                        date:        a.date,
+                        name:        a.name,
                         effectiveDate,
-                        link:   a.link,
+                        link:        a.link,
+                        version:     a.version,
+                        lastVersion: a.lastVersion,
                     });
 
                     if (a.status === 'legal') {
@@ -554,6 +477,8 @@ export class AnnouncementApplier {
                                     name:          g.name,
                                     effectiveDate: effectiveDate,
                                     link:          g.link,
+                                    version:       a.version,
+                                    lastVersion:   a.lastVersion,
                                 });
                             }
                         }
@@ -565,12 +490,14 @@ export class AnnouncementApplier {
 
                             if (setInFormat.every(s => s === a.setId)) {
                                 this.cardChange(b.cardId, 'unavailable', null, f, {
-                                    group:  b.group ?? undefined,
-                                    source: a.source,
-                                    date:   a.date,
-                                    name:   a.name,
+                                    group:       b.group ?? undefined,
+                                    source:      a.source,
+                                    date:        a.date,
+                                    name:        a.name,
                                     effectiveDate,
-                                    link:   a.link,
+                                    link:        a.link,
+                                    version:     a.version,
+                                    lastVersion: a.lastVersion,
                                 });
                             }
                         }
@@ -607,12 +534,14 @@ export class AnnouncementApplier {
 
                         for (const n of newChanges) {
                             this.cardChange(n.cardId, n.status, n.score, f, {
-                                group:  n.group ?? undefined,
-                                source: a.source,
-                                date:   a.date,
-                                name:   a.name,
+                                group:       n.group ?? undefined,
+                                source:      a.source,
+                                date:        a.date,
+                                name:        a.name,
                                 effectiveDate,
-                                link:   a.link,
+                                link:        a.link,
+                                version:     a.version,
+                                lastVersion: a.lastVersion,
                             });
                         }
 
@@ -652,12 +581,14 @@ export class AnnouncementApplier {
 
                             for (const v of cards) {
                                 this.cardChange(v, a.status, a.score, f, {
-                                    group:  group ?? null,
-                                    source: a.source,
-                                    date:   effectiveDate,
-                                    name:   a.name,
+                                    group:       group ?? null,
+                                    source:      a.source,
+                                    date:        effectiveDate,
+                                    name:        a.name,
                                     effectiveDate,
-                                    link:   a.link,
+                                    link:        a.link,
+                                    version:     a.version,
+                                    lastVersion: a.lastVersion,
                                 });
                             }
                         } else {
@@ -674,22 +605,26 @@ export class AnnouncementApplier {
                             for (const v of cardsRemoved) {
                                 this.cardChange(v, a.status, a.score, f, {
                                     group,
-                                    source: a.source,
-                                    date:   effectiveDate,
-                                    name:   a.name,
+                                    source:      a.source,
+                                    date:        effectiveDate,
+                                    name:        a.name,
                                     effectiveDate,
-                                    link:   a.link,
+                                    link:        a.link,
+                                    version:     a.version,
+                                    lastVersion: a.lastVersion,
                                 });
                             }
                         }
                     } else {
                         this.cardChange(a.cardId, a.status, a.score, f, {
-                            group:  undefined,
-                            source: a.source,
-                            date:   a.date,
-                            name:   a.name,
+                            group:       undefined,
+                            source:      a.source,
+                            date:        a.date,
+                            name:        a.name,
                             effectiveDate,
-                            link:   a.link,
+                            link:        a.link,
+                            version:     a.version,
+                            lastVersion: a.lastVersion,
                         });
                     }
                 } else if (a.type === 'rule_change') {
@@ -699,6 +634,8 @@ export class AnnouncementApplier {
                         effectiveDate: a.effectiveDate,
                         name:          a.name,
                         link:          a.link,
+                        version:       a.version,
+                        lastVersion:   a.lastVersion,
 
                         type:   'rule_change',
                         format: a.format,
@@ -711,7 +648,7 @@ export class AnnouncementApplier {
                         status: a.status,
                         score:  a.score,
 
-                        adjustment: a.adjustment,
+                        adjustment: null,
                     });
                 }
             }
