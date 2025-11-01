@@ -2,8 +2,8 @@
     <div class="q-pa-md">
         <div class="row items-center">
             <q-select
-                v-model="format"
-                :options="formats"
+                v-model="formatId"
+                :options="formatList"
                 dense outlined
             />
 
@@ -42,96 +42,82 @@
     </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import {
-    defineComponent, ref, computed, watch, onMounted,
+    ref, computed, watch, onMounted,
 } from 'vue';
 
 import controlSetup from 'setup/control';
 
 import DateInput from 'components/DateInput.vue';
 
-import { Format } from '@interface/magic/format';
+import { Format } from '@model/magic/schema/format';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
-export default defineComponent({
-    name: 'DataFormat',
+const { controlPost } = controlSetup();
 
-    components: { DateInput },
+const formatList = ref<string[]>([]);
+const formatId = ref<string>();
+const format = ref<Format>();
 
-    setup() {
-        const { controlPost } = controlSetup();
-
-        const formatList = ref<string[]>([]);
-        const formatId = ref<string | null>(null);
-        const format = ref<Format | null>(null);
-
-        const birthday = computed({
-            get() { return format.value?.birthday ?? ''; },
-            set(newValue: string) {
-                if (format.value != null) {
-                    format.value.birthday = newValue;
-                }
-            },
-        });
-
-        const deathdate = computed({
-            get() { return format.value?.deathdate ?? ''; },
-            set(newValue: string) {
-                if (format.value != null) {
-                    format.value.deathdate = newValue;
-                }
-            },
-        });
-
-        const isEternal = computed({
-            get() { return format.value?.isEternal ?? false; },
-            set(newValue: boolean) {
-                if (format.value != null) {
-                    format.value.isEternal = newValue;
-                }
-            },
-        });
-
-        const loadData = async () => {
-            const { data } = await apiGet<string[]>('/magic/format');
-
-            formatList.value = data;
-
-            if (formatId.value == null) {
-                formatId.value = formatList.value[0];
-            }
-        };
-
-        const loadFormat = async () => {
-            if (formatId.value != null) {
-                const { data: result } = await apiGet<Format>('/magic/format', {
-                    id: formatId.value,
-                });
-
-                format.value = result;
-            }
-        };
-
-        const saveFormat = async () => {
-            await controlPost('/magic/format/save', { data: format.value });
-            await loadFormat();
-        };
-
-        watch(formatId, loadFormat);
-        onMounted(loadData);
-
-        return {
-            formats: formatList,
-            format:  formatId,
-            birthday,
-            deathdate,
-            isEternal,
-
-            saveFormat,
-        };
+const birthday = computed({
+    get() { return format.value?.birthday ?? ''; },
+    set(newValue: string) {
+        if (format.value != null) {
+            format.value.birthday = newValue;
+        }
     },
-
 });
+
+const deathdate = computed({
+    get() { return format.value?.deathdate ?? ''; },
+    set(newValue: string) {
+        if (format.value != null) {
+            format.value.deathdate = newValue;
+        }
+    },
+});
+
+const isEternal = computed({
+    get() { return format.value?.tags?.includes('eternal') ?? false; },
+    set(newValue: boolean) {
+        if (format.value == null) {
+            return;
+        }
+
+        if (newValue) {
+            if (!format.value.tags.includes('eternal')) {
+                format.value.tags.push('eternal');
+            }
+        } else {
+            format.value.tags = format.value.tags.filter(t => t !== 'eternal');
+        }
+    },
+});
+
+const loadData = async () => {
+    formatList.value = await trpc.magic.format.list();
+
+    if (formatId.value == null) {
+        formatId.value = formatList.value[0];
+    }
+};
+
+const loadFormat = async () => {
+    if (formatId.value == null) {
+        return;
+    }
+
+    format.value = await trpc.magic.format.full({ formatId: formatId.value });
+};
+
+const saveFormat = async () => {
+    await controlPost('/magic/format/save', { data: format.value });
+    await loadFormat();
+};
+
+watch(formatId, loadFormat);
+onMounted(loadData);
+
 </script>

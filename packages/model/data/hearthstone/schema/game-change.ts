@@ -80,8 +80,8 @@ export const formatChange = z.strictObject({
     effectiveDate: z.string().nullable(),
     name:          z.string(),
     link:          z.url().array(),
-    version:       z.number().positive(),
-    lastVersion:   z.number().positive().nullable(),
+    version:       z.int().positive(),
+    lastVersion:   z.int().positive().nullable(),
 
     type:   gameChangeType,
     format: z.string().nullable(),

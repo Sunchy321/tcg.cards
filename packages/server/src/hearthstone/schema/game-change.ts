@@ -52,7 +52,7 @@ export const FormatChange = schema.table('format_changes', {
     date:          text('date').notNull(),
     effectiveDate: text('effective_date'),
     name:          text('name').notNull(),
-    version:       integer('version'),
+    version:       integer('version').notNull(),
     lastVersion:   integer('last_version'),
     link:          text('link').array().notNull().default([]),
 

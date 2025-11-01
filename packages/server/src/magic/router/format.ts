@@ -10,6 +10,24 @@ import { FormatChange } from '../schema/game-change';
 import { format } from '@model/magic/schema/format';
 import { formatChange } from '@model/magic/schema/game-change';
 
+import { formats as formatStaticList } from '@static/magic/basic';
+
+const list = os
+    .route({
+        method:      'GET',
+        description: 'List all formats',
+        tags:        ['Magic', 'Format'],
+    })
+    .input(z.any())
+    .output(z.string().array())
+    .handler(async () => {
+        const formats = await db.select({ formatId: Format.formatId })
+            .from(Format)
+            .then(formats => formats.map(f => f.formatId));
+
+        return formats.sort((a, b) => formatStaticList.indexOf(a) - formatStaticList.indexOf(b));
+    });
+
 const full = os
     .route({
         method:      'GET',
@@ -59,11 +77,13 @@ const changes = os
     .callable();
 
 export const formatTrpc = {
+    list,
     full,
     changes,
 };
 
 export const formatApi = {
+    list,
     '': full,
     changes,
 };
