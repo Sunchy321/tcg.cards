@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './game-change';
-import { fullImageType, fullLocale, layout, rarity } from './basic';
+import { color, fullImageType, fullLocale, layout, rarity } from './basic';
 
 export const category = z.enum([
     'advertisement',
@@ -26,7 +26,7 @@ export const card = z.strictObject({
     text:     z.string(),
 
     manaValue:     z.number(),
-    colorIdentity: z.string(),
+    colorIdentity: color,
 
     keywords:       z.array(z.string()),
     counters:       z.array(z.string()),
@@ -64,8 +64,8 @@ export const cardPart = z.strictObject({
 
     cost:           z.array(z.string()).nullable(),
     manaValue:      z.number().nullable(),
-    color:          z.string().nullable(),
-    colorIndicator: z.string().nullable(),
+    color:          color.nullable(),
+    colorIndicator: color.nullable(),
 
     typeSuper: z.array(z.string()).nullable(),
     typeMain:  z.array(z.string()),

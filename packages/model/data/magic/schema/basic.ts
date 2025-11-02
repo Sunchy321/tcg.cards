@@ -52,6 +52,10 @@ export const formats = [
     'pauper_duelcommander',
 ];
 
+export const colors = ['W', 'U', 'B', 'R', 'G', 'O', 'P'];
+
+export const color = z.string().transform(val => colors.filter((c, i) => val[i] === '1').join(''));
+
 export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
 
 export const layout = z.enum([
@@ -66,6 +70,7 @@ export const fullImageType = z.enum(['webp', 'jpg', 'png']);
 
 export type Locale = z.infer<typeof locale>;
 export type FullLocale = z.infer<typeof fullLocale>;
+export type Color = z.infer<typeof color>;
 export type Rarity = z.infer<typeof rarity>;
 export type Layout = z.infer<typeof layout>;
 export type FullImageType = z.infer<typeof fullImageType>;
