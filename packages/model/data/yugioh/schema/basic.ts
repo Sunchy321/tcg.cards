@@ -1,8 +1,8 @@
 import z from 'zod';
 
-export const locale = z.enum(['ja', 'en', 'en/asia', 'de', 'es', 'fr', 'it', 'ko', 'pt', 'zhs']);
+export const mainLocale = z.enum(['ja', 'en', 'en/asia', 'de', 'es', 'fr', 'it', 'ko', 'pt', 'zhs']);
 
-export const fullLocale = z.enum([...locale.options, 'zhs/cn', 'zhs/md', 'zhs/nw', 'zhs/pro']);
+export const locale = z.enum([...mainLocale.options, 'zhs/cn', 'zhs/md', 'zhs/nw', 'zhs/pro']);
 
 export const attribute = z.enum([
     'light',
@@ -41,7 +41,7 @@ export const layout = z.enum([
     'skill',
 ]);
 
+export type MainLocale = z.infer<typeof mainLocale>;
 export type Locale = z.infer<typeof locale>;
-export type FullLocale = z.infer<typeof fullLocale>;
 export type Attribute = z.infer<typeof attribute>;
 export type Layout = z.infer<typeof layout>;

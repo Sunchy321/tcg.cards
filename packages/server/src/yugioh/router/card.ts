@@ -5,7 +5,7 @@ import z from 'zod';
 
 import { and, eq } from 'drizzle-orm';
 
-import { locale } from '@model/yugioh/schema/basic';
+import { mainLocale } from '@model/yugioh/schema/basic';
 import { cardProfile, cardView } from '@model/yugioh/schema/card';
 
 import { db } from '@/drizzle';
@@ -35,7 +35,7 @@ const summary = os
     })
     .input(z.object({
         cardId: z.string().describe('Card ID'),
-        lang:   locale.default('en').describe('Language of the card'),
+        lang:   mainLocale.default('en').describe('Language of the card'),
     }))
     .output(cardView)
     .handler(async ({ input }) => {
@@ -59,7 +59,7 @@ const summary = os
 const summaryByName = os
     .input(z.object({
         name: z.string(),
-        lang: locale.default('en'),
+        lang: mainLocale.default('en'),
     }))
     .output(cardView.array())
     .handler(async ({ input }) => {

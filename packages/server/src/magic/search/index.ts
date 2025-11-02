@@ -3,7 +3,7 @@ import { and, arrayContains, SQL, asc, desc, eq, gt, gte, inArray, lt, lte, ne, 
 import { QueryError } from '@search/command/error';
 import { OrderBy, PostAction, defineServerCommand } from '@/search/command';
 import { DevResult, NormalResult } from '@model/magic/schema/search';
-import { FullLocale } from '@model/magic/schema/basic';
+import { Locale } from '@model/magic/schema/basic';
 
 import { defineServerModel } from '@/search/model';
 import { toIdentifier } from '@common/util/id';
@@ -510,7 +510,7 @@ const order = defineServerCommand({
 type SearchOption = {
     page:     number;
     pageSize: number;
-    lang:     FullLocale;
+    lang:     Locale;
     groupBy:  string;
     orderBy:  string;
 };

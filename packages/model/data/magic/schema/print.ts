@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { updation } from '../../basic';
-import { fullImageType, fullLocale, layout, rarity } from './basic';
+import { fullImageType, locale, layout, rarity } from './basic';
 import { card as card, cardLocalization, cardPart, cardPartLocalization } from './card';
 
 export const frame = z.enum(['1993', '1997', '2003', '2015', 'future']);
@@ -24,7 +24,7 @@ export const print = z.strictObject({
     cardId: z.string(),
     set:    z.string(),
     number: z.string(),
-    lang:   fullLocale,
+    lang:   locale,
 
     name:     z.string(),
     typeline: z.string(),
@@ -145,7 +145,7 @@ export const cardPrintView = z.object({
 export const version = z.strictObject({
     set:    z.string(),
     number: z.string(),
-    lang:   fullLocale,
+    lang:   locale,
     rarity: rarity,
 });
 

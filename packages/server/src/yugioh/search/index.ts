@@ -3,7 +3,7 @@ import { and, arrayContains, SQL, asc, desc, not, or, sql } from 'drizzle-orm';
 import { QueryError } from '@search/command/error';
 import { OrderBy, PostAction, defineServerCommand } from '@/search/command';
 import { DevResult, NormalResult } from '@model/yugioh/schema/search';
-import { Locale } from '@model/yugioh/schema/basic';
+import { MainLocale } from '@model/yugioh/schema/basic';
 
 import { defineServerModel } from '@/search/model';
 
@@ -238,7 +238,7 @@ const order = defineServerCommand({
 type SearchOption = {
     page:     number;
     pageSize: number;
-    lang:     Locale;
+    lang:     MainLocale;
     groupBy:  string;
     orderBy:  string;
 };

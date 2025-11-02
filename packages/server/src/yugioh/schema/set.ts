@@ -1,7 +1,7 @@
 import { integer, primaryKey, text } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
 
-import { fullLocale } from './card';
+import { locale } from './card';
 
 export const SetLocalization = schema.table('set_localizations', {
     setId: text('set_id').notNull(),
@@ -16,7 +16,7 @@ export const Set = schema.table('sets', {
     setId: text('set_id').primaryKey(),
 
     cardCount: integer('card_count').notNull(),
-    langs:     fullLocale('langs').array().notNull(),
+    langs:     locale('langs').array().notNull(),
     rarities:  text('rarities').array().notNull(),
 
     type: text('type').notNull(),

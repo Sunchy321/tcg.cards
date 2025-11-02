@@ -6,7 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { ImageGetter } from '@/magic/scryfall/image';
 import FileSaver from '@/common/save-file';
 
-import { fullLocale } from '@model/magic/schema/basic';
+import { locale } from '@model/magic/schema/basic';
 
 import { db } from '@/drizzle';
 import { Print } from '@/magic/schema/print';
@@ -44,7 +44,7 @@ const reload = os
         cardId: z.string(),
         set:    z.string(),
         number: z.string(),
-        lang:   fullLocale,
+        lang:   locale,
     }))
     .output(z.void())
     .handler(async ({ input }) => {

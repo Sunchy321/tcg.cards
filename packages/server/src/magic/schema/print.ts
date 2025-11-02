@@ -10,7 +10,7 @@ import { CardEditorView as ICardEditorView } from '@model/magic/schema/print';
 import * as basicModel from '@model/magic/schema/basic';
 import * as printModel from '@model/magic/schema/print';
 
-import { Card, CardLocalization, CardPart, CardPartLocalization, fullLocale } from './card';
+import { Card, CardLocalization, CardPart, CardPartLocalization, locale } from './card';
 
 export const layout = schema.enum('layout', basicModel.layout.enum);
 export const frame = schema.enum('frame', printModel.frame.enum);
@@ -27,7 +27,7 @@ export const Print = schema.table('prints', {
     cardId: text('card_id').notNull(),
     set:    text('set').notNull(),
     number: text('number').notNull(),
-    lang:   fullLocale('lang').notNull(),
+    lang:   locale('lang').notNull(),
 
     name:     text('print_name').notNull(),
     typeline: text('print_typeline').notNull(),
@@ -79,7 +79,7 @@ export const PrintPart = schema.table('print_parts', {
     cardId:    text('card_id').notNull(),
     set:       text('set').notNull(),
     number:    text('number').notNull(),
-    lang:      fullLocale('lang').notNull(),
+    lang:      locale('lang').notNull(),
     partIndex: smallint('part_index').notNull(),
 
     name:     text('print_part_name').notNull(),

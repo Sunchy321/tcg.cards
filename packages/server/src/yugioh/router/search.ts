@@ -2,7 +2,7 @@ import { os } from '@orpc/server';
 
 import z from 'zod';
 
-import { fullLocale } from '@model/yugioh/schema/basic';
+import { locale } from '@model/yugioh/schema/basic';
 import { devSearchResult, searchResult } from '@model/yugioh/schema/search';
 
 import { searchInput } from '@search/schema';
@@ -16,7 +16,7 @@ const basic = os
         tags:        ['Yugioh', 'Search'],
     })
     .input(searchInput.extend({
-        lang:    fullLocale.default('ja'),
+        lang:    locale.default('ja'),
         groupBy: z.enum(['card', 'print']).default('card'),
         orderBy: z.string().default('id+'),
     }))

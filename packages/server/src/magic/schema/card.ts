@@ -10,7 +10,7 @@ import * as basicModel from '@model/magic/schema/basic';
 import * as cardModel from '@model/magic/schema/card';
 import { Legality } from '@model/magic/schema/game-change';
 
-export const fullLocale = schema.enum('full_locale', basicModel.fullLocale.enum);
+export const locale = schema.enum('locale', basicModel.locale.enum);
 export const category = schema.enum('category', cardModel.category.enum);
 
 export const Card = schema.table('cards', {
@@ -42,7 +42,7 @@ export const Card = schema.table('cards', {
 
 export const CardLocalization = schema.table('card_localizations', {
     cardId: text('card_id').notNull(),
-    lang:   fullLocale('lang').notNull(),
+    lang:   locale('lang').notNull(),
 
     name:     text('loc_name').notNull(),
     typeline: text('loc_typeline').notNull(),
@@ -88,7 +88,7 @@ export const CardPart = schema.table('card_parts', {
 
 export const CardPartLocalization = schema.table('card_part_localizations', {
     cardId:    text('card_id').notNull(),
-    lang:      fullLocale('lang').notNull(),
+    lang:      locale('lang').notNull(),
     partIndex: smallint('part_index').notNull(),
 
     name:     text('part_loc_name').notNull(),

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { legality } from './game-change';
-import { color, fullImageType, fullLocale, layout, rarity } from './basic';
+import { color, fullImageType, locale, layout, rarity } from './basic';
 
 export const category = z.enum([
     'advertisement',
@@ -45,7 +45,7 @@ export const card = z.strictObject({
 
 export const cardLocalization = z.strictObject({
     cardId: z.string(),
-    lang:   fullLocale,
+    lang:   locale,
 
     name:     z.string(),
     typeline: z.string(),
@@ -82,7 +82,7 @@ export const cardPart = z.strictObject({
 export const cardPartLocalization = z.strictObject({
     cardId:    z.string(),
     partIndex: z.int().min(0),
-    lang:      fullLocale,
+    lang:      locale,
 
     name:     z.string(),
     typeline: z.string(),
@@ -92,7 +92,7 @@ export const cardPartLocalization = z.strictObject({
 export const cardView = z.strictObject({
     cardId:    z.string(),
     partIndex: z.int().min(0),
-    lang:      fullLocale,
+    lang:      locale,
 
     card:             card.omit({ cardId: true }),
     localization:     cardLocalization.omit({ cardId: true, lang: true }),
@@ -109,7 +109,7 @@ export const cardProfile = z.strictObject({
     }).array(),
 
     versions: z.strictObject({
-        lang:        fullLocale,
+        lang:        locale,
         set:         z.string(),
         number:      z.string(),
         rarity,

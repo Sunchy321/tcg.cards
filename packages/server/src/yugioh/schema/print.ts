@@ -9,7 +9,7 @@ import { Updation } from '@model/basic';
 import { CardEditorView as ICardEditorView } from '@model/yugioh/schema/print';
 import * as basicModel from '@model/yugioh/schema/basic';
 
-import { Card, CardLocalization, fullLocale } from './card';
+import { Card, CardLocalization, locale } from './card';
 
 export const layout = schema.enum('layout', basicModel.layout.enum);
 
@@ -17,7 +17,7 @@ export const Print = schema.table('prints', {
     cardId: text('card_id').notNull(),
     set:    text('set').notNull(),
     number: text('number').notNull(),
-    lang:   fullLocale('lang').notNull(),
+    lang:   locale('lang').notNull(),
 
     name:     text('print_name').notNull(),
     rubyName: text('print_ruby_name'),

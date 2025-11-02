@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { attribute, fullLocale } from './basic';
+import { attribute, locale } from './basic';
 import { legality } from './game-change';
 
 export const category = z.enum(['normal']);
@@ -32,7 +32,7 @@ export const card = z.strictObject({
 
 export const cardLocalization = z.strictObject({
     cardId: z.string(),
-    lang:   fullLocale,
+    lang:   locale,
 
     name:     z.string(),
     rubyName: z.string().nullable(),
@@ -60,7 +60,7 @@ export const cardProfile = z.strictObject({
     passcode: z.number().positive().nullable(),
 
     versions: z.strictObject({
-        lang:   fullLocale,
+        lang:   locale,
         set:    z.string(),
         number: z.string(),
         rarity: z.string(),

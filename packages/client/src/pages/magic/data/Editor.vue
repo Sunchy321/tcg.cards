@@ -368,7 +368,7 @@ import RemoteBtn from 'components/RemoteBtn.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
-import { FullLocale, Layout } from '@model/magic/schema/basic';
+import { Locale, Layout } from '@model/magic/schema/basic';
 import { CardEditorView } from '@model/magic/schema/print';
 
 import {
@@ -603,7 +603,7 @@ const id = computed({
 });
 
 const lang = computed({
-    get() { return (data.value?.lang ?? route.query.lang) as FullLocale; },
+    get() { return (data.value?.lang ?? route.query.lang) as Locale; },
     set(newValue) {
         if (data.value != null) {
             data.value.__original.lang = data.value.lang;
@@ -1009,7 +1009,7 @@ const relatedCardsString = computed({
                 .replace(/[^a-z0-9!*+]/g, '_');
 
             if (lang != null) {
-                return { relation, cardId, version: { lang: lang as FullLocale, set, number } };
+                return { relation, cardId, version: { lang: lang as Locale, set, number } };
             } else {
                 return { relation, cardId };
             }
@@ -1531,7 +1531,7 @@ const loadGroup = async (method: string, skip = false) => {
         } else {
             return await trpc.magic.card.needEdit({
                 method: method as any,
-                lang:   locale.value === '' ? undefined : locale.value as FullLocale,
+                lang:   locale.value === '' ? undefined : locale.value as Locale,
                 sample: sampleValue,
             });
         }

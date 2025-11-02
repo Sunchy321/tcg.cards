@@ -2,7 +2,7 @@ import { os } from '@orpc/server';
 
 import z from 'zod';
 
-import { fullLocale } from '@model/magic/schema/basic';
+import { locale } from '@model/magic/schema/basic';
 import { devSearchResult, searchResult } from '@model/magic/schema/search';
 
 import { searchInput } from '@search/schema';
@@ -16,7 +16,7 @@ const basic = os
         tags:        ['Magic', 'Search'],
     })
     .input(searchInput.extend({
-        lang:    fullLocale.default('en'),
+        lang:    locale.default('en'),
         groupBy: z.enum(['card', 'print']).default('card'),
         orderBy: z.string().default('id+'),
     }))

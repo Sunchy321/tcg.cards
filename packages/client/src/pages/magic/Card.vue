@@ -260,7 +260,7 @@ import RichText from 'src/components/magic/RichText.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
-import { FullLocale, formats, fullLocale } from '@model/magic/schema/basic';
+import { Locale, formats, locale } from '@model/magic/schema/basic';
 import { CardFullView } from '@model/magic/schema/print';
 import { SetProfile } from '@model/magic/schema/set';
 
@@ -404,11 +404,11 @@ const setInfos = computed(() => sets.value.map(s => {
 
 const langs = computed(() => {
     return uniq(versions.value.map(v => v.lang))
-        .sort((a, b) => fullLocale.options.indexOf(a) - fullLocale.options.indexOf(b));
+        .sort((a, b) => locale.options.indexOf(a) - locale.options.indexOf(b));
 });
 
 const lang = computed({
-    get() { return (data.value?.lang ?? route.query.lang ?? game.locale) as FullLocale; },
+    get() { return (data.value?.lang ?? route.query.lang ?? game.locale) as Locale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
@@ -742,7 +742,7 @@ const apiQuery = computed(() => {
 
     const query = {
         cardId:    route.params.id as string,
-        lang:      route.query.lang as FullLocale ?? game.locale,
+        lang:      route.query.lang as Locale ?? game.locale,
         set:       route.query.set as string,
         number:    route.query.number as string,
         partIndex: route.query.part as string ?? '0',
@@ -750,7 +750,7 @@ const apiQuery = computed(() => {
 
     return omitBy(query, v => v == null) as {
         cardId:  string;
-        lang:    FullLocale;
+        lang:    Locale;
         set?:    string;
         number?: string;
     };

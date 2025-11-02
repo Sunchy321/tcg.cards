@@ -1,4 +1,4 @@
-import { fullLocale, rarity } from '@model/magic/schema/basic';
+import { locale, rarity } from '@model/magic/schema/basic';
 import { Card, CardLocalization, CardPart, CardPartLocalization, Category } from '@model/magic/schema/card';
 import { borderColor, frame, imageStatus, Print, PrintPart, securityStamp } from '@model/magic/schema/print';
 
@@ -203,7 +203,7 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
     const cardId = getId(data);
     const set = setCodeMap[data.set] ?? data.set;
     const number = data.collector_number;
-    const lang = fullLocale.parse(data.lang);
+    const lang = locale.parse(data.lang);
 
     return {
         card: {

@@ -4,9 +4,9 @@ export const id = 'magic';
 
 export const birthday = '1993-08-05';
 
-export const locale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']);
+export const mainLocale = z.enum(['en', 'zhs', 'zht', 'de', 'fr', 'it', 'ja', 'ko', 'pt', 'ru', 'es']);
 
-export const fullLocale = z.enum([...locale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya']);
+export const locale = z.enum([...mainLocale.options, 'ph', 'he', 'ar', 'sa', 'grc', 'la', 'qya']);
 
 export const specificManaSymbols = [
     'W', 'U', 'B', 'R', 'G', 'C', 'X', 'Y', 'Z',
@@ -68,8 +68,8 @@ export const layout = z.enum([
 
 export const fullImageType = z.enum(['webp', 'jpg', 'png']);
 
+export type MainLocale = z.infer<typeof mainLocale>;
 export type Locale = z.infer<typeof locale>;
-export type FullLocale = z.infer<typeof fullLocale>;
 export type Color = z.infer<typeof color>;
 export type Rarity = z.infer<typeof rarity>;
 export type Layout = z.infer<typeof layout>;

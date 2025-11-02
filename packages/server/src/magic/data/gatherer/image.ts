@@ -12,14 +12,14 @@ import cheerio from 'cheerio';
 import { unlinkSync } from 'fs';
 
 import { cardImagePath } from '@/magic/image';
-import { FullLocale } from '@model/magic/schema/basic';
+import { Locale } from '@model/magic/schema/basic';
 
 interface IImageTask {
     name:         string;
     cardId:       string;
     set:          string;
     number:       string;
-    lang:         FullLocale;
+    lang:         Locale;
     multiverseId: number;
     partIndex:    number | undefined;
     exists:       boolean;

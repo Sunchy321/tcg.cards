@@ -11,7 +11,7 @@ import { Card as ICard } from '@model/yugioh/schema/card';
 import * as basicModel from '@model/yugioh/schema/basic';
 import * as cardModel from '@model/yugioh/schema/card';
 
-export const fullLocale = schema.enum('full_locale', basicModel.fullLocale.enum);
+export const locale = schema.enum('locale', basicModel.locale.enum);
 export const attribute = schema.enum('attribute', basicModel.attribute.enum);
 export const category = schema.enum('category', cardModel.category.enum);
 
@@ -46,7 +46,7 @@ export const Card = schema.table('cards', {
 
 export const CardLocalization = schema.table('card_localizations', {
     cardId: text('card_id').notNull(),
-    lang:   fullLocale('lang').notNull(),
+    lang:   locale('lang').notNull(),
 
     name:     text('name').notNull(),
     rubyName: text('ruby_name'),

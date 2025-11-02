@@ -1,7 +1,7 @@
 import { bigint, boolean, integer, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
 import { schema } from './schema';
 
-import { fullLocale } from './card';
+import { locale } from './card';
 import { rarity } from './print';
 
 export const SetLocalization = schema.table('set_localizations', {
@@ -73,7 +73,7 @@ export const Set = schema.table('sets', {
 
     printedSize: integer('printed_size'),
     cardCount:   integer('card_count').notNull(),
-    langs:       fullLocale('langs').array().notNull(),
+    langs:       locale('langs').array().notNull(),
     rarities:    rarity('rarities').array().notNull(),
 
     type:            text('type').notNull(),

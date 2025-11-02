@@ -4,7 +4,7 @@ import z from 'zod';
 import _ from 'lodash';
 import { and, asc, desc, eq, getTableColumns, like, not, notInArray, sql } from 'drizzle-orm';
 
-import { formats as formatList, FullLocale, fullLocale } from '@model/magic/schema/basic';
+import { formats as formatList, Locale, locale } from '@model/magic/schema/basic';
 import { cardProfile, cardView } from '@model/magic/schema/card';
 import { CardEditorView as ICardEditorView, cardEditorView, cardFullView } from '@model/magic/schema/print';
 import { legality } from '@model/magic/schema/game-change';
@@ -47,7 +47,7 @@ const summary = os
     })
     .input(z.object({
         cardId:    z.string().describe('Card ID'),
-        lang:      fullLocale.default('en').describe('Language of the card'),
+        lang:      locale.default('en').describe('Language of the card'),
         partIndex: z.int().min(0).default(0).describe('Part index of the card, if it has multiple parts (e.g. split cards)'),
     }))
     .output(cardView)
@@ -76,7 +76,7 @@ const fuzzy = os
     })
     .input(z.object({
         cardId:    z.string(),
-        lang:      fullLocale,
+        lang:      locale,
         set:       z.string().optional(),
         number:    z.string().optional(),
         partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()).optional(),
@@ -215,7 +215,7 @@ const profile = os
 const editorView = os
     .input(z.object({
         cardId:    z.string(),
-        lang:      fullLocale,
+        lang:      locale,
         set:       z.string(),
         number:    z.string(),
         partIndex: z.int().min(0).default(0),
@@ -238,7 +238,7 @@ const editorView = os
         return view;
     });
 
-const paren = (lang: FullLocale | undefined, select: any) => {
+const paren = (lang: Locale | undefined, select: any) => {
     return db.select(select)
         .from(CardEditorView)
         .where(and(
@@ -249,7 +249,7 @@ const paren = (lang: FullLocale | undefined, select: any) => {
         ));
 };
 
-const keyword = (lang: FullLocale | undefined, select: any) => {
+const keyword = (lang: Locale | undefined, select: any) => {
     return db.select(select)
         .from(CardEditorView)
         .where(and(
@@ -260,7 +260,7 @@ const keyword = (lang: FullLocale | undefined, select: any) => {
         ));
 };
 
-const token = (_lang: FullLocale | undefined, select: any) => {
+const token = (_lang: Locale | undefined, select: any) => {
     return db.select(select)
         .from(CardEditorView)
         .where(and(
@@ -269,7 +269,7 @@ const token = (_lang: FullLocale | undefined, select: any) => {
         ));
 };
 
-const needEditGetters: Record<'paren' | 'keyword' | 'token', (lang?: FullLocale, select?: any) => ReturnType<typeof paren>> = {
+const needEditGetters: Record<'paren' | 'keyword' | 'token', (lang?: Locale, select?: any) => ReturnType<typeof paren>> = {
     paren,
     keyword,
     token,
@@ -278,7 +278,7 @@ const needEditGetters: Record<'paren' | 'keyword' | 'token', (lang?: FullLocale,
 const needEdit = os
     .input(z.object({
         method: z.enum(['paren', 'keyword', 'token']),
-        lang:   fullLocale.optional(),
+        lang:   locale.optional(),
         sample: z.number().min(1).max(100).default(50),
     }))
     .output(z.object({
@@ -402,7 +402,7 @@ const scanCardText = os
     .input(z.object({
         set:       z.string(),
         number:    z.string(),
-        lang:      fullLocale.default('en'),
+        lang:      locale.default('en'),
         layout:    z.string(),
         partIndex: z.int().min(0).default(0),
     }))

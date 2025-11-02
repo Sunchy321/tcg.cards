@@ -6,7 +6,7 @@ import z from 'zod';
 
 import { GathererImageTask, saveGathererImage } from '@/magic/data/gatherer/image';
 import { parseGatherer } from '@/magic/data/gatherer/parse';
-import { fullLocale } from '@model/magic/schema/basic';
+import { locale } from '@model/magic/schema/basic';
 
 const parseCard = os
     .input(z.int().min(0))
@@ -27,7 +27,7 @@ const saveImage = os
         mids:   z.array(z.number().int().min(0)).min(1).max(2),
         set:    z.string(),
         number: z.string(),
-        lang:   fullLocale,
+        lang:   locale,
     }))
     .output(z.void())
     .handler(async ({ input }) => {

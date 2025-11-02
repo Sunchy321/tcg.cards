@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
 import { updation } from '../../basic';
-import { fullLocale, layout } from './basic';
+import { locale, layout } from './basic';
 import { card, cardLocalization } from './card';
 
 export const print = z.strictObject({
     cardId: z.string(),
     set:    z.string(),
     number: z.string(),
-    lang:   fullLocale,
+    lang:   locale,
 
     name:     z.string(),
     rubyName: z.string().nullable(),
@@ -52,7 +52,7 @@ export const cardPrintView = z.object({
 export const version = z.strictObject({
     set:    z.string(),
     number: z.string(),
-    lang:   fullLocale,
+    lang:   locale,
     rarity: z.string(),
 });
 

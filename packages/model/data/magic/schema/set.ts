@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { fullLocale, rarity } from './basic';
+import { locale, rarity } from './basic';
 
 export const booster = z.strictObject({
     boosterId: z.string(),
@@ -52,7 +52,7 @@ export const set = z.strictObject({
 
     printedSize: z.int().nullable(),
     cardCount:   z.int(),
-    langs:       fullLocale.array(),
+    langs:       locale.array(),
     rarities:    rarity.array(),
 
     localization: setLocalization.array(),

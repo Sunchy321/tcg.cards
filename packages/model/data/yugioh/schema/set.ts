@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { fullLocale } from './basic';
+import { locale } from './basic';
 
 export const setLocalization = z.strictObject({
     lang: z.string(),
@@ -11,7 +11,7 @@ export const set = z.strictObject({
     setId: z.string(),
 
     cardCount: z.int().nonnegative(),
-    langs:     fullLocale.array(),
+    langs:     locale.array(),
     rarities:  z.string().array(),
 
     localization: setLocalization.array(),
