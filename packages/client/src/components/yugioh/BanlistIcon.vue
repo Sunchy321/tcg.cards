@@ -14,7 +14,7 @@ import { computed } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 
-import { Legality } from '@interface/yugioh/format-change';
+import { Legality } from '@model/yugioh/schema/game-change';
 
 const i18n = useI18n();
 

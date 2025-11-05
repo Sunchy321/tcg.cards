@@ -33,7 +33,6 @@
         <div v-if="showTimeline">
             <div v-for="n in nodes" :key="n.date" class="q-my-md">
                 <div class="flex items-center q-mb-sm">
-                    <span class="text-h6 q-mr-md">{{ n.name }}</span>
                     <span class="text-h6">{{ n.date }}</span>
                     <q-btn
                         v-for="l in n.link"
@@ -48,7 +47,7 @@
 
                 <grid
                     v-if="n.sets.length > 0"
-                    v-slot="{ setId, status }"
+                    v-slot="{ setId: id, status }"
                     :value="n.sets" :item-width="300" item-class="flex items-center"
                 >
                     <div class="sets flex items-center q-gutter-sm">
@@ -56,38 +55,18 @@
                             :name="status === 'legal' ? 'mdi-plus' : 'mdi-minus'"
                             :class="status === 'legal' ? 'color-positive' : 'color-negative'"
                         />
-                        <set-avatar :id="setId" />
+                        <set-avatar :set-id="id" />
                     </div>
                 </grid>
 
                 <grid
                     v-if="n.banlist.length>0"
-                    v-slot="{ cardId, status, group }"
-                    :value="n.banlist" :item-width="300" item-key="cardId" item-class="flex items-center"
+                    v-slot="{ cardId: id, status, score, group }"
+                    :value="n.banlist" :item-width="300" item-class="flex items-center"
                 >
                     <div class="banlist flex items-center q-gutter-sm">
-                        <status-icon :status="status" />
-                        <card-avatar class="avatar" :card-id="cardId" :format="format" :version="n.version" />
-                        <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
-                    </div>
-                </grid>
-
-                <grid
-                    v-if="n.adjustment.length>0"
-                    v-slot="{ cardId, status, adjustment, group }"
-                    :value="n.adjustment" :item-width="400" item-key="cardId" item-class="flex items-center"
-                >
-                    <div class="adjustment flex items-center">
-                        <card-adjustment
-                            class="avatar"
-                            :card-id="cardId"
-                            :status="status"
-                            :format="format"
-                            :version="n.version"
-                            :last-version="n.lastVersion ?? n.version"
-                            :adjustment="adjustment"
-                            show-full
-                        />
+                        <banlist-icon :status="status" :score="score" />
+                        <card-avatar :card-id="id" class="avatar" />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
                 </grid>
@@ -95,19 +74,7 @@
         </div>
 
         <template v-else>
-            <div v-if="sets.length > 0" class="flex q-mb-md">
-                <span class="text-h6">{{ $t('hearthstone.ui.format.set') }}</span>
-            </div>
-
-            <grid
-                v-if="sets.length > 0"
-                v-slot="{ id }"
-                :value="sets.map(id => ({ id }))" :item-width="300" item-class="flex items-center"
-            >
-                <set-avatar :id="id" />
-            </grid>
-
-            <div v-if="banlist.length > 0" class="flex items-center q-my-md">
+            <div class="flex items-center q-mb-md">
                 <span class="text-h6">{{ $t('hearthstone.ui.format.banlist') }}</span>
 
                 <q-btn-toggle
@@ -126,17 +93,28 @@
             </div>
 
             <grid
-                v-if="banlist.length > 0"
-                v-slot="{ cardId, status, date: effectiveDate, group, link }"
-                :value="banlist" :item-width="300" item-key="cardId" item-class="flex items-center"
+                v-slot="{ cardId, status, score, date: effectiveDate, group, link }"
+                :value="banlist" :item-width="300" item-class="flex items-center"
             >
                 <div class="banlist flex items-center q-gutter-sm">
-                    <status-icon :status="status" />
+                    <banlist-icon :status="status" :score="score" />
                     <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                     <div v-else class="date">{{ effectiveDate }}</div>
-                    <card-avatar class="avatar" :card-id="cardId" :format="format" />
+                    <card-avatar :card-id="cardId" class="avatar" :pauper="formatIsPauper" />
                     <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                 </div>
+            </grid>
+
+            <div v-if="sets.length > 0" class="flex q-my-md">
+                <span class="text-h6">{{ $t('hearthstone.ui.format.set') }}</span>
+            </div>
+
+            <grid
+                v-if="sets.length > 0"
+                v-slot="{ id }"
+                :value="sets.map(id => ({ id }))" :item-width="300" item-class="flex items-center"
+            >
+                <set-avatar :set-id="id" />
             </grid>
         </template>
     </q-page>
@@ -148,24 +126,23 @@ import {
 } from 'vue';
 
 import { useI18n } from 'vue-i18n';
-import { useTitle, useParam } from 'store/core';
+import { useParam, useTitle } from 'store/core';
 import { useGame } from 'store/games/hearthstone';
 
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
 import CardAvatar from 'components/hearthstone/CardAvatar.vue';
-import CardAdjustment from 'components/hearthstone/CardAdjustment.vue';
-import StatusIcon from 'components/hearthstone/StatusIcon.vue';
+import BanlistIcon from 'components/hearthstone/StatusIcon.vue';
 import SetAvatar from 'components/hearthstone/SetAvatar.vue';
 
 import { Format } from '@model/hearthstone/schema/format';
-import { FormatChange, Legality, AdjustmentType } from '@model/hearthstone/schema/game-change';
+import { FormatChange, Legality } from '@model/hearthstone/schema/game-change';
 
 import { last, uniq } from 'lodash';
 
-import { banlistStatusOrder, banlistSourceOrder, adjustmentStatusOrder } from '@static/hearthstone/misc';
-
 import { trpc } from 'src/trpc';
+
+import { banlistStatusOrder, banlistSourceOrder } from '@static/hearthstone/misc';
 
 interface BanlistItem {
     date: string;
@@ -173,49 +150,38 @@ interface BanlistItem {
 
     cardId: string;
     status: Legality;
+    score?: number;
     group?: string;
 }
 
 interface TimelineNode {
-    date:         string;
-    name:         string;
-    version:      number;
-    lastVersion?: number;
-    link:         string[];
+    date: string;
+    link: string[];
 
     sets:    { setId: string, status: 'legal' | 'unavailable' }[];
-    banlist: { cardId: string, status: Legality, group?: string }[];
-
-    adjustment: {
-        cardId:     string;
-        status:     AdjustmentType;
-        group?:     string;
-        adjustment: {
-            cardId?: string | undefined;
-            detail:  { part: string, status: AdjustmentType }[];
-        }[];
-    }[];
+    banlist: { cardId: string, status: Legality, score?: number, group?: string }[];
 }
 
 const game = useGame();
 const i18n = useI18n();
 
-useTitle(() => i18n.t('hearthstone.format.$self'));
-
 const formats = computed(() => game.formats);
+
+useTitle(() => i18n.t('hearthstone.format.$self'));
 
 const format = useParam('format', {
     type:    'enum',
     bind:    'params',
-    key:     'id',
+    name:    'id',
     inTitle: true,
     values:  formats,
-    label:   (v: string) => i18n.t(`hearthstone.format.${v}`),
+    label:   v => i18n.t(`hearthstone.format.${v}`),
 });
 
-const showTimeline = useParam('timeline', {
+const showTimeline = useParam('showTimeline', {
     type:    'boolean',
     bind:    'query',
+    name:    'timeline',
     inTitle: true,
     icon:    ['mdi-timeline-outline', 'mdi-timeline'],
 });
@@ -228,7 +194,7 @@ const date = useParam('date', {
 const order = useParam('order', {
     type:   'enum',
     bind:   'query',
-    values: ['name', 'date'] as const,
+    values: ['name', 'date'],
 });
 
 const data = ref<Format>();
@@ -254,6 +220,18 @@ const birthAndDeath = computed(() => {
     }
 });
 
+const formatIsPauper = computed(() => {
+    switch (format.value) {
+    case 'pauper':
+        return 'pauper';
+    case 'pauper_commander':
+    case 'pauper_duelcommander':
+        return 'pdh';
+    default:
+        return undefined;
+    }
+});
+
 const nodes = computed(() => {
     const result: TimelineNode[] = [];
 
@@ -265,14 +243,10 @@ const nodes = computed(() => {
                 return value;
             } else {
                 result.push({
-                    date:        c.date,
-                    name:        c.name,
-                    version:     c.version,
-                    lastVersion: c.lastVersion ?? undefined,
-                    link:        c.link ?? [],
-                    sets:        [],
-                    banlist:     [],
-                    adjustment:  [],
+                    date:    c.date,
+                    link:    c.link ?? [],
+                    sets:    [],
+                    banlist: [],
                 });
 
                 return last(result)!;
@@ -288,12 +262,7 @@ const nodes = computed(() => {
                 group:  c.group ?? undefined,
             });
         } else {
-            node.adjustment.push({
-                cardId:     c.cardId!,
-                status:     c.status as AdjustmentType,
-                adjustment: c.adjustment ?? [],
-                group:      c.group ?? undefined,
-            });
+            // TODO
         }
     }
 
@@ -312,15 +281,11 @@ const nodes = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
-            } else {
-                return a.cardId < b.cardId ? -1 : 1;
-            }
-        });
-
-        v.adjustment.sort((a, b) => {
-            if (a.status !== b.status) {
-                return adjustmentStatusOrder.indexOf(a.status)
-                  - adjustmentStatusOrder.indexOf(b.status);
+            } else if (a.score !== b.score) {
+                return (b.score ?? 0) - (a.score ?? 0);
+            } else if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null)
+                  - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
                 return a.cardId < b.cardId ? -1 : 1;
             }
@@ -370,6 +335,7 @@ const banlist = computed(() => {
                         link:   c.link ?? [],
                         cardId: c.cardId!,
                         status: c.status as Legality,
+                        score:  c.score ?? undefined,
                         group:  c.group ?? undefined,
                     };
 
@@ -391,16 +357,27 @@ const banlist = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
-            } else if (a.group !== b.group) {
+            }
+
+            if (a.score !== b.score) {
+                return (b.score ?? 0) - (a.score ?? 0);
+            }
+
+            if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
                   - banlistSourceOrder.indexOf(b.group ?? null);
-            } else {
-                return a.cardId < b.cardId ? -1 : 1;
             }
+
+            return a.cardId < b.cardId ? -1 : 1;
         });
         break;
     case 'date':
         banlistItems.sort((a, b) => {
+            if (a.group !== b.group) {
+                return banlistSourceOrder.indexOf(a.group ?? null)
+                  - banlistSourceOrder.indexOf(b.group ?? null);
+            }
+
             if (a.date < b.date) {
                 return -1;
             } else if (a.date > b.date) {
@@ -410,12 +387,13 @@ const banlist = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
-            } else if (a.group !== b.group) {
-                return banlistSourceOrder.indexOf(a.group ?? null)
-                  - banlistSourceOrder.indexOf(b.group ?? null);
-            } else {
-                return a.cardId < b.cardId ? -1 : 1;
             }
+
+            if (a.score !== b.score) {
+                return (b.score ?? 0) - (a.score ?? 0);
+            }
+
+            return a.cardId < b.cardId ? -1 : 1;
         });
         break;
     default:
@@ -425,7 +403,7 @@ const banlist = computed(() => {
 });
 
 const timelineEvents = computed(() => {
-    const result: { date: string, color: string }[] = [];
+    const result = [];
 
     for (const c of changes.value) {
         const v = result.find(r => r.date === c.date);
@@ -446,20 +424,19 @@ const timelineEvents = computed(() => {
 });
 
 const loadData = async () => {
-    data.value = await trpc.hearthstone.format.full({
-        formatId: format.value,
-    });
+    data.value = await trpc.hearthstone.format.full({ formatId: format.value });
 
-    changes.value = await trpc.hearthstone.format.changes({
-        formatId: format.value,
-    });
+    changes.value = await trpc.hearthstone.format.changes({ formatId: format.value });
 };
 
 const groupShort = (group: string) => {
     switch (group) {
-    case 'c_thun': return 'c\'thun';
-    case 'odd_even': return 'odd/even';
-    default: return group;
+    case 'ante': return 'ante';
+    case 'legendary': return 'leg.';
+    case 'conspiracy': return 'consp.';
+    case 'unfinity': return 'unf.';
+    case 'offensive': return 'off.';
+    default: return '';
     }
 };
 
@@ -468,7 +445,7 @@ const toPrevDate = () => {
 
     for (const { date: dateValue } of timelineEvents.value.slice().reverse()) {
         if (dateValue < currDate) {
-            date.value = dateValue as string;
+            date.value = dateValue;
             return;
         }
     }
@@ -495,7 +472,7 @@ watch(format, loadData, { immediate: true });
 .set
     padding: 5px
 
-.banlist, .adjustment
+.banlist
     flex-wrap: nowrap
 
     & > .date

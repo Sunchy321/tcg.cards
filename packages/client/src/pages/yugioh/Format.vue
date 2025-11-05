@@ -47,25 +47,25 @@
 
                 <grid
                     v-if="n.sets.length > 0"
-                    v-slot="{ id, status }"
+                    v-slot="{ setId: id, status }"
                     :value="n.sets" :item-width="300" item-class="flex items-center"
                 >
                     <div class="sets flex items-center q-gutter-sm">
                         <q-icon
-                            :name="status === 'in' ? 'mdi-plus' : 'mdi-minus'"
-                            :class="status === 'in' ? 'color-positive' : 'color-negative'"
+                            :name="status === 'legal' ? 'mdi-plus' : 'mdi-minus'"
+                            :class="status === 'legal' ? 'color-positive' : 'color-negative'"
                         />
-                        <set-avatar :id="id" />
+                        <set-avatar :set-id="id" />
                     </div>
                 </grid>
 
                 <grid
                     v-if="n.banlist.length>0"
-                    v-slot="{ id, status, group }"
+                    v-slot="{ cardId: id, status, score, group }"
                     :value="n.banlist" :item-width="300" item-class="flex items-center"
                 >
                     <div class="banlist flex items-center q-gutter-sm">
-                        <banlist-icon :status="status" />
+                        <banlist-icon :status="status" :score="score" />
                         <card-avatar :id="id" class="avatar" :pauper="formatIsPauper" />
                         <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                     </div>
@@ -93,14 +93,14 @@
             </div>
 
             <grid
-                v-slot="{ id, status, date: effectiveDate, group, link }"
+                v-slot="{ cardId, status, score, date: effectiveDate, group, link }"
                 :value="banlist" :item-width="300" item-class="flex items-center"
             >
                 <div class="banlist flex items-center q-gutter-sm">
-                    <banlist-icon :status="status" />
+                    <banlist-icon :status="status" :score="score" />
                     <a v-if="link.length > 0" class="date" :href="link[0]" target="_blank">{{ effectiveDate }}</a>
                     <div v-else class="date">{{ effectiveDate }}</div>
-                    <card-avatar :id="id" class="avatar" :pauper="formatIsPauper" />
+                    <card-avatar :id="cardId" class="avatar" :pauper="formatIsPauper" />
                     <span v-if="group != null" class="group">{{ groupShort(group) }}</span>
                 </div>
             </grid>
@@ -114,7 +114,7 @@
                 v-slot="{ id }"
                 :value="sets.map(id => ({ id }))" :item-width="300" item-class="flex items-center"
             >
-                <set-avatar :id="id" />
+                <set-avatar :set-id="id" />
             </grid>
         </template>
     </q-page>
@@ -126,21 +126,20 @@ import {
 } from 'vue';
 
 import { useI18n } from 'vue-i18n';
-import { useParam } from 'store/core';
+import { useParam, useTitle } from 'store/core';
 import { useGame } from 'store/games/yugioh';
 
 import Grid from 'components/Grid.vue';
 import DateInput from 'components/DateInput.vue';
 import CardAvatar from 'components/yugioh/CardAvatar.vue';
 import BanlistIcon from 'components/yugioh/BanlistIcon.vue';
-// import SetAvatar from 'components/yugioh/SetAvatar.vue';
 
-import { Format } from '@interface/yugioh/format';
-import { FormatChange, Legality } from '@interface/yugioh/format-change';
+import { Format } from '@model/yugioh/schema/format';
+import { FormatChange, Legality } from '@model/yugioh/schema/game-change';
 
 import { last, uniq } from 'lodash';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 import { banlistStatusOrder, banlistSourceOrder } from '@static/yugioh/misc';
 
@@ -148,7 +147,7 @@ interface BanlistItem {
     date: string;
     link: string[];
 
-    id:     string;
+    cardId: string;
     status: Legality;
     score?: number;
     group?: string;
@@ -158,8 +157,8 @@ interface TimelineNode {
     date: string;
     link: string[];
 
-    sets:    { id: string, status: 'in' | 'out' }[];
-    banlist: { id: string, status: Legality, group?: string }[];
+    sets:    { setId: string, status: 'legal' | 'unavailable' }[];
+    banlist: { cardId: string, status: Legality, score?: number, group?: string }[];
 }
 
 const game = useGame();
@@ -167,13 +166,15 @@ const i18n = useI18n();
 
 const formats = computed(() => game.formats);
 
+useTitle(() => i18n.t('yugioh.format.$self'));
+
 const format = useParam('format', {
     type:    'enum',
     bind:    'params',
     name:    'id',
     inTitle: true,
     values:  formats,
-    label:   (v: string) => i18n.t(`yugioh.format.${v}`),
+    label:   v => i18n.t(`yugioh.format.${v}`),
 });
 
 const showTimeline = useParam('showTimeline', {
@@ -195,7 +196,7 @@ const order = useParam('order', {
     values: ['name', 'date'],
 });
 
-const data = ref<Format | null>(null);
+const data = ref<Format>();
 const changes = ref<FormatChange[]>([]);
 
 const orderOptions = ['name', 'date'].map(v => ({
@@ -251,14 +252,16 @@ const nodes = computed(() => {
             }
         })();
 
-        if (c.type === 'set') {
-            node.sets.push({ id: c.id, status: c.status as 'in' | 'out' });
-        } else {
+        if (c.type === 'set_change') {
+            node.sets.push({ setId: c.setId!, status: c.status as 'legal' | 'unavailable' });
+        } else if (c.type === 'card_change') {
             node.banlist.push({
-                id:     c.id,
+                cardId: c.cardId!,
                 status: c.status as Legality,
-                group:  c.group,
+                group:  c.group ?? undefined,
             });
+        } else {
+            // TODO
         }
     }
 
@@ -267,9 +270,9 @@ const nodes = computed(() => {
 
         v.sets.sort((a, b) => {
             if (a.status !== b.status) {
-                return a.status === 'in' ? -1 : 1;
+                return a.status === 'legal' ? -1 : 1;
             } else {
-                return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+                return a.setId < b.setId ? -1 : a.setId > b.setId ? 1 : 0;
             }
         });
 
@@ -277,11 +280,13 @@ const nodes = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
+            } else if (a.score !== b.score) {
+                return (b.score ?? 0) - (a.score ?? 0);
             } else if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
                   - banlistSourceOrder.indexOf(b.group ?? null);
             } else {
-                return a.id < b.id ? -1 : 1;
+                return a.cardId < b.cardId ? -1 : 1;
             }
         });
     }
@@ -293,15 +298,15 @@ const sets = computed(() => {
     let result: string[] = [];
 
     for (const c of changes.value) {
-        if (c.type === 'set') {
+        if (c.type === 'set_change') {
             if (c.date > date.value) {
                 break;
             }
 
-            if (c.status === 'in') {
-                result.push(c.id);
+            if (c.status === 'unlimited') {
+                result.push(c.setId!);
             } else {
-                result = result.filter(s => s !== c.id);
+                result = result.filter(s => s !== c.setId);
             }
         }
     }
@@ -314,22 +319,23 @@ const banlist = computed(() => {
         let result: BanlistItem[] = [];
 
         for (const c of changes.value) {
-            if (c.type === 'card') {
+            if (c.type === 'card_change') {
                 if (c.date > date.value) {
                     break;
                 }
 
                 if (c.status === 'unlimited' || c.status === 'unavailable') {
-                    result = result.filter(v => v.id !== c.id);
+                    result = result.filter(v => v.cardId !== c.cardId);
                 } else {
-                    const sameIndex = result.findIndex(b => b.id === c.id);
+                    const sameIndex = result.findIndex(b => b.cardId === c.cardId);
 
                     const value: BanlistItem = {
                         date:   c.date,
                         link:   c.link ?? [],
-                        id:     c.id,
+                        cardId: c.cardId!,
                         status: c.status as Legality,
-                        group:  c.group,
+                        score:  c.score ?? undefined,
+                        group:  c.group ?? undefined,
                     };
 
                     if (sameIndex === -1) {
@@ -350,12 +356,18 @@ const banlist = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
-            } else if (a.group !== b.group) {
+            }
+
+            if (a.score !== b.score) {
+                return (b.score ?? 0) - (a.score ?? 0);
+            }
+
+            if (a.group !== b.group) {
                 return banlistSourceOrder.indexOf(a.group ?? null)
                   - banlistSourceOrder.indexOf(b.group ?? null);
-            } else {
-                return a.id < b.id ? -1 : 1;
             }
+
+            return a.cardId < b.cardId ? -1 : 1;
         });
         break;
     case 'date':
@@ -374,9 +386,13 @@ const banlist = computed(() => {
             if (a.status !== b.status) {
                 return banlistStatusOrder.indexOf(a.status)
                   - banlistStatusOrder.indexOf(b.status);
-            } else {
-                return a.id < b.id ? -1 : 1;
             }
+
+            if (a.score !== b.score) {
+                return (b.score ?? 0) - (a.score ?? 0);
+            }
+
+            return a.cardId < b.cardId ? -1 : 1;
         });
         break;
     default:
@@ -392,13 +408,13 @@ const timelineEvents = computed(() => {
         const v = result.find(r => r.date === c.date);
 
         if (v != null) {
-            if (c.type === 'set') {
+            if (c.type === 'set_change') {
                 v.color = 'cyan';
             }
         } else {
             result.push({
                 date:  c.date,
-                color: c.type === 'set' ? 'cyan' : 'orange',
+                color: c.type === 'set_change' ? 'cyan' : 'orange',
             });
         }
     }
@@ -407,17 +423,9 @@ const timelineEvents = computed(() => {
 });
 
 const loadData = async () => {
-    const { data: formatResult } = await apiGet<Format>('/yugioh/format', {
-        id: format.value,
-    });
+    data.value = await trpc.yugioh.format.full({ formatId: format.value });
 
-    data.value = formatResult;
-
-    const { data: changesResult } = await apiGet<FormatChange[]>('/yugioh/format/changes', {
-        id: format.value,
-    });
-
-    changes.value = changesResult;
+    changes.value = await trpc.yugioh.format.changes({ formatId: format.value });
 };
 
 const groupShort = (group: string) => {

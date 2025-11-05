@@ -1,9 +1,12 @@
 import { cardApi, cardTrpc } from './card';
+import { formatApi, formatTrpc } from './format';
 
 export const yugiohTrpc = {
-    card: cardTrpc,
+    card:   cardTrpc,
+    format: formatTrpc,
 };
 
 export const yugiohApi = {
-    card: cardApi,
+    card:   cardApi,
+    format: formatApi,
 };

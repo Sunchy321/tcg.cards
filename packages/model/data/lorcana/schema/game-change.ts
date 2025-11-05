@@ -76,6 +76,7 @@ export const formatChange = z.strictObject({
     group:  z.string().nullable(),
 
     status: status.nullable(),
+    score:  z.int().min(1).nullable(),
 
     adjustment: adjustment.array().nullable(),
 });

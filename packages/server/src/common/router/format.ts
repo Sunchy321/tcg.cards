@@ -17,19 +17,23 @@ type FormatChangeTable<G extends Game> = Table<G, 'format_changes', {
     effectiveDate: Column<false>;
 }>;
 
-export type FormatOptions<G extends Game> = {
+export type FormatOptions<G extends Game, F extends z.ZodTypeAny, FC extends z.ZodTypeAny> = {
     table:           {
         Format:       FormatTable<G>;
         FormatChange: FormatChangeTable<G>;
     };
     schema:           {
-        format:       z.ZodTypeAny;
-        formatChange: z.ZodTypeAny;
+        format:       F;
+        formatChange: FC;
     };
     formatStaticList: string[];
 };
 
-export function useFormat<G extends Game>(game: G, options: FormatOptions<G>) {
+export function useFormat<
+    G extends Game,
+    F extends z.ZodTypeAny,
+    FC extends z.ZodTypeAny,
+>(game: G, options: FormatOptions<G, F, FC>) {
     const {
         table: { Format, FormatChange },
         schema: { format, formatChange },
@@ -72,7 +76,7 @@ export function useFormat<G extends Game>(game: G, options: FormatOptions<G>) {
                 throw new ORPCError('NOT_FOUND');
             }
 
-            return format;
+            return format as any;
         })
         .callable();
 
@@ -96,7 +100,7 @@ export function useFormat<G extends Game>(game: G, options: FormatOptions<G>) {
                 throw new ORPCError('NOT_FOUND');
             }
 
-            return formatChanges;
+            return formatChanges as any;
         })
         .callable();
 
