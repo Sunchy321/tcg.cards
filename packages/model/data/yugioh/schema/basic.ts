@@ -4,6 +4,13 @@ export const mainLocale = z.enum(['ja', 'en', 'en/asia', 'de', 'es', 'fr', 'it',
 
 export const locale = z.enum([...mainLocale.options, 'zhs/cn', 'zhs/md', 'zhs/nw', 'zhs/pro']);
 
+export const formats = [
+    'ocg',
+    'tcg',
+    'cnocg',
+    'goat',
+];
+
 export const attribute = z.enum([
     'light',
     'dark',

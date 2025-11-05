@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 export const locale = z.enum(['en', 'de', 'es', 'fr', 'it', 'pt', 'ja', 'zhs']);
 
+export const formats = [
+    'core',
+    'infinity',
+];
+
 export const color = z.enum(['amber', 'amethyst', 'emerald', 'ruby', 'sapphire', 'steel']);
 
 export const mainType = z.enum(['action', 'character', 'item', 'location']);

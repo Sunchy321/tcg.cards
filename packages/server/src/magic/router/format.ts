@@ -6,7 +6,7 @@ import { FormatChange } from '../schema/game-change';
 import { format } from '@model/magic/schema/format';
 import { formatChange } from '@model/magic/schema/game-change';
 
-import { formats as formatStaticList } from '@static/magic/basic';
+import { formats as formatStaticList } from '@model/magic/schema/basic';
 
 const { list, full, changes } = useFormat('magic', {
     table:  { Format, FormatChange },

@@ -3,12 +3,12 @@ import { useFormat } from '@/common/router/format';
 import { Format } from '../schema/format';
 import { FormatChange } from '../schema/game-change';
 
-import { format } from '@model/hearthstone/schema/format';
-import { formatChange } from '@model/hearthstone/schema/game-change';
+import { format } from '@model/magic/schema/format';
+import { formatChange } from '@model/magic/schema/game-change';
 
-import { formats as formatStaticList } from '@model/hearthstone/schema/basic';
+import { formats as formatStaticList } from '@model/yugioh/schema/basic';
 
-const { list, full, changes } = useFormat('hearthstone', {
+const { list, full, changes } = useFormat('yugioh', {
     table:  { Format, FormatChange },
     schema: { format, formatChange },
     formatStaticList,
