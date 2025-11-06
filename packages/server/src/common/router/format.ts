@@ -60,7 +60,7 @@ export function useFormat<
         .route({
             method:      'GET',
             description: 'Get format by ID',
-            tags:        ['Magic', 'Format'],
+            tags:        [game, 'Format'],
         })
         .input(z.object({ formatId: z.string() }))
         .output(format)
@@ -84,7 +84,7 @@ export function useFormat<
         .route({
             method:      'GET',
             description: 'Get format changes by ID',
-            tags:        ['Hearthstone', 'Format'],
+            tags:        [game, 'Format'],
         })
         .input(z.object({ formatId: z.string() }))
         .output(formatChange.array())
