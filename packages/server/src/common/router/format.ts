@@ -5,7 +5,7 @@ import z from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '@/drizzle';
 
-import { Game } from '@model/schema';
+import { Game, gameCodeNames } from '@model/schema';
 import { Column, Table } from './database';
 
 type FormatTable<G extends Game> = Table<G, 'formats', {
@@ -33,18 +33,20 @@ export function useFormat<
     G extends Game,
     F extends z.ZodTypeAny,
     FC extends z.ZodTypeAny,
->(game: G, options: FormatOptions<G, F, FC>) {
+>(game: G, options: FormatOptions<NoInfer<G>, F, FC>) {
     const {
         table: { Format, FormatChange },
         schema: { format, formatChange },
         formatStaticList,
     } = options;
 
+    const codeName = gameCodeNames[game];
+
     const list = os
         .route({
             method:      'GET',
             description: 'List all formats',
-            tags:        [game, 'Format'],
+            tags:        [codeName, 'Format'],
         })
         .input(z.any())
         .output(z.string().array())
@@ -60,7 +62,7 @@ export function useFormat<
         .route({
             method:      'GET',
             description: 'Get format by ID',
-            tags:        [game, 'Format'],
+            tags:        [codeName, 'Format'],
         })
         .input(z.object({ formatId: z.string() }))
         .output(format)
@@ -84,7 +86,7 @@ export function useFormat<
         .route({
             method:      'GET',
             description: 'Get format changes by ID',
-            tags:        [game, 'Format'],
+            tags:        [codeName, 'Format'],
         })
         .input(z.object({ formatId: z.string() }))
         .output(formatChange.array())
