@@ -78,6 +78,12 @@ export function useFormat<
                 throw new ORPCError('NOT_FOUND');
             }
 
+            const parsed = options.schema.format.safeParse(format);
+
+            if (!parsed.success) {
+                console.log('Format parse error:', parsed.error);
+            }
+
             return format as any;
         })
         .callable();
@@ -100,6 +106,12 @@ export function useFormat<
 
             if (formatChanges == null) {
                 throw new ORPCError('NOT_FOUND');
+            }
+
+            const parsed = options.schema.formatChange.array().safeParse(formatChanges);
+
+            if (!parsed.success) {
+                console.log('Format changes parse error:', parsed.error);
             }
 
             return formatChanges as any;

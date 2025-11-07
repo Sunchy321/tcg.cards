@@ -142,6 +142,7 @@ import { last, uniq } from 'lodash';
 
 import { trpc } from 'src/trpc';
 
+import { formats } from '@model/lorcana/schema/basic';
 import { banlistStatusOrder, banlistSourceOrder } from '@static/lorcana/misc';
 
 interface BanlistItem {
@@ -164,8 +165,6 @@ interface TimelineNode {
 
 const game = useGame();
 const i18n = useI18n();
-
-const formats = computed(() => game.formats);
 
 useTitle(() => i18n.t('lorcana.format.$self'));
 
