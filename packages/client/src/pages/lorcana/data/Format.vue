@@ -45,15 +45,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 
-import controlSetup from 'setup/control';
-
 import DateInput from 'components/DateInput.vue';
 
 import { Format } from '@model/lorcana/schema/format';
 
 import { trpc } from 'src/trpc';
-
-const { controlPost } = controlSetup();
 
 const formatList = ref<string[]>([]);
 const formatId = ref<string | null>(null);
@@ -111,7 +107,11 @@ const loadFormat = async () => {
 };
 
 const saveFormat = async () => {
-    await controlPost('/lorcana/format/save', { data: format.value });
+    if (format.value == null) {
+        return;
+    }
+
+    await trpc.lorcana.format.save(format.value);
     await loadFormat();
 };
 

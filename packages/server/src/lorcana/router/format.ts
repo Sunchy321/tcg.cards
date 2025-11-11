@@ -8,7 +8,7 @@ import { formatChange } from '@model/lorcana/schema/game-change';
 
 import { formats as formatStaticList } from '@model/lorcana/schema/basic';
 
-const { list, full, changes } = useFormat('lorcana', {
+const { list, full, save, changes } = useFormat('lorcana', {
     table:  { Format, FormatChange },
     schema: { format, formatChange },
     formatStaticList,
@@ -17,11 +17,13 @@ const { list, full, changes } = useFormat('lorcana', {
 export const formatTrpc = {
     list,
     full,
+    save,
     changes,
 };
 
 export const formatApi = {
     list,
     '': full,
+    save,
     changes,
 };

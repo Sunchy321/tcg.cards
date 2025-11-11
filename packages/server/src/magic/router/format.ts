@@ -8,7 +8,7 @@ import { formatChange } from '@model/magic/schema/game-change';
 
 import { formats as formatStaticList } from '@model/magic/schema/basic';
 
-const { list, full, changes } = useFormat('magic', {
+const { list, full, save, changes } = useFormat('magic', {
     table:  { Format, FormatChange },
     schema: { format, formatChange },
     formatStaticList,
@@ -17,11 +17,13 @@ const { list, full, changes } = useFormat('magic', {
 export const formatTrpc = {
     list,
     full,
+    save,
     changes,
 };
 
 export const formatApi = {
     list,
     '': full,
+    save,
     changes,
 };

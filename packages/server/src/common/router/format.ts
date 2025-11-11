@@ -88,6 +88,24 @@ export function useFormat<
         })
         .callable();
 
+    const save = os
+        .input(format)
+        .output(z.void())
+        .handler(async ({ input }) => {
+            const parsed = options.schema.format.safeParse(input);
+
+            if (!parsed.success) {
+                throw new ORPCError('BAD_REQUEST');
+            }
+            const formatData = parsed.data as (typeof Format)['$inferInsert'];
+
+            await db.insert(Format).values(formatData).onConflictDoUpdate({
+                target: Format.formatId,
+                set:    formatData,
+            });
+        })
+        .callable();
+
     const changes = os
         .route({
             method:      'GET',
@@ -118,5 +136,5 @@ export function useFormat<
         })
         .callable();
 
-    return { list, full, changes };
+    return { list, full, save, changes };
 }
