@@ -63,3 +63,7 @@ export const cardProfile = z.strictObject({
 });
 
 export type Card = z.infer<typeof card>;
+export type CardLocalization = z.infer<typeof cardLocalization>;
+
+export type CardView = z.infer<typeof cardView>;
+export type CardProfile = z.infer<typeof cardProfile>;

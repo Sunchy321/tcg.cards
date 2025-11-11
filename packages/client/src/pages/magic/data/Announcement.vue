@@ -1,53 +1,27 @@
 <template>
     <div class="q-pa-md">
         <div class="flex items-center">
-            <q-select
-                v-model="filter"
-                :options="['', ...sources]"
-                outlined dense
-            />
+            <q-select v-model="filter" :options="['', ...sources]" outlined dense />
 
             <q-select
-                v-model="selected"
-                class="col-grow q-mx-sm"
-                :options="announcementListWithLabel"
-                emit-value
-                map-options
-                outlined dense
+                v-model="selected" class="col-grow q-mx-sm" :options="announcementListWithLabel" emit-value
+                map-options outlined dense
             />
 
-            <q-btn
-                icon="mdi-sync-circle"
-                flat dense round
-                @click="applyAnnouncements"
-            />
+            <q-btn icon="mdi-sync-circle" flat dense round @click="applyAnnouncements" />
 
-            <q-btn
-                icon="mdi-plus"
-                flat dense round
-                @click="newAnnouncement"
-            />
+            <q-btn icon="mdi-plus" flat dense round @click="newAnnouncement" />
 
-            <q-btn
-                icon="mdi-upload"
-                flat dense round
-                @click="saveAnnouncement"
-            />
+            <q-btn icon="mdi-upload" flat dense round @click="saveAnnouncement" />
         </div>
 
         <div class="flex items-center q-pt-md">
             <q-icon
-                :name="dbId == null ? 'mdi-database-remove': 'mdi-database-check'"
-                :color="dbId == null ? 'red' : undefined"
-                size="sm"
+                :name="dbId == null ? 'mdi-database-remove' : 'mdi-database-check'"
+                :color="dbId == null ? 'red' : undefined" size="sm"
             />
 
-            <q-select
-                v-model="source"
-                class="q-ml-md"
-                :options="sources"
-                outlined dense
-            />
+            <q-select v-model="source" class="q-ml-md" :options="sources" outlined dense />
         </div>
 
         <div class="flex items-center q-pt-sm">
@@ -82,32 +56,17 @@
             </date-input>
         </div>
 
-        <list
-            v-model="link"
-            class="q-mt-md"
-            item-class="q-mt-sm"
-            @insert="link.push('')"
-        >
+        <list v-model="link" class="q-mt-md" item-class="q-mt-sm" @insert="link.push('')">
             <template #title>
                 <q-icon name="mdi-link" size="sm" />
             </template>
 
             <template #summary="{ value, update }">
-                <q-input
-                    class="col-grow"
-                    outlined dense
-                    :model-value="value"
-                    @update:model-value="(update as any)"
-                />
+                <q-input class="col-grow" outlined dense :model-value="value" @update:model-value="(update as any)" />
             </template>
         </list>
 
-        <list
-            v-model="groupedItems"
-            class="change-list q-mt-md"
-            item-class="change q-mt-sm q-pa-sm"
-            @insert="pushItem"
-        >
+        <list v-model="groupedItems" class="change-list q-mt-md" item-class="change q-mt-sm q-pa-sm" @insert="pushItem">
             <template #title>
                 <q-icon name="mdi-text-box-outline" size="sm" />
             </template>
@@ -116,48 +75,33 @@
             </template>
             <template #body="{ value: g }">
                 <list
-                    class="q-mt-sm"
-                    item-class="q-mt-sm"
-                    :model-value="g.items"
-                    @update:model-value="b => updateItem(g.format, b)"
-                    @insert="() => pushItem(g.format)"
+                    class="q-mt-sm" item-class="q-mt-sm" :model-value="g.items"
+                    @update:model-value="b => updateItem(g.format, b)" @insert="() => pushItem(g.format)"
                 >
                     <template #title>
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
                     </template>
                     <template #summary="{ value: c }">
                         <q-btn
-                            class="q-mr-sm"
-                            :icon="gameChangeTypeIcon(c.type)"
-                            flat dense round
+                            class="q-mr-sm" :icon="gameChangeTypeIcon(c.type)" flat dense round
                             @click="switchChangeType(c)"
                         />
 
                         <q-input
                             v-if="c.type === 'card_change' || c.type === 'set_change' || c.type === 'rule_change'"
-                            class="col-grow q-mr-sm"
-                            :model-value="getId(c)"
-                            outlined dense
+                            class="col-grow q-mr-sm" :model-value="getId(c)" outlined dense
                             @update:model-value="v => updateId(c, v as string)"
                         />
 
                         <q-btn-toggle
-                            v-if="c.type === 'card_change' || c.type === 'set_change'"
-                            v-model="c.status"
-                            :options="getStatusOptions(c)"
-                            flat dense
-                            :toggle-color="undefined"
-                            color="white"
+                            v-if="c.type === 'card_change' || c.type === 'set_change'" v-model="c.status"
+                            :options="getStatusOptions(c)" flat dense :toggle-color="undefined" color="white"
                             text-color="grey"
                         />
 
                         <q-input
-                            v-if="c.type === 'card_change'"
-                            class="q-ml-sm score-input"
-                            type="number"
-                            :model-value="scoreFor(c)"
-                            min="0" max="15"
-                            flat dense outlined
+                            v-if="c.type === 'card_change'" class="q-ml-sm score-input" type="number"
+                            :model-value="scoreFor(c)" min="0" max="15" flat dense outlined
                             @update:model-value="v => updateScoreFor(c, v as number)"
                         >
                             <template #prepend>
@@ -182,13 +126,13 @@ import { useGame } from 'store/games/magic';
 import List from 'components/List.vue';
 import DateInput from 'components/DateInput.vue';
 
-import { GameChangeType, Legality } from '@model/magic/schema/game-change';
+import { Announcement, AnnouncementItem, AnnouncementProfile } from '@model/magic/schema/announcement';
+import { GameChangeType } from '@model/magic/schema/game-change';
 
 import _ from 'lodash';
 
 import { toIdentifier } from '@common/util/id';
 import { trpc } from 'src/trpc';
-import { Announcement, AnnouncementItem, AnnouncementProfile } from '@model/magic/schema/announcement';
 
 const sources = [
     'release',

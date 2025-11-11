@@ -1,6 +1,8 @@
 import search from './search';
 import ui from './ui';
 
+import format from '@model/lorcana/i18n/en/format.yml';
+
 export default {
     $self: 'Lorcana',
 
@@ -17,11 +19,7 @@ export default {
         $self: 'Set',
     },
 
-    format: {
-        $self: 'Format',
-
-        core: 'Core Constructed',
-    },
+    format: { $self: 'Format', ...format },
 
     legality: {
         $self: 'Legality',

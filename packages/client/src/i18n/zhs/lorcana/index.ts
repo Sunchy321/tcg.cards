@@ -1,6 +1,8 @@
 import search from './search';
 import ui from './ui';
 
+import format from '@model/lorcana/i18n/zhs/format.yml';
+
 export default {
     $self: '洛卡纳',
 
@@ -17,11 +19,7 @@ export default {
         $self: '系列',
     },
 
-    format: {
-        $self: '赛制',
-
-        core: '核心构组赛',
-    },
+    format: { $self: '赛制', ...format },
 
     legality: {
         $self: '可用性',

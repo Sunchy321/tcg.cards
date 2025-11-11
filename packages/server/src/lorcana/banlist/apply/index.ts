@@ -22,10 +22,9 @@ import { banlistStatusOrder, banlistSourceOrder } from '@static/lorcana/misc';
 
 import { announcement as log } from '@/lorcana/logger';
 
-const formatWithSet = [
-    'standard', 'pioneer', 'modern', 'extended',
-    'alchemy', 'historic', 'explorer', 'timeless',
-];
+// const formatWithSet = [
+//     'core',
+// ];
 
 function cmp<T>(a: T, b: T): number {
     return a < b ? -1 : a > b ? 1 : 0;
@@ -181,6 +180,7 @@ export class AnnouncementApplier {
                 group:  null,
 
                 status,
+                score: null,
 
                 adjustment: null,
             });
@@ -259,6 +259,7 @@ export class AnnouncementApplier {
             group:  group ?? null,
 
             status,
+            score: null,
 
             adjustment: null,
         });
@@ -300,9 +301,6 @@ export class AnnouncementApplier {
         this.cardChanges = [];
 
         this.groupWatcher = [];
-
-        const alchemyBirthday = this.formatMap.alchemy.birthday!;
-        const standardBrawlBirthday = this.formatMap.standard_brawl.birthday!;
 
         for (const f of Object.values(this.formatMap)) {
             f.sets = [];
@@ -385,30 +383,8 @@ export class AnnouncementApplier {
 
             const formats = (() => {
                 switch (a.format) {
-                case '#alchemy':
-                    return ['alchemy', 'historic', 'timeless'].filter(f => {
-                        const format = this.formatMap[f]!;
-                        // the change don't become effective now
-                        if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
-                        // the change is before the format exists
-                        if (format.birthday != null && effectiveDate < format.birthday) { return false; }
-                        // the change is after the format died
-                        if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
-                        return true;
-                    });
-                case '#standard':
-                    return [...this.eternalFormats, ...formatWithSet].filter(f => {
-                        const format = this.formatMap[f]!;
-                        // the change don't become effective now
-                        if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
-                        // the change is before the format exists
-                        if (format.birthday != null && effectiveDate < format.birthday) { return false; }
-                        // the change is after the format died
-                        if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
-                        return true;
-                    });
-                case '#eternal':
-                    return [...this.eternalFormats].filter(f => {
+                case '#core':
+                    return ['core'].filter(f => {
                         const format = this.formatMap[f]!;
                         // the change don't become effective now
                         if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
@@ -422,18 +398,6 @@ export class AnnouncementApplier {
                     return a.format == null ? [] : [a.format];
                 }
             })();
-
-            if (formats.includes('standard')) {
-                if (!formats.includes('standard_brawl') && effectiveDate >= standardBrawlBirthday) {
-                    formats.push('standard_brawl');
-                }
-            }
-
-            if (formats.includes('historic')) {
-                if (!formats.includes('brawl')) {
-                    formats.push('brawl');
-                }
-            }
 
             // apply changes
             for (const f of formats) {
@@ -452,11 +416,7 @@ export class AnnouncementApplier {
 
                     if (a.status === 'legal') {
                         if (fo.sets.includes(a.setId!)) {
-                            if (['historic', 'brawl'].includes(fo.formatId) && a.date === alchemyBirthday) {
-                            // Alchemy initial, ignore duplicate
-                            } else {
-                                throw new Error(`In set ${a.setId} is already in ${f}, date: ${a.date}`);
-                            }
+                            throw new Error(`In set ${a.setId} is already in ${f}, date: ${a.date}`);
                         }
                     } else if (a.status === 'unavailable') {
                         if (!fo.sets.includes(a.setId!)) {
@@ -532,7 +492,7 @@ export class AnnouncementApplier {
                                     newChanges.push({
                                         cardId: bo.cardId,
                                         status: a.status ?? bo.status,
-                                        group:  bo.group,
+                                        group:  bo.group ?? null,
                                     });
                                 }
                             }
@@ -642,6 +602,7 @@ export class AnnouncementApplier {
                         group:  null,
 
                         status: a.status,
+                        score:  null,
 
                         adjustment: a.adjustment,
                     });

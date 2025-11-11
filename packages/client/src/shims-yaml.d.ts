@@ -40,3 +40,8 @@ declare module '@data/hearthstone/tag/localization-field.yml' {
     const data: Record<number, string>;
     export default data;
 }
+
+declare module '@model/lorcana/i18n/*/format.yml' {
+    const data: Record<string, string>;
+    export default data;
+}

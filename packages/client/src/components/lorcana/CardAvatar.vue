@@ -14,9 +14,11 @@ import { useGame } from 'store/games/lorcana';
 import { QTooltip } from 'quasar';
 import CardImage from './CardImage.vue';
 
-import cardProfile, { CardProfile } from 'src/common/lorcana/card';
+import { CardProfile } from '@model/lorcana/schema/card';
 
 import { pick } from 'lodash';
+
+import { trpc } from 'src/trpc';
 
 type Version = {
     set?:    string;
@@ -30,7 +32,6 @@ const props = withDefaults(
         part?:      number;
         version?:   Version;
         useLang?:   boolean;
-        pauper?:    'pauper' | 'pdh' | undefined;
         text?:      string;
         fullImage?: boolean;
     }>(),
@@ -38,7 +39,6 @@ const props = withDefaults(
         part:      undefined,
         version:   undefined,
         useLang:   false,
-        pauper:    undefined,
         text:      undefined,
         fullImage: false,
     },
@@ -49,7 +49,7 @@ const route = useRoute();
 const game = useGame();
 
 const innerShowId = ref(false);
-const profile = ref<CardProfile | null>(null);
+const profile = ref<CardProfile>();
 
 const locale = computed(() => {
     if (props.useLang && props.version != null) {
@@ -91,7 +91,7 @@ const imageVersion = computed(() => {
 
     if (props.version?.set != null && props.version.number != null) {
         const matchedVersion = profile.value.versions.find(
-            v => v.lang === props.version?.lang && v.set === props.version?.set && v.number === props.version.number,
+            v => v.lang === props.version?.lang && v.set === props.version?.set && v.number === props.version?.number,
         );
 
         if (matchedVersion != null) {
@@ -100,21 +100,6 @@ const imageVersion = computed(() => {
     }
 
     const versions = [
-        // filter for pauper
-        (vs: CardProfile['versions']) => {
-            if (props.pauper === 'pauper') {
-                return vs.filter(v => v.rarity === 'common');
-            } else if (props.pauper === 'pdh') {
-                if (vs.some(v => v.rarity === 'common')) {
-                    return vs.filter(v => v.rarity === 'common');
-                } else {
-                    return vs.filter(v => v.rarity === 'uncommon');
-                }
-            } else {
-                return vs;
-            }
-        },
-
         // filter for locale
         (vs: CardProfile['versions']) => {
             const { locales } = game;
@@ -178,11 +163,7 @@ const imageVersion = computed(() => {
 });
 
 const quickLoadData = async () => {
-    const value = await cardProfile.getLocal(props.id);
-
-    if (value != null) {
-        profile.value = value;
-    }
+    profile.value = await trpc.lorcana.card.profile(props.id);
 };
 
 onMounted(quickLoadData);
@@ -192,7 +173,8 @@ const loadData = async () => {
         return;
     }
 
-    cardProfile.get(props.id, v => profile.value = v).catch(() => innerShowId.value = true);
+    profile.value = await trpc.lorcana.card.profile(props.id);
+    innerShowId.value = false;
 };
 
 watch(() => props.id, (newValue, oldValue) => {

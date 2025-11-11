@@ -1,59 +1,39 @@
 <template>
     <div class="q-pa-md">
         <div class="flex items-center">
-            <q-select
-                v-model="filter"
-                :options="['', ...sources]"
-                outlined dense
-            />
+            <q-select v-model="filter" :options="['', ...sources]" outlined dense />
 
             <q-select
-                v-model="selected"
-                class="col-grow q-mx-sm"
-                :options="announcementListWithLabel"
-                emit-value
-                map-options
-                outlined dense
+                v-model="selected" class="col-grow q-mx-sm" :options="announcementListWithLabel" emit-value
+                map-options outlined dense
             />
 
-            <q-btn
-                icon="mdi-sync-circle"
-                flat dense round
-                @click="applyAnnouncements"
-            />
+            <q-btn icon="mdi-sync-circle" flat dense round @click="applyAnnouncements" />
 
-            <q-btn
-                icon="mdi-plus"
-                flat dense round
-                @click="newAnnouncement"
-            />
+            <q-btn icon="mdi-plus" flat dense round @click="newAnnouncement" />
 
-            <q-btn
-                icon="mdi-upload"
-                flat dense round
-                @click="saveAnnouncement"
-            />
+            <q-btn icon="mdi-upload" flat dense round @click="saveAnnouncement" />
         </div>
 
         <div class="flex items-center q-pt-md">
             <q-icon
-                :name="dbId == null ? 'mdi-database-remove': 'mdi-database-check'"
-                :color="dbId == null ? 'red' : undefined"
-                size="sm"
+                :name="dbId == null ? 'mdi-database-remove' : 'mdi-database-check'"
+                :color="dbId == null ? 'red' : undefined" size="sm"
             />
 
-            <q-select
-                v-model="source"
-                class="q-ml-md"
-                :options="sources"
-                outlined dense
-            />
+            <q-select v-model="source" class="q-ml-md" :options="sources" outlined dense />
         </div>
 
         <div class="flex items-center q-pt-sm">
             <date-input v-model="date" outlined dense>
                 <template #before>
                     <q-icon name="mdi-calendar-today" />
+                </template>
+            </date-input>
+
+            <date-input v-model="nextDate" class="q-ml-md" outlined dense>
+                <template #before>
+                    <q-icon name="mdi-arrow-right-circle" />
                 </template>
             </date-input>
 
@@ -64,89 +44,58 @@
             </date-input>
         </div>
 
-        <list
-            v-model="link"
-            class="q-mt-md"
-            item-class="q-mt-sm"
-            @insert="link = [...link, '']"
-        >
+        <list v-model="link" class="q-mt-md" item-class="q-mt-sm" @insert="link.push('')">
             <template #title>
                 <q-icon name="mdi-link" size="sm" />
             </template>
 
             <template #summary="{ value, update }">
-                <q-input
-                    class="col-grow"
-                    outlined dense
-                    :model-value="value"
-                    @update:model-value="(update as any)"
-                />
+                <q-input class="col-grow" outlined dense :model-value="value" @update:model-value="(update as any)" />
             </template>
         </list>
 
-        <list
-            v-model="changes"
-            class="change-list q-mt-md"
-            item-class="change q-mt-sm q-pa-sm"
-            @insert="() => addChange()"
-        >
+        <list v-model="groupedItems" class="change-list q-mt-md" item-class="change q-mt-sm q-pa-sm" @insert="pushItem">
             <template #title>
                 <q-icon name="mdi-text-box-outline" size="sm" />
             </template>
             <template #summary="{ value: c }">
                 <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
             </template>
-            <template #body="{ value: c }">
-                <div class="flex q-mt-sm">
-                    <array-input
-                        class="col-grow"
-                        :model-value="c.setIn ?? []"
-                        outlined dense
-                        @update:model-value="v => c.setIn = v"
-                    >
-                        <template #prepend>
-                            <q-icon name="mdi-plus" />
-                        </template>
-                    </array-input>
-
-                    <array-input
-                        class="col-grow q-ml-sm"
-                        :model-value="c.setOut ?? []"
-                        outlined dense
-                        @update:model-value="v => c.setOut = v"
-                    >
-                        <template #prepend>
-                            <q-icon name="mdi-minus" />
-                        </template>
-                    </array-input>
-                </div>
-
+            <template #body="{ value: g }">
                 <list
-                    class="q-mt-sm"
-                    item-class="q-mt-sm"
-                    :model-value="c.banlist ?? []"
-                    @update:model-value="b => c.banlist = b"
-                    @insert="c.banlist = addBanlist(c.banlist ?? [])"
+                    class="q-mt-sm" item-class="q-mt-sm" :model-value="g.items"
+                    @update:model-value="b => updateItem(g.format, b)" @insert="() => pushItem(g.format)"
                 >
                     <template #title>
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
                     </template>
-                    <template #summary="{ value: b }">
+                    <template #summary="{ value: c }">
+                        <q-btn
+                            class="q-mr-sm" :icon="gameChangeTypeIcon(c.type)" flat dense round
+                            @click="switchChangeType(c)"
+                        />
+
                         <q-input
-                            class="col-grow q-mr-sm"
-                            :model-value="b.id"
-                            outlined dense
-                            @update:model-value="v => b.id = adjustId(v as string)"
+                            v-if="c.type === 'card_change' || c.type === 'set_change' || c.type === 'rule_change'"
+                            class="col-grow q-mr-sm" :model-value="getId(c)" outlined dense
+                            @update:model-value="v => updateId(c, v as string)"
                         />
 
                         <q-btn-toggle
-                            v-model="b.status"
-                            :options="statusOptions"
-                            flat dense
-                            :toggle-color="undefined"
-                            color="white"
+                            v-if="c.type === 'card_change' || c.type === 'set_change'" v-model="c.status"
+                            :options="getStatusOptions(c)" flat dense :toggle-color="undefined" color="white"
                             text-color="grey"
                         />
+
+                        <q-input
+                            v-if="c.type === 'card_change'" class="q-ml-sm score-input" type="number"
+                            :model-value="scoreFor(c)" min="0" max="15" flat dense outlined
+                            @update:model-value="v => updateScoreFor(c, v as number)"
+                        >
+                            <template #prepend>
+                                <q-icon name="mdi-counter" />
+                            </template>
+                        </q-input>
                     </template>
                 </list>
             </template>
@@ -159,50 +108,44 @@ import {
     ref, computed, watch, onMounted, toRaw,
 } from 'vue';
 
-import { useGame } from 'store/games/lorcana';
 import { useParam } from 'store/core';
-
-import controlSetup from 'setup/control';
+import { useGame } from 'store/games/lorcana';
 
 import List from 'components/List.vue';
-import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
 
-import { FormatAnnouncement } from '@interface/lorcana/format-change';
+import { Announcement, AnnouncementItem, AnnouncementProfile } from '@model/lorcana/schema/announcement';
+import { GameChangeType } from '@model/lorcana/schema/game-change';
 
-import { last } from 'lodash';
+import _ from 'lodash';
 
 import { toIdentifier } from '@common/util/id';
-
-type BanlistItem = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
-
-interface FormatAnnouncementProfile {
-    id?:    string;
-    source: string;
-    date:   string;
-}
+import { trpc } from 'src/trpc';
 
 const sources = [
     'release',
     'disney',
 ];
 
+const gameChangeTypeIcon = (type: GameChangeType) => {
+    switch (type) {
+    case 'card_change':
+        return 'mdi-card-account-details-outline';
+    case 'set_change':
+        return 'mdi-package-variant-closed';
+    case 'rule_change':
+        return 'mdi-format-list-bulleted-type';
+    case 'format_death':
+        return 'mdi-skull-outline';
+    default:
+        return '';
+    }
+};
+
 const statusIcon = (status: string, card?: string) => {
     switch (status) {
     case 'banned':
         return 'mdi-close-circle-outline';
-    case 'banned_in_bo1':
-        return 'mdi-progress-close';
-    case 'suspended':
-        return 'mdi-minus-circle-outline';
-    case 'banned_as_commander':
-        return 'mdi-crown-circle-outline';
-    case 'banned_as_companion':
-        return 'mdi-heart-circle-outline';
-    case 'game_changer':
-        return 'mdi-eye-circle-outline';
-    case 'restricted':
-        return 'mdi-alert-circle-outline';
     case 'legal':
         return 'mdi-check-circle-outline';
     case 'unavailable':
@@ -236,8 +179,6 @@ const statusOptions = [
 
 const game = useGame();
 
-const { controlGet, controlPost } = controlSetup();
-
 const filter = useParam('filter', {
     type:    'enum',
     bind:    'query',
@@ -246,14 +187,22 @@ const filter = useParam('filter', {
 });
 
 const formats = computed(() => ['#core', ...game.formats]);
-const announcementList = ref<FormatAnnouncementProfile[]>([]);
-const selected = ref<FormatAnnouncementProfile | null>(null);
+const announcementList = ref<AnnouncementProfile[]>([]);
+const selected = ref<AnnouncementProfile | null>(null);
 
-const announcement = ref<FormatAnnouncement>({
-    date:    '',
-    source:  'disney',
-    link:    [],
-    changes: [],
+const announcement = ref<Announcement>({
+    id: '',
+
+    source: '',
+    date:   '',
+    name:   '',
+
+    effectiveDate: null,
+
+    nextDate: null,
+
+    link:  [],
+    items: [],
 });
 
 const announcementFiltered = computed(() => {
@@ -268,13 +217,13 @@ const announcementFiltered = computed(() => {
 
 const announcementListWithLabel = computed(() => announcementFiltered.value.map(a => ({
     value: a,
-    label: `${a.date} - ${a.source}`,
+    label: a.name,
 })));
 
-const dbId = computed(() => (announcement.value as any)?._id);
+const dbId = computed(() => announcement.value.id === '' ? null : announcement.value.id);
 
 const source = computed({
-    get() { return announcement.value?.source ?? 'disney'; },
+    get() { return announcement.value?.source ?? 'wotc'; },
     set(newValue: string) {
         announcement.value.source = newValue;
     },
@@ -287,11 +236,22 @@ const date = computed({
     },
 });
 
+const nextDate = computed({
+    get() { return announcement.value?.nextDate ?? ''; },
+    set(newValue: string) {
+        if (newValue === '') {
+            announcement.value.nextDate = null;
+        } else {
+            announcement.value.nextDate = newValue;
+        }
+    },
+});
+
 const effectiveDate = computed({
     get() { return announcement.value?.effectiveDate ?? ''; },
     set(newValue: string) {
         if (newValue === '') {
-            announcement.value.effectiveDate = undefined;
+            announcement.value.effectiveDate = null;
         } else {
             announcement.value.effectiveDate = newValue;
         }
@@ -299,35 +259,155 @@ const effectiveDate = computed({
 });
 
 const link = computed({
-    get() { return announcement.value?.link ?? []; },
+    get() { return announcement.value.link; },
     set(newValue: string[]) { announcement.value.link = newValue; },
 });
 
-const changes = computed({
-    get() { return announcement.value.changes; },
-    set(newValue: FormatAnnouncement['changes']) {
-        announcement.value.changes = newValue;
+const items = computed({
+    get() { return announcement.value.items; },
+    set(newValue: Announcement['items']) {
+        announcement.value.items = newValue;
     },
 });
 
-const addChange = (format = '') => {
-    changes.value.push({
+const groupedItems = computed({
+    get() {
+        const groups: {
+            format: AnnouncementItem['format'];
+            items:  AnnouncementItem[];
+        }[] = [];
+
+        for (const item of items.value) {
+            const group = groups.find(g => _.isEqual(g.format, item.format));
+
+            if (group == null) {
+                groups.push({
+                    format: item.format,
+                    items:  [item],
+                });
+            } else {
+                group.items.push(item);
+            }
+        }
+
+        return groups;
+    },
+    set(newValue) {
+        const newItems: AnnouncementItem[] = [];
+
+        for (const group of newValue) {
+            for (const item of group.items) {
+                newItems.push({
+                    ...item,
+                    format: group.format,
+                });
+            }
+        }
+
+        items.value = newItems;
+    },
+});
+
+const pushItem = (format: string | null = '') => {
+    items.value.push({
+        type:          'card_change',
+        effectiveDate: null,
         format,
-        setIn:   [],
-        setOut:  [],
-        banlist: [],
+
+        cardId: null,
+        setId:  null,
+        ruleId: null,
+
+        status: null,
+        score:  null,
+
+        adjustment:   null,
+        relatedCards: null,
     });
+};
+
+const updateItem = (format: AnnouncementItem['format'], newItems: AnnouncementItem[]) => {
+    const oldItems = items.value.filter(item => item.format != format);
+    const insertPoint = items.value.findIndex(item => item.format == format);
+
+    if (insertPoint >= 0) {
+        // Insert new items at the position of the first matching item
+        const result = [...oldItems.slice(0, insertPoint), ...newItems, ...oldItems.slice(insertPoint)];
+        items.value = result;
+    } else {
+        // If no matching items were found, just append the new items
+        items.value = [...oldItems, ...newItems];
+    }
+};
+
+const getId = (item: AnnouncementItem) => {
+    if (item.type === 'card_change') {
+        return item.cardId;
+    } else if (item.type === 'set_change') {
+        return item.setId;
+    } else if (item.type === 'rule_change') {
+        return item.ruleId;
+    } else {
+        return '';
+    }
+};
+
+const getStatusOptions = (item: AnnouncementItem) => {
+    if (item.type === 'card_change') {
+        return statusOptions;
+    } else if (item.type === 'set_change') {
+        return statusOptions.filter(v => v.value === 'legal' || v.value === 'banned');
+    } else {
+        return [];
+    }
 };
 
 const adjustId = (id: string) => (id.startsWith('#') ? id : toIdentifier(id));
 
-const addBanlist = (banlist: BanlistItem[]) => [
-    ...banlist,
-    {
-        id:     '',
-        status: last(banlist)?.status ?? 'banned',
-    },
-];
+const updateId = (item: AnnouncementItem, id: string) => {
+    if (item.type === 'card_change') {
+        item.cardId = adjustId(id);
+    } else if (item.type === 'set_change') {
+        item.setId = adjustId(id);
+    } else if (item.type === 'rule_change') {
+        item.ruleId = id;
+    }
+};
+
+const switchChangeType = (item: AnnouncementItem) => {
+    if (item.type === 'card_change') {
+        item.type = 'set_change';
+    } else if (item.type === 'set_change') {
+        item.type = 'rule_change';
+    } else if (item.type === 'rule_change') {
+        item.type = 'format_death';
+    } else if (item.type === 'format_death') {
+        item.type = 'card_change';
+    }
+};
+
+const scoreFor = (item: AnnouncementItem) => {
+    if (item.status == 'score') {
+        return item.score!;
+    } else {
+        return 0;
+    }
+};
+
+const updateScoreFor = (item: AnnouncementItem, score: number | string) => {
+    if (item.type != 'card_change') {
+        return;
+    }
+
+    score = typeof score === 'string' ? Number.parseInt(score, 10) : score;
+
+    if (score === 0) {
+        item.status = 'legal';
+    } else {
+        item.status = 'score';
+        item.score = score;
+    }
+};
 
 const formatMap: Record<string, string> = {
     release:             '#standard',
@@ -340,7 +420,7 @@ const formatMap: Record<string, string> = {
 };
 
 const fillEmptyAnnouncement = () => {
-    if (changes.value.length !== 0) {
+    if (items.value.length !== 0) {
         return;
     }
 
@@ -350,15 +430,13 @@ const fillEmptyAnnouncement = () => {
         return;
     }
 
-    addChange(format);
+    pushItem(format);
 };
 
 watch(source, fillEmptyAnnouncement);
 
 const loadData = async () => {
-    const { data } = await controlGet<FormatAnnouncementProfile[]>('/lorcana/format/announcement');
-
-    announcementList.value = data;
+    announcementList.value = await trpc.lorcana.announcement.list();
 
     if (announcementFiltered.value.length > 0 && selected.value == null) {
         selected.value = announcementFiltered.value[0];
@@ -372,11 +450,7 @@ const loadAnnouncement = async () => {
         return;
     }
 
-    const { data: result } = await controlGet<FormatAnnouncement>('/lorcana/format/announcement', {
-        id: selected.value.id,
-    });
-
-    announcement.value = result;
+    announcement.value = await trpc.lorcana.announcement.full({ id: selected.value.id });
 };
 
 watch(selected, loadAnnouncement);
@@ -388,29 +462,26 @@ const saveAnnouncement = async () => {
 
     const data = toRaw(announcement.value);
 
-    if (data.effectiveDate != null && Object.keys(data.effectiveDate).length === 0) {
-        delete data.effectiveDate;
-    }
+    data.name = `${data.source} - ${data.date}`;
 
-    if (data.link?.length === 0) {
-        delete data.link;
-    }
-
-    for (const c of data.changes) {
-        if (c.setIn?.length === 0) {
-            delete c.setIn;
-        }
-
-        if (c.setOut?.length === 0) {
-            delete c.setOut;
-        }
-
-        if (c.banlist?.length === 0) {
-            delete c.banlist;
+    for (const c of data.items) {
+        if (c.type === 'card_change') {
+            c.setId = null;
+            c.ruleId = null;
+        } else if (c.type === 'set_change') {
+            c.cardId = null;
+            c.ruleId = null;
+        } else if (c.type === 'rule_change') {
+            c.cardId = null;
+            c.setId = null;
+        } else {
+            c.cardId = null;
+            c.setId = null;
+            c.ruleId = null;
         }
     }
 
-    await controlPost('/lorcana/format/announcement/save', { data });
+    await trpc.lorcana.announcement.save(data);
 
     await loadData();
 };
@@ -423,9 +494,18 @@ const newAnnouncement = async () => {
     selected.value = null;
 
     announcement.value = {
-        source:  filter.value === '' ? 'disney' : filter.value,
-        date:    todayDate,
-        changes: [],
+        id: '',
+
+        source: filter.value === '' ? 'wotc' : filter.value,
+        date:   todayDate,
+        name:   '',
+
+        effectiveDate: null,
+
+        nextDate: null,
+
+        link:  [],
+        items: [],
     };
 
     fillEmptyAnnouncement();
@@ -434,7 +514,7 @@ const newAnnouncement = async () => {
 const applyAnnouncements = async () => {
     await saveAnnouncement();
 
-    await controlPost('/lorcana/format/announcement/apply');
+    await trpc.lorcana.announcement.apply();
 };
 
 </script>
