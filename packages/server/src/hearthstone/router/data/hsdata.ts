@@ -1,53 +1,60 @@
-import { Hono } from 'hono';
-import { validator as zValidator } from 'hono-openapi/zod';
-
-import { os } from '@orpc/server';
+import { eventIterator, os } from '@orpc/server';
 
 import z from 'zod';
+import { clearPatchResult, loaderProgress, patchProgress, pullRepoProgress } from '@model/hearthstone/schema/data/hsdata';
 
 import { clearPatch, PatchListLoader, RepoPuller } from '@/hearthstone/data/hsdata/patch';
 import { PatchLoader } from '@/hearthstone/data/hsdata/task';
 
+const pullRepo = os
+    .input(z.void())
+    .output(eventIterator(pullRepoProgress))
+    .handler(async function* () {
+        const task = new RepoPuller();
+
+        for await (const progress of task.intoGenerator()) {
+            yield progress;
+        }
+    });
+
+const loadPatchList = os
+    .input(z.void())
+    .output(eventIterator(loaderProgress))
+    .handler(async function* () {
+        const task = new PatchListLoader();
+
+        for await (const progress of task.intoGenerator()) {
+            yield progress;
+        }
+    });
+
+const loadPatch = os
+    .input(z.number().int().positive())
+    .output(eventIterator(patchProgress))
+    .handler(async function* ({ input }) {
+        const buildNumber = input;
+
+        const task = new PatchLoader(buildNumber);
+
+        for await (const progress of task.intoGenerator()) {
+            yield progress;
+        }
+    });
+
 const clearPatchAction = os
     .input(z.int().positive())
-    .output(z.void())
+    .output(clearPatchResult)
     .handler(async ({ input }) => {
         const buildNumber = input;
 
-        await clearPatch(buildNumber);
+        const result = await clearPatch(buildNumber);
+
+        return result;
     });
 
 export const hsdataTrpc = {
+    pullRepo,
+    loadPatchList,
+    loadPatch,
     clearPatch: clearPatchAction,
 };
-
-export const hsdataSSE = new Hono()
-    .get(
-        '/pull-repo',
-        async c => {
-            const task = new RepoPuller();
-
-            return task.bind(c);
-        },
-    )
-    .get(
-        '/load-patch-list',
-        async c => {
-            const task = new PatchListLoader();
-
-            return task.bind(c);
-        },
-    )
-    .get(
-        '/load-patch',
-        zValidator('query', z.object({
-            buildNumber: z.preprocess(val => Number.parseInt(val as string, 0), z.int().positive()),
-        })),
-        async c => {
-            const buildNumber = c.req.valid('query').buildNumber;
-
-            const task = new PatchLoader(buildNumber);
-
-            return task.bind(c);
-        },
-    );

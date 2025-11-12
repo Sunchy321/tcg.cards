@@ -10,10 +10,10 @@ import { auth } from './auth';
 import { Game, games } from '@model/schema';
 
 import { omniTrpc } from '@/omnisearch/router';
-import { magicSSE, magicTrpc } from '@/magic/router';
+import { magicTrpc } from '@/magic/router';
 import { ptcgTrpc } from '@/ptcg/router';
 import { yugiohTrpc } from '@/yugioh/router';
-import { hearthstoneSSE, hearthstoneTrpc } from '@/hearthstone/router';
+import { hearthstoneTrpc } from '@/hearthstone/router';
 import { lorcanaTrpc } from '@/lorcana/router';
 
 const AUTH_PREFIX = '/api/auth';
@@ -32,10 +32,6 @@ export type TRPC = typeof trpc;
 const handler = new RPCHandler(trpc, {
     plugins: [new BatchHandlerPlugin()],
 });
-
-const sse = new Hono()
-    .route('/magic', magicSSE)
-    .route('/hearthstone', hearthstoneSSE);
 
 const router = new Hono<HonoEnv>()
     .on(['GET', 'POST'], `${AUTH_PREFIX}/*`, c => {
@@ -77,7 +73,6 @@ const router = new Hono<HonoEnv>()
         }
 
         await next();
-    })
-    .route('/sse', sse);
+    });
 
 export default router;

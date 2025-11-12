@@ -1,3 +1,5 @@
+import z from 'zod';
+
 type ValueOrArray<T> = T | T[];
 
 export type XTag = {
@@ -82,3 +84,39 @@ export type XCardDefs = {
 
     Entity: XEntity[];
 };
+
+export const pullRepoProgress = z.strictObject({
+    type:      z.literal('get'),
+    method:    z.string(),
+    stage:     z.string(),
+    progress:  z.number().min(0).max(100),
+    processed: z.number().nonnegative(),
+    total:     z.number().positive(),
+});
+
+export const loaderProgress = z.strictObject({
+    type:  z.literal('load'),
+    count: z.number().int().nonnegative(),
+    total: z.number().int().positive(),
+});
+
+export const patchProgress = z.strictObject({
+    type:    z.enum(['load-patch', 'clear-patch']),
+    method:  z.enum(['entity', 'relation']),
+    version: z.number().int().positive(),
+    count:   z.number().int().nonnegative(),
+    total:   z.number().int().positive(),
+});
+
+export const clearPatchResult = z.strictObject({
+    deletedEntity: z.strictObject({
+        cardId: z.string(),
+    }).array(),
+    deletedEntityLocalization: z.strictObject({
+        cardId: z.string(),
+    }).array(),
+});
+
+export type PullRepoProgress = z.infer<typeof pullRepoProgress>;
+export type LoaderProgress = z.infer<typeof loaderProgress>;
+export type PatchProgress = z.infer<typeof patchProgress>;

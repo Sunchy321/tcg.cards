@@ -5,6 +5,7 @@ import { Patch } from '@/hearthstone/schema/patch';
 import { Entity, EntityLocalization } from '@/hearthstone/schema/entity';
 
 import Task from '@/common/task';
+import { LoaderProgress } from '@model/hearthstone/schema/data/hsdata';
 
 import { Entity as IEntity } from '@interface/hearthstone/entity';
 
@@ -55,15 +56,9 @@ export class RepoPuller extends Task<SimpleGitProgressEvent & { type: 'get' }> {
     stopImpl(): void { /* no-op */ }
 }
 
-export interface ILoaderStatus {
-    type:  'load';
-    count: number;
-    total: number;
-}
-
 const messagePrefix = 'Update to patch';
 
-export class PatchListLoader extends Task<ILoaderStatus> {
+export class PatchListLoader extends Task<LoaderProgress> {
     async startImpl(): Promise<void> {
         const repo = git({
             baseDir:  localPath,

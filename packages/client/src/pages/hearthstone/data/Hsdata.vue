@@ -55,39 +55,11 @@ import Grid from 'components/Grid.vue';
 import HsdataPatch from 'components/hearthstone/data/HsdataPatch.vue';
 
 import { Patch } from '@model/hearthstone/schema/patch';
-
-import bytes from 'bytes';
-
-import { actionWithProgress } from 'src/progress';
+import { LoaderProgress, PatchProgress, PullRepoProgress } from '@model/hearthstone/schema/data/hsdata';
 
 import { trpc } from 'src/trpc';
 
-interface TransferProgress {
-    type:            'get';
-    totalObjects:    number;
-    indexedObjects:  number;
-    receivedObjects: number;
-    localObjects:    number;
-    totalDeltas:     number;
-    indexedDeltas:   number;
-    receivedBytes:   number;
-}
-
-interface LoaderProgress {
-    type:  'load';
-    count: number;
-    total: number;
-}
-
-interface PatchProgress {
-    type:    'clear-patch' | 'load-patch';
-    method?: 'entity' | 'relation';
-    version: number;
-    count:   number;
-    total:   number;
-}
-
-type Progress = LoaderProgress | PatchProgress | TransferProgress;
+type Progress = PullRepoProgress | LoaderProgress | PatchProgress;
 
 const patches = ref<Patch[]>([]);
 const progress = ref<Progress>();
@@ -105,11 +77,7 @@ const progressValue = computed(() => {
     }
 
     if (prog.type === 'get') {
-        if (prog.totalDeltas != null) {
-            return prog.indexedObjects / prog.totalObjects;
-        } else {
-            return prog.receivedObjects / prog.totalObjects;
-        }
+        return prog.progress;
     } else if (prog.type === 'load' || prog.type === 'load-patch') {
         return prog.count / prog.total;
     } else {
@@ -125,7 +93,7 @@ const progressLabel = computed(() => {
     }
 
     if (prog.type === 'get') {
-        return `${prog.indexedObjects}/${prog.receivedObjects}/${prog.totalObjects} (${bytes(prog.receivedBytes)})`;
+        return `${prog.processed}/${prog.total} (${prog.method}/${prog.stage})`;
     } else if (prog.type === 'load') {
         return `${prog.count}/${prog.total}`;
     } else if (prog.type === 'load-patch') {
@@ -139,19 +107,19 @@ const loadData = async () => {
     patches.value = await trpc.hearthstone.patch.list();
 };
 
-const pullRepo = () => actionWithProgress<Progress>(
-    `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/pull-repo`,
-    prog => {
+const pullRepo = async () => {
+    for await (const prog of await trpc.hearthstone.data.hsdata.pullRepo()) {
         progress.value = prog;
-    },
-);
+    }
+};
 
-const loadPatchList = () => actionWithProgress<Progress>(
-    `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/load-patch-list`,
-    prog => {
+const loadPatchList = async () => {
+    for await (const prog of await trpc.hearthstone.data.hsdata.loadPatchList()) {
         progress.value = prog;
-    },
-);
+    }
+
+    await loadData();
+};
 
 const loadPatches = async () => {
     const patch = patches.value.filter(v => !v.isUpdated).sort((a, b) => a.buildNumber - b.buildNumber)[0];
@@ -160,17 +128,9 @@ const loadPatches = async () => {
         return;
     }
 
-    await new Promise(resolve => {
-        actionWithProgress<Progress>(
-            `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/load-patch?buildNumber=${patch.buildNumber}`,
-            prog => progress.value = prog,
-            () => {
-                console.info(`Patch ${patch.buildNumber} has been loaded`);
-
-                resolve(undefined);
-            },
-        );
-    });
+    for await (const prog of await trpc.hearthstone.data.hsdata.loadPatch(patch.buildNumber)) {
+        progress.value = prog;
+    }
 
     await loadData();
 

@@ -36,8 +36,9 @@ import { ref, computed } from 'vue';
 
 import { useQuasar } from 'quasar';
 
+import { PatchProgress } from 'card-model/data/hearthstone/schema/data/hsdata';
+
 import { trpc } from 'src/trpc';
-import { actionWithProgress } from 'src/progress';
 
 const quasar = useQuasar();
 
@@ -51,15 +52,7 @@ const emit = defineEmits<{
     'load-data': [void];
 }>();
 
-interface Progress {
-    type:    'clear-patch' | 'load-patch';
-    method?: 'entity' | 'relation';
-    version: number;
-    count:   number;
-    total:   number;
-}
-
-const progress = ref<Progress | null>();
+const progress = ref<PatchProgress>();
 
 const progressValue = computed(() => {
     if (progress.value == null) {
@@ -80,28 +73,22 @@ const progressLabel = computed(() => {
 const clearPatch = async () => {
     const result = await trpc.hearthstone.data.hsdata.clearPatch(props.buildNumber);
 
-    if (result.ok) {
-        const value = await result.json();
+    quasar.notify({
+        message: `Patch ${props.buildNumber} has been cleared, ${result.deletedEntity.length} entities and ${result.deletedEntityLocalization.length} localizations removed.`,
+        color:   'positive',
+    });
 
-        quasar.notify({
-            message: `Patch ${props.buildNumber} has been cleared, ${value.deletedEntity.length} entities and ${value.deletedEntityLocalization.length} localizations removed.`,
-            color:   'positive',
-        });
-
-        emit('load-data');
-    }
+    emit('load-data');
 };
 
-const loadPatch = async () => actionWithProgress<Progress>(
-    `${import.meta.env.VITE_SSE_URL}/hearthstone/data/hsdata/load-patch?buildNumber=${props.buildNumber}`,
-    prog => {
+const loadPatch = async () => {
+    for await (const prog of await trpc.hearthstone.data.hsdata.loadPatch(props.buildNumber)) {
         progress.value = prog;
-    },
-    () => {
-        progress.value = null;
-        emit('load-data');
-    },
-);
+    }
+
+    progress.value = undefined;
+    emit('load-data');
+};
 
 </script>
 
