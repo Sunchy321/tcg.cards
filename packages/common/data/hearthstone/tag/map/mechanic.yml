@@ -640,6 +640,7 @@
 3870: starship_enchantment
 3881: wisp
 3885: abort_launch_button
+3928: rafaam
 3929: count_san_layn_scribe_died
 3932: anomaly_trigger_xy_stay
 3934: rewind
@@ -661,6 +662,7 @@
 4069: anomaly_active_turn
 4070: _loc_prince_enchantment
 4071: _loc_prince
+4085: fabled
 4087: hide_hero_power_in_leaderboard
 4088: hero_power_unlimited_uses
 4089: interactable_object
@@ -671,6 +673,7 @@
 4173: imbue_hero_power
 4174: ?battlegrounds_4174
 4177: greater_trinket_related
+4184: fabled_plus
 4185: gain_card_count
 4194: spell_cast_twice
 4204: rally
@@ -681,6 +684,7 @@
 4231: bounty
 4237: ?battlegrounds_enchantment_4237
 4238: repeatable
+4239: shattered
 4241: ?additional_rally
 4252: anomaly_amicable_amendment
 4254: tavern_spell_give_stats
@@ -698,6 +702,9 @@
 4392: ysera
 4393: anomaly_partner_in_crime
 4403: temporal_loop
+4410: nozdormu_dormant_effect_watcher
 4412: keep_timeline
 4414: lock_visual
 4435: immediately_transform
+4445: fable_bundle_card
+4508: visible_player_enchantment_card
