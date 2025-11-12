@@ -45,9 +45,12 @@
 - adventure_scene_id_2
 - alternate_cost
 - anomaly_active_turn
+- anomaly_amicable_amendment
 - anomaly_banned_heroes
 - anomaly_banned_minions
+- anomaly_battlegrounds
 - anomaly_occurrence_rate
+- anomaly_partner_in_crime
 - anomaly_rule_id
 - anomaly_weight
 - attack_visual_type
@@ -79,6 +82,7 @@
 - data_num_5
 - data_num_6
 - deck_action_cost
+- defining_enchantment
 - dev_state
 - discard_cards
 - dormant_visual
@@ -158,6 +162,7 @@
 - transfromed_card_visual_type
 - turns_left_to_discover_trinket
 - unique_race
+- used_rewind
 - wildcard_tripler
 - windfury
 - zilliax_customizable_linked_cosmeticmoudle

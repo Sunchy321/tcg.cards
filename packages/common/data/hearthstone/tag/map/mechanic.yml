@@ -440,6 +440,7 @@
 2731: ?overload_variant
 2732: battlegrounds_quest_prepration
 2768: ?battlegrounds_2768
+2769: kerrigan_zerg
 2772: titan
 2779: lettuce_charge
 2780: battlegrounds_died_last_combat_hint
@@ -641,7 +642,9 @@
 3885: abort_launch_button
 3929: count_san_layn_scribe_died
 3932: anomaly_trigger_xy_stay
+3934: rewind
 3942: transform_after_play_minion
+3945: used_rewind
 3970: young_murk_eye
 3982: knockoff_wisdomball
 4013: starship_launch_trigger
@@ -679,6 +682,7 @@
 4237: ?battlegrounds_enchantment_4237
 4238: repeatable
 4241: ?additional_rally
+4252: anomaly_amicable_amendment
 4254: tavern_spell_give_stats
 4257: uses_charges
 4279: ?battlegrounds_4279
@@ -692,3 +696,8 @@
 4344: ?battlegrounds_4344
 4390: ?enchantment_dormant_4390
 4392: ysera
+4393: anomaly_partner_in_crime
+4403: temporal_loop
+4412: keep_timeline
+4414: lock_visual
+4435: immediately_transform
