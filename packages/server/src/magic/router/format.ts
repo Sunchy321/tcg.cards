@@ -24,6 +24,5 @@ export const formatTrpc = {
 export const formatApi = {
     list,
     '': full,
-    save,
     changes,
 };
