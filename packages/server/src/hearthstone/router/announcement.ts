@@ -1,8 +1,8 @@
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
-import _ from 'lodash';
-import { desc, eq } from 'drizzle-orm';
+import _, { omit } from 'lodash';
+import { desc, eq, getTableColumns } from 'drizzle-orm';
 
 import { AnnouncementApplier } from '@/hearthstone/banlist/apply';
 
@@ -44,22 +44,21 @@ const full = os
     .handler(async ({ input }) => {
         const { id } = input;
 
-        const announcement = await db.select().from(Announcement)
+        const announcementValue = await db.select().from(Announcement)
             .where(eq(Announcement.id, id))
             .then(rows => rows[0]);
 
-        if (announcement == null) {
+        if (announcementValue == null) {
             throw new ORPCError('NOT_FOUND');
         }
 
-        const items = await db.select()
+        const items = await db.select({
+            ...omit(getTableColumns(AnnouncementItem), ['id', 'announcementId']),
+        })
             .from(AnnouncementItem)
             .where(eq(AnnouncementItem.announcementId, id));
 
-        return {
-            ...announcement,
-            items: items.map(i => _.omit(i, ['id', 'announcementId'])),
-        };
+        return { ...announcementValue, items };
     })
     .callable();
 

@@ -16,6 +16,8 @@ export const legality = z.enum([
     'legal',
     'minor',
     'unavailable',
+
+    'score',
 ]);
 
 export const adjustmentType = z.enum([

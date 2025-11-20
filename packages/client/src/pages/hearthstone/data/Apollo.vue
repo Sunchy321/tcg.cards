@@ -27,19 +27,14 @@ const version = useParam('version', {
 });
 
 const createPatchJson = async () => {
-    const res = await trpc.hearthstone.data.apollo['create-patch-json'].$post({
-        query: {
-            version: version.value.toString(),
-        },
-    });
+    const file = await trpc.hearthstone.data.apollo.createPatchJson(version.value);
 
     try {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(file);
 
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'change_card.json';
+        link.download = file.name;
         document.body.appendChild(link);
         link.click();
 

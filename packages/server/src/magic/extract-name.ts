@@ -8,14 +8,12 @@ import internalData from '@/internal-data';
 import AhoCorasick from 'ahocorasick';
 
 export interface CardNameExtractorOption {
-    text:       string;
     cardNames:  { id: string, name: string[] }[];
     thisName?:  { id: string, name: string[] };
     blacklist?: string[];
 }
 
 export default class CardNameExtractor {
-    text:        string;
     cardNames:   { id: string, name: string[] }[];
     thisName?:   { id: string, name: string[] };
     blacklist:   string[];
@@ -24,7 +22,6 @@ export default class CardNameExtractor {
     names: { cardId: string, text: string, part?: number }[];
 
     constructor(option: CardNameExtractorOption) {
-        this.text = option.text;
         this.thisName = option.thisName;
         this.cardNames = option.cardNames;
         this.blacklist = [
@@ -144,11 +141,14 @@ export default class CardNameExtractor {
         }
     }
 
-    extract(): { cardId: string, text: string, part?: number }[] {
+    extract(text: string, blacklist: string[] = []): { cardId: string, text: string, part?: number }[] {
+        const oldBlackList = this.blacklist;
+        this.blacklist = [...this.blacklist, ...blacklist];
+
         console.debug('Start match');
         const now = Date.now();
 
-        const rawMatches = this.ahoCorasick.search(this.text);
+        const rawMatches = this.ahoCorasick.search(text);
         const longestMatches: { start: number, end: number, text: string }[] = [];
 
         console.debug('Elapsed:', Date.now() - now);
@@ -162,8 +162,8 @@ export default class CardNameExtractor {
             const end = group[0];
 
             // Boundary check: treat as a whole word if both sides are non-word characters or at text boundary
-            const before = start > 0 ? this.text[start - 1] : undefined;
-            const after = end + 1 < this.text.length ? this.text[end + 1] : undefined;
+            const before = start > 0 ? text[start - 1] : undefined;
+            const after = end + 1 < text.length ? text[end + 1] : undefined;
 
             // Treat the position before an apostrophe as a word boundary to allow matches like "xxx's"
             const isApostrophe = after === '\'' || after === '’';
@@ -193,6 +193,8 @@ export default class CardNameExtractor {
                 this.match(m.text);
             }
         }
+
+        this.blacklist = oldBlackList;
 
         return this.names.filter(n => !n.cardId.startsWith('pseudo:'))
             .sort((a, b) => b.text.length - a.text.length);

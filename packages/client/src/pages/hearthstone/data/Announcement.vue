@@ -89,155 +89,104 @@
             </template>
         </list>
 
-        <list
-            v-model="changes"
-            class="change-list q-mt-md"
-            item-class="change q-mt-sm q-pa-sm"
-            @insert="changes = [...changes, { format: '', setIn: [], setOut: [], banlist: [] }]"
-        >
+        <list v-model="groupedItems" class="change-list q-mt-md" item-class="change q-mt-sm q-pa-sm" @insert="pushItem">
             <template #title>
                 <q-icon name="mdi-text-box-outline" size="sm" />
             </template>
             <template #summary="{ value: c }">
                 <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
-
-                <date-input v-model="c.effectiveDate" class="q-ml-md" outlined dense />
             </template>
-            <template #body="{ value: c }">
-                <div class="flex q-mt-sm">
-                    <array-input
-                        class="col-grow"
-                        :model-value="c.setIn ?? []"
-                        outlined dense
-                        @update:model-value="v => c.setIn = v"
-                    >
-                        <template #prepend>
-                            <q-icon name="mdi-plus" />
-                        </template>
-                    </array-input>
-
-                    <array-input
-                        class="col-grow q-ml-sm"
-                        :model-value="c.setOut ?? []"
-                        outlined dense
-                        @update:model-value="v => c.setOut = v"
-                    >
-                        <template #prepend>
-                            <q-icon name="mdi-minus" />
-                        </template>
-                    </array-input>
-                </div>
-
+            <template #body="{ value: g }">
                 <list
-                    class="q-mt-sm"
-                    item-class="q-mt-sm"
-                    :model-value="c.banlist ?? []"
-                    @update:model-value="b => c.banlist = updateBanlist(b)"
-                    @insert="c.banlist = addBanlist(c.banlist ?? [])"
+                    class="q-mt-sm" item-class="q-mt-sm" :model-value="g.items"
+                    @update:model-value="b => updateItem(g.format, b)" @insert="() => pushItem(g.format)"
                 >
                     <template #title>
                         <q-icon name="mdi-card-bulleted-outline" size="sm" />
                     </template>
-                    <template #summary="{ value: b }">
-                        <CardInput
-                            v-model="b.id"
-                            class="col-grow q-mr-sm"
-                            :format="c.format"
-                            :version="version"
-                            outlined dense
+                    <template #summary="{ value: c }">
+                        <q-btn
+                            class="q-mr-sm" :icon="gameChangeTypeIcon(c.type)" flat dense round
+                            @click="switchChangeType(c)"
                         />
+
+                        <card-input
+                            v-if="c.type === 'card_change' || c.type === 'set_change' || c.type === 'rule_change' || c.type === 'card_adjustment'"
+                            class="col-grow q-mr-sm" :model-value="getId(c)" outlined dense
+                            @update:model-value="v => updateId(c, v as string)"
+                        />
+
+                        <template v-if="c.type === 'card_adjustment'">
+                            <q-btn
+                                class="q-mr-sm"
+                                icon="mdi-cards-outline"
+                                flat round dense
+                                @click="() => addRelated(c)"
+                            />
+
+                            <q-btn
+                                class="q-mr-sm"
+                                icon="mdi-calculator"
+                                flat dense round
+                                @click="calcStatus(c)"
+                            />
+
+                            <q-btn
+                                class="q-mr-sm"
+                                icon="mdi-plus"
+                                flat round dense
+                                @click="() => addDetail(c)"
+                            />
+
+                            <q-chip
+                                v-for="(d, i) of c.adjustment"
+                                :key="d.part"
+                                class="flex items-center q-mr-sm"
+                                square removable
+                                :icon="statusIcon(d.status)"
+                                :color="statusColor(d.status)"
+                                text-color="white"
+                                :clickable="d.part === 'text' || d.part === 'rune'"
+                                @click="d.status = nextStatus(d.status)"
+                                @remove="c.adjustment!.splice(i, 1)"
+                            >
+                                {{ d.part }}
+                            </q-chip>
+                        </template>
+
                         <q-btn-toggle
-                            v-model="b.status"
-                            :options="banlistOptions"
-                            flat dense
-                            :toggle-color="undefined"
-                            color="white"
+                            v-if="c.type === 'card_change' || c.type === 'set_change' || c.type === 'card_adjustment'" v-model="c.status"
+                            :options="getStatusOptions(c)" flat dense :toggle-color="undefined" color="white"
                             text-color="grey"
                         />
-                    </template>
-                </list>
 
-                <list
-                    class="q-mt-sm"
-                    item-class="q-mt-sm"
-                    :model-value="c.adjustment ?? []"
-                    @update:model-value="a => c.adjustment = updateAdjustment(a)"
-                    @insert="c.adjustment = addAdjustment(c.adjustment ?? [])"
-                >
-                    <template #title>
-                        <q-icon name="mdi-compare" size="sm" />
-                    </template>
-                    <template #summary="{ value: a }">
-                        <entity-input
-                            v-model="a.id"
-                            class="col-grow q-mr-sm"
-                            :format="c.format"
-                            :version="version"
-                            outlined dense
-                        />
-
-                        <q-btn
-                            class="q-mr-sm"
-                            icon="mdi-cards-outline"
-                            flat round dense
-                            @click="() => addRelated(a)"
-                        />
-
-                        <q-btn
-                            class="q-mr-sm"
-                            icon="mdi-calculator"
-                            flat dense round
-                            @click="calcStatus(a)"
-                        />
-
-                        <q-btn
-                            class="q-mr-sm"
-                            icon="mdi-plus"
-                            flat round dense
-                            @click="() => addDetail(a)"
-                        />
-
-                        <q-chip
-                            v-for="(d, i) of a.detail" :key="d.part"
-                            class="flex items-center q-mr-sm"
-                            square removable
-                            :icon="statusIcon(d.status)"
-                            :color="statusColor(d.status)"
-                            text-color="white"
-                            :clickable="d.part === 'text' || d.part === 'rune'"
-                            @click="d.status = nextStatus(d.status)"
-                            @remove="a.detail.splice(i, 1)"
+                        <q-input
+                            v-if="c.type === 'card_change'" class="q-ml-sm score-input" type="number"
+                            :model-value="scoreFor(c)" min="0" max="15" flat dense outlined
+                            @update:model-value="v => updateScoreFor(c, v as number)"
                         >
-                            {{ d.part }}
-                        </q-chip>
+                            <template #prepend>
+                                <q-icon name="mdi-counter" />
+                            </template>
+                        </q-input>
 
-                        <q-btn-toggle
-                            v-model="a.status"
-                            :options="adjustOptions"
-                            flat dense
-                            :toggle-color="undefined"
-                            color="white"
-                            text-color="grey"
-                        />
-                    </template>
-                    <template #body="{ value: a }">
-                        <div v-if="a.related != null && a.related.length > 0" class="flex items-center q-mt-sm">
+                        <div v-if="c.relatedCards != null && c.relatedCards.length > 0" class="flex items-center q-mt-sm">
                             <q-icon name="mdi-cards-outline" size="sm" />
 
                             <CardInput
-                                v-for="(r, i) in a.related" :key="i"
+                                v-for="(r, i) in c.relatedCards" :key="i"
                                 class="col-grow q-ml-sm"
-                                :format="c.format"
+                                :format="c.format ?? undefined"
                                 :version="version"
                                 outlined dense
                                 :model-value="r"
-                                @update:model-value="v => a.related![i] = v"
+                                @update:model-value="v => c.relatedCards![i] = v"
                             >
                                 <template #append>
                                     <q-btn
                                         icon="mdi-minus"
                                         flat round dense
-                                        @click="a.related.splice(i, 1)"
+                                        @click="c.relatedCards.splice(i, 1)"
                                     />
                                 </template>
                             </CardInput>
@@ -260,14 +209,14 @@ import { useGame } from 'store/games/hearthstone';
 import controlSetup from 'setup/control';
 
 import List from 'components/List.vue';
-import ArrayInput from 'components/ArrayInput.vue';
 import DateInput from 'components/DateInput.vue';
-import CardInput from 'src/components/hearthstone/data/CardInput.vue';
+import CardInput from 'components/hearthstone/data/CardInput.vue';
 
-import { FormatAnnouncement } from '@interface/hearthstone/format-change';
+import { Announcement, AnnouncementItem, AnnouncementProfile } from '@model/hearthstone/schema/announcement';
+import { GameChangeType } from '@model/hearthstone/schema/game-change';
 import { CardEntityView } from '@model/hearthstone/schema/entity';
 
-import { isEqual, last } from 'lodash';
+import { isEqual } from 'lodash';
 
 import { trpc } from 'src/trpc';
 
@@ -275,15 +224,22 @@ type EntityNumberKey = {
     [K in keyof Required<CardEntityView>]: Required<CardEntityView>[K] extends number | null ? K : never;
 }[keyof CardEntityView];
 
-type Banlist = Required<FormatAnnouncement['changes'][0]>['banlist'][0];
-type Adjustment = Required<FormatAnnouncement['changes'][0]>['adjustment'][0];
-
-interface FormatAnnouncementProfile {
-    id?:    string;
-    source: string;
-    date:   string;
-    name:   string;
-}
+const gameChangeTypeIcon = (type: GameChangeType) => {
+    switch (type) {
+    case 'card_change':
+        return 'mdi-card-account-details-outline';
+    case 'set_change':
+        return 'mdi-package-variant-closed';
+    case 'rule_change':
+        return 'mdi-format-list-bulleted-type';
+    case 'format_death':
+        return 'mdi-skull-outline';
+    case 'card_adjustment':
+        return 'mdi-credit-card-edit';
+    default:
+        return '';
+    }
+};
 
 const statusIcon = (status: string) => {
     switch (status) {
@@ -321,7 +277,7 @@ const statusColor = (status: string) => {
     }
 };
 
-const banlistOptions = [
+const statusOptions = [
     'legal', 'banned', 'banned_in_deck', 'banned_in_card_pool', 'unavailable',
 ].map(v => ({
     icon:  statusIcon(v),
@@ -338,19 +294,22 @@ const adjustOptions = ['nerf', 'buff', 'adjust'].map(v => ({
 const { dialog } = useQuasar();
 const game = useGame();
 
-const { controlGet, controlPost } = controlSetup();
+const { controlPost } = controlSetup();
 
 const formats = computed(() => ['#hearthstone', ...game.formats]);
-const announcementList = ref<FormatAnnouncementProfile[]>([]);
-const selected = ref<FormatAnnouncementProfile | null>(null);
+const announcementList = ref<AnnouncementProfile[]>([]);
+const selected = ref<AnnouncementProfile>();
 
-const announcement = ref<FormatAnnouncement>({
-    date:    '',
-    source:  'blizzard',
-    name:    '',
-    link:    [],
-    version: 0,
-    changes: [],
+const announcement = ref<Announcement>({
+    id:            '',
+    source:        'blizzard',
+    date:          '',
+    effectiveDate: '',
+    name:          '',
+    link:          [],
+    version:       0,
+    lastVersion:   null,
+    items:         [],
 });
 
 const announcementListWithLabel = computed(() => announcementList.value.map(a => ({
@@ -390,8 +349,8 @@ const version = computed({
 
 const lastVersion = computed({
     get() { return announcement.value?.lastVersion; },
-    set(newValue: number | undefined) {
-        announcement.value.lastVersion = newValue;
+    set(newValue: number | null | undefined) {
+        announcement.value.lastVersion = newValue ?? null;
     },
 });
 
@@ -400,12 +359,131 @@ const link = computed({
     set(newValue: string[]) { announcement.value.link = newValue; },
 });
 
-const changes = computed({
-    get() { return announcement.value.changes; },
-    set(newValue: FormatAnnouncement['changes']) {
-        announcement.value.changes = newValue;
+const items = computed({
+    get() { return announcement.value.items; },
+    set(newValue: Announcement['items']) {
+        announcement.value.items = newValue;
     },
 });
+
+const groupedItems = computed(() => {
+    const map = new Map<string | null, Announcement['items']>();
+
+    for (const item of announcement.value.items) {
+        if (!map.has(item.format)) {
+            map.set(item.format, []);
+        }
+
+        map.get(item.format)!.push(item);
+    }
+
+    return [...map.entries()].map(([format, items]) => ({ format, items }));
+});
+
+const pushItem = (format: string | null = '') => {
+    items.value.push({
+        type:          'card_change',
+        effectiveDate: null,
+        format,
+
+        cardId: null,
+        setId:  null,
+        ruleId: null,
+
+        status: null,
+        score:  null,
+
+        adjustment:   null,
+        relatedCards: null,
+    });
+};
+
+const updateItem = (format: AnnouncementItem['format'], newItems: AnnouncementItem[]) => {
+    const oldItems = items.value.filter(item => item.format != format);
+    const insertPoint = items.value.findIndex(item => item.format == format);
+
+    if (insertPoint >= 0) {
+        // Insert new items at the position of the first matching item
+        const result = [...oldItems.slice(0, insertPoint), ...newItems, ...oldItems.slice(insertPoint)];
+        items.value = result;
+    } else {
+        // If no matching items were found, just append the new items
+        items.value = [...oldItems, ...newItems];
+    }
+};
+
+const getId = (item: AnnouncementItem) => {
+    if (item.type === 'card_change' || item.type === 'card_adjustment') {
+        return item.cardId!;
+    } else if (item.type === 'set_change') {
+        return item.setId!;
+    } else if (item.type === 'rule_change') {
+        return item.ruleId!;
+    } else {
+        return '';
+    }
+};
+
+const getStatusOptions = (item: AnnouncementItem) => {
+    if (item.type === 'card_change') {
+        return statusOptions;
+    } else if (item.type === 'set_change') {
+        return statusOptions.filter(v => v.value === 'legal' || v.value === 'banned');
+    } else if (item.type === 'card_adjustment') {
+        return adjustOptions;
+    } else {
+        return [];
+    }
+};
+
+const adjustId = (id: string) => (id);
+
+const updateId = (item: AnnouncementItem, id: string) => {
+    if (item.type === 'card_change' || item.type === 'card_adjustment') {
+        item.cardId = adjustId(id);
+    } else if (item.type === 'set_change') {
+        item.setId = adjustId(id);
+    } else if (item.type === 'rule_change') {
+        item.ruleId = id;
+    }
+};
+
+const switchChangeType = (item: AnnouncementItem) => {
+    if (item.type === 'card_change') {
+        item.type = 'set_change';
+    } else if (item.type === 'set_change') {
+        item.type = 'rule_change';
+    } else if (item.type === 'rule_change') {
+        item.type = 'card_adjustment';
+    } else if (item.type === 'card_adjustment') {
+        item.type = 'format_death';
+    } else if (item.type === 'format_death') {
+        item.type = 'card_change';
+    }
+};
+
+const scoreFor = (item: AnnouncementItem) => {
+    if (item.status == 'score') {
+        return item.score!;
+    } else {
+        return 0;
+    }
+};
+
+const updateScoreFor = (item: AnnouncementItem, score: number | string) => {
+    if (item.type != 'card_change') {
+        return;
+    }
+
+    score = typeof score === 'string' ? Number.parseInt(score, 10) : score;
+
+    if (score === 0) {
+        item.status = 'legal';
+    } else {
+        item.status = 'score';
+        item.score = score;
+    }
+};
 
 const getStatus = (oldValue: number, newValue: number, prefer: 'greater' | 'lesser') => {
     if (oldValue == null || newValue == null || oldValue === newValue) {
@@ -420,7 +498,7 @@ const getStatus = (oldValue: number, newValue: number, prefer: 'greater' | 'less
 };
 
 const pushDetail = <K extends EntityNumberKey>(
-    array: Adjustment['detail'],
+    array:  NonNullable<AnnouncementItem['adjustment']>,
     key: K,
     oldValue: CardEntityView,
     newValue: CardEntityView,
@@ -444,7 +522,11 @@ const nextStatus = (status: 'adjust' | 'buff' | 'nerf') => {
     }
 };
 
-const addDetail = (a: Adjustment) => {
+const addDetail = (c: AnnouncementItem) => {
+    if (c.type != 'card_adjustment') {
+        return;
+    }
+
     dialog({
         title:  'Part',
         prompt: {
@@ -467,33 +549,31 @@ const addDetail = (a: Adjustment) => {
             cancel:     true,
             persistent: true,
         }).onOk(status => {
-            if (a.detail == null) {
-                a.detail = [];
-            }
+            c.adjustment ??= [];
 
-            a.detail.push({ part, status });
+            c.adjustment.push({ part, status });
         });
     });
 };
 
-const calcStatus = async (a: Adjustment) => {
-    if (lastVersion.value == null || a.id == null || a.id === '') {
+const calcStatus = async (c: AnnouncementItem) => {
+    if (lastVersion.value == null || c.cardId == null || c.cardId === '' || c.type !== 'card_adjustment') {
         return;
     }
 
     const oldData = await trpc.hearthstone.card.summary({
-        cardId:  a.id,
+        cardId:  c.cardId,
         lang:    'en',
         version: lastVersion.value,
     });
 
     const newData = await trpc.hearthstone.card.summary({
-        cardId:  a.id,
+        cardId:  c.cardId,
         lang:    'en',
         version: version.value,
     });
 
-    const newDetail: Adjustment['detail'] = [];
+    const newDetail: AnnouncementItem['adjustment'] = [];
 
     pushDetail(newDetail, 'cost', oldData, newData, 'lesser');
     pushDetail(newDetail, 'attack', oldData, newData, 'greater');
@@ -536,62 +616,36 @@ const calcStatus = async (a: Adjustment) => {
         }
     }
 
-    a.detail = newDetail;
+    c.adjustment = newDetail;
 
     if (newDetail.length > 0) {
         if (newDetail.every(d => d.status === 'nerf')) {
-            a.status = 'nerf';
+            c.status = 'nerf';
         } else if (newDetail.every(d => d.status === 'buff')) {
-            a.status = 'buff';
+            c.status = 'buff';
         } else {
             const techLevel = newDetail.find(v => v.part === 'techLevel');
 
             if (techLevel != null) {
-                a.status = techLevel.status;
+                c.status = techLevel.status;
             } else {
-                a.status = 'adjust';
+                c.status = 'adjust';
             }
         }
     }
 };
 
-const addBanlist = (banlist: Banlist[]) => [
-    ...banlist ?? [],
-    {
-        id:     '',
-        status: last(banlist)?.status ?? 'banned',
-    },
-];
+const addRelated = (item: AnnouncementItem) => {
+    item.relatedCards ??= [];
 
-const updateBanlist = (banlist: Banlist[]) => banlist;
-
-const addAdjustment = (adjustment: Adjustment[]) => [
-    ...adjustment ?? [],
-    {
-        id:      '',
-        status:  last(adjustment)?.status ?? 'nerf',
-        detail:  [],
-        related: [],
-    },
-];
-
-const updateAdjustment = (adjustment: Adjustment[]) => adjustment;
-
-const addRelated = (adjustment: Adjustment) => {
-    if (adjustment.related == null) {
-        adjustment.related = [];
-    }
-
-    adjustment.related.push('');
+    item.relatedCards.push('');
 };
 
 const loadData = async () => {
-    const { data } = await controlGet<FormatAnnouncementProfile[]>('/hearthstone/format/announcement');
+    announcementList.value = await trpc.hearthstone.announcement.list();
 
-    announcementList.value = data;
-
-    if (data.length > 0 && selected.value == null) {
-        selected.value = data[0];
+    if (announcementList.value.length > 0 && selected.value == null) {
+        selected.value = announcementList.value[0];
     }
 };
 
@@ -600,11 +654,9 @@ const loadAnnouncement = async () => {
         return;
     }
 
-    const { data: result } = await controlGet<FormatAnnouncement>('/hearthstone/format/announcement', {
+    announcement.value = await trpc.hearthstone.announcement.full({
         id: selected.value.id,
     });
-
-    announcement.value = result;
 };
 
 const saveAnnouncement = async () => {
@@ -614,35 +666,20 @@ const saveAnnouncement = async () => {
 
     const data = toRaw(announcement.value);
 
-    if (data.effectiveDate != null && Object.keys(data.effectiveDate).length === 0) {
-        delete data.effectiveDate;
-    }
-
-    if (data.link?.length === 0) {
-        delete data.link;
-    }
-
-    for (const c of data.changes) {
-        if (c.setIn?.length === 0) {
-            delete c.setIn;
-        }
-
-        if (c.setOut?.length === 0) {
-            delete c.setOut;
-        }
-
-        if (c.banlist?.length === 0) {
-            delete c.banlist;
-        }
-
-        if (c.adjustment?.length === 0) {
-            delete c.adjustment;
-        } else if (c.adjustment != null) {
-            for (const a of c.adjustment) {
-                if (a.related?.length === 0) {
-                    delete a.related;
-                }
-            }
+    for (const c of data.items) {
+        if (c.type === 'card_change') {
+            c.setId = null;
+            c.ruleId = null;
+        } else if (c.type === 'set_change') {
+            c.cardId = null;
+            c.ruleId = null;
+        } else if (c.type === 'rule_change') {
+            c.cardId = null;
+            c.setId = null;
+        } else {
+            c.cardId = null;
+            c.setId = null;
+            c.ruleId = null;
         }
     }
 
@@ -656,14 +693,18 @@ const newAnnouncement = async () => {
 
     const todayDate = new Date().toISOString().split('T')[0];
 
-    selected.value = null;
+    selected.value = undefined;
 
     announcement.value = {
-        source:  'blizzard',
-        date:    todayDate,
-        name:    '',
-        version: 0,
-        changes: [],
+        id:            '',
+        source:        'blizzard',
+        date:          todayDate,
+        effectiveDate: todayDate,
+        name:          '',
+        link:          [],
+        version:       0,
+        lastVersion:   null,
+        items:         [],
     };
 };
 

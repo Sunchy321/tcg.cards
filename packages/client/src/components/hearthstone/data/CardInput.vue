@@ -242,7 +242,7 @@ const href = computed(() => {
     }
 
     return router.resolve({
-        name:   'hearthstone/entity',
+        name:   'hearthstone/card',
         params: {
             id: model.value,
         },
