@@ -18,7 +18,7 @@
                     class="q-pa-sm"
                     :class="[
                         `depth-${d.depth[0]}`,
-                        ...(isMenu(d) ? ['is-menu'] : []),
+                        ...(isMenu(d, 0) ? ['is-menu'] : []),
                     ]"
                 >
                     <rule-serial out-of-chapter :item-id="d.itemId" :serial="d.serial[0]" :class="d.type ? `text-${d.type}` : ''" />
@@ -36,8 +36,8 @@
                     v-if="d.type !== 'remove'"
                     class="q-pa-sm"
                     :class="[
-                        `depth-${d.depth[0]}`,
-                        ...(isMenu(d) ? ['is-menu'] : []),
+                        `depth-${d.depth[1]}`,
+                        ...(isMenu(d, 1) ? ['is-menu'] : []),
                     ]"
                 >
                     <rule-serial out-of-chapter :item-id="d.itemId" :serial="d.serial[1]" :class="d.type ? `text-${d.type}` : ''" />
@@ -151,13 +151,17 @@ const textValue = (diff: TextDiff, type: string) => {
     }
 };
 
-const isMenu = (d: RuleDiffItem) => {
+const isMenu = (d: RuleDiffItem, i: number) => {
+    if (d.itemId === 'credits.text') {
+        return false;
+    }
+
     const last = _.last(d.text)!;
 
     if (last.type === 'common') {
         return /[a-z!]$/.test(last.value);
     } else {
-        return /[a-z!]$/.test(last.value[0]);
+        return /[a-z!]$/.test(last.value[i]);
     }
 };
 

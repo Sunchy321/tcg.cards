@@ -26,7 +26,7 @@ import { parse as parseDetail, reparse as reparseDetail } from '@/magic/rule/par
 
 import { dataPath } from '@/config';
 
-function parseCard(item: IRuleItem, data: IRule, cardNames: { id: string, name: string[] }[]) {
+function parseCard(extractor: CardNameExtrator, item: IRuleItem, data: IRule) {
     const blacklist = [];
 
     // Keywords are not treated as card name in its clause
@@ -40,7 +40,7 @@ function parseCard(item: IRuleItem, data: IRule, cardNames: { id: string, name: 
         }
     }
 
-    const cards = new CardNameExtrator({ text: item.text, cardNames, blacklist }).extract();
+    const cards = extractor.extract(item.text, blacklist);
 
     item.richText = intoRichText(item.text, cards);
 }
@@ -331,6 +331,8 @@ const save = os
 
                 const cardNames = await CardNameExtrator.names();
 
+                const extractor = new CardNameExtrator({ cardNames });
+
                 for (const c of contents) {
                     const oldItem = oldItems.find(co => co.text === c.text);
 
@@ -338,7 +340,7 @@ const save = os
                         continue;
                     }
 
-                    parseCard(c, input, cardNames);
+                    parseCard(extractor, c, input);
                 }
 
                 await tx.delete(RuleItem)
@@ -388,11 +390,13 @@ const reparse = os
 
             const cardNames = await CardNameExtrator.names();
 
+            const extractor = new CardNameExtrator({ cardNames });
+
             for (const c of data.contents) {
                 const oldItem = oldItems.find(co => co.itemId == c.itemId);
 
                 if (oldItem == null || oldItem.text != c.text) {
-                    parseCard(c, data, cardNames);
+                    parseCard(extractor, c, data);
                 }
             }
 
@@ -450,9 +454,11 @@ const extractCard = os
 
         const cardNames = await CardNameExtrator.names();
 
-        parseCard(item, {
+        const extractor = new CardNameExtrator({ cardNames });
+
+        parseCard(extractor, item, {
             date, lang: 'en', contents: items,
-        }, cardNames);
+        });
 
         await db.update(RuleItem)
             .set({ richText: item.richText })
