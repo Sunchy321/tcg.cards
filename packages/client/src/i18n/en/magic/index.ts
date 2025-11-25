@@ -42,6 +42,7 @@ export default {
 
         'commander':           'Commander',
         'duelcommander':       'Duel Commander',
+        'duelcommander_docfx': 'Duel Commander (DocFX Fork)',
         'leviathan_commander': 'Leviathan Commander',
         'commander1v1':        'Commander 1v1',
         'brawl':               'Brawl',

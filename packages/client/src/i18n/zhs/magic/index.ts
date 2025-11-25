@@ -41,6 +41,7 @@ export default {
 
         'commander':           '指挥官',
         'duelcommander':       '法禁指挥官',
+        'duelcommander_docfx': '法禁指挥官（DocFX分叉）',
         'leviathan_commander': '海怪禁指挥官',
         'commander1v1':        '指挥官1v1',
         'brawl':               '争锋',

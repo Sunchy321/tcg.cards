@@ -40,6 +40,7 @@ export const formats = [
     'explorer',
     'commander',
     'duelcommander',
+    'duelcommander_docfx',
     'leviathan_commander',
     'commander1v1',
     'brawl',

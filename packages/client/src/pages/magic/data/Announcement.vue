@@ -71,7 +71,11 @@
                 <q-icon name="mdi-text-box-outline" size="sm" />
             </template>
             <template #summary="{ value: c }">
-                <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
+                <q-select
+                    class="col-grow" :options="formats" outlined dense
+                    :model-value="c.format"
+                    @update:model-value="v=> updateFormat(c.format, v)"
+                />
             </template>
             <template #body="{ value: g }">
                 <list
@@ -121,7 +125,6 @@ import {
 } from 'vue';
 
 import { useParam } from 'store/core';
-import { useGame } from 'store/games/magic';
 
 import List from 'components/List.vue';
 import DateInput from 'components/DateInput.vue';
@@ -130,6 +133,8 @@ import { Announcement, AnnouncementItem, AnnouncementProfile } from '@model/magi
 import { GameChangeType } from '@model/magic/schema/game-change';
 
 import _ from 'lodash';
+
+import { formats as basicFormats } from '@model/magic/schema/basic';
 
 import { toIdentifier } from '@common/util/id';
 import { trpc } from 'src/trpc';
@@ -209,8 +214,6 @@ const statusOptions = [
     value: v,
 }));
 
-const game = useGame();
-
 const filter = useParam('filter', {
     type:    'enum',
     bind:    'query',
@@ -218,7 +221,7 @@ const filter = useParam('filter', {
     default: '',
 });
 
-const formats = computed(() => ['#standard', '#alchemy', ...game.formats]);
+const formats = ['#standard', '#alchemy', ...basicFormats];
 const announcementList = ref<AnnouncementProfile[]>([]);
 const selected = ref<AnnouncementProfile | null>(null);
 
@@ -350,6 +353,14 @@ const groupedItems = computed({
         items.value = newItems;
     },
 });
+
+const updateFormat = (oldFormat: string | null, newFormat: string | null) => {
+    for (const item of announcement.value.items) {
+        if (item.format === oldFormat) {
+            item.format = newFormat;
+        }
+    }
+};
 
 const pushItem = (format: string | null = '') => {
     items.value.push({
