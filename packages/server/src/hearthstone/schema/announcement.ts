@@ -14,6 +14,7 @@ export const status = schema.enum('status', gameChangeModel.status.enum);
 export const AnnouncementItem = schema.table('announcement_items', {
     id:             uuid('id').primaryKey().defaultRandom(),
     announcementId: uuid('announcement_id').notNull(),
+    index:          integer('index').notNull().default(0),
 
     type:          gameChangeType('type').notNull(),
     effectiveDate: text('effective_date'),

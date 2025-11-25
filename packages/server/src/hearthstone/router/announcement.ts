@@ -53,10 +53,11 @@ const full = os
         }
 
         const items = await db.select({
-            ...omit(getTableColumns(AnnouncementItem), ['id', 'announcementId']),
+            ...omit(getTableColumns(AnnouncementItem), ['id', 'announcementId', 'index']),
         })
             .from(AnnouncementItem)
-            .where(eq(AnnouncementItem.announcementId, id));
+            .where(eq(AnnouncementItem.announcementId, id))
+            .orderBy(AnnouncementItem.index);
 
         return { ...announcementValue, items };
     })
@@ -100,12 +101,11 @@ const save = os
         await db.delete(AnnouncementItem)
             .where(eq(AnnouncementItem.announcementId, id));
 
-        for (const item of data.items) {
-            await db.insert(AnnouncementItem).values({
-                announcementId: id,
-                ...item,
-            });
-        }
+        await db.insert(AnnouncementItem).values(data.items.map((item, index) => ({
+            announcementId: id,
+            index,
+            ...item,
+        })));
     });
 
 const apply = os

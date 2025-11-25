@@ -56,13 +56,13 @@
 
             <q-space />
 
-            <q-input v-model="lastVersion" outlined dense clearable type="number">
+            <q-input v-model.number="lastVersion" outlined dense clearable type="number">
                 <template #before>
                     <q-icon name="mdi-history" />
                 </template>
             </q-input>
 
-            <q-input v-model="version" class="q-ml-md" outlined dense type="number">
+            <q-input v-model.number="version" class="q-ml-md" outlined dense type="number">
                 <template #before>
                     <q-icon name="mdi-cards-outline" />
                 </template>
@@ -94,7 +94,11 @@
                 <q-icon name="mdi-text-box-outline" size="sm" />
             </template>
             <template #summary="{ value: c }">
-                <q-select v-model="c.format" class="col-grow" :options="formats" outlined dense />
+                <q-select
+                    class="col-grow" :options="formats" outlined dense
+                    :model-value="c.format"
+                    @update:model-value="v=> updateFormat(c.format, v)"
+                />
             </template>
             <template #body="{ value: g }">
                 <list
@@ -108,11 +112,23 @@
                         <q-btn
                             class="q-mr-sm" :icon="gameChangeTypeIcon(c.type)" flat dense round
                             @click="switchChangeType(c)"
-                        />
+                        >
+                            <q-tooltip>{{ c.type }}</q-tooltip>
+                        </q-btn>
 
                         <card-input
-                            v-if="c.type === 'card_change' || c.type === 'set_change' || c.type === 'rule_change' || c.type === 'card_adjustment'"
-                            class="col-grow q-mr-sm" :model-value="getId(c)" outlined dense
+                            v-if="c.type === 'card_change' || c.type === 'set_change' || c.type === 'card_adjustment'"
+                            class="col-grow q-mr-sm" outlined dense
+                            :format="c.format ?? undefined"
+                            :model-value="getId(c)"
+                            :version="version"
+                            @update:model-value="v => updateId(c, v as string)"
+                        />
+
+                        <q-input
+                            v-else-if="c.type === 'rule_change'"
+                            class="col-grow q-mr-sm" outlined dense
+                            :model-value="getId(c)"
                             @update:model-value="v => updateId(c, v as string)"
                         />
 
@@ -169,17 +185,18 @@
                                 <q-icon name="mdi-counter" />
                             </template>
                         </q-input>
-
+                    </template>
+                    <template #body="{ value: c }">
                         <div v-if="c.relatedCards != null && c.relatedCards.length > 0" class="flex items-center q-mt-sm">
                             <q-icon name="mdi-cards-outline" size="sm" />
 
-                            <CardInput
+                            <card-input
                                 v-for="(r, i) in c.relatedCards" :key="i"
                                 class="col-grow q-ml-sm"
-                                :format="c.format ?? undefined"
-                                :version="version"
                                 outlined dense
+                                :format="c.format ?? undefined"
                                 :model-value="r"
+                                :version="version"
                                 @update:model-value="v => c.relatedCards![i] = v"
                             >
                                 <template #append>
@@ -189,7 +206,7 @@
                                         @click="c.relatedCards.splice(i, 1)"
                                     />
                                 </template>
-                            </CardInput>
+                            </card-input>
                         </div>
                     </template>
                 </list>
@@ -317,7 +334,7 @@ const announcementListWithLabel = computed(() => announcementList.value.map(a =>
     label: `${a.name} [${a.date}] - ${a.source}`,
 })));
 
-const dbId = computed(() => (announcement.value as any)?._id);
+const dbId = computed(() => announcement.value.id === '' ? null : announcement.value.id);
 
 const date = computed({
     get() { return announcement.value?.date ?? ''; },
@@ -380,9 +397,25 @@ const groupedItems = computed(() => {
     return [...map.entries()].map(([format, items]) => ({ format, items }));
 });
 
+const updateFormat = (oldFormat: string | null, newFormat: string | null) => {
+    for (const item of announcement.value.items) {
+        if (item.format === oldFormat) {
+            item.format = newFormat;
+        }
+    }
+};
+
 const pushItem = (format: string | null = '') => {
+    const lastItem = groupedItems.value
+        ?.find(g => g.format === format)
+        ?.items
+        ?.slice(-1)?.[0];
+
+    const type = lastItem?.type ?? 'card_change';
+    const status = lastItem?.status ?? null;
+
     items.value.push({
-        type:          'card_change',
+        type,
         effectiveDate: null,
         format,
 
@@ -390,8 +423,8 @@ const pushItem = (format: string | null = '') => {
         setId:  null,
         ruleId: null,
 
-        status: null,
-        score:  null,
+        status,
+        score: null,
 
         adjustment:   null,
         relatedCards: null,
@@ -666,8 +699,12 @@ const saveAnnouncement = async () => {
 
     const data = toRaw(announcement.value);
 
+    if (data.effectiveDate === '') {
+        data.effectiveDate = null;
+    }
+
     for (const c of data.items) {
-        if (c.type === 'card_change') {
+        if (c.type === 'card_change' || c.type === 'card_adjustment') {
             c.setId = null;
             c.ruleId = null;
         } else if (c.type === 'set_change') {
@@ -683,7 +720,7 @@ const saveAnnouncement = async () => {
         }
     }
 
-    await controlPost('/hearthstone/format/announcement/save', { data });
+    await trpc.hearthstone.announcement.save(data);
 
     await loadData();
 };
