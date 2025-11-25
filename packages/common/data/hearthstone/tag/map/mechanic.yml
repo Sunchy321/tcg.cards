@@ -364,7 +364,7 @@
 2432: infuse_demon
 2433: damage_all_enemy_conditionally
 2434: lettuce_healing_power
-2436: ?battlegrounds_battlecry
+2436: battlecry_only_once
 2439: life_from_death
 2443: ?battlegrounds_duo_2443
 2448: infuse_beast
