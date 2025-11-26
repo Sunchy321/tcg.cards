@@ -15,7 +15,7 @@ export const format = z.strictObject({
     banlist: z.strictObject({
         cardId: z.string(),
         status: legality,
-        score:  z.int().min(1).nullable(),
+        score:  z.int().min(1).nullish(),
         date:   z.string(),
         group:  z.string().nullable(),
     }).array(),

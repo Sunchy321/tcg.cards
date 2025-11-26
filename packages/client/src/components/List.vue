@@ -28,6 +28,13 @@
 
             <slot name="body" v-bind="{ value: v, index: i }" />
         </div>
+
+        <div :class="footerClass" class="q-mt-sm">
+            <slot name="footer">
+                <slot name="title" />
+            </slot>
+            <q-btn class="q-ml-sm" flat dense round icon="mdi-plus" @click="insert()" />
+        </div>
     </div>
 </template>
 
@@ -39,6 +46,7 @@ const props = withDefaults(
     defineProps<{
         itemKey?:      IndexKey<T>;
         titleClass?:   string;
+        footerClass?:  string;
         itemClass?:    string;
         summaryClass?: string;
         enableDrag?:   boolean;
@@ -46,6 +54,7 @@ const props = withDefaults(
     {
         itemKey:      undefined,
         titleClass:   '',
+        footerClass:  '',
         itemClass:    '',
         summaryClass: '',
         enableDrag:   true,

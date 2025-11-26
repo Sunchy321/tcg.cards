@@ -100,6 +100,8 @@ export const formatChange = z.strictObject({
         cardId: z.string().optional(),
         detail: adjustment.array(),
     }).array().nullable(),
+
+    relatedCards: z.string().array().nullable(),
 });
 
 export type GameChangeType = z.infer<typeof gameChangeType>;

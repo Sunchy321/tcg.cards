@@ -69,43 +69,47 @@ const save = os
     .handler(async ({ input }) => {
         const data = input;
 
-        const existing = data.id !== ''
-            ? await db.select().from(Announcement)
-                .where(eq(Announcement.id, data.id))
-                .then(rows => rows[0])
-            : null;
+        await db.transaction(async tx => {
+            const existing = data.id !== ''
+                ? await tx.select().from(Announcement)
+                    .where(eq(Announcement.id, data.id))
+                    .then(rows => rows[0])
+                : null;
 
-        let id = data.id;
+            let id = data.id;
 
-        if (existing != null) {
-            await db.update(Announcement)
-                .set({
-                    source: data.source,
-                    date:   data.date,
-                    name:   data.name,
+            if (existing != null) {
+                await tx.update(Announcement)
+                    .set({
+                        source: data.source,
+                        date:   data.date,
+                        name:   data.name,
 
-                    effectiveDate: data.effectiveDate,
+                        effectiveDate: data.effectiveDate,
 
-                    link: data.link,
+                        link: data.link,
 
-                    version:     data.version,
-                    lastVersion: data.lastVersion,
-                })
-                .where(eq(Announcement.id, data.id));
-        } else {
-            const result = await db.insert(Announcement).values(_.omit(data, 'id')).returning();
+                        version:     data.version,
+                        lastVersion: data.lastVersion,
+                    })
+                    .where(eq(Announcement.id, data.id));
+            } else {
+                const result = await tx.insert(Announcement).values(_.omit(data, 'id')).returning();
 
-            id = result[0].id;
-        }
+                id = result[0].id;
+            }
 
-        await db.delete(AnnouncementItem)
-            .where(eq(AnnouncementItem.announcementId, id));
+            await tx.delete(AnnouncementItem)
+                .where(eq(AnnouncementItem.announcementId, id));
 
-        await db.insert(AnnouncementItem).values(data.items.map((item, index) => ({
-            announcementId: id,
-            index,
-            ...item,
-        })));
+            if (data.items.length > 0) {
+                await tx.insert(AnnouncementItem).values(data.items.map((item, index) => ({
+                    announcementId: id,
+                    index,
+                    ...item,
+                })));
+            }
+        });
     });
 
 const apply = os
@@ -114,7 +118,11 @@ const apply = os
     .handler(async () => {
         const applier = new AnnouncementApplier();
 
-        await applier.apply();
+        try {
+            await applier.apply();
+        } catch (e) {
+            console.log('Failed to apply announcements', e);
+        }
     });
 
 export const announcementTrpc = {

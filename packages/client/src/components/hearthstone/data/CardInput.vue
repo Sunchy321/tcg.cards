@@ -1,5 +1,18 @@
 <template>
     <q-input v-model="input" :label="model" @keypress.enter="search">
+        <template #prepend>
+            <q-chip
+                v-for="(id, idx) in candidate" :key="id"
+                class="q-mr-sm" dense clickable
+                :color="getChipColor(idx)"
+                text-color="white"
+                @click="() => selectCandidate(id)"
+            >
+                {{ id }}
+            </q-chip>
+
+            <slot name="prepend" />
+        </template>
         <template #append>
             <slot name="append" />
             <q-btn
@@ -19,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 import { useRouter } from 'vue-router';
 import { useGame } from 'src/stores/games/hearthstone';
@@ -153,6 +166,21 @@ const mercenariesPreset = [
     'SWL_26H_03',
 ];
 
+const rainbowColors = [
+    'red',
+    'orange',
+    'yellow',
+    'green',
+    'teal',
+    'cyan',
+    'blue',
+    'indigo',
+    'purple',
+    'pink',
+];
+
+const getChipColor = (idx: number) => rainbowColors[idx % rainbowColors.length];
+
 const props = defineProps<{
     format?:  string;
     version?: number;
@@ -164,6 +192,8 @@ const router = useRouter();
 const game = useGame();
 
 const input = ref('');
+
+const candidate = ref<string[]>([]);
 
 const getData = async (name: string, id: string): Promise<CardEntityView | CardEntityView[]> => {
     name = name.trim();
@@ -226,7 +256,7 @@ const search = async () => {
     const data = await getData(input.value, model.value);
 
     if (Array.isArray(data)) {
-        input.value = data.map(v => v.cardId).sort().join(', ');
+        candidate.value = data.map(v => v.cardId).sort();
         return;
     }
 
@@ -234,6 +264,18 @@ const search = async () => {
         input.value = data.localization.name;
         model.value = data.cardId;
     }
+};
+
+const selectCandidate = async (id: string) => {
+    console.log('selectCandidate', id);
+
+    model.value = id;
+    input.value = '';
+    candidate.value = [];
+
+    await nextTick();
+
+    await search();
 };
 
 const href = computed(() => {

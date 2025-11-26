@@ -49,7 +49,7 @@ export const announcement = createLogger({
     format:     format.combine(format.timestamp(), format.printf(formatter)),
     transports: [
         new transports.File({
-            filename: `${logPath}/magic/announcement.log`,
+            filename: `${logPath}/hearthstone/announcement.log`,
         }),
     ],
 });

@@ -117,7 +117,7 @@
                         </q-btn>
 
                         <card-input
-                            v-if="c.type === 'card_change' || c.type === 'set_change' || c.type === 'card_adjustment'"
+                            v-if="c.type === 'card_change' || c.type === 'card_adjustment'"
                             class="col-grow q-mr-sm" outlined dense
                             :format="c.format ?? undefined"
                             :model-value="getId(c)"
@@ -126,7 +126,7 @@
                         />
 
                         <q-input
-                            v-else-if="c.type === 'rule_change'"
+                            v-else-if="c.type=== 'set_change' || c.type === 'rule_change'"
                             class="col-grow q-mr-sm" outlined dense
                             :model-value="getId(c)"
                             @update:model-value="v => updateId(c, v as string)"
@@ -223,8 +223,6 @@ import {
 import { useQuasar } from 'quasar';
 import { useGame } from 'store/games/hearthstone';
 
-import controlSetup from 'setup/control';
-
 import List from 'components/List.vue';
 import DateInput from 'components/DateInput.vue';
 import CardInput from 'components/hearthstone/data/CardInput.vue';
@@ -311,8 +309,6 @@ const adjustOptions = ['nerf', 'buff', 'adjust'].map(v => ({
 const { dialog } = useQuasar();
 const game = useGame();
 
-const { controlPost } = controlSetup();
-
 const formats = computed(() => ['#hearthstone', ...game.formats]);
 const announcementList = ref<AnnouncementProfile[]>([]);
 const selected = ref<AnnouncementProfile>();
@@ -383,18 +379,23 @@ const items = computed({
     },
 });
 
-const groupedItems = computed(() => {
-    const map = new Map<string | null, Announcement['items']>();
+const groupedItems = computed({
+    get() {
+        const map = new Map<string | null, Announcement['items']>();
 
-    for (const item of announcement.value.items) {
-        if (!map.has(item.format)) {
-            map.set(item.format, []);
+        for (const item of announcement.value.items) {
+            if (!map.has(item.format)) {
+                map.set(item.format, []);
+            }
+
+            map.get(item.format)!.push(item);
         }
 
-        map.get(item.format)!.push(item);
-    }
-
-    return [...map.entries()].map(([format, items]) => ({ format, items }));
+        return [...map.entries()].map(([format, items]) => ({ format, items }));
+    },
+    set(newValue) {
+        announcement.value.items = newValue.flatMap(group => group.items);
+    },
 });
 
 const updateFormat = (oldFormat: string | null, newFormat: string | null) => {
@@ -461,7 +462,7 @@ const getStatusOptions = (item: AnnouncementItem) => {
     if (item.type === 'card_change') {
         return statusOptions;
     } else if (item.type === 'set_change') {
-        return statusOptions.filter(v => v.value === 'legal' || v.value === 'banned');
+        return statusOptions.filter(v => v.value === 'legal' || v.value === 'unavailable');
     } else if (item.type === 'card_adjustment') {
         return adjustOptions;
     } else {
@@ -748,7 +749,7 @@ const newAnnouncement = async () => {
 const applyAnnouncements = async () => {
     await saveAnnouncement();
 
-    await controlPost('/hearthstone/format/announcement/apply');
+    await trpc.hearthstone.announcement.apply();
 };
 
 watch(selected, loadAnnouncement);

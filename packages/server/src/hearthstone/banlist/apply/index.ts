@@ -29,11 +29,11 @@ function cmp<T>(a: T, b: T): number {
 type IAnnouncementView = (typeof AnnouncementView)['$inferSelect'];
 
 export class AnnouncementApplier {
-    private announcements: IAnnouncementView[];
+    private announcements: IAnnouncementView[] = [];
 
-    private formatMap: Record<string, IFormat>;
+    private formatMap: Record<string, IFormat> = { };
 
-    private sets: { setId: string, releaseDate: string }[];
+    private sets: { setId: string, releaseDate: string }[] = [];
 
     private groups: Record<string, string[]> = {
         cThun: [
@@ -89,11 +89,11 @@ export class AnnouncementApplier {
         cardId:  string;
         version: number[];
         sets:    string[];
-    }[];
+    }[] = [];
 
-    private formatChanges: IFormatChange[];
-    private setChanges:    ISetChange[];
-    private cardChanges:   ICardChange[];
+    private formatChanges: IFormatChange[] = [];
+    private setChanges:    ISetChange[] = [];
+    private cardChanges:   ICardChange[] = [];
 
     private groupWatcher: {
         source:  string;
@@ -103,7 +103,7 @@ export class AnnouncementApplier {
         groupId: string;
         status:  Legality;
         score:   number | null;
-    }[];
+    }[] = [];
 
     private async initialize(): Promise<void> {
         // load announcements
@@ -263,7 +263,8 @@ export class AnnouncementApplier {
             status,
             score,
 
-            adjustment: null,
+            adjustment:   null,
+            relatedCards: null,
         });
 
         if (f.sets == null) {
@@ -291,9 +292,10 @@ export class AnnouncementApplier {
             link:          string[];
             version:       number;
             lastVersion:   number | null;
+            relatedCards:  string[] | null;
         },
     ): void {
-        const { group, source, date, name, effectiveDate, link, version, lastVersion } = options;
+        const { group, source, date, name, effectiveDate, link, version, lastVersion, relatedCards } = options;
 
         const f = this.formatMap[format];
 
@@ -350,6 +352,7 @@ export class AnnouncementApplier {
             score,
 
             adjustment: null,
+            relatedCards,
         });
 
         if (f.banlist == null) {
@@ -408,8 +411,12 @@ export class AnnouncementApplier {
 
             const formats = (() => {
                 switch (a.format) {
-                case '#hearthstone':
-                    return ['standard', 'wild', 'arena', 'duel', 'twist'].filter(f => {
+                case '#hearthstone': {
+                    const targetFormats = a.type === 'set_change'
+                        ? ['standard', 'wild']
+                        : ['standard', 'wild', 'arena', 'duel', 'twist'];
+
+                    return targetFormats.filter(f => {
                         const format = this.formatMap[f]!;
                         // the change don't become effective now
                         if (effectiveDate > new Date().toISOString().split('T')[0]) { return false; }
@@ -419,6 +426,7 @@ export class AnnouncementApplier {
                         if (format.deathdate != null && effectiveDate > format.deathdate) { return false; }
                         return true;
                     });
+                }
                 default:
                     return a.format == null ? [] : [a.format];
                 }
@@ -441,6 +449,8 @@ export class AnnouncementApplier {
 
                     if (a.status === 'legal') {
                         if (fo.sets.includes(a.setId!)) {
+                            console.log(fo.sets);
+
                             throw new Error(`In set ${a.setId} is already in ${f}, date: ${a.date}`);
                         }
                     } else if (a.status === 'unavailable') {
@@ -479,6 +489,7 @@ export class AnnouncementApplier {
                                     link:          g.link,
                                     version:       a.version,
                                     lastVersion:   a.lastVersion,
+                                    relatedCards:  a.relatedCards,
                                 });
                             }
                         }
@@ -490,14 +501,15 @@ export class AnnouncementApplier {
 
                             if (setInFormat.every(s => s === a.setId)) {
                                 this.cardChange(b.cardId, 'unavailable', null, f, {
-                                    group:       b.group ?? undefined,
-                                    source:      a.source,
-                                    date:        a.date,
-                                    name:        a.name,
+                                    group:        b.group ?? undefined,
+                                    source:       a.source,
+                                    date:         a.date,
+                                    name:         a.name,
                                     effectiveDate,
-                                    link:        a.link,
-                                    version:     a.version,
-                                    lastVersion: a.lastVersion,
+                                    link:         a.link,
+                                    version:      a.version,
+                                    lastVersion:  a.lastVersion,
+                                    relatedCards: a.relatedCards,
                                 });
                             }
                         }
@@ -523,7 +535,7 @@ export class AnnouncementApplier {
                                     newChanges.push({
                                         cardId: bo.cardId,
                                         status: a.status ?? bo.status,
-                                        score:  a.score ?? bo.score,
+                                        score:  a.score ?? bo.score ?? null,
                                         group:  bo.group,
                                     });
                                 }
@@ -534,14 +546,15 @@ export class AnnouncementApplier {
 
                         for (const n of newChanges) {
                             this.cardChange(n.cardId, n.status, n.score, f, {
-                                group:       n.group ?? undefined,
-                                source:      a.source,
-                                date:        a.date,
-                                name:        a.name,
+                                group:        n.group ?? undefined,
+                                source:       a.source,
+                                date:         a.date,
+                                name:         a.name,
                                 effectiveDate,
-                                link:        a.link,
-                                version:     a.version,
-                                lastVersion: a.lastVersion,
+                                link:         a.link,
+                                version:      a.version,
+                                lastVersion:  a.lastVersion,
+                                relatedCards: a.relatedCards,
                             });
                         }
 
@@ -581,14 +594,15 @@ export class AnnouncementApplier {
 
                             for (const v of cards) {
                                 this.cardChange(v, a.status, a.score, f, {
-                                    group:       group ?? null,
-                                    source:      a.source,
-                                    date:        effectiveDate,
-                                    name:        a.name,
+                                    group:        group ?? null,
+                                    source:       a.source,
+                                    date:         effectiveDate,
+                                    name:         a.name,
                                     effectiveDate,
-                                    link:        a.link,
-                                    version:     a.version,
-                                    lastVersion: a.lastVersion,
+                                    link:         a.link,
+                                    version:      a.version,
+                                    lastVersion:  a.lastVersion,
+                                    relatedCards: a.relatedCards,
                                 });
                             }
                         } else {
@@ -605,26 +619,28 @@ export class AnnouncementApplier {
                             for (const v of cardsRemoved) {
                                 this.cardChange(v, a.status, a.score, f, {
                                     group,
-                                    source:      a.source,
-                                    date:        effectiveDate,
-                                    name:        a.name,
+                                    source:       a.source,
+                                    date:         effectiveDate,
+                                    name:         a.name,
                                     effectiveDate,
-                                    link:        a.link,
-                                    version:     a.version,
-                                    lastVersion: a.lastVersion,
+                                    link:         a.link,
+                                    version:      a.version,
+                                    lastVersion:  a.lastVersion,
+                                    relatedCards: a.relatedCards,
                                 });
                             }
                         }
                     } else {
                         this.cardChange(a.cardId, a.status, a.score, f, {
-                            group:       undefined,
-                            source:      a.source,
-                            date:        a.date,
-                            name:        a.name,
+                            group:        undefined,
+                            source:       a.source,
+                            date:         a.date,
+                            name:         a.name,
                             effectiveDate,
-                            link:        a.link,
-                            version:     a.version,
-                            lastVersion: a.lastVersion,
+                            link:         a.link,
+                            version:      a.version,
+                            lastVersion:  a.lastVersion,
+                            relatedCards: a.relatedCards,
                         });
                     }
                 } else if (a.type === 'rule_change') {
@@ -648,7 +664,8 @@ export class AnnouncementApplier {
                         status: a.status,
                         score:  a.score,
 
-                        adjustment: null,
+                        adjustment:   null,
+                        relatedCards: null,
                     });
                 }
             }
