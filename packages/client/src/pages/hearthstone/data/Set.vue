@@ -48,167 +48,134 @@
     </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue';
 
-import {
-    defineComponent, ref, computed, watch, onMounted,
-} from 'vue';
-
-import type {
-    QSelectProps,
-} from 'quasar';
+import type { QSelectProps } from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useGame } from 'store/games/hearthstone';
 
-import controlSetup from 'setup/control';
+import { locale } from '@model/hearthstone/schema/basic';
+import { Set, SetLocalization } from '@model/hearthstone/schema/set';
 
-import { Set, SetLocalization } from '@interface/hearthstone/set';
+import { trpc } from 'src/trpc';
 
-import { apiGet } from 'boot/server';
+const router = useRouter();
+const route = useRoute();
 
-export default defineComponent({
-    setup() {
-        const router = useRouter();
-        const route = useRoute();
-        const game = useGame();
+const sets = ref<string[]>([]);
+const data = ref<Set>();
+const filteredSet = ref<string[]>([]);
 
-        const { controlGet, controlPost } = controlSetup();
-
-        const set = ref<string[]>([]);
-        const data = ref<Set | null>(null);
-        const filteredSet = ref<string[]>([]);
-
-        const id = computed({
-            get() { return route.query.id as string ?? set.value[0]; },
-            set(newValue: string) {
-                void router.replace({
-                    query: {
-                        ...route.query,
-                        id: newValue,
-                    },
-                });
+const id = computed({
+    get() { return route.query.id as string ?? sets.value[0] ?? ''; },
+    set(newValue: string) {
+        void router.replace({
+            query: {
+                ...route.query,
+                id: newValue,
             },
         });
-
-        const setId = computed({
-            get() { return data?.value?.setId ?? ''; },
-            set(newValue: string) {
-                if (data.value != null) {
-                    data.value.setId = newValue;
-                }
-            },
-        });
-
-        const localization = computed(() => game.locales.map(
-            l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
-        ));
-
-        const loadList = async () => {
-            const { data: sets } = await apiGet<string[]>('/hearthstone/set');
-
-            set.value = sets;
-
-            if (data.value == null) {
-                void loadData();
-            }
-        };
-
-        const loadData = async () => {
-            if (data.value != null) {
-                await save();
-            }
-
-            const { data: result } = await controlGet<Set>('/hearthstone/set/raw', {
-                id: id.value,
-            });
-
-            data.value = result;
-        };
-
-        const filterFn = (val: string, update: Parameters<NonNullable<QSelectProps['onFilter']>>[1]) => {
-            if (val === '') {
-                update(
-                    () => { filteredSet.value = set.value; },
-                    () => { /* no-op */ },
-                );
-            } else {
-                update(
-                    () => { filteredSet.value = set.value.filter(s => s.includes(val)); },
-                    () => { /* no-op */ },
-                );
-            }
-        };
-
-        const assignName = (lang: string, name: string) => {
-            if (data.value == null) {
-                return;
-            }
-
-            const loc = data.value.localization.find(l => l.lang === lang);
-
-            if (loc == null) {
-                data.value.localization = [...data.value.localization, { lang, name }];
-            } else {
-                loc.name = name;
-            }
-        };
-
-        const prettify = () => {
-            if (data.value == null) {
-                return;
-            }
-
-            data.value.localization = data.value.localization.filter(
-                l => l.name != null && l.name !== '',
-            );
-
-            for (const l of data.value.localization) {
-                if (l.name === '') {
-                    delete l.name;
-                }
-            }
-        };
-
-        const save = async () => {
-            if (data.value != null && data.value.setId !== '') {
-                prettify();
-
-                await controlPost('/hearthstone/set/save', { data: data.value });
-
-                await loadList();
-            }
-        };
-
-        const newSet = async () => {
-            await save();
-
-            id.value = set.value[0];
-
-            data.value = {
-                setId:        '',
-                localization: [],
-                type:         '',
-                cardCount:    [0, 0],
-            };
-        };
-
-        watch(set, () => { filteredSet.value = set.value; });
-        watch(id, loadData);
-        onMounted(loadList);
-
-        return {
-            id,
-            setId,
-            localization,
-
-            filteredSet,
-
-            save,
-            newSet,
-            filterFn,
-            assignName,
-        };
     },
 });
+
+const setId = computed({
+    get() { return data?.value?.setId ?? ''; },
+    set(newValue: string) {
+        if (data.value != null) {
+            data.value.setId = newValue;
+        }
+    },
+});
+
+const localization = computed(() => Object.values(locale.enum).map(
+    l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
+));
+
+const loadList = async () => {
+    sets.value = await trpc.hearthstone.set.list();
+
+    if (data.value == null) {
+        void loadData();
+    }
+};
+
+const loadData = async () => {
+    if (data.value != null) {
+        await save();
+    }
+
+    data.value = await trpc.hearthstone.set.full({ setId: id.value });
+};
+
+const filterFn = (val: string, update: Parameters<NonNullable<QSelectProps['onFilter']>>[1]) => {
+    if (val === '') {
+        update(
+            () => { filteredSet.value = sets.value; },
+            () => { /* no-op */ },
+        );
+    } else {
+        update(
+            () => { filteredSet.value = sets.value.filter(s => s.includes(val)); },
+            () => { /* no-op */ },
+        );
+    }
+};
+
+const assignName = (lang: string, name: string) => {
+    if (data.value == null) {
+        return;
+    }
+
+    const loc = data.value.localization.find(l => l.lang === lang);
+
+    if (loc == null) {
+        data.value.localization = [...data.value.localization, { lang, name }];
+    } else {
+        loc.name = name;
+    }
+};
+
+const prettify = () => {
+    if (data.value == null) {
+        return;
+    }
+
+    data.value.localization = data.value.localization.filter(
+        l => l.name != null && l.name !== '',
+    );
+};
+
+const save = async () => {
+    if (data.value == null || data.value.setId == '') {
+        return;
+    }
+
+    prettify();
+
+    await trpc.hearthstone.set.save(data.value);
+
+    await loadList();
+};
+
+const newSet = async () => {
+    await save();
+
+    id.value = sets.value[0];
+
+    data.value = {
+        setId:         '',
+        dbfId:         0,
+        localization:  [],
+        type:          '',
+        releaseDate:   '0000-00-00',
+        cardCount:     0,
+        cardCountFull: 0,
+    };
+};
+
+watch(sets, () => { filteredSet.value = sets.value; });
+watch(id, loadData);
+onMounted(loadList);
+
 </script>

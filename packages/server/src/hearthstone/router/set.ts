@@ -115,10 +115,56 @@ const profile = os
         };
     });
 
+const save = os
+    .input(set)
+    .output(z.object({ setId: z.string() }))
+    .handler(async ({ input }) => {
+        const { setId, dbfId, type, releaseDate, cardCountFull, cardCount, localization } = input;
+
+        await db.transaction(async tx => {
+            const existing = await tx.select().from(Set).where(eq(Set.setId, setId)).then(r => r[0]);
+
+            if (existing) {
+                await tx.update(Set).set({
+                    dbfId,
+                    type,
+                    releaseDate,
+                    cardCountFull: cardCountFull ?? existing.cardCountFull ?? null,
+                    cardCount:     cardCount ?? existing.cardCount ?? null,
+                    slug:          existing.slug ?? setId,
+                    group:         existing.group ?? null,
+                }).where(eq(Set.setId, setId));
+
+                // 覆盖本地化
+                await tx.delete(SetLocalization).where(eq(SetLocalization.setId, setId));
+            } else {
+                await tx.insert(Set).values({
+                    setId,
+                    dbfId,
+                    type,
+                    releaseDate,
+                    cardCountFull: cardCountFull ?? null,
+                    cardCount:     cardCount ?? null,
+                    slug:          setId,
+                });
+            }
+
+            if (localization.length > 0) {
+                await tx.insert(SetLocalization).values(
+                    localization.map(l => ({ setId, lang: l.lang, name: l.name })),
+                );
+            }
+        });
+
+        return { setId };
+    })
+    .callable();
+
 export const setTrpc = {
     list,
     full,
     profile,
+    save,
 };
 
 export const setApi = {

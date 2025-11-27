@@ -12,8 +12,8 @@ export const SetLocalization = schema.table('set_localizations', {
 
 export const Set = schema.table('sets', {
     setId: text('set_id').primaryKey(),
-    dbfId: integer('dbf_id').notNull(),
-    slug:  text('slug').notNull(),
+    dbfId: integer('dbf_id'),
+    slug:  text('slug'),
 
     type:          text('type').notNull(),
     releaseDate:   text('release_date').notNull(),
