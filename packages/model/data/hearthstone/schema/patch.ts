@@ -1,6 +1,6 @@
 import z from 'zod';
 
-export const patchSchema = z.strictObject({
+export const patch = z.strictObject({
     buildNumber: z.int(),
     name:        z.string(),
     shortName:   z.string(),
@@ -9,4 +9,4 @@ export const patchSchema = z.strictObject({
     isUpdated:   z.boolean().default(false),
 });
 
-export type Patch = z.infer<typeof patchSchema>;
+export type Patch = z.infer<typeof patch>;

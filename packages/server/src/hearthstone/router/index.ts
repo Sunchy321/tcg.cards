@@ -1,7 +1,7 @@
 import { cardApi, cardTrpc } from './card';
 import { searchTrpc } from './search';
 import { setApi, setTrpc } from './set';
-import { patchTrpc } from './patch';
+import { patchApi, patchTrpc } from './patch';
 import { formatApi, formatTrpc } from './format';
 import { announcementApi, announcementTrpc } from './announcement';
 import { dataTrpc } from './data';
@@ -19,6 +19,7 @@ export const hearthstoneTrpc = {
 export const hearthstoneApi = {
     card:         cardApi,
     set:          setApi,
+    patch:        patchApi,
     format:       formatApi,
     announcement: announcementApi,
 };

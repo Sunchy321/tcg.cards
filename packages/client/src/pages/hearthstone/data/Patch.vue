@@ -30,13 +30,9 @@ import { ref, computed, onMounted } from 'vue';
 
 import { useParam } from 'store/core';
 
-import controlSetup from 'src/setup/control';
-
 import { Patch } from '@model/hearthstone/schema/patch';
 
-import { apiGet } from 'boot/server';
-
-const { controlPost } = controlSetup();
+import { trpc } from 'src/trpc';
 
 const patches = ref<Patch[]>([]);
 
@@ -70,15 +66,15 @@ const shortName = computed({
 });
 
 const save = async () => {
-    if (data.value != null) {
-        await controlPost('/hearthstone/patch/save', { data: data.value });
+    if (data.value == null) {
+        return;
     }
+
+    await trpc.hearthstone.patch.save(data.value);
 };
 
 const loadList = async () => {
-    const { data: patchList } = await apiGet<Patch[]>('/hearthstone/patch');
-
-    patches.value = patchList;
+    patches.value = await trpc.hearthstone.patch.list();
 };
 
 onMounted(loadList);
