@@ -27,13 +27,14 @@ import {
 } from 'vue';
 
 import { useI18n } from 'vue-i18n';
-import { useGame } from 'store/games/lorcana';
 import { useTitle } from 'store/core';
+import { useGame } from 'store/games/lorcana';
 
-import { apiGet } from 'boot/server';
+import { SetProfile, SetLocalization } from '@model/lorcana/schema/set';
 
-import setProfile, { SetProfile, SetLocalization } from 'src/common/lorcana/set';
-import { isEqual, partition } from 'lodash';
+import { partition } from 'lodash';
+
+import { trpc } from 'src/trpc';
 
 const game = useGame();
 const i18n = useI18n();
@@ -120,9 +121,7 @@ const profileList = computed(() => {
 });
 
 const loadData = async () => {
-    const { data } = await apiGet<string[]>('/lorcana/set');
-
-    sets.value = data;
+    sets.value = await trpc.lorcana.set.list();
 };
 
 const loadProfile = async (setList: string[]) => {
@@ -131,20 +130,18 @@ const loadProfile = async (setList: string[]) => {
     const profileMap: Record<string, SetProfile> = { };
 
     for (const s of setList) {
-        setProfile.get(s, v => {
-            if (!isEqual(v, profileMap[s])) {
-                profileMap[s] = v;
-
-                if (isEqual(setList.sort(), Object.keys(profileMap).sort())) {
-                    profiles.value = profileMap;
-                }
-            }
-        });
+        profileMap[s] = await trpc.lorcana.set.profile(s);
     }
+
+    profiles.value = profileMap;
 };
 
-const nameOf = (localization: Record<string, SetLocalization>) => localization[game.locale]?.name
-  ?? localization[game.locales[0]]?.name;
+const nameOf = (localizations: SetLocalization[]) => {
+    const localization = localizations.find(l => l.lang === game.locale)
+      ?? localizations.find(l => l.lang === game.locales[0]);
+
+    return localization?.name;
+};
 
 watch(sets, loadProfile);
 

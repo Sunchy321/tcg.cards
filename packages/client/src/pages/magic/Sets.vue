@@ -70,93 +70,93 @@ const profileList = computed(() => {
         profilesDump = profilesRest;
     }
 
-            // Make a set map.
-            type SetMap = { profile: SetProfile, children?: SetMap[] };
+    // Make a set map.
+    type SetMap = { profile: SetProfile, children?: SetMap[] };
 
-            const setMap: SetMap[] = [];
+    const setMap: SetMap[] = [];
 
-            function insertSet(map: SetMap[], profile: SetProfile) {
-                if (profile.parent == null) {
-                    map.push({ profile });
+    function insertSet(map: SetMap[], profile: SetProfile) {
+        if (profile.parent == null) {
+            map.push({ profile });
+            return true;
+        }
+
+        for (const set of map) {
+            if (profile.parent === set.profile.setId) {
+                if (set.children == null) {
+                    set.children = [];
+                }
+
+                set.children.push({ profile });
+
+                return true;
+            }
+        }
+
+        for (const set of map) {
+            if (set.children != null) {
+                if (insertSet(set.children, profile)) {
                     return true;
                 }
-
-                for (const set of map) {
-                    if (profile.parent === set.profile.setId) {
-                        if (set.children == null) {
-                            set.children = [];
-                        }
-
-                        set.children.push({ profile });
-
-                        return true;
-                    }
-                }
-
-                for (const set of map) {
-                    if (set.children != null) {
-                        if (insertSet(set.children, profile)) {
-                            return true;
-                        }
-                    }
-                }
-
-                return false;
             }
+        }
 
-            for (const profile of profilesOrdered) {
-                if (!insertSet(setMap, profile)) {
-                    console.log(
-                        profile.setId,
-                        profilesDump.findIndex(v => v.setId === profile.setId),
-                        profile.parent,
-                        profilesDump.findIndex(v => v.setId === profile.parent),
-                    );
-                }
+        return false;
+    }
+
+    for (const profile of profilesOrdered) {
+        if (!insertSet(setMap, profile)) {
+            console.log(
+                profile.setId,
+                profilesDump.findIndex(v => v.setId === profile.setId),
+                profile.parent,
+                profilesDump.findIndex(v => v.setId === profile.parent),
+            );
+        }
+    }
+
+    // Sort set map with release date.
+    function sortMap(map: SetMap[]) {
+        for (const set of map) {
+            if (set.children != null) {
+                sortMap(set.children);
             }
+        }
 
-            // Sort set map with release date.
-            function sortMap(map: SetMap[]) {
-                for (const set of map) {
-                    if (set.children != null) {
-                        sortMap(set.children);
-                    }
-                }
+        map.sort((a, b) => {
+            const ra = a.profile.releaseDate;
+            const rb = b.profile.releaseDate;
 
-                map.sort((a, b) => {
-                    const ra = a.profile.releaseDate;
-                    const rb = b.profile.releaseDate;
+            return ra == null
+                ? (rb == null ? 0 : -1)
+                : rb == null
+                    ? 1
+                    : ra < rb
+                        ? 1
+                        : ra > rb
+                            ? -1
+                            : 0;
+        });
+    }
 
-                    return ra == null
-                        ? (rb == null ? 0 : -1)
-                        : rb == null
-                            ? 1
-                            : ra < rb
-                                ? 1
-                                : ra > rb
-                                    ? -1
-                                    : 0;
-                });
+    sortMap(setMap);
+
+    // Flatten map
+    const list: (SetProfile & { indent: number })[] = [];
+
+    function flatten(map: SetMap[], indent = 0) {
+        for (const set of map) {
+            list.push({ ...set.profile, indent });
+
+            if (set.children != null) {
+                flatten(set.children, indent + 1);
             }
+        }
+    }
 
-            sortMap(setMap);
+    flatten(setMap);
 
-            // Flatten map
-            const list: (SetProfile & { indent: number })[] = [];
-
-            function flatten(map: SetMap[], indent = 0) {
-                for (const set of map) {
-                    list.push({ ...set.profile, indent });
-
-                    if (set.children != null) {
-                        flatten(set.children, indent + 1);
-                    }
-                }
-            }
-
-            flatten(setMap);
-
-            return list;
+    return list;
 });
 
 const loadData = async () => {
