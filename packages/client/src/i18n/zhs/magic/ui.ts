@@ -43,6 +43,8 @@ export default {
         'banlist':  '禁限牌表',
         'set':      '可用系列',
         'timeline': '时间线',
+        'save_svg': '保存SVG',
+        'no_data':  '暂无数据',
 
         'source': {
             ante:       '赌博牌',

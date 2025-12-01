@@ -43,6 +43,8 @@ export default {
         'banlist':  'Banlist',
         'set':      'Sets',
         'timeline': 'Timeline',
+        'save_svg': 'Save SVG ',
+        'no_data':  'No Data',
 
         'source': {
             ante:       'Ante',
