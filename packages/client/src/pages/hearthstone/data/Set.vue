@@ -88,7 +88,7 @@ const setId = computed({
     },
 });
 
-const localization = computed(() => Object.values(locale.enum).map(
+const localization = computed(() => locale.options.map(
     l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
 ));
 

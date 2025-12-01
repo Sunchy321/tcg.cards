@@ -7,7 +7,7 @@
             <div v-for="(p, i) in packs" :key="i" class="pack q-px-md q-py-sm">
                 <div v-if="packs.length > 1" class="q-mb-sm">{{ packRatio(p) }}%</div>
 
-                <div class="contents flex">
+                <div class="booster-contents flex">
                     <BoosterAvatar v-for="c in p.contents" :key="c.type" :type="c.type" :count="c.count" />
                 </div>
             </div>
@@ -26,7 +26,7 @@
                 <div v-if="sheetsOpen[s.typeId] ?? false" class="sheet-cards">
                     <CardImageAvatar
                         v-for="c in s.cards" :key="c.cardId"
-                        :card-id="c.cardId" :version="c.version"
+                        :card-id="c.cardId" :version="{ set: c.set, number: c.number, lang: c.lang ?? undefined }"
                     />
                 </div>
             </div>
@@ -45,20 +45,15 @@ import { useGame } from 'store/games/magic';
 import BoosterAvatar from './BoosterAvatar.vue';
 import CardImageAvatar from 'components/magic/CardImageAvatar.vue';
 
-import { Booster, Set as ISet } from '@interface/magic/set';
+import { Set, Booster } from '@model/magic/schema/set';
 
-import setProfile from 'src/common/magic/set';
-import { apiGet } from 'boot/server';
-
-type Set = Omit<ISet, 'localization'> & {
-    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
-};
+import { trpc } from 'src/trpc';
 
 const route = useRoute();
 const i18n = useI18n();
 const game = useGame();
 
-const data = ref<Set | null>(null);
+const data = ref<Set>();
 
 const setId = computed(() => route.params.setId as string);
 const boosterId = computed(() => route.params.boosterId as string);
@@ -121,21 +116,7 @@ const toggleSheet = (typeId: string) => {
 };
 
 const loadData = async () => {
-    const { data: result } = await apiGet<Set>('/magic/set', {
-        id: setId.value,
-    });
-
-    data.value = result;
-
-    setProfile.update({
-        setId:           result.setId,
-        parent:          result.parent,
-        localization:    result.localization,
-        type:            result.type,
-        symbolStyle:     result.symbolStyle,
-        doubleFacedIcon: result.doubleFacedIcon,
-        releaseDate:     result.releaseDate,
-    });
+    data.value = await trpc.magic.set.complete({ setId: setId.value });
 };
 
 watch(() => setId.value, loadData, { immediate: true });
@@ -158,7 +139,7 @@ watch(() => setId.value, loadData, { immediate: true });
     &:not(:last-child)
         border-bottom: 1px solid black
 
-.contents
+.booster-contents
     gap: 8px
 
 .sheet-cards

@@ -68,7 +68,7 @@
         <div class="version-column">
             <div class="text-mode row no-wrap">
                 <q-btn
-                    v-if="isAdmin"
+                    v-if="editorEnabled"
                     :to="editorLink"
                     icon="mdi-file-edit"
                     class="q-mr-sm"
@@ -147,7 +147,6 @@ import { useI18n } from 'vue-i18n';
 import { useAction, useTitle } from 'store/core';
 import { useGame, TextMode, textModes } from 'store/games/yugioh';
 
-import basicSetup from 'setup/basic';
 import yugiohSetup from 'setup/yugioh';
 
 import Grid from 'components/Grid.vue';
@@ -156,26 +155,32 @@ import CardImage from 'components/yugioh/CardImage.vue';
 import RichText from 'src/components/yugioh/RichText.vue';
 import BanlistIcon from 'components/yugioh/BanlistIcon.vue';
 
-import { CardPrintView } from '@common/model/yugioh/card';
+import { locale, Locale } from '@model/yugioh/schema/basic';
+import { CardFullView } from '@model/yugioh/schema/print';
 
 import {
     mapValues, omitBy, uniq,
 } from 'lodash';
 
 import setProfile, { SetProfile } from 'src/common/yugioh/set';
-import { apiGet, apiBase } from 'boot/server';
+import { apiBase } from 'boot/server';
 
-import { locales } from '@static/yugioh/basic';
+import { auth, checkAdmin } from 'src/auth';
+import { trpc } from 'src/trpc';
 
 const router = useRouter();
 const route = useRoute();
 const game = useGame();
 const i18n = useI18n();
-const { isAdmin } = basicSetup();
+const session = auth.useSession();
+
+const editorEnabled = computed(() => {
+    return checkAdmin(session.value, 'admin/yugioh');
+});
 
 const { search, random } = yugiohSetup();
 
-const data = ref<CardPrintView>();
+const data = ref<CardFullView>();
 const rotate = ref<boolean | null>(null);
 const setProfiles = ref<Record<string, SetProfile>>({});
 
@@ -283,14 +288,14 @@ const setInfos = computed(() => sets.value.map(s => {
     };
 }));
 
-const langs = computed(() => uniq([
-    ...versions.value.map(v => v.lang),
-    ...data.value?.localization?.map(v => v.lang) ?? [],
-]).sort((a, b) => locales.indexOf(a) - locales.indexOf(b)));
+const langs = computed(() => {
+    return uniq(versions.value.map(v => v.lang))
+        .sort((a, b) => locale.options.indexOf(a) - locale.options.indexOf(b));
+});
 
 const lang = computed({
-    get() { return route.query.lang as string ?? game.locale; },
-    set(newValue: string) {
+    get() { return route.query.lang as Locale ?? game.locale; },
+    set(newValue: Locale) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
         if (allowedVersions.length > 0) {
@@ -391,39 +396,27 @@ const langInfos = computed(() => langs.value.map(l => ({
     current: l === lang.value,
 })));
 
-const selectedTextInfo = (view: CardPrintView | undefined) => {
-    if (view == null) {
-        return null;
+const selectedTextInfo = computed(() => {
+    if (data.value == null) {
+        return undefined;
     }
 
     switch (textMode.value) {
-    case 'unified': {
-        const loc = view.localization.find(l => l.lang === lang.value) ?? view.localization[0];
-
-        return {
-            name:     loc.name,
-            typeline: loc.typeline,
-            text:     loc.text,
-        };
-    }
+    case 'unified':
+        return data.value.cardLocalization;
     case 'printed':
-        return {
-            name:     view.printName,
-            typeline: view.printTypeline,
-            text:     view.printText,
-        };
-
+        return data.value.print;
     default:
         throw new Error('unreachable');
     }
-};
+});
 
 useTitle(() => {
     if (data.value == null) {
         return '';
     }
 
-    return selectedTextInfo(data.value)?.name ?? '';
+    return selectedTextInfo.value?.name ?? '';
 }, 'input');
 
 useAction([
@@ -440,47 +433,47 @@ useAction([
 
 const cardId = computed(() => data.value?.cardId ?? '');
 
-const layout = computed(() => data.value?.layout ?? 'normal');
+const layout = computed(() => data.value?.print.layout ?? 'normal');
 
 const stats = computed(() => {
     if (data.value == null) {
         return '';
     }
 
-    if (data.value.attack != null && data.value.defense != null) {
-        return `${data.value.attack}/${data.value.defense}`;
+    if (data.value.card.attack != null && data.value.card.defense != null) {
+        return `${data.value.card.attack}/${data.value.card.defense}`;
     }
 
     return '';
 });
 
-const name = computed(() => selectedTextInfo(data.value)?.name);
-const typeline = computed(() => selectedTextInfo(data.value)?.typeline);
-const text = computed(() => selectedTextInfo(data.value)?.text);
+const name = computed(() => selectedTextInfo.value?.name);
+const typeline = computed(() => selectedTextInfo.value?.typeline);
+const text = computed(() => selectedTextInfo.value?.text);
 
 const attribute = computed(() => {
     if (data.value == null) {
         return undefined;
     }
 
-    if (data.value.attribute != null) {
-        return data.value.attribute;
+    if (data.value.card.attribute != null) {
+        return data.value.card.attribute;
     }
 
-    if (data.value.type.main === 'spell') {
+    if (data.value.card.typeMain === 'spell') {
         return 'spell';
     }
 
-    if (data.value.type.main === 'trap') {
+    if (data.value.card.typeMain === 'trap') {
         return 'trap';
     }
 
     return undefined;
 });
 
-const passcode = computed(() => data.value?.passcode ?? 0);
+const passcode = computed(() => data.value?.card.passcode ?? 0);
 const relatedCards = computed(() => data.value?.relatedCards ?? []);
-const legalities = computed(() => data.value?.legalities ?? {});
+const legalities = computed(() => data.value?.card.legalities ?? {});
 
 const editorLink = computed(() => ({
     name:  'yugioh/data',
@@ -493,14 +486,25 @@ const editorLink = computed(() => ({
     },
 }));
 
-const apiQuery = computed(() => (route.params.id == null
-    ? null
-    : omitBy({
-        id:     route.params.id as string,
-        lang:   route.query.lang as string ?? game.locale,
+const apiQuery = computed(() => {
+    if (route.params.id == null) {
+        return undefined;
+    }
+
+    const query = {
+        cardId: route.params.id as string,
+        lang:   route.query.lang as Locale ?? game.locale,
         set:    route.query.set as string,
         number: route.query.number as string,
-    }, v => v == null)));
+    };
+
+    return omitBy(query, v => v == null) as {
+        cardId:  string;
+        lang:    Locale;
+        set?:    string;
+        number?: string;
+    };
+});
 
 const jsonLink = computed(() => {
     const url = new URL('yugioh/card', apiBase);
@@ -529,10 +533,8 @@ const loadData = async () => {
         return;
     }
 
-    const { data: result } = await apiGet<CardPrintView>('/yugioh/card/print-view', apiQuery.value);
-
+    data.value = await trpc.yugioh.card.fuzzy(apiQuery.value);
     rotate.value = null;
-    data.value = result;
 };
 
 const relationIcon = (relation: string) => ({

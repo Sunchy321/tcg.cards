@@ -3,9 +3,8 @@ import { z } from 'zod';
 import { rarity } from './basic';
 
 export const setLocalization = z.strictObject({
-    lang:           z.string(),
-    name:           z.string().optional(),
-    isOfficialName: z.boolean().optional(),
+    lang: z.string(),
+    name: z.string(),
 });
 
 export const set = z.strictObject({

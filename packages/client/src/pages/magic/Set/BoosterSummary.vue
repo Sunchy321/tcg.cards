@@ -34,7 +34,7 @@ import { useRouter, useRoute } from 'vue-router';
 import BoosterAvatar from './BoosterAvatar.vue';
 import MultiToggle from 'src/components/MultiToggle.vue';
 
-import { Booster } from '@interface/magic/set';
+import { Booster } from '@model/magic/schema/set';
 
 const props = defineProps<{
     value: Booster;

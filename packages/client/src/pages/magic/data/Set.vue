@@ -79,11 +79,6 @@
                 <div class="code" style="flex-basis: 25px">
                     {{ l.lang }}
                 </div>
-                <q-checkbox
-                    :model-value="l.isOfficialName"
-                    :disable="l.name == null"
-                    @update:model-value="() => toggleIsWotcName(l.lang)"
-                />
                 <q-input
                     :model-value="l.name"
                     class="col"
@@ -97,7 +92,7 @@
                     @update:model-value="v => assignLink(l.lang, v as string)"
                 />
                 <q-btn
-                    type="a" :href="l.link" target="_blank"
+                    type="a" :href="l.link ?? undefined" target="_blank"
                     :disable="l.link == null"
                     icon="mdi-link"
                     flat round dense
@@ -118,15 +113,15 @@ import type {
 } from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useGame } from 'store/games/magic';
-
-import controlSetup from 'setup/control';
 
 import MagicSymbol from 'components/magic/Symbol.vue';
 
-import { Set, SetLocalization } from '@interface/magic/set';
+import { locale } from '@model/magic/schema/basic';
+import { Set as ISet, SetLocalization } from '@model/magic/schema/set';
 
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
+
+type Set = Omit<ISet, 'boosters'>;
 
 interface TapBtnGroupSlots extends QBtnToggleSlots {
     old1:   () => VNode[];
@@ -165,12 +160,9 @@ function symbolStyleOf(tap: string, white: string, flat: boolean) {
 
 const router = useRouter();
 const route = useRoute();
-const game = useGame();
-
-const { controlGet, controlPost } = controlSetup();
 
 const set = ref<string[]>([]);
-const data = ref<Set | null>(null);
+const data = ref<Set>();
 const filteredSet = ref<string[]>([]);
 
 const id = computed({
@@ -185,7 +177,7 @@ const id = computed({
     },
 });
 
-const localization = computed(() => game.locales.map(
+const localization = computed(() => locale.options.map(
     l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
 ));
 
@@ -252,9 +244,7 @@ const flat = computed({
 });
 
 const loadList = async () => {
-    const { data: sets } = await apiGet<string[]>('/magic/set');
-
-    set.value = sets;
+    set.value = await trpc.magic.set.list();
 
     if (data.value == null) {
         void loadData();
@@ -266,11 +256,7 @@ const loadData = async () => {
         await save();
     }
 
-    const { data: result } = await controlGet<Set>('/magic/set/raw', {
-        id: id.value,
-    });
-
-    data.value = result;
+    data.value = await trpc.magic.set.full({ setId: id.value });
 };
 
 const filterFn = (val: string, update: Parameters<NonNullable<QSelectProps['onFilter']>>[1]) => {
@@ -295,12 +281,8 @@ const assignName = (lang: string, name: string) => {
     const loc = data.value.localization.find(l => l.lang === lang);
 
     if (loc == null) {
-        data.value.localization = [...data.value.localization, { lang, name, isOfficialName: true }];
+        data.value.localization.push({ lang, name, link: null });
     } else {
-        if (loc.name == null || loc.name === '') {
-            loc.isOfficialName = true;
-        }
-
         loc.name = name;
     }
 };
@@ -322,20 +304,6 @@ const assignLink = (lang: string, link: string) => {
     }
 };
 
-const toggleIsWotcName = (lang: string) => {
-    if (data.value == null) {
-        return;
-    }
-
-    const loc = data.value.localization.find(l => l.lang === lang);
-
-    if (loc != null) {
-        loc.isOfficialName = !loc.isOfficialName;
-    }
-};
-
-type FillLink = Record<string, { link: string, name: string }>;
-
 const fillLink = async () => {
     if (data.value == null) {
         return;
@@ -345,9 +313,7 @@ const fillLink = async () => {
 
     if (enLink == null) { return; }
 
-    const { data: linkMap } = await controlGet<FillLink>('magic/set/fill-link', {
-        link: enLink,
-    });
+    const linkMap = await trpc.magic.set.fillLink({ link: enLink });
 
     console.log(linkMap);
 
@@ -368,31 +334,28 @@ const prettify = () => {
     }
 
     data.value.localization = data.value.localization.filter(
-        l => (l.name != null && l.name !== '') || (l.link != null && l.link !== ''),
+        l => l.name !== '' || l.link !== '',
     );
 
     for (const l of data.value.localization) {
-        if (l.name === '') {
-            delete l.name;
-            delete l.isOfficialName;
-        }
-
         if (l.link === '') {
-            delete l.link;
+            l.link = null;
         }
     }
 };
 
 const save = async () => {
-    if (data.value != null) {
-        prettify();
-
-        await controlPost('/magic/set/save', { data: data.value });
+    if (data.value == null) {
+        return;
     }
+
+    prettify();
+
+    await trpc.magic.set.save(data.value);
 };
 
 const calcField = async () => {
-    await controlPost('/magic/set/calc', { id: id.value });
+    await trpc.magic.set.calcField();
 };
 
 watch(set, () => { filteredSet.value = set.value; });

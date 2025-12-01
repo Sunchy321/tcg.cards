@@ -12,7 +12,7 @@
                 flat round dense
             />
             <q-btn
-                v-if="isAdmin"
+                v-if="editorEnabled"
                 :to="editorLink"
                 icon="mdi-file-edit"
                 flat round dense
@@ -54,22 +54,19 @@ import { useRoute } from 'vue-router';
 import { useGame } from 'store/games/lorcana';
 import { useTitle } from 'store/core';
 
-import basicSetup from 'setup/basic';
+import { Set } from '@model/lorcana/schema/set';
 
-import { Set as ISet } from '@interface/lorcana/set';
-
-import setProfile from 'src/common/lorcana/set';
-
-import { apiGet, apiBase } from 'boot/server';
-
-type Set = Omit<ISet, 'localization'> & {
-    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
-};
+import { apiBase } from 'boot/server';
+import { auth, checkAdmin } from 'src/auth';
+import { trpc } from 'src/trpc';
 
 const route = useRoute();
 const game = useGame();
+const session = auth.useSession();
 
-const { isAdmin } = basicSetup();
+const editorEnabled = computed(() => {
+    return checkAdmin(session.value, 'admin/lorcana');
+});
 
 const data = ref<Set | null>(null);
 
@@ -94,18 +91,7 @@ const apiLink = computed(() => `${apiBase}/lorcana/set?id=${id.value}`);
 const editorLink = computed(() => ({ name: 'lorcana/data', query: { tab: 'Set', id: id.value } }));
 
 const loadData = async () => {
-    const { data: result } = await apiGet<Set>('/lorcana/set', {
-        id: id.value,
-    });
-
-    data.value = result;
-
-    setProfile.update({
-        setId:        result.setId,
-        localization: result.localization,
-        type:         result.type,
-        releaseDate:  result.releaseDate,
-    });
+    data.value = await trpc.lorcana.set.full({ setId: id.value });
 };
 
 watch(() => id.value, loadData, { immediate: true });

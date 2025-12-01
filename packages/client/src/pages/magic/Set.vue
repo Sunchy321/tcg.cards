@@ -21,7 +21,7 @@
                 flat round dense
             />
             <q-btn
-                v-if="isAdmin"
+                v-if="editorEnabled"
                 :to="editorLink"
                 icon="mdi-file-edit"
                 flat round dense
@@ -68,27 +68,24 @@ import { useRoute } from 'vue-router';
 import { useTitle } from 'store/core';
 import { useGame } from 'store/games/magic';
 
-import basicSetup from 'setup/basic';
-
 import Booster from './set/BoosterSummary.vue';
 
-import { Set as ISet } from '@interface/magic/set';
+import { Set } from '@model/magic/schema/set';
 
-import setProfile from 'src/common/magic/set';
-import {
-    apiGet, apiBase, assetBase,
-} from 'boot/server';
+import { apiBase, assetBase } from 'boot/server';
 
-type Set = Omit<ISet, 'localization'> & {
-    localization: Record<string, Omit<ISet['localization'][0], 'lang'>>;
-};
+import { auth, checkAdmin } from 'src/auth';
+import { trpc } from 'src/trpc';
 
 const route = useRoute();
 const game = useGame();
+const session = auth.useSession();
 
-const { isAdmin } = basicSetup();
+const editorEnabled = computed(() => {
+    return checkAdmin(session.value, 'admin/lorcana');
+});
 
-const data = ref<Set | null>(null);
+const data = ref<Set>();
 
 const id = computed(() => route.params.id as string);
 
@@ -126,21 +123,7 @@ const editorLink = computed(() => ({ name: 'magic/data', query: { tab: 'Set', id
 const boosters = computed(() => data.value?.boosters ?? []);
 
 const loadData = async () => {
-    const { data: result } = await apiGet<Set>('/magic/set', {
-        id: id.value,
-    });
-
-    data.value = result;
-
-    setProfile.update({
-        setId:           result.setId,
-        parent:          result.parent,
-        localization:    result.localization,
-        type:            result.type,
-        symbolStyle:     result.symbolStyle,
-        doubleFacedIcon: result.doubleFacedIcon,
-        releaseDate:     result.releaseDate,
-    });
+    data.value = await trpc.magic.set.complete({ setId: id.value });
 };
 
 const iconUrl = (rarity: string) => {

@@ -30,11 +30,11 @@
                 <div class="code" style="flex-basis: 25px">
                     {{ l.lang }}
                 </div>
-                <q-checkbox
+                <!-- <q-checkbox
                     :model-value="l.isOfficialName"
                     :disable="l.name == null"
                     @update:model-value="() => toggleIsOfficialName(l.lang)"
-                />
+                /> -->
                 <q-input
                     :model-value="l.name"
                     class="col"
@@ -53,22 +53,17 @@ import {
 import type { QSelectProps } from 'quasar';
 
 import { useRouter, useRoute } from 'vue-router';
-import { useGame } from 'store/games/lorcana';
 
-import controlSetup from 'setup/control';
+import { locale } from '@model/lorcana/schema/basic';
+import { Set, SetLocalization } from '@model/lorcana/schema/set';
 
-import { Set, SetLocalization } from '@interface/lorcana/set';
-
-import { apiGet } from 'boot/server';
+import { trpc } from 'src/trpc';
 
 const router = useRouter();
 const route = useRoute();
-const game = useGame();
-
-const { controlGet, controlPost } = controlSetup();
 
 const set = ref<string[]>([]);
-const data = ref<Set | null>(null);
+const data = ref<Set>();
 const filteredSet = ref<string[]>([]);
 
 const id = computed({
@@ -83,7 +78,7 @@ const id = computed({
     },
 });
 
-const localization = computed(() => game.locales.map(
+const localization = computed(() => locale.options.map(
     l => data.value?.localization?.find(v => v.lang === l) ?? { lang: l } as SetLocalization,
 ));
 
@@ -92,24 +87,17 @@ const prettify = () => {
         return;
     }
 
-    data.value.localization = data.value.localization.filter(
-        l => (l.name != null && l.name !== ''),
-    );
-
-    for (const l of data.value.localization) {
-        if (l.name === '') {
-            delete l.name;
-            delete l.isOfficialName;
-        }
-    }
+    data.value.localization = data.value.localization.filter(l => l.name !== '');
 };
 
 const save = async () => {
-    if (data.value != null) {
-        prettify();
-
-        await controlPost('/lorcana/set/save', { data: data.value });
+    if (data.value == null) {
+        return;
     }
+
+    prettify();
+
+    await trpc.lorcana.set.save(data.value);
 };
 
 const loadData = async () => {
@@ -117,17 +105,11 @@ const loadData = async () => {
         await save();
     }
 
-    const { data: result } = await controlGet<Set>('/lorcana/set/raw', {
-        id: id.value,
-    });
-
-    data.value = result;
+    data.value = await trpc.lorcana.set.full({ setId: id.value });
 };
 
 const loadList = async () => {
-    const { data: sets } = await apiGet<string[]>('/lorcana/set');
-
-    set.value = sets;
+    set.value = await trpc.lorcana.set.list();
 
     if (data.value == null) {
         void loadData();
@@ -156,30 +138,20 @@ const assignName = (lang: string, name: string) => {
     const loc = data.value.localization.find(l => l.lang === lang);
 
     if (loc == null) {
-        data.value.localization = [...data.value.localization, { lang, name, isOfficialName: true }];
+        data.value.localization = [...data.value.localization, { lang, name }];
     } else {
-        if (loc.name == null || loc.name === '') {
-            loc.isOfficialName = true;
-        }
-
         loc.name = name;
     }
 };
 
-const toggleIsOfficialName = (lang: string) => {
-    if (data.value == null) {
-        return;
-    }
-
-    const loc = data.value.localization.find(l => l.lang === lang);
-
-    if (loc != null) {
-        loc.isOfficialName = !loc.isOfficialName;
-    }
-};
+// const toggleIsOfficialName = (_lang: string) => {
+//     if (data.value == null) {
+//         return;
+//     }
+// };
 
 const calcField = async () => {
-    await controlPost('/lorcana/set/calc', { id: id.value });
+    await trpc.lorcana.set.calcField();
 };
 
 watch(set, () => { filteredSet.value = set.value; });
