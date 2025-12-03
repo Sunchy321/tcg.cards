@@ -189,6 +189,7 @@
 1438: game_button
 1443: buff_durability_up
 1450: consider_spell_power # effects considering spell power that is not a damage
+1456: in_bobs_tavern
 1458: suppress_all_summon_vo
 1464: drag_minion # drag_minion_to_buy & drag_minion_to_sell
 1475: battlegrounds_magnetic_enchantment
@@ -462,6 +463,7 @@
 2860: battlegrounds_global_enchantment
 2861: avenge_extra_coin
 2862: mercenaries_reference_other_ability
+2863: ?magicfin_apprentice
 2870: battlegrounds_reborn_tooltip
 2871: ancient
 2872: reborn_keep_enchantment
@@ -686,6 +688,7 @@
 4238: repeatable
 4239: shattered
 4241: ?additional_rally
+4243: volumizer
 4252: anomaly_amicable_amendment
 4254: tavern_spell_give_stats
 4257: uses_charges
@@ -702,27 +705,24 @@
 4392: ysera
 4393: anomaly_partner_in_crime
 4403: temporal_loop
+4408: cost_timewarped_coin
 4410: nozdormu_dormant_effect_watcher
 4412: keep_timeline
 4414: lock_visual
 4435: immediately_transform
 4445: fable_bundle_card
-4508: visible_player_enchantment_card
-4579: has_timewarped_tavern_alt_text
-2863: ?magicfin_apprentice
-4243: volumizer
-4480: is_shop_choice
-4408: cost_timewarped_coin
-4503: battlegrounds_timewarped
-4466: minor_timewarped
-4467: major_timewarped
-1456: in_bobs_tavern
 4462: timewarped_with_race
 4463: timewarped_neutral
-4517: ?hero_power_4517
-4539: ?timewarped_4539
-4502: cast_when_bought
+4466: minor_timewarped
+4467: major_timewarped
 4479: ?timewarped_last_game
+4480: is_shop_choice
+4502: cast_when_bought
+4503: battlegrounds_timewarped
+4508: visible_player_enchantment_card
+4517: ?hero_power_4517
 4536: free_refresh_count
-4571: ?unknown_4571
+4539: timewarped_require_at_least_4_minion
 4544: big_card_as_tooltip_use_tooltip_system
+4571: ?unknown_4571
+4579: has_timewarped_tavern_alt_text
