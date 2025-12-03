@@ -27,6 +27,7 @@
 - ?mercenaries_2506
 - ?overload_variant
 - ?sire_denathrius
+- ?timewarped_last_game
 - ?trinket_3524
 - ?trinket_3861
 - ?unknown_759
@@ -98,6 +99,7 @@
 - entity_threshold_value
 - extra_minion
 - fallback_enchantment_portrait_dbid
+- free_refresh_count
 - gain_card_count
 - game_button
 - hero_deck_id
@@ -107,6 +109,7 @@
 - hide_stats
 - hide_watermark
 - immolate_stage
+- in_bobs_tavern
 - lettuce_current_cooldown
 - magnetic_race
 - manathirst
