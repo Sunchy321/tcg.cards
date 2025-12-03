@@ -3,7 +3,7 @@ import fs from 'fs';
 import { join } from 'path';
 
 import { dataPath } from '@/config';
-import { localPath as hsdataPath, langMap } from '@/hearthstone/hsdata/base';
+import { localPath as hsdataPath, langMap } from '@/hearthstone/data/hsdata/base';
 
 interface ILocValue {
     m_locValues: string[];

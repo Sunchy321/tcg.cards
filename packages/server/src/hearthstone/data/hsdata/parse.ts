@@ -15,7 +15,7 @@ import { ITag } from './task';
 
 import _ from 'lodash';
 
-import { loadPatch } from '@/hearthstone/logger';
+import { loadPatch as log } from '@/hearthstone/logger';
 
 type Nullable<T> = {
     [P in keyof T]: T[P] | null;
@@ -124,7 +124,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity, cardIdMap: Reco
                     continue;
                 } else if (field != null) {
                     try {
-                        const tagValue = this.getValue(t, field, cardIdMap);
+                        const { value: tagValue, alsoMechanic = false } = this.getValue(t, field, cardIdMap);
 
                         if (tagValue == null) {
                             errors.push(`Unknown tag ${
@@ -140,6 +140,50 @@ export function parseEntity(this: HsdataParser, entity: XEntity, cardIdMap: Reco
                             (result as any)[field.index].push(tagValue);
                         } else {
                             (result as any)[field.index] = tagValue;
+                        }
+
+                        if (alsoMechanic) {
+                            log.info(`Tag ${field.index} is also a mechanic`);
+
+                            const mechanic = this.getMapData<string>('mechanic')[id];
+
+                            if (type !== 'Int' && type !== 'Card') {
+                                errors.push(`Incorrect type ${type} of mechanic ${mechanic}`);
+                            }
+
+                            if (mechanic != null) {
+                                switch (mechanic) {
+                                case 'quest':
+                                    if (quest.questType == null) {
+                                        quest.questType = 'normal';
+                                    }
+                                    break;
+                                case 'sidequest':
+                                    quest.questType = 'side';
+                                    break;
+                                case 'quest_progress':
+                                    quest.questProgress = value;
+                                    break;
+                                case 'questline':
+                                    quest.questType = 'questline';
+                                    break;
+                                case 'questline_part':
+                                    quest.questPart = value;
+                                    break;
+                                default:
+                                    break;
+                                }
+
+                                if (this.getSpecialData<string[]>('mechanic-with-value').includes(mechanic)) {
+                                    result.mechanics.push(`${mechanic}:${value}`);
+                                } else if (this.getSpecialData<string[]>('mechanic-ignore-value').includes(mechanic)) {
+                                    result.mechanics.push(mechanic);
+                                } else if (value === 1) {
+                                    result.mechanics.push(mechanic);
+                                } else {
+                                    errors.push(`Mechanic ${mechanic} with non-1 value`);
+                                }
+                            }
                         }
                     } catch (e: any) {
                         errors.push(e.message);
@@ -168,7 +212,7 @@ export function parseEntity(this: HsdataParser, entity: XEntity, cardIdMap: Reco
                     if (result.race != null) {
                         result.race!.push(dualRace);
                     } else {
-                        loadPatch.info(`${result.cardId} has dual-race but no race`);
+                        log.info(`${result.cardId} has dual-race but no race`);
                     }
 
                     continue;

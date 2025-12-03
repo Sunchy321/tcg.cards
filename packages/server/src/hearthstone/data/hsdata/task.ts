@@ -75,28 +75,34 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
         return this.data[`tag.${name}`];
     }
 
-    private getValue(tag: XLocStringTag | XTag, info: ITag, cardIdMap: Record<number, string>): any {
+    private getValue(tag: XLocStringTag | XTag, info: ITag, cardIdMap: Record<number, string>): {
+        value:         any;
+        alsoMechanic?: boolean;
+    } {
         if (tag._attributes.type === 'LocString') {
-            return Object.entries(tag)
-                .filter(v => v[0] !== '_attributes')
-                .map(v => ({
-                    lang:  langMap[v[0]] || v[0].slice(2),
-                    value: v[1]._text,
-                }));
+            return {
+                value: Object.entries(tag)
+                    .filter(v => v[0] !== '_attributes')
+                    .map(v => ({
+                        lang:  langMap[v[0]] || v[0].slice(2),
+                        value: v[1]._text,
+                    })),
+            };
         } else if (info.bool) {
             const { value } = tag._attributes;
 
             if (value !== '1') {
-                throw new Error(`Tag ${info.index} with non-1 value`);
+                loadPatch.warn(`Boolean tag ${info.index} with non-1 value`);
+                return { value: false, alsoMechanic: true };
             } else {
-                return true;
+                return { value: true };
             }
         } else if (info.enum != null) {
             const enumId = info.enum === true ? info.index : info.enum;
             const id = tag._attributes.value;
 
             if (info.enum === 'cardId') {
-                return cardIdMap[Number.parseInt(id, 10)] ?? '';
+                return { value: cardIdMap[Number.parseInt(id, 10)] ?? '' };
             }
 
             const filename = (() => {
@@ -135,16 +141,16 @@ export class PatchLoader extends Task<ILoadPatchStatus> {
 
             const data = this.getMapData<any>(filename);
 
-            return data[id];
+            return { value: data[id] };
         } else {
             switch (tag._attributes.type as string) {
             case 'Int':
-                return Number.parseInt(tag._attributes.value, 10);
+                return { value: Number.parseInt(tag._attributes.value, 10) };
             case 'String':
-                return tag._text!;
+                return { value: tag._text! };
             case 'Card':
                 // use hsdata attribute here
-                return tag._attributes.cardID!;
+                return { value: tag._attributes.cardID! };
             default:
                 throw new Error(`New object type ${tag._attributes.type}`);
             }

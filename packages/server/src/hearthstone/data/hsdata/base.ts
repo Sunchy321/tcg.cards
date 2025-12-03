@@ -30,5 +30,5 @@ export interface HsdataParser {
 
     getMapData<T>(name: string): Record<string, T>;
     getSpecialData<T>(name: string): T;
-    getValue(tag: XLocStringTag | XTag, info: ITag, cardIdMap: Record<number, string>): any;
+    getValue(tag: XLocStringTag | XTag, info: ITag, cardIdMap: Record<number, string>): { value: any, alsoMechanic?: boolean };
 }
