@@ -1,5 +1,5 @@
 <template>
-    <q-input v-model="input" :label="model" @keypress.enter="search">
+    <q-input v-model="input" :label="model" @keypress.enter="search" @paste="onPaste">
         <template #prepend>
             <q-chip
                 v-for="(id, idx) in candidate" :key="id"
@@ -188,6 +188,10 @@ const props = defineProps<{
 
 const model = defineModel<string>({ required: true });
 
+const emit = defineEmits<{
+    pasteMulti: [lines: string[]];
+}>();
+
 const router = useRouter();
 const game = useGame();
 
@@ -209,13 +213,17 @@ const getData = async (name: string, id: string): Promise<CardEntityView | CardE
     }
 
     if (name === '') {
-        const data = await trpc.hearthstone.card.summary({
-            cardId:  id,
-            lang:    game.locale,
-            version: props.version,
-        });
+        try {
+            const data = await trpc.hearthstone.card.summary({
+                cardId:  id,
+                lang:    game.locale,
+                version: props.version,
+            });
 
-        return data;
+            return data;
+        } catch (_e) {
+            name = id;
+        }
     }
 
     let data = await trpc.hearthstone.card.summaryByName({
@@ -293,5 +301,15 @@ const href = computed(() => {
         },
     }).href;
 });
+
+const onPaste = (event: ClipboardEvent) => {
+    const text = event.clipboardData?.getData('text') ?? '';
+    const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
+
+    if (lines.length > 1) {
+        event.preventDefault();
+        emit('pasteMulti', lines);
+    }
+};
 
 </script>

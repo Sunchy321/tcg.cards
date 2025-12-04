@@ -123,6 +123,7 @@
                             :model-value="getId(c)"
                             :version="version"
                             @update:model-value="v => updateId(c, v as string)"
+                            @paste-multi="lines => onPasteMulti(c, lines)"
                         />
 
                         <q-input
@@ -673,6 +674,31 @@ const addRelated = (item: AnnouncementItem) => {
     item.relatedCards ??= [];
 
     item.relatedCards.push('');
+};
+
+const onPasteMulti = (currentItem: AnnouncementItem, lines: string[]) => {
+    updateId(currentItem, lines[0]);
+
+    const currentIndex = items.value.indexOf(currentItem);
+
+    if (currentIndex === -1) {
+        return;
+    }
+
+    const newItems: AnnouncementItem[] = lines.slice(1).map(line => ({
+        type:          currentItem.type,
+        effectiveDate: currentItem.effectiveDate,
+        format:        currentItem.format,
+        cardId:        currentItem.type === 'card_change' || currentItem.type === 'card_adjustment' ? line : null,
+        setId:         currentItem.type === 'set_change' ? line : null,
+        ruleId:        currentItem.type === 'rule_change' ? line : null,
+        status:        currentItem.status,
+        score:         currentItem.score,
+        adjustment:    currentItem.type === 'card_adjustment' ? [] : null,
+        relatedCards:  null,
+    }));
+
+    items.value.splice(currentIndex + 1, 0, ...newItems);
 };
 
 const loadData = async () => {
