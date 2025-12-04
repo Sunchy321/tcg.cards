@@ -30,3 +30,45 @@
 body.force-lowercase *
     text-transform: lowercase !important
 
+@function get-class($name, $prefix: '')
+    @if $name != null
+        @return '.#{$prefix}#{$name}'
+    @else
+        @return ''
+
+@function feature-setting($type, $tap, $white)
+    $feature: ()
+
+    @if $type == 'shadow'
+        $feature: append($feature, 'ss01', $separator: comma)
+    @else if $type == 'flat'
+        $feature: append($feature, 'ss02', $separator: comma)
+
+    @if $tap == 'old1'
+        $feature: append($feature, 'salt' 1, $separator: comma)
+    @else if $tap == 'old2'
+        $feature: append($feature, 'salt' 2, $separator: comma)
+
+    @if $white == 'old'
+        $feature: append($feature, 'salt' 1, $separator: comma)
+
+    @return $feature
+
+.magic-symbol
+    font-family: magic-symbol
+    display: inline-block
+    font-variant-ligatures: initial
+    font-feature-settings: initial
+
+    @each $type in null, shadow, flat
+        @each $tap in null, old1, old2
+            @each $white in null, old
+                &#{get-class($type)}#{get-class($tap, 'tap-')}#{get-class($white, 'white-')}
+                    @if length(feature-setting($type, $tap, $white)) > 0
+                        font-feature-settings: feature-setting($type, $tap, $white)
+
+    &.cost
+        margin-right: 1px
+
+    &.mini
+        font-size: 50%
