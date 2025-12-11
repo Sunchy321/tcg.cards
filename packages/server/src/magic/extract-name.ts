@@ -1,7 +1,7 @@
 import { db } from '@/drizzle';
 import { CardView } from '@/magic/schema/card';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { isEqual, uniq } from 'lodash';
 
 import internalData from '@/internal-data';
@@ -144,14 +144,10 @@ export default class CardNameExtractor {
     extract(text: string, blacklist: string[] = []): { cardId: string, text: string, part?: number }[] {
         const oldBlackList = this.blacklist;
         this.blacklist = [...this.blacklist, ...blacklist];
-
-        console.debug('Start match');
-        const now = Date.now();
+        this.names = [];
 
         const rawMatches = this.ahoCorasick.search(text);
         const longestMatches: { start: number, end: number, text: string }[] = [];
-
-        console.debug('Elapsed:', Date.now() - now);
 
         // Determine whether a character is a word character (supports Unicode letters, digits, underscore, and apostrophes)
         const isWordChar = (ch?: string) => ch != null && /[\p{L}\p{N}_'’]/u.test(ch);
@@ -168,14 +164,14 @@ export default class CardNameExtractor {
             // Treat the position before an apostrophe as a word boundary to allow matches like "xxx's"
             const isApostrophe = after === '\'' || after === '’';
 
-            console.debug({
-                longest,
-                before,
-                after,
-                isApostrophe,
-                isWordCharBefore: isWordChar(before),
-                isWordCharAfter:  isWordChar(after),
-            });
+            // console.debug({
+            //     longest,
+            //     before,
+            //     after,
+            //     isApostrophe,
+            //     isWordCharBefore: isWordChar(before),
+            //     isWordCharAfter:  isWordChar(after),
+            // });
 
             if (!isWordChar(before) && (!isWordChar(after) || isApostrophe)) {
                 longestMatches.push({ start, end, text: longest });
@@ -211,7 +207,10 @@ export default class CardNameExtractor {
             .where(and(
                 eq(CardView.card.category, 'default'),
                 sql`${'vanguard'} != ALL(${CardView.part.typeMain})`,
-                sql`${'token'} != ALL(${CardView.part.typeSuper})`,
+                or(
+                    isNull(CardView.part.typeSuper),
+                    sql`${'token'} != ALL(${CardView.part.typeSuper})`,
+                ),
             ))
             .groupBy(CardView.cardId, CardView.lang)
             .orderBy(CardView.lang);

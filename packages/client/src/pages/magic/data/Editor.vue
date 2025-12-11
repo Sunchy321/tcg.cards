@@ -164,6 +164,7 @@
 
                 <q-btn icon="mdi-new-box" dense flat round @click="newData" />
                 <q-btn icon="mdi-scale-balance" dense flat round @click="getLegality" />
+                <q-btn icon="mdi-book" dense flat round @click="extractRulingCards" />
 
                 <q-btn
                     icon="mdi-card-multiple-outline"
@@ -1387,6 +1388,12 @@ const getLegality = async () => {
     if (card.value != null) {
         card.value.legalities = mapValues(result, v => v.result);
     }
+};
+
+const extractRulingCards = async () => {
+    const cards = await trpc.magic.card.extractRulingCards(id.value);
+
+    console.log(cards);
 };
 
 type ScanResult = {

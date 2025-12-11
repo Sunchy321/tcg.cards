@@ -9,6 +9,8 @@ import { cardProfile, cardView } from '@model/magic/schema/card';
 import { CardEditorView as ICardEditorView, cardEditorView, cardFullView } from '@model/magic/schema/print';
 import { legality } from '@model/magic/schema/game-change';
 
+import CardNameExtractor from '../extract-name';
+
 import { db } from '@/drizzle';
 import { Card, CardLocalization, CardPart, CardPartLocalization, CardView } from '../schema/card';
 import { CardEditorView, Print, PrintPart } from '../schema/print';
@@ -23,6 +25,7 @@ import internalData from '@/internal-data';
 
 import { commaRegex, parenRegex } from '@static/magic/special';
 import openai from '@/ai';
+import { intoRichText } from '../util';
 
 const random = os
     .route({
@@ -396,6 +399,59 @@ const getLegality = os
         return recorder;
     });
 
+const extractRulingCards = os
+    .input(z.string())
+    .output(z.strictObject({
+        cardId: z.string(),
+        text:   z.string(),
+        part:   z.int().min(0).optional(),
+    }).array().array())
+    .handler(async ({ input }) => {
+        const cardId = input;
+
+        const cardNames = await CardNameExtractor.names();
+
+        const card = await db.select()
+            .from(Card)
+            .where(eq(Card.cardId, cardId))
+            .then(rows => rows[0]);
+
+        if (card == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const cardParts = await db.select()
+            .from(CardPart)
+            .where(eq(CardPart.cardId, cardId))
+            .orderBy(asc(CardPart.partIndex));
+
+        const rulings = await db.select()
+            .from(Ruling)
+            .where(eq(Ruling.cardId, cardId));
+
+        const extractor = new CardNameExtractor({
+            cardNames,
+
+            thisName: { id: card.cardId, name: [card.name, ...cardParts.map(p => p.name)] },
+        });
+
+        const cards = [];
+
+        for (const ruling of rulings) {
+            const cardsInText = extractor.extract(ruling.text);
+
+            cards.push(cardsInText);
+
+            const richText = intoRichText(ruling.text, cardsInText);
+
+            await db.update(Ruling)
+                .set({ richText })
+                .where(eq(Ruling.id, ruling.id));
+        }
+
+        return cards;
+    });
+
 const assetBase = 'https://asset.tcg.cards';
 
 const scanCardText = os
@@ -484,6 +540,7 @@ export const cardTrpc = {
     needEdit,
     update,
     getLegality,
+    extractRulingCards,
     scanCardText,
 };
 

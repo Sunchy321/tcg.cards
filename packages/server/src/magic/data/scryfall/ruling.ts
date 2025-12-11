@@ -1,18 +1,20 @@
 import Task from '@/common/task';
 
-import Card from '@/magic/db/card';
-import Ruling from '@/magic/db/ruling';
+import { db } from '@/drizzle';
+import { Card, CardPart } from '@/magic/schema/card';
+import { Ruling } from '@/magic/schema/ruling';
 
-import { Ruling as IRuling } from '@interface/magic/ruling';
-import { RawRuling } from '@interface/magic/scryfall/card';
+import { RawRuling } from '@model/magic/schema/data/scryfall/card';
+
+import { Status } from './status';
 
 import LineReader from '@/common/line-reader';
 import CardNameExtractor from '@/magic/extract-name';
 
-import { Status } from '../status';
-
+import { sql, asc } from 'drizzle-orm';
 import { join } from 'path';
 import internalData from '@/internal-data';
+import { intoRichText } from '@/magic/util';
 import { convertJson, bulkPath } from './common';
 
 export type SpellingMistakes = {
@@ -21,12 +23,14 @@ export type SpellingMistakes = {
     correction: string;
 }[];
 
-export default class RulingLoader extends Task<Status> {
+export class RulingLoader extends Task<Status> {
     file:       string;
     filePath:   string;
     lineReader: LineReader;
 
-    init(fileName: string): void {
+    constructor(fileName: string) {
+        super();
+
         this.file = fileName;
         this.filePath = join(bulkPath, `${fileName}.json`);
         this.lineReader = new LineReader(this.filePath);
@@ -72,7 +76,7 @@ export default class RulingLoader extends Task<Status> {
 
         start = Date.now();
 
-        await Ruling.deleteMany({});
+        await db.delete(Ruling);
 
         const rawRulings: RawRuling[] = [];
         const oracleIds = new Set<string>();
@@ -84,14 +88,32 @@ export default class RulingLoader extends Task<Status> {
             count += 1;
         }
 
-        const cards = await Card.find({ 'scryfall.oracleId': { $in: Array.from(oracleIds) } });
+        const cards = await db.select().from(Card)
+            .where(sql`${Card.scryfallOracleId} && ${sql.raw(`'{${Array.from(oracleIds).join(',')}}'`)}`);
+
+        // Collect all card IDs and fetch card parts in one query
+        const cardIds = cards.map(c => c.cardId);
+        const allCardParts = await db.select().from(CardPart)
+            .where(sql`${CardPart.cardId} = ANY(${sql.raw(`'{${cardIds.join(',')}}'`)})`)
+            .orderBy(asc(CardPart.cardId), asc(CardPart.partIndex));
+
+        // Create a map for quick lookup
+        const cardPartsMap = new Map<string, typeof allCardParts>();
+        for (const part of allCardParts) {
+            if (!cardPartsMap.has(part.cardId)) {
+                cardPartsMap.set(part.cardId, []);
+            }
+            cardPartsMap.get(part.cardId)!.push(part);
+        }
 
         method = 'assign';
         total = rawRulings.length;
         count = 0;
 
+        const extractor = new CardNameExtractor({ cardNames });
+
         for (const rawRuling of rawRulings) {
-            const matchCards = cards.filter(c => c.scryfall.oracleId.includes(rawRuling.oracle_id));
+            const matchCards = cards.filter(c => c.scryfallOracleId.includes(rawRuling.oracle_id));
 
             if (matchCards.length !== 1) {
                 console.log(`No unique card with oracle id ${rawRuling.oracle_id} found. Skipping...`);
@@ -108,21 +130,22 @@ export default class RulingLoader extends Task<Status> {
                 }
             }
 
-            const cardsInText = new CardNameExtractor({
-                text,
-                cardNames,
-                thisName: { id: card.cardId, name: card.parts.map(p => p.name) },
-            }).extract();
+            // Get card parts from the pre-loaded map
+            const cardParts = cardPartsMap.get(card.cardId) ?? [];
 
-            const ruling: IRuling = {
+            extractor.thisName = { id: card.cardId, name: [card.name, ...cardParts.map(p => p.name)] };
+
+            const cardsInText = extractor.extract(text);
+
+            const richText = intoRichText(text, cardsInText);
+
+            await db.insert(Ruling).values({
                 cardId: card.cardId,
                 source: rawRuling.source,
                 date:   rawRuling.published_at,
                 text,
-                cards:  cardsInText,
-            };
-
-            await Ruling.create(ruling);
+                richText,
+            });
 
             count += 1;
         }

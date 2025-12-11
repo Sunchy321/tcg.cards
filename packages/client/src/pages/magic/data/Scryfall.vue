@@ -227,21 +227,11 @@ const loadCard = async (file: string) => {
 };
 
 const loadRuling = async (file: string) => {
-    const ws = controlWs('/magic/scryfall/load-ruling', { file });
+    const sse = await trpc.magic.data.scryfall.loadRuling({ file });
 
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as Progress;
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = null;
-            void loadData();
-
-            resolve(undefined);
-        };
-    });
+    for await (const msg of sse) {
+        progress.value = msg;
+    }
 };
 
 const getSet = async () => {

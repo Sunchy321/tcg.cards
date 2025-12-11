@@ -7,6 +7,7 @@ import { status } from '@model/magic/schema/data/status';
 
 import { BulkGetter } from '@/magic/data/scryfall/bulk';
 import { CardLoader } from '@/magic/data/scryfall/card';
+import { RulingLoader } from '@/magic/data/scryfall/ruling';
 
 const bulk = os
     .input(z.void())
@@ -32,17 +33,23 @@ const loadCard = os
 
         const loader = new CardLoader(file);
 
-        for await (const status of loader.intoGenerator()) {
-            yield status;
-        }
+        yield* loader.intoGenerator();
+    });
 
-        console.log('complete');
+const loadRuling = os
+    .input(z.object({ file: z.string() }))
+    .output(eventIterator(status))
+    .handler(async function* ({ input }) {
+        const { file } = input;
 
-        // yield* loader.intoGenerator();
+        const loader = new RulingLoader(file);
+
+        yield* loader.intoGenerator();
     });
 
 export const scryfallTrpc = {
     bulk,
     downloadBulk,
     loadCard,
+    loadRuling,
 };

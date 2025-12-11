@@ -19,50 +19,6 @@ const router = new KoaRouter<DefaultState, Context>();
 
 router.prefix('/scryfall');
 
-const cardLoader = new CardLoader();
-
-router.get(
-    '/load-card',
-    websocket,
-    async ctx => {
-        const ws = await ctx.ws();
-
-        const { file } = mapValues(ctx.query, toSingle);
-
-        if (file == null) {
-            ctx.status = 401;
-            ws.close();
-        } else {
-            cardLoader.init(file);
-            cardLoader.bind(ws);
-        }
-
-        ctx.status = 200;
-    },
-);
-
-const rulingLoader = new RulingLoader();
-
-router.get(
-    '/load-ruling',
-    websocket,
-    async ctx => {
-        const ws = await ctx.ws();
-
-        const { file } = mapValues(ctx.query, toSingle);
-
-        if (file == null) {
-            ctx.status = 401;
-            ws.close();
-        } else {
-            rulingLoader.init(file);
-            rulingLoader.bind(ws);
-        }
-
-        ctx.status = 200;
-    },
-);
-
 const setGetter = new SetGetter();
 
 router.get(

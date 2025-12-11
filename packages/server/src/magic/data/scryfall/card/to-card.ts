@@ -249,9 +249,9 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
             cardId,
             lang,
 
-            name:       cardFaces.map(f => f.printed_name).join(' // '),
-            typeline:   cardFaces.map(f => f.printed_type_line).join(' // '),
-            text:       cardFaces.map(f => f.printed_text).join('\n////////////////////\n'),
+            name:       cardFaces.map(f => f.printed_name ?? f.name).join(' // '),
+            typeline:   cardFaces.map(f => f.printed_type_line ?? f.type_line ?? '').join(' // '),
+            text:       cardFaces.map(f => f.printed_text ?? f.oracle_text ?? '').join('\n////////////////////\n'),
             __lastDate: data.released_at,
         },
 
