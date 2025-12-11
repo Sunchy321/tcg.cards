@@ -60,15 +60,19 @@ export function parseTypeline(typeline: string): Type {
     };
 }
 
+const colors = 'WUBRG'.split('') as Colors;
+
 export function convertColor(color: Colors): string {
     return color
-        .sort((a, b) => ['W', 'U', 'B', 'R', 'G'].indexOf(a) - ['W', 'U', 'B', 'R', 'G'].indexOf(b))
+        .sort((a, b) => colors.indexOf(a) - colors.indexOf(b))
         .join('');
 }
 
+const manas = 'WUBRGC'.split('') as Manas;
+
 export function convertMana(mana: Manas): string {
     return mana
-        .sort((a, b) => ['W', 'U', 'B', 'R', 'G', 'C'].indexOf(a) - ['W', 'U', 'B', 'R', 'G', 'C'].indexOf(b))
+        .sort((a, b) => manas.indexOf(a) - manas.indexOf(b))
         .join('');
 }
 

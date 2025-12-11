@@ -55,7 +55,7 @@ export const formats = [
 
 export const colors = ['W', 'U', 'B', 'R', 'G', 'O', 'P'];
 
-export const color = z.string().transform(val => colors.filter((c, i) => val[i] === '1').join(''));
+export const color = z.string();
 
 export const rarity = z.enum(['bonus', 'common', 'mythic', 'rare', 'special', 'uncommon']);
 

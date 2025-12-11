@@ -5,14 +5,14 @@ export const status = z.strictObject({
     type:   z.string(),
 
     amount: z.strictObject({
-        updated: z.number().int().min(0).optional(),
-        count:   z.number().int().min(0),
-        total:   z.number().int().min(0).optional(),
+        updated: z.int().min(0).optional(),
+        count:   z.int().min(0),
+        total:   z.int().min(0).optional(),
     }),
 
     time: z.strictObject({
-        elapsed:   z.number().int().min(0),
-        remaining: z.number().int().min(0),
+        elapsed:   z.int().min(0),
+        remaining: z.number().min(0).or(z.literal(Infinity)),
     }).optional(),
 });
 

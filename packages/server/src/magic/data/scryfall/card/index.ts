@@ -9,6 +9,10 @@ import { Scryfall } from '@/magic/schema/scryfall';
 import { Status } from '@model/magic/schema/data/status';
 import { RawCard } from '@model/magic/schema/data/scryfall/card';
 
+import { DrizzleQueryError } from 'drizzle-orm/errors';
+import { DatabaseError } from 'pg';
+import { ZodError } from 'zod';
+
 import { and, eq, sql } from 'drizzle-orm';
 import { join } from 'path';
 import internalData from '@/internal-data';
@@ -20,7 +24,8 @@ import { toNSCard, RawCardNoArtSeries } from './to-ns-card';
 import { splitDFT } from './split-dft';
 import { toCard } from './to-card';
 import { mergeCard, mergeCardLocalization, mergeCardPart, mergeCardPartLocalization, mergePrint, mergePrintPart } from './merge';
-import { bulkUpdation } from '@/magic/logger';
+
+import { bulkUpdation as log } from '@/magic/logger';
 
 const bucketSize = 500;
 
@@ -38,7 +43,7 @@ export class CardLoader extends Task<Status> {
     }
 
     async startImpl(): Promise<void> {
-        bulkUpdation.info('================== MERGE CARD ==================');
+        log.info('================== MERGE CARD ==================');
 
         const frontCardSet = internalData<string[]>('magic.front-card-set');
 
@@ -98,184 +103,294 @@ export class CardLoader extends Task<Status> {
                 return;
             }
 
-            await db.insert(Scryfall).values(jsons.map(j => ({
-                cardId:     j.id,
-                oracleId:   j.oracle_id,
-                legalities: j.legalities,
-            })));
+            try {
+                await db.insert(Scryfall).values(jsons.map(j => {
+                    let oracleId = j.oracle_id;
 
-            const oracleIds = [];
-
-            for (const json of jsons) {
-                if (json.oracle_id != null) {
-                    oracleIds.push(json.oracle_id);
-                }
-
-                if (json.card_faces != null) {
-                    for (const face of json.card_faces) {
-                        if (face.oracle_id != null) {
-                            oracleIds.push(face.oracle_id);
+                    // process reversible_cards without oracle ID
+                    if (oracleId == null) {
+                        if (j.card_faces == null) {
+                            throw new Error(`Card ${j.id} has no oracle ID and no card faces`);
                         }
+
+                        for (const face of j.card_faces) {
+                            if (face.oracle_id == null) {
+                                throw new Error(`Card face of card ${j.id} has no oracle ID`);
+                            } else if (face.oracle_id != j.card_faces[0].oracle_id) {
+                                throw new Error(`Card face of card ${j.id} has different oracle ID`);
+                            }
+                        }
+
+                        oracleId = j.card_faces[0].oracle_id!;
                     }
+
+                    return {
+                        cardId:     j.id,
+                        oracleId:   oracleId,
+                        legalities: j.legalities,
+                    };
+                }));
+            } catch (e) {
+                log.error('Error inserting Scryfall data:');
+
+                if (e instanceof DrizzleQueryError) {
+                    log.error('Drizzle error details: ' + JSON.stringify({
+                        query:   e.query,
+                        message: e.message,
+                        cause:   e.cause,
+                    }));
                 }
+
+                throw e;
             }
+
+            // 预处理所有卡片数据
+            const allCardPrints: Awaited<ReturnType<typeof toCard>>[] = [];
+            const processedJsons: RawCard[] = [];
 
             for (const json of jsons) {
                 if (json.layout === 'art_series' || frontCardSet.includes(json.set)) {
                     continue;
                 }
 
-                const cardPrints = splitDFT(toNSCard(json as RawCardNoArtSeries)).map(c => toCard(c, setCodeMap));
+                try {
+                    const cardPrints = splitDFT(toNSCard(json as RawCardNoArtSeries))
+                        .map(c => toCard(c, setCodeMap));
 
-                for (const cp of cardPrints) {
-                    await db.transaction(async tx => {
-                        // update Card
-                        const card = await tx.select()
-                            .from(Card)
-                            .where(sql`${cp.card.scryfallOracleId} = ANY(${Card.scryfallOracleId})`)
-                            .then(rows => rows[0]);
+                    allCardPrints.push(...cardPrints);
+                    processedJsons.push(json);
+                } catch (e) {
+                    // 立即处理预处理错误
+                    if (e instanceof ZodError) {
+                        log.error(`Zod validation error for card ${json.id} / ${json.name}:` + JSON.stringify({
+                            cardId:   json.id,
+                            cardName: json.name,
+                            errors:   e.issues.map(err => ({
+                                path:    err.path.join('.'),
+                                message: err.message,
+                                code:    err.code,
+                            })),
+                        }));
+                    }
+                    throw e;
+                }
+            }
 
-                        if (card == null) {
-                            await tx.insert(Card).values(cp.card);
+            // 批量收集需要查询的ID
+            const oracleIds = new globalThis.Set<string>();
+            const cardIds = new globalThis.Set<string>();
+            const printKeys = new globalThis.Set<string>();
+
+            for (const cp of allCardPrints) {
+                cp.card.scryfallOracleId.forEach(id => oracleIds.add(id));
+                cardIds.add(cp.print.cardId);
+                printKeys.add(`${cp.print.cardId}:${cp.print.set}:${cp.print.number}:${cp.print.lang}`);
+            }
+
+            // 批量查询现有数据
+            const [existingCards, existingCardLocalizations, existingCardParts, existingCardPartLocalizations, existingPrints, existingPrintParts] = await Promise.all([
+                db.select().from(Card).where(sql`${Card.scryfallOracleId} && ${sql.raw(`'{${Array.from(oracleIds).join(',')}}'`)}`),
+                db.select().from(CardLocalization).where(sql`${CardLocalization.cardId} = ANY(${sql.raw(`'{${Array.from(cardIds).join(',')}}'`)})`),
+                db.select().from(CardPart).where(sql`${CardPart.cardId} = ANY(${sql.raw(`'{${Array.from(cardIds).join(',')}}'`)})`),
+                db.select().from(CardPartLocalization).where(sql`${CardPartLocalization.cardId} = ANY(${sql.raw(`'{${Array.from(cardIds).join(',')}}'`)})`),
+                db.select().from(Print).where(sql`${Print.cardId} = ANY(${sql.raw(`'{${Array.from(cardIds).join(',')}}'`)})`),
+                db.select().from(PrintPart).where(sql`${PrintPart.cardId} = ANY(${sql.raw(`'{${Array.from(cardIds).join(',')}}'`)})`),
+            ]);
+
+            // 创建查找映射
+            const cardMap = new Map<string, typeof existingCards[0]>();
+            existingCards.forEach(card => {
+                card.scryfallOracleId.forEach(id => cardMap.set(id, card));
+            });
+
+            const cardLocalizationMap = new Map<string, typeof existingCardLocalizations[0]>();
+            existingCardLocalizations.forEach(loc => {
+                cardLocalizationMap.set(`${loc.cardId}:${loc.lang}`, loc);
+            });
+
+            const cardPartMap = new Map<string, typeof existingCardParts[0]>();
+            existingCardParts.forEach(part => {
+                cardPartMap.set(`${part.cardId}:${part.partIndex}`, part);
+            });
+
+            const cardPartLocalizationMap = new Map<string, typeof existingCardPartLocalizations[0]>();
+            existingCardPartLocalizations.forEach(loc => {
+                cardPartLocalizationMap.set(`${loc.cardId}:${loc.partIndex}:${loc.lang}`, loc);
+            });
+
+            const printMap = new Map<string, typeof existingPrints[0]>();
+            existingPrints.forEach(print => {
+                printMap.set(`${print.cardId}:${print.set}:${print.number}:${print.lang}`, print);
+            });
+
+            const printPartMap = new Map<string, typeof existingPrintParts[0]>();
+            existingPrintParts.forEach(part => {
+                printPartMap.set(`${part.cardId}:${part.set}:${part.number}:${part.lang}:${part.partIndex}`, part);
+            });
+
+            // 使用单个事务处理整个批次
+            await db.transaction(async tx => {
+                for (let i = 0; i < allCardPrints.length; i++) {
+                    const cp = allCardPrints[i];
+                    const json = processedJsons[Math.floor(i / allCardPrints.length * processedJsons.length)];
+
+                    try {
+                        // 查找现有 Card
+                        const existingCard = cp.card.scryfallOracleId.map(id => cardMap.get(id)).find(Boolean);
+
+                        if (!existingCard) {
+                            const [insertedCard] = await tx.insert(Card).values(cp.card).returning();
+                            insertedCard.scryfallOracleId.forEach(id => cardMap.set(id, insertedCard));
                         } else {
-                            await mergeCard(card, cp.card);
-
-                            await tx.update(Card).set(card).where(eq(Card.cardId, card.cardId));
+                            await mergeCard(existingCard, cp.card);
+                            await tx.update(Card).set(existingCard).where(eq(Card.cardId, existingCard.cardId));
                         }
 
-                        // update CardLocalization
-                        const cardLocalization = await tx.select()
-                            .from(CardLocalization)
-                            .where(and(
-                                eq(CardLocalization.cardId, cp.print.cardId),
-                                eq(CardLocalization.lang, cp.print.lang),
-                            ))
-                            .then(rows => rows[0]);
-
+                        // 处理 CardLocalization
+                        const existingCardLocalization = cardLocalizationMap.get(`${cp.cardLocalization.cardId}:${cp.cardLocalization.lang}`);
                         let updateActivated: boolean;
 
-                        if (cardLocalization == null) {
-                            await tx.insert(CardLocalization).values(cp.cardLocalization);
-
+                        if (!existingCardLocalization) {
+                            const [insertedCardLocalization] = await tx.insert(CardLocalization).values(cp.cardLocalization).returning();
+                            cardLocalizationMap.set(`${insertedCardLocalization.cardId}:${insertedCardLocalization.lang}`, insertedCardLocalization);
                             updateActivated = true;
                         } else {
-                            if (cardLocalization.lang == 'en' || cardLocalization.__lastDate < cp.cardLocalization.__lastDate) {
-                                mergeCardLocalization(cardLocalization, cp.cardLocalization);
-
-                                await tx.update(CardLocalization).set(cardLocalization).where(and(
-                                    eq(CardLocalization.cardId, cardLocalization.cardId),
-                                    eq(CardLocalization.lang, cardLocalization.lang),
+                            if (existingCardLocalization.lang === 'en' || existingCardLocalization.__lastDate < cp.cardLocalization.__lastDate) {
+                                mergeCardLocalization(existingCardLocalization, cp.cardLocalization);
+                                await tx.update(CardLocalization).set(existingCardLocalization).where(and(
+                                    eq(CardLocalization.cardId, existingCardLocalization.cardId),
+                                    eq(CardLocalization.lang, existingCardLocalization.lang),
                                 ));
-
                                 updateActivated = true;
                             } else {
                                 updateActivated = false;
                             }
                         }
 
-                        // update CardPart
+                        // 处理 CardPart
                         for (const part of cp.cardPart) {
-                            const cardPart = await tx.select()
-                                .from(CardPart)
-                                .where(eq(CardPart.cardId, part.cardId))
-                                .then(rows => rows[0]);
+                            const existingCardPart = cardPartMap.get(`${part.cardId}:${part.partIndex}`);
 
-                            if (cardPart == null) {
-                                await tx.insert(CardPart).values(part);
+                            if (!existingCardPart) {
+                                const [insertedCardPart] = await tx.insert(CardPart).values(part).returning();
+                                cardPartMap.set(`${insertedCardPart.cardId}:${insertedCardPart.partIndex}`, insertedCardPart);
                             } else {
-                                mergeCardPart(cardPart, part);
-
-                                await tx.update(CardPart).set(cardPart).where(eq(CardPart.cardId, cardPart.cardId));
-                            }
-                        }
-
-                        // update CardPartLocalization
-                        for (const loc of cp.cardPartLocalization) {
-                            const cardPartLocalization = await tx.select()
-                                .from(CardPartLocalization)
-                                .where(and(
-                                    eq(CardPartLocalization.cardId, loc.cardId),
-                                    eq(CardPartLocalization.partIndex, loc.partIndex),
-                                    eq(CardPartLocalization.lang, loc.lang),
-                                ))
-                                .then(rows => rows[0]);
-
-                            if (cardPartLocalization == null) {
-                                await tx.insert(CardPartLocalization).values(loc);
-                            } else {
-                                if (updateActivated) {
-                                    mergeCardPartLocalization(cardPartLocalization, loc);
-
-                                    await tx.update(CardPartLocalization).set(cardPartLocalization).where(and(
-                                        eq(CardPartLocalization.cardId, cardPartLocalization.cardId),
-                                        eq(CardPartLocalization.partIndex, cardPartLocalization.partIndex),
-                                        eq(CardPartLocalization.lang, cardPartLocalization.lang),
-                                    ));
-                                }
-                            }
-                        }
-
-                        // update Print
-                        const print = await tx.select()
-                            .from(Print)
-                            .where(and(
-                                eq(Print.cardId, cp.print.cardId),
-                                eq(Print.set, cp.print.set),
-                                eq(Print.number, cp.print.number),
-                                eq(Print.lang, cp.print.lang),
-                            ))
-                            .then(rows => rows[0]);
-
-                        if (print == null) {
-                            if (cp.print.lang === 'en') {
-                                cp.print.printTags.push('dev:printed');
-                            }
-
-                            await tx.insert(Print).values(cp.print);
-                        } else {
-                            await mergePrint(print, cp.print);
-
-                            await tx.update(Print).set(print).where(and(
-                                eq(Print.cardId, cp.print.cardId),
-                                eq(Print.set, cp.print.set),
-                                eq(Print.number, cp.print.number),
-                                eq(Print.lang, cp.print.lang),
-                            ));
-                        }
-
-                        // update PrintPart
-                        for (const part of cp.printPart) {
-                            const printPart = await tx.select()
-                                .from(PrintPart)
-                                .where(and(
-                                    eq(PrintPart.cardId, part.cardId),
-                                    eq(PrintPart.set, part.set),
-                                    eq(PrintPart.number, part.number),
-                                    eq(PrintPart.partIndex, part.partIndex),
-                                ))
-                                .then(rows => rows[0]);
-
-                            if (printPart == null) {
-                                await tx.insert(PrintPart).values(part);
-                            } else {
-                                mergePrintPart(printPart, part);
-
-                                await tx.update(PrintPart).set(printPart).where(and(
-                                    eq(PrintPart.cardId, printPart.cardId),
-                                    eq(PrintPart.set, printPart.set),
-                                    eq(PrintPart.number, printPart.number),
-                                    eq(PrintPart.partIndex, printPart.partIndex),
+                                mergeCardPart(existingCardPart, part);
+                                await tx.update(CardPart).set(existingCardPart).where(and(
+                                    eq(CardPart.cardId, existingCardPart.cardId),
+                                    eq(CardPart.partIndex, existingCardPart.partIndex),
                                 ));
                             }
                         }
-                    });
-                }
 
-                count += 1;
-            }
+                        // 处理 CardPartLocalization
+                        for (const loc of cp.cardPartLocalization) {
+                            const existingCardPartLocalization = cardPartLocalizationMap.get(`${loc.cardId}:${loc.partIndex}:${loc.lang}`);
+
+                            if (!existingCardPartLocalization) {
+                                const [insertedCardPartLocalization] = await tx.insert(CardPartLocalization).values(loc).returning();
+                                // 使用返回的数据添加到映射中
+                                cardPartLocalizationMap.set(`${insertedCardPartLocalization.cardId}:${insertedCardPartLocalization.partIndex}:${insertedCardPartLocalization.lang}`, insertedCardPartLocalization);
+                            } else if (updateActivated) {
+                                mergeCardPartLocalization(existingCardPartLocalization, loc);
+                                await tx.update(CardPartLocalization).set(existingCardPartLocalization).where(and(
+                                    eq(CardPartLocalization.cardId, existingCardPartLocalization.cardId),
+                                    eq(CardPartLocalization.partIndex, existingCardPartLocalization.partIndex),
+                                    eq(CardPartLocalization.lang, existingCardPartLocalization.lang),
+                                ));
+                            }
+                        }
+
+                        // 处理 Print
+                        const printKey = `${cp.print.cardId}:${cp.print.set}:${cp.print.number}:${cp.print.lang}`;
+                        const existingPrint = printMap.get(printKey);
+
+                        if (!existingPrint) {
+                            if (cp.print.lang === 'en') {
+                                cp.print.printTags.push('dev:printed');
+                            }
+                            const [insertedPrint] = await tx.insert(Print).values(cp.print).returning();
+                            const insertedPrintKey = `${insertedPrint.cardId}:${insertedPrint.set}:${insertedPrint.number}:${insertedPrint.lang}`;
+                            printMap.set(insertedPrintKey, insertedPrint);
+                        } else {
+                            await mergePrint(existingPrint, cp.print);
+                            await tx.update(Print).set(existingPrint).where(and(
+                                eq(Print.cardId, existingPrint.cardId),
+                                eq(Print.set, existingPrint.set),
+                                eq(Print.number, existingPrint.number),
+                                eq(Print.lang, existingPrint.lang),
+                            ));
+                        }
+
+                        // 处理 PrintPart
+                        for (const part of cp.printPart) {
+                            const printPartKey = `${part.cardId}:${part.set}:${part.number}:${part.lang}:${part.partIndex}`;
+                            const existingPrintPart = printPartMap.get(printPartKey);
+
+                            if (!existingPrintPart) {
+                                const [insertedPrintPart] = await tx.insert(PrintPart).values(part).returning();
+                                const insertedPrintPartKey = `${insertedPrintPart.cardId}:${insertedPrintPart.set}:${insertedPrintPart.number}:${insertedPrintPart.lang}:${insertedPrintPart.partIndex}`;
+                                printPartMap.set(insertedPrintPartKey, insertedPrintPart);
+                            } else {
+                                mergePrintPart(existingPrintPart, part);
+                                await tx.update(PrintPart).set(existingPrintPart).where(and(
+                                    eq(PrintPart.cardId, existingPrintPart.cardId),
+                                    eq(PrintPart.set, existingPrintPart.set),
+                                    eq(PrintPart.number, existingPrintPart.number),
+                                    eq(PrintPart.lang, existingPrintPart.lang),
+                                    eq(PrintPart.partIndex, existingPrintPart.partIndex),
+                                ));
+                            }
+                        }
+                    } catch (e) {
+                        if (e instanceof DrizzleQueryError) {
+                            log.error(`Drizzle error for card ${json.id} / ${json.name}:` + JSON.stringify({
+                                cardId:   json.id,
+                                cardName: json.name,
+                                message:  e.message,
+                                cause:    e.cause,
+                            }));
+
+                            if (e.cause instanceof DatabaseError) {
+                                log.error('Database error details:' + JSON.stringify({
+                                    code:             e.cause.code,
+                                    detail:           e.cause.detail,
+                                    hint:             e.cause.hint,
+                                    position:         e.cause.position,
+                                    internalPosition: e.cause.internalPosition,
+                                    internalQuery:    e.cause.internalQuery,
+                                    where:            e.cause.where,
+                                    schema:           e.cause.schema,
+                                    table:            e.cause.table,
+                                    column:           e.cause.column,
+                                    dataType:         e.cause.dataType,
+                                    constraint:       e.cause.constraint,
+                                }));
+                            }
+                        } else if (e instanceof Error) {
+                            log.error(`Unknown error (${e.constructor.name}) for card ${json.id} / ${json.name}:` + JSON.stringify({
+                                cardId:   json.id,
+                                cardName: json.name,
+                                message:  e.message,
+                                stack:    e.stack,
+                            }));
+                        } else {
+                            log.error(`Unexpected error for card ${json.id} / ${json.name}:` + JSON.stringify({
+                                cardId:   json.id,
+                                cardName: json.name,
+                                error:    String(e),
+                            }));
+                        }
+
+                        throw e;
+                    }
+                }
+            });
+
+            count += processedJsons.length;
         }
 
-        bulkUpdation.info('============== MERGE CARD COMPLETE =============');
+        log.info('============== MERGE CARD COMPLETE =============');
     }
 
     stopImpl(): void { /* no-op */ }

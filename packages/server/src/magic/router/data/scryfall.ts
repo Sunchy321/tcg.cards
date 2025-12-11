@@ -32,7 +32,13 @@ const loadCard = os
 
         const loader = new CardLoader(file);
 
-        yield* loader.intoGenerator();
+        for await (const status of loader.intoGenerator()) {
+            yield status;
+        }
+
+        console.log('complete');
+
+        // yield* loader.intoGenerator();
     });
 
 export const scryfallTrpc = {

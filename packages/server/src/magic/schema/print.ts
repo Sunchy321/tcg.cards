@@ -1,5 +1,6 @@
 import { getTableColumns, and, eq, sql } from 'drizzle-orm';
-import { bit, boolean, integer, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
+import { bitset } from './type/bitset';
 
 import _ from 'lodash';
 
@@ -86,7 +87,7 @@ export const PrintPart = schema.table('print_parts', {
     typeline: text('print_part_typeline').notNull(),
     text:     text('print_part_text').notNull(),
 
-    attractionLights: bit('attraction_lights', { dimensions: 6 }),
+    attractionLights: bitset('123456')('attraction_lights'),
     flavorName:       text('flavor_name'),
     flavorText:       text('flavor_text'),
     artist:           text('artist'),

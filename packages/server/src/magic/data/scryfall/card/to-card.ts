@@ -330,7 +330,7 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
             frameEffects:  data.frame_effects ?? [],
             borderColor:   borderColor.parse(data.border_color),
             cardBack:      data.card_back_id,
-            securityStamp: securityStamp.parse(data.security_stamp),
+            securityStamp: securityStamp.nullable().parse(data.security_stamp ?? null),
             promoTypes:    data.promo_types ?? null,
             rarity:        rarity.parse (data.rarity),
             releaseDate:   data.released_at,

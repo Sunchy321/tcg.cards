@@ -77,6 +77,8 @@ abstract class Task<T> extends EventEmitter {
                 this.postIntervalProgress();
                 this.emit('end', result);
             } catch (e) {
+                console.log(e);
+
                 this.emit('error', e);
             }
         }
