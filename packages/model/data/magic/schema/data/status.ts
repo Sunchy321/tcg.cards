@@ -12,7 +12,7 @@ export const status = z.strictObject({
 
     time: z.strictObject({
         elapsed:   z.int().min(0),
-        remaining: z.number().min(0).or(z.literal(Infinity)),
+        remaining: z.number().min(0).or(z.literal(Infinity)).or(z.literal(NaN)),
     }).optional(),
 });
 

@@ -96,16 +96,13 @@
 </template>
 
 <script setup lang="ts">
-import {
-    ref, computed, onMounted, watch,
-} from 'vue';
-
-import controlSetup from 'setup/control';
+import { ref, computed, onMounted, watch } from 'vue';
 
 import { Database, database as databaseSchema, ScryfallBulk } from '@model/magic/schema/data/database';
 
 import bytes from 'bytes';
 import { last } from 'lodash';
+
 import { trpc } from 'src/trpc';
 
 interface Progress {
@@ -147,8 +144,6 @@ function formatTime(time: number) {
 
     return result;
 }
-
-const { controlWs } = controlSetup();
 
 const bulk = ref<ScryfallBulk>({ allCard: [], ruling: [] });
 const database = ref<Database>(databaseSchema.parse({}));
@@ -235,21 +230,11 @@ const loadRuling = async (file: string) => {
 };
 
 const getSet = async () => {
-    const ws = controlWs('/magic/scryfall/get-set');
+    const sse = await trpc.magic.data.scryfall.getSet();
 
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as Progress;
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => {
-            progress.value = null;
-            void loadData();
-
-            resolve(undefined);
-        };
-    });
+    for await (const msg of sse) {
+        progress.value = msg;
+    }
 };
 
 onMounted(loadData);

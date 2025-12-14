@@ -8,6 +8,7 @@ import { status } from '@model/magic/schema/data/status';
 import { BulkGetter } from '@/magic/data/scryfall/bulk';
 import { CardLoader } from '@/magic/data/scryfall/card';
 import { RulingLoader } from '@/magic/data/scryfall/ruling';
+import { SetGetter } from '@/magic/data/scryfall/set';
 
 const bulk = os
     .input(z.void())
@@ -47,9 +48,19 @@ const loadRuling = os
         yield* loader.intoGenerator();
     });
 
+const getSet = os
+    .input(z.void())
+    .output(eventIterator(status))
+    .handler(async function* () {
+        const loader = new SetGetter();
+
+        yield* loader.intoGenerator();
+    });
+
 export const scryfallTrpc = {
     bulk,
     downloadBulk,
     loadCard,
     loadRuling,
+    getSet,
 };
