@@ -5,6 +5,8 @@ import { Print } from '@/magic/schema/print';
 
 import FileSaver from '@/common/save-file';
 
+import { ImageTaskStatus } from '@model/magic/schema/data/gatherer/image';
+
 import { and, eq } from 'drizzle-orm';
 import _ from 'lodash';
 import axios from 'axios';
@@ -23,16 +25,6 @@ interface IImageTask {
     multiverseId: number;
     partIndex:    number | undefined;
     exists:       boolean;
-}
-
-interface IImageStatus {
-    method: string;
-    type:   string;
-
-    amount: { count: number, total: number };
-    time:   { elapsed: number, remaining: number };
-    status: Record<string, string>;
-    failed: number;
 }
 
 const PARALLEL_TASKS = 50;
@@ -65,7 +57,7 @@ export async function saveGathererImage(mids: number[], set: string, number: str
     }
 }
 
-export class GathererImageTask extends Task<IImageStatus> {
+export class GathererImageTask extends Task<ImageTaskStatus> {
     set:       string;
     count = 0;
     total = 0;

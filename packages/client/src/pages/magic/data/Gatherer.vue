@@ -43,7 +43,9 @@ import bytes from 'bytes';
 
 import { useParam } from 'store/core';
 
-import { actionWithProgress } from 'src/progress';
+import { ImageTaskStatus } from '@model/magic/schema/data/gatherer/image';
+
+import { trpc } from 'src/trpc';
 
 interface Progress {
     method: string;
@@ -71,7 +73,7 @@ const set = useParam('set', {
     default: '',
 });
 
-const progress = ref<Progress | null>(null);
+const progress = ref<ImageTaskStatus>();
 
 const progressValue = computed(() => {
     const prog = progress.value;
@@ -156,10 +158,6 @@ const progressLabel = computed(() => {
                 result += `/${bytes(prog.amount.total)}`;
             }
         } else {
-            if (prog.amount.updated != null) {
-                result += `${prog.amount.updated},`;
-            }
-
             result += prog.amount.count;
 
             if (prog.amount.total != null) {
@@ -182,7 +180,7 @@ const getGatherer = async () => {
 
     return new Promise((resolve, reject) => {
         ws.onmessage = ({ data }) => {
-            progress.value = JSON.parse(data) as Progress;
+            progress.value = JSON.parse(data) as ImageTaskStatus;
         };
 
         ws.onerror = reject;
@@ -191,21 +189,11 @@ const getGatherer = async () => {
 };
 
 const loadGathererImage = async () => {
-    actionWithProgress<Progress>(
-        `${import.meta.env.VITE_SSE_URL}/magic/data/gatherer/load-image?setId=${set.value}`,
-        prog => {
-            console.log(prog);
+    const sse = await trpc.magic.data.gatherer.loadImage(set.value);
 
-            progress.value = prog;
-        },
-    );
-
-    // actionWithProgress<string>(
-    //     `${import.meta.env.VITE_SSE_URL}/test`,
-    //     prog => {
-    //         console.log(prog);
-    //     },
-    // );
+    for await (const msg of sse) {
+        progress.value = msg;
+    }
 };
 
 </script>

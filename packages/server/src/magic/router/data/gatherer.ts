@@ -1,8 +1,7 @@
-import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
-import { os } from '@orpc/server';
+import { eventIterator, os } from '@orpc/server';
 
 import z from 'zod';
+import { imageTaskStatus } from '@model/magic/schema/data/gatherer/image';
 
 import { GathererImageTask, saveGathererImage } from '@/magic/data/gatherer/image';
 import { parseGatherer } from '@/magic/data/gatherer/parse';
@@ -36,20 +35,19 @@ const saveImage = os
         await saveGathererImage(mids, set, number, lang);
     });
 
+const loadImage = os
+    .input(z.string())
+    .output(eventIterator(imageTaskStatus))
+    .handler(async function* ({ input }) {
+        const setId = input;
+
+        const task = new GathererImageTask(setId);
+
+        yield* task.intoGenerator();
+    });
+
 export const gathererTrpc = {
     parseCard,
     saveImage,
+    loadImage,
 };
-
-export const gathererSSE = new Hono()
-    .get(
-        '/load-image',
-        zValidator('query', z.object({ setId: z.string() })),
-        async c => {
-            const setId = c.req.valid('query').setId;
-
-            const task = new GathererImageTask(setId);
-
-            return task.bind(c);
-        },
-    );
