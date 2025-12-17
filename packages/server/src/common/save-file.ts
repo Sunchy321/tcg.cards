@@ -80,11 +80,19 @@ export default class FileSaver extends Task<AxiosProgressEvent> {
         }
     }
 
-    static fileExists(path: string, checkAutosave = false): boolean {
+    static fileExists(path: string, altExt: string[] = [], checkAutosave = false): boolean {
         const dir = dirname(path);
 
         if (checkAutosave && existsSync(join(dir, '.no-auto-save'))) {
             return true;
+        }
+
+        for (const ext of altExt) {
+            const altPath = path.replace(/\.[^.]+$/, `.${ext}`);
+
+            if (existsSync(altPath) && statSync(altPath).size > 0) {
+                return true;
+            }
         }
 
         return existsSync(path) && statSync(path).size > 0;

@@ -1,41 +1,41 @@
 import Task from '@/common/task';
 
-import Print from '@/magic/db/print';
-import Set from '@/magic/db/set';
+import { db } from '@/drizzle';
+import { Print } from '@/magic/schema/print';
+import { Set } from '@/magic/schema/set';
+import { asc, sql } from 'drizzle-orm';
 
 import FileSaver from '@/common/save-file';
+
+import { ImageTaskStatus } from '@model/magic/schema/data/scryfall/image';
+
+import { and, eq, gt, inArray, isNotNull, or } from 'drizzle-orm';
 
 import { partition } from 'lodash';
 import { cardImagePath } from '@/magic/image';
 
-interface IImageProjection {
-    _id:   { set: string, lang: string };
+interface ImageProjection {
+    set:   string;
+    lang:  string;
     infos: { number: string, layout: string, uris: Record<string, string>[] }[];
 }
 
-interface IImageTask {
+interface ImageTask {
     name: string;
     uri:  string;
     path: string;
 }
 
-interface IImageStatus {
-    overall: { count: number, total: number };
-    current: { set: string, lang: string };
-    status:  Record<string, string>;
-    failed:  number;
-}
-
-export class ImageGetter extends Task<IImageStatus> {
+export class ImageGetter extends Task<ImageTaskStatus> {
     type:      string;
-    set:       string;
-    lang:      string;
+    set = '';
+    lang = '';
     projCount = 0;
-    projTotal: number;
-    total:     number;
+    projTotal = 0;
+    total = 0;
     failed = 0;
-    todoTasks: IImageTask[] = [];
-    taskMap:   Record<string, [IImageTask, FileSaver]> = {};
+    todoTasks: ImageTask[] = [];
+    taskMap:   Record<string, [ImageTask, FileSaver]> = {};
     statusMap: Record<string, string> = {};
 
     constructor(type: string) {
@@ -47,40 +47,71 @@ export class ImageGetter extends Task<IImageStatus> {
     async startImpl(): Promise<void> {
         const setCodeMap: Record<string, string> = {};
 
-        const sets = await Set.find();
+        const sets = await db.select()
+            .from(Set);
 
         for (const set of sets) {
-            if (set.setId !== set.scryfall.code) {
-                setCodeMap[set.scryfall.code] = set.setId;
+            if (set.setId !== set.scryfallCode) {
+                setCodeMap[set.scryfallCode] = set.setId;
             }
         }
 
-        const aggregate = Print.aggregate()
-            .allowDiskUse(true)
-            .match({
-                'scryfall.imageUris.0': { $exists: true },
-                '$or':                  [
-                    { imageStatus: { $in: ['lowres', 'highres_scan'] } },
-                    { lang: 'en', imageStatus: { $in: ['placeholder'] } },
-                ],
+        const prints = await db
+            .select({
+                set:    Print.set,
+                lang:   Print.lang,
+                number: Print.number,
+                layout: Print.layout,
+                uris:   Print.scryfallImageUris,
             })
-            .group({
-                _id:   { set: '$set', lang: '$lang' },
-                infos: {
-                    $push: {
-                        number: '$number',
-                        layout: '$layout',
-                        uris:   '$scryfall.imageUris',
-                    },
-                },
-            })
-            .addFields({ langIsEn: { $eq: ['$_id.lang', 'en'] } })
-            .sort({ 'langIsEn': -1, '_id.lang': 1 });
+            .from(Print)
+            .where(
+                and(
+                    isNotNull(Print.scryfallImageUris),
+                    gt(sql`jsonb_array_length(${Print.scryfallImageUris})`, 0),
+                    or(
+                        inArray(Print.imageStatus, ['lowres', 'highres_scan']),
+                        and(
+                            eq(Print.lang, 'en'),
+                            eq(Print.imageStatus, 'placeholder'),
+                        ),
+                    ),
+                ),
+            )
+            .orderBy(
+                sql`CASE WHEN ${Print.lang} = 'en' THEN 0 ELSE 1 END`,
+                asc(Print.lang),
+            );
 
-        const total = await Print.aggregate(aggregate.pipeline()).allowDiskUse(true).count('total');
+        const groupedData = new Map<string, ImageProjection>();
+
+        for (const print of prints) {
+            const key = `${print.set}:${print.lang}`;
+            if (!groupedData.has(key)) {
+                groupedData.set(key, {
+                    set:   print.set,
+                    lang:  print.lang,
+                    infos: [],
+                });
+            }
+
+            groupedData.get(key)!.infos.push({
+                number: print.number,
+                layout: print.layout,
+                uris:   print.uris || [],
+            });
+        }
+
+        const sortedGroups = Array.from(groupedData.values()).sort((a, b) => {
+            if (a.lang === 'en' && b.lang !== 'en') return -1;
+            if (a.lang !== 'en' && b.lang === 'en') return 1;
+            return a.lang.localeCompare(b.lang);
+        });
+
+        const total = sortedGroups.length;
 
         this.projCount = 0;
-        this.projTotal = total[0].total;
+        this.projTotal = total;
 
         this.todoTasks = [];
         this.taskMap = {};
@@ -95,15 +126,15 @@ export class ImageGetter extends Task<IImageStatus> {
             };
         });
 
-        for await (const proj of aggregate as unknown as AsyncGenerator<IImageProjection>) {
+        for (const proj of sortedGroups) {
             if (this.status === 'idle') {
                 return;
             }
 
             this.projCount += 1;
 
-            this.set = setCodeMap[proj._id.set] ?? proj._id.set;
-            this.lang = proj._id.lang;
+            this.set = setCodeMap[proj.set] ?? proj.set;
+            this.lang = proj.lang;
 
             this.todoTasks = [];
             this.taskMap = {};
@@ -164,7 +195,7 @@ export class ImageGetter extends Task<IImageStatus> {
 
             this.total = this.todoTasks.length;
 
-            const [exists, nonexist] = partition(this.todoTasks, task => FileSaver.fileExists(task.path));
+            const [exists, nonexist] = partition(this.todoTasks, task => FileSaver.fileExists(task.path, ['webp']));
 
             for (const task of exists) {
                 this.statusMap[task.name] = 'exists';

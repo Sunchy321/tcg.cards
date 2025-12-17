@@ -37,7 +37,9 @@ import { ref, computed } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 
-import controlSetup from 'setup/control';
+import { ImageType, imageType } from '@model/magic/schema/data/scryfall/image';
+
+import { trpc } from 'src/trpc';
 
 interface Progress {
     overall: { count: number, total: number };
@@ -49,19 +51,15 @@ interface Progress {
 const router = useRouter();
 const route = useRoute();
 
-const { controlWs } = controlSetup();
-
 const progress = ref<Progress | null>(null);
 
-const types = ['png', 'large', 'normal', 'small', 'art_crop', 'border_crop'];
-
-const typeOptions = types.map(t => ({
+const typeOptions = imageType.options.map(t => ({
     value: t, label: t,
 }));
 
-const type = computed({
-    get() { return route.query.type as string ?? 'large'; },
-    set(newValue: string) { void router.replace({ query: { type: newValue } }); },
+const type = computed<ImageType>({
+    get() { return imageType.safeParse(route.query.type).data ?? 'large'; },
+    set(newValue) { void router.replace({ query: { type: newValue } }); },
 });
 
 const status = computed(() => progress.value?.status ?? {});
@@ -71,20 +69,11 @@ const statusKey = computed(() => Object.keys(status.value));
 const getImage = async () => {
     progress.value = null;
 
-    const ws = controlWs('/magic/image/get', { type: type.value });
+    const sse = await trpc.magic.data.scryfall.getImage(type.value);
 
-    return new Promise((resolve, reject) => {
-        ws.onmessage = ({ data }) => {
-            const prog = JSON.parse(data) as Progress;
-
-            if (prog?.current?.set != null) {
-                progress.value = prog;
-            }
-        };
-
-        ws.onerror = reject;
-        ws.onclose = () => { resolve(undefined); };
-    });
+    for await (const prog of sse) {
+        progress.value = prog;
+    }
 };
 </script>
 
