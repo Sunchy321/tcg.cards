@@ -1,6 +1,6 @@
 import { getTableColumns, and, eq } from 'drizzle-orm';
 import { boolean, doublePrecision, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
-import { color, mana } from './type/bitset';
+import { bitset, color } from './type/bitset';
 
 import _ from 'lodash';
 
@@ -27,7 +27,7 @@ export const Card = schema.table('cards', {
 
     keywords:       text('keywords').array().notNull(),
     counters:       text('counters').array().notNull(),
-    producibleMana: mana('producible_mana'),
+    producibleMana: bitset('WUBRGCT')('producible_mana'),
     contentWarning: boolean('content_warning'),
 
     category: category('category').notNull(),

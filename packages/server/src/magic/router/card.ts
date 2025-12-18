@@ -238,7 +238,22 @@ const editorView = os
             ))
             .then(rows => rows[0]);
 
-        return view;
+        const sourceRelation = await db.select({
+            relation: CardRelation.relation,
+            cardId:   CardRelation.targetId,
+        }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
+
+        const targetRelation = await db.select({
+            relation: sql<string>`'source'`.as('relation'),
+            cardId:   CardRelation.sourceId,
+        }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
+
+        const relatedCards = [...sourceRelation, ...targetRelation];
+
+        return {
+            ...view,
+            relatedCards,
+        };
     });
 
 const paren = (lang: Locale | undefined, select: any) => {
@@ -324,49 +339,54 @@ const update = os
             printPart,
         } = input;
 
-        await db.transaction(async tx => {
-            await tx.insert(Card)
-                .values({ cardId, ...card })
-                .onConflictDoUpdate({
-                    target: Card.cardId,
-                    set:    card,
-                });
+        try {
+            await db.transaction(async tx => {
+                await tx.insert(Card)
+                    .values({ cardId, ...card })
+                    .onConflictDoUpdate({
+                        target: Card.cardId,
+                        set:    card,
+                    });
 
-            await tx.insert(CardLocalization)
-                .values({ cardId, lang, ...cardLocalization })
-                .onConflictDoUpdate({
-                    target: [CardLocalization.cardId, CardLocalization.lang],
-                    set:    cardLocalization,
-                });
+                await tx.insert(CardLocalization)
+                    .values({ cardId, lang, ...cardLocalization })
+                    .onConflictDoUpdate({
+                        target: [CardLocalization.cardId, CardLocalization.lang],
+                        set:    cardLocalization,
+                    });
 
-            await tx.insert(CardPart)
-                .values({ cardId, partIndex, ...cardPart })
-                .onConflictDoUpdate({
-                    target: [CardPart.cardId, CardPart.partIndex],
-                    set:    cardPart,
-                });
+                await tx.insert(CardPart)
+                    .values({ cardId, partIndex, ...cardPart })
+                    .onConflictDoUpdate({
+                        target: [CardPart.cardId, CardPart.partIndex],
+                        set:    cardPart,
+                    });
 
-            await tx.insert(CardPartLocalization)
-                .values({ cardId, lang, partIndex, ...cardPartLocalization })
-                .onConflictDoUpdate({
-                    target: [CardPartLocalization.cardId, CardPartLocalization.lang, CardPartLocalization.partIndex],
-                    set:    cardPartLocalization,
-                });
+                await tx.insert(CardPartLocalization)
+                    .values({ cardId, lang, partIndex, ...cardPartLocalization })
+                    .onConflictDoUpdate({
+                        target: [CardPartLocalization.cardId, CardPartLocalization.lang, CardPartLocalization.partIndex],
+                        set:    cardPartLocalization,
+                    });
 
-            await tx.insert(Print)
-                .values({ cardId, lang, set, number, ...print })
-                .onConflictDoUpdate({
-                    target: [Print.cardId, Print.lang],
-                    set:    print,
-                });
+                await tx.insert(Print)
+                    .values({ cardId, lang, set, number, ...print })
+                    .onConflictDoUpdate({
+                        target: [Print.cardId, Print.lang, Print.set, Print.number],
+                        set:    print,
+                    });
 
-            await tx.insert(PrintPart)
-                .values({ cardId, lang, set, number, partIndex, ...printPart })
-                .onConflictDoUpdate({
-                    target: [PrintPart.cardId, PrintPart.lang, PrintPart.set, PrintPart.number, PrintPart.partIndex],
-                    set:    printPart,
-                });
-        });
+                await tx.insert(PrintPart)
+                    .values({ cardId, lang, set, number, partIndex, ...printPart })
+                    .onConflictDoUpdate({
+                        target: [PrintPart.cardId, PrintPart.lang, PrintPart.set, PrintPart.number, PrintPart.partIndex],
+                        set:    printPart,
+                    });
+            });
+        } catch (e) {
+            console.log(e);
+            throw e;
+        }
     });
 
 const getLegality = os

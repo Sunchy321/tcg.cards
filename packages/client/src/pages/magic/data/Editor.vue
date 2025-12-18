@@ -344,11 +344,9 @@
             </div>
 
             <div>
-                locked[card]: {{ cardLockedPaths.join(', ') }}
-            </div>
-
-            <div>
-                locked[print]: {{ printLockedPaths.join(', ') }}
+                <div v-for="(v, k) in lockedPaths" :key="k">
+                    locked[{{ k }}]: {{ v.join(', ') }}
+                </div>
             </div>
         </div>
     </div>
@@ -701,7 +699,7 @@ const lockPath = <T extends WithLockedPaths>(value: ComputedRef<T | undefined>, 
 const cardPartField = <F extends keyof CardPart>(firstKey: F, defaultValue?: CardPart[F], path?: string | (() => string)) => computed({
     get() { return (cardPart.value?.[firstKey] ?? defaultValue)!; },
     set(newValue: CardPart[F]) {
-        if (data.value != null) {
+        if (data.value != null && !isEqual(cardPart.value![firstKey], newValue)) {
             cardPart.value![firstKey] = newValue;
 
             if (path != null) {
@@ -722,7 +720,7 @@ const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: P
             if (path != null) {
                 const realPath = typeof path === 'string' ? path : path();
 
-                lockPath(print, realPath);
+                lockPath(printPart, realPath);
             }
         }
     },
@@ -751,16 +749,16 @@ const displayOracleText = computed({
     },
 });
 
-const printedName = printPartField('name', '', () => `parts[${partIndex.value}].name`);
-const printedTypeline = printPartField('typeline', '', () => `parts[${partIndex.value}].typeline`);
-const printedText = printPartField('text', '', () => `parts[${partIndex.value}].text`);
+const printedName = printPartField('name', '', 'name');
+const printedTypeline = printPartField('typeline', '', 'typeline');
+const printedText = printPartField('text', '', 'text');
 
 const unifiedName = computed({
     get() {
         return cardPartLocalization.value?.name ?? '';
     },
     set(newValue) {
-        if (cardPartLocalization.value == null) {
+        if (cardPartLocalization.value == null || cardPartLocalization.value.name === newValue) {
             return;
         }
 
@@ -780,7 +778,7 @@ const unifiedTypeline = computed({
         return cardPartLocalization.value?.typeline ?? '';
     },
     set(newValue) {
-        if (cardPartLocalization.value == null) {
+        if (cardPartLocalization.value == null || cardPartLocalization.value.typeline === newValue) {
             return;
         }
 
@@ -800,7 +798,7 @@ const unifiedText = computed({
         return cardPartLocalization.value?.text ?? '';
     },
     set(newValue) {
-        if (cardPartLocalization.value == null) {
+        if (cardPartLocalization.value == null || cardPartLocalization.value.text === newValue) {
             return;
         }
 
@@ -1044,23 +1042,14 @@ const multiverseId = computed({
     },
 });
 
-const cardLockedPaths = computed({
-    get() { return card.value?.__lockedPaths ?? []; },
-    set(newValue) {
-        if (card.value != null) {
-            card.value.__lockedPaths = newValue;
-        }
-    },
-});
-
-const printLockedPaths = computed({
-    get() { return print.value?.__lockedPaths ?? []; },
-    set(newValue) {
-        if (print.value != null) {
-            print.value.__lockedPaths = newValue;
-        }
-    },
-});
+const lockedPaths = computed(() => ({
+    card:                 card.value?.__lockedPaths ?? [],
+    cardLocalization:     cardLocalization.value?.__lockedPaths ?? [],
+    cardPart:             cardPart.value?.__lockedPaths ?? [],
+    cardPartLocalization: cardPartLocalization.value?.__lockedPaths ?? [],
+    print:                print.value?.__lockedPaths ?? [],
+    printPart:            printPart.value?.__lockedPaths ?? [],
+}));
 
 const defaultTypelinePrettifier = (typeline: string, lang: string) => {
     typeline = typeline

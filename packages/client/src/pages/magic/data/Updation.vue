@@ -1,13 +1,7 @@
 <template>
     <div class="q-pa-md">
         <div class="flex items-center q-mb-md">
-            <q-toggle
-                v-model="mode"
-                class="q-mr-md"
-                false-value="card"
-                true-value="print"
-                label="Print"
-            />
+            <q-select v-model="mode" class="q-mr-md" :options="modes" flat dense outlined />
 
             <span>{{ summaryText }}</span>
 
@@ -18,7 +12,7 @@
             <q-select
                 v-model="lang"
                 class="lang-selector q-ml-lg"
-                :options="['',...locales]"
+                :options="['', ...locales]"
                 label="Language"
                 flat dense outlined
             />
@@ -77,7 +71,7 @@
         <grid
             v-slot="u"
             :value="displayValues" :item-width="320"
-            item-key="index"
+            item-key="hash"
             class="legalities"
         >
             <q-card class="q-ma-sm q-pa-sm updation">
@@ -108,7 +102,7 @@
                 </q-card-section>
 
                 <q-card-section>
-                    <card-avatar :id="u.cardId" :version="versionFor(u)" :full-image="showImage" />
+                    <card-avatar :id="u.cardId" :part="u.partIndex" :version="versionFor(u)" :full-image="showImage" />
                 </q-card-section>
             </q-card>
         </grid>
@@ -124,39 +118,23 @@ import {
 import { useRouter } from 'vue-router';
 import { useParam } from 'store/core';
 
-import controlSetup from 'setup/control';
-
 import Grid from 'components/Grid.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 import DeferInput from 'components/DeferInput.vue';
 
 import { diffChars, diffString } from '@common/util/diff';
 
-import { locales } from '@static/magic/basic';
+import { locale } from '@model/magic/schema/basic';
+import { Updation, UpdationResponse, updationMode } from '@model/magic/schema/data/updation';
 
-export type Updation = {
-    cardId:     string;
-    set?:       string;
-    number?:    string;
-    lang?:      string;
-    scryfallId: string;
-    key:        string;
-    oldValue:   any;
-    newValue:   any;
-};
+import { trpc } from 'src/trpc';
 
-type UpdationData = {
-    total:   number;
-    key:     string;
-    current: number;
-    values:  (Updation & { _id: string })[];
-};
+const locales = locale.options;
 
 const router = useRouter();
 
-const { controlGet, controlPost } = controlSetup();
-
-const data = ref<UpdationData>({
+const data = ref<UpdationResponse>({
+    mode:    'card',
     total:   0,
     key:     '',
     current: 0,
@@ -168,10 +146,12 @@ const key = computed(() => data.value.key);
 const current = computed(() => data.value.current);
 const values = computed(() => data.value.values);
 
+const modes = updationMode.options;
+
 const mode = useParam('mode', {
     type:    'enum',
     bind:    'query',
-    values:  ['card', 'print'],
+    values:  modes,
     default: 'card',
 });
 
@@ -274,32 +254,98 @@ const filteredValues = computed(() => {
         });
     }
 
-    if (lang.value !== '' && mode.value !== 'card') {
+    if (lang.value !== '' && !['card', 'cardPart'].includes(mode.value)) {
         result = result.filter(r => r.lang === lang.value);
     }
 
     if (takeMulti.value) {
-        const counts: Record<string, number> = { };
+        const map: Record<string, Updation[]> = { };
 
-        for (const updations of result) {
-            counts[updations.cardId] ??= 0;
-            counts[updations.cardId] += 1;
+        for (const updation of result) {
+            const index = (() => {
+                switch (mode.value) {
+                case 'card':
+                    return updation.cardId;
+                case 'cardLocalization':
+                    return `${updation.cardId}:${updation.lang}`;
+                case 'cardPart':
+                    return `${updation.cardId}:${updation.partIndex}`;
+                case 'cardPartLocalization':
+                    return `${updation.cardId}:${updation.partIndex}:${updation.lang}`;
+                case 'print':
+                    return `${updation.cardId}:${updation.set}:${updation.number}:${updation.lang}`;
+                case 'printPart':
+                    return `${updation.cardId}:${updation.set}:${updation.number}:${updation.lang}:${updation.partIndex}`;
+                }
+            })();
+
+            map[index] ??= [];
+            map[index].push(updation);
         }
 
-        const max = Math.max(...Object.values(counts));
+        const max = Math.max(...Object.values(map).map(arr => arr.length));
 
         if (max > 1) {
-            result = result.filter(u => counts[u.cardId] === max);
+            result = Object.values(map).filter(arr => arr.length === max).flat();
         } else {
             result = [];
         }
     }
 
-    if (mode.value === 'card') {
-        return result.map((v, i) => ({ index: v._id + i, ...v }));
-    } else {
-        return result.map(v => ({ index: v._id, ...v }));
-    }
+    return result.map((v, i) => {
+        const hash = (obj: any) => {
+            const str = JSON.stringify(obj, Object.keys(obj).sort());
+            // Simple hash function to control length
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32bit integer
+            }
+            return hash.toString(36); // Convert to base36 for shorter string
+        };
+
+        const primaryKey: Record<string, any> = {};
+
+        switch (mode.value) {
+        case 'card':
+            primaryKey['cardId'] = v.cardId;
+            break;
+        case 'cardLocalization':
+            primaryKey['cardId'] = v.cardId;
+            primaryKey['lang'] = v.lang;
+            break;
+        case 'cardPart':
+            primaryKey['cardId'] = v.cardId;
+            primaryKey['partIndex'] = v.partIndex;
+            break;
+        case 'cardPartLocalization':
+            primaryKey['cardId'] = v.cardId;
+            primaryKey['partIndex'] = v.partIndex;
+            primaryKey['lang'] = v.lang;
+            break;
+        case 'print':
+            primaryKey['cardId'] = v.cardId;
+            primaryKey['set'] = v.set;
+            primaryKey['number'] = v.number;
+            primaryKey['lang'] = v.lang;
+            break;
+        case 'printPart':
+            primaryKey['cardId'] = v.cardId;
+            primaryKey['set'] = v.set;
+            primaryKey['number'] = v.number;
+            primaryKey['lang'] = v.lang;
+            primaryKey['partIndex'] = v.partIndex;
+            break;
+        }
+
+        primaryKey.index = i;
+
+        return {
+            hash: hash(primaryKey),
+            ...v,
+        };
+    });
 });
 
 const displayValues = computed(() => filteredValues.value.slice(0, 100));
@@ -345,9 +391,7 @@ const diffContent = (lhs: string, rhs: string) => {
 };
 
 const loadData = async () => {
-    const { data: result } = await controlGet<UpdationData>(`/magic/${mode.value}/get-updation`);
-
-    data.value = result;
+    data.value = await trpc.magic.data.updation.getMinimal({ mode: mode.value });
 };
 
 onMounted(loadData);
@@ -355,30 +399,27 @@ onMounted(loadData);
 watch([mode], loadData);
 
 const versionFor = (updation: Updation) => {
-    if (mode.value === 'card') {
-        const langFilter = /\[([a-z]+)\]/.exec(updation.key)?.[1];
-
-        return langFilter != null ? { lang: langFilter! } : undefined;
-    } else {
+    switch (mode.value) {
+    case 'card':
+    case 'cardPart':
+        return undefined;
+    case 'cardLocalization':
+    case 'cardPartLocalization':
+        return { lang: updation.lang! };
+    case 'print':
+    case 'printPart':
         return { set: updation.set!, number: updation.number!, lang: updation.lang! };
     }
 };
 
-const commitUpdation = async (updation: Updation & { _id: string }, type: string) => {
-    await controlPost(`/magic/${mode.value}/commit-updation`, {
-        id:  updation._id,
-        key: updation.key,
-        type,
-    });
+const commitUpdation = async (updation: Updation, action: 'accept' | 'reject') => {
+    await trpc.magic.data.updation.commit({ mode: mode.value, action, ...updation });
 
     await loadData();
 };
 
-const acceptAndEdit = async (updation: Updation & { _id: string }) => {
-    await controlPost(`/magic/${mode.value}/commit-updation`, {
-        id:  updation._id,
-        key: updation.key,
-    });
+const acceptAndEdit = async (updation: Updation) => {
+    await trpc.magic.data.updation.accept({ mode: mode.value, ...updation });
 
     await loadData();
 
@@ -400,7 +441,7 @@ const acceptAllUpdation = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost(`/magic/${mode.value}/accept-all-updation`, { key: first.key });
+        await trpc.magic.data.updation.acceptAll({ mode: mode.value, key: first.key });
         await loadData();
     }
 };
@@ -409,7 +450,7 @@ const rejectAllUpdation = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost(`/magic/${mode.value}/reject-all-updation`, { key: first.key });
+        await trpc.magic.data.updation.rejectAll({ mode: mode.value, key: first.key });
         await loadData();
     }
 };
@@ -418,12 +459,12 @@ const acceptUnchanged = async () => {
     const first = displayValues.value[0];
 
     if (first != null) {
-        await controlPost(`/magic/${mode.value}/accept-unchanged`, { key: first.key });
+        await trpc.magic.data.updation.acceptUnchanged({ mode: mode.value, key: first.key });
         await loadData();
     }
 };
 
-const commitFirst = async (type: 'accept' | 'reject', count: number) => {
+const commitFirst = async (action: 'accept' | 'reject', count: number) => {
     for (let i = 0; i < count && i < displayValues.value.length; i += 1) {
         const updation = displayValues.value[i];
 
@@ -431,11 +472,7 @@ const commitFirst = async (type: 'accept' | 'reject', count: number) => {
             return;
         }
 
-        await controlPost(`/magic/${mode.value}/commit-updation`, {
-            id:  updation._id,
-            key: updation.key,
-            type,
-        });
+        await trpc.magic.data.updation.commit({ mode: mode.value, action, ...updation });
     }
 
     await loadData();
