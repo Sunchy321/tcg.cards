@@ -47,24 +47,6 @@ import { ImageTaskStatus } from '@model/magic/schema/data/gatherer/image';
 
 import { trpc } from 'src/trpc';
 
-interface Progress {
-    method: string;
-    type:   string;
-
-    amount: {
-        updated?: number;
-        count:    number;
-        total?:   number;
-    };
-
-    time?: {
-        elapsed:   number;
-        remaining: number;
-    };
-
-    status: Record<string, [number, number] | null>;
-}
-
 const { controlWs } = controlSetup();
 
 const set = useParam('set', {

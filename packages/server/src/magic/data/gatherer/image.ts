@@ -130,7 +130,7 @@ export class GathererImageTask extends Task<ImageTaskStatus> {
                     lang:   p.lang,
                     multiverseId,
                     partIndex,
-                    exists: FileSaver.fileExists(path, true),
+                    exists: FileSaver.fileExists(path, [], true),
                 });
             };
 
