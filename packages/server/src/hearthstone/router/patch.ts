@@ -9,7 +9,12 @@ import { db } from '@/drizzle';
 import { Patch } from '../schema/patch';
 
 const list = os
-    .input(z.void())
+    .route({
+        method:      'GET',
+        description: 'List all patches',
+        tags:        ['Hearthstone', 'Patch'],
+    })
+    .input(z.any())
     .output(patch.array())
     .handler(async () => {
         const patches = await db.select().from(Patch).orderBy(desc(Patch.buildNumber));
@@ -18,10 +23,15 @@ const list = os
     });
 
 const full = os
-    .input(z.number())
+    .route({
+        method:      'GET',
+        description: 'Get patch by build number',
+        tags:        ['Hearthstone', 'Patch'],
+    })
+    .input(z.object({ buildNumber: z.number() }))
     .output(patch)
     .handler(async ({ input }) => {
-        const buildNumber = input;
+        const { buildNumber } = input;
 
         const patch = await db
             .select()
