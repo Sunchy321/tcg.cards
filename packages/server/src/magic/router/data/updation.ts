@@ -94,73 +94,68 @@ const getMinimal = os
     .handler(async ({ input }) => {
         const { mode, limit } = input;
 
-        try {
-            // Get table and column configuration
-            const config = tableConfig[mode];
+        // Get table and column configuration
+        const config = tableConfig[mode];
 
-            const table = config.table;
-            const updationsColumn = table.__updations;
+        const table = config.table;
+        const updationsColumn = table.__updations;
 
-            const keys = db.$with('keys').as(
-                db.select({
-                    key:   sql<string>`u_elem->>'key'`.as('key'),
-                    count: sql<number>`COUNT(*)`.as('count'),
-                })
-                    .from(table)
-                    .crossJoinLateral(sql`jsonb_array_elements(${updationsColumn}) AS u_elem`)
-                    .groupBy(sql`u_elem->>'key'`)
-                    .orderBy(qb => qb.count),
-            );
-
-            const minKey = db.$with('min_key').as(db.select({ key: keys.key, count: keys.count }).from(keys).limit(1));
-            const totalCount = db.$with('total_count').as(db.select({ total: sql<number>`SUM(${keys.count})`.as('total') }).from(keys));
-
-            const meta = await db
-                .with(keys, minKey, totalCount)
-                .select({
-                    total:   sql<number>`(SELECT total FROM ${totalCount})`.as('total'),
-                    key:     sql<string>`(SELECT key FROM ${minKey})`.as('key'),
-                    current: sql<number>`(SELECT count FROM ${minKey})`.as('current'),
-                })
-                .from(minKey)
-                .then(rows => rows[0]);
-
-            if (meta == null) {
-                return {
-                    mode,
-                    total:   0,
-                    key:     '',
-                    current: 0,
-                    values:  [],
-                };
-            }
-
-            const baseSelect = {
-                key:      sql<string>`u_elem->>'key'`.as('key'),
-                oldValue: sql<any>`u_elem->'oldValue'`.as('oldValue'),
-                newValue: sql<any>`u_elem->'newValue'`.as('newValue'),
-            };
-
-            const query = db
-                .select({ ...config.primaryKey, ...baseSelect })
+        const keys = db.$with('keys').as(
+            db.select({
+                key:   sql<string>`u_elem->>'key'`.as('key'),
+                count: sql<number>`COUNT(*)`.as('count'),
+            })
                 .from(table)
                 .crossJoinLateral(sql`jsonb_array_elements(${updationsColumn}) AS u_elem`)
-                .where(sql`u_elem->>'key' = ${meta.key}`)
-                .orderBy(...config.order);
+                .groupBy(sql`u_elem->>'key'`)
+                .orderBy(qb => qb.count),
+        );
 
-            const values = limit > 0 ? await query.limit(limit) : await query;
+        const minKey = db.$with('min_key').as(db.select({ key: keys.key, count: keys.count }).from(keys).limit(1));
+        const totalCount = db.$with('total_count').as(db.select({ total: sql<number>`SUM(${keys.count})`.as('total') }).from(keys));
 
+        const meta = await db
+            .with(keys, minKey, totalCount)
+            .select({
+                total:   sql<number>`(SELECT total FROM ${totalCount})`.as('total'),
+                key:     sql<string>`(SELECT key FROM ${minKey})`.as('key'),
+                current: sql<number>`(SELECT count FROM ${minKey})`.as('current'),
+            })
+            .from(minKey)
+            .then(rows => rows[0]);
+
+        if (meta == null) {
             return {
                 mode,
-                total:   Number(meta.total) || 0,
-                key:     meta.key,
-                current: Number(meta.current) || 0,
-                values:  values ?? [],
+                total:   0,
+                key:     '',
+                current: 0,
+                values:  [],
             };
-        } catch (e) {
-            console.log(e);
-            throw e;
         }
+
+        const baseSelect = {
+            key:      sql<string>`u_elem->>'key'`.as('key'),
+            oldValue: sql<any>`u_elem->'oldValue'`.as('oldValue'),
+            newValue: sql<any>`u_elem->'newValue'`.as('newValue'),
+        };
+
+        const query = db
+            .select({ ...config.primaryKey, ...baseSelect })
+            .from(table)
+            .crossJoinLateral(sql`jsonb_array_elements(${updationsColumn}) AS u_elem`)
+            .where(sql`u_elem->>'key' = ${meta.key}`)
+            .orderBy(...config.order);
+
+        const values = limit > 0 ? await query.limit(limit) : await query;
+
+        return {
+            mode,
+            total:   Number(meta.total) || 0,
+            key:     meta.key,
+            current: Number(meta.current) || 0,
+            values:  values ?? [],
+        };
     });
 
 const commit = os
@@ -282,44 +277,17 @@ async function processBatchAction(
 const acceptUnchanged = os
     .input(z.object({ mode: updationMode, key: z.string() }))
     .output(z.boolean())
-    .handler(async ({ input }) => {
-        const { mode, key } = input;
-
-        try {
-            return await processBatchAction(mode, key, 'acceptUnchanged');
-        } catch (e) {
-            console.log(e);
-            throw e;
-        }
-    });
+    .handler(async ({ input }) => await processBatchAction(input.mode, input.key, 'acceptUnchanged'));
 
 const acceptAll = os
     .input(z.object({ mode: updationMode, key: z.string() }))
     .output(z.boolean())
-    .handler(async ({ input }) => {
-        const { mode, key } = input;
-
-        try {
-            return await processBatchAction(mode, key, 'accept');
-        } catch (e) {
-            console.log(e);
-            throw e;
-        }
-    });
+    .handler(async ({ input }) => await processBatchAction(input.mode, input.key, 'accept'));
 
 const rejectAll = os
     .input(z.object({ mode: updationMode, key: z.string() }))
     .output(z.boolean())
-    .handler(async ({ input }) => {
-        const { mode, key } = input;
-
-        try {
-            return await processBatchAction(mode, key, 'reject');
-        } catch (e) {
-            console.log(e);
-            throw e;
-        }
-    });
+    .handler(async ({ input }) => await processBatchAction(input.mode, input.key, 'reject'));
 
 export const updationTrpc = {
     getMinimal,

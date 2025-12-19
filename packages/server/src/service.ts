@@ -30,7 +30,18 @@ const trpc = {
 export type TRPC = typeof trpc;
 
 const handler = new RPCHandler(trpc, {
-    plugins: [new BatchHandlerPlugin()],
+    plugins:      [new BatchHandlerPlugin()],
+    interceptors: [
+        async ({ next, request }) => {
+            try {
+                return await next();
+            } catch (error) {
+                // Log handler failures while letting ORPC propagate the error upstream.
+                console.error('[orpc] handler error:', request.method, request.url, error);
+                throw error;
+            }
+        },
+    ],
 });
 
 const router = new Hono<HonoEnv>()

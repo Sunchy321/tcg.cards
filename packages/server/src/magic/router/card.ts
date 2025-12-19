@@ -339,54 +339,49 @@ const update = os
             printPart,
         } = input;
 
-        try {
-            await db.transaction(async tx => {
-                await tx.insert(Card)
-                    .values({ cardId, ...card })
-                    .onConflictDoUpdate({
-                        target: Card.cardId,
-                        set:    card,
-                    });
+        await db.transaction(async tx => {
+            await tx.insert(Card)
+                .values({ cardId, ...card })
+                .onConflictDoUpdate({
+                    target: Card.cardId,
+                    set:    card,
+                });
 
-                await tx.insert(CardLocalization)
-                    .values({ cardId, lang, ...cardLocalization })
-                    .onConflictDoUpdate({
-                        target: [CardLocalization.cardId, CardLocalization.lang],
-                        set:    cardLocalization,
-                    });
+            await tx.insert(CardLocalization)
+                .values({ cardId, lang, ...cardLocalization })
+                .onConflictDoUpdate({
+                    target: [CardLocalization.cardId, CardLocalization.lang],
+                    set:    cardLocalization,
+                });
 
-                await tx.insert(CardPart)
-                    .values({ cardId, partIndex, ...cardPart })
-                    .onConflictDoUpdate({
-                        target: [CardPart.cardId, CardPart.partIndex],
-                        set:    cardPart,
-                    });
+            await tx.insert(CardPart)
+                .values({ cardId, partIndex, ...cardPart })
+                .onConflictDoUpdate({
+                    target: [CardPart.cardId, CardPart.partIndex],
+                    set:    cardPart,
+                });
 
-                await tx.insert(CardPartLocalization)
-                    .values({ cardId, lang, partIndex, ...cardPartLocalization })
-                    .onConflictDoUpdate({
-                        target: [CardPartLocalization.cardId, CardPartLocalization.lang, CardPartLocalization.partIndex],
-                        set:    cardPartLocalization,
-                    });
+            await tx.insert(CardPartLocalization)
+                .values({ cardId, lang, partIndex, ...cardPartLocalization })
+                .onConflictDoUpdate({
+                    target: [CardPartLocalization.cardId, CardPartLocalization.lang, CardPartLocalization.partIndex],
+                    set:    cardPartLocalization,
+                });
 
-                await tx.insert(Print)
-                    .values({ cardId, lang, set, number, ...print })
-                    .onConflictDoUpdate({
-                        target: [Print.cardId, Print.lang, Print.set, Print.number],
-                        set:    print,
-                    });
+            await tx.insert(Print)
+                .values({ cardId, lang, set, number, ...print })
+                .onConflictDoUpdate({
+                    target: [Print.cardId, Print.lang, Print.set, Print.number],
+                    set:    print,
+                });
 
-                await tx.insert(PrintPart)
-                    .values({ cardId, lang, set, number, partIndex, ...printPart })
-                    .onConflictDoUpdate({
-                        target: [PrintPart.cardId, PrintPart.lang, PrintPart.set, PrintPart.number, PrintPart.partIndex],
-                        set:    printPart,
-                    });
-            });
-        } catch (e) {
-            console.log(e);
-            throw e;
-        }
+            await tx.insert(PrintPart)
+                .values({ cardId, lang, set, number, partIndex, ...printPart })
+                .onConflictDoUpdate({
+                    target: [PrintPart.cardId, PrintPart.lang, PrintPart.set, PrintPart.number, PrintPart.partIndex],
+                    set:    printPart,
+                });
+        });
     });
 
 const getLegality = os
@@ -542,14 +537,7 @@ const scanCardText = os
             throw new ORPCError('NOT_FOUND');
         }
 
-        try {
-            const json = JSON.parse(content.replace(/^```json/, '').replace(/,?\n*```$/, ''));
-
-            return json;
-        } catch (e) {
-            console.log(content);
-            throw e;
-        }
+        return JSON.parse(content.replace(/^```json/, '').replace(/,?\n*```$/, ''));
     });
 
 export const cardTrpc = {

@@ -255,42 +255,37 @@ const full = os
     .handler(async ({ input }) => {
         const date = input;
 
-        try {
-            const ruleEntry = await db.select()
-                .from(Rule)
-                .where(eq(Rule.date, date))
-                .then(rows => rows[0]);
+        const ruleEntry = await db.select()
+            .from(Rule)
+            .where(eq(Rule.date, date))
+            .then(rows => rows[0]);
 
-            if (ruleEntry == null) {
-                throw new ORPCError('NOT_FOUND');
-            }
-
-            const contents = await db.select({
-                itemId: RuleItem.itemId,
-
-                index: RuleItem.index,
-                depth: RuleItem.depth,
-
-                serial:   RuleItem.serial,
-                text:     RuleItem.text,
-                richText: RuleItem.richText,
-            })
-                .from(RuleItem)
-                .where(and(
-                    eq(RuleItem.date, ruleEntry.date),
-                    eq(RuleItem.lang, ruleEntry.lang),
-                ))
-                .orderBy(RuleItem.index);
-
-            return {
-                date,
-                lang: 'en',
-                contents,
-            };
-        } catch (e) {
-            console.error(e);
-            throw e;
+        if (ruleEntry == null) {
+            throw new ORPCError('NOT_FOUND');
         }
+
+        const contents = await db.select({
+            itemId: RuleItem.itemId,
+
+            index: RuleItem.index,
+            depth: RuleItem.depth,
+
+            serial:   RuleItem.serial,
+            text:     RuleItem.text,
+            richText: RuleItem.richText,
+        })
+            .from(RuleItem)
+            .where(and(
+                eq(RuleItem.date, ruleEntry.date),
+                eq(RuleItem.lang, ruleEntry.lang),
+            ))
+            .orderBy(RuleItem.index);
+
+        return {
+            date,
+            lang: 'en',
+            contents,
+        };
     });
 
 const parse = os
@@ -299,14 +294,7 @@ const parse = os
     .handler(async ({ input }) => {
         const date = input;
 
-        try {
-            const result = await parseDetail(date);
-
-            return result;
-        } catch (e) {
-            console.error(e);
-            throw e;
-        }
+        return await parseDetail(date);
     });
 
 const save = os
@@ -315,60 +303,55 @@ const save = os
     .handler(async ({ input }) => {
         const { date, lang, contents } = input;
 
-        try {
-            await db.transaction(async tx => {
-                await tx.insert(Rule).values({
-                    date,
-                    lang,
-                }).onConflictDoNothing();
+        await db.transaction(async tx => {
+            await tx.insert(Rule).values({
+                date,
+                lang,
+            }).onConflictDoNothing();
 
-                const oldItems = await tx.select()
-                    .from(RuleItem)
-                    .where(and(
-                        eq(RuleItem.date, date),
-                        eq(RuleItem.lang, lang),
-                    ));
+            const oldItems = await tx.select()
+                .from(RuleItem)
+                .where(and(
+                    eq(RuleItem.date, date),
+                    eq(RuleItem.lang, lang),
+                ));
 
-                const cardNames = await CardNameExtrator.names();
+            const cardNames = await CardNameExtrator.names();
 
-                const extractor = new CardNameExtrator({ cardNames });
+            const extractor = new CardNameExtrator({ cardNames });
 
-                for (const c of contents) {
-                    const oldItem = oldItems.find(co => co.text === c.text);
+            for (const c of contents) {
+                const oldItem = oldItems.find(co => co.text === c.text);
 
-                    if (oldItem != null) {
-                        continue;
-                    }
-
-                    parseCard(extractor, c, input);
+                if (oldItem != null) {
+                    continue;
                 }
 
-                await tx.delete(RuleItem)
-                    .where(and(
-                        eq(RuleItem.date, date),
-                        eq(RuleItem.lang, lang),
-                    ));
+                parseCard(extractor, c, input);
+            }
 
-                await tx.insert(RuleItem).values(
-                    contents.map(item => ({
-                        itemId: item.itemId,
+            await tx.delete(RuleItem)
+                .where(and(
+                    eq(RuleItem.date, date),
+                    eq(RuleItem.lang, lang),
+                ));
 
-                        date,
-                        lang,
+            await tx.insert(RuleItem).values(
+                contents.map(item => ({
+                    itemId: item.itemId,
 
-                        index: item.index,
-                        depth: item.depth,
+                    date,
+                    lang,
 
-                        serial:   item.serial,
-                        text:     item.text,
-                        richText: item.richText,
-                    })),
-                );
-            });
-        } catch (e) {
-            console.log(e);
-            throw e;
-        }
+                    index: item.index,
+                    depth: item.depth,
+
+                    serial:   item.serial,
+                    text:     item.text,
+                    richText: item.richText,
+                })),
+            );
+        });
     })
     .callable();
 
@@ -378,33 +361,28 @@ const reparse = os
     .handler(async ({ input }) => {
         const date = input;
 
-        try {
-            const data = await reparseDetail(date);
+        const data = await reparseDetail(date);
 
-            const oldItems = await db.select()
-                .from(RuleItem)
-                .where(and(
-                    eq(RuleItem.date, date),
-                    eq(RuleItem.lang, 'en'),
-                ));
+        const oldItems = await db.select()
+            .from(RuleItem)
+            .where(and(
+                eq(RuleItem.date, date),
+                eq(RuleItem.lang, 'en'),
+            ));
 
-            const cardNames = await CardNameExtrator.names();
+        const cardNames = await CardNameExtrator.names();
 
-            const extractor = new CardNameExtrator({ cardNames });
+        const extractor = new CardNameExtrator({ cardNames });
 
-            for (const c of data.contents) {
-                const oldItem = oldItems.find(co => co.itemId == c.itemId);
+        for (const c of data.contents) {
+            const oldItem = oldItems.find(co => co.itemId == c.itemId);
 
-                if (oldItem == null || oldItem.text != c.text) {
-                    parseCard(extractor, c, data);
-                }
+            if (oldItem == null || oldItem.text != c.text) {
+                parseCard(extractor, c, data);
             }
-
-            return data;
-        } catch (e) {
-            console.error(e);
-            throw e;
         }
+
+        return data;
     })
     .callable();
 
