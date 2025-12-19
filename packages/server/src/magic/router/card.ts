@@ -19,13 +19,15 @@ import { Ruling } from '../schema/ruling';
 import { CardRelation } from '../schema/card-relation';
 import { Format } from '../schema/format';
 
+import { generateObject } from 'ai';
+import { createQwen } from 'qwen-ai-provider-v5';
+
 import { getLegality as getLegalityAction, getLegalityRules, LegalityRecorder, lookupPrintsForLegality } from '../banlist/legality';
 
 import internalData from '@/internal-data';
+import { intoRichText } from '../util';
 
 import { commaRegex, parenRegex } from '@static/magic/special';
-import openai from '@/ai';
-import { intoRichText } from '../util';
 
 const random = os
     .route({
@@ -481,6 +483,23 @@ const scanCardText = os
     .handler(async ({ input }) => {
         const { set, number, lang, layout, partIndex } = input;
 
+        const print = await db.select({
+            fullImageType: Print.fullImageType,
+        })
+            .from(Print)
+            .where(and(
+                eq(Print.set, set),
+                eq(Print.number, number),
+                eq(Print.lang, lang),
+            ))
+            .then(rows => rows[0]);
+
+        if (print == null) {
+            throw new ORPCError('NOT_FOUND');
+        }
+
+        const ext = print.fullImageType;
+
         const urls = (() => {
             if ([
                 'transform',
@@ -493,25 +512,27 @@ const scanCardText = os
                 'art_series',
             ].includes(layout)) {
                 return [
-                    `${assetBase}/magic/card/large/${set}/${lang}/${number}-0.jpg`,
-                    `${assetBase}/magic/card/large/${set}/${lang}/${number}-1.jpg`,
+                    `${assetBase}/magic/card/large/${set}/${lang}/${number}-0.${ext}`,
+                    `${assetBase}/magic/card/large/${set}/${lang}/${number}-1.${ext}`,
                 ];
             } else if (['flip_token_top', 'flip_token_bottom'].includes(layout)) {
                 return [
-                    `${assetBase}/magic/card/large/${set}/${lang}/${number.split('-')[0]}.jpg`,
+                    `${assetBase}/magic/card/large/${set}/${lang}/${number.split('-')[0]}.${ext}`,
                 ];
             } else {
                 return [
-                    `${assetBase}/magic/card/large/${set}/${lang}/${number}.jpg`,
+                    `${assetBase}/magic/card/large/${set}/${lang}/${number}.${ext}`,
                 ];
             }
         })();
 
         const url = urls[partIndex] ?? urls[0];
 
-        const response = await openai.chat.completions.create({
-            model:    'qwen-vl-ocr-latest',
-            messages: [
+        const qwen = createQwen({ baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1' });
+
+        const { object } = await generateObject({
+            model:  qwen('qwen3-vl-plus'),
+            prompt: [
                 {
                     role:    'user',
                     content: [
@@ -520,24 +541,22 @@ const scanCardText = os
                             text: '接下来将输入一张万智牌的卡牌图像，请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者无法识别的符号或图标用{?}代替。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
                         },
                         {
-                            type:      'image_url',
-                            image_url: { url },
+                            type:      'file',
+                            mediaType: `image/${ext}`,
+                            data:      url,
                         },
                     ],
                 },
             ],
-            response_format: {
-                type: 'json_object',
-            },
+            schema: z.object({
+                name:       z.string(),
+                typeline:   z.string(),
+                text:       z.string(),
+                flavorText: z.string(),
+            }),
         });
 
-        const content = response.choices[0].message.content;
-
-        if (content == null) {
-            throw new ORPCError('NOT_FOUND');
-        }
-
-        return JSON.parse(content.replace(/^```json/, '').replace(/,?\n*```$/, ''));
+        return object;
     });
 
 export const cardTrpc = {

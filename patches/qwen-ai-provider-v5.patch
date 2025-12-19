@@ -1,0 +1,15 @@
+diff --git a/dist/index.js b/dist/index.js
+index 621a02f4dd252c09681b9a0993886459ceb21b39..34a3994da44f1c9aef3f5cfda247608610f4c5d0 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -268,7 +268,9 @@ var QwenChatLanguageModel = class {
+    */
+   constructor(modelId, settings, config) {
+     this.specificationVersion = "v2";
+-    this.supportedUrls = {};
++    this.supportedUrls = {
++      "image/*": [/^https?:\/\/.*$/]
++    };
+     var _a, _b;
+     this.modelId = modelId;
+     this.settings = settings;

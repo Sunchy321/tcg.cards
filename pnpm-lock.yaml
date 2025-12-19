@@ -20,6 +20,9 @@ patchedDependencies:
   koa-logger:
     hash: 1b763ec9aa9bbcaf763dfd0c1fbe009467ac3a3288d864131f7b8e9fa3ef7248
     path: patches/koa-logger.patch
+  qwen-ai-provider-v5:
+    hash: ab87f558f5da99c9823d8c20d0c1cda19d4fdeaf344ce7229f1f8e4cdc3faf89
+    path: patches/qwen-ai-provider-v5.patch
 
 importers:
 
@@ -155,8 +158,8 @@ importers:
         specifier: ^4.0.0
         version: 4.1.5(vue@3.5.11(typescript@5.8.2))
       zod:
-        specifier: ^4.0.5
-        version: 4.0.5
+        specifier: ^4.1.13
+        version: 4.1.13
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.3.0
@@ -358,8 +361,8 @@ importers:
         specifier: ^4.17.21
         version: 4.17.21
       zod:
-        specifier: ^4.0.5
-        version: 4.0.5
+        specifier: ^4.1.13
+        version: 4.1.13
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.3.0
@@ -462,6 +465,9 @@ importers:
 
   packages/server:
     dependencies:
+      '@ai-sdk/openai':
+        specifier: ^2.0.88
+        version: 2.0.88(zod@4.1.13)
       '@hono/bun-compress':
         specifier: ^0.1.0
         version: 0.1.0(hono@4.8.10)
@@ -470,7 +476,7 @@ importers:
         version: 1.0.2(hono@4.8.10)(prom-client@15.1.3)
       '@hono/zod-validator':
         specifier: ^0.7.2
-        version: 0.7.2(hono@4.8.10)(zod@4.0.5)
+        version: 0.7.2(hono@4.8.10)(zod@4.1.13)
       '@koa/cors':
         specifier: ^3.1.0
         version: 3.4.2
@@ -488,13 +494,16 @@ importers:
         version: 1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0)
       '@orpc/zod':
         specifier: ^1.8.1
-        version: 1.8.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.8.1(@opentelemetry/api@1.9.0))(@orpc/server@1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0))(ws@8.9.0)(zod@4.0.5)
+        version: 1.8.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.8.1(@opentelemetry/api@1.9.0))(@orpc/server@1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0))(ws@8.9.0)(zod@4.1.13)
       '@types/bun':
         specifier: ^1.2.20
         version: 1.2.20(@types/react@19.1.10)
       ahocorasick:
         specifier: ^1.0.2
         version: 1.0.2
+      ai:
+        specifier: ^5.0.115
+        version: 5.0.115(zod@4.1.13)
       async-stream-reader:
         specifier: ^1.2.0
         version: 1.2.0
@@ -542,7 +551,7 @@ importers:
         version: 4.8.10
       hono-openapi:
         specifier: ^0.4.8
-        version: 0.4.8(@hono/zod-validator@0.7.2(hono@4.8.10)(zod@4.0.5))(hono@4.8.10)(openapi-types@12.1.3)(zod-openapi@5.3.0(zod@4.0.5))(zod@4.0.5)
+        version: 0.4.8(@hono/zod-validator@0.7.2(hono@4.8.10)(zod@4.1.13))(hono@4.8.10)(openapi-types@12.1.3)(zod-openapi@5.3.0(zod@4.1.13))(zod@4.1.13)
       hs-log-parser:
         specifier: ^0.0.2
         version: 0.0.2
@@ -596,7 +605,7 @@ importers:
         version: 6.6.5
       openai:
         specifier: ^4.97.0
-        version: 4.97.0(ws@8.9.0)(zod@4.0.5)
+        version: 4.97.0(ws@8.9.0)(zod@4.1.13)
       openapi-merge:
         specifier: ^1.3.3
         version: 1.3.3
@@ -615,6 +624,9 @@ importers:
       prom-client:
         specifier: ^15.1.3
         version: 15.1.3
+      qwen-ai-provider-v5:
+        specifier: ^1.0.2
+        version: 1.0.2(patch_hash=ab87f558f5da99c9823d8c20d0c1cda19d4fdeaf344ce7229f1f8e4cdc3faf89)(zod@4.1.13)
       readline:
         specifier: ^1.3.0
         version: 1.3.0
@@ -637,11 +649,11 @@ importers:
         specifier: ^1.6.11
         version: 1.6.11
       zod:
-        specifier: ^4.0.5
-        version: 4.0.5
+        specifier: ^4.1.13
+        version: 4.1.13
       zod-openapi:
         specifier: ^5.3.0
-        version: 5.3.0(zod@4.0.5)
+        version: 5.3.0(zod@4.1.13)
     devDependencies:
       '@better-auth/cli':
         specifier: ^1.3.4
@@ -790,6 +802,28 @@ packages:
   '@aashutoshrathi/word-wrap@1.2.6':
     resolution: {integrity: sha512-1Yjs2SvM8TflER/OD3cOjhWWOZb58A2t7wpE2S9XfBYTiIl+XFhQG2bjy4Pu1I+EAlCNUzRDYDdFwFYUKvXcIA==}
     engines: {node: '>=0.10.0'}
+
+  '@ai-sdk/gateway@2.0.22':
+    resolution: {integrity: sha512-6fHjDfCbjfj4vyMExuLei7ir2///E5sNwNZaobdJsJIxJjDSsjzSLGO/aUI7p9eOnB8XctDrDSF5ilwDGpi6eg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai@2.0.88':
+    resolution: {integrity: sha512-LlOf83haeZIiRUH1Zw1oEmqUfw5y54227CvndFoBpIkMJwQDGAB3VARUeOJ6iwAWDJjXSz06GdnEnhRU67Yatw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@3.0.19':
+    resolution: {integrity: sha512-W41Wc9/jbUVXVwCN/7bWa4IKe8MtxO3EyA0Hfhx6grnmiYlCvpI8neSYWFE0zScXJkgA/YK3BRybzgyiXuu6JA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider@2.0.0':
+    resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
+    engines: {node: '>=18'}
 
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
@@ -2794,6 +2828,10 @@ packages:
     resolution: {integrity: sha512-AjOC3zfnxd6S4Eiy3jwktJPclqhFHNyd8L6Gycf9WUPoKZpgM5PjkxY1X7uSy61xVpiJDhhk7XT2NVsN3ALTWg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@vercel/oidc@3.0.5':
+    resolution: {integrity: sha512-fnYhv671l+eTTp48gB4zEsTW/YtRgRPnkI2nT7x6qw5rkI1Lq2hTmQIpHPgyThI0znLK+vX2n9XxKdXZ7BUbbw==}
+    engines: {node: '>= 20'}
+
   '@vitejs/plugin-vue@5.2.1':
     resolution: {integrity: sha512-cxh314tzaWwOLqVes2gnnCtvBDcM1UMdn+iFR+UjAn411dPT3tOmqrJjbMd7koZpMAmBM/GqeV4n9ge7JSiJJQ==}
     engines: {node: ^18.0.0 || >=20.0.0}
@@ -3021,6 +3059,12 @@ packages:
 
   ahocorasick@1.0.2:
     resolution: {integrity: sha512-hCOfMzbFx5IDutmWLAt6MZwOUjIfSM9G9FyVxytmE4Rs/5YDPWQrD/+IR1w+FweD9H2oOZEnv36TmkjhNURBVA==}
+
+  ai@5.0.115:
+    resolution: {integrity: sha512-aVuHx0orGxXvhyL7oXUyW8TnWQE6Al8f3Bl6VZjz0WHMV+WaACHPkSyvQ3wje2QCUGzdl5DBF5d+OaXyghPQyg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
 
   ajv-formats@2.1.1:
     resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
@@ -4267,6 +4311,10 @@ packages:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
     engines: {node: '>=0.8.x'}
 
+  eventsource-parser@3.0.6:
+    resolution: {integrity: sha512-Vo1ab+QXPzZ4tCa8SwIHJFaSzy4R6SHf7BY79rFBDf0idraZWAkYrDjDj8uWaSm3S2TK+hJ7/t1CEmZ7jXw+pg==}
+    engines: {node: '>=18.0.0'}
+
   expand-template@2.0.3:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
@@ -4854,6 +4902,9 @@ packages:
   json-schema-walker@2.0.0:
     resolution: {integrity: sha512-nXN2cMky0Iw7Af28w061hmxaPDaML5/bQD9nwm1lOoIKEGjHcRGxqWe4MfrkYThYAPjSUhmsp4bJNoLAyVn9Xw==}
     engines: {node: '>=10'}
+
+  json-schema@0.4.0:
+    resolution: {integrity: sha512-es94M3nTIfsEPisRafak+HDLfHXnKBhV3vU5eqPcS3flIWqcxJWgXHXiey3YrpaNsanY5ei1VoYEbOzijuq9BA==}
 
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
@@ -5892,6 +5943,12 @@ packages:
 
   queue-tick@1.0.1:
     resolution: {integrity: sha512-kJt5qhMxoszgU/62PLP1CJytzd2NKetjSRnyuj31fDd3Rlcz3fzlFdFLD1SItunPwyqEOkca6GbV612BWfaBag==}
+
+  qwen-ai-provider-v5@1.0.2:
+    resolution: {integrity: sha512-IMweAFhHxM2OZzeZKyDUfcxCQCLkFioQv9TkprAXttV6XeTBTSjjUc17S9dUW4rOgtWLsCXoAkaAPUHj1jQYtg==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
 
   radash@12.1.1:
     resolution: {integrity: sha512-h36JMxKRqrAxVD8201FrCpyeNuUY9Y5zZwujr20fFO77tpUtGa6EZzfKw/3WaiBX95fq7+MpsuMLNdSnORAwSA==}
@@ -7100,8 +7157,8 @@ packages:
     peerDependencies:
       zod: ^3.25.74 || ^4.0.0
 
-  zod@4.0.5:
-    resolution: {integrity: sha512-/5UuuRPStvHXu7RS+gmvRf4NXrNxpSllGwDnCBcJZtQsKrviYXm54yDGV2KYNLT5kq0lHGcl7lqWJLgSaG+tgA==}
+  zod@4.1.13:
+    resolution: {integrity: sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -7109,6 +7166,30 @@ packages:
 snapshots:
 
   '@aashutoshrathi/word-wrap@1.2.6': {}
+
+  '@ai-sdk/gateway@2.0.22(zod@4.1.13)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.19(zod@4.1.13)
+      '@vercel/oidc': 3.0.5
+      zod: 4.1.13
+
+  '@ai-sdk/openai@2.0.88(zod@4.1.13)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.19(zod@4.1.13)
+      zod: 4.1.13
+
+  '@ai-sdk/provider-utils@3.0.19(zod@4.1.13)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@standard-schema/spec': 1.0.0
+      eventsource-parser: 3.0.6
+      zod: 4.1.13
+
+  '@ai-sdk/provider@2.0.0':
+    dependencies:
+      json-schema: 0.4.0
 
   '@ampproject/remapping@2.3.0':
     dependencies:
@@ -7422,7 +7503,7 @@ snapshots:
       semver: 7.7.2
       tinyexec: 0.3.2
       yocto-spinner: 0.1.2
-      zod: 4.0.5
+      zod: 4.1.13
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -8130,10 +8211,10 @@ snapshots:
       hono: 4.8.10
       prom-client: 15.1.3
 
-  '@hono/zod-validator@0.7.2(hono@4.8.10)(zod@4.0.5)':
+  '@hono/zod-validator@0.7.2(hono@4.8.10)(zod@4.1.13)':
     dependencies:
       hono: 4.8.10
-      zod: 4.0.5
+      zod: 4.1.13
 
   '@humanfs/core@0.19.1': {}
 
@@ -8773,7 +8854,7 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/zod@1.8.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.8.1(@opentelemetry/api@1.9.0))(@orpc/server@1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0))(ws@8.9.0)(zod@4.0.5)':
+  '@orpc/zod@1.8.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.8.1(@opentelemetry/api@1.9.0))(@orpc/server@1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0))(ws@8.9.0)(zod@4.1.13)':
     dependencies:
       '@orpc/contract': 1.8.1(@opentelemetry/api@1.9.0)
       '@orpc/json-schema': 1.8.1(@opentelemetry/api@1.9.0)(ws@8.9.0)
@@ -8782,7 +8863,7 @@ snapshots:
       '@orpc/shared': 1.8.1(@opentelemetry/api@1.9.0)
       escape-string-regexp: 5.0.0
       wildcard-match: 5.1.4
-      zod: 4.0.5
+      zod: 4.1.13
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - crossws
@@ -9484,6 +9565,8 @@ snapshots:
       '@typescript-eslint/types': 8.26.1
       eslint-visitor-keys: 4.2.0
 
+  '@vercel/oidc@3.0.5': {}
+
   '@vitejs/plugin-vue@5.2.1(vite@5.1.1(@types/node@20.11.7)(sass@1.32.12)(terser@5.39.0))(vue@3.5.11(typescript@5.8.2))':
     dependencies:
       vite: 5.1.1(@types/node@20.11.7)(sass@1.32.12)(terser@5.39.0)
@@ -9804,6 +9887,14 @@ snapshots:
 
   ahocorasick@1.0.2: {}
 
+  ai@5.0.115(zod@4.1.13):
+    dependencies:
+      '@ai-sdk/gateway': 2.0.22(zod@4.1.13)
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.19(zod@4.1.13)
+      '@opentelemetry/api': 1.9.0
+      zod: 4.1.13
+
   ajv-formats@2.1.1(ajv@8.17.1):
     optionalDependencies:
       ajv: 8.17.1
@@ -9957,7 +10048,7 @@ snapshots:
       jose: 5.10.0
       kysely: 0.28.3
       nanostores: 0.11.4
-      zod: 4.0.5
+      zod: 4.1.13
 
   better-call@1.0.12:
     dependencies:
@@ -10983,6 +11074,8 @@ snapshots:
 
   events@3.3.0: {}
 
+  eventsource-parser@3.0.6: {}
+
   expand-template@2.0.3: {}
 
   express@4.21.2:
@@ -11299,15 +11392,15 @@ snapshots:
 
   help-me@5.0.0: {}
 
-  hono-openapi@0.4.8(@hono/zod-validator@0.7.2(hono@4.8.10)(zod@4.0.5))(hono@4.8.10)(openapi-types@12.1.3)(zod-openapi@5.3.0(zod@4.0.5))(zod@4.0.5):
+  hono-openapi@0.4.8(@hono/zod-validator@0.7.2(hono@4.8.10)(zod@4.1.13))(hono@4.8.10)(openapi-types@12.1.3)(zod-openapi@5.3.0(zod@4.1.13))(zod@4.1.13):
     dependencies:
       json-schema-walker: 2.0.0
       openapi-types: 12.1.3
     optionalDependencies:
-      '@hono/zod-validator': 0.7.2(hono@4.8.10)(zod@4.0.5)
+      '@hono/zod-validator': 0.7.2(hono@4.8.10)(zod@4.1.13)
       hono: 4.8.10
-      zod: 4.0.5
-      zod-openapi: 5.3.0(zod@4.0.5)
+      zod: 4.1.13
+      zod-openapi: 5.3.0(zod@4.1.13)
 
   hono@4.8.10: {}
 
@@ -11556,6 +11649,8 @@ snapshots:
     dependencies:
       '@apidevtools/json-schema-ref-parser': 11.9.3
       clone: 2.1.2
+
+  json-schema@0.4.0: {}
 
   json-stable-stringify-without-jsonify@1.0.1: {}
 
@@ -12399,7 +12494,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@4.97.0(ws@8.9.0)(zod@4.0.5):
+  openai@4.97.0(ws@8.9.0)(zod@4.1.13):
     dependencies:
       '@types/node': 18.19.98
       '@types/node-fetch': 2.6.12
@@ -12410,7 +12505,7 @@ snapshots:
       node-fetch: 2.7.0
     optionalDependencies:
       ws: 8.9.0
-      zod: 4.0.5
+      zod: 4.1.13
     transitivePeerDependencies:
       - encoding
 
@@ -12846,6 +12941,12 @@ snapshots:
   queue-microtask@1.2.3: {}
 
   queue-tick@1.0.1: {}
+
+  qwen-ai-provider-v5@1.0.2(patch_hash=ab87f558f5da99c9823d8c20d0c1cda19d4fdeaf344ce7229f1f8e4cdc3faf89)(zod@4.1.13):
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.19(zod@4.1.13)
+      zod: 4.1.13
 
   radash@12.1.1: {}
 
@@ -14066,10 +14167,10 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod-openapi@5.3.0(zod@4.0.5):
+  zod-openapi@5.3.0(zod@4.1.13):
     dependencies:
-      zod: 4.0.5
+      zod: 4.1.13
 
-  zod@4.0.5: {}
+  zod@4.1.13: {}
 
   zwitch@2.0.4: {}

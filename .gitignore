@@ -4,6 +4,7 @@ node_modules
 
 .eslintcache
 .env
+.env.*
 
 packages/server/drizzle/
 packages/server/decls/

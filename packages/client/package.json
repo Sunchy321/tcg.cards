@@ -55,7 +55,7 @@
     "vue": "^3.5.11",
     "vue-i18n": "^11.1.5",
     "vue-router": "^4.0.0",
-    "zod": "^4.0.5"
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.0",
