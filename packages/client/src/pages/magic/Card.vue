@@ -69,7 +69,7 @@
                     class="attraction-light"
                     :class="{
                         [`light-${i}`]: true,
-                        enabled: attractionLights[i] === '1'
+                        enabled: attractionLights.includes(i.toString())
                     }"
                 >
                     {{ i }}
@@ -392,7 +392,7 @@ const setInfos = computed(() => sets.value.map(s => {
 
     return {
         set:             s,
-        langs:           uniq(setVersions.map(v => v.lang)),
+        langs:           uniq(setVersions.map(v => v.lang)).sort((a, b) => locale.options.indexOf(a) - locale.options.indexOf(b)),
         numbers,
         rarity,
         iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,

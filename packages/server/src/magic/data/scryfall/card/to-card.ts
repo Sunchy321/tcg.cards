@@ -376,7 +376,7 @@ export function toCard(data: NCardSplit, setCodeMap: Record<string, string>): Ca
 
             attractionLights: f.attraction_lights == null
                 ? null
-                : [1, 2, 3, 4, 5, 6].map(n => f.attraction_lights!.includes(n) ? '1' : '0').join(''),
+                : f.attraction_lights.join(''),
 
             scryfallIllusId: (() => {
                 const illusId = f.illustration_id;

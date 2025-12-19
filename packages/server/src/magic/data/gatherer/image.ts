@@ -33,7 +33,7 @@ export async function saveGathererImage(mids: number[], set: string, number: str
     if (mids.length === 1) {
         const saver = new FileSaver(
             `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${mids[0]}&type=card`,
-            cardImagePath('large', set, lang, number),
+            cardImagePath('large', set, lang, number, undefined, 'webp'),
         );
 
         saver.start();
@@ -42,12 +42,12 @@ export async function saveGathererImage(mids: number[], set: string, number: str
     } else {
         const saverFront = new FileSaver(
             `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${mids[0]}&type=card`,
-            cardImagePath('large', set, lang, number, 0),
+            cardImagePath('large', set, lang, number, 0, 'webp'),
         );
 
         const saverBack = new FileSaver(
             `https://gatherer.wizards.com/Handlers/Image.ashx?multiverseid=${mids[1]}&type=card`,
-            cardImagePath('large', set, lang, number, 1),
+            cardImagePath('large', set, lang, number, 1, 'webp'),
         );
 
         saverFront.start();

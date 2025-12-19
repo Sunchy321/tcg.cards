@@ -580,6 +580,7 @@ const search = computed({
 });
 
 type CardPart = CardEditorView['cardPart'];
+type Print = CardEditorView['print'];
 type PrintPart = CardEditorView['printPart'];
 
 const card = computed(() => data.value?.card);
@@ -706,6 +707,21 @@ const cardPartField = <F extends keyof CardPart>(firstKey: F, defaultValue?: Car
                 const realPath = typeof path === 'string' ? path : path();
 
                 lockPath(card, realPath);
+            }
+        }
+    },
+});
+
+const printField = <F extends keyof Print>(firstKey: F, defaultValue?: Print[F], path?: string | (() => string)) => computed({
+    get() { return (print.value?.[firstKey] ?? defaultValue)!; },
+    set(newValue: Print[F]) {
+        if (data.value != null && !isEqual(print.value![firstKey], newValue)) {
+            print.value![firstKey] = newValue;
+
+            if (path != null) {
+                const realPath = typeof path === 'string' ? path : path();
+
+                lockPath(print, realPath);
             }
         }
     },
@@ -1033,14 +1049,7 @@ const counters = computed({
     },
 });
 
-const multiverseId = computed({
-    get() { return print.value?.multiverseId ?? []; },
-    set(newValue) {
-        if (print.value != null) {
-            print.value.multiverseId = newValue;
-        }
-    },
-});
+const multiverseId = printField('multiverseId', [], 'multiverseId');
 
 const lockedPaths = computed(() => ({
     card:                 card.value?.__lockedPaths ?? [],
@@ -1416,12 +1425,14 @@ const reloadCardImage = async () => {
         return;
     }
 
-    await trpc.magic.image.reload({
+    await trpc.magic.data.scryfall.reloadImage({
         cardId: id.value,
         set:    set.value,
         number: number.value,
         lang:   lang.value,
     });
+
+    print.value!.fullImageType = 'jpg';
 
     refreshToken.value = crypto.randomUUID();
 };
@@ -1789,6 +1800,8 @@ const saveGathererImage = async () => {
         number: number.value,
         lang:   lang.value,
     });
+
+    print.value!.fullImageType = 'webp';
 
     refreshToken.value = crypto.randomUUID();
 };

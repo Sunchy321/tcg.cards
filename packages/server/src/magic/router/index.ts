@@ -6,7 +6,6 @@ import { formatApi, formatTrpc } from './format';
 import { announcementApi, announcementTrpc } from './announcement';
 import { ruleApi, ruleTrpc } from './rule';
 import { dataTrpc } from './data';
-import { imageTrpc } from './image';
 
 export const magicTrpc = {
     card:         cardTrpc,
@@ -17,7 +16,6 @@ export const magicTrpc = {
     announcement: announcementTrpc,
     rule:         ruleTrpc,
     data:         dataTrpc,
-    image:        imageTrpc,
 };
 
 export const magicApi = {

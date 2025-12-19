@@ -1,11 +1,17 @@
 import { eventIterator, os } from '@orpc/server';
 
 import z from 'zod';
+import { locale } from '@model/magic/schema/basic';
 import { imageTaskStatus } from '@model/magic/schema/data/gatherer/image';
 
+import { db } from '@/drizzle';
+import { Print } from '@/magic/schema/print';
+
 import { GathererImageTask, saveGathererImage } from '@/magic/data/gatherer/image';
+
+import { and, eq } from 'drizzle-orm';
+
 import { parseGatherer } from '@/magic/data/gatherer/parse';
-import { locale } from '@model/magic/schema/basic';
 
 const parseCard = os
     .input(z.int().min(0))
@@ -33,6 +39,18 @@ const saveImage = os
         const { mids, set, number, lang } = input;
 
         await saveGathererImage(mids, set, number, lang);
+
+        await db
+            .update(Print)
+            .set({
+                imageStatus:   'highres_scan',
+                fullImageType: 'webp',
+            })
+            .where(and(
+                eq(Print.set, set),
+                eq(Print.number, number),
+                eq(Print.lang, lang),
+            ));
     });
 
 const loadImage = os
