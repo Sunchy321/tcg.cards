@@ -12,10 +12,16 @@
 	"devDependencies": {
 		"@eslint/js": "^9.22.0",
 		"@stylistic/eslint-plugin": "^4.2.0",
+		"@types/node": "^25.0.3",
 		"eslint": "^9.22.0",
 		"eslint-plugin-vue": "^10.0.0",
 		"eslint-stylistic-airbnb": "^2.0.0",
 		"globals": "^16.0.0",
+		"knip": "^5.75.1",
+		"typescript": "^5.8.2",
 		"typescript-eslint": "^8.26.1"
+	},
+	"scripts": {
+		"knip": "knip"
 	}
 }

@@ -1,0 +1,122 @@
+{
+    "$schema": "https://unpkg.com/knip@5/schema.json",
+    "ignoreExportsUsedInFile": {
+        "interface": true,
+        "type": true
+    },
+    "tags": [
+        "-lintignore"
+    ],
+    "ignore": [
+        "patches/**",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.nuxt/**",
+        "**/lib/**",
+        "**/build/**"
+    ],
+    "ignoreDependencies": ["eslint"],
+    "workspaces": {
+        ".": {
+            "entry": [
+                "packages/server/src/app.ts",
+                "packages/client/src/App.vue",
+                "packages/codegen/scripts/gen-model.ts",
+                "packages/*/src/index.ts"
+            ],
+            "project": [
+                "packages/*/src/**/*.{ts,js,vue}",
+                "packages/*/scripts/**/*.{ts,js}",
+                "!packages/*/src/**/*.test.{ts,js}",
+                "!packages/*/src/**/*.spec.{ts,js}",
+                "!packages/*/lib/**",
+                "!packages/*/dist/**"
+            ]
+        },
+        "packages/server": {
+            "entry": [
+                "src/app.ts"
+            ],
+            "project": [
+                "src/**/*.ts",
+                "!src/**/*.test.ts",
+                "!src/**/*.spec.ts"
+            ],
+            "ignoreDependencies": [
+                "@types/*"
+            ]
+        },
+        "packages/client": {
+            "entry": [
+                "src/App.vue"
+            ],
+            "project": [
+                "src/**/*.{ts,js,vue}",
+                "!src/**/*.test.{ts,js}",
+                "!src/**/*.spec.{ts,js}"
+            ],
+            "ignoreDependencies": [
+                "@types/*",
+                "quasar"
+            ]
+        },
+        "packages/common": {
+            "entry": [
+                "src/index.ts"
+            ],
+            "project": [
+                "src/**/*.ts"
+            ]
+        },
+        "packages/interface": {
+            "entry": [
+                "src/index.ts"
+            ],
+            "project": [
+                "src/**/*.ts"
+            ]
+        },
+        "packages/model": {
+            "entry": [
+                "src/index.ts"
+            ],
+            "project": [
+                "src/**/*.ts"
+            ]
+        },
+        "packages/search": {
+            "entry": [
+                "src/index.ts"
+            ],
+            "project": [
+                "src/**/*.ts"
+            ]
+        },
+        "packages/renderer": {
+            "entry": [
+                "src/index.ts"
+            ],
+            "project": [
+                "src/**/*.ts"
+            ]
+        },
+        "packages/codegen": {
+            "entry": [
+                "scripts/gen-model.ts"
+            ],
+            "project": [
+                "scripts/**/*.ts",
+                "src/**/*.ts"
+            ]
+        },
+        "packages/log-parser": {
+            "entry": [
+                "lib/index.js"
+            ],
+            "project": [
+                "lib/**/*.js",
+                "src/**/*.ts"
+            ]
+        }
+    }
+}
