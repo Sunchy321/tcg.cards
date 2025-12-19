@@ -1,7 +1,7 @@
 import Task from '@/common/task';
 
 import axios from 'axios';
-import cherrio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 type Status = {
     method: string;
@@ -60,7 +60,7 @@ export class DatabaseGetter extends Task<Status> {
 
     async getTotalPage(): Promise<number> {
         const html = await axios.get(baseUrl);
-        const $ = cherrio.load(html.data);
+        const $ = cheerio.load(html.data);
 
         const lastButton = $('.yaji.max');
 

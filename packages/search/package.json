@@ -18,8 +18,8 @@
     "url": "https://github.com/Sunchy321/tcg.cards/issues"
   },
   "dependencies": {
-    "card-common": "workspace:^1.0.0",
-    "card-interface": "workspace:^",
+    "card-common": "workspace:*",
+    "card-interface": "workspace:*",
     "lodash": "^4.17.21",
     "mongoose": "^6.4.6",
     "tst-reflect": "^0.7.4"

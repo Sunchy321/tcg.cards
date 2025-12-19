@@ -1,5 +1,5 @@
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 function toText(elem: cheerio.Element, $: cheerio.Root): string {
     if (elem.type === 'text') {

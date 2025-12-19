@@ -21,7 +21,7 @@
     "@types/diff": "^4.0.2",
     "@types/lodash": "^4.14.182",
     "@types/node": "^18.11.17",
-    "card-interface": "workspace:^",
+    "card-interface": "workspace:*",
     "eslint": "^9.22.0",
     "globals": "^16.0.0",
     "ts-essentials": "^10.0.4",

@@ -5,7 +5,7 @@ import _, { omit } from 'lodash';
 import { eq, getTableColumns, inArray } from 'drizzle-orm';
 
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 import { set, setProfile } from '@model/magic/schema/set';
 

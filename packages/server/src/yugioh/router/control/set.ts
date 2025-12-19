@@ -8,7 +8,7 @@ import { Set as ISet } from '@interface/lorcana/set';
 import { Rarity } from '@interface/lorcana/print';
 
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 import { mapValues, uniq } from 'lodash';
 import { toSingle } from '@/common/request-helper';

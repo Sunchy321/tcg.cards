@@ -10,7 +10,7 @@ import { ImageTaskStatus } from '@model/magic/schema/data/gatherer/image';
 import { and, eq } from 'drizzle-orm';
 import _ from 'lodash';
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import { unlinkSync } from 'fs';
 
 import { cardImagePath } from '@/magic/image';

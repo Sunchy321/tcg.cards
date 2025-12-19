@@ -7,7 +7,7 @@ import Print from '@/magic/db/print';
 import { Set as ISet } from '@interface/magic/set';
 
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 import { mapValues, uniq } from 'lodash';
 import { toSingle } from '@/common/request-helper';

@@ -5,13 +5,12 @@
   "main": "index.js",
   "scripts": {
     "gen": "node -r ts-node/register -r tsconfig-paths/register ./src/app.ts",
-    "lint": "cd ../server && pnpm dlx eslint src --fix",
-    "exec": "pnpm run gen && pnpm run lint"
+    "lint": "cd ../server && bunx eslint src --fix",
+    "exec": "bun gen && bun lint"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.8.0",
   "devDependencies": {
     "@types/lodash": "^4.17.16",
     "@types/node": "^22.14.1",
@@ -20,8 +19,8 @@
     "tsconfig-paths": "^3.9.0"
   },
   "dependencies": {
-    "card-common": "workspace:^1.0.0",
-    "card-interface": "workspace:^1.0.0",
+    "card-common": "workspace:*",
+    "card-interface": "workspace:*",
     "lodash": "^4.17.21"
   }
 }

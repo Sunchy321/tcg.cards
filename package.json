@@ -1,13 +1,9 @@
 {
-	"pnpm": {
-		"patchedDependencies": {
-			"@types/koa-bodyparser@4.3.8": "patches/@types__koa-bodyparser@4.3.8.patch",
-			"koa-logger": "patches/koa-logger.patch",
-			"better-auth": "patches/better-auth.patch",
-			"drizzle-orm": "patches/drizzle-orm.patch",
-			"drizzle-kit": "patches/drizzle-kit.patch",
-			"qwen-ai-provider-v5": "patches/qwen-ai-provider-v5.patch"
-		}
+	"patchedDependencies": {
+		"better-auth": "patches/better-auth.patch",
+		"drizzle-orm": "patches/drizzle-orm.patch",
+		"drizzle-kit": "patches/drizzle-kit.patch",
+		"qwen-ai-provider-v5": "patches/qwen-ai-provider-v5.patch"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.22.0",
@@ -23,5 +19,6 @@
 	},
 	"scripts": {
 		"knip": "knip"
-	}
+	},
+	"workspaces": ["packages/*"]
 }

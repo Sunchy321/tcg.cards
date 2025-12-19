@@ -1,4 +1,4 @@
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import request from 'request-promise-native';
 
 import { Announcement as IFormatAnnouncement, Legality } from '@interface/magic/format-change';

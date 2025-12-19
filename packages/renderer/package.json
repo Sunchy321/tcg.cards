@@ -24,7 +24,7 @@
 	},
 	"dependencies": {
 		"canvas": "^3.0.1",
-		"card-interface": "workspace:^1.1.0",
+		"card-interface": "workspace:*",
 		"lodash": "^4.17.21",
 		"tst-reflect": "^0.7.4"
 	}

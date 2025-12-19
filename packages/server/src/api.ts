@@ -5,7 +5,7 @@ import { os } from '@orpc/server';
 import { OpenAPIHandler } from '@orpc/openapi/fetch';
 import { OpenAPIReferencePlugin } from '@orpc/openapi/plugins';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
-import { experimental_SmartCoercionPlugin as SmartCoercionPlugin } from '@orpc/json-schema';
+import { SmartCoercionPlugin } from '@orpc/json-schema';
 
 import z from 'zod';
 

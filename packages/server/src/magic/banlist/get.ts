@@ -1,7 +1,7 @@
 import { Banlist } from '@interface/magic/format-change';
 
 import request from 'request-promise-native';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 
 import { toIdentifier } from '@common/util/id';
 
