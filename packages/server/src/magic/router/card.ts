@@ -530,20 +530,22 @@ const scanCardText = os
 
         const qwen = createQwen({ baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1' });
 
+        console.log(url);
+
         const { object } = await generateObject({
-            model:  qwen('qwen3-vl-plus'),
-            prompt: [
+            model:    qwen('qwen-vl-ocr-latest'),
+            messages: [
                 {
                     role:    'user',
                     content: [
                         {
-                            type: 'text',
-                            text: '接下来将输入一张万智牌的卡牌图像，请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者无法识别的符号或图标用{?}代替。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
-                        },
-                        {
                             type:      'file',
                             mediaType: `image/${ext}`,
                             data:      url,
+                        },
+                        {
+                            type: 'text',
+                            text: '请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者无法识别的符号或图标用{?}代替。名称为图片最上方的文本。类别为图片中间位置的文本。效果文本和风味文字为图片下方的文本，其中风味文字使用不同的字体。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
                         },
                     ],
                 },
@@ -555,6 +557,8 @@ const scanCardText = os
                 flavorText: z.string(),
             }),
         });
+
+        console.log('Extracted card data:', object);
 
         return object;
     });
