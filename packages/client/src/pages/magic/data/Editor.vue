@@ -353,10 +353,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-    ref, computed, onMounted, watch, nextTick,
-    ComputedRef,
-} from 'vue';
+import { ref, computed, watch, nextTick, ComputedRef } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useParam } from 'store/core';
@@ -727,14 +724,14 @@ const printField = <F extends keyof Print>(firstKey: F, defaultValue?: Print[F],
     },
 });
 
-const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: PrintPart[F], path?: string | (() => string)) => computed({
+const printPartField = <F extends keyof PrintPart>(firstKey: F, defaultValue?: PrintPart[F], path?: string | (() => string) | null) => computed({
     get() { return (printPart.value?.[firstKey] ?? defaultValue)!; },
     set(newValue: PrintPart[F]) {
         if (data.value != null && !isEqual(printPart.value![firstKey], newValue)) {
             printPart.value![firstKey] = newValue;
 
-            if (path != null) {
-                const realPath = typeof path === 'string' ? path : path();
+            if (path !== null) {
+                const realPath = path == null ? firstKey : typeof path === 'string' ? path : path();
 
                 lockPath(printPart, realPath);
             }
@@ -1502,7 +1499,21 @@ const loadData = async () => {
     });
 };
 
-onMounted(loadData);
+watch(
+    [id, lang, set, number, partIndex],
+    async ([newId, newLang, newSet, newNumber, newPartIndex], [oldId, oldLang, oldSet, oldNumber, oldPartIndex]) => {
+        if (
+            newId !== oldId
+            || newLang !== oldLang
+            || newSet !== oldSet
+            || newNumber !== oldNumber
+            || newPartIndex !== oldPartIndex
+        ) {
+            await loadData();
+        }
+    },
+    { immediate: true },
+);
 
 const loadGroup = async (method: string, skip = false) => {
     if (data.value != null && !skip) {

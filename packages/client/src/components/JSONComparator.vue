@@ -2,7 +2,7 @@
     <root />
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T">
 import type { VNode } from 'vue';
 import { h } from 'vue';
 import { QBtn } from 'quasar';
@@ -12,7 +12,7 @@ import {
 } from 'lodash';
 
 const props = defineProps<{
-    values:    any[];
+    values:    T[];
     keyOrder?: (key: string, values: any[], index: string[]) => number | null;
 }>();
 

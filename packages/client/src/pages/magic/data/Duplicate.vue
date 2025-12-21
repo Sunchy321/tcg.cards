@@ -7,21 +7,19 @@
                 Resolve
             </q-btn>
 
-            <card-avatar v-if="id != null && version != null" :id="id" :version="version" use-lang />
+            <card-avatar v-if="cardId != null && version != null" :id="cardId" :version="version" use-lang />
         </div>
 
         <json-comparator :values="values" @update-value="updateValue" />
     </div>
 </template>
 
-<script lang="ts">
-import {
-    defineComponent, ref, computed, onMounted,
-} from 'vue';
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
 
 import controlSetup from 'setup/control';
 
-import { Print } from '@interface/magic/print';
+import { Duplicate } from '@model/magic/schema/data/duplicate';
 
 import JsonComparator from 'components/JSONComparator.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
@@ -41,83 +39,59 @@ export type ICardUpdation = {
     lang:   string;
 };
 
-type DuplicateData = {
-    total:  number;
-    values: (Print & { _id: string })[];
+const { controlGet, controlPost } = controlSetup();
+
+const data = ref<Duplicate>();
+
+const total = computed(() => data.value?.total ?? 0);
+
+const cardId = computed(() => data.value?.duplicates[0]);
+const values = computed(() => data.value?.duplicateData ?? []);
+
+const version = computed(() => {
+    const first = data.value?.duplicateData[0];
+
+    if (first != null) {
+        return { set: first.set, number: first.number, lang: first.lang };
+    } else {
+        return undefined;
+    }
+});
+
+const allSame = computed(() => values.value.every((v, i, a) => i === a.length - 1 || isEqual(v, a[i + 1])));
+
+const updateValue = ({ index, value }: { index: string[], value: any }) => {
+    if (index.length === 0) {
+        for (const [i] of values.value.entries()) {
+            values.value[i] = value;
+        }
+    } else {
+        const path = index.map(v => (v.startsWith('.') ? v.slice(1) : v.slice(1, -1)));
+
+        for (const v of values.value) {
+            set(v, path, value);
+        }
+    }
 };
 
-export default defineComponent({
-    components: { JsonComparator, CardAvatar },
+const loadData = async () => {
+    const { data: result } = await controlGet<DuplicateData>('/magic/print/get-duplicate');
 
-    setup() {
-        const { controlGet, controlPost } = controlSetup();
+    data.value = result;
+};
 
-        const data = ref<DuplicateData>({
-            total:  0,
-            values: [],
-        });
+const resolveDuplicate = async () => {
+    const value = values.value[0];
 
-        const total = computed(() => data.value.total);
-        const values = computed(() => data.value.values);
+    if (value == null) {
+        return;
+    }
 
-        const id = computed(() => values.value[0]?.cardId);
+    await controlPost('/magic/print/resolve-duplicate', { data: value });
 
-        const version = computed(() => {
-            const first = values.value[0];
+    await loadData();
+};
 
-            if (first != null) {
-                return { set: first.set, number: first.number, lang: first.lang };
-            } else {
-                return undefined;
-            }
-        });
+onMounted(loadData);
 
-        const allSame = computed(() => values.value.every((v, i, a) => i === a.length - 1 || isEqual(v, a[i + 1])));
-
-        const updateValue = ({ index, value }: { index: string[], value: any }) => {
-            if (index.length === 0) {
-                for (const [i] of values.value.entries()) {
-                    values.value[i] = value;
-                }
-            } else {
-                const path = index.map(v => (v.startsWith('.') ? v.slice(1) : v.slice(1, -1)));
-
-                for (const v of values.value) {
-                    set(v, path, value);
-                }
-            }
-        };
-
-        const loadData = async () => {
-            const { data: result } = await controlGet<DuplicateData>('/magic/print/get-duplicate');
-
-            data.value = result;
-        };
-
-        const resolveDuplicate = async () => {
-            const value = values.value[0];
-
-            if (value == null) {
-                return;
-            }
-
-            await controlPost('/magic/print/resolve-duplicate', { data: value });
-
-            await loadData();
-        };
-
-        onMounted(loadData);
-
-        return {
-            total,
-            values,
-            id,
-            version,
-            allSame,
-
-            updateValue,
-            resolveDuplicate,
-        };
-    },
-});
 </script>

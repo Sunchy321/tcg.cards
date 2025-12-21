@@ -39,7 +39,7 @@ const basic = os
 const dev = os
     .input(searchInput.extend({
         sample:  z.number().min(1).max(100).default(50),
-        groupBy: z.enum(['card', 'lang', 'print']).default('card'),
+        groupBy: z.enum(['none', 'card', 'lang', 'print']).default('card'),
     }))
     .output(devSearchResult.extend({ method: z.string() }))
     .handler(async ({ input }) => {

@@ -1,15 +1,13 @@
 import { os } from '@orpc/server';
 
 import z from 'zod';
-
-import { and, eq, getTableColumns, sql } from 'drizzle-orm';
+import { Updation, updation, UpdationMode, updationResponse, updationMode } from '@model/magic/schema/data/updation';
 
 import { db } from '@/drizzle';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@/magic/schema/card';
 import { Print, PrintPart } from '@/magic/schema/print';
 
-import { Updation, updation, UpdationMode, updationResponse, updationMode } from '@model/magic/schema/data/updation';
-
+import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 import { isEqual, pick } from 'lodash';
 
 import { updation as log } from '@/magic/logger';
