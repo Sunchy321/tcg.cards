@@ -1,23 +1,4 @@
-import {
-    Command, defineCommand, DefaultQualifier, defaultQualifier, AllOperator, allOperator,
-} from '@search/command';
+import { all } from '@search/common/command/builtin/all';
 
-export type CostCommand = Command<never, AllOperator, DefaultQualifier, false, never, never>;
-
-export type CostOption = {
-    id:          string;
-    alt?:        string[] | string;
-    key?:        string;
-    allowFloat?: boolean;
-};
-
-export default function cost(options: CostOption): CostCommand {
-    const { id, alt } = options;
-
-    return defineCommand({
-        id,
-        alt,
-        operators:  allOperator,
-        qualifiers: defaultQualifier,
-    });
-}
+export const cost = all
+    .$meta({ allowFloat: false });

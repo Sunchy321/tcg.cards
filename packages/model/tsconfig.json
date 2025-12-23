@@ -13,7 +13,7 @@
         "paths": {
             "@model/*": ["./data/*"],
             "@model-code/*": ["./src/*"],
-            "@search/*": ["./src/search/*"],
+            "@search/*": ["./node_modules/card-search/src/*"],
         },
     },
     "include": ["data/**/*", "src/**/*"]

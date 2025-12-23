@@ -154,6 +154,7 @@
       "name": "card-model",
       "version": "1.0.0",
       "dependencies": {
+        "card-search": "../search",
         "diff": "^5.0.0",
         "lodash": "^4.17.21",
         "zod": "^4.1.13",
@@ -325,9 +326,6 @@
         "typescript-eslint": "^8.26.1",
       },
     },
-  },
-  "patchedDependencies": {
-    "qwen-ai-provider-v5@1.0.2": "patches/qwen-ai-provider-v5@1.0.2.patch",
   },
   "packages": {
     "@ai-sdk/gateway": ["@ai-sdk/gateway@2.0.22", "https://registry.npmmirror.com/@ai-sdk/gateway/-/gateway-2.0.22.tgz", { "dependencies": { "@ai-sdk/provider": "2.0.0", "@ai-sdk/provider-utils": "3.0.19", "@vercel/oidc": "3.0.5" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-6fHjDfCbjfj4vyMExuLei7ir2///E5sNwNZaobdJsJIxJjDSsjzSLGO/aUI7p9eOnB8XctDrDSF5ilwDGpi6eg=="],

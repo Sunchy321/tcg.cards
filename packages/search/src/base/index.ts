@@ -1,4 +1,4 @@
-import { PatternContext, ResultPattern } from '../base/pattern';
+import { PatternContext, ResultPattern } from './pattern';
 
 import { castArray } from 'lodash';
 
