@@ -119,7 +119,8 @@ export const flavorText = c
 export const flavorName = c
     .text
     .id('flavor-name')
-    .alt('fn');
+    .alt('fn')
+    .done();
 
 export const layout = c
     .simple
