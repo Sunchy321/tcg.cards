@@ -8,7 +8,7 @@ export const raw = c
     .done();
 
 export const stats = c
-    .all
+    .simple
     .pattern('{{power}}/{{toughness}}')
     .done();
 
@@ -148,15 +148,15 @@ export const format = c
     .done();
 
 export const counter = c
-    .simple
+    .simpleSet
     .done();
 
 export const keyword = c
-    .simple
+    .simpleSet
     .done();
 
 export const multiverseId = c
-    .simple
+    .simpleSet
     .id('multiverse-id')
     .alt(['mid'])
     .done();

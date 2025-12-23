@@ -1,6 +1,6 @@
 import z from 'zod';
 
-import { createSearchNormalResult, createSearchResult } from '@search/schema';
+import { createSearchNormalResult, createSearchResult } from '@search/common/schema';
 
 import { cardEntityView } from './entity';
 

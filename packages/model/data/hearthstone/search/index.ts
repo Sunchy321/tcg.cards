@@ -6,7 +6,7 @@ import {
 import * as builtin from '@search/command/builtin';
 
 const raw = defineCommand({ id: '', operators: [''] });
-
+a
 const fullStats = defineCommand({
     id:         'full-stats',
     pattern:    '{{cost}}/{{attack}}/{{health}}' as const,

@@ -154,7 +154,7 @@
       "name": "card-model",
       "version": "1.0.0",
       "dependencies": {
-        "card-search": "../search",
+        "card-search": "workspace:*",
         "diff": "^5.0.0",
         "lodash": "^4.17.21",
         "zod": "^4.1.13",
@@ -198,6 +198,7 @@
         "lodash": "^4.17.21",
         "mongoose": "^6.4.6",
         "tst-reflect": "^0.7.4",
+        "zod": "^4.1.13",
       },
       "devDependencies": {
         "@eslint/eslintrc": "^3.3.0",

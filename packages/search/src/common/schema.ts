@@ -1,0 +1,53 @@
+import z from 'zod';
+
+export const searchError = z.object({
+    type:  z.string(),
+    value: z.string().optional(),
+    query: z.string().optional(),
+}).or(z.any());
+
+export type SearchResultSchema<Z extends z.ZodType> = z.ZodObject<{
+    text:   z.ZodOptional<z.ZodString>;
+    result: z.ZodOptional<Z>;
+    errors: z.ZodOptional<z.ZodArray<typeof searchError>>;
+}>;
+
+export type SearchResult<R> = {
+    text?:   string;
+    result?: R;
+    errors?: z.infer<typeof searchError>[];
+};
+
+export function createSearchResult<Z extends z.ZodType>(schema: Z): SearchResultSchema<Z> {
+    return z.strictObject({
+        text:   z.string().min(1).max(1000).optional(),
+        result: schema.optional(),
+        errors: searchError.array().optional(),
+    });
+}
+
+export type SearchNormalResultSchema<Z extends z.ZodType> = z.ZodObject<{
+    result:    z.ZodArray<Z>;
+    total:     z.ZodNumber;
+    totalPage: z.ZodNumber;
+    page:      z.ZodNumber;
+    elapsed:   z.ZodNumber;
+}>;
+
+export type SearchNormalResult<Z extends z.ZodType> = z.infer<SearchNormalResultSchema<Z>>;
+
+export function createSearchNormalResult<Z extends z.ZodType>(schema: Z): SearchNormalResultSchema<Z> {
+    return z.strictObject({
+        result:    z.array(schema),
+        total:     z.int().min(0),
+        totalPage: z.int().min(0),
+        page:      z.int().min(0),
+        elapsed:   z.int().min(0),
+    });
+}
+
+export const searchInput = z.object({
+    q:        z.string().min(1).max(1000),
+    page:     z.int().min(1).default(1),
+    pageSize: z.int().min(1).max(100).default(100),
+});
