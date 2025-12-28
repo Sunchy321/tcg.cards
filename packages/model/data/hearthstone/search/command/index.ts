@@ -1,6 +1,6 @@
-import { c as create } from '@search/common';
+import { c as create } from '@search/index';
 
-import * as builtin from '@search/common/command/builtin';
+import * as builtin from '@search/command/builtin';
 
 export const c = create
     .use(builtin);

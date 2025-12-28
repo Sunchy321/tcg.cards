@@ -1,6 +1,6 @@
 import { ca } from '@/search/command/adapter';
 
-import { bit as bitSchema, Word } from '@search/common/command/builtin/bit';
+import { bit as bitSchema, Word } from '@search/command/builtin/bit';
 
 import { QueryError } from '@search/command/error';
 

@@ -1,6 +1,6 @@
 import { ca } from '../adapter';
 
-import { simple as simpleSchema } from '@search/common/command/builtin/simple';
+import { simple as simpleSchema } from '@search/command/builtin/simple';
 
 import { QueryError } from '@search/command/error';
 

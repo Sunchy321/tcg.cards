@@ -1,6 +1,6 @@
 import { ca } from '@/search/command/adapter';
 
-import { text as textSchema } from '@search/common/command/builtin/text';
+import { text as textSchema } from '@search/command/builtin/text';
 
 import { QueryError } from '@search/command/error';
 

@@ -1,4 +1,4 @@
-import { CommandBuilder, CommandOption, MetaBase, Operator, Qualifier } from '@search/common';
+import { CommandBuilder, CommandOption, MetaBase, Operator, Qualifier } from '@search/index';
 import { ServerCommandContext, ServerCommandHandler, ServerCommandHandlerArgs } from './builder';
 
 import { HiddenKeys, Hide } from '@search/util/hide';

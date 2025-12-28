@@ -1,7 +1,7 @@
 import { Hide, HiddenKeys } from '@search/util/hide';
 
 import { PatternContext } from '@search/base/pattern';
-import { CommandMapBase, CommandOption, ModelOptions } from '@search/common';
+import { CommandMapBase, CommandOption, ModelOptions } from '@search/index';
 import { ServerCommandAdapterHandler } from './adapter';
 
 import { OmitNever } from '../util';

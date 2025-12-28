@@ -1,4 +1,4 @@
-import { CommandMapBase, ModelOptions } from '@search/common';
+import { CommandMapBase, ModelOptions } from '@search/index';
 
 export interface ServerModelOption<Command, Table> {
     commands: Command;

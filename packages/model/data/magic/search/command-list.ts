@@ -1,8 +1,8 @@
 import { colorWords } from './bitmap';
 
-import { c as creator } from '@search/common';
+import { c as creator } from '@search/index';
 
-import * as builtin from '@search/common/command/builtin';
+import * as builtin from '@search/command/builtin';
 import { cost } from './command/cost';
 import { numeric } from './command/numeric';
 

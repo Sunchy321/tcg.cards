@@ -1,6 +1,6 @@
 import { ca } from '../adapter';
 
-import { simpleSet as simplSetSchema } from '@search/common/command/builtin';
+import { simpleSet as simplSetSchema } from '@search/command/builtin';
 
 import { QueryError } from '@search/command/error';
 

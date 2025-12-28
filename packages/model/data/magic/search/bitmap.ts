@@ -1,4 +1,4 @@
-import { Word } from '@search/common/command/builtin/bit';
+import { Word } from '@search/command/builtin/bit';
 
 export const colorWords: Record<string, Word> = {
     c:         { type: 'exact', value: '' },
