@@ -1,59 +1,43 @@
-import { arrayContains, Column, not, SQL, eq, ne } from 'drizzle-orm';
+import { ca } from '../adapter';
 
-import { QueryOption, ServerCommandOf } from '../index';
+import { simpleSet as simplSetSchema } from '@search/common/command/builtin';
+
 import { QueryError } from '@search/command/error';
 
-import { SimpleSetCommand } from '@search/command/builtin/simple-set';
+import { arrayContains, eq, ne, not } from 'drizzle-orm';
 
-export type SimpleSetServerCommand = ServerCommandOf<SimpleSetCommand>;
+export const simpleSet = ca
+    .adapt(simplSetSchema)
+    .handler(({ value, operator, qualifier }, { meta, column }) => {
+        const { valueMap } = meta;
 
-export type SimpleSetServerOption = {
-    column: Column;
-};
+        const words = (() => {
+            const decoded = value.split('').map(
+                c => Object.entries(valueMap)
+                    .find(([_, v]) => v.includes(c))?.[0],
+            );
 
-export type SimpleSetQueryOption = QueryOption<SimpleSetCommand, SimpleSetServerOption>;
+            if (decoded.every(v => v != null)) {
+                return decoded;
+            } else {
+                return value.split(',');
+            }
+        })();
 
-function query(options: SimpleSetQueryOption): SQL {
-    const { column, parameter, operator, qualifier, meta } = options;
-
-    const words = (() => {
-        const decoded = parameter.split('').map(
-            c => Object.entries(meta.valueMap)
-                .find(([_, v]) => v.includes(c))?.[0],
-        );
-
-        if (decoded.every(v => v != null)) {
-            return decoded;
-        } else {
-            return parameter.split(',');
+        switch (operator) {
+        case ':':
+            if (!qualifier.includes('!')) {
+                return arrayContains(column, words);
+            } else {
+                return not(arrayContains(column, words));
+            }
+        case '=':
+            if (!qualifier.includes('!')) {
+                return eq(column, words);
+            } else {
+                return ne(column, words);
+            }
+        default:
+            throw new QueryError({ type: 'invalid-query' });
         }
-    })();
-
-    switch (operator) {
-    case ':':
-        if (!qualifier.includes('!')) {
-            return arrayContains(column, words);
-        } else {
-            return not(arrayContains(column, words));
-        }
-    case '=':
-        if (!qualifier.includes('!')) {
-            return eq(column, words);
-        } else {
-            return ne(column, words);
-        }
-    default:
-        throw new QueryError({ type: 'invalid-query' });
-    }
-}
-
-export default function simpleSet(command: SimpleSetCommand, options: SimpleSetServerOption): SimpleSetServerCommand {
-    const { column } = options;
-
-    return {
-        ...command,
-        query: args => query({ column, ...args }),
-    };
-}
-
-simpleSet.query = query;
+    });

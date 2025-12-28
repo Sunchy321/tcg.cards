@@ -1,14 +1,16 @@
 import { Hide, HiddenKeys } from '@search/util/hide';
 import { CommandOption } from './command';
 
-interface ModelOptions<Command> {
+export type CommandMapBase = Record<string, CommandOption<any, any, any, any, any, any, any, any>>;
+
+export interface ModelOptions<Command extends CommandMapBase> {
     id:       string;
     commands: Command;
 }
 
-class ModelBuilder<
+export class ModelBuilder<
     Called extends HiddenKeys<ModelBuilder<any, any>>,
-    Command,
+    Command extends CommandMapBase,
 > {
     options: ModelOptions<Command>;
 
@@ -23,12 +25,22 @@ class ModelBuilder<
         });
     }
 
-    command<C extends Record<string, CommandOption<any, any, any, any, any, any>>>(commands: C): ModelBuilder<Called, C & Command> {
+    command<C extends Record<string, CommandOption<any, any, any, any, any, any, any, any>>>(commands: C): ModelBuilder<Called, C & Command> {
+        const commandsWithId = Object.fromEntries(
+            Object.entries(commands).map(([key, option]) => [
+                key,
+                {
+                    ...option,
+                    id: option.id ?? key,
+                },
+            ]),
+        ) as C;
+
         return new ModelBuilder<Called, C & Command>({
             ...this.options,
             commands: {
                 ...this.options.commands,
-                ...commands,
+                ...commandsWithId,
             },
         });
     }

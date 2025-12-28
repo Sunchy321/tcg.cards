@@ -1,13 +1,5 @@
-import simple from './simple';
-import simpleSet from './simple-set';
-import text from './text';
-import number from './number';
-import bit from './bit';
-
-export {
-    simple,
-    simpleSet,
-    text,
-    number,
-    bit,
-};
+export { simple } from './simple';
+export { simpleSet } from './simple-set';
+export { text } from './text';
+export { number } from './number';
+export { bit } from './bit';

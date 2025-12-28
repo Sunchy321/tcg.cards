@@ -1,5 +1,2 @@
-import cost from './cost';
-
-import numeric from './numeric';
-
-export { cost, numeric };
+export { cost } from './cost';
+export { numeric } from './numeric';

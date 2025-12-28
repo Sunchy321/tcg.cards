@@ -1,6 +1,13 @@
-import { c } from './command';
-
 import { colorWords } from './bitmap';
+
+import { c as creator } from '@search/common';
+
+import * as builtin from '@search/common/command/builtin';
+import { cost } from './command/cost';
+import { numeric } from './command/numeric';
+
+const c = creator
+    .use({ ...builtin, cost, numeric });
 
 export const raw = c
     .none
@@ -9,7 +16,7 @@ export const raw = c
 
 export const stats = c
     .simple
-    .pattern('{{power}}/{{toughness}}')
+    .pattern('{{power}}/{{toughness}}', true)
     .done();
 
 export const hash = c

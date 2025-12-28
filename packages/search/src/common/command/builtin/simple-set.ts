@@ -7,5 +7,6 @@ export type SimpleSetMeta = {
 
 export const simpleSet = c
     .$meta<SimpleSetMeta>({ valueMap: {}, countDuplicates: false })
+    .$type('builtin:simple-set')
     .op([':', '='])
     .qual(['!']);
