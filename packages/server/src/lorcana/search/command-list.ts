@@ -269,12 +269,11 @@ export const text = cs
 
 export const flavorText = cs
     .commands.flavorText
-.apply(table => table.print.flavorText, { multiline: true });
+    .apply(table => table.print.flavorText, { multiline: true });
 
 export const layout = cs
     .commands.layout
     .apply(table => table.print.layout, {});
-
 
 export const rarity = cs
     .commands.rarity
@@ -295,9 +294,7 @@ export const rarity = cs
             args:   { value: rarities, operator, qualifier },
             ctx:    { meta: { }, table },
         });
-    }
-
-
+    });
 
 // const order = defineServerCommand({
 //     command: commands.order,
