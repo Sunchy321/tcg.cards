@@ -8,12 +8,12 @@ export const raw = c
 export const fullStats = c
     .simple
     .id('full-stats')
-    .pattern('{{cost}}/{{strength}}/{{willPower}}')
+    .pattern('{{cost}}/{{strength}}/{{willPower}}', true)
     .done();
 
 export const stats = c
     .simple
-    .pattern('{{strength}}/{{willPower}}')
+    .pattern('{{strength}}/{{willPower}}', true)
     .done();
 
 export const hash = c

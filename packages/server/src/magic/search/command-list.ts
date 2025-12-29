@@ -95,12 +95,8 @@ export const stats = cs
 
 export const hash = cs
     .commands.hash
-    .handler(({ pattern, qualifier }) => {
-        if (pattern == null) {
-            throw new QueryError({ type: 'invalid-query' });
-        }
-
-        const { tag } = pattern;
+    .handler(({ value, pattern, qualifier }) => {
+        const tag = pattern?.tag ?? value;
 
         if (!qualifier.includes('!')) {
             return or(
@@ -323,7 +319,7 @@ export const flavorText = cs
 
 export const flavorName = cs
     .commands.flavorName
-    .apply(table => table.printPart.flavorName, {});
+    .apply(table => table.printPart.flavorName, { multiline: false });
 
 export const layout = cs
     .commands.layout
