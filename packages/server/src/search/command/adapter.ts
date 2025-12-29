@@ -1,89 +1,60 @@
-import { CommandBuilder, CommandOption, MetaBase, Operator, Qualifier } from '@search/index';
-import { ServerCommandContext, ServerCommandHandler, ServerCommandHandlerArgs } from './builder';
+/* eslint-disable @typescript-eslint/no-empty-object-type */
+import { CommandInput, CommandInputOption } from '@search/command';
+import { CommandBuilder, CommandOption } from '@search/index';
+import { ServerCommandContext, ServerCommandHandler, ServerHandlerCtx } from './builder';
 
-import { HiddenKeys, Hide } from '@search/util/hide';
-import { OmitNever } from '../util';
+import { MetaBase, MetaRest } from '@search/base/meta';
+import { Merge, merge } from '@search/util/merge';
 
 import { Column, SQL } from 'drizzle-orm';
 
-export type ServerAdapterHandlerInput<
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Meta extends MetaBase,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
-> = <Table>(
-    args: ServerCommandHandlerArgs<Op, Qual, Mod, Pat, PatAlwaysMatch, AllowRegex>,
-    ctx: OmitNever<{
-        meta: Meta;
-    }> & {
-        column: Column;
-        table:  Table;
-    }
+export type ServerAdapterHandlerInput<Input extends CommandInputOption, MetaValue> = <Table>(
+    args: CommandInput<Input>,
+    ctx: ServerHandlerCtx<Table, MetaValue> & { column: Column },
 ) => SQL;
 
 export class ServerCommandAdapterCreator {
     adapt<
-        Called extends HiddenKeys<CommandBuilder<any, any, any, any, any, any, any, any, any>>,
         Type extends string,
-        Op extends Operator,
-        Qual extends Qualifier,
-        Mod,
-        Meta extends MetaBase,
-        Pat extends string,
-        PatAlwaysMatch extends boolean,
-        AllowRegex extends boolean,
-    >(
-        command: CommandBuilder<Called, Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex> |
-          Hide<CommandBuilder<Called, Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex>, Called>,
-    ) {
-        // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-        return new ServerCommandAdapter<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, {}>(
-            (command as CommandBuilder<Called, Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex>).options,
-        );
+        Input extends CommandInputOption,
+        MetaInput extends MetaBase,
+        MetaValue extends MetaBase,
+    >(command: CommandBuilder<Type, Input, MetaInput, MetaValue>) {
+        return new ServerCommandAdapter<Type, Input, MetaInput, MetaValue>(command.options);
     }
 }
 
 export class ServerCommandAdapter<
     Type extends string,
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Meta extends MetaBase,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
-    ServerMeta extends MetaBase,
+    Input extends CommandInputOption,
+    MetaInput extends MetaBase,
+    MetaValue extends MetaBase,
 > {
-    options: CommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex>;
+    options: CommandOption<Type, Input, MetaValue>;
 
-    constructor(
-        options: CommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex>,
-    ) {
+    constructor(options: CommandOption<Type, Input, MetaValue>) {
         this.options = options;
     }
 
-    meta<M extends MetaBase>(): ServerCommandAdapter<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, M>;
-    meta<M extends MetaBase>(meta: M): ServerCommandAdapter<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Partial<M>>;
+    $meta<M extends MetaBase>(): ServerCommandAdapter<Type, Input, Merge<MetaInput, M>, MetaValue>;
+    $meta<M extends MetaBase>(meta: M): ServerCommandAdapter<Type, Input, Merge<MetaInput, M>, Merge<MetaValue, M>>;
 
-    meta<M extends MetaBase>(meta?: M) {
+    $meta<M extends MetaBase>(meta?: M) {
         if (meta == null) {
-            return new ServerCommandAdapter<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Meta & M>({
+            return new ServerCommandAdapter<Type, Input, Merge<MetaInput, M>, Merge<MetaValue, {}>>({
                 ...this.options,
-                meta: this.options.meta ?? {} as any,
+                meta: merge(this.options.meta, {}),
             });
         } else {
-            return new ServerCommandAdapter<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Meta & Partial<M>>({
+            return new ServerCommandAdapter<Type, Input, Merge<MetaInput, M>, Merge<MetaValue, M>>({
                 ...this.options,
-                meta: Object.assign(this.options.meta ?? {}, meta) as any,
+                meta: merge(this.options.meta, meta),
             });
         }
     }
 
-    handler(handler: ServerAdapterHandlerInput<Op, Qual, Mod, Meta & ServerMeta, Pat, PatAlwaysMatch, AllowRegex>): ServerCommandAdapterHandler<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, ServerMeta> {
-        return new ServerCommandAdapterHandler<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, ServerMeta>({
+    handler(handler: ServerAdapterHandlerInput<Input, MetaInput>) {
+        return new ServerCommandAdapterHandler<Type, Input, MetaInput, MetaValue>({
             options: this.options,
             handler,
         });
@@ -92,33 +63,28 @@ export class ServerCommandAdapter<
 
 export class ServerCommandAdapterHandler<
     Type extends string,
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Meta extends MetaBase,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
-    ServerMeta extends MetaBase,
+    Input extends CommandInputOption,
+    MetaInput extends MetaBase,
+    MetaValue extends MetaBase,
 > {
-    options: CommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex>;
-    handler: ServerAdapterHandlerInput<Op, Qual, Mod, Meta & ServerMeta, Pat, PatAlwaysMatch, AllowRegex>;
+    options: CommandOption<Type, Input, MetaValue>;
+    handler: ServerAdapterHandlerInput<Input, MetaInput>;
 
     constructor(
         options: {
-            options: CommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex>;
-            handler: ServerAdapterHandlerInput<Op, Qual, Mod, Meta & ServerMeta, Pat, PatAlwaysMatch, AllowRegex>;
+            options: CommandOption<Type, Input, MetaValue>;
+            handler: ServerAdapterHandlerInput<Input, MetaInput>;
         },
     ) {
         this.options = options.options;
         this.handler = options.handler;
     }
 
-    apply<Table>(column: (table: Table) => Column, meta: ServerMeta): ServerCommandHandler<Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table> {
-        return (args: ServerCommandHandlerArgs<Op, Qual, Mod, Pat, PatAlwaysMatch, AllowRegex>, ctx: ServerCommandContext<Meta, Table>) => {
+    apply<Table>(column: (table: Table) => Column, meta: MetaRest<MetaInput, MetaValue>): ServerCommandHandler<Input, MetaValue, Table> {
+        return (args: CommandInput<Input>, ctx: ServerCommandContext<MetaValue, Table>) => {
             return this.handler(args,
                 {
-                    meta:   Object.assign({}, (ctx as any).meta ?? {}, meta) as Meta & ServerMeta,
+                    meta:   merge(ctx.meta, meta) as MetaInput,
                     column: column(ctx.table),
                     table:  ctx.table,
                 } as any,
@@ -129,14 +95,14 @@ export class ServerCommandAdapterHandler<
     call<Table>(
         options: {
             column: (table: Table) => Column;
-            args:   ServerCommandHandlerArgs<Op, Qual, Mod, Pat, PatAlwaysMatch, AllowRegex>;
-            ctx:    ServerCommandContext<Meta & ServerMeta, Table>;
+            args:   CommandInput<Input>;
+            ctx:    ServerCommandContext<MetaRest<MetaInput, MetaValue>, Table>;
         },
     ): SQL {
         const { column, args, ctx } = options;
 
         return this.handler(args, {
-            meta:   ((ctx as any).meta ?? {}) as Meta & ServerMeta,
+            meta:   merge(this.options.meta, (ctx as any).meta ?? {}) as MetaInput,
             column: column(ctx.table),
             table:  ctx.table,
         } as any);

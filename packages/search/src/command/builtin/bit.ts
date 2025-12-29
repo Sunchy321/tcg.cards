@@ -14,5 +14,5 @@ export type BitMeta = {
 export const bit = c
     .$meta<BitMeta>({ values: '' })
     .$type('builtin:bit')
-    .op([':', ...number.options.operators])
-    .qual(number.options.qualifiers);
+    .op([':', ...number.options.input.operators])
+    .qual(number.options.input.qualifiers);

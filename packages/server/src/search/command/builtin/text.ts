@@ -8,7 +8,7 @@ import { eq, like, ne, notLike, sql } from 'drizzle-orm';
 
 export const text = ca
     .adapt(textSchema)
-    .meta({ multiline: false })
+    .$meta({ multiline: false })
     .handler(({ value, operator, qualifier }, { meta, column }) => {
         const { multiline } = meta;
 

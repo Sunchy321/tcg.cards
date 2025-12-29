@@ -10,7 +10,7 @@ import { specificManaSymbols } from '@static/magic/basic';
 
 export const cost = ca
     .adapt(costSchema)
-    .meta<{ getCostMapCol: <Table>(table: Table) => Column }>()
+    .$meta<{ getCostMapCol: <Table>(table: Table) => Column }>()
     .handler(({ value, operator, qualifier }, { meta, column, table }) => {
         const { getCostMapCol } = meta;
 

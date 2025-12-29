@@ -1,50 +1,39 @@
-import { Hide, HiddenKeys } from '@search/util/hide';
-
-import { PatternContext } from '@search/base/pattern';
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import { CommandMapBase, CommandOption, ModelOptions } from '@search/index';
+import { CommandInput, CommandInputOption } from '@search/command';
 import { ServerCommandAdapterHandler } from './adapter';
 
-import { OmitNever } from '../util';
+import { MetaBase, MetaRest } from '@search/base/meta';
+import { Hide, HiddenKeys } from '@search/util/hide';
 
 import { Column, SQL, sql } from 'drizzle-orm';
 
 export type Operator = ':' | '' | '<' | '<=' | '=' | '>' | '>=';
 export type Qualifier = '!';
 
-export type MetaBase = Record<string, any>;
-
-export type AdapterBase = ServerCommandAdapterHandler<any, any, any, any, any, any, any, any, any>;
+export type AdapterBase = ServerCommandAdapterHandler<any, any, any, any>;
 export type AdapterMapBase = Record<string, any>;
 
 export type SelectAdapter<
     Adapters extends AdapterMapBase,
     Type extends string,
 > = {
-    [K in keyof Adapters]: Adapters[K] extends ServerCommandAdapterHandler<infer T, infer _1, infer _2, infer _3, infer _4, infer _5, infer _6, infer _7, infer _8>
+    [K in keyof Adapters]: Adapters[K] extends ServerCommandAdapterHandler<infer T, infer _I, infer _MI, infer _MV>
         ? Type extends T
             ? Adapters[K]
             : never
         : never;
 }[keyof Adapters];
 
-export type AdapterMeta<Adapter extends AdapterBase> = Adapter extends ServerCommandAdapterHandler<infer _1, infer _2, infer _3, infer _4, infer _5, infer _6, infer _7, infer _8, infer Meta>
-    ? Meta
+export type AdapterMeta<Adapter extends AdapterBase> = Adapter extends ServerCommandAdapterHandler<infer _T, infer _I, infer MI, infer MV>
+    ? MetaRest<MI, MV>
     : never;
 
 export type ServerCommandMaps<CommandMap extends CommandMapBase, Table, Adapters extends AdapterMapBase> = {
-    [K in keyof CommandMap]: CommandMap[K] extends CommandOption<
-        infer Type,
-        infer Op,
-        infer Qual,
-        infer Mod,
-        infer Meta,
-        infer Pat,
-        infer PatAlwaysMatch,
-        infer AllowRegex
-    >
+    [K in keyof CommandMap]: CommandMap[K] extends CommandOption<infer Type, infer Input, infer MetaValue>
         ? SelectAdapter<Adapters, Type> extends never
-            ? ServerCommandBuilder<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table>
-            : ServerCommandBuilderWithAdapter<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table, SelectAdapter<Adapters, Type>>
+            ? ServerCommandBuilder<Type, Input, MetaValue, Table>
+            : ServerCommandBuilderWithAdapter<Type, Input, MetaValue, Table, SelectAdapter<Adapters, Type>>
         : never;
 };
 
@@ -100,7 +89,7 @@ export class ServerCommandBase<
                     return [
                         key,
 
-                        new ServerCommandBuilder<any, any, any, any, any, any, any, any, Table>({
+                        new ServerCommandBuilder<any, any, any, Table>({
                             options: option,
                             handler: () => sql``,
                         }),
@@ -109,7 +98,7 @@ export class ServerCommandBase<
                     return [
                         key,
 
-                        new ServerCommandBuilderWithAdapter<any, any, any, any, any, any, any, any, Table, any>({
+                        new ServerCommandBuilderWithAdapter<any, any, any, Table, any>({
                             options: option,
                             handler: () => sql``,
                         }, adapter),
@@ -120,82 +109,54 @@ export class ServerCommandBase<
     }
 }
 
-export type ServerCommandHandlerArgs<
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
-> = OmitNever<{
-    operator:  Op;
-    qualifier: Qual[];
-    modifier:  Mod;
-    value:     AllowRegex extends true ? string | RegExp : string;
-    pattern:  PatAlwaysMatch extends true
-        ? PatternContext<Pat>
-        : Op extends ''
-            ? PatternContext<Pat>
-            : PatternContext<Pat> | undefined;
-}>;
+export type ServerHandlerMeta<MetaValue> = MetaValue extends never ? {} : { meta: MetaValue };
+
+export type ServerHandlerCtx<Table, MetaValue> = {
+    table: Table;
+} & ServerHandlerMeta<MetaValue>;
 
 export type ServerCommandContext<
-    Meta extends MetaBase,
+    MetaValue extends MetaBase,
     Table,
-> = Meta extends never ? {
+> = MetaValue extends never ? {
     table: Table;
 } : {
-    meta:  Meta;
+    meta:  MetaValue;
     table: Table;
 };
 
 export type ServerCommandHandler<
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Meta extends MetaBase,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
+    Input extends CommandInputOption,
+    MetaValue extends MetaBase,
     Table,
 > = (
-    args: ServerCommandHandlerArgs<Op, Qual, Mod, Pat, PatAlwaysMatch, AllowRegex>,
-    ctx: ServerCommandContext<Meta, Table>,
+    args: CommandInput<Input>,
+    ctx: ServerCommandContext<MetaValue, Table>,
 ) => SQL;
 
 export interface ServerCommandOption<
     Type extends string,
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Meta extends MetaBase,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
+    Input extends CommandInputOption,
+    MetaValue extends MetaBase,
     Table,
 > {
-    options: CommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex>;
-    handler: ServerCommandHandler<Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table>;
+    options: CommandOption<Type, Input, MetaValue>;
+    handler: ServerCommandHandler<Input, MetaValue, Table>;
 }
 
 export class ServerCommandBuilder<
     Type extends string,
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Meta extends MetaBase,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
+    Input extends CommandInputOption,
+    MetaValue extends MetaBase,
     Table,
 > {
-    options: ServerCommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table>;
+    options: ServerCommandOption<Type, Input, MetaValue, Table>;
 
-    constructor(options: ServerCommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table>) {
+    constructor(options: ServerCommandOption<Type, Input, MetaValue, Table>) {
         this.options = options;
     }
 
-    handler(handler: ServerCommandHandler<Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table>): ServerCommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table> {
+    handler(handler: ServerCommandHandler<Input, MetaValue, Table>): ServerCommandOption<Type, Input, MetaValue, Table> {
         return {
             ...this.options,
             handler,
@@ -205,27 +166,22 @@ export class ServerCommandBuilder<
 
 export class ServerCommandBuilderWithAdapter<
     Type extends string,
-    Op extends Operator,
-    Qual extends Qualifier,
-    Mod,
-    Meta extends MetaBase,
-    Pat extends string,
-    PatAlwaysMatch extends boolean,
-    AllowRegex extends boolean,
+    Input extends CommandInputOption,
+    MetaValue extends MetaBase,
     Table,
     Adapter extends AdapterBase,
-> extends ServerCommandBuilder<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table> {
+> extends ServerCommandBuilder<Type, Input, MetaValue, Table> {
     adapter: Adapter;
 
     constructor(
-        options: ServerCommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table>,
+        options: ServerCommandOption<Type, Input, MetaValue, Table>,
         adapter: Adapter,
     ) {
         super(options);
         this.adapter = adapter;
     }
 
-    apply(column: (table: Table) => Column, meta: AdapterMeta<Adapter>): ServerCommandOption<Type, Op, Qual, Mod, Meta, Pat, PatAlwaysMatch, AllowRegex, Table> {
+    apply(column: (table: Table) => Column, meta: AdapterMeta<Adapter>): ServerCommandOption<Type, Input, MetaValue, Table> {
         const handler = this.adapter.apply(column, meta);
 
         return {
@@ -235,7 +191,6 @@ export class ServerCommandBuilderWithAdapter<
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export const cs = new ServerCommandBase<never, {}, never, {}>({
     commands: {},
     tables:   [],

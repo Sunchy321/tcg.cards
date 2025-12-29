@@ -348,7 +348,7 @@ export const rarity = cs
 
         return builtin.simple.call({
             column: table => table.cardPart.text,
-            args:   { value: rarities, operator, qualifier, pattern: undefined },
+            args:   { value: rarities, operator, qualifier },
             ctx:    { meta: { }, table },
         });
     });
