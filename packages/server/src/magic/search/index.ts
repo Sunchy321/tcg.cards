@@ -1,3 +1,18 @@
+import { ss } from '@/search/model';
+
+import { model } from '@model/magic/search';
+
+import * as commands from './command-list';
+import * as actions from './action';
+
+import { CardEditorView, CardPrintView } from '../schema/print';
+
+export const search = ss
+    .from(model)
+    .table([CardPrintView, CardEditorView])
+    .command(commands)
+    .action(actions);
+
 // import { and, arrayContains, SQL, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
 
 // import { QueryError } from '@search/command/error';
@@ -667,5 +682,3 @@
 //         },
 //     },
 // });
-
-import './model';

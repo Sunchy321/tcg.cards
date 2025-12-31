@@ -1,57 +1,66 @@
 import { SQL, and, or, not } from 'drizzle-orm';
 
 import { Expression } from '@search/parser';
-import { CommonServerCommand, PostAction } from './command';
-import { CommonArgument } from '@search/command';
+import { CommonCommandInput } from '@search/command/types';
 import { QueryError } from '@search/command/error';
 
 import { matchPattern } from '@search/command/match-pattern';
+import { CommonServerCommandOption } from '@/search/command';
+
+type PostAction = any;
 
 export type TranslatedQuery = {
     query: SQL | undefined;
     post:  PostAction[];
 };
 
-function simpleTranslate(
-    command: CommonServerCommand,
+function simpleTranslate<Table>(
+    command: CommonServerCommandOption,
     expr: Expression,
-    arg: CommonArgument,
+    args: CommonCommandInput,
+    table: Table,
 ): TranslatedQuery {
-    const { parameter, operator } = arg;
+    const { input } = command.options;
 
-    if (parameter instanceof RegExp && !command.allowRegex) {
+    const { value, operator } = args;
+
+    if (value instanceof RegExp && !input.regex) {
         throw new QueryError({ type: 'invalid-regex' });
     }
 
-    if (!command.operators.includes(operator)) {
+    if (!input.operators.includes(operator)) {
         throw new QueryError({ type: 'invalid-operator', payload: { operator } });
     }
 
-    if (command.post == null) {
-        try {
-            return {
-                query: command.query(arg),
-                post:  [],
-            };
-        } catch (e) {
-            throw new QueryError({ type: e.type });
-        }
-    } else {
-        if (!expr.topLevel) {
-            throw new QueryError({ type: 'not-toplevel-command' });
-        }
-
-        return {
-            query: undefined,
-            post:  [command.post!(arg)],
+    // if (command.post == null) {
+    try {
+        const ctx = {
+            meta:  command.options.meta,
+            table: table,
         };
+
+        const query = command.handler(args as any, ctx);
+
+        return { query, post: [] };
+    } catch (e) {
+        throw new QueryError({ type: e.type });
     }
+    // } else {
+    //     if (!expr.topLevel) {
+    //         throw new QueryError({ type: 'not-toplevel-command' });
+    //     }
+
+    //     return {
+    //         query: undefined,
+    //         post:  [command.post!(arg)],
+    //     };
+    // }
 }
 
-export function translate(expr: Expression, commands: CommonServerCommand[]): TranslatedQuery {
+export function translate<Table>(expr: Expression, commands: CommonServerCommandOption[], table: Table): TranslatedQuery {
     // computed expression
     if (expr.type === 'logic') {
-        const value = expr.exprs.map(v => translate(v, commands));
+        const value = expr.exprs.map(v => translate(v, commands, table));
 
         const sql: SQL[] = [];
         const post: PostAction[] = [];
@@ -76,18 +85,18 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
             };
         }
     } else if (expr.type === 'not') {
-        const result = translate(expr.expr, commands);
+        const result = translate(expr.expr, commands, table);
 
         return {
             query: result.query != undefined ? not(result.query) : undefined,
             post:  result.post,
         };
     } else if (expr.type === 'paren') {
-        return translate(expr.expr, commands);
+        return translate(expr.expr, commands, table);
     }
 
-    // parameter
-    const parameter = (() => {
+    // value
+    const value = (() => {
         if (expr.type === 'simple' || expr.type === 'raw') {
             if (expr.argType === 'regex') {
                 try {
@@ -113,27 +122,31 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
         const { cmd } = expr;
 
         const { command, modifier = undefined } = (() => {
-            const nameMatched = commands.find(c => c.id === cmd || c.alt?.includes(cmd));
+            const nameMatched = commands.find(c => c.options.id === cmd || c.options.alternatives?.includes(cmd));
 
             if (nameMatched != null) {
                 return { command: nameMatched };
             }
 
             for (const c of commands) {
-                if (c.id === cmd || c.alt?.includes(cmd)) {
+                const id = c.options.id;
+
+                if (id === cmd || c.options.alternatives?.includes(cmd)) {
                     return { command: c };
                 }
 
-                if (c.modifiers != null) {
-                    if (Array.isArray(c.modifiers)) {
-                        for (const m of c.modifiers) {
-                            if (cmd === `${c.id}.${m}`) {
+                if (c.options.input.modifiers != null) {
+                    const modifiers = c.options.input.modifiers;
+
+                    if (Array.isArray(modifiers)) {
+                        for (const m of modifiers) {
+                            if (cmd === `${id}.${m}`) {
                                 return { command: c, modifier: m };
                             }
                         }
                     } else {
-                        for (const [lm, sm] of Object.entries(c.modifiers)) {
-                            if (cmd === `${c.id}.${lm}` || cmd === sm) {
+                        for (const [lm, sm] of Object.entries(modifiers)) {
+                            if (cmd === `${id}.${lm}` || cmd === sm) {
                                 return { command: c, modifier: lm };
                             }
                         }
@@ -152,19 +165,19 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
         const qualifier = expr.type === 'simple' ? (expr.qual ?? []) : [];
 
         return simpleTranslate(command, expr, {
-            modifier, parameter, operator, qualifier, meta: command.meta,
-        });
+            modifier, value, operator, qualifier,
+        }, table);
     }
 
     // find patterns
-    if (!(parameter instanceof RegExp)) {
+    if (!(value instanceof RegExp)) {
         const command = commands.find(c => {
-            if (c.pattern == null) {
+            if (c.options.input.pattern == null) {
                 return false;
             }
 
-            for (const p of c.pattern) {
-                if (matchPattern(p, parameter)) {
+            for (const p of c.options.input.pattern) {
+                if (matchPattern(p, value)) {
                     return true;
                 }
             }
@@ -173,30 +186,29 @@ export function translate(expr: Expression, commands: CommonServerCommand[]): Tr
         });
 
         if (command != null) {
-            const pattern = command.pattern!
-                .map(p => matchPattern(p, parameter))
-                .find(p => p != null)!;
+            // TODO: multiple patterns
+            const pattern = [command.options.input.pattern!]
+                .map(p => matchPattern(p, value))
+                .find(p => p != null)! as any;
 
             return simpleTranslate(command, expr, {
-                parameter,
+                value,
                 pattern,
                 operator:  '',
                 qualifier: expr.qual ?? [],
-                meta:      command.meta,
-            });
+            }, table);
         }
     }
 
-    const raw = commands.find(c => c.id === '');
+    const raw = commands.find(c => c.options.id === '');
 
     if (raw == null) {
         throw new QueryError({ type: 'unknown-command', payload: { name: '<raw>' } });
     }
 
     return simpleTranslate(raw, expr, {
-        parameter,
+        value,
         operator:  '',
         qualifier: expr.qual ?? [],
-        meta:      raw.meta,
-    });
+    }, table);
 }

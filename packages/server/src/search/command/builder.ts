@@ -2,6 +2,7 @@
 import { CommandMapBase, CommandOption, ModelOptions } from '@search/index';
 import { CommandInput, CommandInputOption } from '@search/command';
 import { ServerCommandAdapterHandler } from './adapter';
+import { ServerCommandOption } from './types';
 
 import { MetaBase, MetaRest } from '@search/base/meta';
 import { Hide, HiddenKeys } from '@search/util/hide';
@@ -133,16 +134,6 @@ export type ServerCommandHandler<
     args: CommandInput<Input>,
     ctx: ServerCommandContext<MetaValue, Table>,
 ) => SQL;
-
-export interface ServerCommandOption<
-    Type extends string,
-    Input extends CommandInputOption,
-    MetaValue extends MetaBase,
-    Table,
-> {
-    options: CommandOption<Type, Input, MetaValue>;
-    handler: ServerCommandHandler<Input, MetaValue, Table>;
-}
 
 export class ServerCommandBuilder<
     Type extends string,

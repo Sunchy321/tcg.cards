@@ -1,27 +1,19 @@
-import { SQL } from 'drizzle-orm';
+import { ServerAction, ServerActionHandler } from './types';
 
-export type ActionHandler<Result, Option> = (query: SQL, post: never[], options: Option) =>
-Promise<Result>;
-
-export class ActionBuilder {
+export class ServerActionBuilder {
     table<T>(table: T) {
-        return new ActionBuilderWithTable<T>(table);
+        return new ServerActionBuilderWithTable<T>(table);
     }
 }
 
-export interface Action<Table, Result, Option> {
-    table:   Table;
-    handler: ActionHandler<Result, Option>;
-}
-
-export class ActionBuilderWithTable<Table> {
+export class ServerActionBuilderWithTable<Table> {
     table: Table;
 
     constructor(table: Table) {
         this.table = table;
     }
 
-    handler<Option, Result>(handler: ActionHandler<Result, Option>): Action<Table, Result, Option> {
+    handler<Option, Result>(handler: ServerActionHandler<Result, Option>): ServerAction<Table, Result, Option> {
         return {
             table: this.table,
             handler,
@@ -29,4 +21,4 @@ export class ActionBuilderWithTable<Table> {
     }
 }
 
-export const as = new ActionBuilder();
+export const as = new ServerActionBuilder();

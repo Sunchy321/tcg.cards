@@ -1,115 +1,141 @@
 import { CommandMapBase, ModelOptions } from '@search/index';
+import { SearchResult } from '@search/schema';
+import Parser from '@search/parser';
+import { simplify } from '@search/parser/simplify';
 
-export interface ServerModelOption<Command, Table> {
-    commands: Command;
-    table:    Table[];
-}
+import { ServerCommandOption } from './command';
+import { ServerAction } from './action';
+import { ServerActionOption, ServerActionResult } from './action/types';
+import { translate } from './translate';
 
-export class ServerModelBuilder<Command extends CommandMapBase, Table> {
-    options: ServerModelOption<Command, Table>;
+export type ServerCommandMapBase<Table> = Record<string, ServerCommandOption<any, any, any, Table>>;
 
-    constructor(options: ServerModelOption<Command, Table>) {
-        this.options = options;
-    }
-
-    from<C extends CommandMapBase>(model: ModelOptions<C>) {
-        return new ServerModelBuilder<C, Table>({
-            commands: model.commands,
-            table:    this.options.table,
-        });
-    }
-
-    table<T>(table: T[]) {
-        return new ServerModelBuilder<Command, T>({
-            ...this.options,
-            table,
-        });
-    }
-
-    get commands() {
-        return this.options.commands;
+export class ServerModelBuilder {
+    from<M extends ModelOptions<CommandMapBase>>(model: M) {
+        return new ServerModelBuilderWithSchema<M>(model);
     }
 }
 
-export const ss = new ServerModelBuilder({
-    commands: {},
-    table:    [],
-});
+export class ServerModelBuilderWithSchema<
+    M extends ModelOptions<CommandMapBase>,
+> {
+    model: M;
 
-// import { SQL } from 'drizzle-orm';
+    constructor(model: M) {
+        this.model = model;
+    }
 
-// import Parser from '@search/parser';
-// import { SearchResult } from '@search/schema';
-// import { CommonServerCommand, PostAction } from './command';
+    table<Table>(tables: Table[]) {
+        return new ServerModelBuilderWithTable<M, Table>(this.model, tables);
+    }
+}
 
-// import { simplify } from '@search/parser/simplify';
-// import { translate } from './translate';
+export class ServerModelBuilderWithTable<
+    M extends ModelOptions<CommandMapBase>,
+    Table,
+> {
+    model:  M;
+    tables: Table[];
 
-// type Action<T, O> = (query: SQL, post: PostAction[], option: O) => Promise<T>;
+    constructor(model: M, tables: Table[]) {
+        this.model = model;
+        this.tables = tables;
+    }
 
-// type Actions = Record<string, Action<any, any>>;
+    command<C extends Record<keyof M['commands'], ServerCommandOption<any, any, any, Table>>>(commands: C) {
+        return new ServerModelBuilderWithCommands<M, Table, C>(
+            this.model,
+            this.tables,
+            commands,
+        );
+    }
+}
 
-// type ActionOption<A, K extends keyof A> = A[K] extends Action<any, infer O> ? O : never;
+export class ServerModelBuilderWithCommands<
+    M extends ModelOptions<CommandMapBase>,
+    Table,
+    C extends Record<keyof M['commands'], ServerCommandOption<any, any, any, Table>>> {
+    model:    M;
+    tables:   Table[];
+    commands: C;
 
-// type ActionResult<A, K extends keyof A> = A[K] extends Action<infer T, any> ? T : never;
+    constructor(model: M, tables: Table[], commands: C) {
+        this.model = model;
+        this.tables = tables;
+        this.commands = commands;
+    }
 
-// type ServerSchema = {
-//     commands: CommonServerCommand[];
-//     actions:  Actions;
-// };
+    action<A extends Record<string, ServerAction<Table, any, any>>>(actions: A) {
+        return new ServerModel<M, Table, C, A>(
+            this.model,
+            this.tables,
+            this.commands,
+            actions,
+        );
+    }
+}
 
-// export class ServerModel<S extends ServerSchema> {
-//     commands: CommonServerCommand[];
-//     actions:  S['actions'];
+export class ServerModel<
+    M extends ModelOptions<CommandMapBase>,
+    Table,
+    C extends Record<keyof M['commands'], ServerCommandOption<any, any, any, Table>>,
+    A extends Record<string, ServerAction<Table, any, any>>,
+> {
+    model:    M;
+    tables:   Table[];
+    commands: C;
+    actions:  A;
 
-//     constructor(commands: CommonServerCommand[], actions: S['actions']) {
-//         this.commands = commands;
-//         this.actions = actions;
-//     }
+    constructor(model: M, tables: Table[], commands: C, actions: A) {
+        this.model = model;
+        this.tables = tables;
+        this.commands = commands;
+        this.actions = actions;
+    }
 
-//     async search<K extends string & keyof S['actions']>(
-//         actionKey: K,
-//         text: string,
-//         options: ActionOption<S['actions'], K>,
-//     ): Promise<SearchResult<ActionResult<S['actions'], K>>> {
-//         const action = this.actions[actionKey];
+    async search<K extends string & keyof A>(
+        actionKey: K,
+        text: string,
+        options: ServerActionOption<A[K]>,
+    ): Promise<SearchResult<ServerActionResult<A[K]>>> {
+        const action = this.actions[actionKey];
 
-//         if (action == null) {
-//             return {
-//                 text,
-//                 errors: [{ type: 'unknown-action' }],
-//             };
-//         }
+        if (action == null) {
+            return {
+                text,
+                errors: [{ type: 'unknown-action' }],
+            };
+        }
 
-//         const trimmedText = text.trim();
+        const trimmedText = text.trim();
 
-//         if (trimmedText === '') {
-//             return {
-//                 text,
-//                 errors: [{ type: 'empty-input' }],
-//             };
-//         }
+        if (trimmedText === '') {
+            return {
+                text,
+                errors: [{ type: 'empty-input' }],
+            };
+        }
 
-//         try {
-//             const expr = new Parser(trimmedText).parse();
+        try {
+            const expr = new Parser(trimmedText).parse();
 
-//             const simplified = simplify(expr);
+            const simplified = simplify(expr);
 
-//             const { query, post } = translate(simplified, this.commands);
+            const commands = Object.values(this.commands);
 
-//             if (query == null) {
-//                 return { text, errors: [] };
-//             }
+            const { query, post } = translate(simplified, commands, action.table);
 
-//             const result = await action(query, post, options);
+            if (query == null) {
+                return { text, errors: [] };
+            }
 
-//             return { text, errors: [], result };
-//         } catch (e) {
-//             return { text, errors: [e] };
-//         }
-//     }
-// }
+            const result = await action.handler(query, [], options);
 
-// export function defineServerModel<S extends ServerSchema>(schema: S): ServerModel<S> {
-//     return new ServerModel(schema.commands, schema.actions);
-// }
+            return { text, errors: [], result };
+        } catch (e) {
+            return { text, errors: [e] };
+        }
+    }
+}
+
+export const ss = new ServerModelBuilder();

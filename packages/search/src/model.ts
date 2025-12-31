@@ -1,7 +1,7 @@
 import { Hide, HiddenKeys } from '@search/util/hide';
 import { CommandOption } from './command';
 
-export type CommandMapBase = Record<string, CommandOption<any, any, any, any, any, any, any, any>>;
+export type CommandMapBase = Record<string, CommandOption<any, any, any>>;
 
 export interface ModelOptions<Command extends CommandMapBase> {
     id:       string;
@@ -25,7 +25,7 @@ export class ModelBuilder<
         });
     }
 
-    command<C extends Record<string, CommandOption<any, any, any, any, any, any, any, any>>>(commands: C): ModelBuilder<Called, C & Command> {
+    command<C extends Record<string, CommandOption<any, any, any>>>(commands: C): ModelBuilder<Called, C & Command> {
         const commandsWithId = Object.fromEntries(
             Object.entries(commands).map(([key, option]) => [
                 key,
