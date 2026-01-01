@@ -73,5 +73,3 @@ Bun.serve({
     port,
     fetch: app.fetch,
 });
-
-console.log(Bun.main);

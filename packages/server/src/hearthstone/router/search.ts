@@ -11,7 +11,7 @@ import { searchResult } from '@model/hearthstone/schema/search';
 
 import { searchInput } from '@search/schema';
 
-import search from '../search';
+import { search } from '../search';
 
 export const searchTrpc = os
     .input(searchInput.extend({

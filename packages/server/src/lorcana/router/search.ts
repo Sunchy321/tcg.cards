@@ -7,7 +7,7 @@ import { devSearchResult, searchResult } from '@model/lorcana/schema/search';
 
 import { searchInput } from '@search/schema';
 
-import search from '../search';
+import { search } from '../search';
 
 const basic = os
     .route({
