@@ -1,90 +1,77 @@
-import { ss } from '@/search/model';
+import { cs as create } from '@/search/command';
+
+import * as builtin from '@/search/command/builtin';
+
+import { QueryError } from '@search/command/error';
+
+import { and, arrayContains, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
+
+import { toIdentifier } from '@common/util/id';
 
 import { model } from '@model/omnisearch/search';
-
-import * as commands from './command-list';
-import * as actions from './action';
-
 import { CardView } from '../schema/card';
 
-export const search = ss
-    .from(model)
+const cs = create
+    .with(model)
     .table([CardView])
-    .command(commands)
-    .action(actions);
+    .use(builtin);
 
-// import { SQL, asc, desc, sql } from 'drizzle-orm';
+export const raw = cs
+    .commands.raw
+    .handler(({ value }, { table }) => {
+        return builtin.text.call({
+            column: table => table.name,
+            args:   { value, operator: ':', qualifier: [] },
+            ctx:    { meta: { multiline: false }, table },
+        });
+    });
 
-// import { QueryError } from '@search/command/error';
-// import { OrderBy, PostAction, defineServerCommand } from '@/search/command';
-// import { NormalResult } from '@model/omnisearch/schema/search';
+export const name = cs
+    .commands.name
+    .handler(({ value, operator, qualifier }, { table }) => {
+        return builtin.text.call({
+            column: table => table.name,
+            args:   { value, operator, qualifier },
+            ctx:    { meta: { multiline: false }, table },
+        });
+    });
+export const type = cs
+    .commands.type
+    .handler(({ value, operator, qualifier }, { table }) => {
+        return builtin.text.call({
+            column: table => table.typeline,
+            args:   { value, operator, qualifier },
+            ctx:    { meta: { multiline: false }, table },
+        });
+    });
+export const text = cs
+    .commands.text
+    .handler(({ value, operator, qualifier }, { table }) => {
+        return builtin.text.call({
+            column: table => table.text,
+            args:   { value, operator, qualifier },
+            ctx:    { meta: { multiline: true }, table },
+        });
+    });
 
-// import { defineServerModel } from '@/search/model';
+export const order = cs
+    .commands.order
+    .handler(({ value }) => {
+        return sql``;
+    });
+    // .phase('order')
+    // .post(({ value }) => {
+    //     const parts = value.toLowerCase().split(',').map(v => {
+    //         if (v.endsWith('+')) {
+    //             return { type: v.slice(0, -1), dir: 'asc' as const };
+    //         }
 
-// import { db } from '@/drizzle';
-// import { CardView } from '../schema/card';
+//         if (v.endsWith('-')) {
+//             return { type: v.slice(0, -1), dir: 'desc' as const };
+//         }
 
-// import * as builtin from '@/search/command/builtin';
-
-// import { commands } from '@model/omnisearch/search';
-
-// const raw = defineServerCommand({
-//     command: commands.raw,
-//     query:   ({ parameter }) => {
-//         return builtin.text.query({
-//             column:    CardView.name,
-//             multiline: false,
-//             parameter,
-//             operator:  ':',
-//             qualifier: [],
-//         });
-//     },
-// });
-
-// const name = defineServerCommand({
-//     command: commands.name,
-//     query({
-//         parameter, operator, qualifier,
-//     }) {
-//         return builtin.text.query({
-//             column:    CardView.name,
-//             multiline: false,
-//             parameter,
-//             operator,
-//             qualifier,
-//         });
-//     },
-// });
-
-// const type = defineServerCommand({
-//     command: commands.type,
-//     query({
-//         parameter, operator, qualifier,
-//     }) {
-//         return builtin.text.query({
-//             column:    CardView.typeline,
-//             multiline: false,
-//             parameter,
-//             operator,
-//             qualifier,
-//         });
-//     },
-// });
-
-// const text = defineServerCommand({
-//     command: commands.text,
-//     query({
-//         parameter, operator, qualifier,
-//     }) {
-//         return builtin.text.query({
-//             column:    CardView.text,
-//             multiline: true,
-//             parameter,
-//             operator,
-//             qualifier,
-//         });
-//     },
-// });
+//         return { type: v, dir: 'asc' as const };
+//     });
 
 // const order = defineServerCommand({
 //     command: commands.order,

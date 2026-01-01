@@ -14,10 +14,11 @@ import { db } from '@/drizzle';
 import { HearthstoneTypeLocalization } from '../schema/localization';
 import { CardView } from '../schema/card';
 
-import search from '../search';
 import internalData from '@/internal-data';
 
 import { Game, games } from '@model/schema';
+
+import { search } from '../search';
 
 const random = os
     .route({

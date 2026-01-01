@@ -7,7 +7,7 @@ import { devSearchResult, searchResult } from '@model/magic/schema/search';
 
 import { searchInput } from '@search/schema';
 
-import search from '../search';
+import { search } from '../search';
 
 const basic = os
     .route({
@@ -46,6 +46,7 @@ const dev = os
         const { q, pageSize, groupBy } = input;
 
         const result = await search.search('dev', q, {
+            lang: 'en',
             pageSize,
             groupBy,
         });
