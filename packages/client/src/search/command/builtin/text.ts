@@ -1,40 +1,32 @@
-import { ClientCommandOf, I18N } from '../index';
-import { ArgumentOf } from '@search/command';
+import { ca } from '../adapter';
 
-import { TextCommand } from '@search/command/builtin/text';
+import { text as textSchema } from '@search/command/builtin/text';
 
-import { OperatorMapOf, defaultTranslate } from 'src/search/translate';
+import { defaultTranslate } from 'src/search/translate';
 
-export type TextClientCommand = ClientCommandOf<TextCommand>;
-
-export type TextQueryOption = ArgumentOf<TextCommand>;
-
-export const textMap: OperatorMapOf<TextCommand> = {
+const textMap: Record<string, string> = {
     '=':  'equal',
     '!=': 'not-equal',
     ':':  'include',
     '!:': 'not-include',
 };
 
-const regexMap: OperatorMapOf<TextCommand> = {
+const regexMap: Record<string, string> = {
     '=':  'fully-match',
     '!=': 'not-full-match',
     ':':  'match',
     '!:': 'not-match',
 };
 
-function explain(arg: ArgumentOf<TextCommand>, i18n: I18N, id: string): string {
-    return defaultTranslate(arg, i18n, id, (op, { parameter }) => {
-        if (parameter instanceof RegExp) {
-            return regexMap[op as keyof OperatorMapOf<TextCommand>] ?? op;
-        } else {
-            return textMap[op as keyof OperatorMapOf<TextCommand>] ?? op;
-        }
+export const text = ca
+    .adapt(textSchema)
+    .$meta<{ id: string }>()
+    .explain((arg, { id }, i18n) => {
+        return defaultTranslate(arg, i18n, id, (op, { value }) => {
+            if (value instanceof RegExp) {
+                return regexMap[op] ?? op;
+            } else {
+                return textMap[op] ?? op;
+            }
+        });
     });
-}
-
-export default function text(command: TextCommand): TextClientCommand {
-    return { ...command, explain: (arg, i18n) => explain(arg, i18n, command.id) };
-}
-
-text.explain = explain;

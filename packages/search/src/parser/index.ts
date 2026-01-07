@@ -20,13 +20,13 @@ export type SimpleExpr = {
     cmd:     string;
     op:      Operator;
     argType: Token['type'];
-    arg:     string;
+    args:    string;
 };
 
 export type RawExpr = {
     type:    'raw';
     argType: Token['type'];
-    arg:     string;
+    args:    string;
 };
 
 export type HashExpr = {
@@ -384,7 +384,7 @@ export default class Parser {
                     op:       operator as Operator,
                     qual:     qualifiers as Qualifier[],
                     argType:  arg.type,
-                    arg:      arg.text,
+                    args:     arg.text,
                     tokens:   this.returnTokens(),
                     location: [first.location[0], arg.location[1]],
                 };
@@ -401,7 +401,7 @@ export default class Parser {
             return {
                 type:     'raw',
                 argType:  arg.type,
-                arg:      arg.text,
+                args:     arg.text,
                 tokens:   this.returnTokens(),
                 location: arg.location,
             };
@@ -430,7 +430,7 @@ export default class Parser {
             return {
                 type:     'raw',
                 argType:  first.type,
-                arg:      first.text,
+                args:     first.text,
                 tokens:   this.returnTokens(),
                 location: first.location,
             };

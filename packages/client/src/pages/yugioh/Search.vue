@@ -59,7 +59,7 @@ import RichText from 'src/components/yugioh/RichText.vue';
 
 import { SearchResult } from '@model/yugioh/schema/search';
 
-import model from '@search-data/yugioh/client';
+import { explain as model } from 'src/search/data/yugioh';
 
 import { trpc } from 'src/trpc';
 

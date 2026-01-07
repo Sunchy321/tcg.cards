@@ -54,7 +54,7 @@ import SearchInput from 'components/SearchInput.vue';
 
 import { games } from '@interface/index';
 
-import model from 'src/search/omnisearch';
+import { explain as model } from 'src/search/data/omnisearch';
 
 const core = useCore();
 const i18n = useI18n();

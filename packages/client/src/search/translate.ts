@@ -1,15 +1,9 @@
-import { ClientModel } from './index';
-
 import { Expression } from '@search/parser';
-import { CommonClientCommand, I18N } from './command';
-import { Command, CommonArgument, Operator, Qualifier } from '@search/command';
+import { I18N, CommonClientCommandOption } from './command';
+import { CommonCommandInput, Operator, Qualifier } from '@search/command';
 import { QueryError } from '@search/command/error';
 
 import { matchPattern } from '@search/command/match-pattern';
-
-export type OperatorMapOf<C> = C extends Command<any, infer O, infer Q, any, any, any>
-    ? Record<`${Q | ''}${O}`, string>
-    : never;
 
 const realOperatorMap: Record<`${Qualifier | ''}${Exclude<Operator, ''>}`, string> = {
     ':':  'match',
@@ -28,17 +22,17 @@ const realOperatorMap: Record<`${Qualifier | ''}${Exclude<Operator, ''>}`, strin
     '!<=': 'greater-than',
 };
 
-type OperatorMap = Record<string, string> | ((operator: string, arg: CommonArgument) => string);
+type OperatorMap = Record<string, string> | ((operator: string, args: CommonCommandInput) => string);
 
 export function defaultTranslate(
-    arg: CommonArgument,
+    args: CommonCommandInput,
     i18n: I18N,
     id: string,
     map: OperatorMap,
 ): string {
     const {
-        modifier, parameter, operator, qualifier,
-    } = arg;
+        modifier, value, operator, qualifier,
+    } = args;
 
     const realId = modifier != null ? `${id}:${modifier}` : id;
 
@@ -52,100 +46,99 @@ export function defaultTranslate(
         return operator;
     })();
 
-    const operatorId = typeof map === 'function' ? map(realOperator, arg) : map[realOperator] ?? realOperator;
+    const operatorId = typeof map === 'function' ? map(realOperator, args) : map[realOperator] ?? realOperator;
 
     const operatorText = i18n(`operator.${operatorId}`);
 
-    return `${commandText}${operatorText}${parameter}`;
+    return `${commandText}${operatorText}${value}`;
 }
 
 function simpleTranslate(
-    command: CommonClientCommand,
-    expr: Expression,
-    arg: CommonArgument,
+    command: CommonClientCommandOption,
+    args: CommonCommandInput,
     i18n: I18N,
 ): string {
-    const { parameter, operator } = arg;
+    const { value, operator } = args;
 
-    if (parameter instanceof RegExp && !command.allowRegex) {
+    if (value instanceof RegExp && !command.options.input.regex) {
         throw new QueryError({ type: 'invalid-regex' });
     }
 
-    if (!command.operators.includes(operator)) {
+    if (!command.options.input.operators.includes(operator)) {
         throw new QueryError({ type: 'invalid-operator' });
     }
 
-    return command.explain(arg, i18n) ?? defaultTranslate(arg, i18n, command.id, realOperatorMap);
+    return command.explain?.(args as any, i18n) ?? defaultTranslate(args, i18n, command.options.id ?? 'unknown', realOperatorMap);
 }
 
-export function translate(expr: Expression, model: ClientModel, i18n: (key: string) => string): string {
-    const { commands } = model;
-
+export function translate(
+    expr: Expression,
+    commands: CommonClientCommandOption[],
+    i18n: I18N,
+): string {
     // computed expression
     if (expr.type === 'logic') {
-        const value = expr.exprs.map(v => translate(v, model, i18n));
+        const value = expr.exprs.map(v => translate(v, commands, i18n));
 
         const sep = expr.sep === '|' ? i18n('separator.|') : i18n('separator.&');
 
         return value.join(` ${sep} `);
     } else if (expr.type === 'not') {
-        const result = translate(expr.expr, model, i18n);
+        const result = translate(expr.expr, commands, i18n);
 
         const qual = i18n('qualifier.!');
 
         return qual + result;
     } else if (expr.type === 'paren') {
-        return `(${translate(expr.expr, model, i18n)})`;
+        return `(${translate(expr.expr, commands, i18n)})`;
     }
 
     // parameter
-    const parameter = (() => {
+    const value = (() => {
         if (expr.type === 'simple' || expr.type === 'raw') {
             if (expr.argType === 'regex') {
                 try {
-                    return new RegExp(expr.arg.slice(1, -1));
+                    return new RegExp(expr.args.slice(1, -1));
                 } catch (_e) {
                     throw new QueryError({
                         type:    'invalid-regex',
-                        payload: expr.arg.slice(1, -1),
+                        payload: { pattern: expr.args.slice(1, -1) },
                     });
                 }
             } else if (expr.argType === 'string') {
-                return expr.arg.slice(1, -1).replace(/\\\\./g, v => v.slice(1));
+                return expr.args.slice(1, -1).replace(/\\\\./g, v => v.slice(1));
             } else {
-                return expr.arg;
+                return expr.args;
             }
         } else {
             return expr.tokens.map(t => t.text).join('');
         }
     })();
 
-    // simple expr, such as cmd:arg or cmd=arg
+    // simple expr, such as cmd:args or cmd=args
     if (expr.type === 'simple') {
         const { cmd } = expr;
 
         const { command, modifier = undefined } = (() => {
-            const nameMatched = commands.find(c => c.id === cmd || c.alt?.includes(cmd));
+            const nameMatched = commands.find(c => c.options.id === cmd || c.options.alternatives?.includes(cmd));
 
             if (nameMatched != null) {
                 return { command: nameMatched };
             }
 
             for (const c of commands) {
-                if (c.id === cmd || c.alt?.includes(cmd)) {
-                    return { command: c };
-                }
-
-                if (c.modifiers != null) {
-                    if (Array.isArray(c.modifiers)) {
-                        for (const m of c.modifiers) {
-                            if (cmd === `${c.id}.${m}`) {
+                if (c.options.input.modifiers != null) {
+                    if (Array.isArray(c.options.input.modifiers)) {
+                        for (const m of c.options.input.modifiers) {
+                            if (cmd === `${c.options.id}.${m}`) {
                                 return { command: c, modifier: m };
                             }
                         }
                     } else {
-                        for (const [lm, sm] of Object.entries(c.modifiers)) {
-                            if (cmd === `${c.id}.${lm}` || cmd === sm) {
+                        for (const [lm, sm] of Object.entries(c.options.input.modifiers)) {
+                            if (cmd === `${c.options.id}.${lm}` || (typeof sm === 'string' && cmd === sm)) {
+                                return { command: c, modifier: lm };
+                            } else if (Array.isArray(sm) && sm.includes(cmd)) {
                                 return { command: c, modifier: lm };
                             }
                         }
@@ -153,62 +146,78 @@ export function translate(expr: Expression, model: ClientModel, i18n: (key: stri
                 }
             }
 
-            return { command: undefined };
+            throw new QueryError({
+                type:    'unknown-command',
+                payload: { command: cmd },
+            });
         })();
 
-        if (command == null) {
-            throw new QueryError({ type: 'unknown-command', payload: { name: cmd } });
-        }
+        const pattern = command.options.input.pattern != null && typeof value === 'string'
+            ? matchPattern(command.options.input.pattern, value)
+            : undefined;
 
-        const operator = expr.type === 'simple' ? expr.op : '' as const;
-        const qualifier = expr.type === 'simple' ? (expr.qual ?? []) : [];
+        const qualifier: Qualifier[] = expr.qual ?? [];
 
-        return simpleTranslate(command, expr, {
-            modifier, parameter, operator, qualifier, meta: command.meta,
-        }, i18n);
+        const args = {
+            modifier,
+            pattern,
+            value,
+            operator: expr.op,
+            qualifier,
+        } satisfies CommonCommandInput;
+
+        return simpleTranslate(command, args, i18n);
     }
 
-    // find patterns
-    if (!(parameter instanceof RegExp)) {
-        const command = commands.find(c => {
-            if (c.pattern == null) {
-                return false;
-            }
+    // raw expr
+    if (expr.type === 'raw') {
+        const command = commands.find(c => c.options.type === 'none');
 
-            for (const p of c.pattern) {
-                if (matchPattern(p, parameter)) {
-                    return true;
+        if (command == null) {
+            throw new QueryError({ type: 'no-raw-command' });
+        }
+
+        const args = {
+            modifier:  undefined,
+            pattern:   undefined,
+            value,
+            operator:  ':',
+            qualifier: [],
+        } satisfies CommonCommandInput;
+
+        return simpleTranslate(command, args, i18n);
+    }
+
+    // pattern expr
+    const command = (() => {
+        for (const c of commands) {
+            if (c.options.type === 'pattern' && typeof value === 'string') {
+                const pattern = c.options.input.pattern != null ? matchPattern(c.options.input.pattern, value) : undefined;
+
+                if (pattern != null) {
+                    return c;
                 }
             }
-
-            return false;
-        });
-
-        if (command != null) {
-            const pattern = command.pattern!
-                .map(p => matchPattern(p, parameter))
-                .find(p => p != null)!;
-
-            return simpleTranslate(command, expr, {
-                parameter,
-                pattern,
-                operator:  '',
-                qualifier: expr.qual ?? [],
-                meta:      command.meta,
-            }, i18n);
         }
+
+        return undefined;
+    })();
+
+    if (command == null) {
+        throw new QueryError({ type: 'no-pattern-match' });
     }
 
-    const raw = commands.find(c => c.id === '');
+    const pattern = command.options.input.pattern != null && typeof value === 'string'
+        ? matchPattern(command.options.input.pattern, value)
+        : undefined;
 
-    if (raw == null) {
-        throw new QueryError({ type: 'unknown-command', payload: { name: '<raw>' } });
-    }
+    const args = {
+        modifier:  undefined,
+        pattern,
+        value,
+        operator:  ':',
+        qualifier: [],
+    } satisfies CommonCommandInput;
 
-    return simpleTranslate(raw, expr, {
-        parameter,
-        operator:  '',
-        qualifier: expr.qual ?? [],
-        meta:      raw.meta,
-    }, i18n);
+    return simpleTranslate(command, args, i18n);
 }

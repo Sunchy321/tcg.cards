@@ -54,7 +54,7 @@ import { Game } from '@interface/index';
 
 import { SearchResult } from '@model/omnisearch/schema/search';
 
-import model from 'src/search/omnisearch';
+import { explain as model } from 'src/search/data/omnisearch';
 
 import { trpc } from 'src/trpc';
 

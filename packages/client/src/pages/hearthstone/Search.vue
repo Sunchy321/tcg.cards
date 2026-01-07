@@ -58,7 +58,7 @@ import { SearchResult } from '@model/hearthstone/schema/search';
 
 import { last } from 'lodash';
 
-import model from '@search-data/hearthstone/client';
+import { explain as model } from 'src/search/data/hearthstone';
 
 import { trpc } from 'src/trpc';
 

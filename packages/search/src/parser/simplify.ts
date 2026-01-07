@@ -36,7 +36,7 @@ export function simplify(expr: Expression): Expression {
                     ? nested.qual.filter(v => v !== '!')
                     : ['!', ...nested.qual ?? []],
                 argType: nested.argType,
-                arg:     nested.arg,
+                args:    nested.args,
 
                 tokens:   nested.tokens,
                 location: nested.location,

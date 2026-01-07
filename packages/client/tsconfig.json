@@ -22,7 +22,7 @@
             "@data/*": ["node_modules/card-common/data/*"],
             "@common/*": ["node_modules/card-common/src/*"],
             "@model/*": ["node_modules/card-model/data/*"],
-            "@search/*": ["node_modules/card-model/src/search/*"],
+            "@search/*": ["node_modules/card-search/src/*"],
             "@search-data/*": ["node_modules/card-search/data/*"],
             "@server/*": ["../server/src/*"],
         },

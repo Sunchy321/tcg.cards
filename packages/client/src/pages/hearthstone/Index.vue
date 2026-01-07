@@ -97,7 +97,7 @@ import hearthstoneSetup from 'setup/hearthstone';
 
 import SearchInput from 'components/SearchInput.vue';
 
-import model from '@search-data/hearthstone/client';
+import { explain } from 'src/search/data/hearthstone';
 
 const core = useCore();
 const i18n = useI18n();
@@ -119,7 +119,7 @@ const searchText = computed({
     set(newValue: string) { core.search = newValue; },
 });
 
-const explained = computed(() => model.explain(searchText.value, (key: string, named) => {
+const explained = computed(() => explain.explain(searchText.value, (key: string, named) => {
     let realKey;
 
     if (key.startsWith('$.')) {

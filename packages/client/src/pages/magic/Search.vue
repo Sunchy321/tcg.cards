@@ -59,7 +59,7 @@ import RichText from 'src/components/magic/RichText.vue';
 
 import { SearchResult } from '@model/magic/schema/search';
 
-import model from '@search-data/magic/client';
+import { explain as model } from 'src/search/data/magic';
 
 import { trpc } from 'src/trpc';
 

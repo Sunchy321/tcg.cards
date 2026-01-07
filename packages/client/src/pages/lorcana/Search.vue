@@ -57,7 +57,7 @@ import RichText from 'src/components/lorcana/RichText.vue';
 
 import { SearchResult } from '@model/lorcana/schema/search';
 
-import model from '@search-data/lorcana/client';
+import { explain as model } from 'src/search/data/lorcana';
 
 import { trpc } from 'src/trpc';
 
