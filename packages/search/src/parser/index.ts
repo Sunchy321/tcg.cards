@@ -31,7 +31,7 @@ export type RawExpr = {
 
 export type HashExpr = {
     type: 'hash';
-    arg:  string;
+    args:  string;
 };
 
 export type SlashExpr = {
@@ -418,7 +418,7 @@ export default class Parser {
 
             return {
                 type:     'hash',
-                arg:      arg.text,
+                args:      arg.text,
                 tokens:   this.returnTokens(),
                 location: [first.location[0], arg.location[1]],
             };

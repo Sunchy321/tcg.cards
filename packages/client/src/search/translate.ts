@@ -65,6 +65,8 @@ function simpleTranslate(
     }
 
     if (!command.options.input.operators.includes(operator)) {
+        console.log(command.options, operator, command.options.input.operators.includes(operator));
+
         throw new QueryError({ type: 'invalid-operator' });
     }
 
@@ -181,7 +183,7 @@ export function translate(
             modifier:  undefined,
             pattern:   undefined,
             value,
-            operator:  ':',
+            operator:  '',
             qualifier: [],
         } satisfies CommonCommandInput;
 
