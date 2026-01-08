@@ -116,6 +116,13 @@ export default {
             'not-include': '不包含',
             'is':          '是',
             'is-not':      '不是',
+
+            'count-is':               '数量是',
+            'count-is-not':           '数量不是',
+            'count-greater-than':     '数量大于',
+            'count-greater-or-equal': '数量等于或大于',
+            'count-less-than':        '数量小于',
+            'count-less-or-equal':    '数量等于或小于',
         },
 
         qualifier: {

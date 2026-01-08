@@ -118,6 +118,13 @@ export default {
             'is':          ' is ',
             'is-not':      ' isn\'t ',
 
+            'count-is':               ' count is ',
+            'count-is-not':           ' count isn\'t ',
+            'count-greater-than':     ' count is greater than ',
+            'count-greater-or-equal': ' count is greater than or equal to ',
+            'count-less-than':        ' count is less than ',
+            'count-less-or-equal':    ' count is less than or equal to ',
+
             'fully-match':     ' fully matches',
             'not-fully-match': ' doesn\'t fully match',
         },
