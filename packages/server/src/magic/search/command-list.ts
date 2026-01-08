@@ -95,18 +95,18 @@ export const stats = cs
 
 export const hash = cs
     .commands.hash
-    .handler(({ value, pattern, qualifier }) => {
+    .handler(({ value, pattern, qualifier }, { table }) => {
         const tag = pattern?.tag ?? value;
 
         if (!qualifier.includes('!')) {
             return or(
-                arrayContains(CardPrintView.card.tags, [tag]),
-                arrayContains(CardPrintView.print.printTags, [tag]),
+                arrayContains(table.card.tags, [tag]),
+                arrayContains(table.print.printTags, [tag]),
             )!;
         } else {
             return and(
-                not(arrayContains(CardPrintView.card.tags, [tag])),
-                not(arrayContains(CardPrintView.print.printTags, [tag])),
+                not(arrayContains(table.card.tags, [tag])),
+                not(arrayContains(table.print.printTags, [tag])),
             )!;
         }
     });

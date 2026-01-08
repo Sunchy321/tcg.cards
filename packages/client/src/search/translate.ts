@@ -193,8 +193,10 @@ export function translate(
     // pattern expr
     const command = (() => {
         for (const c of commands) {
-            if (c.options.type === 'pattern' && typeof value === 'string') {
-                const pattern = c.options.input.pattern != null ? matchPattern(c.options.input.pattern, value) : undefined;
+            if (c.options.input.pattern != null && typeof value === 'string') {
+                const pattern = c.options.input.pattern != null
+                    ? matchPattern(c.options.input.pattern, value)
+                    : undefined;
 
                 if (pattern != null) {
                     return c;

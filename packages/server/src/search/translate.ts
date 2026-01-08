@@ -176,7 +176,7 @@ export function translate<Table>(expr: Expression, commands: CommonServerCommand
                 return false;
             }
 
-            for (const p of c.options.input.pattern) {
+            for (const p of [c.options.input.pattern]) {
                 if (matchPattern(p, value)) {
                     return true;
                 }
