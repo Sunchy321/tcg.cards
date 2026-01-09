@@ -1657,14 +1657,15 @@ const guessCounter = () => {
 
     const matches = text.matchAll(/(\b(?:first|double) strike|\b[a-z!]+|[+-]\d\/[+-]\d) counters?\b/g);
 
-    counters.value.push(
+    counters.value = [
+        ...counters.value,
         ...[...matches]
             .map(m => m[1])
             .map(c => (/^[+-]\d\/[+-]\d$/.test(c)
                 ? c
                 : c.toLowerCase().replace(/[^a-z0-9]/g, '_')))
             .filter(c => !counterBlacklist.includes(c)),
-    );
+    ];
 };
 
 const refreshToken = ref('');

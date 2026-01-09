@@ -339,6 +339,7 @@ const update = os
             cardPartLocalization,
             print,
             printPart,
+            relatedCards,
         } = input;
 
         await db.transaction(async tx => {
@@ -383,6 +384,29 @@ const update = os
                     target: [PrintPart.cardId, PrintPart.lang, PrintPart.set, PrintPart.number, PrintPart.partIndex],
                     set:    printPart,
                 });
+
+            if (relatedCards != null) {
+                const relations = relatedCards
+                    .filter(r => r.relation !== 'source')
+                    .map(rc => ({
+                        relation:     rc.relation,
+                        sourceId:     cardId,
+                        targetId:     rc.cardId,
+                        targetSet:    rc.version?.set,
+                        targetNumber: rc.version?.number,
+                        targetLang:   rc.version?.lang,
+                    }));
+
+                // Delete existing relations for this card
+                await tx.delete(CardRelation)
+                    .where(eq(CardRelation.sourceId, cardId));
+
+                // Insert new relations
+                if (relations.length > 0) {
+                    await tx.insert(CardRelation)
+                        .values(relations);
+                }
+            }
         });
     });
 
