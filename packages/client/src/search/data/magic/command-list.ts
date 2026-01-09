@@ -142,7 +142,28 @@ export const rarity = cc
 
 export const date = cc
     .commands.date
-    .apply({ id: 'release-date' });
+    .explain((args, i18n) => {
+        const { value, operator, qualifier } = args;
+
+        const commandText = i18n('$.command.release-date');
+
+        const operatorMap: Record<string, string> = {
+            '=':  'is',
+            ':':  'is',
+            '!=': 'is-not',
+            '!:': 'is-not',
+            '>':  'greater-than',
+            '>=': 'greater-equal',
+            '<':  'less-than',
+            '<=': 'less-equal',
+        };
+
+        const realOperator = qualifier.includes('!') ? `!${operator}` : operator;
+        const operatorId = operatorMap[realOperator] ?? realOperator;
+        const operatorText = i18n(`operator.${operatorId}`);
+
+        return `${commandText}${operatorText}${value}`;
+    });
 
 export const format = cc
     .commands.format
