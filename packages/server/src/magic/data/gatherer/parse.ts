@@ -150,7 +150,44 @@ export async function parseGatherer(multiverseId: number) {
         const hydrationText = JSON.parse(hydration);
         const hydrationData = JSON.parse(hydrationText);
 
-        const card = hydrationData[1][3].children[2][3].children[1][3].children[3].children[0][3].children[3].card as Card;
+        function recursiveFindCard(obj: any): Card | null {
+            if (obj == null) {
+                return null;
+            }
+
+            if (obj.card != null) {
+                return obj.card as Card;
+            }
+
+            if (Array.isArray(obj)) {
+                if (Array.isArray(obj[0])) {
+                    return recursiveFindCard(obj[0][3]);
+                } else if (Array.isArray(obj[1])) {
+                    return recursiveFindCard(obj[1][3]);
+                } else {
+                    return recursiveFindCard(obj[3]);
+                }
+            }
+
+            if (obj.children != null) {
+                return recursiveFindCard(obj.children);
+            }
+
+            console.log('No card found in', Bun.inspect(obj, { depth: 5 }));
+            return null;
+        }
+
+        const card = recursiveFindCard(hydrationData);
+
+        if (card == null) {
+            // console.log(Bun.inspect(hydrationData, { depth: 10 }));
+
+            console.log(
+                Bun.inspect(hydrationData),
+            );
+
+            throw new Error('Card data not found in hydration');
+        }
 
         const text = card.instanceText
             .replace(/\r\n?/g, '\n')
