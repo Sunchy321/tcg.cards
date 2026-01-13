@@ -73,7 +73,9 @@
         "typescript-eslint": "^8.26.1"
     },
     "dependencies": {
+        "@ai-sdk/google": "^3.0.7",
         "@ai-sdk/openai": "^2.0.88",
+        "@ai-sdk/xai": "^3.0.20",
         "@hono/bun-compress": "^0.1.0",
         "@hono/prometheus": "^1.0.2",
         "@hono/zod-validator": "^0.7.2",
@@ -85,7 +87,7 @@
         "@orpc/zod": "^1.8.1",
         "@types/bun": "^1.2.20",
         "ahocorasick": "^1.0.2",
-        "ai": "^5.0.115",
+        "ai": "^6.0.31",
         "async-stream-reader": "^1.2.0",
         "axios": "^1.8.4",
         "axios-retry": "^4.0.0",

@@ -1144,9 +1144,11 @@ const defaultPrettify = () => {
     printPart.value!.typeline = defaultTypelinePrettifier(printPart.value!.typeline, lang.value);
     printPart.value!.text = defaultTextPrettifier(printPart.value!.text, lang.value, printPart.value!.flavorName ?? printPart.value!.name);
 
-    if (printPart.value!.flavorText != null && printPart.value!.flavorText !== '') {
+    if (flavorText.value != null && flavorText.value !== '') {
+        flavorText.value = flavorText.value.trim();
+
         if (lang.value === 'zhs' || lang.value === 'zht') {
-            printPart.value!.flavorText = printPart.value!.flavorText
+            flavorText.value = flavorText.value
                 .replace(/~/g, '～')
                 .replace(/\.\.\./g, '…')
                 .replace(/」 ?～/g, '」\n～')
@@ -1155,13 +1157,13 @@ const defaultPrettify = () => {
         }
 
         if (lang.value === 'de') {
-            printPart.value!.flavorText = printPart.value!.flavorText
+            flavorText.value = flavorText.value
                 .replace(/"/g, '“')
                 .replace(/'/g, '‘');
         }
 
         if (lang.value === 'fr') {
-            printPart.value!.flavorText = printPart.value!.flavorText
+            flavorText.value = flavorText.value
                 .replace(/<</g, '«')
                 .replace(/>>/g, '»');
         }
@@ -1395,9 +1397,10 @@ const extractRulingCards = async () => {
 };
 
 type ScanResult = {
-    name:     string;
-    typeline: string;
-    text:     string;
+    name:       string;
+    typeline:   string;
+    text:       string;
+    flavorText: string;
 };
 
 const scanCardText = async () => {
@@ -1418,6 +1421,12 @@ const applyScanCardText = (result: ScanResult) => {
     printedName.value = result.name;
     printedTypeline.value = result.typeline;
     printedText.value = result.text;
+
+    if (flavorText.value != result.flavorText) {
+        flavorText.value ??= '';
+
+        flavorText.value += '\n\n' + result.flavorText;
+    }
 };
 
 const reloadCardImage = async () => {

@@ -19,7 +19,7 @@ import { Ruling } from '../schema/ruling';
 import { CardRelation } from '../schema/card-relation';
 import { Format } from '../schema/format';
 
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import { createQwen } from 'qwen-ai-provider-v5';
 
 import { getLegality as getLegalityAction, getLegalityRules, LegalityRecorder, lookupPrintsForLegality } from '../banlist/legality';
@@ -575,8 +575,16 @@ const scanCardText = os
 
         console.log(url);
 
-        const { object } = await generateObject({
-            model:    qwen('qwen-vl-ocr-latest'),
+        const { output } = await generateText({
+            model:  qwen('qwen-vl-max') as any,
+            output: Output.object({
+                schema: z.object({
+                    name:       z.string(),
+                    typeline:   z.string(),
+                    text:       z.string(),
+                    flavorText: z.string(),
+                }),
+            }),
             messages: [
                 {
                     role:    'user',
@@ -588,22 +596,17 @@ const scanCardText = os
                         },
                         {
                             type: 'text',
-                            text: '请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者无法识别的符号或图标用{?}代替。名称为图片最上方的文本。类别为图片中间位置的文本。效果文本和风味文字为图片下方的文本，其中风味文字使用不同的字体。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
+                            text: '请提取图像中的卡牌名称、卡牌类别、效果文本和风味文字，模糊或者无法识别的符号或图标用{?}代替。名称为图片最上方的文本。类别为图片中间位置的文本。效果文本和风味文字为图片下方的文本，其中风味文字使用不同的字体。多行文本不应超过一个换行符。返回数据格式以json方式输出，格式为：{ name: \'xxx\', typeline: \'xxx\', text: \'xxx\', flavorText: \'xxx\' }',
                         },
                     ],
                 },
             ],
-            schema: z.object({
-                name:       z.string(),
-                typeline:   z.string(),
-                text:       z.string(),
-                flavorText: z.string(),
-            }),
+
         });
 
-        console.log('Extracted card data:', object);
+        console.log('Extracted card data:', output);
 
-        return object;
+        return output;
     });
 
 export const cardTrpc = {
