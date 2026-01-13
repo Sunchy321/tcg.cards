@@ -1,6 +1,8 @@
 import { SQL, and, or, not } from 'drizzle-orm';
 
 import { Expression } from '@search/parser';
+import { CasingCache } from 'drizzle-orm/casing';
+
 import { CommonCommandInput } from '@search/command/types';
 import { QueryError } from '@search/command/error';
 
@@ -41,8 +43,17 @@ function simpleTranslate<Table>(
 
         const query = command.handler(args as any, ctx);
 
+        console.log('Generated SQL: ', command.options.id);
+        console.log('query:', query.toQuery({
+            casing:       new CasingCache(),
+            escapeName:   (name: string) => `"${name}"`,
+            escapeParam:  (num: number) => `$${num}`,
+            escapeString: (str: string) => `'${str.replace(/'/g, '\'\'')}'`,
+        }));
+
         return { query, post: [] };
     } catch (e) {
+        console.log(e);
         throw new QueryError({ type: e.type });
     }
     // } else {

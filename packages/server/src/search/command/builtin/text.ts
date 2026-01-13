@@ -4,13 +4,14 @@ import { text as textSchema } from '@search/command/builtin/text';
 
 import { QueryError } from '@search/command/error';
 
-import { eq, like, ne, notLike, sql } from 'drizzle-orm';
+import { eq, ilike, like, ne, not, notLike, sql } from 'drizzle-orm';
 
 export const text = ca
     .adapt(textSchema)
     .$meta<{ multiline: boolean }>()
+    .$meta<{ caseSensitive: boolean }>({ caseSensitive: true })
     .handler(({ value, operator, qualifier }, { meta, column }) => {
-        const { multiline } = meta;
+        const { multiline, caseSensitive } = meta;
 
         if (typeof value === 'string') {
             const escaped = value.replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -18,15 +19,31 @@ export const text = ca
             switch (operator) {
             case ':':
                 if (!qualifier.includes('!')) {
-                    return like(column, `%${escaped}%`);
+                    if (caseSensitive) {
+                        return like(column, `%${escaped}%`);
+                    } else {
+                        return ilike(column, `%${escaped}%`);
+                    }
                 } else {
-                    return notLike(column, `%${escaped}%`);
+                    if (caseSensitive) {
+                        return notLike(column, `%${escaped}%`);
+                    } else {
+                        return not(ilike(column, `%${escaped}%`));
+                    }
                 }
             case '=':
                 if (!qualifier.includes('!')) {
-                    return eq(column, value);
+                    if (caseSensitive) {
+                        return eq(column, value);
+                    } else {
+                        return ilike(column, `${escaped}`);
+                    }
                 } else {
-                    return ne(column, value);
+                    if (caseSensitive) {
+                        return ne(column, value);
+                    } else {
+                        return not(ilike(column, `${escaped}`));
+                    }
                 }
             default:
                 throw new QueryError({ type: 'invalid-query' });

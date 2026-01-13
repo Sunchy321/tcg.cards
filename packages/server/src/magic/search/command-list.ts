@@ -227,32 +227,31 @@ export const type = cs
             return builtin.text.call({
                 column: table => table.cardPart.typeline,
                 args:   { value, operator, qualifier },
-                ctx:    { meta: { multiline: false }, table },
+                ctx:    { meta: { multiline: false, caseSensitive: false }, table },
             });
         case 'unified':
             return builtin.text.call({
                 column: table => table.cardPartLocalization.typeline,
                 args:   { value, operator, qualifier },
-                ctx:    { meta: { multiline: false }, table },
+                ctx:    { meta: { multiline: false, caseSensitive: false }, table },
             });
         case 'printed':
             return builtin.text.call({
                 column: table => table.printPart.typeline,
                 args:   { value, operator, qualifier },
-                ctx:    { meta: { multiline: false }, table },
+                ctx:    { meta: { multiline: false, caseSensitive: false }, table },
             });
         default:
-
             return (!qualifier.includes('!') ? or : and)(
                 builtin.text.call({
                     column: table => table.cardPart.typeline,
                     args:   { value, operator, qualifier },
-                    ctx:    { meta: { multiline: false }, table },
+                    ctx:    { meta: { multiline: false, caseSensitive: false }, table },
                 }),
                 builtin.text.call({
                     column: table => table.cardPartLocalization.typeline,
                     args:   { value, operator, qualifier },
-                    ctx:    { meta: { multiline: false }, table },
+                    ctx:    { meta: { multiline: false, caseSensitive: false }, table },
                 }),
             )!;
         }
