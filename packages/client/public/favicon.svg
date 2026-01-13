@@ -1,15 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-  <!-- 扁平化卡牌图标 - 扇形展开 + 卡图框 -->
-  <!-- 后面卡牌（先绘制，被遮挡） -->
   <g transform="rotate(15, 8, 15)">
     <rect x="4" y="2" width="8" height="11" rx="1" fill="#5B8DEF"/>
-    <!-- 后卡图框 -->
     <rect x="5" y="3.5" width="6" height="4" rx="0.5" fill="#8BB4F7"/>
   </g>
-  <!-- 前面卡牌（后绘制，在上层） -->
   <g transform="rotate(-15, 8, 15)">
     <rect x="4" y="2" width="8" height="11" rx="1" fill="#3366CC"/>
-    <!-- 前卡图框 -->
     <rect x="5" y="3.5" width="6" height="4" rx="0.5" fill="#6699EE"/>
   </g>
 </svg>

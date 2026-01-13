@@ -427,7 +427,7 @@ const keywordMap: Record<string, string> = {
     'prowess':      'p',
 };
 
-const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone', 'Map', 'Junk'];
+const predefinedNames = ['Gold', 'Clue', 'Treasure', 'Food', 'Walker', 'Shard', 'Blood', 'Powerstone', 'Map', 'Junk', 'Lander', 'Mutagen'];
 
 const numberRegex = '(?:[a-z]+|a number of|(?:twice )?(?:X|that many))';
 
@@ -451,22 +451,25 @@ const counterBlacklist = [
     'a',
     'all',
     'and',
+    'another',
     'each',
     'had',
     'has',
     'have',
+    'its',
     'more',
+    'moved',
     'no',
     'of',
+    'that',
     'the',
     'those',
+    'three',
     'with',
     'X',
-    'another',
-    'moved',
-    'that',
-    'three',
 ];
+
+console.log(commaRegex);
 
 const router = useRouter();
 const route = useRoute();
@@ -1596,6 +1599,8 @@ const guessToken = () => {
         return;
     }
 
+    const relatedCardsValue = [...relatedCards.value];
+
     const text = oracleText.value;
 
     for (const m of text.matchAll(guessRegex)) {
@@ -1635,17 +1640,19 @@ const guessToken = () => {
         }
 
         if (relatedCards.value.every(r => r.cardId !== tokenId)) {
-            relatedCards.value.push({ relation: 'token', cardId: tokenId });
+            relatedCardsValue.push({ relation: 'token', cardId: tokenId });
         }
     }
 
     if (/^(Embalm|Eternalize|Squad|Offspring)/m.test(text)) {
-        relatedCards.value.push({ relation: 'token', cardId: `${id.value}!` });
+        relatedCardsValue.push({ relation: 'token', cardId: `${id.value}!` });
     }
 
     if (/\bincubates?\b/i.test(text)) {
-        relatedCards.value.push({ relation: 'token', cardId: 'incubator!' });
+        relatedCardsValue.push({ relation: 'token', cardId: 'incubator!' });
     }
+
+    relatedCards.value = relatedCardsValue;
 };
 
 const guessCounter = () => {

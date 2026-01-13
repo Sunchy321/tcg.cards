@@ -259,25 +259,27 @@ const editorView = os
     });
 
 const paren = (lang: Locale | undefined, select: any) => {
-    return db.select(select)
+    return db.selectDistinctOn([CardEditorView.cardId, CardEditorView.lang], select)
         .from(CardEditorView)
         .where(and(
             notInArray(CardEditorView.cardId, internalData<string[]>('magic.special.with-paren')),
             sql`regexp_like(${CardEditorView.cardPartLocalization.text}, ${parenRegex.source})`,
             sql`not(${CardEditorView.cardPart.typeMain} && ARRAY['dungeon', 'card'])`,
             ...lang != null ? [eq(CardEditorView.lang, lang)] : [],
-        ));
+        ))
+        .orderBy(CardEditorView.cardId, CardEditorView.lang, desc(CardEditorView.print.releaseDate));
 };
 
 const keyword = (lang: Locale | undefined, select: any) => {
-    return db.select(select)
+    return db.selectDistinctOn([CardEditorView.cardId, CardEditorView.lang], select)
         .from(CardEditorView)
         .where(and(
             notInArray(CardEditorView.cardId, internalData<string[]>('magic.special.with-comma')),
-            sql`regexp_like(${CardEditorView.cardPartLocalization.text}, ${commaRegex.source})`,
+            sql`regexp_like(${CardEditorView.cardPartLocalization.text}, ${commaRegex.source}, 'm')`,
             sql`not(${CardEditorView.cardPart.typeMain} && ARRAY['dungeon', 'stickers', 'card'])`,
             ...lang != null ? [eq(CardEditorView.lang, lang)] : [],
-        ));
+        ))
+        .orderBy(CardEditorView.cardId, CardEditorView.lang, desc(CardEditorView.print.releaseDate));
 };
 
 const token = (_lang: Locale | undefined, select: any) => {
@@ -307,6 +309,7 @@ const needEdit = os
         total:  z.int().min(0),
     }))
     .handler(async ({ input }) => {
+        const startTime = Date.now();
         const { method, lang, sample } = input;
 
         const getter = needEditGetters[method];
@@ -315,9 +318,25 @@ const needEdit = os
             throw new ORPCError('INVALID_ARGUMENT');
         }
 
-        const result = await getter(lang).limit(sample) as ICardEditorView[];
+        const subquery = getter(lang).as('subquery');
 
-        const total = await getter(lang, sql`count(distinct card_id)`.as('count')).then(rows => rows[0].count as number);
+        const result = await db.select()
+            .from(subquery)
+            .orderBy(desc(sql`release_date`))
+            .limit(sample) as ICardEditorView[];
+
+        const resultTime = Date.now();
+        console.log(`needEdit [${method}] - result fetched: ${resultTime - startTime}ms`);
+
+        const totalResult = await db.select({ count: sql<number>`count(*)`.as('count') })
+            .from(subquery);
+
+        const total = Number(totalResult[0]?.count ?? 0);
+
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+
+        console.log(`needEdit [${method}] - total: ${total}, duration: ${duration}ms`);
 
         return { method, result, total };
     });
