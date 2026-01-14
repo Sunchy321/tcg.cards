@@ -1739,7 +1739,7 @@ const getOriginalInfo = (set: string, number: string) => {
         return { set: 'leb', number };
     }
 
-    if (number.endsWith('★')) {
+    if (number.endsWith('★') || number.endsWith('†')) {
         return { set, number: number.replace(/★$/, '') };
     }
 };

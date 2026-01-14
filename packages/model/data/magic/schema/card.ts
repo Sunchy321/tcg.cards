@@ -36,7 +36,7 @@ export const card = z.strictObject({
 
     category: category,
 
-    legalities: z.record(z.string(), legality),
+    legalities: z.record(z.string(), legality.or(z.string())),
 
     contentWarning: z.boolean().nullable(),
 
