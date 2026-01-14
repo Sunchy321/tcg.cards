@@ -2,31 +2,36 @@
 import { CommandMapBase, CommandOption, ModelOptions } from '@search/index';
 import { CommandInput, CommandInputOption } from '@search/command';
 import { ServerCommandAdapterHandler } from './adapter';
-import { ServerCommandOption } from './types';
+import { ServerCommandBuilderOption, ServerCommand, ServerKind } from './types';
 
 import { MetaBase, MetaRest } from '@search/base/meta';
 import { Hide, HiddenKeys } from '@search/util/hide';
 
-import { Column, SQL, sql } from 'drizzle-orm';
+import { Column, SQL } from 'drizzle-orm';
+import { PgColumn } from 'drizzle-orm/pg-core';
 
 export type Operator = ':' | '' | '<' | '<=' | '=' | '>' | '>=';
 export type Qualifier = '!';
 
-export type AdapterBase = ServerCommandAdapterHandler<any, any, any, any>;
+export type AdapterBase = ServerCommandAdapterHandler<any, any, any, any, any>;
 export type AdapterMapBase = Record<string, any>;
 
 export type SelectAdapter<
     Adapters extends AdapterMapBase,
     Type extends string,
 > = {
-    [K in keyof Adapters]: Adapters[K] extends ServerCommandAdapterHandler<infer T, infer _I, infer _MI, infer _MV>
+    [K in keyof Adapters]: Adapters[K] extends ServerCommandAdapterHandler<infer T, infer _K, infer _I, infer _MI, infer _MV>
         ? Type extends T
             ? Adapters[K]
             : never
         : never;
 }[keyof Adapters];
 
-export type AdapterMeta<Adapter extends AdapterBase> = Adapter extends ServerCommandAdapterHandler<infer _T, infer _I, infer MI, infer MV>
+export type AdapterKind<Adapter extends AdapterBase> = Adapter extends ServerCommandAdapterHandler<infer _T, infer K, infer _I, infer _MI, infer _MV>
+    ? K
+    : never;
+
+export type AdapterMeta<Adapter extends AdapterBase> = Adapter extends ServerCommandAdapterHandler<infer _T, infer _K, infer _I, infer MI, infer MV>
     ? MetaRest<MI, MV>
     : never;
 
@@ -92,7 +97,6 @@ export class ServerCommandBase<
 
                         new ServerCommandBuilder<any, any, any, Table>({
                             options: option,
-                            handler: () => sql``,
                         }),
                     ];
                 } else {
@@ -101,7 +105,6 @@ export class ServerCommandBase<
 
                         new ServerCommandBuilderWithAdapter<any, any, any, Table, any>({
                             options: option,
-                            handler: () => sql``,
                         }, adapter),
                     ];
                 }
@@ -126,14 +129,20 @@ export type ServerCommandContext<
     table: Table;
 };
 
+export type ServerKindReturnMap = {
+    'query':    SQL;
+    'order-by': (PgColumn | SQL | SQL.Aliased)[];
+};
+
 export type ServerCommandHandler<
+    Kind extends ServerKind,
     Input extends CommandInputOption,
     MetaValue extends MetaBase,
     Table,
 > = (
     args: CommandInput<Input>,
     ctx: ServerCommandContext<MetaValue, Table>,
-) => SQL;
+) => ServerKindReturnMap[Kind];
 
 export class ServerCommandBuilder<
     Type extends string,
@@ -141,17 +150,26 @@ export class ServerCommandBuilder<
     MetaValue extends MetaBase,
     Table,
 > {
-    options: ServerCommandOption<Type, Input, MetaValue, Table>;
+    options: ServerCommandBuilderOption<Type, Input, MetaValue, Table>;
 
-    constructor(options: ServerCommandOption<Type, Input, MetaValue, Table>) {
+    constructor(options: ServerCommandBuilderOption<Type, Input, MetaValue, Table>) {
         this.options = options;
     }
 
-    handler(handler: ServerCommandHandler<Input, MetaValue, Table>): ServerCommandOption<Type, Input, MetaValue, Table> {
-        return {
+    handler(handler: ServerCommandHandler<'query', Input, MetaValue, Table>): ServerCommand<Type, 'query', Input, MetaValue, Table> {
+        return new ServerCommand<Type, 'query', Input, MetaValue, Table>({
             ...this.options,
+            kind: 'query',
             handler,
-        };
+        });
+    }
+
+    action<K extends ServerKind>(kind: K, handler: ServerCommandHandler<K, Input, MetaValue, Table>): ServerCommand<Type, K, Input, MetaValue, Table> {
+        return new ServerCommand<Type, K, Input, MetaValue, Table>({
+            ...this.options,
+            kind,
+            handler,
+        });
     }
 }
 
@@ -165,20 +183,21 @@ export class ServerCommandBuilderWithAdapter<
     adapter: Adapter;
 
     constructor(
-        options: ServerCommandOption<Type, Input, MetaValue, Table>,
+        options: ServerCommandBuilderOption<Type, Input, MetaValue, Table>,
         adapter: Adapter,
     ) {
         super(options);
         this.adapter = adapter;
     }
 
-    apply(column: (table: Table) => Column, meta: AdapterMeta<Adapter>): ServerCommandOption<Type, Input, MetaValue, Table> {
+    apply(column: (table: Table) => Column, meta: AdapterMeta<Adapter>): ServerCommand<Type, AdapterKind<Adapter>, Input, MetaValue, Table> {
         const handler = this.adapter.apply(column, meta);
 
-        return {
+        return new ServerCommand<Type, AdapterKind<Adapter>, Input, MetaValue, Table>({
             options: this.options.options,
+            kind:    this.adapter.kind,
             handler,
-        };
+        });
     }
 }
 

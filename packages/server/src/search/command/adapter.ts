@@ -1,17 +1,19 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { CommandInput, CommandInputOption } from '@search/command';
 import { CommandBuilder, CommandOption } from '@search/index';
-import { ServerCommandContext, ServerCommandHandler, ServerHandlerCtx } from './builder';
+import { ServerCommandContext, ServerCommandHandler, ServerHandlerCtx, ServerKindReturnMap } from './builder';
 
 import { MetaBase, MetaRest } from '@search/base/meta';
 import { Merge, merge } from '@search/util/merge';
 
-import { Column, SQL } from 'drizzle-orm';
+import { Column } from 'drizzle-orm';
+import { ServerKind } from './types';
 
-export type ServerAdapterHandlerInput<Input extends CommandInputOption, MetaValue> = <Table>(
-    args: CommandInput<Input>,
-    ctx: ServerHandlerCtx<Table, MetaValue> & { column: Column },
-) => SQL;
+export type ServerAdapterHandlerInput<Kind extends ServerKind, Input extends CommandInputOption, MetaValue> =
+    <Table>(
+        args: CommandInput<Input>,
+        ctx: ServerHandlerCtx<Table, MetaValue> & { column: Column },
+    ) => ServerKindReturnMap[Kind];
 
 export class ServerCommandAdapterCreator {
     adapt<
@@ -53,9 +55,18 @@ export class ServerCommandAdapter<
         }
     }
 
-    handler(handler: ServerAdapterHandlerInput<Input, MetaInput>) {
-        return new ServerCommandAdapterHandler<Type, Input, MetaInput, MetaValue>({
+    handler(handler: ServerAdapterHandlerInput<'query', Input, MetaInput>) {
+        return new ServerCommandAdapterHandler<Type, 'query', Input, MetaInput, MetaValue>({
             options: this.options,
+            kind:    'query',
+            handler,
+        });
+    }
+
+    process<Kind extends ServerKind>(kind: Kind, handler: ServerAdapterHandlerInput<Kind, Input, MetaInput>) {
+        return new ServerCommandAdapterHandler<Type, Kind, Input, MetaInput, MetaValue>({
+            options: this.options,
+            kind,
             handler,
         });
     }
@@ -63,24 +74,28 @@ export class ServerCommandAdapter<
 
 export class ServerCommandAdapterHandler<
     Type extends string,
+    Kind extends ServerKind,
     Input extends CommandInputOption,
     MetaInput extends MetaBase,
     MetaValue extends MetaBase,
 > {
     options: CommandOption<Type, Input, MetaValue>;
-    handler: ServerAdapterHandlerInput<Input, MetaInput>;
+    kind:    Kind;
+    handler: ServerAdapterHandlerInput<Kind, Input, MetaInput>;
 
     constructor(
         options: {
             options: CommandOption<Type, Input, MetaValue>;
-            handler: ServerAdapterHandlerInput<Input, MetaInput>;
+            kind:    Kind;
+            handler: ServerAdapterHandlerInput<Kind, Input, MetaInput>;
         },
     ) {
         this.options = options.options;
+        this.kind = options.kind;
         this.handler = options.handler;
     }
 
-    apply<Table>(column: (table: Table) => Column, meta: MetaRest<MetaInput, MetaValue>): ServerCommandHandler<Input, MetaValue, Table> {
+    apply<Table>(column: (table: Table) => Column, meta: MetaRest<MetaInput, MetaValue>): ServerCommandHandler<Kind, Input, MetaValue, Table> {
         return (args: CommandInput<Input>, ctx: ServerCommandContext<MetaValue, Table>) => {
             return this.handler(args,
                 {
@@ -98,7 +113,7 @@ export class ServerCommandAdapterHandler<
             args:   CommandInput<Input>;
             ctx:    ServerCommandContext<MetaRest<MetaInput, MetaValue>, Table>;
         },
-    ): SQL {
+    ): ServerKindReturnMap[Kind] {
         const { column, args, ctx } = options;
 
         return this.handler(args, {

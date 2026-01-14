@@ -3,12 +3,12 @@ import { SearchResult } from '@search/schema';
 import Parser from '@search/parser';
 import { simplify } from '@search/parser/simplify';
 
-import { ServerCommandOption } from './command';
+import { ServerCommand } from './command';
 import { ServerAction } from './action';
 import { ServerActionOption, ServerActionResult } from './action/types';
 import { translate } from './translate';
 
-export type ServerCommandMapBase<Table> = Record<string, ServerCommandOption<any, any, any, Table>>;
+export type ServerCommandMapBase<Table> = Record<string, ServerCommand<any, any, any, any, Table>>;
 
 export class ServerModelBuilder {
     from<M extends ModelOptions<CommandMapBase>>(model: M) {
@@ -42,7 +42,7 @@ export class ServerModelBuilderWithTable<
         this.tables = tables;
     }
 
-    command<C extends Record<keyof M['commands'], ServerCommandOption<any, any, any, Table>>>(commands: C) {
+    command<C extends Record<keyof M['commands'], ServerCommand<any, any, any, any, Table>>>(commands: C) {
         return new ServerModelBuilderWithCommands<M, Table, C>(
             this.model,
             this.tables,
@@ -54,7 +54,7 @@ export class ServerModelBuilderWithTable<
 export class ServerModelBuilderWithCommands<
     M extends ModelOptions<CommandMapBase>,
     Table,
-    C extends Record<keyof M['commands'], ServerCommandOption<any, any, any, Table>>> {
+    C extends Record<keyof M['commands'], ServerCommand<any, any, any, any, Table>>> {
     model:    M;
     tables:   Table[];
     commands: C;
@@ -78,7 +78,7 @@ export class ServerModelBuilderWithCommands<
 export class ServerModel<
     M extends ModelOptions<CommandMapBase>,
     Table,
-    C extends Record<keyof M['commands'], ServerCommandOption<any, any, any, Table>>,
+    C extends Record<keyof M['commands'], ServerCommand<any, any, any, any, Table>>,
     A extends Record<string, ServerAction<Table, any, any>>,
 > {
     model:    M;
@@ -129,10 +129,12 @@ export class ServerModel<
                 return { text, errors: [] };
             }
 
-            const result = await action.handler(query, [], options);
+            const result = await action.handler(query, post, options);
 
             return { text, errors: [], result };
         } catch (e) {
+            console.log(e);
+
             return { text, errors: [e] };
         }
     }

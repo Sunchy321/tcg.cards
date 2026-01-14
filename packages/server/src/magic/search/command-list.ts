@@ -5,7 +5,7 @@ import * as magic from './command';
 
 import { QueryError } from '@search/command/error';
 
-import { and, arrayContains, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
+import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, SQL, sql } from 'drizzle-orm';
 
 import { toIdentifier } from '@common/util/id';
 
@@ -442,58 +442,48 @@ export const multiverseId = cs
 
 export const order = cs
     .commands.order
-    .handler((): never => { throw new QueryError({ type: 'unreachable' }); });
+    .action('order-by', ({ value }, { table }) => {
+        const parts = value.toLowerCase().split(',').map(v => {
+            if (v.endsWith('+')) {
+                return { type: v.slice(0, -1), dir: 1 as const };
+            }
 
-// const order = cs
-// .commands.order
-// .handler((): never { throw new QueryError({ type: 'unreachable' }); },
-//     phase:   'order',
-//     post:    ({ value }, { table }) => {
-//         const parts = value.toLowerCase().split(',').map(v => {
-//             if (v.endsWith('+')) {
-//                 return { type: v.slice(0, -1), dir: 1 as const };
-//             }
+            if (v.endsWith('-')) {
+                return { type: v.slice(0, -1), dir: -1 as const };
+            }
 
-//             if (v.endsWith('-')) {
-//                 return { type: v.slice(0, -1), dir: -1 as const };
-//             }
+            return { type: v, dir: 1 as const };
+        });
 
-//             return { type: v, dir: 1 as const };
-//         });
+        const sorter: SQL[] = [];
 
-//         const sorter: SQL[] = [];
+        for (const { type, dir } of parts) {
+            const func = dir === 1 ? asc : desc;
 
-//         for (const { type, dir } of parts) {
-//             const func = dir === 1 ? asc : desc;
+            switch (type) {
+            case 'name':
+                sorter.push(func(table.card.name));
+                break;
+            case 'set':
+            case 'number':
+                sorter.push(func(table.set));
+                sorter.push(func(table.number));
+                break;
+            case 'date':
+                sorter.push(func(table.print.releaseDate));
+                break;
+            case 'id':
+                sorter.push(func(table.cardId));
+                break;
+            case 'cmc':
+            case 'mv':
+            case 'cost':
+                sorter.push(func(table.card.manaValue));
+                break;
+            default:
+                throw new QueryError({ type: 'invalid-query' });
+            }
+        }
 
-//             switch (type) {
-//             case 'name':
-//                 sorter.push(func(table.card.name));
-//                 break;
-//             case 'set':
-//             case 'number':
-//                 sorter.push(func(table.set));
-//                 sorter.push(func(table.number));
-//                 break;
-//             case 'date':
-//                 sorter.push(func(table.print.releaseDate));
-//                 break;
-//             case 'id':
-//                 sorter.push(func(table.cardId));
-//                 break;
-//             case 'cmc':
-//             case 'mv':
-//             case 'cost':
-//                 sorter.push(func(table.card.manaValue));
-//                 break;
-//             default:
-//                 throw new QueryError({ type: 'invalid-query' });
-//             }
-//         }
-
-//         return {
-//             type:   'order-by',
-//             orders: sorter,
-//         };
-//     },
-// });
+        return sorter;
+    });

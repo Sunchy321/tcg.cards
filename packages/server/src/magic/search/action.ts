@@ -8,6 +8,8 @@ import { sql } from 'drizzle-orm';
 import { db } from '@/drizzle';
 import { CardEditorView, CardPrintView } from '../schema/print';
 
+import { order } from './command-list';
+
 const as = create;
 
 type SearchOption = {
@@ -33,10 +35,10 @@ export const search = as
             ? sql`count(distinct card_id)`.as('count')
             : sql`count(distinct (card_id, set, number))`.as('count');
 
-        // const orderByAction = post.find(p => p.type === 'order-by') as OrderBy
-        //   ?? order.post!({ operator: ':', qualifier: [], value: orderBy });
+        const orderByAction = post.find(p => p.phase === 'order-by')?.action
+          ?? order.call({ operator: ':', qualifier: [], value: orderBy }, { meta: {}, table: CardPrintView });
 
-        const result = await db
+        const subquery = db
             .selectDistinctOn(groupByColumn)
             .from(CardPrintView)
             .where(query)
@@ -44,12 +46,16 @@ export const search = as
                 ...groupByColumn,
                 CardPrintView.partIndex,
                 sql`CASE
-                                WHEN ${CardPrintView.lang} = ${lang} THEN 0
-                                WHEN ${CardPrintView.lang} = 'en' THEN 1
-                                ELSE 2
-                            END`,
-                // ...orderByAction.orders,
-            )
+                    WHEN ${CardPrintView.lang} = ${lang} THEN 0
+                    WHEN ${CardPrintView.lang} = 'en' THEN 1
+                    ELSE 2
+                END`,
+            );
+
+        const result = await db
+            .select()
+            .from(subquery.as('card_print_view'))
+            .orderBy(...orderByAction)
             .limit(pageSize)
             .offset((page - 1) * pageSize);
 
@@ -103,10 +109,10 @@ export const dev = as
             ? sql`count(distinct card_id)`.as('count')
             : sql`count(distinct (card_id, set, number, lang))`.as('count');
 
-        // const orderByAction = post.find(p => p.type === 'order-by') as OrderBy
-        //   ?? order.post!({ operator: ':', qualifier: [], value: 'id+' });
+        const orderByAction = post.find(p => p.phase === 'order-by')?.action
+          ?? order.call({ operator: ':', qualifier: [], value: 'date-' }, { meta: {}, table: CardEditorView });
 
-        const result = await db
+        const subquery = db
             .selectDistinctOn(groupByColumn)
             .from(CardEditorView)
             .where(query)
@@ -118,8 +124,12 @@ export const dev = as
                         WHEN ${CardEditorView.lang} = 'en' THEN 1
                         ELSE 2
                     END`,
-                // ...orderByAction.orders,
-            )
+            );
+
+        const result = await db
+            .select()
+            .from(subquery.as('card_editor_view'))
+            .orderBy(...orderByAction)
             .limit(pageSize);
 
         // Count the total records matching the same SQL query

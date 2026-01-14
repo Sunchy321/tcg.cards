@@ -7,9 +7,7 @@ import { CommonCommandInput } from '@search/command/types';
 import { QueryError } from '@search/command/error';
 
 import { matchPattern } from '@search/command/match-pattern';
-import { CommonServerCommandOption } from '@/search/command';
-
-type PostAction = any;
+import { CommonServerCommand, PostAction } from '@/search/command';
 
 export type TranslatedQuery = {
     query: SQL | undefined;
@@ -17,7 +15,7 @@ export type TranslatedQuery = {
 };
 
 function simpleTranslate<Table>(
-    command: CommonServerCommandOption,
+    command: CommonServerCommand,
     expr: Expression,
     args: CommonCommandInput,
     table: Table,
@@ -34,41 +32,62 @@ function simpleTranslate<Table>(
         throw new QueryError({ type: 'invalid-operator', payload: { operator } });
     }
 
-    // if (command.post == null) {
     try {
         const ctx = {
             meta:  command.options.meta,
             table: table,
         };
 
-        const query = command.handler(args as any, ctx);
+        if (command.is('query')) {
+            const ctx = {
+                meta:  command.options.meta,
+                table: table,
+            };
 
-        console.log('Generated SQL: ', command.options.id);
-        console.log('query:', query.toQuery({
-            casing:       new CasingCache(),
-            escapeName:   (name: string) => `"${name}"`,
-            escapeParam:  (num: number) => `$${num}`,
-            escapeString: (str: string) => `'${str.replace(/'/g, '\'\'')}'`,
-        }));
+            const query = command.handler(args as any, ctx) as SQL;
 
-        return { query, post: [] };
+            console.log('Generated SQL: ', command.options.id);
+            console.log('query:', query.toQuery({
+                casing:       new CasingCache(),
+                escapeName:   (name: string) => `"${name}"`,
+                escapeParam:  (num: number) => `$${num}`,
+                escapeString: (str: string) => `'${str.replace(/'/g, '\'\'')}'`,
+            }));
+
+            return { query, post: [] };
+        } else if (command.is('order-by')) {
+            if (!expr.topLevel) {
+                throw new QueryError({ type: 'not-toplevel-command' });
+            }
+
+            const action = command.call(args as any, ctx);
+
+            console.log('Generated Post Action: ', command.options.id);
+            console.log('action:', action.map(a => {
+                const sql = a.getSQL();
+
+                return sql.toQuery({
+                    casing:       new CasingCache(),
+                    escapeName:   (name: string) => `"${name}"`,
+                    escapeParam:  (num: number) => `$${num}`,
+                    escapeString: (str: string) => `'${str.replace(/'/g, '\'\'')}'`,
+                });
+            }));
+
+            return {
+                query: undefined,
+                post:  [{ phase: 'order-by', action }],
+            };
+        } else {
+            throw new QueryError({ type: 'invalid-command-kind' });
+        }
     } catch (e) {
         console.log(e);
         throw new QueryError({ type: e.type });
     }
-    // } else {
-    //     if (!expr.topLevel) {
-    //         throw new QueryError({ type: 'not-toplevel-command' });
-    //     }
-
-    //     return {
-    //         query: undefined,
-    //         post:  [command.post!(arg)],
-    //     };
-    // }
 }
 
-export function translate<Table>(expr: Expression, commands: CommonServerCommandOption[], table: Table): TranslatedQuery {
+export function translate<Table>(expr: Expression, commands: CommonServerCommand[], table: Table): TranslatedQuery {
     // computed expression
     if (expr.type === 'logic') {
         const value = expr.exprs.map(v => translate(v, commands, table));

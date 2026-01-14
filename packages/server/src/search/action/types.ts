@@ -1,6 +1,8 @@
+import { PostAction } from '../command';
+
 import { SQL } from 'drizzle-orm';
 
-export type ServerActionHandler<Result, Option> = (query: SQL, post: never[], options: Option) =>
+export type ServerActionHandler<Result, Option> = (query: SQL, post: PostAction[], options: Option) =>
 Promise<Result>;
 
 export interface ServerAction<Table, Result, Option> {

@@ -9,7 +9,6 @@ import { schema } from './schema';
 import { Updation } from '@model/basic';
 import * as basicModel from '@model/magic/schema/basic';
 import * as cardModel from '@model/magic/schema/card';
-import { Legality } from '@model/magic/schema/game-change';
 
 export const locale = schema.enum('locale', basicModel.locale.enum);
 export const category = schema.enum('category', cardModel.category.enum);
@@ -33,7 +32,7 @@ export const Card = schema.table('cards', {
     category: category('category').notNull(),
     tags:     text('tags').array().notNull(),
 
-    legalities: jsonb('legalities').$type<Record<string, Legality>>().notNull(),
+    legalities: jsonb('legalities').$type<Record<string, string>>().notNull(),
 
     scryfallOracleId: uuid('scryfall_oracle_id').array().notNull(),
 
