@@ -350,23 +350,23 @@ export const rarity = cs
 
 export const date = cs
     .commands.date
-    .handler(({ value, operator, qualifier }) => {
+    .handler(({ value, operator, qualifier }, { table }) => {
         switch (operator) {
         case '=':
         case ':':
             if (!qualifier.includes('!')) {
-                return eq(CardPrintView.print.releaseDate, value);
+                return eq(table.print.releaseDate, value);
             } else {
-                return ne(CardPrintView.print.releaseDate, value);
+                return ne(table.print.releaseDate, value);
             }
         case '>':
-            return gt(CardPrintView.print.releaseDate, value);
+            return gt(table.print.releaseDate, value);
         case '>=':
-            return gte(CardPrintView.print.releaseDate, value);
+            return gte(table.print.releaseDate, value);
         case '<':
-            return lt(CardPrintView.print.releaseDate, value);
+            return lt(table.print.releaseDate, value);
         case '<=':
-            return lte(CardPrintView.print.releaseDate, value);
+            return lte(table.print.releaseDate, value);
         default:
             throw new QueryError({ type: 'invalid-query' });
         }
@@ -374,56 +374,56 @@ export const date = cs
 
 export const format = cs
     .commands.format
-    .handler(({ value, qualifier }) => {
+    .handler(({ value, qualifier }, { table }) => {
         if (value.includes(',')) {
             const [format, status] = value.split('=');
 
             if (!qualifier.includes('!')) {
-                return eq(sql`${CardPrintView.card.legalities} ->> ${format}`, status);
+                return eq(sql`${table.card.legalities} ->> ${format}`, status);
             } else {
-                return ne(sql`${CardPrintView.card.legalities} ->> ${format}`, status);
+                return ne(sql`${table.card.legalities} ->> ${format}`, status);
             }
         } else {
             if (!qualifier.includes('!')) {
-                return inArray(sql`${CardPrintView.card.legalities} ->> ${value}`, ['legal', 'restricted']);
+                return inArray(sql`${table.card.legalities} ->> ${value}`, ['legal', 'restricted']);
             } else {
-                return notInArray(sql`${CardPrintView.card.legalities} ->> ${value}`, ['legal', 'restricted']);
+                return notInArray(sql`${table.card.legalities} ->> ${value}`, ['legal', 'restricted']);
             }
         }
     });
 
 export const counter = cs
     .commands.counter
-    .handler(({ value, qualifier }) => {
+    .handler(({ value, qualifier }, { table }) => {
         value = toIdentifier(value);
 
         if (!qualifier.includes('!')) {
-            return arrayContains(CardPrintView.card.counters, [value]);
+            return arrayContains(table.card.counters, [value]);
         } else {
-            return not(arrayContains(CardPrintView.card.counters, [value]));
+            return not(arrayContains(table.card.counters, [value]));
         }
     });
 
 export const keyword = cs
     .commands.keyword
-    .handler(({ value, qualifier }) => {
+    .handler(({ value, qualifier }, { table }) => {
         value = toIdentifier(value);
 
         if (!qualifier.includes('!')) {
-            return arrayContains(CardPrintView.card.keywords, [value]);
+            return arrayContains(table.card.keywords, [value]);
         } else {
-            return not(arrayContains(CardPrintView.card.keywords, [value]));
+            return not(arrayContains(table.card.keywords, [value]));
         }
     });
 
 export const multiverseId = cs
     .commands.multiverseId
-    .handler(({ value, qualifier }) => {
+    .handler(({ value, qualifier }, { table }) => {
         if (value === '*') {
             if (!qualifier.includes('!')) {
-                return gt(sql`array_length(${CardPrintView.print.multiverseId}, 1)`, 0);
+                return gt(sql`array_length(${table.print.multiverseId}, 1)`, 0);
             } else {
-                return eq(sql`array_length(${CardPrintView.print.multiverseId}, 1)`, 0);
+                return eq(sql`array_length(${table.print.multiverseId}, 1)`, 0);
             }
         } else {
             const num = Number.parseInt(value, 10);
@@ -433,9 +433,9 @@ export const multiverseId = cs
             }
 
             if (!qualifier.includes('!')) {
-                return arrayContains(CardPrintView.print.multiverseId, [num]);
+                return arrayContains(table.print.multiverseId, [num]);
             } else {
-                return not(arrayContains(CardPrintView.print.multiverseId, [num]));
+                return not(arrayContains(table.print.multiverseId, [num]));
             }
         }
     });
@@ -448,7 +448,7 @@ export const order = cs
 // .commands.order
 // .handler((): never { throw new QueryError({ type: 'unreachable' }); },
 //     phase:   'order',
-//     post:    ({ value }) => {
+//     post:    ({ value }, { table }) => {
 //         const parts = value.toLowerCase().split(',').map(v => {
 //             if (v.endsWith('+')) {
 //                 return { type: v.slice(0, -1), dir: 1 as const };
@@ -468,23 +468,23 @@ export const order = cs
 
 //             switch (type) {
 //             case 'name':
-//                 sorter.push(func(CardPrintView.card.name));
+//                 sorter.push(func(table.card.name));
 //                 break;
 //             case 'set':
 //             case 'number':
-//                 sorter.push(func(CardPrintView.set));
-//                 sorter.push(func(CardPrintView.number));
+//                 sorter.push(func(table.set));
+//                 sorter.push(func(table.number));
 //                 break;
 //             case 'date':
-//                 sorter.push(func(CardPrintView.print.releaseDate));
+//                 sorter.push(func(table.print.releaseDate));
 //                 break;
 //             case 'id':
-//                 sorter.push(func(CardPrintView.cardId));
+//                 sorter.push(func(table.cardId));
 //                 break;
 //             case 'cmc':
 //             case 'mv':
 //             case 'cost':
-//                 sorter.push(func(CardPrintView.card.manaValue));
+//                 sorter.push(func(table.card.manaValue));
 //                 break;
 //             default:
 //                 throw new QueryError({ type: 'invalid-query' });
