@@ -317,6 +317,7 @@ const nodes = computed(() => {
             node.banlist.push({
                 cardId: c.cardId!,
                 status: c.status as Legality,
+                score:  c.score ?? undefined,
                 group:  c.group ?? undefined,
             });
         } else {
