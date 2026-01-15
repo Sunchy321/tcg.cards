@@ -1,12 +1,12 @@
 export default {
     'full-command': {
-        'raw':              'name includes {parameter}',
-        'raw-mana':         'mana cost or text includes {parameter}',
+        'raw':              'name includes {value}',
+        'raw-mana':         'mana cost or text includes {value}',
         'stats':            'power is {power} and toughness is {toughness}',
         'hash':             'has tag {tag}',
-        'order':            'order by {parameter}',
-        'order-ascending':  'order by {parameter} (ascending)',
-        'order-descending': 'order by {parameter} (descending)',
+        'order':            'order by {value}',
+        'order-ascending':  'order by {value} (ascending)',
+        'order-descending': 'order by {value} (descending)',
     },
 
     'command': {

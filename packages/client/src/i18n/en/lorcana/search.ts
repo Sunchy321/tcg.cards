@@ -1,12 +1,12 @@
 export default {
     'full-command': {
-        'raw':              'name includes {parameter}',
+        'raw':              'name includes {value}',
         'stats':            'strength is {strength} and will power is {willPower}',
         'full-stats':       'cost is {cost} and strength is {strength} and will power is {willPower}',
         'hash':             'has tag {tag}',
-        'order':            'order by {parameter}',
-        'order-ascending':  'order by {parameter} (ascending)',
-        'order-descending': 'order by {parameter} (descending)',
+        'order':            'order by {value}',
+        'order-ascending':  'order by {value} (ascending)',
+        'order-descending': 'order by {value} (descending)',
     },
 
     'command': {

@@ -230,7 +230,7 @@ export function translate<Table>(expr: Expression, commands: CommonServerCommand
         }
     }
 
-    const raw = commands.find(c => c.options.id === '');
+    const raw = commands.find(c => c.options.type === 'none');
 
     if (raw == null) {
         throw new QueryError({ type: 'unknown-command', payload: { name: '<raw>' } });

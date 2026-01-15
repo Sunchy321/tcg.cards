@@ -1,11 +1,11 @@
 export default {
     'full-command': {
-        'raw':              '名称包含{parameter}',
+        'raw':              '名称包含{value}',
         'stats':            '攻击力是{attack}并且防御力是{defense}',
         'hash':             '具有标签 {tag}',
-        'order':            '按{parameter}排序',
-        'order-ascending':  '按{parameter}排序（升序）',
-        'order-descending': '按{parameter}排序（降序）',
+        'order':            '按{value}排序',
+        'order-ascending':  '按{value}排序（升序）',
+        'order-descending': '按{value}排序（降序）',
     },
 
     'command': {

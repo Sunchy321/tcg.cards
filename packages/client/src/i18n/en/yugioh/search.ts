@@ -1,11 +1,11 @@
 export default {
     'full-command': {
-        'raw':              'name includes {parameter}',
+        'raw':              'name includes {value}',
         'stats':            'attack is {attack} and defense is {defense}',
         'hash':             'has tag {tag}',
-        'order':            'order by {parameter}',
-        'order-ascending':  'order by {parameter} (ascending)',
-        'order-descending': 'order by {parameter} (descending)',
+        'order':            'order by {value}',
+        'order-ascending':  'order by {value} (ascending)',
+        'order-descending': 'order by {value} (descending)',
     },
 
     'command': {

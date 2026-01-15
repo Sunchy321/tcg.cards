@@ -1,12 +1,12 @@
 export default {
     'full-command': {
-        'raw':              '名称包含{parameter}',
+        'raw':              '名称包含{value}',
         'stats':            '力量是{strength}并且意志力是{willPower}',
         'full-stats':       '费用是{cost}并且力量是{strength}并且意志力是{willPower}',
         'hash':             '具有标签 {tag}',
-        'order':            '按{parameter}排序',
-        'order-ascending':  '按{parameter}排序（升序）',
-        'order-descending': '按{parameter}排序（降序）',
+        'order':            '按{value}排序',
+        'order-ascending':  '按{value}排序（升序）',
+        'order-descending': '按{value}排序（降序）',
     },
 
     'command': {

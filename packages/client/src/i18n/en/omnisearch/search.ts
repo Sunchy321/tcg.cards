@@ -1,9 +1,9 @@
 export default {
     'full-command': {
-        'raw':              'name includes {parameter}',
-        'order':            'order by {parameter}',
-        'order-ascending':  'order by {parameter} (ascending)',
-        'order-descending': 'order by {parameter} (descending)',
+        'raw':              'name includes {value}',
+        'order':            'order by {value}',
+        'order-ascending':  'order by {value} (ascending)',
+        'order-descending': 'order by {value} (descending)',
     },
 
     'command': {

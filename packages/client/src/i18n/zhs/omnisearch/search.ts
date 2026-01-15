@@ -1,6 +1,6 @@
 export default {
     'full-command': {
-        raw: '名称包含{parameter}',
+        raw: '名称包含{value}',
     },
 
     'command': {
