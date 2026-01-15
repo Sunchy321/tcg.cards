@@ -98,7 +98,8 @@ import ptcgSetup from 'setup/ptcg';
 import SearchInput from 'components/SearchInput.vue';
 import RichText from 'src/components/ptcg/RichText.vue';
 
-import { explain as model } from 'src/search/ptcg';
+// TODO: add ptcg search explain
+import { explain as model } from 'src/search/data/magic';
 
 const core = useCore();
 const i18n = useI18n();

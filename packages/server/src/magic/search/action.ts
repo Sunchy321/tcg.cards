@@ -102,8 +102,8 @@ export const dev = as
         const groupByColumn = groupBy === 'card'
             ? [CardEditorView.cardId]
             : groupBy === 'lang'
-                ? [CardEditorView.cardId, CardEditorView.set, CardEditorView.number, CardEditorView.partIndex]
-                : [CardEditorView.cardId, CardEditorView.set, CardEditorView.number, CardEditorView.lang, CardEditorView.partIndex];
+                ? [CardEditorView.cardId, CardEditorView.set, CardEditorView.number]
+                : [CardEditorView.cardId, CardEditorView.set, CardEditorView.number, CardEditorView.lang];
 
         const groupByCount = groupBy === 'card'
             ? sql`count(distinct card_id)`.as('count')

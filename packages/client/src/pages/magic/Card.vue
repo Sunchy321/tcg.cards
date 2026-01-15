@@ -956,6 +956,11 @@ onBeforeRouteLeave((to, from, next) => {
     margin-top: 20px
     font-style: italic
 
+    &[lang="zhs"], &[lang="zht"]
+        font-family: KaiTi, STKaiti, "Kaiti SC", serif
+        font-size: 110%
+        font-style: normal
+
     &:deep(.emph)
         font-style: normal
 

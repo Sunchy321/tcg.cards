@@ -4,5 +4,6 @@ export { simpleSet } from './simple-set';
 export { all } from './all';
 
 export { number } from './number';
+export { string } from './string';
 export { text } from './text';
 export { bit } from './bit';

@@ -30,7 +30,7 @@ export const set = c
     .done();
 
 export const number = c
-    .simple
+    .string
     .id('number')
     .alt('num')
     .done();

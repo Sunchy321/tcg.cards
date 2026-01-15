@@ -180,11 +180,7 @@ export async function parseGatherer(multiverseId: number) {
         const card = recursiveFindCard(hydrationData);
 
         if (card == null) {
-            // console.log(Bun.inspect(hydrationData, { depth: 10 }));
-
-            console.log(
-                Bun.inspect(hydrationData),
-            );
+            console.log(Bun.inspect(hydrationData, { depth: 10 }));
 
             throw new Error('Card data not found in hydration');
         }

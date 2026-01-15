@@ -174,7 +174,7 @@
                 />
 
                 <q-btn icon="mdi-skip-next" dense flat round @click="skipCurrent" />
-                <q-btn icon="mdi-refresh" dense flat round @click="loadData" />
+                <q-btn icon="mdi-refresh" dense flat round @click="() => loadData()" />
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
@@ -310,7 +310,16 @@
                 </tr>
             </table>
 
-            <q-input v-model="flavorText" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea" />
+            <q-input v-model="flavorText" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea">
+                <template #append>
+                    <remote-btn
+                        icon="mdi-credit-card-scan-outline"
+                        dense flat round size="sm"
+                        :remote="scanCardText"
+                        :resolve="applyScanFlavorText"
+                    />
+                </template>
+            </q-input>
 
             <div class="flex q-mt-sm">
                 <q-input v-model="flavorName" class="col" label="Flavor Name" outlined dense />
@@ -638,6 +647,8 @@ const partIndex = computed({
                 part: newValue,
             },
         });
+
+        loadData(newValue);
     },
 });
 
@@ -1167,6 +1178,8 @@ const defaultPrettify = () => {
                 .replace(/<</g, '«')
                 .replace(/>>/g, '»');
         }
+    } else if (flavorText.value === '') {
+        flavorText.value = null;
     }
 
     if (clearDevOracle.value) {
@@ -1417,16 +1430,22 @@ const scanCardText = async () => {
     });
 };
 
+const applyScanFlavorText = (result: ScanResult) => {
+    if (flavorText.value == '') {
+        flavorText.value = result.flavorText;
+    } else if (flavorText.value != result.flavorText) {
+        flavorText.value ??= '';
+
+        flavorText.value += '\n\n' + result.flavorText;
+    }
+};
+
 const applyScanCardText = (result: ScanResult) => {
     printedName.value = result.name;
     printedTypeline.value = result.typeline;
     printedText.value = result.text;
 
-    if (flavorText.value != result.flavorText) {
-        flavorText.value ??= '';
-
-        flavorText.value += '\n\n' + result.flavorText;
-    }
+    applyScanFlavorText(result);
 };
 
 const reloadCardImage = async () => {
@@ -1497,8 +1516,8 @@ const doUpdate = debounce(
     },
 );
 
-const loadData = async () => {
-    if (id.value == null || lang.value == null || set.value == null || number.value == null || partIndex.value == null) {
+const loadData = async (newPartIndex?: number) => {
+    if (id.value == null || lang.value == null || set.value == null || number.value == null || (newPartIndex ?? partIndex.value) == null) {
         return;
     }
 
@@ -1507,7 +1526,7 @@ const loadData = async () => {
         lang:      lang.value,
         set:       set.value,
         number:    number.value,
-        partIndex: partIndex.value,
+        partIndex: newPartIndex ?? partIndex.value,
     });
 };
 
@@ -1716,6 +1735,7 @@ const applyParseGatherer = (value: ParseGatherer | undefined) => {
 
     printedName.value = value.name;
     printedText.value = value.text;
+    flavorText.value = value.flavorText ?? null;
 };
 
 const promoWithoutBaseSet = [

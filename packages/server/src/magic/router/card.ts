@@ -361,6 +361,14 @@ const update = os
             relatedCards,
         } = input;
 
+        if (printPart.flavorText === '') {
+            printPart.flavorText = null;
+        }
+
+        if (printPart.flavorName === '') {
+            printPart.flavorName = null;
+        }
+
         await db.transaction(async tx => {
             await tx.insert(Card)
                 .values({ cardId, ...card })

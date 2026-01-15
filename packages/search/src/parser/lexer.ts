@@ -65,7 +65,7 @@ export default class Lexer {
     }
 
     private isIdentifierRest(char = this.curr) {
-        return '-'.includes(char);
+        return '-\'"'.includes(char);
     }
 
     private startToken() {
