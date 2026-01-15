@@ -257,6 +257,14 @@
                             </remote-btn>
 
                             <remote-btn
+                                v-if="lang === 'zhs'"
+                                icon="mdi-alpha-c-circle"
+                                dense flat round size="sm"
+                                :remote="getMtgch"
+                                :resolve="applyMtgch"
+                            />
+
+                            <remote-btn
                                 v-if="cloningTextEnabled"
                                 icon="mdi-magnify"
                                 dense flat round size="sm"
@@ -317,6 +325,14 @@
                         dense flat round size="sm"
                         :remote="scanCardText"
                         :resolve="applyScanFlavorText"
+                    />
+
+                    <remote-btn
+                        v-if="lang === 'zhs'"
+                        icon="mdi-alpha-c-circle"
+                        dense flat round size="sm"
+                        :remote="getMtgch"
+                        :resolve="applyMtgchFlavor"
                     />
                 </template>
             </q-input>
@@ -1734,6 +1750,43 @@ const applyParseGatherer = (value: ParseGatherer | undefined) => {
     }
 
     printedName.value = value.name;
+    printedText.value = value.text;
+    flavorText.value = value.flavorText ?? null;
+};
+
+type MtgchCard = {
+    name:        string;
+    typeline:    string;
+    text:        string;
+    flavorText?: string;
+};
+
+const getMtgch = async () => {
+    if (data.value == null) {
+        return;
+    }
+
+    return await trpc.magic.data.mtgch.getCard({
+        set:    set.value,
+        number: number.value,
+    });
+};
+
+const applyMtgchFlavor = (value: MtgchCard | undefined) => {
+    if (value == null) {
+        return;
+    }
+
+    flavorText.value = value.flavorText ?? null;
+};
+
+const applyMtgch = (value: MtgchCard | undefined) => {
+    if (value == null) {
+        return;
+    }
+
+    printedName.value = value.name;
+    printedTypeline.value = value.typeline;
     printedText.value = value.text;
     flavorText.value = value.flavorText ?? null;
 };
