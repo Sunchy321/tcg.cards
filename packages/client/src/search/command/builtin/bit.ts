@@ -2,13 +2,15 @@ import { ca } from '../adapter';
 
 import { bit as bitSchema, Word } from '@search/command/builtin/bit';
 
+import { I18N } from '../types';
+
 import { defaultTranslate } from 'src/search/translate';
 
 const operatorMap: Record<string, string> = {
     '=':  'is',
     '!=': 'is-not',
-    ':':  'includes',
-    '!:': 'not-includes',
+    ':':  'include',
+    '!:': 'not-include',
     '>':  'greater-than',
     '>=': 'greater-or-equal',
     '<':  'less-than',
@@ -26,9 +28,16 @@ const countOperatorMap: Record<string, string> = {
     '<=': 'count-less-or-equal',
 };
 
+export type BitClientMeta = {
+    id:     string;
+    values: string;
+    words?: Record<string, Word>;
+    map?:   Record<string, string> | boolean | ((value: string, i18n: I18N) => string);
+};
+
 export const bit = ca
     .adapt(bitSchema)
-    .$meta<{ id: string, values: string, words?: Record<string, Word>, map?: Record<string, string> | boolean | ((value: string) => string) }>()
+    .$meta<BitClientMeta>()
     .explain((args, { id, values, words = {}, map }, i18n) => {
         const { value } = args;
 
@@ -59,6 +68,10 @@ export const bit = ca
             };
         })();
 
+        console.log('values: ', id, values, words);
+
+        console.log('bit match :', value, values, match);
+
         const realValue = (() => {
             switch (match.type) {
             case 'exact': {
@@ -68,31 +81,33 @@ export const bit = ca
                 }
 
                 const chars = match.value.split('').map(c => {
-                    const paramKey = map === true
-                        ? c
-                        : map instanceof Function
-                            ? map(c)
-                            : map[c] ?? c;
+                    if (map instanceof Function) {
+                        return map(c, i18n);
+                    }
+
+                    const paramKey = map === true ? c : (map[c] ?? c);
 
                     return i18n(`$.parameter.${id}.${paramKey}`);
                 });
 
+                console.log('chars :', match.value, chars);
+
                 return chars.join('');
             }
-            case 'enum': {
-                // For enum type, translate the original value
-                if (map == null || map === false) {
-                    return value;
-                }
+            // case 'enum': {
+            //     // For enum type, translate the original value
+            //     if (map == null || map === false) {
+            //         return value;
+            //     }
 
-                const paramKey = map === true
-                    ? value
-                    : map instanceof Function
-                        ? map(value)
-                        : map[value] ?? value;
+            //     const paramKey = map === true
+            //         ? value
+            //         : map instanceof Function
+            //             ? map(value)
+            //             : map[value] ?? value;
 
-                return i18n(`$.parameter.${id}.${paramKey}`);
-            }
+            //     return i18n(`$.parameter.${id}.${paramKey}`);
+            // }
             case 'count': {
                 // For count type, extract the number
                 const m = /^([<>=?]|>=|<=)?(\d+)$/.exec(match.value);
@@ -114,6 +129,8 @@ export const bit = ca
                 return value;
             }
         })();
+
+        console.log('realValue:', realValue, map);
 
         // For count type with embedded operator, adjust the operator map
         if (match.type === 'count') {

@@ -3,8 +3,7 @@ import { number } from './number';
 
 export type Word =
   { type: 'count', value: string } |
-  { type: 'exact', value: string } |
-  { type: 'enum', value: string[] };
+  { type: 'exact', value: string };
 
 export type BitMeta = {
     values: string;

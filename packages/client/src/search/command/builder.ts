@@ -7,6 +7,7 @@ import { ClientCommandAdapterHandler } from './adapter';
 
 import { MetaBase, MetaRest } from '@search/base/meta';
 import { Hide, HiddenKeys } from '@search/util/hide';
+import { merge } from '@search/util/merge';
 
 export type AdapterBase = ClientCommandAdapterHandler<any, any, any, any>;
 export type AdapterMapBase = Record<string, any>;
@@ -130,7 +131,7 @@ export class ClientCommandBuilderWithAdapter<
     }
 
     apply(meta: AdapterMeta<Adapter>): ClientCommandOption<Type, Input, MetaValue> {
-        const explain = this.adapter.apply(meta);
+        const explain = this.adapter.apply(merge(this.options.options.meta, meta));
 
         return {
             options: this.options.options,

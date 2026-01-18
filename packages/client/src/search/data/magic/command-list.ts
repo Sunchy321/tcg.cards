@@ -64,15 +64,15 @@ export const manaValue = cc
 
 export const color = cc
     .commands.color
-    .apply({ id: 'color', map: true });
+    .apply({ id: 'color', map: c => `{${c.toUpperCase()}}` });
 
 export const colorIdentity = cc
     .commands.colorIdentity
-    .apply({ id: 'color-identity', map: true });
+    .apply({ id: 'color-identity', map: c => `{${c.toUpperCase()}}` });
 
 export const colorIndicator = cc
     .commands.colorIndicator
-    .apply({ id: 'color-indicator', map: true });
+    .apply({ id: 'color-indicator', map: c => `{${c.toUpperCase()}}` });
 
 export const power = cc
     .commands.power

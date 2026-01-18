@@ -83,6 +83,8 @@ export class ClientCommandAdapterHandler<
 
     apply(meta: MetaRest<MetaInput, MetaValue>): ClientExplainHandler<Input> {
         return (args: CommandInput<Input>, i18n: I18N) => {
+            console.log(this.options.id, this.options.meta, meta);
+
             return this.handler(args, merge(this.options.meta, meta) as MetaInput, i18n);
         };
     }

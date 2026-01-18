@@ -104,14 +104,14 @@ export default {
         },
 
         operator: {
-            'match':         ' matches ',
-            'not-match':     ' doesn\'t match',
-            'equal':         ' is equal to ',
-            'not-equal':     ' isn\'t equal to ',
-            'less-than':     ' is less than',
-            'less-equal':    ' is less than or equal to ',
-            'greater-than':  ' is greater than',
-            'greater-equal': ' is greater than or equal to ',
+            'match':            ' matches ',
+            'not-match':        ' doesn\'t match',
+            'equal':            ' is equal to ',
+            'not-equal':        ' isn\'t equal to ',
+            'less-than':        ' is less than',
+            'less-or-equal':    ' is less than or equal to ',
+            'greater-than':     ' is greater than',
+            'greater-or-equal': ' is greater than or equal to ',
 
             'include':     ' includes ',
             'not-include': ' doesn\'t include ',

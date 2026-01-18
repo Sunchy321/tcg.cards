@@ -4,13 +4,7 @@ import { bit as bitSchema, Word } from '@search/command/builtin/bit';
 
 import { QueryError } from '@search/command/error';
 
-import { and, eq, gt, gte, inArray, lt, lte, ne, notInArray, sql } from 'drizzle-orm';
-
-function toBit(value: string, values: string): string {
-    return values.split('').map(
-        c => c != ' ' && value.toUpperCase().includes(c) ? '1' : '0',
-    ).join('');
-}
+import { and, eq, gt, gte, lt, lte, ne, sql } from 'drizzle-orm';
 
 export const bit = ca
     .adapt(bitSchema)
@@ -39,26 +33,27 @@ export const bit = ca
 
         switch (match.type) {
         case 'exact': {
-            const bitText = toBit(match.value, values);
+            const matchValue = match.value.toUpperCase();
+            const bitText = column.mapToDriverValue(matchValue);
 
             switch (operator) {
-            case ':':
             case '=':
                 if (!qualifier.includes('!')) {
-                    return eq(column, bitText);
+                    return eq(column, matchValue);
                 } else {
-                    return ne(column, bitText);
+                    return ne(column, matchValue);
                 }
             case '>':
                 return and(
-                    ne(column, bitText),
+                    ne(column, matchValue),
                     eq(sql`${column} & ${bitText}`, bitText),
                 )!;
+            case ':':
             case '>=':
                 return eq(sql`${column} & ${bitText}`, bitText);
             case '<':
                 return and(
-                    ne(column, bitText),
+                    ne(column, matchValue),
                     eq(sql`~${column} & ~${bitText}`, sql`~${bitText}`),
                 )!;
             case '<=':
@@ -67,22 +62,8 @@ export const bit = ca
                 throw new QueryError({ type: 'invalid-query' });
             }
         }
-        case 'enum': {
-            const bitTexts = match.value.map(v => toBit(v, values));
-
-            switch (operator) {
-            case ':':
-                if (!qualifier.includes('!')) {
-                    return inArray(column, bitTexts);
-                } else {
-                    return notInArray(column, bitTexts);
-                }
-            default:
-                throw new QueryError({ type: 'invalid-query' });
-            }
-        }
         case 'count': {
-            const { op, value } = (() => {
+            const { op, count } = (() => {
                 const m = /^([<>=?]|>=|<=)(\d+)$/.exec(match.value)!;
 
                 if (m[1] != '?') {
@@ -92,12 +73,12 @@ export const bit = ca
 
                     return {
                         op:    m[1],
-                        value: Number.parseInt(m[2], 10),
+                        count: Number.parseInt(m[2], 10),
                     };
                 } else {
                     return {
                         op:    operator,
-                        value: Number.parseInt(m[2], 10),
+                        count: Number.parseInt(m[2], 10),
                     };
                 }
             })();
@@ -106,18 +87,18 @@ export const bit = ca
             case '=':
             case ':':
                 if (!qualifier.includes('!')) {
-                    return eq(sql`bit_count(${column})`, value);
+                    return eq(sql`bit_count(${column})`, count);
                 } else {
-                    return ne(sql`bit_count(${column})`, value);
+                    return ne(sql`bit_count(${column})`, count);
                 }
             case '>':
-                return gt(sql`bit_count(${column})`, value);
+                return gt(sql`bit_count(${column})`, count);
             case '>=':
-                return gte(sql`bit_count(${column})`, value);
+                return gte(sql`bit_count(${column})`, count);
             case '<':
-                return lt(sql`bit_count(${column})`, value);
+                return lt(sql`bit_count(${column})`, count);
             case '<=':
-                return lte(sql`bit_count(${column})`, value);
+                return lte(sql`bit_count(${column})`, count);
             default:
                 throw new QueryError({ type: 'invalid-query' });
             }

@@ -7,8 +7,8 @@ import { defaultTranslate } from 'src/search/translate';
 const operatorMap: Record<string, string> = {
     '=':  'is',
     '!=': 'is-not',
-    ':':  'includes',
-    '!:': 'not-includes',
+    ':':  'include',
+    '!:': 'not-include',
 };
 
 export const cost = ca

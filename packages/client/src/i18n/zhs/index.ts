@@ -103,14 +103,14 @@ export default {
         },
 
         operator: {
-            'match':         '匹配',
-            'not-match':     '不匹配',
-            'equal':         '等于',
-            'not-equal':     '不等于',
-            'less-than':     '小于',
-            'less-equal':    '等于或小于',
-            'greater-than':  '大于',
-            'greater-equal': '等于或大于',
+            'match':            '匹配',
+            'not-match':        '不匹配',
+            'equal':            '等于',
+            'not-equal':        '不等于',
+            'less-than':        '小于',
+            'less-or-equal':    '等于或小于',
+            'greater-than':     '大于',
+            'greater-or-equal': '等于或大于',
 
             'include':     '包含',
             'not-include': '不包含',

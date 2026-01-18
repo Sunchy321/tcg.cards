@@ -6,8 +6,7 @@ import _ from 'lodash';
 
 export type Word =
   { type: 'count', value: string } |
-  { type: 'exact', value: string } |
-  { type: 'enum', value: string[] };
+  { type: 'exact', value: string };
 
 type BitMeta = {
     values: string;
