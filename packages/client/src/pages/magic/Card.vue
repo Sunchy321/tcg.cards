@@ -964,6 +964,10 @@ onBeforeRouteLeave((to, from, next) => {
     &:deep(.emph)
         font-style: normal
 
+    &[lang="zhs"]:deep(.emph), &[lang="zht"]:deep(.emph)
+        font-family: initial
+        font-size: initial
+
 .tag-list, .legalities, .rulings
     margin-top: 20px
 

@@ -856,7 +856,19 @@ const unifiedText = computed({
     },
 });
 
-const flavorText = printPartField('flavorText', '');
+const flavorTextInner = printPartField('flavorText', '');
+
+const flavorText = computed({
+    get() { return flavorTextInner.value ?? ''; },
+    set(newValue) {
+        if (newValue === '') {
+            flavorTextInner.value = null;
+        } else {
+            flavorTextInner.value = newValue;
+        }
+    },
+});
+
 const flavorName = printPartField('flavorName', '');
 
 const releaseDate = computed(() => print.value?.releaseDate);
@@ -1194,8 +1206,6 @@ const defaultPrettify = () => {
                 .replace(/<</g, '«')
                 .replace(/>>/g, '»');
         }
-    } else if (flavorText.value === '') {
-        flavorText.value = null;
     }
 
     if (clearDevOracle.value) {
@@ -1751,7 +1761,7 @@ const applyParseGatherer = (value: ParseGatherer | undefined) => {
 
     printedName.value = value.name;
     printedText.value = value.text;
-    flavorText.value = value.flavorText ?? null;
+    flavorText.value = value.flavorText ?? '';
 };
 
 type MtgchCard = {
@@ -1777,7 +1787,7 @@ const applyMtgchFlavor = (value: MtgchCard | undefined) => {
         return;
     }
 
-    flavorText.value = value.flavorText ?? null;
+    flavorText.value = value.flavorText ?? '';
 };
 
 const applyMtgch = (value: MtgchCard | undefined) => {
@@ -1788,7 +1798,7 @@ const applyMtgch = (value: MtgchCard | undefined) => {
     printedName.value = value.name;
     printedTypeline.value = value.typeline;
     printedText.value = value.text;
-    flavorText.value = value.flavorText ?? null;
+    flavorText.value = value.flavorText ?? '';
 };
 
 const promoWithoutBaseSet = [
