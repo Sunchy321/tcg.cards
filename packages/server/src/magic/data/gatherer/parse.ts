@@ -217,7 +217,7 @@ export async function parseGatherer(multiverseId: number) {
 
         return {
             name:       card.instanceName,
-            typeline:   card.instanceTypeLine,
+            typeline:   card.instanceTypeLine ?? '',
             text,
             flavorText: card.flavorText,
         };
