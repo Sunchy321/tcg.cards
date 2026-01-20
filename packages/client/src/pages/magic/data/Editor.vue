@@ -95,6 +95,7 @@
                 <q-input
                     v-if="unlock"
                     v-model="id"
+                    :class="fieldClasses.cardId"
                     class="id code"
                     style="width: 200px;"
                     dense outlined
@@ -111,15 +112,15 @@
                 </q-btn>
 
                 <div v-if="unlock" class="info flex items-center q-mx-md">
-                    <q-input v-model="lang" style="width: 60px;" outlined dense />
+                    <q-input v-model="lang" :class="fieldClasses.lang" style="width: 60px;" outlined dense />
                     {{ `:${set},${number}` }}
                 </div>
 
                 <div v-else class="info q-mx-md">{{ info }}</div>
 
-                <q-select v-model="layout" class="q-mr-md" :options="layoutOptions" outlined dense />
+                <q-select v-model="layout" :class="fieldClasses['card.layout']" class="q-mr-md" :options="layoutOptions" outlined dense />
 
-                <q-select v-model="imageStatus" class="q-mr-md" :options="imageStatusOptions" outlined dense />
+                <q-select v-model="imageStatus" :class="fieldClasses['print.imageStatus']" class="q-mr-md" :options="imageStatusOptions" outlined dense />
 
                 <q-btn-toggle
                     v-if="partCount > 1"
@@ -176,6 +177,14 @@
 
                 <q-btn icon="mdi-skip-next" dense flat round @click="skipCurrent" />
                 <q-btn icon="mdi-refresh" dense flat round @click="() => loadData()" />
+                <q-btn
+                    icon="mdi-compare"
+                    :color="hasModifications ? 'green' : 'grey'"
+                    dense flat round
+                    @click="resetComparison"
+                >
+                    <q-badge v-if="modifiedFieldsCount > 0" color="red" floating>{{ modifiedFieldsCount }}</q-badge>
+                </q-btn>
                 <q-btn icon="mdi-upload" dense flat round @click="doUpdate" />
             </div>
 
@@ -286,40 +295,43 @@
                     <td>
                         <q-input
                             v-model="oracleName"
+                            :class="fieldClasses['cardPart.name']"
                             tabindex="1" :readonly="!unlock"
                             outlined dense
                         />
                     </td>
-                    <td><q-input v-model="unifiedName" tabindex="2" outlined dense /></td>
-                    <td><q-input v-model="printedName" tabindex="3" outlined dense /></td>
+                    <td><q-input v-model="unifiedName" :class="fieldClasses['cardPartLocalization.name']" tabindex="2" outlined dense /></td>
+                    <td><q-input v-model="printedName" :class="fieldClasses['printPart.name']" tabindex="3" outlined dense /></td>
                 </tr>
                 <tr>
                     <td>
                         <q-input
                             v-model="oracleTypeline"
+                            :class="fieldClasses['cardPart.typeline']"
                             tabindex="1" :readonly="!unlock"
                             outlined dense
                         />
                     </td>
-                    <td><q-input v-model="unifiedTypeline" tabindex="2" outlined dense /></td>
-                    <td><q-input v-model="printedTypeline" tabindex="3" outlined dense /></td>
+                    <td><q-input v-model="unifiedTypeline" :class="fieldClasses['cardPartLocalization.typeline']" tabindex="2" outlined dense /></td>
+                    <td><q-input v-model="printedTypeline" :class="fieldClasses['printPart.typeline']" tabindex="3" outlined dense /></td>
                 </tr>
                 <tr class="text">
                     <td>
                         <q-input
                             v-model="displayOracleText"
+                            :class="fieldClasses['cardPart.text']"
                             tabindex="1"
                             :readonly="!unlock && !(oracleUpdated && showBeforeOracle)"
                             :filled="oracleUpdated && showBeforeOracle"
                             outlined type="textarea" dense
                         />
                     </td>
-                    <td><q-input v-model="unifiedText" tabindex="2" outlined type="textarea" dense /></td>
-                    <td><q-input v-model="printedText" tabindex="3" outlined type="textarea" dense /></td>
+                    <td><q-input v-model="unifiedText" :class="fieldClasses['cardPartLocalization.text']" tabindex="2" outlined type="textarea" dense /></td>
+                    <td><q-input v-model="printedText" :class="fieldClasses['printPart.text']" tabindex="3" outlined type="textarea" dense /></td>
                 </tr>
             </table>
 
-            <q-input v-model="flavorText" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea">
+            <q-input v-model="flavorText" :class="fieldClasses['printPart.flavorText']" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea">
                 <template #append>
                     <remote-btn
                         icon="mdi-credit-card-scan-outline"
@@ -339,10 +351,10 @@
             </q-input>
 
             <div class="flex q-mt-sm">
-                <q-input v-model="flavorName" class="col" label="Flavor Name" outlined dense />
+                <q-input v-model="flavorName" :class="fieldClasses['printPart.flavorName']" class="col" label="Flavor Name" outlined dense />
 
                 <!-- eslint-disable-next-line max-len -->
-                <array-input v-model="multiverseId" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
+                <array-input v-model="multiverseId" :class="fieldClasses['print.multiverseId']" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
                     <template #append>
                         <remote-btn icon="mdi-image" dense flat round :remote="saveGathererImage" :resolve="applySaveGathererImage" />
                     </template>
@@ -394,7 +406,7 @@ import { Locale, Layout } from '@model/magic/schema/basic';
 import { CardEditorView } from '@model/magic/schema/print';
 
 import {
-    debounce, deburr, escapeRegExp, isEqual, mapValues, uniq, upperFirst,
+    at, cloneDeep, debounce, deburr, escapeRegExp, isEqual, mapValues, uniq, upperFirst,
 } from 'lodash';
 
 import { copyToClipboard } from 'quasar';
@@ -502,6 +514,7 @@ const route = useRoute();
 const game = useGame();
 
 const data = ref<CardEditorView>();
+const originalData = ref<CardEditorView>();
 const dataGroup = ref<CardGroup>();
 const history = ref<History[]>([]);
 const unlock = ref(false);
@@ -1515,6 +1528,69 @@ const newData = () => {
     unlock.value = true;
 };
 
+const checkPaths = [
+    'cardId', 'lang', 'card.layout', 'print.imageStatus',
+    'cardPart.name', 'cardPart.typeline', 'cardPart.text',
+    'cardPartLocalization.name', 'cardPartLocalization.typeline', 'cardPartLocalization.text',
+    'printPart.name', 'printPart.typeline', 'printPart.text', 'printPart.flavorText', 'printPart.flavorName',
+    'print.multiverseId',
+];
+
+const isFieldModified = (path: string): boolean => {
+    if (!data.value || !originalData.value) {
+        return false;
+    }
+
+    const currentValue = at(data.value, path);
+    const originalValue = at(originalData.value, path);
+
+    return !isEqual(currentValue, originalValue);
+};
+
+const fieldClasses = computed(() => {
+    if (!data.value || !originalData.value) {
+        return {};
+    }
+
+    if (data.value.cardId !== originalData.value.cardId
+      || data.value.lang !== originalData.value.lang
+      || data.value.set !== originalData.value.set
+      || data.value.number !== originalData.value.number
+    ) {
+        return {};
+    }
+
+    return Object.fromEntries(
+        checkPaths.map(path => [path, isFieldModified(path) ? 'field-modified' : '']),
+    );
+});
+
+const getAllModifiedFields = (): string[] => {
+    if (!data.value || !originalData.value) {
+        return [];
+    }
+
+    if (data.value.cardId !== originalData.value.cardId
+      || data.value.lang !== originalData.value.lang
+      || data.value.set !== originalData.value.set
+      || data.value.number !== originalData.value.number
+    ) {
+        return [];
+    }
+
+    return checkPaths.filter(path => isFieldModified(path));
+};
+
+const hasModifications = computed(() => getAllModifiedFields().length > 0);
+
+const modifiedFieldsCount = computed(() => getAllModifiedFields().length);
+
+const resetComparison = () => {
+    if (data.value) {
+        originalData.value = cloneDeep(data.value);
+    }
+};
+
 const doUpdate = debounce(
     async () => {
         if (data.value == null) {
@@ -1550,13 +1626,15 @@ const loadData = async (newPartIndex?: number) => {
         return;
     }
 
-    data.value = await trpc.magic.card.editorView({
+    const view = await trpc.magic.card.editorView({
         cardId:    id.value,
         lang:      lang.value,
         set:       set.value,
         number:    number.value,
         partIndex: newPartIndex ?? partIndex.value,
     });
+
+    [data.value, originalData.value] = [view, cloneDeep(view)];
 };
 
 watch(
@@ -1949,5 +2027,12 @@ table
 @media screen and (max-width: 1000px)
     .card-image
         display: none
+
+.field-modified :deep(.q-field__control)
+    border-color: #4caf50 !important
+    box-shadow: 0 0 0 2px #4caf50 !important
+
+.field-modified :deep(.q-chip)
+    border: 1px solid #4caf50 !important
 
 </style>
