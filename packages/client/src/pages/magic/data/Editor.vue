@@ -135,10 +135,11 @@
 
                 <q-space />
 
-                <q-btn
+                <remote-btn
                     icon="mdi-image"
                     dense flat round
-                    @click="reloadCardImage"
+                    :remote="reloadCardImage"
+                    :resolve="applyReloadCardImage"
                 />
 
                 <q-btn
@@ -343,7 +344,7 @@
                 <!-- eslint-disable-next-line max-len -->
                 <array-input v-model="multiverseId" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
                     <template #append>
-                        <q-btn icon="mdi-image" dense flat round @click="saveGathererImage" />
+                        <remote-btn icon="mdi-image" dense flat round :remote="saveGathererImage" :resolve="applySaveGathererImage" />
                     </template>
                 </array-input>
             </div>
@@ -1485,7 +1486,9 @@ const reloadCardImage = async () => {
         number: number.value,
         lang:   lang.value,
     });
+};
 
+const applyReloadCardImage = () => {
     print.value!.fullImageType = 'jpg';
 
     refreshToken.value = crypto.randomUUID();
@@ -1911,7 +1914,9 @@ const saveGathererImage = async () => {
         number: number.value,
         lang:   lang.value,
     });
+};
 
+const applySaveGathererImage = () => {
     print.value!.fullImageType = 'webp';
 
     refreshToken.value = crypto.randomUUID();
