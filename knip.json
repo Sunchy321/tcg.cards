@@ -15,7 +15,18 @@
         "**/lib/**",
         "**/build/**"
     ],
-    "ignoreDependencies": ["eslint"],
+    "ignoreDependencies": ["eslint", "@eslint/js", "@eslint/eslintrc", "globals"],
+    "paths": {
+        "@/*": ["packages/client/src/*", "packages/server/src/*"],
+        "@interface/*": ["packages/interface/src/*"],
+        "@static/*": ["packages/common/static/*"],
+        "@data/*": ["packages/common/data/*"],
+        "@common/*": ["packages/common/src/*"],
+        "@model/*": ["packages/model/data/*"],
+        "@search/*": ["packages/search/src/*"],
+        "@search-data/*": ["packages/search/data/*"],
+        "@server/*": ["packages/server/src/*"]
+    },
     "workspaces": {
         ".": {
             "entry": [
@@ -48,16 +59,22 @@
         },
         "packages/client": {
             "entry": [
-                "src/App.vue"
+                "quasar.config.js",
+                "src/App.vue",
+                "src/boot/**/*.{ts,js}",
+                "src/router/**/*.{ts,js}",
+                "src/layouts/**/*.vue",
+                "src/pages/**/*.vue"
             ],
             "project": [
                 "src/**/*.{ts,js,vue}",
+                "quasar.config.js",
                 "!src/**/*.test.{ts,js}",
                 "!src/**/*.spec.{ts,js}"
             ],
             "ignoreDependencies": [
                 "@types/*",
-                "quasar"
+                "@quasar/extras"
             ]
         },
         "packages/common": {
