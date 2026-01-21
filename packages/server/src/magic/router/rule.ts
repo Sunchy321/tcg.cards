@@ -324,7 +324,7 @@ const save = os
                 const oldItem = oldItems.find(co => co.text === c.text);
 
                 if (oldItem != null) {
-                    continue;
+                    // continue; no-op
                 }
 
                 parseCard(extractor, c, input);
