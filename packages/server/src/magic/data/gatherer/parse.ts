@@ -185,13 +185,15 @@ export async function parseGatherer(multiverseId: number) {
             throw new Error('Card data not found in hydration');
         }
 
+        console.log(card.instanceText);
+
         const text = card.instanceText
             .replace(/\r\n?/g, '\n')
             .replace(/&lt;\/?.&gt;/g, '')
             // {UUU} -> {U}{U}{U}
             .replace(/\{([A-Z0-9]{2,})\}/g, (_, mana) => (mana as string).split('').map(v => `{${v}}`).join(''))
             // {(u/b)} -> {U/B}
-            .replace(/\{\((.*)\)\}/g, (_, text) => `{${(text as string).toUpperCase()}}`)
+            .replace(/\{\(\}?([^{}()]*)\)\}?/g, (_, text) => `{${(text as string).toUpperCase()}}`)
             // {Si} -> {S}
             .replace(/\{Si\}/g, '{S}')
             // oW -> {W}

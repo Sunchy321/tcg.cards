@@ -11,6 +11,7 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "lib": ["ES2022", "DOM"],
+        "types": ["bun"],
         "baseUrl": "./src",
         "paths": {
             "@/*": ["./*"],

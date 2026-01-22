@@ -13,7 +13,7 @@ import { games } from '@model/schema';
 
 import { omniApi } from '@/omnisearch/router';
 import { magicApi } from '@/magic/router';
-import { ptcgApi } from './ptcg/router';
+import { ptcgApi } from '@/ptcg/router';
 import { yugiohApi } from '@/yugioh/router';
 import { hearthstoneApi } from '@/hearthstone/router';
 import { lorcanaApi } from '@/lorcana/router';
