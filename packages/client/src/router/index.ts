@@ -48,7 +48,7 @@ export default route(() => {
                 next({
                     name:  'setting',
                     query: {
-                        redirect: to.path,
+                        redirect: to.fullPath,
                         admin:    to.meta.admin as string,
                     },
                 });
