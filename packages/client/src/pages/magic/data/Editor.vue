@@ -1198,7 +1198,9 @@ const defaultPrettify = () => {
     printPart.value!.text = defaultTextPrettifier(printPart.value!.text, lang.value, printPart.value!.flavorName ?? printPart.value!.name);
 
     if (flavorText.value != null && flavorText.value !== '') {
-        flavorText.value = flavorText.value.trim();
+        flavorText.value = flavorText.value
+            .trim()
+            .replace(/[^\S\n]+$|^[^\S\n]+/mg, '');
 
         if (lang.value === 'zhs' || lang.value === 'zht') {
             flavorText.value = flavorText.value
