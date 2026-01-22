@@ -168,7 +168,7 @@ export const keyword = c
     .done();
 
 export const multiverseId = c
-    .simpleSet
+    .numberSet
     .id('multiverse-id')
     .alt(['mid'])
     .done();

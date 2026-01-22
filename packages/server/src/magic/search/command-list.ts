@@ -422,27 +422,7 @@ export const keyword = cs
 
 export const multiverseId = cs
     .commands.multiverseId
-    .handler(({ value, qualifier }, { table }) => {
-        if (value === '*') {
-            if (!qualifier.includes('!')) {
-                return gt(sql`array_length(${table.print.multiverseId}, 1)`, 0);
-            } else {
-                return eq(sql`array_length(${table.print.multiverseId}, 1)`, 0);
-            }
-        } else {
-            const num = Number.parseInt(value, 10);
-
-            if (Number.isNaN(num)) {
-                throw new QueryError({ type: 'invalid-query' });
-            }
-
-            if (!qualifier.includes('!')) {
-                return arrayContains(table.print.multiverseId, [num]);
-            } else {
-                return not(arrayContains(table.print.multiverseId, [num]));
-            }
-        }
-    });
+    .apply(table => table.print.multiverseId, {});
 
 export const order = cs
     .commands.order

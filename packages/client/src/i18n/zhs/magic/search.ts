@@ -44,6 +44,7 @@ export default {
         'format':          '赛制',
         'counter':         '指示物',
         'keyword':         '关键字',
+        'multiverse-id':   'Multiverse id',
         'order':           '顺序',
     },
 

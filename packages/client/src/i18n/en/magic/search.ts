@@ -44,6 +44,7 @@ export default {
         'format':          'format',
         'counter':         'counter',
         'keyword':         'keyword',
+        'multiverse-id':   'Multiverse id',
         'order':           'order',
     },
 
