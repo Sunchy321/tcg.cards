@@ -11,16 +11,3 @@ index e7fc534cb096262eed57cda45721787b4bea783c..4cf8200aade2ee7ae9ecf7d72fffac0b
      {
        enumName,
        enumValues: Object.values(values),
-diff --git a/pg-core/columns/enum.js b/pg-core/columns/enum.js
-index eb43ac94c564dd35e576e9799f6b2c2f911e6e6d..c11c3d07cd75e339bbb8d49d59ff2c55348a0bc6 100644
---- a/pg-core/columns/enum.js
-+++ b/pg-core/columns/enum.js
-@@ -73,7 +73,7 @@ function pgEnumWithSchema(enumName, values, schema) {
- }
- function pgEnumObjectWithSchema(enumName, values, schema) {
-   const enumInstance = Object.assign(
--    (name) => new PgEnumObjectColumnBuilder(name ?? "", enumInstance),
-+    (name) => new PgEnumColumnBuilder(name ?? "", enumInstance),
-     {
-       enumName,
-       enumValues: Object.values(values),
