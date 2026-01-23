@@ -60,6 +60,7 @@
         "axios": "^1.8.4",
         "axios-retry": "^4.0.0",
         "better-auth": "^1.3.4",
+        "card-common": "workspace:*",
         "card-model": "workspace:*",
         "card-search": "workspace:*",
         "cheerio": "^1.0.0-rc.3",

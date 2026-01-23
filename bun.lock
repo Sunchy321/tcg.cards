@@ -204,6 +204,7 @@
       "name": "card-server",
       "version": "1.0.2",
       "dependencies": {
+        "card-common": "../common",
         "@hono/bun-compress": "^0.1.0",
         "@hono/prometheus": "^1.0.2",
         "@hono/zod-validator": "^0.7.2",
