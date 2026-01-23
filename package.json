@@ -1,8 +1,6 @@
 {
 	"patchedDependencies": {
 		"better-auth": "patches/better-auth.patch",
-		"drizzle-orm": "patches/drizzle-orm.patch",
-		"drizzle-kit": "patches/drizzle-kit.patch",
 		"qwen-ai-provider-v5": "patches/qwen-ai-provider-v5.patch",
 		"drizzle-kit@0.31.8": "patches/drizzle-kit@0.31.8.patch",
 		"drizzle-orm@0.44.7": "patches/drizzle-orm@0.44.7.patch"

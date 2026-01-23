@@ -35,5 +35,6 @@
         "node_modules/card-search/data/**/*",
         "node_modules/card-renderer/src/**/*",
         "src/**/*",
+        "drizzle.config.ts"
     ]
 }

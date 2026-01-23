@@ -1,7 +1,7 @@
 import { configDotenv } from 'dotenv';
 import { defineConfig } from 'drizzle-kit';
 
-import { games } from 'card-interface/src/index';
+import { games } from '@model/schema';
 
 configDotenv();
 
