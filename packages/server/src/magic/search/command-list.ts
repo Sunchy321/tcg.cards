@@ -451,7 +451,15 @@ export const order = cs
             case 'set':
             case 'number':
                 sorter.push(func(table.set));
-                sorter.push(func(table.number));
+                // Natural sort: sort by numeric part as integer first, then by alphabetic suffix
+                sorter.push(func(sql`(
+                    CASE
+                        WHEN ${table.number} ~ '^[0-9]+'
+                        THEN regexp_replace(${table.number}, '[^0-9].*$', '')::int
+                        ELSE 0
+                    END
+                )`));
+                sorter.push(func(sql`regexp_replace(${table.number}, '^[0-9]+', '')`));
                 break;
             case 'date':
                 sorter.push(func(table.print.releaseDate));
