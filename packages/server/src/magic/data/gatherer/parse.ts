@@ -106,7 +106,7 @@ export async function parseGatherer(multiverseId: number) {
     let cardData: GathererData;
 
     // Return cached data if exists and not expired
-    if (cached.length > 0 && cached[0].expiresAt > new Date()) {
+    if (cached.length > 0 && cached[0].expiresAt > new Date() && cached[0].data != null) {
         cardData = cached[0].data as GathererData;
     } else {
         // Fetch data from Gatherer

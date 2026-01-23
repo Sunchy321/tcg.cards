@@ -4,7 +4,7 @@ import { schema } from '../schema';
 
 export const Gatherer = schema.table('data_gatherer', {
     multiverseId: integer('multiverse_id').primaryKey(),
-    data:         jsonb('data').$type<GathererData>().notNull(),
+    data:         jsonb('data').$type<GathererData>(),
     createdAt:    timestamp('created_at').notNull().defaultNow(),
     expiresAt:    timestamp('expires_at').notNull(),
 });
