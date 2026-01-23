@@ -14,27 +14,40 @@ const props = defineProps<{
 
 const loading = ref(false);
 
-const failed = ref(false);
+const status = ref<'success' | 'failed' | undefined>();
 
-const color = computed(() => failed.value ? 'red' : undefined);
+const color = computed(() => {
+    if (status.value === 'success') return 'positive';
+    if (status.value === 'failed') return 'negative';
+    return undefined;
+});
 
 const click = async () => {
     loading.value = true;
-    failed.value = false;
+    status.value = undefined;
 
     try {
         const data = await props.remote();
 
         loading.value = false;
-        failed.value = false;
+        status.value = 'success';
 
         props.resolve(data);
     } catch (e) {
         loading.value = false;
-        failed.value = true;
+        status.value = 'failed';
 
         throw e;
     }
 };
+
+const reset = () => {
+    loading.value = false;
+    status.value = undefined;
+};
+
+defineExpose({
+    reset,
+});
 
 </script>

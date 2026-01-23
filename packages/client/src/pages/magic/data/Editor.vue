@@ -137,6 +137,7 @@
                 <q-space />
 
                 <remote-btn
+                    ref="reloadCardImageBtn"
                     icon="mdi-image"
                     dense flat round
                     :remote="reloadCardImage"
@@ -251,6 +252,7 @@
 
                             <remote-btn
                                 v-if="currentMultiverseId != null"
+                                ref="parseGathererBtn"
                                 icon="mdi-alpha-g-circle"
                                 dense flat round size="sm"
                                 :remote="parseGathererDefault"
@@ -268,6 +270,7 @@
 
                             <remote-btn
                                 v-if="lang === 'zhs'"
+                                ref="getMtgchBtn"
                                 icon="mdi-alpha-c-circle"
                                 dense flat round size="sm"
                                 :remote="getMtgch"
@@ -276,6 +279,7 @@
 
                             <remote-btn
                                 v-if="cloningTextEnabled"
+                                ref="getCloningSourceBtn"
                                 icon="mdi-magnify"
                                 dense flat round size="sm"
                                 :remote="getCloningSourceText"
@@ -283,6 +287,7 @@
                             />
 
                             <remote-btn
+                                ref="scanCardTextBtn"
                                 icon="mdi-credit-card-scan-outline"
                                 dense flat round size="sm"
                                 :remote="scanCardText"
@@ -334,6 +339,7 @@
             <q-input v-model="flavorText" :class="fieldClasses['printPart.flavorText']" class="q-mt-sm" autogrow label="Flavor Text" outlined type="textarea">
                 <template #append>
                     <remote-btn
+                        ref="scanFlavorTextBtn"
                         icon="mdi-credit-card-scan-outline"
                         dense flat round size="sm"
                         :remote="scanCardText"
@@ -342,6 +348,7 @@
 
                     <remote-btn
                         v-if="lang === 'zhs'"
+                        ref="getMtgchFlavorBtn"
                         icon="mdi-alpha-c-circle"
                         dense flat round size="sm"
                         :remote="getMtgch"
@@ -356,7 +363,7 @@
                 <!-- eslint-disable-next-line max-len -->
                 <array-input v-model="multiverseId" :class="fieldClasses['print.multiverseId']" class="col q-ml-sm" label="Multiverse ID" is-number outlined dense>
                     <template #append>
-                        <remote-btn icon="mdi-image" dense flat round :remote="saveGathererImage" :resolve="applySaveGathererImage" />
+                        <remote-btn ref="saveGathererImageBtn" icon="mdi-image" dense flat round :remote="saveGathererImage" :resolve="applySaveGathererImage" />
                     </template>
                 </array-input>
             </div>
@@ -391,7 +398,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, ComputedRef } from 'vue';
+import { ref, computed, watch, nextTick, ComputedRef, useTemplateRef } from 'vue';
 
 import { useRouter, useRoute } from 'vue-router';
 import { useParam } from 'store/core';
@@ -518,6 +525,27 @@ const originalData = ref<CardEditorView>();
 const dataGroup = ref<CardGroup>();
 const history = ref<History[]>([]);
 const unlock = ref(false);
+
+// Template refs for remote buttons
+const reloadCardImageBtn = useTemplateRef('reloadCardImageBtn');
+const parseGathererBtn = useTemplateRef('parseGathererBtn');
+const getMtgchBtn = useTemplateRef('getMtgchBtn');
+const getCloningSourceBtn = useTemplateRef('getCloningSourceBtn');
+const scanCardTextBtn = useTemplateRef('scanCardTextBtn');
+const scanFlavorTextBtn = useTemplateRef('scanFlavorTextBtn');
+const getMtgchFlavorBtn = useTemplateRef('getMtgchFlavorBtn');
+const saveGathererImageBtn = useTemplateRef('saveGathererImageBtn');
+
+const remoteBtns = computed(() => [
+    reloadCardImageBtn.value,
+    parseGathererBtn.value,
+    getMtgchBtn.value,
+    getCloningSourceBtn.value,
+    scanCardTextBtn.value,
+    scanFlavorTextBtn.value,
+    getMtgchFlavorBtn.value,
+    saveGathererImageBtn.value,
+].filter(Boolean));
 
 const locales = computed(() => ['', ...game.locales]);
 
@@ -1627,6 +1655,9 @@ const loadData = async (newPartIndex?: number) => {
     if (id.value == null || lang.value == null || set.value == null || number.value == null || (newPartIndex ?? partIndex.value) == null) {
         return;
     }
+
+    // Reset all remote button states
+    remoteBtns.value.forEach(btn => btn?.reset());
 
     const view = await trpc.magic.card.editorView({
         cardId:    id.value,
