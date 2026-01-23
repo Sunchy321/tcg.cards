@@ -1,9 +1,9 @@
 {
 	"patchedDependencies": {
 		"better-auth": "patches/better-auth.patch",
-		"qwen-ai-provider-v5": "patches/qwen-ai-provider-v5.patch",
 		"drizzle-kit@0.31.8": "patches/drizzle-kit@0.31.8.patch",
-		"drizzle-orm@0.44.7": "patches/drizzle-orm@0.44.7.patch"
+		"drizzle-orm@0.44.7": "patches/drizzle-orm@0.44.7.patch",
+		"qwen-ai-provider-v5@1.0.2": "patches/qwen-ai-provider-v5@1.0.2.patch"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.22.0",
