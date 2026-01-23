@@ -5,8 +5,8 @@ import { db } from '@/drizzle';
 import { Gatherer, type GathererData } from '@/magic/schema/data/gatherer';
 import { eq } from 'drizzle-orm';
 
-// Cache expiration time: 7 days
-const CACHE_EXPIRATION_DAYS = 7;
+// Cache expiration time: 30 days
+const CACHE_EXPIRATION_DAYS = 30;
 
 const numberMap: Record<string, string> = {
     '０': '0',
@@ -164,10 +164,14 @@ export async function parseGatherer(multiverseId: number) {
         .replace(/^[0０](?=[:：]| :)/mg, '[0]')
         .replace(/\[０\]/mg, '[0]');
 
+    const flavorText = cardData.flavorText
+        ?.replace(/\r\n?/g, '\n')
+        ?.replace(/[‘’]/g, '\'');
+
     return {
-        name:       cardData.instanceName,
-        typeline:   cardData.instanceTypeLine ?? '',
+        name:     cardData.instanceName,
+        typeline: cardData.instanceTypeLine ?? '',
         text,
-        flavorText: cardData.flavorText,
+        flavorText,
     };
 }
