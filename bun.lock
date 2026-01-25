@@ -47,7 +47,7 @@
         "unist-util-visit": "^5.0.0",
         "vite": "^5.1.1",
         "vue": "^3.5.11",
-        "vue-i18n": "^11.1.5",
+        "vue-i18n": "^11.2.8",
         "vue-router": "^4.0.0",
         "zod": "^4.1.13",
       },
@@ -618,7 +618,7 @@
 
     "@intlify/bundle-utils": ["@intlify/bundle-utils@7.5.1", "https://registry.npmmirror.com/@intlify/bundle-utils/-/bundle-utils-7.5.1.tgz", { "dependencies": { "@intlify/message-compiler": "^9.4.0", "@intlify/shared": "^9.4.0", "acorn": "^8.8.2", "escodegen": "^2.1.0", "estree-walker": "^2.0.2", "jsonc-eslint-parser": "^2.3.0", "magic-string": "^0.30.0", "mlly": "^1.2.0", "source-map-js": "^1.0.1", "yaml-eslint-parser": "^1.2.2" } }, "sha512-UovJl10oBIlmYEcWw+VIHdKY5Uv5sdPG0b/b6bOYxGLln3UwB75+2dlc0F3Fsa0RhoznQ5Rp589/BZpABpE4Xw=="],
 
-    "@intlify/core-base": ["@intlify/core-base@11.2.2", "https://registry.npmmirror.com/@intlify/core-base/-/core-base-11.2.2.tgz", { "dependencies": { "@intlify/message-compiler": "11.2.2", "@intlify/shared": "11.2.2" } }, "sha512-0mCTBOLKIqFUP3BzwuFW23hYEl9g/wby6uY//AC5hTgQfTsM2srCYF2/hYGp+a5DZ/HIFIgKkLJMzXTt30r0JQ=="],
+    "@intlify/core-base": ["@intlify/core-base@11.2.8", "https://registry.npmmirror.com/@intlify/core-base/-/core-base-11.2.8.tgz", { "dependencies": { "@intlify/message-compiler": "11.2.8", "@intlify/shared": "11.2.8" } }, "sha512-nBq6Y1tVkjIUsLsdOjDSJj4AsjvD0UG3zsg9Fyc+OivwlA/oMHSKooUy9tpKj0HqZ+NWFifweHavdljlBLTwdA=="],
 
     "@intlify/message-compiler": ["@intlify/message-compiler@9.14.5", "https://registry.npmmirror.com/@intlify/message-compiler/-/message-compiler-9.14.5.tgz", { "dependencies": { "@intlify/shared": "9.14.5", "source-map-js": "^1.0.2" } }, "sha512-IHzgEu61/YIpQV5Pc3aRWScDcnFKWvQA9kigcINcCBXN8mbW+vk9SK+lDxA6STzKQsVJxUPg9ACC52pKKo3SVQ=="],
 
@@ -2460,7 +2460,7 @@
 
     "vue-eslint-parser": ["vue-eslint-parser@9.4.3", "https://registry.npmmirror.com/vue-eslint-parser/-/vue-eslint-parser-9.4.3.tgz", { "dependencies": { "debug": "^4.3.4", "eslint-scope": "^7.1.1", "eslint-visitor-keys": "^3.3.0", "espree": "^9.3.1", "esquery": "^1.4.0", "lodash": "^4.17.21", "semver": "^7.3.6" }, "peerDependencies": { "eslint": ">=6.0.0" } }, "sha512-2rYRLWlIpaiN8xbPiDyXZXRgLGOtWxERV7ND5fFAv5qo1D2N9Fu9MNajBNc6o13lZ+24DAWCkQCvj4klgmcITg=="],
 
-    "vue-i18n": ["vue-i18n@11.2.2", "https://registry.npmmirror.com/vue-i18n/-/vue-i18n-11.2.2.tgz", { "dependencies": { "@intlify/core-base": "11.2.2", "@intlify/shared": "11.2.2", "@vue/devtools-api": "^6.5.0" }, "peerDependencies": { "vue": "^3.0.0" } }, "sha512-ULIKZyRluUPRCZmihVgUvpq8hJTtOqnbGZuv4Lz+byEKZq4mU0g92og414l6f/4ju+L5mORsiUuEPYrAuX2NJg=="],
+    "vue-i18n": ["vue-i18n@11.2.8", "https://registry.npmmirror.com/vue-i18n/-/vue-i18n-11.2.8.tgz", { "dependencies": { "@intlify/core-base": "11.2.8", "@intlify/shared": "11.2.8", "@vue/devtools-api": "^6.5.0" }, "peerDependencies": { "vue": "^3.0.0" } }, "sha512-vJ123v/PXCZntd6Qj5Jumy7UBmIuE92VrtdX+AXr+1WzdBHojiBxnAxdfctUFL+/JIN+VQH4BhsfTtiGsvVObg=="],
 
     "vue-router": ["vue-router@4.6.4", "https://registry.npmmirror.com/vue-router/-/vue-router-4.6.4.tgz", { "dependencies": { "@vue/devtools-api": "^6.6.4" }, "peerDependencies": { "vue": "^3.5.0" } }, "sha512-Hz9q5sa33Yhduglwz6g9skT8OBPii+4bFn88w6J+J4MfEo4KRRpmiNG/hHHkdbRFlLBOqxN8y8gf2Fb0MTUgVg=="],
 
@@ -2566,9 +2566,9 @@
 
     "@inquirer/external-editor/iconv-lite": ["iconv-lite@0.7.1", "https://registry.npmmirror.com/iconv-lite/-/iconv-lite-0.7.1.tgz", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-2Tth85cXwGFHfvRgZWszZSvdo+0Xsqmw8k8ZwxScfcBneNUraK+dxRxRm24nszx80Y0TVio8kKLt5sLE7ZCLlw=="],
 
-    "@intlify/core-base/@intlify/message-compiler": ["@intlify/message-compiler@11.2.2", "https://registry.npmmirror.com/@intlify/message-compiler/-/message-compiler-11.2.2.tgz", { "dependencies": { "@intlify/shared": "11.2.2", "source-map-js": "^1.0.2" } }, "sha512-XS2p8Ff5JxWsKhgfld4/MRQzZRQ85drMMPhb7Co6Be4ZOgqJX1DzcZt0IFgGTycgqL8rkYNwgnD443Q+TapOoA=="],
+    "@intlify/core-base/@intlify/message-compiler": ["@intlify/message-compiler@11.2.8", "https://registry.npmmirror.com/@intlify/message-compiler/-/message-compiler-11.2.8.tgz", { "dependencies": { "@intlify/shared": "11.2.8", "source-map-js": "^1.0.2" } }, "sha512-A5n33doOjmHsBtCN421386cG1tWp5rpOjOYPNsnpjIJbQ4POF0QY2ezhZR9kr0boKwaHjbOifvyQvHj2UTrDFQ=="],
 
-    "@intlify/core-base/@intlify/shared": ["@intlify/shared@11.2.2", "https://registry.npmmirror.com/@intlify/shared/-/shared-11.2.2.tgz", {}, "sha512-OtCmyFpSXxNu/oET/aN6HtPCbZ01btXVd0f3w00YsHOb13Kverk1jzA2k47pAekM55qbUw421fvPF1yxZ+gicw=="],
+    "@intlify/core-base/@intlify/shared": ["@intlify/shared@11.2.8", "https://registry.npmmirror.com/@intlify/shared/-/shared-11.2.8.tgz", {}, "sha512-l6e4NZyUgv8VyXXH4DbuucFOBmxLF56C/mqh2tvApbzl2Hrhi1aTDcuv5TKdxzfHYmpO3UB0Cz04fgDT9vszfw=="],
 
     "@isaacs/cliui/string-width": ["string-width@5.1.2", "https://registry.npmmirror.com/string-width/-/string-width-5.1.2.tgz", { "dependencies": { "eastasianwidth": "^0.2.0", "emoji-regex": "^9.2.2", "strip-ansi": "^7.0.1" } }, "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA=="],
 
@@ -2768,7 +2768,7 @@
 
     "vue-eslint-parser/espree": ["espree@9.6.1", "https://registry.npmmirror.com/espree/-/espree-9.6.1.tgz", { "dependencies": { "acorn": "^8.9.0", "acorn-jsx": "^5.3.2", "eslint-visitor-keys": "^3.4.1" } }, "sha512-oruZaFkjorTpF32kDSI5/75ViwGeZginGGy2NoOSg3Q9bnwlnmDm4HLnkl0RE3n+njDXR037aY1+x58Z/zFdwQ=="],
 
-    "vue-i18n/@intlify/shared": ["@intlify/shared@11.2.2", "https://registry.npmmirror.com/@intlify/shared/-/shared-11.2.2.tgz", {}, "sha512-OtCmyFpSXxNu/oET/aN6HtPCbZ01btXVd0f3w00YsHOb13Kverk1jzA2k47pAekM55qbUw421fvPF1yxZ+gicw=="],
+    "vue-i18n/@intlify/shared": ["@intlify/shared@11.2.8", "https://registry.npmmirror.com/@intlify/shared/-/shared-11.2.8.tgz", {}, "sha512-l6e4NZyUgv8VyXXH4DbuucFOBmxLF56C/mqh2tvApbzl2Hrhi1aTDcuv5TKdxzfHYmpO3UB0Cz04fgDT9vszfw=="],
 
     "wsl-utils/is-wsl": ["is-wsl@3.1.0", "https://registry.npmmirror.com/is-wsl/-/is-wsl-3.1.0.tgz", { "dependencies": { "is-inside-container": "^1.0.0" } }, "sha512-UcVfVfaK4Sc4m7X3dUSoHoozQGBEFeDC+zVo06t98xe8CzHSZZBekNXH+tu0NalHolcJ/QAGqS46Hef7QXBIMw=="],
 

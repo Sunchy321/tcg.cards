@@ -1,6 +1,8 @@
+import { LocaleMessageValue } from 'vue-i18n';
+
 import { games } from '@interface/index';
 
-const gameI18n = import.meta.glob('./*/index.ts', { eager: true, import: 'default' });
+const gameI18n = import.meta.glob<LocaleMessageValue>('./*/index.ts', { eager: true, import: 'default' });
 
 export default {
     lang: {
