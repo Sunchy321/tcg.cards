@@ -1,7 +1,7 @@
 import { Game } from '@interface/index';
 import { GameStoreDefinition } from './interface';
 
-export const gameStores = import.meta.glob<true, undefined, GameStoreDefinition<Game, any>>(
+export const gameStores = import.meta.glob<GameStoreDefinition<Game, any>>(
     ['./*.ts', '!./index.ts', '!./game.ts', '!./interface.ts'],
     { eager: true, import: 'useGame' },
 );

@@ -1,6 +1,6 @@
 import { StoreDefinition } from 'pinia';
 
-import data, { Game } from '@interface/index';
+import { Game } from '@interface/index';
 
 interface GameOptionNumber {
     type: 'number';
@@ -22,7 +22,7 @@ export type GameState<S> = S & {
     locale: string;
 };
 
-export type GameGetters<G extends Game> = (typeof data)[G] & {
+export type GameGetters<_G extends Game> = {
     locales: string[];
 };
 

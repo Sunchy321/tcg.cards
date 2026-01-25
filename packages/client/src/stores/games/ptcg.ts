@@ -7,7 +7,7 @@ interface State {
     textMode: TextMode;
 }
 
-export const useGame = defineGameStore<'ptcg', State>('ptcg', {
+export const useGame = defineGameStore<'ptcg', State, string>('ptcg', {
     textMode: {
         type:    'enum',
         values:  textModes,
