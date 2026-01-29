@@ -55,7 +55,7 @@ const routes: RouteRecordRaw[] = [
         children:  [
             {
                 path:      '',
-                name:      'register',
+                name:      'article',
                 component: async () => import('pages/Article.vue'),
             },
         ],

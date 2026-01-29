@@ -49,14 +49,14 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import { useQuasar } from 'quasar';
+import { useQuasar, ValidationRule } from 'quasar';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 
 import PasswordInput from 'components/PasswordInput.vue';
 
+import { sleep } from 'src/util';
 import { auth } from '@/auth';
-import { sleep } from 'src/boot/utility';
 
 const quasar = useQuasar();
 const router = useRouter();
@@ -97,20 +97,20 @@ const register = async () => {
 
 const nameRules = [
     val => !!val || i18n.t('user.error.REQUIRE_USERNAME'),
-];
+] satisfies ValidationRule[];
 
 const emailRules = [
     val => !!val || i18n.t('user.error.REQUIRE_EMAIL'),
     val => /.+@.+\..+/.test(val) || i18n.t('user.error.INVALID_EMAIL'),
-];
+] satisfies ValidationRule[];
 
 const passwordRules = [
 
-];
+] satisfies ValidationRule[];
 
 const repeatedPasswordRules = [
     val => val == password.value || i18n.t('user.error.WRONG_REPEATED_PASSWORD'),
-];
+] satisfies ValidationRule[];
 
 </script>
 

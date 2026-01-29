@@ -34,7 +34,6 @@ export default configure((/* ctx */) => ({
         'i18n',
         'server',
         'notify',
-        'utility',
     ],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
