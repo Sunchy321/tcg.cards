@@ -122,6 +122,8 @@
 
                 <q-select v-model="imageStatus" :class="fieldClasses['print.imageStatus']" class="q-mr-md" :options="imageStatusOptions" outlined dense />
 
+                <q-select v-model="fullImageType" :class="fieldClasses['print.fullImageType']" class="q-mr-md" :options="fullImageTypeOptions" outlined dense />
+
                 <q-btn-toggle
                     v-if="partCount > 1"
                     v-model="partIndex"
@@ -698,7 +700,9 @@ const partIndex = computed({
 
         return 0;
     },
-    set(newValue: number) {
+    async set(newValue: number) {
+        await doUpdate();
+
         router.replace({
             query: {
                 ...route.query,
@@ -915,22 +919,11 @@ const flavorName = printPartField('flavorName', '');
 
 const releaseDate = computed(() => print.value?.releaseDate);
 
-const imageStatus = computed({
-    get() {
-        return print.value?.imageStatus ?? 'placeholder';
-    },
-    set(newValue) {
-        if (print.value == null) {
-            return;
-        }
-
-        print.value.imageStatus = newValue;
-    },
-});
-
 const imageStatusOptions = ['highres_scan', 'lowres', 'placeholder', 'missing'];
+const fullImageTypeOptions = ['jpg', 'webp'];
 
-const fullImageType = computed(() => data.value?.print.fullImageType ?? 'jpg');
+const imageStatus = printField('imageStatus', 'placeholder');
+const fullImageType = printField('fullImageType', 'jpg');
 
 // dev only
 const cardTag = (name: string) => computed({
