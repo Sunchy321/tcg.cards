@@ -9,8 +9,8 @@ export const imageTaskStatus = z.strictObject({
         total: z.int().nonnegative(),
     }),
     time: z.strictObject({
-        elapsed:   z.int().nonnegative(),
-        remaining: z.int().nonnegative(),
+        elapsed:   z.number().nonnegative(),
+        remaining: z.number().nonnegative(),
     }),
     status: z.record(z.string(), z.string()),
     failed: z.int().nonnegative(),

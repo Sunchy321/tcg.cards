@@ -9,12 +9,11 @@ import { ImageTaskStatus } from '@model/magic/schema/data/gatherer/image';
 
 import { and, eq } from 'drizzle-orm';
 import _ from 'lodash';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 import { unlinkSync } from 'fs';
 
 import { cardImagePath } from '@/magic/image';
 import { Locale } from '@model/magic/schema/basic';
+import { getGathererData } from './parse';
 
 interface IImageTask {
     name:         string;
@@ -193,13 +192,9 @@ export class GathererImageTask extends Task<ImageTaskStatus> {
 
             if (task != null) {
                 try {
-                    const url = `https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=${task.multiverseId}&printed=true`;
+                    const cardData = await getGathererData(task.multiverseId);
 
-                    const html = await axios.get(url);
-
-                    const $ = cheerio.load(html.data);
-
-                    const imageUrl = $('[data-testid=cardFrontImage]').attr('src')!;
+                    const imageUrl = cardData.imageUrls.medium;
 
                     const extension = _.last(imageUrl.split('.'));
 

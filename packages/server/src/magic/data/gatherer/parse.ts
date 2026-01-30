@@ -95,7 +95,7 @@ async function fetchFromGatherer(multiverseId: number) {
     }
 }
 
-export async function parseGatherer(multiverseId: number) {
+export async function getGathererData(multiverseId: number): Promise<GathererData> {
     // Check cache first
     const cached = await db
         .select()
@@ -132,6 +132,12 @@ export async function parseGatherer(multiverseId: number) {
                 },
             });
     }
+
+    return cardData;
+}
+
+export async function parseGatherer(multiverseId: number) {
+    const cardData = await getGathererData(multiverseId);
 
     // Parse and return the text from cached data
     const text = (cardData.instanceText ?? '')
