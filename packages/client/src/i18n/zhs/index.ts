@@ -93,6 +93,16 @@ export default {
         search: '搜索',
     },
 
+    common: {
+        add:    '添加',
+        edit:   '编辑',
+        delete: '删除',
+        save:   '保存',
+        cancel: '取消',
+        back:   '返回',
+        close:  '关闭',
+    },
+
     search: {
         error: {
             'unknown-token':   '未知符号',

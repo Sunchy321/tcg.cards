@@ -9,10 +9,11 @@ export type FilePopup = {
 };
 
 export interface Action {
-    action:  string;
-    icon?:   string;
-    popup?:  FilePopup;
-    handler: Record<string, (() => void) | ((payload: any) => void)> | (() => void) | ((payload: any) => void);
+    action:   string;
+    icon?:    string;
+    popup?:   FilePopup;
+    enabled?: () => boolean;
+    handler:  Record<string, (() => void) | ((payload: any) => void)> | (() => void) | ((payload: any) => void);
 }
 
 export interface ActionInfo {

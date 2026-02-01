@@ -94,6 +94,16 @@ export default {
         search: 'Search',
     },
 
+    common: {
+        add:    'Add',
+        edit:   'Edit',
+        delete: 'Delete',
+        save:   'Save',
+        cancel: 'Cancel',
+        back:   'Back',
+        close:  'Close',
+    },
+
     search: {
         error: {
             'unknown-token':   'unknown token',

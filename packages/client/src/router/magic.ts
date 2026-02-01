@@ -24,6 +24,16 @@ const routes: RouteRecordRaw[] = [
                 component: async () => import('pages/magic/SearchDocs.vue'),
             },
             {
+                path:      'decks',
+                name:      'magic/decks',
+                component: async () => import('pages/magic/Decks.vue'),
+            },
+            {
+                path:      'deck/:deckId',
+                name:      'magic/deck',
+                component: async () => import('pages/magic/Deck.vue'),
+            },
+            {
                 path:      'rule/diff',
                 name:      'magic/rule/diff',
                 component: async () => import('src/pages/magic/RuleDiff.vue'),

@@ -5,8 +5,8 @@ import { db } from '@/drizzle';
 import { Gatherer, type GathererData } from '@/magic/schema/data/gatherer';
 import { eq } from 'drizzle-orm';
 
-// Cache expiration time: 30 days
-const CACHE_EXPIRATION_DAYS = 30;
+// Cache expiration time: 180 days
+const CACHE_EXPIRATION_DAYS = 180;
 
 const numberMap: Record<string, string> = {
     '０': '0',

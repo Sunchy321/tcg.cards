@@ -76,7 +76,10 @@ const router = new Hono<HonoEnv>()
     .use('/trpc/*', async (c, next) => {
         const { matched, response } = await handler.handle(c.req.raw, {
             prefix:  '/trpc',
-            context: {}, // Provide initial context if needed
+            context: {
+                user:    c.get('user'),
+                session: c.get('session'),
+            },
         });
 
         if (matched) {

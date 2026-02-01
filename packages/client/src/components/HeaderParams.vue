@@ -129,7 +129,17 @@ const paramsInTitle = computed(() => {
     return result;
 });
 
-const actionsWithIcon = computed(() => core.actions.filter(a => a.icon != null));
+const actionsWithIcon = computed(() => core.actions.filter(a => {
+    if (a.icon == null) {
+        return false;
+    }
+
+    if (a.enabled != null) {
+        return a.enabled();
+    }
+
+    return true;
+}));
 
 const paramLabel = (p: ParamOption, v: string) => {
     if (p.label != null) {
