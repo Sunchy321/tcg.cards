@@ -18,6 +18,8 @@ import { CardProfile } from '@model/magic/schema/card';
 
 import { pick } from 'lodash';
 
+import { locale as localeModel } from '@model/magic/schema/basic';
+
 import { trpc } from 'src/trpc';
 
 type Version = {
@@ -35,6 +37,7 @@ const props = withDefaults(
         pauper?:    'pauper' | 'pdh' | undefined;
         text?:      string;
         fullImage?: boolean;
+        hideText?:  boolean;
     }>(),
     {
         part:      undefined,
@@ -43,6 +46,7 @@ const props = withDefaults(
         pauper:    undefined,
         text:      undefined,
         fullImage: false,
+        hideText:  false,
     },
 );
 
@@ -52,6 +56,8 @@ const game = useGame();
 
 const innerShowId = ref(false);
 const profile = ref<CardProfile>();
+
+const locales = localeModel.options;
 
 const locale = computed(() => {
     if (props.useLang && props.version != null) {
@@ -78,7 +84,6 @@ const name = computed(() => {
         return null;
     }
 
-    const { locales } = game;
     const defaultLocale = locales[0];
 
     return profile.value.localization.find(l => l.lang === locale.value)?.name
@@ -119,7 +124,6 @@ const imageVersion = computed(() => {
 
         // filter for locale
         (vs: CardProfile['versions']) => {
-            const { locales } = game;
             const defaultLocale = locales[0];
 
             const localeVersion = vs.filter(v => v.lang === (props.version?.lang ?? locale.value));
@@ -201,6 +205,35 @@ watch(() => props.id, (newValue, oldValue) => {
 });
 
 const render = () => {
+    if (props.hideText) {
+        // Hide text mode: only show image with tooltip
+        if (profile.value != null && imageVersion.value != null) {
+            return h(RouterLink, {
+                to:     link.value,
+                target: '_blank',
+            }, () => {
+                const children = [
+                    h(CardImage, {
+                        lang:          imageVersion.value!.lang,
+                        set:           imageVersion.value!.set,
+                        number:        imageVersion.value!.number,
+                        layout:        imageVersion.value!.layout,
+                        fullImageType: imageVersion.value!.fullImageType,
+                        part:          props.part,
+                    }),
+                ];
+
+                // Add tooltip with card name
+                children.push(h(QTooltip, () => name.value ?? props.id));
+
+                return children;
+            });
+        } else {
+            // Fallback: show loading or placeholder
+            return h('div', { class: 'card-avatar-placeholder' }, props.id);
+        }
+    }
+
     const text = showId.value
         ? h('span', { class: 'code' }, props.id)
         : props.text != null

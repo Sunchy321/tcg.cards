@@ -1,4 +1,5 @@
-import { integer, jsonb, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { integer, jsonb, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
+import { nanoid } from 'nanoid';
 
 import { appSchema, schema } from './schema';
 import { users } from '@/auth/schema';
@@ -8,7 +9,7 @@ import { DeckCard } from '@model/magic/schema/deck';
 export const deckVisibility = appSchema.enum('deck_visibility', ['public', 'unlisted', 'private']);
 
 export const StaticDeck = schema.table('decks', {
-    deckId:      uuid('deck_id').primaryKey().defaultRandom(),
+    deckId:      text('deck_id').primaryKey().$defaultFn(() => nanoid()),
     name:        text('name').notNull(),
     description: text('description'),
     format:      text('format').notNull(),
@@ -19,7 +20,7 @@ export const StaticDeck = schema.table('decks', {
 });
 
 export const Deck = appSchema.table('decks', {
-    deckId:      uuid('deck_id').primaryKey().defaultRandom(),
+    deckId:      text('deck_id').primaryKey().$defaultFn(() => nanoid()),
     userId:      text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     name:        text('name').notNull(),
     description: text('description'),
@@ -40,7 +41,7 @@ export const Deck = appSchema.table('decks', {
 
 export const DeckLike = appSchema.table('deck_likes', {
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    deckId: uuid('deck_id').notNull().references(() => Deck.deckId, { onDelete: 'cascade' }),
+    deckId: text('deck_id').notNull().references(() => Deck.deckId, { onDelete: 'cascade' }),
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
 }, table => [
@@ -49,7 +50,7 @@ export const DeckLike = appSchema.table('deck_likes', {
 
 export const DeckFavorite = appSchema.table('deck_favorites', {
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    deckId: uuid('deck_id').notNull().references(() => Deck.deckId, { onDelete: 'cascade' }),
+    deckId: text('deck_id').notNull().references(() => Deck.deckId, { onDelete: 'cascade' }),
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
 }, table => [

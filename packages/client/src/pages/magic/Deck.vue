@@ -160,14 +160,50 @@
             <div class="col-12">
                 <!-- Toolbar -->
                 <q-toolbar class="bg-grey-2 q-mb-md col-grow" style="position: sticky; top: 50px; z-index: 1;">
+                    <q-select
+                        v-model="viewMode"
+                        :options="viewModeOptions"
+                        emit-value map-options
+                        dense outlined
+                        style="min-width: 150px"
+                    >
+                        <template #prepend>
+                            <q-icon :name="viewModeIcon" />
+                        </template>
+                    </q-select>
+
+                    <q-select
+                        v-model="groupMode"
+                        :options="groupModeOptions"
+                        emit-value map-options
+                        dense outlined
+                        style="min-width: 150px"
+                        class="q-ml-sm"
+                    >
+                        <template #prepend>
+                            <q-icon :name="groupModeIcon" />
+                        </template>
+                    </q-select>
+
+                    <q-select
+                        v-model="sortMode"
+                        :options="sortModeOptions"
+                        emit-value map-options
+                        dense outlined
+                        style="min-width: 150px"
+                        class="q-ml-sm"
+                    >
+                        <template #prepend>
+                            <q-icon :name="sortModeIcon" />
+                        </template>
+                    </q-select>
+
                     <q-space />
 
                     <q-select
                         v-if="isOwner"
                         v-model="selectedCard"
                         :options="searchResult"
-                        :option-label="opt => opt ? opt.name : ''"
-                        :option-value="opt => opt ? opt.cardId : ''"
                         use-input
                         input-debounce="300"
                         :placeholder="$t('magic.ui.deck.search-card')"
@@ -191,85 +227,163 @@
                         <template #option="{ itemProps, opt }">
                             <q-item v-bind="itemProps">
                                 <q-item-section>
-                                    <q-item-label>{{ opt.name }}</q-item-label>
-                                    <q-item-label caption>{{ opt.cardId }}</q-item-label>
+                                    <q-item-label>{{ opt.cardLocalization.name }}</q-item-label>
+                                    <!-- <q-item-label caption>{{ opt.card.name }}</q-item-label> -->
                                 </q-item-section>
                             </q-item>
                         </template>
                     </q-select>
                 </q-toolbar>
 
-                <!-- Main Deck -->
-                <q-card v-if="mainDeckCards.length > 0" flat bordered class="q-mb-md">
-                    <q-card-section>
-                        <div class="text-h6">{{ $t('magic.ui.deck.main-deck') }} ({{ mainDeckCount }})</div>
-                    </q-card-section>
-                    <q-separator />
-                    <q-card-section>
-                        <div v-for="card in mainDeckCards" :key="card.cardId" class="row items-center q-mb-sm">
-                            <div class="col-1 text-right">{{ card.quantity }}x</div>
-                            <div class="col">
-                                <router-link :to="`/magic/card/${card.cardId}`" class="text-primary">
-                                    {{ card.cardId }}
-                                </router-link>
+                <!-- Text Mode -->
+                <template v-if="viewMode === 'text'">
+                    <!-- Main Deck -->
+                    <q-card v-if="mainDeckCards.length > 0" flat bordered class="q-mb-md">
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.main-deck') }} ({{ mainDeckCount }})</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div class="row">
+                                <div v-for="col in 3" :key="col" class="col-4">
+                                    <div v-for="(card) in getColumnCards(mainDeckCards, col, 3)" :key="card.cardId" class="row items-center q-mb-sm">
+                                        <div class="col-3 text-right q-pr-sm">{{ card.quantity }}x</div>
+                                        <div class="col">
+                                            <card-avatar :id="card.cardId" />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </q-card-section>
-                </q-card>
+                        </q-card-section>
+                    </q-card>
 
-                <!-- Sideboard -->
-                <q-card v-if="sideboardCards.length > 0" flat bordered class="q-mb-md">
-                    <q-card-section>
-                        <div class="text-h6">{{ $t('magic.ui.deck.sideboard') }} ({{ sideboardCount }})</div>
-                    </q-card-section>
-                    <q-separator />
-                    <q-card-section>
-                        <div v-for="card in sideboardCards" :key="card.cardId" class="row items-center q-mb-sm">
-                            <div class="col-1 text-right">{{ card.quantity }}x</div>
-                            <div class="col">
-                                <router-link :to="`/magic/card/${card.cardId}`" class="text-primary">
-                                    {{ card.cardId }}
-                                </router-link>
+                    <!-- Sideboard -->
+                    <q-card v-if="sideboardCards.length > 0" flat bordered class="q-mb-md">
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.sideboard') }} ({{ sideboardCount }})</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div class="row">
+                                <div v-for="col in 3" :key="col" class="col-4">
+                                    <div v-for="(card) in getColumnCards(sideboardCards, col, 3)" :key="card.cardId" class="row items-center q-mb-sm">
+                                        <div class="col-3 text-right q-pr-sm">{{ card.quantity }}x</div>
+                                        <div class="col">
+                                            <card-avatar :id="card.cardId" />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </q-card-section>
-                </q-card>
+                        </q-card-section>
+                    </q-card>
 
-                <!-- Commander -->
-                <q-card v-if="commanderCards.length > 0" flat bordered class="q-mb-md">
-                    <q-card-section>
-                        <div class="text-h6">{{ $t('magic.ui.deck.commander') }}</div>
-                    </q-card-section>
-                    <q-separator />
-                    <q-card-section>
-                        <div v-for="card in commanderCards" :key="card.cardId" class="row items-center q-mb-sm">
-                            <div class="col-1 text-right">{{ card.quantity }}x</div>
-                            <div class="col">
-                                <router-link :to="`/magic/card/${card.cardId}`" class="text-primary">
-                                    {{ card.cardId }}
-                                </router-link>
+                    <!-- Commander -->
+                    <q-card v-if="commanderCards.length > 0" flat bordered class="q-mb-md">
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.commander') }}</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div v-for="card in commanderCards" :key="card.cardId" class="row items-center q-mb-sm">
+                                <div class="col-1 text-right">{{ card.quantity }}x</div>
+                                <div class="col">
+                                    <card-avatar :id="card.cardId" />
+                                </div>
                             </div>
-                        </div>
-                    </q-card-section>
-                </q-card>
+                        </q-card-section>
+                    </q-card>
 
-                <!-- Companion -->
-                <q-card v-if="companionCards.length > 0" flat bordered>
-                    <q-card-section>
-                        <div class="text-h6">{{ $t('magic.ui.deck.companion') }}</div>
-                    </q-card-section>
-                    <q-separator />
-                    <q-card-section>
-                        <div v-for="card in companionCards" :key="card.cardId" class="row items-center q-mb-sm">
-                            <div class="col-1 text-right">{{ card.quantity }}x</div>
-                            <div class="col">
-                                <router-link :to="`/magic/card/${card.cardId}`" class="text-primary">
-                                    {{ card.cardId }}
-                                </router-link>
+                    <!-- Companion -->
+                    <q-card v-if="companionCards.length > 0" flat bordered>
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.companion') }}</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div v-for="card in companionCards" :key="card.cardId" class="row items-center q-mb-sm">
+                                <div class="col-1 text-right">{{ card.quantity }}x</div>
+                                <div class="col">
+                                    <card-avatar :id="card.cardId" />
+                                </div>
                             </div>
-                        </div>
-                    </q-card-section>
-                </q-card>
+                        </q-card-section>
+                    </q-card>
+                </template>
+
+                <!-- Image Mode -->
+                <template v-else>
+                    <!-- Main Deck -->
+                    <q-card v-if="mainDeckCards.length > 0" flat bordered class="q-mb-md">
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.main-deck') }} ({{ mainDeckCount }})</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div class="row q-col-gutter-sm">
+                                <div v-for="card in mainDeckCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
+                                    <card-avatar :id="card.cardId" hide-text />
+                                    <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
+                                        <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
+                                    </div>
+                                </div>
+                            </div>
+                        </q-card-section>
+                    </q-card>
+
+                    <!-- Sideboard -->
+                    <q-card v-if="sideboardCards.length > 0" flat bordered class="q-mb-md">
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.sideboard') }} ({{ sideboardCount }})</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div class="row q-col-gutter-sm">
+                                <div v-for="card in sideboardCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
+                                    <card-avatar :id="card.cardId" hide-text />
+                                    <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
+                                        <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
+                                    </div>
+                                </div>
+                            </div>
+                        </q-card-section>
+                    </q-card>
+
+                    <!-- Commander -->
+                    <q-card v-if="commanderCards.length > 0" flat bordered class="q-mb-md">
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.commander') }}</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div class="row q-col-gutter-sm">
+                                <div v-for="card in commanderCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
+                                    <card-avatar :id="card.cardId" hide-text />
+                                    <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
+                                        <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
+                                    </div>
+                                </div>
+                            </div>
+                        </q-card-section>
+                    </q-card>
+
+                    <!-- Companion -->
+                    <q-card v-if="companionCards.length > 0" flat bordered>
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.companion') }}</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <div class="row q-col-gutter-sm">
+                                <div v-for="card in companionCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
+                                    <card-avatar :id="card.cardId" hide-text />
+                                    <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
+                                        <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
+                                    </div>
+                                </div>
+                            </div>
+                        </q-card-section>
+                    </q-card>
+                </template>
             </div>
         </div>
 
@@ -302,10 +416,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { useQuasar, date as dateUtil } from 'quasar';
 import { useI18n } from 'vue-i18n';
 
+import CardAvatar from 'components/magic/CardAvatar.vue';
+
 import { DeckView } from '@model/magic/schema/deck';
 import { NormalResult } from '@model/magic/schema/search';
-
-import { debounce } from 'lodash';
 
 import { trpc } from 'src/trpc';
 import { auth } from 'src/auth';
@@ -334,6 +448,64 @@ const editDescriptionValue = ref('');
 const searchInput = ref('');
 const searchResult = ref<NormalResult['result']>([]);
 const selectedCard = ref<NormalResult['result'][0] | null>(null);
+
+const getStorageKey = (key: string) => {
+    const deckId = route.params.deckId as string;
+    return `magic.deck.${deckId}.${key}`;
+};
+
+// View mode
+type ViewMode = 'text' | 'image';
+
+const viewMode = ref<ViewMode>((localStorage.getItem(getStorageKey('viewMode')) as ViewMode) ?? 'text');
+
+const viewModeOptions = [
+    { label: $t('magic.ui.deck.view-text'), value: 'text', icon: 'mdi-format-list-bulleted' },
+    { label: $t('magic.ui.deck.view-image'), value: 'image', icon: 'mdi-image-multiple' },
+];
+
+const viewModeIcon = computed(() => viewModeOptions.find(v => v.value === viewMode.value)!.icon);
+
+watch(viewMode, newValue => {
+    localStorage.setItem(getStorageKey('viewMode'), newValue);
+});
+
+// Group mode
+type GroupMode = 'category' | 'type' | 'cost' | 'color';
+
+const groupMode = ref<GroupMode>((localStorage.getItem(getStorageKey('groupMode')) as GroupMode) ?? 'category');
+
+const groupModeOptions = [
+    { label: $t('magic.ui.deck.group-category'), value: 'category', icon: 'mdi-folder-outline' },
+    { label: $t('magic.ui.deck.group-type'), value: 'type', icon: 'mdi-shape-outline' },
+    { label: $t('magic.ui.deck.group-cost'), value: 'cost', icon: 'mdi-currency-usd' },
+    { label: $t('magic.ui.deck.group-color'), value: 'color', icon: 'mdi-palette-outline' },
+];
+
+const groupModeIcon = computed(() => groupModeOptions.find(g => g.value === groupMode.value)!.icon);
+
+watch(groupMode, newValue => {
+    localStorage.setItem(getStorageKey('groupMode'), newValue);
+});
+
+// Sort mode
+type SortMode = 'name' | 'cost' | 'color' | 'type' | 'rarity';
+
+const sortMode = ref<SortMode>((localStorage.getItem(getStorageKey('sortMode')) as SortMode) ?? 'name');
+
+const sortModeOptions = [
+    { label: $t('magic.ui.deck.sort-name'), value: 'name', icon: 'mdi-sort-alphabetical-ascending' },
+    { label: $t('magic.ui.deck.sort-cost'), value: 'cost', icon: 'mdi-sort-numeric-ascending' },
+    { label: $t('magic.ui.deck.sort-color'), value: 'color', icon: 'mdi-palette' },
+    { label: $t('magic.ui.deck.sort-type'), value: 'type', icon: 'mdi-shape' },
+    { label: $t('magic.ui.deck.sort-rarity'), value: 'rarity', icon: 'mdi-diamond-stone' },
+];
+
+const sortModeIcon = computed(() => sortModeOptions.find(s => s.value === sortMode.value)!.icon);
+
+watch(sortMode, newValue => {
+    localStorage.setItem(getStorageKey('sortMode'), newValue);
+});
 
 // TODO: Remember to delete this debug state
 const debugIsOwner = ref<boolean>();
@@ -531,7 +703,7 @@ const saveDescription = async () => {
 const filterCards = async (val: string, update: (fn: () => void) => void) => {
     searchInput.value = val;
 
-    if (val.trim().length < 2) {
+    if (val.trim() === '') {
         update(() => {
             searchResult.value = [];
         });
@@ -603,6 +775,13 @@ const handleCardSelect = async (card: NormalResult['result'][0] | null) => {
             message: $t('magic.ui.deck.update-error'),
         });
     }
+};
+
+const getColumnCards = (cards: typeof mainDeckCards.value, column: number, totalColumns: number) => {
+    const itemsPerColumn = Math.ceil(cards.length / totalColumns);
+    const start = (column - 1) * itemsPerColumn;
+    const end = start + itemsPerColumn;
+    return cards.slice(start, end);
 };
 
 const confirmDelete = () => {
