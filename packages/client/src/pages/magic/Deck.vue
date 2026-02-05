@@ -173,6 +173,17 @@
                     </q-select>
 
                     <q-select
+                        v-if="viewMode === 'code'"
+                        v-model="codeFormat"
+                        :options="codeFormatOptions"
+                        emit-value map-options
+                        dense outlined
+                        style="min-width: 100px"
+                        class="q-ml-sm"
+                    />
+
+                    <q-select
+                        v-if="viewMode !== 'code'"
                         v-model="groupMode"
                         :options="groupModeOptions"
                         emit-value map-options
@@ -186,6 +197,7 @@
                     </q-select>
 
                     <q-select
+                        v-if="viewMode !== 'code'"
                         v-model="sortMode"
                         :options="sortModeOptions"
                         emit-value map-options
@@ -199,6 +211,14 @@
                     </q-select>
 
                     <q-space />
+
+                    <q-btn
+                        v-if="isOwner"
+                        flat dense
+                        icon="mdi-code-braces"
+                        :label="$t('magic.ui.deck.import-export')"
+                        @click="showCodeDialog = true"
+                    />
 
                     <q-select
                         v-if="isOwner"
@@ -263,7 +283,7 @@
                 </template>
 
                 <!-- Image Mode -->
-                <template v-else>
+                <template v-else-if="viewMode === 'image'">
                     <q-card
                         v-for="(section, sectionIndex) in allDeckGroups"
                         :key="`${section.category}-${sectionIndex}`"
@@ -282,6 +302,36 @@
                                         <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
                                     </div>
                                 </div>
+                            </div>
+                        </q-card-section>
+                    </q-card>
+                </template>
+
+                <!-- Code Mode -->
+                <template v-else-if="viewMode === 'code'">
+                    <q-card flat bordered>
+                        <q-card-section>
+                            <div class="text-h6">{{ $t('magic.ui.deck.deck-code') }}</div>
+                        </q-card-section>
+                        <q-separator />
+                        <q-card-section>
+                            <code-editor
+                                v-model="deckCodeText"
+                                :readonly="!isOwner"
+                            />
+                            <div v-if="isOwner" class="q-mt-md row q-gutter-sm">
+                                <q-btn
+                                    flat
+                                    color="primary"
+                                    :label="$t('magic.ui.deck.apply-code')"
+                                    @click="applyDeckCode"
+                                />
+                                <q-btn
+                                    flat
+                                    color="secondary"
+                                    :label="$t('magic.ui.deck.reset-code')"
+                                    @click="generateDeckCode"
+                                />
                             </div>
                         </q-card-section>
                     </q-card>
@@ -305,6 +355,34 @@
                 <q-card-actions align="right">
                     <q-btn v-close-popup flat :label="$t('common.cancel')" color="primary" />
                     <q-btn flat :label="$t('common.delete')" color="negative" @click="deleteDeck" />
+                </q-card-actions>
+            </q-card>
+        </q-dialog>
+
+        <!-- Import/Export Code Dialog -->
+        <q-dialog v-model="showCodeDialog">
+            <q-card style="min-width: 600px; max-width: 800px">
+                <q-card-section>
+                    <div class="text-h6">{{ $t('magic.ui.deck.deck-code') }}</div>
+                </q-card-section>
+                <q-card-section>
+                    <q-input
+                        v-model="deckCodeText"
+                        type="textarea"
+                        :placeholder="$t('magic.ui.deck.deck-code-placeholder')"
+                        outlined
+                        autogrow
+                        :rows="15"
+                        class="q-mb-md"
+                    />
+                    <div class="text-caption text-grey-7">
+                        {{ $t('magic.ui.deck.deck-code-format') }}
+                    </div>
+                </q-card-section>
+                <q-card-actions align="right">
+                    <q-btn flat :label="$t('common.cancel')" color="primary" @click="cancelCodeEdit" />
+                    <q-btn flat :label="$t('magic.ui.deck.export-code')" color="primary" @click="exportDeckCode" />
+                    <q-btn flat :label="$t('magic.ui.deck.import-code')" color="positive" @click="importDeckCode" />
                 </q-card-actions>
             </q-card>
         </q-dialog>
@@ -405,6 +483,7 @@ import { useQuasar, date as dateUtil } from 'quasar';
 import { useI18n } from 'vue-i18n';
 
 import CardAvatar from 'components/magic/CardAvatar.vue';
+import CodeEditor from 'components/magic/CodeEditor.vue';
 
 import { DeckView } from '@model/magic/schema/deck';
 import { NormalResult } from '@model/magic/schema/search';
@@ -432,6 +511,25 @@ const editingName = ref(false);
 const editNameValue = ref('');
 const editingDescription = ref(false);
 const editDescriptionValue = ref('');
+const showCodeDialog = ref(false);
+const deckCodeText = ref('');
+
+const getStorageKey = (key: string) => {
+    const deckId = route.params.deckId as string;
+    return `magic.deck.${deckId}.${key}`;
+};
+
+// Code format type
+type CodeFormat = 'mtgo' | 'mtga';
+const codeFormat = ref<CodeFormat>((localStorage.getItem(getStorageKey('codeFormat')) as CodeFormat) ?? 'mtgo');
+const codeFormatOptions = [
+    { label: 'MTGO', value: 'mtgo' },
+    { label: 'MTGA', value: 'mtga' },
+];
+
+watch(codeFormat, newValue => {
+    localStorage.setItem(getStorageKey('codeFormat'), newValue);
+});
 
 // Card search and add
 const searchInput = ref('');
@@ -451,19 +549,15 @@ const legalityResult = ref<{
     }[];
 } | null>(null);
 
-const getStorageKey = (key: string) => {
-    const deckId = route.params.deckId as string;
-    return `magic.deck.${deckId}.${key}`;
-};
-
 // View mode
-type ViewMode = 'text' | 'image';
+type ViewMode = 'text' | 'image' | 'code';
 
 const viewMode = ref<ViewMode>((localStorage.getItem(getStorageKey('viewMode')) as ViewMode) ?? 'text');
 
 const viewModeOptions = [
     { label: $t('magic.ui.deck.view-text'), value: 'text', icon: 'mdi-format-list-bulleted' },
     { label: $t('magic.ui.deck.view-image'), value: 'image', icon: 'mdi-image-multiple' },
+    { label: $t('magic.ui.deck.view-code'), value: 'code', icon: 'mdi-code-braces' },
 ];
 
 const viewModeIcon = computed(() => viewModeOptions.find(v => v.value === viewMode.value)!.icon);
@@ -507,6 +601,13 @@ const sortModeIcon = computed(() => sortModeOptions.find(s => s.value === sortMo
 
 watch(sortMode, newValue => {
     localStorage.setItem(getStorageKey('sortMode'), newValue);
+});
+
+// Watch for code generation triggers
+watch([deck, viewMode, codeFormat], () => {
+    if (deck.value && viewMode.value === 'code') {
+        generateDeckCode();
+    }
 });
 
 // TODO: Remember to delete this debug state
@@ -767,108 +868,233 @@ const allDeckGroups = computed((): DeckSection[] => {
 
     // Sideboard - add each group as a separate section
     if (sideboardCards.value.length > 0) {
-        const groups = groupMode.value === 'category'
-            ? [{
-                title: $t('magic.ui.deck.sideboard'),
-                cards: sortCards(sideboardCards.value),
-                count: sideboardCount.value,
-            }]
-            : applyGrouping(sideboardCards.value);
-
-        for (const group of groups) {
-            sections.push({
-                category: 'sideboard',
-                title:    groups.length > 1 ? `${$t('magic.ui.deck.sideboard')} - ${group.title}` : $t('magic.ui.deck.sideboard'),
-                cards:    group.cards,
-                count:    group.count,
-            });
-        }
+        sections.push({
+            category: 'sideboard',
+            title:    $t('magic.ui.deck.sideboard'),
+            cards:    sortCards(sideboardCards.value),
+            count:    sideboardCount.value,
+        });
     }
 
     return sections;
 });
 
-// Helper function to apply grouping logic to any card list
-const applyGrouping = (cards: typeof mainDeckCards.value): CardGroup[] => {
-    if (groupMode.value === 'type') {
-        const typeGroups = new Map<string, typeof cards>();
+// Code import/export
+const exportDeckCode = () => {
+    if (!deck.value) return;
 
-        for (const card of cards) {
-            const typeMain = (card as any).typeMain || [];
-            const primaryType = typeMain[0] || 'Other';
+    const lines: string[] = [];
 
-            if (!typeGroups.has(primaryType)) {
-                typeGroups.set(primaryType, []);
-            }
-            typeGroups.get(primaryType)!.push(card);
+    // Add commander
+    if (commanderCards.value.length > 0) {
+        lines.push('Commander:');
+        for (const card of commanderCards.value) {
+            lines.push(`${card.quantity} ${card.cardId}`);
         }
-
-        return Array.from(typeGroups.entries()).map(([type, typeCards]) => ({
-            title: type,
-            cards: sortCards(typeCards),
-            count: typeCards.reduce((sum, c) => sum + c.quantity, 0),
-        })).sort((a, b) => a.title.localeCompare(b.title));
+        lines.push('');
     }
 
-    if (groupMode.value === 'cost') {
-        const costGroups = new Map<number, typeof cards>();
-
-        for (const card of cards) {
-            const manaValue = (card as any).manaValue || 0;
-
-            if (!costGroups.has(manaValue)) {
-                costGroups.set(manaValue, []);
-            }
-            costGroups.get(manaValue)!.push(card);
+    // Add companion
+    if (companionCards.value.length > 0) {
+        lines.push('Companion:');
+        for (const card of companionCards.value) {
+            lines.push(`${card.quantity} ${card.cardId}`);
         }
-
-        return Array.from(costGroups.entries())
-            .sort(([a], [b]) => a - b)
-            .map(([cost, costCards]) => ({
-                title: cost === 0 ? '0' : String(cost),
-                cards: sortCards(costCards),
-                count: costCards.reduce((sum, c) => sum + c.quantity, 0),
-            }));
+        lines.push('');
     }
 
-    if (groupMode.value === 'color') {
-        const colorGroups = new Map<string, typeof cards>();
-
-        for (const card of cards) {
-            const colors = (card as any).color || [];
-            let colorKey: string;
-
-            if (colors.length === 0) {
-                colorKey = 'Colorless';
-            } else if (colors.length === 1) {
-                colorKey = colors[0];
-            } else {
-                colorKey = 'Multicolor';
-            }
-
-            if (!colorGroups.has(colorKey)) {
-                colorGroups.set(colorKey, []);
-            }
-            colorGroups.get(colorKey)!.push(card);
+    // Add main deck
+    if (mainDeckCards.value.length > 0) {
+        lines.push('Deck:');
+        for (const card of mainDeckCards.value) {
+            lines.push(`${card.quantity} ${card.cardId}`);
         }
-
-        const colorOrder = ['W', 'U', 'B', 'R', 'G', 'Multicolor', 'Colorless'];
-
-        return colorOrder
-            .filter(color => colorGroups.has(color))
-            .map(color => ({
-                title: color,
-                cards: sortCards(colorGroups.get(color)!),
-                count: colorGroups.get(color)!.reduce((sum, c) => sum + c.quantity, 0),
-            }));
+        lines.push('');
     }
 
-    // Default: return all as one group
-    return [{
-        title: '',
-        cards: sortCards(cards),
-        count: cards.reduce((sum, c) => sum + c.quantity, 0),
-    }];
+    // Add sideboard
+    if (sideboardCards.value.length > 0) {
+        lines.push('Sideboard:');
+        for (const card of sideboardCards.value) {
+            lines.push(`${card.quantity} ${card.cardId}`);
+        }
+    }
+
+    deckCodeText.value = lines.join('\n');
+};
+
+const importDeckCode = async () => {
+    if (!deck.value || !deckCodeText.value.trim()) return;
+
+    try {
+        const lines = deckCodeText.value.split('\n').map(l => l.trim()).filter(l => l);
+        const cards: any[] = [];
+        let currentCategory: 'commander' | 'companion' | 'main' | 'sideboard' = 'main';
+
+        for (const line of lines) {
+            // Check for category headers
+            if (line.toLowerCase() === 'commander:') {
+                currentCategory = 'commander';
+                continue;
+            } else if (line.toLowerCase() === 'companion:') {
+                currentCategory = 'companion';
+                continue;
+            } else if (line.toLowerCase() === 'deck:') {
+                currentCategory = 'main';
+                continue;
+            } else if (line.toLowerCase() === 'sideboard:') {
+                currentCategory = 'sideboard';
+                continue;
+            }
+
+            // Parse card line: "4 Card Name" or "4x Card Name"
+            const match = line.match(/^(\d+)x?\s+(.+)$/);
+            if (match) {
+                const quantity = parseInt(match[1]);
+                const cardId = match[2].trim();
+
+                cards.push({
+                    cardId,
+                    quantity,
+                    category: currentCategory,
+                });
+            }
+        }
+
+        // Update deck with parsed cards
+        await trpc.magic.deck.update({
+            deckId: deck.value.deckId,
+            cards,
+        });
+
+        $q.notify({
+            type:    'positive',
+            message: $t('magic.ui.deck.import-success'),
+        });
+
+        showCodeDialog.value = false;
+        await loadDeck();
+    } catch (error) {
+        console.error('Failed to import deck code:', error);
+        $q.notify({
+            type:    'negative',
+            message: $t('magic.ui.deck.import-error'),
+        });
+    }
+};
+
+const cancelCodeEdit = () => {
+    showCodeDialog.value = false;
+    deckCodeText.value = '';
+};
+
+// Code mode functions
+const generateDeckCode = () => {
+    if (!deck.value) return;
+
+    const lines: string[] = [];
+
+    if (codeFormat.value === 'mtgo') {
+        // MTGO format
+        // Commander
+        if (commanderCards.value.length > 0) {
+            for (const card of commanderCards.value) {
+                const name = card.name;
+                lines.push(`${card.quantity} ${name}`);
+            }
+            lines.push('');
+        }
+
+        // Companion
+        if (companionCards.value.length > 0) {
+            for (const card of companionCards.value) {
+                const name = card.name;
+                lines.push(`${card.quantity} ${name}`);
+            }
+            lines.push('');
+        }
+
+        // Main deck
+        for (const card of mainDeckCards.value) {
+            const name = card.name;
+            lines.push(`${card.quantity} ${name}`);
+        }
+
+        // Sideboard
+        if (sideboardCards.value.length > 0) {
+            lines.push('');
+            for (const card of sideboardCards.value) {
+                const name = card.name;
+                lines.push(`${card.quantity} ${name}`);
+            }
+        }
+    } else {
+        // MTGA format
+        // Commander
+        if (commanderCards.value.length > 0) {
+            lines.push('Commander');
+            for (const card of commanderCards.value) {
+                const name = (card as any).name || card.cardId;
+                lines.push(`${card.quantity} ${name}`);
+            }
+            lines.push('');
+        }
+
+        // Companion
+        if (companionCards.value.length > 0) {
+            lines.push('Companion');
+            for (const card of companionCards.value) {
+                const name = (card as any).name || card.cardId;
+                lines.push(`${card.quantity} ${name}`);
+            }
+            lines.push('');
+        }
+
+        // Main deck
+        lines.push('Deck');
+        for (const card of mainDeckCards.value) {
+            const name = (card as any).name || card.cardId;
+            lines.push(`${card.quantity} ${name}`);
+        }
+
+        // Sideboard
+        if (sideboardCards.value.length > 0) {
+            lines.push('');
+            lines.push('Sideboard');
+            for (const card of sideboardCards.value) {
+                const name = (card as any).name || card.cardId;
+                lines.push(`${card.quantity} ${name}`);
+            }
+        }
+    }
+
+    deckCodeText.value = lines.join('\n');
+};
+
+const applyDeckCode = async () => {
+    if (!deck.value || !deckCodeText.value.trim()) return;
+
+    try {
+        // Use new updateFromCode endpoint
+        await trpc.magic.deck.updateFromCode({
+            deckId: deck.value.deckId,
+            code:   deckCodeText.value,
+            format: codeFormat.value,
+        });
+
+        $q.notify({
+            type:    'positive',
+            message: $t('magic.ui.deck.update-success'),
+        });
+
+        await loadDeck();
+    } catch (error) {
+        console.error('Failed to apply deck code:', error);
+        $q.notify({
+            type:    'negative',
+            message: $t('magic.ui.deck.update-error'),
+        });
+    }
 };
 
 // Methods
@@ -936,7 +1162,7 @@ const debugToggleOwner = () => {
     }
 };
 
-const visibilityOptions = [
+const _visibilityOptions = [
     {
         label:       $t('magic.ui.deck.visibility-public'),
         value:       'public',

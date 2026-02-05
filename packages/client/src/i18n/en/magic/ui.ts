@@ -129,6 +129,7 @@ export default {
         'type-to-search': 'Type to search cards',
         'view-text':      'Text List',
         'view-image':     'Card Images',
+        'view-code':      'Code View',
         'group-category': 'By Category',
         'group-type':     'By Type',
         'group-cost':     'By Cost',
@@ -140,6 +141,17 @@ export default {
         'sort-rarity':    'By Rarity',
 
         'card-added': 'Card added',
+
+        'import-export':         'Import/Export',
+        'deck-code':             'Deck Code',
+        'deck-code-placeholder': 'Paste or edit deck code here...',
+        'deck-code-format':      'Format: [Quantity] [Card ID] per line. Use "Commander:", "Companion:", "Deck:", "Sideboard:" to separate sections.',
+        'export-code':           'Export',
+        'import-code':           'Import',
+        'apply-code':            'Apply Changes',
+        'reset-code':            'Reset',
+        'import-success':        'Deck code imported successfully',
+        'import-error':          'Failed to import deck code',
 
         'check-legality':                'Check Legality',
         'legality-check':                'Legality Check',

@@ -129,6 +129,7 @@ export default {
         'type-to-search': '输入以搜索卡牌',
         'view-text':      '文本列表',
         'view-image':     '卡牌图片',
+        'view-code':      '代码视图',
         'group-category': '按分类',
         'group-type':     '按类型',
         'group-cost':     '按费用',
@@ -140,6 +141,17 @@ export default {
         'sort-rarity':    '按稀有度',
 
         'card-added': '卡牌已添加',
+
+        'import-export':         '导入/导出',
+        'deck-code':             '套牌代码',
+        'deck-code-placeholder': '在此粘贴或编辑套牌代码...',
+        'deck-code-format':      '格式：每行 [数量] [卡牌ID]。使用 "Commander:"、"Companion:"、"Deck:"、"Sideboard:" 来分隔区域。',
+        'export-code':           '导出',
+        'import-code':           '导入',
+        'apply-code':            '应用修改',
+        'reset-code':            '重置',
+        'import-success':        '套牌代码导入成功',
+        'import-error':          '导入套牌代码失败',
 
         'check-legality':                '检查合法性',
         'legality-check':                '合法性检查',

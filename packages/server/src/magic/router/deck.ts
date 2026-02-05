@@ -700,9 +700,161 @@ const checkLegality = os
         };
     });
 
+// Update deck from code (using card names)
+const updateFromCode = os
+    .input(z.object({
+        deckId: z.string(),
+        code:   z.string(),
+        format: z.enum(['mtgo', 'mtga']).default('mtgo'),
+    }))
+    .output(z.object({ success: z.boolean() }))
+    .handler(async ({ input, context }) => {
+        const { user } = context;
+
+        if (!user) {
+            throw new ORPCError('UNAUTHORIZED', { message: 'You must be logged in to update a deck' });
+        }
+
+        const deck = await db.select().from(Deck).where(eq(Deck.deckId, input.deckId)).then(rows => rows[0]);
+
+        if (!deck) {
+            throw new ORPCError('NOT_FOUND', { message: 'Deck not found' });
+        }
+
+        if (deck.userId !== user.id) {
+            throw new ORPCError('FORBIDDEN', { message: 'You can only update your own decks' });
+        }
+
+        // Parse code
+        const lines = input.code.split('\n').map(l => l.trim()).filter(l => l);
+        const cardEntries: { name: string, quantity: number, category: 'commander' | 'companion' | 'main' | 'sideboard' }[] = [];
+        let currentCategory: 'commander' | 'companion' | 'main' | 'sideboard' = 'main';
+
+        if (input.format === 'mtgo') {
+            // MTGO format: blank line separates main deck from sideboard
+            let blankLinesSeen = 0;
+            const allLines = input.code.split('\n').map(l => l.trim());
+
+            for (const line of allLines) {
+                if (!line) {
+                    blankLinesSeen++;
+                    continue;
+                }
+
+                // After first blank line(s), we're in sideboard
+                if (blankLinesSeen > 0 && currentCategory === 'main') {
+                    currentCategory = 'sideboard';
+                }
+
+                const match = line.match(/^(\d+)x?\s+(.+)$/);
+                if (match) {
+                    const quantity = parseInt(match[1]);
+                    const cardName = match[2].trim();
+
+                    cardEntries.push({
+                        name:     cardName,
+                        quantity,
+                        category: currentCategory,
+                    });
+                }
+            }
+        } else {
+            // MTGA format: section headers
+            for (const line of lines) {
+                const lowerLine = line.toLowerCase();
+
+                if (lowerLine === 'commander') {
+                    currentCategory = 'commander';
+                    continue;
+                } else if (lowerLine === 'companion') {
+                    currentCategory = 'companion';
+                    continue;
+                } else if (lowerLine === 'deck') {
+                    currentCategory = 'main';
+                    continue;
+                } else if (lowerLine === 'sideboard') {
+                    currentCategory = 'sideboard';
+                    continue;
+                }
+
+                const match = line.match(/^(\d+)x?\s+(.+)$/);
+                if (match) {
+                    const quantity = parseInt(match[1]);
+                    const cardName = match[2].trim();
+
+                    cardEntries.push({
+                        name:     cardName,
+                        quantity,
+                        category: currentCategory,
+                    });
+                }
+            }
+        }
+
+        // Look up card IDs from names
+        const cardNames = [...new Set(cardEntries.map(e => e.name))];
+
+        // Query cards by exact name or by front face (for double-faced cards)
+        const cards = await db.select({
+            cardId: Card.cardId,
+            name:   Card.name,
+        })
+            .from(Card)
+            .where(
+                or(
+                    inArray(Card.name, cardNames),
+                    // Match double-faced cards by front face name (name starts with "inputName //")
+                    ...cardNames.map(name => sql`${Card.name} LIKE ${name + ' //%'}`),
+                ),
+            );
+
+        // Build a map from both full name and front face name to card ID
+        const nameToIdMap = new Map<string, string>();
+        for (const card of cards) {
+            // Add exact match
+            nameToIdMap.set(card.name, card.cardId);
+
+            // If it's a double-faced card (contains //), also map the front face
+            if (card.name.includes(' // ')) {
+                const frontFace = card.name.split(' // ')[0];
+                // Only set if not already set (prefer exact matches)
+                if (!nameToIdMap.has(frontFace)) {
+                    nameToIdMap.set(frontFace, card.cardId);
+                }
+            }
+        }
+
+        // Convert to deck cards with IDs, skip unrecognized cards
+        const deckCards: any[] = [];
+
+        for (const entry of cardEntries) {
+            const cardId = nameToIdMap.get(entry.name);
+            if (!cardId) {
+                // Skip unrecognized cards
+                console.warn(`Card not found for name: ${entry.name}, skipping`);
+                continue;
+            }
+
+            deckCards.push({
+                cardId:   cardId,
+                quantity: entry.quantity,
+                category: entry.category,
+            });
+        }
+
+        // Update deck
+        await db.update(Deck).set({
+            cards:     deckCards,
+            updatedAt: new Date(),
+        }).where(eq(Deck.deckId, input.deckId));
+
+        return { success: true };
+    });
+
 export const deckTrpc = {
     create,
     update,
+    updateFromCode,
     delete: deleteDeck,
     get,
     list,
