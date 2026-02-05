@@ -237,73 +237,25 @@
 
                 <!-- Text Mode -->
                 <template v-if="viewMode === 'text'">
-                    <!-- Main Deck -->
-                    <q-card v-if="mainDeckCards.length > 0" flat bordered class="q-mb-md">
+                    <q-card
+                        v-for="(section, sectionIndex) in allDeckGroups"
+                        :key="`${section.category}-${sectionIndex}`"
+                        flat bordered
+                        :class="sectionIndex < allDeckGroups.length - 1 ? 'q-mb-md' : ''"
+                    >
                         <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.main-deck') }} ({{ mainDeckCount }})</div>
+                            <div class="text-h6">{{ section.title }} ({{ section.count }})</div>
                         </q-card-section>
                         <q-separator />
                         <q-card-section>
                             <div class="row">
                                 <div v-for="col in 3" :key="col" class="col-4">
-                                    <div v-for="(card) in getColumnCards(mainDeckCards, col, 3)" :key="card.cardId" class="row items-center q-mb-sm">
+                                    <div v-for="(card) in getColumnCards(section.cards, col, 3)" :key="card.cardId" class="row items-center q-mb-sm">
                                         <div class="col-3 text-right q-pr-sm">{{ card.quantity }}x</div>
                                         <div class="col">
                                             <card-avatar :id="card.cardId" />
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </q-card-section>
-                    </q-card>
-
-                    <!-- Sideboard -->
-                    <q-card v-if="sideboardCards.length > 0" flat bordered class="q-mb-md">
-                        <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.sideboard') }} ({{ sideboardCount }})</div>
-                        </q-card-section>
-                        <q-separator />
-                        <q-card-section>
-                            <div class="row">
-                                <div v-for="col in 3" :key="col" class="col-4">
-                                    <div v-for="(card) in getColumnCards(sideboardCards, col, 3)" :key="card.cardId" class="row items-center q-mb-sm">
-                                        <div class="col-3 text-right q-pr-sm">{{ card.quantity }}x</div>
-                                        <div class="col">
-                                            <card-avatar :id="card.cardId" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </q-card-section>
-                    </q-card>
-
-                    <!-- Commander -->
-                    <q-card v-if="commanderCards.length > 0" flat bordered class="q-mb-md">
-                        <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.commander') }}</div>
-                        </q-card-section>
-                        <q-separator />
-                        <q-card-section>
-                            <div v-for="card in commanderCards" :key="card.cardId" class="row items-center q-mb-sm">
-                                <div class="col-1 text-right">{{ card.quantity }}x</div>
-                                <div class="col">
-                                    <card-avatar :id="card.cardId" />
-                                </div>
-                            </div>
-                        </q-card-section>
-                    </q-card>
-
-                    <!-- Companion -->
-                    <q-card v-if="companionCards.length > 0" flat bordered>
-                        <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.companion') }}</div>
-                        </q-card-section>
-                        <q-separator />
-                        <q-card-section>
-                            <div v-for="card in companionCards" :key="card.cardId" class="row items-center q-mb-sm">
-                                <div class="col-1 text-right">{{ card.quantity }}x</div>
-                                <div class="col">
-                                    <card-avatar :id="card.cardId" />
                                 </div>
                             </div>
                         </q-card-section>
@@ -312,69 +264,19 @@
 
                 <!-- Image Mode -->
                 <template v-else>
-                    <!-- Main Deck -->
-                    <q-card v-if="mainDeckCards.length > 0" flat bordered class="q-mb-md">
+                    <q-card
+                        v-for="(section, sectionIndex) in allDeckGroups"
+                        :key="`${section.category}-${sectionIndex}`"
+                        flat bordered
+                        :class="sectionIndex < allDeckGroups.length - 1 ? 'q-mb-md' : ''"
+                    >
                         <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.main-deck') }} ({{ mainDeckCount }})</div>
+                            <div class="text-h6">{{ section.title }} ({{ section.count }})</div>
                         </q-card-section>
                         <q-separator />
                         <q-card-section>
                             <div class="row q-col-gutter-sm">
-                                <div v-for="card in mainDeckCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
-                                    <card-avatar :id="card.cardId" hide-text />
-                                    <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
-                                        <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
-                                    </div>
-                                </div>
-                            </div>
-                        </q-card-section>
-                    </q-card>
-
-                    <!-- Sideboard -->
-                    <q-card v-if="sideboardCards.length > 0" flat bordered class="q-mb-md">
-                        <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.sideboard') }} ({{ sideboardCount }})</div>
-                        </q-card-section>
-                        <q-separator />
-                        <q-card-section>
-                            <div class="row q-col-gutter-sm">
-                                <div v-for="card in sideboardCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
-                                    <card-avatar :id="card.cardId" hide-text />
-                                    <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
-                                        <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
-                                    </div>
-                                </div>
-                            </div>
-                        </q-card-section>
-                    </q-card>
-
-                    <!-- Commander -->
-                    <q-card v-if="commanderCards.length > 0" flat bordered class="q-mb-md">
-                        <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.commander') }}</div>
-                        </q-card-section>
-                        <q-separator />
-                        <q-card-section>
-                            <div class="row q-col-gutter-sm">
-                                <div v-for="card in commanderCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
-                                    <card-avatar :id="card.cardId" hide-text />
-                                    <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
-                                        <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
-                                    </div>
-                                </div>
-                            </div>
-                        </q-card-section>
-                    </q-card>
-
-                    <!-- Companion -->
-                    <q-card v-if="companionCards.length > 0" flat bordered>
-                        <q-card-section>
-                            <div class="text-h6">{{ $t('magic.ui.deck.companion') }}</div>
-                        </q-card-section>
-                        <q-separator />
-                        <q-card-section>
-                            <div class="row q-col-gutter-sm">
-                                <div v-for="card in companionCards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
+                                <div v-for="card in section.cards" :key="card.cardId" class="col-auto" style="position: relative; width: 150px">
                                     <card-avatar :id="card.cardId" hide-text />
                                     <div v-if="card.quantity > 1" class="absolute-top-right q-ma-xs">
                                         <q-badge color="primary" rounded>{{ card.quantity }}</q-badge>
@@ -541,9 +443,333 @@ const commanderCount = computed(() =>
 const companionCount = computed(() =>
     companionCards.value.reduce((sum, c) => sum + c.quantity, 0),
 );
-const totalCards = computed(() =>
-    mainDeckCount.value + sideboardCount.value + commanderCount.value + companionCount.value,
-);
+
+// Grouping logic for main deck
+type CardGroup = {
+    title: string;
+    cards: typeof mainDeckCards.value;
+    count: number;
+};
+
+// Sorting function
+const sortCards = (cards: typeof mainDeckCards.value): typeof mainDeckCards.value => {
+    const sorted = [...cards];
+
+    if (sortMode.value === 'name') {
+        sorted.sort((a, b) => {
+            const nameA = (a as any).name || '';
+            const nameB = (b as any).name || '';
+            return nameA.localeCompare(nameB);
+        });
+    } else if (sortMode.value === 'cost') {
+        sorted.sort((a, b) => {
+            const costA = (a as any).manaValue || 0;
+            const costB = (b as any).manaValue || 0;
+            if (costA !== costB) return costA - costB;
+            // Secondary sort by name
+            const nameA = (a as any).name || '';
+            const nameB = (b as any).name || '';
+            return nameA.localeCompare(nameB);
+        });
+    } else if (sortMode.value === 'color') {
+        const colorOrder = ['W', 'U', 'B', 'R', 'G'];
+        sorted.sort((a, b) => {
+            const colorsA = (a as any).color || [];
+            const colorsB = (b as any).color || [];
+
+            // Colorless cards go last
+            if (colorsA.length === 0 && colorsB.length > 0) return 1;
+            if (colorsA.length > 0 && colorsB.length === 0) return -1;
+
+            // Multicolor sorting
+            if (colorsA.length !== colorsB.length) {
+                return colorsA.length - colorsB.length;
+            }
+
+            // Sort by first color
+            const indexA = colorOrder.indexOf(colorsA[0]);
+            const indexB = colorOrder.indexOf(colorsB[0]);
+            if (indexA !== indexB) return indexA - indexB;
+
+            // Secondary sort by name
+            const nameA = (a as any).name || '';
+            const nameB = (b as any).name || '';
+            return nameA.localeCompare(nameB);
+        });
+    } else if (sortMode.value === 'type') {
+        sorted.sort((a, b) => {
+            const typeA = ((a as any).typeMain || [])[0] || '';
+            const typeB = ((b as any).typeMain || [])[0] || '';
+            if (typeA !== typeB) return typeA.localeCompare(typeB);
+            // Secondary sort by name
+            const nameA = (a as any).name || '';
+            const nameB = (b as any).name || '';
+            return nameA.localeCompare(nameB);
+        });
+    } else if (sortMode.value === 'rarity') {
+        const rarityOrder = ['common', 'uncommon', 'rare', 'mythic'];
+        sorted.sort((a, b) => {
+            const rarityA = (a as any).rarity || 'common';
+            const rarityB = (b as any).rarity || 'common';
+            const indexA = rarityOrder.indexOf(rarityA);
+            const indexB = rarityOrder.indexOf(rarityB);
+            if (indexA !== indexB) return indexA - indexB;
+            // Secondary sort by name
+            const nameA = (a as any).name || '';
+            const nameB = (b as any).name || '';
+            return nameA.localeCompare(nameB);
+        });
+    }
+
+    return sorted;
+};
+
+const mainDeckGroups = computed((): CardGroup[] => {
+    const cards = mainDeckCards.value;
+
+    if (groupMode.value === 'category') {
+        // For category mode, just return all cards as one group
+        return [{
+            title: $t('magic.ui.deck.main-deck'),
+            cards: sortCards(cards),
+            count: mainDeckCount.value,
+        }];
+    }
+
+    if (groupMode.value === 'type') {
+        // Group by card type (Creature, Instant, Sorcery, etc.)
+        const typeGroups = new Map<string, typeof cards>();
+
+        for (const card of cards) {
+            const typeMain = (card as any).typeMain || [];
+            const primaryType = typeMain[0] || 'Other';
+
+            if (!typeGroups.has(primaryType)) {
+                typeGroups.set(primaryType, []);
+            }
+            typeGroups.get(primaryType)!.push(card);
+        }
+
+        return Array.from(typeGroups.entries()).map(([type, typeCards]) => ({
+            title: type,
+            cards: sortCards(typeCards),
+            count: typeCards.reduce((sum, c) => sum + c.quantity, 0),
+        })).sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    if (groupMode.value === 'cost') {
+        // Group by mana value
+        const costGroups = new Map<number, typeof cards>();
+
+        for (const card of cards) {
+            const manaValue = (card as any).manaValue || 0;
+
+            if (!costGroups.has(manaValue)) {
+                costGroups.set(manaValue, []);
+            }
+            costGroups.get(manaValue)!.push(card);
+        }
+
+        return Array.from(costGroups.entries())
+            .sort(([a], [b]) => a - b)
+            .map(([cost, costCards]) => ({
+                title: cost === 0 ? '0' : String(cost),
+                cards: sortCards(costCards),
+                count: costCards.reduce((sum, c) => sum + c.quantity, 0),
+            }));
+    }
+
+    if (groupMode.value === 'color') {
+        // Group by color
+        const colorGroups = new Map<string, typeof cards>();
+
+        for (const card of cards) {
+            const colors = (card as any).color || [];
+            let colorKey: string;
+
+            if (colors.length === 0) {
+                colorKey = 'Colorless';
+            } else if (colors.length === 1) {
+                colorKey = colors[0];
+            } else {
+                colorKey = 'Multicolor';
+            }
+
+            if (!colorGroups.has(colorKey)) {
+                colorGroups.set(colorKey, []);
+            }
+            colorGroups.get(colorKey)!.push(card);
+        }
+
+        // Define color order
+        const colorOrder = ['W', 'U', 'B', 'R', 'G', 'Multicolor', 'Colorless'];
+
+        return colorOrder
+            .filter(color => colorGroups.has(color))
+            .map(color => ({
+                title: color,
+                cards: sortCards(colorGroups.get(color)!),
+                count: colorGroups.get(color)!.reduce((sum, c) => sum + c.quantity, 0),
+            }));
+    }
+
+    return [{
+        title: $t('magic.ui.deck.main-deck'),
+        cards: sortCards(cards),
+        count: mainDeckCount.value,
+    }];
+});
+
+// All deck groups including sideboard, commander, and companion
+type DeckSection = {
+    category: 'main' | 'sideboard' | 'commander' | 'companion';
+    title:    string;
+    cards:    typeof mainDeckCards.value;
+    count:    number;
+};
+
+const allDeckGroups = computed((): DeckSection[] => {
+    const sections: DeckSection[] = [];
+
+    // Commander
+    if (commanderCards.value.length > 0) {
+        sections.push({
+            category: 'commander',
+            title:    $t('magic.ui.deck.commander'),
+            cards:    sortCards(commanderCards.value),
+            count:    commanderCount.value,
+        });
+    }
+
+    // Companion
+    if (companionCards.value.length > 0) {
+        sections.push({
+            category: 'companion',
+            title:    $t('magic.ui.deck.companion'),
+            cards:    sortCards(companionCards.value),
+            count:    companionCount.value,
+        });
+    }
+
+    // Main deck - add each group as a separate section
+    if (mainDeckCards.value.length > 0) {
+        const groups = mainDeckGroups.value;
+
+        for (const group of groups) {
+            sections.push({
+                category: 'main',
+                title:    groups.length > 1 ? group.title : $t('magic.ui.deck.main-deck'),
+                cards:    group.cards,
+                count:    group.count,
+            });
+        }
+    }
+
+    // Sideboard - add each group as a separate section
+    if (sideboardCards.value.length > 0) {
+        const groups = groupMode.value === 'category'
+            ? [{
+                title: $t('magic.ui.deck.sideboard'),
+                cards: sortCards(sideboardCards.value),
+                count: sideboardCount.value,
+            }]
+            : applyGrouping(sideboardCards.value);
+
+        for (const group of groups) {
+            sections.push({
+                category: 'sideboard',
+                title:    groups.length > 1 ? `${$t('magic.ui.deck.sideboard')} - ${group.title}` : $t('magic.ui.deck.sideboard'),
+                cards:    group.cards,
+                count:    group.count,
+            });
+        }
+    }
+
+    return sections;
+});
+
+// Helper function to apply grouping logic to any card list
+const applyGrouping = (cards: typeof mainDeckCards.value): CardGroup[] => {
+    if (groupMode.value === 'type') {
+        const typeGroups = new Map<string, typeof cards>();
+
+        for (const card of cards) {
+            const typeMain = (card as any).typeMain || [];
+            const primaryType = typeMain[0] || 'Other';
+
+            if (!typeGroups.has(primaryType)) {
+                typeGroups.set(primaryType, []);
+            }
+            typeGroups.get(primaryType)!.push(card);
+        }
+
+        return Array.from(typeGroups.entries()).map(([type, typeCards]) => ({
+            title: type,
+            cards: sortCards(typeCards),
+            count: typeCards.reduce((sum, c) => sum + c.quantity, 0),
+        })).sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    if (groupMode.value === 'cost') {
+        const costGroups = new Map<number, typeof cards>();
+
+        for (const card of cards) {
+            const manaValue = (card as any).manaValue || 0;
+
+            if (!costGroups.has(manaValue)) {
+                costGroups.set(manaValue, []);
+            }
+            costGroups.get(manaValue)!.push(card);
+        }
+
+        return Array.from(costGroups.entries())
+            .sort(([a], [b]) => a - b)
+            .map(([cost, costCards]) => ({
+                title: cost === 0 ? '0' : String(cost),
+                cards: sortCards(costCards),
+                count: costCards.reduce((sum, c) => sum + c.quantity, 0),
+            }));
+    }
+
+    if (groupMode.value === 'color') {
+        const colorGroups = new Map<string, typeof cards>();
+
+        for (const card of cards) {
+            const colors = (card as any).color || [];
+            let colorKey: string;
+
+            if (colors.length === 0) {
+                colorKey = 'Colorless';
+            } else if (colors.length === 1) {
+                colorKey = colors[0];
+            } else {
+                colorKey = 'Multicolor';
+            }
+
+            if (!colorGroups.has(colorKey)) {
+                colorGroups.set(colorKey, []);
+            }
+            colorGroups.get(colorKey)!.push(card);
+        }
+
+        const colorOrder = ['W', 'U', 'B', 'R', 'G', 'Multicolor', 'Colorless'];
+
+        return colorOrder
+            .filter(color => colorGroups.has(color))
+            .map(color => ({
+                title: color,
+                cards: sortCards(colorGroups.get(color)!),
+                count: colorGroups.get(color)!.reduce((sum, c) => sum + c.quantity, 0),
+            }));
+    }
+
+    // Default: return all as one group
+    return [{
+        title: '',
+        cards: sortCards(cards),
+        count: cards.reduce((sum, c) => sum + c.quantity, 0),
+    }];
+};
 
 // Methods
 const loadDeck = async () => {
@@ -744,7 +970,14 @@ const handleCardSelect = async (card: NormalResult['result'][0] | null) => {
         c => c.cardId === cardId && c.category === category,
     );
 
-    const updatedCards = [...deck.value.cards];
+    // Only send basic card info (cardId, quantity, category) to backend
+    // Backend will return full details on reload
+    const updatedCards = deck.value.cards.map(c => ({
+        cardId:   c.cardId,
+        quantity: c.quantity,
+        category: c.category,
+    }));
+
     if (existingCardIndex >= 0) {
         updatedCards[existingCardIndex].quantity += quantity;
     } else {

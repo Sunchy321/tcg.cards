@@ -6,7 +6,7 @@ import { and, count, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
 import { db } from '@/drizzle';
 import { Deck, DeckLike, DeckFavorite } from '../schema/deck';
-import { Card } from '../schema/card';
+import { Card, CardPart } from '../schema/card';
 import { Format } from '../schema/format';
 import { users } from '@/auth/schema';
 
@@ -180,8 +180,63 @@ const get = os
             await db.update(Deck).set({ views: sql`${Deck.views} + 1` }).where(eq(Deck.deckId, input.deckId));
         }
 
+        // Fetch card details for all cards in the deck
+        const cardIds = [...new Set(deck.cards.map(c => c.cardId))];
+        const cardDetails = await db.select({
+            cardId:    Card.cardId,
+            name:      Card.name,
+            typeline:  Card.typeline,
+            manaValue: Card.manaValue,
+        })
+            .from(Card)
+            .where(inArray(Card.cardId, cardIds));
+
+        // Fetch part details for main types and colors
+        const partDetails = await db.select({
+            cardId:   CardPart.cardId,
+            color:    CardPart.color,
+            typeMain: CardPart.typeMain,
+        })
+            .from(CardPart)
+            .where(and(
+                inArray(CardPart.cardId, cardIds),
+                eq(CardPart.partIndex, 0), // Only get first part for simplicity
+            ));
+
+        // Create a map for quick lookup
+        const cardMap = new Map(cardDetails.map(c => [c.cardId, c]));
+        const partMap = new Map(partDetails.map(p => [p.cardId, p]));
+
+        // Enrich cards with details
+        const cardsWithDetails = deck.cards.map(card => {
+            const details = cardMap.get(card.cardId);
+            const part = partMap.get(card.cardId);
+
+            if (!details || !part) {
+                // Fallback if card not found
+                return {
+                    ...card,
+                    name:      '',
+                    typeline:  '',
+                    manaValue: 0,
+                    color:     [],
+                    typeMain:  [],
+                };
+            }
+
+            return {
+                ...card,
+                name:      details.name,
+                typeline:  details.typeline,
+                manaValue: details.manaValue,
+                color:     part.color ? Array.from(part.color) : [],
+                typeMain:  part.typeMain,
+            };
+        });
+
         const deckView: DeckView = {
             ...deck,
+            cards:      cardsWithDetails,
             userName,
             isLiked:    false,
             isFavorite: false,

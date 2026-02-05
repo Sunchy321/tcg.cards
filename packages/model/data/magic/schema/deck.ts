@@ -15,6 +15,16 @@ export const deckCard = z.strictObject({
     }).optional(),
 });
 
+// Extended deck card with card details for grouping and sorting
+export const deckCardWithDetails = deckCard.extend({
+    name:      z.string(),
+    typeline:  z.string(),
+    manaValue: z.number(),
+    color:     z.array(z.string()).optional(), // Color from card part
+    typeMain:  z.array(z.string()), // Main types for grouping
+    rarity:    z.string().optional(), // Will be added from print info if needed
+});
+
 export const deck = z.strictObject({
     deckId:      z.string(),
     userId:      z.string(),
@@ -44,7 +54,7 @@ export const deckView = z.strictObject({
     description: z.string().max(2000).nullable(),
     format:      z.string().nullable(),
 
-    cards: z.array(deckCard),
+    cards: z.array(deckCardWithDetails),
 
     visibility: deckVisibility.default('private'),
     tags:       z.array(z.string()).default([]),
@@ -64,6 +74,7 @@ export const deckView = z.strictObject({
 export const deckListItem = deck.omit({ cards: true, description: true });
 
 export type DeckCard = z.infer<typeof deckCard>;
+export type DeckCardWithDetails = z.infer<typeof deckCardWithDetails>;
 export type Deck = z.infer<typeof deck>;
 export type DeckView = z.infer<typeof deckView>;
 export type DeckListItem = z.infer<typeof deckListItem>;
