@@ -141,6 +141,20 @@ export default {
 
         'card-added': '卡牌已添加',
 
+        'check-legality':                '检查合法性',
+        'legality-check':                '合法性检查',
+        'legal':                         '合法',
+        'not-legal':                     '不合法',
+        'issues':                        '问题',
+        'issues-count':                  '发现 {count} 个问题',
+        'issue-banned':                  '该卡牌被禁',
+        'issue-restricted':              '限制为 {limit} 张，但您有 {current} 张',
+        'issue-not-legal':               '该卡牌在此赛制中不合法',
+        'issue-too-many':                '限制为 {limit} 张，但您有 {current} 张',
+        'issue-invalid-deck-size':       '主牌库需要 {limit} 张牌，但现有 {current} 张',
+        'issue-invalid-commander-count': '需要 {limit} 个指挥官，但现有 {current} 个',
+        'legality-check-error':          '检查合法性失败',
+
         'no-decks':         '未找到套牌',
         'no-deck':          '套牌不存在',
         'no-cards':         '此分类中没有卡牌',

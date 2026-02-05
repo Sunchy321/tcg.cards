@@ -516,6 +516,190 @@ const favorites = os
         };
     });
 
+// Check deck legality
+const checkLegality = os
+    .route({
+        method:      'GET',
+        description: 'Check deck legality for a format',
+        tags:        ['Magic', 'Deck'],
+    })
+    .input(z.object({
+        deckId: z.string(),
+        format: z.string().optional(), // If not provided, use deck's format
+    }))
+    .output(z.object({
+        format: z.string(),
+        legal:  z.boolean(),
+        issues: z.array(z.object({
+            cardId:   z.string(),
+            cardName: z.string(),
+            reason:   z.string(), // 'banned', 'restricted', 'not-legal', 'too-many-copies'
+            limit:    z.number().optional(),
+            current:  z.number().optional(),
+        })),
+    }))
+    .handler(async ({ input, context }) => {
+        const { user } = context;
+
+        // Get deck
+        const deck = await db.select()
+            .from(Deck)
+            .where(eq(Deck.deckId, input.deckId))
+            .then(rows => rows[0]);
+
+        if (!deck) {
+            throw new ORPCError('NOT_FOUND', { message: 'Deck not found' });
+        }
+
+        // Check visibility
+        if (deck.visibility === 'private' && (!user || deck.userId !== user.id)) {
+            throw new ORPCError('FORBIDDEN', { message: 'This deck is private' });
+        }
+
+        const format = input.format || deck.format;
+        if (!format) {
+            throw new ORPCError('BAD_REQUEST', { message: 'Format not specified' });
+        }
+
+        // Get card details with legalities
+        const cardIds = [...new Set(deck.cards.map((c: any) => c.cardId))];
+        const cards = await db.select({
+            cardId:     Card.cardId,
+            name:       Card.name,
+            legalities: Card.legalities,
+        })
+            .from(Card)
+            .where(inArray(Card.cardId, cardIds));
+
+        const cardMap = new Map(cards.map(c => [c.cardId, c]));
+
+        const issues: any[] = [];
+        const cardCounts = new Map<string, number>();
+
+        const isCommander = format === 'commander' || format.includes('duel') || format.includes('brawl');
+
+        // Count cards by category
+        let mainDeckCount = 0;
+        let commanderCount = 0;
+
+        for (const deckCard of deck.cards) {
+            const dc = deckCard as any;
+            if (dc.category === 'commander') {
+                commanderCount += dc.quantity;
+            } else if (dc.category === 'main') {
+                mainDeckCount += dc.quantity;
+            }
+        }
+
+        // Check deck size requirements
+        if (isCommander) {
+            // Commander: exactly 100 cards in main deck (99 + 1 commander)
+            if (mainDeckCount !== 99) {
+                issues.push({
+                    cardId:   '',
+                    cardName: '',
+                    reason:   'invalid-deck-size',
+                    limit:    99,
+                    current:  mainDeckCount,
+                });
+            }
+            // Must have exactly 1 commander
+            if (commanderCount !== 1) {
+                issues.push({
+                    cardId:   '',
+                    cardName: '',
+                    reason:   'invalid-commander-count',
+                    limit:    1,
+                    current:  commanderCount,
+                });
+            }
+        } else {
+            // Other formats: at least 60 cards in main deck
+            if (mainDeckCount < 60) {
+                issues.push({
+                    cardId:   '',
+                    cardName: '',
+                    reason:   'invalid-deck-size',
+                    limit:    60,
+                    current:  mainDeckCount,
+                });
+            }
+            // Non-commander decks cannot have commanders
+            if (commanderCount > 0) {
+                issues.push({
+                    cardId:   '',
+                    cardName: '',
+                    reason:   'invalid-commander-count',
+                    limit:    0,
+                    current:  commanderCount,
+                });
+            }
+        }
+
+        // Check each card
+        for (const deckCard of deck.cards) {
+            const card = cardMap.get((deckCard as any).cardId);
+            if (!card) continue;
+
+            const legality = card.legalities[format];
+
+            // Count cards (excluding basic lands and cards that allow any number)
+            const cardName = card.name;
+            const currentCount = (cardCounts.get(cardName) || 0) + (deckCard as any).quantity;
+            cardCounts.set(cardName, currentCount);
+
+            // Check legality status
+            if (legality === 'banned') {
+                issues.push({
+                    cardId:   card.cardId,
+                    cardName: card.name,
+                    reason:   'banned',
+                });
+            } else if (legality === 'restricted') {
+                // Restricted means max 1 copy
+                if ((deckCard as any).quantity > 1) {
+                    issues.push({
+                        cardId:   card.cardId,
+                        cardName: card.name,
+                        reason:   'restricted',
+                        limit:    1,
+                        current:  (deckCard as any).quantity,
+                    });
+                }
+            } else if (legality === 'not_legal' || !legality) {
+                issues.push({
+                    cardId:   card.cardId,
+                    cardName: card.name,
+                    reason:   'not-legal',
+                });
+            }
+        }
+
+        // Check copy limit (4 for most formats, 1 for Commander)
+        const copyLimit = isCommander ? 1 : 4;
+        for (const [cardName, count] of cardCounts.entries()) {
+            if (count > copyLimit) {
+                const card = cards.find(c => c.name === cardName);
+                // Skip basic lands
+                if (card && !card.name.match(/^(Plains|Island|Swamp|Mountain|Forest)$/)) {
+                    issues.push({
+                        cardId:   card.cardId,
+                        cardName: card.name,
+                        reason:   'too-many-copies',
+                        limit:    copyLimit,
+                        current:  count,
+                    });
+                }
+            }
+        }
+
+        return {
+            format,
+            legal: issues.length === 0,
+            issues,
+        };
+    });
+
 export const deckTrpc = {
     create,
     update,
@@ -525,6 +709,7 @@ export const deckTrpc = {
     like,
     favorite,
     favorites,
+    checkLegality,
 };
 
 export const deckApi = {

@@ -308,6 +308,92 @@
                 </q-card-actions>
             </q-card>
         </q-dialog>
+
+        <!-- Legality Check Dialog -->
+        <q-dialog v-model="showLegalityDialog">
+            <q-card style="min-width: 400px">
+                <q-card-section>
+                    <div class="text-h6">{{ $t('magic.ui.deck.legality-check') }}</div>
+                </q-card-section>
+                <q-card-section v-if="legalityResult">
+                    <div class="q-mb-md">
+                        <div class="text-subtitle1">
+                            {{ $t(`magic.format.${legalityResult.format}`) }}:
+                            <q-chip
+                                :color="legalityResult.legal ? 'positive' : 'negative'"
+                                text-color="white"
+                                size="sm"
+                            >
+                                {{ legalityResult.legal ? $t('magic.ui.deck.legal') : $t('magic.ui.deck.not-legal') }}
+                            </q-chip>
+                        </div>
+                    </div>
+                    <div v-if="!legalityResult.legal && legalityResult.issues.length > 0">
+                        <div class="text-subtitle2 q-mb-sm">{{ $t('magic.ui.deck.issues') }}:</div>
+                        <q-list bordered separator>
+                            <q-item v-for="issue in legalityResult.issues" :key="`${issue.cardId}-${issue.reason}`">
+                                <q-item-section>
+                                    <q-item-label>{{ issue.cardName }}</q-item-label>
+                                    <q-item-label caption>
+                                        <template v-if="issue.reason === 'banned'">
+                                            {{ $t('magic.ui.deck.issue-banned') }}
+                                        </template>
+                                        <template v-else-if="issue.reason === 'restricted'">
+                                            {{ $t('magic.ui.deck.issue-restricted', { limit: issue.limit, current: issue.current }) }}
+                                        </template>
+                                        <template v-else-if="issue.reason === 'not-legal'">
+                                            {{ $t('magic.ui.deck.issue-not-legal') }}
+                                        </template>
+                                        <template v-else-if="issue.reason === 'too-many-copies'">
+                                            {{ $t('magic.ui.deck.issue-too-many', { limit: issue.limit, current: issue.current }) }}
+                                        </template>
+                                        <template v-else-if="issue.reason === 'invalid-deck-size'">
+                                            {{ $t('magic.ui.deck.issue-invalid-deck-size', { limit: issue.limit, current: issue.current }) }}
+                                        </template>
+                                        <template v-else-if="issue.reason === 'invalid-commander-count'">
+                                            {{ $t('magic.ui.deck.issue-invalid-commander-count', { limit: issue.limit, current: issue.current }) }}
+                                        </template>
+                                    </q-item-label>
+                                </q-item-section>
+                            </q-item>
+                        </q-list>
+                    </div>
+                </q-card-section>
+                <q-card-section v-else>
+                    <q-spinner color="primary" size="3em" />
+                </q-card-section>
+                <q-card-actions align="right">
+                    <q-btn v-close-popup flat :label="$t('common.close')" color="primary" />
+                </q-card-actions>
+            </q-card>
+        </q-dialog>
+
+        <!-- Sticky Legality Footer -->
+        <q-footer
+            v-if="legalityResult && deck"
+            class="bg-white text-dark"
+            bordered
+        >
+            <q-toolbar>
+                <q-toolbar-title class="row items-center q-gutter-md">
+                    <div class="text-subtitle1">
+                        {{ $t(`magic.format.${legalityResult.format}`) }}
+                    </div>
+                    <q-chip
+                        :color="legalityResult.legal ? 'positive' : 'negative'"
+                        :icon="legalityResult.legal ? 'mdi-check-circle' : 'mdi-alert-circle'"
+                        text-color="white"
+                        clickable
+                        @click="showLegalityDialog = true"
+                    >
+                        {{ legalityResult.legal ? $t('magic.ui.deck.legal') : $t('magic.ui.deck.not-legal') }}
+                    </q-chip>
+                    <div v-if="!legalityResult.legal" class="text-caption text-grey-7">
+                        {{ $t('magic.ui.deck.issues-count', { count: legalityResult.issues.length }) }}
+                    </div>
+                </q-toolbar-title>
+            </q-toolbar>
+        </q-footer>
     </q-page>
 </template>
 
@@ -341,6 +427,7 @@ const deck = ref<DeckView>();
 
 const loading = ref(false);
 const showDeleteDialog = ref(false);
+const showLegalityDialog = ref(false);
 const editingName = ref(false);
 const editNameValue = ref('');
 const editingDescription = ref(false);
@@ -350,6 +437,19 @@ const editDescriptionValue = ref('');
 const searchInput = ref('');
 const searchResult = ref<NormalResult['result']>([]);
 const selectedCard = ref<NormalResult['result'][0] | null>(null);
+
+// Legality check
+const legalityResult = ref<{
+    format: string;
+    legal:  boolean;
+    issues: {
+        cardId:   string;
+        cardName: string;
+        reason:   string;
+        limit?:   number;
+        current?: number;
+    }[];
+} | null>(null);
 
 const getStorageKey = (key: string) => {
     const deckId = route.params.deckId as string;
@@ -777,6 +877,8 @@ const loadDeck = async () => {
     try {
         const deckId = route.params.deckId as string;
         deck.value = await trpc.magic.deck.get({ deckId });
+        // Automatically check legality
+        await checkDeckLegality();
     } catch (error) {
         console.error('Failed to load deck:', error);
         $q.notify({
@@ -1096,6 +1198,22 @@ const toggleFavorite = async () => {
 
 const formatDate = (date: Date) => {
     return dateUtil.formatDate(date, 'YYYY-MM-DD HH:mm');
+};
+
+const checkDeckLegality = async () => {
+    if (!deck.value) return;
+
+    legalityResult.value = null;
+
+    try {
+        const result = await trpc.magic.deck.checkLegality({
+            deckId: deck.value.deckId,
+        });
+        legalityResult.value = result;
+    } catch (error) {
+        console.error('Failed to check legality:', error);
+        // Silent failure, don't show error notification
+    }
 };
 
 // Load on mount

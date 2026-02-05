@@ -141,6 +141,20 @@ export default {
 
         'card-added': 'Card added',
 
+        'check-legality':                'Check Legality',
+        'legality-check':                'Legality Check',
+        'legal':                         'Legal',
+        'not-legal':                     'Not Legal',
+        'issues':                        'Issues',
+        'issues-count':                  '{count} issue(s) found',
+        'issue-banned':                  'This card is banned',
+        'issue-restricted':              'Limited to {limit}, but you have {current}',
+        'issue-not-legal':               'This card is not legal in this format',
+        'issue-too-many':                'Limited to {limit} copies, but you have {current}',
+        'issue-invalid-deck-size':       'Main deck must have {limit} cards, but has {current}',
+        'issue-invalid-commander-count': 'Must have {limit} commander(s), but has {current}',
+        'legality-check-error':          'Failed to check legality',
+
         'no-decks':         'No decks found',
         'no-deck':          'Deck not found',
         'no-cards':         'No cards in this category',
