@@ -94,6 +94,18 @@ const routes: RouteRecordRaw[] = [
         ],
     },
 
+    {
+        path:      '/ai',
+        component: async () => import('layouts/Main.vue'),
+        children:  [
+            {
+                path:      'search',
+                name:      'ai/search',
+                component: async () => import('pages/AiSearch.vue'),
+            },
+        ],
+    },
+
     ...games.map(g => gameRoutes[`./${g}.ts`]).flat(),
 
     {

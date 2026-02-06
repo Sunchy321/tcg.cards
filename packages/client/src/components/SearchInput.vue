@@ -3,28 +3,42 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue';
+import { computed, h, ref, VNode } from 'vue';
 
-import { QInput, QInputProps, QInputSlots, useQuasar } from 'quasar';
+import { QBtn, QInput, QInputProps, QInputSlots, QTooltip, useQuasar } from 'quasar';
 
 import Parser from '@search/parser';
 import SearchError from '@search/parser/error';
 
+import { useI18n } from 'vue-i18n';
+import { useCore } from 'store/core';
+
 import { last } from 'lodash';
+
+import { trpc } from 'src/trpc';
 
 type Props = Omit<QInputProps, 'hideBottomSpace' | 'modelValue'> & {
     modelValue: string;
+    game?:      'magic' | 'yugioh' | 'hearthstone' | 'lorcana' | 'ptcg';
+    enableAi?:  boolean;
 };
 
 const quasar = useQuasar();
+const i18n = useI18n();
+const core = useCore();
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    enableAi: true,
+    game:     undefined,
+});
 
 const emit = defineEmits<{
     'update:modelValue': [newValue: string];
 }>();
 
 const slots = defineSlots<Omit<QInputSlots, 'default'>>();
+
+const converting = ref(false);
 
 const result = computed(() => {
     const parser = new Parser(props.modelValue ?? '');
@@ -44,6 +58,38 @@ const result = computed(() => {
 });
 
 const isMobile = computed(() => quasar.platform.is.mobile);
+
+const inferredGame = computed(() => {
+    if (props.game) {
+        return props.game;
+    }
+
+    return core.game;
+});
+
+const convertToSearchSyntax = async () => {
+    const gameType = inferredGame.value;
+
+    if (!props.modelValue?.trim() || converting.value || !gameType) {
+        return;
+    }
+
+    converting.value = true;
+
+    try {
+        const result = await trpc.ai.convert({
+            game:  gameType,
+            query: props.modelValue,
+        });
+
+        emit('update:modelValue', result.syntax);
+    } catch (error) {
+        console.error('AI conversion failed:', error);
+        // Keep original content on failure
+    } finally {
+        converting.value = false;
+    }
+};
 
 const render = () => {
     if (isMobile.value) {
@@ -90,6 +136,32 @@ const render = () => {
         spans.push(h('span', { class: 'search-error' }, ' '));
     }
 
+    // Build append slot with AI button
+    const appendSlot: VNode[] = [];
+
+    if (props.enableAi && inferredGame.value) {
+        appendSlot.push(
+            h(QBtn, {
+                icon:    'mdi-robot',
+                flat:    true,
+                dense:   true,
+                round:   true,
+                color:   'accent',
+                loading: converting.value,
+                disable: !props.modelValue || converting.value,
+                onClick: convertToSearchSyntax,
+            }, {
+                default: () => h(QTooltip, {}, {
+                    default: () => i18n.t('ui.ai.convert-search-syntax'),
+                }),
+            }),
+        );
+    }
+
+    if (slots.append) {
+        appendSlot.push(...slots.append());
+    }
+
     return h(QInput, {
         'class':               'search-input',
         ...props,
@@ -97,6 +169,7 @@ const render = () => {
         'onUpdate:modelValue': (newValue: string) => { emit('update:modelValue', newValue); },
     }, {
         ...slots,
+        append:  appendSlot.length > 0 ? () => appendSlot : undefined,
         default: () => h(
             'span',
             { class: 'q-field__native' },

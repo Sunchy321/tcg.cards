@@ -91,6 +91,51 @@ export default {
 
     ui: {
         search: '搜索',
+
+        ai: {
+            'convert-search-syntax': 'AI转换搜索语法',
+            'ai-search-mode':        'AI搜索模式',
+            'normal-search-mode':    '普通搜索模式',
+            'page-title':            'AI 卡牌搜索助手',
+            'select-game':           '选择游戏',
+            'welcome-title':         '欢迎使用AI搜索助手',
+            'welcome-intro':         '我可以帮你：',
+            'feature-convert':       '将自然语言转换为搜索查询',
+            'feature-recommend':     '推荐适合的卡牌',
+            'feature-synergy':       '分析卡牌配合',
+            'feature-deck':          '提供卡组构建建议',
+            'input-placeholder':     '输入你的问题或搜索需求...',
+            'clear-chat':            '清空对话',
+            'search-syntax':         '搜索语法',
+            'execute-search':        '执行搜索',
+            'error-message':         '抱歉，我遇到了一些问题。请稍后再试。',
+            'quick-action':          {
+                magic: {
+                    'blue-instant':   '蓝色快速咒语',
+                    'blue-instant-q': '推荐一些强力的蓝色快速咒语',
+                    'removal':        '费用2-3的去除',
+                    'removal-q':      '找一些费用2-3的去除咒语',
+                    'commander':      '指挥官推荐',
+                    'commander-q':    '推荐适合新手的指挥官',
+                },
+                yugioh: {
+                    'lv4-dark':   '4星暗属性',
+                    'lv4-dark-q': '推荐强力的4星暗属性怪兽',
+                    'removal':    '破坏魔陷',
+                    'removal-q':  '找能破坏魔法陷阱的卡',
+                    'handtrap':   '手坑推荐',
+                    'handtrap-q': '推荐常用的手坑卡',
+                },
+                hearthstone: {
+                    'mage-spell':   '法师法术',
+                    'mage-spell-q': '推荐强力的法师法术',
+                    'minion-3':     '3费随从',
+                    'minion-3-q':   '找一些3费的优质随从',
+                    'draw':         '抽牌机制',
+                    'draw-q':       '推荐能抽牌的卡',
+                },
+            },
+        },
     },
 
     common: {

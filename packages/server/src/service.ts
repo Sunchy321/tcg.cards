@@ -15,6 +15,7 @@ import { ptcgTrpc } from '@/ptcg/router';
 import { yugiohTrpc } from '@/yugioh/router';
 import { hearthstoneTrpc } from '@/hearthstone/router';
 import { lorcanaTrpc } from '@/lorcana/router';
+import { aiTrpc } from '@/ai/router';
 
 const AUTH_PREFIX = '/api/auth';
 
@@ -25,6 +26,7 @@ const trpc = {
     yugioh:      yugiohTrpc,
     hearthstone: hearthstoneTrpc,
     lorcana:     lorcanaTrpc,
+    ai:          aiTrpc,
 };
 
 export type TRPC = typeof trpc;

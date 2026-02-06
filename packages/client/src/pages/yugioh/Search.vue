@@ -72,7 +72,7 @@ const { search } = yugiohSetup();
 const data = ref<SearchResult>();
 const searching = ref(false);
 
-useTitle(() => i18n.t('ui.search'), 'input');
+useTitle (() => i18n.t('ui.search'), 'input');
 
 useAction([
     {

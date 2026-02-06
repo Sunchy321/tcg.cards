@@ -4,6 +4,7 @@
             v-model="searchText"
             class="main-input q-ma-xl"
             filled clearable
+            game="magic"
             :error="explained.type === 'error'"
             @keypress.enter="search"
         >

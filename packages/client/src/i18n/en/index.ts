@@ -92,6 +92,51 @@ export default {
 
     ui: {
         search: 'Search',
+
+        ai: {
+            'convert-search-syntax': 'AI Convert Search Syntax',
+            'ai-search-mode':        'AI Search Mode',
+            'normal-search-mode':    'Normal Search Mode',
+            'page-title':            'AI Card Search Assistant',
+            'select-game':           'Select Game',
+            'welcome-title':         'Welcome to AI Search Assistant',
+            'welcome-intro':         'I can help you:',
+            'feature-convert':       'Convert natural language to search queries',
+            'feature-recommend':     'Recommend suitable cards',
+            'feature-synergy':       'Analyze card synergies',
+            'feature-deck':          'Provide deck building suggestions',
+            'input-placeholder':     'Enter your question or search request...',
+            'clear-chat':            'Clear Chat',
+            'search-syntax':         'Search Syntax',
+            'execute-search':        'Execute Search',
+            'error-message':         'Sorry, I encountered an issue. Please try again later.',
+            'quick-action': {
+                magic: {
+                    'blue-instant':     'Blue Instants',
+                    'blue-instant-q':   'Recommend some powerful blue instant spells',
+                    'removal':          'Removal 2-3 CMC',
+                    'removal-q':        'Find some removal spells with CMC 2-3',
+                    'commander':        'Commander Recommendations',
+                    'commander-q':      'Recommend commanders suitable for beginners',
+                },
+                yugioh: {
+                    'lv4-dark':    'Lv4 DARK',
+                    'lv4-dark-q':  'Recommend powerful Level 4 DARK monsters',
+                    'removal':     'S/T Removal',
+                    'removal-q':   'Find cards that can destroy Spell/Trap cards',
+                    'handtrap':    'Hand Traps',
+                    'handtrap-q':  'Recommend commonly used hand trap cards',
+                },
+                hearthstone: {
+                    'mage-spell':   'Mage Spells',
+                    'mage-spell-q': 'Recommend powerful mage spells',
+                    'minion-3':     '3-Cost Minions',
+                    'minion-3-q':   'Find some quality 3-cost minions',
+                    'draw':         'Card Draw',
+                    'draw-q':       'Recommend cards with draw mechanics',
+                },
+            },
+        },
     },
 
     common: {

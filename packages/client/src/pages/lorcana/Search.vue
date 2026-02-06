@@ -70,7 +70,7 @@ const { search } = lorcanaSetup();
 const data = ref<SearchResult>();
 const searching = ref(false);
 
-useTitle(() => i18n.t('ui.search'));
+useTitle (() => i18n.t('ui.search'), 'input');
 
 core.titleType = 'input';
 
