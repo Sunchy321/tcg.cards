@@ -1,8 +1,8 @@
 import { integer, jsonb, timestamp } from 'drizzle-orm/pg-core';
 
-import { schema } from '../schema';
+import { dataSchema } from '../schema';
 
-export const Gatherer = schema.table('data_gatherer', {
+export const Gatherer = dataSchema.table('gatherer', {
     multiverseId: integer('multiverse_id').primaryKey(),
     data:         jsonb('data').$type<GathererData>(),
     createdAt:    timestamp('created_at').notNull().defaultNow(),

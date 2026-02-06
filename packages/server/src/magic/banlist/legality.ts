@@ -4,7 +4,7 @@ import { db } from '@/drizzle';
 import { Card, CardPart } from '@/magic/schema/card';
 import { Print } from '@/magic/schema/print';
 import { Format } from '@/magic/schema/format';
-import { Scryfall } from '@/magic/schema/scryfall';
+import { Scryfall } from '@/magic/schema/data/scryfall';
 
 import { Legalities, Legality } from '@model/magic/schema/game-change';
 import { CardPrintView } from '@model/magic/schema/print';

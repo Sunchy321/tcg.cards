@@ -4,7 +4,7 @@ import { db } from '@/drizzle';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '@/magic/schema/card';
 import { Print, PrintPart } from '@/magic/schema/print';
 import { Set } from '@/magic/schema/set';
-import { Scryfall } from '@/magic/schema/scryfall';
+import { Scryfall } from '@/magic/schema/data/scryfall';
 
 import { Status } from '@model/magic/schema/data/status';
 import { RawCard } from '@model/magic/schema/data/scryfall/card';
