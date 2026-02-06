@@ -148,7 +148,7 @@ export async function parseGatherer(multiverseId: number) {
         // {(u/b)} -> {U/B}
         .replace(/\{\(\}?([^{}()]*)\)\}?/g, (_, text) => `{${(text as string).toUpperCase()}}`)
         // {Si} -> {S}
-        .replace(/\{Si\}/g, '{S}')
+        .replace(/\{Si\}|\{S\}i\}?/g, '{S}')
         // oW -> {W}
         .replace(/\b((?:o[oc]?[A-Z0-9])+)\b/g, (_, symbols) => {
             return (symbols as string)
