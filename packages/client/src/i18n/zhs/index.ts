@@ -96,7 +96,7 @@ export default {
             'convert-search-syntax': 'AI转换搜索语法',
             'ai-search-mode':        'AI搜索模式',
             'normal-search-mode':    '普通搜索模式',
-            'page-title':            'AI 卡牌搜索助手',
+            'chat':                  'AI 聊天',
             'select-game':           '选择游戏',
             'welcome-title':         '欢迎使用AI搜索助手',
             'welcome-intro':         '我可以帮你：',

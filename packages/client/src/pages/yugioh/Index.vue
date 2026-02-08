@@ -24,6 +24,15 @@
         </search-input>
         <div class="links q-pa-xl q-gutter-md row">
             <div class="col column">
+                <q-btn
+                    class="link"
+                    type="a"
+                    :to="{ name: 'yugioh/chat' }"
+                    icon="mdi-robot"
+                    :label="$t('ui.ai.chat')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
                 <!-- <q-btn
                     class="link"
                     type="a"

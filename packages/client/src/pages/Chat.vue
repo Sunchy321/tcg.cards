@@ -1,17 +1,5 @@
 <template>
     <q-page class="ai-search-page q-pa-md">
-        <div class="page-header">
-            <h4 class="q-my-md">{{ $t('ui.ai.page-title') }}</h4>
-            <q-select
-                v-model="selectedGame"
-                :options="gameOptions"
-                :label="$t('ui.ai.select-game')"
-                outlined
-                dense
-                style="max-width: 200px"
-            />
-        </div>
-
         <q-card class="chat-container" flat bordered>
             <q-card-section ref="messagesContainer" class="chat-messages">
                 <div v-if="messages.length === 0" class="welcome-message">
@@ -109,11 +97,14 @@
 
 <script setup lang="ts">
 import { ref, nextTick, computed } from 'vue';
+
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { trpc } from 'src/trpc';
+import { useCore, useTitle } from 'store/core';
 
 import ChatMessage from '@/components/ai/ChatMessage.vue';
+
+import { trpc } from 'src/trpc';
 
 interface Message {
     role:    'user' | 'assistant' | 'system';
@@ -126,16 +117,10 @@ interface Message {
 }
 
 const router = useRouter();
-const { t } = useI18n();
+const i18n = useI18n();
+const core = useCore();
 
-const selectedGame = ref<string>('magic');
-const gameOptions = [
-    { label: 'Magic: The Gathering', value: 'magic' },
-    { label: '游戏王', value: 'yugioh' },
-    { label: '炉石传说', value: 'hearthstone' },
-    { label: 'Lorcana', value: 'lorcana' },
-    { label: 'Pokémon TCG', value: 'ptcg' },
-];
+useTitle(() => i18n.t('ui.ai.chat'));
 
 const messages = ref<Message[]>([]);
 const userInput = ref('');
@@ -150,23 +135,50 @@ const lastConversion = ref<{
 const quickActions = computed(() => {
     const actions: Record<string, { label: string, query: string }[]> = {
         magic: [
-            { label: t('ui.ai.quick-action.magic.blue-instant'), query: t('ui.ai.quick-action.magic.blue-instant-q') },
-            { label: t('ui.ai.quick-action.magic.removal'), query: t('ui.ai.quick-action.magic.removal-q') },
-            { label: t('ui.ai.quick-action.magic.commander'), query: t('ui.ai.quick-action.magic.commander-q') },
+            {
+                label: i18n.t('ui.ai.quick-action.magic.blue-instant'),
+                query: i18n.t('ui.ai.quick-action.magic.blue-instant-q'),
+            },
+            {
+                label: i18n.t('ui.ai.quick-action.magic.removal'),
+                query: i18n.t('ui.ai.quick-action.magic.removal-q'),
+            },
+            {
+                label: i18n.t('ui.ai.quick-action.magic.commander'),
+                query: i18n.t('ui.ai.quick-action.magic.commander-q'),
+            },
         ],
         yugioh: [
-            { label: t('ui.ai.quick-action.yugioh.lv4-dark'), query: t('ui.ai.quick-action.yugioh.lv4-dark-q') },
-            { label: t('ui.ai.quick-action.yugioh.removal'), query: t('ui.ai.quick-action.yugioh.removal-q') },
-            { label: t('ui.ai.quick-action.yugioh.handtrap'), query: t('ui.ai.quick-action.yugioh.handtrap-q') },
+            {
+                label: i18n.t('ui.ai.quick-action.yugioh.lv4-dark'),
+                query: i18n.t('ui.ai.quick-action.yugioh.lv4-dark-q'),
+            },
+            {
+                label: i18n.t('ui.ai.quick-action.yugioh.removal'),
+                query: i18n.t('ui.ai.quick-action.yugioh.removal-q'),
+            },
+            {
+                label: i18n.t('ui.ai.quick-action.yugioh.handtrap'),
+                query: i18n.t('ui.ai.quick-action.yugioh.handtrap-q'),
+            },
         ],
         hearthstone: [
-            { label: t('ui.ai.quick-action.hearthstone.mage-spell'), query: t('ui.ai.quick-action.hearthstone.mage-spell-q') },
-            { label: t('ui.ai.quick-action.hearthstone.minion-3'), query: t('ui.ai.quick-action.hearthstone.minion-3-q') },
-            { label: t('ui.ai.quick-action.hearthstone.draw'), query: t('ui.ai.quick-action.hearthstone.draw-q') },
+            {
+                label: i18n.t('ui.ai.quick-action.hearthstone.mage-spell'),
+                query: i18n.t('ui.ai.quick-action.hearthstone.mage-spell-q'),
+            },
+            {
+                label: i18n.t('ui.ai.quick-action.hearthstone.minion-3'),
+                query: i18n.t('ui.ai.quick-action.hearthstone.minion-3-q'),
+            },
+            {
+                label: i18n.t('ui.ai.quick-action.hearthstone.draw'),
+                query: i18n.t('ui.ai.quick-action.hearthstone.draw-q'),
+            },
         ],
     };
 
-    return actions[selectedGame.value] || [];
+    return actions[core.game ?? ''] ?? [];
 });
 
 const scrollToBottom = () => {
@@ -183,7 +195,13 @@ const handleQuickAction = (query: string) => {
 };
 
 const sendMessage = async () => {
-    if (!userInput.value.trim() || isLoading.value) return;
+    if (core.game == null) {
+        return;
+    }
+
+    if (userInput.value.trim() === '' || isLoading.value) {
+        return;
+    }
 
     const userMessage = userInput.value.trim();
     userInput.value = '';
@@ -202,7 +220,7 @@ const sendMessage = async () => {
         // Try to convert query
         if (userMessage.includes('搜索') || userMessage.includes('找') || userMessage.includes('推荐')) {
             const conversion = await trpc.ai.convert({
-                game:  selectedGame.value as any,
+                game:  core.game,
                 query: userMessage,
             });
 
@@ -211,7 +229,7 @@ const sendMessage = async () => {
 
         // Send chat request
         const response = await trpc.ai.chat({
-            game:    selectedGame.value as any,
+            game:    core.game,
             message: userMessage,
             history: messages.value.slice(0, -1).map(m => ({
                 role:    m.role,
@@ -232,7 +250,7 @@ const sendMessage = async () => {
 
         messages.value.push({
             role:    'assistant',
-            content: t('ui.ai.error-message'),
+            content: i18n.t('ui.ai.error-message'),
         });
     } finally {
         isLoading.value = false;
@@ -241,7 +259,7 @@ const sendMessage = async () => {
 
 const executeSearch = (syntax: string) => {
     router.push({
-        name:  `${selectedGame.value}/search`,
+        name:  `${core.game}/search`,
         query: { q: syntax },
     });
 };

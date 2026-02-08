@@ -94,18 +94,6 @@ const routes: RouteRecordRaw[] = [
         ],
     },
 
-    {
-        path:      '/ai',
-        component: async () => import('layouts/Main.vue'),
-        children:  [
-            {
-                path:      'search',
-                name:      'ai/search',
-                component: async () => import('pages/AiSearch.vue'),
-            },
-        ],
-    },
-
     ...games.map(g => gameRoutes[`./${g}.ts`]).flat(),
 
     {
@@ -158,6 +146,11 @@ export function createDefaultRoute(game: string): RouteRecordRaw[] {
                     path:      'search',
                     name:      `${game}/search`,
                     component: async () => import(`pages/${game}/Search.vue`),
+                },
+                {
+                    path:      'chat',
+                    name:      `${game}/chat`,
+                    component: async () => import('pages/Chat.vue'),
                 },
             ],
         },

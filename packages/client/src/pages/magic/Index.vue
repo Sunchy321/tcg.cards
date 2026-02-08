@@ -37,6 +37,16 @@
                 <q-btn
                     class="link"
                     type="a"
+                    :to="{ name: 'magic/chat' }"
+                    icon="mdi-robot"
+                    :label="$t('ui.ai.chat')"
+                    flat
+                    :stack="$q.screen.xs"
+                />
+
+                <q-btn
+                    class="link"
+                    type="a"
                     :to="{ name: 'magic/search-docs' }"
                     icon="mdi-information"
                     :label="$t('magic.ui.search-docs.$self')"

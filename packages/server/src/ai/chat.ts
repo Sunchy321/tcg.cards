@@ -24,26 +24,25 @@ export interface StreamChunk {
 
 /**
  * Parse card tags in AI response
- * Format: [CARD:card-id] or [CARD:card-id mode=image]
+ * Format: [Card Name](card:card_id) or [Card Name](card:card_id?mode=image)
  */
 export function parseCardEmbeds(text: string, game: string): { text: string, cards: CardEmbed[] } {
-    const cardRegex = /\[CARD:([^\s\]]+)(?:\s+mode=(image|text|compact))?\]/g;
+    // Match Markdown link format with card: protocol
+    const cardRegex = /\[([^\]]+)\]\(card:([^?)]+)(?:\?mode=(image|text|compact))?\)/g;
     const cards: CardEmbed[] = [];
     let match;
 
     // Extract all card tags
     while ((match = cardRegex.exec(text)) !== null) {
         cards.push({
-            cardId: match[1],
-            mode:   (match[2] as 'image' | 'text' | 'compact') || 'compact',
+            cardId: match[2],
+            mode:   (match[3] as 'image' | 'text' | 'compact') || 'compact',
             game,
         });
     }
 
-    // Remove tags, keep placeholders
-    const cleanText = text.replace(cardRegex, (_, cardId) => `{{CARD:${cardId}}}`);
-
-    return { text: cleanText, cards };
+    // Keep the link format in the text for Markdown rendering
+    return { text, cards };
 }
 
 /**
@@ -53,8 +52,8 @@ function getGameSystemPrompt(game: string): string {
     const basePrompt = `你是一个专业的TCG卡牌搜索助手。你的任务是帮助用户找到他们需要的卡牌，并提供有用的建议。
 
 重要规则：
-1. 当你提到具体的卡牌时，使用格式 [CARD:card-id] 来嵌入卡牌
-2. 你可以指定显示模式：[CARD:card-id mode=image] (显示图片) 或 [CARD:card-id mode=text] (显示文本)
+1. 当你提到具体的卡牌时，使用 Markdown 链接格式：[Card Name](card:card_id)
+2. 你可以指定显示模式：[Card Name](card:card_id?mode=image) 显示图片，或 [Card Name](card:card_id?mode=text) 显示文本
 3. 默认使用 compact 模式（紧凑显示）
 4. 回答要简洁、专业，重点突出
 5. 如果用户的查询不清楚，礼貌地要求澄清
@@ -64,8 +63,8 @@ function getGameSystemPrompt(game: string): string {
 用户: "推荐一些蓝色快速咒语"
 助手: "这里是一些强力的蓝色快速咒语：
 
-[CARD:counterspell mode=compact] - 经典的康牌，2费反击任何咒语
-[CARD:lightning-bolt mode=compact] - 高效的去除法术
+- [Counterspell](card:counterspell) - 经典的康牌，2费反击任何咒语
+- [Lightning Bolt](card:lightning_bolt?mode=image) - 高效的去除法术
 
 这些卡牌在控制套牌中非常有用。"`;
 
@@ -82,10 +81,10 @@ function getGameSystemPrompt(game: string): string {
 }
 
 /**
- * 创建AI聊天流
- * @param game 游戏类型
- * @param messages 对话历史
- * @param searchResults 搜索结果（可选，用于上下文）
+ * Create AI chat stream
+ * @param game Game type
+ * @param messages Conversation history
+ * @param searchResults Search results (optional, for context)
  */
 export async function* createChatStream(
     game: 'magic' | 'yugioh' | 'hearthstone' | 'lorcana' | 'ptcg',
@@ -111,7 +110,7 @@ export async function* createChatStream(
         }));
 
         // Create streaming response
-        const result = await streamText({
+        const result = streamText({
             model:    qwen('qwen-plus'), // or 'qwen-turbo', 'qwen-max'
             system:   systemPrompt,
             messages: aiMessages as any,
@@ -151,7 +150,7 @@ export async function* createChatStream(
 }
 
 /**
- * 非流式聊天（用于简单查询）
+ * Non-streaming chat (for simple queries)
  */
 export async function chat(
     game: 'magic' | 'yugioh' | 'hearthstone' | 'lorcana' | 'ptcg',
@@ -196,7 +195,7 @@ export async function chat(
 }
 
 /**
- * 生成卡组构建建议
+ * Generate deck building suggestions
  */
 export async function generateDeckSuggestions(
     game: 'magic' | 'yugioh' | 'hearthstone',
@@ -211,7 +210,7 @@ export async function generateDeckSuggestions(
 
 请提供：
 1. 卡组构建建议
-2. 推荐的核心卡牌（使用[CARD:card-id]格式）
+2. 推荐的核心卡牌（使用[Card Name](card:card_id)格式）
 3. 简要的策略说明`;
 
     const result = await chat(game, prompt);
@@ -223,7 +222,7 @@ export async function generateDeckSuggestions(
 }
 
 /**
- * 分析卡牌配合
+ * Analyze card synergy
  */
 export async function analyzeCardSynergy(
     game: 'magic' | 'yugioh' | 'hearthstone',

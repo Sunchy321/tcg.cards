@@ -11,9 +11,11 @@
         </template>
 
         <div class="message-content">
-            <!-- Use component instead of v-html to prevent XSS -->
+            <!-- Use Milkdown for Markdown rendering -->
             <div class="message-text">
-                <rendered-markdown :content="message.content" />
+                <milkdown-provider>
+                    <markdown-renderer :content="message.content" :game="game" />
+                </milkdown-provider>
             </div>
 
             <!-- Embedded cards -->
@@ -37,9 +39,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue';
+import { computed } from 'vue';
 
 import CardEmbed from './CardEmbed.vue';
+import MarkdownRenderer from './MarkdownRenderer.vue';
+import { MilkdownProvider } from '@milkdown/vue';
 
 interface CardEmbedData {
     cardId: string;
@@ -55,6 +59,7 @@ interface ChatMessage {
 
 const props = defineProps<{
     message:      ChatMessage;
+    game:         string;
     isStreaming?: boolean;
 }>();
 
@@ -73,110 +78,6 @@ const bgColor = computed(() => {
 const textColor = computed(() => {
     return props.message.role === 'user' ? 'white' : 'dark';
 });
-
-// Safe Markdown rendering component
-const RenderedMarkdown = {
-    props: {
-        content: String,
-    },
-    setup(props: { content: string }) {
-        // Escape HTML tags to prevent injection
-        const escapeHtml = (text: string) => {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        };
-
-        // Parse and render Markdown function
-        const parseMarkdown = (text: string) => {
-            const elements: any[] = [];
-            let currentText = text;
-
-            // Replace card placeholders
-            const cardPlaceholderRegex = /\{\{CARD:([^}]+)\}\}/g;
-            const parts = currentText.split(cardPlaceholderRegex);
-
-            parts.forEach((part, index) => {
-                if (index % 2 === 0) {
-                    // Plain text, process Markdown
-                    if (part) {
-                        elements.push(...parseTextWithMarkdown(part));
-                    }
-                } else {
-                    // Card placeholder
-                    elements.push(
-                        h('span', { class: 'card-placeholder' }, `[${part}]`),
-                    );
-                }
-            });
-
-            return elements;
-        };
-
-        const parseTextWithMarkdown = (text: string) => {
-            const elements: any[] = [];
-            const lines = text.split('\n');
-
-            lines.forEach((line, lineIndex) => {
-                if (lineIndex > 0) {
-                    elements.push(h('br'));
-                }
-
-                // Parse inline elements
-                const inlineElements = parseInline(line);
-                elements.push(...inlineElements);
-            });
-
-            return elements;
-        };
-
-        const parseInline = (text: string) => {
-            const elements: any[] = [];
-            let remaining = text;
-            let lastIndex = 0;
-
-            // Match **bold**, *italic*, `code`
-            const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
-            let match;
-
-            while ((match = regex.exec(remaining)) !== null) {
-                // Add plain text before match
-                if (match.index > lastIndex) {
-                    const plainText = remaining.slice(lastIndex, match.index);
-                    if (plainText) {
-                        elements.push(escapeHtml(plainText));
-                    }
-                }
-
-                // Process matched format
-                if (match[2]) {
-                    // Bold **text**
-                    elements.push(h('strong', escapeHtml(match[2])));
-                } else if (match[3]) {
-                    // Italic *text*
-                    elements.push(h('em', escapeHtml(match[3])));
-                } else if (match[4]) {
-                    // Code `text`
-                    elements.push(h('code', escapeHtml(match[4])));
-                }
-
-                lastIndex = regex.lastIndex;
-            }
-
-            // Add remaining plain text
-            if (lastIndex < remaining.length) {
-                const plainText = remaining.slice(lastIndex);
-                if (plainText) {
-                    elements.push(escapeHtml(plainText));
-                }
-            }
-
-            return elements.length > 0 ? elements : [escapeHtml(text)];
-        };
-
-        return () => h('div', { class: 'rendered-markdown' }, parseMarkdown(props.content));
-    },
-};
 
 </script>
 
