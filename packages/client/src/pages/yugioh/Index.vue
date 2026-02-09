@@ -25,6 +25,7 @@
         <div class="links q-pa-xl q-gutter-md row">
             <div class="col column">
                 <q-btn
+                    v-if="isLoggedIn"
                     class="link"
                     type="a"
                     :to="{ name: 'yugioh/chat' }"
@@ -109,9 +110,13 @@ import SearchInput from 'components/SearchInput.vue';
 import RichText from 'src/components/yugioh/RichText.vue';
 
 import { explain as model } from 'src/search/data/yugioh';
+import { auth } from 'src/auth';
 
 const core = useCore();
 const i18n = useI18n();
+const session = auth.useSession();
+
+const isLoggedIn = computed(() => session.value?.data?.user != null);
 
 const { search, random } = yugiohSetup();
 

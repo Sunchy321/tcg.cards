@@ -151,6 +151,9 @@ export function createDefaultRoute(game: string): RouteRecordRaw[] {
                     path:      'chat',
                     name:      `${game}/chat`,
                     component: async () => import('pages/Chat.vue'),
+                    meta:      {
+                        requireLogin: true,
+                    },
                 },
             ],
         },

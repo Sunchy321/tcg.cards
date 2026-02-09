@@ -16,6 +16,7 @@ import { useCore } from 'store/core';
 import { last } from 'lodash';
 
 import { trpc } from 'src/trpc';
+import { auth } from 'src/auth';
 
 type Props = Omit<QInputProps, 'hideBottomSpace' | 'modelValue'> & {
     modelValue: string;
@@ -26,6 +27,7 @@ type Props = Omit<QInputProps, 'hideBottomSpace' | 'modelValue'> & {
 const quasar = useQuasar();
 const i18n = useI18n();
 const core = useCore();
+const session = auth.useSession();
 
 const props = withDefaults(defineProps<Props>(), {
     enableAi: true,
@@ -39,6 +41,8 @@ const emit = defineEmits<{
 const slots = defineSlots<Omit<QInputSlots, 'default'>>();
 
 const converting = ref(false);
+
+const isLoggedIn = computed(() => session.value?.data?.user != null);
 
 const result = computed(() => {
     const parser = new Parser(props.modelValue ?? '');
@@ -139,7 +143,7 @@ const render = () => {
     // Build append slot with AI button
     const appendSlot: VNode[] = [];
 
-    if (props.enableAi && inferredGame.value) {
+    if (props.enableAi && inferredGame.value != null && isLoggedIn.value) {
         appendSlot.push(
             h(QBtn, {
                 icon:    'mdi-robot',

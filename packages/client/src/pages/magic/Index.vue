@@ -35,6 +35,7 @@
                 />
 
                 <q-btn
+                    v-if="isLoggedIn"
                     class="link"
                     type="a"
                     :to="{ name: 'magic/chat' }"
@@ -119,9 +120,13 @@ import SearchInput from 'components/SearchInput.vue';
 import RichText from 'src/components/magic/RichText.vue';
 
 import { explain as model } from 'src/search/data/magic';
+import { auth } from 'src/auth';
 
 const core = useCore();
 const i18n = useI18n();
+const session = auth.useSession();
+
+const isLoggedIn = computed(() => session.value?.data?.user != null);
 
 const { search, random } = magicSetup();
 

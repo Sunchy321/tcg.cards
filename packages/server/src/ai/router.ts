@@ -1,8 +1,113 @@
-import { os } from '@orpc/server';
+import { ORPCError } from '@orpc/server';
+import { os as create } from '@/orpc';
 import z from 'zod';
 
-import { convertNaturalToSearch, validateSearchSyntax } from '../ai/query-converter';
-import { chat, generateDeckSuggestions, analyzeCardSynergy } from '../ai/chat';
+import { convertNaturalToSearch, validateSearchSyntax } from './query-converter';
+import { chat, generateDeckSuggestions, analyzeCardSynergy } from './chat';
+import { auth } from '@/auth';
+import { db } from '@/drizzle';
+import { apikeys } from '@/auth/schema';
+import { eq } from 'drizzle-orm';
+
+// AI feature rate limit configuration
+const AI_RATE_LIMIT = {
+    timeWindow:  86400000, // 24 hours (milliseconds)
+    maxRequests: 200, // Maximum 200 requests per day
+};
+
+async function getOrCreateAIApiKey(userId: string) {
+    // Query user's API keys from database
+    const allKeys = await db.select()
+        .from(apikeys)
+        .where(eq(apikeys.userId, userId));
+
+    // Find the key dedicated to AI features
+    const aiKey = allKeys.find(k => k.name === 'ai-features');
+
+    if (aiKey) {
+        return aiKey;
+    }
+
+    // Create a new API key using better-auth API
+    const result = await auth.api.createApiKey({
+        body: {
+            userId,
+            name:                'ai-features',
+            rateLimitEnabled:    true,
+            rateLimitTimeWindow: AI_RATE_LIMIT.timeWindow,
+            rateLimitMax:        AI_RATE_LIMIT.maxRequests,
+        },
+    });
+
+    return result;
+}
+
+async function checkAndUpdateRateLimit(userId: string) {
+    const apiKey = await getOrCreateAIApiKey(userId);
+
+    // Check rate limit
+    if (apiKey.rateLimitEnabled) {
+        const now = new Date();
+        const lastRequest = apiKey.lastRequest?.getTime() ?? 0;
+        const timeWindow = apiKey.rateLimitTimeWindow ?? AI_RATE_LIMIT.timeWindow;
+        const maxRequests = apiKey.rateLimitMax ?? AI_RATE_LIMIT.maxRequests;
+
+        // Check if time window needs to be reset
+        if (now.getTime() - lastRequest > timeWindow) {
+            // Time window has passed, reset counter (use database directly)
+            await db.update(apikeys)
+                .set({
+                    requestCount: 1,
+                    remaining:    maxRequests - 1,
+                    lastRequest:  now,
+                    updatedAt:    now,
+                })
+                .where(eq(apikeys.id, apiKey.id));
+
+            return { allowed: true, remaining: maxRequests - 1 };
+        }
+
+        const remaining = apiKey.remaining ?? maxRequests;
+
+        if (remaining <= 0) {
+            return { allowed: false, remaining: 0 };
+        }
+
+        // Update counter (use database directly)
+        await db.update(apikeys)
+            .set({
+                requestCount: (apiKey.requestCount || 0) + 1,
+                remaining:    remaining - 1,
+                lastRequest:  now,
+                updatedAt:    now,
+            })
+            .where(eq(apikeys.id, apiKey.id));
+
+        return { allowed: true, remaining: remaining - 1 };
+    }
+
+    return { allowed: true, remaining: -1 }; // Rate limiting not enabled
+}
+
+const os = create
+    .use(async ({ context, next }) => {
+        const { user } = context;
+
+        if (user == null) {
+            throw new ORPCError('UNAUTHORIZED', { message: 'You must be logged in to use AI features.' });
+        }
+
+        // Check and update rate limit
+        const { allowed, remaining } = await checkAndUpdateRateLimit(user.id);
+
+        if (!allowed) {
+            throw new ORPCError('TOO_MANY_REQUESTS', {
+                message: `Daily AI API limit reached. Please try again tomorrow. (Remaining: ${remaining})`,
+            });
+        }
+
+        return next({ context });
+    });
 
 // Query conversion route
 const convert = os

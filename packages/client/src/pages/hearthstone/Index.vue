@@ -25,6 +25,7 @@
         <div class="links q-pa-xl q-gutter-md row">
             <div class="col column">
                 <q-btn
+                    v-if="isLoggedIn"
                     class="link"
                     type="a"
                     :to="{ name: 'hearthstone/chat' }"
@@ -108,9 +109,13 @@ import hearthstoneSetup from 'setup/hearthstone';
 import SearchInput from 'components/SearchInput.vue';
 
 import { explain } from 'src/search/data/hearthstone';
+import { auth } from 'src/auth';
 
 const core = useCore();
 const i18n = useI18n();
+const session = auth.useSession();
+
+const isLoggedIn = computed(() => session.value?.data?.user != null);
 
 const { random, search } = hearthstoneSetup();
 

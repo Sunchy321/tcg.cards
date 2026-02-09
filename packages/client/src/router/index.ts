@@ -41,6 +41,22 @@ export default route(() => {
             clearParam();
         }
 
+        // Check if route requires authentication
+        if (to.meta.requireLogin) {
+            const session = await auth.getSession();
+
+            if (!session?.data?.user) {
+                next({
+                    name:  'setting',
+                    query: {
+                        redirect: to.fullPath,
+                        error:    'login_required',
+                    },
+                });
+                return;
+            }
+        }
+
         if (to.meta.admin != null) {
             const session = await auth.getSession();
 
