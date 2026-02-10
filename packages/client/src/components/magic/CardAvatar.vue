@@ -71,7 +71,9 @@ const link = computed(() => router.resolve({
     name:   'magic/card',
     params: { id: props.id },
     query:  {
-        ...pick(props.version, ['set', 'number', 'lang']),
+        locale: props.version?.lang,
+        set:    props.version?.set,
+        number: props.version?.number,
         ...props.part != null ? { part: props.part } : {},
     },
 }).href);
@@ -86,8 +88,8 @@ const name = computed(() => {
 
     const defaultLocale = locales[0];
 
-    return profile.value.localization.find(l => l.lang === locale.value)?.name
-      ?? profile.value.localization.find(l => l.lang === defaultLocale)?.name
+    return profile.value.localization.find(l => l.locale === locale.value)?.name
+      ?? profile.value.localization.find(l => l.locale === defaultLocale)?.name
       ?? props.id;
 });
 

@@ -116,41 +116,31 @@ export const printView = z.strictObject({
 
 export const cardPrintView = z.object({
     cardId:    card.shape.cardId,
+    locale:    cardLocalization.shape.locale,
     set:       print.shape.set,
     number:    print.shape.number,
     lang:      print.shape.lang,
     partIndex: cardPart.shape.partIndex,
 
     card:                 card.omit({ cardId: true }),
-    cardLocalization:     cardLocalization.omit({ cardId: true, lang: true }),
+    cardLocalization:     cardLocalization.omit({ cardId: true, locale: true }),
     cardPart:             cardPart.omit({ cardId: true, partIndex: true }),
-    cardPartLocalization: cardPartLocalization.omit({ cardId: true, partIndex: true, lang: true }),
-
-    print: print.omit({
-        cardId: true,
-        set:    true,
-        number: true,
-        lang:   true,
-    }),
-
-    printPart: printPart.omit({
-        cardId:    true,
-        set:       true,
-        number:    true,
-        lang:      true,
-        partIndex: true,
-    }),
+    cardPartLocalization: cardPartLocalization.omit({ cardId: true, partIndex: true, locale: true }),
+    print:                print.omit({ cardId: true, set: true, number: true, lang: true }),
+    printPart:            printPart.omit({ cardId: true, set: true, number: true, lang: true, partIndex: true }),
 });
 
 export const version = z.strictObject({
     set:    z.string(),
     number: z.string(),
     lang:   locale,
+    locale,
     rarity: rarity,
 });
 
 export const cardEditorView = z.strictObject({
     cardId:    card.shape.cardId,
+    locale:    cardLocalization.shape.locale,
     set:       print.shape.set,
     number:    print.shape.number,
     lang:      print.shape.lang,
@@ -196,6 +186,7 @@ export const cardEditorView = z.strictObject({
 
     __original: z.strictObject({
         cardId: card.shape.cardId.optional(),
+        locale: cardLocalization.shape.locale.optional(),
         lang:   print.shape.lang.optional(),
     }).default({}),
 });

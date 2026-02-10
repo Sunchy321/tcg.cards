@@ -123,8 +123,9 @@ export const PrintView = schema.view('print_view').as(qb => {
 export const CardPrintView = schema.view('card_print_view').as(qb => {
     return qb.select({
         cardId:    Card.cardId,
-        lang:      CardLocalization.lang,
+        locale:    CardLocalization.locale,
         partIndex: CardPart.partIndex,
+        lang:      Print.lang,
         set:       Print.set,
         number:    Print.number,
 
@@ -133,7 +134,7 @@ export const CardPrintView = schema.view('card_print_view').as(qb => {
         },
 
         cardLocalization: {
-            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang', '__lockedPaths', '__updations']),
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'locale', '__lockedPaths', '__updations']),
         },
 
         cardPart: {
@@ -141,7 +142,7 @@ export const CardPrintView = schema.view('card_print_view').as(qb => {
         },
 
         cardPartLocalization: {
-            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex', '__lockedPaths', '__updations']),
+            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'locale', 'partIndex', '__lockedPaths', '__updations']),
         },
 
         print: {
@@ -157,18 +158,24 @@ export const CardPrintView = schema.view('card_print_view').as(qb => {
         .innerJoin(CardPart, eq(CardPart.cardId, Card.cardId))
         .innerJoin(CardPartLocalization, and(
             eq(CardPartLocalization.cardId, CardPart.cardId),
-            eq(CardPartLocalization.lang, CardLocalization.lang),
+            eq(CardPartLocalization.locale, CardLocalization.locale),
             eq(CardPartLocalization.partIndex, CardPart.partIndex),
         ))
         .innerJoin(Print, and(
             eq(Card.cardId, Print.cardId),
-            eq(CardLocalization.lang, Print.lang),
+            sql`${Print.lang} = (
+                CASE
+                    WHEN EXISTS (SELECT 1 FROM ${Print} WHERE card_id = ${Card.cardId} AND lang = ${CardLocalization.locale})
+                    THEN ${CardLocalization.locale}
+                    ELSE 'en'
+                END
+            )`,
         ))
         .innerJoin(PrintPart, and(
             eq(Card.cardId, PrintPart.cardId),
             eq(Print.set, PrintPart.set),
             eq(Print.number, PrintPart.number),
-            eq(CardLocalization.lang, PrintPart.lang),
+            eq(Print.lang, PrintPart.lang),
             eq(CardPart.partIndex, PrintPart.partIndex),
         ));
 });
@@ -176,8 +183,9 @@ export const CardPrintView = schema.view('card_print_view').as(qb => {
 export const CardEditorView = schema.view('card_editor_view').as(qb => {
     return qb.select({
         cardId:    Card.cardId,
-        lang:      CardLocalization.lang,
+        locale:    CardLocalization.locale,
         partIndex: CardPart.partIndex,
+        lang:      Print.lang,
         set:       Print.set,
         number:    Print.number,
 
@@ -186,7 +194,7 @@ export const CardEditorView = schema.view('card_editor_view').as(qb => {
         },
 
         cardLocalization: {
-            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang']),
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'locale']),
         },
 
         cardPart: {
@@ -194,7 +202,7 @@ export const CardEditorView = schema.view('card_editor_view').as(qb => {
         },
 
         cardPartLocalization: {
-            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex']),
+            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'locale', 'partIndex']),
         },
 
         print: {
@@ -213,18 +221,24 @@ export const CardEditorView = schema.view('card_editor_view').as(qb => {
         .innerJoin(CardPart, eq(CardPart.cardId, Card.cardId))
         .innerJoin(CardPartLocalization, and(
             eq(CardPartLocalization.cardId, CardPart.cardId),
-            eq(CardPartLocalization.lang, CardLocalization.lang),
+            eq(CardPartLocalization.locale, CardLocalization.locale),
             eq(CardPartLocalization.partIndex, CardPart.partIndex),
         ))
         .innerJoin(Print, and(
             eq(Card.cardId, Print.cardId),
-            eq(CardLocalization.lang, Print.lang),
+            sql`${Print.lang} = (
+                CASE
+                    WHEN EXISTS (SELECT 1 FROM ${Print} WHERE card_id = ${Card.cardId} AND lang = ${CardLocalization.locale})
+                    THEN ${CardLocalization.locale}
+                    ELSE 'en'
+                END
+            )`,
         ))
         .innerJoin(PrintPart, and(
             eq(Card.cardId, PrintPart.cardId),
             eq(Print.set, PrintPart.set),
             eq(Print.number, PrintPart.number),
-            eq(CardLocalization.lang, PrintPart.lang),
+            eq(Print.lang, PrintPart.lang),
             eq(CardPart.partIndex, PrintPart.partIndex),
         ));
 });

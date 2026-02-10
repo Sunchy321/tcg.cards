@@ -39,7 +39,7 @@
                 </q-input>
             </div>
             <div class="q-mb-md flex items-center">
-                <q-select v-model="locale" class="q-mr-md" :options="locales" outlined dense />
+                <q-select v-model="selectedLocale" class="q-mr-md" :options="locales" outlined dense />
 
                 <q-btn-group outline>
                     <q-btn outline label="paren" @click="loadGroup('paren')" />
@@ -411,7 +411,7 @@ import RemoteBtn from 'components/RemoteBtn.vue';
 import CardImage from 'components/magic/CardImage.vue';
 import CardAvatar from 'components/magic/CardAvatar.vue';
 
-import { Locale, Layout } from '@model/magic/schema/basic';
+import { Locale, Layout, locale as localeEnum } from '@model/magic/schema/basic';
 import { CardEditorView } from '@model/magic/schema/print';
 
 import {
@@ -516,8 +516,6 @@ const counterBlacklist = [
     'X',
 ];
 
-console.log(commaRegex);
-
 const router = useRouter();
 const route = useRoute();
 const game = useGame();
@@ -549,9 +547,9 @@ const remoteBtns = computed(() => [
     saveGathererImageBtn.value,
 ].filter(Boolean));
 
-const locales = computed(() => ['', ...game.locales]);
+const locales = ['', ...localeEnum.options];
 
-const locale = useParam('locale', {
+const selectedLocale = useParam('locale', {
     type:    'enum',
     bind:    'query',
     values:  locales,
@@ -671,6 +669,18 @@ const id = computed({
     },
 });
 
+const locale = computed({
+    get() { return data.value?.locale ?? route.query.locale as Locale ?? game.locale; },
+    set(newValue) {
+        if (data.value != null) {
+            data.value.__original.locale = data.value.locale;
+            data.value.locale = newValue;
+        }
+
+        void router.replace({ query: { ...route.query, locale: newValue } });
+    },
+});
+
 const lang = computed({
     get() { return (data.value?.lang ?? route.query.lang) as Locale; },
     set(newValue) {
@@ -726,7 +736,7 @@ const cardLink = computed(() => ({
     name:   'magic/card',
     params: { id: id.value },
     query:  {
-        lang:   lang.value,
+        locale: locale.value,
         set:    set.value,
         number: number.value,
     },
@@ -1076,7 +1086,9 @@ const relatedCardsString = computed({
         const parts = newValue.split(/; */);
 
         relatedCards.value = parts.map(p => {
-            let [relation, cardId, lang, set, number] = p.split('|');
+            let [relation, cardId, langInput, set, number] = p.split('|');
+
+            const lang = langInput == null ? undefined : localeEnum.safeParse(langInput).data ?? localeEnum.options[0];
 
             if (relation.length === 1) {
                 relation = {
@@ -1098,7 +1110,7 @@ const relatedCardsString = computed({
                 .replace(/[^a-z0-9!*+]/g, '_');
 
             if (lang != null) {
-                return { relation, cardId, version: { lang: lang as Locale, set, number } };
+                return { relation, cardId, version: { locale: lang, lang, set, number } };
             } else {
                 return { relation, cardId };
             }
@@ -1713,7 +1725,7 @@ const loadGroup = async (method: string, skip = false) => {
         } else {
             return await trpc.magic.card.needEdit({
                 method: method as any,
-                lang:   locale.value === '' ? undefined : locale.value as Locale,
+                lang:   selectedLocale.value === '' ? undefined : selectedLocale.value as Locale,
                 sample: sampleValue,
             });
         }
@@ -1728,7 +1740,7 @@ const loadGroup = async (method: string, skip = false) => {
     }
 };
 
-watch([sample, locale, groupBy], () => { dataGroup.value = undefined; });
+watch([sample, selectedLocale, groupBy], () => { dataGroup.value = undefined; });
 
 const doSearch = async () => {
     if (search.value === '') {

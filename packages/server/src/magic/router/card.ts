@@ -6,7 +6,11 @@ import { and, asc, desc, eq, getTableColumns, like, not, notInArray, sql } from 
 
 import { formats as formatList, Locale, locale } from '@model/magic/schema/basic';
 import { cardProfile, cardView } from '@model/magic/schema/card';
-import { CardEditorView as ICardEditorView, cardEditorView, cardFullView } from '@model/magic/schema/print';
+import {
+    CardEditorView as ICardEditorView, cardEditorView,
+    cardFullView,
+    CardPrintView as ICardPrintView,
+} from '@model/magic/schema/print';
 import { legality } from '@model/magic/schema/game-change';
 
 import CardNameExtractor from '../extract-name';
@@ -52,18 +56,18 @@ const summary = os
     })
     .input(z.object({
         cardId:    z.string().describe('Card ID'),
-        lang:      locale.default('en').describe('Language of the card'),
+        locale:    locale.default('en').describe('Language of the card'),
         partIndex: z.int().min(0).default(0).describe('Part index of the card, if it has multiple parts (e.g. split cards)'),
     }))
     .output(cardView)
     .handler(async ({ input }) => {
-        const { cardId, lang, partIndex } = input;
+        const { cardId, locale, partIndex } = input;
 
         const view = await db.select()
             .from(CardView)
             .where(and(
                 eq(CardView.cardId, cardId),
-                eq(CardView.lang, lang),
+                eq(CardView.locale, locale),
                 eq(CardView.partIndex, partIndex),
             ))
             .then(rows => rows[0]);
@@ -81,14 +85,14 @@ const fuzzy = os
     })
     .input(z.object({
         cardId:    z.string(),
-        lang:      locale,
+        locale,
         set:       z.string().optional(),
         number:    z.string().optional(),
         partIndex: z.string().transform(v => Number.parseInt(v, 10) || 0).pipe(z.int()).optional(),
     }))
     .output(cardFullView)
     .handler(async ({ input }) => {
-        const { cardId, lang, set, number, partIndex } = input;
+        const { cardId, locale, set, number, partIndex } = input;
 
         const fullViews = await db.select()
             .from(CardPrintView)
@@ -96,17 +100,23 @@ const fuzzy = os
                 eq(CardPrintView.cardId, cardId),
                 eq(CardPrintView.partIndex, partIndex ?? 0),
             ))
-            .orderBy(desc(CardPrintView.print.releaseDate), asc(CardPrintView.lang));
+            .orderBy(
+                desc(CardPrintView.print.releaseDate),
+                asc(CardPrintView.locale),
+                asc(CardPrintView.lang),
+                asc(sql<number>`coalesce((substring(${CardPrintView.number} from '^[0-9]+'))::int, 0)`),
+                asc(CardPrintView.number),
+            );
 
-        const cardPrint = (() => {
+        const findView = (views: ICardPrintView[]) => {
             if (set != null && number != null) {
-                const exact = fullViews.find(view => view.lang === lang && view.set === set && view.number === number);
+                const exact = views.find(view => view.locale === locale && view.set === set && view.number === number);
 
                 if (exact != null) {
                     return exact;
                 }
 
-                const setNumber = fullViews.find(view => view.set === set && view.number === number);
+                const setNumber = views.find(view => view.set === set && view.number === number);
 
                 if (setNumber != null) {
                     return setNumber;
@@ -114,13 +124,13 @@ const fuzzy = os
             }
 
             if (set != null) {
-                const langSet = fullViews.find(view => view.lang === lang && view.set === set);
+                const langSet = views.find(view => view.locale === locale && view.set === set);
 
                 if (langSet != null) {
                     return langSet;
                 }
 
-                const setOnly = fullViews.find(view => view.set === set);
+                const setOnly = views.find(view => view.set === set);
 
                 if (setOnly != null) {
                     return setOnly;
@@ -128,38 +138,42 @@ const fuzzy = os
             };
 
             if (number != null) {
-                const langNumber = fullViews.find(view => view.lang === lang && view.number === number);
+                const langNumber = views.find(view => view.locale === locale && view.number === number);
 
                 if (langNumber != null) {
                     return langNumber;
                 }
 
-                const numberOnly = fullViews.find(view => view.number === number);
+                const numberOnly = views.find(view => view.number === number);
 
                 if (numberOnly != null) {
                     return numberOnly;
                 }
             }
 
-            const langOnly = fullViews.find(view => view.lang === lang);
+            const localeOnly = views.find(view => view.locale === locale);
 
-            if (langOnly != null) {
-                return langOnly;
+            if (localeOnly != null) {
+                return localeOnly;
             }
 
-            return fullViews[0];
-        })();
+            return views[0];
+        };
+
+        const cardPrint = findView(fullViews.filter(v => v.locale === locale))
+          ?? findView(fullViews);
 
         if (cardPrint == null) {
             throw new ORPCError('NOT_FOUND');
         }
 
         const versions = await db.select({
-            set:    Print.set,
-            number: Print.number,
-            lang:   Print.lang,
-            rarity: Print.rarity,
-        }).from(Print).where(eq(Print.cardId, cardId)).orderBy(desc(Print.releaseDate));
+            locale: CardPrintView.locale,
+            set:    CardPrintView.set,
+            number: CardPrintView.number,
+            lang:   CardPrintView.lang,
+            rarity: CardPrintView.print.rarity,
+        }).from(CardPrintView).where(eq(CardPrintView.cardId, cardId)).orderBy(desc(CardPrintView.print.releaseDate));
 
         const rulings = await db.select({
             ..._.omit(getTableColumns(Ruling), 'id'),
@@ -168,12 +182,18 @@ const fuzzy = os
         const sourceRelation = await db.select({
             relation: CardRelation.relation,
             cardId:   CardRelation.targetId,
-        }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
+        })
+            .from(CardRelation)
+            .innerJoin(Card, eq(CardRelation.targetId, Card.cardId))
+            .where(eq(CardRelation.sourceId, cardId));
 
         const targetRelation = await db.select({
             relation: sql<string>`'source'`.as('relation'),
             cardId:   CardRelation.sourceId,
-        }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
+        })
+            .from(CardRelation)
+            .innerJoin(Card, eq(CardRelation.sourceId, Card.cardId))
+            .where(eq(CardRelation.targetId, cardId));
 
         const relatedCards = [...sourceRelation, ...targetRelation];
 
@@ -192,8 +212,8 @@ const profile = os
         const cardId = input;
 
         const cardLocalizations = await db.select({
-            lang: CardLocalization.lang,
-            name: CardLocalization.name,
+            locale: CardLocalization.locale,
+            name:   CardLocalization.name,
         }).from(CardLocalization).where(eq(CardLocalization.cardId, cardId));
 
         if (cardLocalizations.length === 0) {
@@ -245,12 +265,7 @@ const editorView = os
             cardId:   CardRelation.targetId,
         }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
 
-        const targetRelation = await db.select({
-            relation: sql<string>`'source'`.as('relation'),
-            cardId:   CardRelation.sourceId,
-        }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
-
-        const relatedCards = [...sourceRelation, ...targetRelation];
+        const relatedCards = sourceRelation;
 
         return {
             ...view,
@@ -347,10 +362,11 @@ const update = os
     .handler(async ({ input }) => {
         const {
             cardId,
+            locale,
+            partIndex,
             lang,
             set,
             number,
-            partIndex,
 
             card,
             cardLocalization,
@@ -378,9 +394,9 @@ const update = os
                 });
 
             await tx.insert(CardLocalization)
-                .values({ cardId, lang, ...cardLocalization })
+                .values({ cardId, locale, ...cardLocalization })
                 .onConflictDoUpdate({
-                    target: [CardLocalization.cardId, CardLocalization.lang],
+                    target: [CardLocalization.cardId, CardLocalization.locale],
                     set:    cardLocalization,
                 });
 
@@ -392,9 +408,9 @@ const update = os
                 });
 
             await tx.insert(CardPartLocalization)
-                .values({ cardId, lang, partIndex, ...cardPartLocalization })
+                .values({ cardId, locale, partIndex, ...cardPartLocalization })
                 .onConflictDoUpdate({
-                    target: [CardPartLocalization.cardId, CardPartLocalization.lang, CardPartLocalization.partIndex],
+                    target: [CardPartLocalization.cardId, CardPartLocalization.locale, CardPartLocalization.partIndex],
                     set:    cardPartLocalization,
                 });
 

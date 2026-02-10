@@ -42,7 +42,7 @@ export const Card = schema.table('cards', {
 
 export const CardLocalization = schema.table('card_localizations', {
     cardId: text('card_id').notNull(),
-    lang:   locale('lang').notNull(),
+    locale: locale('locale').notNull(),
 
     name:     text('loc_name').notNull(),
     typeline: text('loc_typeline').notNull(),
@@ -52,7 +52,7 @@ export const CardLocalization = schema.table('card_localizations', {
     __lockedPaths: text('card_localization_locked_paths').array().notNull().default([]),
     __updations:   jsonb('card_localization_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
-    primaryKey({ columns: [table.cardId, table.lang] }),
+    primaryKey({ columns: [table.cardId, table.locale] }),
 ]);
 
 export const CardPart = schema.table('card_parts', {
@@ -88,7 +88,7 @@ export const CardPart = schema.table('card_parts', {
 
 export const CardPartLocalization = schema.table('card_part_localizations', {
     cardId:    text('card_id').notNull(),
-    lang:      locale('lang').notNull(),
+    locale:    locale('locale').notNull(),
     partIndex: smallint('part_index').notNull(),
 
     name:     text('part_loc_name').notNull(),
@@ -98,13 +98,13 @@ export const CardPartLocalization = schema.table('card_part_localizations', {
     __lockedPaths: text('card_part_localization_locked_paths').array().notNull().default([]),
     __updations:   jsonb('card_part_localization_updations').$type<Updation[]>().notNull().default([]),
 }, table => [
-    primaryKey({ columns: [table.cardId, table.lang, table.partIndex] }),
+    primaryKey({ columns: [table.cardId, table.locale, table.partIndex] }),
 ]);
 
 export const CardView = schema.view('card_view').as(qb => {
     return qb.select({
         cardId:    Card.cardId,
-        lang:      CardLocalization.lang,
+        locale:    CardLocalization.locale,
         partIndex: CardPart.partIndex,
 
         card: {
@@ -112,7 +112,7 @@ export const CardView = schema.view('card_view').as(qb => {
         },
 
         localization: {
-            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'lang', '__lockedPaths', '__updations']),
+            ..._.omit(getTableColumns(CardLocalization), ['cardId', 'locale', '__lockedPaths', '__updations']),
         },
 
         part: {
@@ -120,11 +120,11 @@ export const CardView = schema.view('card_view').as(qb => {
         },
 
         partLocalization: {
-            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'lang', 'partIndex', '__lockedPaths', '__updations']),
+            ..._.omit(getTableColumns(CardPartLocalization), ['cardId', 'locale', 'partIndex', '__lockedPaths', '__updations']),
         },
     })
         .from(Card)
         .innerJoin(CardLocalization, eq(CardLocalization.cardId, Card.cardId))
         .innerJoin(CardPart, eq(CardPart.cardId, Card.cardId))
-        .innerJoin(CardPartLocalization, and(eq(CardPartLocalization.cardId, CardPart.cardId), eq(CardPartLocalization.lang, CardLocalization.lang), eq(CardPartLocalization.partIndex, CardPart.partIndex)));
+        .innerJoin(CardPartLocalization, and(eq(CardPartLocalization.cardId, CardPart.cardId), eq(CardPartLocalization.locale, CardLocalization.locale), eq(CardPartLocalization.partIndex, CardPart.partIndex)));
 });

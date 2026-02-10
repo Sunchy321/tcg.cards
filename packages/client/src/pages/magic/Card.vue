@@ -190,15 +190,15 @@
             <div class="lang-line flex justify-center">
                 <div class="col-auto">
                     <q-btn
-                        v-for="i in langInfos" :key="i.lang"
+                        v-for="i in localeInfos" :key="i.locale"
                         class="lang-selector"
                         dense
                         size="sm"
                         :color="i.exist ? 'primary' : 'grey'"
                         :outline="!i.current"
                         :unelevated="i.current"
-                        :label="i.lang"
-                        @click="lang = i.lang"
+                        :label="i.locale"
+                        @click="locale = i.locale"
                     />
                 </div>
             </div>
@@ -260,7 +260,7 @@ import RichText from 'src/components/magic/RichText.vue';
 import MagicSymbol from 'components/magic/Symbol.vue';
 import BanlistIcon from 'components/magic/BanlistIcon.vue';
 
-import { Locale, formats, locale } from '@model/magic/schema/basic';
+import { Locale, formats, locale as localeEnum } from '@model/magic/schema/basic';
 import { CardFullView } from '@model/magic/schema/print';
 import { SetProfile } from '@model/magic/schema/set';
 
@@ -269,7 +269,6 @@ import { omitBy, uniq } from 'lodash';
 import { apiBase, assetBase } from 'boot/server';
 import { trpc } from 'src/trpc';
 import { auth, checkAdmin } from '@/auth';
-
 import { auxSetType } from '@static/magic/special';
 
 const router = useRouter();
@@ -280,6 +279,8 @@ const game = useGame();
 const session = auth.useSession();
 
 const { search, random } = magicSetup();
+
+const locales = localeEnum.options;
 
 const data = ref<CardFullView | null>(null);
 const rotate = ref<boolean | null>(null);
@@ -386,13 +387,13 @@ const setInfos = computed(() => sets.value.map(s => {
     const localizations = profile?.localization;
 
     const name = localizations?.find(loc => loc.lang === game.locale)?.name
-      ?? localizations?.find(loc => loc.lang === game.locales[0])?.name
+      ?? localizations?.find(loc => loc.lang === locales[0])?.name
       ?? localizations?.[0]?.name
       ?? '';
 
     return {
         set:             s,
-        langs:           uniq(setVersions.map(v => v.lang)).sort((a, b) => locale.options.indexOf(a) - locale.options.indexOf(b)),
+        langs:           uniq(setVersions.map(v => v.lang)).sort((a, b) => locales.indexOf(a) - locales.indexOf(b)),
         numbers,
         rarity,
         iconUrl:         `${assetBase}/magic/set/icon/${iconSet}/${rarity}.svg`,
@@ -402,13 +403,28 @@ const setInfos = computed(() => sets.value.map(s => {
     };
 }));
 
-const langs = computed(() => {
-    return uniq(versions.value.map(v => v.lang))
-        .sort((a, b) => locale.options.indexOf(a) - locale.options.indexOf(b));
+const availLocales = computed(() => {
+    return uniq(versions.value.map(v => v.locale))
+        .sort((a, b) => locales.indexOf(a) - locales.indexOf(b));
 });
 
+const locale = computed({
+    get() {
+        return data.value?.locale ?? route.query.locale as Locale ?? game.locale;
+    },
+    set(newValue: string) {
+        void router.replace({ query: { ...route.query, locale: newValue } });
+    },
+});
+
+const localeInfos = computed(() => availLocales.value.map(l => ({
+    locale:  l,
+    exist:   versions.value.filter(v => v.set === set.value).some(v => v.lang === l),
+    current: l === locale.value,
+})));
+
 const lang = computed({
-    get() { return (data.value?.lang ?? route.query.lang ?? game.locale) as Locale; },
+    get() { return (data.value?.lang ?? route.query.locale ?? game.locale) as Locale; },
     set(newValue: string) {
         const allowedVersions = versions.value.filter(v => v.lang === newValue);
 
@@ -469,12 +485,6 @@ const imageLang = computed(() => {
 
     return setInfo?.langs?.[0] ?? 'en';
 });
-
-const langInfos = computed(() => langs.value.map(l => ({
-    lang:    l,
-    exist:   versions.value.filter(v => v.set === set.value).some(v => v.lang === l),
-    current: l === lang.value,
-})));
 
 const partCount = computed(() => data.value?.card.partCount ?? 1);
 
@@ -742,7 +752,7 @@ const apiQuery = computed(() => {
 
     const query = {
         cardId:    route.params.id as string,
-        lang:      route.query.lang as Locale ?? game.locale,
+        locale:    route.query.locale as Locale ?? game.locale,
         set:       route.query.set as string,
         number:    route.query.number as string,
         partIndex: route.query.part as string ?? '0',
@@ -750,7 +760,7 @@ const apiQuery = computed(() => {
 
     return omitBy(query, v => v == null) as {
         cardId:  string;
-        lang:    Locale;
+        locale:  Locale;
         set?:    string;
         number?: string;
     };
@@ -815,7 +825,7 @@ const relationIcon = (relation: string) => ({
 watch(
     [
         () => route.params.id,
-        () => route.query.lang,
+        () => route.query.locale,
         () => route.query.set,
         () => route.query.number,
         () => route.query.part,

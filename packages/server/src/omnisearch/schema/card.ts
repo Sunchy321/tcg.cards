@@ -16,7 +16,7 @@ export const CardView = schema.materializedView('card_view').as(qb => {
     const magic = qb.select({
         game:     sql<Game>`'magic'`.as('game'),
         cardId:   MagicCardView.cardId,
-        lang:     sql<string>`${MagicCardView.lang}::TEXT`.as('lang'),
+        locale:   sql<string>`${MagicCardView.locale}::TEXT`.as('locale'),
         name:     MagicCardView.localization.name,
         typeline: MagicCardView.localization.typeline,
         text:     MagicCardView.localization.text,
@@ -26,7 +26,7 @@ export const CardView = schema.materializedView('card_view').as(qb => {
     const yugioh = qb.select({
         game:     sql<Game>`'yugioh'`.as('game'),
         cardId:   YugiohCardView.cardId,
-        lang:     sql<string>`${YugiohCardView.lang}::TEXT`.as('lang'),
+        locale:   sql<string>`${YugiohCardView.lang}::TEXT`.as('locale'),
         name:     YugiohCardView.localization.name,
         typeline: YugiohCardView.localization.typeline,
         text:     YugiohCardView.localization.text,
@@ -36,7 +36,7 @@ export const CardView = schema.materializedView('card_view').as(qb => {
     const hearthstone = qb.select({
         game:     sql<Game>`'hearthstone'`.as('game'),
         cardId:   HearthstoneCardView.cardId,
-        lang:     sql<string>`${HearthstoneCardView.lang}::TEXT`.as('lang'),
+        locale:   sql<string>`${HearthstoneCardView.lang}::TEXT`.as('locale'),
         name:     HearthstoneCardView.localization.name,
         typeline: HearthstoneTypeLocalization.text,
         text:     HearthstoneCardView.localization.text,
@@ -51,7 +51,7 @@ export const CardView = schema.materializedView('card_view').as(qb => {
     const lorcana = qb.select({
         game:     sql<Game>`'lorcana'`.as('game'),
         cardId:   LorcanaCardView.cardId,
-        lang:     sql<string>`${LorcanaCardView.lang}::TEXT`.as('lang'),
+        locale:   sql<string>`${LorcanaCardView.lang}::TEXT`.as('locale'),
         name:     LorcanaCardView.localization.name,
         typeline: LorcanaCardView.localization.typeline,
         text:     LorcanaCardView.localization.text,
