@@ -1,28 +1,31 @@
 import FileSaver from '@/common/save-file';
 import Task from '@/common/task';
-import { setIconPath } from '@/magic/image';
+
+import { RawSet } from '@model/magic/schema/data/scryfall/set';
 
 import { db } from '@/drizzle';
-import { Set as SetTable } from '../../schema/set';
-
-import { RawSet } from '@interface/magic/scryfall/set';
+import { Set, SetLocalization } from '@/magic/schema/set';
 
 import { Status } from './status';
 
 import { eq, or } from 'drizzle-orm';
 import { listOf } from './common';
 
+import { setIconPath } from '@/magic/image';
+
 import { auxSetType } from '@static/magic/special';
 
 async function mergeWith(data: RawSet) {
     await db.transaction(async tx => {
         const existing = await tx.select()
-            .from(SetTable)
-            .where(or(eq(SetTable.scryfallId, data.id), eq(SetTable.setId, data.code)))
+            .from(Set)
+            .where(or(eq(Set.scryfallId, data.id), eq(Set.setId, data.code)))
             .then(rows => rows[0]);
 
+        const setId = existing?.setId ?? data.code;
+
         if (existing == null) {
-            await tx.insert(SetTable).values({
+            await tx.insert(Set).values({
                 setId: data.code,
 
                 block:  data.block_code ?? null,
@@ -49,7 +52,7 @@ async function mergeWith(data: RawSet) {
                 tcgPlayerId: data.tcgplayer_id ?? null,
             });
         } else {
-            await tx.update(SetTable).set({
+            await tx.update(Set).set({
                 scryfallId:    data.id,
                 scryfallCode:  data.code,
                 mtgoCode:      data.mtgo_code ?? null,
@@ -62,8 +65,21 @@ async function mergeWith(data: RawSet) {
                 isDigital:     data.digital,
                 isFoilOnly:    data.foil_only,
                 isNonfoilOnly: data.nonfoil_only,
-            }).where(eq(SetTable.setId, existing.setId));
+            }).where(eq(Set.setId, existing.setId));
         }
+
+        // Merge SetLocalization
+        await tx.insert(SetLocalization).values({
+            setId,
+            lang: 'en',
+            name: data.name,
+            link: null,
+        }).onConflictDoUpdate({
+            target: [SetLocalization.setId, SetLocalization.lang],
+            set:    {
+                name: data.name,
+            },
+        });
     });
 }
 
