@@ -33,3 +33,13 @@ export const announcement = createLogger({
         }),
     ],
 });
+
+export const mtgch = createLogger({
+    level:      'info',
+    format:     format.combine(format.timestamp(), format.printf(formatter)),
+    transports: [
+        new transports.File({
+            filename: `${logPath}/magic/data/mtgch.log`,
+        }),
+    ],
+});

@@ -78,20 +78,6 @@ export const imageStatus = z.enum([
     'highres_scan',
 ]);
 
-export const language = z.enum([
-    'Chinese Simplified',
-    'Chinese Traditional',
-    'English',
-    'Japanese',
-    'Korean',
-    'French',
-    'German',
-    'Spanish',
-    'Italian',
-    'Portuguese',
-    'Russian',
-]);
-
 export const imageUris = z.strictObject({
     png:         z.url(),
     large:       z.url(),
@@ -131,128 +117,168 @@ export const relatedUris = z.strictObject({
 
 export const legalities = z.record(z.string(), legality);
 
-export const mtgchCard = z.strictObject({
-    id:                            z.uuid(),
-    face_index:                    z.number().int(),
-    lang:                          z.string(),
-    arena_id:                      z.number().int().nullable(),
-    mtgo_id:                       z.number().int().nullable(),
-    mtgo_foil_id:                  z.number().int().nullable(),
-    multiverse_id:                 z.number().int().nullable(),
-    tcgplayer_id:                  z.number().int().nullable(),
-    tcgplayer_etched_id:           z.number().int().nullable(),
-    cardmarket_id:                 z.number().int().nullable(),
-    object:                        z.literal('card'),
+// Common fields shared by both mtgchFace and mtgchCard
+const commonCardFields = {
+    // Identity and naming
+    id:         z.uuid(),
+    face_index: z.number().int(),
+    face_name:  z.string().nullable(),
+    name:       z.string(),
+    lang:       z.string(),
+
+    // Card IDs
+    arena_id:            z.number().int().nullable(),
+    mtgo_id:             z.number().int().nullable(),
+    mtgo_foil_id:        z.number().int().nullable(),
+    multiverse_id:       z.number().int().nullable(),
+    tcgplayer_id:        z.number().int().nullable(),
+    tcgplayer_etched_id: z.number().int().nullable(),
+    cardmarket_id:       z.number().int().nullable(),
+
+    // Core card data
+    object:      z.literal('card'),
     layout,
-    oracle_id:                     z.uuid(),
-    prints_search_uri:             z.url(),
-    rulings_uri:                   z.url(),
-    scryfall_uri:                  z.url(),
-    uri:                           z.url(),
-    all_parts:                     z.any().nullable(),
-    cmc:                           z.number(),
-    color_identity:                z.string().array(),
-    color_indicator:               z.string().array().nullable(),
-    colors:                        z.string().array().nullable(),
-    defense:                       z.string().nullable(),
-    edhrec_rank:                   z.number().int().nullable(),
-    game_changer:                  z.boolean(),
-    hand_modifier:                 z.string().nullable(),
-    keywords:                      z.string().array(),
+    oracle_id:   z.uuid(),
+    oracle_text: z.string().nullable(),
+    type_line:   z.string(),
+    mana_cost:   z.string(),
+    cmc:         z.number(),
+
+    // Stats
+    power:     z.string().nullable(),
+    toughness: z.string().nullable(),
+    loyalty:   z.string().nullable(),
+    defense:   z.string().nullable(),
+
+    // Colors
+    colors:          z.string().array().nullable(),
+    color_indicator: z.string().array().nullable(),
+    color_identity:  z.string().array(),
+
+    // URIs
+    prints_search_uri: z.url(),
+    rulings_uri:       z.url(),
+    scryfall_uri:      z.url(),
+    uri:               z.url(),
+
+    // Related cards
+    all_parts: z.any().nullable(),
+
+    // Game data
+    edhrec_rank:   z.number().int().nullable(),
+    game_changer:  z.boolean(),
+    hand_modifier: z.string().nullable(),
+    keywords:      z.string().array(),
     legalities,
-    life_modifier:                 z.string().nullable(),
-    loyalty:                       z.string().nullable(),
-    mana_cost:                     z.string(),
-    name:                          z.string(),
-    face_name:                     z.string().nullable(),
-    oracle_text:                   z.string().nullable(),
-    penny_rank:                    z.number().int().nullable(),
-    power:                         z.string().nullable(),
-    produced_mana:                 z.string().array().nullable(),
-    reserved:                      z.boolean(),
-    toughness:                     z.string().nullable(),
-    type_line:                     z.string(),
-    artist:                        z.string(),
-    artist_ids:                    z.uuid().array(),
-    attraction_lights:             z.number().int().array().nullable(),
-    booster:                       z.boolean(),
-    border_color:                  borderColor,
-    card_back_id:                  z.uuid(),
-    collector_number:              z.string(),
-    content_warning:               z.boolean().nullable(),
-    digital:                       z.boolean(),
-    finishes:                      finish.array(),
-    flavor_name:                   z.string().nullable(),
-    flavor_text:                   z.string().nullable(),
-    frame_effects:                 z.string().array().nullable(),
+    life_modifier: z.string().nullable(),
+    penny_rank:    z.number().int().nullable(),
+    produced_mana: z.string().array().nullable(),
+    reserved:      z.boolean(),
+
+    // Print data
+    attraction_lights: z.number().int().array().nullable(),
+    booster:           z.boolean(),
+    border_color:      borderColor,
+    card_back_id:      z.uuid().nullable(),
+    collector_number:  z.string(),
+    content_warning:   z.boolean().nullable(),
+    digital:           z.boolean(),
+    finishes:          finish.array(),
+    flavor_name:       z.string().nullable(),
+    flavor_text:       z.string().nullable(),
+    frame_effects:     z.string().array().nullable(),
     frame,
-    full_art:                      z.boolean(),
-    games:                         game.array(),
-    highres_image:                 z.boolean(),
-    illustration_id:               z.uuid().nullable(),
-    image_status:                  imageStatus,
-    image_uris:                    imageUris,
-    oversized:                     z.boolean(),
+    full_art:          z.boolean(),
+    games:             game.array(),
+    highres_image:     z.boolean(),
+    image_status:      imageStatus,
+    oversized:         z.boolean(),
     prices,
-    printed_name:                  z.string().nullable(),
-    printed_text:                  z.string().nullable(),
-    printed_type_line:             z.string().nullable(),
-    promo:                         z.boolean(),
-    promo_types:                   z.string().array().nullable(),
-    purchase_uris:                 purchaseUris.nullable(),
+    printed_name:      z.string().nullable(),
+    printed_text:      z.string().nullable(),
+    printed_type_line: z.string().nullable(),
+    promo:             z.boolean(),
+    promo_types:       z.string().array().nullable(),
+    purchase_uris:     purchaseUris.nullable(),
     rarity,
-    related_uris:                  relatedUris,
-    released_at:                   z.string(),
-    reprint:                       z.boolean(),
-    scryfall_set_uri:              z.url(),
-    set_name:                      z.string(),
-    set_search_uri:                z.url(),
-    set_type:                      z.string(),
-    set_uri:                       z.url(),
-    set:                           z.string(),
-    set_id:                        z.uuid(),
-    story_spotlight:               z.boolean(),
-    textless:                      z.boolean(),
-    variation:                     z.boolean(),
-    variation_of:                  z.uuid().nullable(),
-    security_stamp:                z.string().nullable(),
-    watermark:                     z.string().nullable(),
-    preview_previewed_at:          z.string().nullable(),
-    preview_source_uri:            z.url().nullable(),
-    preview_source:                z.string().nullable(),
-    zhs_multiverse_id:             z.number().int().nullable(),
-    zhs_name:                      z.string().nullable(),
-    zhs_face_name:                 z.string().nullable(),
-    zhs_flavor_name:               z.string().nullable(),
-    zhs_type_line:                 z.string().nullable(),
-    zhs_text:                      z.string().nullable(),
-    zhs_flavor_text:               z.string().nullable(),
-    zhs_language:                  language.nullable(),
-    zhs_image:                     z.string().nullable(),
-    zhs_extra:                     z.any().nullable(),
+    related_uris:      relatedUris,
+    released_at:       z.string(),
+    reprint:           z.boolean(),
+
+    // Set data
+    scryfall_set_uri:    z.url(),
+    set_name:            z.string(),
+    set_search_uri:      z.url(),
+    set_type:            z.string(),
+    set_uri:             z.url(),
+    set:                 z.string(),
+    set_id:              z.uuid(),
+    set_translated_name: z.string(),
+
+    // Other metadata
+    story_spotlight: z.boolean(),
+    textless:        z.boolean(),
+    variation:       z.boolean(),
+    variation_of:    z.uuid().nullable(),
+    security_stamp:  z.string().nullable(),
+    watermark:       z.string().nullable(),
+
+    // Preview
+    preview_previewed_at: z.string().nullable(),
+    preview_source_uri:   z.string().nullable(),
+    preview_source:       z.string().nullable(),
+
+    // Chinese data
+    zhs_multiverse_id: z.number().int().nullable(),
+    zhs_name:          z.string().nullable(),
+    zhs_face_name:     z.string().nullable(),
+    zhs_flavor_name:   z.string().nullable(),
+    zhs_type_line:     z.string().nullable(),
+    zhs_text:          z.string().nullable(),
+    zhs_flavor_text:   z.string().nullable(),
+    zhs_language:      z.string().nullable(),
+    zhs_image:         z.string().nullable(),
+    zhs_extra:         z.any().nullable(),
+    zhs_image_uris:    zhsImageUris.nullable(),
+
+    // Official translations
     atomic_official_name:          z.string().nullable(),
     full_official_name:            z.string().nullable(),
     atomic_translated_name:        z.string().nullable(),
     full_translated_name:          z.string().nullable(),
-    atomic_name_translated_from:   z.string().nullable(),
     atomic_translated_type:        z.string().nullable(),
     atomic_translated_text:        z.string().nullable(),
-    atomic_text_translated_from:   z.string().nullable(),
     atomic_translated_flavor_name: z.string().nullable(),
     atomic_translated_flavor_text: z.string().nullable(),
+    atomic_name_translated_from:   z.string().nullable(),
+    atomic_text_translated_from:   z.string().nullable(),
     atomic_flavor_translated_from: z.string().nullable(),
-    int_collector_number:          z.number().int(),
-    zhs_image_uris:                zhsImageUris.nullable(),
-    set_translated_name:           z.string(),
-    keyrune_code:                  z.string(),
-    is_extras:                     z.any().nullable(),
-    is_default:                    z.any().nullable(),
-    extra_fields:                  z.any().nullable(),
-    rulings:                       z.any().nullable(),
-    pinyin:                        z.string(),
-    pinyin_first_letter:           z.string(),
-    other_faces:                   z.array(z.any()),
-    is_preview:                    z.boolean(),
+
+    // Art and images
+    illustration_id: z.uuid().nullable(),
+    artist:          z.string(),
+    artist_ids:      z.uuid().array().nullable(),
+    image_uris:      imageUris.optional(),
+
+    // Internal fields
+    int_collector_number: z.number().int(),
+    keyrune_code:         z.string().nullable(),
+    is_extras:            z.any().nullable(),
+    is_default:           z.any().nullable(),
+    extra_fields:         z.any().nullable(),
+    rulings:              z.any().nullable(),
+    pinyin:               z.string(),
+    pinyin_first_letter:  z.string(),
+};
+
+// Face object (used in other_faces array, excludes other_faces and is_preview to avoid recursion)
+export const mtgchFace = z.strictObject(commonCardFields);
+
+// Card object (includes other_faces and is_preview)
+export const mtgchCard = z.strictObject({
+    ...commonCardFields,
+    other_faces: mtgchFace.array().optional(),
+    is_preview:  z.boolean(),
 });
 
 export type Legality = z.infer<typeof legality>;
@@ -263,11 +289,11 @@ export type Layout = z.infer<typeof layout>;
 export type BorderColor = z.infer<typeof borderColor>;
 export type Frame = z.infer<typeof frame>;
 export type ImageStatus = z.infer<typeof imageStatus>;
-export type Language = z.infer<typeof language>;
 export type ImageUris = z.infer<typeof imageUris>;
 export type ZhsImageUris = z.infer<typeof zhsImageUris>;
 export type Prices = z.infer<typeof prices>;
 export type PurchaseUris = z.infer<typeof purchaseUris>;
 export type RelatedUris = z.infer<typeof relatedUris>;
 export type Legalities = z.infer<typeof legalities>;
+export type MtgchFace = z.infer<typeof mtgchFace>;
 export type MtgchCard = z.infer<typeof mtgchCard>;

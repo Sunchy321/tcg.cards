@@ -240,6 +240,7 @@ const profile = os
 const editorView = os
     .input(z.object({
         cardId:    z.string(),
+        locale,
         lang:      locale,
         set:       z.string(),
         number:    z.string(),
@@ -247,12 +248,13 @@ const editorView = os
     }))
     .output(cardEditorView)
     .handler(async ({ input }) => {
-        const { cardId, lang, set, number, partIndex } = input;
+        const { cardId, locale, lang, set, number, partIndex } = input;
 
         const view = await db.select()
             .from(CardEditorView)
             .where(and(
                 eq(CardEditorView.cardId, cardId),
+                eq(CardEditorView.locale, locale),
                 eq(CardEditorView.lang, lang),
                 eq(CardEditorView.set, set),
                 eq(CardEditorView.number, number),

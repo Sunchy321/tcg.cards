@@ -1657,7 +1657,7 @@ const doUpdate = debounce(
 );
 
 const loadData = async (newPartIndex?: number) => {
-    if (id.value == null || lang.value == null || set.value == null || number.value == null || (newPartIndex ?? partIndex.value) == null) {
+    if (id.value == null || locale.value == null || lang.value == null || set.value == null || number.value == null || (newPartIndex ?? partIndex.value) == null) {
         return;
     }
 
@@ -1666,6 +1666,7 @@ const loadData = async (newPartIndex?: number) => {
 
     const view = await trpc.magic.card.editorView({
         cardId:    id.value,
+        locale:    locale.value,
         lang:      lang.value,
         set:       set.value,
         number:    number.value,
@@ -1977,9 +1978,10 @@ const getCloningSourceText = async () => {
 
     const origData = await trpc.magic.card.editorView({
         cardId:    id.value,
+        locale:    'en',
+        lang:      'en',
         set,
         number,
-        lang:      'en',
         partIndex: partIndex.value,
     });
 

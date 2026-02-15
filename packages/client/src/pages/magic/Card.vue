@@ -675,6 +675,7 @@ const editorLink = computed(() => ({
     query: {
         tab:    'Editor',
         id:     id.value,
+        locale: locale.value,
         lang:   lang.value,
         set:    set.value,
         number: number.value,
@@ -771,7 +772,7 @@ const jsonCardLink = computed(() => {
 
     url.search = new URLSearchParams({
         cardId:    id.value,
-        lang:      lang.value,
+        locale:    locale.value,
         partIndex: partIndex.value.toString(),
     }).toString();
 

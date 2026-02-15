@@ -53,9 +53,9 @@ const tableConfig = {
     },
     cardLocalization: {
         table:      CardLocalization,
-        primaryKey: pick(getTableColumns(CardLocalization), ['cardId', 'lang']),
-        check:      checkAllBinder('cardLocalization', ['cardId', 'lang']),
-        order:      [CardLocalization.cardId, CardLocalization.lang],
+        primaryKey: pick(getTableColumns(CardLocalization), ['cardId', 'locale']),
+        check:      checkAllBinder('cardLocalization', ['cardId', 'locale']),
+        order:      [CardLocalization.cardId, CardLocalization.locale],
     },
     cardPart: {
         table:      CardPart,
@@ -65,9 +65,9 @@ const tableConfig = {
     },
     cardPartLocalization: {
         table:      CardPartLocalization,
-        primaryKey: pick(getTableColumns(CardPartLocalization), ['cardId', 'partIndex', 'lang']),
-        check:      checkAllBinder('cardPartLocalization', ['cardId', 'partIndex', 'lang']),
-        order:      [CardPartLocalization.cardId, CardPartLocalization.partIndex, CardPartLocalization.lang],
+        primaryKey: pick(getTableColumns(CardPartLocalization), ['cardId', 'partIndex', 'locale']),
+        check:      checkAllBinder('cardPartLocalization', ['cardId', 'partIndex', 'locale']),
+        order:      [CardPartLocalization.cardId, CardPartLocalization.partIndex, CardPartLocalization.locale],
     },
     print: {
         table:      Print,
@@ -139,7 +139,10 @@ const getMinimal = os
         };
 
         const query = db
-            .select({ ...config.primaryKey, ...baseSelect })
+            .select({
+                ...config.primaryKey,
+                ...baseSelect,
+            })
             .from(table)
             .crossJoinLateral(sql`jsonb_array_elements(${updationsColumn}) AS u_elem`)
             .where(sql`u_elem->>'key' = ${meta.key}`)

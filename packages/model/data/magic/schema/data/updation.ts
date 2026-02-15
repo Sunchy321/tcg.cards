@@ -10,6 +10,7 @@ export const updation = z.strictObject({
     newValue: z.any().nullable(),
 
     cardId:    z.string(),
+    locale:    locale.optional(),
     partIndex: z.number().optional(),
     lang:      locale.optional(),
     set:       z.string().optional(),

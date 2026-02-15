@@ -18,6 +18,7 @@ const tabs = [
     'Scryfall',
     'Gatherer',
     'MTGJSON',
+    'Mtgch',
     'Image',
     'Editor',
     'Updation',

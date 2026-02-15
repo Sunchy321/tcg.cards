@@ -119,18 +119,14 @@ abstract class Task<T> extends EventEmitter {
     async* intoGenerator() {
         this.start();
 
+        let ended = false;
+
         while (true) {
-            const { promise, resolve, reject } = Promise.withResolvers<
-                { type: 'progress', value: T } | { type: 'end' }
-            >();
+            const { promise, resolve, reject } = Promise.withResolvers<T>();
 
-            this.once('progress', (p: T) => {
-                resolve({ type: 'progress', value: p });
-            });
+            this.once('progress', (p: T) => { resolve(p); });
 
-            this.once('end', () => {
-                resolve({ type: 'end' });
-            });
+            this.once('end', () => { ended = true; });
 
             this.once('error', (e: any) => {
                 reject(e);
@@ -138,9 +134,9 @@ abstract class Task<T> extends EventEmitter {
 
             const result = await promise;
 
-            if (result.type === 'progress') {
-                yield result.value;
-            } else {
+            yield result;
+
+            if (ended) {
                 break;
             }
         }

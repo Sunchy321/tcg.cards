@@ -13,6 +13,7 @@ export default defineConfig({
     schemaFilter: [
         'public',
         ...games,
+        ...games.map(g => `${g}_data`),
         ...games.map(g => `${g}_app`),
         'omnisearch',
     ],

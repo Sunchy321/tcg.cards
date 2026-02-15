@@ -64,6 +64,7 @@
         "card-model": "workspace:*",
         "card-search": "workspace:*",
         "cheerio": "^1.0.0-rc.3",
+        "crawlee": "^3.16.0",
         "diff": "^5.0.0",
         "dotenv": "^17.2.1",
         "drizzle-orm": "^0.44.2",

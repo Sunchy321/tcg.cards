@@ -1,7 +1,12 @@
-import { os } from '@orpc/server';
+import { eventIterator, os } from '@orpc/server';
 import z from 'zod';
 
-import { getMtgchCard } from '@/magic/data/mtgch/card';
+import {
+    getMtgchCard,
+    countMissingLocalization as countMissing,
+    type ImportProgress,
+    ImportLocalizationTask,
+} from '@/magic/data/mtgch/card';
 
 const getCard = os
     .input(z.object({
@@ -17,16 +22,45 @@ const getCard = os
     .handler(async ({ input }) => {
         const { set, number } = input;
 
-        const card = await getMtgchCard(set, number);
+        const cardData = await getMtgchCard(set, number);
+
+        if (cardData === null) {
+            throw new Error(`Card not found: ${set}/${number}`);
+        }
 
         return {
-            name:       card.zhs_name ?? card.name,
-            typeline:   card.zhs_type_line ?? card.type_line,
-            text:       card.zhs_text ?? card.oracle_text ?? '',
-            flavorText: card.zhs_flavor_text ?? card.flavor_text ?? undefined,
+            name:       cardData.zhs_name ?? cardData.name,
+            typeline:   cardData.zhs_type_line ?? cardData.type_line,
+            text:       cardData.zhs_text ?? cardData.oracle_text ?? '',
+            flavorText: cardData.zhs_flavor_text ?? cardData.flavor_text ?? undefined,
         };
+    });
+
+const countMissingLocalization = os
+    .input(z.void())
+    .output(z.object({
+        cardLocalization:     z.number(),
+        cardPartLocalization: z.number(),
+    }))
+    .handler(async () => {
+        return await countMissing();
+    });
+
+const importLocalization = os
+    .input(z.object({
+        limit: z.number().int().positive().optional(),
+    }))
+    .output(eventIterator(z.custom<ImportProgress>()))
+    .handler(async function* ({ input }) {
+        const { limit } = input;
+
+        const task = new ImportLocalizationTask(limit);
+
+        yield* task.intoGenerator();
     });
 
 export const mtgchTrpc = {
     getCard,
+    countMissingLocalization,
+    importLocalization,
 };
