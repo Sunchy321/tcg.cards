@@ -8,6 +8,11 @@ import {
     ImportLocalizationTask,
 } from '@/magic/data/mtgch/card';
 
+import {
+    type ImportAtomicProgress,
+    ImportAtomicZhsTask,
+} from '@/magic/data/mtgch/atomic-zhs';
+
 const getCard = os
     .input(z.object({
         set:    z.string(),
@@ -59,8 +64,22 @@ const importLocalization = os
         yield* task.intoGenerator();
     });
 
+const importAtomicZhs = os
+    .input(z.object({
+        limit: z.number().int().positive().optional(),
+    }))
+    .output(eventIterator(z.custom<ImportAtomicProgress>()))
+    .handler(async function* ({ input }) {
+        const { limit } = input;
+
+        const task = new ImportAtomicZhsTask(limit);
+
+        yield* task.intoGenerator();
+    });
+
 export const mtgchTrpc = {
     getCard,
     countMissingLocalization,
     importLocalization,
+    importAtomicZhs,
 };

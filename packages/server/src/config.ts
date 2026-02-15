@@ -50,5 +50,5 @@ export const { mongodb, hearthstone } = config;
 
 export const assetPath = config.asset;
 export const logPath = config.log;
-export const dataPath = config.data;
+export const dataPath = process.env.DATA_PATH!;
 export const internalDataPath = config.internalData;

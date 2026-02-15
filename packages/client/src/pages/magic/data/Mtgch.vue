@@ -47,12 +47,17 @@
 
             <q-btn
                 color="primary"
-                label="Import Localizations"
+                label="Import from MTGCH API"
                 icon="mdi-download"
                 flat dense outline
                 :loading="isImporting"
-                :disable="isImporting"
+                :disable="isImporting || isImportingAtomic"
                 @click="startImport"
+            />
+
+            <q-btn
+                color="secondary" label="Import from atomic_zhs.json" icon="mdi-file-download" flat dense outline
+                :loading="isImportingAtomic" :disable="isImporting || isImportingAtomic" @click="startImportAtomic"
             />
         </div>
 
@@ -61,7 +66,7 @@
             <q-list bordered separator>
                 <q-item v-for="(stat, index) in importStats" :key="index">
                     <q-item-section>
-                        <q-item-label>{{ stat.step === 'card' ? 'Card Localization' : 'Card Part Localization' }}</q-item-label>
+                        <q-item-label>{{ 'step' in stat ? (stat.step === 'card' ? 'Card Localization' : 'Card Part Localization') : 'Atomic ZHS Import' }}</q-item-label>
                         <q-item-label caption>
                             {{ stat.message }}
                         </q-item-label>
@@ -90,15 +95,25 @@ interface ImportProgress {
     message?: string;
 }
 
+interface ImportAtomicProgress {
+    type:     'progress' | 'complete' | 'error';
+    current:  number;
+    total:    number;
+    success:  number;
+    failed:   number;
+    message?: string;
+}
+
 const missingCount = ref({
     cardLocalization:     0,
     cardPartLocalization: 0,
 });
 
-const progress = ref<ImportProgress | null>(null);
+const progress = ref<ImportProgress | ImportAtomicProgress | null>(null);
 const importLimit = ref<number | undefined>(undefined);
 const isImporting = ref(false);
-const importStats = ref<ImportProgress[]>([]);
+const isImportingAtomic = ref(false);
+const importStats = ref<(ImportProgress | ImportAtomicProgress)[]>([]);
 
 const progressValue = computed(() => {
     const prog = progress.value;
@@ -114,7 +129,13 @@ const progressLabel = computed(() => {
     const prog = progress.value;
 
     if (prog != null) {
-        const stepLabel = prog.step === 'card' ? 'Card Localization' : 'Card Part Localization';
+        let stepLabel = 'Import';
+
+        if ('step' in prog) {
+            stepLabel = prog.step === 'card' ? 'Card Localization' : 'Card Part Localization';
+        } else {
+            stepLabel = 'Atomic ZHS Import';
+        }
 
         if (prog.type === 'error') {
             return `[${stepLabel}] Error: ${prog.message ?? 'Unknown error'}`;
@@ -161,6 +182,33 @@ const startImport = async () => {
         await loadMissingCount();
     } finally {
         isImporting.value = false;
+    }
+};
+
+const startImportAtomic = async () => {
+    if (isImportingAtomic.value) return;
+
+    isImportingAtomic.value = true;
+    importStats.value = [];
+    progress.value = null;
+
+    try {
+        const sse = await trpc.magic.data.mtgch.importAtomicZhs({
+            limit: importLimit.value,
+        });
+
+        for await (const msg of sse) {
+            progress.value = msg;
+
+            if (msg.type === 'complete' || msg.type === 'error') {
+                importStats.value.push(msg);
+            }
+        }
+
+        // Refresh count after import
+        await loadMissingCount();
+    } finally {
+        isImportingAtomic.value = false;
     }
 };
 
