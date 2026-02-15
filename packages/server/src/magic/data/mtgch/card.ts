@@ -384,9 +384,9 @@ export class ImportLocalizationTask extends Task<ImportProgress> {
                                 __lastDate: '0000-00-00',
                             });
 
-                            // Add dev:printed tag to card
+                            // Add dev:unified tag to card
                             await tx.update(Card)
-                                .set({ tags: sql`array_append(${Card.tags}, 'dev:printed')` })
+                                .set({ tags: sql`array_append(${Card.tags}, 'dev:unified')` })
                                 .where(eq(Card.cardId, card.cardId));
 
                             this.cardSuccessCount++;

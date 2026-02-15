@@ -112,6 +112,8 @@
                 </q-btn>
 
                 <div v-if="unlock" class="info flex items-center q-mx-md">
+                    <q-input v-model="locale" :class="fieldClasses.locale" style="width: 60px;" outlined dense />
+                    /
                     <q-input v-model="lang" :class="fieldClasses.lang" style="width: 60px;" outlined dense />
                     {{ `:${set},${number}` }}
                 </div>
@@ -224,6 +226,12 @@
                                 :color="devOracleColor" icon="mdi-alpha-o-circle-outline"
                                 dense flat round size="sm"
                                 @click="clickDevOracle"
+                            />
+
+                            <q-btn
+                                :color="devUnifiedColor" icon="mdi-alert-circle-outline"
+                                dense flat round size="sm"
+                                @click="clickDevUnified"
                             />
 
                             <span class="q-mx-sm">Unified</span>
@@ -627,6 +635,13 @@ const clearDevPrinted = useParam('clearDevPrinted', {
     default: false,
 });
 
+const clearDevUnified = useParam('clearDevUnified', {
+    type:    'boolean',
+    bind:    'query',
+    name:    'cu',
+    default: false,
+});
+
 const showBeforeOracle = useParam('showBeforeOracle', {
     type:    'boolean',
     bind:    'query',
@@ -726,7 +741,7 @@ const partIndex = computed({
 
 const info = computed(() => {
     if (data.value != null) {
-        return `${lang.value}, ${set.value}:${number.value}`;
+        return `${locale.value}/${lang.value}, ${set.value}:${number.value}`;
     } else {
         return '';
     }
@@ -983,6 +998,7 @@ const printTag = (name: string) => computed({
 });
 
 const devPrinted = printTag('printed');
+const devUnified = cardTag('unified');
 const devOracle = cardTag('oracle');
 const devToken = cardTag('token');
 const devCounter = cardTag('counter');
@@ -1019,6 +1035,22 @@ const devPrintedColor = computed(() => {
     }
 });
 
+const devUnifiedColor = computed(() => {
+    if (clearDevUnified.value) {
+        if (devUnified.value) {
+            return 'purple';
+        } else {
+            return 'primary';
+        }
+    } else {
+        if (devUnified.value) {
+            return 'red';
+        } else {
+            return 'grey';
+        }
+    }
+});
+
 const clickDevOracle = () => {
     if (clearDevOracle.value) {
         clearDevOracle.value = false;
@@ -1045,6 +1077,20 @@ const clickDevPrinted = () => {
     }
 
     clearDevPrinted.value = true;
+};
+
+const clickDevUnified = () => {
+    if (clearDevUnified.value) {
+        clearDevUnified.value = false;
+        return;
+    }
+
+    if (devUnified.value) {
+        devUnified.value = false;
+        return;
+    }
+
+    clearDevUnified.value = true;
 };
 
 const relatedCards = computed({
@@ -1263,6 +1309,10 @@ const defaultPrettify = () => {
 
     if (clearDevPrinted.value) {
         devPrinted.value = false;
+    }
+
+    if (clearDevUnified.value) {
+        devUnified.value = false;
     }
 };
 
@@ -1764,6 +1814,15 @@ watch(
     ([newValue, newIndex], [oldValue, oldIndex]) => {
         if (newValue === oldValue && newIndex === oldIndex) {
             devPrinted.value = false;
+        }
+    },
+);
+
+watch(
+    [data, partIndex, unifiedName, unifiedTypeline, unifiedText],
+    ([newValue, newIndex], [oldValue, oldIndex]) => {
+        if (newValue === oldValue && newIndex === oldIndex) {
+            devUnified.value = false;
         }
     },
 );

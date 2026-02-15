@@ -121,7 +121,35 @@ export const number = cs
 
 export const lang = cs
     .commands.lang
-    .apply(table => table.lang, {});
+    .handler(({ value, operator, qualifier }, { table }) => {
+        if (!qualifier.includes('!')) {
+            return or(
+                builtin.simple.call({
+                    column: table => table.locale,
+                    args:   { value, operator, qualifier },
+                    ctx:    { meta: {}, table },
+                }),
+                builtin.simple.call({
+                    column: table => table.lang,
+                    args:   { value, operator, qualifier },
+                    ctx:    { meta: {}, table },
+                }),
+            )!;
+        } else {
+            return and(
+                builtin.simple.call({
+                    column: table => table.locale,
+                    args:   { value, operator, qualifier },
+                    ctx:    { meta: {}, table },
+                }),
+                builtin.simple.call({
+                    column: table => table.lang,
+                    args:   { value, operator, qualifier },
+                    ctx:    { meta: {}, table },
+                }),
+            )!;
+        }
+    });
 
 export const manaCost = cs
     .commands.manaCost
