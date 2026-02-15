@@ -63,9 +63,9 @@ async function getLatestAtomicZhsPath(): Promise<string | null> {
 /**
  * Parse atomic_zhs.json file and build a lookup map
  * Key: oracle_id
- * Value: AtomicZhs data
+ * Value: Array of AtomicZhs data (one oracle_id can have multiple entries with different names)
  */
-async function loadAtomicZhsData(): Promise<Map<string, AtomicZhs>> {
+async function loadAtomicZhsData(): Promise<Map<string, AtomicZhs[]>> {
     const filePath = await getLatestAtomicZhsPath();
 
     if (!filePath) {
@@ -74,7 +74,7 @@ async function loadAtomicZhsData(): Promise<Map<string, AtomicZhs>> {
 
     log.info(`Loading atomic_zhs.json from: ${filePath}`);
 
-    const dataMap = new Map<string, AtomicZhs>();
+    const dataMap = new Map<string, AtomicZhs[]>();
 
     return new Promise((resolve, reject) => {
         const fileStream = createReadStream(filePath);
@@ -101,14 +101,21 @@ async function loadAtomicZhsData(): Promise<Map<string, AtomicZhs>> {
                     parsed.translated_text = normalizeText(parsed.translated_text);
                 }
 
-                dataMap.set(parsed.oracle_id, parsed);
+                // Add to array for this oracle_id
+                const existing = dataMap.get(parsed.oracle_id);
+                if (existing) {
+                    existing.push(parsed);
+                } else {
+                    dataMap.set(parsed.oracle_id, [parsed]);
+                }
             } catch (error) {
                 log.warn(`Failed to parse line ${lineCount}: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         });
 
         rl.on('close', () => {
-            log.info(`Loaded ${dataMap.size} entries from atomic_zhs.json`);
+            const totalEntries = Array.from(dataMap.values()).reduce((sum, arr) => sum + arr.length, 0);
+            log.info(`Loaded ${totalEntries} entries (${dataMap.size} unique oracle_ids) from atomic_zhs.json`);
             resolve(dataMap);
         });
 
@@ -187,7 +194,8 @@ export class ImportAtomicZhsTask extends Task<ImportAtomicProgress> {
             for (const card of cardsToProcess) {
                 let hasData = false;
                 for (const oracleId of card.scryfallOracleId) {
-                    if (atomicData.has(oracleId)) {
+                    const data = atomicData.get(oracleId);
+                    if (data && data.length > 0) {
                         hasData = true;
                         break;
                     }
@@ -203,13 +211,16 @@ export class ImportAtomicZhsTask extends Task<ImportAtomicProgress> {
 
                 try {
                     // Try to find matching data using oracle_id
-                    let zhsData: AtomicZhs | undefined;
+                    let zhsDataArray: AtomicZhs[] | undefined;
 
                     // Try each oracle_id in the array
                     for (const oracleId of card.scryfallOracleId) {
-                        zhsData = atomicData.get(oracleId);
-                        if (zhsData) break;
+                        zhsDataArray = atomicData.get(oracleId);
+                        if (zhsDataArray && zhsDataArray.length > 0) break;
                     }
+
+                    // For single-part cards, use the first entry
+                    const zhsData = zhsDataArray?.[0];
 
                     if (!zhsData) {
                         this.cardFailCount++;
@@ -224,6 +235,7 @@ export class ImportAtomicZhsTask extends Task<ImportAtomicProgress> {
                     const partsNeedingLocalization = await db
                         .select({
                             partIndex: CardPart.partIndex,
+                            name:      CardPart.name,
                         })
                         .from(CardPart)
                         .where(
@@ -285,6 +297,13 @@ export class ImportAtomicZhsTask extends Task<ImportAtomicProgress> {
                             }
                         } else {
                             // For multi-part cards, we need to match each part with atomic_zhs data
+                            // Use zhsDataArray to find matching entries by part name
+                            if (!zhsDataArray || zhsDataArray.length === 0) {
+                                this.cardFailCount++;
+                                log.warn(`No atomic_zhs data array found for multi-part card ${card.cardId}`);
+                                return;
+                            }
+
                             const partLocalizations: {
                                 partIndex: number;
                                 name:      string;
@@ -293,11 +312,12 @@ export class ImportAtomicZhsTask extends Task<ImportAtomicProgress> {
                             }[] = [];
 
                             for (const part of partsNeedingLocalization) {
-                                // Try to find atomic_zhs data for each oracle_id
+                                // Find matching data by part name from the oracle_id array
                                 let partZhsData: AtomicZhs | undefined;
-                                for (const oracleId of card.scryfallOracleId) {
-                                    partZhsData = atomicData.get(oracleId);
-                                    if (partZhsData) break;
+
+                                if (zhsDataArray) {
+                                    // Find entry with matching name
+                                    partZhsData = zhsDataArray.find(data => data.name === part.name);
                                 }
 
                                 if (partZhsData) {
