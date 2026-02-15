@@ -247,9 +247,9 @@ export class ImportAtomicZhsTask extends Task<ImportAtomicProgress> {
                     await db.transaction(async tx => {
                         // For single-part cards
                         if (card.partCount === 1) {
-                            const zhsName = zhsData.official_name ?? zhsData.translated_name ?? zhsData.name;
+                            const zhsName = zhsData.translated_name ?? zhsData.official_name ?? zhsData.name;
                             const zhsTypeline = zhsData.translated_type ?? zhsData.type_line;
-                            const zhsText = zhsData.official_text ?? zhsData.translated_text ?? zhsData.oracle_text;
+                            const zhsText = zhsData.translated_text ?? zhsData.official_text ?? zhsData.oracle_text;
 
                             // Insert CardLocalization
                             await tx.insert(CardLocalization).values({
