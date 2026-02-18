@@ -470,7 +470,7 @@ const lang = computed({
     },
 });
 
-const langWithMode = computed(() => (textMode.value === 'oracle' ? 'en' : lang.value));
+const langWithMode = computed(() => (textMode.value === 'oracle' ? 'en' : textMode.value === 'unified' ? locale.value : lang.value));
 
 const imageLang = computed(() => {
     if (data.value == null) {

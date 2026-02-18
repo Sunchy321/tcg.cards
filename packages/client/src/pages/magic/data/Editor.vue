@@ -26,7 +26,7 @@
             <div class="q-mb-md flex items-center">
                 <q-input v-model="search" class="search col-grow" outlined dense @keypress.enter="doSearch">
                     <template #prepend>
-                        <q-select v-model="groupBy" class="q-mr-md" :options="['print', 'lang', 'card']" outlined dense />
+                        <q-select v-model="groupBy" class="q-mr-md" :options="['print', 'locale', 'card']" outlined dense />
                     </template>
 
                     <template #append>
@@ -429,6 +429,8 @@ import {
 import { copyToClipboard } from 'quasar';
 
 import { parenRegex, commaRegex } from '@static/magic/special';
+import withComma from '@data/magic/special/with-comma.yml';
+import withParen from '@data/magic/special/with-paren.yml';
 
 import { trpc } from 'src/trpc';
 
@@ -440,9 +442,10 @@ type CardGroup = {
 
 type History = {
     id:     string;
+    locale: Locale;
     set:    string;
     number: string;
-    lang:   string;
+    lang:   Locale;
 };
 
 const colorMap: Record<string, string> = {
@@ -575,8 +578,8 @@ const groupBy = useParam('filterBy', {
     type:    'enum',
     bind:    'query',
     name:    'fb',
-    values:  ['none', 'lang', 'card'],
-    default: 'none',
+    values:  ['print', 'locale', 'card'],
+    default: 'print',
 });
 
 const forcePrettify = useParam('forcePrettify', {
@@ -1213,7 +1216,7 @@ const defaultTypelinePrettifier = (typeline: string, lang: string) => {
 };
 
 const defaultTextPrettifier = (text: string, lang: string, name: string) => {
-    text = text.replace(/~~/g, name);
+    text = text.replace(/~~~/g, name);
 
     if (lang === 'zhs' || lang === 'zht') {
         text = text.replace(/~/g, '～').replace(/\/\//g, '／').trim();
@@ -1422,14 +1425,14 @@ const prettify = () => {
             .replace(/\$(\d)/g, (_, num) => captures[Number.parseInt(num, 10) - 1]);
 
         if (replaceUnified.value) {
-            const fromRegex = new RegExp(replaceFrom.value.replace(/~~/g, escapeRegExp(unifiedName.value)), 'ugm');
+            const fromRegex = new RegExp(replaceFrom.value.replace(/~~~/g, escapeRegExp(unifiedName.value)), 'ugm');
 
             unifiedText.value = unifiedText.value!.replace(fromRegex, toReplacer);
             unifiedTypeline.value = unifiedTypeline.value.replace(fromTypelineRegex, toReplacer);
         }
 
         if (replacePrinted.value) {
-            const fromRegex = new RegExp(replaceFrom.value.replace(/~~/g, escapeRegExp(flavorName.value ?? printedName.value)), 'ugm');
+            const fromRegex = new RegExp(replaceFrom.value.replace(/~~~/g, escapeRegExp(flavorName.value ?? printedName.value)), 'ugm');
 
             printedText.value = printedText.value!.replace(fromRegex, toReplacer);
             printedTypeline.value = printedTypeline.value.replace(fromTypelineRegex, toReplacer);
@@ -1438,10 +1441,12 @@ const prettify = () => {
 
     defaultPrettify();
 
-    unifiedText.value = unifiedText.value!
-        .replace(new RegExp(parenRegex.source, 'g'), '').trim();
+    if (!withParen.includes(id.value)) {
+        unifiedText.value = unifiedText.value!
+            .replace(new RegExp(parenRegex.source, 'g'), '').trim();
+    }
 
-    if (separateKeyword.value) {
+    if (separateKeyword.value && !withComma.includes(id.value)) {
         unifiedText.value = unifiedText.value.replace(
             new RegExp(commaRegex.source, 'mg'),
             l => l.split(/[,，、;；] */g).map(v => upperFirst(v)).join('\n'),
@@ -1692,6 +1697,7 @@ const doUpdate = debounce(
 
         history.value.unshift({
             id:     id.value,
+            locale: locale.value,
             set:    set.value,
             number: number.value,
             lang:   lang.value,

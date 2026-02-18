@@ -101,13 +101,15 @@ export const dev = as
 
         const groupByColumn = groupBy === 'card'
             ? [CardEditorView.cardId]
-            : groupBy === 'lang'
-                ? [CardEditorView.cardId, CardEditorView.set, CardEditorView.number]
+            : groupBy === 'locale'
+                ? [CardEditorView.cardId, CardEditorView.locale]
                 : [CardEditorView.cardId, CardEditorView.set, CardEditorView.number, CardEditorView.lang];
 
         const groupByCount = groupBy === 'card'
             ? sql`count(distinct card_id)`.as('count')
-            : sql`count(distinct (card_id, set, number, lang))`.as('count');
+            : groupBy === 'locale'
+                ? sql`count(distinct (card_id, locale))`.as('count')
+                : sql`count(distinct (card_id, set, number, lang))`.as('count');
 
         const orderByAction = post.find(p => p.phase === 'order-by')?.action
           ?? order.call({ operator: ':', qualifier: [], value: 'date-' }, { meta: {}, table: CardEditorView });

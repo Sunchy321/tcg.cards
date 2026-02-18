@@ -8,6 +8,7 @@ import { QueryError } from '@search/command/error';
 import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, SQL, sql } from 'drizzle-orm';
 
 import { toIdentifier } from '@common/util/id';
+import internalData from '@/internal-data';
 
 import { model } from '@model/magic/search';
 import { CardEditorView, CardPrintView } from '../schema/print';
@@ -97,6 +98,26 @@ export const hash = cs
     .commands.hash
     .handler(({ value, pattern, qualifier }, { table }) => {
         const tag = pattern?.tag ?? value;
+
+        if (tag === 'with-comma') {
+            const withComma = internalData<string[]>('magic.special.with-comma');
+
+            if (!qualifier.includes('!')) {
+                return inArray(table.cardId, withComma);
+            } else {
+                return notInArray(table.cardId, withComma);
+            }
+        }
+
+        if (tag === 'with-paren') {
+            const withParen = internalData<string[]>('magic.special.with-paren');
+
+            if (!qualifier.includes('!')) {
+                return inArray(table.cardId, withParen);
+            } else {
+                return notInArray(table.cardId, withParen);
+            }
+        }
 
         if (!qualifier.includes('!')) {
             return or(
@@ -499,6 +520,36 @@ export const order = cs
             case 'mv':
             case 'cost':
                 sorter.push(func(table.card.manaValue));
+                break;
+            case 'color':
+                // Sort by color: colorless non-land non-artifact -> WUBRG monocolor -> multicolor -> artifact -> land
+                // Count the number of '1' bits in the color field to determine color count
+                sorter.push(func(sql`(
+                    CASE
+                        -- Land (priority 5)
+                        WHEN 'Land' = ANY(${table.cardPart.typeMain}) THEN 5
+                        -- Artifact (priority 4)
+                        WHEN 'Artifact' = ANY(${table.cardPart.typeMain}) THEN 4
+                        -- Multicolor (priority 3): more than one '1' bit
+                        WHEN length(replace(${table.cardPart.color}::text, '0', '')) > 1 THEN 3
+                        -- Monocolor (priority 2): exactly one '1' bit
+                        WHEN length(replace(${table.cardPart.color}::text, '0', '')) = 1 THEN 2
+                        -- Colorless non-land non-artifact (priority 1)
+                        ELSE 1
+                    END
+                )`));
+                // For monocolor cards, sort by WUBRG order
+                // W=bit 0, U=bit 1, B=bit 2, R=bit 3, G=bit 4
+                sorter.push(func(sql`(
+                    CASE
+                        WHEN substring(${table.cardPart.color}::text, 1, 1) = '1' THEN 1  -- W
+                        WHEN substring(${table.cardPart.color}::text, 2, 1) = '1' THEN 2  -- U
+                        WHEN substring(${table.cardPart.color}::text, 3, 1) = '1' THEN 3  -- B
+                        WHEN substring(${table.cardPart.color}::text, 4, 1) = '1' THEN 4  -- R
+                        WHEN substring(${table.cardPart.color}::text, 5, 1) = '1' THEN 5  -- G
+                        ELSE 6
+                    END
+                )`));
                 break;
             default:
                 throw new QueryError({ type: 'invalid-query' });

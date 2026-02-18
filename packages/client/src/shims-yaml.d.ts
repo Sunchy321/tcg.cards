@@ -16,6 +16,11 @@ declare module '@data/magic/keyword.yml' {
     export default data;
 }
 
+declare module '@data/magic/special/*.yml' {
+    const data: string[];
+    export default data;
+}
+
 declare module '@data/magic/localization/keyword/*.yml' {
     const data: Record<string, string>;
     export default data;

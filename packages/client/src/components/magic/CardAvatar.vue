@@ -16,13 +16,12 @@ import CardImage from './CardImage.vue';
 
 import { CardProfile } from '@model/magic/schema/card';
 
-import { pick } from 'lodash';
-
 import { locale as localeModel } from '@model/magic/schema/basic';
 
 import { trpc } from 'src/trpc';
 
 type Version = {
+    locale:  string;
     set?:    string;
     number?: string;
     lang:    string;
@@ -61,7 +60,7 @@ const locales = localeModel.options;
 
 const locale = computed(() => {
     if (props.useLang && props.version != null) {
-        return props.version.lang;
+        return props.version.locale;
     } else {
         return game.locale;
     }
@@ -71,7 +70,8 @@ const link = computed(() => router.resolve({
     name:   'magic/card',
     params: { id: props.id },
     query:  {
-        locale: props.version?.lang,
+        locale: props.version?.locale,
+        lang:   props.version?.lang,
         set:    props.version?.set,
         number: props.version?.number,
         ...props.part != null ? { part: props.part } : {},
