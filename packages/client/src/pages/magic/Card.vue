@@ -972,10 +972,10 @@ onBeforeRouteLeave((to, from, next) => {
         font-size: 110%
         font-style: normal
 
-    &:deep(.emph)
+    &:deep(em)
         font-style: normal
 
-    &[lang="zhs"]:deep(.emph), &[lang="zht"]:deep(.emph)
+    &[lang="zhs"]:deep(em), &[lang="zht"]:deep(em)
         font-family: initial
         font-size: initial
 

@@ -12,7 +12,7 @@
         >
             <rule-serial :item-id="c.itemId" :serial="c.serial" />
 
-            <rich-text detect-cr>{{ c.richText }}</rich-text>
+            <rich-text inline detect-cr>{{ c.richText }}</rich-text>
 
             <div class="cr-tool flex items-center">
                 <q-btn icon="mdi-content-copy" size="sm" flat dense round @click="copyItem(c)" />
