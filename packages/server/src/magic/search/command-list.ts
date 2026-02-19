@@ -13,6 +13,8 @@ import internalData from '@/internal-data';
 import { model } from '@model/magic/search';
 import { CardEditorView, CardPrintView } from '../schema/print';
 
+import { commaRegex, parenRegex } from '@static/magic/special';
+
 const cs = create
     .with(model)
     .table([CardPrintView, CardEditorView])
@@ -99,23 +101,39 @@ export const hash = cs
     .handler(({ value, pattern, qualifier }, { table }) => {
         const tag = pattern?.tag ?? value;
 
-        if (tag === 'with-comma') {
-            const withComma = internalData<string[]>('magic.special.with-comma');
-
-            if (!qualifier.includes('!')) {
-                return inArray(table.cardId, withComma);
-            } else {
-                return notInArray(table.cardId, withComma);
-            }
-        }
-
-        if (tag === 'with-paren') {
+        if (tag === 'dev:paren') {
             const withParen = internalData<string[]>('magic.special.with-paren');
 
             if (!qualifier.includes('!')) {
-                return inArray(table.cardId, withParen);
+                return and(
+                    notInArray(table.cardId, withParen),
+                    sql`regexp_like(${table.cardPartLocalization.text}, ${parenRegex.source})`,
+                    sql`not(${table.cardPart.typeMain} && ARRAY['dungeon', 'card'])`,
+                )!;
             } else {
-                return notInArray(table.cardId, withParen);
+                return or(
+                    inArray(table.cardId, withParen),
+                    sql`not regexp_like(${table.cardPartLocalization.text}, ${parenRegex.source})`,
+                    sql`${table.cardPart.typeMain} && ARRAY['dungeon', 'card']`,
+                )!;
+            }
+        }
+
+        if (tag === 'dev:keyword') {
+            const withComma = internalData<string[]>('magic.special.with-comma');
+
+            if (!qualifier.includes('!')) {
+                return and(
+                    notInArray(table.cardId, withComma),
+                    sql`regexp_like(${table.cardPartLocalization.text}, ${commaRegex.source}, 'm')`,
+                    sql`not(${table.cardPart.typeMain} && ARRAY['dungeon', 'stickers', 'card'])`,
+                )!;
+            } else {
+                return or(
+                    inArray(table.cardId, withComma),
+                    sql`not regexp_like(${table.cardPartLocalization.text}, ${commaRegex.source}, 'm')`,
+                    sql`${table.cardPart.typeMain} && ARRAY['dungeon', 'stickers', 'card']`,
+                )!;
             }
         }
 

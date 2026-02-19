@@ -2,12 +2,12 @@ import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
 import _ from 'lodash';
-import { and, asc, desc, eq, getTableColumns, like, not, notInArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 
-import { formats as formatList, Locale, locale } from '@model/magic/schema/basic';
+import { formats as formatList, locale } from '@model/magic/schema/basic';
 import { cardProfile, cardView } from '@model/magic/schema/card';
 import {
-    CardEditorView as ICardEditorView, cardEditorView,
+    cardEditorView,
     cardFullView,
     CardPrintView as ICardPrintView,
 } from '@model/magic/schema/print';
@@ -28,10 +28,7 @@ import { createQwen } from 'qwen-ai-provider-v5';
 
 import { getLegality as getLegalityAction, getLegalityRules, LegalityRecorder, lookupPrintsForLegality } from '../banlist/legality';
 
-import internalData from '@/internal-data';
 import { intoRichText } from '../util';
-
-import { commaRegex, parenRegex } from '@static/magic/special';
 
 const random = os
     .route({
@@ -273,89 +270,6 @@ const editorView = os
             ...view,
             relatedCards,
         };
-    });
-
-const paren = (lang: Locale | undefined, select: any) => {
-    return db.selectDistinctOn([CardEditorView.cardId, CardEditorView.lang], select)
-        .from(CardEditorView)
-        .where(and(
-            notInArray(CardEditorView.cardId, internalData<string[]>('magic.special.with-paren')),
-            sql`regexp_like(${CardEditorView.cardPartLocalization.text}, ${parenRegex.source})`,
-            sql`not(${CardEditorView.cardPart.typeMain} && ARRAY['dungeon', 'card'])`,
-            ...lang != null ? [eq(CardEditorView.lang, lang)] : [],
-        ))
-        .orderBy(CardEditorView.cardId, CardEditorView.lang, desc(CardEditorView.print.releaseDate));
-};
-
-const keyword = (lang: Locale | undefined, select: any) => {
-    return db.selectDistinctOn([CardEditorView.cardId, CardEditorView.lang], select)
-        .from(CardEditorView)
-        .where(and(
-            notInArray(CardEditorView.cardId, internalData<string[]>('magic.special.with-comma')),
-            sql`regexp_like(${CardEditorView.cardPartLocalization.text}, ${commaRegex.source}, 'm')`,
-            sql`not(${CardEditorView.cardPart.typeMain} && ARRAY['dungeon', 'stickers', 'card'])`,
-            ...lang != null ? [eq(CardEditorView.lang, lang)] : [],
-        ))
-        .orderBy(CardEditorView.cardId, CardEditorView.lang, desc(CardEditorView.print.releaseDate));
-};
-
-const token = (_lang: Locale | undefined, select: any) => {
-    return db.select(select)
-        .from(CardEditorView)
-        .where(and(
-            not(like(CardEditorView.cardId, '%!%')),
-            sql`${CardEditorView.cardPart.typeSuper} && ARRAY['token']`,
-        ));
-};
-
-const needEditGetters: Record<'paren' | 'keyword' | 'token', (lang?: Locale, select?: any) => ReturnType<typeof paren>> = {
-    paren,
-    keyword,
-    token,
-};
-
-const needEdit = os
-    .input(z.object({
-        method: z.enum(['paren', 'keyword', 'token']),
-        lang:   locale.optional(),
-        sample: z.number().min(1).max(100).default(50),
-    }))
-    .output(z.object({
-        method: z.string(),
-        result: cardEditorView.array(),
-        total:  z.int().min(0),
-    }))
-    .handler(async ({ input }) => {
-        const startTime = Date.now();
-        const { method, lang, sample } = input;
-
-        const getter = needEditGetters[method];
-
-        if (getter == null) {
-            throw new ORPCError('INVALID_ARGUMENT');
-        }
-
-        const subquery = getter(lang).as('subquery');
-
-        const result = await db.select()
-            .from(subquery)
-            .orderBy(desc(sql`release_date`))
-            .limit(sample) as ICardEditorView[];
-
-        const resultTime = Date.now();
-        console.log(`needEdit [${method}] - result fetched: ${resultTime - startTime}ms`);
-
-        const totalResult = await db.select({ count: sql<number>`count(*)`.as('count') })
-            .from(subquery);
-
-        const total = Number(totalResult[0]?.count ?? 0);
-
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-
-        console.log(`needEdit [${method}] - total: ${total}, duration: ${duration}ms`);
-
-        return { method, result, total };
     });
 
 const update = os
@@ -640,7 +554,6 @@ export const cardTrpc = {
     fuzzy,
     profile,
     editorView,
-    needEdit,
     update,
     getLegality,
     extractRulingCards,

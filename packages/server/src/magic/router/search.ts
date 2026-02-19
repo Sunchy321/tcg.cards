@@ -41,7 +41,7 @@ const dev = os
         sample:  z.number().min(1).max(100).default(50),
         groupBy: z.enum(['card', 'locale', 'print']).default('print'),
     }))
-    .output(devSearchResult.extend({ method: z.string() }))
+    .output(devSearchResult.extend({ q: z.string() }))
     .handler(async ({ input }) => {
         const { q, pageSize, groupBy } = input;
 
@@ -51,10 +51,7 @@ const dev = os
             groupBy,
         });
 
-        return {
-            method: `search:${q}`,
-            ...result,
-        };
+        return { q, ...result };
     });
 
 export const searchTrpc = {

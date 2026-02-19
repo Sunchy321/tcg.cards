@@ -39,12 +39,33 @@
                 </q-input>
             </div>
             <div class="q-mb-md flex items-center">
-                <q-select v-model="selectedLocale" class="q-mr-md" :options="locales" outlined dense />
+                <q-icon
+                    class="q-mr-md"
+                    :name="inDatabase ? 'mdi-database-check' : 'mdi-database-remove'"
+                    :color="inDatabase ? undefined : 'red'"
+                    size="sm"
+                />
 
-                <q-btn-group outline>
-                    <q-btn outline label="paren" @click="loadGroup('paren')" />
-                    <q-btn outline label="keyword" @click="loadGroup('keyword')" />
-                </q-btn-group>
+                <q-input
+                    v-if="unlock"
+                    v-model="id"
+                    :class="fieldClasses.cardId"
+                    class="id code"
+                    style="width: 200px;"
+                    dense outlined
+                />
+
+                <q-btn
+                    v-else
+                    icon="mdi-identifier"
+                    :color="id == null ? 'red' : undefined"
+                    flat round dense
+                    @click="copyToClipboard(id)"
+                >
+                    <q-tooltip>{{ id }}</q-tooltip>
+                </q-btn>
+
+                <span v-if="dataGroup != null" class="q-ml-md">{{ `${total} (${loaded})` }}</span>
 
                 <q-space />
 
@@ -85,40 +106,14 @@
             </div>
 
             <div class="id-line flex items-center">
-                <q-icon
-                    class="q-mr-md"
-                    :name="inDatabase ? 'mdi-database-check' : 'mdi-database-remove'"
-                    :color="inDatabase ? undefined : 'red'"
-                    size="sm"
-                />
-
-                <q-input
-                    v-if="unlock"
-                    v-model="id"
-                    :class="fieldClasses.cardId"
-                    class="id code"
-                    style="width: 200px;"
-                    dense outlined
-                />
-
-                <q-btn
-                    v-else
-                    icon="mdi-identifier"
-                    :color="id == null ? 'red' : undefined"
-                    flat round dense
-                    @click="copyToClipboard(id)"
-                >
-                    <q-tooltip>{{ id }}</q-tooltip>
-                </q-btn>
-
-                <div v-if="unlock" class="info flex items-center q-mx-md">
+                <div v-if="unlock" class="info flex items-center q-mr-md">
                     <q-input v-model="locale" :class="fieldClasses.locale" style="width: 60px;" outlined dense />
                     /
                     <q-input v-model="lang" :class="fieldClasses.lang" style="width: 60px;" outlined dense />
                     {{ `:${set},${number}` }}
                 </div>
 
-                <div v-else class="info q-mx-md">{{ info }}</div>
+                <div v-else class="info q-mr-md">{{ info }}</div>
 
                 <q-select v-model="layout" :class="fieldClasses['card.layout']" class="q-mr-md" :options="layoutOptions" outlined dense />
 
@@ -135,8 +130,6 @@
                 />
 
                 <div>{{ releaseDate }}</div>
-
-                <span v-if="dataGroup != null" class="q-ml-md">{{ `${total} (${loaded})` }}</span>
 
                 <q-space />
 
@@ -382,7 +375,6 @@
                 <q-input
                     v-model="relatedCardsString"
                     class="col" debounce="500"
-                    :disable="dataGroup?.method != null && !dataGroup.method.startsWith('search:')"
                     label="Related Cards"
                     outlined dense
                 >
@@ -434,8 +426,8 @@ import withParen from '@data/magic/special/with-paren.yml';
 
 import { trpc } from 'src/trpc';
 
-type CardGroup = {
-    method: string;
+type SearchResult = {
+    q:      string;
     result: CardEditorView[];
     total:  number;
 };
@@ -533,7 +525,7 @@ const game = useGame();
 
 const data = ref<CardEditorView>();
 const originalData = ref<CardEditorView>();
-const dataGroup = ref<CardGroup>();
+const dataGroup = ref<SearchResult>();
 const history = ref<History[]>([]);
 const unlock = ref(false);
 
@@ -557,15 +549,6 @@ const remoteBtns = computed(() => [
     getMtgchFlavorBtn.value,
     saveGathererImageBtn.value,
 ].filter(Boolean));
-
-const locales = ['', ...localeEnum.options];
-
-const selectedLocale = useParam('locale', {
-    type:    'enum',
-    bind:    'query',
-    values:  locales,
-    default: '',
-});
 
 const sample = useParam('sample', {
     type:    'boolean',
@@ -1748,14 +1731,14 @@ watch(
     { immediate: true },
 );
 
-const loadGroup = async (method: string, skip = false) => {
+const loadGroup = async (q: string, skip = false) => {
     if (data.value != null && !skip) {
         await doUpdate();
 
         await (async (time: number) => new Promise(resolve => { setTimeout(resolve, time); }))(100);
     }
 
-    if (dataGroup.value != null && dataGroup.value.method === method && dataGroup.value.result.length > 0) {
+    if (dataGroup.value != null && dataGroup.value.q === q && dataGroup.value.result.length > 0) {
         data.value = dataGroup.value.result.shift();
         dataGroup.value.total -= 1;
         return;
@@ -1763,28 +1746,20 @@ const loadGroup = async (method: string, skip = false) => {
 
     const sampleValue = sample.value ? 50 : 1;
 
-    const result: CardGroup = await (async () => {
-        if (method.startsWith('search:')) {
-            const search = await trpc.magic.search.dev({
-                q:        method.slice(7),
-                pageSize: sampleValue,
-                groupBy:  groupBy.value as any,
-            });
+    const result: SearchResult = await (async () => {
+        const search = await trpc.magic.search.dev({
+            q,
+            pageSize: sampleValue,
+            groupBy:  groupBy.value as any,
+        });
 
-            if (search.result != null) {
-                return {
-                    method: search.method,
-                    ...search.result,
-                };
-            } else {
-                throw new Error('Search failed');
-            }
+        if (search.result != null) {
+            return {
+                q: search.q,
+                ...search.result,
+            };
         } else {
-            return await trpc.magic.card.needEdit({
-                method: method as any,
-                lang:   selectedLocale.value === '' ? undefined : selectedLocale.value as Locale,
-                sample: sampleValue,
-            });
+            throw new Error('Search failed');
         }
     })();
 
@@ -1797,14 +1772,14 @@ const loadGroup = async (method: string, skip = false) => {
     }
 };
 
-watch([sample, selectedLocale, groupBy], () => { dataGroup.value = undefined; });
+watch([sample, groupBy], () => { dataGroup.value = undefined; });
 
 const doSearch = async () => {
     if (search.value === '') {
         return;
     }
 
-    loadGroup(`search:${search.value}`);
+    loadGroup(search.value);
 };
 
 const skipCurrent = async () => {
@@ -1812,7 +1787,7 @@ const skipCurrent = async () => {
         return;
     }
 
-    loadGroup(dataGroup.value.method, true);
+    loadGroup(dataGroup.value.q, true);
 };
 
 watch(

@@ -69,4 +69,4 @@ export const commaSuffixBlacklist = [
 ];
 
 export const parenRegex = new RegExp(`(?<!${parenPrefixBlacklist.join('|')}) *[(（](?!-|(${parenBlacklist.join('|')})[)）])([^（()）]+|[^（()）]+[(（][^（()）]+[)）][^（()）]+)[)）](?!-) *`);
-export const commaRegex = new RegExp(`^(?!${commaBlacklist.join('|')}).+[,，、;；].+[^\\],，.。—～:"“»'」)!！?？］〕](?<!${commaSuffixBlacklist.join('|')})$`, 'm');
+export const commaRegex = new RegExp(`^(?!${commaBlacklist.join('|')}).+[,，、;；].+[^\\],，.。—～:："“»'」)!！?？］〕](?<!${commaSuffixBlacklist.join('|')})$`, 'm');
