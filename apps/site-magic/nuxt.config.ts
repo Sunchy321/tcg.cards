@@ -24,20 +24,6 @@ export default defineNuxtConfig({
     }
   },
 
-  vite: {
-    server: {
-      warmup: {
-        clientFiles: ['./app/**/*.vue']
-      }
-    },
-    optimizeDeps: {
-      include: [
-        '@iconify-json/lucide',
-        '@iconify-json/simple-icons'
-      ]
-    }
-  },
-
   eslint: {
     config: {
       stylistic: {
