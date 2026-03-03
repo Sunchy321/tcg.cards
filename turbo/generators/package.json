@@ -1,0 +1,15 @@
+{
+  "type": "commonjs",
+  "name": "generators",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.3.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@turbo/gen": "^2.8.12"
+  }
+}
