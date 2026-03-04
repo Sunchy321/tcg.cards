@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: 'entry'
+  layout: 'entry',
 });
 
 const title = useTitle();
