@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'url';
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   extends: ['../../packages/ui'],
@@ -7,6 +9,12 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   css: ['~/assets/css/main.css'],
+
+  alias: {
+    '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
+    '#schema': fileURLToPath(new URL('./server/db/schema', import.meta.url)),
+    '#search': fileURLToPath(new URL('./search', import.meta.url)),
+  },
 
   routeRules: {
     '/': { prerender: true },

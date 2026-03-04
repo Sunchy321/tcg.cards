@@ -50,6 +50,19 @@
       </template> -->
 
     <template #right>
+      <div v-if="actions.length > 0" class="flex gap-2">
+        <UButton
+          v-for="action in actions"
+          :key="action.id"
+          :icon="action.icon"
+          :disabled="action.disabled"
+          variant="ghost"
+          size="xl"
+          class="rounded-full size-10 text-white hover:bg-white/20 border border-white/20 flex items-center justify-center"
+          @click="action.handler()"
+        />
+      </div>
+
       <UColorModeButton />
     </template>
   </UHeader>
@@ -58,10 +71,13 @@
 <script setup lang="ts">
 const route = useRoute();
 const title = useTitle();
+const { getActions } = useActions();
 
 const searchInput = useSearchInput();
 
 const params = [] as any[];
+
+const actions = getActions();
 
 const commitSearch = () => {
 

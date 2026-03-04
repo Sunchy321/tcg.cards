@@ -19,6 +19,10 @@ export default defineConfig([
       '@stylistic/arrow-parens': ['warn', 'as-needed'],
       '@stylistic/semi': ['warn', 'always'],
 
+      '@stylistic/brace-style': ['warn', '1tbs', {
+        allowSingleLine: true,
+      }],
+
       '@stylistic/comma-dangle': ['warn', {
         arrays:    'always-multiline',
         objects:   'always-multiline',
@@ -31,6 +35,10 @@ export default defineConfig([
         beforeColon: false,
         afterColon:  true,
         align:       'value',
+      }],
+
+      '@stylistic/indent': ['warn', 2, {
+        SwitchCase: 0,
       }],
 
       '@stylistic/member-delimiter-style': ['warn', {

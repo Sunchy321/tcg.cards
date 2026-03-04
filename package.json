@@ -9,6 +9,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "postinstall": "turbo run postinstall",
     "gen": "sh -c 'turbo gen new-site --args \"$1\" && bun install' sh"
   },
   "devDependencies": {

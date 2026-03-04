@@ -339,7 +339,7 @@
 <script setup lang="ts">
 import { locale as localeSchema, formats } from '#model/magic/schema/basic';
 
-import _ from 'lodash';
+import _ from 'lodash-es';
 
 const { $orpc } = useNuxtApp();
 const route = useRoute('magic-card-id');
@@ -347,15 +347,15 @@ const router = useRouter();
 const gameLocale = useGameLocale('magic');
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 const { setActions } = useActions();
-const { randomAction } = useMagicActions();
+const actions = useMagicActions();
 
 definePageMeta({
   layout:    'main',
   titleType: 'input',
-  actions:   [{ id: 'random', icon: 'lucide:shuffle' }],
+  actions:   [getActionDef(actions.random)],
 });
 
-setActions([randomAction]);
+setActions([actions.random]);
 
 const query = computed(() => {
   const q = {
@@ -413,31 +413,32 @@ const partCount = computed(() => data.value?.card.partCount ?? 1);
 
 const partIcon = computed(() => {
   switch (layout.value) {
-  case 'flip':
-  case 'split':
-  case 'aftermath':
-  case 'split_arena':
-    return {
-      src:   `/magic/part-icon/${layout.value}.svg`,
-      class: partIndex.value === 1 ? 'rotate-180' : '',
-    };
-  case 'transform':
-  case 'transform_token':
-    return { src: `/magic/part-icon/transform-${partIndex.value}.svg`, class: '' };
-  case 'modal_dfc':
-  case 'adventure':
-    return { src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`, class: '' };
-  case 'multipart':
-    return { src: '/magic/part-icon/multipart.svg', class: '' };
-  default:
-    return null;
+    case 'flip':
+    case 'split':
+    case 'aftermath':
+    case 'split_arena':
+      return {
+        src:   `/magic/part-icon/${layout.value}.svg`,
+        class: partIndex.value === 1 ? 'rotate-180' : '',
+      };
+    case 'transform':
+    case 'transform_token':
+      return { src: `/magic/part-icon/transform-${partIndex.value}.svg`, class: '' };
+    case 'modal_dfc':
+    case 'adventure':
+      return { src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`, class: '' };
+    case 'multipart':
+      return { src: '/magic/part-icon/multipart.svg', class: '' };
+    default:
+      return null;
   }
 });
 
 const switchPart = () => {
   if (partIndex.value === partCount.value - 1) {
     partIndex.value = 0;
-  } else {
+  }
+  else {
     partIndex.value += 1;
   }
 };
@@ -711,9 +712,9 @@ const specialEffect = computed<'capital_offense' | 'viscera_seer' | null>(() => 
 useHead(computed(() => ({
   style: specialEffect.value === 'capital_offense'
     ? [{
-      id:        'capital-offense-style',
-      innerHTML: '* { text-transform: lowercase !important; } .magic-symbol { text-transform: none !important; }',
-    }]
+        id:        'capital-offense-style',
+        innerHTML: '* { text-transform: lowercase !important; } .magic-symbol { text-transform: none !important; }',
+      }]
     : [],
 })));
 

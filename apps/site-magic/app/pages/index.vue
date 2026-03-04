@@ -3,8 +3,13 @@
 </template>
 
 <script setup lang="ts">
+const actions = useMagicActions();
+
 definePageMeta({
-  layout: 'entry',
+  layout:  'entry',
+  actions: [
+    getActionDef(actions.random),
+  ],
 });
 
 const title = useTitle();

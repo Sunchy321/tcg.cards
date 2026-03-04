@@ -1,4 +1,4 @@
-import type { ActionDef } from '~/composables/actions';
+import type { ActionDef } from '~/composables/action';
 
 declare module '#app' {
   interface PageMeta {

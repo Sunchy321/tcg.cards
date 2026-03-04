@@ -1,7 +1,10 @@
 {
-  "name": "shared",
-  "module": "index.ts",
+  "name": "@tcg-cards/shared",
+  "module": "src/index.ts",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "private": true,
   "devDependencies": {
     "@types/bun": "latest"

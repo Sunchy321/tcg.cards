@@ -1,10 +1,10 @@
-import type { Game } from '~~/shared';
+import z from 'zod';
+
+import type { Game } from '@tcg-cards/shared';
 
 import type { Locale as MagicLocale } from '#model/magic/schema/basic';
 
 import { locale as magicLocale } from '#model/magic/schema/basic';
-
-import z from 'zod';
 
 type Locale<G extends Game> = {
   magic:       MagicLocale;
@@ -28,6 +28,7 @@ export const useGameLocale = (game: Game) => {
   const localeSchema = schemas[game];
 
   const locale = useCookie<Locale<Game>>(`${game}_locale`, {
+    domain:  import.meta.dev ? undefined : '.tcg.cards',
     default: () => resolveDefaultLocale(localeSchema, i18n.locale.value),
     decode:  value => resolveDefaultLocale(localeSchema, value),
     encode:  value => resolveDefaultLocale(localeSchema, value),

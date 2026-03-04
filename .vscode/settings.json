@@ -3,7 +3,10 @@
         "iconify",
         "lucide",
         "mtgch",
+        "mtgo",
         "nuxtjs",
-        "orpc"
+        "orpc",
+        "updations",
+        "wubrgct"
     ]
 }

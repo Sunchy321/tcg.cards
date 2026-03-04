@@ -16,7 +16,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   alias: {
-    '#model': fileURLToPath(new URL('./node_modules/model/src', import.meta.url)),
+    '#model': fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
   },
 
   routeRules: {
