@@ -1,8 +1,13 @@
 <template>
-  <div>
-    <UPageHero
-      title="Magic"
-      description="Welcome to the Magic card game site."
-    />
-  </div>
+  <div />
 </template>
+
+<script setup lang="ts">
+definePageMeta({
+  layout: 'entry'
+});
+
+const title = useTitle();
+
+title.value = 'Magic: the Gathering';
+</script>

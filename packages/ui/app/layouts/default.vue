@@ -5,7 +5,7 @@
   >
     <AppHeader />
 
-    <UMain class="flex-1 flex items-center justify-center px-4 py-8 pt-18">
+    <UMain class="flex-1 container mx-auto items-center justify-center px-4 py-8">
       <slot />
     </UMain>
 

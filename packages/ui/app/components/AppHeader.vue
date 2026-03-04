@@ -24,10 +24,7 @@
           @keydown.enter="commitSearch"
         />
       </template>
-      <span
-        v-else
-        class="ml-3 font-semibold text-white text-lg flex-1"
-      >{{ title }}</span>
+      <span v-else class="ml-3 font-semibold text-white text-lg flex-1">{{ title }}</span>
 
       <template
         v-for="p in params"

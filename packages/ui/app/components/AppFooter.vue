@@ -1,6 +1,6 @@
 <template>
-  <UFooter>
-    <div class="container mx-auto px-4 py-4 text-center text-sm text-gray-600">
+  <UFooter class="bg-gray-50 border-t">
+    <div class="container mx-auto px-4 text-center text-sm text-gray-600">
       <NuxtLink
         :to="rootUrl"
         class="hover:text-gray-900 transition-colors"
