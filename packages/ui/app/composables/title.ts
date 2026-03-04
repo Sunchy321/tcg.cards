@@ -1,5 +1,7 @@
 export const useTitle = () => {
-  const title = useState('title', () => '');
+  const route = useRoute();
+
+  const title = useState('title', () => route.meta.title ?? '');
 
   useHead({ title });
 

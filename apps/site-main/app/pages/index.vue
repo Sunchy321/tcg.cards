@@ -4,10 +4,8 @@
 
 <script setup lang="ts">
 definePageMeta({
-  layout: 'main'
+  layout: 'main',
+  title:  'TCG Cards',
 });
 
-const title = useTitle();
-
-title.value = 'TCG Cards';
 </script>

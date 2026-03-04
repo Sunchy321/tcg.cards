@@ -2,20 +2,19 @@
   <UHeader
     class="bg-white/10 backdrop-blur-md border-b border-white/20"
     :title="title"
+    :ui="{
+      center: 'flex'
+    }"
   >
     <template #title>
-      <NuxtLink
-        to="/"
-        class="flex items-center hover:opacity-80 transition-opacity"
-      >
-        <Icon
-          name="i:logo"
-          :size="32"
-          class="text-white"
-        />
-      </NuxtLink>
+      <Icon
+        name="i:logo"
+        :size="32"
+        class="text-white"
+      />
+      </template>
 
-      <template v-if="route.meta.titleType === 'input'">
+    <template v-if="route.meta.titleType === 'input'">
         <UInput
           v-model="searchInput"
           class="ml-3 flex-1"
@@ -23,10 +22,10 @@
           :ui="{ base: 'font-semibold text-white bg-transparent border-white/60 focus:border-white w-full' }"
           @keydown.enter="commitSearch"
         />
-      </template>
-      <span v-else class="ml-3 font-semibold text-white text-lg flex-1">{{ title }}</span>
+    </template>
+    <span v-else class="ml-3 font-semibold text-white text-lg flex-1">{{ title }}</span>
 
-      <template
+      <!-- <template
         v-for="p in params"
         :key="p.id"
       >
@@ -48,7 +47,10 @@
           class="rounded-full size-10 text-white hover:bg-white/20 border border-white/20 flex items-center justify-center"
           @click="p.onChange(!p.value)"
         />
-      </template>
+      </template> -->
+
+    <template #right>
+      <UColorModeButton />
     </template>
   </UHeader>
 </template>
@@ -59,7 +61,7 @@ const title = useTitle();
 
 const searchInput = useSearchInput();
 
-const params = [];
+const params = [] as any[];
 
 const commitSearch = () => {
 

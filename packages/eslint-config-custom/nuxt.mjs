@@ -14,6 +14,8 @@ export default defineConfig([
   stylistic.configs.recommended,
   {
     rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+
       '@stylistic/arrow-parens': ['warn', 'as-needed'],
       '@stylistic/semi': ['warn', 'always'],
 
