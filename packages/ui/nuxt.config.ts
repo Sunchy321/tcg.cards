@@ -30,7 +30,7 @@ export default defineNuxtConfig({
     customCollections: [
       {
         prefix:    'i',
-        dir:       './app/assets/icons',
+        dir:       fileURLToPath(new URL('./app/assets/icons', import.meta.url)),
         recursive: true,
       },
     ],
