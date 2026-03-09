@@ -40,7 +40,9 @@
     "@types/lodash-es": "^4.17.12",
     "eslint": "^10.0.2",
     "eslint-config-custom": "workspace:*",
+    "nitro-cloudflare-dev": "^0.2.2",
     "typescript": "^5.9.3",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.2.5",
+    "wrangler": "^4.71.0"
   }
 }

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 export default defineNuxtConfig({
   extends: ['../../packages/ui'],
 
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
+  modules: ['nitro-cloudflare-dev', '@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
   devtools: { enabled: true },
 
