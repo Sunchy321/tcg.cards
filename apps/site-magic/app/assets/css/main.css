@@ -1,2 +1,58 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+
+/* ── Magic: The Gathering fonts ──────────────────────────────────────────── */
+
+@font-face {
+  font-family: phyrexian;
+  src: url('/magic/phyrexian.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: alcarin-tengwar;
+  src: url('/magic/alcarin-tengwar.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: beleren;
+  src: url('/magic/beleren.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: magic-symbol;
+  src:
+    url('/magic/Chromana-magic-1.2.0.woff2') format('woff2'),
+    url('/magic/Chromana-magic-1.2.0.woff') format('woff'),
+    url('/magic/Chromana-magic-1.2.0.ttf') format('truetype');
+}
+
+/* ── Magic symbol ─────────────────────────────────────────────────────────── */
+
+.magic-symbol {
+  font-family: magic-symbol;
+  display: inline-block;
+  font-variant-ligatures: initial;
+  font-feature-settings: initial;
+  letter-spacing: initial;
+}
+
+.magic-symbol.ms-cost {
+  margin-right: 1px;
+}
+
+.magic-symbol.ms-mini {
+  font-size: 50%;
+}
+
+/* ── Magic lang fonts ─────────────────────────────────────────────────────── */
+
+[lang=ph] {
+  font-family: phyrexian;
+  word-break: break-word;
+}
+
+[lang=qya] {
+  font-family: alcarin-tengwar;
+  word-break: break-word;
+}

@@ -1,5 +1,5 @@
 <template>
-  <div class="container mx-auto px-4 py-8 pt-16">
+  <div class="container mx-auto">
     <div v-if="data" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       <!-- Left column: Card image -->
       <div class="lg:col-span-3">
