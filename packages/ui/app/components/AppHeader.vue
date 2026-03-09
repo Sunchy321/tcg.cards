@@ -8,7 +8,7 @@
   >
     <template #title>
       <Icon
-        name="i:logo"
+        :name="appIcon"
         :size="32"
         class="text-white"
       />
@@ -67,11 +67,13 @@
 </template>
 
 <script setup lang="ts">
+const appConfig = useAppConfig();
 const route = useRoute();
 const title = useTitle();
 const { getActions } = useActions();
-
 const searchInput = useSearchInput();
+
+const appIcon = appConfig.appIcon ?? 'i:logo';
 
 const params = [] as any[];
 
