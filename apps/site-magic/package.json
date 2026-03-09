@@ -11,6 +11,8 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@better-auth/api-key": "^1.5.4",
+    "@better-auth/drizzle-adapter": "^1.5.4",
     "@iconify-json/lucide": "^1.2.95",
     "@iconify-json/simple-icons": "^1.2.72",
     "@nuxt/icon": "2.2.1",
@@ -18,14 +20,19 @@
     "@orpc/client": "^1.13.6",
     "@orpc/server": "^1.13.6",
     "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/search": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
     "axios": "^1.13.6",
+    "better-auth": "^1.5.3",
     "cheerio": "^1.2.0",
+    "diff": "^8.0.3",
     "drizzle-orm": "^0.45.1",
     "lodash-es": "^4.17.23",
     "nanoid": "^5.1.6",
     "nuxt": "^4.3.1",
+    "postgres": "^3.4.8",
     "tailwindcss": "^4.2.1",
+    "vue": "^3.5.29",
     "zod": "^4.3.6"
   },
   "devDependencies": {

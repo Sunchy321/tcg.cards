@@ -1,7 +1,7 @@
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
-import _ from 'lodash';
+import { omit } from 'lodash-es';
 import { and, desc, eq, gte, lte, or } from 'drizzle-orm';
 import { diffArrays } from 'diff';
 
@@ -114,7 +114,7 @@ const summary = os
       .orderBy(RuleItem.index);
 
     const contents = items.map(item => {
-      return _.omit(item, /[a-z!]$/.test(item.text) ? [] : ['text']);
+      return omit(item, /[a-z!]$/.test(item.text) ? [] : ['text']);
     });
 
     return {

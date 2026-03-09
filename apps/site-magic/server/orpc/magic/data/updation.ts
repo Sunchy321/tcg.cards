@@ -9,7 +9,7 @@ import { Card, CardLocalization, CardPart, CardPartLocalization } from '#schema/
 import { Print, PrintPart } from '#schema/magic/print';
 
 import { and, eq, getTableColumns, sql } from 'drizzle-orm';
-import _ from 'lodash';
+import { isEqual, pick } from 'lodash-es';
 
 // import { updation as log } from '@/magic/logger';
 
@@ -48,37 +48,37 @@ function getWhereClause(config: typeof tableConfig[UpdationMode], data: any): an
 const tableConfig = {
   card: {
     table:      Card,
-    primaryKey: _.pick(getTableColumns(Card), ['cardId']),
+    primaryKey: pick(getTableColumns(Card), ['cardId']),
     check:      checkAllBinder('card', ['cardId']),
     order:      [Card.cardId],
   },
   cardLocalization: {
     table:      CardLocalization,
-    primaryKey: _.pick(getTableColumns(CardLocalization), ['cardId', 'locale']),
+    primaryKey: pick(getTableColumns(CardLocalization), ['cardId', 'locale']),
     check:      checkAllBinder('cardLocalization', ['cardId', 'locale']),
     order:      [CardLocalization.cardId, CardLocalization.locale],
   },
   cardPart: {
     table:      CardPart,
-    primaryKey: _.pick(getTableColumns(CardPart), ['cardId', 'partIndex']),
+    primaryKey: pick(getTableColumns(CardPart), ['cardId', 'partIndex']),
     check:      checkAllBinder('cardPart', ['cardId', 'partIndex']),
     order:      [CardPart.cardId, CardPart.partIndex],
   },
   cardPartLocalization: {
     table:      CardPartLocalization,
-    primaryKey: _.pick(getTableColumns(CardPartLocalization), ['cardId', 'partIndex', 'locale']),
+    primaryKey: pick(getTableColumns(CardPartLocalization), ['cardId', 'partIndex', 'locale']),
     check:      checkAllBinder('cardPartLocalization', ['cardId', 'partIndex', 'locale']),
     order:      [CardPartLocalization.cardId, CardPartLocalization.partIndex, CardPartLocalization.locale],
   },
   print: {
     table:      Print,
-    primaryKey: _.pick(getTableColumns(Print), ['cardId', 'lang', 'set', 'number']),
+    primaryKey: pick(getTableColumns(Print), ['cardId', 'lang', 'set', 'number']),
     check:      checkAllBinder('print', ['cardId', 'lang', 'set', 'number']),
     order:      [Print.cardId, Print.lang],
   },
   printPart: {
     table:      PrintPart,
-    primaryKey: _.pick(getTableColumns(PrintPart), ['cardId', 'partIndex', 'lang', 'set', 'number']),
+    primaryKey: pick(getTableColumns(PrintPart), ['cardId', 'partIndex', 'lang', 'set', 'number']),
     check:      checkAllBinder('printPart', ['cardId', 'partIndex', 'lang', 'set', 'number']),
     order:      [PrintPart.cardId, PrintPart.partIndex, PrintPart.lang],
   },
@@ -181,7 +181,7 @@ const commit = os
 
       const whereClause = getWhereClause(config, input);
 
-      const logParams = primaryKeyColumns
+      const _logParams = primaryKeyColumns
         .map(column => `${column}=${(input as any)[column]}`)
         .join(', ');
 
@@ -248,11 +248,11 @@ async function processBatchAction(
     const updations = entry.__updations.filter(u => u.key === key);
 
     if (action === 'acceptUnchanged') {
-      if (!_.isEqual(updations[0]?.oldValue, (entry as any)[key])) {
+      if (!isEqual(updations[0]?.oldValue, (entry as any)[key])) {
         continue;
       }
 
-      console.log(`Auto-accepting unchanged updation for ${mode} ${JSON.stringify(_.pick(entry, Object.keys(config.primaryKey)))} key ${key}`);
+      console.log(`Auto-accepting unchanged updation for ${mode} ${JSON.stringify(pick(entry, Object.keys(config.primaryKey)))} key ${key}`);
     }
 
     const firstUpdation = updations[0];

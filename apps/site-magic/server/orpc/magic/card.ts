@@ -1,7 +1,7 @@
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
-import _ from 'lodash';
+import { random as genRandom, omit } from 'lodash-es';
 import { and, asc, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 
 import { formats as formatList, locale } from '#model/magic/schema/basic';
@@ -41,7 +41,7 @@ const random = os
   .output(z.string())
   .handler(async () => {
     const cards = await db.select({ cardId: Card.cardId }).from(Card);
-    const cardId = cards[_.random(0, cards.length - 1)]!.cardId;
+    const cardId = cards[genRandom(0, cards.length - 1)]!.cardId;
 
     return cardId;
   });
@@ -174,7 +174,7 @@ const fuzzy = os
     }).from(CardPrintView).where(eq(CardPrintView.cardId, cardId)).orderBy(desc(CardPrintView.print.releaseDate));
 
     const rulings = await db.select({
-      ..._.omit(getTableColumns(Ruling), 'id'),
+      ...omit(getTableColumns(Ruling), 'id'),
     }).from(Ruling).where(eq(Ruling.cardId, cardId));
 
     const sourceRelation = await db.select({

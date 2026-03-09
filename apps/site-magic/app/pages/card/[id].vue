@@ -339,7 +339,7 @@
 <script setup lang="ts">
 import { locale as localeSchema, formats } from '#model/magic/schema/basic';
 
-import _ from 'lodash-es';
+import { groupBy, omitBy, sortBy, uniq, uniqBy } from 'lodash-es';
 
 const { $orpc } = useNuxtApp();
 const route = useRoute('magic-card-id');
@@ -347,12 +347,13 @@ const router = useRouter();
 const gameLocale = useGameLocale('magic');
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 const { setActions } = useActions();
+const actionMeta = getMagicActionMeta();
 const actions = useMagicActions();
 
 definePageMeta({
   layout:    'main',
   titleType: 'input',
-  actions:   [getActionDef(actions.random)],
+  actions:   [actionMeta.random],
 });
 
 setActions([actions.random]);
@@ -366,7 +367,7 @@ const query = computed(() => {
     partIndex: route.query.part as string ?? '0',
   };
 
-  return _.omitBy(q, v => v == null) as Parameters<typeof $orpc.magic.card.fuzzy>[0];
+  return omitBy(q, v => v == null) as Parameters<typeof $orpc.magic.card.fuzzy>[0];
 });
 
 const asyncDataKey = () => [
@@ -413,32 +414,31 @@ const partCount = computed(() => data.value?.card.partCount ?? 1);
 
 const partIcon = computed(() => {
   switch (layout.value) {
-    case 'flip':
-    case 'split':
-    case 'aftermath':
-    case 'split_arena':
-      return {
-        src:   `/magic/part-icon/${layout.value}.svg`,
-        class: partIndex.value === 1 ? 'rotate-180' : '',
-      };
-    case 'transform':
-    case 'transform_token':
-      return { src: `/magic/part-icon/transform-${partIndex.value}.svg`, class: '' };
-    case 'modal_dfc':
-    case 'adventure':
-      return { src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`, class: '' };
-    case 'multipart':
-      return { src: '/magic/part-icon/multipart.svg', class: '' };
-    default:
-      return null;
+  case 'flip':
+  case 'split':
+  case 'aftermath':
+  case 'split_arena':
+    return {
+      src:   `/magic/part-icon/${layout.value}.svg`,
+      class: partIndex.value === 1 ? 'rotate-180' : '',
+    };
+  case 'transform':
+  case 'transform_token':
+    return { src: `/magic/part-icon/transform-${partIndex.value}.svg`, class: '' };
+  case 'modal_dfc':
+  case 'adventure':
+    return { src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`, class: '' };
+  case 'multipart':
+    return { src: '/magic/part-icon/multipart.svg', class: '' };
+  default:
+    return null;
   }
 });
 
 const switchPart = () => {
   if (partIndex.value === partCount.value - 1) {
     partIndex.value = 0;
-  }
-  else {
+  } else {
     partIndex.value += 1;
   }
 };
@@ -548,7 +548,7 @@ const groupRarity = (group: (typeof groupedVersions.value)[number]): string => {
 // ─── Set profiles ─────────────────────────────────────────────────────────────
 
 const uniqueSetIds = computed(() =>
-  data.value ? _.uniq(data.value.versions.map(v => v.set)) : [],
+  data.value ? uniq(data.value.versions.map(v => v.set)) : [],
 );
 
 const { data: setProfiles } = await useAsyncData(
@@ -585,11 +585,11 @@ const getSetIconUrl = (setId: string, rarity: string) => {
 
 const uniqueLocales = computed(() => {
   if (!data.value) return [];
-  const uniq = _.uniqBy(
+  const uniq = uniqBy(
     data.value.versions.map(v => ({ locale: v.locale, lang: v.lang })),
     v => `${v.locale}-${v.lang}`,
   );
-  return _.sortBy(uniq, v => localeSchema.options.indexOf(v.locale));
+  return sortBy(uniq, v => localeSchema.options.indexOf(v.locale));
 });
 
 const numberPrefix = (n: string) => parseInt(n.match(/^\d+/)?.[0] ?? '0', 10);
@@ -613,11 +613,11 @@ const localeExistsInSet = (locale: string) => {
 
 const groupedVersions = computed(() => {
   if (!data.value) return [];
-  const setsInOrder = _.uniqBy(data.value.versions, 'set').map(v => v.set);
-  const grouped = _.groupBy(data.value.versions, 'set');
+  const setsInOrder = uniqBy(data.value.versions, 'set').map(v => v.set);
+  const grouped = groupBy(data.value.versions, 'set');
   return setsInOrder.map(set => ({
     set,
-    versions: _.sortBy(_.uniqBy(grouped[set]!, 'number'), [v => numberPrefix(v.number), 'number']),
+    versions: sortBy(uniqBy(grouped[set]!, 'number'), [v => numberPrefix(v.number), 'number']),
   }));
 });
 
@@ -712,9 +712,9 @@ const specialEffect = computed<'capital_offense' | 'viscera_seer' | null>(() => 
 useHead(computed(() => ({
   style: specialEffect.value === 'capital_offense'
     ? [{
-        id:        'capital-offense-style',
-        innerHTML: '* { text-transform: lowercase !important; } .magic-symbol { text-transform: none !important; }',
-      }]
+      id:        'capital-offense-style',
+      innerHTML: '* { text-transform: lowercase !important; } .magic-symbol { text-transform: none !important; }',
+    }]
     : [],
 })));
 

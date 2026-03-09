@@ -11,6 +11,8 @@ import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, 
 import { model } from '#model/magic/search';
 import { CardEditorView, CardPrintView } from '#schema/magic/print';
 
+import { toIdentifier } from '#shared/magic/utils';
+
 // import internalData from '@/internal-data';
 
 // import { commaRegex, parenRegex } from '@static/magic/special';

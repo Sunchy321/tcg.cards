@@ -1,0 +1,18 @@
+{
+  "name": "@tcg-cards/search",
+  "module": "src/index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/lodash-es": "^4.17.12"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@tcg-cards/shared": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "lodash-es": "^4.17.23",
+    "zod": "^4.3.6"
+  }
+}

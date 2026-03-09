@@ -1,5 +1,5 @@
 import { diffWordsWithSpace } from 'diff';
-import _ from 'lodash';
+import { last } from 'lodash-es';
 
 type TextChange = string | [string, string];
 
@@ -34,21 +34,21 @@ export function diffString(lhs: string, rhs: string, encoder = encode): TextChan
 
   for (const d of diffWordsWithSpace(lhsEncoded, rhsEncoded)) {
     if (d.added) {
-      const lastDiff = _.last(diffs);
+      const lastDiff = last(diffs);
       if (lastDiff == null || typeof lastDiff === 'string') {
         diffs.push(['', d.value]);
       } else {
         lastDiff[1] += d.value;
       }
     } else if (d.removed) {
-      const lastDiff = _.last(diffs);
+      const lastDiff = last(diffs);
       if (lastDiff == null || typeof lastDiff === 'string') {
         diffs.push([d.value, '']);
       } else {
         lastDiff[0] += d.value;
       }
     } else {
-      const lastDiff = _.last(diffs);
+      const lastDiff = last(diffs);
       if (lastDiff == null || typeof lastDiff === 'string') {
         diffs.push(d.value);
 
@@ -153,7 +153,7 @@ export function diffThreeString(prev: string, curr: string, next: string): Three
   for (const d of diffs) {
     if (d.value === '') continue;
 
-    const lastDiff = _.last(mergedDiffs);
+    const lastDiff = last(mergedDiffs);
 
     if (lastDiff == null) {
       mergedDiffs.push(d);

@@ -21,7 +21,7 @@ export default defineEventHandler(async event => {
 
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
-    context: {}, // Provide initial context if needed
+    context: {} as any, // Provide initial context if needed
   });
 
   if (response) {

@@ -2,7 +2,6 @@ import type { RuleDiff, RuleItem as IRuleItem, RuleDiffItem, TextDiff } from '#m
 
 import { and, eq } from 'drizzle-orm';
 
-import _ from 'lodash';
 import { diffArrays } from 'diff';
 import { diffString } from '#server/lib/diff';
 
@@ -63,11 +62,17 @@ export async function getRuleDiff(fromDate: string, toDate: string, lang: string
 
   for (const d of diffArrays(fromItems.map(c => c.itemId), toItems.map(c => c.itemId))) {
     if (d.added) {
-      for (const v of d.value) { diff.push({ itemId: v, type: 'add' }); }
+      for (const v of d.value) {
+        diff.push({ itemId: v, type: 'add' });
+      }
     } else if (d.removed) {
-      for (const v of d.value) { diff.push({ itemId: v, type: 'remove' }); }
+      for (const v of d.value) {
+        diff.push({ itemId: v, type: 'remove' });
+      }
     } else {
-      for (const v of d.value) { diff.push({ itemId: v }); }
+      for (const v of d.value) {
+        diff.push({ itemId: v });
+      }
     }
   }
 
@@ -84,8 +89,13 @@ export async function getRuleDiff(fromDate: string, toDate: string, lang: string
   const fromRuleItemMap: Record<string, IRuleItem> = {};
   const toRuleItemMap: Record<string, IRuleItem> = {};
 
-  for (const c of fromItems) { fromRuleItemMap[c.itemId] = c; }
-  for (const c of toItems) { toRuleItemMap[c.itemId] = c; }
+  for (const c of fromItems) {
+    fromRuleItemMap[c.itemId] = c;
+  }
+
+  for (const c of toItems) {
+    toRuleItemMap[c.itemId] = c;
+  }
 
   for (const d of diff) {
     const oldItem = fromRuleItemMap[d.itemId!];

@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
-import { admin, apiKey, openAPI, username } from 'better-auth/plugins';
+import { admin, openAPI, username } from 'better-auth/plugins';
+import { apiKey } from '@better-auth/api-key';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 
 import { db } from '#server/db/db';
