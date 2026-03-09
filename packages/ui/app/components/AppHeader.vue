@@ -50,16 +50,14 @@
       </template> -->
 
     <template #right>
-      <div v-if="actions.length > 0" class="flex gap-2">
+      <div v-if="actionMeta.length > 0" class="flex gap-2">
         <UButton
-          v-for="action in actions"
+          v-for="action in actionMeta"
           :key="action.id"
           :icon="action.icon"
-          :disabled="action.disabled"
+          color="neutral"
           variant="ghost"
-          size="xl"
-          class="rounded-full size-10 text-white hover:bg-white/20 border border-white/20 flex items-center justify-center"
-          @click="action.handler()"
+          @click="getHandler(action.id)()"
         />
       </div>
 
@@ -77,7 +75,14 @@ const searchInput = useSearchInput();
 
 const params = [] as any[];
 
+const actionMeta = route.meta.actions ?? [];
+
 const actions = getActions();
+
+const getHandler = (id: string) => {
+  const action = actions.value.find(a => a.id === id);
+  return action?.handler ?? (() => {});
+};
 
 const commitSearch = () => {
 

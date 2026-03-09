@@ -6,7 +6,7 @@ export interface ActionDef {
 
 /** Full action with an optional handler (handler is only meaningful on the client). */
 export interface Action extends ActionDef {
-  handler: () => void | Promise<void>;
+  handler?: () => void | Promise<void>;
 }
 
 // ─── Client-only module-level singletons ─────────────────────────────────────

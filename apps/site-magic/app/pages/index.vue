@@ -9,12 +9,9 @@ const actions = useMagicActions();
 
 definePageMeta({
   layout:  'entry',
+  title:   'Magic: the Gathering',
   actions: [actionMeta.random],
 });
-
-const title = useTitle();
-
-title.value = 'Magic: the Gathering';
 
 setActions([actions.random]);
 </script>
