@@ -17,7 +17,7 @@ export const useMagicActions = () => {
     handler: async () => {
       const cardId = await $orpc.magic.card.random();
 
-      await navigateTo(`/magic/card/${cardId}`);
+      await navigateTo(`/card/${cardId}`);
     },
   };
 

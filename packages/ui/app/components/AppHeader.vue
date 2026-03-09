@@ -3,7 +3,9 @@
     class="bg-white/10 backdrop-blur-md border-b border-white/20"
     :title="title"
     :ui="{
-      center: 'flex'
+      left: 'lg:flex-none',
+      center: 'flex flex-1',
+      right: 'lg:flex-none'
     }"
   >
     <template #title>
@@ -14,12 +16,12 @@
       />
       </template>
 
-    <template v-if="route.meta.titleType === 'input'">
+    <template v-if="titleType === 'input'">
         <UInput
           v-model="searchInput"
           class="ml-3 flex-1"
           size="xl"
-          :ui="{ base: 'font-semibold text-white bg-transparent border-white/60 focus:border-white w-full' }"
+          :ui="{ base: 'font-semibold text-white bg-transparent border-white focus:border-white w-full' }"
           @keydown.enter="commitSearch"
         />
     </template>
@@ -70,6 +72,7 @@
 const appConfig = useAppConfig();
 const route = useRoute();
 const title = useTitle();
+const titleType = useTitleType();
 const { getActions } = useActions();
 const searchInput = useSearchInput();
 

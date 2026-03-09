@@ -8,6 +8,12 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  runtimeConfig: {
+    public: {
+      assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
+    },
+  },
+
   css: ['~/assets/css/main.css'],
 
   alias: {

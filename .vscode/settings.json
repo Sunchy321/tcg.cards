@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
         "deburr",
+        "emph",
         "iconify",
+        "linkify",
         "lucide",
         "mtgch",
         "mtgo",
@@ -9,6 +11,7 @@
         "orpc",
         "punc",
         "updations",
+        "vnodes",
         "wubrgct"
     ]
 }

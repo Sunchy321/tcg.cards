@@ -1,9 +1,9 @@
 export const useTitle = () => {
-  const route = useRoute();
-
-  const title = useState('title', () => route.meta.title ?? '');
+  const title = useState('title', () => '');
 
   useHead({ title });
 
   return title;
 };
+
+export const useTitleType = () => useState<'text' | 'input'>('titleType', () => 'text');
