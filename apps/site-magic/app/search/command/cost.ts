@@ -1,0 +1,19 @@
+import { ca } from '#search/client/command/adapter';
+
+import { cost as costSchema } from '#model/magic/search/command/cost';
+
+import { defaultTranslate } from '#search/client/translate';
+
+const operatorMap: Record<string, string> = {
+  '=':  'is',
+  '!=': 'is-not',
+  ':':  'include',
+  '!:': 'not-include',
+};
+
+export const cost = ca
+  .adapt(costSchema)
+  .$meta<{ id: string }>()
+  .explain((arg, { id }, i18n) => {
+    return defaultTranslate(arg, i18n, id, operatorMap);
+  });

@@ -7,7 +7,7 @@ import { devSearchResult, searchResult } from '#model/magic/schema/search';
 
 import { searchInput } from '#search/schema';
 
-import { search } from '#server/search/magic';
+import { search } from '~~/server/search';
 
 const basic = os
   .route({
