@@ -75,6 +75,7 @@
 
 <script setup lang="ts">
 const appConfig = useAppConfig();
+const router = useRouter();
 const route = useRoute();
 const title = useTitle();
 const titleType = useTitleType();
@@ -96,6 +97,9 @@ const getHandler = (id: string) => {
 };
 
 const commitSearch = () => {
-
+  router.push({
+    path:  `/search`,
+    query: { q: searchInput.value },
+  });
 };
 </script>
