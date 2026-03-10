@@ -182,7 +182,9 @@ const imageUrls = computed(() => {
   }
 });
 
-watch(() => props.layout, () => { innerRotate.value = null; });
+watch(() => props.layout, () => {
+  innerRotate.value = null;
+});
 
 watch(() => props.part, () => {
   if (props.part != null) {
@@ -202,6 +204,16 @@ watch(() => props.rotate, () => {
   position: relative;
   aspect-ratio: 745 / 1040;
   perspective: 1000px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-radius: 4.75%;
+
+  :root.dark & {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+
+    img {
+      filter: brightness(0.85);
+    }
+  }
 }
 
 .image {
