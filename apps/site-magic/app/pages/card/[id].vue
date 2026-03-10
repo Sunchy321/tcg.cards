@@ -342,7 +342,7 @@ import { locale as localeSchema, formats } from '#model/magic/schema/basic';
 import { groupBy, omitBy, sortBy, uniq, uniqBy } from 'lodash-es';
 
 const { $orpc } = useNuxtApp();
-const route = useRoute('magic-card-id');
+const route = useRoute('card-id');
 const router = useRouter();
 const gameLocale = useGameLocale('magic');
 const { public: { assetBaseUrl } } = useRuntimeConfig();

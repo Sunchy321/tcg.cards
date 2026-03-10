@@ -1,5 +1,5 @@
 <template>
-  <NuxtLink :to="`/magic/set/${setId}`" class="magic-set-avatar inline-flex items-center gap-1">
+  <NuxtLink :to="`/set/${setId}`" class="magic-set-avatar inline-flex items-center gap-1">
     <span class="set-code font-mono text-sm">{{ setId }}</span>
     <span v-if="name" class="set-name">{{ name }}</span>
   </NuxtLink>

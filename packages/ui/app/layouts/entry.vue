@@ -21,7 +21,7 @@
       </slot>
     </div>
 
-    <div class="flex-1 container mx-auto px-4">
+    <div class="flex-1 container w-[90%] md:w-[75%] mx-auto px-4">
       <slot />
     </div>
   </MainLayout>
