@@ -26,7 +26,7 @@
                 target="_blank"
               >
                 <template #leading>
-                  <img src="/magic/scryfall.svg" class="w-4 h-4">
+                  <img src="/scryfall.svg" class="w-4 h-4" style="filter: drop-shadow(0 0 1px rgba(0,0,0,0.8))">
                 </template>
                 Scryfall
               </UButton>
@@ -38,7 +38,7 @@
                 target="_blank"
               >
                 <template #leading>
-                  <img src="/magic/gatherer.svg" class="w-4 h-4">
+                  <img src="/gatherer.svg" class="w-4 h-4" style="filter: drop-shadow(0 0 1px rgba(0,0,0,0.8))">
                 </template>
                 Gatherer
               </UButton>
@@ -49,7 +49,7 @@
                 target="_blank"
               >
                 <template #leading>
-                  <img src="/magic/mtgch.svg" class="w-4 h-4 dark:invert">
+                  <img src="/mtgch.svg" class="w-4 h-4 dark:invert">
                 </template>
                 mtgch
               </UButton>
@@ -93,7 +93,7 @@
               >
                 <img :src="partIcon.src" class="w-6 h-6">
               </button>
-              <img v-if="isArenaVariant" src="/magic/arena.svg" class="w-5 h-5 shrink-0">
+              <img v-if="isArenaVariant" src="/arena.svg" class="w-5 h-5 shrink-0">
               <h1 class="text-3xl font-bold" :class="data.printPart.flavorName != null ? 'text-gray-500 dark:text-gray-400 italic' : ''">
                 {{ data.printPart.flavorName ?? displayPart.name }}
               </h1>
@@ -421,21 +421,21 @@ const partIcon = computed(() => {
   case 'aftermath':
   case 'split_arena':
     return {
-      src:   `/magic/part-icon/${layout.value}.svg`,
+      src:   `/part-icon/${layout.value}.svg`,
       class: partIndex.value === 1 ? 'rotate-180' : '',
     };
   case 'transform':
   case 'transform_token':
     if (dfIcons != null && dfIcons.length > 0) {
       const icon = dfIcons[partIndex.value]!;
-      return { src: `/magic/part-icon/transform-${icon}.svg`, class: '' };
+      return { src: `/part-icon/transform-${icon}.svg`, class: '' };
     }
-    return { src: `/magic/part-icon/transform-${partIndex.value}.svg`, class: '' };
+    return { src: `/part-icon/transform-${partIndex.value}.svg`, class: '' };
   case 'modal_dfc':
   case 'adventure':
-    return { src: `/magic/part-icon/${layout.value}-${partIndex.value}.svg`, class: '' };
+    return { src: `/part-icon/${layout.value}-${partIndex.value}.svg`, class: '' };
   case 'multipart':
-    return { src: '/magic/part-icon/multipart.svg', class: '' };
+    return { src: '/part-icon/multipart.svg', class: '' };
   default:
     return null;
   }

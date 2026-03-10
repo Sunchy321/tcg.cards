@@ -6,25 +6,25 @@
 
 @font-face {
   font-family: phyrexian;
-  src: url('/magic/phyrexian.woff2') format('woff2');
+  src: url('/phyrexian.woff2') format('woff2');
 }
 
 @font-face {
   font-family: alcarin-tengwar;
-  src: url('/magic/alcarin-tengwar.woff2') format('woff2');
+  src: url('/alcarin-tengwar.woff2') format('woff2');
 }
 
 @font-face {
   font-family: beleren;
-  src: url('/magic/beleren.ttf') format('truetype');
+  src: url('/beleren.ttf') format('truetype');
 }
 
 @font-face {
   font-family: magic-symbol;
   src:
-    url('/magic/Chromana-magic-1.2.0.woff2') format('woff2'),
-    url('/magic/Chromana-magic-1.2.0.woff') format('woff'),
-    url('/magic/Chromana-magic-1.2.0.ttf') format('truetype');
+    url('/Chromana-magic-1.2.0.woff2') format('woff2'),
+    url('/Chromana-magic-1.2.0.woff') format('woff'),
+    url('/Chromana-magic-1.2.0.ttf') format('truetype');
 }
 
 /* ── Magic symbol ─────────────────────────────────────────────────────────── */

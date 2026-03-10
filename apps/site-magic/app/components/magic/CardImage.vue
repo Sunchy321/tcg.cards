@@ -12,7 +12,7 @@
         class="front w-full"
         :src="imageUrls[0]"
         loading="lazy"
-        @error="(e) => ((e.target as HTMLImageElement).src = '/magic/card-not-found.svg')"
+        @error="(e) => ((e.target as HTMLImageElement).src = '/card-not-found.svg')"
       >
 
       <img
@@ -20,7 +20,7 @@
         class="back w-full"
         :src="imageUrls[1]"
         loading="lazy"
-        @error="(e) => ((e.target as HTMLImageElement).src = '/magic/card-not-found.svg')"
+        @error="(e) => ((e.target as HTMLImageElement).src = '/card-not-found.svg')"
       >
     </div>
 
