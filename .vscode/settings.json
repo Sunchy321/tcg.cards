@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
+        "consp",
         "deburr",
         "emph",
+        "gantt",
         "iconify",
         "linkify",
         "lucide",
@@ -10,8 +12,10 @@
         "nuxtjs",
         "orpc",
         "punc",
+        "unfinity",
         "updations",
         "vnodes",
         "wubrgct"
-    ]
+    ],
+    "postman.settings.dotenv-detection-notification-visibility": false
 }

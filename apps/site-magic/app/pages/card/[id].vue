@@ -60,7 +60,7 @@
                   variant="outline"
                   :to="jsonCardLink"
                   target="_blank"
-                  icon="tabler:braces"
+                  icon="lucide:braces"
                 >
                   Card JSON
                 </UButton>
@@ -70,7 +70,7 @@
                   variant="outline"
                   :to="jsonPrintLink"
                   target="_blank"
-                  icon="tabler:braces"
+                  icon="lucide:braces"
                 >
                   Print JSON
                 </UButton>
@@ -507,15 +507,15 @@ const tags = computed(() => data.value?.card.tags?.filter(v => !v.startsWith('de
 const printTags = computed(() => data.value?.print.printTags?.filter(v => !v.startsWith('dev:')) ?? []);
 
 const relationIcon = (relation: string): string => ({
-  emblem:         'tabler:shield',
-  intext:         'tabler:search',
-  meld:           'tabler:circle-half',
-  specialization: 'tabler:arrow-fork',
-  spellbook:      'tabler:book',
-  source:         'tabler:list-tree',
-  stick_on:       'tabler:layers-subtract',
-  token:          'tabler:square-rounded',
-} as Record<string, string>)[relation] ?? 'tabler:cards';
+  emblem:         'lucide:shield',
+  intext:         'lucide:search',
+  meld:           'lucide:git-merge',
+  specialization: 'lucide:git-fork',
+  spellbook:      'lucide:book',
+  source:         'lucide:list-tree',
+  stick_on:       'lucide:layers',
+  token:          'lucide:square',
+} as Record<string, string>)[relation] ?? 'lucide:copy';
 
 const legalityEntries = computed(() =>
   Object.entries(data.value?.card.legalities ?? {}).sort(

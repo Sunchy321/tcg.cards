@@ -27,32 +27,33 @@
     </template>
     <span v-else class="ml-3 font-semibold text-white text-lg flex-1">{{ title }}</span>
 
-      <!-- <template
-        v-for="p in params"
-        :key="p.id"
-      >
-        <USelect
-          v-if="p.type === 'select'"
-          :model-value="p.value"
-          :items="p.items"
-          size="md"
-          class="w-40"
-          trailing-icon=""
-          :ui="{ base: 'text-white bg-white/10 hover:bg-white/20 border-white/20 ring-white/20', content: 'min-w-fit' }"
-          @update:model-value="p.onChange"
-        />
-        <UButton
-          v-else-if="p.type === 'switch'"
-          :icon="p.icon"
-          :variant="p.value ? 'solid' : 'ghost'"
-          size="md"
-          class="rounded-full size-10 text-white hover:bg-white/20 border border-white/20 flex items-center justify-center"
-          @click="p.onChange(!p.value)"
-        />
-      </template> -->
-
     <template #right>
-      <div v-if="actionMeta.length > 0" class="flex gap-2">
+      <div class="flex items-center gap-2">
+        <template
+          v-for="p in params"
+          :key="p.id"
+        >
+          <USelect
+            v-if="p.type === 'select'"
+            :model-value="(paramValues[p.id] as string | null) ?? undefined"
+            :items="paramItems[p.id]"
+            size="md"
+            class="w-40"
+            trailing-icon=""
+            :ui="{ base: 'text-white bg-white/10 hover:bg-white/20 border-white/20 ring-white/20', content: 'min-w-fit' }"
+            @update:model-value="p.onChange"
+          />
+          <UButton
+            v-else-if="p.type === 'switch'"
+            :icon="p.icon"
+            :color="(paramValues[p.id] as boolean) ? 'success' : 'neutral'"
+            :variant="(paramValues[p.id] as boolean) ? 'solid' : 'ghost'"
+            size="md"
+            :class="(paramValues[p.id] as boolean) ? 'text-white hover:opacity-90' : 'text-white hover:bg-white/20'"
+            @click="p.onChange(!(paramValues[p.id] as boolean))"
+          />
+        </template>
+
         <UButton
           v-for="action in actionMeta"
           :key="action.id"
@@ -62,9 +63,9 @@
           class="text-white hover:bg-white/20 hover:text-white"
           @click="getHandler(action.id)()"
         />
-      </div>
 
-      <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
+        <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
+      </div>
     </template>
   </UHeader>
 </template>
@@ -74,12 +75,13 @@ const appConfig = useAppConfig();
 const route = useRoute();
 const title = useTitle();
 const titleType = useTitleType();
+const { getParams, paramItems, paramValues } = useParams();
 const { getActions } = useActions();
 const searchInput = useSearchInput();
 
 const appIcon = appConfig.appIcon ?? 'i:logo';
 
-const params = [] as any[];
+const params = getParams();
 
 const actionMeta = route.meta.actions ?? [];
 

@@ -12,9 +12,10 @@ declare module 'nuxt/schema' {
 
 declare module '#app' {
   interface PageMeta {
-    actions?:   ActionDef[];
     titleType?: 'text' | 'input';
     title?:     string;
+    params?:    { id: string, type: 'select' | 'switch', icon?: string }[];
+    actions?:   ActionDef[];
   }
 }
 

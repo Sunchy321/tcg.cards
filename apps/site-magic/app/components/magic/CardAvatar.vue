@@ -127,7 +127,7 @@ const imageVersion = computed(() => {
 
 const linkHref = computed(() =>
   router.resolve({
-    path:  `/magic/card/${props.id}`,
+    path:  `/card/${props.id}`,
     query: {
       ...(props.version?.locale ? { locale: props.version.locale } : {}),
       ...(props.version?.set ? { set: props.version.set } : {}),

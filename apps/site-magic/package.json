@@ -45,6 +45,7 @@
     "nitro-cloudflare-dev": "^0.2.2",
     "sass-embedded": "^1.97.3",
     "typescript": "^5.9.3",
+    "unplugin-vue-router": "^0.19.2",
     "vue-tsc": "^3.2.5",
     "wrangler": "^4.71.0"
   }

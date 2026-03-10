@@ -8,6 +8,10 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  experimental: {
+    typedPages: true,
+  },
+
   runtimeConfig: {
     public: {
       assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
