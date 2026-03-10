@@ -21,7 +21,7 @@
           v-model="searchInput"
           class="ml-3 flex-1"
           size="xl"
-          :ui="{ base: 'font-semibold text-white bg-transparent border-white focus:border-white w-full' }"
+          :ui="{ base: 'font-semibold text-white bg-transparent ring-white focus:ring-white w-full' }"
           @keydown.enter="commitSearch"
         />
     </template>
@@ -59,11 +59,12 @@
           :icon="action.icon"
           color="neutral"
           variant="ghost"
+          class="text-white hover:bg-white/20 hover:text-white"
           @click="getHandler(action.id)()"
         />
       </div>
 
-      <UColorModeButton />
+      <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
     </template>
   </UHeader>
 </template>
