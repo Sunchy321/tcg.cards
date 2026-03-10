@@ -87,7 +87,7 @@
             <div class="flex items-center gap-2">
               <button
                 v-if="partIcon != null"
-                class="shrink-0 w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                class="shrink-0 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 :class="partIcon.class"
                 @click="switchPart"
               >
@@ -413,6 +413,8 @@ const layout = computed(() => data.value?.print.layout ?? '');
 const partCount = computed(() => data.value?.card.partCount ?? 1);
 
 const partIcon = computed(() => {
+  const dfIcons = setProfiles.value?.[data.value?.set ?? '']?.doubleFacedIcon;
+
   switch (layout.value) {
   case 'flip':
   case 'split':
@@ -424,6 +426,10 @@ const partIcon = computed(() => {
     };
   case 'transform':
   case 'transform_token':
+    if (dfIcons != null && dfIcons.length > 0) {
+      const icon = dfIcons[partIndex.value]!;
+      return { src: `/magic/part-icon/transform-${icon}.svg`, class: '' };
+    }
     return { src: `/magic/part-icon/transform-${partIndex.value}.svg`, class: '' };
   case 'modal_dfc':
   case 'adventure':
