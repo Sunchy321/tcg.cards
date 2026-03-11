@@ -61,7 +61,16 @@ export default {
 
     'layout': {
       transform: '转化式双面牌',
+      modal_dfc: '模式双面牌',
       battle:    '战役',
+      adventure: '历险',
+      saga:      '传纪',
+      split:     '连体',
+      flip:      '倒转',
+      meld:      '融合',
+      prototype: '试作',
+      class:     '职业',
+      leveler:   '升级',
     },
 
     'image-status': {
@@ -77,5 +86,46 @@ export default {
       id:   '卡牌ID',
       cost: '法术力值',
     },
+  },
+
+  'advanced': {
+    '$self':        '高级搜索',
+    'empty-query':  '（无查询条件）',
+    'search':       '搜索',
+    'reset':        '重置',
+    'cannot-parse': '查询过于复杂，无法反填到表单，请直接编辑上方搜索框',
+    'any':          '任意',
+
+    'section-text':        '文字搜索',
+    'section-color':       '颜色',
+    'section-mana':        '法术力',
+    'section-combat':      '战斗属性',
+    'section-card':        '牌面属性',
+    'section-date-format': '时间与赛制',
+    'section-tags':        '关键字与指示物',
+    'section-sort':        '排序',
+
+    'modifier-default': '通用',
+    'modifier-oracle':  'Oracle',
+    'modifier-unified': '统一',
+    'modifier-printed': '牌面',
+    'negate':           '非',
+
+    'color-op-include': '包含',
+    'color-op-exact':   '完全匹配',
+    'color-op-least':   '至少含有',
+    'color-op-subset':  '属于',
+
+    'color-colorless':  '无色',
+    'color-multicolor': '多色',
+
+    'direction-default': '默认',
+    'direction-asc':     '升序',
+    'direction-desc':    '降序',
+
+    'keyword-placeholder': '输入关键字后回车',
+    'counter-placeholder': '输入指示物后回车',
+    'clear-all':           '清空全部',
+
   },
 };

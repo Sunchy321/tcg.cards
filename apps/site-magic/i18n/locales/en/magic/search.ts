@@ -61,7 +61,16 @@ export default {
 
     'layout': {
       transform: 'Transforming DFC',
+      modal_dfc: 'Modal DFC',
       battle:    'Battle',
+      adventure: 'Adventure',
+      saga:      'Saga',
+      split:     'Split',
+      flip:      'Flip',
+      meld:      'Meld',
+      prototype: 'Prototype',
+      class:     'Class',
+      leveler:   'Leveler',
     },
 
     'image-status': {
@@ -77,5 +86,46 @@ export default {
       id:   'card id',
       cost: 'mana value',
     },
+  },
+
+  'advanced': {
+    '$self':        'Advanced Search',
+    'empty-query':  '(no conditions)',
+    'search':       'Search',
+    'reset':        'Reset',
+    'cannot-parse': 'Query is too complex to fill the form; edit the search bar above directly',
+    'any':          'Any',
+
+    'section-text':        'Text',
+    'section-color':       'Colors',
+    'section-mana':        'Mana',
+    'section-combat':      'Combat',
+    'section-card':        'Card Face',
+    'section-date-format': 'Date & Format',
+    'section-tags':        'Keywords & Counters',
+    'section-sort':        'Sort',
+
+    'modifier-default': 'Any',
+    'modifier-oracle':  'Oracle',
+    'modifier-unified': 'Unified',
+    'modifier-printed': 'Printed',
+    'negate':           'NOT',
+
+    'color-op-include': 'includes',
+    'color-op-exact':   'exactly',
+    'color-op-least':   'at least',
+    'color-op-subset':  'subset of',
+
+    'color-colorless':  'Colorless',
+    'color-multicolor': 'Multicolor',
+
+    'direction-default': 'Default',
+    'direction-asc':     'Ascending',
+    'direction-desc':    'Descending',
+
+    'keyword-placeholder': 'Add keyword and press Enter',
+    'counter-placeholder': 'Add counter and press Enter',
+    'clear-all':           'Clear all',
+
   },
 };

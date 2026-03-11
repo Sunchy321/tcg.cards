@@ -12,7 +12,7 @@
       <span :lang="lang" @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">{{ displayText }}</span>
       <template #content>
         <div @mouseenter="onMouseEnter" @mouseleave="onMouseLeave">
-          <MagicCardImage
+          <CardImage
             class="card-avatar-popover-image"
             :lang="imageVersion.lang"
             :set="imageVersion.set"

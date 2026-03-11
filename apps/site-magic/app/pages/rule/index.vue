@@ -77,8 +77,8 @@
         ]"
       >
         <div class="flex items-start gap-1">
-          <MagicRuleSerial :item-id="c.itemId" :serial="c.serial" class="shrink-0 mt-0.5 text-gray-500 dark:text-white/80" />
-          <MagicRichText :detect-cr="true" :inline="true" class="flex-1 text-gray-900 dark:text-white/90">{{ c.richText }}</MagicRichText>
+          <RuleSerial :item-id="c.itemId" :serial="c.serial" class="shrink-0 mt-0.5 text-gray-500 dark:text-white/80" />
+          <RichText :detect-cr="true" :inline="true" class="flex-1 text-gray-900 dark:text-white/90">{{ c.richText }}</RichText>
         </div>
 
         <!-- Hover toolbar -->

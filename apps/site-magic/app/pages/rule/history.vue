@@ -31,14 +31,14 @@
       </div>
 
       <!-- Diff text spans -->
-      <MagicRichText
+      <RichText
         v-for="(d, i) in v.text"
         :key="i"
         :inline="true"
         :class="diffClass(d.type)"
       >
         {{ d.value }}
-      </MagicRichText>
+      </RichText>
     </div>
   </div>
 </template>

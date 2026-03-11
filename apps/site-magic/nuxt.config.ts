@@ -27,6 +27,10 @@ export default defineNuxtConfig({
     '#schema': fileURLToPath(new URL('./server/db/schema', import.meta.url)),
   },
 
+  components: [
+    { path: '~/components', pathPrefix: false },
+  ],
+
   routeRules: {
     '/': { prerender: true },
   },

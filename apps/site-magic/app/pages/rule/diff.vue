@@ -46,20 +46,20 @@
           isMenuHeading(d, 0) ? 'is-menu' : '',
         ]"
       >
-        <MagicRuleSerial
+        <RuleSerial
           out-of-chapter
           :item-id="d.itemId"
           :serial="d.serial[0]"
           :class="d.type ? typeClass(d.type) : ''"
         />
-        <MagicRichText
+        <RichText
           v-for="(v, i) in d.text ?? []"
           :key="i"
           :inline="true"
           :class="textClass(v, 'remove')"
         >
           {{ textValue(v, 'remove') }}
-        </MagicRichText>
+        </RichText>
       </div>
       <div v-else class="diff-cell p-2 border-r border-gray-200 dark:border-white/10" />
 
@@ -72,20 +72,20 @@
           isMenuHeading(d, 1) ? 'is-menu' : '',
         ]"
       >
-        <MagicRuleSerial
+        <RuleSerial
           out-of-chapter
           :item-id="d.itemId"
           :serial="d.serial[1]"
           :class="d.type ? typeClass(d.type) : ''"
         />
-        <MagicRichText
+        <RichText
           v-for="(v, i) in d.text ?? []"
           :key="i"
           :inline="true"
           :class="textClass(v, 'add')"
         >
           {{ textValue(v, 'add') }}
-        </MagicRichText>
+        </RichText>
       </div>
       <div v-else class="diff-cell p-2" />
     </div>

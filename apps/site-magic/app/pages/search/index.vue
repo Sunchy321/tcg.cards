@@ -4,9 +4,9 @@
       <div class="controller h-12 flex items-center px-4 shadow-md">
         <UIcon v-show="searching" name="lucide:refresh-cw" class="animate-spin mr-2 text-white/80" />
 
-        <MagicRichText class="text-white/90 text-sm">
+        <RichText class="text-white/90 text-sm">
           {{ explained.text }}
-        </MagicRichText>
+        </RichText>
 
         <div class="flex-1" />
 
@@ -32,7 +32,7 @@
         target="_blank"
         class="block"
       >
-        <MagicCardImage
+        <CardImage
           :set="card.set"
           :number="card.number"
           :lang="imageLang(card)"

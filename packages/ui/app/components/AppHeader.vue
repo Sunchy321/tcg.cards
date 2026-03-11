@@ -69,7 +69,7 @@
         </div>
       </template>
     </UHeader>
-    <div id="subheader-portal" />
+    <div id="subheader-portal" class="sticky top-(--ui-header-height) z-40" />
   </div>
 </template>
 

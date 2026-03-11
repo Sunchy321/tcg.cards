@@ -5,7 +5,7 @@
       <div class="lg:col-span-3">
         <div class="sticky top-24">
           <UCard>
-            <MagicCardImage
+            <CardImage
               :lang="imageLang"
               :set="data.set"
               :number="data.number"
@@ -99,7 +99,7 @@
               </h1>
             </div>
             <div v-if="data.cardPart.cost" class="flex items-center gap-0.5 shrink-0 text-2xl">
-              <MagicSymbol
+              <Symbol
                 v-for="(s, i) in data.cardPart.cost"
                 :key="i"
                 :value="`{${s}}`"
@@ -144,7 +144,7 @@
           </div>
 
           <div class="flex items-center gap-2 py-2 my-4 bg-gray-50 dark:bg-gray-800 px-3 rounded" :style="effectStyle">
-            <MagicColorIndicator
+            <ColorIndicator
               v-if="data.cardPart.colorIndicator"
               :value="data.cardPart.colorIndicator"
             />
@@ -153,9 +153,9 @@
           </div>
 
           <div class="border-l-2 border-primary bg-gray-50 dark:bg-gray-800 rounded-r-lg p-4 mb-6 leading-relaxed space-y-2" :style="effectStyle">
-            <MagicRichText>
+            <RichText>
               {{ displayPart.text }}
-            </MagicRichText>
+            </RichText>
           </div>
 
           <div v-if="data.printPart.attractionLights != null" class="flex gap-1 mb-6">
@@ -170,9 +170,9 @@
           </div>
 
           <div v-if="data.printPart.flavorText" class="border-l-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 italic text-gray-500 dark:text-gray-400 rounded-r-lg p-4 mb-6" :style="effectStyle">
-            <MagicRichText detect-emph>
+            <RichText detect-emph>
               {{ data.printPart.flavorText }}
-            </MagicRichText>
+            </RichText>
           </div>
 
           <div v-if="tags.length + printTags.length > 0" class="flex flex-wrap gap-2 mb-6">
@@ -201,7 +201,7 @@
               class="flex items-center justify-between gap-2"
             >
               <span class="text-gray-500 dark:text-gray-400 truncate min-w-0">{{ $te(`magic.format.${fmt}`) ? $t(`magic.format.${fmt}`) : fmt }}</span>
-              <MagicBanlistStatus :status="status" align="right" />
+              <BanlistStatus :status="status" align="right" />
             </div>
           </div>
 
@@ -212,7 +212,7 @@
               class="flex items-center gap-2 px-3 py-2"
             >
               <UIcon :name="relationIcon(r.relation)" class="shrink-0 text-gray-400" />
-              <MagicCardAvatar :id="r.cardId" :version="r.version" />
+              <CardAvatar :id="r.cardId" :version="r.version" />
             </div>
           </div>
 
@@ -226,9 +226,9 @@
                 {{ ruling.source }} · {{ ruling.date }}
               </div>
               <div class="text-sm text-gray-800 dark:text-gray-200">
-                <MagicRichText detect-url>
+                <RichText detect-url>
                   {{ ruling.text }}
-                </MagicRichText>
+                </RichText>
               </div>
             </div>
           </div>

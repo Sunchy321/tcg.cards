@@ -111,7 +111,7 @@
               :name="status === 'legal' ? 'lucide:plus' : 'lucide:minus'"
               :class="status === 'legal' ? 'text-green-500' : 'text-red-500'"
             />
-            <MagicSetAvatar :set-id="id" />
+            <SetAvatar :set-id="id" />
           </div>
         </div>
 
@@ -121,8 +121,8 @@
             :key="`${id}-${status}`"
             class="flex items-center gap-2"
           >
-            <MagicBanlistStatus :status="statusKey(status, score)" />
-            <MagicCardAvatar :id="id" />
+            <BanlistStatus :status="statusKey(status, score)" />
+            <CardAvatar :id="id" />
             <span v-if="group != null" class="text-xs text-gray-400 font-variant-small-caps">{{ groupShort(group) }}</span>
           </div>
         </div>
@@ -168,7 +168,7 @@
           >
             <!-- Individual card entry -->
             <div v-if="item._type === 'item'" class="flex items-center gap-2">
-              <MagicBanlistStatus :status="statusKey(item.status, item.score)" />
+              <BanlistStatus :status="statusKey(item.status, item.score)" />
               <a
                 v-if="item.link.length > 0"
                 class="text-xs text-gray-400 shrink-0 font-mono"
@@ -176,13 +176,13 @@
                 target="_blank"
               >{{ item.date }}</a>
               <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ item.date }}</span>
-              <MagicCardAvatar :id="item.cardId" />
+              <CardAvatar :id="item.cardId" />
               <span v-if="item.group != null" class="text-xs text-gray-400 font-variant-small-caps">{{ groupShort(item.group) }}</span>
             </div>
 
             <!-- Collapsed group entry -->
             <div v-else class="flex items-center gap-2">
-              <MagicBanlistStatus :status="item.status" />
+              <BanlistStatus :status="item.status" />
               <span class="text-xs text-gray-400 shrink-0 font-mono">{{ item.date }}</span>
               <UBadge :label="String(item.count)" size="sm" variant="subtle" />
               <span class="text-sm font-semibold font-variant-small-caps text-gray-300">{{ groupName(item.group) }}</span>
@@ -204,7 +204,7 @@
           <span class="text-lg font-semibold">{{ $t('magic.ui.format.set') }}</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          <MagicSetAvatar v-for="id in sets" :key="id" :set-id="id" />
+          <SetAvatar v-for="id in sets" :key="id" :set-id="id" />
         </div>
       </UCard>
     </template>
@@ -222,7 +222,7 @@
             :key="card.cardId"
             class="flex items-center gap-2"
           >
-            <MagicBanlistStatus :status="statusKey(card.status, card.score)" />
+            <BanlistStatus :status="statusKey(card.status, card.score)" />
             <a
               v-if="card.link.length > 0"
               class="text-xs text-gray-400 shrink-0 font-mono"
@@ -230,7 +230,7 @@
               target="_blank"
             >{{ card.date }}</a>
             <span v-else class="text-xs text-gray-400 shrink-0 font-mono">{{ card.date }}</span>
-            <MagicCardAvatar :id="card.cardId" />
+            <CardAvatar :id="card.cardId" />
           </div>
         </div>
       </template>
