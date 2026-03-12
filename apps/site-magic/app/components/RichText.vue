@@ -38,7 +38,7 @@ const slots = defineSlots<{
 defineOptions({ inheritAttrs: false });
 const attrs = useAttrs();
 
-const gameLocale = useGameLocale('magic');
+const gameLocale = useGameLocale();
 const lang = computed(() => props.lang ?? gameLocale.value);
 
 // ── markdown-it setup ──────────────────────────────────────────────────────

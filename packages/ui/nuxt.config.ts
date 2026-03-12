@@ -25,6 +25,13 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2025-01-15',
 
+  i18n: {
+    locales: [
+      { code: 'en', files: ['en.ts'] },
+      { code: 'zhs', files: ['zhs.ts'] },
+    ],
+  },
+
   icon: {
     provider:          'server',
     customCollections: [

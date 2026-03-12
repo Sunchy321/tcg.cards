@@ -13,7 +13,7 @@ const props = defineProps<{
 }>();
 
 const { $orpc } = useNuxtApp();
-const gameLocale = useGameLocale('magic');
+const gameLocale = useGameLocale();
 
 const profile = ref<SetProfile | null>(null);
 

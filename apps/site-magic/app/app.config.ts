@@ -1,3 +1,5 @@
+import { mainLocale } from '#model/magic/schema/basic';
+
 export default defineAppConfig({
   ui: {
     colors: {
@@ -6,5 +8,9 @@ export default defineAppConfig({
     },
   },
 
+  gameId: 'magic',
+
   appIcon: 'i:magic-logo',
+
+  locales: mainLocale.options,
 });

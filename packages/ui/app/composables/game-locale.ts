@@ -1,37 +1,21 @@
-import z from 'zod';
+/**
+ * Game-level locale stored in a cookie, independent of i18n UI locale.
+ * The cookie key and available options are configured via app.config.ts.
+ */
+export const useGameLocale = () => {
+  const appConfig = useAppConfig();
 
-import type { Game } from '@tcg-cards/shared';
+  const locales = appConfig.locales ?? ['en'];
+  const cookieKey = `${appConfig.gameId}_locale`;
 
-import type { Locale as MagicLocale } from '#model/magic/schema/basic';
+  const resolveLocale = (value: string): string =>
+    locales.find(l => l === value) ?? locales[0] ?? value;
 
-import { locale as magicLocale } from '#model/magic/schema/basic';
-
-type Locale<G extends Game> = {
-  magic:       MagicLocale;
-  hearthstone: 'en';
-}[G];
-
-const schemas = {
-  magic:       magicLocale,
-  hearthstone: z.enum(['en']),
-} as const;
-
-const resolveDefaultLocale = (
-  localeSchema: (typeof schemas)[Game],
-  currentLocale: string,
-) => {
-  return localeSchema.safeParse(currentLocale).data ?? localeSchema.options[0]!;
-};
-
-export const useGameLocale = (game: Game) => {
-  const i18n = useI18n();
-  const localeSchema = schemas[game];
-
-  const locale = useCookie<Locale<Game>>(`${game}_locale`, {
+  const locale = useCookie<string>(cookieKey, {
     domain:  import.meta.dev ? undefined : '.tcg.cards',
-    default: () => resolveDefaultLocale(localeSchema, i18n.locale.value),
-    decode:  value => resolveDefaultLocale(localeSchema, value),
-    encode:  value => resolveDefaultLocale(localeSchema, value),
+    default: () => locales[0] ?? '',
+    decode:  value => resolveLocale(value),
+    encode:  value => resolveLocale(value),
   });
 
   return locale;

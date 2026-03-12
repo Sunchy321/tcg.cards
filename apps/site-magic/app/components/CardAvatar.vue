@@ -54,7 +54,7 @@ const props = withDefaults(defineProps<{
 const { $orpc } = useNuxtApp();
 const router = useRouter();
 const route = useRoute();
-const gameLocale = useGameLocale('magic');
+const gameLocale = useGameLocale();
 const locales = localeSchema.options;
 
 const profile = ref<CardProfile | null>(null);

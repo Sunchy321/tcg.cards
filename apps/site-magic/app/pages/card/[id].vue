@@ -344,7 +344,7 @@ import { groupBy, omitBy, sortBy, uniq, uniqBy } from 'lodash-es';
 const { $orpc } = useNuxtApp();
 const route = useRoute('card-id');
 const router = useRouter();
-const gameLocale = useGameLocale('magic');
+const gameLocale = useGameLocale();
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 const { setActions } = useActions();
 const actionMeta = getMagicActionMeta();

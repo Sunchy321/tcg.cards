@@ -60,6 +60,19 @@ export default defineNuxtConfig({
     provider: 'server',
   },
 
+  i18n: {
+    defaultLocale: 'en',
+    locales:       [
+      { code: 'en', language: 'en-US', name: 'English', file: 'en/index.ts' },
+      { code: 'zhs', language: 'zh-CN', name: 'Chinese (Simplified)', file: 'zhs/index.ts' },
+    ],
+    strategy:              'no_prefix',
+    detectBrowserLanguage: {
+      useCookie:  true,
+      redirectOn: 'root',
+    },
+  },
+
   fonts: {
     providers: {
       google:      false,

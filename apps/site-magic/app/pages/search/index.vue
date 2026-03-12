@@ -68,7 +68,7 @@ const route = useRoute('search');
 const router = useRouter();
 const i18n = useI18n();
 const title = useTitle();
-const gameLocale = useGameLocale('magic');
+const gameLocale = useGameLocale();
 
 title.value = i18n.t('magic.$self');
 

@@ -65,6 +65,24 @@
             @click="getHandler(action.id)()"
           />
 
+          <UDropdownMenu
+            v-if="appLocales.length > 1"
+            :items="localeMenuItems"
+            :ui="{ content: 'min-w-fit' }"
+          >
+            <UButton
+              color="neutral"
+              variant="ghost"
+              class="text-white hover:bg-white/20 hover:text-white font-mono font-semibold"
+            >
+              {{ appLocale }}
+            </UButton>
+            <template #locale-item="{ item }">
+              <span class="font-mono shrink-0 min-w-10">{{ item.code }}</span>
+              <span class="text-muted-foreground">{{ item.label }}</span>
+            </template>
+          </UDropdownMenu>
+
           <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
         </div>
       </template>
@@ -90,6 +108,24 @@ const params = getParams();
 const actionMeta = route.meta.actions ?? [];
 
 const actions = getActions();
+
+// ── Locale switcher ──────────────────────────────────────────────────────────
+
+const appLocales = appConfig.locales ?? [];
+
+const appLocale = useGameLocale();
+const i18n = useI18n();
+
+const localeMenuItems = computed(() =>
+  appLocales.map(l => ({
+    code:     l,
+    label:    i18n.t(`locale.${l}`, l),
+    slot:     'locale-item' as const,
+    onSelect: () => { appLocale.value = l; },
+  })),
+);
+
+// ────────────────────────────────────────────────────────────────────────────
 
 const getHandler = (id: string) => {
   const action = actions.value.find(a => a.id === id);
