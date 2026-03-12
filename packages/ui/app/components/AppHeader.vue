@@ -66,7 +66,7 @@
           />
 
           <UDropdownMenu
-            v-if="appLocales.length > 1"
+            v-if="gameLocales.length > 1"
             :items="localeMenuItems"
             :ui="{ content: 'min-w-fit' }"
           >
@@ -75,7 +75,7 @@
               variant="ghost"
               class="text-white hover:bg-white/20 hover:text-white font-mono font-semibold"
             >
-              {{ appLocale }}
+              {{ gameLocale }}
             </UButton>
             <template #locale-item="{ item }">
               <span class="font-mono shrink-0 min-w-10">{{ item.code }}</span>
@@ -84,6 +84,8 @@
           </UDropdownMenu>
 
           <UColorModeButton class="text-white hover:bg-white/20 hover:text-white" />
+
+          <slot name="right-end" />
         </div>
       </template>
     </UHeader>
@@ -111,19 +113,19 @@ const actions = getActions();
 
 // ── Locale switcher ──────────────────────────────────────────────────────────
 
-const appLocales = appConfig.locales ?? [];
+const gameLocales = appConfig.locales ?? [];
 
-const appLocale = useGameLocale();
-const i18n = useI18n();
+const gameLocale = useGameLocale();
+const { t } = useI18n();
 
-const localeMenuItems = computed(() =>
-  appLocales.map(l => ({
+const localeMenuItems = computed(() => {
+  return gameLocales.map(l => ({
     code:     l,
-    label:    i18n.t(`locale.${l}`, l),
+    label:    t(`locale.${l}`, l),
     slot:     'locale-item' as const,
-    onSelect: () => { appLocale.value = l; },
-  })),
-);
+    onSelect: () => { gameLocale.value = l; },
+  }));
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 

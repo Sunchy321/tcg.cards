@@ -20,7 +20,7 @@ export const auth = betterAuth({
     },
   }),
 
-  trustedOrigins: ['localhost:3000', 'http://tcg.cards'],
+  trustedOrigins: ['localhost:*', 'http://*.tcg.cards'],
 
   emailAndPassword: {
     enabled: true,

@@ -83,6 +83,62 @@ export default {
 
   // ...Object.fromEntries(GAMES.map(g => [g, gameI18n[`./${g}/index.ts`]])),
 
+  settings: {
+    $self:       '设置',
+    account:     '账户',
+    notLoggedIn: '尚未登录。',
+
+    login:              '登录',
+    loginFailed:        '登录失败',
+    loginSuccess:       '登录成功',
+    loginRequired:      '请登录后再访问账户设置。',
+    logout:             '退出登录',
+    logoutSuccess:      '已退出登录',
+    register:           '注册',
+    registerFailed:     '注册失败',
+    registerSuccess:    '账户创建成功',
+    createAccount:      '创建账户',
+    alreadyHaveAccount: '已有账户？',
+
+    profile:     '个人资料',
+    displayName: '显示名称',
+    email:       '邮箱',
+    password:    '密码',
+
+    emailPlaceholder:       '你的邮箱地址',
+    passwordPlaceholder:    '输入密码',
+    namePlaceholder:        '你的名字',
+    newPasswordPlaceholder: '至少 8 个字符',
+
+    changePassword:  '修改密码',
+    currentPassword: '当前密码',
+    newPassword:     '新密码',
+    passwordUpdated: '密码修改成功',
+
+    save:          '保存',
+    updateSuccess: '更新成功',
+    updateFailed:  '更新失败',
+
+    dangerZone: '危险操作',
+
+    role: {
+      owner:     '站长',
+      admin:     '管理员',
+      gameAdmin: '游戏管理员',
+      user:      '普通用户',
+    },
+
+    general: {
+      $self:      '通用',
+      uiLanguage: '界面语言',
+    },
+
+    game: {
+      $self:    '游戏',
+      language: '游戏语言',
+    },
+  },
+
   omni,
   magic,
   hearthstone,

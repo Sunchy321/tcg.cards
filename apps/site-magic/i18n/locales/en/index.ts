@@ -86,6 +86,62 @@ export default {
 
   // ...Object.fromEntries(GAMES.map(g => [g, gameI18n[`./${g}/index.ts`]])),
 
+  settings: {
+    $self:       'Settings',
+    account:     'Account',
+    notLoggedIn: 'You are not logged in.',
+
+    login:              'Login',
+    loginFailed:        'Login failed',
+    loginSuccess:       'Logged in successfully',
+    loginRequired:      'Please log in to access account settings.',
+    logout:             'Logout',
+    logoutSuccess:      'Logged out successfully',
+    register:           'Register',
+    registerFailed:     'Registration failed',
+    registerSuccess:    'Account created successfully',
+    createAccount:      'Create an account',
+    alreadyHaveAccount: 'Already have an account?',
+
+    profile:     'Profile',
+    displayName: 'Display Name',
+    email:       'Email',
+    password:    'Password',
+
+    emailPlaceholder:       'your{\'@\'}email.com',
+    passwordPlaceholder:    'Enter your password',
+    namePlaceholder:        'Your name',
+    newPasswordPlaceholder: 'At least 8 characters',
+
+    changePassword:  'Change Password',
+    currentPassword: 'Current password',
+    newPassword:     'New password',
+    passwordUpdated: 'Password updated successfully',
+
+    save:          'Save',
+    updateSuccess: 'Updated successfully',
+    updateFailed:  'Update failed',
+
+    dangerZone: 'Danger Zone',
+
+    role: {
+      owner:     'Owner',
+      admin:     'Admin',
+      gameAdmin: 'Game Admin',
+      user:      'User',
+    },
+
+    general: {
+      $self:      'General',
+      uiLanguage: 'Interface Language',
+    },
+
+    game: {
+      $self:    'Game',
+      language: 'Game Language',
+    },
+  },
+
   omni,
   magic,
   hearthstone,
