@@ -57,9 +57,7 @@ const { $orpc } = useNuxtApp();
 const gameLocale = useGameLocale();
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 const { t } = useI18n();
-const title = useTitle();
-
-title.value = t('magic.set.$self');
+useTitle(() => t('magic.set.$self'));
 
 // ── Data ────────────────────────────────────────────────────────────────────
 

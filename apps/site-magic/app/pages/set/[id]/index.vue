@@ -1,37 +1,12 @@
 <template>
   <div class="bg-white dark:bg-neutral-800 text-black dark:text-white rounded-lg p-6">
-    <!-- Header row -->
-    <div class="flex items-center gap-3 mb-6">
-      <h1 class="text-2xl font-bold flex-1">
-        {{ name ?? id }}
-      </h1>
-
-      <UButton
-        v-if="wotcLink"
-        :to="wotcLink"
-        target="_blank"
-        icon="lucide:link"
-        variant="ghost"
-        color="neutral"
-        size="sm"
-      />
-      <UButton
-        :to="apiLink"
-        target="_blank"
-        icon="lucide:braces"
-        variant="ghost"
-        color="neutral"
-        size="sm"
-      />
-    </div>
-
     <div v-if="loading" class="flex justify-center py-12">
       <UIcon name="lucide:loader" class="animate-spin w-8 h-8 text-gray-500" />
     </div>
 
     <template v-else-if="data">
       <!-- Rarities -->
-      <div v-if="rarities.length > 0" class="flex flex-wrap gap-4 mb-6">
+      <div class="flex flex-wrap items-center gap-4 mb-6">
         <div
           v-for="r in rarities"
           :key="r"
@@ -39,6 +14,25 @@
         >
           <img :src="rarityIconUrl(r)" class="w-10 h-10 object-contain">
           <span class="text-xs text-gray-500 dark:text-gray-400">{{ $t('magic.rarity.' + r) }}</span>
+        </div>
+        <div class="flex gap-1 ml-auto">
+          <UButton
+            v-if="wotcLink"
+            :to="wotcLink"
+            target="_blank"
+            icon="lucide:link"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+          />
+          <UButton
+            :to="apiLink"
+            target="_blank"
+            icon="lucide:braces"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+          />
         </div>
       </div>
 
@@ -142,7 +136,7 @@ const name = computed(() => {
   );
 });
 
-useHead(() => ({ title: name.value ?? id.value }));
+useTitle(() => name.value ?? id.value);
 
 const wotcLink = computed(() => {
   if (!data.value) return null;

@@ -310,12 +310,12 @@ const { $orpc } = useNuxtApp();
 const route = useRoute('format-id');
 const router = useRouter();
 const i18n = useI18n();
-const title = useTitle();
 const { setParams } = useParams();
 
 // ── Route params / query ──────────────────────────────────────────────────────
 
 const format = computed(() => route.params.id);
+useTitle(() => i18n.t(`magic.format.${format.value}`));
 
 const showTimeline = computed(() => route.query.timeline !== undefined);
 
@@ -327,12 +327,6 @@ const order = computed<'name' | 'date'>(() => {
 });
 
 const expandGroups = computed(() => route.query.expand !== undefined);
-
-// ── Header title ──────────────────────────────────────────────────────────────
-
-watch(format, f => {
-  title.value = i18n.t(`magic.format.${f}`);
-}, { immediate: true });
 
 // ── Params ────────────────────────────────────────────────────────────────────
 

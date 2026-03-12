@@ -87,7 +87,7 @@
 definePageMeta({ layout: 'main' });
 
 const { t } = useI18n();
-useHead({ title: computed(() => t('settings.register')) });
+useTitle(() => t('settings.register'));
 
 const toast = useToast();
 const router = useRouter();

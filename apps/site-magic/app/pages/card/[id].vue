@@ -385,13 +385,11 @@ const { data } = await useAsyncData(
   { watch: [query] },
 );
 
-const title = useTitle();
-
-watchEffect(() => {
-  if (!data.value) return;
+useTitle(() => {
+  if (!data.value) return '';
   const unifiedName = data.value.cardPartLocalization.name;
   const oracleName = data.value.cardPart.name;
-  title.value = unifiedName === oracleName
+  return unifiedName === oracleName
     ? unifiedName
     : `${unifiedName} (${oracleName})`;
 });

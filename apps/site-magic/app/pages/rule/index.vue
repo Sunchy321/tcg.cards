@@ -126,9 +126,7 @@ const { $orpc } = useNuxtApp();
 const route = useRoute('rule');
 const router = useRouter();
 const i18n = useI18n();
-const title = useTitle();
-
-title.value = i18n.t('magic.rule.$self');
+useTitle(() => i18n.t('magic.rule.$self'));
 
 // ─── State ────────────────────────────────────────────────────────────────────
 

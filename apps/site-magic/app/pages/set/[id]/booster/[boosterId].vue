@@ -7,8 +7,6 @@
       <span class="text-sm font-medium">{{ boosterName }}</span>
     </div>
 
-    <h1 class="text-2xl font-bold mb-6">{{ boosterName }}</h1>
-
     <div v-if="loading" class="flex justify-center py-12">
       <UIcon name="lucide:loader" class="animate-spin w-8 h-8 text-gray-400" />
     </div>
@@ -149,7 +147,7 @@ const boosterName = computed(() => {
   return boosterId.value;
 });
 
-useHead(() => ({ title: `${boosterName.value} – ${setName.value}` }));
+useTitle(() => `${boosterName.value} – ${setName.value}`);
 
 // ── Sheets toggles ────────────────────────────────────────────────────────────
 

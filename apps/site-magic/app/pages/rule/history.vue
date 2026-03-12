@@ -54,9 +54,7 @@ definePageMeta({
 const { $orpc } = useNuxtApp();
 const route = useRoute('rule-history');
 const i18n = useI18n();
-const title = useTitle();
-
-title.value = i18n.t('magic.rule.history');
+useTitle(() => i18n.t('magic.rule.history'));
 
 // ─── State ────────────────────────────────────────────────────────────────────
 

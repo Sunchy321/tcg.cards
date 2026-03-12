@@ -224,7 +224,7 @@ const { t, locale, setLocale, availableLocales } = useI18n();
 const toast = useToast();
 const appConfig = useAppConfig();
 
-useHead({ title: computed(() => t('settings.$self')) });
+useTitle(() => t('settings.$self'));
 
 const session = authClient.useSession();
 

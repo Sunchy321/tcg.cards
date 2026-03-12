@@ -104,9 +104,7 @@ const { $orpc } = useNuxtApp();
 const route = useRoute('rule-diff');
 const router = useRouter();
 const i18n = useI18n();
-const title = useTitle();
-
-title.value = i18n.t('magic.rule.diff');
+useTitle(() => i18n.t('magic.rule.diff'));
 
 // ─── State ────────────────────────────────────────────────────────────────────
 

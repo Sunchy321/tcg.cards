@@ -67,10 +67,8 @@ const { $orpc } = useNuxtApp();
 const route = useRoute('search');
 const router = useRouter();
 const i18n = useI18n();
-const title = useTitle();
 const gameLocale = useGameLocale();
-
-title.value = i18n.t('magic.$self');
+useTitle(() => i18n.t('magic.$self'));
 
 const data = ref<SearchResult | null>(null);
 const searching = ref(false);
