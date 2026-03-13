@@ -1,7 +1,7 @@
 # For more details on how to configure Wrangler, refer to:
 # https://developers.cloudflare.com/workers/wrangler/configuration/
 
-name = "magic-tcg-cards"
+name = "console-tcg-cards"
 main = "./.output/server/index.mjs"
 compatibility_date = "2026-02-19"
 compatibility_flags = ["nodejs_compat"]
