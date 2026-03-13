@@ -16,6 +16,9 @@
     "@iconify-json/lucide": "^1.2.95",
     "@iconify-json/simple-icons": "^1.2.72",
     "@nuxt/ui": "^4.5.1",
+    "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/search": "workspace:*",
+    "@tcg-cards/shared": "workspace:*",
     "better-auth": "^1.5.5",
     "drizzle-orm": "^0.45.1",
     "nitro-cloudflare-dev": "^0.2.2",
@@ -31,7 +34,8 @@
     "eslint": "^10.0.2",
     "eslint-config-custom": "workspace:*",
     "typescript": "^5.9.3",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.2.5",
+    "wrangler": "^4.73.0"
   },
   "packageManager": "bun@1.3.10"
 }

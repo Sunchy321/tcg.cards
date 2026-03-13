@@ -47,12 +47,12 @@
             v-if="session"
             class="text-sm text-gray-500 dark:text-gray-400"
           >
-            {{ (session.user as any).username ?? session.user.name }}
+            {{ session.data?.user?.name }}
           </span>
 
           <UBadge
             v-if="session"
-            :label="(session.user as any).role ?? 'user'"
+            :label="session.data?.user?.role ?? 'user'"
             color="primary"
             variant="soft"
             size="sm"
@@ -85,7 +85,7 @@ const route = useRoute();
 
 const currentTitle = computed(() => String(route.meta.title ?? ''));
 
-const { data: session } = authClient.useSession();
+const session = authClient.useSession();
 
 const signingOut = ref(false);
 

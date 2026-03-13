@@ -1,10 +1,18 @@
 import { createAuthClient } from 'better-auth/vue';
-import { adminClient } from 'better-auth/client/plugins';
+import { adminClient, usernameClient } from 'better-auth/client/plugins';
+
+import { ac, roles } from '~~/server/lib/auth/perms';
 
 export const authClient = createAuthClient({
-  baseURL: import.meta.client ? window.location.origin : undefined,
+  baseURL: import.meta.client ? window.location.origin : process.env.BETTER_AUTH_URL,
   plugins: [
-    adminClient(),
+    usernameClient(),
+    adminClient({
+      ac,
+      roles,
+      adminRoles:   ['admin', 'owner'],
+      adminUserIds: ['Sunchy321'],
+    }),
   ],
 });
 
