@@ -1,8 +1,8 @@
 <template>
   <div>
     <div class="mb-6 flex items-center justify-between">
-      <h2 class="text-lg font-semibold">格式管理</h2>
-      <UButton icon="i-lucide-plus" label="新增格式" />
+      <h2 class="text-lg font-semibold">赛制管理</h2>
+      <UButton icon="i-lucide-plus" label="新增赛制" />
     </div>
 
     <UCard>
@@ -16,6 +16,6 @@
 <script setup lang="ts">
 definePageMeta({
   layout: 'admin',
-  title:  '格式管理',
+  title:  '赛制管理',
 });
 </script>

@@ -2,7 +2,7 @@
   <div class="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
     <!-- Sidebar -->
     <aside
-      class="flex w-60 flex-shrink-0 flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800"
+      class="flex w-60 shrink-0 flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800"
     >
       <!-- Logo -->
       <div class="flex h-14 items-center gap-2 px-5 border-b border-gray-200 dark:border-gray-800">
@@ -11,8 +11,28 @@
       </div>
 
       <!-- Navigation -->
-      <nav class="flex-1 overflow-y-auto p-2">
-        <UNavigationMenu :items="navItems" orientation="vertical" class="w-full" />
+      <nav class="flex-1 overflow-y-auto p-2 flex flex-col">
+        <!-- Game management section -->
+        <template v-if="accessibleGames.length > 0">
+          <div class="px-2 py-2">
+            <p class="mb-1.5 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">游戏数据</p>
+            <USelect
+              v-model="currentGame"
+              :items="gameSelectItems"
+              size="sm"
+              class="w-full"
+            />
+          </div>
+          <UNavigationMenu :items="gameNavItems" orientation="vertical" class="w-full" />
+        </template>
+
+        <!-- User management section -->
+        <template v-if="canManageUsers">
+          <div class="px-2 py-2">
+            <p class="mb-1 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">用户管理</p>
+          </div>
+          <UNavigationMenu :items="userNavItems" orientation="vertical" class="w-full" />
+        </template>
       </nav>
 
       <!-- Bottom area -->
@@ -79,7 +99,9 @@
 </template>
 
 <script setup lang="ts">
+import { GAMES } from '#shared';
 import { authClient } from '~/composables/auth';
+import { GAME_LABELS, useCurrentGame } from '~/composables/game';
 
 const route = useRoute();
 
@@ -95,7 +117,42 @@ async function signOut() {
   await navigateTo('/login');
 }
 
-const navItems = [
+const role = computed(() => (session.value.data?.user as { role?: string } | undefined)?.role ?? null);
+
+// owner can manage all games; admin/xxx can only manage game xxx
+const accessibleGames = computed<string[]>(() => {
+  const r = role.value;
+  if (!r) return [];
+  if (r === 'owner') return [...GAMES];
+  if (r.startsWith('admin/')) {
+    const game = r.slice('admin/'.length);
+    if ((GAMES as readonly string[]).includes(game)) return [game];
+  }
+  return [];
+});
+
+const canManageUsers = computed(() => {
+  const r = role.value;
+  return r === 'owner' || r === 'admin';
+});
+
+const currentGame = useCurrentGame();
+
+// When accessible games change, ensure currentGame is still valid
+watch(accessibleGames, games => {
+  if (games.length > 0 && !games.includes(currentGame.value)) {
+    currentGame.value = games[0] as typeof currentGame.value;
+  }
+}, { immediate: true });
+
+const gameSelectItems = computed(() =>
+  accessibleGames.value.map(g => ({
+    label: GAME_LABELS[g as keyof typeof GAME_LABELS] ?? g,
+    value: g,
+  })),
+);
+
+const gameNavItems = [
   [
     {
       label: '概览',
@@ -103,8 +160,6 @@ const navItems = [
       to:    '/',
       exact: true,
     },
-  ],
-  [
     {
       label: '卡牌',
       icon:  'i-lucide-layers',
@@ -116,11 +171,14 @@ const navItems = [
       to:    '/set',
     },
     {
-      label: '格式',
+      label: '赛制',
       icon:  'i-lucide-shield-check',
       to:    '/format',
     },
   ],
+];
+
+const userNavItems = [
   [
     {
       label: '用户',

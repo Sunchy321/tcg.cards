@@ -39,7 +39,7 @@ definePageMeta({
 const stats = [
   { label: '卡牌总数', icon: 'i-lucide-layers', value: '—' },
   { label: '系列数量', icon: 'i-lucide-folder-open', value: '—' },
-  { label: '格式数量', icon: 'i-lucide-shield-check', value: '—' },
+  { label: '赛制数量', icon: 'i-lucide-shield-check', value: '—' },
   { label: '用户总数', icon: 'i-lucide-users', value: '—' },
 ];
 </script>
