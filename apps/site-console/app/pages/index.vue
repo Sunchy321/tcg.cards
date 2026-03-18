@@ -1,45 +1,21 @@
-<template>
-  <div class="space-y-6">
-    <!-- Stats row -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <UCard
-        v-for="stat in stats"
-        :key="stat.label"
-      >
-        <div class="flex items-center gap-4">
-          <div class="rounded-lg bg-primary/10 p-3">
-            <UIcon :name="stat.icon" class="size-5 text-primary" />
-          </div>
-          <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ stat.label }}</p>
-            <p class="text-2xl font-semibold">{{ stat.value }}</p>
-          </div>
-        </div>
-      </UCard>
-    </div>
-
-    <!-- Recent activity -->
-    <UCard>
-      <template #header>
-        <h2 class="text-sm font-semibold">最近活动</h2>
-      </template>
-      <p class="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
-        暂无数据
-      </p>
-    </UCard>
-  </div>
-</template>
-
 <script setup lang="ts">
-definePageMeta({
-  layout: 'admin',
-  title:  '概览',
+import { GAMES } from '#shared';
+import { authClient } from '~/composables/auth';
+
+const session = authClient.useSession();
+
+const role = computed(() => (session.value.data?.user as { role?: string } | undefined)?.role ?? null);
+
+const firstGame = computed(() => {
+  const r = role.value;
+  if (!r) return GAMES[0];
+  if (r === 'owner' || r === 'admin') return GAMES[0];
+  if (r.startsWith('admin/')) {
+    const game = r.slice('admin/'.length);
+    if ((GAMES as readonly string[]).includes(game)) return game;
+  }
+  return GAMES[0];
 });
 
-const stats = [
-  { label: '卡牌总数', icon: 'i-lucide-layers', value: '—' },
-  { label: '系列数量', icon: 'i-lucide-folder-open', value: '—' },
-  { label: '赛制数量', icon: 'i-lucide-shield-check', value: '—' },
-  { label: '用户总数', icon: 'i-lucide-users', value: '—' },
-];
+await navigateTo(`/${firstGame.value}`, { replace: true });
 </script>

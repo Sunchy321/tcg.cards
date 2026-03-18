@@ -152,31 +152,36 @@ const gameSelectItems = computed(() =>
   })),
 );
 
-const gameNavItems = [
+const gameNavItems = computed(() => [
   [
     {
       label: '概览',
       icon:  'i-lucide-layout-dashboard',
-      to:    '/',
+      to:    `/${currentGame.value}`,
       exact: true,
+    },
+    {
+      label: '数据源',
+      icon:  'i-lucide-database',
+      to:    `/${currentGame.value}/data-source`,
     },
     {
       label: '卡牌',
       icon:  'i-lucide-layers',
-      to:    '/card',
+      to:    `/${currentGame.value}/card`,
     },
     {
       label: '系列',
       icon:  'i-lucide-folder-open',
-      to:    '/set',
+      to:    `/${currentGame.value}/set`,
     },
     {
       label: '赛制',
       icon:  'i-lucide-shield-check',
-      to:    '/format',
+      to:    `/${currentGame.value}/format`,
     },
   ],
-];
+]);
 
 const userNavItems = [
   [
