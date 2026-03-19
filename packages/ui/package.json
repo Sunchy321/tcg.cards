@@ -1,5 +1,5 @@
 {
-  "name": "ui",
+  "name": "@tcg-cards/ui",
   "private": true,
   "type": "module",
   "scripts": {
