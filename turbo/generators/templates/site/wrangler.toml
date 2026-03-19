@@ -6,6 +6,12 @@ main = "./.output/server/index.mjs"
 compatibility_date = "2026-02-19"
 compatibility_flags = ["nodejs_compat"]
 
+workers_dev = false
+
+[[routes]]
+pattern = "{{ game }}.tcg.cards"
+custom_domain = true
+
 [observability]
 enabled = true
 
