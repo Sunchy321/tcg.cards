@@ -3,7 +3,7 @@ import { mainLocale } from '#model/hearthstone/schema/basic';
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'green',
+      primary: 'hearthstone',
       neutral: 'slate',
     },
   },

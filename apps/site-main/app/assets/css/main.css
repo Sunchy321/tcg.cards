@@ -4,15 +4,21 @@
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
 
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
-  --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
+  /* ── Main site theme color (sky) ────────────────────────────────────────── */
+  --color-main-50:  #f0f9ff;
+  --color-main-100: #e0f2fe;
+  --color-main-200: #bae6fd;
+  --color-main-300: #7dd3fc;
+  --color-main-400: #38bdf8;
+  --color-main-500: #0ea5e9;
+  --color-main-600: #0284c7;
+  --color-main-700: #0369a1;
+  --color-main-800: #075985;
+  --color-main-900: #0c4a6e;
+  --color-main-950: #082f49;
+}
+:root {
+  --color-theme-from: var(--color-main-400);
+  --color-theme-via:  var(--color-main-500);
+  --color-theme-to:   var(--color-main-600);
 }

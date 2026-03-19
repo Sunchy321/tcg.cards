@@ -1,6 +1,27 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* ── Magic: The Gathering theme color ────────────────────────────────────── */
+
+@theme static {
+  --color-magic-50:  #f5f3ff;
+  --color-magic-100: #ede9fe;
+  --color-magic-200: #ddd6fe;
+  --color-magic-300: #c4b5fd;
+  --color-magic-400: #a78bfa;
+  --color-magic-500: #8b5cf6;
+  --color-magic-600: #7c3aed;
+  --color-magic-700: #6d28d9;
+  --color-magic-800: #5b21b6;
+  --color-magic-900: #4c1d95;
+  --color-magic-950: #2e1065;
+}
+
+:root {
+  --color-theme-from: var(--color-magic-400);
+  --color-theme-via:  var(--color-magic-500);
+  --color-theme-to:   var(--color-magic-600);
+}
 
 /* ── Magic: The Gathering fonts ──────────────────────────────────────────── */
 

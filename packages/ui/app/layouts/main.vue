@@ -1,9 +1,5 @@
 <template>
-  <Default
-    :ui="{
-      full: 'from-indigo-500 via-purple-500 to-purple-600'
-    }"
-  >
+  <Default :ui="{ full: 'from-[var(--color-theme-from)] via-[var(--color-theme-via)] to-[var(--color-theme-to)]' }">
     <slot />
   </Default>
 </template>

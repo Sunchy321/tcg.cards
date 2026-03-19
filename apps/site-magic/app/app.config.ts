@@ -3,7 +3,7 @@ import { mainLocale } from '#model/magic/schema/basic';
 export default defineAppConfig({
   ui: {
     colors: {
-      primary: 'green',
+      primary: 'magic',
       neutral: 'slate',
     },
   },

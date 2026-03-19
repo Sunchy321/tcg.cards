@@ -10,6 +10,14 @@ export default defineNuxtConfig({
 
   devServer: { port: 3002 },
 
+  app: {
+    head: {
+      meta: [
+        { name: 'theme-color', content: '#d97706' },
+      ],
+    },
+  },
+
   experimental: {
     typedPages: true,
   },

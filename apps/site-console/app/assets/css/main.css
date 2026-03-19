@@ -4,15 +4,21 @@
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
 
-  --color-green-50: #EFFDF5;
-  --color-green-100: #D9FBE8;
-  --color-green-200: #B3F5D1;
-  --color-green-300: #75EDAE;
-  --color-green-400: #00DC82;
-  --color-green-500: #00C16A;
-  --color-green-600: #00A155;
-  --color-green-700: #007F45;
-  --color-green-800: #016538;
-  --color-green-900: #0A5331;
-  --color-green-950: #052E16;
+  /* ── Console theme color (indigo) ───────────────────────────────────────── */
+  --color-console-50:  #eef2ff;
+  --color-console-100: #e0e7ff;
+  --color-console-200: #c7d2fe;
+  --color-console-300: #a5b4fc;
+  --color-console-400: #818cf8;
+  --color-console-500: #6366f1;
+  --color-console-600: #4f46e5;
+  --color-console-700: #4338ca;
+  --color-console-800: #3730a3;
+  --color-console-900: #312e81;
+  --color-console-950: #1e1b4b;
+}
+:root {
+  --color-theme-from: var(--color-console-400);
+  --color-theme-via:  var(--color-console-500);
+  --color-theme-to:   var(--color-console-600);
 }
