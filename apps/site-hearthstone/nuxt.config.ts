@@ -8,7 +8,7 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
-  devServer: { port: {{ port }} },
+  devServer: { port: 3002 },
 
   experimental: {
     typedPages: true,

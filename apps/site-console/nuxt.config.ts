@@ -8,6 +8,8 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  devServer: { port: 2999 },
+
   app: {
     head: {
       link: [

@@ -1,5 +1,5 @@
 {
-  "name": "site-{{ gameId }}",
+  "name": "site-hearthstone",
   "private": true,
   "type": "module",
   "scripts": {
