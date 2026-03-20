@@ -139,6 +139,27 @@ export default {
     },
   },
 
+  hearthstone: {
+    $self: '炉石传说',
+    $full: '炉石传说',
+
+    card: {
+      $self: '卡牌',
+    },
+
+    set: {
+      $self: '系列',
+    },
+
+    format: {
+      $self: '赛制',
+    },
+
+    patch: {
+      $self: '版本',
+    },
+  },
+
   // omni,
   // magic,
   // hearthstone,

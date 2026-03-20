@@ -49,5 +49,9 @@ definePageMeta({
   actions: [actionMeta.random],
 });
 
+const { t } = useI18n();
+
+useTitle(t('magic.$self'));
+
 setActions([actions.random]);
 </script>

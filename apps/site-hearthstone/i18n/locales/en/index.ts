@@ -142,6 +142,27 @@ export default {
     },
   },
 
+  hearthstone: {
+    $self: 'Hearthstone',
+    $full: 'Hearthstone',
+
+    card: {
+      $self: 'Cards',
+    },
+
+    set: {
+      $self: 'Sets',
+    },
+
+    format: {
+      $self: 'Formats',
+    },
+
+    patch: {
+      $self: 'Patches',
+    },
+  },
+
   // omni,
   // magic,
   // hearthstone,
