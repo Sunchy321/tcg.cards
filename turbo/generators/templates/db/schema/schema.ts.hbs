@@ -1,0 +1,6 @@
+import { pgSchema } from 'drizzle-orm/pg-core';
+
+export const schema = pgSchema('{{ gameId }}');
+
+export const dataSchema = pgSchema('{{ gameId }}_data');
+export const appSchema = pgSchema('{{ gameId }}_app');

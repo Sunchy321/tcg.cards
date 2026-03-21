@@ -63,6 +63,12 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
           path: "{{ turbo.paths.root }}/packages/shared/src/index.ts",
           pattern: /\] as const;/,
           template: "  '{{ gameId }}',\n] as const;"
+        },
+        // --- DB schema file ---
+        {
+          type: "add",
+          path: "{{ turbo.paths.root }}/packages/db/src/schema/{{ gameId }}/schema.ts",
+          templateFile: "templates/db/schema/schema.ts.hbs"
         }
       ];
 
