@@ -4,7 +4,7 @@ import { os } from '#server/orpc';
 import { z } from 'zod';
 import { and, count, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { Deck, DeckLike, DeckFavorite } from '#schema/magic/app/deck';
 import { Card, CardPart } from '#schema/magic/card';
 import { Format } from '#schema/magic/format';

@@ -1,1 +1,3 @@
-console.log("Hello via Bun!");
+export { db } from './db';
+export * from './schema/auth';
+export * from './schema/magic';

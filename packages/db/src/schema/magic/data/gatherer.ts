@@ -93,5 +93,4 @@ export interface GathererData {
     isoLanguageCode: string;
     code:            string;
   }[];
-
 }

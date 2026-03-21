@@ -3,8 +3,8 @@ import { admin, openAPI, username } from 'better-auth/plugins';
 import { apiKey } from '@better-auth/api-key';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 
-import { db } from '#server/db/db';
-import { accounts, apikeys, sessions, users, verifications } from '~~/server/db/schema/auth';
+import { db } from '#db/db';
+import { accounts, apikeys, sessions, users, verifications } from '#schema/auth';
 import { ac, roles } from './perms';
 
 export const auth = betterAuth({

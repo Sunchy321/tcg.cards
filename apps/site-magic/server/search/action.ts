@@ -5,7 +5,7 @@ import type { DevResult, NormalResult } from '#model/magic/schema/search';
 
 import { sql } from 'drizzle-orm';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { CardEditorView, CardPrintView } from '#schema/magic/print';
 
 import { order } from './command-list';

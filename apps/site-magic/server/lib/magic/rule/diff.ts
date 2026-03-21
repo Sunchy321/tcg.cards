@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { diffArrays } from 'diff';
 import { diffString } from '#server/lib/diff';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { RuleItem } from '#schema/magic/rule';
 
 function isChanged(change: TextDiff[]) {

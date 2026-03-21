@@ -4,7 +4,7 @@ import z from 'zod';
 import type { Updation, UpdationMode } from '#model/magic/schema/data/updation';
 import { updation, updationResponse, updationMode } from '#model/magic/schema/data/updation';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { Card, CardLocalization, CardPart, CardPartLocalization } from '#schema/magic/card';
 import { Print, PrintPart } from '#schema/magic/print';
 

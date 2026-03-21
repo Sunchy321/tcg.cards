@@ -34,7 +34,8 @@ export default defineNuxtConfig({
     '#shared': fileURLToPath(new URL('./node_modules/@tcg-cards/shared/src', import.meta.url)),
     '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
     '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
-    '#schema': fileURLToPath(new URL('./server/db/schema', import.meta.url)),
+    '#db':     fileURLToPath(new URL('./node_modules/@tcg-cards/db/src', import.meta.url)),
+    '#schema': fileURLToPath(new URL('./node_modules/@tcg-cards/db/src/schema', import.meta.url)),
   },
 
   components: [

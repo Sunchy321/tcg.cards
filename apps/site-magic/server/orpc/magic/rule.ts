@@ -8,7 +8,7 @@ import { diffArrays } from 'diff';
 import type { RuleDiff, RuleDiffItem, TextDiff } from '#model/magic/schema/rule';
 import { rule, ruleDiff, ruleHistory, ruleItem, ruleSummary } from '#model/magic/schema/rule';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { Rule, RuleItem } from '#schema/magic/rule';
 
 import { diffString, diffThreeString } from '#server/lib/diff';

@@ -26,6 +26,9 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
 
-    "baseUrl": "./src"
+    "baseUrl": "./src",
+    "paths": {
+      "#model/*": ["../node_modules/@tcg-cards/model/src/*"]
+    }
   }
 }

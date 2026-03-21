@@ -6,7 +6,7 @@ import { asc, eq } from 'drizzle-orm';
 import { format as formatSchema } from '#model/magic/schema/format';
 import { formatChange as formatChangeSchema } from '#model/magic/schema/game-change';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { Format } from '#schema/magic/format';
 import { FormatChange } from '#schema/magic/game-change';
 

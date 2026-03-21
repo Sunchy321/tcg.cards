@@ -2,7 +2,7 @@ import { integer, jsonb, primaryKey, text, timestamp } from 'drizzle-orm/pg-core
 import { nanoid } from 'nanoid';
 
 import { appSchema, schema } from '../schema';
-import { users } from '#schema/auth';
+import { users } from '../../auth';
 
 import type { DeckCard } from '#model/magic/schema/deck';
 

@@ -2,8 +2,15 @@
   "name": "@tcg-cards/db",
   "module": "src/index.ts",
   "type": "module",
+  "dependencies": {
+    "@tcg-cards/model": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "lodash-es": "^4.17.23",
+    "nanoid": "^5.1.6"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/lodash-es": "^4.17.12"
   },
   "peerDependencies": {
     "typescript": "^5"

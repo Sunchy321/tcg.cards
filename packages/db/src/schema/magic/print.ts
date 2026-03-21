@@ -1,6 +1,6 @@
 import { getTableColumns, and, eq, sql } from 'drizzle-orm';
 import { boolean, integer, jsonb, primaryKey, smallint, text, uuid } from 'drizzle-orm/pg-core';
-import { bitset } from '#server/db/type/bitset';
+import { bitset } from '../../type/bitset';
 
 import { omit } from 'lodash-es';
 

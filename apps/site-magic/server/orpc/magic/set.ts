@@ -9,7 +9,7 @@ import * as cheerio from 'cheerio';
 
 import { set, setProfile } from '#model/magic/schema/set';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { Booster, Pack, PackContent, Set, SetLocalization, Sheet, SheetCard } from '#schema/magic/set';
 import { Print } from '#schema/magic/print';
 

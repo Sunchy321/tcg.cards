@@ -16,6 +16,7 @@
     "@iconify-json/lucide": "^1.2.95",
     "@iconify-json/simple-icons": "^1.2.72",
     "@nuxt/ui": "^4.5.1",
+    "@tcg-cards/db":     "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",
     "@tcg-cards/shared": "workspace:*",

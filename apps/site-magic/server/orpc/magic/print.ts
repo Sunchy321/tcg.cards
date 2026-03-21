@@ -4,7 +4,7 @@ import z from 'zod';
 
 import { and, eq } from 'drizzle-orm';
 
-import { db } from '#server/db/db';
+import { db } from '#db/db';
 import { PrintView } from '#schema/magic/print';
 
 import { locale } from '#model/magic/schema/basic';

@@ -20,6 +20,7 @@
     "@nuxt/ui": "^4.5.1",
     "@orpc/client": "^1.13.6",
     "@orpc/server": "^1.13.6",
+    "@tcg-cards/db":     "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
