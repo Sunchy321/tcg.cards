@@ -39,12 +39,19 @@
 </template>
 
 <script setup lang="ts">
+const { setActions } = useActions();
+const actionMeta = getHearthstoneActionMeta();
+const actions = useHearthstoneActions();
+
 definePageMeta({
-  layout: 'entry',
-  title:  'Hearthstone',
+  layout:  'entry',
+  title:   'Hearthstone',
+  actions: [actionMeta.random],
 });
 
 const { t } = useI18n();
 
 useTitle(t('hearthstone.$self'));
+
+setActions([actions.random]);
 </script>

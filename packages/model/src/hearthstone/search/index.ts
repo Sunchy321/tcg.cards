@@ -1,4 +1,4 @@
-import { s } from '@search/index';
+import { s } from '#search/index';
 
 import * as commands from './command-list';
 
