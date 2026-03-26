@@ -180,6 +180,11 @@ const gameNavItems = computed(() => [
       icon:  'i-lucide-shield-check',
       to:    `/${currentGame.value}/format`,
     },
+    {
+      label: '公告',
+      icon:  'i-lucide-megaphone',
+      to:    `/${currentGame.value}/announcement`,
+    },
   ],
 ]);
 
