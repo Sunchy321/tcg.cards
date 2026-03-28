@@ -49,7 +49,7 @@ export const ruleView = schema.view('rule_view').as(qb => {
 // ========== Rule History Tables ==========
 
 // RuleSource: 规则版本/来源
-export const ruleSource = schema.table('rule_source', {
+export const RuleSource = schema.table('rule_source', {
   id:            text('id').primaryKey(),
   effectiveDate: text('effective_date'),
   publishedAt:   text('published_at'),
@@ -62,7 +62,7 @@ export const ruleSource = schema.table('rule_source', {
 });
 
 // RuleContent: 内容寻址存储
-export const ruleContent = schema.table('rule_content', {
+export const RuleContent = schema.table('rule_content', {
   hash:     text('hash').primaryKey(), // sha256
   content:  bytea('content').notNull(), // gzip compressed
   size:     integer('size').notNull(), // original size in bytes
@@ -70,7 +70,7 @@ export const ruleContent = schema.table('rule_content', {
 });
 
 // RuleEntity: 跨版本实体追踪
-export const ruleEntity = schema.table('rule_entity', {
+export const RuleEntity = schema.table('rule_entity', {
   id: text('id').primaryKey(), // semantic ID: "{firstVersion}-{firstRuleId}"
 
   // current state (updated with each version)
@@ -84,12 +84,12 @@ export const ruleEntity = schema.table('rule_entity', {
 });
 
 // RuleNode: 版本内具体规则节点
-export const ruleNode = schema.table('rule_node', {
+export const RuleNode = schema.table('rule_node', {
   // Composite ID: "{sourceId}/{ruleId}" e.g., "20240328/702.1"
   id: text('id').primaryKey(),
 
   // Foreign keys
-  sourceId: text('source_id').notNull().references(() => ruleSource.id),
+  sourceId: text('source_id').notNull().references(() => RuleSource.id),
   ruleId:   text('rule_id').notNull(), // Official ID, e.g., "702.1"
 
   // Hierarchy (Materialized Path)
@@ -99,26 +99,26 @@ export const ruleNode = schema.table('rule_node', {
 
   // Content
   title:       text('title'), // Chapter title (e.g., "Keyword Abilities")
-  contentHash: text('content_hash').notNull().references(() => ruleContent.hash),
+  contentHash: text('content_hash').notNull().references(() => RuleContent.hash),
 
   // Entity reference
-  entityId: text('entity_id').notNull().references(() => ruleEntity.id),
+  entityId: text('entity_id').notNull().references(() => RuleEntity.id),
 });
 
 // RuleChange: 版本间变更记录
-export const ruleChange = schema.table('rule_change', {
+export const RuleChange = schema.table('rule_change', {
   id: text('id').primaryKey(), // UUID
 
   // Version range
-  fromSourceId: text('from_source_id').notNull().references(() => ruleSource.id),
-  toSourceId:   text('to_source_id').notNull().references(() => ruleSource.id),
+  fromSourceId: text('from_source_id').notNull().references(() => RuleSource.id),
+  toSourceId:   text('to_source_id').notNull().references(() => RuleSource.id),
 
   // Entity involved
-  entityId: text('entity_id').notNull().references(() => ruleEntity.id),
+  entityId: text('entity_id').notNull().references(() => RuleEntity.id),
 
   // Node references (nullable for add/remove)
-  fromNodeId: text('from_node_id').references(() => ruleNode.id),
-  toNodeId:   text('to_node_id').references(() => ruleNode.id),
+  fromNodeId: text('from_node_id').references(() => RuleNode.id),
+  toNodeId:   text('to_node_id').references(() => RuleNode.id),
 
   // Change type
   type: text('type').notNull(),
