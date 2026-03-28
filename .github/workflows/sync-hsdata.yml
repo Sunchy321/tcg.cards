@@ -1,4 +1,4 @@
-name: Auto Sync Latest
+name: Auto Sync Hsdata
 
 on:
   schedule:
@@ -56,7 +56,7 @@ jobs:
           echo "Checking for existing sync state..."
 
           # Try to get last sync state from R2
-          SYNC_STATE=$(rclone cat r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/sync-state.json 2>/dev/null || echo '{}')
+          SYNC_STATE=$(rclone cat r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/state.json 2>/dev/null || echo '{}')
           LAST_TAG=$(echo "$SYNC_STATE" | jq -r '.tag // ""')
           LAST_COMMIT=$(echo "$SYNC_STATE" | jq -r '.commit // ""')
 
@@ -204,7 +204,7 @@ jobs:
           fi
 
           # Get existing history
-          EXISTING_STATE=$(rclone cat r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/sync-state.json 2>/dev/null || echo '{"history":[]}')
+          EXISTING_STATE=$(rclone cat r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/state.json 2>/dev/null || echo '{"history":[]}')
 
           # Validate JSON
           if ! echo "$EXISTING_STATE" | jq empty 2>/dev/null; then
@@ -238,11 +238,9 @@ jobs:
                 date: $synced_at,
                 size: $file_size
               }] + ($existing.history // []))[:50]
-            }' > sync-state.json
+            }' > state.json
 
-          rclone copy sync-state.json r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/
-          cp sync-state.json latest.json
-          rclone copy latest.json r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/
+          rclone copy state.json r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/
 
       - name: Cleanup
         if: always()

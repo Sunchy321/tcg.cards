@@ -61,3 +61,6 @@ logs
 .env
 .env.*
 !.env.example
+
+# Temp files
+/temp/
