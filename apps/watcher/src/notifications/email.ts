@@ -29,13 +29,15 @@ export async function sendEmail(
     });
 
     if (!response.ok) {
-      console.error('Failed to send email:', await response.text());
-    } else {
-      const result = await response.json();
-      console.log('Email sent successfully:', result.id);
+      const errorText = await response.text();
+      throw new Error(`Failed to send email: ${errorText}`);
     }
+
+    const result = await response.json();
+    console.log('Email sent successfully:', result.id);
   } catch (error) {
     console.error('Error sending email:', error);
+    throw error;
   }
 }
 

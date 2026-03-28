@@ -1,19 +1,26 @@
+# For more details on how to configure Wrangler, refer to:
+# https://developers.cloudflare.com/workers/wrangler/configuration/
+
 name = "watcher"
 main = "src/index.ts"
-compatibility_date = "2025-03-28"
+compatibility_date = "2026-02-19"
+
+workers_dev = false
 
 # Cron triggers - 每天检查一次 (UTC 0点)
 [triggers]
 crons = ["0 0 * * *"]
+
+# Custom domain route (disable workers.dev)
+[[routes]]
+pattern = "watcher.tcg.cards"
+custom_domain = true
 
 # KV namespace for storing state
 [[kv_namespaces]]
 binding = "WATCHER_KV"
 id = "3e8d80a8d3f2412a954cadf174c167b9"
 
-# Environment variables (set via wrangler secret or .dev.vars)
-[vars]
-
-# Secrets needed:
+# Secrets needed (set via `wrangler secret put` or .dev.vars for local dev):
 # - EMAIL_TO: recipient email address
 # - RESEND_API_KEY: Resend API key for sending emails

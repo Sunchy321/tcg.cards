@@ -17,6 +17,7 @@ export interface MonitorState {
 
 // Environment variables
 export interface Env {
+  NODE_ENV:       string;
   WATCHER_KV:     KVNamespace;
   EMAIL_TO:       string;
   RESEND_API_KEY: string;
@@ -33,5 +34,5 @@ export interface CheckResult {
 
 // Source checker interface
 export interface SourceChecker {
-  check(env: Env): Promise<CheckResult>;
+  check(env: Env, options?: { dryRun?: boolean }): Promise<CheckResult>;
 }

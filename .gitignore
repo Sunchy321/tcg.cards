@@ -60,6 +60,7 @@ logs
 # Local env files
 .env
 .env.*
+.dev.vars
 !.env.example
 
 # Temp files
