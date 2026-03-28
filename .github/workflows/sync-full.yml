@@ -32,10 +32,21 @@ jobs:
             TARGET_TAG="${{ github.event.inputs.tag }}"
             echo "Using provided tag: $TARGET_TAG"
 
-            # Get commit for this tag
-            COMMIT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/$UPSTREAM_OWNER/$UPSTREAM_REPO/git/refs/tags/$TARGET_TAG" \
-              | jq -r '.object.sha // empty')
+            # Get commit for this tag (handle annotated tags)
+            TAG_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/$UPSTREAM_OWNER/$UPSTREAM_REPO/git/refs/tags/$TARGET_TAG")
+            OBJECT_SHA=$(echo "$TAG_INFO" | jq -r '.object.sha // empty')
+            OBJECT_TYPE=$(echo "$TAG_INFO" | jq -r '.object.type // empty')
+
+            if [ "$OBJECT_TYPE" = "tag" ]; then
+              # Annotated tag - need to get the actual commit
+              COMMIT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/$UPSTREAM_OWNER/$UPSTREAM_REPO/git/tags/$OBJECT_SHA" \
+                | jq -r '.object.sha // empty')
+            else
+              # Lightweight tag - object.sha is already the commit
+              COMMIT="$OBJECT_SHA"
+            fi
 
             if [ -z "$COMMIT" ]; then
               echo "Error: Tag $TARGET_TAG not found"
@@ -48,7 +59,15 @@ jobs:
               "https://api.github.com/repos/$UPSTREAM_OWNER/$UPSTREAM_REPO/tags?per_page=1")
 
             TARGET_TAG=$(echo "$LATEST_TAG_INFO" | jq -r '.[0].name // empty')
-            COMMIT=$(echo "$LATEST_TAG_INFO" | jq -r '.[0].commit.sha // empty')
+
+            # Get actual commit SHA (handle annotated tags)
+            TAG_COMMIT_URL=$(echo "$LATEST_TAG_INFO" | jq -r '.[0].commit.url // empty')
+            if [ -n "$TAG_COMMIT_URL" ]; then
+              COMMIT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "$TAG_COMMIT_URL" | jq -r '.sha // empty')
+            else
+              COMMIT=""
+            fi
 
             if [ -z "$TARGET_TAG" ] || [ -z "$COMMIT" ]; then
               echo "Error: No tags found in repository"
@@ -102,7 +121,7 @@ jobs:
 
           mkdir -p data
 
-          # Download with progress and retry
+          # Download with progress and retryzz·
           curl -fL --retry 3 --retry-delay 5 \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             --max-time 300 \

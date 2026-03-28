@@ -2,7 +2,7 @@ name: Auto Sync Latest
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # 每6小时检查一次
+    - cron: '0 0 * * *'  # 每天UTC 0点检查一次
   workflow_dispatch:
     inputs:
       force:
@@ -82,8 +82,17 @@ jobs:
             "https://api.github.com/repos/$UPSTREAM_OWNER/$UPSTREAM_REPO/tags?per_page=1")
 
           LATEST_TAG=$(echo "$TAGS_RESPONSE" | jq -r '.[0].name // empty')
-          COMMIT=$(echo "$TAGS_RESPONSE" | jq -r '.[0].commit.sha // empty')
-          COMMIT_DATE=$(echo "$TAGS_RESPONSE" | jq -r '.[0].commit.url // empty' | xargs -I {} curl -s {} | jq -r '.committer.date // empty')
+
+          # Get actual commit SHA (handle annotated tags)
+          TAG_COMMIT_URL=$(echo "$TAGS_RESPONSE" | jq -r '.[0].commit.url // empty')
+          if [ -n "$TAG_COMMIT_URL" ]; then
+            COMMIT_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$TAG_COMMIT_URL")
+            COMMIT=$(echo "$COMMIT_INFO" | jq -r '.sha // empty')
+            COMMIT_DATE=$(echo "$COMMIT_INFO" | jq -r '.committer.date // empty')
+          else
+            COMMIT=""
+            COMMIT_DATE=""
+          fi
 
           if [ -z "$LATEST_TAG" ] || [ -z "$COMMIT" ]; then
             echo "Error: No tags found in upstream repository"
