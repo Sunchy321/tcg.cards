@@ -1,0 +1,19 @@
+name = "watcher"
+main = "src/index.ts"
+compatibility_date = "2025-03-28"
+
+# Cron triggers - 每天检查一次 (UTC 0点)
+[triggers]
+crons = ["0 0 * * *"]
+
+# KV namespace for storing state
+[[kv_namespaces]]
+binding = "WATCHER_KV"
+id = "3e8d80a8d3f2412a954cadf174c167b9"
+
+# Environment variables (set via wrangler secret or .dev.vars)
+[vars]
+
+# Secrets needed:
+# - EMAIL_TO: recipient email address
+# - RESEND_API_KEY: Resend API key for sending emails

@@ -1,0 +1,22 @@
+{
+  "name": "@tcg-cards/watcher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250321.0",
+    "eslint": "^10.0.2",
+    "eslint-config-custom": "workspace:*",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.71.0"
+  }
+}
