@@ -65,19 +65,19 @@ const get = os
       .then(rows => rows[0]);
 
     if (!announcement) {
-      throw new ORPCError('NOT_FOUND', 'Announcement not found');
+      throw new ORPCError('NOT_FOUND', { message: 'Announcement not found' });
     }
 
     const items = await db.select({
-      id: AnnouncementItem.id,
-      type: AnnouncementItem.type,
+      id:            AnnouncementItem.id,
+      type:          AnnouncementItem.type,
       effectiveDate: AnnouncementItem.effectiveDate,
-      format: AnnouncementItem.format,
-      cardId: AnnouncementItem.cardId,
-      setId: AnnouncementItem.setId,
-      ruleId: AnnouncementItem.ruleId,
-      status: AnnouncementItem.status,
-      score: AnnouncementItem.score,
+      format:        AnnouncementItem.format,
+      cardId:        AnnouncementItem.cardId,
+      setId:         AnnouncementItem.setId,
+      ruleId:        AnnouncementItem.ruleId,
+      status:        AnnouncementItem.status,
+      score:         AnnouncementItem.score,
     })
       .from(AnnouncementItem)
       .where(eq(AnnouncementItem.announcementId, id));
@@ -116,12 +116,12 @@ const create = os
     const result = await db
       .insert(Announcement)
       .values({
-        source: input.source,
-        date:   input.date,
-        name:   input.name,
+        source:        input.source,
+        date:          input.date,
+        name:          input.name,
         effectiveDate: input.effectiveDate ?? null,
-        version: input.version ?? 1,
-        link:   input.link,
+        version:       input.version ?? 1,
+        link:          input.link,
       })
       .returning();
 
@@ -154,17 +154,17 @@ const update = os
       .then(rows => rows[0]);
 
     if (!existing) {
-      throw new ORPCError('NOT_FOUND', 'Announcement not found');
+      throw new ORPCError('NOT_FOUND', { message: 'Announcement not found' });
     }
 
     await db.update(Announcement)
       .set({
-        source: data.source,
-        date:   data.date,
-        name:   data.name,
+        source:        data.source,
+        date:          data.date,
+        name:          data.name,
         effectiveDate: data.effectiveDate ?? null,
-        version: data.version,
-        link:   data.link,
+        version:       data.version,
+        link:          data.link,
       })
       .where(eq(Announcement.id, id));
   })

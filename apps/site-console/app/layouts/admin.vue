@@ -166,6 +166,11 @@ const gameNavItems = computed(() => [
       to:    `/${currentGame.value}/data-source`,
     },
     {
+      label: '数据导入',
+      icon:  'i-lucide-download',
+      to:    `/${currentGame.value}/data-import`,
+    },
+    {
       label: '卡牌',
       icon:  'i-lucide-layers',
       to:    `/${currentGame.value}/card`,

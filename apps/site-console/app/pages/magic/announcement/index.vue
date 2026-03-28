@@ -4,6 +4,14 @@
     <UCard class="w-72 shrink-0 flex flex-col">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">公告列表</h3>
+
+        <USelect
+          v-model="selectedSource"
+          :items="filterSourceOptions"
+          size="xs"
+          class="w-28"
+        />
+
         <UButton
           icon="i-lucide-plus"
           size="xs"
@@ -14,7 +22,7 @@
 
       <div class="flex-1 overflow-y-auto -mx-4 px-4">
         <div
-          v-for="item in announcements"
+          v-for="item in filteredAnnouncements"
           :key="item.id"
           class="group relative flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-colors"
           :class="selectedId === item.id
@@ -48,7 +56,7 @@
           />
         </div>
 
-        <p v-if="announcements.length === 0 && !loading" class="text-sm text-gray-400 text-center py-8">
+        <p v-if="filteredAnnouncements.length === 0 && !loading" class="text-sm text-gray-400 text-center py-8">
           暂无公告
         </p>
       </div>
@@ -56,7 +64,7 @@
 
     <!-- Right: Announcement editor -->
     <div class="flex-1 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 flex flex-col min-h-0 overflow-hidden">
-      <template v-if="selectedAnnouncement">
+      <template v-if="selectedAnnouncement || isCreating">
         <!-- Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
           <div class="flex items-center gap-2">
@@ -64,6 +72,14 @@
             <span class="text-sm text-gray-500">编辑公告</span>
           </div>
           <div class="flex items-center gap-2">
+            <UButton
+              :icon="isYamlMode ? 'i-lucide-form-input' : 'i-lucide-file-code'"
+              :label="isYamlMode ? '表单模式' : 'YAML模式'"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              @click="toggleYamlMode"
+            />
             <UButton
               label="取消"
               color="neutral"
@@ -80,8 +96,15 @@
           </div>
         </div>
 
-        <!-- Content -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-4">
+        <!-- YAML Editor Mode -->
+        <YamlEditor
+          v-if="isYamlMode"
+          v-model="yamlContent"
+          :error="yamlError"
+        />
+
+        <!-- Form Editor Mode -->
+        <div v-else class="flex-1 overflow-y-auto p-6 space-y-4">
           <div class="grid grid-cols-3 gap-4">
             <UFormField label="来源" required>
               <USelect
@@ -97,7 +120,7 @@
             </UFormField>
 
             <UFormField label="生效日期">
-              <UInput v-model="formState.effectiveDate" type="date" />
+              <UInput v-model="formState.effectiveDate" type="date" :nullable="true" />
             </UFormField>
           </div>
 
@@ -166,15 +189,15 @@
                   </UFormField>
 
                   <UFormField label="赛制">
-                    <UInput v-model="item.format" placeholder="赛制代码" />
+                    <UInput v-model="item.format" placeholder="赛制代码" :nullable="true" />
                   </UFormField>
 
                   <UFormField label="卡牌ID">
-                    <UInput v-model="item.cardId" placeholder="卡牌ID" />
+                    <UInput v-model="item.cardId" placeholder="卡牌ID" :nullable="true" />
                   </UFormField>
 
                   <UFormField label="生效日期">
-                    <UInput v-model="item.effectiveDate" type="date" />
+                    <UInput v-model="item.effectiveDate" type="date" :nullable="true" />
                   </UFormField>
                 </div>
 
@@ -185,6 +208,7 @@
                       :items="statusOptions"
                       placeholder="选择状态"
                       class="w-full"
+                      :nullable="true"
                     />
                   </UFormField>
 
@@ -215,7 +239,7 @@
     </div>
 
     <!-- Delete Confirm Modal -->
-    <UModal v-model:open="deleteModalOpen" title="确认删除" :ui="{ width: 'sm' }">
+    <UModal v-model:open="deleteModalOpen" title="确认删除" class="sm:max-w-sm">
       <template #body>
         <p class="text-sm text-gray-600 dark:text-gray-400">
           确定要删除公告 "{{ announcementToDelete?.name }}" 吗？此操作不可撤销。
@@ -237,62 +261,74 @@
 </template>
 
 <script setup lang="ts">
-import { z } from 'zod';
-import type { AnnouncementProfile } from '#model/magic/schema/announcement';
+import YAML from 'yaml';
+import type { AnnouncementProfile, AnnouncementItem } from '#model/magic/schema/announcement';
 
 definePageMeta({
   layout: 'admin',
-  title: '公告管理',
+  title:  '公告管理',
 });
-
-interface Announcement extends AnnouncementProfile {}
-
-interface AnnouncementItem {
-  type: string;
-  effectiveDate?: string | null;
-  format?: string | null;
-  cardId?: string | null;
-  setId?: string | null;
-  ruleId?: string | null;
-  status?: string | null;
-  score?: number | null;
-}
 
 const { $orpc } = useNuxtApp();
 const toast = useToast();
 
 // Data
-const announcements = ref<Announcement[]>([]);
+const announcements = ref<AnnouncementProfile[]>([]);
 const loading = ref(false);
 const selectedId = ref<string | null>(null);
+const isCreating = ref(false);
 const saving = ref(false);
 
 // Delete modal state
 const deleteModalOpen = ref(false);
 const deleting = ref(false);
-const announcementToDelete = ref<Announcement | null>(null);
+const announcementToDelete = ref<AnnouncementProfile>();
+
+// YAML mode
+const isYamlMode = ref(false);
+const yamlContent = ref('');
+const yamlError = ref('');
 
 // Selected announcement computed
 const selectedAnnouncement = computed(() =>
-  announcements.value.find(a => a.id === selectedId.value) || null
+  announcements.value.find(a => a.id === selectedId.value) || null,
 );
 
-// Form state
+// Form state - use undefined for input fields to match UInput type
 const formState = reactive({
-  id: '',
-  source: 'wotc',
-  date: new Date().toISOString().split('T')[0],
-  effectiveDate: null as string | null,
-  name: '',
-  link: [] as string[],
-  items: [] as AnnouncementItem[],
+  id:            '',
+  source:        'wotc',
+  date:          new Date().toISOString().split('T')[0]!,
+  effectiveDate: undefined as string | undefined,
+  name:          '',
+  link:          [] as string[],
+  items:         [] as AnnouncementItemForm[],
 });
+
+type AnnouncementItemForm = {
+  id?:            string;
+  type:           string;
+  effectiveDate?: string;
+  format?:        string;
+  cardId?:        string;
+  setId?:         string;
+  ruleId?:        string;
+  status?:        string;
+  score?:         number;
+};
 
 // Options
 const sourceOptions = [
+  { label: '系列发售', value: 'release' },
   { label: 'Wizards of the Coast', value: 'wotc' },
-  { label: '官方公告', value: 'official' },
-  { label: '其他', value: 'other' },
+  { label: 'Duel Commander', value: 'duelcommander' },
+  { label: 'MTG Commander', value: 'mtgcommander' },
+  { label: 'Leviathan Commander', value: 'leviathan_commander' },
+  { label: 'Oathbreaker', value: 'oathbreaker' },
+  { label: 'Canadian Highlander', value: 'canadian_highlander' },
+  { label: 'Pauper Commander', value: 'pauper_commander' },
+  { label: '初始禁牌表', value: 'initial' },
+  { label: '轮替', value: 'rotation' },
 ];
 
 const itemTypeOptions = [
@@ -308,34 +344,139 @@ const statusOptions = [
   { label: '合法', value: 'legal' },
 ];
 
+// Filter
+const selectedSource = ref<string>('all');
+
+const filterSourceOptions = [
+  { label: '全部来源', value: 'all' },
+  ...sourceOptions,
+];
+
+const filteredAnnouncements = computed(() => {
+  if (selectedSource.value === 'all') {
+    return announcements.value;
+  }
+  return announcements.value.filter(a => a.source === selectedSource.value);
+});
+
 function getSourceColor(source: string) {
   switch (source) {
-    case 'wotc':
-      return 'primary';
-    case 'official':
-      return 'success';
-    default:
-      return 'neutral';
+  case 'wotc':
+  case 'release':
+    return 'primary';
+  case 'duelcommander':
+  case 'mtgcommander':
+  case 'leviathan_commander':
+  case 'oathbreaker':
+  case 'canadian_highlander':
+  case 'pauper_commander':
+    return 'success';
+  case 'initial':
+  case 'rotation':
+    return 'warning';
+  default:
+    return 'neutral';
+  }
+}
+
+function toYaml(): string {
+  const data = {
+    source:        formState.source,
+    date:          formState.date,
+    name:          formState.name,
+    effectiveDate: formState.effectiveDate ?? null,
+    link:          formState.link,
+    items:         formState.items.map(item => ({
+      type:          item.type,
+      effectiveDate: item.effectiveDate ?? null,
+      format:        item.format ?? null,
+      cardId:        item.cardId ?? null,
+      setId:         item.setId ?? null,
+      ruleId:        item.ruleId ?? null,
+      status:        item.status ?? null,
+      score:         item.score ?? null,
+    })),
+  };
+  return YAML.stringify(data, { indent: 2 });
+}
+
+function fromYaml(yaml: string): boolean {
+  try {
+    const data = YAML.parse(yaml);
+
+    if (data.source !== undefined) formState.source = data.source;
+    if (data.date !== undefined) formState.date = data.date;
+    if (data.name !== undefined) formState.name = data.name;
+    if (data.effectiveDate !== undefined) formState.effectiveDate = data.effectiveDate ?? undefined;
+    if (data.link !== undefined) formState.link = Array.isArray(data.link) ? data.link : [];
+    if (data.items !== undefined) {
+      formState.items = Array.isArray(data.items)
+        ? data.items.map((item: any) => ({
+          type:          item.type || 'ban',
+          effectiveDate: item.effectiveDate ?? undefined,
+          format:        item.format ?? undefined,
+          cardId:        item.cardId ?? undefined,
+          setId:         item.setId ?? undefined,
+          ruleId:        item.ruleId ?? undefined,
+          status:        item.status ?? undefined,
+          score:         item.score ?? undefined,
+        }))
+        : [];
+    }
+
+    yamlError.value = '';
+    return true;
+  } catch (error) {
+    yamlError.value = error instanceof Error ? error.message : 'YAML 解析错误';
+    return false;
+  }
+}
+
+function toggleYamlMode() {
+  if (isYamlMode.value) {
+    // Switching from YAML to Form - parse YAML
+    if (fromYaml(yamlContent.value)) {
+      isYamlMode.value = false;
+    } else {
+      toast.add({
+        title:       'YAML 格式错误',
+        description: yamlError.value,
+        color:       'error',
+      });
+    }
+  } else {
+    // Switching from Form to YAML - convert to YAML
+    yamlContent.value = toYaml();
+    yamlError.value = '';
+    isYamlMode.value = true;
   }
 }
 
 function resetForm() {
   formState.id = '';
   formState.source = 'wotc';
-  formState.date = new Date().toISOString().split('T')[0];
-  formState.effectiveDate = null;
+  formState.date = new Date().toISOString().split('T')[0]!;
+  formState.effectiveDate = undefined;
   formState.name = '';
   formState.link = [];
   formState.items = [];
+  yamlContent.value = '';
+  yamlError.value = '';
+  isYamlMode.value = false;
+  isCreating.value = false;
+  selectedId.value = null;
 }
 
 function createNew() {
   selectedId.value = null;
   resetForm();
+  isCreating.value = true;
+  yamlContent.value = toYaml();
 }
 
-async function selectAnnouncement(announcement: Announcement) {
+async function selectAnnouncement(announcement: AnnouncementProfile) {
   selectedId.value = announcement.id;
+  isCreating.value = false;
   formState.id = announcement.id;
   formState.source = announcement.source;
   formState.date = announcement.date;
@@ -344,23 +485,29 @@ async function selectAnnouncement(announcement: Announcement) {
   // Load full announcement details
   try {
     const detail = await $orpc.magic.announcement.get({ id: announcement.id });
-    formState.effectiveDate = detail.effectiveDate;
+    formState.effectiveDate = detail.effectiveDate ?? undefined;
     formState.link = detail.link || [];
     formState.items = detail.items.map(item => ({
-      type: item.type,
-      effectiveDate: item.effectiveDate,
-      format: item.format,
-      cardId: item.cardId,
-      setId: item.setId,
-      ruleId: item.ruleId,
-      status: item.status,
-      score: item.score,
+      id:            item.id,
+      type:          item.type,
+      effectiveDate: item.effectiveDate ?? undefined,
+      format:        item.format ?? undefined,
+      cardId:        item.cardId ?? undefined,
+      setId:         item.setId ?? undefined,
+      ruleId:        item.ruleId ?? undefined,
+      status:        item.status ?? undefined,
+      score:         item.score ?? undefined,
     }));
+
+    // Update YAML content if in YAML mode
+    if (isYamlMode.value) {
+      yamlContent.value = toYaml();
+    }
   } catch (error) {
     toast.add({
-      title: '加载详情失败',
+      title:       '加载详情失败',
       description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
+      color:       'error',
     });
     formState.link = [];
     formState.items = [];
@@ -369,27 +516,24 @@ async function selectAnnouncement(announcement: Announcement) {
 
 function addLink() {
   formState.link.push('');
+  if (isYamlMode.value) yamlContent.value = toYaml();
 }
 
 function removeLink(index: number) {
   formState.link.splice(index, 1);
+  if (isYamlMode.value) yamlContent.value = toYaml();
 }
 
 function addItem() {
   formState.items.push({
     type: 'ban',
-    effectiveDate: null,
-    format: null,
-    cardId: null,
-    setId: null,
-    ruleId: null,
-    status: null,
-    score: null,
   });
+  if (isYamlMode.value) yamlContent.value = toYaml();
 }
 
 function removeItem(index: number) {
   formState.items.splice(index, 1);
+  if (isYamlMode.value) yamlContent.value = toYaml();
 }
 
 async function loadAnnouncements() {
@@ -399,9 +543,9 @@ async function loadAnnouncements() {
     announcements.value = data;
   } catch (error) {
     toast.add({
-      title: '加载失败',
+      title:       '加载失败',
       description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
+      color:       'error',
     });
   } finally {
     loading.value = false;
@@ -409,13 +553,26 @@ async function loadAnnouncements() {
 }
 
 async function handleSubmit() {
+  // If in YAML mode, parse YAML first
+  if (isYamlMode.value) {
+    if (!fromYaml(yamlContent.value)) {
+      toast.add({
+        title:       'YAML 格式错误',
+        description: yamlError.value,
+        color:       'error',
+      });
+      return;
+    }
+  }
+
   saving.value = true;
   try {
     const payload = {
-      source: formState.source,
-      date: formState.date,
-      name: formState.name,
-      link: formState.link.filter(l => l.trim() !== ''),
+      source:        formState.source,
+      date:          formState.date,
+      name:          formState.name,
+      effectiveDate: formState.effectiveDate ?? null,
+      link:          formState.link.filter(l => l.trim() !== ''),
     };
 
     if (formState.id) {
@@ -432,6 +589,7 @@ async function handleSubmit() {
       if (result) {
         selectedId.value = result.id;
         formState.id = result.id;
+        isCreating.value = false;
       }
       toast.add({
         title: '创建成功',
@@ -442,16 +600,16 @@ async function handleSubmit() {
     await loadAnnouncements();
   } catch (error) {
     toast.add({
-      title: '保存失败',
+      title:       '保存失败',
       description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
+      color:       'error',
     });
   } finally {
     saving.value = false;
   }
 }
 
-function confirmDelete(announcement: Announcement) {
+function confirmDelete(announcement: AnnouncementProfile) {
   announcementToDelete.value = announcement;
   deleteModalOpen.value = true;
 }
@@ -477,9 +635,9 @@ async function handleDelete() {
     await loadAnnouncements();
   } catch (error) {
     toast.add({
-      title: '删除失败',
+      title:       '删除失败',
       description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
+      color:       'error',
     });
   } finally {
     deleting.value = false;
