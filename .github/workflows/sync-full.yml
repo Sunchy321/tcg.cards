@@ -1,0 +1,206 @@
+name: Full Sync (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Target tag (optional, defaults to latest tag)'
+        required: false
+        default: ''
+
+env:
+  UPSTREAM_OWNER: HearthSim
+  UPSTREAM_REPO: hsdata
+  UPSTREAM_FILE: CardDefs.xml
+  UPSTREAM_BRANCH: master
+
+jobs:
+  full-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Show configuration
+        run: |
+          echo "Upstream: $UPSTREAM_OWNER/$UPSTREAM_REPO/$UPSTREAM_FILE (branch: $UPSTREAM_BRANCH)"
+
+      - name: Determine target tag and commit
+        id: target
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            # Use provided tag
+            TARGET_TAG="${{ github.event.inputs.tag }}"
+            echo "Using provided tag: $TARGET_TAG"
+
+            # Get commit for this tag
+            COMMIT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/$UPSTREAM_OWNER/$UPSTREAM_REPO/git/refs/tags/$TARGET_TAG" \
+              | jq -r '.object.sha // empty')
+
+            if [ -z "$COMMIT" ]; then
+              echo "Error: Tag $TARGET_TAG not found"
+              exit 1
+            fi
+          else
+            # Get latest tag from the repository
+            echo "Fetching latest tag from upstream..."
+            LATEST_TAG_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/$UPSTREAM_OWNER/$UPSTREAM_REPO/tags?per_page=1")
+
+            TARGET_TAG=$(echo "$LATEST_TAG_INFO" | jq -r '.[0].name // empty')
+            COMMIT=$(echo "$LATEST_TAG_INFO" | jq -r '.[0].commit.sha // empty')
+
+            if [ -z "$TARGET_TAG" ] || [ -z "$COMMIT" ]; then
+              echo "Error: No tags found in repository"
+              exit 1
+            fi
+
+            echo "Latest tag: $TARGET_TAG"
+          fi
+
+          echo "Commit: $COMMIT"
+          echo "tag=$TARGET_TAG" >> $GITHUB_OUTPUT
+          echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "short_commit=${COMMIT:0:7}" >> $GITHUB_OUTPUT
+
+      - name: Install rclone
+        run: |
+          curl -s https://rclone.org/install.sh | sudo bash
+
+      - name: Setup R2 credentials
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf << EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${{ secrets.R2_ACCESS_KEY_ID }}
+          secret_access_key = ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          endpoint = ${{ secrets.R2_ENDPOINT }}
+          acl = private
+          no_check_bucket = true
+          EOF
+
+      - name: Check if already synced
+        id: check
+        run: |
+          TAG="${{ steps.target.outputs.tag }}"
+          EXISTING=$(rclone lsjson r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/data/${TAG}.xml.gz 2>/dev/null | jq -c . || echo "[]")
+          if [ "$EXISTING" != "[]" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists in R2"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download full XML
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          COMMIT="${{ steps.target.outputs.commit }}"
+          DOWNLOAD_URL="https://raw.githubusercontent.com/$UPSTREAM_OWNER/$UPSTREAM_REPO/$COMMIT/$UPSTREAM_FILE"
+          echo "Downloading from: $DOWNLOAD_URL"
+
+          mkdir -p data
+
+          # Download with progress and retry
+          curl -fL --retry 3 --retry-delay 5 \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            --max-time 300 \
+            -o data.xml \
+            "$DOWNLOAD_URL"
+
+          FILE_SIZE=$(stat -c%s data.xml)
+          echo "Downloaded: $(numfmt --to=iec-i $FILE_SIZE) ($FILE_SIZE bytes)"
+          echo "file_size=$FILE_SIZE" >> $GITHUB_ENV
+
+          # Quick validation - check if file starts with XML tag
+          if ! head -c 100 data.xml | grep -q '<?xml\|<cards\|<root'; then
+            echo "Warning: File may not be valid XML (checking first 100 bytes)"
+            head -c 500 data.xml
+          fi
+
+      - name: Compress and upload to R2
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          TAG="${{ steps.target.outputs.tag }}"
+
+          mkdir -p data
+          gzip -c data.xml > "data/${TAG}.xml.gz"
+
+          COMPRESSED_SIZE=$(stat -c%s "data/${TAG}.xml.gz")
+          echo "Compressed: $(numfmt --to=iec-i $COMPRESSED_SIZE)"
+
+          echo "Uploading to R2..."
+          rclone copy "data/${TAG}.xml.gz" \
+            r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/data/ \
+            --progress
+
+      - name: Update sync state
+        run: |
+          TAG="${{ steps.target.outputs.tag }}"
+          COMMIT="${{ steps.target.outputs.commit }}"
+          STATE_FILE="sync-state.json"
+          FILE_SIZE="${{ env.file_size || '0' }}"
+
+          # Ensure FILE_SIZE is a valid number
+          if [ -z "$FILE_SIZE" ] || [ "$FILE_SIZE" = "null" ]; then
+            FILE_SIZE=0
+          fi
+
+          # Try to get existing state for history
+          EXISTING_STATE=$(rclone cat r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/sync-state.json 2>/dev/null || echo '{"history":[]}')
+
+          # Build new state with tag info
+          jq -n \
+            --arg tag "$TAG" \
+            --arg commit "$COMMIT" \
+            --arg short "${COMMIT:0:7}" \
+            --arg synced_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg type "full" \
+            --arg triggered_by "${{ github.actor }}" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --argjson file_size "$FILE_SIZE" \
+            --argjson existing "$EXISTING_STATE" \
+            '{
+              tag: $tag,
+              commit: $commit,
+              short: $short,
+              synced_at: $synced_at,
+              type: "full",
+              triggered_by: $triggered_by,
+              run_url: $run_url,
+              file_size: $file_size,
+              history: ([{
+                tag: $tag,
+                commit: $commit,
+                type: "full",
+                date: $synced_at
+              }] + ($existing.history // []))[:20]
+            }' > "$STATE_FILE"
+
+          echo "Sync state:"
+          cat "$STATE_FILE"
+
+          rclone copy "$STATE_FILE" r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/
+
+          # Also update latest.json for quick access
+          cp "$STATE_FILE" latest.json
+          rclone copy latest.json r2:${{ secrets.R2_BUCKET_NAME }}/hearthstone/hsdata/
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f data.xml data/*.xml.gz *.json
+          rm -rf data
+
+      - name: Summary
+        run: |
+          echo "## Full Sync Complete :white_check_mark:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: \`${{ steps.target.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ steps.target.outputs.short_commit }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Full Hash**: ${{ steps.target.outputs.commit }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **File Size**: $(numfmt --to=iec-i ${{ env.file_size || 0 }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered By**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> :information_source: File uploaded to R2 with tag name. Import to database must be triggered manually from admin panel." >> $GITHUB_STEP_SUMMARY

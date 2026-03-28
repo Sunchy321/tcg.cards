@@ -1,10 +1,12 @@
 {
   "name": "tcg-cards",
+  "devDependencies": {
+    "@turbo/gen": "^2.8.12",
+    "prettier": "^3.2.5",
+    "turbo": "^2.6.1"
+  },
+  "packageManager": "bun@1.3.10",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
@@ -12,10 +14,8 @@
     "postinstall": "turbo run postinstall",
     "gen": "sh -c 'turbo gen new-site --args \"$1\" && bun install' sh"
   },
-  "devDependencies": {
-    "@turbo/gen": "^2.8.12",
-    "prettier": "^3.2.5",
-    "turbo": "^2.6.1"
-  },
-  "packageManager": "bun@1.3.10"
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
