@@ -1,7 +1,9 @@
-import { integer, primaryKey, text } from 'drizzle-orm/pg-core';
+import { integer, primaryKey, text, timestamp, bytea } from 'drizzle-orm/pg-core';
 import { and, eq } from 'drizzle-orm';
 
 import { schema } from './schema';
+
+// ========== Legacy Tables ==========
 
 export const RuleItem = schema.table('rule_items', {
   date:   text('date').notNull(),
@@ -42,4 +44,88 @@ export const ruleView = schema.view('rule_view').as(qb => {
       eq(Rule.date, RuleItem.date),
       eq(Rule.lang, RuleItem.lang),
     ));
+});
+
+// ========== Rule History Tables ==========
+
+// RuleSource: 规则版本/来源
+export const ruleSource = schema.table('rule_source', {
+  id:            text('id').primaryKey(),
+  effectiveDate: text('effective_date'),
+  publishedAt:   text('published_at'),
+  txtUrl:        text('txt_url'),
+  pdfUrl:        text('pdf_url'),
+  docxUrl:       text('docx_url'),
+  totalRules:    integer('total_rules'),
+  importedAt:    timestamp('imported_at').defaultNow(),
+  status:        text('status').default('active'),
+});
+
+// RuleContent: 内容寻址存储
+export const ruleContent = schema.table('rule_content', {
+  hash:     text('hash').primaryKey(), // sha256
+  content:  bytea('content').notNull(), // gzip compressed
+  size:     integer('size').notNull(), // original size in bytes
+  refCount: integer('ref_count').default(1).notNull(), // reference count for GC
+});
+
+// RuleEntity: 跨版本实体追踪
+export const ruleEntity = schema.table('rule_entity', {
+  id: text('id').primaryKey(), // semantic ID: "{firstVersion}-{firstRuleId}"
+
+  // current state (updated with each version)
+  currentNodeId:   text('current_node_id'), // e.g., "20240328/702.1"
+  currentRuleId:   text('current_rule_id'), // current official ID
+  currentSourceId: text('current_source_id'), // current version
+
+  // stats
+  totalRevisions: integer('total_revisions').default(1).notNull(),
+  createdAt:      timestamp('created_at').defaultNow().notNull(),
+});
+
+// RuleNode: 版本内具体规则节点
+export const ruleNode = schema.table('rule_node', {
+  // Composite ID: "{sourceId}/{ruleId}" e.g., "20240328/702.1"
+  id: text('id').primaryKey(),
+
+  // Foreign keys
+  sourceId: text('source_id').notNull().references(() => ruleSource.id),
+  ruleId:   text('rule_id').notNull(), // Official ID, e.g., "702.1"
+
+  // Hierarchy (Materialized Path)
+  path:     text('path').notNull(), // e.g., "702/1" for sorting and range queries
+  level:    integer('level').notNull(), // 0=chapter, 1=rule, 2=subrule
+  parentId: text('parent_id'), // Parent node ID, e.g., "20240328/702"
+
+  // Content
+  title:       text('title'), // Chapter title (e.g., "Keyword Abilities")
+  contentHash: text('content_hash').notNull().references(() => ruleContent.hash),
+
+  // Entity reference
+  entityId: text('entity_id').notNull().references(() => ruleEntity.id),
+});
+
+// RuleChange: 版本间变更记录
+export const ruleChange = schema.table('rule_change', {
+  id: text('id').primaryKey(), // UUID
+
+  // Version range
+  fromSourceId: text('from_source_id').notNull().references(() => ruleSource.id),
+  toSourceId:   text('to_source_id').notNull().references(() => ruleSource.id),
+
+  // Entity involved
+  entityId: text('entity_id').notNull().references(() => ruleEntity.id),
+
+  // Node references (nullable for add/remove)
+  fromNodeId: text('from_node_id').references(() => ruleNode.id),
+  toNodeId:   text('to_node_id').references(() => ruleNode.id),
+
+  // Change type
+  type: text('type').notNull(),
+  // 'added' | 'removed' | 'modified' | 'renamed' | 'renamed_modified' | 'moved' | 'split' | 'merged'
+
+  // Details stored as JSON
+  details: text('details').notNull(), // JSON string
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });

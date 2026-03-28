@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@tcg-cards/shared": "workspace:*",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^1.0.0-beta.20",
     "lodash-es": "^4.17.23",
     "zod": "^4.3.6"
   }

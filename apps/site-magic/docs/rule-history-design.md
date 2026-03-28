@@ -2,7 +2,7 @@
 
 ## TODO List
 
-- [ ] 数据库表结构设计（RuleSource, RuleNode, RuleEntity, RuleContent, RuleChange）
+- [x] 数据库表结构设计（RuleSource, RuleNode, RuleEntity, RuleContent, RuleChange）
 - [ ] 规则文件解析器（从 TXT 提取结构化数据）
 - [ ] 内容指纹生成（sha256 + gzip 压缩）
 - [ ] 变更检测 Worker（定时执行，检测增删改移拆分合并）
