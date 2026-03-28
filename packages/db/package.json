@@ -2,15 +2,27 @@
   "name": "@tcg-cards/db",
   "module": "src/index.ts",
   "type": "module",
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:check": "drizzle-kit check",
+    "db:up": "drizzle-kit up"
+  },
   "dependencies": {
     "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/shared": "workspace:*",
     "drizzle-orm": "^0.45.1",
+    "eslint-config-custom": "workspace:*",
     "lodash-es": "^4.17.23",
     "nanoid": "^5.1.6"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/lodash-es": "^4.17.12"
+    "@types/lodash-es": "^4.17.12",
+    "drizzle-kit": "^0.30.0",
+    "eslint": "^10.1.0"
   },
   "peerDependencies": {
     "typescript": "^5"

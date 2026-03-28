@@ -1,0 +1,5 @@
+# Drizzle generated files (keep migrations/, ignore others)
+drizzle/
+
+# Migration backups
+migrations/*.sql.bak
