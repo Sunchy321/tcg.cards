@@ -190,6 +190,15 @@ const gameNavItems = computed(() => [
       icon:  'i-lucide-megaphone',
       to:    `/${currentGame.value}/announcement`,
     },
+    ...(currentGame.value === 'magic'
+      ? [
+        {
+          label: '规则',
+          icon:  'i-lucide-book-open',
+          to:    `/${currentGame.value}/rule`,
+        },
+      ]
+      : []),
   ],
 ]);
 

@@ -1,43 +1,43 @@
 import type { ParsedRuleNode } from './parser';
 import { generateFingerprint } from './parser';
 
-export type ChangeType =
-  | 'added'           // 新增规则
-  | 'removed'         // 删除规则
-  | 'modified'        // 内容修改（同编号）
-  | 'renamed'         // 重命名（内容基本相同）
-  | 'renamed_modified' // 重命名+内容修改
-  | 'moved'           // 移动到不同章节
-  | 'split'           // 拆分为多条
-  | 'merged';         // 多条合并为一条
+export type ChangeType
+  = | 'added' // New rule added
+    | 'removed' // Rule removed
+    | 'modified' // Content modified (same rule ID)
+    | 'renamed' // Renamed (content mostly unchanged)
+    | 'renamed_modified' // Renamed + content modified
+    | 'moved' // Moved to different chapter
+    | 'split' // Split into multiple rules
+    | 'merged'; // Multiple rules merged into one
 
 export interface MatchResult {
-  type: ChangeType | 'unchanged';
-  oldNodeId: string | null;
-  newNodeId: string | null;
+  type:       ChangeType | 'unchanged';
+  oldNodeId:  string | null;
+  newNodeId:  string | null;
   similarity: number;
   details?: {
-    oldRuleId?: string;
-    newRuleId?: string;
-    oldContentHash?: string;
-    newContentHash?: string;
+    oldRuleId?:        string;
+    newRuleId?:        string;
+    oldContentHash?:   string;
+    newContentHash?:   string;
     fingerprintMatch?: boolean;
   };
 }
 
 export interface SplitResult {
-  type: 'split';
-  fromRuleId: string;
-  intoRuleIds: string[];
-  similarities: number[];
+  type:            'split';
+  fromRuleId:      string;
+  intoRuleIds:     string[];
+  similarities:    number[];
   totalSimilarity: number;
 }
 
 export interface MergeResult {
-  type: 'merged';
-  fromRuleIds: string[];
-  intoRuleId: string;
-  similarities: number[];
+  type:            'merged';
+  fromRuleIds:     string[];
+  intoRuleId:      string;
+  similarities:    number[];
   totalSimilarity: number;
 }
 
@@ -130,11 +130,11 @@ export function similarityMatch(
   oldNode: ParsedRuleNode,
   newNodes: Map<string, ParsedRuleNode>,
   threshold = 0.85,
-): { id: string; similarity: number } | null {
-  let bestMatch: { id: string; similarity: number } | null = null;
+): { id: string, similarity: number } | null {
+  let bestMatch: { id: string, similarity: number } | null = null;
 
   for (const [id, node] of newNodes) {
-    // Only compare within same chapter
+    // Restrict to same chapter to avoid false matches
     if (!sameChapter(oldNode.ruleId, node.ruleId)) continue;
 
     const similarity = jaccardSimilarity(oldNode.content, node.content);
@@ -157,7 +157,7 @@ export function detectSplit(
   threshold = 0.6,
   minMatches = 2,
 ): SplitResult | null {
-  const candidates: { id: string; similarity: number; node: ParsedRuleNode }[] = [];
+  const candidates: { id: string, similarity: number, node: ParsedRuleNode }[] = [];
 
   // Find all new rules with similarity above threshold
   for (const [id, node] of newNodes) {
@@ -180,9 +180,9 @@ export function detectSplit(
   // Split is confirmed if combined content is very similar to original
   if (totalSimilarity > 0.8) {
     return {
-      type: 'split',
-      fromRuleId: oldNode.ruleId,
-      intoRuleIds: candidates.map(c => c.id),
+      type:         'split',
+      fromRuleId:   oldNode.ruleId,
+      intoRuleIds:  candidates.map(c => c.id),
       similarities: candidates.map(c => c.similarity),
       totalSimilarity,
     };
@@ -200,7 +200,7 @@ export function detectMerge(
   newNode: ParsedRuleNode,
   threshold = 0.6,
 ): MergeResult | null {
-  const candidates: { id: string; similarity: number; node: ParsedRuleNode }[] = [];
+  const candidates: { id: string, similarity: number, node: ParsedRuleNode }[] = [];
 
   // Find all old rules with similarity to the new rule
   for (const [id, node] of oldNodes) {
@@ -220,9 +220,9 @@ export function detectMerge(
   // Merge is confirmed if combined old content matches new content
   if (totalSimilarity > 0.8) {
     return {
-      type: 'merged',
-      fromRuleIds: candidates.map(c => c.id),
-      intoRuleId: newNode.ruleId,
+      type:         'merged',
+      fromRuleIds:  candidates.map(c => c.id),
+      intoRuleId:   newNode.ruleId,
       similarities: candidates.map(c => c.similarity),
       totalSimilarity,
     };
@@ -249,13 +249,13 @@ export function matchRule(
   if (exactId) {
     const newNode = newNodes.get(exactId)!;
     return {
-      type: oldNode.ruleId === newNode.ruleId ? 'unchanged' : 'moved',
+      type:       oldNode.ruleId === newNode.ruleId ? 'unchanged' : 'moved',
       oldNodeId,
-      newNodeId: exactId,
+      newNodeId:  exactId,
       similarity: 1,
-      details: {
-        oldRuleId: oldNode.ruleId,
-        newRuleId: newNode.ruleId,
+      details:    {
+        oldRuleId:      oldNode.ruleId,
+        newRuleId:      newNode.ruleId,
         oldContentHash: oldNode.contentHash,
         newContentHash: newNode.contentHash,
       },
@@ -271,7 +271,7 @@ export function matchRule(
 
     let type: ChangeType;
     if (sameId) {
-      type = 'modified'; // Same rule ID but different formatting
+      type = 'modified';
     } else if (sameChapter) {
       type = 'renamed';
     } else {
@@ -281,13 +281,13 @@ export function matchRule(
     return {
       type,
       oldNodeId,
-      newNodeId: fingerprintId,
+      newNodeId:  fingerprintId,
       similarity: 1,
-      details: {
-        oldRuleId: oldNode.ruleId,
-        newRuleId: newNode.ruleId,
-        oldContentHash: oldNode.contentHash,
-        newContentHash: newNode.contentHash,
+      details:    {
+        oldRuleId:        oldNode.ruleId,
+        newRuleId:        newNode.ruleId,
+        oldContentHash:   oldNode.contentHash,
+        newContentHash:   newNode.contentHash,
         fingerprintMatch: true,
       },
     };
@@ -312,11 +312,11 @@ export function matchRule(
     return {
       type,
       oldNodeId,
-      newNodeId: similar.id,
+      newNodeId:  similar.id,
       similarity: similar.similarity,
-      details: {
-        oldRuleId: oldNode.ruleId,
-        newRuleId: newNode.ruleId,
+      details:    {
+        oldRuleId:      oldNode.ruleId,
+        newRuleId:      newNode.ruleId,
         oldContentHash: oldNode.contentHash,
         newContentHash: newNode.contentHash,
       },
@@ -325,12 +325,12 @@ export function matchRule(
 
   // No match found - rule was removed
   return {
-    type: 'removed',
+    type:       'removed',
     oldNodeId,
-    newNodeId: null,
+    newNodeId:  null,
     similarity: 0,
-    details: {
-      oldRuleId: oldNode.ruleId,
+    details:    {
+      oldRuleId:      oldNode.ruleId,
       oldContentHash: oldNode.contentHash,
     },
   };
@@ -344,8 +344,8 @@ export function detectChanges(
   newNodes: ParsedRuleNode[],
 ): {
   matches: MatchResult[];
-  splits: SplitResult[];
-  merges: MergeResult[];
+  splits:  SplitResult[];
+  merges:  MergeResult[];
 } {
   const oldNodeMap = new Map(oldNodes.map(n => [n.id, n]));
   const newNodeMap = new Map(newNodes.map(n => [n.id, n]));
@@ -371,7 +371,7 @@ export function detectChanges(
 
   // Second pass: detect merges
   const unmatchedOldNodes = new Map(
-    oldNodes.filter(n => !matchedOldNodes.has(n.id)).map(n => [n.id, n])
+    oldNodes.filter(n => !matchedOldNodes.has(n.id)).map(n => [n.id, n]),
   );
 
   for (const newNode of newNodes) {
@@ -390,7 +390,7 @@ export function detectChanges(
   // Third pass: regular matching for remaining nodes
   const remainingOldNodes = oldNodes.filter(n => !matchedOldNodes.has(n.id));
   const remainingNewNodes = new Map(
-    newNodes.filter(n => !matchedNewNodes.has(n.id)).map(n => [n.id, n])
+    newNodes.filter(n => !matchedNewNodes.has(n.id)).map(n => [n.id, n]),
   );
 
   for (const oldNode of remainingOldNodes) {
@@ -406,12 +406,12 @@ export function detectChanges(
   // Any remaining new nodes are additions
   for (const [id, node] of remainingNewNodes) {
     matches.push({
-      type: 'added',
-      oldNodeId: null,
-      newNodeId: id,
+      type:       'added',
+      oldNodeId:  null,
+      newNodeId:  id,
       similarity: 0,
-      details: {
-        newRuleId: node.ruleId,
+      details:    {
+        newRuleId:      node.ruleId,
         newContentHash: node.contentHash,
       },
     });

@@ -323,7 +323,6 @@ async function recordMergeChange(
  * 5. Detects and records changes from previous version
  */
 export async function importRuleVersion(
-
   source: ParsedRuleSource,
   contents: CompressedContent[],
   options: {

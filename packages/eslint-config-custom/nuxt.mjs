@@ -19,9 +19,9 @@ export default defineConfig([
       '@typescript-eslint/no-unused-vars': [
         'warn',
         {
-            varsIgnorePattern:         '^_',
-            caughtErrorsIgnorePattern: '^_',
-            argsIgnorePattern:         '^_',
+          varsIgnorePattern:         '^_',
+          caughtErrorsIgnorePattern: '^_',
+          argsIgnorePattern:         '^_',
         },
       ],
 
@@ -73,6 +73,13 @@ export default defineConfig([
           TSTypeAnnotation: true,
         },
       }],
+
+      'vue/no-unused-vars': [
+        'warn',
+        {
+          ignorePattern:         '^_',
+        },
+      ],
     }
   }
 ])

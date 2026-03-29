@@ -48,7 +48,7 @@ export const ruleView = schema.view('rule_view').as(qb => {
 
 // ========== Rule History Tables ==========
 
-// RuleSource: 规则版本/来源
+// RuleSource: Rule version/source
 export const RuleSource = schema.table('rule_source', {
   id:            text('id').primaryKey(),
   effectiveDate: text('effective_date'),
@@ -58,10 +58,10 @@ export const RuleSource = schema.table('rule_source', {
   docxUrl:       text('docx_url'),
   totalRules:    integer('total_rules'),
   importedAt:    timestamp('imported_at').defaultNow(),
-  status:        text('status').default('active'),
+  status:        text('status').notNull().default('active'),
 });
 
-// RuleContent: 内容寻址存储
+// RuleContent: Content-addressed storage
 export const RuleContent = schema.table('rule_content', {
   hash:     text('hash').primaryKey(), // sha256
   content:  bytea('content').notNull(), // gzip compressed
@@ -69,7 +69,7 @@ export const RuleContent = schema.table('rule_content', {
   refCount: integer('ref_count').default(1).notNull(), // reference count for GC
 });
 
-// RuleEntity: 跨版本实体追踪
+// RuleEntity: Cross-version entity tracking
 export const RuleEntity = schema.table('rule_entity', {
   id: text('id').primaryKey(), // semantic ID: "{firstVersion}-{firstRuleId}"
 
@@ -83,7 +83,7 @@ export const RuleEntity = schema.table('rule_entity', {
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 });
 
-// RuleNode: 版本内具体规则节点
+// RuleNode: Rule node within a specific version
 export const RuleNode = schema.table('rule_node', {
   // Composite ID: "{sourceId}/{ruleId}" e.g., "20240328/702.1"
   id: text('id').primaryKey(),
@@ -105,7 +105,7 @@ export const RuleNode = schema.table('rule_node', {
   entityId: text('entity_id').notNull().references(() => RuleEntity.id),
 });
 
-// RuleChange: 版本间变更记录
+// RuleChange: Change records between versions
 export const RuleChange = schema.table('rule_change', {
   id: text('id').primaryKey(), // UUID
 

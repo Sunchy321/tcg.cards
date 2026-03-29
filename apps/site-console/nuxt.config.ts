@@ -29,6 +29,7 @@ export default defineNuxtConfig({
     '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
     '#db':     fileURLToPath(new URL('./node_modules/@tcg-cards/db/src', import.meta.url)),
     '#schema': fileURLToPath(new URL('./node_modules/@tcg-cards/db/src/schema', import.meta.url)),
+    '#server': fileURLToPath(new URL('../site-magic/server', import.meta.url)),
   },
 
   compatibilityDate: '2025-07-15',
