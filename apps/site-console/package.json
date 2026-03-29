@@ -42,6 +42,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260329.1",
     "@nuxt/eslint": "^1.15.2",
     "eslint": "^10.0.2",
     "eslint-config-custom": "workspace:*",

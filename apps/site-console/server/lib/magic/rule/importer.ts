@@ -1,9 +1,9 @@
-import { eq, and } from 'DRIZZLE-orm';
+import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
-import type { ParsedRuleNode, ParsedRuleSource, CompressedContent } from './parser';
-import type { ChangeType, MatchResult, SplitResult, MergeResult } from './matcher';
-import { detectChanges } from './matcher';
+import type { ParsedRuleNode, ParsedRuleSource, CompressedContent } from '#server/lib/magic/rule/parser';
+import type { ChangeType, MatchResult, SplitResult, MergeResult } from '#server/lib/magic/rule/matcher';
+import { detectChanges } from '#server/lib/magic/rule/matcher';
 
 import type { RuleContent as IRuleContent } from '#model/magic/schema/rule';
 

@@ -4,26 +4,26 @@ import { promisify } from 'util';
 
 const gzipAsync = promisify(gzip);
 
-// Rule ID regex: matches "100.1", "100.1a", "702.1", etc.
-const RULE_ID_REGEX = /^(\d+)\.(\d+)([a-z]?)$/;
-
-// Line regex: matches "100.1. Content text" or "100.1a. Content text"
-const RULE_LINE_REGEX = /^(\d+\.\d+[a-z]?)\.\s+(.+)$/;
-
-// Chapter regex: matches "1. Game Concepts" (chapter number + title)
-const CHAPTER_LINE_REGEX = /^(\d+)\.\s+(.+)$/;
+// Hierarchy patterns: ordered by specificity (most specific first)
+const HIERARCHY_PATTERNS = [
+  { level: 3, regex: /^glossary-(.+)$/ }, // glossary entries (internal ID format)
+  { level: 2, regex: /^(\d+\.\d+[a-z])\.\s+(.+)$/ }, // 100.1a. Content
+  { level: 1, regex: /^(\d+\.\d+)\.\s+(.+)$/ }, // 100.1. Content
+  { level: 0, regex: /^(\d{3})\.\s+(.+)$/ }, // 100. General
+  { level: -1, regex: /^([1-9])\.\s+(.+)$/ }, // 1. Game Concepts (chapter)
+];
 
 // Glossary entry regex: matches "Abandon. Definition text"
 const GLOSSARY_ENTRY_REGEX = /^([A-Z][a-zA-Z\s/]+)\.\s+(.+)$/;
 
 export interface ParsedRuleNode {
-  id:          string; // Composite ID: "{sourceId}/{ruleId}"
+  id:          string; // Composite ID: "{sourceId}/{nodeId}"
   sourceId:    string; // Version ID (e.g., "20240328")
-  ruleId:      string; // Official rule ID (e.g., "100.1", "100.1a")
+  nodeId:      string; // Node identifier (e.g., "100.1", "100.1a", "1", "glossary-term")
   path:        string; // Materialized path (e.g., "100/1", "100/1/a")
-  level:       number; // 0=chapter, 1=rule, 2=subrule, 3=glossary
+  level:       number; // -1=chapter, 0=section, 1=rule, 2=subrule, 3=glossary
   parentId:    string | null; // Parent node ID
-  title:       string | null; // Chapter/section title
+  title:       string | null; // For chapters/sections
   content:     string; // Full text content
   contentHash: string; // SHA256 hash of content
 }
@@ -32,7 +32,7 @@ export interface ParsedRuleSource {
   id:            string; // Version ID (e.g., "20240328")
   effectiveDate: string; // Effective date
   publishedAt:   string; // Published date
-  totalRules:    number; // Total number of rules
+  totalRules:    number; // Total number of nodes
   nodes:         ParsedRuleNode[]; // All parsed nodes
 }
 
@@ -65,177 +65,97 @@ export async function compressContent(content: string): Promise<CompressedConten
 }
 
 /**
- * Get chapter number from rule ID
- */
-function getChapter(ruleId: string): string {
-  const match = ruleId.match(/^(\d+)/);
-  return match?.[1] ?? '';
-}
-
-/**
- * Build materialized path from rule ID
+ * Build materialized path from node ID
  * "702.1a" -> "702/1/a"
+ * "1" -> "1"
  */
-function buildPath(ruleId: string): string {
-  const match = ruleId.match(RULE_ID_REGEX);
-  if (!match) return ruleId;
-
-  const [, chapter, number, letter] = match;
-  if (letter) {
-    return `${chapter}/${number}/${letter}`;
+function buildPath(nodeId: string): string {
+  // Handle glossary IDs
+  if (nodeId.startsWith('glossary-')) {
+    return nodeId;
   }
-  return `${chapter}/${number}`;
+
+  // Handle numeric IDs like "100.1a" -> "100/1/a"
+  const parts = nodeId.split('.');
+  return parts.join('/');
 }
 
 /**
- * Get parent rule ID from a rule ID
+ * Get parent node ID from a node ID
  * "100.1a" -> "100.1"
  * "100.1" -> "100"
+ * "100" -> "1" (chapter)
+ * "1" -> null
  */
-function getParentRuleId(ruleId: string): string | null {
-  const match = ruleId.match(RULE_ID_REGEX);
-  if (!match) return null;
+function getParentId(nodeId: string, level: number): string | null {
+  // Glossary entries have no parent
+  if (nodeId.startsWith('glossary-')) {
+    return null;
+  }
 
-  const [, chapter, number, letter] = match;
+  const parts = nodeId.split('.');
 
-  if (letter) {
+  if (parts.length > 2) {
     // 100.1a -> 100.1
-    return `${chapter}.${number}`;
-  } else if (number !== '0') {
-    // 100.1 -> 100 (chapter)
-    return chapter ?? null;
+    return `${parts[0]}.${parts[1]}`;
+  } else if (parts.length === 2) {
+    // 100.1 -> 100
+    return parts[0]!;
+  } else if (parts.length === 1 && level === 0) {
+    // 100 -> 1 (chapter), only if it's a 3-digit section
+    const num = parseInt(parts[0]!, 10);
+    if (num >= 100) {
+      return String(Math.floor(num / 100));
+    }
   }
 
   return null;
 }
 
 /**
- * Get level from rule ID
- * "100" -> 0 (chapter)
- * "100.1" -> 1 (rule)
- * "100.1a" -> 2 (subrule)
- */
-function getLevel(ruleId: string): number {
-  if (/^\d+$/.test(ruleId)) return 0; // Chapter only
-  if (/^\d+\.\d+$/.test(ruleId)) return 1; // Rule
-  if (/^\d+\.\d+[a-z]$/.test(ruleId)) return 2; // Subrule
-  return 3; // Glossary or other
-}
-
-/**
- * Check if a line is a rule definition line
- */
-function isRuleLine(line: string): boolean {
-  return RULE_LINE_REGEX.test(line);
-}
-
-/**
- * Check if a line is a chapter heading
- */
-function isChapterLine(line: string): boolean {
-  // Matches "1. Game Concepts" but not "100.1. Some rule"
-  return CHAPTER_LINE_REGEX.test(line) && !RULE_LINE_REGEX.test(line);
-}
-
-/**
- * Check if a line is a glossary entry
- */
-function isGlossaryLine(line: string): boolean {
-  return GLOSSARY_ENTRY_REGEX.test(line);
-}
-
-/**
- * Parse a single rule line
- */
-function parseRuleLine(line: string): { ruleId: string, content: string } | null {
-  const match = line.match(RULE_LINE_REGEX);
-  if (!match) return null;
-
-  return {
-    ruleId:  match[1]!,
-    content: match[2]!,
-  };
-}
-
-/**
- * Parse a chapter line
- */
-function parseChapterLine(line: string): { chapterNum: string, title: string } | null {
-  const match = line.match(CHAPTER_LINE_REGEX);
-  if (!match) return null;
-
-  return {
-    chapterNum: match[1]!,
-    title:      match[2]!,
-  };
-}
-
-/**
- * Parse a glossary entry line
- */
-function parseGlossaryLine(line: string): { term: string, definition: string } | null {
-  const match = line.match(GLOSSARY_ENTRY_REGEX);
-  if (!match) return null;
-
-  return {
-    term:       match[1]!,
-    definition: match[2]!,
-  };
-}
-
-/**
  * Parse comprehensive rules text file
- *
- * File format:
- * - Chapters: "1. Game Concepts"
- * - Rules: "100.1. Some rule text"
- * - Subrules: "100.1a. Some subrule text"
- * - Glossary entries: "Term. Definition text"
  */
 export async function parseRuleFile(
   sourceId: string,
   content: string,
 ): Promise<ParsedRuleSource> {
-  const lines = content.split('\n');
+  // Remove UTF-8 BOM if present and normalize line endings
+  const cleanContent = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  const lines = cleanContent.split('\n');
   const nodes: ParsedRuleNode[] = [];
 
-  let currentChapter: { num: string, title: string } | null = null;
-  let currentRule: { id: string, text: string } | null = null;
-  let inGlossary = false;
   let effectiveDate = '';
-  const publishedAt = '';
+  let inGlossary = false;
+  let inContentSection = false;
 
-  // Buffer for multi-line rule content
-  const ruleBuffer: Map<string, string[]> = new Map();
+  // Current node being built
+  let currentNode: { id: string, level: number, lines: string[] } | null = null;
 
-  function flushRuleBuffer(ruleId: string, sourceId: string): ParsedRuleNode | null {
-    const lines = ruleBuffer.get(ruleId);
-    if (!lines || lines.length === 0) return null;
+  function flushCurrentNode(): void {
+    if (!currentNode || currentNode.lines.length === 0) return;
 
-    const fullText = lines.join(' ').trim();
+    const fullText = currentNode.lines.join(' ').trim();
     const contentHash = generateContentHash(fullText);
-    const parentId = getParentRuleId(ruleId);
+    const parentId = getParentId(currentNode.id, currentNode.level);
 
     const node: ParsedRuleNode = {
-      id:       `${sourceId}/${ruleId}`,
+      id:       `${sourceId}/${currentNode.id}`,
       sourceId,
-      ruleId,
-      path:     buildPath(ruleId),
-      level:    getLevel(ruleId),
+      nodeId:   currentNode.id,
+      path:     buildPath(currentNode.id),
+      level:    currentNode.level,
       parentId: parentId ? `${sourceId}/${parentId}` : null,
-      title:    getLevel(ruleId) === 0 ? fullText : null,
+      title:    currentNode.level <= 0 ? fullText : null,
       content:  fullText,
       contentHash,
     };
 
-    ruleBuffer.delete(ruleId);
-    return node;
+    nodes.push(node);
+    currentNode = null;
   }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!.trim();
-
-    // Skip empty lines
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
     if (!line) continue;
 
     // Parse effective date from header
@@ -247,98 +167,82 @@ export async function parseRuleFile(
       continue;
     }
 
-    // Detect glossary section
-    if (line === 'Glossary' || line === 'GLOSSARY') {
-      // Flush any pending rule
-      if (currentRule) {
-        const node = flushRuleBuffer(currentRule.id, sourceId);
-        if (node) nodes.push(node);
-        currentRule = null;
-      }
+    // Detect glossary section (only after content section)
+    if (inContentSection && (line === 'Glossary' || line === 'GLOSSARY')) {
+      flushCurrentNode();
       inGlossary = true;
       continue;
     }
 
     // Detect credits section (end of rules)
-    if (line === 'Credits' || line === 'CREDITS') {
-      if (currentRule) {
-        const node = flushRuleBuffer(currentRule.id, sourceId);
-        if (node) nodes.push(node);
-        currentRule = null;
-      }
+    if (inContentSection && (line === 'Credits' || line === 'CREDITS')) {
+      flushCurrentNode();
       break;
     }
 
-    // Parse chapter heading
-    if (isChapterLine(line) && !inGlossary) {
-      const chapter = parseChapterLine(line);
-      if (chapter) {
-        // Flush previous chapter if exists
-        if (currentRule) {
-          const node = flushRuleBuffer(currentRule.id, sourceId);
-          if (node) nodes.push(node);
+    // Try to match as a hierarchy node (chapter/section/rule/subrule)
+    let matched = false;
+
+    for (const pattern of HIERARCHY_PATTERNS) {
+      const match = line.match(pattern.regex);
+      if (match) {
+        // Flush previous node
+        flushCurrentNode();
+
+        const nodeId = match[1]!;
+        const content = match[2]!;
+
+        currentNode = {
+          id:    nodeId,
+          level: pattern.level,
+          lines: [content],
+        };
+
+        // First chapter marks entry into content section
+        if (pattern.level === -1) {
+          inContentSection = true;
         }
 
-        currentChapter = { num: chapter.chapterNum, title: chapter.title };
-        currentRule = { id: chapter.chapterNum, text: chapter.title };
-        ruleBuffer.set(chapter.chapterNum, [chapter.title]);
+        matched = true;
+        break;
       }
-      continue;
     }
 
-    // Parse rule line
-    if (isRuleLine(line) && !inGlossary) {
-      const rule = parseRuleLine(line);
-      if (rule) {
-        // Flush previous rule
-        if (currentRule) {
-          const node = flushRuleBuffer(currentRule.id, sourceId);
-          if (node) nodes.push(node);
-        }
+    if (matched) continue;
 
-        currentRule = { id: rule.ruleId, text: rule.content };
-        ruleBuffer.set(rule.ruleId, [rule.content]);
+    // Try to match as glossary entry (only in glossary section)
+    if (inGlossary) {
+      const glossaryMatch = line.match(GLOSSARY_ENTRY_REGEX);
+      if (glossaryMatch) {
+        flushCurrentNode();
+
+        const term = glossaryMatch[1]!;
+        const definition = glossaryMatch[2]!;
+        const glossaryId = `glossary-${term.toLowerCase().replace(/\s+/g, '-')}`;
+
+        currentNode = {
+          id:    glossaryId,
+          level: 3,
+          lines: [`${term}. ${definition}`],
+        };
+        continue;
       }
-      continue;
     }
 
-    // Parse glossary entry
-    if (isGlossaryLine(line) && inGlossary) {
-      const entry = parseGlossaryLine(line);
-      if (entry) {
-        // Flush previous glossary entry
-        if (currentRule) {
-          const node = flushRuleBuffer(currentRule.id, sourceId);
-          if (node) nodes.push(node);
-        }
-
-        const glossaryId = `glossary-${entry.term.toLowerCase().replace(/\s+/g, '-')}`;
-        currentRule = { id: glossaryId, text: entry.definition };
-        ruleBuffer.set(glossaryId, [`${entry.term}. ${entry.definition}`]);
-      }
-      continue;
-    }
-
-    // Continuation of current rule/glossary entry
-    if (currentRule && line && !line.startsWith('//')) {
-      const buffer = ruleBuffer.get(currentRule.id);
-      if (buffer) {
-        buffer.push(line);
-      }
+    // Continuation of current node
+    if (currentNode && !line.startsWith('//')) {
+      currentNode.lines.push(line);
     }
   }
 
-  // Flush final rule
-  if (currentRule) {
-    const node = flushRuleBuffer(currentRule.id, sourceId);
-    if (node) nodes.push(node);
-  }
+  // Flush final node
+  flushCurrentNode();
 
   return {
-    id:         sourceId,
+    id:          sourceId,
     effectiveDate,
-    publishedAt,
-    totalRules: nodes.length,
+    publishedAt: '',
+    totalRules:  nodes.length,
     nodes,
   };
 }

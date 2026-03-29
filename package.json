@@ -1,5 +1,8 @@
 {
   "name": "tcg-cards",
+  "dependencies": {
+    "drizzle-orm": "^1.0.0-beta.20"
+  },
   "devDependencies": {
     "@turbo/gen": "^2.8.12",
     "prettier": "^3.2.5",

@@ -8,12 +8,146 @@
           管理万智牌官方规则文档版本
         </p>
       </div>
-      <UButton
-        icon="i-lucide-upload"
-        @click="showImportModal = true"
-      >
-        导入规则
-      </UButton>
+      <div class="flex items-center gap-2">
+        <UButton
+          icon="i-lucide-download-cloud"
+          color="primary"
+          :loading="syncing"
+          @click="syncLatest"
+        >
+          同步最新规则
+        </UButton>
+        <UModal title="上传规则文件到 R2">
+          <UButton
+            icon="i-lucide-upload-cloud"
+            variant="outline"
+          >
+            上传规则
+          </UButton>
+
+          <template #body>
+            <div class="space-y-4">
+              <div>
+                <label class="mb-2 block text-sm font-medium">规则文件 (TXT)</label>
+                <UInput
+                  type="file"
+                  accept=".txt"
+                  @change="handleUploadFileSelect"
+                />
+                <p class="mt-1 text-xs text-gray-500">
+                  版本日期将自动从文件内容中提取
+                </p>
+              </div>
+
+              <div v-if="uploadFileContent" class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
+                <p class="text-xs font-medium text-gray-500">文件预览</p>
+                <pre class="mt-2 max-h-32 overflow-auto text-xs">{{ uploadFileContent.slice(0, 500) }}...</pre>
+              </div>
+            </div>
+          </template>
+
+          <template #footer="{ close }">
+            <div class="flex justify-end gap-2">
+              <UButton variant="ghost" @click="close">取消</UButton>
+              <UButton
+                :loading="uploading"
+                :disabled="!uploadFileContent"
+                @click="startUpload"
+              >
+                上传
+              </UButton>
+            </div>
+          </template>
+        </UModal>
+        <UModal title="批量上传规则文件">
+          <UButton
+            icon="i-lucide-folder-up"
+            variant="outline"
+          >
+            批量上传
+          </UButton>
+
+          <template #body>
+            <div class="space-y-3">
+              <div class="flex justify-center">
+                <UInput
+                  type="file"
+                  multiple
+                  accept=".txt,.pdf,.docx"
+                  @change="handleBatchFileSelect"
+                />
+              </div>
+              <div
+                v-for="file in batchFiles"
+                :key="file.name"
+                class="flex items-center justify-between rounded-lg border p-3"
+              >
+                <div class="flex items-center gap-3">
+                  <UIcon
+                    :name="file.type === 'txt' ? 'i-lucide-file-text' : file.type === 'pdf' ? 'i-lucide-file' : 'i-lucide-file-text'"
+                    class="size-5 text-gray-400"
+                  />
+                  <div>
+                    <p class="text-sm font-medium">{{ file.name }}</p>
+                    <p class="text-xs text-gray-500">
+                      {{ file.versionDate ?? '未识别版本' }} · {{ file.type.toUpperCase() }}
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <UBadge
+                    v-if="file.status === 'pending'"
+                    color="neutral"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    等待上传
+                  </UBadge>
+                  <UBadge
+                    v-else-if="file.status === 'uploading'"
+                    color="primary"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    上传中...
+                  </UBadge>
+                  <UBadge
+                    v-else-if="file.status === 'success'"
+                    color="success"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    成功
+                  </UBadge>
+                  <UBadge
+                    v-else-if="file.status === 'error'"
+                    color="error"
+                    variant="subtle"
+                    size="sm"
+                  >
+                    {{ file.error ?? '失败' }}
+                  </UBadge>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template #footer="{ close }">
+            <div class="flex justify-end gap-2">
+              <UButton variant="ghost" @click="close">
+                关闭
+              </UButton>
+              <UButton
+                :loading="batchUploading"
+                :disabled="batchFiles.length === 0 || batchFiles.every(f => f.status !== 'pending')"
+                @click="startBatchUpload"
+              >
+                开始上传
+              </UButton>
+            </div>
+          </template>
+        </UModal>
+      </div>
     </div>
 
     <!-- Stats -->
@@ -78,25 +212,25 @@
       >
         <template #status-cell="{ getValue }">
           <UBadge
-            :color="getValue() === 'active' ? 'primary' : 'neutral'"
+            :color="getStatus(getValue() as string).color"
             variant="subtle"
             size="sm"
           >
-            {{ getValue() === 'active' ? '生效中' : '已废弃' }}
+            {{ getStatus(getValue() as string).label }}
           </UBadge>
         </template>
 
         <template #effectiveDate-cell="{ getValue }">
-          <span class="text-sm">{{ getValue() || '-' }}</span>
+          <span class="text-sm">{{ getValue() ?? '-' }}</span>
         </template>
 
         <template #totalRules-cell="{ getValue }">
-          <span class="text-sm">{{ getValue()?.toLocaleString() || '-' }}</span>
+          <span class="text-sm">{{ getValue()?.toLocaleString() ?? '-' }}</span>
         </template>
 
         <template #importedAt-cell="{ getValue }">
           <span class="text-sm text-gray-500">
-            {{ getValue() ? formatDate(getValue()) : '-' }}
+            {{ getValue() ? formatDate(getValue() as Date) : '-' }}
           </span>
         </template>
 
@@ -110,165 +244,36 @@
             >
               查看
             </UButton>
-            <UButton
-              icon="i-lucide-trash-2"
-              variant="ghost"
-              size="xs"
-              color="error"
-              @click="confirmDelete(row.original)"
-            >
-              删除
-            </UButton>
+            <UModal>
+              <UButton
+                icon="i-lucide-trash-2"
+                variant="ghost"
+                size="xs"
+                color="error"
+              >
+                删除
+              </UButton>
+
+              <template #content>
+                <p class="text-sm">
+                  确定要删除规则版本 <strong>{{ row.original.id }}</strong> 吗？<br>
+                  此操作不可撤销，相关的规则节点和变更记录也将被删除。
+                </p>
+              </template>
+
+              <template #footer>
+                <div class="flex justify-end gap-2">
+                  <UButton color="error" @click="deleteVersion(row.original)">
+                    确认删除
+                  </UButton>
+                </div>
+              </template>
+            </UModal>
           </div>
         </template>
       </UTable>
     </UCard>
 
-    <!-- Import Modal -->
-    <UModal v-model="showImportModal" :ui="{ width: 'lg' }">
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h3 class="text-base font-semibold">导入规则版本</h3>
-            <UButton
-              icon="i-lucide-x"
-              variant="ghost"
-              size="xs"
-              @click="showImportModal = false"
-            />
-          </div>
-        </template>
-
-        <div class="space-y-4">
-          <!-- File Upload -->
-          <div>
-            <label class="mb-2 block text-sm font-medium">规则文件 (TXT)</label>
-            <UInput
-              type="file"
-              accept=".txt"
-              @change="handleFileUpload"
-            />
-            <p class="mt-1 text-xs text-gray-500">
-              支持从官方下载的 Comprehensive Rules TXT 文件
-            </p>
-          </div>
-
-          <!-- Source ID -->
-          <UFormGroup label="版本 ID">
-            <UInput
-              v-model="importForm.sourceId"
-              placeholder="例如: 20240328"
-            />
-            <template #hint>
-              建议使用日期格式 YYYYMMDD
-            </template>
-          </UFormGroup>
-
-          <!-- Effective Date -->
-          <UFormGroup label="生效日期">
-            <UInput
-              v-model="importForm.effectiveDate"
-              type="date"
-            />
-          </UFormGroup>
-
-          <!-- Published Date -->
-          <UFormGroup label="发布日期">
-            <UInput
-              v-model="importForm.publishedAt"
-              type="date"
-            />
-          </UFormGroup>
-
-          <!-- Preview -->
-          <div v-if="fileContent" class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
-            <p class="text-xs font-medium text-gray-500">文件预览</p>
-            <pre class="mt-2 max-h-32 overflow-auto text-xs">{{ fileContent.slice(0, 500) }}...</pre>
-          </div>
-
-          <!-- Progress -->
-          <div v-if="importing" class="space-y-2">
-            <UProgress :value="importProgress" />
-            <p class="text-center text-sm text-gray-500">{{ importStatus }}</p>
-          </div>
-
-          <!-- Result -->
-          <div v-if="importResult" class="rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
-            <h4 class="text-sm font-medium text-green-800 dark:text-green-200">
-              导入成功
-            </h4>
-            <div class="mt-2 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span class="text-gray-500">总节点:</span>
-                <span class="ml-2 font-medium">{{ importResult.totalNodes }}</span>
-              </div>
-              <div>
-                <span class="text-gray-500">新实体:</span>
-                <span class="ml-2 font-medium">{{ importResult.newEntities }}</span>
-              </div>
-              <div>
-                <span class="text-gray-500">更新实体:</span>
-                <span class="ml-2 font-medium">{{ importResult.existingEntities }}</span>
-              </div>
-              <div>
-                <span class="text-gray-500">变更:</span>
-                <span class="ml-2 font-medium">
-                  +{{ importResult.changes.added }} -{{ importResult.changes.removed }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <template #footer>
-          <div class="flex justify-end gap-2">
-            <UButton
-              variant="ghost"
-              @click="showImportModal = false"
-            >
-              取消
-            </UButton>
-            <UButton
-              :loading="importing"
-              :disabled="!canImport"
-              @click="startImport"
-            >
-              开始导入
-            </UButton>
-          </div>
-        </template>
-      </UCard>
-    </UModal>
-
-    <!-- Delete Confirmation -->
-    <UModal v-model="showDeleteModal">
-      <UCard>
-        <template #header>
-          <h3 class="text-base font-semibold">确认删除</h3>
-        </template>
-        <p class="text-sm">
-          确定要删除规则版本 <strong>{{ selectedVersion?.id }}</strong> 吗？<br>
-          此操作不可撤销，相关的规则节点和变更记录也将被删除。
-        </p>
-        <template #footer>
-          <div class="flex justify-end gap-2">
-            <UButton
-              variant="ghost"
-              @click="showDeleteModal = false"
-            >
-              取消
-            </UButton>
-            <UButton
-              color="error"
-              :loading="deleting"
-              @click="deleteVersion"
-            >
-              确认删除
-            </UButton>
-          </div>
-        </template>
-      </UCard>
-    </UModal>
   </div>
 </template>
 
@@ -290,6 +295,15 @@ type RuleVersion = {
   importedAt:    Date | null;
 };
 
+const statusMap: Record<string, { label: string, color: 'primary' | 'warning' | 'neutral' }> = {
+  active:  { label: '生效中', color: 'primary' },
+  pending: { label: '待导入', color: 'warning' },
+};
+
+function getStatus(value: string) {
+  return statusMap[value] ?? { label: '已废弃', color: 'neutral' };
+}
+
 // Table column definitions
 const tableColumns = [
   { accessorKey: 'id', header: '版本 ID' },
@@ -308,45 +322,48 @@ const { data: versions, pending, refresh } = await useAsyncData('rule-versions',
 
 const activeVersions = computed(() => versions.value.filter(v => v.status === 'active'));
 const totalRules = computed(() => {
-  return versions.value.reduce((sum, v) => sum + (v.totalRules || 0), 0);
+  return versions.value.reduce((sum, v) => sum + (v.totalRules ?? 0), 0);
 });
 
-// Import modal dialog state
-const showImportModal = ref(false);
-const fileContent = ref('');
-const importing = ref(false);
-const importProgress = ref(0);
-const importStatus = ref('');
-const importResult = ref<{
-  success:          boolean;
-  sourceId:         string;
-  totalNodes:       number;
-  newEntities:      number;
-  existingEntities: number;
-  changes: {
-    added:    number;
-    removed:  number;
-    modified: number;
-    renamed:  number;
-    moved:    number;
-    split:    number;
-    merged:   number;
-  };
+// Sync latest state
+const syncing = ref(false);
+const syncResult = ref<{
+  success:    boolean;
+  sourceId:   string;
+  message:    string;
+  downloaded: boolean;
 } | null>(null);
 
-const importForm = reactive({
-  sourceId:      '',
-  effectiveDate: '',
-  publishedAt:   '',
-});
+// Upload modal state
+const uploadFileContent = ref('');
+const uploading = ref(false);
 
-const canImport = computed(() => {
-  return importForm.sourceId && fileContent.value && !importing.value;
-});
+function handleUploadFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    uploadFileContent.value = e.target?.result as string;
+  };
+  reader.readAsText(file);
+}
 
-// Delete confirmation dialog state
-const showDeleteModal = ref(false);
-const selectedVersion = ref<{ id: string } | null>(null);
+async function startUpload() {
+  if (!uploadFileContent.value) return;
+  uploading.value = true;
+  try {
+    await $orpc.magic.rule.uploadToR2({ content: uploadFileContent.value, fileType: 'txt' });
+    uploadFileContent.value = '';
+    await refresh();
+  } catch (error) {
+    console.error('Failed to upload rule file:', error);
+  } finally {
+    uploading.value = false;
+  }
+}
+
+// Delete loading state
 const deleting = ref(false);
 
 // Methods
@@ -354,89 +371,145 @@ function formatDate(date: Date): string {
   return new Date(date).toLocaleString('zh-CN');
 }
 
-async function handleFileUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    fileContent.value = e.target?.result as string;
-    // Auto-extract date from filename if possible
-    const match = file.name.match(/(\d{8})/);
-    if (match?.[1] && !importForm.sourceId) {
-      importForm.sourceId = match[1];
-    }
-  };
-  reader.readAsText(file);
+interface BatchUploadFile {
+  name:        string;
+  type:        'txt' | 'pdf' | 'docx';
+  content:     string;
+  versionDate: string;
+  status:      'pending' | 'uploading' | 'success' | 'error';
+  error?:      string;
 }
 
-async function startImport() {
-  if (!canImport.value) return;
+const batchFiles = ref<BatchUploadFile[]>([]);
+const batchUploading = ref(false);
 
-  importing.value = true;
-  importProgress.value = 0;
-  importStatus.value = '正在解析文件...';
-  importResult.value = null;
+async function handleBatchFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+  if (files.length === 0) return;
 
-  try {
-    importProgress.value = 30;
-    importStatus.value = '正在导入数据库...';
+  batchFiles.value = [];
 
-    const result = await $orpc.magic.rule.importFromText({
-      sourceId:      importForm.sourceId,
-      content:       fileContent.value,
-      effectiveDate: importForm.effectiveDate || undefined,
-      publishedAt:   importForm.publishedAt || undefined,
-    });
+  for (const file of files) {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['txt', 'pdf', 'docx'].includes(ext ?? '')) continue;
 
-    importProgress.value = 100;
-    importStatus.value = '导入完成';
-    importResult.value = result;
+    const fileType = ext as 'txt' | 'pdf' | 'docx';
+    const versionMatch = file.name.match(/(\d{8})/);
+    const versionDate = versionMatch?.[1] ?? '';
 
-    // Refresh the version list
-    await refresh();
-
-    // Close modal after a short delay
-    setTimeout(() => {
-      showImportModal.value = false;
-      resetImportForm();
-    }, 2000);
-  } catch (error) {
-    importStatus.value = `导入失败: ${error instanceof Error ? error.message : '未知错误'}`;
-  } finally {
-    importing.value = false;
+    try {
+      const content = await readFileAsString(file);
+      batchFiles.value.push({
+        name:   file.name,
+        type:   fileType,
+        content,
+        versionDate,
+        status: 'pending',
+      });
+    } catch (error) {
+      console.error(`Failed to read file ${file.name}:`, error);
+    }
   }
 }
 
-function resetImportForm() {
-  importForm.sourceId = '';
-  importForm.effectiveDate = '';
-  importForm.publishedAt = '';
-  fileContent.value = '';
-  importResult.value = null;
-  importProgress.value = 0;
-  importStatus.value = '';
+function readFileAsString(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target?.result as string);
+    reader.onerror = reject;
+    if (file.name.endsWith('.txt')) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsDataURL(file);
+    }
+  });
+}
+
+async function startBatchUpload() {
+  batchUploading.value = true;
+
+  for (const file of batchFiles.value) {
+    if (file.status !== 'pending') continue;
+
+    file.status = 'uploading';
+    try {
+      let versionDate = file.versionDate;
+
+      if (file.type === 'txt' && !versionDate) {
+        const match = file.content.match(/effective as of [A-Za-z]+ \d{1,2}, \d{4}/i);
+        if (match) {
+          const date = new Date(match[0].replace('effective as of ', ''));
+          if (!isNaN(date.getTime())) {
+            versionDate = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+          }
+        }
+      }
+
+      if (!versionDate) {
+        file.status = 'error';
+        file.error = '无法识别版本日期';
+        continue;
+      }
+
+      let content: string;
+      if (file.type === 'txt') {
+        content = file.content;
+      } else {
+        const base64Data = file.content.split(',')[1];
+        if (!base64Data) {
+          file.status = 'error';
+          file.error = '文件读取失败';
+          continue;
+        }
+        content = base64Data;
+      }
+
+      await $orpc.magic.rule.uploadToR2({
+        content,
+        fileType: file.type,
+        versionDate,
+      });
+      file.status = 'success';
+    } catch (error) {
+      file.status = 'error';
+      file.error = error instanceof Error ? error.message : '上传失败';
+    }
+  }
+
+  batchUploading.value = false;
+  await refresh();
+}
+
+async function syncLatest() {
+  syncing.value = true;
+  syncResult.value = null;
+
+  try {
+    const result = await $orpc.magic.rule.syncLatest();
+    syncResult.value = result;
+
+    if (result.success) {
+      // Show success notification
+      // Refresh the version list
+      await refresh();
+    }
+  } catch (error) {
+    console.error('Failed to sync latest rules:', error);
+  } finally {
+    syncing.value = false;
+  }
 }
 
 function viewVersion(version: { id: string }) {
   navigateTo(`/magic/rule/${version.id}`);
 }
 
-function confirmDelete(version: { id: string }) {
-  selectedVersion.value = version;
-  showDeleteModal.value = true;
-}
-
-async function deleteVersion() {
-  if (!selectedVersion.value) return;
-
+async function deleteVersion(version: { id: string }) {
   deleting.value = true;
   try {
-    await $orpc.magic.rule.delete({ id: selectedVersion.value.id });
+    await $orpc.magic.rule.delete({ id: version.id });
     await refresh();
-    showDeleteModal.value = false;
-    selectedVersion.value = null;
   } catch (error) {
     console.error('Failed to delete version:', error);
   } finally {

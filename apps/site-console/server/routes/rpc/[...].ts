@@ -21,7 +21,9 @@ export default defineEventHandler(async event => {
 
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
-    context: {} as any,
+    context: {
+      env: event.context.cloudflare?.env,
+    },
   });
 
   if (response) {

@@ -25,9 +25,3 @@ export {
   type SplitResult,
   type MergeResult,
 } from './matcher';
-
-export {
-  importRuleVersion,
-  reimportRuleVersion,
-  type ImportResult,
-} from './importer';

@@ -79,15 +79,15 @@ export function fingerprintSimilarity(text1: string, text2: string): boolean {
 /**
  * Get chapter number from rule ID
  */
-function getChapter(ruleId: string): string {
-  return ruleId.split('.')[0] ?? '';
+function getChapter(nodeId: string): string {
+  return nodeId.split('.')[0] ?? '';
 }
 
 /**
  * Check if two rules are in the same chapter
  */
-function sameChapter(ruleId1: string, ruleId2: string): boolean {
-  return getChapter(ruleId1) === getChapter(ruleId2);
+function sameChapter(nodeId1: string, nodeId2: string): boolean {
+  return getChapter(nodeId1) === getChapter(nodeId2);
 }
 
 /**
@@ -135,7 +135,7 @@ export function similarityMatch(
 
   for (const [id, node] of newNodes) {
     // Restrict to same chapter to avoid false matches
-    if (!sameChapter(oldNode.ruleId, node.ruleId)) continue;
+    if (!sameChapter(oldNode.nodeId, node.nodeId)) continue;
 
     const similarity = jaccardSimilarity(oldNode.content, node.content);
 
@@ -181,7 +181,7 @@ export function detectSplit(
   if (totalSimilarity > 0.8) {
     return {
       type:         'split',
-      fromRuleId:   oldNode.ruleId,
+      fromRuleId:   oldNode.nodeId,
       intoRuleIds:  candidates.map(c => c.id),
       similarities: candidates.map(c => c.similarity),
       totalSimilarity,
@@ -222,7 +222,7 @@ export function detectMerge(
     return {
       type:         'merged',
       fromRuleIds:  candidates.map(c => c.id),
-      intoRuleId:   newNode.ruleId,
+      intoRuleId:   newNode.nodeId,
       similarities: candidates.map(c => c.similarity),
       totalSimilarity,
     };
@@ -249,13 +249,13 @@ export function matchRule(
   if (exactId) {
     const newNode = newNodes.get(exactId)!;
     return {
-      type:       oldNode.ruleId === newNode.ruleId ? 'unchanged' : 'moved',
+      type:       oldNode.nodeId === newNode.nodeId ? 'unchanged' : 'moved',
       oldNodeId,
       newNodeId:  exactId,
       similarity: 1,
       details:    {
-        oldRuleId:      oldNode.ruleId,
-        newRuleId:      newNode.ruleId,
+        oldRuleId:      oldNode.nodeId,
+        newRuleId:      newNode.nodeId,
         oldContentHash: oldNode.contentHash,
         newContentHash: newNode.contentHash,
       },
@@ -266,8 +266,8 @@ export function matchRule(
   const fingerprintId = fingerprintMatch(oldNode, newNodes);
   if (fingerprintId) {
     const newNode = newNodes.get(fingerprintId)!;
-    const sameId = oldNode.ruleId === newNode.ruleId;
-    const sameChapter = getChapter(oldNode.ruleId) === getChapter(newNode.ruleId);
+    const sameId = oldNode.nodeId === newNode.nodeId;
+    const sameChapter = getChapter(oldNode.nodeId) === getChapter(newNode.nodeId);
 
     let type: ChangeType;
     if (sameId) {
@@ -284,8 +284,8 @@ export function matchRule(
       newNodeId:  fingerprintId,
       similarity: 1,
       details:    {
-        oldRuleId:        oldNode.ruleId,
-        newRuleId:        newNode.ruleId,
+        oldRuleId:        oldNode.nodeId,
+        newRuleId:        newNode.nodeId,
         oldContentHash:   oldNode.contentHash,
         newContentHash:   newNode.contentHash,
         fingerprintMatch: true,
@@ -297,8 +297,8 @@ export function matchRule(
   const similar = similarityMatch(oldNode, newNodes, similarityThreshold);
   if (similar) {
     const newNode = newNodes.get(similar.id)!;
-    const sameId = oldNode.ruleId === newNode.ruleId;
-    const sameChapter = getChapter(oldNode.ruleId) === getChapter(newNode.ruleId);
+    const sameId = oldNode.nodeId === newNode.nodeId;
+    const sameChapter = getChapter(oldNode.nodeId) === getChapter(newNode.nodeId);
 
     let type: ChangeType;
     if (sameId) {
@@ -315,8 +315,8 @@ export function matchRule(
       newNodeId:  similar.id,
       similarity: similar.similarity,
       details:    {
-        oldRuleId:      oldNode.ruleId,
-        newRuleId:      newNode.ruleId,
+        oldRuleId:      oldNode.nodeId,
+        newRuleId:      newNode.nodeId,
         oldContentHash: oldNode.contentHash,
         newContentHash: newNode.contentHash,
       },
@@ -330,7 +330,7 @@ export function matchRule(
     newNodeId:  null,
     similarity: 0,
     details:    {
-      oldRuleId:      oldNode.ruleId,
+      oldRuleId:      oldNode.nodeId,
       oldContentHash: oldNode.contentHash,
     },
   };
@@ -411,7 +411,7 @@ export function detectChanges(
       newNodeId:  id,
       similarity: 0,
       details:    {
-        newRuleId:      node.ruleId,
+        newRuleId:      node.nodeId,
         newContentHash: node.contentHash,
       },
     });
