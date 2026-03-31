@@ -1,6 +1,8 @@
 import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+
 import type { ParsedRuleNode, ParsedRuleSource, CompressedContent } from '#server/lib/magic/rule/parser';
 import type { ChangeType, MatchResult, SplitResult, MergeResult } from '#server/lib/magic/rule/matcher';
 import { detectChanges } from '#server/lib/magic/rule/matcher';
@@ -8,7 +10,10 @@ import { detectChanges } from '#server/lib/magic/rule/matcher';
 import type { RuleContent as IRuleContent } from '#model/magic/schema/rule';
 
 import { db } from '#db/db';
+import type * as schema from '#schema';
 import { RuleSource, RuleContent, RuleEntity, RuleNode, RuleChange } from '#schema/magic/rule';
+
+type DatabaseClient = NodePgDatabase<typeof schema>;
 
 export interface ImportResult {
   sourceId:         string;
@@ -29,8 +34,8 @@ export interface ImportResult {
 /**
  * Check if a rule content already exists
  */
-async function getExistingContent(hash: string): Promise<IRuleContent | undefined> {
-  const result = await db
+async function getExistingContent(hash: string, tx: DatabaseClient): Promise<IRuleContent | undefined> {
+  const result = await tx
     .select()
     .from(RuleContent)
     .where(eq(RuleContent.hash, hash))
@@ -42,18 +47,18 @@ async function getExistingContent(hash: string): Promise<IRuleContent | undefine
 /**
  * Insert or update rule content (reference counting)
  */
-async function upsertRuleContent(content: CompressedContent): Promise<void> {
-  const existing = await getExistingContent(content.hash);
+async function upsertRuleContent(content: CompressedContent, tx: DatabaseClient): Promise<void> {
+  const existing = await getExistingContent(content.hash, tx);
 
   if (existing) {
     // Increment reference count
-    await db
+    await tx
       .update(RuleContent)
       .set({ refCount: existing.refCount + 1 })
       .where(eq(RuleContent.hash, content.hash));
   } else {
     // Insert new content
-    await db.insert(RuleContent).values({
+    await tx.insert(RuleContent).values({
       hash:     content.hash,
       content:  content.content,
       size:     content.size,
@@ -63,38 +68,13 @@ async function upsertRuleContent(content: CompressedContent): Promise<void> {
 }
 
 /**
- * Find existing entity by current node ID
- */
-async function findEntityByNodeId(sourceId: string, ruleId: string): Promise<{ id: string } | undefined> {
-  const nodeId = `${sourceId}/${ruleId}`;
-
-  // First check if there's a node in the previous version
-  const previousVersion = await getPreviousVersion(sourceId);
-  if (!previousVersion) return undefined;
-
-  const previousNodeId = `${previousVersion.id}/${ruleId}`;
-
-  const result = await db
-    .select({ entityId: RuleNode.entityId })
-    .from(RuleNode)
-    .where(eq(RuleNode.id, previousNodeId))
-    .limit(1);
-
-  if (result[0]) {
-    return { id: result[0].entityId };
-  }
-
-  return undefined;
-}
-
-/**
  * Get the previous version (by effective date)
  */
 async function getPreviousVersion(
-
   currentSourceId: string,
+  tx: DatabaseClient,
 ): Promise<{ id: string, effectiveDate: string | null } | undefined> {
-  const current = await db
+  const current = await tx
     .select()
     .from(RuleSource)
     .where(eq(RuleSource.id, currentSourceId))
@@ -102,7 +82,9 @@ async function getPreviousVersion(
 
   if (!current[0]?.effectiveDate) return undefined;
 
-  const result = await db
+  const currentDate = current[0].effectiveDate;
+
+  const result = await tx
     .select({
       id:            RuleSource.id,
       effectiveDate: RuleSource.effectiveDate,
@@ -111,29 +93,30 @@ async function getPreviousVersion(
     .where(
       and(
         eq(RuleSource.status, 'active'),
-        // Effective date is before current
+        // Effective date is before current date
+        // Using string comparison for YYYY-MM-DD format
       ),
     )
     .orderBy(RuleSource.effectiveDate)
     .limit(1);
 
-  // This is a simplified version - in production, compare dates properly
-  return result[0];
+  // Filter out versions with effective date >= current date
+  return result.find(r => r.effectiveDate && r.effectiveDate < currentDate);
 }
 
 /**
  * Create a new entity for a rule
  */
 async function createEntity(
-
   node: ParsedRuleNode,
+  tx: DatabaseClient,
 ): Promise<string> {
-  const entityId = `${node.sourceId}-${node.ruleId}`;
+  const entityId = `${node.sourceId}-${node.nodeId}`;
 
-  await db.insert(RuleEntity).values({
+  await tx.insert(RuleEntity).values({
     id:              entityId,
     currentNodeId:   node.id,
-    currentRuleId:   node.ruleId,
+    currentRuleId:   node.nodeId,
     currentSourceId: node.sourceId,
     totalRevisions:  1,
   });
@@ -145,11 +128,11 @@ async function createEntity(
  * Update entity to point to new version
  */
 async function updateEntity(
-
   entityId: string,
   node: ParsedRuleNode,
+  tx: DatabaseClient,
 ): Promise<void> {
-  const entity = await db
+  const entity = await tx
     .select()
     .from(RuleEntity)
     .where(eq(RuleEntity.id, entityId))
@@ -157,11 +140,11 @@ async function updateEntity(
 
   if (!entity[0]) return;
 
-  await db
+  await tx
     .update(RuleEntity)
     .set({
       currentNodeId:   node.id,
-      currentRuleId:   node.ruleId,
+      currentRuleId:   node.nodeId,
       currentSourceId: node.sourceId,
       totalRevisions:  entity[0].totalRevisions + 1,
     })
@@ -172,41 +155,41 @@ async function updateEntity(
  * Get or create entity for a rule node
  */
 async function getOrCreateEntity(
-
   node: ParsedRuleNode,
+  tx: DatabaseClient,
   previousVersionId?: string,
 ): Promise<string> {
   // Try to find existing entity from previous version
   if (previousVersionId) {
-    const previousNodeId = `${previousVersionId}/${node.ruleId}`;
-    const previousNode = await db
+    const previousNodeId = `${previousVersionId}/${node.nodeId}`;
+    const previousNode = await tx
       .select({ entityId: RuleNode.entityId })
       .from(RuleNode)
       .where(eq(RuleNode.id, previousNodeId))
       .limit(1);
 
     if (previousNode[0]) {
-      await updateEntity(previousNode[0].entityId, node);
+      await updateEntity(previousNode[0].entityId, node, tx);
       return previousNode[0].entityId;
     }
   }
 
   // Create new entity
-  return createEntity(node);
+  return createEntity(node, tx);
 }
 
 /**
  * Insert a rule node
  */
 async function insertRuleNode(
-
   node: ParsedRuleNode,
   entityId: string,
+  tx: DatabaseClient,
 ): Promise<void> {
-  await db.insert(RuleNode).values({
+  await tx.insert(RuleNode).values({
     id:          node.id,
     sourceId:    node.sourceId,
-    ruleId:      node.ruleId,
+    ruleId:      node.nodeId,
     path:        node.path,
     level:       node.level,
     parentId:    node.parentId,
@@ -220,11 +203,11 @@ async function insertRuleNode(
  * Record a change between versions
  */
 async function recordChange(
-
   fromSourceId: string,
   toSourceId: string,
   match: MatchResult,
   entityId: string,
+  tx: DatabaseClient,
 ): Promise<void> {
   if (match.type === 'unchanged') return;
 
@@ -244,7 +227,7 @@ async function recordChange(
     details.similarityScore = match.similarity;
   }
 
-  await db.insert(RuleChange).values({
+  await tx.insert(RuleChange).values({
     id:         randomUUID(),
     fromSourceId,
     toSourceId,
@@ -260,15 +243,15 @@ async function recordChange(
  * Record a split change
  */
 async function recordSplitChange(
-
   fromSourceId: string,
   toSourceId: string,
   split: SplitResult,
   entityMap: Map<string, string>, // nodeId -> entityId
+  tx: DatabaseClient,
 ): Promise<void> {
   const entityId = entityMap.get(`${toSourceId}/${split.fromRuleId}`) || randomUUID();
 
-  await db.insert(RuleChange).values({
+  await tx.insert(RuleChange).values({
     id:         randomUUID(),
     fromSourceId,
     toSourceId,
@@ -288,15 +271,15 @@ async function recordSplitChange(
  * Record a merge change
  */
 async function recordMergeChange(
-
   fromSourceId: string,
   toSourceId: string,
   merge: MergeResult,
   entityMap: Map<string, string>,
+  tx: DatabaseClient,
 ): Promise<void> {
   const entityId = entityMap.get(`${toSourceId}/${merge.intoRuleId}`) || randomUUID();
 
-  await db.insert(RuleChange).values({
+  await tx.insert(RuleChange).values({
     id:         randomUUID(),
     fromSourceId,
     toSourceId,
@@ -310,6 +293,155 @@ async function recordMergeChange(
       totalSimilarity: merge.totalSimilarity,
     }),
   });
+}
+
+/**
+ * Import rule version implementation (internal, accepts transaction)
+ */
+async function importRuleVersionImpl(
+  source: ParsedRuleSource,
+  contents: CompressedContent[],
+  options: {
+    txtUrl?:      string;
+    pdfUrl?:      string;
+    docxUrl?:     string;
+    publishedAt?: string;
+  } = {},
+  tx: DatabaseClient,
+): Promise<ImportResult> {
+  // 1. Insert rule source
+  await tx.insert(RuleSource).values({
+    id:            source.id,
+    effectiveDate: source.effectiveDate,
+    publishedAt:   options.publishedAt || source.publishedAt,
+    txtUrl:        options.txtUrl,
+    pdfUrl:        options.pdfUrl,
+    docxUrl:       options.docxUrl,
+    totalRules:    source.totalRules,
+    status:        'active',
+  });
+
+  // 2. Insert compressed content
+  for (const content of contents) {
+    await upsertRuleContent(content, tx);
+  }
+
+  // 3. Get previous version for change detection
+  const previousVersion = await getPreviousVersion(source.id, tx);
+
+  // 4. Create entities and nodes
+  const entityMap = new Map<string, string>(); // nodeId -> entityId
+  let newEntities = 0;
+  let existingEntities = 0;
+
+  for (const node of source.nodes) {
+    const entityId = await getOrCreateEntity(node, tx, previousVersion?.id);
+    entityMap.set(node.id, entityId);
+
+    if (entityId.startsWith(source.id)) {
+      newEntities++;
+    } else {
+      existingEntities++;
+    }
+
+    await insertRuleNode(node, entityId, tx);
+  }
+
+  // 5. Detect and record changes
+  const changeCounts = {
+    added:    0,
+    removed:  0,
+    modified: 0,
+    renamed:  0,
+    moved:    0,
+    split:    0,
+    merged:   0,
+  };
+
+  if (previousVersion) {
+    // Fetch previous version nodes
+    const previousNodes = await tx
+      .select()
+      .from(RuleNode)
+      .where(eq(RuleNode.sourceId, previousVersion.id));
+
+    // Convert to ParsedRuleNode format for comparison
+    const oldNodes: ParsedRuleNode[] = previousNodes.map(n => ({
+      id:          n.id,
+      sourceId:    n.sourceId,
+      nodeId:      n.ruleId,
+      path:        n.path,
+      level:       n.level,
+      parentId:    n.parentId,
+      title:       n.title,
+      content:     '', // We don't have content here, but we have hash
+      contentHash: n.contentHash,
+    }));
+
+    const { matches, splits, merges } = detectChanges(oldNodes, source.nodes);
+
+    // Record regular changes
+    for (const match of matches) {
+      const entityId = match.newNodeId
+        ? entityMap.get(match.newNodeId)
+        : match.oldNodeId
+          ? entityMap.get(match.oldNodeId)
+          : undefined;
+
+      if (entityId) {
+        await recordChange(previousVersion.id, source.id, match, entityId, tx);
+      }
+
+      // Count changes by type
+      switch (match.type) {
+      case 'added':
+        changeCounts.added++;
+        break;
+      case 'removed':
+        changeCounts.removed++;
+        break;
+      case 'modified':
+        changeCounts.modified++;
+        break;
+      case 'renamed':
+      case 'renamed_modified':
+        changeCounts.renamed++;
+        break;
+      case 'moved':
+        changeCounts.moved++;
+        break;
+      }
+    }
+
+    // Record splits
+    for (const split of splits) {
+      await recordSplitChange(previousVersion.id, source.id, split, entityMap, tx);
+      changeCounts.split++;
+    }
+
+    // Record merges
+    for (const merge of merges) {
+      await recordMergeChange(previousVersion.id, source.id, merge, entityMap, tx);
+      changeCounts.merged++;
+    }
+
+    // Mark previous version as superseded
+    await tx
+      .update(RuleSource)
+      .set({ status: 'superseded' })
+      .where(eq(RuleSource.id, previousVersion.id));
+  } else {
+    // First version - all are additions
+    changeCounts.added = source.nodes.length;
+  }
+
+  return {
+    sourceId:   source.id,
+    totalNodes: source.totalRules,
+    newEntities,
+    existingEntities,
+    changes:    changeCounts,
+  };
 }
 
 /**
@@ -333,139 +465,7 @@ export async function importRuleVersion(
   } = {},
 ): Promise<ImportResult> {
   return await db.transaction(async tx => {
-    // 1. Insert rule source
-    await tx.insert(RuleSource).values({
-      id:            source.id,
-      effectiveDate: source.effectiveDate,
-      publishedAt:   options.publishedAt || source.publishedAt,
-      txtUrl:        options.txtUrl,
-      pdfUrl:        options.pdfUrl,
-      docxUrl:       options.docxUrl,
-      totalRules:    source.totalRules,
-      status:        'active',
-    });
-
-    // 2. Insert compressed content
-    for (const content of contents) {
-      await upsertRuleContent(content);
-    }
-
-    // 3. Get previous version for change detection
-    const previousVersion = await getPreviousVersion(source.id);
-
-    // 4. Create entities and nodes
-    const entityMap = new Map<string, string>(); // nodeId -> entityId
-    let newEntities = 0;
-    let existingEntities = 0;
-
-    for (const node of source.nodes) {
-      const entityId = await getOrCreateEntity(node, previousVersion?.id);
-      entityMap.set(node.id, entityId);
-
-      if (entityId.startsWith(source.id)) {
-        newEntities++;
-      } else {
-        existingEntities++;
-      }
-
-      await insertRuleNode(node, entityId);
-    }
-
-    // 5. Detect and record changes
-    const changeCounts = {
-      added:    0,
-      removed:  0,
-      modified: 0,
-      renamed:  0,
-      moved:    0,
-      split:    0,
-      merged:   0,
-    };
-
-    if (previousVersion) {
-      // Fetch previous version nodes
-      const previousNodes = await tx
-        .select()
-        .from(RuleNode)
-        .where(eq(RuleNode.sourceId, previousVersion.id));
-
-      // Convert to ParsedRuleNode format for comparison
-      const oldNodes: ParsedRuleNode[] = previousNodes.map(n => ({
-        id:          n.id,
-        sourceId:    n.sourceId,
-        ruleId:      n.ruleId,
-        path:        n.path,
-        level:       n.level,
-        parentId:    n.parentId,
-        title:       n.title,
-        content:     '', // We don't have content here, but we have hash
-        contentHash: n.contentHash,
-      }));
-
-      const { matches, splits, merges } = detectChanges(oldNodes, source.nodes);
-
-      // Record regular changes
-      for (const match of matches) {
-        const entityId = match.newNodeId
-          ? entityMap.get(match.newNodeId)
-          : match.oldNodeId
-            ? entityMap.get(match.oldNodeId)
-            : undefined;
-
-        if (entityId) {
-          await recordChange(previousVersion.id, source.id, match, entityId);
-        }
-
-        // Count changes by type
-        switch (match.type) {
-        case 'added':
-          changeCounts.added++;
-          break;
-        case 'removed':
-          changeCounts.removed++;
-          break;
-        case 'modified':
-          changeCounts.modified++;
-          break;
-        case 'renamed':
-        case 'renamed_modified':
-          changeCounts.renamed++;
-          break;
-        case 'moved':
-          changeCounts.moved++;
-          break;
-        }
-      }
-
-      // Record splits
-      for (const split of splits) {
-        await recordSplitChange(previousVersion.id, source.id, split, entityMap);
-        changeCounts.split++;
-      }
-
-      // Record merges
-      for (const merge of merges) {
-        await recordMergeChange(previousVersion.id, source.id, merge, entityMap);
-        changeCounts.merged++;
-      }
-
-      // Mark previous version as superseded
-      await tx
-        .update(RuleSource)
-        .set({ status: 'superseded' })
-        .where(eq(RuleSource.id, previousVersion.id));
-    } else {
-      // First version - all are additions
-      changeCounts.added = source.nodes.length;
-    }
-
-    return {
-      sourceId:   source.id,
-      totalNodes: source.totalRules,
-      newEntities,
-      existingEntities,
-      changes:    changeCounts,
-    };
+    return importRuleVersionImpl(source, contents, options, tx);
   });
 }
 
@@ -476,7 +476,6 @@ export async function importRuleVersion(
  * Use with caution - only for fixing import errors.
  */
 export async function reimportRuleVersion(
-
   source: ParsedRuleSource,
   contents: CompressedContent[],
   options: {
@@ -494,7 +493,7 @@ export async function reimportRuleVersion(
 
     // Note: We don't delete entities or content as they may be referenced by other versions
 
-    // 2. Reimport
-    return importRuleVersion(source, contents, options);
+    // 2. Reimport using the same transaction
+    return importRuleVersionImpl(source, contents, options, tx);
   });
 }

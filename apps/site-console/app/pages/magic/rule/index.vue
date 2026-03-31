@@ -237,6 +237,17 @@
         <template #actions-cell="{ row }">
           <div class="flex items-center gap-2">
             <UButton
+              v-if="row.original.r2Status === 'pending'"
+              icon="i-lucide-play"
+              variant="ghost"
+              size="xs"
+              color="primary"
+              :loading="loadingId === row.original.id"
+              @click="loadRule(row.original)"
+            >
+              导入
+            </UButton>
+            <UButton
               icon="i-lucide-eye"
               variant="ghost"
               size="xs"
@@ -293,6 +304,7 @@ type RuleVersion = {
   totalRules:    number | null;
   status:        string;
   importedAt:    Date | null;
+  r2Status:      'imported' | 'pending' | 'missing';
 };
 
 const statusMap: Record<string, { label: string, color: 'primary' | 'warning' | 'neutral' }> = {
@@ -365,6 +377,9 @@ async function startUpload() {
 
 // Delete loading state
 const deleting = ref(false);
+
+// Loading state
+const loadingId = ref<string>();
 
 // Methods
 function formatDate(date: Date): string {
@@ -514,6 +529,19 @@ async function deleteVersion(version: { id: string }) {
     console.error('Failed to delete version:', error);
   } finally {
     deleting.value = false;
+  }
+}
+
+async function loadRule(version: { id: string }) {
+  loadingId.value = version.id;
+  try {
+    const result = await $orpc.magic.rule.loadFromData({ versionId: version.id });
+    console.log('[LoadFromData] Import completed:', result);
+    await refresh();
+  } catch (error) {
+    console.error('Failed to load rule:', error);
+  } finally {
+    loadingId.value = undefined;
   }
 }
 </script>

@@ -462,10 +462,10 @@ const syncLatest = os
     };
   });
 
-const importFromR2 = os
+const loadFromData = os
   .route({
     method:      'POST',
-    description: 'Import rule version from R2_DATA bucket',
+    description: 'Load rule version from Data bucket',
     tags:        ['Magic', 'Rule'],
   })
   .input(z.object({
@@ -493,7 +493,7 @@ const importFromR2 = os
 
     // 1. Check if file exists in R2
     const r2Key = `magic/rule/${versionId}.txt`;
-    console.log(`[ImportFromR2] Checking R2 for ${r2Key}`);
+    console.log(`[LoadFromData] Checking R2 for ${r2Key}`);
 
     const object = await env.R2_DATA.get(r2Key);
     if (!object) {
@@ -502,7 +502,7 @@ const importFromR2 = os
 
     // 2. Read file content
     const txtContent = await object.text();
-    console.log(`[ImportFromR2] File size: ${txtContent.length} bytes`);
+    console.log(`[LoadFromData] File size: ${txtContent.length} bytes`);
 
     // 3. Check if already imported
     const existing = await db
@@ -515,34 +515,27 @@ const importFromR2 = os
       throw new Error(`Version ${versionId} already imported to database`);
     }
 
-    // 4. Parse and import
-    console.log('[ImportFromR2] Parsing and importing...');
+    // 4. Parse rule file
+    console.log('[LoadFromData] Parsing rule file...');
     const { source, contents } = await parseAndCompressRuleFile(versionId, txtContent);
 
     // Set effective date
     source.effectiveDate = `${versionId.slice(0, 4)}-${versionId.slice(4, 6)}-${versionId.slice(6, 8)}`;
     source.publishedAt = new Date().toISOString().split('T')[0]!;
 
-    // 5. Check and delete existing version with same effective date
-    const existingByDate = await db
-      .select({ id: RuleSource.id })
-      .from(RuleSource)
-      .where(eq(RuleSource.effectiveDate, source.effectiveDate))
-      .limit(1);
-
-    if (existingByDate.length > 0) {
-      const existingId = existingByDate[0]!.id;
-      console.log(`[ImportFromR2] Found existing version ${existingId} with same effective date, deleting...`);
-
-      await db.transaction(async tx => {
-        await tx.delete(RuleChange).where(eq(RuleChange.fromSourceId, existingId));
-        await tx.delete(RuleChange).where(eq(RuleChange.toSourceId, existingId));
-        await tx.delete(RuleNode).where(eq(RuleNode.sourceId, existingId));
-        await tx.delete(RuleSource).where(eq(RuleSource.id, existingId));
-      });
-
-      console.log(`[ImportFromR2] Deleted existing version ${existingId}`);
-    }
+    // 5. Clear all existing rule data before import
+    console.log('[LoadFromData] Clearing existing rule data...');
+    await db.transaction(async tx => {
+      // Delete all change records
+      await tx.delete(RuleChange);
+      // Delete all rule nodes
+      await tx.delete(RuleNode);
+      // Delete all rule entities
+      await tx.delete(RuleEntity);
+      // Delete all rule sources
+      await tx.delete(RuleSource);
+    });
+    console.log('[LoadFromData] Existing rule data cleared');
 
     // 6. Build R2 URL
     const r2Url = `https://${env.R2_DATA_BUCKET}.r2.cloudflarestorage.com/${r2Key}`;
@@ -553,7 +546,7 @@ const importFromR2 = os
       publishedAt: source.publishedAt,
     });
 
-    console.log(`[ImportFromR2] Import completed: ${result.totalNodes} nodes`);
+    console.log(`[LoadFromData] Import completed: ${result.totalNodes} nodes`);
 
     return {
       success: true,
@@ -740,7 +733,7 @@ const uploadArchive = os
 export const ruleTrpc = {
   list,
   get,
-  importFromR2,
+  loadFromData,
   uploadToR2,
   uploadArchive,
   getChanges,
