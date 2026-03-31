@@ -517,7 +517,7 @@ async function syncLatest() {
 }
 
 function viewVersion(version: { id: string }) {
-  navigateTo(`/magic/rule/${version.id}`);
+  navigateTo(`/magic/rule/view?version=${version.id}`);
 }
 
 async function deleteVersion(version: { id: string }) {

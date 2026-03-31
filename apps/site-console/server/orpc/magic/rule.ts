@@ -300,6 +300,46 @@ const getEntityHistory = os
     };
   });
 
+const getNodes = os
+  .route({
+    method:      'GET',
+    description: 'Get all rule nodes for a version',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    sourceId: z.string(),
+  }))
+  .output(z.array(z.object({
+    id:          z.string(),
+    sourceId:    z.string(),
+    ruleId:      z.string(),
+    path:        z.string(),
+    level:       z.number(),
+    parentId:    z.string().nullable(),
+    title:       z.string().nullable(),
+    contentHash: z.string(),
+    entityId:    z.string(),
+  })))
+  .handler(async ({ input }) => {
+    const nodes = await db
+      .select({
+        id:          RuleNode.id,
+        sourceId:    RuleNode.sourceId,
+        ruleId:      RuleNode.ruleId,
+        path:        RuleNode.path,
+        level:       RuleNode.level,
+        parentId:    RuleNode.parentId,
+        title:       RuleNode.title,
+        contentHash: RuleNode.contentHash,
+        entityId:    RuleNode.entityId,
+      })
+      .from(RuleNode)
+      .where(eq(RuleNode.sourceId, input.sourceId))
+      .orderBy(RuleNode.path);
+
+    return nodes;
+  });
+
 const deleteVersion = os
   .route({
     method:      'DELETE',
@@ -733,6 +773,7 @@ const uploadArchive = os
 export const ruleTrpc = {
   list,
   get,
+  getNodes,
   loadFromData,
   uploadToR2,
   uploadArchive,
