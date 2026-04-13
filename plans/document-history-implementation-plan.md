@@ -2,7 +2,7 @@
 
 ## TODO List
 
-- [ ] 完成设计收口：拆分状态字段、明确 authoritative / derived 字段、补齐 `reviewRevision` 与导入溯源字段
+- [x] 完成设计收口：拆分状态字段、明确 authoritative / derived 字段、补齐 `reviewRevision` 与导入溯源字段
 - [ ] 建立数据库 schema：完成核心表、唯一键、索引、外键与 migration
 - [ ] 实现文档解析器：支持 TXT 结构化解析、`nodeId` / `path` 生成与特殊节点处理
 - [ ] 实现内容摘要能力：完成规范化、`contentHash` 与 `fingerprintHash` 生成

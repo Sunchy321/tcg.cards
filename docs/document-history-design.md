@@ -149,10 +149,22 @@ interface DocumentVersion {
     docx: string | null;
   };
   totalNodes: number;
-  importedAt: string;
-  status: 'active' | 'superseded';
+  sourceFileHash: string;        // SHA256 of canonical imported source file
+  parserVersion: string;         // Parser implementation version
+  normalizedContentVersion: string; // Fingerprint normalization rules version
+  importRunId: string;           // Last successful import run ID
+  importedAt: string | null;
+  lifecycleStatus: 'active' | 'superseded';
+  importStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  importError: string | null;
 }
 ```
+
+**说明：**
+- `lifecycleStatus` 只表达版本生命周期，不承载导入过程状态
+- `importStatus` 是导入任务事实来源，所有任务重试、失败恢复都只读写这个字段
+- `sourceFileHash`、`parserVersion`、`normalizedContentVersion`、`importRunId` 共同构成一次导入的溯源信息
+- 若同一 `(documentId, versionTag)` 被重导入，必须保留最新一次成功导入的溯源字段
 
 #### DocumentNode（版本内节点）
 
@@ -263,7 +275,7 @@ interface DocumentNodeChange {
 
   type: ChangeType;
   confidenceScore: number;       // 0..1
-  reviewStatus: 'auto' | 'needs_review' | 'confirmed' | 'rejected';
+  reviewStateCache: 'unreviewed' | 'pending' | 'confirmed' | 'rejected' | 'overridden';
 
   details: {
     oldContentHash?: string;
@@ -318,6 +330,8 @@ interface DocumentChangeReview {
   id: string;                    // UUID
   changeId: string;              // Parent DocumentNodeChange.id
   status: 'pending' | 'confirmed' | 'rejected' | 'override';
+  revision: number;              // Monotonic review event number inside one version pair
+  isLatest: boolean;             // Whether this row is the latest authoritative review
   reason: string | null;
   reviewerId: string | null;
   reviewedAt: string | null;
@@ -325,6 +339,28 @@ interface DocumentChangeReview {
   createdAt: string;
 }
 ```
+
+#### DocumentVersionPairRevision（版本对审核修订号）
+
+用于维护“某个版本对当前审核结果”的缓存版本号。
+
+```typescript
+interface DocumentVersionPairRevision {
+  id: string;                    // "{fromVersionId}->{toVersionId}"
+  documentId: string;
+  fromVersionId: string;
+  toVersionId: string;
+  reviewRevision: number;        // Starts from 0, increment by 1 on every effective review change
+  updatedAt: string;
+}
+```
+
+**说明：**
+- `DocumentChangeReview.status` 是审核事实来源
+- `DocumentNodeChange.reviewStateCache` 是列表查询缓存字段，由最新审核结果派生
+- `DocumentVersionPairRevision.reviewRevision` 是版本对级别的缓存版本号，用于 diff cache key
+- `reviewRevision` 的作用域固定为 `(documentId, fromVersionId, toVersionId)`，不跨版本对共享
+- 当最新审核结论发生有效变化时，必须在同一事务内递增对应版本对的 `reviewRevision`
 
 ### 3.2 关系说明
 
@@ -335,6 +371,7 @@ DocumentNode       1 --- n DocumentNodeContent
 DocumentNodeEntity 1 --- n DocumentNode
 DocumentNodeChange 1 --- n DocumentNodeChangeRelation
 DocumentNodeChange 1 --- 0..1 DocumentChangeReview
+DocumentVersion    1 --- n DocumentVersionPairRevision (as fromVersion / toVersion)
 ```
 
 **说明：**
@@ -342,6 +379,7 @@ DocumentNodeChange 1 --- 0..1 DocumentChangeReview
 - `DocumentNodeContent` 只从属于 `DocumentNode`
 - `DocumentNodeChange` 是变更主记录，复杂边由 `DocumentNodeChangeRelation` 表示
 - 审核动作通过 `DocumentChangeReview` 留痕，而不是直接覆盖原始识别结果
+- `DocumentVersionPairRevision` 只负责版本对级别缓存修订号，不承载审核明细
 
 ### 3.2.1 冗余字段一致性原则
 
@@ -352,14 +390,68 @@ DocumentNodeChange 1 --- 0..1 DocumentChangeReview
 - `DocumentNode.sourceFingerprintHash`
 - `DocumentNode.sourceContentRefId`
 - `DocumentNodeEntity.currentNodeRefId / currentNodeId / currentVersionId`
+- `DocumentNodeChange.reviewStateCache / reviewedAt`
 
 统一约束：
 
 - `DocumentVersion` + `DocumentNodeContent` 是结构和正文的主事实来源
 - `DocumentNode` 上的源文本摘要字段属于派生缓存，必须由导入流程统一回写
 - `DocumentNodeEntity.current*` 属于派生当前态，必须由实体匹配结果统一回写
+- `DocumentChangeReview` 是审核事实来源，`DocumentNodeChange.reviewStateCache` 只是派生缓存
+- `DocumentVersionPairRevision.reviewRevision` 是缓存修订号事实来源，不从缓存系统反推
 - 禁止业务接口直接分别更新事实字段和派生字段，必须通过单一导入 / 审核服务写入
 - 审核 override 后若修改实体归属，必须同步刷新受影响实体的 `current*` 字段
+
+### 3.2.2 字段事实来源矩阵
+
+| 字段 | 类型 | 唯一事实来源 | 写入时机 | 重建方式 |
+|------|------|--------------|----------|----------|
+| `DocumentVersion.lifecycleStatus` | fact | 版本发布 / 替代流程 | 新版本导入完成、旧版本被 supersede | 依据同文档版本顺序重放 |
+| `DocumentVersion.importStatus` | fact | 导入任务状态机 | 导入开始、阶段完成、失败恢复 | 依据导入日志与版本记录回放 |
+| `DocumentVersion.sourceFileHash` | fact | 本次导入的规范源文件 | 版本创建或重导入完成 | 重新下载并计算 |
+| `DocumentVersion.parserVersion` | fact | 导入任务配置 | 版本创建或重导入完成 | 重新执行导入 |
+| `DocumentVersion.normalizedContentVersion` | fact | 内容规范化策略 | 版本创建或重导入完成 | 重新执行导入 |
+| `DocumentVersion.importRunId` | fact | 导入运行实例 | 每次成功导入提交时 | 不重建，保留最后一次成功记录 |
+| `DocumentNode.sourceContentHash` | derived | `DocumentNodeContent(content, locale=source)` | 源正文写入后回填 | 从源正文重算 |
+| `DocumentNode.sourceFingerprintHash` | derived | `DocumentNodeContent(content, locale=source)` | 源正文写入后回填 | 从源正文重算 |
+| `DocumentNode.sourceContentRefId` | derived | `DocumentNodeContent.id` | 源正文写入后回填 | 重新关联源正文记录 |
+| `DocumentNodeEntity.current*` | derived | 最新版本中的实体映射 | 导入匹配完成、审核 override 后 | 扫描实体历史节点重建 |
+| `DocumentNodeChange.reviewStateCache` | derived | 最新 `DocumentChangeReview` | 审核结论生效后 | 从最新审核记录回放 |
+| `DocumentNodeChange.reviewedAt` | derived | 最新 `DocumentChangeReview.reviewedAt` | 审核结论生效后 | 从最新审核记录回放 |
+| `DocumentVersionPairRevision.reviewRevision` | fact | 版本对审核修订号 | 审核结论有效变化时 | 从审核事件顺序重放 |
+
+### 3.2.3 状态流转与修订号规则
+
+#### `DocumentVersion` 状态流转
+
+```text
+importStatus: pending -> processing -> completed
+                               \-> failed
+
+lifecycleStatus: active -> superseded
+```
+
+约束：
+
+- `importStatus='completed'` 之前，`lifecycleStatus` 只能是 `active`
+- 导入失败只影响 `importStatus`，不改变版本生命周期
+- 同一 `(documentId, versionTag)` 重跑时，先进入 `processing`，成功后覆盖溯源字段并回到 `completed`
+
+#### 审核状态流转
+
+```text
+DocumentChangeReview.status:
+pending -> confirmed
+pending -> rejected
+pending -> override
+```
+
+约束：
+
+- `DocumentChangeReview.status` 是唯一审核事实来源
+- `DocumentNodeChange.reviewStateCache` 只允许由审核服务同步更新
+- 当最新审核记录从一种有效状态变为另一种有效状态时，对应 `reviewRevision += 1`
+- 新增备注但不改变审核结论时，不递增 `reviewRevision`
 
 ### 3.3 内容压缩
 
@@ -431,7 +523,7 @@ CREATE INDEX idx_document_node_change_type
   ON DocumentNodeChange(documentId, type);
 
 CREATE INDEX idx_document_node_change_review
-  ON DocumentNodeChange(documentId, reviewStatus, confidenceScore);
+  ON DocumentNodeChange(documentId, reviewStateCache, confidenceScore);
 
 -- DocumentNodeChangeRelation
 CREATE INDEX idx_document_node_change_relation_change
@@ -439,7 +531,15 @@ CREATE INDEX idx_document_node_change_relation_change
 
 -- DocumentChangeReview
 CREATE UNIQUE INDEX uq_document_change_review_change
-  ON DocumentChangeReview(changeId);
+  ON DocumentChangeReview(changeId)
+  WHERE isLatest = true;
+
+CREATE INDEX idx_document_change_review_latest
+  ON DocumentChangeReview(changeId, isLatest, revision DESC);
+
+-- DocumentVersionPairRevision
+CREATE UNIQUE INDEX uq_document_version_pair_revision_pair
+  ON DocumentVersionPairRevision(documentId, fromVersionId, toVersionId);
 ```
 
 ### 3.5 建议外键
@@ -452,6 +552,8 @@ CREATE UNIQUE INDEX uq_document_change_review_change
 - `DocumentNodeChange.toNodeRefId -> DocumentNode.id`
 - `DocumentNodeChangeRelation.changeId -> DocumentNodeChange.id`
 - `DocumentChangeReview.changeId -> DocumentNodeChange.id`
+- `DocumentVersionPairRevision.fromVersionId -> DocumentVersion.id`
+- `DocumentVersionPairRevision.toVersionId -> DocumentVersion.id`
 
 ---
 
@@ -897,6 +999,7 @@ const subrules = await db.DocumentNode.findMany({
    ↓
 3. Create DocumentVersion
    - versionId = "{documentId}:{versionTag}"
+   - Set `importStatus='processing'` and persist source trace fields
    ↓
 4. Create DocumentNode records first
    - Build nodeId / path / parentNodeId / siblingOrder
@@ -917,6 +1020,7 @@ const subrules = await db.DocumentNode.findMany({
    - Mark old translations as stale if source hash changed
    ↓
 10. Mark previous version as superseded
+    - Current version `importStatus='completed'`
    ↓
 11. Invalidate related diff caches
 ```
@@ -936,11 +1040,12 @@ const subrules = await db.DocumentNode.findMany({
 - 同一版本重复导入时：
   - 若源文件哈希未变化，可直接跳过或执行校验式重跑
   - 若源文件哈希变化，必须标记为“源内容变更重导入”，并清理该版本的派生结果后重建
-- `DocumentVersion` 建议增加导入状态：
-  - `pending`
-  - `processing`
-  - `completed`
-  - `failed`
+- `DocumentVersion.importStatus` 是导入状态事实来源：
+  - `pending`：已建版本占位，尚未开始实际导入
+  - `processing`：当前导入任务持有写权限
+  - `completed`：本次导入已完整提交
+  - `failed`：本次导入失败，允许后续重跑恢复
+- `DocumentVersion.lifecycleStatus` 与导入状态解耦，只在版本替代时更新
 - 节点、内容、变更、审核建议按“版本”为单位分阶段提交，避免长事务覆盖整个下载流程
 - 任何阶段失败后，重跑逻辑必须先删除该版本下的派生数据，再按同一版本完整重建
 - 非相邻版本缓存必须在版本重导入成功后统一失效，不能在处理中途失效
