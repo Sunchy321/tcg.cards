@@ -56,7 +56,7 @@
             <UBadge color="neutral" variant="subtle" size="sm">
               {{ selectedNode.ruleId }}
             </UBadge>
-            <h1 class="text-lg font-semibold">{{ selectedNode.title ?? '规则详情' }}</h1>
+            <h1 class="text-lg font-semibold">{{ selectedNode.title ?? selectedNode.ruleId }}</h1>
           </div>
           <div v-else>
             <h1 class="text-lg font-semibold">选择规则查看详情</h1>
@@ -131,6 +131,7 @@ interface RuleNode {
   title: string | null;
   contentHash: string;
   entityId: string;
+  content: string | null;
   children?: RuleNode[];
 }
 
@@ -264,8 +265,7 @@ const selectedNode = computed(() => {
 
 // Node content (would need to fetch from content storage)
 const nodeContent = computed(() => {
-  // Placeholder - in production this would fetch from RuleContent via API
-  return selectedNode.value?.title ?? `Rule ${selectedNode.value?.ruleId}`;
+  return selectedNode.value?.content ?? selectedNode.value?.title ?? `Rule ${selectedNode.value?.ruleId}`;
 });
 
 function selectNode(node: RuleNode) {

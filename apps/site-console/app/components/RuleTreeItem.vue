@@ -69,6 +69,7 @@ interface RuleNode {
   title:       string | null;
   contentHash: string;
   entityId:    string;
+  content:     string | null;
   children?:   RuleNode[];
 }
 

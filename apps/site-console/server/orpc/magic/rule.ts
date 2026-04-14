@@ -1,11 +1,20 @@
 import { os } from '../index';
 // import { os } from '@orpc/server';
+import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { db } from '#db/db';
-import { and, desc, eq } from 'drizzle-orm';
-import { RuleSource, RuleEntity, RuleNode, RuleChange } from '#schema/magic/rule';
-import { parseAndCompressRuleFile } from '#server/lib/magic/rule';
-import { importRuleVersion } from '~~/server/lib/magic/rule/importer';
+import { and, eq, inArray } from 'drizzle-orm';
+import {
+  DocumentNode,
+  DocumentNodeContent,
+  DocumentVersion,
+  DocumentVersionImport,
+} from '#schema/magic/document';
+import {
+  deleteDocumentVersion,
+  importDocumentVersion,
+  listDocumentVersions,
+} from '~~/server/lib/magic/document/importer';
 import type { HonoEnv } from '../hono-env';
 
 interface RuleLinks {
@@ -68,6 +77,20 @@ function normalizeRuleText(content: string): string {
     .trimEnd() + '\n';
 }
 
+function toDocumentVersionId(versionId: string): string {
+  if (versionId.includes(':')) {
+    return versionId;
+  }
+
+  return `magic-cr:${versionId}`;
+}
+
+function toVersionTag(versionId: string): string {
+  return versionId.includes(':')
+    ? versionId.split(':').at(-1) ?? versionId
+    : versionId;
+}
+
 const list = os
   .route({
     method:      'GET',
@@ -82,24 +105,21 @@ const list = os
     totalRules:    z.number().nullable(),
     status:        z.string(),
     importedAt:    z.date().nullable(),
-    r2Status:      z.enum(['imported', 'pending', 'missing']), // Import status
-    r2Key:         z.string().nullable(), // R2 file path
+    r2Status:      z.enum(['imported', 'pending', 'missing']),
+    r2Key:         z.string().nullable(),
   }).array())
   .handler(async ({ context }) => {
     const env = context.env as HonoEnv['Bindings'];
 
     // 1. Get imported versions from database
-    const dbVersions = await db
-      .select({
-        id:            RuleSource.id,
-        effectiveDate: RuleSource.effectiveDate,
-        publishedAt:   RuleSource.publishedAt,
-        totalRules:    RuleSource.totalRules,
-        status:        RuleSource.status,
-        importedAt:    RuleSource.importedAt,
-      })
-      .from(RuleSource)
-      .orderBy(desc(RuleSource.effectiveDate));
+    const dbVersions = (await listDocumentVersions('magic-cr')).map(version => ({
+      id:            version.versionTag,
+      effectiveDate: version.effectiveDate,
+      publishedAt:   version.publishedAt,
+      totalRules:    version.totalNodes,
+      lifecycleStatus: version.lifecycleStatus,
+      importedAt:    version.importedAt,
+    }));
 
     // 2. Scan files in R2_DATA bucket
     const r2Files: Array<{ key: string, versionId: string }> = [];
@@ -138,14 +158,17 @@ const list = os
       const r2File = r2Files.find(f => f.versionId === versionId);
 
       if (dbVersion) {
-        // Already imported to database
         result.push({
-          ...dbVersion,
-          r2Status: r2File ? 'imported' : 'missing',
-          r2Key:    r2File?.key || null,
+          id:            dbVersion.id,
+          effectiveDate: dbVersion.effectiveDate,
+          publishedAt:   dbVersion.publishedAt,
+          totalRules:    dbVersion.totalRules,
+          status:        dbVersion.lifecycleStatus,
+          importedAt:    dbVersion.importedAt,
+          r2Status:      r2File ? 'imported' : 'missing',
+          r2Key:         r2File?.key || null,
         });
       } else if (r2File) {
-        // In R2 but not imported yet
         result.push({
           id:            versionId,
           effectiveDate: null,
@@ -185,118 +208,36 @@ const get = os
   }))
   .handler(async ({ input }) => {
     const result = await db
-      .select()
-      .from(RuleSource)
-      .where(eq(RuleSource.id, input.id))
+      .select({
+        id:            DocumentVersion.id,
+        effectiveDate: DocumentVersion.effectiveDate,
+        publishedAt:   DocumentVersion.publishedAt,
+        txtUrl:        DocumentVersion.txtUrl,
+        pdfUrl:        DocumentVersion.pdfUrl,
+        docxUrl:       DocumentVersion.docxUrl,
+        totalNodes:    DocumentVersion.totalNodes,
+        status:        DocumentVersion.lifecycleStatus,
+        importedAt:    DocumentVersionImport.importedAt,
+      })
+      .from(DocumentVersion)
+      .leftJoin(DocumentVersionImport, eq(DocumentVersionImport.versionId, DocumentVersion.id))
+      .where(eq(DocumentVersion.id, toDocumentVersionId(input.id)))
       .limit(1);
 
     if (!result[0]) {
       throw new Error('Rule version not found');
     }
 
-    return result[0];
-  });
-
-const getChanges = os
-  .route({
-    method:      'GET',
-    description: 'Get changes between versions',
-    tags:        ['Magic', 'Rule'],
-  })
-  .input(z.object({
-    fromSourceId: z.string(),
-    toSourceId:   z.string(),
-  }))
-  .output(z.strictObject({
-    id:           z.string(),
-    fromSourceId: z.string(),
-    toSourceId:   z.string(),
-    entityId:     z.string(),
-    fromNodeId:   z.string().nullable(),
-    toNodeId:     z.string().nullable(),
-    type:         z.string(),
-    details:      z.string(),
-    createdAt:    z.date(),
-  }).array())
-  .handler(async ({ input }) => {
-    return await db
-      .select()
-      .from(RuleChange)
-      .where(and(
-        eq(RuleChange.fromSourceId, input.fromSourceId),
-        eq(RuleChange.toSourceId, input.toSourceId)),
-      )
-      .orderBy(desc(RuleChange.createdAt));
-  });
-
-const getEntityHistory = os
-  .route({
-    method:      'GET',
-    description: 'Get entity revision history',
-    tags:        ['Magic', 'Rule'],
-  })
-  .input(z.object({
-    entityId: z.string(),
-  }))
-  .output(z.strictObject({
-    entity: z.strictObject({
-      id:              z.string(),
-      currentNodeId:   z.string().nullable(),
-      currentRuleId:   z.string().nullable(),
-      currentSourceId: z.string().nullable(),
-      totalRevisions:  z.number(),
-      createdAt:       z.date(),
-    }),
-    revisions: z.strictObject({
-      sourceId:   z.string(),
-      ruleId:     z.string(),
-      title:      z.string().nullable(),
-      changeType: z.string().nullable(),
-    }).array(),
-  }))
-  .handler(async ({ input }) => {
-    const entity = await db
-      .select()
-      .from(RuleEntity)
-      .where(eq(RuleEntity.id, input.entityId))
-      .limit(1)
-      .then(rows => rows[0]);
-
-    if (!entity) {
-      throw new Error('Entity not found');
-    }
-
-    const nodes = await db
-      .select({
-        sourceId: RuleNode.sourceId,
-        ruleId:   RuleNode.ruleId,
-        title:    RuleNode.title,
-      })
-      .from(RuleNode)
-      .where(eq(RuleNode.entityId, input.entityId))
-      .orderBy(RuleNode.sourceId);
-
-    const changes = await db
-      .select({
-        entityId:   RuleChange.entityId,
-        type:       RuleChange.type,
-        toSourceId: RuleChange.toSourceId,
-      })
-      .from(RuleChange)
-      .where(eq(RuleChange.entityId, input.entityId));
-
-    const changeMap = new Map(changes.map(c => [c.toSourceId, c.type]));
-
-    const revisions = nodes.map(node => ({
-      sourceId:   node.sourceId,
-      ruleId:     node.ruleId,
-      title:      node.title,
-      changeType: changeMap.get(node.sourceId) || null,
-    }));
-
     return {
-      entity,
-      revisions,
+      id:            toVersionTag(result[0].id),
+      effectiveDate: result[0].effectiveDate,
+      publishedAt:   result[0].publishedAt,
+      txtUrl:        result[0].txtUrl,
+      pdfUrl:        result[0].pdfUrl,
+      docxUrl:       result[0].docxUrl,
+      totalRules:    result[0].totalNodes,
+      status:        result[0].status,
+      importedAt:    result[0].importedAt ?? null,
     };
   });
 
@@ -319,25 +260,69 @@ const getNodes = os
     title:       z.string().nullable(),
     contentHash: z.string(),
     entityId:    z.string(),
+    content:     z.string().nullable(),
   })))
   .handler(async ({ input }) => {
+    const versionId = toDocumentVersionId(input.sourceId);
     const nodes = await db
       .select({
-        id:          RuleNode.id,
-        sourceId:    RuleNode.sourceId,
-        ruleId:      RuleNode.ruleId,
-        path:        RuleNode.path,
-        level:       RuleNode.level,
-        parentId:    RuleNode.parentId,
-        title:       RuleNode.title,
-        contentHash: RuleNode.contentHash,
-        entityId:    RuleNode.entityId,
+        id:                 DocumentNode.id,
+        nodeId:             DocumentNode.nodeId,
+        path:               DocumentNode.path,
+        level:              DocumentNode.level,
+        parentId:           DocumentNode.parentNodeId,
+        sourceContentHash:  DocumentNode.sourceContentHash,
+        entityId:           DocumentNode.entityId,
+        sourceContentRefId: DocumentNode.sourceContentRefId,
       })
-      .from(RuleNode)
-      .where(eq(RuleNode.sourceId, input.sourceId))
-      .orderBy(RuleNode.path);
+      .from(DocumentNode)
+      .where(eq(DocumentNode.versionId, versionId))
+      .orderBy(DocumentNode.path);
 
-    return nodes;
+    const nodeIds = nodes.map(node => node.id);
+    const contents = nodeIds.length === 0
+      ? []
+      : await db
+        .select({
+          documentNodeId: DocumentNodeContent.documentNodeId,
+          content:        DocumentNodeContent.content,
+        })
+        .from(DocumentNodeContent)
+        .where(and(
+          eq(DocumentNodeContent.locale, 'en'),
+          inArray(DocumentNodeContent.documentNodeId, nodeIds),
+        ));
+
+    const contentMap = new Map(
+      contents.map(item => [item.documentNodeId, gunzipSync(Buffer.from(item.content)).toString('utf8')]),
+    );
+    const titleMap = new Map<string, string>();
+
+    for (const node of nodes) {
+      if (!node.nodeId.endsWith('.title') || !node.parentId) {
+        continue;
+      }
+
+      const title = contentMap.get(node.id);
+      if (title) {
+        titleMap.set(node.parentId, title);
+      }
+    }
+
+    return nodes
+      .filter(node => !node.nodeId.endsWith('.title'))
+      .map(node => ({
+        id:          node.id,
+        sourceId:    input.sourceId,
+        ruleId:      node.nodeId,
+        path:        node.path,
+        level:       node.level,
+        parentId:    node.parentId,
+        title:       titleMap.get(node.id) ?? null,
+        contentHash: node.sourceContentHash ?? '',
+        entityId:    node.entityId,
+        content:     contentMap.get(node.id) ?? null,
+      }));
   });
 
 const deleteVersion = os
@@ -351,21 +336,7 @@ const deleteVersion = os
   }))
   .output(z.void())
   .handler(async ({ input }) => {
-    await db.transaction(async tx => {
-      // Delete changes referencing this version
-      await tx.delete(RuleChange)
-        .where(eq(RuleChange.fromSourceId, input.id));
-      await tx.delete(RuleChange)
-        .where(eq(RuleChange.toSourceId, input.id));
-
-      // Delete nodes
-      await tx.delete(RuleNode)
-        .where(eq(RuleNode.sourceId, input.id));
-
-      // Delete source
-      await tx.delete(RuleSource)
-        .where(eq(RuleSource.id, input.id));
-    });
+    await deleteDocumentVersion(toDocumentVersionId(input.id));
   });
 
 const syncLatest = os
@@ -546,51 +517,38 @@ const loadFromData = os
 
     // 3. Check if already imported
     const existing = await db
-      .select({ id: RuleSource.id })
-      .from(RuleSource)
-      .where(eq(RuleSource.id, versionId))
+      .select({ id: DocumentVersion.id })
+      .from(DocumentVersion)
+      .where(eq(DocumentVersion.id, toDocumentVersionId(versionId)))
       .limit(1);
 
     if (existing.length > 0) {
       throw new Error(`Version ${versionId} already imported to database`);
     }
 
-    // 4. Parse rule file
-    console.log('[LoadFromData] Parsing rule file...');
-    const { source, contents } = await parseAndCompressRuleFile(versionId, txtContent);
-
-    // Set effective date
-    source.effectiveDate = `${versionId.slice(0, 4)}-${versionId.slice(4, 6)}-${versionId.slice(6, 8)}`;
-    source.publishedAt = new Date().toISOString().split('T')[0]!;
-
-    // 5. Clear all existing rule data before import
-    console.log('[LoadFromData] Clearing existing rule data...');
-    await db.transaction(async tx => {
-      // Delete all change records
-      await tx.delete(RuleChange);
-      // Delete all rule nodes
-      await tx.delete(RuleNode);
-      // Delete all rule entities
-      await tx.delete(RuleEntity);
-      // Delete all rule sources
-      await tx.delete(RuleSource);
-    });
-    console.log('[LoadFromData] Existing rule data cleared');
-
-    // 6. Build R2 URL
-    const r2Url = `https://${env.R2_DATA_BUCKET}.r2.cloudflarestorage.com/${r2Key}`;
-
-    // 7. Execute import
-    const result = await importRuleVersion(source, contents, {
-      txtUrl:      r2Url,
-      publishedAt: source.publishedAt,
+    const result = await importDocumentVersion({
+      documentId: 'magic-cr',
+      content:    txtContent,
+      versionTag: versionId,
     });
 
     console.log(`[LoadFromData] Import completed: ${result.totalNodes} nodes`);
 
     return {
-      success: true,
-      ...result,
+      success:          true,
+      sourceId:         versionId,
+      totalNodes:       result.totalNodes,
+      newEntities:      0,
+      existingEntities: 0,
+      changes:          {
+        added:    0,
+        removed:  0,
+        modified: 0,
+        renamed:  0,
+        moved:    0,
+        split:    0,
+        merged:   0,
+      },
     };
   });
 
@@ -777,8 +735,6 @@ export const ruleTrpc = {
   loadFromData,
   uploadToR2,
   uploadArchive,
-  getChanges,
-  getEntityHistory,
   syncLatest,
   delete: deleteVersion,
 };
