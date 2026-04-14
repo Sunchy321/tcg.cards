@@ -24,12 +24,12 @@
         "punc",
         "tengwar",
         "unfinity",
+        "unreviewed",
         "updations",
         "vercel",
         "vnodes",
         "wotc",
         "wubrg",
         "wubrgct"
-    ],
-    "postman.settings.dotenv-detection-notification-visibility": false
+    ]
 }

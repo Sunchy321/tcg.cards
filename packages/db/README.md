@@ -72,6 +72,16 @@ packages/db/
 └── package.json
 ```
 
+## Database Design Guidelines
+
+Use `{game}` as the base namespace and keep data split by responsibility:
+
+- `{game}` stores all static data and should remain exportable for standalone use
+- `{game}_data` stores externally sourced data and import configuration
+- `{game}_app` stores all user data
+
+Keep these boundaries strict so static data, import pipelines, and application data do not get mixed together.
+
 ## Best Practices
 
 1. **Always review migrations** before applying to production

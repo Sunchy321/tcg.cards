@@ -7,7 +7,7 @@ console.log('Drizzle config loaded with games:', GAMES);
 export default defineConfig({
   dialect: 'postgresql',
   out:     './migrations',
-  schema:  ['./src/schema/auth.ts', './src/schema/**/*.ts'],
+  schema:  ['./src/schema/auth.ts', './src/schema/*/index.ts'],
   casing:  'snake_case',
 
   schemaFilter: [

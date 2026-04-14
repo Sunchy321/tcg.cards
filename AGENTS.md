@@ -10,6 +10,16 @@ All code comments must be written in English. When editing files, translate any 
 
 Prefer the nullish coalescing operator (`??`) over the logical OR operator (`||`) for default values in frontend code.
 
+## Naming
+
+Within a local file scope, do not use overly complex naming. Prefer clear and simple names for local variables, local types, and helper functions.
+
+Exported names do not need to be globally unique. Keep exported names as short as reasonably possible.
+
+If a short exported name is ambiguous at the usage site, resolve the ambiguity with an import alias at the usage site.
+
+Zod schema exports must not end with `schema`. Exported zod schemas and their inferred types should differ only by capitalization, for example `card` and `Card`.
+
 ## Delivery Workflow
 
 When a new requirement is given, first create a design proposal and place it in the `docs/` folder.
@@ -23,6 +33,10 @@ During implementation, follow the todo list and the plan strictly.
 Mark each todo item as completed immediately after finishing it.
 
 All content created in the `docs/` and `plans/` folders must be written in Simplified Chinese.
+
+If a design document or plan file is created by the agent as part of executing a task, the agent should delete it after the task is completed.
+
+If a design document or plan file was created by the user, the agent must not delete it.
 
 ## Commit Messages
 
