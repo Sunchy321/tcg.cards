@@ -82,6 +82,20 @@ Use `{game}` as the base namespace and keep data split by responsibility:
 
 Keep these boundaries strict so static data, import pipelines, and application data do not get mixed together.
 
+## Table Placement Checklist
+
+Before adding a new table, classify it with the following checklist:
+
+1. If the data is stable domain data that can be exported and used independently, place it in `{game}`.
+2. If the data comes from external sources, import jobs, import configuration, or intermediate import cache, place it in `{game}_data`.
+3. If the data is created by users or depends on user accounts, user behavior, user settings, or application state, place it in `{game}_app`.
+
+Additional rules:
+
+- Each table should have one primary responsibility.
+- If a table mixes static data, import state, and user state, split it before adding it.
+- If the placement is unclear, resolve it before implementation instead of choosing a schema arbitrarily.
+
 ## Best Practices
 
 1. **Always review migrations** before applying to production

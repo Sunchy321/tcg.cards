@@ -24,6 +24,12 @@ Zod schema exports must not end with `schema`. Exported zod schemas and their in
 
 When a new requirement is given, first create a design proposal and place it in the `docs/` folder.
 
+Simple requirements do not need a design proposal, evaluation, or implementation plan.
+
+A requirement is simple when it only involves one focused change and does not introduce new architecture, cross-module refactoring, data migration, or ambiguous technical decisions.
+
+Examples of simple requirements include small documentation updates, minor text changes, localized refactors, and small configuration adjustments.
+
 After that, evaluate the proposal. Only after the evaluation passes, create an implementation plan in the `plans/` folder.
 
 Each plan must include a todo list at the beginning of the same file. The todo list must be derived from the plan.
@@ -37,6 +43,16 @@ All content created in the `docs/` and `plans/` folders must be written in Simpl
 If a design document or plan file is created by the agent as part of executing a task, the agent should delete it after the task is completed.
 
 If a design document or plan file was created by the user, the agent must not delete it.
+
+When adding a new database table, first classify it as `{game}`, `{game}_data`, or `{game}_app` before implementation.
+
+Use this checklist for classification:
+
+- `{game}` for static domain data that can be exported and used independently
+- `{game}_data` for externally sourced data, import state, import configuration, or intermediate import cache
+- `{game}_app` for user-created data, user behavior data, user settings, or other application state tied to users
+
+If a table appears to mix multiple responsibilities, split the table first instead of placing it in an ambiguous schema.
 
 ## Commit Messages
 

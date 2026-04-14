@@ -10,3 +10,9 @@ export * from './print';
 export * from './rule';
 export * from './ruling';
 export * from './set';
+
+export * from './data/gatherer';
+export * from './data/scryfall';
+export * from './data/mtgch';
+
+export * from './app/deck';

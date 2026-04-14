@@ -31,7 +31,7 @@ import {
 } from '#model/magic/schema/document';
 
 import { locale } from './card';
-import { schema } from './schema';
+import { dataSchema, schema } from './schema';
 
 export const definitionStatus = schema.enum('document_definition_status', modelDefinitionStatus.enum);
 export const versionLifecycleStatus = schema.enum(
@@ -73,27 +73,38 @@ export const DocumentDefinition = schema.table('document_definitions', {
 ]);
 
 export const DocumentVersion = schema.table('document_versions', {
-  id:                       text('id').primaryKey(),
-  versionTag:               text('version_tag').notNull(),
-  documentId:               text('document_id').notNull().references(() => DocumentDefinition.id),
-  effectiveDate:            text('effective_date').notNull(),
-  publishedAt:              text('published_at').notNull(),
-  txtUrl:                   text('txt_url'),
-  pdfUrl:                   text('pdf_url'),
-  docxUrl:                  text('docx_url'),
-  totalNodes:               integer('total_nodes').notNull().default(0),
+  id:              text('id').primaryKey(),
+  versionTag:      text('version_tag').notNull(),
+  documentId:      text('document_id').notNull().references(() => DocumentDefinition.id),
+  effectiveDate:   text('effective_date').notNull(),
+  publishedAt:     text('published_at').notNull(),
+  txtUrl:          text('txt_url'),
+  pdfUrl:          text('pdf_url'),
+  docxUrl:         text('docx_url'),
+  totalNodes:      integer('total_nodes').notNull().default(0),
+  lifecycleStatus: versionLifecycleStatus('lifecycle_status').notNull().default('active'),
+}, table => [
+  uniqueIndex('document_versions_document_id_version_tag_uq').on(table.documentId, table.versionTag),
+  index('document_versions_document_id_lifecycle_status_idx').on(table.documentId, table.lifecycleStatus),
+]);
+
+export const DocumentVersionImport = dataSchema.table('document_version_imports', {
+  versionId:                text('version_id').primaryKey().references(() => DocumentVersion.id),
   sourceFileHash:           text('source_file_hash').notNull(),
   parserVersion:            text('parser_version').notNull(),
   normalizedContentVersion: text('normalized_content_version').notNull(),
   importRunId:              text('import_run_id').notNull(),
   importedAt:               timestamp('imported_at'),
-  lifecycleStatus:          versionLifecycleStatus('lifecycle_status').notNull().default('active'),
   importStatus:             versionImportStatus('import_status').notNull().default('pending'),
   importError:              text('import_error'),
+  createdAt:                timestamp('created_at').defaultNow().notNull(),
+  updatedAt:                timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
 }, table => [
-  uniqueIndex('document_versions_document_id_version_tag_uq').on(table.documentId, table.versionTag),
-  index('document_versions_document_id_lifecycle_status_idx').on(table.documentId, table.lifecycleStatus),
-  index('document_versions_document_id_import_status_idx').on(table.documentId, table.importStatus),
+  index('document_version_imports_import_status_idx').on(table.importStatus),
+  index('document_version_imports_import_run_id_idx').on(table.importRunId),
 ]);
 
 export const DocumentNodeEntity = schema.table('document_node_entities', {
