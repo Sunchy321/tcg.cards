@@ -106,11 +106,11 @@ function getRuleParentId(nodeId: string): string | null {
 
 function getRuleLevel(nodeId: string): number {
   if (/^\d+\.\d+[a-z]$/.test(nodeId)) {
-    return 2;
+    return 3;
   }
 
   if (/^\d+\.\d+$/.test(nodeId)) {
-    return 1;
+    return 2;
   }
 
   return 0;
@@ -164,13 +164,21 @@ function ensureContainer(
   context: ParserContext,
   nodeId: string,
   path: string,
+  options?: {
+    level?: number;
+    parentNodeId?: string | null;
+  },
 ): ParsedDocumentNode {
+  const parent = options?.parentNodeId
+    ? context.nodeMap.get(options.parentNodeId)
+    : null;
+
   return createNode(context, {
     nodeId,
     nodeKind:     'heading',
     path,
-    level:        0,
-    parentNodeId: null,
+    level:        options?.level ?? 0,
+    parentNodeId: parent?.id ?? null,
     content:      null,
   });
 }
@@ -413,12 +421,22 @@ export function parseMagicCrDocument(input: {
 
       if (paragraph === 'Credits') {
         phase = 'credits';
-        break;
+        currentContainerId = 'credits';
+        currentLeafNodeId = 'credits.title';
+        ensureContainer(context, 'credits', 'credits');
+        ensureTitleNode(context, 'credits', 'Credits');
+        continue;
       }
 
       if (chapterPattern.test(head)) {
-        currentContainerId = null;
-        currentLeafNodeId = null;
+        const chapterMatch = head.match(chapterPattern)!;
+        const chapterId = chapterMatch[1]!;
+        const title = chapterMatch[2]!;
+        ensureContainer(context, chapterId, chapterId);
+        ensureTitleNode(context, chapterId, title);
+        currentContainerId = chapterId;
+        currentLeafNodeId = `${chapterId}.title`;
+        appendBodyLines(tail);
         continue;
       }
 
@@ -426,7 +444,11 @@ export function parseMagicCrDocument(input: {
       if (sectionMatch) {
         const sectionId = sectionMatch[1]!;
         const title = sectionMatch[2]!;
-        ensureContainer(context, sectionId, sectionId);
+        const chapterId = sectionId[0]!;
+        ensureContainer(context, sectionId, sectionId, {
+          level:        1,
+          parentNodeId: chapterId,
+        });
         ensureTitleNode(context, sectionId, title);
         currentContainerId = sectionId;
         currentLeafNodeId = `${sectionId}.title`;
@@ -494,8 +516,14 @@ export function parseMagicCrDocument(input: {
         if (glossaryTerm) {
           createGlossaryTermNode(context, glossaryTerm, glossaryParts);
         }
+        glossaryTerm = null;
+        glossaryParts = [];
         phase = 'credits';
-        break;
+        currentContainerId = 'credits';
+        currentLeafNodeId = 'credits.title';
+        ensureContainer(context, 'credits', 'credits');
+        ensureTitleNode(context, 'credits', 'Credits');
+        continue;
       }
 
       if (isGlossaryTermParagraph(glossaryHead)) {
@@ -523,6 +551,12 @@ export function parseMagicCrDocument(input: {
       }
 
       glossaryParts.push(paragraph);
+      continue;
+    }
+
+    if (phase === 'credits') {
+      appendContentNode(context, 'credits', 'content', 'content', paragraph);
+      currentLeafNodeId = 'credits.content';
       continue;
     }
   }

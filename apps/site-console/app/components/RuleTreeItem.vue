@@ -60,17 +60,18 @@
 
 <script setup lang="ts">
 interface RuleNode {
-  id:          string;
-  sourceId:    string;
-  ruleId:      string;
-  path:        string;
-  level:       number;
-  parentId:    string | null;
-  title:       string | null;
-  contentHash: string;
-  entityId:    string;
-  content:     string | null;
-  children?:   RuleNode[];
+  id:           string;
+  sourceId:     string;
+  ruleId:       string;
+  path:         string;
+  level:        number;
+  parentId:     string | null;
+  siblingOrder: number;
+  title:        string | null;
+  contentHash:  string;
+  entityId:     string;
+  content:      string | null;
+  children?:    RuleNode[];
 }
 
 const props = defineProps<{

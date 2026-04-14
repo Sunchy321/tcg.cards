@@ -1,15 +1,17 @@
 import { os } from '../index';
-// import { os } from '@orpc/server';
+
 import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { db } from '#db/db';
 import { and, eq, inArray } from 'drizzle-orm';
+
 import {
   DocumentNode,
   DocumentNodeContent,
   DocumentVersion,
   DocumentVersionImport,
 } from '#schema/magic/document';
+
 import {
   deleteDocumentVersion,
   importDocumentVersion,
@@ -63,6 +65,17 @@ function extractVersionDateFromContent(content: string): string | null {
   return `${year}${month}${day}`;
 }
 
+function extractVersionDateFromFilename(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname;
+    const filename = decodeURIComponent(pathname.split('/').at(-1) ?? '');
+    const match = filename.match(/(\d{8})/);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Normalize rule text for consistent processing
  * - Remove BOM
@@ -105,7 +118,7 @@ const list = os
     totalRules:    z.number().nullable(),
     status:        z.string(),
     importedAt:    z.date().nullable(),
-    r2Status:      z.enum(['imported', 'pending', 'missing']),
+    dataStatus:    z.enum(['imported', 'pending', 'missing']),
     r2Key:         z.string().nullable(),
   }).array())
   .handler(async ({ context }) => {
@@ -113,12 +126,12 @@ const list = os
 
     // 1. Get imported versions from database
     const dbVersions = (await listDocumentVersions('magic-cr')).map(version => ({
-      id:            version.versionTag,
-      effectiveDate: version.effectiveDate,
-      publishedAt:   version.publishedAt,
-      totalRules:    version.totalNodes,
+      id:              version.versionTag,
+      effectiveDate:   version.effectiveDate,
+      publishedAt:     version.publishedAt,
+      totalRules:      version.totalNodes,
       lifecycleStatus: version.lifecycleStatus,
-      importedAt:    version.importedAt,
+      importedAt:      version.importedAt,
     }));
 
     // 2. Scan files in R2_DATA bucket
@@ -146,7 +159,7 @@ const list = os
       totalRules:    number | null;
       status:        string;
       importedAt:    Date | null;
-      r2Status:      'imported' | 'pending' | 'missing';
+      dataStatus:    'imported' | 'pending' | 'missing';
       r2Key:         string | null;
     }> = [];
 
@@ -165,7 +178,7 @@ const list = os
           totalRules:    dbVersion.totalRules,
           status:        dbVersion.lifecycleStatus,
           importedAt:    dbVersion.importedAt,
-          r2Status:      r2File ? 'imported' : 'missing',
+          dataStatus:    r2File ? 'imported' : 'missing',
           r2Key:         r2File?.key || null,
         });
       } else if (r2File) {
@@ -176,7 +189,7 @@ const list = os
           totalRules:    null,
           status:        'pending',
           importedAt:    null,
-          r2Status:      'pending',
+          dataStatus:    'pending',
           r2Key:         r2File.key,
         });
       }
@@ -251,16 +264,17 @@ const getNodes = os
     sourceId: z.string(),
   }))
   .output(z.array(z.object({
-    id:          z.string(),
-    sourceId:    z.string(),
-    ruleId:      z.string(),
-    path:        z.string(),
-    level:       z.number(),
-    parentId:    z.string().nullable(),
-    title:       z.string().nullable(),
-    contentHash: z.string(),
-    entityId:    z.string(),
-    content:     z.string().nullable(),
+    id:           z.string(),
+    sourceId:     z.string(),
+    ruleId:       z.string(),
+    path:         z.string(),
+    level:        z.number(),
+    parentId:     z.string().nullable(),
+    siblingOrder: z.number(),
+    title:        z.string().nullable(),
+    contentHash:  z.string(),
+    entityId:     z.string(),
+    content:      z.string().nullable(),
   })))
   .handler(async ({ input }) => {
     const versionId = toDocumentVersionId(input.sourceId);
@@ -271,6 +285,7 @@ const getNodes = os
         path:               DocumentNode.path,
         level:              DocumentNode.level,
         parentId:           DocumentNode.parentNodeId,
+        siblingOrder:       DocumentNode.siblingOrder,
         sourceContentHash:  DocumentNode.sourceContentHash,
         entityId:           DocumentNode.entityId,
         sourceContentRefId: DocumentNode.sourceContentRefId,
@@ -312,16 +327,17 @@ const getNodes = os
     return nodes
       .filter(node => !node.nodeId.endsWith('.title'))
       .map(node => ({
-        id:          node.id,
-        sourceId:    input.sourceId,
-        ruleId:      node.nodeId,
-        path:        node.path,
-        level:       node.level,
-        parentId:    node.parentId,
-        title:       titleMap.get(node.id) ?? null,
-        contentHash: node.sourceContentHash ?? '',
-        entityId:    node.entityId,
-        content:     contentMap.get(node.id) ?? null,
+        id:           node.id,
+        sourceId:     input.sourceId,
+        ruleId:       node.nodeId,
+        path:         node.path,
+        level:        node.level,
+        parentId:     node.parentId,
+        siblingOrder: node.siblingOrder,
+        title:        titleMap.get(node.id) ?? null,
+        contentHash:  node.sourceContentHash ?? '',
+        entityId:     node.entityId,
+        content:      contentMap.get(node.id) ?? null,
       }));
   });
 
@@ -377,24 +393,10 @@ const syncLatest = os
       throw new Error('No TXT link found on rules page');
     }
 
-    // Step 2: Download TXT file to extract version from content
-    console.log('[SyncLatest] Downloading TXT file...');
-    const txtResponse = await fetch(links.txt, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.0.36',
-      },
-    });
-
-    if (!txtResponse.ok) {
-      throw new Error(`Failed to download TXT file: HTTP ${txtResponse.status}`);
-    }
-
-    const txtContent = await txtResponse.text();
-
-    // Extract version date from content
-    const versionDate = extractVersionDateFromContent(txtContent);
+    // Step 2: Extract version from TXT filename
+    const versionDate = extractVersionDateFromFilename(links.txt);
     if (!versionDate) {
-      throw new Error('Could not extract version date from TXT content');
+      throw new Error('Could not extract version date from TXT filename');
     }
 
     console.log(`[SyncLatest] Found version: ${versionDate}, TXT: ${links.txt}`);
@@ -423,7 +425,7 @@ const syncLatest = os
       };
     }
 
-    // Step 4: Download all formats and upload to R2
+    // Step 4: Download missing files and upload to R2
     console.log('[SyncLatest] Downloading all file formats...');
 
     const downloadFile = async (url: string | undefined): Promise<{ content: ArrayBuffer, contentType: string } | null> => {
@@ -436,11 +438,17 @@ const syncLatest = os
       return { content: await resp.arrayBuffer(), contentType };
     };
 
+    const needsTxtDownload = !existingTxt || !existingData;
+
     const [txtData, docxData, pdfData] = await Promise.all([
-      Promise.resolve({ content: new TextEncoder().encode(txtContent).buffer as ArrayBuffer, contentType: 'text/plain' }),
-      downloadFile(links.docx),
-      downloadFile(links.pdf),
+      needsTxtDownload ? downloadFile(links.txt) : Promise.resolve(null),
+      !existingDocx ? downloadFile(links.docx) : Promise.resolve(null),
+      !existingPdf ? downloadFile(links.pdf) : Promise.resolve(null),
     ]);
+
+    if (needsTxtDownload && !txtData) {
+      throw new Error('Failed to download TXT file');
+    }
 
     const uploadToAsset = async (key: string, data: { content: ArrayBuffer, contentType: string }, originalUrl: string) => {
       await env.R2_ASSET.put(key, data.content, {
@@ -451,13 +459,13 @@ const syncLatest = os
     };
 
     await Promise.all([
-      !existingTxt && uploadToAsset(assetTxtKey, txtData, links.txt),
+      !existingTxt && txtData && uploadToAsset(assetTxtKey, txtData, links.txt),
       !existingDocx && docxData && links.docx && uploadToAsset(assetDocxKey!, docxData, links.docx),
       !existingPdf && pdfData && links.pdf && uploadToAsset(assetPdfKey!, pdfData, links.pdf),
     ].filter(Boolean));
 
-    if (!existingData) {
-      const normalized = normalizeRuleText(txtContent);
+    if (!existingData && txtData) {
+      const normalized = normalizeRuleText(Buffer.from(txtData.content).toString('utf8'));
       await env.R2_DATA.put(dataR2Key, normalized, {
         httpMetadata:   { contentType: 'text/plain' },
         customMetadata: { source: 'wizards', version: versionDate, originalUrl: links.txt },
@@ -514,17 +522,6 @@ const loadFromData = os
     // 2. Read file content
     const txtContent = await object.text();
     console.log(`[LoadFromData] File size: ${txtContent.length} bytes`);
-
-    // 3. Check if already imported
-    const existing = await db
-      .select({ id: DocumentVersion.id })
-      .from(DocumentVersion)
-      .where(eq(DocumentVersion.id, toDocumentVersionId(versionId)))
-      .limit(1);
-
-    if (existing.length > 0) {
-      throw new Error(`Version ${versionId} already imported to database`);
-    }
 
     const result = await importDocumentVersion({
       documentId: 'magic-cr',

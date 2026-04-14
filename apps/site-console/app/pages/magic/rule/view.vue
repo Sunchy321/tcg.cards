@@ -1,8 +1,8 @@
 <template>
-  <div class="h-[calc(100vh-8rem)] flex gap-4">
+  <div class="flex h-[calc(100vh-8rem)] min-h-0 gap-4 overflow-hidden">
     <!-- Left sidebar: Rule tree -->
-    <UCard class="w-80 flex flex-col overflow-hidden">
-      <template #header>
+    <div class="flex h-full w-80 min-h-0 shrink-0 flex-col overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div class="shrink-0 border-b border-gray-200 px-4 py-4 dark:border-gray-800">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-sm font-semibold">规则目录</h2>
@@ -19,20 +19,18 @@
             返回
           </UButton>
         </div>
-      </template>
 
-      <!-- Search input -->
-      <div class="mb-3">
-        <UInput
-          v-model="searchQuery"
-          icon="i-lucide-search"
-          placeholder="搜索规则..."
-          size="sm"
-        />
+        <div class="mt-3">
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="搜索规则..."
+            size="sm"
+          />
+        </div>
       </div>
 
-      <!-- Tree view -->
-      <div class="flex-1 overflow-y-auto -mx-4 px-4">
+      <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div
           v-for="node in filteredNodes"
           :key="node.id"
@@ -46,10 +44,10 @@
           />
         </div>
       </div>
-    </UCard>
+    </div>
 
     <!-- Right content area -->
-    <UCard class="flex-1 flex flex-col overflow-hidden">
+    <UCard class="min-h-0 flex-1 flex flex-col overflow-hidden">
       <template #header>
         <div class="flex items-center justify-between">
           <div v-if="selectedNode" class="flex items-center gap-2">
@@ -65,7 +63,7 @@
       </template>
 
       <!-- Content -->
-      <div v-if="selectedNode" class="flex-1 overflow-y-auto prose dark:prose-invert max-w-none">
+      <div v-if="selectedNode" class="min-h-0 flex-1 overflow-y-auto prose max-w-none dark:prose-invert">
         <div class="space-y-4">
           <div class="text-sm text-gray-500">
             <div class="flex items-center gap-4">
@@ -97,7 +95,7 @@
         </div>
       </div>
 
-      <div v-else class="flex-1 flex items-center justify-center text-gray-500">
+      <div v-else class="min-h-0 flex-1 flex items-center justify-center text-gray-500">
         <div class="text-center">
           <UIcon name="i-lucide-book-open" class="size-12 mx-auto mb-4 opacity-50" />
           <p>从左侧选择一条规则查看详情</p>
@@ -122,25 +120,26 @@ useHead({
 });
 
 interface RuleNode {
-  id: string;
-  sourceId: string;
-  ruleId: string;
-  path: string;
-  level: number;
-  parentId: string | null;
-  title: string | null;
-  contentHash: string;
-  entityId: string;
-  content: string | null;
-  children?: RuleNode[];
+  id:           string;
+  sourceId:     string;
+  ruleId:       string;
+  path:         string;
+  level:        number;
+  parentId:     string | null;
+  siblingOrder: number;
+  title:        string | null;
+  contentHash:  string;
+  entityId:     string;
+  content:      string | null;
+  children?:    RuleNode[];
 }
 
 interface RuleVersion {
-  id: string;
+  id:            string;
   effectiveDate: string | null;
-  publishedAt: string | null;
-  totalRules: number | null;
-  status: string;
+  publishedAt:   string | null;
+  totalRules:    number | null;
+  status:        string;
 }
 
 const selectedNodeId = ref<string | null>(null);
@@ -155,7 +154,7 @@ const { data: version } = await useAsyncData<RuleVersion>(
   },
   {
     immediate: !!versionId.value,
-    watch: [versionId],
+    watch:     [versionId],
   },
 );
 
@@ -167,9 +166,9 @@ const { data: flatNodes } = await useAsyncData<RuleNode[]>(
     return await $orpc.magic.rule.getNodes({ sourceId: versionId.value });
   },
   {
-    default: () => [],
+    default:   () => [],
     immediate: !!versionId.value,
-    watch: [versionId],
+    watch:     [versionId],
   },
 );
 
@@ -201,7 +200,17 @@ const nodeTree = computed<RuleNode[]>(() => {
     }
   }
 
-  return roots;
+  const sortNodes = (nodes: RuleNode[]): RuleNode[] => {
+    nodes.sort((a, b) => a.siblingOrder - b.siblingOrder);
+    for (const node of nodes) {
+      if (node.children) {
+        sortNodes(node.children);
+      }
+    }
+    return nodes;
+  };
+
+  return sortNodes(roots);
 });
 
 // Flatten nodes for filtering

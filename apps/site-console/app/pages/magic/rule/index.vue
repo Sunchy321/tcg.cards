@@ -150,130 +150,6 @@
       </div>
     </div>
 
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-sm font-semibold">规则文档导入</h2>
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              当前仅处理 `magic-cr` TXT 文件
-            </p>
-          </div>
-          <UBadge color="primary" variant="subtle">
-            Comprehensive Rules
-          </UBadge>
-        </div>
-      </template>
-
-      <div class="space-y-4">
-        <div>
-          <label class="mb-2 block text-sm font-medium">TXT 文件</label>
-          <UInput
-            type="file"
-            accept=".txt"
-            @change="handleDocumentFileSelect"
-          />
-          <p class="mt-1 text-xs text-gray-500">
-            会自动从正文里的生效日期提取版本号
-          </p>
-        </div>
-
-        <div v-if="documentFileName" class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
-          <div class="flex items-center justify-between gap-4">
-            <div class="min-w-0">
-              <p class="font-medium">{{ documentFileName }}</p>
-              <p class="truncate text-xs text-gray-500">
-                {{ documentFileContent.slice(0, 160) }}
-              </p>
-            </div>
-            <div class="flex items-center gap-2">
-              <UButton
-                variant="outline"
-                :disabled="!documentFileContent"
-                :loading="previewingDocument"
-                @click="startDocumentPreview"
-              >
-                解析预览
-              </UButton>
-              <UButton
-                color="primary"
-                :disabled="!documentFileContent"
-                :loading="importingDocument"
-                @click="startDocumentImport"
-              >
-                导入数据库
-              </UButton>
-            </div>
-          </div>
-        </div>
-      </div>
-    </UCard>
-
-    <UCard v-if="documentPreview">
-      <template #header>
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-sm font-semibold">文档解析预览</h2>
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              版本 {{ documentPreview.versionTag }} · {{ documentPreview.parserStrategy }}
-            </p>
-          </div>
-          <UBadge color="success" variant="subtle">
-            {{ documentPreview.effectiveDate ?? '未知日期' }}
-          </UBadge>
-        </div>
-      </template>
-
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
-          <p class="text-xs text-gray-500">Heading</p>
-          <p class="mt-1 text-xl font-semibold">{{ documentPreview.summary.heading }}</p>
-        </div>
-        <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
-          <p class="text-xs text-gray-500">Content</p>
-          <p class="mt-1 text-xl font-semibold">{{ documentPreview.summary.content }}</p>
-        </div>
-        <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
-          <p class="text-xs text-gray-500">Example</p>
-          <p class="mt-1 text-xl font-semibold">{{ documentPreview.summary.example }}</p>
-        </div>
-        <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
-          <p class="text-xs text-gray-500">Term</p>
-          <p class="mt-1 text-xl font-semibold">{{ documentPreview.summary.term }}</p>
-        </div>
-      </div>
-
-      <div class="mt-4">
-        <h3 class="mb-2 text-sm font-medium">样例节点</h3>
-        <div class="max-h-96 overflow-auto rounded-lg border border-gray-200 dark:border-gray-800">
-          <table class="w-full text-left text-sm">
-            <thead class="bg-gray-50 dark:bg-gray-900">
-              <tr>
-                <th class="px-3 py-2">Node ID</th>
-                <th class="px-3 py-2">类型</th>
-                <th class="px-3 py-2">Path</th>
-                <th class="px-3 py-2">内容</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="node in documentPreview.sampleNodes"
-                :key="node.id"
-                class="border-t border-gray-100 dark:border-gray-800"
-              >
-                <td class="px-3 py-2 font-mono text-xs">{{ node.nodeId }}</td>
-                <td class="px-3 py-2">{{ node.nodeKind }}</td>
-                <td class="px-3 py-2 font-mono text-xs">{{ node.path }}</td>
-                <td class="max-w-md truncate px-3 py-2 text-xs text-gray-500">
-                  {{ node.content ?? '-' }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </UCard>
-
     <!-- Stats -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <UCard>
@@ -349,13 +225,13 @@
           </UBadge>
         </template>
 
-        <template #r2Status-cell="{ getValue }">
+        <template #dataStatus-cell="{ getValue }">
           <UBadge
-            :color="getFileStatus(getValue() as RuleVersion['r2Status']).color"
+            :color="getDataStatus(getValue() as RuleVersion['dataStatus']).color"
             variant="subtle"
             size="sm"
           >
-            {{ getFileStatus(getValue() as RuleVersion['r2Status']).label }}
+            {{ getDataStatus(getValue() as RuleVersion['dataStatus']).label }}
           </UBadge>
         </template>
 
@@ -376,7 +252,7 @@
         <template #actions-cell="{ row }">
           <div class="flex items-center gap-2">
             <UButton
-              v-if="row.original.r2Status === 'pending'"
+              v-if="row.original.dataStatus === 'pending'"
               icon="i-lucide-play"
               variant="ghost"
               size="xs"
@@ -386,6 +262,35 @@
             >
               导入
             </UButton>
+            <UModal v-else-if="row.original.dataStatus === 'imported'" title="重新导入">
+              <UButton
+                icon="i-lucide-rotate-cw"
+                variant="ghost"
+                size="xs"
+                color="warning"
+              >
+                重新导入
+              </UButton>
+
+              <template #body>
+                <p class="text-sm">
+                  确定要重新导入规则版本 <strong>{{ row.original.id }}</strong> 吗？<br>
+                  这会基于 R2 中的当前 TXT 文件重建该版本的节点数据。
+                </p>
+              </template>
+
+              <template #footer="{ close }">
+                <div class="flex justify-end gap-2">
+                  <UButton
+                    color="warning"
+                    :loading="loadingId === row.original.id"
+                    @click="reimportRule(row.original, close)"
+                  >
+                    确认重新导入
+                  </UButton>
+                </div>
+              </template>
+            </UModal>
             <UButton
               icon="i-lucide-eye"
               variant="ghost"
@@ -443,32 +348,8 @@ type RuleVersion = {
   totalRules:    number | null;
   status:        string;
   importedAt:    Date | null;
-  r2Status:      'imported' | 'pending' | 'missing';
+  dataStatus:    'imported' | 'pending' | 'missing';
   r2Key:         string | null;
-};
-
-type PreviewNode = {
-  id:       string;
-  nodeId:   string;
-  nodeKind: 'heading' | 'term' | 'content' | 'example';
-  path:     string;
-  content:  string | null;
-};
-
-type DocumentPreview = {
-  documentId:     'magic-cr';
-  versionId:      string;
-  versionTag:     string;
-  effectiveDate:  string | null;
-  publishedAt:    string | null;
-  parserStrategy: string;
-  summary: {
-    heading: number;
-    term:    number;
-    content: number;
-    example: number;
-  };
-  sampleNodes: PreviewNode[];
 };
 
 const statusMap: Record<string, { label: string, color: 'primary' | 'warning' | 'neutral' }> = {
@@ -480,7 +361,7 @@ function getStatus(value: string) {
   return statusMap[value] ?? { label: '已废弃', color: 'neutral' };
 }
 
-function getFileStatus(value: RuleVersion['r2Status']) {
+function getDataStatus(value: RuleVersion['dataStatus']) {
   if (value === 'imported') {
     return { label: 'R2 已归档', color: 'success' as const };
   }
@@ -494,9 +375,9 @@ function getFileStatus(value: RuleVersion['r2Status']) {
 const tableColumns = [
   { accessorKey: 'id', header: '版本 ID' },
   { accessorKey: 'effectiveDate', header: '生效日期' },
-  { accessorKey: 'totalRules', header: '规则数量' },
-  { accessorKey: 'status', header: '状态' },
-  { accessorKey: 'r2Status', header: '文件状态' },
+  { accessorKey: 'totalRules', header: '节点数量' },
+  { accessorKey: 'status', header: '文档状态' },
+  { accessorKey: 'dataStatus', header: '数据状态' },
   { accessorKey: 'importedAt', header: '导入时间' },
   { accessorKey: 'actions', header: '操作' },
 ];
@@ -524,11 +405,6 @@ const syncResult = ref<{
 // Upload modal state
 const uploadFileContent = ref('');
 const uploading = ref(false);
-const documentFileName = ref('');
-const documentFileContent = ref('');
-const documentPreview = ref<DocumentPreview | null>(null);
-const previewingDocument = ref(false);
-const importingDocument = ref(false);
 
 function handleUploadFileSelect(event: Event) {
   const input = event.target as HTMLInputElement;
@@ -537,21 +413,6 @@ function handleUploadFileSelect(event: Event) {
   const reader = new FileReader();
   reader.onload = e => {
     uploadFileContent.value = e.target?.result as string;
-  };
-  reader.readAsText(file);
-}
-
-function handleDocumentFileSelect(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-
-  documentFileName.value = file.name;
-  documentPreview.value = null;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    documentFileContent.value = String(e.target?.result ?? '');
   };
   reader.readAsText(file);
 }
@@ -711,47 +572,6 @@ async function syncLatest() {
   }
 }
 
-async function startDocumentPreview() {
-  if (!documentFileContent.value) return;
-
-  previewingDocument.value = true;
-  try {
-    documentPreview.value = await $orpc.magic.document.parsePreview({
-      documentId: 'magic-cr',
-      content:    documentFileContent.value,
-    });
-  } catch (error) {
-    console.error('Failed to preview document:', error);
-  } finally {
-    previewingDocument.value = false;
-  }
-}
-
-async function startDocumentImport() {
-  if (!documentFileContent.value) return;
-
-  importingDocument.value = true;
-  try {
-    const result = await $orpc.magic.document.importVersion({
-      documentId: 'magic-cr',
-      content:    documentFileContent.value,
-    });
-
-    if (documentPreview.value?.versionId !== result.versionId) {
-      documentPreview.value = await $orpc.magic.document.parsePreview({
-        documentId: 'magic-cr',
-        content:    documentFileContent.value,
-      });
-    }
-
-    await refresh();
-  } catch (error) {
-    console.error('Failed to import document:', error);
-  } finally {
-    importingDocument.value = false;
-  }
-}
-
 function viewVersion(version: { id: string }) {
   navigateTo(`/magic/rule/view?version=${version.id}`);
 }
@@ -774,10 +594,19 @@ async function loadRule(version: { id: string }) {
     const result = await $orpc.magic.rule.loadFromData({ versionId: version.id });
     console.log('[LoadFromData] Import completed:', result);
     await refresh();
+    return true;
   } catch (error) {
     console.error('Failed to load rule:', error);
+    return false;
   } finally {
     loadingId.value = undefined;
+  }
+}
+
+async function reimportRule(version: { id: string }, close: () => void) {
+  const success = await loadRule(version);
+  if (success) {
+    close();
   }
 }
 </script>
