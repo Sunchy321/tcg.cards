@@ -74,17 +74,25 @@ function buildVersionNodeId(versionId: string, nodeId: string): string {
   return `${versionId}/${nodeId}`;
 }
 
+function getChapterIdFromSectionId(sectionId: string): string {
+  return String(Math.floor(Number(sectionId) / 100));
+}
+
+function buildSectionPath(sectionId: string): string {
+  return `${getChapterIdFromSectionId(sectionId)}/${sectionId}`;
+}
+
 function buildRulePath(nodeId: string): string {
   const subruleMatch = nodeId.match(/^(\d+)\.(\d+)([a-z])$/);
   if (subruleMatch) {
-    const [, chapter, rule, subrule] = subruleMatch;
-    return `${chapter}/${rule}/${subrule}`;
+    const [, sectionId, rule, subrule] = subruleMatch;
+    return `${buildSectionPath(sectionId!)}/${rule}/${subrule}`;
   }
 
   const ruleMatch = nodeId.match(/^(\d+)\.(\d+)$/);
   if (ruleMatch) {
-    const [, chapter, rule] = ruleMatch;
-    return `${chapter}/${rule}`;
+    const [, sectionId, rule] = ruleMatch;
+    return `${buildSectionPath(sectionId!)}/${rule}`;
   }
 
   return nodeId;
@@ -445,7 +453,7 @@ export function parseMagicCrDocument(input: {
         const sectionId = sectionMatch[1]!;
         const title = sectionMatch[2]!;
         const chapterId = sectionId[0]!;
-        ensureContainer(context, sectionId, sectionId, {
+        ensureContainer(context, sectionId, buildSectionPath(sectionId), {
           level:        1,
           parentNodeId: chapterId,
         });
