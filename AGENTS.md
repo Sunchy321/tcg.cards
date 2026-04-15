@@ -10,6 +10,8 @@ All code comments must be written in English. When editing files, translate any 
 
 Prefer the nullish coalescing operator (`??`) over the logical OR operator (`||`) for default values in frontend code.
 
+Only use the logical OR operator (`||`) for frontend fallback behavior when boolean coercion is explicitly intended.
+
 ## Naming
 
 Within a local file scope, do not use overly complex naming. Prefer clear and simple names for local variables, local types, and helper functions.
@@ -37,6 +39,8 @@ Each plan must include a todo list at the beginning of the same file. The todo l
 During implementation, follow the todo list and the plan strictly.
 
 Mark each todo item as completed immediately after finishing it.
+
+If the user explicitly asks for step-by-step execution, implement only one planned step per turn, then pause and wait for the user's next instruction before continuing.
 
 All content created in the `docs/` and `plans/` folders must be written in Simplified Chinese.
 

@@ -610,5 +610,18 @@ export default {
     'copy-text':  '规则文本已复制',
   },
 
+  document: {
+    $self: '文档',
+    names: {
+      cr: '综合规则',
+    },
+    compare_versions: '比较版本',
+    outline:          '目录',
+    copy_text:        '复制文本',
+    copy_link:        '复制链接',
+    example:          '示例',
+    load_failed:      '加载文档阅读数据失败。',
+  },
+
   search,
 };

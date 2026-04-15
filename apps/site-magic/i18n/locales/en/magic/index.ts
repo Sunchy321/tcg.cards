@@ -1027,5 +1027,18 @@ export default {
     'copy-text':  'Rule text copied',
   },
 
+  document: {
+    $self: 'Document',
+    names: {
+      cr: 'Comprehensive Rules',
+    },
+    compare_versions: 'Compare Versions',
+    outline:          'Outline',
+    copy_text:        'Copy Text',
+    copy_link:        'Copy Link',
+    example:          'Example',
+    load_failed:      'Failed to load document reader data.',
+  },
+
   search,
 };

@@ -76,10 +76,10 @@ function gzipContent(content: string): Buffer {
 
 function summarizeNodes(nodes: ParsedDocumentNode[]) {
   return {
-    heading: nodes.filter(node => node.nodeKind === 'heading').length,
-    term:    nodes.filter(node => node.nodeKind === 'term').length,
-    content: nodes.filter(node => node.nodeKind === 'content').length,
-    example: nodes.filter(node => node.nodeKind === 'example').length,
+    heading:         nodes.filter(node => node.nodeKind === 'heading').length,
+    implicitHeading: nodes.filter(node => node.nodeKind === 'implicit_heading').length,
+    content:         nodes.filter(node => node.nodeKind === 'content').length,
+    example:         nodes.filter(node => node.nodeKind === 'example').length,
   };
 }
 

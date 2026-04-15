@@ -8,7 +8,7 @@ CREATE TYPE "magic"."document_node_change_relation_side" AS ENUM('from', 'to');-
 CREATE TYPE "magic"."document_node_change_review_state_cache" AS ENUM('unreviewed', 'pending', 'confirmed', 'rejected', 'overridden');--> statement-breakpoint
 CREATE TYPE "magic"."document_node_change_type" AS ENUM('added', 'removed', 'modified', 'moved', 'renamed', 'renamed_modified', 'split', 'merged');--> statement-breakpoint
 CREATE TYPE "magic"."document_node_content_status" AS ENUM('source', 'draft', 'reviewed', 'published', 'stale');--> statement-breakpoint
-CREATE TYPE "magic"."document_node_kind" AS ENUM('heading', 'term', 'content', 'example');--> statement-breakpoint
+CREATE TYPE "magic"."document_node_kind" AS ENUM('heading', 'implicit_heading', 'content', 'example');--> statement-breakpoint
 CREATE TYPE "magic"."document_version_import_status" AS ENUM('pending', 'processing', 'completed', 'failed');--> statement-breakpoint
 CREATE TYPE "magic"."document_version_lifecycle_status" AS ENUM('active', 'superseded');--> statement-breakpoint
 CREATE TABLE "magic"."document_change_reviews" (

@@ -1,4 +1,4 @@
-export type DocumentNodeKind = 'heading' | 'term' | 'content' | 'example';
+export type DocumentNodeKind = 'heading' | 'implicit_heading' | 'content' | 'example';
 
 export interface ParsedDocumentNode {
   id:           string;
@@ -191,22 +191,22 @@ function ensureContainer(
   });
 }
 
-function ensureTitleNode(
+function ensureContainerTitle(
   context: ParserContext,
-  parentNodeId: string,
+  nodeId: string,
   title: string,
 ): ParsedDocumentNode {
-  const parent = context.nodeMap.get(parentNodeId);
-  if (!parent) {
-    throw new Error(`Missing container node: ${parentNodeId}`);
+  const node = context.nodeMap.get(nodeId);
+  if (!node) {
+    throw new Error(`Missing container node: ${nodeId}`);
   }
 
   return createNode(context, {
-    nodeId:       `${parentNodeId}.title`,
-    nodeKind:     'heading',
-    path:         `${parent.path}/title`,
-    level:        parent.level + 1,
-    parentNodeId: parent.id,
+    nodeId:       node.nodeId,
+    nodeKind:     node.nodeKind,
+    path:         node.path,
+    level:        node.level,
+    parentNodeId: node.parentNodeId,
     content:      title,
   });
 }
@@ -254,12 +254,12 @@ function createExampleNode(
   return appendContentNode(context, parentNodeId, `example.${count}`, 'example', text);
 }
 
-function isGlossaryTermParagraph(paragraph: string): boolean {
+function isImplicitHeadingText(paragraph: string): boolean {
   if (!paragraph || paragraph.startsWith('Example:')) {
     return false;
   }
 
-  if (paragraph.includes('. ') || paragraph.endsWith('.')) {
+  if (paragraph.includes('. ') || /[.:'"”“’：]$/u.test(paragraph)) {
     return false;
   }
 
@@ -280,7 +280,7 @@ function createGlossaryTermNode(
 
   return createNode(context, {
     nodeId:       `glossary.${slug}`,
-    nodeKind:     'term',
+    nodeKind:     'implicit_heading',
     path:         `glossary/${slug}`,
     level:        glossary.level + 1,
     parentNodeId: glossary.id,
@@ -367,7 +367,7 @@ export function parseMagicCrDocument(input: {
         phase = 'intro';
         if (!introReady) {
           ensureContainer(context, 'intro', 'meta/intro');
-          ensureTitleNode(context, 'intro', 'Introduction');
+          ensureContainerTitle(context, 'intro', 'Introduction');
           introReady = true;
         }
       }
@@ -423,16 +423,16 @@ export function parseMagicCrDocument(input: {
         currentContainerId = null;
         currentLeafNodeId = null;
         ensureContainer(context, 'glossary', 'glossary');
-        ensureTitleNode(context, 'glossary', 'Glossary');
+        ensureContainerTitle(context, 'glossary', 'Glossary');
         continue;
       }
 
       if (paragraph === 'Credits') {
         phase = 'credits';
         currentContainerId = 'credits';
-        currentLeafNodeId = 'credits.title';
+        currentLeafNodeId = 'credits';
         ensureContainer(context, 'credits', 'credits');
-        ensureTitleNode(context, 'credits', 'Credits');
+        ensureContainerTitle(context, 'credits', 'Credits');
         continue;
       }
 
@@ -441,9 +441,9 @@ export function parseMagicCrDocument(input: {
         const chapterId = chapterMatch[1]!;
         const title = chapterMatch[2]!;
         ensureContainer(context, chapterId, chapterId);
-        ensureTitleNode(context, chapterId, title);
+        ensureContainerTitle(context, chapterId, title);
         currentContainerId = chapterId;
-        currentLeafNodeId = `${chapterId}.title`;
+        currentLeafNodeId = chapterId;
         appendBodyLines(tail);
         continue;
       }
@@ -457,9 +457,9 @@ export function parseMagicCrDocument(input: {
           level:        1,
           parentNodeId: chapterId,
         });
-        ensureTitleNode(context, sectionId, title);
+        ensureContainerTitle(context, sectionId, title);
         currentContainerId = sectionId;
-        currentLeafNodeId = `${sectionId}.title`;
+        currentLeafNodeId = sectionId;
         appendBodyLines(tail);
         continue;
       }
@@ -474,7 +474,7 @@ export function parseMagicCrDocument(input: {
           : null;
         createNode(context, {
           nodeId,
-          nodeKind:     'content',
+          nodeKind:     isImplicitHeadingText(text) ? 'implicit_heading' : 'content',
           path:         buildRulePath(nodeId),
           level:        getRuleLevel(nodeId),
           parentNodeId: parent?.id ?? null,
@@ -496,7 +496,7 @@ export function parseMagicCrDocument(input: {
           : null;
         createNode(context, {
           nodeId,
-          nodeKind:     'content',
+          nodeKind:     isImplicitHeadingText(text) ? 'implicit_heading' : 'content',
           path:         buildRulePath(nodeId),
           level:        getRuleLevel(nodeId),
           parentNodeId: parent?.id ?? null,
@@ -528,13 +528,13 @@ export function parseMagicCrDocument(input: {
         glossaryParts = [];
         phase = 'credits';
         currentContainerId = 'credits';
-        currentLeafNodeId = 'credits.title';
+        currentLeafNodeId = 'credits';
         ensureContainer(context, 'credits', 'credits');
-        ensureTitleNode(context, 'credits', 'Credits');
+        ensureContainerTitle(context, 'credits', 'Credits');
         continue;
       }
 
-      if (isGlossaryTermParagraph(glossaryHead)) {
+      if (isImplicitHeadingText(glossaryHead)) {
         if (glossaryTerm) {
           createGlossaryTermNode(context, glossaryTerm, glossaryParts);
         }

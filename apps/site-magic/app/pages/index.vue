@@ -27,8 +27,8 @@
       </NuxtLink>
     </div>
     <div class="flex flex-col gap-2 justify-start items-center">
-       <NuxtLink
-        to="/rule"
+      <NuxtLink
+        to="/document/cr"
         class="flex flex-row items-center gap-3 px-1 py-1 w-full rounded-lg ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
       >
         <UIcon name="lucide:book" class="text-md shrink-0" />

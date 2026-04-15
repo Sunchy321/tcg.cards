@@ -449,7 +449,7 @@
     {
       "values": [
         "heading",
-        "term",
+        "implicit_heading",
         "content",
         "example"
       ],

@@ -6,7 +6,7 @@ export const versionLifecycleStatus = z.enum(['active', 'superseded']);
 
 export const versionImportStatus = z.enum(['pending', 'processing', 'completed', 'failed']);
 
-export const nodeKind = z.enum(['heading', 'term', 'content', 'example']);
+export const nodeKind = z.enum(['heading', 'implicit_heading', 'content', 'example']);
 
 export const nodeContentStatus = z.enum(['source', 'draft', 'reviewed', 'published', 'stale']);
 

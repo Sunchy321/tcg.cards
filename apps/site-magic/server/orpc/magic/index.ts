@@ -4,6 +4,7 @@ import { searchApi, searchTrpc } from './search';
 import { setApi, setTrpc } from './set';
 import { formatApi, formatTrpc } from './format';
 import { announcementApi, announcementTrpc } from './announcement';
+import { documentApi, documentTrpc } from './document';
 import { ruleApi, ruleTrpc } from './rule';
 import { deckApi, deckTrpc } from './deck';
 import { dataTrpc } from './data';
@@ -15,6 +16,7 @@ export const magicTrpc = {
   set:          setTrpc,
   format:       formatTrpc,
   announcement: announcementTrpc,
+  document:     documentTrpc,
   rule:         ruleTrpc,
   deck:         deckTrpc,
   data:         dataTrpc,
@@ -27,6 +29,7 @@ export const magicApi = {
   set:          setApi,
   format:       formatApi,
   announcement: announcementApi,
+  document:     documentApi,
   rule:         ruleApi,
   deck:         deckApi,
 };
