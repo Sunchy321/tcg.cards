@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 
-import { and, desc, eq, inArray, ne, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import {
@@ -18,6 +18,13 @@ import {
 } from '#schema/magic/document';
 
 import { getDocumentConfig } from './config';
+import {
+  type ChangeRecord,
+  type EntityAssignment,
+  findPreviousVersion,
+  loadPreviousVersionNodes,
+  matchEntities,
+} from './matcher';
 import { parseMagicCrDocument, type ParsedDocumentNode } from './parser';
 
 const normalizedContentVersion = 'magic-document-fingerprint-v1';
@@ -67,11 +74,11 @@ function versionTagToDate(versionTag: string): string {
   return `${versionTag.slice(0, 4)}-${versionTag.slice(4, 6)}-${versionTag.slice(6, 8)}`;
 }
 
-function generateHash(content: string): string {
+export function generateHash(content: string): string {
   return createHash('sha256').update(content, 'utf8').digest('hex');
 }
 
-function normalizeFingerprint(content: string): string {
+export function normalizeFingerprint(content: string): string {
   return content
     .toLowerCase()
     .replace(/[.,;:!?()[\]{}'"“”‘’]/g, '')
@@ -359,24 +366,61 @@ async function prepareVersionImport(input: {
 }
 
 async function writeVersionSnapshot(input: {
-  preview:      DocumentPreview;
-  sourceLocale: 'en' | 'zhs' | 'zht' | 'ja' | 'ko';
+  preview:            DocumentPreview;
+  sourceLocale:       'en' | 'zhs' | 'zht' | 'ja' | 'ko';
+  entityAssignments?: Map<string, EntityAssignment>;
 }) {
-  const entityValues = input.preview.nodes.map(node => ({
-    id:               randomUUID(),
-    documentId:       input.preview.documentId,
-    originVersionId:  input.preview.versionId,
-    originNodeId:     node.nodeId,
-    currentNodeRefId: null,
-    currentNodeId:    null,
-    currentVersionId: null,
-    totalRevisions:   1,
-  }));
-  const entityMap = new Map(entityValues.map((entity, index) => [input.preview.nodes[index]!.nodeId, entity.id]));
+  const entityMap = new Map<string, string>();
+
+  // Determine entity IDs for each node
+  const newEntityValues: Array<{
+    id:               string;
+    documentId:       string;
+    originVersionId:  string;
+    originNodeId:     string;
+    currentNodeRefId: null;
+    currentNodeId:    null;
+    currentVersionId: null;
+    totalRevisions:   number;
+  }> = [];
+
+  for (const node of input.preview.nodes) {
+    const assignment = input.entityAssignments?.get(node.nodeId);
+
+    if (assignment) {
+      entityMap.set(node.nodeId, assignment.entityId);
+      if (assignment.isNew) {
+        newEntityValues.push({
+          id:               assignment.entityId,
+          documentId:       input.preview.documentId,
+          originVersionId:  assignment.originVersionId ?? input.preview.versionId,
+          originNodeId:     assignment.originNodeId ?? node.nodeId,
+          currentNodeRefId: null,
+          currentNodeId:    null,
+          currentVersionId: null,
+          totalRevisions:   1,
+        });
+      }
+    } else {
+      // No assignment provided (first version) — create new entity
+      const entityId = randomUUID();
+      entityMap.set(node.nodeId, entityId);
+      newEntityValues.push({
+        id:               entityId,
+        documentId:       input.preview.documentId,
+        originVersionId:  input.preview.versionId,
+        originNodeId:     node.nodeId,
+        currentNodeRefId: null,
+        currentNodeId:    null,
+        currentVersionId: null,
+        totalRevisions:   1,
+      });
+    }
+  }
 
   await db.transaction(async tx => {
-    if (entityValues.length > 0) {
-      await tx.insert(DocumentNodeEntity).values(entityValues);
+    if (newEntityValues.length > 0) {
+      await tx.insert(DocumentNodeEntity).values(newEntityValues);
     }
 
     const nodeValues = input.preview.nodes.map(node => ({
@@ -435,19 +479,25 @@ async function writeVersionSnapshot(input: {
 }
 
 async function finalizeVersionImport(input: {
-  preview:    DocumentPreview;
-  entityMap:  Map<string, string>;
-  importedAt: Date;
+  preview:            DocumentPreview;
+  entityMap:          Map<string, string>;
+  entityAssignments?: Map<string, EntityAssignment>;
+  importedAt:         Date;
 }) {
   await db.transaction(async tx => {
     for (const node of input.preview.nodes) {
+      const entityId = input.entityMap.get(node.nodeId)!;
+      const assignment = input.entityAssignments?.get(node.nodeId);
+      const isReused = assignment ? !assignment.isNew : false;
+
       await tx.update(DocumentNodeEntity)
         .set({
           currentNodeRefId: node.id,
           currentNodeId:    node.nodeId,
           currentVersionId: input.preview.versionId,
+          ...(isReused ? { totalRevisions: sql`${DocumentNodeEntity.totalRevisions} + 1` } : {}),
         })
-        .where(eq(DocumentNodeEntity.id, input.entityMap.get(node.nodeId)!));
+        .where(eq(DocumentNodeEntity.id, entityId));
     }
 
     await tx.update(DocumentVersionImport)
@@ -516,6 +566,30 @@ export async function listDocumentVersions(documentId: string) {
     .orderBy(desc(DocumentVersion.versionTag));
 }
 
+async function writeChangeRecords(input: {
+  changes:       ChangeRecord[];
+  documentId:    string;
+  fromVersionId: string;
+  toVersionId:   string;
+}) {
+  if (input.changes.length === 0) return;
+
+  const values = input.changes.map(change => ({
+    documentId:       input.documentId,
+    fromVersionId:    input.fromVersionId,
+    toVersionId:      input.toVersionId,
+    entityId:         change.entityId,
+    fromNodeRefId:    change.fromNodeRefId,
+    toNodeRefId:      change.toNodeRefId,
+    type:             change.type,
+    confidenceScore:  change.confidenceScore,
+    reviewStateCache: 'unreviewed' as const,
+    details:          change.details,
+  }));
+
+  await db.insert(DocumentNodeChange).values(values);
+}
+
 export async function importDocumentVersion(input: {
   documentId?: string;
   content:     string;
@@ -557,14 +631,39 @@ export async function importDocumentVersion(input: {
       publishedAt,
     });
 
+    // Entity matching: find previous version and match nodes
+    let entityAssignments: Map<string, EntityAssignment> | undefined;
+    let changes: ChangeRecord[] = [];
+    let previousVersionId: string | null = null;
+
+    previousVersionId = await findPreviousVersion(preview.documentId, preview.versionTag);
+
+    if (previousVersionId) {
+      const oldNodes = await loadPreviousVersionNodes(previousVersionId);
+      const matchResult = matchEntities(oldNodes, preview.nodes, preview.versionId);
+      entityAssignments = matchResult.entityAssignments;
+      changes = matchResult.changes;
+    }
+
     const entityMap = await writeVersionSnapshot({
       preview,
       sourceLocale: config.sourceLocale,
+      entityAssignments,
     });
+
+    if (previousVersionId && changes.length > 0) {
+      await writeChangeRecords({
+        changes,
+        documentId:    preview.documentId,
+        fromVersionId: previousVersionId,
+        toVersionId:   preview.versionId,
+      });
+    }
 
     await finalizeVersionImport({
       preview,
       entityMap,
+      entityAssignments,
       importedAt,
     });
   } catch (error) {
