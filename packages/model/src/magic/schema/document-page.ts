@@ -156,6 +156,45 @@ export const documentComparePage = z.strictObject({
   groups: documentCompareGroup.array(),
 });
 
+export const documentDiffSection = z.strictObject({
+  nodeId: z.string(),
+  kind:   nodeKind,
+  serial: z.string().nullable(),
+  text:   z.string().nullable(),
+  level:  z.number(),
+});
+
+export const documentDiffRow = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind:  z.literal('omitted'),
+    count: z.number(),
+  }),
+  z.strictObject({
+    kind:     z.literal('change'),
+    type:     nodeChangeType,
+    from:     documentDiffSection.nullable(),
+    to:       documentDiffSection.nullable(),
+    textDiff: documentChangeTextDiff.nullable(),
+  }),
+]);
+
+export const documentDiffPage = z.strictObject({
+  document:    documentSummary,
+  fromVersion: versionSummary,
+  toVersion:   versionSummary,
+  stats: z.strictObject({
+    added:           z.number(),
+    removed:         z.number(),
+    modified:        z.number(),
+    moved:           z.number(),
+    renamed:         z.number(),
+    renamedModified: z.number(),
+    split:           z.number(),
+    merged:          z.number(),
+  }),
+  rows: documentDiffRow.array(),
+});
+
 export const documentEntityHistoryEntry = z.strictObject({
   versionId:      z.string(),
   versionTag:     z.string(),
@@ -246,6 +285,9 @@ export type DocumentChangeRelation = z.infer<typeof documentChangeRelation>;
 export type DocumentChangeCard = z.infer<typeof documentChangeCard>;
 export type DocumentCompareGroup = z.infer<typeof documentCompareGroup>;
 export type DocumentComparePage = z.infer<typeof documentComparePage>;
+export type DocumentDiffSection = z.infer<typeof documentDiffSection>;
+export type DocumentDiffRow = z.infer<typeof documentDiffRow>;
+export type DocumentDiffPage = z.infer<typeof documentDiffPage>;
 export type DocumentEntityHistoryEntry = z.infer<typeof documentEntityHistoryEntry>;
 export type DocumentEntityHistoryPage = z.infer<typeof documentEntityHistoryPage>;
 export type DocumentReviewQueueItem = z.infer<typeof documentReviewQueueItem>;
