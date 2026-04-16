@@ -29,6 +29,10 @@ import {
   listChanges,
   submitReview,
 } from '~~/server/lib/magic/document/reviewer';
+import {
+  compareVersions as compareVersionsFn,
+  getNodeHistory,
+} from '~~/server/lib/magic/document/history';
 import type { HonoEnv } from '../hono-env';
 
 interface RuleLinks {
@@ -813,6 +817,35 @@ const reviewBatch = os
     return batchReview(input);
   });
 
+const nodeHistory = os
+  .route({
+    method:      'GET',
+    description: 'Get the history timeline of a node entity across all versions',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    documentId: z.string(),
+    entityId:   z.string(),
+  }))
+  .handler(async ({ input }) => {
+    return getNodeHistory(input);
+  });
+
+const compareVersions = os
+  .route({
+    method:      'GET',
+    description: 'Compare two versions of a document, returning changes and diff mode',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    documentId:    z.string(),
+    fromVersionId: z.string(),
+    toVersionId:   z.string(),
+  }))
+  .handler(async ({ input }) => {
+    return compareVersionsFn(input);
+  });
+
 export const ruleTrpc = {
   list,
   get,
@@ -827,4 +860,6 @@ export const ruleTrpc = {
   change,
   review,
   reviewBatch,
+  nodeHistory,
+  compareVersions,
 };
