@@ -11,7 +11,7 @@ import {
   DocumentVersionImport,
 } from '#schema/magic/document';
 
-import type { NodeChangeDetails, NodeChangeType } from '#model/magic/schema/document';
+import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '#model/magic/schema/document';
 
 import type { ParsedDocumentNode } from './parser';
 import { generateHash, normalizeFingerprint } from './importer';
@@ -50,13 +50,24 @@ export interface EntityAssignment {
   originNodeId?:    string;
 }
 
+export interface ChangeRelation {
+  side:      'from' | 'to';
+  entityId:  string | null;
+  nodeRefId: string | null;
+  nodeId:    string | null;
+  weight:    number | null;
+  sortOrder: number;
+}
+
 export interface ChangeRecord {
-  entityId:        string | null;
-  fromNodeRefId:   string | null;
-  toNodeRefId:     string | null;
-  type:            NodeChangeType;
-  confidenceScore: number;
-  details:         NodeChangeDetails;
+  entityId:          string | null;
+  fromNodeRefId:     string | null;
+  toNodeRefId:       string | null;
+  type:              NodeChangeType;
+  confidenceScore:   number;
+  details:           NodeChangeDetails;
+  reviewStateCache?: NodeChangeReviewStateCache;
+  relations?:        ChangeRelation[];
 }
 
 export interface MatchResult {
@@ -382,6 +393,11 @@ function prepareNewNodes(parsedNodes: ParsedDocumentNode[]): NewNode[] {
 // --- Four-Stage Matching ---
 
 const SIMILARITY_THRESHOLD = 0.55;
+const SPLIT_CANDIDATE_THRESHOLD = 0.55;
+const SPLIT_COVERAGE_THRESHOLD = 0.8;
+const MERGE_CANDIDATE_THRESHOLD = 0.55;
+const MERGE_COVERAGE_THRESHOLD = 0.8;
+const MAX_SPLIT_CANDIDATES = 4;
 
 export function matchEntities(
   oldNodes: OldNode[],
@@ -396,7 +412,6 @@ export function matchEntities(
   const changes: ChangeRecord[] = [];
 
   // Build lookup indexes
-  const oldByNodeId = new Map(oldNodes.map(n => [n.nodeId, n]));
   const newByNodeId = new Map(newNodes.map(n => [n.nodeId, n]));
 
   const oldByContentHash = new Map<string, OldNode[]>();
@@ -536,6 +551,163 @@ export function matchEntities(
     if (bestCandidate && bestScore >= SIMILARITY_THRESHOLD) {
       recordMatch(oldNode, bestCandidate, 'similarity', bestScore);
     }
+  }
+
+  // --- Split Detection ---
+  // One old node split into multiple new nodes
+  for (const oldNode of oldNodes) {
+    if (matchedOldIds.has(oldNode.nodeId)) continue;
+    if (!oldNode.content) continue;
+
+    const candidates = newNodes
+      .filter(n => !matchedNewIds.has(n.nodeId))
+      .filter(n => n.content != null)
+      .filter(n => n.nodeKind === oldNode.nodeKind)
+      .map(n => ({
+        node:  n,
+        score: scoreCandidate(oldNode.content!, n.content!, structureBonus(oldNode, n)),
+      }))
+      .filter(c => c.score >= SPLIT_CANDIDATE_THRESHOLD)
+      .sort((a, b) => b.score - a.score);
+
+    if (candidates.length < 2) continue;
+
+    const topCandidates = candidates.slice(0, MAX_SPLIT_CANDIDATES);
+    const combinedContent = topCandidates.map(c => c.node.content!).join(' ');
+    const coverageScore = scoreCandidate(oldNode.content, combinedContent, 1.0);
+
+    if (coverageScore < SPLIT_COVERAGE_THRESHOLD) continue;
+
+    // Confirm split
+    matchedOldIds.add(oldNode.nodeId);
+
+    const relations: ChangeRelation[] = [];
+
+    // From side: the old node
+    relations.push({
+      side:      'from',
+      entityId:  oldNode.entityId,
+      nodeRefId: oldNode.id,
+      nodeId:    oldNode.nodeId,
+      weight:    1.0,
+      sortOrder: 0,
+    });
+
+    // To side: each new candidate
+    for (let i = 0; i < topCandidates.length; i++) {
+      const candidate = topCandidates[i]!;
+      matchedNewIds.add(candidate.node.nodeId);
+
+      const newEntityId = randomUUID();
+      entityAssignments.set(candidate.node.nodeId, {
+        entityId:        newEntityId,
+        isNew:           true,
+        originVersionId: newVersionId,
+        originNodeId:    candidate.node.nodeId,
+      });
+
+      relations.push({
+        side:      'to',
+        entityId:  newEntityId,
+        nodeRefId: candidate.node.id,
+        nodeId:    candidate.node.nodeId,
+        weight:    candidate.score,
+        sortOrder: i + 1,
+      });
+    }
+
+    changes.push({
+      entityId:         oldNode.entityId,
+      fromNodeRefId:    oldNode.id,
+      toNodeRefId:      null,
+      type:             'split',
+      confidenceScore:  coverageScore,
+      reviewStateCache: 'pending',
+      details:          {
+        oldNodeId:       oldNode.nodeId,
+        oldPath:         oldNode.path,
+        similarityScore: coverageScore,
+      },
+      relations,
+    });
+  }
+
+  // --- Merge Detection ---
+  // Multiple old nodes merged into one new node
+  for (const newNode of newNodes) {
+    if (matchedNewIds.has(newNode.nodeId)) continue;
+    if (!newNode.content) continue;
+
+    const candidates = oldNodes
+      .filter(n => !matchedOldIds.has(n.nodeId))
+      .filter(n => n.content != null)
+      .filter(n => n.nodeKind === newNode.nodeKind)
+      .map(n => ({
+        node:  n,
+        score: scoreCandidate(n.content!, newNode.content!, structureBonus(n, newNode)),
+      }))
+      .filter(c => c.score >= MERGE_CANDIDATE_THRESHOLD)
+      .sort((a, b) => b.score - a.score);
+
+    if (candidates.length < 2) continue;
+
+    const combinedContent = candidates.map(c => c.node.content!).join(' ');
+    const coverageScore = scoreCandidate(combinedContent, newNode.content, 1.0);
+
+    if (coverageScore < MERGE_COVERAGE_THRESHOLD) continue;
+
+    // Confirm merge
+    matchedNewIds.add(newNode.nodeId);
+
+    const newEntityId = randomUUID();
+    entityAssignments.set(newNode.nodeId, {
+      entityId:        newEntityId,
+      isNew:           true,
+      originVersionId: newVersionId,
+      originNodeId:    newNode.nodeId,
+    });
+
+    const relations: ChangeRelation[] = [];
+
+    // From side: each old candidate
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i]!;
+      matchedOldIds.add(candidate.node.nodeId);
+
+      relations.push({
+        side:      'from',
+        entityId:  candidate.node.entityId,
+        nodeRefId: candidate.node.id,
+        nodeId:    candidate.node.nodeId,
+        weight:    candidate.score,
+        sortOrder: i,
+      });
+    }
+
+    // To side: the new node
+    relations.push({
+      side:      'to',
+      entityId:  newEntityId,
+      nodeRefId: newNode.id,
+      nodeId:    newNode.nodeId,
+      weight:    1.0,
+      sortOrder: candidates.length,
+    });
+
+    changes.push({
+      entityId:         newEntityId,
+      fromNodeRefId:    null,
+      toNodeRefId:      newNode.id,
+      type:             'merged',
+      confidenceScore:  coverageScore,
+      reviewStateCache: 'pending',
+      details:          {
+        newNodeId:       newNode.nodeId,
+        newPath:         newNode.path,
+        similarityScore: coverageScore,
+      },
+      relations,
+    });
   }
 
   // --- Residual: unmatched old nodes -> removed ---

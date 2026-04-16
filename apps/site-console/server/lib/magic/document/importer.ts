@@ -574,20 +574,56 @@ async function writeChangeRecords(input: {
 }) {
   if (input.changes.length === 0) return;
 
-  const values = input.changes.map(change => ({
-    documentId:       input.documentId,
-    fromVersionId:    input.fromVersionId,
-    toVersionId:      input.toVersionId,
-    entityId:         change.entityId,
-    fromNodeRefId:    change.fromNodeRefId,
-    toNodeRefId:      change.toNodeRefId,
-    type:             change.type,
-    confidenceScore:  change.confidenceScore,
-    reviewStateCache: 'unreviewed' as const,
-    details:          change.details,
-  }));
+  const simpleChanges = input.changes.filter(c => !c.relations?.length);
+  const complexChanges = input.changes.filter(c => c.relations?.length);
 
-  await db.insert(DocumentNodeChange).values(values);
+  // Batch insert simple changes (no relations)
+  if (simpleChanges.length > 0) {
+    const values = simpleChanges.map(change => ({
+      documentId:       input.documentId,
+      fromVersionId:    input.fromVersionId,
+      toVersionId:      input.toVersionId,
+      entityId:         change.entityId,
+      fromNodeRefId:    change.fromNodeRefId,
+      toNodeRefId:      change.toNodeRefId,
+      type:             change.type,
+      confidenceScore:  change.confidenceScore,
+      reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
+      details:          change.details,
+    }));
+
+    await db.insert(DocumentNodeChange).values(values);
+  }
+
+  // Insert complex changes one by one to get changeId for relations
+  for (const change of complexChanges) {
+    const [inserted] = await db.insert(DocumentNodeChange).values({
+      documentId:       input.documentId,
+      fromVersionId:    input.fromVersionId,
+      toVersionId:      input.toVersionId,
+      entityId:         change.entityId,
+      fromNodeRefId:    change.fromNodeRefId,
+      toNodeRefId:      change.toNodeRefId,
+      type:             change.type,
+      confidenceScore:  change.confidenceScore,
+      reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
+      details:          change.details,
+    }).returning({ id: DocumentNodeChange.id });
+
+    if (inserted && change.relations!.length > 0) {
+      await db.insert(DocumentNodeChangeRelation).values(
+        change.relations!.map(rel => ({
+          changeId:  inserted.id,
+          side:      rel.side,
+          entityId:  rel.entityId,
+          nodeRefId: rel.nodeRefId,
+          nodeId:    rel.nodeId,
+          weight:    rel.weight,
+          sortOrder: rel.sortOrder,
+        })),
+      );
+    }
+  }
 }
 
 export async function importDocumentVersion(input: {
