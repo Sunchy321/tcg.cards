@@ -856,6 +856,30 @@ const compareVersions = os
     return compareVersionsFn(input);
   });
 
+const nodeContent = os
+  .route({
+    method:      'GET',
+    description: 'Get content for specific node IDs',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    nodeIds: z.string().array().min(1).max(100),
+  }))
+  .output(z.record(z.string(), z.string().nullable()))
+  .handler(async ({ input }) => {
+    const contentMap = await getLocalizedContent({
+      nodeIds:      input.nodeIds,
+      locale:       'en',
+      sourceLocale: 'en',
+    });
+
+    const result: Record<string, string | null> = {};
+    for (const nodeId of input.nodeIds) {
+      result[nodeId] = contentMap.get(nodeId)?.content ?? null;
+    }
+    return result;
+  });
+
 export const ruleTrpc = {
   list,
   get,
@@ -872,4 +896,5 @@ export const ruleTrpc = {
   reviewBatch,
   nodeHistory,
   compareVersions,
+  nodeContent,
 };

@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import {
@@ -93,12 +93,13 @@ export async function compareVersions(input: {
       reviewedAt:       DocumentNodeChange.reviewedAt,
     })
     .from(DocumentNodeChange)
+    .leftJoin(DocumentNode, eq(DocumentNode.id, DocumentNodeChange.toNodeRefId))
     .where(and(
       eq(DocumentNodeChange.documentId, input.documentId),
       eq(DocumentNodeChange.fromVersionId, input.fromVersionId),
       eq(DocumentNodeChange.toVersionId, input.toVersionId),
     ))
-    .orderBy(DocumentNodeChange.confidenceScore);
+    .orderBy(sql`coalesce(${DocumentNode.path}, '') asc`);
 
   // Get review revision
   const pairRevision = await db
@@ -157,17 +158,23 @@ export async function compareVersions(input: {
   const newParsedNodes = await loadVersionNodesAsParsed(input.toVersionId);
   const result = matchEntities(oldNodes, newParsedNodes, input.toVersionId);
 
-  const changes = result.changes.map(c => ({
-    id:               null as string | null,
-    entityId:         c.entityId,
-    fromNodeRefId:    c.fromNodeRefId,
-    toNodeRefId:      c.toNodeRefId,
-    type:             c.type,
-    confidenceScore:  c.confidenceScore,
-    reviewStateCache: c.reviewStateCache ?? ('unreviewed' as const),
-    details:          c.details,
-    reviewedAt:       null as Date | null,
-  }));
+  const changes = result.changes
+    .map(c => ({
+      id:               null as string | null,
+      entityId:         c.entityId,
+      fromNodeRefId:    c.fromNodeRefId,
+      toNodeRefId:      c.toNodeRefId,
+      type:             c.type,
+      confidenceScore:  c.confidenceScore,
+      reviewStateCache: c.reviewStateCache ?? ('unreviewed' as const),
+      details:          c.details,
+      reviewedAt:       null as Date | null,
+    }))
+    .sort((a, b) => {
+      const pathA = a.details?.newPath ?? a.details?.oldPath ?? '';
+      const pathB = b.details?.newPath ?? b.details?.oldPath ?? '';
+      return pathA.localeCompare(pathB);
+    });
 
   return {
     diffMode:       'snapshot' as const,

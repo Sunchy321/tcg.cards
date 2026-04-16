@@ -10,6 +10,13 @@
       </div>
       <div class="flex items-center gap-2">
         <UButton
+          icon="i-lucide-git-compare"
+          variant="outline"
+          @click="navigateTo('/magic/rule/changes')"
+        >
+          版本变更
+        </UButton>
+        <UButton
           icon="i-lucide-download-cloud"
           color="primary"
           :loading="syncing"
