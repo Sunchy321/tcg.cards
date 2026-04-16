@@ -13,11 +13,22 @@ import {
 } from '#schema/magic/document';
 
 import {
+  changeReviewOverridePayload,
+  nodeChangeReviewStateCache,
+} from '#model/magic/schema/document';
+
+import {
   deleteDocumentVersion,
   importDocumentVersion,
   listDocumentVersions,
   rematchDocument,
 } from '~~/server/lib/magic/document/importer';
+import {
+  batchReview,
+  getChangeDetail,
+  listChanges,
+  submitReview,
+} from '~~/server/lib/magic/document/reviewer';
 import type { HonoEnv } from '../hono-env';
 
 interface RuleLinks {
@@ -740,6 +751,68 @@ const rematch = os
     await rematchDocument(input.documentId);
   });
 
+const changes = os
+  .route({
+    method:      'GET',
+    description: 'List changes between two versions with optional review status filter',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    documentId:    z.string(),
+    fromVersionId: z.string(),
+    toVersionId:   z.string(),
+    status:        nodeChangeReviewStateCache.array().optional(),
+    page:          z.number().int().positive().optional(),
+    pageSize:      z.number().int().positive().max(200).optional(),
+  }))
+  .handler(async ({ input }) => {
+    return listChanges(input);
+  });
+
+const change = os
+  .route({
+    method:      'GET',
+    description: 'Get a single change with its relations and review history',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    changeId: z.string().uuid(),
+  }))
+  .handler(async ({ input }) => {
+    return getChangeDetail(input.changeId);
+  });
+
+const review = os
+  .route({
+    method:      'POST',
+    description: 'Submit a review for a change (confirm, reject, or override)',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    changeId:        z.string().uuid(),
+    status:          z.enum(['confirmed', 'rejected', 'override']),
+    reason:          z.string().optional(),
+    overridePayload: changeReviewOverridePayload.optional(),
+  }))
+  .handler(async ({ input }) => {
+    return submitReview(input);
+  });
+
+const reviewBatch = os
+  .route({
+    method:      'POST',
+    description: 'Batch review multiple changes with the same status',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    changeIds: z.string().uuid().array().min(1).max(100),
+    status:    z.enum(['confirmed', 'rejected']),
+    reason:    z.string().optional(),
+  }))
+  .handler(async ({ input }) => {
+    return batchReview(input);
+  });
+
 export const ruleTrpc = {
   list,
   get,
@@ -750,4 +823,8 @@ export const ruleTrpc = {
   syncLatest,
   delete: deleteVersion,
   rematch,
+  changes,
+  change,
+  review,
+  reviewBatch,
 };
