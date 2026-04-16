@@ -18,10 +18,10 @@ import type {
 
 function reviewStatusToCache(status: ChangeReviewStatus): NodeChangeReviewStateCache {
   switch (status) {
-    case 'confirmed': return 'confirmed';
-    case 'rejected':  return 'rejected';
-    case 'override':  return 'overridden';
-    case 'pending':   return 'pending';
+  case 'confirmed': return 'confirmed';
+  case 'rejected': return 'rejected';
+  case 'override': return 'overridden';
+  case 'pending': return 'pending';
   }
 }
 
@@ -48,7 +48,7 @@ export async function submitReview(input: {
   reviewerId?:      string;
   overridePayload?: ChangeReviewOverridePayload;
 }) {
-  return db.transaction(async (tx) => {
+  return db.transaction(async tx => {
     // Load the change record
     const change = await tx
       .select({

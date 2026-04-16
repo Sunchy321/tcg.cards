@@ -1,13 +1,11 @@
 import { os } from '../index';
 
-import { gunzipSync } from 'node:zlib';
 import { z } from 'zod';
 import { db } from '#db/db';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import {
   DocumentNode,
-  DocumentNodeContent,
   DocumentVersion,
   DocumentVersionImport,
 } from '#schema/magic/document';
@@ -16,6 +14,7 @@ import {
   changeReviewOverridePayload,
   nodeChangeReviewStateCache,
 } from '#model/magic/schema/document';
+import { locale } from '#model/magic/schema/basic';
 
 import {
   deleteDocumentVersion,
@@ -23,6 +22,8 @@ import {
   listDocumentVersions,
   rematchDocument,
 } from '~~/server/lib/magic/document/importer';
+import { getLocalizedContent } from '~~/server/lib/magic/document/content';
+import { getDocumentConfig } from '~~/server/lib/magic/document/config';
 import {
   batchReview,
   getChangeDetail,
@@ -278,6 +279,7 @@ const getNodes = os
   })
   .input(z.object({
     sourceId: z.string(),
+    locale:   locale.optional(),
   }))
   .output(z.array(z.object({
     id:           z.string(),
@@ -291,9 +293,15 @@ const getNodes = os
     contentHash:  z.string(),
     entityId:     z.string(),
     content:      z.string().nullable(),
+    isStale:      z.boolean(),
   })))
   .handler(async ({ input }) => {
     const versionId = toDocumentVersionId(input.sourceId);
+    const documentId = versionId.split(':')[0]!;
+    const config = getDocumentConfig(documentId);
+    const sourceLocale = config?.sourceLocale ?? 'en';
+    const requestedLocale = input.locale ?? sourceLocale;
+
     const nodes = await db
       .select({
         id:                 DocumentNode.id,
@@ -311,22 +319,12 @@ const getNodes = os
       .orderBy(DocumentNode.path);
 
     const nodeIds = nodes.map(node => node.id);
-    const contents = nodeIds.length === 0
-      ? []
-      : await db
-        .select({
-          documentNodeId: DocumentNodeContent.documentNodeId,
-          content:        DocumentNodeContent.content,
-        })
-        .from(DocumentNodeContent)
-        .where(and(
-          eq(DocumentNodeContent.locale, 'en'),
-          inArray(DocumentNodeContent.documentNodeId, nodeIds),
-        ));
+    const contentResults = await getLocalizedContent({
+      nodeIds,
+      locale: requestedLocale,
+      sourceLocale,
+    });
 
-    const contentMap = new Map(
-      contents.map(item => [item.documentNodeId, gunzipSync(Buffer.from(item.content)).toString('utf8')]),
-    );
     const titleMap = new Map<string, string>();
 
     for (const node of nodes) {
@@ -334,27 +332,31 @@ const getNodes = os
         continue;
       }
 
-      const title = contentMap.get(node.id);
-      if (title) {
-        titleMap.set(node.parentId, title);
+      const result = contentResults.get(node.id);
+      if (result) {
+        titleMap.set(node.parentId, result.content);
       }
     }
 
     return nodes
       .filter(node => !node.nodeId.endsWith('.title'))
-      .map(node => ({
-        id:           node.id,
-        sourceId:     input.sourceId,
-        ruleId:       node.nodeId,
-        path:         node.path,
-        level:        node.level,
-        parentId:     node.parentId,
-        siblingOrder: node.siblingOrder,
-        title:        titleMap.get(node.id) ?? null,
-        contentHash:  node.sourceContentHash ?? '',
-        entityId:     node.entityId,
-        content:      contentMap.get(node.id) ?? null,
-      }));
+      .map(node => {
+        const result = contentResults.get(node.id);
+        return {
+          id:           node.id,
+          sourceId:     input.sourceId,
+          ruleId:       node.nodeId,
+          path:         node.path,
+          level:        node.level,
+          parentId:     node.parentId,
+          siblingOrder: node.siblingOrder,
+          title:        titleMap.get(node.id) ?? null,
+          contentHash:  node.sourceContentHash ?? '',
+          entityId:     node.entityId,
+          content:      result?.content ?? null,
+          isStale:      result?.isStale ?? false,
+        };
+      });
   });
 
 const deleteVersion = os
