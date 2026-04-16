@@ -17,6 +17,7 @@ import {
   DocumentNodeContent,
   DocumentNodeEntity,
   DocumentVersion,
+  DocumentVersionImport,
 } from '#schema/magic/document';
 
 function getNodeSerial(nodeId: string): string | null {
@@ -95,19 +96,23 @@ async function getReaderPage(input: ReaderInput) {
     effectiveDate: DocumentVersion.effectiveDate,
     publishedAt:   DocumentVersion.publishedAt,
     lifecycle:     DocumentVersion.lifecycleStatus,
+    importStatus:  DocumentVersionImport.importStatus,
   })
     .from(DocumentVersion)
+    .leftJoin(DocumentVersionImport, eq(DocumentVersionImport.versionId, DocumentVersion.id))
     .where(eq(DocumentVersion.documentId, document.id))
     .orderBy(desc(DocumentVersion.versionTag));
 
-  if (versions.length === 0) {
+  const completedVersions = versions.filter(version => version.importStatus === 'completed');
+
+  if (completedVersions.length === 0) {
     throw new ORPCError('NOT_FOUND');
   }
 
-  const latest = versions.find(version => version.lifecycle === 'active') ?? versions[0]!;
+  const latest = completedVersions.find(version => version.lifecycle === 'active') ?? completedVersions[0]!;
   const current = versionTag == null
     ? latest
-    : versions.find(version => version.versionTag === versionTag);
+    : completedVersions.find(version => version.versionTag === versionTag);
 
   if (!current) {
     throw new ORPCError('NOT_FOUND');

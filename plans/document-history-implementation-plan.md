@@ -7,7 +7,7 @@
 - [x] 实现文档解析器：支持 TXT 结构化解析、`nodeId` / `path` 生成与特殊节点处理
 - [x] 实现内容摘要能力：完成规范化、`contentHash` 与 `fingerprintHash` 生成
 - [x] 打通版本导入主链路：支持 `DocumentVersion`、`DocumentNode`、`DocumentNodeContent` 写入
-- [ ] 实现导入幂等与失败恢复：支持重跑、清理派生数据与按阶段提交事务
+- [x] 实现导入幂等与失败恢复：支持重跑、清理派生数据与按阶段提交事务
 - [ ] 实现实体匹配：完成 same `nodeId`、exact content、fingerprint、similarity 四阶段匹配
 - [ ] 实现基础变更检测：支持 `added`、`removed`、`modified`、`renamed`、`moved`
 - [ ] 实现复杂变更检测：补充 `split` / `merged` 候选识别与关系写入
