@@ -35,7 +35,7 @@
                   @change="handleUploadFileSelect"
                 />
                 <p class="mt-1 text-xs text-gray-500">
-                  版本日期将自动从文件内容中提取
+                  文件名须包含 YYYYMMDD 格式的版本日期
                 </p>
               </div>
 
@@ -51,7 +51,7 @@
               <UButton variant="ghost" @click="close">取消</UButton>
               <UButton
                 :loading="uploading"
-                :disabled="!uploadFileContent"
+                :disabled="!uploadFileContent || !extractVersionDateFromName(uploadFileName)"
                 @click="startUpload"
               >
                 上传
@@ -180,8 +180,8 @@
             <UIcon name="i-lucide-layers" class="size-5 text-blue-500" />
           </div>
           <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">总规则条目</p>
-            <p class="text-2xl font-semibold">{{ totalRules }}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">当前版本条目</p>
+            <p class="text-2xl font-semibold">{{ activeRules }}</p>
           </div>
         </div>
       </UCard>
@@ -233,6 +233,32 @@
           >
             {{ getDataStatus(getValue() as RuleVersion['dataStatus']).label }}
           </UBadge>
+        </template>
+
+        <template #assetStatus-cell="{ row }">
+          <div class="flex items-center gap-1">
+            <UBadge
+              :color="row.original.assetStatus.txt ? 'success' : 'neutral'"
+              variant="subtle"
+              size="sm"
+            >
+              TXT
+            </UBadge>
+            <UBadge
+              :color="row.original.assetStatus.docx ? 'success' : 'neutral'"
+              variant="subtle"
+              size="sm"
+            >
+              DOCX
+            </UBadge>
+            <UBadge
+              :color="row.original.assetStatus.pdf ? 'success' : 'neutral'"
+              variant="subtle"
+              size="sm"
+            >
+              PDF
+            </UBadge>
+          </div>
         </template>
 
         <template #effectiveDate-cell="{ getValue }">
@@ -350,6 +376,7 @@ type RuleVersion = {
   importedAt:    Date | null;
   dataStatus:    'imported' | 'pending' | 'missing';
   r2Key:         string | null;
+  assetStatus:   { txt: boolean, docx: boolean, pdf: boolean };
 };
 
 const statusMap: Record<string, { label: string, color: 'primary' | 'warning' | 'neutral' }> = {
@@ -378,6 +405,7 @@ const tableColumns = [
   { accessorKey: 'totalRules', header: '节点数量' },
   { accessorKey: 'status', header: '文档状态' },
   { accessorKey: 'dataStatus', header: '数据状态' },
+  { accessorKey: 'assetStatus', header: '存储文件' },
   { accessorKey: 'importedAt', header: '导入时间' },
   { accessorKey: 'actions', header: '操作' },
 ];
@@ -389,8 +417,9 @@ const { data: versions, pending, refresh } = await useAsyncData('rule-versions',
 );
 
 const activeVersions = computed(() => versions.value.filter(v => v.status === 'active'));
-const totalRules = computed(() => {
-  return versions.value.reduce((sum, v) => sum + (v.totalRules ?? 0), 0);
+const activeRules = computed(() => {
+  const active = versions.value.find(v => v.status === 'active');
+  return active?.totalRules ?? 0;
 });
 
 // Sync latest state
@@ -404,12 +433,14 @@ const syncResult = ref<{
 
 // Upload modal state
 const uploadFileContent = ref('');
+const uploadFileName = ref('');
 const uploading = ref(false);
 
 function handleUploadFileSelect(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
+  uploadFileName.value = file.name;
   const reader = new FileReader();
   reader.onload = e => {
     uploadFileContent.value = e.target?.result as string;
@@ -417,12 +448,23 @@ function handleUploadFileSelect(event: Event) {
   reader.readAsText(file);
 }
 
+function extractVersionDateFromName(filename: string): string | null {
+  const compact = filename.match(/(\d{8})/);
+  if (compact) return compact[1] ?? null;
+  const dashed = filename.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (dashed) return `${dashed[1]}${dashed[2]}${dashed[3]}`;
+  return null;
+}
+
 async function startUpload() {
   if (!uploadFileContent.value) return;
+  const versionDate = extractVersionDateFromName(uploadFileName.value);
+  if (!versionDate) return;
   uploading.value = true;
   try {
-    await $orpc.magic.rule.uploadToR2({ content: uploadFileContent.value, fileType: 'txt' });
+    await $orpc.magic.rule.uploadToR2({ content: uploadFileContent.value, fileType: 'txt', versionDate });
     uploadFileContent.value = '';
+    uploadFileName.value = '';
     await refresh();
   } catch (error) {
     console.error('Failed to upload rule file:', error);
@@ -466,8 +508,7 @@ async function handleBatchFileSelect(event: Event) {
     if (!['txt', 'pdf', 'docx'].includes(ext ?? '')) continue;
 
     const fileType = ext as 'txt' | 'pdf' | 'docx';
-    const versionMatch = file.name.match(/(\d{8})/);
-    const versionDate = versionMatch?.[1] ?? '';
+    const versionDate = extractVersionDateFromName(file.name) ?? '';
 
     try {
       const content = await readFileAsString(file);
@@ -505,17 +546,7 @@ async function startBatchUpload() {
 
     file.status = 'uploading';
     try {
-      let versionDate = file.versionDate;
-
-      if (file.type === 'txt' && !versionDate) {
-        const match = file.content.match(/effective as of [A-Za-z]+ \d{1,2}, \d{4}/i);
-        if (match) {
-          const date = new Date(match[0].replace('effective as of ', ''));
-          if (!isNaN(date.getTime())) {
-            versionDate = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-          }
-        }
-      }
+      const versionDate = file.versionDate;
 
       if (!versionDate) {
         file.status = 'error';

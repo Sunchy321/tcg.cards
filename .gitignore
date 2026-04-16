@@ -71,3 +71,6 @@ logs
 *.db-journal
 *.sqlite
 *.sqlite-journal
+
+# script outputs
+/output/

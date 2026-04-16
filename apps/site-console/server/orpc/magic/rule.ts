@@ -2,7 +2,7 @@ import { os } from '../index';
 
 import { z } from 'zod';
 import { db } from '#db/db';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import {
   DocumentNode,
@@ -63,25 +63,6 @@ function extractLinks(html: string): RuleLinks {
   return links;
 }
 
-/**
- * Extract version date from rule text content
- * Parses "These rules are effective as of February 27, 2026." format
- */
-function extractVersionDateFromContent(content: string): string | null {
-  const match = content.match(/effective as of ([A-Za-z]+ \d{1,2}, \d{4})/i);
-  if (!match) return null;
-
-  const dateStr = match[1]!;
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return null;
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}${month}${day}`;
-}
-
 function extractVersionDateFromFilename(url: string): string | null {
   try {
     const pathname = new URL(url).pathname;
@@ -137,6 +118,11 @@ const list = os
     importedAt:    z.date().nullable(),
     dataStatus:    z.enum(['imported', 'pending', 'missing']),
     r2Key:         z.string().nullable(),
+    assetStatus:   z.strictObject({
+      txt:  z.boolean(),
+      docx: z.boolean(),
+      pdf:  z.boolean(),
+    }),
   }).array())
   .handler(async ({ context }) => {
     const env = context.env as HonoEnv['Bindings'];
@@ -167,7 +153,44 @@ const list = os
       console.error('[List] Failed to list R2 files:', err);
     }
 
-    // 3. Merge results
+    // 3. Scan files in R2_ASSET bucket for txt/docx/pdf
+    const assetFiles = new Map<string, { txt: boolean, docx: boolean, pdf: boolean }>();
+    try {
+      const [txtList, docxList, pdfList] = await Promise.all([
+        env.R2_ASSET.list({ prefix: 'magic/rule/txt/' }),
+        env.R2_ASSET.list({ prefix: 'magic/rule/docx/' }),
+        env.R2_ASSET.list({ prefix: 'magic/rule/pdf/' }),
+      ]);
+
+      for (const obj of txtList.objects ?? []) {
+        const match = obj.key.match(/(\d{8})\.txt$/);
+        if (match) {
+          const entry = assetFiles.get(match[1]!) ?? { txt: false, docx: false, pdf: false };
+          entry.txt = true;
+          assetFiles.set(match[1]!, entry);
+        }
+      }
+      for (const obj of docxList.objects ?? []) {
+        const match = obj.key.match(/(\d{8})\.docx$/);
+        if (match) {
+          const entry = assetFiles.get(match[1]!) ?? { txt: false, docx: false, pdf: false };
+          entry.docx = true;
+          assetFiles.set(match[1]!, entry);
+        }
+      }
+      for (const obj of pdfList.objects ?? []) {
+        const match = obj.key.match(/(\d{8})\.pdf$/);
+        if (match) {
+          const entry = assetFiles.get(match[1]!) ?? { txt: false, docx: false, pdf: false };
+          entry.pdf = true;
+          assetFiles.set(match[1]!, entry);
+        }
+      }
+    } catch (err) {
+      console.error('[List] Failed to list R2 asset files:', err);
+    }
+
+    // 4. Merge results
     const dbVersionMap = new Map(dbVersions.map(v => [v.id, v]));
     const result: Array<{
       id:            string;
@@ -178,6 +201,7 @@ const list = os
       importedAt:    Date | null;
       dataStatus:    'imported' | 'pending' | 'missing';
       r2Key:         string | null;
+      assetStatus:   { txt: boolean, docx: boolean, pdf: boolean };
     }> = [];
 
     // Collect all version IDs from both DB and R2
@@ -186,6 +210,7 @@ const list = os
     for (const versionId of allVersionIds) {
       const dbVersion = dbVersionMap.get(versionId);
       const r2File = r2Files.find(f => f.versionId === versionId);
+      const assets = assetFiles.get(versionId) ?? { txt: false, docx: false, pdf: false };
 
       if (dbVersion) {
         result.push({
@@ -196,7 +221,8 @@ const list = os
           status:        dbVersion.lifecycleStatus,
           importedAt:    dbVersion.importedAt,
           dataStatus:    r2File ? 'imported' : 'missing',
-          r2Key:         r2File?.key || null,
+          r2Key:         r2File?.key ?? null,
+          assetStatus:   assets,
         });
       } else if (r2File) {
         result.push({
@@ -208,6 +234,7 @@ const list = os
           importedAt:    null,
           dataStatus:    'pending',
           r2Key:         r2File.key,
+          assetStatus:   assets,
         });
       }
     }
@@ -576,7 +603,7 @@ const uploadToR2 = os
   .input(z.object({
     content:     z.string(),
     fileType:    z.enum(['txt', 'pdf', 'docx']).default('txt'),
-    versionDate: z.string().regex(/^\d{8}$/, 'Version date must be YYYYMMDD format').optional(),
+    versionDate: z.string().regex(/^\d{8}$/, 'Version date must be YYYYMMDD format'),
   }))
   .output(z.strictObject({
     success:  z.boolean(),
@@ -585,20 +612,7 @@ const uploadToR2 = os
   }))
   .handler(async ({ input, context }) => {
     const env = context.env as HonoEnv['Bindings'];
-
-    let versionDate: string;
-    if (input.versionDate) {
-      versionDate = input.versionDate;
-    } else if (input.fileType === 'txt') {
-      const normalized = normalizeRuleText(input.content);
-      const extracted = extractVersionDateFromContent(normalized);
-      if (!extracted) {
-        throw new Error('Could not extract version date from TXT content');
-      }
-      versionDate = extracted;
-    } else {
-      throw new Error('versionDate is required for non-TXT files');
-    }
+    const versionDate = input.versionDate;
 
     const ext = input.fileType;
     const r2Key = ext === 'txt'
@@ -679,16 +693,10 @@ const uploadArchive = os
 
     for (const file of input.files) {
       try {
-        let versionDate = file.versionDate;
-
-        // For TXT files, try to extract version from content if not provided
-        if (file.fileType === 'txt' && !versionDate) {
-          const normalized = normalizeRuleText(file.content);
-          versionDate = extractVersionDateFromContent(normalized) || undefined;
-        }
+        const versionDate = file.versionDate;
 
         if (!versionDate) {
-          results.push({ name: file.name, status: 'error', error: 'Could not extract version date' });
+          results.push({ name: file.name, status: 'error', error: 'Could not extract version date from filename' });
           failed++;
           continue;
         }
