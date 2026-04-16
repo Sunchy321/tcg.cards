@@ -340,14 +340,21 @@ export async function findPreviousVersion(documentId: string, currentVersionTag:
 }
 
 export async function loadPreviousVersionNodes(versionId: string): Promise<OldNode[]> {
-  const rows = await db
+  return loadVersionNodesAsOld(versionId);
+}
+
+async function loadVersionNodesRaw(versionId: string) {
+  return db
     .select({
       id:                    DocumentNode.id,
+      documentId:            DocumentNode.documentId,
+      versionId:             DocumentNode.versionId,
       nodeId:                DocumentNode.nodeId,
       nodeKind:              DocumentNode.nodeKind,
       path:                  DocumentNode.path,
       level:                 DocumentNode.level,
       parentNodeId:          DocumentNode.parentNodeId,
+      siblingOrder:          DocumentNode.siblingOrder,
       sourceContentHash:     DocumentNode.sourceContentHash,
       sourceFingerprintHash: DocumentNode.sourceFingerprintHash,
       entityId:              DocumentNode.entityId,
@@ -359,6 +366,13 @@ export async function loadPreviousVersionNodes(versionId: string): Promise<OldNo
       eq(DocumentNodeContent.status, 'source'),
     ))
     .where(eq(DocumentNode.versionId, versionId));
+}
+
+async function loadVersionNodesAsOld(
+  versionId: string,
+  entityOverrides?: Map<string, string>,
+): Promise<OldNode[]> {
+  const rows = await loadVersionNodesRaw(versionId);
 
   return rows.map(row => ({
     id:                    row.id,
@@ -369,9 +383,33 @@ export async function loadPreviousVersionNodes(versionId: string): Promise<OldNo
     parentNodeId:          row.parentNodeId,
     sourceContentHash:     row.sourceContentHash,
     sourceFingerprintHash: row.sourceFingerprintHash,
-    entityId:              row.entityId,
+    entityId:              entityOverrides?.get(row.nodeId) ?? row.entityId,
     content:               row.contentBytes ? gunzipSync(Buffer.from(row.contentBytes)).toString('utf8') : null,
   }));
+}
+
+export async function loadVersionNodesAsParsed(versionId: string): Promise<ParsedDocumentNode[]> {
+  const rows = await loadVersionNodesRaw(versionId);
+
+  return rows.map(row => ({
+    id:           row.id,
+    documentId:   row.documentId,
+    versionId:    row.versionId,
+    nodeId:       row.nodeId,
+    nodeKind:     row.nodeKind as ParsedDocumentNode['nodeKind'],
+    path:         row.path,
+    level:        row.level,
+    parentNodeId: row.parentNodeId,
+    siblingOrder: row.siblingOrder,
+    content:      row.contentBytes ? gunzipSync(Buffer.from(row.contentBytes)).toString('utf8') : null,
+  }));
+}
+
+export async function loadVersionNodesForRematch(
+  versionId: string,
+  entityOverrides: Map<string, string>,
+): Promise<OldNode[]> {
+  return loadVersionNodesAsOld(versionId, entityOverrides);
 }
 
 // --- Pre-compute Hashes ---

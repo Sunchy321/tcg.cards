@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 
-import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import {
@@ -23,6 +23,8 @@ import {
   type EntityAssignment,
   findPreviousVersion,
   loadPreviousVersionNodes,
+  loadVersionNodesAsParsed,
+  loadVersionNodesForRematch,
   matchEntities,
 } from './matcher';
 import { parseMagicCrDocument, type ParsedDocumentNode } from './parser';
@@ -708,6 +710,280 @@ export async function importDocumentVersion(input: {
   }
 
   return toImportResult(preview, importedAt);
+}
+
+// --- Rematch (re-generate entity assignments and change records) ---
+
+export async function rematchDocument(documentId: string) {
+  // Load all completed versions in chronological order
+  const versions = await db
+    .select({
+      id:         DocumentVersion.id,
+      versionTag: DocumentVersion.versionTag,
+    })
+    .from(DocumentVersion)
+    .innerJoin(DocumentVersionImport, eq(DocumentVersionImport.versionId, DocumentVersion.id))
+    .where(and(
+      eq(DocumentVersion.documentId, documentId),
+      eq(DocumentVersionImport.importStatus, 'completed'),
+    ))
+    .orderBy(asc(DocumentVersion.versionTag));
+
+  if (versions.length === 0) {
+    throw new Error(`No completed versions found for document: ${documentId}`);
+  }
+
+  // Check no imports are in progress
+  const processing = await db
+    .select({ id: DocumentVersionImport.versionId })
+    .from(DocumentVersionImport)
+    .innerJoin(DocumentVersion, eq(DocumentVersion.id, DocumentVersionImport.versionId))
+    .where(and(
+      eq(DocumentVersion.documentId, documentId),
+      eq(DocumentVersionImport.importStatus, 'processing'),
+    ))
+    .limit(1);
+
+  if (processing.length > 0) {
+    throw new Error('Cannot rematch while an import is in progress for this document');
+  }
+
+  // Phase 1: sequential matching (pure computation, in memory)
+  // entityMap: nodeId -> entityId for each version
+  const versionEntityMaps: Map<string, Map<string, string>> = new Map();
+  const allAssignments: Map<string, Map<string, EntityAssignment>> = new Map();
+  const allChanges: Array<{
+    fromVersionId: string;
+    toVersionId:   string;
+    changes:       ChangeRecord[];
+  }> = [];
+
+  for (let i = 0; i < versions.length; i++) {
+    const version = versions[i]!;
+
+    if (i === 0) {
+      // First version: all nodes get new entities, no changes
+      const nodes = await loadVersionNodesAsParsed(version.id);
+      const entityMap = new Map<string, string>();
+      const assignments = new Map<string, EntityAssignment>();
+
+      for (const node of nodes) {
+        const entityId = randomUUID();
+        entityMap.set(node.nodeId, entityId);
+        assignments.set(node.nodeId, {
+          entityId,
+          isNew:           true,
+          originVersionId: version.id,
+          originNodeId:    node.nodeId,
+        });
+      }
+
+      versionEntityMaps.set(version.id, entityMap);
+      allAssignments.set(version.id, assignments);
+      continue;
+    }
+
+    // Subsequent versions: match against previous version
+    const prevVersion = versions[i - 1]!;
+    const prevEntityMap = versionEntityMaps.get(prevVersion.id)!;
+
+    const oldNodes = await loadVersionNodesForRematch(prevVersion.id, prevEntityMap);
+    const newParsedNodes = await loadVersionNodesAsParsed(version.id);
+    const result = matchEntities(oldNodes, newParsedNodes, version.id);
+
+    // Build entityMap for this version
+    const entityMap = new Map<string, string>();
+
+    for (const [nodeId, assignment] of result.entityAssignments) {
+      entityMap.set(nodeId, assignment.entityId);
+    }
+
+    // Nodes that weren't matched in any direction still exist — they should keep
+    // an entity from assignments (matchEntities covers all nodes via added/removed)
+
+    versionEntityMaps.set(version.id, entityMap);
+    allAssignments.set(version.id, result.entityAssignments);
+
+    allChanges.push({
+      fromVersionId: prevVersion.id,
+      toVersionId:   version.id,
+      changes:       result.changes,
+    });
+  }
+
+  // Phase 2: transactional write
+  await db.transaction(async tx => {
+    // Step 1: Clear all derived data for this document
+    const allChangeRows = await tx
+      .select({ id: DocumentNodeChange.id })
+      .from(DocumentNodeChange)
+      .where(eq(DocumentNodeChange.documentId, documentId));
+
+    const changeIds = allChangeRows.map(c => c.id);
+
+    if (changeIds.length > 0) {
+      await tx.delete(DocumentChangeReview)
+        .where(inArray(DocumentChangeReview.changeId, changeIds));
+      await tx.delete(DocumentNodeChangeRelation)
+        .where(inArray(DocumentNodeChangeRelation.changeId, changeIds));
+      await tx.delete(DocumentNodeChange)
+        .where(inArray(DocumentNodeChange.id, changeIds));
+    }
+
+    await tx.delete(DocumentVersionPairRevision)
+      .where(eq(DocumentVersionPairRevision.documentId, documentId));
+
+    // Step 2: Clear entity current pointers
+    await tx.update(DocumentNodeEntity)
+      .set({
+        currentNodeRefId: null,
+        currentNodeId:    null,
+        currentVersionId: null,
+      })
+      .where(eq(DocumentNodeEntity.documentId, documentId));
+
+    // Step 3: Collect all new entity IDs we need to insert
+    const newEntityValues: Array<{
+      id:               string;
+      documentId:       string;
+      originVersionId:  string;
+      originNodeId:     string;
+      currentNodeRefId: null;
+      currentNodeId:    null;
+      currentVersionId: null;
+      totalRevisions:   number;
+    }> = [];
+
+    const allNewEntityIds = new Set<string>();
+
+    for (const [versionId, assignments] of allAssignments) {
+      for (const [, assignment] of assignments) {
+        if (assignment.isNew && !allNewEntityIds.has(assignment.entityId)) {
+          allNewEntityIds.add(assignment.entityId);
+          newEntityValues.push({
+            id:               assignment.entityId,
+            documentId,
+            originVersionId:  assignment.originVersionId ?? versionId,
+            originNodeId:     assignment.originNodeId ?? '',
+            currentNodeRefId: null,
+            currentNodeId:    null,
+            currentVersionId: null,
+            totalRevisions:   1,
+          });
+        }
+      }
+    }
+
+    // Step 4: Delete old entities that won't be reused, insert new ones
+    // First, collect all entity IDs that are still referenced
+    const referencedEntityIds = new Set<string>();
+
+    for (const [, assignments] of allAssignments) {
+      for (const [, assignment] of assignments) {
+        referencedEntityIds.add(assignment.entityId);
+      }
+    }
+
+    // Delete unreferenced entities
+    const existingEntities = await tx
+      .select({ id: DocumentNodeEntity.id })
+      .from(DocumentNodeEntity)
+      .where(eq(DocumentNodeEntity.documentId, documentId));
+
+    const orphanIds = existingEntities
+      .map(e => e.id)
+      .filter(id => !referencedEntityIds.has(id));
+
+    if (orphanIds.length > 0) {
+      // Clear node references to orphan entities first
+      await tx.update(DocumentNode)
+        .set({ entityId: '' })
+        .where(and(
+          eq(DocumentNode.documentId, documentId),
+          inArray(DocumentNode.entityId, orphanIds),
+        ));
+
+      await tx.delete(DocumentNodeEntity)
+        .where(inArray(DocumentNodeEntity.id, orphanIds));
+    }
+
+    // Insert new entities
+    if (newEntityValues.length > 0) {
+      const batchSize = 500;
+      for (let i = 0; i < newEntityValues.length; i += batchSize) {
+        await tx.insert(DocumentNodeEntity)
+          .values(newEntityValues.slice(i, i + batchSize))
+          .onConflictDoNothing();
+      }
+    }
+
+    // Step 5: Update DocumentNode.entityId for all versions
+    for (const [versionId, entityMap] of versionEntityMaps) {
+      for (const [nodeId, entityId] of entityMap) {
+        await tx.update(DocumentNode)
+          .set({ entityId })
+          .where(and(
+            eq(DocumentNode.versionId, versionId),
+            eq(DocumentNode.nodeId, nodeId),
+          ));
+      }
+    }
+
+    // Step 6: Update entity current pointers (last version's nodes win)
+    const lastVersion = versions[versions.length - 1]!;
+    const lastEntityMap = versionEntityMaps.get(lastVersion.id)!;
+    const lastNodes = await tx
+      .select({
+        id:     DocumentNode.id,
+        nodeId: DocumentNode.nodeId,
+      })
+      .from(DocumentNode)
+      .where(eq(DocumentNode.versionId, lastVersion.id));
+
+    for (const node of lastNodes) {
+      const entityId = lastEntityMap.get(node.nodeId);
+      if (entityId) {
+        await tx.update(DocumentNodeEntity)
+          .set({
+            currentNodeRefId: node.id,
+            currentNodeId:    node.nodeId,
+            currentVersionId: lastVersion.id,
+          })
+          .where(eq(DocumentNodeEntity.id, entityId));
+      }
+    }
+
+    // Step 7: Recalculate totalRevisions for reused entities
+    // An entity appears in multiple versions if it was matched (not isNew) in later versions
+    const entityRevisionCounts = new Map<string, number>();
+
+    for (const [, assignments] of allAssignments) {
+      for (const [, assignment] of assignments) {
+        entityRevisionCounts.set(
+          assignment.entityId,
+          (entityRevisionCounts.get(assignment.entityId) ?? 0) + 1,
+        );
+      }
+    }
+
+    for (const [entityId, count] of entityRevisionCounts) {
+      await tx.update(DocumentNodeEntity)
+        .set({ totalRevisions: count })
+        .where(eq(DocumentNodeEntity.id, entityId));
+    }
+  });
+
+  // Phase 3: Write change records (outside the big transaction to avoid long locks)
+  for (const batch of allChanges) {
+    if (batch.changes.length > 0) {
+      await writeChangeRecords({
+        changes:       batch.changes,
+        documentId,
+        fromVersionId: batch.fromVersionId,
+        toVersionId:   batch.toVersionId,
+      });
+    }
+  }
 }
 
 export async function deleteDocumentVersion(versionId: string) {

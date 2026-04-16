@@ -16,6 +16,7 @@ import {
   deleteDocumentVersion,
   importDocumentVersion,
   listDocumentVersions,
+  rematchDocument,
 } from '~~/server/lib/magic/document/importer';
 import type { HonoEnv } from '../hono-env';
 
@@ -725,6 +726,20 @@ const uploadArchive = os
     };
   });
 
+const rematch = os
+  .route({
+    method:      'POST',
+    description: 'Re-run entity matching and change detection for all versions of a document',
+    tags:        ['Magic', 'Rule'],
+  })
+  .input(z.object({
+    documentId: z.string(),
+  }))
+  .output(z.void())
+  .handler(async ({ input }) => {
+    await rematchDocument(input.documentId);
+  });
+
 export const ruleTrpc = {
   list,
   get,
@@ -734,4 +749,5 @@ export const ruleTrpc = {
   uploadArchive,
   syncLatest,
   delete: deleteVersion,
+  rematch,
 };
