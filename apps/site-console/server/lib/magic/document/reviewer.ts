@@ -52,10 +52,11 @@ export async function submitReview(input: {
     // Load the change record
     const change = await tx
       .select({
-        id:            DocumentNodeChange.id,
-        documentId:    DocumentNodeChange.documentId,
-        fromVersionId: DocumentNodeChange.fromVersionId,
-        toVersionId:   DocumentNodeChange.toVersionId,
+        id:               DocumentNodeChange.id,
+        documentId:       DocumentNodeChange.documentId,
+        fromVersionId:    DocumentNodeChange.fromVersionId,
+        toVersionId:      DocumentNodeChange.toVersionId,
+        reviewStateCache: DocumentNodeChange.reviewStateCache,
       })
       .from(DocumentNodeChange)
       .where(eq(DocumentNodeChange.id, input.changeId))
@@ -112,21 +113,24 @@ export async function submitReview(input: {
       })
       .where(eq(DocumentNodeChange.id, input.changeId));
 
-    // Upsert version pair revision
+    // Upsert version pair revision (only increment when conclusion changes)
+    const conclusionChanged = cacheValue !== change.reviewStateCache;
     const pairId = `${change.fromVersionId}->${change.toVersionId}`;
 
-    await tx.insert(DocumentVersionPairRevision)
-      .values({
-        id:             pairId,
-        documentId:     change.documentId,
-        fromVersionId:  change.fromVersionId,
-        toVersionId:    change.toVersionId,
-        reviewRevision: 1,
-      })
-      .onConflictDoUpdate({
-        target: DocumentVersionPairRevision.id,
-        set:    { reviewRevision: sql`${DocumentVersionPairRevision.reviewRevision} + 1` },
-      });
+    if (conclusionChanged) {
+      await tx.insert(DocumentVersionPairRevision)
+        .values({
+          id:             pairId,
+          documentId:     change.documentId,
+          fromVersionId:  change.fromVersionId,
+          toVersionId:    change.toVersionId,
+          reviewRevision: 1,
+        })
+        .onConflictDoUpdate({
+          target: DocumentVersionPairRevision.id,
+          set:    { reviewRevision: sql`${DocumentVersionPairRevision.reviewRevision} + 1` },
+        });
+    }
 
     return {
       reviewId:         inserted!.id,
@@ -180,7 +184,7 @@ export async function listChanges(input: {
 
   const where = and(...conditions);
 
-  const [items, countResult] = await Promise.all([
+  const [items, countResult, pairRevision] = await Promise.all([
     db.select({
       id:               DocumentNodeChange.id,
       entityId:         DocumentNodeChange.entityId,
@@ -202,13 +206,24 @@ export async function listChanges(input: {
       .from(DocumentNodeChange)
       .where(where)
       .then(rows => rows[0]!),
+
+    db.select({ reviewRevision: DocumentVersionPairRevision.reviewRevision })
+      .from(DocumentVersionPairRevision)
+      .where(and(
+        eq(DocumentVersionPairRevision.documentId, input.documentId),
+        eq(DocumentVersionPairRevision.fromVersionId, input.fromVersionId),
+        eq(DocumentVersionPairRevision.toVersionId, input.toVersionId),
+      ))
+      .limit(1)
+      .then(rows => rows[0]),
   ]);
 
   return {
     items,
-    total: countResult.count,
+    total:          countResult.count,
     page,
     pageSize,
+    reviewRevision: pairRevision?.reviewRevision ?? 0,
   };
 }
 
