@@ -9,7 +9,7 @@
       <slot />
     </UMain>
 
-    <AppFooter />
+    <AppFooter v-if="!props.noFooter" />
   </div>
 </template>
 
@@ -18,5 +18,6 @@ const props = defineProps<{
   ui?: {
     full?: string;
   };
+  noFooter?: boolean;
 }>();
 </script>

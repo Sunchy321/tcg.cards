@@ -10,7 +10,7 @@
   "dependencies": {
     "@iconify-json/lucide": "^1.2.95",
     "@iconify-json/simple-icons": "^1.2.72",
-    "@nuxt/ui": "^4.5.1",
+    "@nuxt/ui": "^4.6.1",
     "@nuxtjs/i18n": "^10.2.3",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
