@@ -579,53 +579,76 @@ async function writeChangeRecords(input: {
   const simpleChanges = input.changes.filter(c => !c.relations?.length);
   const complexChanges = input.changes.filter(c => c.relations?.length);
 
-  // Batch insert simple changes (no relations)
-  if (simpleChanges.length > 0) {
-    const values = simpleChanges.map(change => ({
-      documentId:       input.documentId,
-      fromVersionId:    input.fromVersionId,
-      toVersionId:      input.toVersionId,
-      entityId:         change.entityId,
-      fromNodeRefId:    change.fromNodeRefId,
-      toNodeRefId:      change.toNodeRefId,
-      type:             change.type,
-      confidenceScore:  change.confidenceScore,
-      reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
-      details:          change.details,
-    }));
+  await db.transaction(async tx => {
+    // Clear existing changes for this version pair to avoid duplicates on retry
+    const existing = await tx
+      .select({ id: DocumentNodeChange.id })
+      .from(DocumentNodeChange)
+      .where(and(
+        eq(DocumentNodeChange.documentId, input.documentId),
+        eq(DocumentNodeChange.fromVersionId, input.fromVersionId),
+        eq(DocumentNodeChange.toVersionId, input.toVersionId),
+      ));
 
-    await db.insert(DocumentNodeChange).values(values);
-  }
+    const existingIds = existing.map(c => c.id);
 
-  // Insert complex changes one by one to get changeId for relations
-  for (const change of complexChanges) {
-    const [inserted] = await db.insert(DocumentNodeChange).values({
-      documentId:       input.documentId,
-      fromVersionId:    input.fromVersionId,
-      toVersionId:      input.toVersionId,
-      entityId:         change.entityId,
-      fromNodeRefId:    change.fromNodeRefId,
-      toNodeRefId:      change.toNodeRefId,
-      type:             change.type,
-      confidenceScore:  change.confidenceScore,
-      reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
-      details:          change.details,
-    }).returning({ id: DocumentNodeChange.id });
-
-    if (inserted && change.relations!.length > 0) {
-      await db.insert(DocumentNodeChangeRelation).values(
-        change.relations!.map(rel => ({
-          changeId:  inserted.id,
-          side:      rel.side,
-          entityId:  rel.entityId,
-          nodeRefId: rel.nodeRefId,
-          nodeId:    rel.nodeId,
-          weight:    rel.weight,
-          sortOrder: rel.sortOrder,
-        })),
-      );
+    if (existingIds.length > 0) {
+      await tx.delete(DocumentChangeReview)
+        .where(inArray(DocumentChangeReview.changeId, existingIds));
+      await tx.delete(DocumentNodeChangeRelation)
+        .where(inArray(DocumentNodeChangeRelation.changeId, existingIds));
+      await tx.delete(DocumentNodeChange)
+        .where(inArray(DocumentNodeChange.id, existingIds));
     }
-  }
+
+    // Batch insert simple changes (no relations)
+    if (simpleChanges.length > 0) {
+      const values = simpleChanges.map(change => ({
+        documentId:       input.documentId,
+        fromVersionId:    input.fromVersionId,
+        toVersionId:      input.toVersionId,
+        entityId:         change.entityId,
+        fromNodeRefId:    change.fromNodeRefId,
+        toNodeRefId:      change.toNodeRefId,
+        type:             change.type,
+        confidenceScore:  change.confidenceScore,
+        reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
+        details:          change.details,
+      }));
+
+      await tx.insert(DocumentNodeChange).values(values);
+    }
+
+    // Insert complex changes one by one to get changeId for relations
+    for (const change of complexChanges) {
+      const [inserted] = await tx.insert(DocumentNodeChange).values({
+        documentId:       input.documentId,
+        fromVersionId:    input.fromVersionId,
+        toVersionId:      input.toVersionId,
+        entityId:         change.entityId,
+        fromNodeRefId:    change.fromNodeRefId,
+        toNodeRefId:      change.toNodeRefId,
+        type:             change.type,
+        confidenceScore:  change.confidenceScore,
+        reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
+        details:          change.details,
+      }).returning({ id: DocumentNodeChange.id });
+
+      if (inserted && change.relations!.length > 0) {
+        await tx.insert(DocumentNodeChangeRelation).values(
+          change.relations!.map(rel => ({
+            changeId:  inserted.id,
+            side:      rel.side,
+            entityId:  rel.entityId,
+            nodeRefId: rel.nodeRefId,
+            nodeId:    rel.nodeId,
+            weight:    rel.weight,
+            sortOrder: rel.sortOrder,
+          })),
+        );
+      }
+    }
+  });
 }
 
 export async function importDocumentVersion(input: {
