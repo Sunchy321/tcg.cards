@@ -8,3 +8,4 @@ export * from './format';
 export * from './game-change';
 export * from './patch';
 export * from './set';
+export * from './data/knowledge';

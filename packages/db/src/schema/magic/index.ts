@@ -14,5 +14,6 @@ export * from './set';
 export * from './data/gatherer';
 export * from './data/scryfall';
 export * from './data/mtgch';
+export * from './data/knowledge';
 
 export * from './app/deck';
