@@ -149,10 +149,10 @@ async function main() {
 
   // Phase 2: Fetch each pending snapshot page
   const seenTxtUrls = new Set(state.uniqueTxtUrls.map(u => u.txtUrl));
-  let processed = state.snapshots.filter(s => s.status !== 'pending').length;
+  let processed = state.snapshots.filter(s => s.status !== 'pending' && s.status !== 'error').length;
 
   for (const snapshot of state.snapshots) {
-    if (snapshot.status !== 'pending') continue;
+    if (snapshot.status !== 'pending' && snapshot.status !== 'error') continue;
 
     const date = snapshot.timestamp.slice(0, 8);
     process.stdout.write(`[${date}] (${++processed}/${state.snapshots.length}) Fetching... `);
