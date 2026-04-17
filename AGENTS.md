@@ -70,6 +70,8 @@ Do not create commits directly. Always show the proposed commit message to the u
 
 Use the most specific reasonable scope when writing commit messages. Follow the repository's existing style and prefer fine-grained scopes such as `console/magic`, `db/magic`, `watcher/magic`, `hearthstone`, `ui`, or `sync` instead of broad generic scopes when applicable.
 
+Do not include technical workspace or package prefixes in the scope. For example, changes under `site-magic` should use `magic` or `magic/xxx`, not `site-magic` or `site-magic/xxx`.
+
 Examples based on existing repository history:
 
 - `feat(console/magic): add view page`
