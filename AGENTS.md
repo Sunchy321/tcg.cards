@@ -32,7 +32,7 @@ A requirement is simple when it only involves one focused change and does not in
 
 Examples of simple requirements include small documentation updates, minor text changes, localized refactors, and small configuration adjustments.
 
-After that, evaluate the proposal. Only after the evaluation passes, create an implementation plan in the `plans/` folder.
+After that, create a design review and place it in the `reviews/` folder. Only after the review passes, create an implementation plan in the `plans/` folder.
 
 Each plan must include a todo list at the beginning of the same file. The todo list must be derived from the plan.
 
@@ -42,11 +42,11 @@ Mark each todo item as completed immediately after finishing it.
 
 If the user explicitly asks for step-by-step execution, implement only one planned step per turn, then pause and wait for the user's next instruction before continuing.
 
-All content created in the `docs/` and `plans/` folders must be written in Simplified Chinese.
+All content created in the `docs/`, `reviews/`, and `plans/` folders must be written in Simplified Chinese.
 
-If a design document or plan file is created by the agent as part of executing a task, the agent should delete it after the task is completed.
+If a design document, review file, or plan file is created by the agent as part of executing a task, the agent should delete it after the task is completed.
 
-If a design document or plan file was created by the user, the agent must not delete it.
+If a design document, review file, or plan file was created by the user, the agent must not delete it.
 
 When adding a new database table, first classify it as `{game}`, `{game}_data`, or `{game}_app` before implementation.
 

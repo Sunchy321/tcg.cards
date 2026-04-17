@@ -35,7 +35,7 @@
 
 | 阶段 | 目标 | 核心任务 | 输出物 | 依赖 | 验收标准 |
 |------|------|----------|--------|------|----------|
-| P0 设计收口 | 把设计稿收敛为可编码版本 | 拆分状态字段语义；明确 authoritative / derived 字段；补充 `reviewRevision`、source file hash、parser version、import run ID；明确 path 规则与索引方案 | 更新后的设计文档、字段清单、状态流转说明 | `docs/document-history-design.md`、`docs/document-history-design-review.md` | 设计文档中不存在明显冲突字段；关键状态和缓存来源可被清楚回答 |
+| P0 设计收口 | 把设计稿收敛为可编码版本 | 拆分状态字段语义；明确 authoritative / derived 字段；补充 `reviewRevision`、source file hash、parser version、import run ID；明确 path 规则与索引方案 | 更新后的设计文档、字段清单、状态流转说明 | `docs/document-history-design.md`、`reviews/document-history-design-review.md` | 设计文档中不存在明显冲突字段；关键状态和缓存来源可被清楚回答 |
 | P1 数据模型落库 | 建立可支撑 v1 的数据库结构 | 建表 `DocumentDefinition`、`DocumentVersion`、`DocumentNode`、`DocumentNodeEntity`、`DocumentNodeContent`、`DocumentNodeChange`、`DocumentNodeChangeRelation`、`DocumentChangeReview`；补充唯一键、索引、外键；为导入状态与审核状态建立约束 | Migration、ORM schema、初始化脚本 | P0 | 可以本地完成迁移；核心表结构与设计稿一致；索引和唯一键覆盖主要查询路径 |
 | P2 解析与指纹 | 产出结构化节点和稳定内容摘要 | 实现 TXT 解析器；抽取 `nodeId`、`path`、`parentNodeId`、`siblingOrder`；实现 `example`、`glossary`、`intro` 特殊节点规则；实现内容规范化和 `fingerprintHash` 生成 | Parser、fingerprint util、解析样例数据 | P1 | 对样本文档可稳定输出结构化节点；同一输入重复解析结果一致 |
 | P3 导入主链路 | 打通版本导入与幂等重跑 | 下载源文件；创建 `DocumentVersion`；写入 `DocumentNode` 与源 `DocumentNodeContent`；记录 source file hash；实现按阶段提交的事务边界；实现失败恢复与重导入清理 | Import service、job runner、导入日志 | P2 | 同一版本可重复导入；失败后可重跑；不会留下半成品版本数据 |
