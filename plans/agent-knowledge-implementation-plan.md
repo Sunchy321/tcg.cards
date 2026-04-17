@@ -2,12 +2,12 @@
 
 ## TODO List
 
-- [ ] 固化每个游戏的权威知识源与证据模型
+- [x] 固化每个游戏的权威知识源与证据模型
 - [ ] 为 `magic_data` 与 `hearthstone_data` 设计并落地 `knowledge_*` 表与迁移
-- [ ] 确认 PostgreSQL 向量存储实现与 Cloudflare embedding 模型契约
-- [ ] 为每个游戏实现第一批结构化知识工具
+- [x] 确认 PostgreSQL 向量存储实现与 Cloudflare embedding 模型契约
+- [x] 为每个游戏实现第一批结构化知识工具
 - [ ] 为每个游戏实现派生知识索引构建与增量刷新链路
-- [ ] 引入统一 `evidence bundle` 与答案编排层
+- [x] 引入统一 `evidence bundle` 与答案编排层
 - [ ] 视需要落地 `*_app` 运行态表与反馈闭环
 - [ ] 实现统一多游戏智能体的服务层路由
 - [ ] 完成精度、可追溯性、时效性验证

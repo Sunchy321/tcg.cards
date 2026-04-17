@@ -5,6 +5,7 @@ import { number as numberSchema } from '#search/command/builtin/number';
 import { defaultTranslate } from '#search/client/translate';
 
 const operatorMap: Record<string, string> = {
+  ':':  'is',
   '=':  'is',
   '!=': 'is-not',
   '>':  'greater-than',

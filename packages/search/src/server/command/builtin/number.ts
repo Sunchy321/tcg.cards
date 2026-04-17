@@ -17,6 +17,7 @@ export const number = ca
 
     switch (operator) {
     case '=':
+    case ':':
       if (!qualifier.includes('!')) {
         return eq(column, num);
       } else {

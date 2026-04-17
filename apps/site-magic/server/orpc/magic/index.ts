@@ -8,6 +8,7 @@ import { documentApi, documentTrpc } from './document';
 import { ruleApi, ruleTrpc } from './rule';
 import { deckApi, deckTrpc } from './deck';
 import { dataTrpc } from './data';
+import { agentApi, agentTrpc } from './agent';
 
 export const magicTrpc = {
   card:         cardTrpc,
@@ -20,6 +21,7 @@ export const magicTrpc = {
   rule:         ruleTrpc,
   deck:         deckTrpc,
   data:         dataTrpc,
+  agent:        agentTrpc,
 };
 
 export const magicApi = {
@@ -32,4 +34,5 @@ export const magicApi = {
   document:     documentApi,
   rule:         ruleApi,
   deck:         deckApi,
+  agent:        agentApi,
 };

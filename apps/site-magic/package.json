@@ -22,6 +22,7 @@
     "@nuxt/ui": "^4.6.1",
     "@orpc/client": "^1.13.6",
     "@orpc/server": "^1.13.6",
+    "@tailwindcss/typography": "^0.5.19",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",

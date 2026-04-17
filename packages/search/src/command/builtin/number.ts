@@ -2,6 +2,6 @@ import { c } from '../builder';
 
 export const number = c
   .$meta({ allowFloat: false })
-  .op(['<', '<=', '=', '>', '>='])
+  .op([':', '<', '<=', '=', '>', '>='])
   .qual(['!'])
   .$type('builtin:number');

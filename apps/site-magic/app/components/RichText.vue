@@ -22,6 +22,8 @@ const props = withDefaults(defineProps<{
   detectUrl?:  boolean;
   detectEmph?: boolean;
   detectCr?:   boolean;
+  chat?:       boolean;
+  text?:       string;
 }>(), {
   symbol:     () => [],
   lang:       undefined,
@@ -29,6 +31,8 @@ const props = withDefaults(defineProps<{
   detectUrl:  false,
   detectEmph: false,
   detectCr:   false,
+  chat:       false,
+  text:       undefined,
 });
 
 const slots = defineSlots<{
@@ -111,37 +115,41 @@ md.inline.ruler.before('escape', 'card_link', (state: StateInline, silent: boole
 });
 
 // Checkboxes: ☐
-md.inline.ruler.before('escape', 'checkbox', (state: StateInline, silent: boolean) => {
-  if (state.src[state.pos] === '☐') {
-    if (!silent) {
-      state.push('checkbox', '', 0);
+if (!props.chat) {
+  md.inline.ruler.before('escape', 'checkbox', (state: StateInline, silent: boolean) => {
+    if (state.src[state.pos] === '☐') {
+      if (!silent) {
+        state.push('checkbox', '', 0);
+      }
+      state.pos += 1;
+      return true;
     }
-    state.pos += 1;
-    return true;
-  }
-  return false;
-});
+    return false;
+  });
+}
 
 // Copyable dividers: ====================
-md.block.ruler.before('hr', 'copyable_hr', (state: StateBlock, startLine: number, _endLine: number, silent: boolean) => {
-  const pos = state.bMarks[startLine]! + state.tShift[startLine]!;
-  const max = state.eMarks[startLine]!;
-  const line = state.src.slice(pos, max);
+if (!props.chat) {
+  md.block.ruler.before('hr', 'copyable_hr', (state: StateBlock, startLine: number, _endLine: number, silent: boolean) => {
+    const pos = state.bMarks[startLine]! + state.tShift[startLine]!;
+    const max = state.eMarks[startLine]!;
+    const line = state.src.slice(pos, max);
 
-  if (!/^={20,}$/.test(line)) {
-    return false;
-  }
+    if (!/^={20,}$/.test(line)) {
+      return false;
+    }
 
-  if (silent) {
+    if (silent) {
+      return true;
+    }
+
+    state.line = startLine + 1;
+    const token = state.push('copyable_hr', 'div', 0);
+    token.map = [startLine, state.line];
+    token.markup = line;
     return true;
-  }
-
-  state.line = startLine + 1;
-  const token = state.push('copyable_hr', 'div', 0);
-  token.map = [startLine, state.line];
-  token.markup = line;
-  return true;
-});
+  });
+}
 
 // ── token → VNode conversion ───────────────────────────────────────────────
 
@@ -216,29 +224,34 @@ function tokensToVNodes(tokens: Token[]): (VNode | string)[] {
     }
 
     if (token.type.endsWith('_open')) {
-      const closeIdx = tokens.findIndex((t, idx) => idx > i && t.type === token.type.replace('_open', '_close'));
+      const closeType = token.type.replace('_open', '_close');
+      let depth = 1;
+      let closeIdx = -1;
+      for (let j = i + 1; j < tokens.length; j++) {
+        if (tokens[j]!.type === token.type) depth++;
+        if (tokens[j]!.type === closeType) depth--;
+        if (depth === 0) {
+          closeIdx = j;
+          break;
+        }
+      }
+      if (closeIdx === -1) closeIdx = tokens.length;
+
       const children = tokensToVNodes(tokens.slice(i + 1, closeIdx));
 
-      const attrs: Record<string, any> = {};
-      const href = token.attrGet('href');
-      const target = token.attrGet('target');
-      if (href) attrs.href = href;
-      if (target) attrs.target = target;
+      const nodeAttrs: Record<string, any> = {};
+      if (token.attrs) {
+        for (const [key, value] of token.attrs) {
+          nodeAttrs[key] = value;
+        }
+      }
 
-      result.push(h(token.tag, attrs, children));
+      result.push(h(token.tag, nodeAttrs, children));
       i = closeIdx;
       continue;
     }
 
     if (token.type.endsWith('_close')) {
-      continue;
-    }
-
-    if (token.type === 'paragraph_open') {
-      const closeIdx = tokens.findIndex((t, idx) => idx > i && t.type === 'paragraph_close');
-      const children = tokensToVNodes(tokens.slice(i + 1, closeIdx));
-      result.push(h('p', children));
-      i = closeIdx;
       continue;
     }
   }
@@ -249,20 +262,30 @@ function tokensToVNodes(tokens: Token[]): (VNode | string)[] {
 // ── render ─────────────────────────────────────────────────────────────────
 
 const render = () => {
-  const defaultSlot = slots.default?.();
-  if (!defaultSlot || defaultSlot.length === 0) {
-    return [];
+  let text: string;
+
+  if (props.text != null) {
+    text = props.text;
+  } else {
+    const defaultSlot = slots.default?.();
+    if (!defaultSlot || defaultSlot.length === 0) {
+      return [];
+    }
+
+    text = '';
+    for (const node of defaultSlot) {
+      if (typeof node === 'string') {
+        text += node;
+      } else if (node.children && typeof node.children === 'string') {
+        text += node.children;
+      } else if (typeof node.children === 'object' && node.children !== null) {
+        text += String(node.children);
+      }
+    }
   }
 
-  let text = '';
-  for (const node of defaultSlot) {
-    if (typeof node === 'string') {
-      text += node;
-    } else if (node.children && typeof node.children === 'string') {
-      text += node.children;
-    } else if (typeof node.children === 'object' && node.children !== null) {
-      text += String(node.children);
-    }
+  if (!text) {
+    return [];
   }
 
   const tokens = props.inline
