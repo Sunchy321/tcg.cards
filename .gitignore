@@ -74,3 +74,6 @@ logs
 
 # script outputs
 /output/
+
+# raw reference files
+/references/*/raw/
