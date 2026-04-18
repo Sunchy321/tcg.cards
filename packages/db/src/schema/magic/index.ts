@@ -12,6 +12,7 @@ export * from './ruling';
 export * from './set';
 
 export * from './data/gatherer';
+export * from './data/import';
 export * from './data/scryfall';
 export * from './data/mtgch';
 export * from './data/knowledge';
