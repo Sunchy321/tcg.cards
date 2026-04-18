@@ -90,6 +90,6 @@ Requests will be reviewed in good faith. Content may be removed, corrected, disa
 
 ## Privacy and Service Terms
 
-This document does not describe user privacy practices or service terms.
+This document does not describe user privacy practices or service terms in detail.
 
-If the project provides public accounts, authentication, analytics, logging, public APIs, rate limits, paid features, or hosted database exports, add separate documents such as `PRIVACY.md` and `TERMS.md` before public launch.
+See [PRIVACY.md](./PRIVACY.md) and [TERMS.md](./TERMS.md) for baseline privacy and service terms. These documents should be reviewed and completed with operator-specific details before public launch.

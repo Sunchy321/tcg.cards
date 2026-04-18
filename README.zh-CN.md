@@ -184,3 +184,5 @@ bun run deploy
 第三方游戏名称、卡牌文本、卡图、商标和源数据归各自权利方所有。本项目不是任何 TCG 发行方的官方项目，也不代表获得其认可或正式授权。
 
 第三方内容、商标、API、导出数据和下架请求相关说明见 [LEGAL.zh-CN.md](./LEGAL.zh-CN.md)。
+
+隐私政策和服务条款的基础版本见 [PRIVACY.zh-CN.md](./PRIVACY.zh-CN.md) 与 [TERMS.zh-CN.md](./TERMS.zh-CN.md)。

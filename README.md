@@ -184,3 +184,5 @@ This repository's original code and documentation are licensed under the [MIT Li
 Third-party game names, card text, card images, trademarks, and source data belong to their respective owners. This project is not affiliated with, endorsed by, or officially authorized by any TCG publisher.
 
 See [LEGAL.md](./LEGAL.md) for third-party content, trademark, API, export, and takedown notices.
+
+See [PRIVACY.md](./PRIVACY.md) and [TERMS.md](./TERMS.md) for baseline privacy and service terms.
