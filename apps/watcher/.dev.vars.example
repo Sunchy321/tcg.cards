@@ -1,4 +1,5 @@
-# Copy to .dev.vars for local development
-NODE_ENV=development
-EMAIL_TO=your-email@example.com
-RESEND_API_KEY=re_xxxxxxxx
+# Recipient for watcher notification emails.
+EMAIL_TO=you@example.com
+
+# Resend API key for watcher notification emails.
+RESEND_API_KEY=re_change_me

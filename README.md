@@ -76,6 +76,20 @@ turbo/              Turborepo generators and templates
 bun install
 ```
 
+### Configure Environment
+
+Copy the example files for the workspaces you plan to run:
+
+```sh
+cp apps/site-magic/.env.example apps/site-magic/.env
+cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
+cp apps/site-console/.env.example apps/site-console/.env
+cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
+cp packages/db/.env.example packages/db/.env
+```
+
+Update the copied files with local database, Cloudflare, auth, and API credentials as needed.
+
 ### Run All Development Servers
 
 ```sh
@@ -101,8 +115,10 @@ Run from the repository root unless noted otherwise.
 |---------|-------------|
 | `bun install` | Install workspace dependencies |
 | `bun run dev` | Run all workspace development tasks through Turbo |
+| `bun run check` | Run lint, typecheck, and build tasks across the monorepo |
 | `bun run build` | Build all buildable workspaces |
 | `bun run lint` | Run lint tasks across the monorepo |
+| `bun run typecheck` | Run TypeScript checks across supported workspaces |
 | `bun run postinstall` | Run post-install preparation tasks |
 | `bun run gen <name>` | Generate a new site with the repository generator |
 

@@ -11,6 +11,11 @@
       "outputs": [".nuxt/**", ".output/**", "dist/**"]
     },
     "lint": {},
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true

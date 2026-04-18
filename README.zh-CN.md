@@ -76,6 +76,20 @@ turbo/              Turborepo generator 和模板
 bun install
 ```
 
+### 配置环境变量
+
+按需复制要启动的 workspace 示例文件：
+
+```sh
+cp apps/site-magic/.env.example apps/site-magic/.env
+cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
+cp apps/site-console/.env.example apps/site-console/.env
+cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
+cp packages/db/.env.example packages/db/.env
+```
+
+根据本地数据库、Cloudflare、认证和 API 凭据更新复制后的文件。
+
 ### 启动全部开发任务
 
 ```sh
@@ -101,8 +115,10 @@ bun run dev
 |------|------|
 | `bun install` | 安装 workspace 依赖 |
 | `bun run dev` | 通过 Turbo 启动全部开发任务 |
+| `bun run check` | 在整个 monorepo 执行 lint、typecheck 和 build |
 | `bun run build` | 构建所有可构建 workspace |
 | `bun run lint` | 执行 monorepo lint 任务 |
+| `bun run typecheck` | 对支持的 workspace 执行 TypeScript 检查 |
 | `bun run postinstall` | 执行安装后的准备任务 |
 | `bun run gen <name>` | 使用仓库 generator 创建新站点 |
 

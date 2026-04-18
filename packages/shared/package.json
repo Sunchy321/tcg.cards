@@ -6,6 +6,11 @@
     ".": "./src/index.ts"
   },
   "private": true,
+  "scripts": {
+    "build": "echo No build needed",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/lodash-es": "^4.17.12",

@@ -3,6 +3,11 @@
   "license": "MIT",
   "version": "0.0.0",
   "private": true,
+  "scripts": {
+    "build": "echo No build needed",
+    "lint": "echo No lint configured",
+    "typecheck": "echo No typecheck needed"
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.4",
     "@eslint/js": "^10.0.1",

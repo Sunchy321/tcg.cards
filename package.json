@@ -13,9 +13,11 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
+    "check": "turbo run lint typecheck build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "postinstall": "turbo run postinstall",
+    "typecheck": "turbo run typecheck",
     "gen": "sh -c 'turbo gen new-site --args \"$1\" && bun install' sh"
   },
   "workspaces": [
