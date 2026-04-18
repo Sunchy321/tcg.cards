@@ -24,15 +24,31 @@ Zod schema exports must not end with `schema`. Exported zod schemas and their in
 
 ## Delivery Workflow
 
-When a new requirement is given, first create a design proposal and place it in the `docs/` folder.
+When a non-simple requirement is given, first create a design proposal under the `proposals/` folder.
 
-Simple requirements do not need a design proposal, evaluation, or implementation plan.
+Simple requirements do not need a proposal, review, or implementation plan. Complete them directly.
 
 A requirement is simple when it only involves one focused change and does not introduce new architecture, cross-module refactoring, data migration, or ambiguous technical decisions.
 
 Examples of simple requirements include small documentation updates, minor text changes, localized refactors, and small configuration adjustments.
 
-After that, create a design review and place it in the `reviews/` folder. Only after the review passes, create an implementation plan in the `plans/` folder.
+For non-simple requirements, keep the active design work in `proposals/` until the design is reviewed and approved.
+
+After a proposal is reviewed and the design direction is accepted, move the finalized design package to `specs/`.
+
+The `specs/` folder contains approved designs that are ready to guide implementation. A spec package may include the finalized design, review, implementation plan, and any supporting notes.
+
+Within a proposal or spec package, use these standard filenames:
+
+- `design.md` for the design document
+- `review.md` for the design review
+- `plan.md` for the implementation plan
+
+After the related implementation is completed and the spec is no longer active, move the finalized spec package to `archive/`.
+
+Temporary proposals that are only used to reason through a small or discarded idea should be deleted when finished. Do not move temporary proposals to `archive/`.
+
+Do not leave finalized design artifacts split across `proposals/`, `reviews/`, `plans/`, and `docs/`. Consolidate finalized design, review, and plan artifacts under the relevant `specs/<requirement>/` folder.
 
 Each plan must include a todo list at the beginning of the same file. The todo list must be derived from the plan.
 
@@ -42,11 +58,11 @@ Mark each todo item as completed immediately after finishing it.
 
 If the user explicitly asks for step-by-step execution, implement only one planned step per turn, then pause and wait for the user's next instruction before continuing.
 
-All content created in the `docs/`, `reviews/`, and `plans/` folders must be written in Simplified Chinese.
+All content created in the `proposals/`, `specs/`, and `archive/` folders must be written in Simplified Chinese.
 
-If a design document, review file, or plan file is created by the agent as part of executing a task, the agent should delete it after the task is completed.
+If a temporary proposal file is created by the agent as part of reasoning through a task and is not promoted to `specs/`, delete it after the task is completed.
 
-If a design document, review file, or plan file was created by the user, the agent must not delete it.
+If a design document, review file, plan file, proposal, spec, or archive file was created by the user, the agent must not delete it.
 
 When adding a new database table, first classify it as `{game}`, `{game}_data`, or `{game}_app` before implementation.
 
