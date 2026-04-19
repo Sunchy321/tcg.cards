@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+/** @deprecated Use `entityRelation` for version-aware card relations. */
 export const cardRelation = z.strictObject({
     relation: z.string(),
     version:  z.number().array(),

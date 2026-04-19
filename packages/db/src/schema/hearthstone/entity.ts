@@ -1,149 +1,181 @@
-import { boolean, integer, primaryKey, text } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  primaryKey,
+  text,
+} from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
 
 import { omit } from 'lodash-es';
-import { and, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, eq, getColumns, sql } from 'drizzle-orm';
 
 import * as basicModel from '#model/hearthstone/schema/basic';
 import * as entityModel from '#model/hearthstone/schema/entity';
 
 import { Card } from './card';
 
+type JsonMap = Record<string, unknown>;
+type IEntity = entityModel.Entity;
+
 export const locale = schema.enum('locale', basicModel.locale.enum);
-export const classes = schema.enum('class', basicModel.classes.enum);
-export const types = schema.enum('type', basicModel.types.enum);
-export const rune = schema.enum('rune', entityModel.rune.enum);
-export const race = schema.enum('race', basicModel.race.enum);
-export const spellSchool = schema.enum('spell_school', basicModel.spellSchool.enum);
-export const rarity = schema.enum('rarity', basicModel.rarity.enum);
-export const questType = schema.enum('quest_type', entityModel.questType.enum);
-export const mercenaryRole = schema.enum('mercenary_role', entityModel.mercenaryRole.enum);
-export const mercenaryFaction = schema.enum('mercenary_faction', entityModel.mercenaryFaction.enum);
-export const faction = schema.enum('faction', entityModel.faction.enum);
-// FIXME: drizzle-orm cannot recognize enum start with text. fix after drizzle-orm support it.
-export const textBuilderType = schema.enum('card_text_builder_type', entityModel.textBuilderType.enum);
 export const changeType = schema.enum('change_type', entityModel.changeType.enum);
 
 export const Entity = schema.table('entities', {
-    cardId:  text('card_id').notNull(),
-    version: integer('version').array().notNull(),
+  cardId:  text('card_id').notNull(),
+  version: integer('version').array().notNull(),
 
-    dbfId: integer('dbf_id').notNull(),
-    slug:  text('slug'),
+  revisionHash: text('revision_hash').notNull(),
 
-    set:             text('set').notNull(),
-    classes:         classes('class').array().notNull(),
-    type:            types('type').notNull(),
-    cost:            integer('cost').notNull(),
-    attack:          integer('attack'),
-    health:          integer('health'),
-    durability:      integer('durability'),
-    armor:           integer('armor'),
-    rune:            rune('rune').array(),
-    race:            race('race').array(),
-    spellSchool:     spellSchool('spell_school'),
-    questType:       questType('quest_type'),
-    questProgress:   integer('quest_progress'),
-    questPart:       integer('quest_part'),
-    heroPower:       text('hero_power'),
-    heroicHeroPower: text('heroic_hero_power'),
+  dbfId:         integer('dbf_id').notNull(),
+  legacyPayload: jsonb('legacy_payload').$type<IEntity['legacyPayload']>().notNull().default({}),
 
-    techLevel:    integer('tech_level'),
-    inBobsTavern: boolean('in_bobs_tavern').notNull().default(false),
-    tripleCard:   text('triple_card'),
-    raceBucket:   race('race_bucket'),
-    coin:         integer('coin'),
-    armorBucket:  integer('armor_bucket'),
-    buddy:        text('buddy'),
-    bannedRace:   text('banned_race'),
+  set:           text('set').notNull(),
+  classes:       text('class').array().$type<IEntity['classes'][number]>().notNull(),
+  type:          text('type').$type<IEntity['type']>().notNull(),
+  cost:          integer('cost').notNull(),
+  attack:        integer('attack'),
+  health:        integer('health'),
+  durability:    integer('durability'),
+  armor:         integer('armor'),
+  rune:          text('rune').array().$type<NonNullable<IEntity['rune']>[number]>(),
+  race:          text('race').array().$type<NonNullable<IEntity['race']>[number]>(),
+  spellSchool:   text('spell_school').$type<NonNullable<IEntity['spellSchool']>>(),
+  questType:     text('quest_type').$type<NonNullable<IEntity['questType']>>(),
+  questProgress: integer('quest_progress'),
+  questPart:     integer('quest_part'),
+  heroPower:     text('hero_power'),
 
-    mercenaryRole:    mercenaryRole('mercenary_role'),
-    mercenaryFaction: mercenaryFaction('mercenary_faction'),
-    colddown:         integer('colddown'),
+  techLevel:    integer('tech_level'),
+  inBobsTavern: boolean('in_bobs_tavern').notNull().default(false),
+  tripleCard:   text('triple_card'),
+  raceBucket:   text('race_bucket').$type<NonNullable<IEntity['raceBucket']>>(),
+  armorBucket:  integer('armor_bucket'),
+  buddy:        text('buddy'),
+  bannedRace:   text('banned_race'),
 
-    collectible: boolean('collectible').notNull(),
-    elite:       boolean('elite').notNull(),
-    rarity:      rarity('rarity'),
+  mercenaryRole:    text('mercenary_role').$type<NonNullable<IEntity['mercenaryRole']>>(),
+  mercenaryFaction: text('mercenary_faction').$type<NonNullable<IEntity['mercenaryFaction']>>(),
+  colddown:         integer('colddown'),
 
-    artist: text('artist').notNull(),
+  collectible: boolean('collectible').notNull(),
+  elite:       boolean('elite').notNull(),
+  rarity:      text('rarity').$type<NonNullable<IEntity['rarity']>>(),
 
-    faction: faction('faction'),
+  artist: text('artist').notNull(),
 
-    mechanics:      text('mechanics').array().notNull(),
-    referencedTags: text('referenced_tags').array().notNull(),
-    entourages:     text('entourages').array(),
+  faction: text('faction').$type<NonNullable<IEntity['faction']>>(),
 
-    deckOrder:         integer('deck_order'),
-    overrideWatermark: text('override_watermark'),
-    deckSize:          integer('deck_size'),
-    localizationNotes: text('localization_notes'),
+  mechanics:      jsonb('mechanics').$type<IEntity['mechanics']>().notNull().default({}),
+  referencedTags: text('referenced_tags').array().$type<IEntity['referencedTags'][number]>().notNull(),
 
-    textBuilderType: textBuilderType('text_builder_type').notNull().default('default'),
+  textBuilderType: text('text_builder_type').$type<IEntity['textBuilderType']>().notNull().default('default'),
 
-    changeType: changeType('change_type').notNull().default('unknown'),
-    isLatest:   boolean('is_latest').notNull().default(false),
+  changeType: changeType('change_type').notNull().default('unknown'),
+  isLatest:   boolean('is_latest').notNull().default(false),
 }, table => [
-    primaryKey({ columns: [table.cardId, table.version] }),
+  primaryKey({ columns: [table.cardId, table.revisionHash] }),
 ]);
 
 export const EntityLocalization = schema.table('entity_localizations', {
-    cardId:  text('card_id').notNull(),
-    version: integer('version').array().notNull(),
-    lang:    locale('lang').notNull(),
+  cardId:  text('card_id').notNull(),
+  version: integer('version').array().notNull(),
+  lang:    locale('lang').notNull(),
 
-    name:            text('name').notNull(),
-    text:            text('text').notNull(),
-    richText:        text('rich_text').notNull(),
-    displayText:     text('display_text').notNull(),
-    targetText:      text('target_text'),
-    textInPlay:      text('text_in_play'),
-    howToEarn:       text('how_to_earn'),
-    howToEarnGolden: text('how_to_earn_golden'),
-    flavorText:      text('flavor_text'),
+  revisionHash:     text('revision_hash').notNull(),
+  localizationHash: text('localization_hash').notNull(),
+  renderHash:       text('render_hash'),
+  renderModel:      jsonb('render_model').$type<JsonMap>(),
+  isLatest:         boolean('is_latest').notNull().default(false),
 
-    locChangeType: changeType('loc_change_type').notNull().default('unknown'),
+  name:            text('name').notNull(),
+  text:            text('text').notNull(),
+  richText:        text('rich_text').notNull(),
+  displayText:     text('display_text').notNull(),
+  targetText:      text('target_text'),
+  textInPlay:      text('text_in_play'),
+  howToEarn:       text('how_to_earn'),
+  howToEarnGolden: text('how_to_earn_golden'),
+  flavorText:      text('flavor_text'),
+
+  locChangeType: changeType('loc_change_type').notNull().default('unknown'),
 }, table => [
-    primaryKey({ columns: [table.cardId, table.version, table.lang] }),
+  primaryKey({ columns: [table.cardId, table.lang, table.revisionHash, table.localizationHash] }),
+  index('entity_localizations_render_hash_idx')
+    .on(table.renderHash)
+    .where(sql`${table.renderHash} is not null`),
 ]);
 
 export const EntityView = schema.view('entity_view').as(qb => {
-    return qb.select({
-        cardId:  Entity.cardId,
-        version: sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
-        lang:    EntityLocalization.lang,
+  return qb.select({
+    cardId:  Entity.cardId,
+    version: sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
+    lang:    EntityLocalization.lang,
 
-        ...omit(getTableColumns(Entity), ['cardId', 'version']),
+    ...omit(getColumns(Entity), [
+      'cardId',
+      'version',
+      'revisionHash',
+    ]),
 
-        localization: {
-            ...omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
-        },
-    })
-        .from(Entity)
-        .innerJoin(EntityLocalization, and(
-            eq(Entity.cardId, EntityLocalization.cardId),
-            sql`${Entity.version} && ${EntityLocalization.version}`,
-        ));
+    localization: {
+      ...omit(getColumns(EntityLocalization), [
+        'cardId',
+        'version',
+        'lang',
+        'revisionHash',
+        'localizationHash',
+        'renderHash',
+        'renderModel',
+        'isLatest',
+      ]),
+    },
+  })
+    .from(Entity)
+    .innerJoin(EntityLocalization, and(
+      eq(Entity.cardId, EntityLocalization.cardId),
+      eq(Entity.revisionHash, EntityLocalization.revisionHash),
+      sql`${Entity.version} && ${EntityLocalization.version}`,
+    ));
 });
 
 export const CardEntityView = schema.view('card_entity_view').as(qb => {
-    return qb.select({
-        cardId:  Entity.cardId,
-        version: sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
-        lang:    EntityLocalization.lang,
+  return qb.select({
+    cardId:           Entity.cardId,
+    version:          sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
+    lang:             EntityLocalization.lang,
+    revisionHash:     Entity.revisionHash,
+    localizationHash: EntityLocalization.localizationHash,
+    renderHash:       EntityLocalization.renderHash,
 
-        ...omit(getTableColumns(Entity), ['cardId', 'version']),
+    ...omit(getColumns(Entity), [
+      'cardId',
+      'version',
+      'revisionHash',
+    ]),
 
-        localization: {
-            ...omit(getTableColumns(EntityLocalization), ['cardId', 'version', 'lang']),
-        },
+    localization: {
+      ...omit(getColumns(EntityLocalization), [
+        'cardId',
+        'version',
+        'lang',
+        'revisionHash',
+        'localizationHash',
+        'renderHash',
+        'renderModel',
+        'isLatest',
+      ]),
+    },
 
-        legalities: Card.legalities,
-    })
-        .from(Entity)
-        .innerJoin(EntityLocalization, and(
-            eq(Entity.cardId, EntityLocalization.cardId),
-            sql`${Entity.version} && ${EntityLocalization.version}`,
-        ))
-        .innerJoin(Card, eq(Entity.cardId, Card.cardId));
+    legalities: Card.legalities,
+  })
+    .from(Entity)
+    .innerJoin(EntityLocalization, and(
+      eq(Entity.cardId, EntityLocalization.cardId),
+      eq(Entity.revisionHash, EntityLocalization.revisionHash),
+      sql`${Entity.version} && ${EntityLocalization.version}`,
+    ))
+    .innerJoin(Card, eq(Entity.cardId, Card.cardId));
 });

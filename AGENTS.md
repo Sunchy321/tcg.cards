@@ -72,6 +72,14 @@ Use this checklist for classification:
 - `{game}_data` for import-related and user-independent tables, including external source data, import state, import configuration, intermediate import cache, and other system-side import projections that do not carry user semantics
 - `{game}_app` for any table that involves users, including user-created data, user behavior data, user settings, review actions, or any other application state tied to users; all user-related tables must go here
 
+After classification, enforce schema dependency direction strictly:
+
+- `{game}` must not depend on `{game}_data` tables
+- `{game}` must not depend on `{game}_app` tables
+- `{game}_data` must not depend on `{game}_app` tables
+- `{game}_data` may depend on `{game}` tables when import-side linkage is needed
+- `{game}_app` may depend on `{game}` and `{game}_data` tables when application features need them
+
 If a table appears to mix multiple responsibilities, split the table first instead of placing it in an ambiguous schema.
 
 ## Commit Messages

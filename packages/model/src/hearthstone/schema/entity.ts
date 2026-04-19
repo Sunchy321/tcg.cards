@@ -64,6 +64,9 @@ export type Faction = z.infer<typeof faction>;
 export type TextBuilderType = z.infer<typeof textBuilderType>;
 export type ChangeType = z.infer<typeof changeType>;
 
+export const mechanicValue = z.union([z.boolean(), z.int()]);
+export const mechanicMap = z.record(z.string(), mechanicValue);
+
 export const entityLocalization = z.strictObject({
     lang: locale,
 
@@ -84,8 +87,8 @@ export const entity = z.strictObject({
     cardId:  z.string(),
     version: z.number().array().nonempty(),
 
-    dbfId: z.int(),
-    slug:  z.string().nullable(),
+    dbfId:         z.int(),
+    legacyPayload: z.record(z.string(), z.unknown()),
 
     localization: entityLocalization.array(),
 
@@ -104,13 +107,11 @@ export const entity = z.strictObject({
     questProgress:   z.int().nullable(),
     questPart:       z.int().nullable(),
     heroPower:       z.string().nullable(),
-    heroicHeroPower: z.string().nullable(),
 
     techLevel:    z.int().nullable(),
     inBobsTavern: z.boolean(),
     tripleCard:   z.string().nullable(),
     raceBucket:   race.nullable(),
-    coin:         z.int().nullable(),
     armorBucket:  z.int().nullable(),
     buddy:        z.string().nullable(),
     bannedRace:   z.string().nullable(),
@@ -127,14 +128,8 @@ export const entity = z.strictObject({
 
     faction: faction.nullable(),
 
-    mechanics:      z.array(z.string()),
+    mechanics:      mechanicMap,
     referencedTags: z.array(z.string()),
-    entourages:     z.array(z.string()).nullable(),
-
-    deckOrder:         z.int().nullable(),
-    overrideWatermark: z.string().nullable(),
-    deckSize:          z.int().nullable(),
-    localizationNotes: z.string().nullable(),
 
     textBuilderType,
 

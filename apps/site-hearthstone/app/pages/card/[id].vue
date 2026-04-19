@@ -183,7 +183,7 @@
 <script setup lang="ts">
 import { last } from 'lodash-es';
 
-import { locale as localeSchema } from '#model/hearthstone/schema/basic';
+import { locale as localeSchema, type Locale } from '#model/hearthstone/schema/basic';
 import type { Patch } from '#model/hearthstone/schema/patch';
 
 const { $orpc } = useNuxtApp();
@@ -206,8 +206,8 @@ setActions([actions.random]);
 // ─── Language ────────────────────────────────────────────────────────────────
 
 const lang = computed({
-  get: () => localeSchema.safeParse(route.query.lang as string).data ?? gameLocale.value,
-  set: (v: string) => { void router.replace({ query: { ...route.query, lang: v } }); },
+  get: (): Locale => localeSchema.safeParse(route.query.lang as string).data ?? gameLocale.value as Locale,
+  set: (v: Locale) => { void router.replace({ query: { ...route.query, lang: v } }); },
 });
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
@@ -314,13 +314,22 @@ const stats = computed(() => {
 
 // ─── Mechanics / Tags ─────────────────────────────────────────────────────────
 
+const mechanicEntries = computed(() =>
+  Object.entries(data.value?.mechanics ?? {}),
+);
+
 const mechanics = computed(() =>
-  (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')),
+  mechanicEntries.value
+    .filter(([key]) => !key.startsWith('?'))
+    .map(([key, value]) => value === true ? key : `${key}:${value}`),
 );
 
 const referencedTags = computed(() =>
   (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')),
 );
+
+const hasMechanic = (key: string) =>
+  mechanicEntries.value.some(([name, value]) => name === key && value === true);
 
 const mechanicText = (m: string) => {
   if (m.includes(':')) {
@@ -370,10 +379,10 @@ const variantOptions = computed(() => {
     { label: t('hearthstone.card.variant.golden'), value: 'golden' },
   ];
 
-  if (mechanics.value.includes('has_diamond')) {
+  if (hasMechanic('has_diamond')) {
     opts.push({ label: t('hearthstone.card.variant.diamond'), value: 'diamond' });
   }
-  if (mechanics.value.includes('has_signature')) {
+  if (hasMechanic('has_signature')) {
     opts.push({ label: t('hearthstone.card.variant.signature'), value: 'signature' });
   }
   if (hasTechLevel.value) {

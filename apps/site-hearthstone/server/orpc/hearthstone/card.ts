@@ -14,6 +14,13 @@ import { locale } from '#model/hearthstone/schema/basic';
 import { cardProfile } from '#model/hearthstone/schema/card';
 import { cardEntityView, cardFullView } from '#model/hearthstone/schema/entity';
 
+const maxVersion = (version: typeof CardEntityView.version) => sql<number>`
+  (
+    SELECT max(value)
+    FROM unnest(${version}) AS version_item(value)
+  )
+`;
+
 const random = os
   .route({
     method:      'GET',
@@ -50,7 +57,7 @@ const summary = os
         eq(CardEntityView.lang, lang),
         ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
       ))
-      .orderBy(desc(CardEntityView.version))
+      .orderBy(desc(maxVersion(CardEntityView.version)))
       .limit(1)
       .then(rows => rows[0]);
 
@@ -77,7 +84,7 @@ const summaryByName = os
         eq(CardEntityView.lang, lang),
         ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
       ))
-      .orderBy(desc(CardEntityView.version));
+      .orderBy(desc(maxVersion(CardEntityView.version)));
 
     if (cards.length == 0) {
       throw new ORPCError('NOT_FOUND');
@@ -107,7 +114,7 @@ const full = os
         eq(CardEntityView.lang, lang),
         ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
       ))
-      .orderBy(desc(CardEntityView.version))
+      .orderBy(desc(maxVersion(CardEntityView.version)))
       .limit(1)
       .then(rows => rows[0]);
 
@@ -121,7 +128,7 @@ const full = os
         eq(CardEntityView.cardId, cardId),
         eq(CardEntityView.lang, lang),
       ))
-      .orderBy(desc(CardEntityView.version))
+      .orderBy(desc(maxVersion(CardEntityView.version)))
       .then(rows => rows.map(row => row.version.reverse()));
 
     const sourceRelation = await db.select({
@@ -167,7 +174,7 @@ const profile = os
     const version = await db.select({ version: CardEntityView.version })
       .from(CardEntityView)
       .where(eq(CardEntityView.cardId, cardId))
-      .orderBy(desc(CardEntityView.version))
+      .orderBy(desc(maxVersion(CardEntityView.version)))
       .then(rows => rows.map(row => row.version.reverse()));
 
     return {
@@ -201,7 +208,7 @@ const diff = os
         eq(CardEntityView.lang, lang),
         sql`${from} = any(${CardEntityView.version})`,
       ))
-      .orderBy(desc(CardEntityView.version))
+      .orderBy(desc(maxVersion(CardEntityView.version)))
       .limit(1)
       .then(rows => rows[0]);
 
@@ -213,7 +220,7 @@ const diff = os
         eq(CardEntityView.lang, lang),
         sql`${to} = any(${CardEntityView.version})`,
       ))
-      .orderBy(desc(CardEntityView.version))
+      .orderBy(desc(maxVersion(CardEntityView.version)))
       .limit(1)
       .then(rows => rows[0]);
 

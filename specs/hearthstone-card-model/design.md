@@ -384,7 +384,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `id`
 - `cardId`
 - `dbfId`
-- `sourceSpan`
+- `version`
 - `entityXmlVersion`
 - `snapshotHash`
 - `extraPayload`
@@ -396,7 +396,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `snapshotHash` 基于规范化后的完整 `Entity` 内容生成
 - `extraPayload` 用于存放当前未拆成独立表的结构，如 `Power`、`ReferencedTag`、`EntourageCard`
 - 完全相同的 `Entity` 内容只保存一份
-- `sourceSpan` 记录这份原始快照在哪些源版本中出现，支持不连续版本集合
+- `version` 记录这份原始快照在哪些源版本中出现，使用升序、去重、非空的 `int[]` 表达
 
 ### 7.3 原始快照 Tag 事件表
 
@@ -451,6 +451,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `snapshotId`
 - `cardId`
 - `dbfId`
+- `version`
 - `enumId`
 - `tagSlug`
 - `tagName`
@@ -485,29 +486,31 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 - `entity_revisions`：与 `entities` 语义重叠，可直接用 `entities` 表承载结构修订
 - `entity_revision_localizations`：与 `entity_localizations` 语义重叠，可直接用 `entity_localizations` 表承载本地化修订
-- `card_timelines`：只负责版本区间映射，可把 `sourceSpan` 直接放入 `entities` 和 `entity_localizations`
+- `card_timelines`：只负责版本映射，可把 `version` 直接放入 `entities` 和 `entity_localizations`
 - `render_models`：渲染模型依赖结构修订和本地化修订，可内联到 `entity_localizations`
 
-压缩后的领域层只保留两张核心事实表：
+压缩后的领域层核心事实仍以 `entities`、`entity_localizations` 为中心，同时补一张版本感知的关系表：
 
 - `hearthstone.entities`
 - `hearthstone.entity_localizations`
+- `hearthstone.entity_relations`
 
-### 8.1 `entities`：结构修订与版本范围
+### 8.1 `entities`：结构修订与版本集合
 
 `hearthstone.entities` 一行表示：
 
 **某张卡的一份结构修订，在一组源版本中生效。**
 
+该表使用自然键表达实体修订，不新增独立自增 `id`。
+
 主要字段：
 
-- `id`
 - `cardId`
 - `dbfId`
-- `sourceSpan`
+- `version`
 - `revisionHash`
-- `rawSnapshotId`
 - `isLatest`
+- `legacyPayload`
 - 结构化字段，如：
   - `set`
   - `classes`
@@ -525,20 +528,34 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
   - `artist`
   - `mechanics`
   - `referencedTags`
-  - `entourages`
   - `heroPower`
+  - `buddy`
+  - `tripleCard`
+  - `raceBucket`
+  - `armorBucket`
+  - `bannedRace`
+  - `mercenaryRole`
+  - `mercenaryFaction`
   - `textBuilderType`
 
 约束建议：
 
 - `(cardId, revisionHash)` 唯一
-- 同一 `cardId` 的 `sourceSpan` 不允许互相重叠
+- 同一 `cardId` 的不同结构记录 `version` 不允许有交集
 
 说明：
 
 - `revisionHash` 只覆盖结构字段，不覆盖本地化字段
-- `sourceSpan` 支持不连续版本集合，因此版本 `123` 和 `678` 相同、版本 `45` 不同的情况可以由一行表示
+- `version` 使用规范化 `int[]` 表示离散源版本集合，因此版本 `123` 和 `678` 相同、版本 `45` 不同的情况可以由一行表示
 - 结构化字段由 `tags` 中的字段映射配置从原始快照投影得出
+- 上游类别字段在数据库中优先使用 `text` 保存，避免因上游新增值阻塞导入；仅 `lang` 这类需要稳定自定义排序且变化极少的字段保留数据库 enum 顺序
+- `legacyPayload` 保存旧版本存在、现在不再升格为核心列但仍需要随领域数据完整导出的字段，如旧 `slug`、`entourages`
+- `localizationNotes` 这类不再保留独立列、但仍需要领域导出的边缘字段也进入 `legacyPayload`
+- `mechanics` 使用结构化 bool / int payload，而不是 `text[]`；`coin`、`deckOrder`、`overrideWatermark`、`deckSize` 这类可表达为机制的字段统一收敛到 `mechanics`
+- 佣兵 / 战棋专属字段继续保持当前平铺独立列，不引入模式前缀，也不引入 `modePayload`
+- `heroPower`、`buddy`、`tripleCard` 这类强单值卡牌关系继续保留独立字段，并同步写入 `entity_relations`
+- `heroicHeroPower` 降级为弱关系，只写入 `entity_relations`
+- `revisionHash` 应包含 `legacyPayload`，但 `renderHash` 默认不包含，除非其中某个字段确认影响渲染
 
 ### 8.2 `entity_localizations`：本地化修订、结构关联与渲染模型
 
@@ -546,12 +563,13 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 **某张卡、某语言、某结构修订、某文本修订，在一组源版本中生效，并对应一份渲染模型。**
 
+该表同样使用自然键表达本地化修订，不新增独立自增 `id`。
+
 主要字段：
 
-- `id`
 - `cardId`
 - `lang`
-- `sourceSpan`
+- `version`
 - `revisionHash`
 - `localizationHash`
 - `renderHash`
@@ -571,7 +589,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 约束建议：
 
 - `(cardId, lang, revisionHash, localizationHash)` 唯一
-- 同一 `cardId + lang` 的 `sourceSpan` 不允许互相重叠
+- 同一 `cardId + lang` 的不同本地化记录 `version` 不允许有交集
 
 说明：
 
@@ -580,6 +598,38 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - 推荐流程为：先构造稳定的 `renderModel`，再对规范化后的 `renderModel` 做哈希，如 `sha256(canonical_json(renderModel))`
 - `renderModel` 保存渲染所需的规范化 payload，不再单独建 `render_models`
 - 如果结构字段变化但文本未变，也会生成新的 `entity_localizations` 行，因为 `revisionHash` 不同，渲染结果可能不同
+
+### 8.3 `entity_relations`：版本感知的卡牌关系
+
+`hearthstone.entity_relations` 一行表示：
+
+**某张卡的一条关系在某份结构修订上成立，并在一组源版本中生效。**
+
+主要字段：
+
+- `sourceId`
+- `sourceRevisionHash`
+- `relation`
+- `targetId`
+- `version`
+- `isLatest`
+
+约束建议：
+
+- `(sourceId, sourceRevisionHash, relation, targetId)` 唯一
+- `version` 必须与对应 `entities` 结构修订的生效范围一致
+
+说明：
+
+- `entity_relations` 是版本感知的卡牌关系事实表
+- 强单值关系如 `heroPower`、`buddy`、`tripleCard` 同时保留在 `entities` 字段中，并同步投影到 `entity_relations`
+- 弱关系如 `heroicHeroPower` 只写入 `entity_relations`
+- `entity_relations` 负责 related cards 聚合、关系遍历和反向查询
+- 旧 `card_relations` 继续保留为兼容层，但标记为弃用，不再作为新设计的目标表
+
+### 8.4 字段保留与删除决策
+
+字段取舍结论单独记录在 `field-decisions.md`。该文件只记录后续调整方向，不代表立即修改现有 schema。
 
 ---
 
@@ -662,7 +712,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 4. 对每个原始 `Tag` 按 `enumID` 查找 `tags`
 5. 若 Tag 未知，则自动注册到 `tags`
 6. 按 `tags` 中的解析配置生成类型化值，并写入 `raw_entity_snapshot_tags`
-7. 生成或复用 `raw_entity_snapshot`，并更新其 `sourceSpan`
+7. 生成或复用 `raw_entity_snapshot`，并更新其 `version`
 8. 根据 `tags` 中的字段映射配置投影为 `entities`
 9. 生成对应语言的 `entity_localizations`
 10. 计算 `renderHash` 与 `renderModel`，并内联写入 `entity_localizations`
@@ -723,7 +773,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 建议逐步调整为：
 
 - 新数据继续写入 `entities`、`entity_localizations`
-- 为这两张表补充 `sourceSpan`、`revisionHash`、`localizationHash`、`renderHash`、`renderModel` 等字段
+- 为这两张表补充 `version`、`revisionHash`、`localizationHash`、`renderHash`、`renderModel` 等字段
 - 旧接口通过兼容视图读取
 
 这样可以避免一次性大迁移导致上层大量改动。
@@ -741,14 +791,21 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - v1 先保存在 `raw_entity_snapshots.extraPayload`
 - 当确实出现稳定查询需求时，再为这些子结构补专门的配置字段或独立子结构表
 
-### 14.2 `int4multirange` 的落地成本
+### 14.2 `version int[]` 的落地规则
 
-从模型上看，`int4multirange` 很适合表示版本区间压缩；但如果当前 ORM 支持不足，则可先采用：
+由于源版本号本质上是高度离散的 build 集合，当前更适合直接使用规范化 `int[]`，而不是 `int4multirange`。
 
-- `versionStart`
-- `versionEnd`
+推荐规则：
 
-等 ORM 能力补齐后再切换。
+- 数组必须升序
+- 数组必须去重
+- 数组不能为空
+- 版本交集使用数组操作符 `&&`
+- 版本求交使用数组操作符 `&`
+- `&` 依赖 PostgreSQL `intarray` 扩展
+- 指定版本命中使用 `= any(version)` 或 `version @> ARRAY[x]`
+
+这样可以更贴近真实版本语义，同时保持导出 JSON、接口兼容和查询实现简单。
 
 ### 14.3 渲染字段白名单需要独立评审
 
@@ -769,7 +826,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
    - `enumID` 作为 Tag 主键是否正式确认
    - Tag 解析与字段映射是否都合并到 `tags`
    - 是否接受取消 `card_timelines`、`render_models` 等中间表
-   - `sourceSpan` 是否统一使用 `int4multirange`
+   - `version` 是否统一使用规范化 `int[]`
 2. 评审通过后，再补实施计划，分阶段落地：
    - P0：Tag 注册与原始快照层
    - P1：`entities` 与 `entity_localizations` 字段调整
