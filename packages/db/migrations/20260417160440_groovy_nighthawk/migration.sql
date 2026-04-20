@@ -151,8 +151,8 @@ CREATE INDEX "knowledge_index_jobs_source_id_status_idx" ON "hearthstone_data"."
 CREATE UNIQUE INDEX "knowledge_sources_source_type_source_key_version_key_locale_uq" ON "hearthstone_data"."knowledge_sources" ("source_type","source_key","version_key","locale");--> statement-breakpoint
 CREATE INDEX "knowledge_sources_status_idx" ON "hearthstone_data"."knowledge_sources" ("status");--> statement-breakpoint
 CREATE INDEX "knowledge_sources_source_type_source_key_idx" ON "hearthstone_data"."knowledge_sources" ("source_type","source_key");--> statement-breakpoint
-CREATE UNIQUE INDEX "knowledge_source_links_source_id_target_type_target_key_relation_uq" ON "hearthstone_data"."knowledge_source_links" ("source_id","target_type","target_key","relation");--> statement-breakpoint
-CREATE INDEX "knowledge_source_links_target_type_target_key_idx" ON "hearthstone_data"."knowledge_source_links" ("target_type","target_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "ks_links_source_target_rel_uq" ON "hearthstone_data"."knowledge_source_links" ("source_id","target_type","target_key","relation");--> statement-breakpoint
+CREATE INDEX "ks_links_target_type_key_idx" ON "hearthstone_data"."knowledge_source_links" ("target_type","target_key");--> statement-breakpoint
 CREATE UNIQUE INDEX "knowledge_chunks_source_id_chunk_index_uq" ON "magic_data"."knowledge_chunks" ("source_id","chunk_index");--> statement-breakpoint
 CREATE INDEX "knowledge_chunks_source_id_idx" ON "magic_data"."knowledge_chunks" ("source_id");--> statement-breakpoint
 CREATE INDEX "knowledge_chunks_checksum_idx" ON "magic_data"."knowledge_chunks" ("checksum");--> statement-breakpoint
@@ -164,8 +164,8 @@ CREATE INDEX "knowledge_index_jobs_source_id_status_idx" ON "magic_data"."knowle
 CREATE UNIQUE INDEX "knowledge_sources_source_type_source_key_version_key_locale_uq" ON "magic_data"."knowledge_sources" ("source_type","source_key","version_key","locale");--> statement-breakpoint
 CREATE INDEX "knowledge_sources_status_idx" ON "magic_data"."knowledge_sources" ("status");--> statement-breakpoint
 CREATE INDEX "knowledge_sources_source_type_source_key_idx" ON "magic_data"."knowledge_sources" ("source_type","source_key");--> statement-breakpoint
-CREATE UNIQUE INDEX "knowledge_source_links_source_id_target_type_target_key_relation_uq" ON "magic_data"."knowledge_source_links" ("source_id","target_type","target_key","relation");--> statement-breakpoint
-CREATE INDEX "knowledge_source_links_target_type_target_key_idx" ON "magic_data"."knowledge_source_links" ("target_type","target_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "ks_links_source_target_rel_uq" ON "magic_data"."knowledge_source_links" ("source_id","target_type","target_key","relation");--> statement-breakpoint
+CREATE INDEX "ks_links_target_type_key_idx" ON "magic_data"."knowledge_source_links" ("target_type","target_key");--> statement-breakpoint
 ALTER TABLE "hearthstone_data"."knowledge_chunks" ADD CONSTRAINT "knowledge_chunks_source_id_knowledge_sources_id_fkey" FOREIGN KEY ("source_id") REFERENCES "hearthstone_data"."knowledge_sources"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "hearthstone_data"."knowledge_embeddings" ADD CONSTRAINT "knowledge_embeddings_chunk_id_knowledge_chunks_id_fkey" FOREIGN KEY ("chunk_id") REFERENCES "hearthstone_data"."knowledge_chunks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "hearthstone_data"."knowledge_index_jobs" ADD CONSTRAINT "knowledge_index_jobs_source_id_knowledge_sources_id_fkey" FOREIGN KEY ("source_id") REFERENCES "hearthstone_data"."knowledge_sources"("id") ON DELETE CASCADE;--> statement-breakpoint

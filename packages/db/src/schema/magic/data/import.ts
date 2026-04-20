@@ -256,11 +256,11 @@ export const ImportFieldRule = dataSchema.table('import_field_rules', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  uniqueIndex('import_field_rules_rule_set_id_source_id_field_path_reason_code_uq')
+  uniqueIndex('import_field_rules_scope_path_reason_uq')
     .on(table.ruleSetId, table.sourceId, table.fieldPath, table.reasonCode),
-  index('import_field_rules_source_id_entity_type_idx').on(table.sourceId, table.entityType),
-  index('import_field_rules_rule_set_id_decision_mode_idx').on(table.ruleSetId, table.decisionMode),
-  index('import_field_rules_field_group_risk_level_idx').on(table.group, table.riskLevel),
+  index('import_field_rules_source_entity_idx').on(table.sourceId, table.entityType),
+  index('import_field_rules_rule_set_mode_idx').on(table.ruleSetId, table.decisionMode),
+  index('import_field_rules_group_risk_idx').on(table.group, table.riskLevel),
 ]);
 
 export const ImportPolicySnapshot = dataSchema.table('import_policy_snapshots', {
@@ -309,7 +309,7 @@ export const ImportRawRecord = dataSchema.table('import_raw_records', {
   importRunId: uuid('import_run_id').notNull().references(() => ImportRun.id, { onDelete: 'cascade' }),
   sourceId:    text('source_id').$type<ImportSourceId>().notNull().references(() => ImportSource.sourceId),
 
-  sourceRecordKey: text('source_record_key').notNull(),
+  sourceRecordKey:  text('source_record_key').notNull(),
   targetEntityType: importEntityType('target_entity_type').$type<ImportEntityType>(),
   targetKey:        jsonb('target_key').$type<JsonMap>(),
   matchKey:         jsonb('match_key').$type<JsonMap>(),
@@ -342,7 +342,7 @@ export const ImportChangeSet = dataSchema.table('import_change_sets', {
   decisionSource: importDecisionSource('decision_source').$type<ImportDecisionSource>().notNull().default('system'),
   reasonCode:     text('reason_code').notNull().default(''),
 
-  lockedPathCount: integer('locked_path_count').notNull().default(0),
+  lockedPathCount:  integer('locked_path_count').notNull().default(0),
   fieldChangeCount: integer('field_change_count').notNull().default(0),
   appliedAt:        timestamp('applied_at'),
 
@@ -408,7 +408,7 @@ export const ImportApplyLog = dataSchema.table('import_apply_logs', {
   fieldChangeId: uuid('field_change_id').notNull().references(() => ImportFieldChange.id, { onDelete: 'cascade' }),
   changeSetId:   uuid('change_set_id').notNull().references(() => ImportChangeSet.id, { onDelete: 'cascade' }),
 
-  action:      importApplyAction('action').$type<ImportApplyAction>().notNull().default('apply'),
+  action:       importApplyAction('action').$type<ImportApplyAction>().notNull().default('apply'),
   targetSchema: text('target_schema').notNull(),
   targetTable:  text('target_table').notNull(),
   targetKey:    jsonb('target_key').$type<JsonMap>().notNull(),
@@ -446,8 +446,8 @@ export const ImportReviewAction = appSchema.table('import_review_actions', {
   scopeKey:  text('scope_key').notNull(),
   action:    importReviewAction('action').$type<ImportReviewAction>().notNull(),
 
-  reviewerId: text('reviewer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  reason:     text('reason'),
+  reviewerId:    text('reviewer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  reason:        text('reason'),
   overrideValue: jsonb('override_value').$type<JsonValue>(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),

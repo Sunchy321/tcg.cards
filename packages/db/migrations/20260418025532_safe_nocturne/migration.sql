@@ -204,10 +204,10 @@ CREATE UNIQUE INDEX "import_field_changes_change_set_id_field_path_uq" ON "magic
 CREATE INDEX "import_field_changes_decision_status_decision_mode_idx" ON "magic_data"."import_field_changes" ("decision_status","decision_mode");--> statement-breakpoint
 CREATE INDEX "import_field_changes_batch_key_idx" ON "magic_data"."import_field_changes" ("batch_key");--> statement-breakpoint
 CREATE INDEX "import_field_changes_applied_at_idx" ON "magic_data"."import_field_changes" ("applied_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "import_field_rules_rule_set_id_source_id_field_path_reason_code_uq" ON "magic_data"."import_field_rules" ("rule_set_id","source_id","field_path","reason_code");--> statement-breakpoint
-CREATE INDEX "import_field_rules_source_id_entity_type_idx" ON "magic_data"."import_field_rules" ("source_id","entity_type");--> statement-breakpoint
-CREATE INDEX "import_field_rules_rule_set_id_decision_mode_idx" ON "magic_data"."import_field_rules" ("rule_set_id","decision_mode");--> statement-breakpoint
-CREATE INDEX "import_field_rules_field_group_risk_level_idx" ON "magic_data"."import_field_rules" ("field_group","risk_level");--> statement-breakpoint
+CREATE UNIQUE INDEX "import_field_rules_scope_path_reason_uq" ON "magic_data"."import_field_rules" ("rule_set_id","source_id","field_path","reason_code");--> statement-breakpoint
+CREATE INDEX "import_field_rules_source_entity_idx" ON "magic_data"."import_field_rules" ("source_id","entity_type");--> statement-breakpoint
+CREATE INDEX "import_field_rules_rule_set_mode_idx" ON "magic_data"."import_field_rules" ("rule_set_id","decision_mode");--> statement-breakpoint
+CREATE INDEX "import_field_rules_group_risk_idx" ON "magic_data"."import_field_rules" ("field_group","risk_level");--> statement-breakpoint
 CREATE UNIQUE INDEX "import_policy_snapshots_version_uq" ON "magic_data"."import_policy_snapshots" ("version");--> statement-breakpoint
 CREATE UNIQUE INDEX "import_policy_snapshots_content_hash_uq" ON "magic_data"."import_policy_snapshots" ("content_hash");--> statement-breakpoint
 CREATE INDEX "import_policy_snapshots_rule_set_id_published_at_idx" ON "magic_data"."import_policy_snapshots" ("rule_set_id","published_at");--> statement-breakpoint

@@ -122,8 +122,8 @@ export const DocumentNodeEntity = schema.table('document_node_entities', {
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  index('document_node_entities_document_id_current_version_id_idx').on(table.documentId, table.currentVersionId),
-  index('document_node_entities_document_id_origin_version_id_origin_node_id_idx')
+  index('doc_node_entities_doc_current_ver_idx').on(table.documentId, table.currentVersionId),
+  index('doc_node_entities_doc_origin_node_idx')
     .on(table.documentId, table.originVersionId, table.originNodeId),
 ]);
 
@@ -187,11 +187,11 @@ export const DocumentNodeChange = schema.table('document_node_changes', {
   createdAt:        timestamp('created_at').defaultNow().notNull(),
   reviewedAt:       timestamp('reviewed_at'),
 }, table => [
-  index('document_node_changes_document_id_from_version_id_to_version_id_idx')
+  index('doc_node_changes_doc_from_to_idx')
     .on(table.documentId, table.fromVersionId, table.toVersionId),
-  index('document_node_changes_document_id_entity_id_idx').on(table.documentId, table.entityId),
-  index('document_node_changes_document_id_type_idx').on(table.documentId, table.type),
-  index('document_node_changes_document_id_review_state_cache_confidence_score_idx')
+  index('doc_node_changes_doc_entity_idx').on(table.documentId, table.entityId),
+  index('doc_node_changes_doc_type_idx').on(table.documentId, table.type),
+  index('doc_node_changes_doc_review_conf_idx')
     .on(table.documentId, table.reviewStateCache, table.confidenceScore),
 ]);
 
@@ -237,6 +237,6 @@ export const DocumentVersionPairRevision = schema.table('document_version_pair_r
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  uniqueIndex('document_version_pair_revisions_document_id_from_version_id_to_version_id_uq')
+  uniqueIndex('doc_ver_pair_rev_doc_from_to_uq')
     .on(table.documentId, table.fromVersionId, table.toVersionId),
 ]);

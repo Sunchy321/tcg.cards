@@ -128,7 +128,7 @@ export const KnowledgeSourceLink = dataSchema.table('knowledge_source_links', {
   relation:   text('relation').notNull().default('primary'),
   createdAt:  timestamp('created_at').defaultNow().notNull(),
 }, table => [
-  uniqueIndex('knowledge_source_links_source_id_target_type_target_key_relation_uq')
+  uniqueIndex('ks_links_source_target_rel_uq')
     .on(table.sourceId, table.targetType, table.targetKey, table.relation),
-  index('knowledge_source_links_target_type_target_key_idx').on(table.targetType, table.targetKey),
+  index('ks_links_target_type_key_idx').on(table.targetType, table.targetKey),
 ]);

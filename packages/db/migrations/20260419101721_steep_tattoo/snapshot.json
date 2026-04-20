@@ -14835,7 +14835,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "knowledge_source_links_source_id_target_type_target_key_relation_uq",
+      "name": "ks_links_source_target_rel_uq",
       "entityType": "indexes",
       "schema": "hearthstone_data",
       "table": "knowledge_source_links"
@@ -14863,7 +14863,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "knowledge_source_links_target_type_target_key_idx",
+      "name": "ks_links_target_type_key_idx",
       "entityType": "indexes",
       "schema": "hearthstone_data",
       "table": "knowledge_source_links"
@@ -15108,7 +15108,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "document_node_changes_document_id_from_version_id_to_version_id_idx",
+      "name": "doc_node_changes_doc_from_to_idx",
       "entityType": "indexes",
       "schema": "magic",
       "table": "document_node_changes"
@@ -15136,7 +15136,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "document_node_changes_document_id_entity_id_idx",
+      "name": "doc_node_changes_doc_entity_idx",
       "entityType": "indexes",
       "schema": "magic",
       "table": "document_node_changes"
@@ -15164,7 +15164,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "document_node_changes_document_id_type_idx",
+      "name": "doc_node_changes_doc_type_idx",
       "entityType": "indexes",
       "schema": "magic",
       "table": "document_node_changes"
@@ -15199,7 +15199,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "document_node_changes_document_id_review_state_cache_confidence_score_idx",
+      "name": "doc_node_changes_doc_review_conf_idx",
       "entityType": "indexes",
       "schema": "magic",
       "table": "document_node_changes"
@@ -15353,7 +15353,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "document_node_entities_document_id_current_version_id_idx",
+      "name": "doc_node_entities_doc_current_ver_idx",
       "entityType": "indexes",
       "schema": "magic",
       "table": "document_node_entities"
@@ -15388,7 +15388,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "document_node_entities_document_id_origin_version_id_origin_node_id_idx",
+      "name": "doc_node_entities_doc_origin_node_idx",
       "entityType": "indexes",
       "schema": "magic",
       "table": "document_node_entities"
@@ -15521,7 +15521,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "document_version_pair_revisions_document_id_from_version_id_to_version_id_uq",
+      "name": "doc_ver_pair_rev_doc_from_to_uq",
       "entityType": "indexes",
       "schema": "magic",
       "table": "document_version_pair_revisions"
@@ -15801,7 +15801,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "import_field_rules_rule_set_id_source_id_field_path_reason_code_uq",
+      "name": "import_field_rules_scope_path_reason_uq",
       "entityType": "indexes",
       "schema": "magic_data",
       "table": "import_field_rules"
@@ -15829,7 +15829,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "import_field_rules_source_id_entity_type_idx",
+      "name": "import_field_rules_source_entity_idx",
       "entityType": "indexes",
       "schema": "magic_data",
       "table": "import_field_rules"
@@ -15857,7 +15857,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "import_field_rules_rule_set_id_decision_mode_idx",
+      "name": "import_field_rules_rule_set_mode_idx",
       "entityType": "indexes",
       "schema": "magic_data",
       "table": "import_field_rules"
@@ -15885,7 +15885,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "import_field_rules_field_group_risk_level_idx",
+      "name": "import_field_rules_group_risk_idx",
       "entityType": "indexes",
       "schema": "magic_data",
       "table": "import_field_rules"
@@ -16686,7 +16686,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "knowledge_source_links_source_id_target_type_target_key_relation_uq",
+      "name": "ks_links_source_target_rel_uq",
       "entityType": "indexes",
       "schema": "magic_data",
       "table": "knowledge_source_links"
@@ -16714,7 +16714,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "knowledge_source_links_target_type_target_key_idx",
+      "name": "ks_links_target_type_key_idx",
       "entityType": "indexes",
       "schema": "magic_data",
       "table": "knowledge_source_links"

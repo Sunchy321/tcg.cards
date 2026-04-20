@@ -151,22 +151,22 @@ CREATE INDEX "document_nodes_document_id_entity_id_idx" ON "magic"."document_nod
 CREATE INDEX "document_nodes_version_id_path_idx" ON "magic"."document_nodes" ("version_id","path");--> statement-breakpoint
 CREATE INDEX "document_nodes_parent_node_id_idx" ON "magic"."document_nodes" ("parent_node_id");--> statement-breakpoint
 CREATE INDEX "document_nodes_version_id_source_fingerprint_hash_idx" ON "magic"."document_nodes" ("version_id","source_fingerprint_hash");--> statement-breakpoint
-CREATE INDEX "document_node_changes_document_id_from_version_id_to_version_id_idx" ON "magic"."document_node_changes" ("document_id","from_version_id","to_version_id");--> statement-breakpoint
-CREATE INDEX "document_node_changes_document_id_entity_id_idx" ON "magic"."document_node_changes" ("document_id","entity_id");--> statement-breakpoint
-CREATE INDEX "document_node_changes_document_id_type_idx" ON "magic"."document_node_changes" ("document_id","type");--> statement-breakpoint
-CREATE INDEX "document_node_changes_document_id_review_state_cache_confidence_score_idx" ON "magic"."document_node_changes" ("document_id","review_state_cache","confidence_score");--> statement-breakpoint
+CREATE INDEX "doc_node_changes_doc_from_to_idx" ON "magic"."document_node_changes" ("document_id","from_version_id","to_version_id");--> statement-breakpoint
+CREATE INDEX "doc_node_changes_doc_entity_idx" ON "magic"."document_node_changes" ("document_id","entity_id");--> statement-breakpoint
+CREATE INDEX "doc_node_changes_doc_type_idx" ON "magic"."document_node_changes" ("document_id","type");--> statement-breakpoint
+CREATE INDEX "doc_node_changes_doc_review_conf_idx" ON "magic"."document_node_changes" ("document_id","review_state_cache","confidence_score");--> statement-breakpoint
 CREATE INDEX "document_node_change_relations_change_id_side_sort_order_idx" ON "magic"."document_node_change_relations" ("change_id","side","sort_order");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_node_contents_document_node_id_locale_uq" ON "magic"."document_node_contents" ("document_node_id","locale");--> statement-breakpoint
 CREATE INDEX "document_node_contents_content_hash_idx" ON "magic"."document_node_contents" ("content_hash");--> statement-breakpoint
 CREATE INDEX "document_node_contents_source_content_hash_idx" ON "magic"."document_node_contents" ("source_content_hash");--> statement-breakpoint
 CREATE INDEX "document_node_contents_status_idx" ON "magic"."document_node_contents" ("status");--> statement-breakpoint
-CREATE INDEX "document_node_entities_document_id_current_version_id_idx" ON "magic"."document_node_entities" ("document_id","current_version_id");--> statement-breakpoint
-CREATE INDEX "document_node_entities_document_id_origin_version_id_origin_node_id_idx" ON "magic"."document_node_entities" ("document_id","origin_version_id","origin_node_id");--> statement-breakpoint
+CREATE INDEX "doc_node_entities_doc_current_ver_idx" ON "magic"."document_node_entities" ("document_id","current_version_id");--> statement-breakpoint
+CREATE INDEX "doc_node_entities_doc_origin_node_idx" ON "magic"."document_node_entities" ("document_id","origin_version_id","origin_node_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_versions_document_id_version_tag_uq" ON "magic"."document_versions" ("document_id","version_tag");--> statement-breakpoint
 CREATE INDEX "document_versions_document_id_lifecycle_status_idx" ON "magic"."document_versions" ("document_id","lifecycle_status");--> statement-breakpoint
 CREATE INDEX "document_version_imports_import_status_idx" ON "magic_data"."document_version_imports" ("import_status");--> statement-breakpoint
 CREATE INDEX "document_version_imports_import_run_id_idx" ON "magic_data"."document_version_imports" ("import_run_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "document_version_pair_revisions_document_id_from_version_id_to_version_id_uq" ON "magic"."document_version_pair_revisions" ("document_id","from_version_id","to_version_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "doc_ver_pair_rev_doc_from_to_uq" ON "magic"."document_version_pair_revisions" ("document_id","from_version_id","to_version_id");--> statement-breakpoint
 ALTER TABLE "magic"."document_change_reviews" ADD CONSTRAINT "document_change_reviews_change_id_document_node_changes_id_fkey" FOREIGN KEY ("change_id") REFERENCES "magic"."document_node_changes"("id");--> statement-breakpoint
 ALTER TABLE "magic"."document_nodes" ADD CONSTRAINT "document_nodes_version_id_document_versions_id_fkey" FOREIGN KEY ("version_id") REFERENCES "magic"."document_versions"("id");--> statement-breakpoint
 ALTER TABLE "magic"."document_nodes" ADD CONSTRAINT "document_nodes_document_id_document_definitions_id_fkey" FOREIGN KEY ("document_id") REFERENCES "magic"."document_definitions"("id");--> statement-breakpoint
