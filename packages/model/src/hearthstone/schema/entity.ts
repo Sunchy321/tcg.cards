@@ -124,7 +124,8 @@ export const entity = z.strictObject({
     elite:       z.boolean(),
     rarity:      rarity.nullable(),
 
-    artist: z.string(),
+    artist:            z.string(),
+    overrideWatermark: z.string().nullable(),
 
     faction: faction.nullable(),
 

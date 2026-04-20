@@ -272,6 +272,7 @@ Tag 重命名只修改 `tags`：
 - `identity_string`
 - `identity_loc_string`
 - `identity_card_ref`
+- `card_ref_from_int`
 - `bool_from_int`
 - `enum_from_int`
 - `json_wrap`
@@ -292,6 +293,7 @@ Tag 重命名只修改 `tags`：
 - `HEALTH`：`int_raw -> int`
 - `CARDTEXT`：`loc_string_raw -> loc_string`
 - `HERO_POWER`：`card_raw -> card_ref`
+- `BACON_TRIPLE_UPGRADE_MINION_ID`：`int_raw(dbfId) -> card_ref`
 
 ### 5.6 Tag 字段映射配置
 
@@ -360,7 +362,6 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 主要字段：
 
-- `id`
 - `sourceTag`：`hsdata` 历史 tag，数值型
 - `sourceCommit`
 - `build`
@@ -374,6 +375,8 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - 数据库只保存源文件元数据与校验信息
 - 原始 XML 文件本体继续保存在对象存储或参考目录
 - `sourceHash` 用于幂等校验
+- `sourceTag` 属于导入侧与原始归档层身份，可以保留在 `hearthstone_data`
+- `build` 才是默认层、查询层和前端版本切换使用的版本身份
 
 ### 7.2 原始快照池
 
@@ -384,7 +387,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `id`
 - `cardId`
 - `dbfId`
-- `version`
+- `sourceTags`
 - `entityXmlVersion`
 - `snapshotHash`
 - `extraPayload`
@@ -396,7 +399,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `snapshotHash` 基于规范化后的完整 `Entity` 内容生成
 - `extraPayload` 用于存放当前未拆成独立表的结构，如 `Power`、`ReferencedTag`、`EntourageCard`
 - 完全相同的 `Entity` 内容只保存一份
-- `version` 记录这份原始快照在哪些源版本中出现，使用升序、去重、非空的 `int[]` 表达
+- `sourceTags` 记录这份原始快照在哪些 `sourceTag` 中出现，使用升序、去重、非空的 `int[]` 表达
 
 ### 7.3 原始快照 Tag 事件表
 
@@ -526,6 +529,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
   - `elite`
   - `rarity`
   - `artist`
+  - `overrideWatermark`
   - `mechanics`
   - `referencedTags`
   - `heroPower`
@@ -546,12 +550,13 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 说明：
 
 - `revisionHash` 只覆盖结构字段，不覆盖本地化字段
-- `version` 使用规范化 `int[]` 表示离散源版本集合，因此版本 `123` 和 `678` 相同、版本 `45` 不同的情况可以由一行表示
+- `version` 使用规范化 `int[]` 表示离散 build 集合，因此版本 `123` 和 `678` 相同、版本 `45` 不同的情况可以由一行表示
 - 结构化字段由 `tags` 中的字段映射配置从原始快照投影得出
 - 上游类别字段在数据库中优先使用 `text` 保存，避免因上游新增值阻塞导入；仅 `lang` 这类需要稳定自定义排序且变化极少的字段保留数据库 enum 顺序
 - `legacyPayload` 保存旧版本存在、现在不再升格为核心列但仍需要随领域数据完整导出的字段，如旧 `slug`、`entourages`
 - `localizationNotes` 这类不再保留独立列、但仍需要领域导出的边缘字段也进入 `legacyPayload`
-- `mechanics` 使用结构化 bool / int payload，而不是 `text[]`；`coin`、`deckOrder`、`overrideWatermark`、`deckSize` 这类可表达为机制的字段统一收敛到 `mechanics`
+- `mechanics` 使用结构化 bool / int payload，而不是 `text[]`；`sellValue`、`deckOrder`、`deckSize` 这类可表达为机制的字段统一收敛到 `mechanics`。其中 `sellValue` 对应原始 `BACON_SELL_VALUE`，旧映射中的 `coin` 是误名
+- `overrideWatermark` 保留为独立字段，值使用 set slug，表示覆盖卡牌默认系列名（水印名）
 - 佣兵 / 战棋专属字段继续保持当前平铺独立列，不引入模式前缀，也不引入 `modePayload`
 - `heroPower`、`buddy`、`tripleCard` 这类强单值卡牌关系继续保留独立字段，并同步写入 `entity_relations`
 - `heroicHeroPower` 降级为弱关系，只写入 `entity_relations`
@@ -561,7 +566,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 `hearthstone.entity_localizations` 一行表示：
 
-**某张卡、某语言、某结构修订、某文本修订，在一组源版本中生效，并对应一份渲染模型。**
+**某张卡、某语言、某结构修订、某文本修订，在一组 build 中生效，并对应一份渲染模型。**
 
 该表同样使用自然键表达本地化修订，不新增独立自增 `id`。
 
@@ -603,7 +608,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 `hearthstone.entity_relations` 一行表示：
 
-**某张卡的一条关系在某份结构修订上成立，并在一组源版本中生效。**
+**某张卡的一条关系在某份结构修订上成立，并在一组 build 中生效。**
 
 主要字段：
 
@@ -712,7 +717,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 4. 对每个原始 `Tag` 按 `enumID` 查找 `tags`
 5. 若 Tag 未知，则自动注册到 `tags`
 6. 按 `tags` 中的解析配置生成类型化值，并写入 `raw_entity_snapshot_tags`
-7. 生成或复用 `raw_entity_snapshot`，并更新其 `version`
+7. 生成或复用 `raw_entity_snapshot`，并更新其 `sourceTags`
 8. 根据 `tags` 中的字段映射配置投影为 `entities`
 9. 生成对应语言的 `entity_localizations`
 10. 计算 `renderHash` 与 `renderModel`，并内联写入 `entity_localizations`
@@ -793,17 +798,20 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 ### 14.2 `version int[]` 的落地规则
 
-由于源版本号本质上是高度离散的 build 集合，当前更适合直接使用规范化 `int[]`，而不是 `int4multirange`。
+默认层的版本号本质上是高度离散的 build 集合，因此当前更适合直接使用规范化 `int[]`，而不是 `int4multirange`。
 
 推荐规则：
 
+- `hearthstone_data.source_versions.sourceTag` 保留导入侧身份
+- `hearthstone_data.raw_entity_snapshots.sourceTags` 使用规范化 `sourceTag[]`
+- `hearthstone.entities.version`、`entity_localizations.version`、`entity_relations.version` 使用规范化 `build[]`
 - 数组必须升序
 - 数组必须去重
 - 数组不能为空
 - 版本交集使用数组操作符 `&&`
 - 版本求交使用数组操作符 `&`
 - `&` 依赖 PostgreSQL `intarray` 扩展
-- 指定版本命中使用 `= any(version)` 或 `version @> ARRAY[x]`
+- 指定版本命中优先使用 `version @> ARRAY[x]`
 
 这样可以更贴近真实版本语义，同时保持导出 JSON、接口兼容和查询实现简单。
 

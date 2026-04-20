@@ -7,7 +7,7 @@
 - 评审通过，可以进入实施计划阶段
 - 当前计划以 `enumID` 稳定、每个 Tag 只有唯一解析方式和唯一字段映射为前提
 - 当前计划接受取消 `raw_entity_spans`、`card_timelines`、`render_models` 等中间表
-- 当前计划接受 `version int[]` 直接放入 `raw_entity_snapshots`、`entities`、`entity_localizations`
+- 当前计划接受 `raw_entity_snapshots.sourceTags` 使用规范化 `sourceTag[]`，以及默认层 `version int[]` 直接放入 `entities`、`entity_localizations`
 - 当前计划接受 `renderHash` 由 canonical `renderModel` 生成，而不是使用随机值
 
 ### 必须确认

@@ -4,7 +4,7 @@
 
 ## 当前边界摘要
 
-- 源版本范围使用规范化 `version int[]` 表达，而不是 `sourceSpan`
+- 原始归档层使用规范化 `sourceTag[]`，默认层使用规范化 `build[]`，不再使用 `sourceSpan`
 - 旧字段和边缘兼容字段进入 `legacyPayload`
 - 通用 `bool / int` 机制进入 `mechanics`
 - 佣兵 / 战棋专属属性继续作为平铺独立列保留
@@ -19,14 +19,15 @@
 | `slug` | `entities` | 删除独立列 | `cardId` 已是卡牌自然键；slug 是旧版本上游字段，不应作为结构修订核心列 | 如需完整导出旧版本，进入 `entities.legacyPayload.slug` |
 | `entourages` | `entities` | 删除独立列 | 更像旧版本 XML 子结构或卡牌关系，不适合压成核心结构字段 | 如需完整导出旧版本，进入 `entities.legacyPayload.entourages`；若后续需要高频查询，再升格为关系表 |
 | `localizationNotes` | `entities` | 删除独立列 | 属于边缘兼容字段，不适合继续污染核心结构列 | 进入 `entities.legacyPayload.localizationNotes` |
-| `coin`、`deckOrder`、`overrideWatermark`、`deckSize` | `entities` | 删除独立列 | 更适合作为结构化 bool / int 机制表达，而不是单独列散落在主表中 | 统一投影到 `entities.mechanics` |
+| `sellValue`、`deckOrder`、`deckSize` | `entities` | 删除独立列 | 更适合作为结构化 bool / int 机制表达，而不是单独列散落在主表中；`sellValue` 对应原始 `BACON_SELL_VALUE`，旧映射中的 `coin` 是误名 | 统一投影到 `entities.mechanics` |
 
 ## 保留
 
 | 字段 | 所属表 | 结论 | 原因 |
 |------|--------|------|------|
 | `cardId` | `entities`、`entity_localizations` | 保留 | 上游稳定卡牌标识，也是自然键的一部分 |
-| `version` | `raw_entity_snapshots`、`entities`、`entity_localizations`、`entity_relations` | 保留 | 源版本本质是离散 build 集合；使用规范化 `int[]` 更贴近语义，也更利于导出和现有查询兼容 |
+| `sourceTags` | `raw_entity_snapshots` | 保留 | 原始归档层使用 `sourceTag[]` 表达导入源版本集合，避免与默认层 `build[]` 混淆 |
+| `version` | `entities`、`entity_localizations`、`entity_relations` | 保留 | 默认层版本本质是离散 build 集合；使用规范化 `int[]` 更贴近语义，也更利于导出和现有查询兼容 |
 | `dbfId` | `entities` | 保留 | 上游实体数值标识，兼容旧数据和部分资源路径 |
 | `revisionHash` | `entities`、`entity_localizations` | 保留 | 结构修订去重和结构-本地化关联都依赖它 |
 | `localizationHash` | `entity_localizations` | 保留 | 本地化修订去重依赖它 |
@@ -36,24 +37,29 @@
 | `legalities` | `cards` | 保留 | 属于卡牌层面的非 XML 侧事实，当前页面和 API 已使用 |
 | `legacyPayload` | `entities` | 保留 | 保存旧版本存在、现在不再升格为核心列但仍属于领域导出信息的字段，保证 `hearthstone` 层可独立完整导出 |
 | `set`、`classes`、`type`、`cost`、`attack`、`health`、`durability`、`armor` | `entities` | 保留 | 高频查询和渲染都会使用，适合核心结构化字段 |
+| `overrideWatermark` | `entities` | 保留 | 表示覆盖原卡牌的系列名（水印名），语义是 set override，不适合归入只支持 `bool / int` 的 `mechanics` |
 | `rune`、`race`、`spellSchool`、`questType`、`rarity`、`faction`、`textBuilderType` | `entities` | 保留 | 属于常见分类或渲染字段；数据库中用 `text` / `text[]` 保存，避免上游新增值阻塞导入 |
 | `techLevel`、`colddown`、`mechanics`、`referencedTags` | `entities` | 保留 | 当前查询或卡牌详情页已使用，且具备明确业务含义 |
 | 本地化文本字段 | `entity_localizations` | 保留 | 直接影响查询、展示和渲染 |
 
-### `version` 存储约束
+### `version` / `sourceTags` 存储约束
 
-`version` 使用规范化的 `int[]` 表达源版本集合。
+默认层与原始归档层的版本语义必须分开：
+
+- `hearthstone_data.raw_entity_snapshots.sourceTags` 使用规范化的 `sourceTag[]`
+- `hearthstone.entities.version`、`entity_localizations.version`、`entity_relations.version` 使用规范化的 `build[]`
 
 结论：
 
-- `version` 必须升序、去重、非空
+- `sourceTags` 与 `version` 都必须升序、去重、非空
 - 版本集合交集使用 `&&`
 - 版本集合求交使用 `&`
 - `&` 依赖 PostgreSQL `intarray` 扩展
-- 指定版本命中可用 `= any(version)` 或 `version @> ARRAY[x]`
+- 指定默认层版本命中优先使用 `version @> ARRAY[x]`
 - 同一 `cardId` 的不同结构记录不能出现版本集合交集
 - 同一 `cardId + lang` 的不同本地化记录不能出现版本集合交集
-- 版本号本身是离散 build，不再用 `sourceSpan` / `int4multirange` 表达
+- 默认层版本号本身是离散 build，不再用 `sourceSpan` / `int4multirange` 表达
+- `sourceTag` 允许保留在 `hearthstone_data.source_versions` 中，作为导入追溯身份
 
 ### `legacyPayload` 边界
 
@@ -99,7 +105,8 @@
 - `slug` 可配置且可重命名，只适合展示、查询参数和导出 JSON
 - 导出时将 `enumId` 映射为当前 `slug`
 - 未知 mechanic 可以先用 `enumId` 正常入库，后续补充 `tags` 配置后再改善展示和导出
-- `coin`、`deckOrder`、`overrideWatermark`、`deckSize` 不再保留独立列，统一投影到 `mechanics`
+- `sellValue`、`deckOrder`、`deckSize` 不再保留独立列，统一投影到 `mechanics`
+- `overrideWatermark` 继续保留独立列，值使用 set slug，表示覆盖卡牌默认水印名
 - 只有仍需要独立数值查询或明确领域含义的字段才保留独立列；其余可表达为 bool / int 机制的字段尽量收敛到 `mechanics`
 
 ### 模式专属字段

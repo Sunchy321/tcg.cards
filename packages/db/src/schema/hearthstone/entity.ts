@@ -64,7 +64,8 @@ export const Entity = schema.table('entities', {
   elite:       boolean('elite').notNull(),
   rarity:      text('rarity').$type<NonNullable<IEntity['rarity']>>(),
 
-  artist: text('artist').notNull(),
+  artist:            text('artist').notNull(),
+  overrideWatermark: text('override_watermark'),
 
   faction: text('faction').$type<NonNullable<IEntity['faction']>>(),
 
