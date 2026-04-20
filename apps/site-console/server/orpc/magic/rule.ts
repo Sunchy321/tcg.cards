@@ -414,7 +414,7 @@ const syncLatest = os
     downloaded: z.boolean(),
   }))
   .handler(async ({ context }) => {
-    const env = context.env as HonoEnv['Bindings'];
+    const env = context.env;
 
     // Step 1: Fetch rules page and extract links
     console.log('[SyncLatest] Fetching Wizards rules page...');
