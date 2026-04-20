@@ -1,60 +1,104 @@
-# Nuxt Starter Template
+# `site-console`
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+Admin console for local data operations and import tooling.
 
-Use this template to get started with [Nuxt UI](https://ui.nuxt.com) quickly.
+## Development
 
-- [Live demo](https://starter-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
-
-<a href="https://starter-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-    <img alt="Nuxt Starter Template" src="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png" width="830" height="466">
-  </picture>
-</a>
-
-> The starter template for Vue is on https://github.com/nuxt-ui-templates/starter-vue.
-
-## Quick Start
-
-```bash [Terminal]
-npm create nuxt@latest -- -t github:nuxt-ui-templates/starter
-```
-
-## Deploy your own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=starter&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fstarter&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fstarter-dark.png&demo-url=https%3A%2F%2Fstarter-template.nuxt.dev%2F&demo-title=Nuxt%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Nuxt%20UI.)
-
-## Setup
-
-Make sure to install the dependencies:
+Install dependencies from the repository root:
 
 ```bash
-pnpm install
+bun install
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
+Start the console in development mode:
 
 ```bash
-pnpm dev
+cd apps/site-console
+bun run dev
 ```
 
-## Production
+## hsdata Upload Script
 
-Build the application for production:
+The package provides a Bun script that uploads the root-level `CardDefs.xml` from an `hsdata` checkout into the `R2_DATA` bucket.
+
+Script entry:
 
 ```bash
-pnpm build
+cd apps/site-console
+bun run hsdata:upload -- --dry-run
 ```
 
-Locally preview production build:
+### Store the local repo path in `.git/config`
+
+To avoid passing `--repo` every time, store the local `hsdata` checkout path in this repository's local Git config:
 
 ```bash
-pnpm preview
+git config --local hearthstone.hsdata-repo /absolute/path/to/hsdata
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+The value is written to `.git/config`, so it stays local to your machine and is not committed.
+
+### Upload flow
+
+Run a dry run first:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --dry-run
+```
+
+Upload to the remote R2 bucket:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload
+```
+
+List available `hsdata` Git tags with the `CardDefs.xml` build found at each tag:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --list-tags
+```
+
+Upload the `CardDefs.xml` from a specific Git tag:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --tag v31.0.0.3140
+```
+
+Upload the `CardDefs.xml` from any Git ref, branch, or commit:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --ref 5d68a0171acb1ca504edf53cbeb283840a8f040e
+```
+
+Override the repo path for one-off runs:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --repo /absolute/path/to/hsdata
+```
+
+Override the source tag:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --source-tag 310295
+```
+
+Use local R2 storage instead of remote:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --local
+```
+
+Show the full script help:
+
+```bash
+cd apps/site-console
+bun run hsdata:upload -- --help
+```
