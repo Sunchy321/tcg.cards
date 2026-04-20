@@ -61,6 +61,54 @@
 - 默认层版本号本身是离散 build，不再用 `sourceSpan` / `int4multirange` 表达
 - `sourceTag` 允许保留在 `hearthstone_data.source_versions` 中，作为导入追溯身份
 
+### `renderModel` 静态结构
+
+`renderModel` 是 `entity_localizations` 上的内联 JSON 字段，不新增独立表或 view。它只保存参与渲染等价判断的规范化 payload，并作为 `renderHash` 的唯一输入。
+
+推荐内部形态：
+
+```json
+{
+  "cardId": "CARD_001",
+  "lang": "zhs",
+  "variant": "normal",
+  "templateVersion": "v1",
+  "assetVersion": "v1",
+  "localization": {
+    "name": "示例卡牌",
+    "richText": "造成 3 点伤害。"
+  },
+  "type": "spell",
+  "cost": 2,
+  "attack": null,
+  "health": null,
+  "durability": null,
+  "armor": null,
+  "classes": ["mage"],
+  "race": null,
+  "spellSchool": "fire",
+  "mercenaryFaction": null,
+  "set": "CORE",
+  "overrideWatermark": null,
+  "rarity": "common",
+  "elite": false,
+  "techLevel": null,
+  "rune": null,
+  "renderMechanics": {
+    "tradable": true
+  }
+}
+```
+
+结论：
+
+- `renderModel` 的静态结构由模型层 Zod 类型维护，数据库列继续使用 `jsonb`
+- `variant`、`templateVersion`、`assetVersion` 属于渲染上下文，必须参与 `renderHash`
+- `overrideWatermark` 表示覆盖原卡牌系列名（水印名），与 `set` 一起参与渲染等价判断
+- `displayHealth` 不进入 `renderModel`，因为该值可由卡牌类型与 `health` / `durability` 推导，不影响 `renderHash`
+- `mechanics` 不整体进入 `renderModel`，只投影固定的 `renderMechanics` 子集
+- `renderMechanics` 首批只包含 `tradable`、`forge`、`hide_cost`、`hide_attack`、`hide_health`、`in_mini_set`、`hide_watermark`
+
 ### `legacyPayload` 边界
 
 `hearthstone` 领域数据层必须能独立表达可导出的卡牌信息，不能为了完整导出依赖 `hearthstone_data`。因此旧版本存在、但不值得继续作为核心列维护的字段，不只保存在 `raw_entity_snapshots.extraPayload`，还需要投影到 `entities.legacyPayload`。

@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -42,7 +43,7 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
 
   cardId:           text('card_id').notNull(),
   dbfId:            integer('dbf_id').notNull(),
-  version:          integer('version').array().notNull(),
+  sourceTags:       integer('source_tags').array().notNull(),
   entityXmlVersion: integer('entity_xml_version').notNull(),
 
   snapshotHash: text('snapshot_hash').notNull(),
@@ -61,6 +62,8 @@ export const RawEntitySnapshot = dataSchema.table('raw_entity_snapshots', {
   index('raw_entity_snapshots_dbf_id_idx').on(table.dbfId),
   index('raw_entity_snapshots_snapshot_hash_idx').on(table.snapshotHash),
   index('raw_entity_snapshots_latest_idx').on(table.isLatest),
+  index('raw_entity_snapshots_source_tags_gin_idx').using('gin', table.sourceTags),
+  check('raw_entity_snapshots_source_tags_nonempty_chk', sql`cardinality(${table.sourceTags}) > 0`),
 ]);
 
 export const RawEntitySnapshotTag = dataSchema.table('raw_entity_snapshot_tags', {
@@ -114,7 +117,7 @@ export const TagValueView = dataSchema.view('tag_value_view').as(qb => {
       snapshotId:     RawEntitySnapshotTag.snapshotId,
       cardId:         RawEntitySnapshot.cardId,
       dbfId:          RawEntitySnapshot.dbfId,
-      version:        RawEntitySnapshot.version,
+      sourceTags:     RawEntitySnapshot.sourceTags,
       enumId:         RawEntitySnapshotTag.enumId,
       tagSlug:        sql<string>`${Tag.slug}`.as('tag_slug'),
       tagName:        sql<string | null>`${Tag.name}`.as('tag_name'),

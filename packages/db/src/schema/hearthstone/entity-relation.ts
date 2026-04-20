@@ -1,10 +1,12 @@
 import {
   boolean,
+  check,
   index,
   integer,
   primaryKey,
   text,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 import { schema } from './schema';
 
@@ -29,4 +31,6 @@ export const EntityRelation = schema.table('entity_relations', {
   index('entity_relations_source_relation_idx').on(table.sourceId, table.relation),
   index('entity_relations_target_relation_idx').on(table.targetId, table.relation),
   index('entity_relations_latest_idx').on(table.isLatest),
+  index('entity_relations_version_gin_idx').using('gin', table.version),
+  check('entity_relations_version_nonempty_chk', sql`cardinality(${table.version}) > 0`),
 ]);

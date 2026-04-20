@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -17,8 +18,8 @@ import * as entityModel from '#model/hearthstone/schema/entity';
 
 import { Card } from './card';
 
-type JsonMap = Record<string, unknown>;
 type IEntity = entityModel.Entity;
+type IRenderModel = entityModel.RenderModel;
 
 export const locale = schema.enum('locale', basicModel.locale.enum);
 export const changeType = schema.enum('change_type', entityModel.changeType.enum);
@@ -78,6 +79,9 @@ export const Entity = schema.table('entities', {
   isLatest:   boolean('is_latest').notNull().default(false),
 }, table => [
   primaryKey({ columns: [table.cardId, table.revisionHash] }),
+  index('entities_latest_idx').on(table.isLatest),
+  index('entities_version_gin_idx').using('gin', table.version),
+  check('entities_version_nonempty_chk', sql`cardinality(${table.version}) > 0`),
 ]);
 
 export const EntityLocalization = schema.table('entity_localizations', {
@@ -88,7 +92,7 @@ export const EntityLocalization = schema.table('entity_localizations', {
   revisionHash:     text('revision_hash').notNull(),
   localizationHash: text('localization_hash').notNull(),
   renderHash:       text('render_hash'),
-  renderModel:      jsonb('render_model').$type<JsonMap>(),
+  renderModel:      jsonb('render_model').$type<IRenderModel>(),
   isLatest:         boolean('is_latest').notNull().default(false),
 
   name:            text('name').notNull(),
@@ -104,9 +108,13 @@ export const EntityLocalization = schema.table('entity_localizations', {
   locChangeType: changeType('loc_change_type').notNull().default('unknown'),
 }, table => [
   primaryKey({ columns: [table.cardId, table.lang, table.revisionHash, table.localizationHash] }),
+  index('entity_localizations_card_lang_idx').on(table.cardId, table.lang),
+  index('entity_localizations_latest_idx').on(table.isLatest),
+  index('entity_localizations_version_gin_idx').using('gin', table.version),
   index('entity_localizations_render_hash_idx')
     .on(table.renderHash)
     .where(sql`${table.renderHash} is not null`),
+  check('entity_localizations_version_nonempty_chk', sql`cardinality(${table.version}) > 0`),
 ]);
 
 export const EntityView = schema.view('entity_view').as(qb => {

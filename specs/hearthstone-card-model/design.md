@@ -454,7 +454,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `snapshotId`
 - `cardId`
 - `dbfId`
-- `version`
+- `sourceTags`
 - `enumId`
 - `tagSlug`
 - `tagName`

@@ -82,6 +82,14 @@ After classification, enforce schema dependency direction strictly:
 
 If a table appears to mix multiple responsibilities, split the table first instead of placing it in an ambiguous schema.
 
+## Database Migrations
+
+For Drizzle-managed schema changes, update the schema definitions first and use `drizzle-kit generate` to produce migration SQL and snapshots.
+
+Do not hand-edit Drizzle migration snapshots, indexes, constraints, table definitions, or other schema-derived SQL when `drizzle-kit generate` can produce them.
+
+Only add manual SQL for migration behavior Drizzle cannot infer, such as deterministic backfills, data cleanup, transitional compatibility steps, or extension setup. Keep manual SQL minimal and place it alongside the generated migration it supports.
+
 ## Commit Messages
 
 Use Conventional Commits for all commit messages.
