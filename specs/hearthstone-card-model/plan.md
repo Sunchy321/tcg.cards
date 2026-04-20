@@ -5,7 +5,7 @@
 - [x] 盘点当前实现状态并标注阶段完成度
 - [x] 产出首版渲染字段白名单提案
 - [x] 完成 P0 技术收口：冻结 `sourceTag` / `sourceTags` / `build[]` / `version[]` 的语义与查询规则
-- [ ] 完成 P0 技术收口剩余项：冻结首批 Tag 映射和 XML 子结构边界
+- [x] 完成 P0 技术收口剩余项：冻结 XML 子结构边界（`Power` / `EntourageCard`）并回写计划状态
 - [ ] 完成 P1 数据模型收尾：校正 schema、迁移与回填方案，补齐约束和索引
 - [ ] 完成 P2 原始归档链路：写入 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`
 - [ ] 完成 P3 领域投影链路：生成 `entities`、`entity_localizations`、`entity_relations` 与三类 hash
@@ -15,8 +15,8 @@
 
 ## 当前状态（2026-04-19）
 
-- 整体完成度约为 `20% ~ 25%`
-- `P0` 部分完成：`sourceTag` / `sourceTags` / `build[]` / `version[]` 语义与渲染字段白名单已冻结，但首批 Tag 映射和 XML 子结构边界尚未最终冻结
+- 整体完成度约为 `25% ~ 30%`
+- `P0` 已完成：`sourceTag` / `sourceTags` / `build[]` / `version[]` 语义、渲染字段白名单、首批 Tag 映射与 XML 子结构边界均已冻结
 - `P1` 部分完成：Drizzle schema 与一版 migration 已落地，但仍缺迁移安全校验、回填路径和约束验收
 - `P2 ~ P6` 基本未完成：XML 导入、领域投影、查询迁移、历史回填、测试尚未形成闭环
 
@@ -24,7 +24,8 @@
 
 - 已新增与新模型相关的 schema / migration 骨架
 - 已引入 `renderModel` / `renderHash` 的字段设计方向
-- 已补充首版渲染字段白名单提案：`proposals/hearthstone-card-render-whitelist/design.md`
+- 已将首版渲染字段白名单结论并入当前 spec
+- 已确认 XML 子结构边界：`ReferencedTag` 独立投影到 `entities.referencedTags`，`Power` / `EntourageCard` 在 v1 继续保留于 `raw_entity_snapshots.extraPayload`
 
 ### 主要缺口
 
@@ -89,7 +90,7 @@
 
 | 阶段 | 状态 | 核心任务 | 输出物 | 验收标准 |
 |------|------|----------|--------|----------|
-| P0 技术收口 | 部分完成 | 已冻结 `sourceTag` / `sourceTags` / `build[]` / `version[]` 语义与渲染白名单；剩余任务是首批 `Tag -> 字段` 映射和 XML 子结构边界 | 白名单结论、字段映射表、版本集合规则 | 不再存在影响建模和迁移的关键未决项 |
+| P0 技术收口 | 已完成 | 已冻结 `sourceTag` / `sourceTags` / `build[]` / `version[]` 语义、渲染白名单、首批 `Tag -> 字段` 映射与 XML 子结构边界 | 白名单结论、字段映射表、版本集合规则 | 不再存在影响建模和迁移的关键未决项 |
 | P1 数据模型收尾 | 部分完成 | 审核现有 schema 和 migration；补齐约束、索引、回填与切换方案；明确 `renderModel` 列结构 | 修订后的 schema、迁移说明、回填计划 | 迁移可安全执行，且不依赖人工修补数据 |
 | P2 原始归档 | 未开始 | 实现 `CardDefs.xml` 解析；写入 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`；未知 Tag 自动登记 | XML parser、归档服务、导入日志 | 同一 source version 重复导入幂等，未知 Tag 不阻塞 |
 | P3 领域投影 | 未开始 | 从原始快照生成 `entities`、`entity_localizations`、`entity_relations`；计算 `revisionHash`、`localizationHash`、`renderHash` | 投影服务、哈希工具、renderModel 构造器 | 相同结构、文本、渲染可稳定去重 |
@@ -99,11 +100,10 @@
 
 ## 实施顺序
 
-1. 先完成 `P0` 剩余收口，避免在 schema 与 hash 规则上反复返工
-2. 再处理 `P1` 迁移安全问题，确认哪些现有 migration 需要重做或拆分
-3. 之后打通 `P2 -> P3` 的最小闭环，先跑通单份 `CardDefs.xml`
-4. 在最小闭环稳定后完成 `P4` 查询迁移
-5. 最后执行 `P5` 历史回填与图片迁移，并用 `P6` 做回归封口
+1. 先处理 `P1` 迁移安全问题，确认哪些现有 migration 需要重做或拆分
+2. 再打通 `P2 -> P3` 的最小闭环，先跑通单份 `CardDefs.xml`
+3. 在最小闭环稳定后完成 `P4` 查询迁移
+4. 最后执行 `P5` 历史回填与图片迁移，并用 `P6` 做回归封口
 
 ## 渲染哈希与图片迁移规则
 

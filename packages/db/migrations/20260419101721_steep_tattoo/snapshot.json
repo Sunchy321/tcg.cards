@@ -2956,11 +2956,11 @@
       "table": "entities"
     },
     {
-      "type": "text",
+      "type": "jsonb",
       "typeSchema": null,
       "notNull": true,
-      "dimensions": 1,
-      "default": null,
+      "dimensions": 0,
+      "default": "'{}'",
       "generated": null,
       "identity": null,
       "name": "referenced_tags",

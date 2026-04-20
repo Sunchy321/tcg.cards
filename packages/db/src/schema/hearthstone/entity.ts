@@ -70,7 +70,7 @@ export const Entity = schema.table('entities', {
   faction: text('faction').$type<NonNullable<IEntity['faction']>>(),
 
   mechanics:      jsonb('mechanics').$type<IEntity['mechanics']>().notNull().default({}),
-  referencedTags: text('referenced_tags').array().$type<IEntity['referencedTags'][number]>().notNull(),
+  referencedTags: jsonb('referenced_tags').$type<IEntity['referencedTags']>().notNull().default({}),
 
   textBuilderType: text('text_builder_type').$type<IEntity['textBuilderType']>().notNull().default('default'),
 

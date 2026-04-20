@@ -397,7 +397,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 说明：
 
 - `snapshotHash` 基于规范化后的完整 `Entity` 内容生成
-- `extraPayload` 用于存放当前未拆成独立表的结构，如 `Power`、`ReferencedTag`、`EntourageCard`
+- `extraPayload` 用于存放当前未拆成独立表的结构，如 `Power`、`EntourageCard`
 - 完全相同的 `Entity` 内容只保存一份
 - `sourceTags` 记录这份原始快照在哪些 `sourceTag` 中出现，使用升序、去重、非空的 `int[]` 表达
 
@@ -556,6 +556,9 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `legacyPayload` 保存旧版本存在、现在不再升格为核心列但仍需要随领域数据完整导出的字段，如旧 `slug`、`entourages`
 - `localizationNotes` 这类不再保留独立列、但仍需要领域导出的边缘字段也进入 `legacyPayload`
 - `mechanics` 使用结构化 bool / int payload，而不是 `text[]`；`sellValue`、`deckOrder`、`deckSize` 这类可表达为机制的字段统一收敛到 `mechanics`。其中 `sellValue` 对应原始 `BACON_SELL_VALUE`，旧映射中的 `coin` 是误名
+- `ReferencedTag` 不再只保存在 `extraPayload`；它会像 `mechanics` 一样做规范化投影，并写入 `referencedTags`
+- `referencedTags` 使用以 `enumId` 字符串为键的值 map，不直接保存 slug；值类型允许 `bool / int`，导出时再映射为当前 slug
+- 当前本地样本中的 `ReferencedTag.value` 全部为 `1`，但模型仍保留 `int` 值能力，以覆盖特殊情况
 - `overrideWatermark` 保留为独立字段，值使用 set slug，表示覆盖卡牌默认系列名（水印名）
 - 佣兵 / 战棋专属字段继续保持当前平铺独立列，不引入模式前缀，也不引入 `modePayload`
 - `heroPower`、`buddy`、`tripleCard` 这类强单值卡牌关系继续保留独立字段，并同步写入 `entity_relations`
@@ -789,11 +792,13 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 
 ### 14.1 `Power` 等非 Tag 子结构
 
-当前设计把重点放在 `Tag`，但 `Power`、`ReferencedTag`、`EntourageCard` 也可能参与领域投影。
+当前设计把重点放在 `Tag`，但 `Power`、`EntourageCard` 等非 Tag 子结构也可能参与领域投影。
 
 建议：
 
-- v1 先保存在 `raw_entity_snapshots.extraPayload`
+- `ReferencedTag` 直接规范化写入 `entities.referencedTags`
+- `referencedTags` 的内部存储规则与 `mechanics` 一致：使用稳定 `enumId` 身份，而不是 slug，值类型允许 `bool / int`
+- v1 其余非 Tag 子结构先保存在 `raw_entity_snapshots.extraPayload`
 - 当确实出现稳定查询需求时，再为这些子结构补专门的配置字段或独立子结构表
 
 ### 14.2 `version int[]` 的落地规则

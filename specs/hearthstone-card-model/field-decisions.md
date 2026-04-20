@@ -109,6 +109,30 @@
 - `overrideWatermark` 继续保留独立列，值使用 set slug，表示覆盖卡牌默认水印名
 - 只有仍需要独立数值查询或明确领域含义的字段才保留独立列；其余可表达为 bool / int 机制的字段尽量收敛到 `mechanics`
 
+### `referencedTags` 存储规则
+
+`ReferencedTag` 不再只停留在 `raw_entity_snapshots.extraPayload`，而是像 `mechanics` 一样在领域层维护一份规范化投影。
+
+推荐内部形态：
+
+```json
+{
+  "190": true,
+  "194": true,
+  "791": 2
+}
+```
+
+结论：
+
+- `ReferencedTag` 投影到 `entities.referencedTags`
+- 数据库存储键使用 `enumId` 字符串，而不是 `slug`
+- 存储值允许 `bool / int`
+- 当前样本中大多数值可归一为 `true`，但特殊情况保留原始 `int`
+- 缺失值统一使用空对象
+- 导出时再把 `enumId` 映射为当前 `slug`
+- `raw_entity_snapshots.extraPayload` 仍可保留原始 `ReferencedTag` 节点，用于追溯和重投影
+
 ### 模式专属字段
 
 佣兵 / 战棋的专属字段继续保留为 `entities` 的独立列，不引入 `modePayload`，也不增加模式前缀。

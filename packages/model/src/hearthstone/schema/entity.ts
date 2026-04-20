@@ -66,6 +66,7 @@ export type ChangeType = z.infer<typeof changeType>;
 
 export const mechanicValue = z.union([z.boolean(), z.int()]);
 export const mechanicMap = z.record(z.string(), mechanicValue);
+export const referencedTagMap = z.record(z.string(), mechanicValue);
 
 export const entityLocalization = z.strictObject({
     lang: locale,
@@ -130,7 +131,7 @@ export const entity = z.strictObject({
     faction: faction.nullable(),
 
     mechanics:      mechanicMap,
-    referencedTags: z.array(z.string()),
+    referencedTags: referencedTagMap,
 
     textBuilderType,
 
@@ -177,3 +178,4 @@ export type Power = z.infer<typeof power>;
 export type EntityView = z.infer<typeof entityView>;
 export type CardEntityView = z.infer<typeof cardEntityView>;
 export type CardFullView = z.infer<typeof cardFullView>;
+export type ReferencedTagMap = z.infer<typeof referencedTagMap>;

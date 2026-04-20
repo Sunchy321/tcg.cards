@@ -15,7 +15,7 @@
 - 实施前确认 `version` 数组的规范化规则、交集查询写法和导入校验方式
 - 实施前冻结首批渲染字段白名单
 - 实施前补齐首批 `Tag -> 字段` 映射清单
-- 实施前抽样确认 `Power`、`ReferencedTag`、`EntourageCard` 放入 `extraPayload` 不阻塞首版字段投影
+- 实施前抽样确认 `Power`、`EntourageCard` 放入 `extraPayload` 不阻塞首版字段投影，并确认 `ReferencedTag` 投影到 `referencedTags`
 
 ### 建议修改
 

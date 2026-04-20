@@ -325,7 +325,9 @@ const mechanics = computed(() =>
 );
 
 const referencedTags = computed(() =>
-  (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')),
+  Object.entries(data.value?.referencedTags ?? {})
+    .filter(([key]) => !key.startsWith('?'))
+    .map(([key, value]) => value === true ? key : `${key}:${value}`),
 );
 
 const hasMechanic = (key: string) =>
