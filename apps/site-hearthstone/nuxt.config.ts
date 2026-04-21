@@ -31,12 +31,16 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   alias: {
-    '#shared': fileURLToPath(new URL('./node_modules/@tcg-cards/shared/src', import.meta.url)),
-    '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
-    '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
-    '#db':     fileURLToPath(new URL('./node_modules/@tcg-cards/db/src', import.meta.url)),
-    '#schema': fileURLToPath(new URL('./node_modules/@tcg-cards/db/src/schema', import.meta.url)),
+    '#shared': fileURLToPath(new URL('../../packages/shared/src', import.meta.url)),
+    '#model':  fileURLToPath(new URL('../../packages/model/src', import.meta.url)),
+    '#search': fileURLToPath(new URL('../../packages/search/src', import.meta.url)),
+    '#db':     fileURLToPath(new URL('../../packages/db/src', import.meta.url)),
+    '#schema': fileURLToPath(new URL('../../packages/db/src/schema', import.meta.url)),
   },
+
+  components: [
+    { path: '~/components', pathPrefix: false },
+  ],
 
   routeRules: {
     '/': { prerender: true },
