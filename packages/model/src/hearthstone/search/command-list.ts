@@ -137,6 +137,11 @@ export const change = c
     .qual([])
     .done();
 
+export const format = c
+    .simple
+    .alt('f')
+    .done();
+
 export const order = c
     .simple
     .done();

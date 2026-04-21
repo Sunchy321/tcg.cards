@@ -1,40 +1,46 @@
 <template>
-  <div class="grid grid-cols-3 gap-4 mt-8">
-    <!-- Left column: Card search -->
-    <div class="flex flex-col gap-2 justify-start items-center">
-      <NuxtLink
-        to="/search"
-        class="flex flex-row items-center gap-3 px-1 py-1 w-full rounded-lg ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
-      >
-        <UIcon name="lucide:search" class="text-md shrink-0" />
-        <span>{{ $t('hearthstone.card.$self') }}</span>
-      </NuxtLink>
-    </div>
-    <div class="flex flex-col gap-2 justify-start items-center">
-      <NuxtLink
-        to="/set"
-        class="flex flex-row items-center gap-3 px-1 py-1 w-full rounded-lg ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
-      >
-        <UIcon name="lucide:library" class="text-md shrink-0" />
-        <span>{{ $t('hearthstone.set.$self') }}</span>
-      </NuxtLink>
-      <NuxtLink
-        to="/format"
-        class="flex flex-row items-center gap-3 px-1 py-1 w-full rounded-lg ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
-      >
-        <UIcon name="lucide:layout-list" class="text-md shrink-0" />
-        <span>{{ $t('hearthstone.format.$self') }}</span>
-      </NuxtLink>
-    </div>
-    <div class="flex flex-col gap-2 justify-start items-center">
-      <NuxtLink
-        to="/patch"
-        class="flex flex-row items-center gap-3 px-1 py-1 w-full rounded-lg ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
-      >
-        <UIcon name="lucide:git-branch" class="text-md shrink-0" />
-        <span>{{ $t('hearthstone.patch.$self') }}</span>
-      </NuxtLink>
-    </div>
+  <div class="mx-auto mt-8 grid max-w-5xl gap-4 md:grid-cols-3">
+    <NuxtLink
+      to="/search"
+      class="flex flex-row items-center gap-4 px-4 py-4 w-full rounded-xl ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
+    >
+      <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+        <UIcon name="lucide:search" class="text-xl shrink-0" />
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <div class="text-lg font-semibold">{{ $t('hearthstone.search.$self') }}</div>
+        <div class="text-sm text-white/70">{{ $t('hearthstone.search.hint') }}</div>
+      </div>
+    </NuxtLink>
+
+    <NuxtLink
+      to="/search/advanced"
+      class="flex flex-row items-center gap-4 px-4 py-4 w-full rounded-xl ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
+    >
+      <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+        <UIcon name="lucide:sliders-horizontal" class="text-xl shrink-0" />
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <div class="text-lg font-semibold">{{ $t('hearthstone.search.advanced.$self') }}</div>
+        <div class="text-sm text-white/70">{{ $t('hearthstone.search.advanced.entryHint') }}</div>
+      </div>
+    </NuxtLink>
+
+    <NuxtLink
+      :to="{ path: '/search', query: { q: 'order:set+,name+' } }"
+      class="flex flex-row items-center gap-4 px-4 py-4 w-full rounded-xl ring-1 ring-white/10 text-white bg-white/10 hover:bg-white/20 transition"
+    >
+      <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+        <UIcon name="lucide:library" class="text-xl shrink-0" />
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <div class="text-lg font-semibold">{{ $t('hearthstone.search.advanced.browseSets') }}</div>
+        <div class="text-sm text-white/70">{{ $t('hearthstone.search.advanced.browseSetsHint') }}</div>
+      </div>
+    </NuxtLink>
   </div>
 </template>
 
