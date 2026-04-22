@@ -62,7 +62,7 @@
                 </span>
               </template>
               <template v-if="data.spellSchool">
-                · {{ $t(`hearthstone.card.spellSchool.${data.spellSchool}`) }}
+                · {{ $t(`hearthstone.card.spell-school.${data.spellSchool}`) }}
               </template>
             </span>
             <span v-if="stats" class="font-medium shrink-0">{{ stats }}</span>
@@ -175,7 +175,7 @@
     <!-- Error state -->
     <div v-else class="flex flex-col items-center py-24 text-gray-400 gap-4">
       <UIcon name="lucide:frown" class="text-5xl" />
-      <p>{{ $t('hearthstone.card.notFound') }}</p>
+      <p>{{ $t('hearthstone.card.not-found') }}</p>
     </div>
   </div>
 </template>
@@ -351,7 +351,7 @@ const copyTag = async (tag: string) => {
   const tagName = /^[^:]+(:|$)/.exec(tag)![0]!;
   try {
     await navigator.clipboard.writeText(tagName);
-    toast.add({ title: t('hearthstone.card.tagCopied'), color: 'success' });
+    toast.add({ title: t('hearthstone.card.tag-copied'), color: 'success' });
   } catch {
     // clipboard not available
   }

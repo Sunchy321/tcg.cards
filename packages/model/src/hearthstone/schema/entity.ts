@@ -200,6 +200,10 @@ export const entityView = entity.extend({
 });
 
 export const cardEntityView = entityView.extend({
+    revisionHash:     z.string(),
+    localizationHash: z.string(),
+    renderHash:       z.string().nullable(),
+
     legalities: card.shape.legalities,
 });
 

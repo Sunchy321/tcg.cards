@@ -6,9 +6,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { diff as jsonDiff } from 'jsondiffpatch';
 
 import { db } from '#db/db';
-import { Card } from '#schema/hearthstone/card';
 import { CardEntityView, EntityView } from '#schema/hearthstone/entity';
-import { CardRelation } from '#schema/hearthstone/card-relation';
+import { EntityRelation } from '#schema/hearthstone/entity-relation';
 
 import { locale } from '#model/hearthstone/schema/basic';
 import { cardProfile } from '#model/hearthstone/schema/card';
@@ -21,6 +20,41 @@ const maxVersion = (version: typeof CardEntityView.version) => sql<number>`
   )
 `;
 
+function byVersion(
+  versionColumn: typeof CardEntityView.version | typeof EntityRelation.version,
+  version: number | undefined,
+) {
+  return version == null ? null : sql`${version} = any(${versionColumn})`;
+}
+
+function latestOrVersion(
+  versionColumn: typeof CardEntityView.version | typeof EntityRelation.version,
+  latestColumn: typeof CardEntityView.isLatest | typeof EntityRelation.isLatest,
+  version: number | undefined,
+) {
+  return version == null
+    ? eq(latestColumn, true)
+    : sql`${version} = any(${versionColumn})`;
+}
+
+async function findCardView(input: {
+  cardId:   string;
+  lang:     z.infer<typeof locale>;
+  version?: number | undefined;
+}) {
+  const filters = [
+    eq(CardEntityView.cardId, input.cardId),
+    eq(CardEntityView.lang, input.lang),
+    latestOrVersion(CardEntityView.version, CardEntityView.isLatest, input.version),
+  ];
+
+  return await db.select().from(CardEntityView)
+    .where(and(...filters))
+    .orderBy(desc(maxVersion(CardEntityView.version)))
+    .limit(1)
+    .then(rows => rows[0]);
+}
+
 const random = os
   .route({
     method:      'GET',
@@ -30,7 +64,13 @@ const random = os
   .input(z.any())
   .output(z.string())
   .handler(async () => {
-    const cards = await db.select({ cardId: Card.cardId }).from(Card);
+    const cards = await db.select({ cardId: CardEntityView.cardId })
+      .from(CardEntityView)
+      .where(and(
+        eq(CardEntityView.isLatest, true),
+        eq(CardEntityView.lang, 'en'),
+      ));
+
     const cardId = cards[randomInt(0, cards.length - 1)]!.cardId;
 
     return cardId;
@@ -49,17 +89,7 @@ const summary = os
   }))
   .output(cardEntityView)
   .handler(async ({ input }) => {
-    const { cardId, lang, version } = input;
-
-    const card = await db.select().from(CardEntityView)
-      .where(and(
-        eq(CardEntityView.cardId, cardId),
-        eq(CardEntityView.lang, lang),
-        ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
-      ))
-      .orderBy(desc(maxVersion(CardEntityView.version)))
-      .limit(1)
-      .then(rows => rows[0]);
+    const card = await findCardView(input);
 
     if (!card) {
       throw new ORPCError('NOT_FOUND');
@@ -82,7 +112,7 @@ const summaryByName = os
       .where(and(
         eq(CardEntityView.localization.name, name),
         eq(CardEntityView.lang, lang),
-        ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
+        latestOrVersion(CardEntityView.version, CardEntityView.isLatest, version),
       ))
       .orderBy(desc(maxVersion(CardEntityView.version)));
 
@@ -107,16 +137,7 @@ const full = os
   .output(cardFullView)
   .handler(async ({ input }) => {
     const { cardId, lang, version } = input;
-
-    const card = await db.select().from(CardEntityView)
-      .where(and(
-        eq(CardEntityView.cardId, cardId),
-        eq(CardEntityView.lang, lang),
-        ...version != null ? [sql`${version} = any(${CardEntityView.version})`] : [],
-      ))
-      .orderBy(desc(maxVersion(CardEntityView.version)))
-      .limit(1)
-      .then(rows => rows[0]);
+    const card = await findCardView(input);
 
     if (card == null) {
       throw new ORPCError('NOT_FOUND');
@@ -132,18 +153,33 @@ const full = os
       .then(rows => rows.map(row => row.version.reverse()));
 
     const sourceRelation = await db.select({
-      relation: CardRelation.relation,
-      version:  CardRelation.version,
-      cardId:   CardRelation.targetId,
-    }).from(CardRelation).where(eq(CardRelation.sourceId, cardId));
+      relation: EntityRelation.relation,
+      version:  EntityRelation.version,
+      cardId:   EntityRelation.targetId,
+    })
+      .from(EntityRelation)
+      .where(and(
+        eq(EntityRelation.sourceId, cardId),
+        eq(EntityRelation.sourceRevisionHash, card.revisionHash),
+        ...version != null ? [byVersion(EntityRelation.version, version)!] : [],
+      ));
 
     const targetRelation = await db.select({
       relation: sql<string>`'source'`.as('relation'),
-      version:  CardRelation.version,
-      cardId:   CardRelation.sourceId,
-    }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
+      version:  EntityRelation.version,
+      cardId:   EntityRelation.sourceId,
+    })
+      .from(EntityRelation)
+      .where(and(
+        eq(EntityRelation.targetId, cardId),
+        latestOrVersion(EntityRelation.version, EntityRelation.isLatest, version),
+      ));
 
-    const relatedCards = [...sourceRelation, ...targetRelation];
+    const relatedCards = [...sourceRelation, ...targetRelation]
+      .sort((left, right) =>
+        left.relation.localeCompare(right.relation)
+        || left.cardId.localeCompare(right.cardId),
+      );
 
     return {
       ...card,
@@ -202,27 +238,8 @@ const diff = os
   .handler(async ({ input }) => {
     const { cardId, lang, from, to } = input;
 
-    const fromCard = await db.select().from(CardEntityView)
-      .where(and(
-        eq(CardEntityView.cardId, cardId),
-        eq(CardEntityView.lang, lang),
-        sql`${from} = any(${CardEntityView.version})`,
-      ))
-      .orderBy(desc(maxVersion(CardEntityView.version)))
-      .limit(1)
-      .then(rows => rows[0]);
-
-    const toCard = await db.select(
-
-    ).from(CardEntityView)
-      .where(and(
-        eq(CardEntityView.cardId, cardId),
-        eq(CardEntityView.lang, lang),
-        sql`${to} = any(${CardEntityView.version})`,
-      ))
-      .orderBy(desc(maxVersion(CardEntityView.version)))
-      .limit(1)
-      .then(rows => rows[0]);
+    const fromCard = await findCardView({ cardId, lang, version: from });
+    const toCard = await findCardView({ cardId, lang, version: to });
 
     if (fromCard == null || toCard == null) {
       throw new ORPCError('NOT_FOUND');
@@ -242,6 +259,7 @@ export const cardTrpc = {
   summaryByName,
   full,
   profile,
+  diff,
 };
 
 export const cardApi = {
