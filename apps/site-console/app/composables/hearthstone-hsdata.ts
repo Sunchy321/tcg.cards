@@ -40,6 +40,23 @@ export interface HsdataImportReport {
   discoveredTags:        number[];
 }
 
+export interface HsdataProjectReport {
+  dryRun:                boolean;
+  skipped:               boolean;
+  sourceTag:             number;
+  build:                 number;
+  snapshotCount:         number;
+  insertedEntities:      number;
+  reusedEntities:        number;
+  updatedEntities:       number;
+  insertedLocalizations: number;
+  reusedLocalizations:   number;
+  updatedLocalizations:  number;
+  insertedRelations:     number;
+  updatedRelations:      number;
+  unprojectedTagCount:   number;
+}
+
 export interface HsdataOverviewSummary {
   sourceVersionCount:          number;
   completedSourceVersionCount: number;
