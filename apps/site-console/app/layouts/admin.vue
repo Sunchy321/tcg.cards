@@ -21,6 +21,7 @@
               :items="gameSelectItems"
               size="sm"
               class="w-full"
+              @update:model-value="handleGameSelect"
             />
           </div>
           <UNavigationMenu :items="gameNavItems" orientation="vertical" class="w-full" />
@@ -137,6 +138,10 @@ const canManageUsers = computed(() => {
 });
 
 const currentGame = useCurrentGame();
+
+function handleGameSelect(value: string) {
+  void navigateTo(`/${value}`);
+}
 
 // When accessible games change, ensure currentGame is still valid
 watch(accessibleGames, games => {

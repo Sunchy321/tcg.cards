@@ -5,12 +5,14 @@
 - [x] 确认 P2 输入输出边界与非目标
 - [x] 建立 `CardDefs.xml` 解析与规范化模型
 - [x] 实现 `source_versions` 写入与幂等策略
-- [ ] 实现 `raw_entity_snapshots` 快照池写入
-- [ ] 实现 `raw_entity_snapshot_tags` Tag 事件写入
-- [ ] 实现未知 Tag 自动登记
-- [ ] 实现导入事务、重试与日志
-- [ ] 增加 fixture 与幂等验证
-- [ ] 回写 P2 完成状态
+- [x] 完成控制台上传配套：上传后刷新 `hearthstone/hsdata/state.json` 并移除旧脚本
+- [x] 完成控制台观测配套：在数据源页展示原始归档表概览
+- [x] 实现 `raw_entity_snapshots` 快照池写入
+- [x] 实现 `raw_entity_snapshot_tags` Tag 事件写入
+- [x] 实现未知 Tag 自动登记
+- [x] 实现导入事务、失败状态与日志
+- [x] 增加 fixture 与幂等自动化验证
+- [x] 回写 P2 验收完成状态
 
 ## 已确认边界（2026-04-20）
 
@@ -20,6 +22,8 @@
 - P2 只负责原始归档层，不生成默认层 `entities` / `entity_localizations` / `entity_relations`，不计算 `revisionHash`、`localizationHash`、`renderHash`
 - P2 不切换卡牌查询，不处理卡图生成或迁移，不引入 watcher 共享导入模块；这些工作继续留给 P3、P4、P5
 - 后续实现以“单份 `CardDefs.xml` 可稳定归档并可重复导入”为收口目标，不在 P2 中扩展新的领域建模职责
+- `apps/site-console/scripts/hsdata-upload.ts` 作为归档入口的运维配套，在上传成功后负责刷新 `hearthstone/hsdata/state.json`，供控制台数据源页读取
+- `hearthstone/data-source` 页面作为 P2 的控制台观测入口，需要直接展示 `hearthstone_data` 相关表/视图的统计概览
 
 ## 目标
 
@@ -38,6 +42,100 @@ P2 完成后，应满足：
 - 同一份规范化 Entity 内容在多个 source version 出现时，只复用一条 `raw_entity_snapshots`，并合并 `sourceTags`
 - 未知 Tag 不阻塞导入，先以 `discovered` 状态登记
 - 原始 XML 子结构仍可追溯，后续 Tag 映射规则变化时可以重投影
+
+## 当前状态（2026-04-22）
+
+P2 已完成：
+
+- `apps/site-console/server/lib/hearthstone/hsdata-import.ts` 已实现 XML 事件解析、Entity 规范化、canonical hash、快照池写入、Tag 事件写入、未知 Tag 自动登记和导入报告
+- `apps/site-console/server/orpc/hearthstone/data-source/hsdata.ts` 已提供 `importArchive`，可从 `R2_DATA/hearthstone/hsdata/data/` 读取归档 XML 并调用导入服务
+- `apps/site-console/app/pages/hearthstone/data-import/index.vue` 已提供控制台导入页面，支持 R2 文件选择、dry run、force 和导入报告展示
+- `source_versions` 已支持 `processing` / `completed` / `failed` 状态流转，解析失败或写库失败会回写失败状态并输出错误日志
+- `raw_entity_snapshots` 已按 `(cardId, snapshotHash)` 复用快照，并在跨 source version 复现同一快照时合并升序去重的 `sourceTags`
+- `raw_entity_snapshot_tags` 已保存 XML Tag 事件、raw payload、typed value 与 fallback 值；`ReferencedTag` 按 P2 边界保留在 `extraPayload.referencedTags`
+- 未知 `enumID` 已自动登记到 `hearthstone.tags`，状态为 `discovered`，且不会覆盖已人工维护的 `slug`、`project*`、`normalize*`
+- `card_ref` 类型 Tag 已在同 XML 内可得时回填 `cardRefDbfId`
+- `apps/site-console/server/lib/hearthstone/hsdata-import.test.ts` 已覆盖基础 Tag、LocString、未知 Tag、XML 子结构、`card_ref`、重复导入和跨 sourceTag 快照复用
+- `bun test apps/site-console/server/lib/hearthstone/hsdata-import.test.ts` 已通过，结果为 3 个用例通过
+
+## 已完成的配套项（2026-04-22）
+
+P2 主链路、验收测试与原始归档入口运维配套均已完成：
+
+- `hsdata:upload` 成功上传 XML 后自动更新 `hearthstone/hsdata/state.json`
+- 旧脚本 `scripts/sync-all-tags.sh` 已删除
+
+### 当前行为
+
+上传成功后，脚本会：
+
+1. 读取现有 `state.json`（若不存在或损坏则回退为空历史）
+2. 用本次上传的 `sourceTag`、`commit`、`shortCommit` 刷新顶层状态
+3. 在 `history` 头部追加一条 `type = single` 的历史记录
+4. 仅保留最近 50 条历史
+
+### 当前字段约束
+
+- `tag`：记录最近一次上传的 `sourceTag`
+- `commit` / `short`：记录最近一次上传对应的 commit 信息
+- `synced_at`：记录脚本写回时间
+- `type`：当前固定写为 `single`
+- `file_count`：按上传动作增量维护；若当前 `sourceTag + commit` 已出现过，则不重复增加
+
+### 明确限制
+
+- 当前不提供独立的全量重建脚本
+- 若历史 `state.json` 已损坏或缺失，`file_count` 不负责回填历史总量
+- `--dry-run` 不写 XML，也不写 `state.json`
+
+### 已完成校验
+
+- `apps/site-console/scripts/hsdata-upload.ts` 的 TypeScript 定向检查通过
+- `bun run hsdata:upload -- --help` 自检通过
+- 单文件 `eslint` 因仓库现有配置缺少 `@typescript-eslint` 插件未完成
+
+## 已完成的观测项（2026-04-22）
+
+P2 主链路之外，原始归档层的控制台观测配套也已经完成。
+
+### 当前覆盖范围
+
+数据源页当前直接展示以下 `hearthstone_data` 对象的概览：
+
+- `source_versions`
+- `raw_entity_snapshots`
+- `raw_entity_snapshot_tags`
+- `tag_value_view`
+
+### 当前展示结果
+
+前端已提供两层信息：
+
+1. 总览卡片
+   - 来源版本总数
+   - 已完成导入版本数
+   - 失败版本数
+   - 快照总数
+   - latest 快照数
+   - Tag 行总数
+2. 表级概览卡片
+   - `source_versions` 的状态分布、最近导入时间、最近完成 `sourceTag`
+   - `raw_entity_snapshots` 的总行数、latest 行数、不同 `card_id` 数量、最近更新时间
+   - `raw_entity_snapshot_tags` 的总行数、不同 `snapshot_id` / `enum_id` 数量
+   - `tag_value_view` 的总行数、不同 `snapshot_id` / `enum_id` 数量
+
+### 当前实现结果
+
+- 后端已在 `apps/site-console/server/orpc/hearthstone/data-source/hsdata.ts` 提供只读 `getOverview` 接口
+- 前端已在 `apps/site-console/app/pages/hearthstone/data-source/index.vue` 接入概览加载，并与现有刷新动作并行执行
+- 前端类型已在 `apps/site-console/app/composables/hearthstone-hsdata.ts` 中补齐
+
+### 当前意义
+
+这部分配套虽然不等于 P2 主导入链路本身，但已经满足两个关键目标：
+
+- 不进入数据库即可快速确认原始归档表是否已有数据
+- 可以直接在控制台确认最近一次导入是否已经反映到 `hearthstone_data`
 
 ## 非目标
 

@@ -19,7 +19,7 @@ bun run dev
 
 ## hsdata Upload Script
 
-The package provides a Bun script that uploads the root-level `CardDefs.xml` from an `hsdata` checkout into the `R2_DATA` bucket.
+The package provides a Bun script that uploads the root-level `CardDefs.xml` from an `hsdata` checkout into the `R2_DATA` bucket and updates `hearthstone/hsdata/state.json` after a successful upload.
 
 Script entry:
 
@@ -47,12 +47,16 @@ cd apps/site-console
 bun run hsdata:upload -- --dry-run
 ```
 
+`--dry-run` skips both the XML upload and the `state.json` update.
+
 Upload to the remote R2 bucket:
 
 ```bash
 cd apps/site-console
 bun run hsdata:upload
 ```
+
+A successful upload also refreshes `hearthstone/hsdata/state.json` so the data-source page shows the latest uploaded archive state.
 
 List available `hsdata` Git tags with the `CardDefs.xml` build found at each tag:
 

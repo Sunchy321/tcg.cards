@@ -1,14 +1,43 @@
 <template>
   <div class="space-y-4">
+    <UCard class="border-dashed">
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-lucide-database" class="size-5 text-primary" />
+            <h1 class="text-xl font-semibold">hsdata 数据源</h1>
+          </div>
+          <p class="mt-1 text-sm text-muted">
+            这里仅展示来源、同步状态和归档文件。执行导入、dry run 和写库测试已迁移到独立的数据导入页面。
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <UButton
+            label="打开数据导入"
+            icon="i-lucide-download"
+            to="/hearthstone/data-import"
+          />
+          <UButton
+            label="刷新"
+            icon="i-lucide-refresh-cw"
+            color="neutral"
+            variant="ghost"
+            :loading="loadingState || loadingFiles || loadingOverview"
+            @click="reloadAll"
+          />
+        </div>
+      </div>
+    </UCard>
+
     <UCard
-      v-for="source in sources"
+      v-for="source in HSDATA_SOURCES"
       :key="source.id"
       :class="source.official ? 'ring-2 ring-primary' : ''"
     >
-      <!-- Source header -->
-      <div class="flex items-center gap-3">
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-start">
         <div
-          class="flex size-9 shrink-0 items-center justify-center rounded-lg"
+          class="flex size-10 shrink-0 items-center justify-center rounded-lg"
           :class="source.official ? 'bg-primary/10' : 'bg-gray-100 dark:bg-gray-800'"
         >
           <UIcon
@@ -19,7 +48,7 @@
         </div>
 
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <span class="font-semibold">{{ source.name }}</span>
             <UBadge
               v-if="source.official"
@@ -29,36 +58,39 @@
               size="xs"
             />
           </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ source.description }}</p>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ source.description }}</p>
+          <a
+            :href="source.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-2 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-primary"
+          >
+            {{ source.url }}
+            <UIcon name="i-lucide-external-link" class="size-3" />
+          </a>
         </div>
 
-        <a
-          :href="source.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="shrink-0 text-xs text-gray-400 hover:text-primary flex items-center gap-1"
-        >
-          {{ source.url }}
-          <UIcon name="i-lucide-external-link" class="size-3" />
-        </a>
+        <UButton
+          label="前往导入"
+          icon="i-lucide-arrow-right"
+          color="neutral"
+          variant="soft"
+          to="/hearthstone/data-import"
+        />
       </div>
 
-      <!-- Action tabs -->
-      <UTabs
-        :items="tabs"
-        class="mt-4"
-        variant="link"
-      >
-        <template #overview>
-          <div v-if="loadingState" class="py-8 text-center">
+      <div class="mt-4 grid gap-4 xl:grid-cols-3">
+        <div class="xl:col-span-2 space-y-4">
+          <div v-if="loadingState" class="rounded-lg border border-default py-8 text-center">
             <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-gray-400" />
           </div>
-          <div v-else-if="!state" class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+
+          <div v-else-if="!state" class="rounded-lg border border-default py-6 text-center text-sm text-gray-400 dark:text-gray-500">
             暂无同步状态数据
           </div>
-          <div v-else class="space-y-4 py-4">
-            <!-- Current status -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+          <template v-else>
+            <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
               <UCard class="bg-gray-50 dark:bg-gray-800/50">
                 <div class="text-xs text-gray-500 dark:text-gray-400">当前版本</div>
                 <div class="text-lg font-semibold">{{ state.tag ?? '-' }}</div>
@@ -69,15 +101,14 @@
               </UCard>
               <UCard class="bg-gray-50 dark:bg-gray-800/50">
                 <div class="text-xs text-gray-500 dark:text-gray-400">同步时间</div>
-                <div class="text-sm">{{ formatDate(state.synced_at) }}</div>
+                <div class="text-sm">{{ formatHsdataDate(state.synced_at) }}</div>
               </UCard>
               <UCard class="bg-gray-50 dark:bg-gray-800/50">
-                <div class="text-xs text-gray-500 dark:text-gray-400">文件数量</div>
-                <div class="text-lg font-semibold">{{ state.file_count ?? (history.length > 0 ? history.length : '-') }}</div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">归档数量</div>
+                <div class="text-lg font-semibold">{{ state.file_count ?? (files.length > 0 ? files.length : '-') }}</div>
               </UCard>
             </div>
 
-            <!-- History table -->
             <UCard v-if="history.length > 0">
               <template #header>
                 <div class="flex items-center justify-between">
@@ -85,249 +116,151 @@
                   <UBadge :label="`${history.length} 条记录`" size="xs" variant="soft" />
                 </div>
               </template>
+
               <UTable
                 :columns="historyColumns"
                 :data="history"
                 class="w-full"
               />
             </UCard>
-          </div>
-        </template>
+          </template>
 
-        <template #import>
-          <div class="space-y-4 py-4">
-            <div class="grid gap-4 xl:grid-cols-3">
-              <UCard class="xl:col-span-2">
-                <template #header>
-                  <div class="flex items-center justify-between gap-3">
-                    <div>
-                      <div class="font-medium">P2 原始归档测试</div>
-                      <p class="mt-1 text-xs text-muted">
-                        选择 R2 中的 CardDefs.xml，或上传本地 XML 后调用 importArchive。
-                      </p>
-                    </div>
-                    <UBadge
-                      :label="importForm.dryRun ? 'Dry run' : 'Write mode'"
-                      :color="importForm.dryRun ? 'neutral' : 'warning'"
-                      variant="soft"
-                    />
-                  </div>
-                </template>
-
-                <div class="space-y-4">
-                  <div class="grid gap-3 md:grid-cols-3">
-                    <UFormField label="sourceTag">
-                      <UInputNumber
-                        v-model="importForm.sourceTag"
-                        :min="0"
-                        class="w-full"
-                      />
-                    </UFormField>
-
-                    <UFormField label="sourceCommit">
-                      <UInput
-                        v-model="importForm.sourceCommit"
-                        placeholder="可选"
-                      />
-                    </UFormField>
-
-                    <UFormField label="sourceUri">
-                      <UInput
-                        v-model="importForm.sourceUri"
-                        placeholder="可选，加载 R2 文件后自动填充"
-                      />
-                    </UFormField>
-                  </div>
-
-                  <UFormField label="XML 文件">
-                    <UInput
-                      type="file"
-                      accept=".xml,text/xml,application/xml"
-                      @change="handleXmlFileSelect"
-                    />
-                    <p v-if="importFileName" class="mt-1 text-xs text-muted">
-                      当前文件：{{ importFileName }}
-                    </p>
-                  </UFormField>
-
-                  <UFormField label="CardDefs.xml 内容">
-                    <UTextarea
-                      v-model="importXml"
-                      :rows="14"
-                      placeholder="可以直接粘贴 XML，或从右侧 R2 文件列表加载。"
-                      class="font-mono text-xs"
-                    />
-                  </UFormField>
-
-                  <div class="grid gap-3 md:grid-cols-2">
-                    <label class="flex items-start gap-3 rounded-lg border border-default p-3">
-                      <input
-                        v-model="importForm.dryRun"
-                        type="checkbox"
-                        class="mt-0.5 size-4 rounded border-default"
-                      >
-                      <span>
-                        <span class="block text-sm font-medium">Dry run</span>
-                        <span class="text-xs text-muted">默认开启，只解析和统计，不写库。</span>
-                      </span>
-                    </label>
-
-                    <label class="flex items-start gap-3 rounded-lg border border-default p-3">
-                      <input
-                        v-model="importForm.force"
-                        type="checkbox"
-                        class="mt-0.5 size-4 rounded border-default"
-                      >
-                      <span>
-                        <span class="block text-sm font-medium">Force</span>
-                        <span class="text-xs text-muted">允许覆盖同 sourceTag 的不同 sourceHash。</span>
-                      </span>
-                    </label>
-                  </div>
-
-                  <UAlert
-                    v-if="importError"
-                    color="error"
-                    variant="soft"
-                    icon="i-lucide-circle-alert"
-                    :description="importError"
-                  />
-
-                  <div class="flex flex-wrap justify-end gap-2">
-                    <UButton
-                      label="清空输入"
-                      icon="i-lucide-rotate-ccw"
-                      color="neutral"
-                      variant="ghost"
-                      @click="resetImportForm"
-                    />
-                    <UButton
-                      label="执行 P2 导入"
-                      icon="i-lucide-play"
-                      :loading="importing"
-                      :disabled="!canImport"
-                      @click="submitImport"
-                    />
-                  </div>
+          <UCard>
+            <template #header>
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="font-medium">数据表概览</div>
+                  <p class="mt-1 text-xs text-muted">
+                    展示 `hearthstone_data` 中 hsdata 原始归档相关表和视图的当前统计。
+                  </p>
                 </div>
-              </UCard>
+                <UButton
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="ghost"
+                  :loading="loadingOverview"
+                  @click="loadOverview"
+                />
+              </div>
+            </template>
 
-              <UCard>
-                <template #header>
-                  <div class="flex items-center justify-between gap-3">
-                    <div>
-                      <div class="font-medium">R2 文件</div>
-                      <p class="mt-1 text-xs text-muted">
-                        从 R2_DATA 的 hearthstone/hsdata/data/ 读取。
-                      </p>
-                    </div>
-                    <UButton
-                      icon="i-lucide-refresh-cw"
-                      color="neutral"
-                      variant="ghost"
-                      :loading="loadingFiles"
-                      @click="loadFiles"
-                    />
-                  </div>
-                </template>
-
-                <div v-if="loadingFiles && files.length === 0" class="flex justify-center py-8">
-                  <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
-                </div>
-                <div v-else-if="files.length === 0" class="py-8 text-center text-sm text-muted">
-                  暂无 R2 文件
-                </div>
-                <div v-else class="max-h-136 space-y-2 overflow-y-auto pr-1">
-                  <div
-                    v-for="file in files"
-                    :key="file.name"
-                    class="flex items-center gap-2 rounded-lg border border-default p-3"
-                  >
-                    <button
-                      type="button"
-                      class="min-w-0 flex-1 text-left"
-                      @click="loadR2File(file)"
-                    >
-                      <div class="truncate font-mono text-xs">{{ file.name }}</div>
-                      <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted">
-                        <span>{{ formatBytes(file.size) }}</span>
-                        <span v-if="file.time">{{ formatDate(file.time) }}</span>
-                      </div>
-                    </button>
-                    <UButton
-                      label="加载"
-                      size="xs"
-                      color="neutral"
-                      variant="soft"
-                      :loading="loadingR2FileName === file.name"
-                      @click="loadR2File(file)"
-                    />
-                  </div>
-                </div>
-              </UCard>
+            <div v-if="loadingOverview && !overview" class="flex justify-center py-8">
+              <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
             </div>
+            <div v-else class="space-y-4">
+              <UAlert
+                v-if="overviewError"
+                color="error"
+                variant="soft"
+                icon="i-lucide-circle-alert"
+                :description="overviewError"
+              />
 
-            <UCard v-if="importResult">
-              <template #header>
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <span class="font-medium">导入报告</span>
-                  <div class="flex flex-wrap gap-2">
-                    <UBadge
-                      :label="importResult.dryRun ? 'Dry run' : 'Written'"
-                      :color="importResult.dryRun ? 'neutral' : 'success'"
-                      variant="soft"
-                    />
-                    <UBadge
-                      v-if="importResult.skipped"
-                      label="Skipped"
-                      color="warning"
-                      variant="soft"
-                    />
-                  </div>
-                </div>
-              </template>
-
-              <div class="space-y-4">
-                <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-                  <div
-                    v-for="metric in reportMetrics"
-                    :key="metric.key"
-                    class="rounded-lg border border-default p-3"
+              <div v-if="overview" class="space-y-4">
+                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <UCard
+                    v-for="card in overviewSummaryCards"
+                    :key="card.key"
+                    class="bg-gray-50 dark:bg-gray-800/50"
                   >
-                    <div class="text-xs text-muted">{{ metric.label }}</div>
-                    <div class="mt-1 break-all font-mono text-sm">{{ metric.value }}</div>
-                  </div>
+                    <div class="text-xs text-muted">{{ card.label }}</div>
+                    <div class="mt-1 text-lg font-semibold">{{ card.value }}</div>
+                  </UCard>
                 </div>
 
-                <div v-if="importResult.discoveredTags.length > 0" class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">本次自动登记 Tag</div>
-                  <div class="mt-2 flex flex-wrap gap-1">
-                    <UBadge
-                      v-for="tag in importResult.discoveredTags"
-                      :key="tag"
-                      :label="String(tag)"
-                      color="neutral"
-                      variant="outline"
-                      size="xs"
-                    />
-                  </div>
+                <div class="grid gap-4 xl:grid-cols-2">
+                  <UCard
+                    v-for="table in overviewTableCards"
+                    :key="table.key"
+                  >
+                    <template #header>
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="font-medium font-mono text-sm">{{ table.name }}</span>
+                        <UBadge :label="table.kind" color="neutral" variant="soft" size="xs" />
+                      </div>
+                    </template>
+
+                    <div class="space-y-2">
+                      <div
+                        v-for="metric in table.metrics"
+                        :key="metric.label"
+                        class="flex items-start justify-between gap-4 text-sm"
+                      >
+                        <span class="text-muted">{{ metric.label }}</span>
+                        <span class="text-right font-mono">{{ metric.value }}</span>
+                      </div>
+                    </div>
+                  </UCard>
                 </div>
               </div>
-            </UCard>
-          </div>
-        </template>
+              <div v-else-if="!overviewError" class="py-6 text-center text-sm text-muted">
+                暂无数据表概览
+              </div>
+            </div>
+          </UCard>
+        </div>
 
-        <template #merge>
-          <div class="py-6 text-center text-sm text-gray-400 dark:text-gray-500">
-            暂无数据
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="font-medium">R2 归档文件</div>
+                <p class="mt-1 text-xs text-muted">
+                  仅读展示 `R2_DATA/hearthstone/hsdata/data/` 中的归档 XML。
+                </p>
+              </div>
+              <UButton
+                icon="i-lucide-refresh-cw"
+                color="neutral"
+                variant="ghost"
+                :loading="loadingFiles"
+                @click="loadFiles"
+              />
+            </div>
+          </template>
+
+          <div v-if="loadingFiles && files.length === 0" class="flex justify-center py-8">
+            <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />
           </div>
-        </template>
-      </UTabs>
+          <div v-else-if="files.length === 0" class="py-8 text-center text-sm text-muted">
+            暂无 R2 文件
+          </div>
+          <div v-else class="max-h-136 space-y-2 overflow-y-auto pr-1">
+            <div
+              v-for="file in files"
+              :key="file.name"
+              class="rounded-lg border border-default p-3"
+            >
+              <div class="truncate font-mono text-xs">{{ file.name }}</div>
+              <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted">
+                <span>{{ formatHsdataBytes(file.size) }}</span>
+                <span v-if="file.time">{{ formatHsdataDate(file.time) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-lg border border-dashed border-default p-3 text-xs text-muted">
+            如果需要从 R2 归档执行 `importArchive`，请前往数据导入页面。
+          </div>
+        </UCard>
+      </div>
     </UCard>
   </div>
 </template>
 
 <script setup lang="ts">
+import {
+  formatHsdataBytes,
+  formatHsdataCount,
+  formatHsdataDate,
+  HSDATA_SOURCES,
+} from '~/composables/hearthstone-hsdata';
+import type {
+  HsdataFile,
+  HsdataOverview,
+  HsdataSourceState,
+} from '~/composables/hearthstone-hsdata';
+
 definePageMeta({
   layout: 'admin',
   title:  '数据源',
@@ -335,190 +268,103 @@ definePageMeta({
 
 const { $orpc } = useNuxtApp();
 
-const tabs = [
-  { label: '数据概览', slot: 'overview' as const, icon: 'i-lucide-bar-chart-2' },
-  { label: '数据导入', slot: 'import' as const, icon: 'i-lucide-download' },
-  { label: '数据合并', slot: 'merge' as const, icon: 'i-lucide-git-merge' },
-];
-
-const sources = [
-  {
-    id:          'hsdata',
-    name:        'Hearthstone Data (hsdata)',
-    icon:        'i-lucide-database',
-    official:    false,
-    description: 'HearthSim 社区维护的炉石传说卡牌数据库，从游戏客户端提取的原始卡牌数据。',
-    url:         'https://github.com/HearthSim/hsdata',
-  },
-];
-
-interface DataSourceHistory {
-  tag:    string;
-  commit: string;
-  type:   string;
-  date:   string;
-  count?: number;
-  size?:  number;
-}
-
-interface DataSourceState {
-  tag?:        string;
-  commit?:     string;
-  short?:      string;
-  synced_at?:  string;
-  type?:       string;
-  file_count?: number;
-  history?:    DataSourceHistory[];
-}
-
-interface HsdataFile {
-  name:  string;
-  size:  number;
-  time?: string;
-}
-
-interface HsdataImportReport {
-  dryRun:                boolean;
-  skipped:               boolean;
-  sourceTag:             number;
-  build:                 number;
-  sourceHash:            string;
-  entityCount:           number;
-  insertedSnapshots:     number;
-  reusedSnapshots:       number;
-  insertedTagRows:       number;
-  discoveredTagCount:    number;
-  updatedDiscoveredTags: number;
-  fallbackTagRowCount:   number;
-  latestSnapshotCount:   number;
-  discoveredTags:        number[];
-}
-
-interface ReportMetric {
-  key:   string;
-  label: string;
-  value: string | number | boolean;
-}
-
-const state = ref<DataSourceState | null>(null);
+const state = ref<HsdataSourceState | null>(null);
 const loadingState = ref(false);
 
 const files = ref<HsdataFile[]>([]);
 const loadingFiles = ref(false);
-const loadingR2FileName = ref<string | null>(null);
-
-const importXml = ref('');
-const importFileName = ref('');
-const importError = ref('');
-const importing = ref(false);
-const importResult = ref<HsdataImportReport | null>(null);
-
-const importForm = reactive({
-  sourceTag:    0 as number | null,
-  sourceCommit: '',
-  sourceUri:    '',
-  dryRun:       true,
-  force:        false,
-});
+const overview = ref<HsdataOverview | null>(null);
+const loadingOverview = ref(false);
+const overviewError = ref('');
 
 const history = computed(() => state.value?.history ?? []);
-const canImport = computed(() =>
-  importXml.value.trim().length > 0
-  && typeof importForm.sourceTag === 'number'
-  && Number.isInteger(importForm.sourceTag)
-  && importForm.sourceTag >= 0
-  && !importing.value,
-);
 
-const reportMetrics = computed<ReportMetric[]>(() => {
-  const report = importResult.value;
+const historyColumns = [
+  { accessorKey: 'tag', header: '版本' },
+  { accessorKey: 'commit', header: 'Commit' },
+  { accessorKey: 'type', header: '类型' },
+  { accessorKey: 'date', header: '时间' },
+  { accessorKey: 'count', header: '数量' },
+];
 
-  if (!report) {
+const overviewSummaryCards = computed(() => {
+  const summary = overview.value?.summary;
+
+  if (!summary) {
     return [];
   }
 
   return [
-    { key: 'sourceTag', label: 'sourceTag', value: report.sourceTag },
-    { key: 'build', label: 'build', value: report.build },
-    { key: 'entityCount', label: 'entities', value: report.entityCount },
-    { key: 'insertedSnapshots', label: 'inserted snapshots', value: report.insertedSnapshots },
-    { key: 'reusedSnapshots', label: 'reused snapshots', value: report.reusedSnapshots },
-    { key: 'insertedTagRows', label: 'tag rows', value: report.insertedTagRows },
-    { key: 'discoveredTagCount', label: 'discovered tags', value: report.discoveredTagCount },
-    { key: 'updatedDiscoveredTags', label: 'updated tags', value: report.updatedDiscoveredTags },
-    { key: 'fallbackTagRowCount', label: 'fallback rows', value: report.fallbackTagRowCount },
-    { key: 'latestSnapshotCount', label: 'latest snapshots', value: report.latestSnapshotCount },
-    { key: 'sourceHash', label: 'sourceHash', value: report.sourceHash },
+    { key: 'sourceVersions', label: '来源版本数', value: formatHsdataCount(summary.sourceVersionCount) },
+    { key: 'completedVersions', label: '已完成导入', value: formatHsdataCount(summary.completedSourceVersionCount) },
+    { key: 'failedVersions', label: '失败版本数', value: formatHsdataCount(summary.failedSourceVersionCount) },
+    { key: 'snapshots', label: '快照总数', value: formatHsdataCount(summary.snapshotCount) },
+    { key: 'latestSnapshots', label: 'Latest 快照数', value: formatHsdataCount(summary.latestSnapshotCount) },
+    { key: 'tagRows', label: 'Tag 行总数', value: formatHsdataCount(summary.tagRowCount) },
   ];
 });
 
-const historyColumns = [
-  { key: 'tag', label: '版本' },
-  { key: 'commit', label: 'Commit' },
-  { key: 'type', label: '类型' },
-  { key: 'date', label: '时间' },
-  { key: 'count', label: '数量' },
-];
+const overviewTableCards = computed(() => {
+  const tables = overview.value?.tables;
 
-function formatDate(dateStr: string | undefined) {
-  if (!dateStr) return '-';
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleString('zh-CN');
-  } catch {
-    return dateStr;
-  }
-}
-
-function formatBytes(value: number) {
-  if (!Number.isFinite(value)) {
-    return '-';
+  if (!tables) {
+    return [];
   }
 
-  if (value < 1024) {
-    return `${value} B`;
-  }
-
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let size = value;
-  let unitIndex = -1;
-
-  do {
-    size /= 1024;
-    unitIndex += 1;
-  } while (size >= 1024 && unitIndex < units.length - 1);
-
-  const digits = size >= 10 ? 1 : 2;
-  return `${size.toFixed(digits)} ${units[unitIndex]}`;
-}
-
-function r2FileUri(name: string) {
-  return `r2://R2_DATA/hearthstone/hsdata/data/${name}`;
-}
-
-function inferSourceTagFromName(name: string) {
-  const match = name.match(/(?:^|[^\d])(\d{5,})(?:[^\d]|$)/);
-  const rawValue = match?.[1];
-
-  if (!rawValue) {
-    return null;
-  }
-
-  const sourceTag = Number(rawValue);
-  return Number.isSafeInteger(sourceTag) && sourceTag >= 0 ? sourceTag : null;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : '操作失败';
-}
+  return [
+    {
+      key:     'sourceVersions',
+      name:    tables.sourceVersions.name,
+      kind:    tables.sourceVersions.kind,
+      metrics: [
+        { label: '总行数', value: formatHsdataCount(tables.sourceVersions.rows) },
+        { label: '最近导入时间', value: formatHsdataDate(tables.sourceVersions.latestImportedAt) },
+        { label: '最近完成 sourceTag', value: tables.sourceVersions.latestCompletedSourceTag ?? '-' },
+        { label: 'completed / failed', value: `${formatHsdataCount(tables.sourceVersions.statusCounts.completed)} / ${formatHsdataCount(tables.sourceVersions.statusCounts.failed)}` },
+        { label: 'processing / pending', value: `${formatHsdataCount(tables.sourceVersions.statusCounts.processing)} / ${formatHsdataCount(tables.sourceVersions.statusCounts.pending)}` },
+      ],
+    },
+    {
+      key:     'rawEntitySnapshots',
+      name:    tables.rawEntitySnapshots.name,
+      kind:    tables.rawEntitySnapshots.kind,
+      metrics: [
+        { label: '总行数', value: formatHsdataCount(tables.rawEntitySnapshots.rows) },
+        { label: 'Latest 行数', value: formatHsdataCount(tables.rawEntitySnapshots.latestRows) },
+        { label: '不同 card_id 数量', value: formatHsdataCount(tables.rawEntitySnapshots.distinctCardCount) },
+        { label: '最近更新时间', value: formatHsdataDate(tables.rawEntitySnapshots.updatedAt) },
+      ],
+    },
+    {
+      key:     'rawEntitySnapshotTags',
+      name:    tables.rawEntitySnapshotTags.name,
+      kind:    tables.rawEntitySnapshotTags.kind,
+      metrics: [
+        { label: '总行数', value: formatHsdataCount(tables.rawEntitySnapshotTags.rows) },
+        { label: '不同 snapshot_id 数量', value: formatHsdataCount(tables.rawEntitySnapshotTags.distinctSnapshotCount) },
+        { label: '不同 enum_id 数量', value: formatHsdataCount(tables.rawEntitySnapshotTags.distinctEnumCount) },
+      ],
+    },
+    {
+      key:     'tagValueView',
+      name:    tables.tagValueView.name,
+      kind:    tables.tagValueView.kind,
+      metrics: [
+        { label: '总行数', value: formatHsdataCount(tables.tagValueView.rows) },
+        { label: '不同 snapshot_id 数量', value: formatHsdataCount(tables.tagValueView.distinctSnapshotCount) },
+        { label: '不同 enum_id 数量', value: formatHsdataCount(tables.tagValueView.distinctEnumCount) },
+      ],
+    },
+  ];
+});
 
 async function loadState() {
   loadingState.value = true;
+
   try {
-    const result = await $orpc.hearthstone.dataSource.hsdata.getState();
-    state.value = result;
+    state.value = await $orpc.hearthstone.dataSource.hsdata.getState();
   } catch (error) {
-    console.error('Failed to load state:', error);
+    console.error('Failed to load hsdata state:', error);
   } finally {
     loadingState.value = false;
   }
@@ -526,6 +372,7 @@ async function loadState() {
 
 async function loadFiles() {
   loadingFiles.value = true;
+
   try {
     const result = await $orpc.hearthstone.dataSource.hsdata.listFiles();
     files.value = [...result].sort((first, second) => {
@@ -540,111 +387,25 @@ async function loadFiles() {
   }
 }
 
-async function loadR2File(file: HsdataFile) {
-  loadingR2FileName.value = file.name;
-  importError.value = '';
+async function loadOverview() {
+  loadingOverview.value = true;
+  overviewError.value = '';
 
   try {
-    const result = await $orpc.hearthstone.dataSource.hsdata.readFile({ name: file.name });
-    importXml.value = result.content;
-    importFileName.value = result.name;
-    importForm.sourceUri = r2FileUri(result.name);
-
-    const sourceTag = inferSourceTagFromName(result.name);
-    if (sourceTag != null) {
-      importForm.sourceTag = sourceTag;
-    }
+    overview.value = await $orpc.hearthstone.dataSource.hsdata.getOverview();
   } catch (error) {
-    console.error('Failed to load hsdata file:', error);
-    importError.value = getErrorMessage(error);
+    console.error('Failed to load hsdata overview:', error);
+    overviewError.value = '数据表概览加载失败';
   } finally {
-    loadingR2FileName.value = null;
+    loadingOverview.value = false;
   }
 }
 
-function handleXmlFileSelect(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-
-  if (!file) {
-    return;
-  }
-
-  importError.value = '';
-  importFileName.value = file.name;
-
-  const reader = new FileReader();
-  reader.onload = readerEvent => {
-    const content = readerEvent.target?.result;
-    importXml.value = typeof content === 'string' ? content : '';
-
-    if (importForm.sourceUri.trim().length === 0) {
-      importForm.sourceUri = `file://${file.name}`;
-    }
-
-    const sourceTag = inferSourceTagFromName(file.name);
-    if (sourceTag != null) {
-      importForm.sourceTag = sourceTag;
-    }
-  };
-  reader.onerror = () => {
-    importError.value = '文件读取失败';
-  };
-  reader.readAsText(file);
-}
-
-function resetImportForm() {
-  importXml.value = '';
-  importFileName.value = '';
-  importError.value = '';
-  importResult.value = null;
-  importForm.sourceTag = 0;
-  importForm.sourceCommit = '';
-  importForm.sourceUri = '';
-  importForm.dryRun = true;
-  importForm.force = false;
-}
-
-async function submitImport() {
-  if (!canImport.value) {
-    return;
-  }
-
-  if (importForm.sourceTag == null) {
-    return;
-  }
-
-  importing.value = true;
-  importError.value = '';
-  importResult.value = null;
-
-  try {
-    const sourceCommit = importForm.sourceCommit.trim();
-    const sourceUri = importForm.sourceUri.trim();
-    const result = await $orpc.hearthstone.dataSource.hsdata.importArchive({
-      xml:          importXml.value,
-      sourceTag:    importForm.sourceTag,
-      sourceCommit: sourceCommit.length > 0 ? sourceCommit : null,
-      sourceUri:    sourceUri.length > 0 ? sourceUri : null,
-      dryRun:       importForm.dryRun,
-      force:        importForm.force,
-    });
-
-    importResult.value = result;
-
-    if (!result.dryRun) {
-      await loadState();
-    }
-  } catch (error) {
-    console.error('Failed to import hsdata archive:', error);
-    importError.value = getErrorMessage(error);
-  } finally {
-    importing.value = false;
-  }
+async function reloadAll() {
+  await Promise.all([loadState(), loadFiles(), loadOverview()]);
 }
 
 onMounted(() => {
-  void loadState();
-  void loadFiles();
+  void reloadAll();
 });
 </script>

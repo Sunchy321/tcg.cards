@@ -99,6 +99,33 @@
 
 这一层解决“**完整历史**”与“**原始语义可追溯**”。
 
+此外，源归档层还需要维护一份面向控制台的数据源状态摘要：
+
+- `hearthstone/hsdata/state.json`
+
+它不属于数据库建模的一部分，但属于原始归档工作流的配套产物，用于让控制台数据源页及时显示：
+
+- 最近一次上传的 `sourceTag`
+- 对应 `commit / short`
+- 最近同步时间
+- 当前归档计数
+- 最近上传历史
+
+当前约束下，这份摘要由 `apps/site-console/scripts/hsdata-upload.ts` 在上传成功后直接刷新，不再保留独立的全量重建脚本或旧批量同步脚本。
+
+为了降低原始归档排障成本，控制台数据源页还需要直接展示 `hearthstone_data` 侧的导入结果概览。当前确认纳入数据源页观测范围的对象包括：
+
+- `source_versions`
+- `raw_entity_snapshots`
+- `raw_entity_snapshot_tags`
+- `tag_value_view`
+
+这部分观测能力同样不属于数据库 schema 本身，但属于原始归档链路的重要配套，用于快速确认：
+
+- 原始归档是否已经落表
+- 最近一次导入是否已反映到数据层
+- 当前 latest 快照与 Tag 量级是否合理
+
 ### 4.2 Tag 注册与映射层：`hearthstone`
 
 负责记录：

@@ -764,6 +764,7 @@ async function insertSnapshotTags(
   snapshotId: string,
   tags: RawTagInput[],
   tagMap: Map<number, ExistingTagRow>,
+  dbfIdByCardId: Map<string, number>,
 ): Promise<number> {
   if (tags.length === 0) {
     return 0;
@@ -771,6 +772,7 @@ async function insertSnapshotTags(
 
   const rows = tags.map(tag => {
     const resolved = resolveTagValue(tag, tagMap.get(tag.enumId));
+    const cardRefCardId = 'cardRefCardId' in resolved ? resolved.cardRefCardId ?? null : null;
 
     return {
       snapshotId,
@@ -785,8 +787,8 @@ async function insertSnapshotTags(
       stringValue:    'stringValue' in resolved ? resolved.stringValue ?? null : null,
       enumValue:      'enumValue' in resolved ? resolved.enumValue ?? null : null,
       locStringValue: 'locStringValue' in resolved ? resolved.locStringValue ?? null : null,
-      cardRefCardId:  'cardRefCardId' in resolved ? resolved.cardRefCardId ?? null : null,
-      cardRefDbfId:   null,
+      cardRefCardId,
+      cardRefDbfId:   cardRefCardId ? dbfIdByCardId.get(cardRefCardId) ?? null : null,
       jsonValue:      'jsonValue' in resolved ? resolved.jsonValue ?? null : null,
       parseStatus:    resolved.parseStatus,
     };
@@ -941,6 +943,7 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
   try {
     return await db.transaction(async tx => {
       const allTags = parsed.entities.flatMap(entity => entity.tags);
+      const dbfIdByCardId = new Map(parsed.entities.map(entity => [entity.cardId, entity.dbfId]));
       const { existing, discovered, updated } = await upsertDiscoveredTags(
         tx,
         input.sourceTag,
@@ -1070,7 +1073,7 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
 
         for (const entity of newEntities) {
           const snapshotId = newSnapshotIds.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
-          insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing);
+          insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing, dbfIdByCardId);
         }
 
         if (uniqueTargetSnapshotIds.length > 0) {

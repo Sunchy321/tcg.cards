@@ -31,6 +31,13 @@
 - 已经完成关键边界收口
 - 可以开始编写实施计划
 
+### 已并入的配套结论
+
+- `hsdata:upload` 已接管 `hearthstone/hsdata/state.json` 的写回
+- 旧脚本 `scripts/sync-all-tags.sh` 已不再保留为独立工作流
+- `file_count` 在当前实现中按上传动作增量维护，不负责回填历史总量
+- `hearthstone/data-source` 页面已增加 `hearthstone_data` 原始归档表概览，作为 P2 配套观测入口
+
 ---
 
 ## 总体评价

@@ -7,18 +7,22 @@
 - [x] 完成 P0 技术收口：冻结 `sourceTag` / `sourceTags` / `build[]` / `version[]` 的语义与查询规则
 - [x] 完成 P0 技术收口剩余项：冻结 XML 子结构边界（`Power` / `EntourageCard`）并回写计划状态
 - [x] 完成 P1 数据模型收尾：校正 schema、迁移与回填方案，补齐约束和索引
-- [ ] 完成 P2 原始归档链路：写入 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`
+- [x] 完成 P2 配套运维：统一 `hsdata:upload` 的 `state.json` 写回并移除旧脚本
+- [x] 完成 P2 配套观测：在数据源页展示 hsdata 原始归档表概览
+- [x] 完成 P2 原始归档链路：写入 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`
+- [x] 完成 P2 验收封口：补齐 fixture、幂等自动化验证与最终状态回写
 - [ ] 完成 P3 领域投影链路：生成 `entities`、`entity_localizations`、`entity_relations` 与三类 hash
 - [ ] 完成 P4 查询兼容迁移：切换卡牌查询、历史查询、Tag 查询和输出 schema
 - [ ] 完成 P5 历史回填与图片迁移：导入历史版本、重算渲染字段、按 hash diff 迁移 R2 图片
 - [ ] 完成 P6 验证与回归：补齐 fixture、幂等、重投影、稳定性和性能测试
 
-## 当前状态（2026-04-20）
+## 当前状态（2026-04-22）
 
-- 整体完成度约为 `30% ~ 35%`
+- 整体完成度约为 `45% ~ 50%`
 - `P0` 已完成：`sourceTag` / `sourceTags` / `build[]` / `version[]` 语义、渲染字段白名单、首批 Tag 映射与 XML 子结构边界均已冻结
 - `P1` 已完成：Drizzle schema、生成式 migration、legacy backfill、版本数组约束、查询索引与 `renderModel` 静态结构均已收口
-- `P2 ~ P6` 基本未完成：XML 导入、领域投影、查询迁移、历史回填、测试尚未形成闭环
+- `P2` 已完成：XML 导入、原始快照池、Tag 事件、未知 Tag 自动登记、控制台 dry run / 写库入口、fixture 与幂等自动化验证均已收口
+- `P3 ~ P6` 尚未形成闭环：领域投影、查询迁移、历史回填、测试回归仍需继续推进
 
 ### 已落地内容
 
@@ -29,10 +33,21 @@
 - 已将 `raw_entity_snapshots.version` 更正为 `sourceTags`，消除 `data` 层与默认层版本语义混淆
 - 已明确 `renderModel` 的静态结构，并在模型层使用 Zod 类型约束
 - 已通过 `drizzle-kit generate` 生成 P1 约束与索引迁移，手写部分仅保留 Drizzle 无法推断的 legacy backfill
+- 已将 `hearthstone/hsdata/state.json` 的维护收敛到 `apps/site-console/scripts/hsdata-upload.ts`
+- 已移除旧脚本 `scripts/sync-all-tags.sh`
+- 已完成 `hsdata:upload` 配套校验：TypeScript 定向检查通过，`--help` 自检通过；单文件 `eslint` 因仓库缺少 `@typescript-eslint` 插件未完成
+- 已在 `hearthstone/data-source` 页面增加 hsdata 原始归档表概览，覆盖 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`、`tag_value_view`
+- 已在后端落地只读概览接口，用于聚合 `hearthstone_data` 侧统计并回传前端卡片展示
+- 已实现 `apps/site-console/server/lib/hearthstone/hsdata-import.ts`，覆盖 `CardDefs.xml` 事件解析、Entity 规范化、canonical hash、`source_versions` 状态流转、快照复用与 `sourceTags` 合并
+- 已实现 `raw_entity_snapshot_tags` 写入，支持基础 typed value 分流、fallback 保真、LocString 保留和 `ReferencedTag` 写入 `extraPayload`
+- 已实现未知 Tag 自动登记为 `discovered`，并在已存在 Tag 再次出现时只合并追溯字段，不覆盖人工维护字段
+- 已在控制台后端提供 `importArchive` 入口，并在 `hearthstone/data-import` 页面提供 R2 归档选择、dry run、force 和导入报告展示
+- 已补齐 `apps/site-console/server/lib/hearthstone/hsdata-import.test.ts`，覆盖基础 Tag、LocString、未知 Tag、XML 子结构、`card_ref`、重复导入与跨 sourceTag 快照复用
+- 已补齐 `raw_entity_snapshot_tags.cardRefDbfId` 的同 XML 内可得回填
+- 已通过 `bun test apps/site-console/server/lib/hearthstone/hsdata-import.test.ts` 定向验证
 
 ### 主要缺口
 
-- 导入链路尚未真正消费 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`
 - 查询层仍有旧模型残留，卡牌接口仍依赖旧 relation 结构
 - 输出 schema 尚未完整暴露 `revisionHash`、`localizationHash`、`renderHash`
 
@@ -95,7 +110,7 @@
 |------|------|----------|--------|----------|
 | P0 技术收口 | 已完成 | 已冻结 `sourceTag` / `sourceTags` / `build[]` / `version[]` 语义、渲染白名单、首批 `Tag -> 字段` 映射与 XML 子结构边界 | 白名单结论、字段映射表、版本集合规则 | 不再存在影响建模和迁移的关键未决项 |
 | P1 数据模型收尾 | 已完成 | 已审核现有 schema 和 migration；补齐约束、索引、回填与切换方案；明确 `renderModel` 列结构 | 修订后的 schema、生成式 migration、legacy backfill、`renderModel` 类型 | 迁移可安全执行，且不依赖人工修补数据 |
-| P2 原始归档 | 未开始 | 实现 `CardDefs.xml` 解析；写入 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`；未知 Tag 自动登记 | XML parser、归档服务、导入日志 | 同一 source version 重复导入幂等，未知 Tag 不阻塞 |
+| P2 原始归档 | 已完成 | 已实现 `CardDefs.xml` 解析；写入 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`；未知 Tag 自动登记；控制台导入入口与自动化验收已可用 | XML parser、归档服务、控制台导入页、导入报告、fixture 与幂等测试 | 同一 source version 重复导入幂等、跨 sourceTag 快照复用、未知 Tag 不阻塞、XML 子结构保留均已通过定向测试 |
 | P3 领域投影 | 未开始 | 从原始快照生成 `entities`、`entity_localizations`、`entity_relations`；计算 `revisionHash`、`localizationHash`、`renderHash` | 投影服务、哈希工具、renderModel 构造器 | 相同结构、文本、渲染可稳定去重 |
 | P4 查询兼容 | 少量旧逻辑已存在 | 切换卡牌查询到新 relation / view；补齐历史查询、Tag 查询和输出 schema | 查询层、兼容 view、ORPC 调整 | 现有卡牌详情接口和历史查询可在新模型下工作 |
 | P5 历史回填与图片迁移 | 未开始 | 导入 `hsdata` 历史版本；全量重算 `renderModel` / `renderHash`；仅对 hash diff 记录做第三方出图与 R2 迁移 | 历史导入脚本、diff 清单、迁移记录 | 数据全量可回填，图片迁移规模受控 |
@@ -103,7 +118,7 @@
 
 ## 实施顺序
 
-1. 从 `P2 -> P3` 的最小闭环开始，先跑通单份 `CardDefs.xml`
+1. 基于已完成的 P2 原始归档层推进 `P3` 领域投影链路
 2. 在最小闭环稳定后完成 `P4` 查询迁移
 3. 最后执行 `P5` 历史回填与图片迁移，并用 `P6` 做回归封口
 
