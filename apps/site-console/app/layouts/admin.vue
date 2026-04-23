@@ -175,6 +175,15 @@ const gameNavItems = computed(() => [
       icon:  'i-lucide-download',
       to:    `/${currentGame.value}/data-import`,
     },
+    ...(currentGame.value === 'hearthstone'
+      ? [
+        {
+          label: '图片',
+          icon:  'i-lucide-image',
+          to:    `/${currentGame.value}/image`,
+        },
+      ]
+      : []),
     {
       label: '卡牌',
       icon:  'i-lucide-layers',

@@ -11,4 +11,5 @@ export * from './patch';
 export * from './set';
 export * from './tag';
 export * from './data/card-model';
+export * from './data/card-image';
 export * from './data/knowledge';

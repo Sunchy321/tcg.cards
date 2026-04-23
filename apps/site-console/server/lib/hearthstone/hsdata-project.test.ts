@@ -541,10 +541,10 @@ const memoryDb = new MemoryProjectDb();
 
 mock.module('#db/db', () => ({ db: memoryDb }));
 mock.module('#model/hearthstone/schema/basic', async () => {
-  return await import('../../../../../packages/model/src/hearthstone/schema/basic');
+  return await import('@tcg-cards/model/src/hearthstone/schema/basic');
 });
 mock.module('#model/hearthstone/schema/entity', async () => {
-  return await import('../../../../../packages/model/src/hearthstone/schema/entity');
+  return await import('@tcg-cards/model/src/hearthstone/schema/entity');
 });
 mock.module('#schema/hearthstone', () => ({
   Entity,
