@@ -35,7 +35,6 @@ export interface ImportHsdataInput {
 type TagValueKind
   = | 'bool'
     | 'card_ref'
-    | 'enum'
     | 'int'
     | 'json'
     | 'loc_string'
@@ -491,7 +490,6 @@ function guessValueKind(tag: RawTagInput, existing: ExistingTagRow | undefined):
 
   if (configured === 'bool'
     || configured === 'card_ref'
-    || configured === 'enum'
     || configured === 'int'
     || configured === 'json'
     || configured === 'loc_string'
@@ -525,14 +523,6 @@ function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined)
       valueKind,
       parseStatus: 'parsed' as const,
       boolValue:   parsedInt === 1,
-    };
-  }
-
-  if (valueKind === 'enum') {
-    return {
-      valueKind,
-      parseStatus: 'parsed' as const,
-      enumValue:   tag.rawValue ?? '',
     };
   }
 
@@ -798,6 +788,17 @@ async function insertSnapshotTags(
   return rows.length;
 }
 
+async function deleteSnapshotTags(tx: DbTx, snapshotIds: string[]) {
+  for (const chunk of chunkValues(snapshotIds)) {
+    if (chunk.length === 0) {
+      continue;
+    }
+
+    await tx.delete(RawEntitySnapshotTag)
+      .where(inArray(RawEntitySnapshotTag.snapshotId, chunk));
+  }
+}
+
 async function upsertSourceVersionProcessing(
   input: SourceVersionWriteInput,
 ) {
@@ -967,12 +968,14 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
 
       const newEntities: ParsedEntity[] = [];
       const sourceTagUpdates: Array<{ id: string, sourceTags: number[] }> = [];
+      const snapshotIdByKey = new Map<string, string>();
       const targetSnapshotIds: string[] = [];
       let insertedSnapshots = 0;
       let reusedSnapshots = 0;
 
       for (const entity of parsed.entities) {
-        const existingSnapshot = existingSnapshots.get(snapshotKey(entity.cardId, entity.snapshotHash));
+        const key = snapshotKey(entity.cardId, entity.snapshotHash);
+        const existingSnapshot = existingSnapshots.get(key);
 
         if (!existingSnapshot) {
           insertedSnapshots += 1;
@@ -982,6 +985,7 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
 
         reusedSnapshots += 1;
         targetSnapshotIds.push(existingSnapshot.id);
+        snapshotIdByKey.set(key, existingSnapshot.id);
 
         if (!existingSnapshot.sourceTags.includes(input.sourceTag)) {
           sourceTagUpdates.push({
@@ -1011,16 +1015,18 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
           });
 
         for (const row of inserted) {
-          newSnapshotIds.set(snapshotKey(row.cardId, row.snapshotHash), row.id);
+          const key = snapshotKey(row.cardId, row.snapshotHash);
+          newSnapshotIds.set(key, row.id);
+          snapshotIdByKey.set(key, row.id);
         }
       }
 
       if (dryRun) {
         for (const entity of newEntities) {
-          newSnapshotIds.set(
-            snapshotKey(entity.cardId, entity.snapshotHash),
-            `dry-run:${entity.cardId}:${entity.snapshotHash}`,
-          );
+          const key = snapshotKey(entity.cardId, entity.snapshotHash);
+          const snapshotId = `dry-run:${entity.cardId}:${entity.snapshotHash}`;
+          newSnapshotIds.set(key, snapshotId);
+          snapshotIdByKey.set(key, snapshotId);
         }
       }
 
@@ -1036,6 +1042,7 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
 
       const uniqueTargetSnapshotIds = [...new Set(targetSnapshotIds)];
       let insertedTagRows = 0;
+      const tagEntities = input.force === true ? parsed.entities : newEntities;
 
       if (!dryRun) {
         for (const update of sourceTagUpdates) {
@@ -1071,8 +1078,12 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
             .where(inArray(RawEntitySnapshot.id, [...previousSnapshotIds]));
         }
 
-        for (const entity of newEntities) {
-          const snapshotId = newSnapshotIds.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
+        if (input.force === true) {
+          await deleteSnapshotTags(tx, uniqueTargetSnapshotIds);
+        }
+
+        for (const entity of tagEntities) {
+          const snapshotId = snapshotIdByKey.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
           insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing, dbfIdByCardId);
         }
 
@@ -1082,7 +1093,7 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
             .where(inArray(RawEntitySnapshot.id, uniqueTargetSnapshotIds));
         }
       } else {
-        insertedTagRows = newEntities.reduce((count, entity) => count + entity.tags.length, 0);
+        insertedTagRows = tagEntities.reduce((count, entity) => count + entity.tags.length, 0);
       }
 
       return {

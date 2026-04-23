@@ -182,6 +182,11 @@ const gameNavItems = computed(() => [
           icon:  'i-lucide-image',
           to:    `/${currentGame.value}/image`,
         },
+        {
+          label: '标签',
+          icon:  'i-lucide-tags',
+          to:    `/${currentGame.value}/tag`,
+        },
       ]
       : []),
     {

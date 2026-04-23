@@ -8,7 +8,8 @@
 - [x] 补齐卡牌详情输出 schema 的 hash 字段
 - [x] 收敛 `latest` / `version` 的查询规则
 - [x] 切换 `random`、`summary`、`full`、`diff` 到新查询语义
-- [ ] 补齐独立 Tag 查询入口
+- [ ] 补齐独立 Tag 查询与编辑入口
+- [ ] 接入控制台 Tag 配置页面
 - [x] 回写主计划中的 P4 当前状态
 
 ## 当前状态（2026-04-22）
@@ -23,7 +24,8 @@ P4 已进入首轮实现，并已完成查询兼容迁移中的核心闭环：
 
 当前仍未完成项：
 
-- 尚未新增独立的 Tag 查询接口
+- 尚未新增独立的 Tag 查询与编辑接口
+- 尚未接入控制台 Tag 配置页面
 - 仍需补充 P4 的定向验证与可能的前端历史查询入口
 
 ## 已确认边界
@@ -32,6 +34,7 @@ P4 已进入首轮实现，并已完成查询兼容迁移中的核心闭环：
 - P4 继续复用 `hearthstone.entity_view`、`hearthstone.card_entity_view`、`hearthstone.entity_relations`
 - P4 不回填历史 build，不处理图片迁移
 - P4 不再新增独立提案包，设计与计划继续收敛在当前 `specs/hearthstone-card-model`
+- Tag 编辑只更新 `hearthstone.tags` 的语义配置；保存后需要手动重跑投影才会影响默认层数据
 
 ## 目标
 
@@ -42,15 +45,16 @@ P4 首轮完成后，应满足：
 - 默认“最新版本”查询显式依赖 `isLatest`
 - 指定 `version` 的查询继续按 build 命中对应版本集合
 - 输出 schema 对外暴露结构修订和渲染修订 hash
+- 控制台可查询和编辑 `hearthstone.tags` 的解析、规范化与字段投影配置
 
 ## 非目标
 
 P4 首轮不做以下工作：
 
 - 不设计新的全文搜索或高级筛选 DSL
-- 不新增控制台 Tag 管理页面
 - 不一次性补齐所有未来可能的查询接口
 - 不移除数据库中的旧 `card_relations` 表，只停止在查询层继续依赖它
+- 不在保存 Tag 配置时自动重跑 `projectHsdata`
 
 ## 查询迁移规则
 
@@ -120,15 +124,22 @@ P4 首轮不做以下工作：
 - 将 `diff` 暴露到 `cardTrpc`
 - 保持现有页面无需修改即可继续消费
 
+### Step 5：补齐 Tag 配置编辑
+
+- 新增模型层 Tag 查询与更新输入输出 schema
+- 新增控制台 ORPC：列表、详情、更新
+- 新增 `hearthstone/tag` 页面，用于筛选、查看和编辑 `hearthstone.tags`
+- JSON 配置字段以文本编辑，保存前在前端和后端双重校验
+
 ## 验收标准
 
 - `card.full` 在新模型下可返回 related cards
 - `card.diff` 可以按 build 读取两个历史版本
 - `cardEntityView` / `cardFullView` 输出包含三类 hash
 - 随机卡牌不会落到未投影卡数据
+- 控制台可以编辑 Tag 的 `valueKind`、`normalizeKind`、`normalizeConfig`、`project*`、`status` 和说明字段
 
 ## 后续缺口
 
-- 新增独立 Tag 查询入口
 - 评估是否需要把 `renderModel` 也作为查询输出的一部分
 - 补齐 P4 对应的自动化验证

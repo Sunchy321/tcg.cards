@@ -300,7 +300,7 @@ XML 解析使用 `saxes` 事件解析器，不再使用手写 tokenizer。P2 当
 - `type = Card`：`valueKind = card_ref`，写入 `cardRefCardId`，可得时写入 `cardRefDbfId`
 - `type = LocString`：`valueKind = loc_string`，写入 `locStringValue`
 - 布尔型 Tag 由配置或值规则识别：`valueKind = bool`，写入 `boolValue`
-- 枚举型 Tag 由 `tags.normalizeKind` 或映射配置识别：`valueKind = enum`，写入 `enumValue`
+- 枚举语义统一通过 `int + normalizeKind = enum_from_int + normalizeConfig.enumMap` 处理，不再使用 `valueKind = enum`
 - 无法识别但可保留的值：`valueKind = json`，写入 `jsonValue`，`parseStatus = fallback`
 
 LocString 规则：

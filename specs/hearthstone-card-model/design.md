@@ -337,13 +337,14 @@ Tag 重命名只修改 `tags`：
 - `assign_enum`
 - `assign_card_ref`
 - `assign_localized_text`
-- `append_array`
+- `append_string_array`
 - `union_array`
 - `merge_json`
 
 `projectConfig` 典型内容：
 
 - `nullValues`
+- `value`：`append_string_array + normalizeKind = bool_from_int` 时必填；规范化结果为 `true` 时追加该固定字符串，例如 dual-race tag 追加指定种族
 - `langSelector`
 - `cardRefField`
 - `enumFallback`
@@ -352,7 +353,7 @@ Tag 重命名只修改 `tags`：
 示例：
 
 - `CARDNAME` -> `entity_localization.name`，`projectionKind = assign_localized_text`
-- `CARDTEXT` -> `entity_localization.text`，`projectionKind = assign_localized_text`
+- `CARDTEXT` -> `entity_localization.richText`，`projectionKind = assign_localized_text`
 - `HEALTH` -> `entity.health`，`projectionKind = assign_scalar`
 - `COLLECTIBLE` -> `entity.collectible`，`projectionKind = assign_scalar`
 - `HERO_POWER` -> `entity.heroPower.cardId`，`projectionKind = assign_card_ref`
@@ -612,9 +613,9 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 - `isLatest`
 - 本地化字段：
   - `name`
-  - `text`
+  - `text`（派生字段，由 `richText` 去除格式标记得到）
   - `richText`
-  - `displayText`
+  - `displayText`（派生字段，默认等于 `richText`）
   - `targetText`
   - `textInPlay`
   - `howToEarn`
@@ -629,6 +630,7 @@ Tag 查询优先基于 `raw_entity_snapshot_tags` 中的类型化值列完成。
 说明：
 
 - `localizationHash` 覆盖 `lang` 和所有本地化字段
+- `text` 和 `displayText` 不作为 Tag 直接投影目标，始终从 `richText` 派生
 - `renderHash` 不使用随机值，而是基于所有影响渲染的字段生成确定性指纹
 - 推荐流程为：先构造稳定的 `renderModel`，再对规范化后的 `renderModel` 做哈希，如 `sha256(canonical_json(renderModel))`
 - `renderModel` 保存渲染所需的规范化 payload，不再单独建 `render_models`

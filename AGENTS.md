@@ -56,6 +56,8 @@ During implementation, follow the todo list and the plan strictly.
 
 Mark each todo item as completed immediately after finishing it.
 
+After a feature is completed, do not run linting unless the user explicitly asks for it.
+
 If the user explicitly asks for step-by-step execution, implement only one planned step per turn, then pause and wait for the user's next instruction before continuing.
 
 All content created in the `proposals/`, `specs/`, and `archive/` folders must be written in Simplified Chinese.

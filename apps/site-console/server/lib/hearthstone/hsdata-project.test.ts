@@ -574,8 +574,11 @@ const enumId = {
   heroicHeroPower: 9002,
   hideCost:        684,
   rarity:          203,
+  race:            200,
   tripleCard:      9003,
   artist:          342,
+  dualRaceDragon:  2523,
+  dualRaceBeast:   2542,
   unknown:         9999,
 } as const;
 
@@ -738,7 +741,7 @@ function seedTagConfig() {
     normalizeKind:     'identity_loc_string',
     projectTargetType: 'entity_localization',
     projectKind:       'assign_localized_text',
-    projectTargetPath: 'text',
+    projectTargetPath: 'richText',
   }));
   addTag(makeTag({
     enumId:            enumId.flavorText,
@@ -770,8 +773,32 @@ function seedTagConfig() {
     slug:              'class',
     normalizeKind:     'enum_from_int',
     normalizeConfig:   { enumMap: { 4: 'mage', 12: 'neutral' } },
-    projectKind:       'assign_string_array',
+    projectKind:       'append_string_array',
     projectTargetPath: 'classes',
+  }));
+  addTag(makeTag({
+    enumId:            enumId.race,
+    slug:              'race',
+    normalizeKind:     'enum_from_int',
+    normalizeConfig:   { enumMap: { 20: 'beast' } },
+    projectKind:       'append_string_array',
+    projectTargetPath: 'race',
+  }));
+  addTag(makeTag({
+    enumId:            enumId.dualRaceDragon,
+    slug:              'dual_race_dragon',
+    normalizeKind:     'bool_from_int',
+    projectKind:       'append_string_array',
+    projectTargetPath: 'race',
+    projectConfig:     { value: 'dragon' },
+  }));
+  addTag(makeTag({
+    enumId:            enumId.dualRaceBeast,
+    slug:              'dual_race_beast',
+    normalizeKind:     'bool_from_int',
+    projectKind:       'append_string_array',
+    projectTargetPath: 'race',
+    projectConfig:     { value: 'beast' },
   }));
   addTag(makeTag({
     enumId:            enumId.cardType,
@@ -897,18 +924,21 @@ function seedSource(sourceTag: number, build: number, zhText: string) {
   addStringTag(`snapshot-main-${sourceTag}`, enumId.artist, 3, 'Studio Lantern', 'ARTISTNAME');
   addIntTag(`snapshot-main-${sourceTag}`, enumId.cardSet, 4, 10, 'CARD_SET');
   addIntTag(`snapshot-main-${sourceTag}`, enumId.class, 5, 4, 'CLASS');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.cardType, 6, 4, 'CARDTYPE');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.cost, 7, 3, 'COST');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.attack, 8, 2, 'ATK');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.health, 9, 4, 'HEALTH');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.rarity, 10, 3, 'RARITY');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.collectible, 11, 1, 'COLLECTIBLE');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.elite, 12, 0, 'ELITE');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.hideCost, 13, 1, 'HIDE_COST');
-  addCardRefTag(`snapshot-main-${sourceTag}`, enumId.heroPower, 14, 'HERO_POWER_001', null, 'HERO_POWER');
-  addCardRefTag(`snapshot-main-${sourceTag}`, enumId.heroicHeroPower, 15, 'HERO_POWER_002', null, 'HEROIC_HERO_POWER');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.tripleCard, 16, 1002, 'TRIPLE_CARD');
-  addIntTag(`snapshot-main-${sourceTag}`, enumId.unknown, 17, 9, 'UNKNOWN_TAG');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.race, 6, 20, 'CARDRACE');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.dualRaceDragon, 7, 1, 'DUAL_RACE_DRAGON');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.dualRaceBeast, 8, 1, 'DUAL_RACE_BEAST');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.cardType, 9, 4, 'CARDTYPE');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.cost, 10, 3, 'COST');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.attack, 11, 2, 'ATK');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.health, 12, 4, 'HEALTH');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.rarity, 13, 3, 'RARITY');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.collectible, 14, 1, 'COLLECTIBLE');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.elite, 15, 0, 'ELITE');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.hideCost, 16, 1, 'HIDE_COST');
+  addCardRefTag(`snapshot-main-${sourceTag}`, enumId.heroPower, 17, 'HERO_POWER_001', null, 'HERO_POWER');
+  addCardRefTag(`snapshot-main-${sourceTag}`, enumId.heroicHeroPower, 18, 'HERO_POWER_002', null, 'HEROIC_HERO_POWER');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.tripleCard, 19, 1002, 'TRIPLE_CARD');
+  addIntTag(`snapshot-main-${sourceTag}`, enumId.unknown, 20, 9, 'UNKNOWN_TAG');
 
   addLocalizedTag(`snapshot-token-${sourceTag}`, enumId.cardName, 0, {
     enUS: 'Construct Token',
@@ -956,6 +986,7 @@ describe('projectHsdata', () => {
     expect(main).toMatchObject({
       set:            'CORE',
       classes:        ['mage'],
+      race:           ['beast', 'dragon'],
       type:           'minion',
       cost:           3,
       attack:         2,
@@ -981,11 +1012,11 @@ describe('projectHsdata', () => {
     });
     expect(zh?.renderHash).toHaveLength(64);
     expect(zh?.renderModel).toMatchObject({
-      cardId:  'MAIN_001',
-      lang:    'zhs',
-      type:    'minion',
-      cost:    3,
-      classes: ['mage'],
+      cardId:       'MAIN_001',
+      lang:         'zhs',
+      type:         'minion',
+      cost:         3,
+      classes:      ['mage'],
       localization: {
         name:     '奥术构造体',
         richText: '法术迸发：获得 +2 攻击力。',
@@ -1044,14 +1075,6 @@ describe('projectHsdata', () => {
       throw new Error('Expected token type and rarity rows to exist');
     }
 
-    tokenType.intValue = null;
-    tokenType.enumValue = 'MINION';
-    tokenType.rawType = 'Enum';
-
-    tokenRarity.intValue = null;
-    tokenRarity.enumValue = 'RARE';
-    tokenRarity.rawType = 'Enum';
-
     const report = await projectHsdata({ sourceTag: 50001 });
 
     expect(report.skipped).toBe(false);
@@ -1071,6 +1094,108 @@ describe('projectHsdata', () => {
     expect(tokenLoc?.renderModel).toMatchObject({
       type:   'minion',
       rarity: 'rare',
+    });
+  });
+
+  test('applies legacy defaults for missing projected fields', async () => {
+    addSourceVersion(50010, 31010);
+
+    addSnapshot({
+      id:               'snapshot-fallback-minion',
+      cardId:           'FALLBACK_MINION_001',
+      dbfId:            2001,
+      sourceTags:       [50010],
+      entityXmlVersion: 1,
+      snapshotHash:     'fallback-minion',
+      extraPayload:     { referencedTags: {} },
+    });
+    addLocalizedTag('snapshot-fallback-minion', enumId.cardName, 0, {
+      zhCN: '缺失随从',
+    }, 'CARDNAME');
+    addLocalizedTag('snapshot-fallback-minion', enumId.cardText, 1, {
+      zhCN: '<b>造成 $2 点伤害。</b>[x]',
+    }, 'CARDTEXT');
+    addIntTag('snapshot-fallback-minion', enumId.cardType, 2, 4, 'CARDTYPE');
+    addIntTag('snapshot-fallback-minion', enumId.attack, 3, 3, 'ATK');
+
+    addSnapshot({
+      id:               'snapshot-fallback-weapon',
+      cardId:           'FALLBACK_WEAPON_001',
+      dbfId:            2002,
+      sourceTags:       [50010],
+      entityXmlVersion: 1,
+      snapshotHash:     'fallback-weapon',
+      extraPayload:     { referencedTags: {} },
+    });
+    addLocalizedTag('snapshot-fallback-weapon', enumId.cardName, 0, {
+      enUS: 'Fallback Weapon',
+    }, 'CARDNAME');
+    addLocalizedTag('snapshot-fallback-weapon', enumId.cardText, 1, {
+      enUS: '<i>Gain #1 Attack.</i>',
+    }, 'CARDTEXT');
+    addIntTag('snapshot-fallback-weapon', enumId.cardType, 2, 7, 'CARDTYPE');
+    addIntTag('snapshot-fallback-weapon', enumId.attack, 3, 2, 'ATK');
+
+    addSnapshot({
+      id:               'snapshot-fallback-blank',
+      cardId:           'FALLBACK_BLANK_001',
+      dbfId:            2003,
+      sourceTags:       [50010],
+      entityXmlVersion: 1,
+      snapshotHash:     'fallback-blank',
+      extraPayload:     { referencedTags: {} },
+    });
+    addLocalizedTag('snapshot-fallback-blank', enumId.cardName, 0, {
+      enUS: 'Fallback Blank',
+    }, 'CARDNAME');
+
+    const report = await projectHsdata({ sourceTag: 50010 });
+
+    expect(report.skipped).toBe(false);
+
+    const minion = memoryDb.state.entities.find(row => row.cardId === 'FALLBACK_MINION_001');
+    expect(minion).toMatchObject({
+      set:             '',
+      type:            'minion',
+      cost:            0,
+      attack:          3,
+      health:          0,
+      collectible:     false,
+      elite:           false,
+      artist:          '',
+      textBuilderType: 'default',
+    });
+
+    const minionLoc = memoryDb.state.localizations.find(row => row.cardId === 'FALLBACK_MINION_001' && row.lang === 'zhs');
+    expect(minionLoc).toMatchObject({
+      name:        '缺失随从',
+      text:        '造成 2 点伤害。',
+      richText:    '<b>造成 $2 点伤害。</b>[x]',
+      displayText: '<b>造成 $2 点伤害。</b>[x]',
+    });
+
+    const weapon = memoryDb.state.entities.find(row => row.cardId === 'FALLBACK_WEAPON_001');
+    expect(weapon).toMatchObject({
+      set:        '',
+      type:       'weapon',
+      cost:       0,
+      attack:     2,
+      durability: 0,
+    });
+
+    const blank = memoryDb.state.entities.find(row => row.cardId === 'FALLBACK_BLANK_001');
+    expect(blank).toMatchObject({
+      set:  '',
+      type: 'null',
+      cost: 0,
+    });
+
+    const blankLoc = memoryDb.state.localizations.find(row => row.cardId === 'FALLBACK_BLANK_001' && row.lang === 'en');
+    expect(blankLoc).toMatchObject({
+      name:        'Fallback Blank',
+      text:        '',
+      richText:    '',
+      displayText: '',
     });
   });
 

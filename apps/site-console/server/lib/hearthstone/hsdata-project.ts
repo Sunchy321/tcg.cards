@@ -4,7 +4,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
 import { renderModel as renderModelSchema, type RenderModel } from '#model/hearthstone/schema/entity';
-import { mainLocale, rarity as raritySchema, types as typeSchema } from '#model/hearthstone/schema/basic';
+import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '#model/hearthstone/schema/basic';
 import {
   Entity,
   EntityLocalization,
@@ -127,24 +127,24 @@ interface EntityRow {
 }
 
 interface LocalizationRow {
-  cardId:            string;
-  version:           number[];
-  lang:              string;
-  revisionHash:      string;
-  localizationHash:  string;
-  renderHash:        string | null;
-  renderModel:       RenderModel | null;
-  isLatest:          boolean;
-  name:              string;
-  text:              string;
-  richText:          string;
-  displayText:       string;
-  targetText:        string | null;
-  textInPlay:        string | null;
-  howToEarn:         string | null;
-  howToEarnGolden:   string | null;
-  flavorText:        string | null;
-  locChangeType:     string;
+  cardId:           string;
+  version:          number[];
+  lang:             string;
+  revisionHash:     string;
+  localizationHash: string;
+  renderHash:       string | null;
+  renderModel:      RenderModel | null;
+  isLatest:         boolean;
+  name:             string;
+  text:             string;
+  richText:         string;
+  displayText:      string;
+  targetText:       string | null;
+  textInPlay:       string | null;
+  howToEarn:        string | null;
+  howToEarnGolden:  string | null;
+  flavorText:       string | null;
+  locChangeType:    string;
 }
 
 interface RelationRow {
@@ -158,9 +158,7 @@ interface RelationRow {
 
 interface LocalizationDraft {
   name:            string;
-  text:            string;
   richText:        string;
-  displayText:     string;
   targetText:      string | null;
   textInPlay:      string | null;
   howToEarn:       string | null;
@@ -170,20 +168,19 @@ interface LocalizationDraft {
 }
 
 interface ProjectionContext {
-  slugByEnumId: Map<number, string>;
+  slugByEnumId:  Map<number, string>;
   cardIdByDbfId: Map<number, string>;
 }
 
 interface ProjectedSnapshot {
-  entity: LocalizationlessEntityRow;
-  localizations: LocalizationRow[];
-  relations: RelationRow[];
+  entity:              LocalizationlessEntityRow;
+  localizations:       LocalizationRow[];
+  relations:           RelationRow[];
   unprojectedTagCount: number;
 }
 
 type LocalizationlessEntityRow = Omit<EntityRow, 'version' | 'isLatest'>;
 type LocalizationlessLocalizationRow = Omit<LocalizationRow, 'version' | 'isLatest'>;
-type LocalizationlessRelationRow = Omit<RelationRow, 'version' | 'isLatest'>;
 
 interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
   finalRows: T[];
@@ -387,16 +384,20 @@ function asStringArray(value: unknown): string[] {
   return typeof value === 'string' ? [value] : [];
 }
 
-function asBooleanArray(value: unknown): boolean[] {
-  if (!Array.isArray(value)) {
-    return [];
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    result.push(value);
   }
 
-  return value.filter(item => typeof item === 'boolean');
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return [...new Set(values)].sort();
+  return result;
 }
 
 function cleanNullValue<T>(value: T, config: JsonMap): T | null {
@@ -447,14 +448,14 @@ function normalizeKnownEnumValue(
   const token = normalizeEnumToken(value);
 
   if (target === 'type') {
-    if (typeValues.has(token)) {
+    if (typeValues.has(token as Types)) {
       return token;
     }
 
     return typeAliases[token] ?? null;
   }
 
-  if (rarityValues.has(token)) {
+  if (rarityValues.has(token as Rarity)) {
     return token;
   }
 
@@ -476,7 +477,6 @@ function normalizeScalarValue(row: RawSnapshotTagRow): NormalizedValue {
   if (row.boolValue != null) return row.boolValue;
   if (row.intValue != null) return row.intValue;
   if (row.stringValue != null) return row.stringValue;
-  if (row.enumValue != null) return row.enumValue;
   if (row.locStringValue != null) return row.locStringValue;
   if (row.cardRefCardId != null || row.cardRefDbfId != null) {
     return {
@@ -508,7 +508,7 @@ function normalizeTagValue(
   }
 
   if (normalizeKind === 'identity_string') {
-    return row.stringValue ?? row.enumValue;
+    return row.stringValue;
   }
 
   if (normalizeKind === 'identity_loc_string') {
@@ -547,13 +547,7 @@ function normalizeTagValue(
     const target = resolveKnownEnumTarget(tag);
 
     if (value == null) {
-      const rawValue = row.enumValue ?? row.stringValue;
-
-      if (target == null) {
-        return rawValue;
-      }
-
-      return normalizeKnownEnumValue(target, rawValue) ?? rawValue;
+      return null;
     }
 
     const mapped = enumMap[String(value)];
@@ -608,9 +602,7 @@ function normalizeTagValue(
 function createLocalizationDraft(): LocalizationDraft {
   return {
     name:            '',
-    text:            '',
     richText:        '',
-    displayText:     '',
     targetText:      null,
     textInPlay:      null,
     howToEarn:       null,
@@ -620,50 +612,49 @@ function createLocalizationDraft(): LocalizationDraft {
   };
 }
 
+function textFromRichText(richText: string): string {
+  return richText
+    .replace(/[$#](\d+)/g, (_match: string, value: string) => value)
+    .replace(/<\/?.>|\[.\]/g, '');
+}
+
 function setLocalizationField(draft: LocalizationDraft, path: string, value: string) {
   if (path === 'name') {
     draft.name = value;
-    return;
-  }
-
-  if (path === 'text') {
-    draft.text = value;
-    return;
+    return true;
   }
 
   if (path === 'richText') {
     draft.richText = value;
-    return;
-  }
-
-  if (path === 'displayText') {
-    draft.displayText = value;
-    return;
+    return true;
   }
 
   if (path === 'targetText') {
     draft.targetText = value;
-    return;
+    return true;
   }
 
   if (path === 'textInPlay') {
     draft.textInPlay = value;
-    return;
+    return true;
   }
 
   if (path === 'howToEarn') {
     draft.howToEarn = value;
-    return;
+    return true;
   }
 
   if (path === 'howToEarnGolden') {
     draft.howToEarnGolden = value;
-    return;
+    return true;
   }
 
   if (path === 'flavorText') {
     draft.flavorText = value;
+    return true;
   }
+
+  return false;
 }
 
 function normalizeTargetPath(path: string): string {
@@ -810,7 +801,7 @@ function applyEntityScalar(draft: EntityRow, path: string, value: unknown) {
   }
 }
 
-function applyEntityStringArray(draft: EntityRow, path: string, value: unknown) {
+function appendEntityStringArray(draft: EntityRow, path: string, value: unknown) {
   const values = uniqueStrings(asStringArray(value));
 
   if (path === 'classes') {
@@ -826,6 +817,18 @@ function applyEntityStringArray(draft: EntityRow, path: string, value: unknown) 
   if (path === 'race') {
     draft.race = uniqueStrings([...(draft.race ?? []), ...values]);
   }
+}
+
+function appendStringArrayValue(value: unknown, config: JsonMap): unknown {
+  if (value === false) {
+    return null;
+  }
+
+  if (value === true) {
+    return typeof config.value === 'string' ? config.value : null;
+  }
+
+  return value;
 }
 
 function applyLegacyValue(draft: EntityRow, path: string, value: unknown) {
@@ -980,6 +983,24 @@ function buildLocalizationHashPayload(row: LocalizationlessLocalizationRow): Jso
   };
 }
 
+function getValueAtPath(value: unknown, path: PropertyKey[]): unknown {
+  let current = value;
+
+  for (const key of path) {
+    if (current == null || typeof current !== 'object') {
+      return undefined;
+    }
+
+    current = (current as Record<PropertyKey, unknown>)[key];
+  }
+
+  return current;
+}
+
+function formatIssuePath(path: PropertyKey[]): string {
+  return path.map(value => String(value)).join('.');
+}
+
 function buildRenderModel(
   entity: LocalizationlessEntityRow,
   localization: LocalizationlessLocalizationRow,
@@ -991,9 +1012,9 @@ function buildRenderModel(
       .filter(([slug, value]) => renderMechanicKeys.has(slug) && isMechanicValue(value)),
   );
 
-  return renderModelSchema.parse({
+  const payload = {
     cardId: entity.cardId,
-    lang: localization.lang,
+    lang:   localization.lang,
 
     variant:         'normal',
     templateVersion: 'v1',
@@ -1021,7 +1042,20 @@ function buildRenderModel(
     techLevel:         entity.techLevel,
     rune:              entity.rune,
     renderMechanics,
-  });
+  };
+  const result = renderModelSchema.safeParse(payload);
+
+  if (!result.success) {
+    const issues = result.error.issues.map(issue => ({
+      path:    formatIssuePath(issue.path),
+      message: issue.message,
+      value:   getValueAtPath(payload, issue.path),
+    }));
+
+    throw new Error(`[hearthstone][hsdata-project] invalid render model for card ${entity.cardId} (${entity.dbfId}) lang ${localization.lang}: ${JSON.stringify(issues)}`);
+  }
+
+  return result.data;
 }
 
 function entityKey(row: Pick<EntityRow, 'cardId' | 'revisionHash'>): RowKey {
@@ -1085,7 +1119,7 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
 
     finalByKey.set(options.keyOf(row), {
       ...cloneRow(row),
-      version: nextVersion,
+      version:  nextVersion,
       isLatest: false,
     });
   }
@@ -1103,7 +1137,7 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
       inserted += 1;
       finalByKey.set(key, {
         ...cloneRow(row),
-        version: [options.build],
+        version:  [options.build],
         isLatest: false,
       });
       continue;
@@ -1118,7 +1152,7 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
     finalByKey.set(key, {
       ...(current ?? cloneRow(row)),
       ...cloneRow(row),
-      version: mergeVersion(current?.version ?? [], options.build),
+      version:  mergeVersion(current?.version ?? [], options.build),
       isLatest: false,
     });
   }
@@ -1149,18 +1183,27 @@ function relationName(field: string): string {
 
 function finalizeEntityDraft(
   draft: EntityRow,
-  seenFields: Set<string>,
 ): LocalizationlessEntityRow {
   draft.classes = uniqueStrings(draft.classes);
   draft.rune = draft.rune != null && draft.rune.length > 0 ? uniqueStrings(draft.rune) : null;
   draft.race = draft.race != null && draft.race.length > 0 ? uniqueStrings(draft.race) : null;
 
-  if (!seenFields.has('set') || draft.set.length === 0) {
-    throw new Error(`[hearthstone][hsdata-project] missing required field "set" for ${draft.cardId}`);
-  }
+  if (draft.type === 'minion') {
+    if (draft.attack != null && draft.health == null) {
+      draft.health = 0;
+    }
 
-  if (!seenFields.has('type') || draft.type.length === 0) {
-    throw new Error(`[hearthstone][hsdata-project] missing required field "type" for ${draft.cardId}`);
+    if (draft.attack == null && draft.health != null) {
+      draft.attack = 0;
+    }
+  } else if (draft.type === 'weapon') {
+    if (draft.attack != null && draft.durability == null) {
+      draft.durability = 0;
+    }
+
+    if (draft.attack == null && draft.durability != null) {
+      draft.attack = 0;
+    }
   }
 
   const entity: LocalizationlessEntityRow = {
@@ -1201,7 +1244,7 @@ function finalizeEntityDraft(
     faction:           draft.faction,
     mechanics:         draft.mechanics,
     referencedTags:    draft.referencedTags,
-    textBuilderType:   draft.textBuilderType,
+    textBuilderType:   'default',
     changeType:        draft.changeType,
   };
 
@@ -1219,9 +1262,9 @@ function finalizeLocalizationRows(
   const rows: LocalizationRow[] = [];
 
   for (const [lang, localization] of localizationMap.entries()) {
-    const text = localization.text;
-    const richText = localization.richText || text;
-    const displayText = localization.displayText || richText || text;
+    const richText = localization.richText;
+    const text = textFromRichText(richText);
+    const displayText = richText;
 
     const row: LocalizationlessLocalizationRow = {
       cardId:           entity.cardId,
@@ -1270,7 +1313,6 @@ function projectSnapshot(
   context: ProjectionContext,
 ): ProjectedSnapshot {
   const entityDraft = createEntityDraft(snapshot);
-  const seenFields = new Set<string>();
   const localizations = new Map<string, LocalizationDraft>();
   const weakRelationTargets = new Map<string, string>();
   let unprojectedTagCount = 0;
@@ -1304,20 +1346,22 @@ function projectSnapshot(
       || projectKind === 'assign_enum'
     ) {
       applyEntityScalar(entityDraft, targetPath, cleaned);
-      seenFields.add(targetPath);
       continue;
     }
 
-    if (projectKind === 'assign_string_array') {
-      applyEntityStringArray(entityDraft, targetPath, cleaned);
-      seenFields.add(targetPath);
+    if (projectKind === 'append_string_array') {
+      const value = appendStringArrayValue(cleaned, projectConfig);
+
+      if (value != null) {
+        appendEntityStringArray(entityDraft, targetPath, value);
+      }
+
       continue;
     }
 
     if (projectKind === 'assign_card_ref') {
       if (typeof cleaned === 'object' && !Array.isArray(cleaned) && ('cardId' in cleaned || 'dbfId' in cleaned)) {
         applyCardRef(entityDraft, weakRelationTargets, targetPath, cleaned as CardRefValue);
-        seenFields.add(targetPath);
         continue;
       }
 
@@ -1346,7 +1390,10 @@ function projectSnapshot(
         }
 
         const draft = localizations.get(lang) ?? createLocalizationDraft();
-        setLocalizationField(draft, targetPath, text);
+        if (!setLocalizationField(draft, targetPath, text)) {
+          continue;
+        }
+
         localizations.set(lang, draft);
         projected = true;
       }
@@ -1386,7 +1433,7 @@ function projectSnapshot(
     unprojectedTagCount += 1;
   }
 
-  const entity = finalizeEntityDraft(entityDraft, seenFields);
+  const entity = finalizeEntityDraft(entityDraft);
   const localizationRows = finalizeLocalizationRows(entity, localizations, context.slugByEnumId);
 
   const relationRows: RelationRow[] = [];

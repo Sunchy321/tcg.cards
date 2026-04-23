@@ -13,7 +13,7 @@
 - [x] 完成 P2 验收封口：补齐 fixture、幂等自动化验证与最终状态回写
 - [x] 完成 P3 详细设计与实施计划：明确领域投影边界、hash 规则、renderModel 和写库幂等策略
 - [x] 完成 P3 领域投影链路：生成 `entities`、`entity_localizations`、`entity_relations` 与三类 hash
-- [ ] 完成 P4 查询兼容迁移：切换卡牌查询、历史查询、Tag 查询和输出 schema
+- [ ] 完成 P4 查询兼容迁移：切换卡牌查询、历史查询、Tag 查询编辑和输出 schema
 - [ ] 完成 P5 历史回填与图片迁移：导入历史版本、重算渲染字段、按 hash diff 迁移 R2 图片
 - [ ] 完成 P6 验证与回归：补齐 fixture、幂等、重投影、稳定性和性能测试
 
@@ -24,7 +24,7 @@
 - `P1` 已完成：Drizzle schema、生成式 migration、legacy backfill、版本数组约束、查询索引与 `renderModel` 静态结构均已收口
 - `P2` 已完成：XML 导入、原始快照池、Tag 事件、未知 Tag 自动登记、控制台 dry run / 写库入口、fixture 与幂等自动化验证均已收口
 - `P3` 已完成：单 `sourceTag` 领域投影、三类 hash、`renderModel`、build 版本合并与关系投影均已落地并通过定向测试
-- `P4` 已进入首轮实现：卡牌详情/历史查询已切到新默认层关系语义，输出 schema 已补齐 hash；独立 Tag 查询入口仍待补齐
+- `P4` 已进入首轮实现：卡牌详情/历史查询已切到新默认层关系语义，输出 schema 已补齐 hash；独立 Tag 查询与编辑入口仍待补齐
 - `P5 ~ P6` 尚未形成闭环：历史回填、图片迁移与全量回归仍需继续推进
 
 ### 已落地内容
@@ -60,7 +60,7 @@
 
 ### 主要缺口
 
-- 独立 Tag 查询入口尚未补齐
+- 独立 Tag 查询与编辑入口尚未补齐
 - 旧 `card_relations` 表仍作为弃用兼容表保留，后续需要在完成迁移后再评估清理
 
 ## 目标与已确认边界
@@ -124,7 +124,7 @@
 | P1 数据模型收尾 | 已完成 | 已审核现有 schema 和 migration；补齐约束、索引、回填与切换方案；明确 `renderModel` 列结构 | 修订后的 schema、生成式 migration、legacy backfill、`renderModel` 类型 | 迁移可安全执行，且不依赖人工修补数据 |
 | P2 原始归档 | 已完成 | 已实现 `CardDefs.xml` 解析；写入 `source_versions`、`raw_entity_snapshots`、`raw_entity_snapshot_tags`；未知 Tag 自动登记；控制台导入入口与自动化验收已可用 | XML parser、归档服务、控制台导入页、导入报告、fixture 与幂等测试 | 同一 source version 重复导入幂等、跨 sourceTag 快照复用、未知 Tag 不阻塞、XML 子结构保留均已通过定向测试 |
 | P3 领域投影 | 已完成 | 从原始快照生成 `entities`、`entity_localizations`、`entity_relations`；计算 `revisionHash`、`localizationHash`、`renderHash` | `plan-p3.md`、投影服务、哈希工具、renderModel 构造器 | 相同结构、文本、渲染可稳定去重 |
-| P4 查询兼容 | 进行中 | 切换卡牌查询到新 relation / view；补齐历史查询、Tag 查询和输出 schema | `plan-p4.md`、查询层、兼容 view、ORPC 调整 | 现有卡牌详情接口和历史查询可在新模型下工作 |
+| P4 查询兼容 | 进行中 | 切换卡牌查询到新 relation / view；补齐历史查询、Tag 查询编辑和输出 schema | `plan-p4.md`、查询层、兼容 view、ORPC 调整 | 现有卡牌详情接口、历史查询和 Tag 配置编辑可在新模型下工作 |
 | P5 历史回填与图片迁移 | 未开始 | 导入 `hsdata` 历史版本；全量重算 `renderModel` / `renderHash`；仅对 hash diff 记录做第三方出图与 R2 迁移 | 历史导入脚本、diff 清单、迁移记录 | 数据全量可回填，图片迁移规模受控 |
 | P6 验证回归 | 未开始 | 增加 XML fixture、幂等测试、重投影测试、渲染稳定性测试和性能检查 | 测试用例、验证脚本、性能记录 | 重复导入、重投影和查询结果稳定 |
 

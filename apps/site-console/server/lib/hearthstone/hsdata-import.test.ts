@@ -413,6 +413,11 @@ class DeleteBuilder {
       this.memoryDb.state.snapshotTags = this.memoryDb.state.snapshotTags.filter(row => !deletedIds.has(row.snapshotId));
     }
 
+    if (this.tableName === 'raw_entity_snapshot_tags') {
+      this.memoryDb.state.snapshotTags = this.memoryDb.state.snapshotTags
+        .filter(row => !matchesCondition(row, condition));
+    }
+
     return Promise.resolve([]);
   }
 }
@@ -635,6 +640,48 @@ describe('importHsdata', () => {
 
     expect(report.skipped).toBe(true);
     expect(counts()).toEqual(beforeCounts);
+  });
+
+  test('force rebuilds reused raw snapshot tags', async () => {
+    await importHsdata({
+      xml:       fixtureXml,
+      sourceTag: 12345,
+    });
+
+    const snapshots = [...memoryDb.state.snapshots.values()];
+    const snapshotIds = snapshots.map(snapshot => snapshot.id).sort();
+    const firstSnapshot = snapshots.find(snapshot => snapshot.cardId === 'CORE_TEST_001');
+    const costTag = memoryDb.state.snapshotTags.find(tag => tag.snapshotId === firstSnapshot?.id && tag.enumId === 185);
+    const costConfig = memoryDb.state.tags.get(185);
+
+    expect(costTag).toBeDefined();
+    expect(costConfig).toBeDefined();
+
+    costTag!.valueKind = 'enum';
+    costTag!.intValue = null;
+    costTag!.enumValue = '2';
+    costConfig!.valueKind = 'enum';
+
+    const report = await importHsdata({
+      xml:       fixtureXml,
+      sourceTag: 12345,
+      force:     true,
+    });
+
+    expect(report.skipped).toBe(false);
+    expect(report.insertedSnapshots).toBe(0);
+    expect(report.reusedSnapshots).toBe(2);
+    expect(report.insertedTagRows).toBe(6);
+    expect([...memoryDb.state.snapshots.values()].map(snapshot => snapshot.id).sort()).toEqual(snapshotIds);
+    expect(memoryDb.state.snapshotTags).toHaveLength(6);
+
+    const refreshedCostTag = memoryDb.state.snapshotTags
+      .find(tag => tag.snapshotId === firstSnapshot?.id && tag.enumId === 185);
+    expect(refreshedCostTag).toMatchObject({
+      valueKind: 'int',
+      intValue:  2,
+      enumValue: null,
+    });
   });
 
   test('reuses equal snapshots across source versions and merges sourceTags', async () => {
