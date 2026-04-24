@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 type TableName
   = | 'raw_entity_snapshot_tags'
     | 'raw_entity_snapshots'
+    | 'sets'
     | 'source_versions'
     | 'tags';
 
@@ -74,15 +75,28 @@ interface SnapshotTagRow {
   parseStatus:    string;
 }
 
+interface SetRow {
+  setId:         string;
+  dbfId:         number | null;
+  slug:          string | null;
+  rawName:       string | null;
+  type:          string;
+  releaseDate:   string;
+  cardCountFull: number | null;
+  cardCount:     number | null;
+  group:         string | null;
+}
+
 interface MemoryState {
   sourceVersions: Map<number, SourceVersionRow>;
+  sets:           Map<string, SetRow>;
   tags:           Map<number, TagRow>;
   snapshots:      Map<string, SnapshotRow>;
   snapshotTags:   SnapshotTagRow[];
   nextSnapshotId: number;
 }
 
-type Row = SourceVersionRow | TagRow | SnapshotRow | SnapshotTagRow;
+type Row = SourceVersionRow | SetRow | TagRow | SnapshotRow | SnapshotTagRow;
 
 function column(name: string): Column {
   return { name };
@@ -103,6 +117,18 @@ const SourceVersion = table('source_versions', [
   'sourceUri',
   'status',
   'importedAt',
+]);
+
+const HearthstoneSet = table('sets', [
+  'setId',
+  'dbfId',
+  'slug',
+  'rawName',
+  'type',
+  'releaseDate',
+  'cardCountFull',
+  'cardCount',
+  'group',
 ]);
 
 const Tag = table('tags', [
@@ -162,6 +188,7 @@ function cloneMap<T>(map: Map<number | string, T>): Map<number | string, T> {
 function cloneState(state: MemoryState): MemoryState {
   return {
     sourceVersions: cloneMap(state.sourceVersions) as Map<number, SourceVersionRow>,
+    sets:           cloneMap(state.sets) as Map<string, SetRow>,
     tags:           cloneMap(state.tags) as Map<number, TagRow>,
     snapshots:      cloneMap(state.snapshots) as Map<string, SnapshotRow>,
     snapshotTags:   structuredClone(state.snapshotTags),
@@ -344,6 +371,13 @@ class InsertBuilder {
       return this.rows;
     }
 
+    if (this.tableName === 'sets') {
+      for (const row of this.rows as SetRow[]) {
+        this.memoryDb.state.sets.set(`${row.setId}\u0000${row.dbfId ?? 'null'}`, row);
+      }
+      return this.rows;
+    }
+
     if (this.tableName === 'raw_entity_snapshots') {
       const inserted = (this.rows as SnapshotRow[]).map(row => ({
         ...row,
@@ -465,6 +499,10 @@ class MemoryHsdataDb {
       return [...this.state.tags.values()];
     }
 
+    if (tableName === 'sets') {
+      return [...this.state.sets.values()];
+    }
+
     if (tableName === 'raw_entity_snapshots') {
       return [...this.state.snapshots.values()];
     }
@@ -503,6 +541,7 @@ class MemoryHsdataDb {
   private createState(): MemoryState {
     return {
       sourceVersions: new Map(),
+      sets:           new Map(),
       tags:           new Map(),
       snapshots:      new Map(),
       snapshotTags:   [],
@@ -517,6 +556,7 @@ mock.module('#db/db', () => ({ db: memoryDb }));
 mock.module('#schema/hearthstone', () => ({
   RawEntitySnapshot,
   RawEntitySnapshotTag,
+  Set: HearthstoneSet,
   SourceVersion,
   Tag,
 }));
@@ -548,9 +588,22 @@ const fixtureXml = `
 </CardDefs>
 `.trim();
 
+const missingSetXml = `
+<CardDefs build="12346">
+  <Entity CardID="CORE_TEST_MISSING_SET" ID="2001" version="1">
+    <Tag enumID="48" name="CardName" type="LocString">
+      <enUS>Missing Set Card</enUS>
+    </Tag>
+    <Tag enumID="183" name="CARD_SET" type="Int" value="10" />
+    <Tag enumID="185" name="COST" type="Int" value="2" />
+  </Entity>
+</CardDefs>
+`.trim();
+
 function counts() {
   return {
     sourceVersions: memoryDb.state.sourceVersions.size,
+    sets:           memoryDb.state.sets.size,
     tags:           memoryDb.state.tags.size,
     snapshots:      memoryDb.state.snapshots.size,
     snapshotTags:   memoryDb.state.snapshotTags.length,
@@ -701,6 +754,7 @@ describe('importHsdata', () => {
     expect(report.insertedTagRows).toBe(0);
     expect(counts()).toEqual({
       sourceVersions: 2,
+      sets:           0,
       tags:           5,
       snapshots:      2,
       snapshotTags:   6,
@@ -710,5 +764,32 @@ describe('importHsdata', () => {
       expect(snapshot.sourceTags).toEqual([12345, 12346]);
       expect(snapshot.isLatest).toBe(true);
     }
+  });
+
+  test('inserts a placeholder set row and rejects import when set mapping is missing', async () => {
+    await expect(importHsdata({
+      xml:       missingSetXml,
+      sourceTag: 12346,
+    })).rejects.toThrow('missing set rows for dbfId(s): 10');
+
+    expect(memoryDb.state.sets.size).toBe(1);
+    expect([...memoryDb.state.sets.values()][0]).toMatchObject({
+      setId:         '',
+      dbfId:         10,
+      slug:          null,
+      rawName:       null,
+      type:          'unknown',
+      releaseDate:   '',
+      cardCountFull: null,
+      cardCount:     null,
+      group:         null,
+    });
+    expect(memoryDb.state.sourceVersions.get(12346)).toMatchObject({
+      build:      12346,
+      status:     'failed',
+      importedAt: null,
+    });
+    expect(memoryDb.state.snapshots.size).toBe(0);
+    expect(memoryDb.state.snapshotTags).toHaveLength(0);
   });
 });

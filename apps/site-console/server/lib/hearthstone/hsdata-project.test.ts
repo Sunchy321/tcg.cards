@@ -188,7 +188,7 @@ const SourceVersion = table('source_versions', [
   'status',
 ]);
 
-const Set = table('sets', [
+const HearthstoneSet = table('sets', [
   'setId',
   'dbfId',
   'slug',
@@ -581,7 +581,7 @@ mock.module('#schema/hearthstone', () => ({
   EntityRelation,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
-  Set,
+  Set: HearthstoneSet,
   SourceVersion,
   Tag,
 }));
@@ -1296,5 +1296,26 @@ describe('projectHsdata', () => {
     const relation = memoryDb.state.relations.find(row => row.relation === 'triple_card');
     expect(relation?.version).toEqual([31001, 31002]);
     expect(relation?.isLatest).toBe(true);
+  });
+
+  test('rejects projection when set enum resolves to an empty setId', async () => {
+    memoryDb.state.sets = [{
+      setId:         '',
+      dbfId:         10,
+      slug:          null,
+      type:          'unknown',
+      releaseDate:   '',
+      cardCountFull: null,
+      cardCount:     null,
+      group:         null,
+    }];
+    seedSource(50001, 31001, '法术迸发：获得 +2 攻击力。');
+
+    await expect(projectHsdata({ sourceTag: 50001 }))
+      .rejects.toThrow('unresolved setId for card MAIN_001 (1001) from set dbfId 10');
+
+    expect(memoryDb.state.entities).toHaveLength(0);
+    expect(memoryDb.state.localizations).toHaveLength(0);
+    expect(memoryDb.state.relations).toHaveLength(0);
   });
 });

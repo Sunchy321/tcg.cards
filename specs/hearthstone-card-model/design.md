@@ -358,6 +358,78 @@ Tag 重命名只修改 `tags`：
 - `COLLECTIBLE` -> `entity.collectible`，`projectionKind = assign_scalar`
 - `HERO_POWER` -> `entity.heroPower.cardId`，`projectionKind = assign_card_ref`
 
+### 5.7 Set 缺失发现与阻断策略
+
+`CARD_SET` 与普通 `Tag` 不同：它最终会影响 `entities.set`、渲染水印、图片导出以及多个后续流程。因此对于缺失 set，不能像普通未知值一样仅靠原始归档继续放行。
+
+结论如下：
+
+- 导入阶段必须识别当前数据中出现的所有 set `dbf_id`
+- 若 `hearthstone.sets` 缺少对应条目，则自动插入一条占位 set
+- 该占位 set 只用于显式暴露缺口，不代表该 set 已被正确建模
+- 后续投影阶段若解析出的 `setId` 为空，则必须立即报错并拒绝写入默认层
+
+#### 5.7.1 导入阶段
+
+在 `importHsdata` 中，从原始 tags 中识别：
+
+- `rawName = "CARD_SET"` 的 tag
+- 或 `enumId = 183` 的 tag
+
+并提取其整型值作为 set `dbf_id`。
+
+当数据库中不存在该 `dbf_id` 时，自动插入占位记录：
+
+- `set_id = ''`
+- `dbf_id = <导入中发现的数值>`
+- `slug = null`
+- `raw_name = null`
+- `type = 'unknown'`
+- `release_date = ''`
+- `card_count_full = null`
+- `card_count = null`
+- `group = null`
+
+同时，导入结果中必须显式记录这些缺失 set，便于后续在控制台修复。
+
+这里明确约束：
+
+- **不能依赖** `references/hearthstone/raw/` 下的静态映射自动猜测 `setId`、`slug`、`rawName`
+- 自动补齐只做“缺失插入”，不主动覆盖已有 set
+
+这样做的原因是：
+
+- 静态 raw 映射只是参考资料，不应成为导入正确性的前置依赖
+- 一旦用映射猜测成功，就会掩盖“set 尚未人工确认”的真实状态
+
+#### 5.7.2 投影阶段
+
+在 `projectHsdata` 中，`dbf_id -> set_id` 的映射必须满足：
+
+- 存在对应 set 记录
+- 且 `set_id` 不是空字符串
+
+若任一条件不满足，则立即报错，并拒绝写入：
+
+- `hearthstone.entities`
+- `hearthstone.entity_localizations`
+- `hearthstone.entity_relations`
+
+也就是说：
+
+- 占位 set 允许存在于配置层
+- 占位 set **不允许** 流入默认层实体数据
+
+#### 5.7.3 与 Tag 自动发现的区别
+
+`Tag` 的未知发现策略是“自动接住并继续导入”；
+`Set` 的缺失发现策略是“自动插入占位并阻断默认层投影”。
+
+原因是：
+
+- 未知 Tag 仍可稳定保存在原始归档层，后续再补配置
+- 缺失 set 会直接影响卡牌领域主字段与多个下游流程，不能继续放行
+
 好处：
 
 - Tag 的业务含义、解析方式和字段映射都可在数据库中维护

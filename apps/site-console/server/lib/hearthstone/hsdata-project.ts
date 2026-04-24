@@ -495,6 +495,21 @@ function usesSetEnumRule(tag: TagRow | undefined): boolean {
     && tag.normalizeConfig.enumMap === 'set';
 }
 
+function assertResolvedSetId(
+  snapshot: RawSnapshotRow,
+  row: RawSnapshotTagRow,
+  normalized: NormalizedValue,
+) {
+  if (typeof normalized === 'string' && normalized.length > 0) {
+    return;
+  }
+
+  const rawValue = row.intValue ?? row.stringValue ?? row.jsonValue ?? row.rawPayload;
+  throw new Error(
+    `[hearthstone][hsdata-project] unresolved setId for card ${snapshot.cardId} (${snapshot.dbfId}) from set dbfId ${String(rawValue)}`,
+  );
+}
+
 function normalizeTagValue(
   row: RawSnapshotTagRow,
   tag: TagRow | undefined,
@@ -1341,6 +1356,10 @@ function projectSnapshot(
     }
 
     const normalized = normalizeTagValue(row, tag, context);
+    if (targetPath === 'set' && usesSetEnumRule(tag)) {
+      assertResolvedSetId(snapshot, row, normalized);
+    }
+
     const projectConfig = tag.projectConfig ?? {};
     const cleaned = cleanNullValue(normalized, projectConfig);
 

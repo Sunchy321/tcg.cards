@@ -13,6 +13,7 @@
 - [x] 完成 P2 验收封口：补齐 fixture、幂等自动化验证与最终状态回写
 - [x] 完成 P3 详细设计与实施计划：明确领域投影边界、hash 规则、renderModel 和写库幂等策略
 - [x] 完成 P3 领域投影链路：生成 `entities`、`entity_localizations`、`entity_relations` 与三类 hash
+- [x] 完成缺失 set 占位导入与空 `setId` 投影阻断
 - [ ] 完成 P4 查询兼容迁移：切换卡牌查询、历史查询、Tag 查询编辑和输出 schema
 - [ ] 完成 P5 历史回填与图片迁移：导入历史版本、重算渲染字段、按 hash diff 迁移 R2 图片
 - [ ] 完成 P6 验证与回归：补齐 fixture、幂等、重投影、稳定性和性能测试

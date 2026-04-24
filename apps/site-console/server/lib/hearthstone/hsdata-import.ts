@@ -7,6 +7,7 @@ import { db } from '#db/db';
 import {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
+  Set as HearthstoneSet,
   SourceVersion,
   Tag,
 } from '#schema/hearthstone';
@@ -118,6 +119,9 @@ interface SourceVersionWriteInput {
   sourceCommit: string | null | undefined;
   sourceUri:    string | null | undefined;
 }
+
+const cardSetEnumId = 183;
+const cardSetRawName = 'CARD_SET';
 
 export interface ImportHsdataReport {
   dryRun:                boolean;
@@ -256,6 +260,29 @@ function chunkValues<T>(values: T[], size = 2000): T[][] {
 
 function sortUniqueIntegers(values: number[]): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
+}
+
+function isCardSetTag(tag: RawTagInput): boolean {
+  return tag.enumId === cardSetEnumId || tag.rawName === cardSetRawName;
+}
+
+function parseTagIntValue(tag: RawTagInput): number | null {
+  if (tag.rawValue == null || tag.rawValue.length === 0) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(tag.rawValue, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function collectSetDbfIds(entities: ParsedEntity[]): number[] {
+  return sortUniqueIntegers(
+    entities
+      .flatMap(entity => entity.tags)
+      .filter(tag => isCardSetTag(tag))
+      .map(tag => parseTagIntValue(tag))
+      .filter((value): value is number => value != null),
+  );
 }
 
 function normalizeLocString(tag: XmlElement): Record<string, string> {
@@ -616,6 +643,55 @@ async function getExistingTags(tx: DbTx, enumIds: number[]): Promise<Map<number,
   return new Map(rows.map(row => [row.enumId, row]));
 }
 
+async function loadExistingSetDbfIds(dbfIds: number[]): Promise<Set<number>> {
+  const rows: Array<{ dbfId: number | null }> = [];
+
+  for (const chunk of chunkValues(dbfIds)) {
+    if (chunk.length === 0) continue;
+
+    const result = await db.select({
+      dbfId: HearthstoneSet.dbfId,
+    })
+      .from(HearthstoneSet)
+      .where(inArray(HearthstoneSet.dbfId, chunk));
+
+    rows.push(...result);
+  }
+
+  return new Set(rows.map(row => row.dbfId).filter((value): value is number => value != null));
+}
+
+async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
+  if (dbfIds.length === 0) {
+    return 0;
+  }
+
+  await db.insert(HearthstoneSet).values(
+    dbfIds.map(dbfId => ({
+      setId:         '',
+      dbfId,
+      slug:          null,
+      rawName:       null,
+      type:          'unknown',
+      releaseDate:   '',
+      cardCountFull: null,
+      cardCount:     null,
+      group:         null,
+    })),
+  );
+
+  return dbfIds.length;
+}
+
+async function findMissingSetDbfIds(dbfIds: number[]): Promise<number[]> {
+  if (dbfIds.length === 0) {
+    return [];
+  }
+
+  const existingDbfIds = await loadExistingSetDbfIds(dbfIds);
+  return dbfIds.filter(dbfId => !existingDbfIds.has(dbfId));
+}
+
 async function upsertDiscoveredTags(
   tx: DbTx,
   sourceTag: number,
@@ -858,6 +934,17 @@ async function upsertSourceVersionFailed(input: SourceVersionWriteInput) {
     });
 }
 
+async function markSourceVersionFailedIfNeeded(
+  input: SourceVersionWriteInput,
+  sourceVersion: SourceVersionRow | null,
+) {
+  if (sourceVersion?.status === 'completed' && sourceVersion.sourceHash === input.sourceHash) {
+    return;
+  }
+
+  await upsertSourceVersionFailed(input);
+}
+
 function shouldSkipSourceVersionImport(
   sourceVersion: SourceVersionRow | null,
   sourceHash: string,
@@ -896,16 +983,41 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
     parsed = parseHsdataXml(normalizedXml);
   } catch (error) {
     if (!dryRun) {
-      await upsertSourceVersionFailed({
+      await markSourceVersionFailedIfNeeded({
         sourceTag:    input.sourceTag,
         build:        sourceVersion?.build ?? null,
         sourceHash,
         sourceCommit: input.sourceCommit,
         sourceUri:    input.sourceUri,
-      });
+      }, sourceVersion);
     }
 
     throw error;
+  }
+
+  const missingSetDbfIds = await findMissingSetDbfIds(collectSetDbfIds(parsed.entities));
+
+  if (missingSetDbfIds.length > 0) {
+    let insertedPlaceholderSetCount = 0;
+
+    if (!dryRun) {
+      insertedPlaceholderSetCount = await insertPlaceholderSets(missingSetDbfIds);
+      await markSourceVersionFailedIfNeeded({
+        sourceTag:    input.sourceTag,
+        build:        parsed.build,
+        sourceHash,
+        sourceCommit: input.sourceCommit,
+        sourceUri:    input.sourceUri,
+      }, sourceVersion);
+    }
+
+    const action = dryRun
+      ? 'Dry run detected missing set rows and did not insert placeholders'
+      : `Inserted ${insertedPlaceholderSetCount} placeholder set row(s)`;
+
+    throw new Error(
+      `[hearthstone][hsdata-import] missing set rows for dbfId(s): ${missingSetDbfIds.join(', ')}. ${action}. Complete set modeling before retrying import.`,
+    );
   }
 
   if (shouldSkipSourceVersionImport(sourceVersion, sourceHash, input.force ?? false)) {
@@ -1121,13 +1233,13 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
     });
   } catch (error) {
     if (!dryRun) {
-      await upsertSourceVersionFailed({
+      await markSourceVersionFailedIfNeeded({
         sourceTag:    input.sourceTag,
         build:        parsed.build,
         sourceHash,
         sourceCommit: input.sourceCommit,
         sourceUri:    input.sourceUri,
-      });
+      }, sourceVersion);
     }
 
     console.error('[hearthstone][hsdata-import] failed', {
