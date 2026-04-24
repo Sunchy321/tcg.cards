@@ -48,6 +48,12 @@ export const imageRequestTarget = z.strictObject({
   contentType: z.literal('image/webp'),
 });
 
+export const imageRequestRenderModel = renderModel.omit({
+  set: true,
+}).extend({
+  set: z.int(),
+});
+
 export const imageRequirementRequest = z.strictObject({
   requestId:   z.string(),
   card:        imageRequestCard,
@@ -55,7 +61,7 @@ export const imageRequirementRequest = z.strictObject({
   style:       imageStyle,
   output:      imageRequestOutput,
   target:      imageRequestTarget,
-  renderModel: renderModel,
+  renderModel: imageRequestRenderModel,
 });
 
 export const imageRequirementFile = z.strictObject({
@@ -124,6 +130,7 @@ export type ImageStyle = z.infer<typeof imageStyle>;
 export type ImageRequestCard = z.infer<typeof imageRequestCard>;
 export type ImageRequestOutput = z.infer<typeof imageRequestOutput>;
 export type ImageRequestTarget = z.infer<typeof imageRequestTarget>;
+export type ImageRequestRenderModel = z.infer<typeof imageRequestRenderModel>;
 export type ImageRequirementRequest = z.infer<typeof imageRequirementRequest>;
 export type ImageRequirementFile = z.infer<typeof imageRequirementFile>;
 export type CardImageRequirementExportInput = z.infer<typeof cardImageRequirementExportInput>;

@@ -11,10 +11,11 @@ import {
   type CardImageRequirementExportInput,
   type CardImageRequirementExportResult,
   type ImageRequirementRequest,
+  type ImageRequestRenderModel,
   type ImageStyle,
   type ImageVariant,
 } from '#model/hearthstone/schema/data/image';
-import { CardImageAsset, CardImageExport, Entity, EntityLocalization, Tag } from '#schema/hearthstone';
+import { CardImageAsset, CardImageExport, Entity, EntityLocalization, Set as HearthstoneSet, Tag } from '#schema/hearthstone';
 
 export const hearthstoneImageSpecVersion = 'hs-card-image-v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';
@@ -39,6 +40,7 @@ export interface ImageCandidateRow {
   renderModel:      RenderModel;
   type:             RenderModel['type'];
   set:              string;
+  setDbfId:         number;
   techLevel:        number | null;
   mechanics:        MechanicMap;
 }
@@ -210,6 +212,16 @@ function buildFileName(exportId: string) {
   return `hearthstone-card-image-requirements.${exportId}.json`;
 }
 
+function buildImageRequestRenderModel(
+  model: RenderModel,
+  setDbfId: number,
+): ImageRequestRenderModel {
+  return {
+    ...model,
+    set: setDbfId,
+  };
+}
+
 function buildRequest(
   row: ImageCandidateRow,
   variant: ImageVariant,
@@ -242,7 +254,7 @@ function buildRequest(
       r2Key:       buildCardImageR2Key(row.renderHash, variant),
       contentType: 'image/webp',
     },
-    renderModel: row.renderModel,
+    renderModel: buildImageRequestRenderModel(row.renderModel, row.setDbfId),
   };
 }
 
@@ -346,6 +358,7 @@ async function loadCandidateRows(
     renderModel:      EntityLocalization.renderModel,
     type:             Entity.type,
     set:              Entity.set,
+    setDbfId:         HearthstoneSet.dbfId,
     techLevel:        Entity.techLevel,
     mechanics:        Entity.mechanics,
   })
@@ -355,6 +368,7 @@ async function loadCandidateRows(
       eq(Entity.revisionHash, EntityLocalization.revisionHash),
       sql`${Entity.version} && ${EntityLocalization.version}`,
     ))
+    .innerJoin(HearthstoneSet, eq(Entity.set, HearthstoneSet.setId))
     .where(and(...filters))
     .orderBy(
       asc(Entity.cardId),
@@ -367,10 +381,15 @@ async function loadCandidateRows(
         return [];
       }
 
+      if (row.setDbfId == null) {
+        throw new Error(`Missing set dbf_id for card ${row.cardId} set ${row.set}`);
+      }
+
       return [{
         ...row,
         renderHash:  row.renderHash,
         renderModel: row.renderModel,
+        setDbfId:    row.setDbfId,
       }];
     }));
 }

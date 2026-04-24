@@ -9,6 +9,7 @@ export const set = z.strictObject({
     setId: z.string(),
 
     dbfId: z.number().nullable(),
+    rawName: z.string().nullable(),
 
     localization: setLocalization.array(),
 

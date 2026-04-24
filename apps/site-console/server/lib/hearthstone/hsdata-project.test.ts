@@ -6,6 +6,7 @@ type TableName
     | 'entity_relations'
     | 'raw_entity_snapshot_tags'
     | 'raw_entity_snapshots'
+    | 'sets'
     | 'source_versions'
     | 'tags';
 
@@ -138,8 +139,20 @@ interface RelationRow {
   isLatest:           boolean;
 }
 
+interface SetRow {
+  setId:         string;
+  dbfId:         number | null;
+  slug:          string | null;
+  type:          string;
+  releaseDate:   string;
+  cardCountFull: number | null;
+  cardCount:     number | null;
+  group:         string | null;
+}
+
 interface MemoryState {
   sourceVersions: SourceVersionRow[];
+  sets:           SetRow[];
   tags:           TagRow[];
   snapshots:      SnapshotRow[];
   snapshotTags:   SnapshotTagRow[];
@@ -150,6 +163,7 @@ interface MemoryState {
 
 type Row
   = | SourceVersionRow
+    | SetRow
     | TagRow
     | SnapshotRow
     | SnapshotTagRow
@@ -172,6 +186,17 @@ const SourceVersion = table('source_versions', [
   'sourceTag',
   'build',
   'status',
+]);
+
+const Set = table('sets', [
+  'setId',
+  'dbfId',
+  'slug',
+  'type',
+  'releaseDate',
+  'cardCountFull',
+  'cardCount',
+  'group',
 ]);
 
 const Tag = table('tags', [
@@ -442,6 +467,8 @@ class InsertBuilder {
       this.memoryDb.state.localizations.push(...this.rows as LocalizationRow[]);
     } else if (this.tableName === 'entity_relations') {
       this.memoryDb.state.relations.push(...this.rows as RelationRow[]);
+    } else if (this.tableName === 'sets') {
+      this.memoryDb.state.sets.push(...this.rows as SetRow[]);
     } else if (this.tableName === 'source_versions') {
       this.memoryDb.state.sourceVersions.push(...this.rows as SourceVersionRow[]);
     } else if (this.tableName === 'tags') {
@@ -500,6 +527,7 @@ class MemoryProjectDb {
 
   readRows(tableName: TableName): Row[] {
     if (tableName === 'source_versions') return this.state.sourceVersions;
+    if (tableName === 'sets') return this.state.sets;
     if (tableName === 'tags') return this.state.tags;
     if (tableName === 'raw_entity_snapshots') return this.state.snapshots;
     if (tableName === 'raw_entity_snapshot_tags') return this.state.snapshotTags;
@@ -527,6 +555,7 @@ class MemoryProjectDb {
   private createState(): MemoryState {
     return {
       sourceVersions: [],
+      sets:           [],
       tags:           [],
       snapshots:      [],
       snapshotTags:   [],
@@ -552,6 +581,7 @@ mock.module('#schema/hearthstone', () => ({
   EntityRelation,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
+  Set,
   SourceVersion,
   Tag,
 }));
@@ -588,6 +618,10 @@ function addSourceVersion(sourceTag: number, build: number) {
     build,
     status: 'completed',
   });
+}
+
+function addSet(row: SetRow) {
+  memoryDb.state.sets.push(row);
 }
 
 function addTag(row: TagRow) {
@@ -764,7 +798,7 @@ function seedTagConfig() {
     enumId:            enumId.cardSet,
     slug:              'card_set',
     normalizeKind:     'enum_from_int',
-    normalizeConfig:   { enumMap: { 10: 'CORE' } },
+    normalizeConfig:   { enumMap: 'set' },
     projectKind:       'assign_string',
     projectTargetPath: 'set',
   }));
@@ -959,6 +993,16 @@ function seedSource(sourceTag: number, build: number, zhText: string) {
 
 beforeEach(() => {
   memoryDb.reset();
+  addSet({
+    setId:         'CORE',
+    dbfId:         10,
+    slug:          'core',
+    type:          'core',
+    releaseDate:   '2024-01-01',
+    cardCountFull: 0,
+    cardCount:     0,
+    group:         null,
+  });
   seedTagConfig();
 });
 

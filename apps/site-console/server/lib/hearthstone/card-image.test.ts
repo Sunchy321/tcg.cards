@@ -12,6 +12,7 @@ mock.module('#schema/hearthstone', () => ({
   CardImageExport:    {},
   Entity:             {},
   EntityLocalization: {},
+  Set:                {},
   Tag:                {},
 }));
 mock.module('#model/hearthstone/schema/data/image', async () => {
@@ -119,6 +120,7 @@ describe('card image helpers', () => {
         renderModel,
         type:             'spell',
         set:              'CORE',
+        setDbfId:         1637,
         techLevel:        null,
         mechanics:        {},
       },
@@ -135,6 +137,7 @@ describe('card image helpers', () => {
         },
         type:      'spell',
         set:       'CORE',
+        setDbfId:  1637,
         techLevel: null,
         mechanics: {},
       },
@@ -159,6 +162,7 @@ describe('card image helpers', () => {
     expect(result.requests).toHaveLength(2);
     expect(result.requests[0]?.card.cardId).toBe('B');
     expect(result.requests[0]?.variant.premium).toBe('normal');
+    expect(result.requests[0]?.renderModel.set).toBe(1637);
     expect(result.requests[1]?.variant.premium).toBe('golden');
   });
 

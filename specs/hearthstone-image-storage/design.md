@@ -336,7 +336,7 @@ CardEntityView rows with renderHash != null
 
 ### 9.1 文件格式
 
-首版需求文件为单个 JSON 文件：
+当前需求文件为单个 JSON 文件：
 
 ```text
 hearthstone-card-image-requirements.v1.json

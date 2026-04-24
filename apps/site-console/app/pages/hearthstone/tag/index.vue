@@ -473,8 +473,12 @@ const configValidators = {
       : `${path} 的值必须都是字符串`;
   },
   enumMapValue(value: unknown, path: string) {
+    if (value === 'set') {
+      return null;
+    }
+
     if (value == null || typeof value !== 'object' || Array.isArray(value)) {
-      return `${path} 必须是枚举映射对象`;
+      return `${path} 必须是枚举映射对象，或特殊字符串 "set"`;
     }
 
     const valid = Object.values(value).every(item => {

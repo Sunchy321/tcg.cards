@@ -11,6 +11,7 @@ import {
   EntityRelation,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
+  Set as HearthstoneSet,
   SourceVersion,
   Tag,
 } from '#schema/hearthstone';
@@ -170,6 +171,7 @@ interface LocalizationDraft {
 interface ProjectionContext {
   slugByEnumId:  Map<number, string>;
   cardIdByDbfId: Map<number, string>;
+  setIdByDbfId:  Map<number, string>;
 }
 
 interface ProjectedSnapshot {
@@ -488,6 +490,11 @@ function normalizeScalarValue(row: RawSnapshotTagRow): NormalizedValue {
   return row.jsonValue == null ? null : asJsonMap(row.jsonValue);
 }
 
+function usesSetEnumRule(tag: TagRow | undefined): boolean {
+  return tag?.normalizeKind === 'enum_from_int'
+    && tag.normalizeConfig.enumMap === 'set';
+}
+
 function normalizeTagValue(
   row: RawSnapshotTagRow,
   tag: TagRow | undefined,
@@ -548,6 +555,10 @@ function normalizeTagValue(
 
     if (value == null) {
       return null;
+    }
+
+    if (usesSetEnumRule(tag)) {
+      return context.setIdByDbfId.get(value) ?? null;
     }
 
     const mapped = enumMap[String(value)];
@@ -1567,6 +1578,17 @@ async function loadTagRows(enumIds: number[]): Promise<Map<number, TagRow>> {
   return new Map(rows.map(row => [row.enumId, row]));
 }
 
+async function loadSetIdByDbfId(): Promise<Map<number, string>> {
+  const rows = await db.select({
+    dbfId: HearthstoneSet.dbfId,
+    setId: HearthstoneSet.setId,
+  })
+    .from(HearthstoneSet)
+    .then(items => items.filter(item => item.dbfId != null));
+
+  return new Map(rows.map(row => [row.dbfId!, row.setId]));
+}
+
 async function loadExistingEntities(cardIds: string[]): Promise<EntityRow[]> {
   const rows: EntityRow[] = [];
 
@@ -1777,9 +1799,11 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   const slugByEnumId = new Map(
     [...tagMap.values()].map(tag => [tag.enumId, tag.slug]),
   );
+  const setIdByDbfId = await loadSetIdByDbfId();
   const context: ProjectionContext = {
     slugByEnumId,
     cardIdByDbfId,
+    setIdByDbfId,
   };
 
   const projected = snapshots.map(snapshot => {

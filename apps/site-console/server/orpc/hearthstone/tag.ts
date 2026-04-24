@@ -104,6 +104,22 @@ function assertTagUpdate(input: TagUpdateInput) {
       message: 'text and displayText are derived fields; use richText as the projection target',
     });
   }
+
+  if (input.normalizeKind === 'enum_from_int') {
+    const enumMap = input.normalizeConfig.enumMap;
+
+    if (typeof enumMap === 'string' && enumMap !== 'set') {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'normalizeConfig.enumMap only supports the special string value "set"',
+      });
+    }
+
+    if (enumMap != null && typeof enumMap !== 'string' && (typeof enumMap !== 'object' || Array.isArray(enumMap))) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'normalizeConfig.enumMap must be an object or the special string value "set"',
+      });
+    }
+  }
 }
 
 const list = os

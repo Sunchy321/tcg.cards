@@ -4,7 +4,7 @@
 
 本文定义控制台导出的第三方需求文件，以及第三方工具返回 PNG 压缩包时必须遵守的文件契约。
 
-首版文件：
+当前文件：
 
 ```text
 hearthstone-card-image-requirements.v1.json
@@ -167,7 +167,7 @@ hearthstone-card-image-results.{exportId}.zip
     "race": null,
     "spellSchool": "fire",
     "mercenaryFaction": null,
-    "set": "CORE",
+    "set": 1637,
     "overrideWatermark": null,
     "rarity": "common",
     "elite": false,
@@ -217,9 +217,11 @@ hearthstone-card-image-results.{exportId}.zip
 | 所有非 `enchantment` 卡牌 | `hand.normal.golden` |
 | 具有 `has_diamond` mechanic | `hand.normal.diamond` |
 | 具有 `has_signature` mechanic | `hand.normal.signature` |
-| `set = bgs` 或 `techLevel != null` | `hand.battlegrounds.normal` |
+| `set = 1453` 或 `techLevel != null` | `hand.battlegrounds.normal` |
 
 首版暂不导出任何 `play.*.*` 组合；对战区图片作为后续目标单独实现。
+
+其中 `renderModel.set` 使用 `TAG_CARD_SET` 的整数值；酒馆战棋为 `1453`。
 
 以下组合首版不会自动导出：
 
@@ -454,7 +456,7 @@ hearthstone/card-images/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPref
         "race": null,
         "spellSchool": "fire",
         "mercenaryFaction": null,
-        "set": "CORE",
+        "set": 1637,
         "overrideWatermark": null,
         "rarity": "common",
         "elite": false,
