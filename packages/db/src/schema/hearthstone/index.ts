@@ -1,7 +1,6 @@
 export * from './schema';
 export * from './announcement';
 export * from './card';
-export * from './card-change';
 export * from './card-relation';
 export * from './entity-relation';
 export * from './entity';

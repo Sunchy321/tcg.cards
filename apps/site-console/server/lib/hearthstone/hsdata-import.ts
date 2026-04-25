@@ -851,7 +851,7 @@ async function insertSnapshotTags(
       boolValue:      'boolValue' in resolved ? resolved.boolValue ?? null : null,
       intValue:       'intValue' in resolved ? resolved.intValue ?? null : null,
       stringValue:    'stringValue' in resolved ? resolved.stringValue ?? null : null,
-      enumValue:      'enumValue' in resolved ? resolved.enumValue ?? null : null,
+      enumValue:      null,
       locStringValue: 'locStringValue' in resolved ? resolved.locStringValue ?? null : null,
       cardRefCardId,
       cardRefDbfId:   cardRefCardId ? dbfIdByCardId.get(cardRefCardId) ?? null : null,

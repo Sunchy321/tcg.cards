@@ -114,11 +114,15 @@ const actions = getActions();
 // ── Locale switcher ──────────────────────────────────────────────────────────
 
 const gameLocales = appConfig.locales ?? [];
-
-const gameLocale = useGameLocale();
+const hasGameLocale = Boolean(appConfig.gameId) && gameLocales.length > 0;
+const gameLocale = hasGameLocale ? useGameLocale() : null;
 const { t } = useI18n();
 
 const localeMenuItems = computed(() => {
+  if (!gameLocale) {
+    return [];
+  }
+
   return gameLocales.map(l => ({
     code:     l,
     label:    t(`locale.${l}`, l),

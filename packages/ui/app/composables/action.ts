@@ -77,7 +77,7 @@ export const useActions = () => {
    * identical output — no hydration mismatch.
    */
   const getActions = () => computed<ResolvedAction[]>(() =>
-    (route.meta.actions ?? []).map(def => {
+    ((route.meta.actions ?? []) as ActionDef[]).map(def => {
       const handlerFn = import.meta.client ? _handlers.get(def.id) : undefined;
       const disabled = import.meta.client && handlerFn == null;
 

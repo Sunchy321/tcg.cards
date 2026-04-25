@@ -1,4 +1,6 @@
-import type { Ref, ComputedRef } from 'vue';
+interface ValueRef<T> {
+  readonly value: T;
+}
 
 // ── Static definitions (put in definePageMeta / routeMeta) ────────────────────
 
@@ -20,9 +22,9 @@ export interface SelectParamConfig {
   id:       string;
   type:     'select';
   /** Reactive ref of available choices — set by the page (ref 1). */
-  items:    Ref<SelectItem[]> | ComputedRef<SelectItem[]>;
+  items:    ValueRef<SelectItem[]>;
   /** Reactive ref of the current value — set by the page (ref 2). */
-  value:    Ref<string | null> | ComputedRef<string | null>;
+  value:    ValueRef<string | null>;
   onChange: (val: string) => void;
 }
 
@@ -30,7 +32,7 @@ export interface SwitchParamConfig {
   id:       string;
   type:     'switch';
   /** Reactive ref of the current boolean value — set by the page (ref 2). */
-  value:    Ref<boolean> | ComputedRef<boolean>;
+  value:    ValueRef<boolean>;
   onChange: (val: boolean) => void;
 }
 
@@ -109,7 +111,7 @@ export const useParams = () => {
     const result: Record<string, SelectItem[]> = {};
     for (const [id, cfg] of _configs) {
       if (cfg.type === 'select') {
-        result[id] = (cfg.items as Ref<SelectItem[]>).value;
+        result[id] = cfg.items.value;
       }
     }
     return result;
@@ -123,7 +125,7 @@ export const useParams = () => {
   const paramValues = computed<Record<string, string | boolean | null>>(() => {
     const result: Record<string, string | boolean | null> = {};
     for (const [id, cfg] of _configs) {
-      result[id] = (cfg.value as Ref<string | boolean | null>).value;
+      result[id] = cfg.value.value;
     }
     return result;
   });

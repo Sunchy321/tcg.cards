@@ -57,12 +57,12 @@
 <script setup lang="ts">
 import { ref, shallowRef, watch, onMounted, onUnmounted } from 'vue';
 import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, dropCursor, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
-import { EditorState, type Extension } from '@codemirror/state';
+import { EditorState, StateEffect, type Extension } from '@codemirror/state';
 import { indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { parseDocument, visit } from 'yaml';
+import { isScalar, isSeq, parseDocument, visit } from 'yaml';
 
 const props = defineProps<{
   modelValue: string;
@@ -104,11 +104,7 @@ function parseLinkRanges(content: string): LinkRange[] {
     visit(doc, {
       Pair(_, pair, _path) {
         // Check if this is a "link" key
-        if (pair.key?.value === 'link' && pair.value?.items) {
-          // Get the CST node to find source positions
-          const pairNode = pair.cstNode;
-          if (!pairNode) return;
-
+        if (isScalar(pair.key) && pair.key.value === 'link' && isSeq(pair.value)) {
           // Find the position of "link:" in the source
           const linkKeyIndex = contentStr.indexOf('link:');
           if (linkKeyIndex === -1) return;
@@ -287,7 +283,7 @@ watch(
     if (!view) return;
 
     view.dispatch({
-      effects: EditorView.reconfigure.of(createExtensions()),
+      effects: StateEffect.reconfigure.of(createExtensions()),
     });
   },
 );

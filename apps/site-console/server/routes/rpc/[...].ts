@@ -2,6 +2,7 @@ import { RPCHandler } from '@orpc/server/fetch';
 import { onError } from '@orpc/server';
 import { DrizzleQueryError } from 'drizzle-orm';
 
+import type { HonoEnv } from '~~/server/orpc/hono-env';
 import { router } from '~~/server/orpc/service';
 
 const handler = new RPCHandler(router, {
@@ -22,7 +23,7 @@ export default defineEventHandler(async event => {
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
     context: {
-      env: event.context.cloudflare?.env,
+      env: event.context.cloudflare?.env as HonoEnv['Bindings'],
     },
   });
 
