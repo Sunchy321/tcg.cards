@@ -4,7 +4,7 @@
 
 炉石卡牌模型已经在领域层维护 `renderModel` 与 `renderHash`。图片系统需要在此基础上支持批量生成、缺图查询、第三方渲染协作和 R2 分发。
 
-新的第三方导入流程不再让第三方工具上传 R2，也不再要求第三方返回结果 JSONL。控制台只向第三方输出需求文件，第三方工具读取需求文件后返回一个包含 PNG 图片的压缩包；控制台或本地脚本负责读取压缩包、校验 PNG、转换为固定 WebP 产物并上传到 R2。
+新的第三方导入流程不再让第三方工具上传 R2，也不再要求第三方返回结果 JSONL。控制台只向第三方输出需求文件，第三方工具读取需求文件后返回一个包含 PNG 图片的压缩包；控制台或本地脚本负责读取压缩包并校验 PNG。控制台导入会把 PNG 转换成固定 WebP 产物并上传到 R2，同时回写数据库；本地脚本只把 PNG 转换成固定 WebP 产物并写入本地“类 R2 bucket 目录”，不更新数据库。
 
 ## 2. 目标
 
@@ -18,7 +18,7 @@
 - 支持控制台按缺图结果导出需求文件
 - 支持通过单次导出上限限制需求文件中的图片数量
 - 支持第三方工具按需求文件中的文件名输出 PNG 压缩包
-- 支持控制台或本地脚本导入 PNG 压缩包，统一转换 WebP 并上传 R2
+- 支持控制台或本地脚本导入 PNG 压缩包；控制台上传 R2，本地脚本写本地 bucket 目录
 - 保持图片 key 可预测、可批量扫描、可长期缓存
 
 ## 3. 非目标
@@ -111,7 +111,7 @@ hearthstone-card-image-requirements.v1.json
 图片产物协议版本。首版固定为：
 
 ```text
-hs-card-image-v1
+v1
 ```
 
 当 R2 路径规则、变体枚举、输出尺寸、关键渲染语义、需求文件格式或默认生产 WebP preset 发生不兼容变化时，必须升级 `imageSpecVersion`。
@@ -150,12 +150,12 @@ hearthstone_data.card_image_imports
 生产图片对象 key：
 
 ```text
-hearthstone/card-images/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPrefix}/{renderHash}.webp
+hearthstone/card/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPrefix}/{renderHash}.webp
 ```
 
 其中：
 
-- `imageSpecVersion`：例如 `hs-card-image-v1`
+- `imageSpecVersion`：首版固定为 `v1`
 - `zone`：`hand` / `play`
 - `template`：`normal` / `battlegrounds`
 - `premium`：`normal` / `golden` / `diamond` / `signature`
@@ -165,7 +165,7 @@ hearthstone/card-images/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPref
 示例：
 
 ```text
-hearthstone/card-images/hs-card-image-v1/hand/normal/normal/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp
+hearthstone/card/v1/hand/normal/normal/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp
 ```
 
 ### 6.2 为什么变体放在 hash 前面
@@ -266,11 +266,48 @@ r2Key
 | `archiveSha256` | text nullable | ZIP 文件 hash |
 | `expectedCount` | integer | 需求文件中的图片数量 |
 | `importedCount` | integer | 成功转换并上传数量 |
-| `missingCount` | integer | ZIP 中缺少的图片数量 |
+| `missingCount` | integer | ZIP 中缺少但被忽略的图片数量 |
 | `rejectedCount` | integer | 校验失败或未知图片数量 |
 | `status` | text | `completed` / `partial` / `failed` |
 | `errorMessage` | text nullable | 批次失败原因 |
 | `createdAt` | timestamp | 创建时间 |
+
+## 7.4 本地脚本目录配置
+
+本地导入脚本不直接写生产 R2，而是把一个本地目录视为“类 R2 bucket 根目录”。
+
+该目录通过当前仓库的本地 Git 配置提供：
+
+```text
+hearthstone.image-bucket-dir
+```
+
+示例：
+
+```bash
+git config --local hearthstone.image-bucket-dir /absolute/path/to/asset-bucket
+```
+
+脚本写入时直接复用生产 key，相当于：
+
+```text
+{bucketDir}/{r2Key}
+```
+
+这样可以在本地先验证：
+
+- 文件名映射
+- PNG 校验
+- WebP 转换
+- 路径规则
+- 前端 URL 读取结果
+
+本地脚本首版明确不做以下事情：
+
+- 不上传真实 R2
+- 不回写 `card_image_assets`
+- 不写入 `card_image_imports`
+- 对缺失 PNG 仅统计为 `missingCount`，不把批次判定为失败
 
 ## 8. 缺图查询
 
@@ -422,7 +459,7 @@ hearthstone-card-image-results.{exportId}.zip
 - 拒绝重复文件名
 - 拒绝非 PNG 文件
 - 校验 PNG 尺寸与需求文件中的 `style.width/style.height`
-- 对缺失 PNG 的请求保持 missing，或记录为 `failed` 且错误为 `missing-output`
+- 对缺失 PNG 的请求不生成产物；本地脚本仅累计到 `missingCount` 并继续处理其他文件
 
 ## 11. 控制台 / 本地脚本导入流程
 
@@ -446,7 +483,60 @@ hearthstone-card-image-results.{exportId}.zip
 - WebP 编码配置固定为 `q86-m4-fast`
 - WebP `contentType` 固定为 `image/webp`
 - 同一 R2 key 不允许被不同 `sha256` 静默覆盖
-- 本地脚本必须复用与控制台相同的校验、转换和上传逻辑
+- 本地脚本必须复用与控制台相同的校验与转换逻辑；上传目标改为本地 bucket 目录
+- 本地脚本遇到缺失 PNG 时仅跳过对应请求，不中断整批导入
+
+### 11.1 本地脚本输入形式
+
+本地脚本输入支持两种形式：
+
+- 一个目录：目录中必须包含且只包含一个需求 JSON，其他文件必须为 PNG
+- 一个 ZIP：ZIP 中必须包含且只包含一个需求 JSON，其他文件必须为 PNG
+
+首版约束：
+
+- 目录输入不递归扫描子目录
+- ZIP 输入忽略 `__MACOSX/`、`.DS_Store` 和 `._*`
+- 除需求 JSON 与 PNG 外的其他文件一律拒绝
+
+### 11.2 控制台导入输入形式
+
+控制台导入只接受 ZIP 文件上传。
+
+控制台收到 ZIP 后执行：
+
+- 浏览器侧提取唯一需求 JSON
+- 浏览器侧校验 PNG 文件集合
+- 浏览器侧使用 `libwebp` Wasm 按固定 `q86-m4-fast` 等价参数转换 WebP
+- 通过控制台接口上传 WebP 到 `R2_ASSET`
+- 服务端回写 `card_image_assets` 与 `card_image_imports`
+
+控制台导入与本地脚本的职责边界：
+
+- 控制台导入：生产导入路径，上传真实 R2，并回写数据库
+- 本地脚本：本地验证路径，只写本地 bucket 目录，不更新数据库；缺失 PNG 仅统计不失败
+
+### 11.3 浏览器端 PNG -> WebP 转换可行性评估
+
+浏览器端把 PNG 转成 WebP 在技术上是可行的。
+
+如果使用浏览器原生 Canvas / `toBlob('image/webp')`，通常只能控制质量，无法稳定复现 `cwebp q86-m4-fast`。
+
+因此首版控制台正式导入方案采用：
+
+- 浏览器侧 ZIP 解压
+- 浏览器侧 `libwebp` Wasm 编码
+- 显式传入与文档对齐的固定参数：
+  - `quality = 86`
+  - `method = 4`
+  - `alpha_quality = 100`
+- 由原始 PNG 像素数据重新编码 WebP，不保留额外 metadata，等价于 `-metadata none`
+
+结论：
+
+- 浏览器端转换“能做”
+- 浏览器原生 Canvas 编码不满足文档要求
+- 首版控制台按钮采用 `libwebp` Wasm，对齐固定生产参数后再上传 R2
 
 ## 12. 控制台能力
 
@@ -491,7 +581,7 @@ hearthstone-card-image-results.{exportId}.zip
 计算候选公开 URL。首版公开 URL 规则与生产 `r2Key` 保持一致：
 
 ```text
-{assetBaseUrl}/hearthstone/card-images/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPrefix}/{renderHash}.webp
+{assetBaseUrl}/hearthstone/card/v1/{zone}/{template}/{premium}/{hashPrefix}/{renderHash}.webp
 ```
 
 如果需要更严格的可用性判断，可由后端查询 `card_image_assets.status = ready` 后返回 URL。
@@ -515,7 +605,7 @@ hearthstone-card-image-results.{exportId}.zip
 - 第三方工具不获得 R2 写权限
 - 导入 ZIP 时必须防止 zip bomb、路径穿越、重复文件和未知文件
 - PNG 解码前必须执行文件大小与数量限制
-- 控制台或本地脚本上传 R2 前必须重新计算目标 key
+- 控制台上传 R2 前必须重新计算目标 key；本地脚本写入本地 bucket 目录前也必须重新计算目标 key
 
 ## 16. 后续扩展
 

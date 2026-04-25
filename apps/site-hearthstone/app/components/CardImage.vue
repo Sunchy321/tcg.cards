@@ -1,38 +1,71 @@
 <template>
   <div class="relative aspect-68/94 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
     <img
-      v-if="imageUrl"
       :src="imageUrl"
       :alt="cardId"
       class="w-full h-full object-contain"
       loading="lazy"
       @error="onError"
     >
-    <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
-      <UIcon name="lucide:image-off" class="text-4xl" />
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { CardImageOption } from '~/utils/card-image';
+import { buildCardImageUrl, buildLegacyCardImageUrl } from '~/utils/card-image';
+
 const props = withDefaults(defineProps<{
-  cardId:   string;
-  version:  number;
-  variant?: string;
+  cardId:      string;
+  version:     number;
+  renderHash?: string | null;
+  variant?:    CardImageOption;
 }>(), {
-  variant: 'normal',
+  variant:    'normal',
+  renderHash: null,
 });
 
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 
-const imageUrl = computed(() => {
-  return `${assetBaseUrl}/hearthstone/card/image/webp/${props.version}/zhs/${props.variant}/${props.cardId}.webp`;
+const stage = ref<'primary' | 'legacy' | 'fallback'>('primary');
+
+const primaryUrl = computed(() => {
+  if (props.renderHash == null) {
+    return null;
+  }
+
+  return buildCardImageUrl(assetBaseUrl, props.renderHash, props.variant);
 });
 
-const hasError = ref(false);
+const legacyUrl = computed(() =>
+  buildLegacyCardImageUrl(assetBaseUrl, props.version, props.variant, props.cardId),
+);
+
+const imageUrl = computed(() => {
+  if (stage.value === 'fallback') {
+    return '/card-not-found.svg';
+  }
+
+  if (stage.value === 'legacy') {
+    return legacyUrl.value;
+  }
+
+  return primaryUrl.value ?? legacyUrl.value;
+});
+
+watch(() => [props.cardId, props.version, props.renderHash, props.variant], () => {
+  stage.value = 'primary';
+}, { immediate: true });
 
 const onError = (e: Event) => {
-  hasError.value = true;
-  (e.target as HTMLImageElement).src = '/card-not-found.svg';
+  const img = e.target as HTMLImageElement;
+
+  if (stage.value === 'primary' && primaryUrl.value != null) {
+    stage.value = 'legacy';
+    img.src = legacyUrl.value;
+    return;
+  }
+
+  stage.value = 'fallback';
+  img.src = '/card-not-found.svg';
 };
 </script>

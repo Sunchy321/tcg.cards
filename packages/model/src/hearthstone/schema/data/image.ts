@@ -67,7 +67,7 @@ export const imageRequirementRequest = z.strictObject({
 export const imageRequirementFile = z.strictObject({
   schema:           z.literal('tcg.cards.hearthstone.card-image-requirements.v1'),
   exportId:         z.string(),
-  imageSpecVersion: z.literal('hs-card-image-v1'),
+  imageSpecVersion: z.literal('v1'),
   generatedAt:      z.string(),
   toolContract:     z.strictObject({
     inputFormat:         z.literal('json'),
@@ -121,6 +121,42 @@ export const cardImageRequirementExportResult = z.strictObject({
   content:           z.string(),
 });
 
+export const cardImageImportReport = z.strictObject({
+  importId:         z.string(),
+  exportId:         z.string(),
+  imageSpecVersion: z.literal('v1'),
+  archiveFileName:  z.string(),
+  expectedCount:    z.int().nonnegative(),
+  importedCount:    z.int().nonnegative(),
+  uploadedCount:    z.int().nonnegative(),
+  reusedCount:      z.int().nonnegative(),
+  missingCount:     z.int().nonnegative(),
+  rejectedCount:    z.int().nonnegative(),
+  status:           z.enum(['completed', 'partial', 'failed']),
+  errorMessage:     z.string().nullable(),
+});
+
+export const cardImageImportProblem = z.strictObject({
+  fileName: z.string(),
+  message:  z.string(),
+});
+
+export const cardImageBrowserImportFile = z.strictObject({
+  requestId: z.string(),
+  sha256:    z.string(),
+  byteSize:  z.int().nonnegative(),
+});
+
+export const cardImageBrowserImportManifest = z.strictObject({
+  archiveFileName: z.string(),
+  files:           z.array(cardImageBrowserImportFile),
+  rejected:        z.array(cardImageImportProblem),
+});
+
+export const cardImageImportResult = cardImageImportReport.extend({
+  problems: z.array(cardImageImportProblem),
+});
+
 export type ImageZone = z.infer<typeof imageZone>;
 export type ImageTemplate = z.infer<typeof imageTemplate>;
 export type ImagePremium = z.infer<typeof imagePremium>;
@@ -135,3 +171,8 @@ export type ImageRequirementRequest = z.infer<typeof imageRequirementRequest>;
 export type ImageRequirementFile = z.infer<typeof imageRequirementFile>;
 export type CardImageRequirementExportInput = z.infer<typeof cardImageRequirementExportInput>;
 export type CardImageRequirementExportResult = z.infer<typeof cardImageRequirementExportResult>;
+export type CardImageImportReport = z.infer<typeof cardImageImportReport>;
+export type CardImageImportProblem = z.infer<typeof cardImageImportProblem>;
+export type CardImageBrowserImportFile = z.infer<typeof cardImageBrowserImportFile>;
+export type CardImageBrowserImportManifest = z.infer<typeof cardImageBrowserImportManifest>;
+export type CardImageImportResult = z.infer<typeof cardImageImportResult>;

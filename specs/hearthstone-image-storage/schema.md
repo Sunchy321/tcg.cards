@@ -24,7 +24,8 @@ hearthstone-card-image-results.{exportId}.zip
   -> 第三方工具按 output.fileName 生成 PNG
   -> 第三方工具打包 PNG ZIP
   -> 控制台或本地脚本导入 ZIP
-  -> 控制台或本地脚本转换 WebP 并上传 R2
+  -> 控制台或本地脚本转换 WebP
+  -> 控制台上传 R2 / 本地脚本写本地 bucket 目录
 ```
 
 第三方工具不需要也不应该：
@@ -53,13 +54,19 @@ hearthstone-card-image-results.{exportId}.zip
 - `limits.maxRequests > limits.hardMaxRequests`
 - PNG 文件数量超过 `requests.length` 的 ZIP，系统垃圾文件除外
 
+导入端可以接受：
+
+- 少于 `requests.length` 的 PNG 文件集合
+
+缺失的已声明 PNG 在首版本地脚本中只计入 `missingCount`，不会让整批导入失败。
+
 ## 4. 顶层结构
 
 ```json
 {
   "schema": "tcg.cards.hearthstone.card-image-requirements.v1",
   "exportId": "hsimg_20260423_001",
-  "imageSpecVersion": "hs-card-image-v1",
+  "imageSpecVersion": "v1",
   "generatedAt": "2026-04-23T10:00:00.000Z",
   "toolContract": {
     "inputFormat": "json",
@@ -99,7 +106,7 @@ hearthstone-card-image-results.{exportId}.zip
 |------|------|------|------|
 | `schema` | 是 | string | 固定 `tcg.cards.hearthstone.card-image-requirements.v1` |
 | `exportId` | 是 | string | 控制台生成的导出批次 ID |
-| `imageSpecVersion` | 是 | string | 图片协议版本，首版为 `hs-card-image-v1` |
+| `imageSpecVersion` | 是 | string | 图片协议版本，首版为 `v1` |
 | `generatedAt` | 是 | string | ISO 时间 |
 | `toolContract` | 是 | object | 第三方工具输入输出契约 |
 | `limits` | 是 | object | 数量限制 |
@@ -144,7 +151,7 @@ hearthstone-card-image-results.{exportId}.zip
   },
   "target": {
     "r2Bucket": "R2_ASSETS",
-    "r2Key": "hearthstone/card-images/hs-card-image-v1/hand/normal/normal/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp",
+    "r2Key": "hearthstone/card/v1/hand/normal/normal/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp",
     "contentType": "image/webp"
   },
   "renderModel": {
@@ -350,6 +357,8 @@ ZIP 文件要求：
 - 尺寸不匹配的 PNG
 - 超过数量上限的压缩包
 
+导入端不会因为已声明 PNG 缺失而拒绝整个批次；缺失文件仅记入 `missingCount` 并跳过。
+
 ## 14. R2 目标字段
 
 `target` 字段用于让第三方工具了解最终目标，但第三方工具不能上传 R2。
@@ -357,7 +366,7 @@ ZIP 文件要求：
 导入端必须重新计算并校验：
 
 ```text
-hearthstone/card-images/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPrefix}/{renderHash}.webp
+hearthstone/card/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPrefix}/{renderHash}.webp
 ```
 
 如果需求文件中的 `target.r2Key` 与重新计算结果不一致，导入端必须拒绝该请求。
@@ -368,7 +377,7 @@ hearthstone/card-images/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPref
 {
   "schema": "tcg.cards.hearthstone.card-image-requirements.v1",
   "exportId": "hsimg_20260423_001",
-  "imageSpecVersion": "hs-card-image-v1",
+  "imageSpecVersion": "v1",
   "generatedAt": "2026-04-23T10:00:00.000Z",
   "toolContract": {
     "inputFormat": "json",
@@ -433,7 +442,7 @@ hearthstone/card-images/{imageSpecVersion}/{zone}/{template}/{premium}/{hashPref
       },
       "target": {
         "r2Bucket": "R2_ASSETS",
-        "r2Key": "hearthstone/card-images/hs-card-image-v1/hand/normal/normal/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp",
+        "r2Key": "hearthstone/card/v1/hand/normal/normal/9f/9f2c0f6e4e0c7f4d0f0b8c2e9c8d7a1a3c6b4e5f60123456789abcdef01.webp",
         "contentType": "image/webp"
       },
       "renderModel": {

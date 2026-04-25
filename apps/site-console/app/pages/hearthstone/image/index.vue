@@ -5,15 +5,16 @@
         <div>
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-image" class="size-5 text-primary" />
-            <h1 class="text-xl font-semibold">卡牌图片导出</h1>
+            <h1 class="text-xl font-semibold">图片管理</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            导出缺失图片需求文件，供第三方工具按指定文件名生成 PNG 压缩包。
+            导出缺失图片需求文件，供第三方工具按指定文件名生成 PNG 压缩包，然后将压缩包上传并导入回数据库。
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
           <UBadge label="WebP 固定为 q86-m4-fast" color="primary" variant="soft" />
+          <UBadge label="导入转码使用 libwebp Wasm" color="neutral" variant="soft" />
           <UButton
             label="刷新表单"
             icon="i-lucide-rotate-ccw"
@@ -30,10 +31,7 @@
         <UCard>
           <template #header>
             <div>
-              <div class="font-medium">导出条件</div>
-              <p class="mt-1 text-xs text-muted">
-                默认只导出最新版本、`hand / normal / normal` 的缺失图片。
-              </p>
+              <div class="font-medium">导出需求文件</div>
             </div>
           </template>
 
@@ -83,7 +81,7 @@
                     <span class="flex-1">{{ item.label }}</span>
                     <UBadge
                       v-if="item.disabled === true"
-                      label="后续"
+                      label="未实现"
                       color="neutral"
                       variant="soft"
                       size="sm"
@@ -145,7 +143,7 @@
                   v-model="form.limit"
                   type="number"
                   inputmode="numeric"
-                  placeholder="默认 200，最大 500"
+                  placeholder="默认500，最大2000"
                 />
               </div>
 
@@ -189,6 +187,121 @@
       </div>
 
       <div class="space-y-4">
+        <UCard>
+          <template #header>
+            <div class="font-medium">导入 ZIP</div>
+          </template>
+
+          <div class="space-y-3">
+            <UAlert
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-upload"
+              description="上传第三方返回的 ZIP。浏览器会先按文档参数使用 libwebp Wasm 转 WebP，再通过 oRPC 上传并回写数据库。"
+            />
+
+            <UAlert
+              v-if="importErrorMessage"
+              color="error"
+              variant="soft"
+              icon="i-lucide-circle-alert"
+              :description="importErrorMessage"
+            />
+
+            <UAlert
+              v-if="!canImportInBrowser"
+              color="warning"
+              variant="soft"
+              icon="i-lucide-triangle-alert"
+              description="当前浏览器不支持 ZIP 解压或 Wasm 编码能力，暂时无法执行严格对齐文档的导入。"
+            />
+
+            <div class="rounded-lg border border-default p-3">
+              <div class="text-xs text-muted">当前 ZIP</div>
+              <div class="mt-1 break-all font-mono text-sm">{{ importArchiveName || '-' }}</div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <input
+                ref="archiveInputRef"
+                type="file"
+                accept=".zip,application/zip"
+                class="hidden"
+                @change="onArchiveChange"
+              >
+              <UButton
+                label="选择 ZIP"
+                icon="i-lucide-folder-up"
+                color="neutral"
+                variant="soft"
+                @click="archiveInputRef?.click()"
+              />
+              <UButton
+                label="开始导入"
+                icon="i-lucide-cloud-upload"
+                :loading="importing"
+                :disabled="!canImportArchive"
+                @click="submitImport"
+              />
+            </div>
+
+            <div v-if="lastImportResult" class="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">导入 ID</div>
+                <div class="mt-1 break-all font-mono text-sm">{{ lastImportResult.importId }}</div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">导出 ID</div>
+                <div class="mt-1 break-all font-mono text-sm">{{ lastImportResult.exportId }}</div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">导入总数</div>
+                <div class="mt-1 text-lg font-semibold">{{ lastImportResult.importedCount }}</div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">新上传</div>
+                <div class="mt-1 text-lg font-semibold">{{ lastImportResult.uploadedCount }}</div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">复用已有</div>
+                <div class="mt-1 text-lg font-semibold">{{ lastImportResult.reusedCount }}</div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">缺失文件</div>
+                <div class="mt-1 text-lg font-semibold">{{ lastImportResult.missingCount }}</div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">拒绝数量</div>
+                <div class="mt-1 text-lg font-semibold">{{ lastImportResult.rejectedCount }}</div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">状态</div>
+                <div class="mt-1 text-lg font-semibold">{{ lastImportResult.status }}</div>
+              </div>
+            </div>
+
+            <div
+              v-if="lastImportResult?.problems.length"
+              class="space-y-2 rounded-lg border border-error/50 bg-error/5 p-3"
+            >
+              <div class="flex items-center gap-2 text-sm font-medium text-error">
+                <UIcon name="i-lucide-circle-alert" class="size-4" />
+                <span>拒绝明细</span>
+              </div>
+              <div class="max-h-80 space-y-2 overflow-auto">
+                <div
+                  v-for="problem in lastImportResult.problems"
+                  :key="`${problem.fileName}:${problem.message}`"
+                  class="rounded-md border border-error/30 bg-default px-3 py-2"
+                >
+                  <div class="break-all font-mono text-xs text-highlighted">{{ problem.fileName }}</div>
+                  <div class="mt-1 text-sm text-toned">{{ problem.message }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </UCard>
+
         <UCard>
           <template #header>
             <div class="font-medium">最近一次导出</div>
@@ -264,6 +377,7 @@
 
 <script setup lang="ts">
 import type {
+  CardImageImportResult,
   CardImageRequirementExportResult,
   ImagePremium,
   ImageTemplate,
@@ -272,6 +386,7 @@ import type {
 import type { Locale } from '#model/hearthstone/schema/basic';
 
 import { formatHsdataBytes } from '~/composables/hearthstone-hsdata';
+import { canUseBrowserImageImport, prepareBrowserImageImport } from '~/utils/hearthstone-image-import';
 
 definePageMeta({
   layout: 'admin',
@@ -320,15 +435,21 @@ const form = reactive({
   cardId:    '',
   version:   '',
   zones:     ['hand'] as ImageZone[],
-  templates: ['normal'] as ImageTemplate[],
-  premiums:  ['normal'] as ImagePremium[],
-  limit:     '200',
+  templates: ['normal', 'battlegrounds'] as ImageTemplate[],
+  premiums:  ['normal', 'golden', 'diamond', 'signature'] as ImagePremium[],
+  limit:     '500',
   cursor:    '',
 });
 
 const exporting = ref(false);
+const importing = ref(false);
 const errorMessage = ref('');
+const importErrorMessage = ref('');
 const lastResult = ref<CardImageRequirementExportResult | null>(null);
+const lastImportResult = ref<CardImageImportResult | null>(null);
+const importArchive = ref<File | null>(null);
+const archiveInputRef = useTemplateRef<HTMLInputElement>('archiveInputRef');
+const canImportInBrowser = ref(false);
 
 const canExport = computed(() => (
   form.zones.length > 0
@@ -336,7 +457,7 @@ const canExport = computed(() => (
   && form.premiums.length > 0
   && Number.isSafeInteger(Number(form.limit))
   && Number(form.limit) > 0
-  && Number(form.limit) <= 500
+  && Number(form.limit) <= 2000
 ));
 
 const lastResultBytes = computed(() => {
@@ -346,6 +467,13 @@ const lastResultBytes = computed(() => {
 
   return new Blob([lastResult.value.content]).size;
 });
+
+const importArchiveName = computed(() => importArchive.value?.name ?? '');
+const canImportArchive = computed(() => (
+  canImportInBrowser.value
+  && importArchive.value != null
+  && importing.value === false
+));
 
 function resetForm() {
   form.lang = 'zhs';
@@ -357,6 +485,12 @@ function resetForm() {
   form.limit = '200';
   form.cursor = '';
   errorMessage.value = '';
+}
+
+function onArchiveChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  importArchive.value = input.files?.[0] ?? null;
+  importErrorMessage.value = '';
 }
 
 function toggleValue<T>(list: T[], value: T) {
@@ -397,6 +531,14 @@ function getErrorMessage(error: unknown) {
   }
 
   return '导出失败';
+}
+
+function getImportErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return '导入失败';
 }
 
 async function submitExport() {
@@ -449,4 +591,55 @@ async function submitExport() {
     exporting.value = false;
   }
 }
+
+async function submitImport() {
+  if (importArchive.value == null) {
+    importErrorMessage.value = '请先选择 ZIP 文件';
+    return;
+  }
+
+  importing.value = true;
+  importErrorMessage.value = '';
+
+  try {
+    const prepared = await prepareBrowserImageImport(importArchive.value);
+    const requirements = new File(
+      [prepared.requirementsContent],
+      'hearthstone-card-image-requirements.json',
+      { type: 'application/json' },
+    );
+
+    const result = await $orpc.hearthstone.image.importArchive({
+      requirements,
+      manifest: JSON.stringify(prepared.manifest),
+      files:    prepared.files.map(file => ({
+        requestId: file.requestId,
+        file:      file.file,
+      })),
+    });
+
+    lastImportResult.value = result;
+
+    toast.add({
+      title:       '图片导入完成',
+      description: `共导入 ${result.importedCount} 张，其中新上传 ${result.uploadedCount} 张，复用已有 ${result.reusedCount} 张。`,
+      color:       result.status === 'completed' ? 'success' : 'warning',
+      icon:        result.status === 'completed' ? 'i-lucide-circle-check-big' : 'i-lucide-triangle-alert',
+    });
+  } catch (error) {
+    importErrorMessage.value = getImportErrorMessage(error);
+    toast.add({
+      title:       '导入失败',
+      description: importErrorMessage.value,
+      color:       'error',
+      icon:        'i-lucide-circle-alert',
+    });
+  } finally {
+    importing.value = false;
+  }
+}
+
+onMounted(() => {
+  canImportInBrowser.value = canUseBrowserImageImport();
+});
 </script>

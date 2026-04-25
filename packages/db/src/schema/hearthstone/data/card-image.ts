@@ -27,6 +27,7 @@ export const CardImageAsset = dataSchema.table('card_image_assets', {
   height:           integer('height'),
   sha256:           text('sha256'),
   sourceExportId:   text('source_export_id'),
+  sourceImportId:   text('source_import_id'),
   status:           text('status').notNull().default('ready'),
   errorMessage:     text('error_message'),
   createdAt:        timestamp('created_at').defaultNow().notNull(),
@@ -58,4 +59,25 @@ export const CardImageExport = dataSchema.table('card_image_exports', {
 }, table => [
   index('card_image_exports_created_at_idx').on(table.createdAt),
   index('card_image_exports_image_spec_version_idx').on(table.imageSpecVersion),
+]);
+
+export const CardImageImport = dataSchema.table('card_image_imports', {
+  importId:         text('import_id').primaryKey(),
+  exportId:         text('export_id').notNull(),
+  imageSpecVersion: text('image_spec_version').notNull(),
+  archiveFileName:  text('archive_file_name').notNull(),
+  archiveSha256:    text('archive_sha256'),
+  expectedCount:    integer('expected_count').notNull(),
+  importedCount:    integer('imported_count').notNull(),
+  uploadedCount:    integer('uploaded_count').notNull(),
+  reusedCount:      integer('reused_count').notNull(),
+  missingCount:     integer('missing_count').notNull(),
+  rejectedCount:    integer('rejected_count').notNull(),
+  status:           text('status').notNull(),
+  errorMessage:     text('error_message'),
+  createdAt:        timestamp('created_at').defaultNow().notNull(),
+}, table => [
+  index('card_image_imports_created_at_idx').on(table.createdAt),
+  index('card_image_imports_export_id_idx').on(table.exportId),
+  index('card_image_imports_image_spec_version_idx').on(table.imageSpecVersion),
 ]);

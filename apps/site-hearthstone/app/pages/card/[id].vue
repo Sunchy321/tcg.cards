@@ -8,6 +8,7 @@
             <CardImage
               :card-id="data.cardId"
               :version="minVersion"
+              :render-hash="data.renderHash"
               :variant="variant"
             />
 
@@ -185,6 +186,7 @@ import { last } from 'lodash-es';
 
 import { locale as localeSchema, type Locale } from '#model/hearthstone/schema/basic';
 import type { Patch } from '#model/hearthstone/schema/patch';
+import type { CardImageOption } from '~/utils/card-image';
 
 const { $orpc } = useNuxtApp();
 const route = useRoute('card-id');
@@ -371,12 +373,12 @@ const legalityColor = (status: string) => ({
 
 // ─── Variant ─────────────────────────────────────────────────────────────────
 
-const variant = ref('normal');
+const variant = ref<CardImageOption>('normal');
 
 const hasTechLevel = computed(() => data.value?.techLevel != null);
 
 const variantOptions = computed(() => {
-  const opts = [
+  const opts: Array<{ label: string, value: CardImageOption }> = [
     { label: t('hearthstone.card.variant.normal'), value: 'normal' },
     { label: t('hearthstone.card.variant.golden'), value: 'golden' },
   ];
@@ -399,8 +401,6 @@ watch(hasTechLevel, v => {
 }, { immediate: true });
 
 // ─── Links ────────────────────────────────────────────────────────────────────
-
-const { public: { assetBaseUrl } } = useRuntimeConfig();
 
 const jsonLink = computed(() => {
   if (!data.value) return undefined;

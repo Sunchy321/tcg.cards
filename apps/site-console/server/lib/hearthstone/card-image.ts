@@ -1,23 +1,30 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import type { R2Bucket } from '@cloudflare/workers-types';
 
 import { db } from '#db/db';
 import type { Locale } from '#model/hearthstone/schema/basic';
 import type { RenderModel } from '#model/hearthstone/schema/entity';
 import {
+  cardImageBrowserImportManifest,
+  cardImageImportResult,
   cardImageRequirementExportInput,
   imageRequirementFile,
+  type CardImageBrowserImportManifest,
+  type CardImageImportProblem,
+  type CardImageImportResult,
   type CardImageRequirementExportInput,
   type CardImageRequirementExportResult,
+  type ImageRequirementFile,
   type ImageRequirementRequest,
   type ImageRequestRenderModel,
   type ImageStyle,
   type ImageVariant,
 } from '#model/hearthstone/schema/data/image';
-import { CardImageAsset, CardImageExport, Entity, EntityLocalization, Set as HearthstoneSet, Tag } from '#schema/hearthstone';
+import { CardImageAsset, CardImageExport, CardImageImport, Entity, EntityLocalization, Set as HearthstoneSet, Tag } from '#schema/hearthstone';
 
-export const hearthstoneImageSpecVersion = 'hs-card-image-v1';
+export const hearthstoneImageSpecVersion = 'v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';
 export const defaultCardImageExportLimit = 200;
 export const hardCardImageExportLimit = 500;
@@ -50,8 +57,136 @@ export interface ImageVariantMechanicIds {
   signature: string | null;
 }
 
+interface BrowserImportFile {
+  requestId: string;
+  bytes:     Uint8Array;
+}
+
+interface ExistingImageAsset {
+  sha256: string | null;
+  status: string;
+}
+
+interface PlannedImportFile {
+  request:      ImageRequirementRequest;
+  bytes:        Uint8Array;
+  sha256:       string;
+  byteSize:     number;
+  r2Key:        string;
+  shouldUpload: boolean;
+}
+
+interface CardImageImportPlan {
+  acceptedFiles: PlannedImportFile[];
+  missingCount:  number;
+  problems:      CardImageImportProblem[];
+}
+
+interface WebpMetadata {
+  width:  number;
+  height: number;
+}
+
 function sha256(input: string) {
   return createHash('sha256').update(input, 'utf8').digest('hex');
+}
+
+function sha256Bytes(input: Uint8Array) {
+  return createHash('sha256').update(input).digest('hex');
+}
+
+function readUint24LE(bytes: Uint8Array, offset: number) {
+  return bytes[offset]! | (bytes[offset + 1]! << 8) | (bytes[offset + 2]! << 16);
+}
+
+function parseWebpMetadata(bytes: Uint8Array): WebpMetadata {
+  if (bytes.byteLength < 20) {
+    throw new Error('Converted payload is not a valid WebP image');
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const riff = String.fromCharCode(...bytes.subarray(0, 4));
+  const webp = String.fromCharCode(...bytes.subarray(8, 12));
+
+  if (riff !== 'RIFF' || webp !== 'WEBP') {
+    throw new Error('Converted payload is not a valid WebP image');
+  }
+
+  let offset = 12;
+
+  while (offset + 8 <= bytes.byteLength) {
+    const chunkType = String.fromCharCode(...bytes.subarray(offset, offset + 4));
+    const chunkSize = view.getUint32(offset + 4, true);
+    const chunkDataOffset = offset + 8;
+    const nextOffset = chunkDataOffset + chunkSize + (chunkSize % 2);
+
+    if (nextOffset > bytes.byteLength) {
+      throw new Error('Converted payload is not a valid WebP image');
+    }
+
+    if (chunkType === 'VP8 ') {
+      if (chunkSize < 10) {
+        throw new Error('Converted payload is not a valid WebP image');
+      }
+
+      const startCodeOffset = chunkDataOffset + 3;
+
+      if (
+        bytes[startCodeOffset] !== 0x9D
+        || bytes[startCodeOffset + 1] !== 0x01
+        || bytes[startCodeOffset + 2] !== 0x2A
+      ) {
+        throw new Error('Converted payload is not a valid WebP image');
+      }
+
+      const width = view.getUint16(chunkDataOffset + 6, true) & 0x3FFF;
+      const height = view.getUint16(chunkDataOffset + 8, true) & 0x3FFF;
+
+      if (width <= 0 || height <= 0) {
+        throw new Error('Converted payload is not a valid WebP image');
+      }
+
+      return { width, height };
+    }
+
+    if (chunkType === 'VP8L') {
+      if (chunkSize < 5 || bytes[chunkDataOffset] !== 0x2F) {
+        throw new Error('Converted payload is not a valid WebP image');
+      }
+
+      const b0 = bytes[chunkDataOffset + 1]!;
+      const b1 = bytes[chunkDataOffset + 2]!;
+      const b2 = bytes[chunkDataOffset + 3]!;
+      const b3 = bytes[chunkDataOffset + 4]!;
+      const width = 1 + (((b1 & 0x3F) << 8) | b0);
+      const height = 1 + (((b3 & 0x0F) << 10) | (b2 << 2) | ((b1 & 0xC0) >> 6));
+
+      if (width <= 0 || height <= 0) {
+        throw new Error('Converted payload is not a valid WebP image');
+      }
+
+      return { width, height };
+    }
+
+    if (chunkType === 'VP8X') {
+      if (chunkSize < 10) {
+        throw new Error('Converted payload is not a valid WebP image');
+      }
+
+      const width = 1 + readUint24LE(bytes, chunkDataOffset + 4);
+      const height = 1 + readUint24LE(bytes, chunkDataOffset + 7);
+
+      if (width <= 0 || height <= 0) {
+        throw new Error('Converted payload is not a valid WebP image');
+      }
+
+      return { width, height };
+    }
+
+    offset = nextOffset;
+  }
+
+  throw new Error('Converted payload is not a valid WebP image');
 }
 
 function latestOrVersion(
@@ -70,6 +205,11 @@ function uniqueValues<T>(values: T[]) {
 
 function encodeCursor(offset: number) {
   return Buffer.from(JSON.stringify({ offset }), 'utf8').toString('base64url');
+}
+
+function buildImportId(now = new Date()) {
+  const stamp = now.toISOString().replace(/\D/g, '').slice(0, 14);
+  return `hsimgimp_${stamp}_${randomUUID().slice(0, 8)}`;
 }
 
 function decodeCursor(cursor: string | null | undefined) {
@@ -193,7 +333,7 @@ export function buildCardImagePngFileName(requestId: string) {
 export function buildCardImageR2Key(renderHash: string, variant: ImageVariant) {
   return [
     'hearthstone',
-    'card-images',
+    'card',
     hearthstoneImageSpecVersion,
     variant.zone,
     variant.template,
@@ -203,6 +343,32 @@ export function buildCardImageR2Key(renderHash: string, variant: ImageVariant) {
   ].join('/');
 }
 
+export function validateRequirementRequest(request: ImageRequirementRequest) {
+  const expectedRequestId = buildCardImageRequestId(request.card.renderHash, request.variant);
+  const expectedFileName = buildCardImagePngFileName(expectedRequestId);
+  const expectedR2Key = buildCardImageR2Key(request.card.renderHash, request.variant);
+
+  if (request.requestId !== expectedRequestId) {
+    throw new Error(`Request ${request.card.cardId} has mismatched requestId`);
+  }
+
+  if (request.output.fileName !== expectedFileName) {
+    throw new Error(`Request ${request.card.cardId} has mismatched output.fileName`);
+  }
+
+  if (request.target.r2Key !== expectedR2Key) {
+    throw new Error(`Request ${request.card.cardId} has mismatched target.r2Key`);
+  }
+
+  if (request.output.width !== request.style.width || request.output.height !== request.style.height) {
+    throw new Error(`Request ${request.card.cardId} has mismatched output and style dimensions`);
+  }
+
+  if (request.output.transparentBackground !== request.style.transparentBackground) {
+    throw new Error(`Request ${request.card.cardId} has mismatched transparency settings`);
+  }
+}
+
 function buildExportId(now = new Date()) {
   const stamp = now.toISOString().replace(/\D/g, '').slice(0, 14);
   return `hsimg_${stamp}_${randomUUID().slice(0, 8)}`;
@@ -210,6 +376,20 @@ function buildExportId(now = new Date()) {
 
 function buildFileName(exportId: string) {
   return `hearthstone-card-image-requirements.${exportId}.json`;
+}
+
+function buildImportErrorMessage(missingCount: number, problems: CardImageImportProblem[]) {
+  const parts = problems.slice(0, 3).map(problem => `${problem.fileName}: ${problem.message}`);
+
+  if (missingCount > 0) {
+    parts.unshift(`Missing ${missingCount} PNG file${missingCount === 1 ? '' : 's'}`);
+  }
+
+  if (parts.length === 0) {
+    return null;
+  }
+
+  return parts.join('; ');
 }
 
 function buildImageRequestRenderModel(
@@ -422,6 +602,374 @@ async function loadReadyKeys(renderHashes: string[], variants: ImageVariant[]) {
   return new Set(rows.map(row => (
     `${row.renderHash}\u0000${row.zone}\u0000${row.template}\u0000${row.premium}`
   )));
+}
+
+export function buildCardImageImportPlan(input: {
+  requirementFile: ImageRequirementFile;
+  manifest:        CardImageBrowserImportManifest;
+  files:           Map<string, Uint8Array>;
+  existingAssets:  Map<string, ExistingImageAsset>;
+}) {
+  const requestById = new Map<string, ImageRequirementRequest>();
+  const accountedRequestIds = new Set<string>();
+  const problems: CardImageImportProblem[] = [...input.manifest.rejected];
+
+  if (input.requirementFile.requests.length !== input.requirementFile.limits.requestCount) {
+    throw new Error('Requirements JSON has mismatched request count');
+  }
+
+  for (const request of input.requirementFile.requests) {
+    validateRequirementRequest(request);
+
+    if (requestById.has(request.requestId)) {
+      throw new Error(`Duplicate requestId in requirements JSON: ${request.requestId}`);
+    }
+
+    requestById.set(request.requestId, request);
+  }
+
+  const uploadByRequestId = new Map<string, {
+    bytes:    Uint8Array;
+    byteSize: number;
+    sha256:   string;
+  }>();
+
+  for (const file of input.manifest.files) {
+    accountedRequestIds.add(file.requestId);
+
+    const request = requestById.get(file.requestId);
+
+    if (!request) {
+      problems.push({
+        fileName: file.requestId,
+        message:  'Converted file is not declared in the requirements JSON',
+      });
+      continue;
+    }
+
+    if (uploadByRequestId.has(file.requestId)) {
+      problems.push({
+        fileName: request.output.fileName,
+        message:  'Duplicate converted file metadata',
+      });
+      continue;
+    }
+
+    const bytes = input.files.get(file.requestId);
+
+    if (!bytes) {
+      problems.push({
+        fileName: request.output.fileName,
+        message:  'Converted WebP file is missing from upload payload',
+      });
+      continue;
+    }
+
+    const actualSha256 = sha256Bytes(bytes);
+
+    if (file.sha256 !== actualSha256) {
+      problems.push({
+        fileName: request.output.fileName,
+        message:  'Converted WebP sha256 does not match uploaded bytes',
+      });
+      continue;
+    }
+
+    if (file.byteSize !== bytes.byteLength) {
+      problems.push({
+        fileName: request.output.fileName,
+        message:  'Converted WebP byte size does not match uploaded bytes',
+      });
+      continue;
+    }
+
+    try {
+      const metadata = parseWebpMetadata(bytes);
+
+      if (metadata.width !== request.output.width || metadata.height !== request.output.height) {
+        problems.push({
+          fileName: request.output.fileName,
+          message:  `Converted WebP dimensions ${metadata.width}x${metadata.height} do not match expected ${request.output.width}x${request.output.height}`,
+        });
+        continue;
+      }
+    } catch (error) {
+      problems.push({
+        fileName: request.output.fileName,
+        message:  error instanceof Error ? error.message : 'Converted payload is not a valid WebP image',
+      });
+      continue;
+    }
+
+    uploadByRequestId.set(file.requestId, {
+      bytes,
+      byteSize: bytes.byteLength,
+      sha256:   actualSha256,
+    });
+  }
+
+  for (const requestId of input.files.keys()) {
+    if (!accountedRequestIds.has(requestId)) {
+      problems.push({
+        fileName: requestId,
+        message:  'Unexpected converted WebP payload',
+      });
+    }
+  }
+
+  const acceptedFiles: PlannedImportFile[] = [];
+
+  for (const request of input.requirementFile.requests) {
+    const upload = uploadByRequestId.get(request.requestId);
+
+    if (!upload) {
+      continue;
+    }
+
+    const r2Key = buildCardImageR2Key(request.card.renderHash, request.variant);
+    const existing = input.existingAssets.get(r2Key);
+
+    if (existing?.sha256 != null && existing.sha256 !== upload.sha256) {
+      problems.push({
+        fileName: request.output.fileName,
+        message:  `Target already exists with different content: ${r2Key}`,
+      });
+      continue;
+    }
+
+    acceptedFiles.push({
+      request,
+      bytes:        upload.bytes,
+      sha256:       upload.sha256,
+      byteSize:     upload.byteSize,
+      r2Key,
+      shouldUpload: existing?.sha256 !== upload.sha256 || existing.status !== 'ready',
+    });
+  }
+
+  const rejectedDeclaredFiles = new Set(problems.map(problem => problem.fileName));
+  let missingCount = 0;
+
+  for (const request of input.requirementFile.requests) {
+    if (acceptedFiles.some(file => file.request.requestId === request.requestId)) {
+      continue;
+    }
+
+    if (rejectedDeclaredFiles.has(request.output.fileName)) {
+      continue;
+    }
+
+    missingCount += 1;
+  }
+
+  return {
+    acceptedFiles,
+    missingCount,
+    problems,
+  } satisfies CardImageImportPlan;
+}
+
+async function loadExistingImageAssets(r2Keys: string[]) {
+  if (r2Keys.length === 0) {
+    return new Map<string, ExistingImageAsset>();
+  }
+
+  const rows = await db.select({
+    r2Key:  CardImageAsset.r2Key,
+    sha256: CardImageAsset.sha256,
+    status: CardImageAsset.status,
+  })
+    .from(CardImageAsset)
+    .where(inArray(CardImageAsset.r2Key, r2Keys));
+
+  return new Map(rows.map(row => [row.r2Key, {
+    sha256: row.sha256,
+    status: row.status,
+  }]));
+}
+
+async function uploadAcceptedFiles(
+  bucket: R2Bucket,
+  files: PlannedImportFile[],
+  metadata: {
+    exportId: string;
+    importId: string;
+  },
+  uploadedFiles: PlannedImportFile[],
+) {
+  for (const file of files) {
+    if (!file.shouldUpload) {
+      continue;
+    }
+
+    await bucket.put(file.r2Key, file.bytes, {
+      httpMetadata: {
+        contentType: 'image/webp',
+      },
+      customMetadata: {
+        exportId:  metadata.exportId,
+        importId:  metadata.importId,
+        requestId: file.request.requestId,
+      },
+    });
+
+    uploadedFiles.push(file);
+  }
+}
+
+async function deleteUploadedFiles(
+  bucket: R2Bucket,
+  files: PlannedImportFile[],
+) {
+  for (const file of files) {
+    await bucket.delete(file.r2Key);
+  }
+}
+
+export async function importCardImageArchiveFromBrowser(input: {
+  requirementContent: string;
+  manifest:           unknown;
+  files:              BrowserImportFile[];
+  env:                {
+    R2_ASSET?:        R2Bucket | undefined;
+    R2_ASSET_BUCKET?: string | undefined;
+  };
+}) {
+  const requirementFile = imageRequirementFile.parse(JSON.parse(input.requirementContent));
+  const manifest = cardImageBrowserImportManifest.parse(input.manifest);
+  const bucket = input.env.R2_ASSET;
+
+  if (!bucket) {
+    throw new Error('R2_ASSET bucket is not configured');
+  }
+
+  const fileMap = new Map<string, Uint8Array>();
+
+  for (const file of input.files) {
+    if (fileMap.has(file.requestId)) {
+      throw new Error(`Duplicate uploaded WebP file: ${file.requestId}`);
+    }
+
+    fileMap.set(file.requestId, file.bytes);
+  }
+
+  const existingAssets = await loadExistingImageAssets(
+    requirementFile.requests.map(request => buildCardImageR2Key(request.card.renderHash, request.variant)),
+  );
+
+  const plan = buildCardImageImportPlan({
+    requirementFile,
+    manifest,
+    files: fileMap,
+    existingAssets,
+  });
+
+  const importId = buildImportId();
+  const importedCount = plan.acceptedFiles.length;
+  const uploadedCount = plan.acceptedFiles.filter(file => file.shouldUpload).length;
+  const reusedCount = importedCount - uploadedCount;
+  const rejectedCount = plan.problems.length;
+  const status = rejectedCount === 0 && plan.missingCount === 0
+    ? 'completed'
+    : importedCount > 0 || plan.missingCount > 0
+      ? 'partial'
+      : 'failed';
+  const errorMessage = buildImportErrorMessage(plan.missingCount, plan.problems);
+  const now = new Date();
+  const r2Bucket = input.env.R2_ASSET_BUCKET ?? defaultR2AssetBucket;
+
+  const uploadedFiles: PlannedImportFile[] = [];
+
+  try {
+    await uploadAcceptedFiles(bucket, plan.acceptedFiles, {
+      exportId: requirementFile.exportId,
+      importId,
+    }, uploadedFiles);
+
+    await db.transaction(async tx => {
+      await tx.insert(CardImageImport).values({
+        importId,
+        exportId:         requirementFile.exportId,
+        imageSpecVersion: requirementFile.imageSpecVersion,
+        archiveFileName:  manifest.archiveFileName,
+        archiveSha256:    null,
+        expectedCount:    requirementFile.requests.length,
+        importedCount,
+        uploadedCount,
+        reusedCount,
+        missingCount:     plan.missingCount,
+        rejectedCount,
+        status,
+        errorMessage,
+      });
+
+      for (const file of plan.acceptedFiles) {
+        await tx.insert(CardImageAsset)
+          .values({
+            imageSpecVersion: requirementFile.imageSpecVersion,
+            renderHash:       file.request.card.renderHash,
+            lang:             file.request.card.lang,
+            zone:             file.request.variant.zone,
+            template:         file.request.variant.template,
+            premium:          file.request.variant.premium,
+            r2Bucket,
+            r2Key:            file.r2Key,
+            contentType:      'image/webp',
+            byteSize:         file.byteSize,
+            width:            file.request.output.width,
+            height:           file.request.output.height,
+            sha256:           file.sha256,
+            sourceExportId:   requirementFile.exportId,
+            sourceImportId:   importId,
+            status:           'ready',
+            errorMessage:     null,
+            verifiedAt:       now,
+          })
+          .onConflictDoUpdate({
+            target: [CardImageAsset.imageSpecVersion, CardImageAsset.renderHash, CardImageAsset.zone, CardImageAsset.template, CardImageAsset.premium],
+            set:    {
+              lang:           file.request.card.lang,
+              r2Bucket,
+              r2Key:          file.r2Key,
+              contentType:    'image/webp',
+              byteSize:       file.byteSize,
+              width:          file.request.output.width,
+              height:         file.request.output.height,
+              sha256:         file.sha256,
+              sourceExportId: requirementFile.exportId,
+              sourceImportId: importId,
+              status:         'ready',
+              errorMessage:   null,
+              verifiedAt:     now,
+            },
+          });
+      }
+    });
+  } catch (error) {
+    try {
+      await deleteUploadedFiles(bucket, uploadedFiles);
+    } catch {
+      // no-op
+    }
+
+    throw error;
+  }
+
+  return cardImageImportResult.parse({
+    importId,
+    exportId:         requirementFile.exportId,
+    imageSpecVersion: requirementFile.imageSpecVersion,
+    archiveFileName:  manifest.archiveFileName,
+    expectedCount:    requirementFile.requests.length,
+    importedCount,
+    uploadedCount,
+    reusedCount,
+    missingCount:     plan.missingCount,
+    rejectedCount,
+    status,
+    errorMessage,
+    problems:         plan.problems,
+  } satisfies CardImageImportResult);
 }
 
 export async function exportCardImageRequirements(
