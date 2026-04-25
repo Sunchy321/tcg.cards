@@ -10,6 +10,7 @@ import {
   DocumentNode,
   DocumentNodeChange,
   DocumentNodeChangeRelation,
+  DocumentChangeReviewState,
   DocumentNodeContent,
   DocumentNodeEntity,
   DocumentVersion,
@@ -206,6 +207,9 @@ async function clearVersionDerivedData(tx: DbTx, versionId: string) {
   const changeIds = changes.map(change => change.id);
 
   if (changeIds.length > 0) {
+    await tx.delete(DocumentChangeReviewState)
+      .where(inArray(DocumentChangeReviewState.changeId, changeIds));
+
     await tx.delete(DocumentChangeReview)
       .where(inArray(DocumentChangeReview.changeId, changeIds));
 
@@ -593,6 +597,8 @@ async function writeChangeRecords(input: {
     const existingIds = existing.map(c => c.id);
 
     if (existingIds.length > 0) {
+      await tx.delete(DocumentChangeReviewState)
+        .where(inArray(DocumentChangeReviewState.changeId, existingIds));
       await tx.delete(DocumentChangeReview)
         .where(inArray(DocumentChangeReview.changeId, existingIds));
       await tx.delete(DocumentNodeChangeRelation)
@@ -612,11 +618,20 @@ async function writeChangeRecords(input: {
         toNodeRefId:      change.toNodeRefId,
         type:             change.type,
         confidenceScore:  change.confidenceScore,
-        reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
         details:          change.details,
       }));
 
-      await tx.insert(DocumentNodeChange).values(values);
+      const inserted = await tx.insert(DocumentNodeChange)
+        .values(values)
+        .returning({ id: DocumentNodeChange.id });
+
+      await tx.insert(DocumentChangeReviewState).values(
+        inserted.map((row, index) => ({
+          changeId:    row.id,
+          reviewState: simpleChanges[index]?.reviewStateCache ?? 'unreviewed' as const,
+          reviewedAt:  null,
+        })),
+      );
     }
 
     // Insert complex changes one by one to get changeId for relations
@@ -630,9 +645,16 @@ async function writeChangeRecords(input: {
         toNodeRefId:      change.toNodeRefId,
         type:             change.type,
         confidenceScore:  change.confidenceScore,
-        reviewStateCache: change.reviewStateCache ?? 'unreviewed' as const,
         details:          change.details,
       }).returning({ id: DocumentNodeChange.id });
+
+      if (inserted) {
+        await tx.insert(DocumentChangeReviewState).values({
+          changeId:    inserted.id,
+          reviewState: change.reviewStateCache ?? 'unreviewed' as const,
+          reviewedAt:  null,
+        });
+      }
 
       if (inserted && change.relations!.length > 0) {
         await tx.insert(DocumentNodeChangeRelation).values(
@@ -845,6 +867,8 @@ export async function rematchDocument(documentId: string) {
     const changeIds = allChangeRows.map(c => c.id);
 
     if (changeIds.length > 0) {
+      await tx.delete(DocumentChangeReviewState)
+        .where(inArray(DocumentChangeReviewState.changeId, changeIds));
       await tx.delete(DocumentChangeReview)
         .where(inArray(DocumentChangeReview.changeId, changeIds));
       await tx.delete(DocumentNodeChangeRelation)

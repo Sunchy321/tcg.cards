@@ -31,7 +31,7 @@ import {
 } from '#model/magic/schema/document';
 
 import { locale } from './card';
-import { dataSchema, schema } from './schema';
+import { appSchema, dataSchema, schema } from './schema';
 
 export const definitionStatus = schema.enum('document_definition_status', modelDefinitionStatus.enum);
 export const versionLifecycleStatus = schema.enum(
@@ -45,7 +45,7 @@ export const versionImportStatus = schema.enum(
 export const nodeKind = schema.enum('document_node_kind', modelNodeKind.enum);
 export const nodeContentStatus = schema.enum('document_node_content_status', modelNodeContentStatus.enum);
 export const nodeChangeType = schema.enum('document_node_change_type', modelNodeChangeType.enum);
-export const nodeChangeReviewStateCache = schema.enum(
+export const nodeChangeReviewStateCache = appSchema.enum(
   'document_node_change_review_state_cache',
   modelNodeChangeReviewStateCache.enum,
 );
@@ -53,7 +53,7 @@ export const nodeChangeRelationSide = schema.enum(
   'document_node_change_relation_side',
   modelNodeChangeRelationSide.enum,
 );
-export const changeReviewStatus = schema.enum(
+export const changeReviewStatus = appSchema.enum(
   'document_change_review_status',
   modelChangeReviewStatus.enum,
 );
@@ -173,26 +173,23 @@ export const DocumentNodeContent = schema.table('document_node_contents', {
 ]);
 
 export const DocumentNodeChange = schema.table('document_node_changes', {
-  id:               uuid('id').primaryKey().defaultRandom(),
-  documentId:       text('document_id').notNull().references(() => DocumentDefinition.id),
-  fromVersionId:    text('from_version_id').notNull().references(() => DocumentVersion.id),
-  toVersionId:      text('to_version_id').notNull().references(() => DocumentVersion.id),
-  entityId:         text('entity_id').references(() => DocumentNodeEntity.id),
-  fromNodeRefId:    text('from_node_ref_id').references(() => DocumentNode.id),
-  toNodeRefId:      text('to_node_ref_id').references(() => DocumentNode.id),
-  type:             nodeChangeType('type').notNull(),
-  confidenceScore:  doublePrecision('confidence_score').notNull(),
-  reviewStateCache: nodeChangeReviewStateCache('review_state_cache').notNull().default('unreviewed'),
-  details:          jsonb('details').$type<NodeChangeDetails>().notNull().default({}),
-  createdAt:        timestamp('created_at').defaultNow().notNull(),
-  reviewedAt:       timestamp('reviewed_at'),
+  id:              uuid('id').primaryKey().defaultRandom(),
+  documentId:      text('document_id').notNull().references(() => DocumentDefinition.id),
+  fromVersionId:   text('from_version_id').notNull().references(() => DocumentVersion.id),
+  toVersionId:     text('to_version_id').notNull().references(() => DocumentVersion.id),
+  entityId:        text('entity_id').references(() => DocumentNodeEntity.id),
+  fromNodeRefId:   text('from_node_ref_id').references(() => DocumentNode.id),
+  toNodeRefId:     text('to_node_ref_id').references(() => DocumentNode.id),
+  type:            nodeChangeType('type').notNull(),
+  confidenceScore: doublePrecision('confidence_score').notNull(),
+  details:         jsonb('details').$type<NodeChangeDetails>().notNull().default({}),
+  createdAt:       timestamp('created_at').defaultNow().notNull(),
 }, table => [
   index('doc_node_changes_doc_from_to_idx')
     .on(table.documentId, table.fromVersionId, table.toVersionId),
   index('doc_node_changes_doc_entity_idx').on(table.documentId, table.entityId),
   index('doc_node_changes_doc_type_idx').on(table.documentId, table.type),
-  index('doc_node_changes_doc_review_conf_idx')
-    .on(table.documentId, table.reviewStateCache, table.confidenceScore),
+  index('doc_node_changes_doc_conf_idx').on(table.documentId, table.confidenceScore),
 ]);
 
 export const DocumentNodeChangeRelation = schema.table('document_node_change_relations', {
@@ -208,7 +205,7 @@ export const DocumentNodeChangeRelation = schema.table('document_node_change_rel
   index('document_node_change_relations_change_id_side_sort_order_idx').on(table.changeId, table.side, table.sortOrder),
 ]);
 
-export const DocumentChangeReview = schema.table('document_change_reviews', {
+export const DocumentChangeReview = appSchema.table('document_change_reviews', {
   id:              uuid('id').primaryKey().defaultRandom(),
   changeId:        uuid('change_id').notNull().references(() => DocumentNodeChange.id),
   status:          changeReviewStatus('status').notNull(),
@@ -226,7 +223,23 @@ export const DocumentChangeReview = schema.table('document_change_reviews', {
   index('document_change_reviews_change_id_is_latest_revision_idx').on(table.changeId, table.isLatest, table.revision),
 ]);
 
-export const DocumentVersionPairRevision = schema.table('document_version_pair_revisions', {
+export const DocumentChangeReviewState = appSchema.table('document_change_review_states', {
+  changeId:       uuid('change_id').primaryKey().references(() => DocumentNodeChange.id),
+  reviewState:    nodeChangeReviewStateCache('review_state').notNull().default('unreviewed'),
+  reviewedAt:     timestamp('reviewed_at'),
+  latestReviewId: uuid('latest_review_id').references(() => DocumentChangeReview.id),
+  updatedAt:      timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+}, table => [
+  index('document_change_review_states_review_state_idx').on(table.reviewState),
+  uniqueIndex('document_change_review_states_latest_review_id_uq')
+    .on(table.latestReviewId)
+    .where(sql`${table.latestReviewId} is not null`),
+]);
+
+export const DocumentVersionPairRevision = appSchema.table('document_version_pair_revisions', {
   id:             text('id').primaryKey(),
   documentId:     text('document_id').notNull().references(() => DocumentDefinition.id),
   fromVersionId:  text('from_version_id').notNull().references(() => DocumentVersion.id),

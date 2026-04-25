@@ -5,6 +5,7 @@ import {
   DocumentChangeReview,
   DocumentNodeChange,
   DocumentNodeChangeRelation,
+  DocumentChangeReviewState,
   DocumentVersion,
   DocumentVersionImport,
   DocumentVersionPairRevision,
@@ -56,9 +57,10 @@ export async function submitReview(input: {
         documentId:       DocumentNodeChange.documentId,
         fromVersionId:    DocumentNodeChange.fromVersionId,
         toVersionId:      DocumentNodeChange.toVersionId,
-        reviewStateCache: DocumentNodeChange.reviewStateCache,
+        reviewStateCache: DocumentChangeReviewState.reviewState,
       })
       .from(DocumentNodeChange)
+      .leftJoin(DocumentChangeReviewState, eq(DocumentChangeReviewState.changeId, DocumentNodeChange.id))
       .where(eq(DocumentNodeChange.id, input.changeId))
       .limit(1)
       .then(rows => rows[0]);
@@ -103,18 +105,25 @@ export async function submitReview(input: {
       overridePayload: input.status === 'override' ? (input.overridePayload ?? null) : null,
     }).returning({ id: DocumentChangeReview.id });
 
-    // Update change cache
     const cacheValue = reviewStatusToCache(input.status);
-
-    await tx.update(DocumentNodeChange)
-      .set({
-        reviewStateCache: cacheValue,
-        reviewedAt:       now,
+    await tx.insert(DocumentChangeReviewState)
+      .values({
+        changeId:      input.changeId,
+        reviewState:   cacheValue,
+        reviewedAt:    now,
+        latestReviewId: inserted!.id,
       })
-      .where(eq(DocumentNodeChange.id, input.changeId));
+      .onConflictDoUpdate({
+        target: DocumentChangeReviewState.changeId,
+        set:    {
+          reviewState:   cacheValue,
+          reviewedAt:    now,
+          latestReviewId: inserted!.id,
+        },
+      });
 
     // Upsert version pair revision (only increment when conclusion changes)
-    const conclusionChanged = cacheValue !== change.reviewStateCache;
+    const conclusionChanged = cacheValue !== (change.reviewStateCache ?? 'unreviewed');
     const pairId = `${change.fromVersionId}->${change.toVersionId}`;
 
     if (conclusionChanged) {
@@ -179,7 +188,7 @@ export async function listChanges(input: {
   ];
 
   if (input.status && input.status.length > 0) {
-    conditions.push(inArray(DocumentNodeChange.reviewStateCache, input.status));
+    conditions.push(inArray(DocumentChangeReviewState.reviewState, input.status));
   }
 
   const where = and(...conditions);
@@ -192,18 +201,25 @@ export async function listChanges(input: {
       toNodeRefId:      DocumentNodeChange.toNodeRefId,
       type:             DocumentNodeChange.type,
       confidenceScore:  DocumentNodeChange.confidenceScore,
-      reviewStateCache: DocumentNodeChange.reviewStateCache,
+      reviewStateCache: DocumentChangeReviewState.reviewState,
       details:          DocumentNodeChange.details,
-      reviewedAt:       DocumentNodeChange.reviewedAt,
+      reviewedAt:       DocumentChangeReviewState.reviewedAt,
     })
       .from(DocumentNodeChange)
+      .leftJoin(DocumentChangeReviewState, eq(DocumentChangeReviewState.changeId, DocumentNodeChange.id))
       .where(where)
       .orderBy(DocumentNodeChange.confidenceScore)
       .limit(pageSize)
-      .offset(offset),
+      .offset(offset)
+      .then(rows => rows.map(row => ({
+        ...row,
+        reviewStateCache: row.reviewStateCache ?? 'unreviewed',
+        reviewedAt:       row.reviewedAt ?? null,
+      }))),
 
     db.select({ count: sql<number>`count(*)` })
       .from(DocumentNodeChange)
+      .leftJoin(DocumentChangeReviewState, eq(DocumentChangeReviewState.changeId, DocumentNodeChange.id))
       .where(where)
       .then(rows => rows[0]!),
 
@@ -229,8 +245,23 @@ export async function listChanges(input: {
 
 export async function getChangeDetail(changeId: string) {
   const change = await db
-    .select()
+    .select({
+      id:               DocumentNodeChange.id,
+      documentId:       DocumentNodeChange.documentId,
+      fromVersionId:    DocumentNodeChange.fromVersionId,
+      toVersionId:      DocumentNodeChange.toVersionId,
+      entityId:         DocumentNodeChange.entityId,
+      fromNodeRefId:    DocumentNodeChange.fromNodeRefId,
+      toNodeRefId:      DocumentNodeChange.toNodeRefId,
+      type:             DocumentNodeChange.type,
+      confidenceScore:  DocumentNodeChange.confidenceScore,
+      details:          DocumentNodeChange.details,
+      createdAt:        DocumentNodeChange.createdAt,
+      reviewStateCache: DocumentChangeReviewState.reviewState,
+      reviewedAt:       DocumentChangeReviewState.reviewedAt,
+    })
     .from(DocumentNodeChange)
+    .leftJoin(DocumentChangeReviewState, eq(DocumentChangeReviewState.changeId, DocumentNodeChange.id))
     .where(eq(DocumentNodeChange.id, changeId))
     .limit(1)
     .then(rows => rows[0]);
@@ -251,5 +282,13 @@ export async function getChangeDetail(changeId: string) {
       .orderBy(desc(DocumentChangeReview.revision)),
   ]);
 
-  return { change, relations, reviews };
+  return {
+    change: {
+      ...change,
+      reviewStateCache: change.reviewStateCache ?? 'unreviewed',
+      reviewedAt:       change.reviewedAt ?? null,
+    },
+    relations,
+    reviews,
+  };
 }

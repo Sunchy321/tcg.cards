@@ -1,4 +1,4 @@
-import { mainLocale } from '#model/magic/schema/basic';
+import { mainLocale } from '@tcg-cards/model/src/magic/schema/basic';
 
 export default defineAppConfig({
   ui: {

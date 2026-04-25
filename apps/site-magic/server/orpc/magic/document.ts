@@ -18,6 +18,7 @@ import {
   DocumentDefinition,
   DocumentNode,
   DocumentNodeChange,
+  DocumentChangeReviewState,
   DocumentNodeContent,
   DocumentNodeEntity,
   DocumentVersion,
@@ -496,15 +497,20 @@ const compare = os
         toNodeRefId:      DocumentNodeChange.toNodeRefId,
         type:             DocumentNodeChange.type,
         confidenceScore:  DocumentNodeChange.confidenceScore,
-        reviewStateCache: DocumentNodeChange.reviewStateCache,
+        reviewStateCache: DocumentChangeReviewState.reviewState,
         details:          DocumentNodeChange.details,
       })
         .from(DocumentNodeChange)
+        .leftJoin(DocumentChangeReviewState, eq(DocumentChangeReviewState.changeId, DocumentNodeChange.id))
         .where(and(
           eq(DocumentNodeChange.documentId, document.id),
           eq(DocumentNodeChange.fromVersionId, fromVersion.id),
           eq(DocumentNodeChange.toVersionId, toVersion.id),
-        )),
+        ))
+        .then(rows => rows.map(row => ({
+          ...row,
+          reviewStateCache: row.reviewStateCache ?? 'unreviewed',
+        }))),
     ]);
 
     // Order by parentNodeId + siblingOrder (depth-first walk)

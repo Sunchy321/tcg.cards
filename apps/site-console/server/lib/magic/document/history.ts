@@ -4,6 +4,7 @@ import { db } from '#db/db';
 import {
   DocumentNode,
   DocumentNodeChange,
+  DocumentChangeReviewState,
   DocumentNodeEntity,
   DocumentVersion,
   DocumentVersionImport,
@@ -60,15 +61,20 @@ export async function getNodeHistory(input: {
       toVersionId:      DocumentNodeChange.toVersionId,
       type:             DocumentNodeChange.type,
       confidenceScore:  DocumentNodeChange.confidenceScore,
-      reviewStateCache: DocumentNodeChange.reviewStateCache,
+      reviewStateCache: DocumentChangeReviewState.reviewState,
       details:          DocumentNodeChange.details,
     })
       .from(DocumentNodeChange)
+      .leftJoin(DocumentChangeReviewState, eq(DocumentChangeReviewState.changeId, DocumentNodeChange.id))
       .where(and(
         eq(DocumentNodeChange.documentId, input.documentId),
         eq(DocumentNodeChange.entityId, input.entityId),
       ))
-      .orderBy(asc(DocumentNodeChange.createdAt)),
+      .orderBy(asc(DocumentNodeChange.createdAt))
+      .then(rows => rows.map(row => ({
+        ...row,
+        reviewStateCache: row.reviewStateCache ?? 'unreviewed',
+      }))),
   ]);
 
   return { entity, appearances, changes };
@@ -88,18 +94,24 @@ export async function compareVersions(input: {
       toNodeRefId:      DocumentNodeChange.toNodeRefId,
       type:             DocumentNodeChange.type,
       confidenceScore:  DocumentNodeChange.confidenceScore,
-      reviewStateCache: DocumentNodeChange.reviewStateCache,
+      reviewStateCache: DocumentChangeReviewState.reviewState,
       details:          DocumentNodeChange.details,
-      reviewedAt:       DocumentNodeChange.reviewedAt,
+      reviewedAt:       DocumentChangeReviewState.reviewedAt,
     })
     .from(DocumentNodeChange)
+    .leftJoin(DocumentChangeReviewState, eq(DocumentChangeReviewState.changeId, DocumentNodeChange.id))
     .leftJoin(DocumentNode, eq(DocumentNode.id, DocumentNodeChange.toNodeRefId))
     .where(and(
       eq(DocumentNodeChange.documentId, input.documentId),
       eq(DocumentNodeChange.fromVersionId, input.fromVersionId),
       eq(DocumentNodeChange.toVersionId, input.toVersionId),
     ))
-    .orderBy(sql`coalesce(${DocumentNode.path}, '') asc`);
+    .orderBy(sql`coalesce(${DocumentNode.path}, '') asc`)
+    .then(rows => rows.map(row => ({
+      ...row,
+      reviewStateCache: row.reviewStateCache ?? 'unreviewed',
+      reviewedAt:       row.reviewedAt ?? null,
+    })));
 
   // Get review revision
   const pairRevision = await db
