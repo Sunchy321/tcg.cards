@@ -1,3 +1,5 @@
+import { getConsoleErrorMessage } from '@tcg-cards/app-console';
+
 export interface HsdataSourceHistory {
   tag:    string;
   commit: string;
@@ -211,5 +213,5 @@ export function inferHsdataSourceCommit(name: string) {
 }
 
 export function getHsdataErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : '操作失败';
+  return getConsoleErrorMessage(error, '操作失败');
 }

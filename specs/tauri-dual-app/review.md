@@ -61,7 +61,7 @@
 当前方案采用：
 
 - `service-api`：只读查询服务
-- `service-admin`：管理服务 + 桌面任务网关
+- `service-console`：管理服务 + 桌面任务网关
 
 这个拆分是合理的。
 
@@ -156,9 +156,9 @@
 
 否则查询侧会再次变成多套事实来源并存。
 
-### 2. 不要让 `service-api` 与 `service-admin` 再次互相渗透
+### 2. 不要让 `service-api` 与 `service-console` 再次互相渗透
 
-如果实现时图省事，把管理写接口逐步加回 `service-api`，或者把查询读模型随意挂进 `service-admin`，前面建立的服务边界会很快失效。
+如果实现时图省事，把管理写接口逐步加回 `service-api`，或者把查询读模型随意挂进 `service-console`，前面建立的服务边界会很快失效。
 
 这一点需要在代码组织、路由归属和鉴权中同时保持一致。
 
@@ -212,7 +212,7 @@
 
 ### 中风险
 
-- `service-admin` 内部未来是否需要进一步拆出独立长连接/任务网关
+- `service-console` 内部未来是否需要进一步拆出独立长连接/任务网关
 - 查询侧共享层是否会逐步膨胀
 - 内嵌页、快照页、原生壳之间的边界在实现中被反复突破
 
@@ -226,7 +226,7 @@
 
 如果进入下一阶段，我建议实现顺序仍然优先围绕以下三条主线展开：
 
-- 先固化 `service-api` / `service-admin` / 桌面协议边界
+- 先固化 `service-api` / `service-console` / 桌面协议边界
 - 先落稳 `tasks`、`task_runs`、`device_leases`
 - 先把查询缓存协议做成正式接口，再谈 UI 细化
 

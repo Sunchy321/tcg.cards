@@ -28,7 +28,7 @@
         </template>
 
         <!-- User management section -->
-        <template v-if="canManageUsers">
+        <template v-if="canManageUsersValue">
           <div class="px-2 py-2">
             <p class="mb-1 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">用户管理</p>
           </div>
@@ -100,9 +100,15 @@
 </template>
 
 <script setup lang="ts">
-import { GAMES } from '#shared';
+import {
+  canManageUsers,
+  getAccessibleGames,
+  getGameNavItems,
+  getGameSelectItems,
+  getUserNavItems,
+} from '@tcg-cards/app-console';
 import { authClient } from '~/composables/auth';
-import { GAME_LABELS, useCurrentGame } from '~/composables/game';
+import { useCurrentGame } from '~/composables/game';
 
 const route = useRoute();
 
@@ -121,21 +127,9 @@ async function signOut() {
 const role = computed(() => (session.value.data?.user as { role?: string } | undefined)?.role ?? null);
 
 // owner can manage all games; admin/xxx can only manage game xxx
-const accessibleGames = computed<string[]>(() => {
-  const r = role.value;
-  if (!r) return [];
-  if (r === 'owner') return [...GAMES];
-  if (r.startsWith('admin/')) {
-    const game = r.slice('admin/'.length);
-    if ((GAMES as readonly string[]).includes(game)) return [game];
-  }
-  return [];
-});
+const accessibleGames = computed(() => getAccessibleGames(role.value));
 
-const canManageUsers = computed(() => {
-  const r = role.value;
-  return r === 'owner' || r === 'admin';
-});
+const canManageUsersValue = computed(() => canManageUsers(role.value));
 
 const currentGame = useCurrentGame();
 
@@ -151,83 +145,10 @@ watch(accessibleGames, games => {
 }, { immediate: true });
 
 const gameSelectItems = computed(() =>
-  accessibleGames.value.map(g => ({
-    label: GAME_LABELS[g as keyof typeof GAME_LABELS] ?? g,
-    value: g,
-  })),
+  getGameSelectItems(accessibleGames.value),
 );
 
-const gameNavItems = computed(() => [
-  [
-    {
-      label: '概览',
-      icon:  'i-lucide-layout-dashboard',
-      to:    `/${currentGame.value}`,
-      exact: true,
-    },
-    {
-      label: '数据源',
-      icon:  'i-lucide-database',
-      to:    `/${currentGame.value}/data-source`,
-    },
-    {
-      label: '数据导入',
-      icon:  'i-lucide-download',
-      to:    `/${currentGame.value}/data-import`,
-    },
-    ...(currentGame.value === 'hearthstone'
-      ? [
-        {
-          label: '图片',
-          icon:  'i-lucide-image',
-          to:    `/${currentGame.value}/image`,
-        },
-        {
-          label: '标签',
-          icon:  'i-lucide-tags',
-          to:    `/${currentGame.value}/tag`,
-        },
-      ]
-      : []),
-    {
-      label: '卡牌',
-      icon:  'i-lucide-layers',
-      to:    `/${currentGame.value}/card`,
-    },
-    {
-      label: '系列',
-      icon:  'i-lucide-folder-open',
-      to:    `/${currentGame.value}/set`,
-    },
-    {
-      label: '赛制',
-      icon:  'i-lucide-shield-check',
-      to:    `/${currentGame.value}/format`,
-    },
-    {
-      label: '公告',
-      icon:  'i-lucide-megaphone',
-      to:    `/${currentGame.value}/announcement`,
-    },
-    ...(currentGame.value === 'magic'
-      ? [
-        {
-          label: '规则',
-          icon:  'i-lucide-book-open',
-          to:    `/${currentGame.value}/rule`,
-        },
-      ]
-      : []),
-  ],
-]);
+const gameNavItems = computed(() => getGameNavItems(currentGame.value));
 
-const userNavItems = [
-  [
-    {
-      label: '用户',
-      icon:  'i-lucide-users',
-      to:    '/user',
-    },
-  ],
-];
+const userNavItems = getUserNavItems();
 </script>

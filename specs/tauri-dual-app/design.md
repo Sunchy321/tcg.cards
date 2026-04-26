@@ -476,7 +476,7 @@ apps/
   app-console-desktop/     管理应用桌面端宿主
   app-console-mobile/      管理应用手机端宿主
   service-api/             查询 API 服务
-  service-admin/           管理与桌面执行服务
+  service-console/         管理与桌面执行服务
 
 packages/
   query-core/              查询应用共享前端模块
@@ -600,14 +600,14 @@ v1 不建议直接做大量 `service-*`。
 当前已确定的服务拆分为：
 
 - `service-api`：只承载 Query API
-- `service-admin`：承载 Admin API 与 Desktop Gateway
+- `service-console`：承载 Admin API 与 Desktop Gateway
 
 也就是说：
 
 - **查询服务独立**
 - **管理写操作与桌面执行协议先合并**
 
-当出现以下信号时，再考虑把 `service-admin` 内的 Desktop Gateway 单独拆成独立服务：
+当出现以下信号时，再考虑把 `service-console` 内的 Desktop Gateway 单独拆成独立服务：
 
 - 桌面任务轮询、日志上传、产物回写流量明显上升
 - 长连接、轮询或事件流与普通管理请求互相干扰
@@ -823,7 +823,7 @@ v1 不建议直接做大量 `service-*`。
 - 必须有审计日志
 - 不直接在请求链路中做重型本地工作
 
-该组接口归属于 `service-admin`。
+该组接口归属于 `service-console`。
 
 ### 8.2.3 桌面任务网关
 
@@ -834,7 +834,7 @@ v1 不建议直接做大量 `service-*`。
 - 上传执行日志
 - 回写结果和产物索引
 
-这层属于 `service-admin`，但协议上应与管理网页/手机端使用的 Admin API 单独分组。
+这层属于 `service-console`，但协议上应与管理网页/手机端使用的 Admin API 单独分组。
 
 ### 8.2.4 为什么是三入口而不是一个通用 API
 
@@ -857,7 +857,7 @@ v1 不建议直接做大量 `service-*`。
 在当前拆分下：
 
 - `service-api` 对外提供 Query API
-- `service-admin` 对内提供 Admin API 与 Desktop Gateway
+- `service-console` 对内提供 Admin API 与 Desktop Gateway
 
 ## 8.3 数据库访问原则
 
@@ -1005,7 +1005,7 @@ v1 不建议直接做大量 `service-*`。
 - 不承载管理写接口
 - 不承载桌面执行协议
 
-#### `service-admin`
+#### `service-console`
 
 可接受主体：
 
@@ -1020,7 +1020,7 @@ v1 不建议直接做大量 `service-*`。
 
 约束：
 
-- 普通 `api_key` 默认不允许进入 `service-admin`
+- 普通 `api_key` 默认不允许进入 `service-console`
 - 桌面端执行协议仅允许 `device` 主体访问
 
 ### 8.6.0.4 动作模型
@@ -1283,12 +1283,12 @@ handler 只声明需要的 `action` 与资源上下文。
 
 1. 用户在管理应用中创建 `full` 任务
 2. 管理 API 写入 `tasks`
-3. `service-admin` 为该任务创建首个 `task_runs`
+3. `service-console` 为该任务创建首个 `task_runs`
 4. 桌面端轮询或订阅可执行任务
 5. 桌面端领取租约，写入 `device_leases`
 6. 桌面端执行本地工作，并持续回传 `heartbeat`、进度、日志、产物
 7. 执行成功或失败后，更新 `task_runs`
-8. `service-admin` 根据执行结果推进 `tasks` 业务态
+8. `service-console` 根据执行结果推进 `tasks` 业务态
 9. 其他端读取 `tasks` 摘要，并在需要时展开查看 `task_runs`
 
 ## 10. 推荐实施顺序

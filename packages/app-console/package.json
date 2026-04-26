@@ -1,0 +1,27 @@
+{
+  "name": "@tcg-cards/app-console",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "private": true,
+  "scripts": {
+    "build": "echo No build needed",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orpc/client": "^1.13.6",
+    "@orpc/server": "^1.13.6",
+    "@tcg-cards/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "eslint": "^10.0.3",
+    "eslint-config-custom": "workspace:*"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
