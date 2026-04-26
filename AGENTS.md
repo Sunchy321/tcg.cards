@@ -22,6 +22,14 @@ If a short exported name is ambiguous at the usage site, resolve the ambiguity w
 
 Zod schema exports must not end with `schema`. Exported zod schemas and their inferred types should differ only by capitalization, for example `card` and `Card`.
 
+Workspace app names under `apps/` must use prefixes that match the deployment shape:
+
+- `site-` for applications deployed as websites
+- `app-` for applications deployed as installable apps
+- `service-` for non-website services
+
+Use these prefixes consistently in new workspace names, proposal examples, specs, and implementation plans.
+
 ## Delivery Workflow
 
 When a non-simple requirement is given, first create a design proposal under the `proposals/` folder.
