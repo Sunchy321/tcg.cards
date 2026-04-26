@@ -35,10 +35,10 @@ LEFT JOIN LATERAL (
 	ORDER BY "review"."revision" DESC
 	LIMIT 1
 ) AS "latest_review" ON true;--> statement-breakpoint
-ALTER INDEX "magic"."doc_node_changes_doc_review_conf_idx" RENAME TO "doc_node_changes_doc_conf_idx";--> statement-breakpoint
 ALTER TABLE "magic"."document_node_changes" DROP COLUMN "review_state_cache";--> statement-breakpoint
 ALTER TABLE "magic"."document_node_changes" DROP COLUMN "reviewed_at";--> statement-breakpoint
-DROP INDEX "magic"."doc_node_changes_doc_conf_idx";--> statement-breakpoint
+DROP INDEX IF EXISTS "magic"."doc_node_changes_doc_review_conf_idx";--> statement-breakpoint
+DROP INDEX IF EXISTS "magic"."doc_node_changes_doc_conf_idx";--> statement-breakpoint
 CREATE INDEX "doc_node_changes_doc_conf_idx" ON "magic"."document_node_changes" ("document_id","confidence_score");--> statement-breakpoint
 CREATE INDEX "document_change_review_states_review_state_idx" ON "magic_app"."document_change_review_states" ("review_state");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_change_review_states_latest_review_id_uq" ON "magic_app"."document_change_review_states" ("latest_review_id") WHERE "latest_review_id" is not null;--> statement-breakpoint

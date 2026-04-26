@@ -32,7 +32,7 @@
     "better-auth": "^1.5.3",
     "cheerio": "^1.2.0",
     "diff": "^8.0.3",
-    "drizzle-orm": "^1.0.0-beta.20",
+    "drizzle-orm": "^1.0.0-beta.22",
     "lodash-es": "^4.17.23",
     "markdown-it": "^14.1.1",
     "nanoid": "^5.1.6",

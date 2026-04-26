@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS intarray;
+--> statement-breakpoint
 CREATE SCHEMA "hearthstone";
 --> statement-breakpoint
 CREATE SCHEMA "magic_app";
@@ -191,8 +193,8 @@ CREATE TABLE "hearthstone"."entities" (
 	"rarity" "hearthstone"."rarity",
 	"artist" text NOT NULL,
 	"faction" "hearthstone"."faction",
-	"mechanics" text[] NOT NULL,
-	"referenced_tags" text[] NOT NULL,
+	"mechanics" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"referenced_tags" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"entourages" text[],
 	"deck_order" integer,
 	"override_watermark" text,

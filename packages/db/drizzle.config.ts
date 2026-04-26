@@ -3,6 +3,7 @@ import { defineConfig } from 'drizzle-kit';
 import { GAMES } from '@tcg-cards/shared';
 
 console.log('Drizzle config loaded with games:', GAMES);
+console.log('Database URL:', process.env.DATABASE_URL);
 
 export default defineConfig({
   dialect: 'postgresql',

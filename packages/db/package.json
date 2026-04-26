@@ -5,18 +5,18 @@
   "scripts": {
     "build": "echo No build needed",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
+    "db:migrate": "bun --env-file=.env.production ./node_modules/drizzle-kit/bin.cjs migrate",
+    "db:push": "bun --env-file=.env.development ./node_modules/drizzle-kit/bin.cjs push",
+    "db:studio": "bun --env-file=.env.development ./node_modules/drizzle-kit/bin.cjs studio",
     "db:check": "drizzle-kit check",
-    "db:up": "drizzle-kit up",
+    "db:up": "bun --env-file=.env.production ./node_modules/drizzle-kit/bin.cjs up",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
-    "drizzle-orm": "^1.0.0-beta.20",
+    "drizzle-orm": "^1.0.0-beta.22",
     "eslint-config-custom": "workspace:*",
     "lodash-es": "^4.17.23",
     "nanoid": "^5.1.6"
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/lodash-es": "^4.17.12",
-    "drizzle-kit": "^1.0.0-beta.20",
+    "drizzle-kit": "^1.0.0-beta.22",
     "eslint": "^10.1.0"
   },
   "peerDependencies": {

@@ -107,12 +107,9 @@ ALTER TABLE "hearthstone"."entities" ALTER COLUMN "mercenary_role" SET DATA TYPE
 ALTER TABLE "hearthstone"."entities" ALTER COLUMN "mercenary_faction" SET DATA TYPE text USING "mercenary_faction"::text;--> statement-breakpoint
 ALTER TABLE "hearthstone"."entities" ALTER COLUMN "rarity" SET DATA TYPE text USING "rarity"::text;--> statement-breakpoint
 ALTER TABLE "hearthstone"."entities" ALTER COLUMN "faction" SET DATA TYPE text USING "faction"::text;--> statement-breakpoint
-ALTER TABLE "hearthstone"."entities" ALTER COLUMN "mechanics" SET DATA TYPE jsonb USING "mechanics"::jsonb;--> statement-breakpoint
-ALTER TABLE "hearthstone"."entities" ALTER COLUMN "mechanics" SET DEFAULT '{}';--> statement-breakpoint
-ALTER TABLE "hearthstone"."entities" ALTER COLUMN "referenced_tags" DROP DEFAULT;--> statement-breakpoint
-ALTER TABLE "hearthstone"."entities" ALTER COLUMN "referenced_tags" SET DATA TYPE jsonb USING '{}'::jsonb;--> statement-breakpoint
-ALTER TABLE "hearthstone"."entities" ALTER COLUMN "referenced_tags" SET DEFAULT '{}'::jsonb;--> statement-breakpoint
+ALTER TABLE "hearthstone"."entities" ALTER COLUMN "text_builder_type" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "hearthstone"."entities" ALTER COLUMN "text_builder_type" SET DATA TYPE text USING "text_builder_type"::text;--> statement-breakpoint
+ALTER TABLE "hearthstone"."entities" ALTER COLUMN "text_builder_type" SET DEFAULT 'default';--> statement-breakpoint
 CREATE INDEX "entity_relations_source_idx" ON "hearthstone"."entity_relations" ("source_id");--> statement-breakpoint
 CREATE INDEX "entity_relations_target_idx" ON "hearthstone"."entity_relations" ("target_id");--> statement-breakpoint
 CREATE INDEX "entity_relations_source_relation_idx" ON "hearthstone"."entity_relations" ("source_id","relation");--> statement-breakpoint

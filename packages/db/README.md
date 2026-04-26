@@ -28,18 +28,45 @@ This creates a new SQL file in `migrations/` with the changes.
 
 Check the generated SQL file in `migrations/` before applying.
 
-### 4. Apply Migration (Local)
+### 4. Push Schema (Development)
 
 ```bash
-bun run db:migrate
+bun run db:push
 ```
+
+This uses `DATABASE_URL_DEV`.
+This loads `DATABASE_URL` from `.env.development`.
 
 ### 5. Apply Migration (Production)
 
 Migrations are automatically applied in CI/CD, or manually:
 
 ```bash
-DATABASE_URL="postgres://..." bun run db:migrate
+bun run db:migrate
+```
+
+This uses `DATABASE_URL_PROD`.
+This loads `DATABASE_URL` from `.env.production`.
+
+## Environment Files
+
+Configure separate database URLs for development and production:
+
+```bash
+cp .env.development.example .env.development
+cp .env.production.example .env.production
+```
+
+Example contents:
+
+```bash
+# .env.development
+DATABASE_URL="postgres://user:password@localhost:5432/tcg_cards_dev"
+```
+
+```bash
+# .env.production
+DATABASE_URL="postgres://user:password@localhost:5432/tcg_cards_prod"
 ```
 
 ## Scripts
@@ -47,11 +74,11 @@ DATABASE_URL="postgres://..." bun run db:migrate
 | Script | Description |
 |--------|-------------|
 | `bun run db:generate` | Generate migration from schema changes |
-| `bun run db:migrate` | Apply pending migrations |
-| `bun run db:push` | Push schema directly (development only) |
-| `bun run db:studio` | Open Drizzle Studio (GUI) |
+| `bun run db:migrate` | Apply pending migrations to the production database |
+| `bun run db:push` | Push schema directly to the development database |
+| `bun run db:studio` | Open Drizzle Studio for the development database |
 | `bun run db:check` | Check for schema drift |
-| `bun run db:up` | Apply single migration (up) |
+| `bun run db:up` | Apply a single migration to the production database |
 
 ## Directory Structure
 
