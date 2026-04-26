@@ -1,0 +1,25 @@
+{
+  "name": "service-internal",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo No build needed",
+    "dev": "wrangler dev --port 2998",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@tcg-cards/auth": "workspace:*",
+    "@tcg-cards/db": "workspace:*",
+    "hono": "^4.10.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260329.1",
+    "eslint": "^10.0.2",
+    "eslint-config-custom": "workspace:*",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.75.0"
+  },
+  "packageManager": "bun@1.3.10"
+}

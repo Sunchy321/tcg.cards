@@ -33,6 +33,7 @@ apps/
   site-magic/       Magic: The Gathering site
   site-hearthstone/ Hearthstone site
   site-console/     Internal console and data tooling
+  service-internal/ First-party internal auth service
   watcher/          Cloudflare Worker for scheduled automation
 
 packages/
@@ -59,6 +60,7 @@ turbo/              Turborepo generators and templates
 | `site-magic` | Magic: The Gathering data site | `3001` |
 | `site-hearthstone` | Hearthstone data site | `3002` |
 | `site-console` | Internal console for data and admin workflows | `2999` |
+| `service-internal` | First-party internal auth service | `2998` |
 | `@tcg-cards/watcher` | Scheduled Cloudflare Worker | Wrangler default |
 
 ## Getting Started
@@ -84,6 +86,7 @@ Copy the example files for the workspaces you plan to run:
 cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
+cp apps/service-internal/.env.example apps/service-internal/.env
 cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
@@ -105,7 +108,7 @@ cd apps/site-magic
 bun run dev
 ```
 
-Use the same pattern for `site-main`, `site-hearthstone`, and `site-console`.
+Use the same pattern for `site-main`, `site-hearthstone`, `site-console`, and `service-internal`.
 
 ## Common Commands
 

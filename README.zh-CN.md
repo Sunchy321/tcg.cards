@@ -33,6 +33,7 @@ apps/
   site-magic/       万智牌数据站
   site-hearthstone/ 炉石传说数据站
   site-console/     内部控制台和数据工具
+  service-internal/ 第一方内部认证服务
   watcher/          定时自动化 Cloudflare Worker
 
 packages/
@@ -59,6 +60,7 @@ turbo/              Turborepo generator 和模板
 | `site-magic` | 万智牌数据站 | `3001` |
 | `site-hearthstone` | 炉石传说数据站 | `3002` |
 | `site-console` | 内部数据和管理控制台 | `2999` |
+| `service-internal` | 第一方内部认证服务 | `2998` |
 | `@tcg-cards/watcher` | 定时 Cloudflare Worker | Wrangler 默认端口 |
 
 ## 快速开始
@@ -84,6 +86,7 @@ bun install
 cp apps/site-magic/.env.example apps/site-magic/.env
 cp apps/site-hearthstone/.env.example apps/site-hearthstone/.env
 cp apps/site-console/.env.example apps/site-console/.env
+cp apps/service-internal/.env.example apps/service-internal/.env
 cp apps/watcher/.dev.vars.example apps/watcher/.dev.vars
 cp packages/db/.env.example packages/db/.env
 ```
@@ -105,7 +108,7 @@ cd apps/site-magic
 bun run dev
 ```
 
-`site-main`、`site-hearthstone`、`site-console` 也可以使用同样方式启动。
+`site-main`、`site-hearthstone`、`site-console`、`service-internal` 也可以使用同样方式启动。
 
 ## 常用命令
 

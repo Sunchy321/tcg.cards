@@ -73,7 +73,7 @@
 
           <UBadge
             v-if="session"
-            :label="session.data?.user?.role ?? 'user'"
+            :label="sessionRole"
             color="primary"
             variant="soft"
             size="sm"
@@ -118,13 +118,19 @@ const session = authClient.useSession();
 
 const signingOut = ref(false);
 
+const sessionRole = computed(() =>
+  (session.value.data?.user as { role?: string } | undefined)?.role ?? 'user',
+);
+
 async function signOut() {
   signingOut.value = true;
   await authClient.signOut();
   await navigateTo('/login');
 }
 
-const role = computed(() => (session.value.data?.user as { role?: string } | undefined)?.role ?? null);
+const role = computed(() =>
+  (session.value.data?.user as { role?: string } | undefined)?.role ?? null,
+);
 
 // owner can manage all games; admin/xxx can only manage game xxx
 const accessibleGames = computed(() => getAccessibleGames(role.value));

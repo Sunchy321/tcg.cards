@@ -1,6 +1,9 @@
 import { usernameClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/vue';
 
+export { ac, roles } from './permissions';
+export { createServerAuth } from './server';
+
 export interface CreateConsoleAuthClientOptions {
   baseURL: string;
 }

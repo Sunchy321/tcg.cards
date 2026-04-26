@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@tcg-cards/auth": ["./node_modules/@tcg-cards/auth/src/index.ts"],
+      "@tcg-cards/db": ["./node_modules/@tcg-cards/db/src/index.ts"],
+      "#model/*": ["./node_modules/@tcg-cards/db/node_modules/@tcg-cards/model/src/*"]
+    },
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "include": ["src/**/*"]
+}

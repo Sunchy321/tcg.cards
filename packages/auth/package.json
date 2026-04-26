@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tcg-cards/shared": "workspace:*",
     "better-auth": "^1.5.5"
   },
   "devDependencies": {
