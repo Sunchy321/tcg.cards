@@ -475,8 +475,8 @@ apps/
   site-admin/              管理应用网页端
   app-console-desktop/     管理应用桌面端宿主
   app-console-mobile/      管理应用手机端宿主
-  service-api/             查询 API 服务
-  service-console/         管理与桌面执行服务
+  service-api/             第三方公开 API 服务
+  service-internal/        第一方内部服务
 
 packages/
   query-core/              查询应用共享前端模块
@@ -567,7 +567,9 @@ clients
   app-console-desktop
 
 service layer
-  Query API
+  Public Query API
+  Internal Query API
+  Auth API
   Admin API
   Desktop Gateway
 
@@ -599,19 +601,38 @@ v1 不建议直接做大量 `service-*`。
 
 当前已确定的服务拆分为：
 
-- `service-api`：只承载 Query API
-- `service-console`：承载 Admin API 与 Desktop Gateway
+- `service-api`：只承载第三方公开 Query API
+- `service-internal`：统一承载 Auth API、Internal Query API、Admin API 与 Desktop Gateway
+
+建议同步固定域名语义：
+
+- `api.tcg.cards`：第三方公开 API 入口
+- `internal.tcg.cards`：第一方内部服务入口
 
 也就是说：
 
-- **查询服务独立**
-- **管理写操作与桌面执行协议先合并**
+- **公开第三方 API 独立**
+- **第一方客户端相关能力先统一收敛**
 
-当出现以下信号时，再考虑把 `service-console` 内的 Desktop Gateway 单独拆成独立服务：
+当出现以下信号时，再考虑把 `service-internal` 内部继续拆成独立服务：
 
 - 桌面任务轮询、日志上传、产物回写流量明显上升
 - 长连接、轮询或事件流与普通管理请求互相干扰
 - 桌面协议迭代频率与管理 API 发布节奏明显分化
+- 第一方用户侧查询流量与管理流量的扩缩容诉求明显不同
+- 团队边界已经稳定分化为用户侧、管理侧、桌面执行侧不同模块所有权
+
+当前阶段的建议是：
+
+- 先统一为 `service-internal`
+- 在同一服务内部严格分离 `Auth API`、`Internal Query API`、`Admin API`、`Desktop Gateway`
+- 先做逻辑与协议分离，暂不强求物理与部署分离
+
+如果未来继续拆分，建议优先考虑的方向是：
+
+- 第一方用户侧内部服务
+- 管理命令与审核服务
+- 桌面任务网关服务
 
 ### 8.2.0.2 模块职责
 
@@ -624,14 +645,14 @@ v1 不建议直接做大量 `service-*`。
 - 桌面设备注册
 - 设备令牌签发与校验
 
-它不直接承载业务页面逻辑，而是为 Query API、Admin API、Desktop Gateway 提供统一身份上下文。
+它不直接承载业务页面逻辑，而是为 Internal Query API、Admin API、Desktop Gateway 提供统一身份上下文。
 
 #### Query Read Model
 
 负责：
 
-- 面向查询应用的只读聚合输出
-- 面向站点与查询 app 的统一读模型
+- 面向公开开放平台的只读输出
+- 面向第一方站点与 app 的统一读模型
 - 缓存友好的列表、详情、搜索、摘要接口
 
 建议进一步拆成两类读模型：
@@ -701,7 +722,7 @@ v1 不建议直接做大量 `service-*`。
 
 #### 增量同步策略
 
-建议 Query API 至少支持三种同步模式：
+建议 Internal Query API 至少支持三种同步模式：
 
 - **bootstrap**：首次安装或首次选择某游戏时拉取完整基础集
 - **delta**：基于 `baseVersion` 获取新增、变更、删除条目
@@ -727,8 +748,9 @@ v1 不建议直接做大量 `service-*`。
 
 更合适的方式是：
 
-- 由 `service-api` 继续承载缓存协议接口
-- 在 `service-api` 内部把 manifest 生成、索引分片、快照输出作为独立模块
+- 由 `service-internal` 承载第一方 app 所需的缓存协议接口
+- 在 `service-internal` 内部把 manifest 生成、索引分片、快照输出作为独立模块
+- `service-api` 仅保留第三方公开查询能力，不承担第一方专用 manifest 与 delta sync 协议
 - 等缓存规模、下载压力、生成时延明显成为瓶颈后，再考虑拆成独立缓存分发层
 
 #### Admin Command
@@ -790,24 +812,39 @@ v1 不建议直接做大量 `service-*`。
 
 这一层在 v1 可以较轻，但接口边界应预留。
 
-### 8.2.1 只读查询 API
+### 8.2.1 公开 Query API
 
-面向查询应用与管理应用的读请求：
+面向第三方开发者的公开读请求：
 
 - 卡牌查询
 - 文档查询
-- 任务状态查询
-- 审核结果查询
-- 日志摘要查询
-- 缓存清单与增量同步
 
 特点：
 
 - 可部署在 Cloudflare / 边缘环境
-- 优先做缓存与权限裁剪
+- 优先做缓存、版本与配额治理
 - 不承载本地重任务
+- 不承载 session/cookie 登录态接口
+- 默认只支持 `api_key`
 
-### 8.2.2 管理 API
+### 8.2.2 第一方 Internal Query API
+
+面向第一方网站与 app 的读请求：
+
+- 入口页聚合
+- 单游戏详情读取
+- 收藏、历史、偏好相关读取
+- app manifest、离线快照与增量同步
+- 登录后个性化内容读取
+
+特点：
+
+- 属于 `service-internal`
+- 面向第一方客户端，不作为第三方公开契约
+- 可基于 `user` / `device` / `service` 主体做权限裁剪
+- 可承载第一方专用缓存协议与受控下载入口
+
+### 8.2.3 管理 API
 
 面向管理应用的写操作和任务调度：
 
@@ -823,9 +860,9 @@ v1 不建议直接做大量 `service-*`。
 - 必须有审计日志
 - 不直接在请求链路中做重型本地工作
 
-该组接口归属于 `service-console`。
+该组接口归属于 `service-internal`。
 
-### 8.2.3 桌面任务网关
+### 8.2.4 桌面任务网关
 
 用于桌面端获取“全能力任务”执行指令：
 
@@ -834,13 +871,14 @@ v1 不建议直接做大量 `service-*`。
 - 上传执行日志
 - 回写结果和产物索引
 
-这层属于 `service-console`，但协议上应与管理网页/手机端使用的 Admin API 单独分组。
+这层属于 `service-internal`，但协议上应与管理网页/手机端使用的 Admin API 单独分组。
 
-### 8.2.4 为什么是三入口而不是一个通用 API
+### 8.2.5 为什么是四类协议而不是一个通用 API
 
 不建议把所有请求都塞进一个“万能 API”：
 
-- 查询应用追求读性能、缓存命中和稳定输出
+- 第三方公开查询追求稳定契约、版本与配额控制
+- 第一方内部查询追求产品读模型、个性化上下文与缓存协议
 - 管理应用追求权限、审计、命令语义和状态机约束
 - 桌面网关追求长任务、设备身份、进度上报和产物回写
 
@@ -848,7 +886,8 @@ v1 不建议直接做大量 `service-*`。
 
 因此建议：
 
-- Query API：面向读
+- Public Query API：面向第三方公开读
+- Internal Query API：面向第一方产品读
 - Admin API：面向写
 - Desktop Gateway：面向执行
 
@@ -856,8 +895,8 @@ v1 不建议直接做大量 `service-*`。
 
 在当前拆分下：
 
-- `service-api` 对外提供 Query API
-- `service-console` 对内提供 Admin API 与 Desktop Gateway
+- `service-api` 对外提供 Public Query API
+- `service-internal` 对内提供 Auth API、Internal Query API、Admin API 与 Desktop Gateway
 
 ## 8.3 数据库访问原则
 
@@ -995,17 +1034,17 @@ v1 不建议直接做大量 `service-*`。
 可接受主体：
 
 - `anonymous`
-- `user`
 - `api_key`
 - `service`
 
 职责：
 
-- 仅提供 Query API
+- 仅提供第三方公开 Query API
 - 不承载管理写接口
 - 不承载桌面执行协议
+- 不承载 session/cookie 登录态接口
 
-#### `service-console`
+#### `service-internal`
 
 可接受主体：
 
@@ -1015,12 +1054,16 @@ v1 不建议直接做大量 `service-*`。
 
 职责：
 
+- 提供 Auth API
+- 提供 Internal Query API
 - 提供 Admin API
 - 提供 Desktop Gateway
 
 约束：
 
-- 普通 `api_key` 默认不允许进入 `service-console`
+- 浏览器第一方网站可通过 `session/cookie` 建立 `user` 主体
+- app 与桌面端登录后应进一步换取受控 token，并映射为 `user` 或 `device`
+- 普通 `api_key` 默认不允许进入 `service-internal`
 - 桌面端执行协议仅允许 `device` 主体访问
 
 ### 8.6.0.4 动作模型
@@ -1064,14 +1107,14 @@ handler 只声明需要的 `action` 与资源上下文。
 
 ### 8.6.1 查询应用
 
-- 用户登录态为主
-- 只读接口可配合匿名访问或轻权限访问
+- 网站与 app 共用同一身份源
+- 不强制要求网页 session 与 app session 自动互通
 
 建议进一步细化为：
 
-- 公开只读内容：允许 `anonymous`
-- 个性化只读内容：要求 `user`
-- 第三方程序化查询：允许 `api_key`
+- 公开第三方查询：走 `service-api`，允许 `api_key`
+- 第一方公开只读内容：可经由 `service-internal` 允许 `anonymous` 或轻权限访问
+- 第一方个性化内容：经由 `service-internal` 要求 `user`
 
 ### 8.6.2 管理应用网页端与手机端
 
@@ -1283,12 +1326,12 @@ handler 只声明需要的 `action` 与资源上下文。
 
 1. 用户在管理应用中创建 `full` 任务
 2. 管理 API 写入 `tasks`
-3. `service-console` 为该任务创建首个 `task_runs`
+3. `service-internal` 为该任务创建首个 `task_runs`
 4. 桌面端轮询或订阅可执行任务
 5. 桌面端领取租约，写入 `device_leases`
 6. 桌面端执行本地工作，并持续回传 `heartbeat`、进度、日志、产物
 7. 执行成功或失败后，更新 `task_runs`
-8. `service-console` 根据执行结果推进 `tasks` 业务态
+8. `service-internal` 根据执行结果推进 `tasks` 业务态
 9. 其他端读取 `tasks` 摘要，并在需要时展开查看 `task_runs`
 
 ## 10. 推荐实施顺序
