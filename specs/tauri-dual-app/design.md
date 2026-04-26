@@ -473,23 +473,23 @@ apps/
   site-<game>/             未来其他游戏查询网站
   app-main/                查询应用宿主
   site-admin/              管理应用网页端
-  app-admin-desktop/       管理应用桌面端宿主
-  app-admin-mobile/        管理应用手机端宿主
+  app-console-desktop/     管理应用桌面端宿主
+  app-console-mobile/      管理应用手机端宿主
   service-api/             查询 API 服务
   service-admin/           管理与桌面执行服务
 
 packages/
   query-core/              查询应用共享前端模块
-  app-admin/               管理应用共享前端模块
-  app-admin-capabilities/  管理能力协议与类型
+  app-console/             管理应用共享前端模块
+  app-console-capabilities/  管理能力协议与类型
   app-api-client/          API client、鉴权与请求封装
 ```
 
 其中：
 
 - `site-magic`、`site-hearthstone`、未来的 `site-<game>` 与 `app-main` 共享 `packages/query-core` 中的跨游戏通用能力，但不共享“单游戏详情页实现”
-- `site-admin`、`app-admin-desktop`、`app-admin-mobile` 共享 `packages/app-admin`
-- `app-admin-desktop` 与 `app-admin-mobile` 仅补充各自 Tauri 宿主、命令与能力桥接
+- `site-admin`、`app-console-desktop`、`app-console-mobile` 共享 `packages/app-console`
+- `app-console-desktop` 与 `app-console-mobile` 仅补充各自 Tauri 宿主、命令与能力桥接
 - 网页端复用管理 UI，但只开启轻量能力
 
 ### 6.3 为什么不把三端做成完全三套应用
@@ -563,8 +563,8 @@ clients
   site-magic / site-hearthstone / site-<game>
   app-main
   site-admin
-  app-admin-mobile
-  app-admin-desktop
+  app-console-mobile
+  app-console-desktop
 
 service layer
   Query API

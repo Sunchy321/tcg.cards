@@ -44,7 +44,7 @@
 当前设计已经把查询侧和管理侧拆成两条产品线：
 
 - 查询侧：`site-main`、`site-<game>`、`app-main`
-- 管理侧：`site-admin`、`app-admin-mobile`、`app-admin-desktop`
+- 管理侧：`site-admin`、`app-console-mobile`、`app-console-desktop`
 
 这比“一个 console 同时承载用户查询和管理任务”清晰得多。
 
