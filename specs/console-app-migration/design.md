@@ -151,7 +151,7 @@
 
 - `packages/app-console`：页面状态、领域模型、管理路由、组合式逻辑
 - `packages/app-console-capabilities`：宿主能力接口与错误模型
-- `packages/app-api-client`：认证、请求、错误处理、轮询
+- `packages/auth`：认证、请求、错误处理、权限管理与轮询
 
 ## 6. 目标代码结构
 
@@ -166,7 +166,7 @@ apps/
 packages/
   app-console/
   app-console-capabilities/
-  app-api-client/
+  auth/
 ```
 
 其中职责建议如下：
@@ -176,7 +176,7 @@ packages/
 - `site-admin`：轻量网页端入口
 - `packages/app-console`：共享页面模块、共享领域逻辑、共享路由定义
 - `packages/app-console-capabilities`：文件、Git、工具调用、上传、通知等能力抽象
-- `packages/app-api-client`：认证与远端管理接口访问
+- `packages/auth`：认证与权限访问封装
 
 ## 7. 分阶段迁移策略
 

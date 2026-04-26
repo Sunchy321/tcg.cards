@@ -1,0 +1,26 @@
+{
+  "name": "@tcg-cards/auth",
+  "module": "src/index.ts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "private": true,
+  "scripts": {
+    "build": "echo No build needed",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-auth": "^1.5.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "eslint": "^10.0.3",
+    "eslint-config-custom": "workspace:*"
+  },
+  "peerDependencies": {
+    "typescript": "^5",
+    "vue": "^3.5.0"
+  }
+}

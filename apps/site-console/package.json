@@ -27,6 +27,7 @@
     "@nuxt/ui": "^4.6.1",
     "@orpc/client": "^1.13.6",
     "@orpc/server": "^1.13.6",
+    "@tcg-cards/auth": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",

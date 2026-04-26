@@ -482,7 +482,7 @@ packages/
   query-core/              查询应用共享前端模块
   app-console/             管理应用共享前端模块
   app-console-capabilities/  管理能力协议与类型
-  app-api-client/          API client、鉴权与请求封装
+  auth/                    API client、鉴权与权限封装
 ```
 
 其中：
