@@ -1,15 +1,21 @@
-use reqwest::Client;
+use reqwest::cookie::{CookieStore, Jar};
+use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Manager};
 
 #[derive(Default)]
 struct AuthState {
     current: Mutex<Option<SessionClient>>,
 }
 
+#[derive(Clone)]
 struct SessionClient {
     base_url: String,
     client: Client,
+    jar: Arc<Jar>,
 }
 
 #[derive(Deserialize)]
@@ -84,16 +90,122 @@ impl From<RemoteAuthState> for DesktopAuthState {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredSession {
+    base_url: String,
+    cookie_header: String,
+}
+
 fn build_url(base_url: &str, path: &str) -> String {
     format!("{}{}", base_url.trim_end_matches('/'), path)
 }
 
-fn create_client() -> Result<Client, String> {
-    Client::builder()
-        .cookie_store(true)
+fn auth_cookie_url(base_url: &str) -> Result<Url, String> {
+    Url::parse(&build_url(base_url, "/auth/get-session"))
+        .map_err(|error| format!("Failed to parse auth URL: {error}"))
+}
+
+fn create_client(base_url: &str, cookie_header: Option<&str>) -> Result<SessionClient, String> {
+    let origin = auth_cookie_url(base_url)?;
+    let jar = Arc::new(Jar::default());
+
+    if let Some(cookie_header) = cookie_header {
+        for cookie in cookie_header.split(';') {
+            let cookie = cookie.trim();
+
+            if !cookie.is_empty() {
+                jar.add_cookie_str(cookie, &origin);
+            }
+        }
+    }
+
+    let client = Client::builder()
+        .cookie_provider(jar.clone())
         .user_agent("tcg-cards-console-desktop")
         .build()
-        .map_err(|error| format!("Failed to create auth client: {error}"))
+        .map_err(|error| format!("Failed to create auth client: {error}"))?;
+
+    Ok(SessionClient {
+        base_url: base_url.to_string(),
+        client,
+        jar,
+    })
+}
+
+fn session_file(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Failed to resolve app data directory: {error}"))?;
+
+    Ok(dir.join("auth-session.json"))
+}
+
+fn load_stored_session(app: &AppHandle) -> Result<Option<StoredSession>, String> {
+    let path = session_file(app)?;
+
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let text = fs::read_to_string(&path)
+        .map_err(|error| format!("Failed to read stored session: {error}"))?;
+
+    let stored = serde_json::from_str::<StoredSession>(&text)
+        .map_err(|error| format!("Failed to decode stored session: {error}"))?;
+
+    Ok(Some(stored))
+}
+
+fn clear_stored_session(app: &AppHandle) -> Result<(), String> {
+    let path = session_file(app)?;
+
+    if path.exists() {
+        fs::remove_file(path)
+            .map_err(|error| format!("Failed to remove stored session: {error}"))?;
+    }
+
+    Ok(())
+}
+
+fn store_session(app: &AppHandle, session_client: &SessionClient) -> Result<(), String> {
+    let path = session_file(app)?;
+    let Some(parent) = path.parent() else {
+        return Err("Failed to resolve session storage directory".to_string());
+    };
+
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("Failed to create session storage directory: {error}"))?;
+
+    let origin = auth_cookie_url(&session_client.base_url)?;
+    let cookie_header = session_client
+        .jar
+        .cookies(&origin)
+        .ok_or_else(|| "No auth cookies were available to store".to_string())?
+        .to_str()
+        .map_err(|error| format!("Failed to serialize auth cookies: {error}"))?
+        .to_string();
+
+    let stored = StoredSession {
+        base_url: session_client.base_url.clone(),
+        cookie_header,
+    };
+
+    let text = serde_json::to_string(&stored)
+        .map_err(|error| format!("Failed to encode stored session: {error}"))?;
+
+    fs::write(path, text).map_err(|error| format!("Failed to write stored session: {error}"))?;
+
+    Ok(())
+}
+
+fn restore_session_client(app: &AppHandle) -> Result<Option<SessionClient>, String> {
+    let Some(stored) = load_stored_session(app)? else {
+        return Ok(None);
+    };
+
+    create_client(&stored.base_url, Some(&stored.cookie_header)).map(Some)
 }
 
 async fn parse_error(response: reqwest::Response) -> String {
@@ -117,12 +229,10 @@ async fn parse_error(response: reqwest::Response) -> String {
     }
 }
 
-async fn fetch_session(
-    client: &Client,
-    base_url: &str,
-) -> Result<Option<DesktopAuthState>, String> {
-    let response = client
-        .get(build_url(base_url, "/auth/get-session"))
+async fn fetch_session(session_client: &SessionClient) -> Result<Option<DesktopAuthState>, String> {
+    let response = session_client
+        .client
+        .get(build_url(&session_client.base_url, "/auth/get-session"))
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await
@@ -142,14 +252,16 @@ async fn fetch_session(
 
 #[tauri::command]
 async fn auth_sign_in(
+    app: AppHandle,
     state: tauri::State<'_, AuthState>,
     base_url: String,
     username: String,
     password: String,
 ) -> Result<DesktopAuthState, String> {
-    let client = create_client()?;
+    let session_client = create_client(&base_url, None)?;
 
-    let response = client
+    let response = session_client
+        .client
         .post(build_url(&base_url, "/auth/sign-in/username"))
         .header(reqwest::header::ACCEPT, "application/json")
         .json(&serde_json::json!({
@@ -164,57 +276,86 @@ async fn auth_sign_in(
         return Err(parse_error(response).await);
     }
 
-    let session = fetch_session(&client, &base_url)
+    let session = fetch_session(&session_client)
         .await?
         .ok_or_else(|| "Sign in succeeded but no session was returned".to_string())?;
+
+    store_session(&app, &session_client)?;
 
     let mut current = state
         .current
         .lock()
         .map_err(|_| "Failed to update auth state".to_string())?;
 
-    *current = Some(SessionClient { base_url, client });
+    *current = Some(session_client);
 
     Ok(session)
 }
 
 #[tauri::command]
 async fn auth_get_session(
+    app: AppHandle,
     state: tauri::State<'_, AuthState>,
 ) -> Result<Option<DesktopAuthState>, String> {
-    let (base_url, client) = {
+    let session_client = {
         let current = state
             .current
             .lock()
             .map_err(|_| "Failed to read auth state".to_string())?;
 
-        let Some(current) = current.as_ref() else {
-            return Ok(None);
-        };
-
-        (current.base_url.clone(), current.client.clone())
+        current.clone()
     };
 
-    fetch_session(&client, &base_url).await
+    let Some(session_client) = (match session_client {
+        Some(current) => Some(current),
+        None => restore_session_client(&app)?,
+    }) else {
+        return Ok(None);
+    };
+
+    let session = fetch_session(&session_client).await?;
+
+    if session.is_some() {
+        store_session(&app, &session_client)?;
+
+        let mut current = state
+            .current
+            .lock()
+            .map_err(|_| "Failed to update auth state".to_string())?;
+
+        *current = Some(session_client);
+    } else {
+        let mut current = state
+            .current
+            .lock()
+            .map_err(|_| "Failed to clear auth state".to_string())?;
+
+        *current = None;
+        clear_stored_session(&app)?;
+    }
+
+    Ok(session)
 }
 
 #[tauri::command]
-async fn auth_sign_out(state: tauri::State<'_, AuthState>) -> Result<(), String> {
-    let (base_url, client) = {
+async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Result<(), String> {
+    let session_client = {
         let current = state
             .current
             .lock()
             .map_err(|_| "Failed to read auth state".to_string())?;
 
         let Some(current) = current.as_ref() else {
+            clear_stored_session(&app)?;
             return Ok(());
         };
 
-        (current.base_url.clone(), current.client.clone())
+        current.clone()
     };
 
-    let response = client
-        .post(build_url(&base_url, "/auth/sign-out"))
+    let response = session_client
+        .client
+        .post(build_url(&session_client.base_url, "/auth/sign-out"))
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await
@@ -230,6 +371,7 @@ async fn auth_sign_out(state: tauri::State<'_, AuthState>) -> Result<(), String>
         .map_err(|_| "Failed to clear auth state".to_string())?;
 
     *current = None;
+    clear_stored_session(&app)?;
 
     Ok(())
 }

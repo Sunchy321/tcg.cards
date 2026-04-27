@@ -126,7 +126,7 @@ onMounted(() => {
       <p class="lede">
         Authentication is handled by
         <code>{{ internalAuthURL }}</code>
-        and the Better Auth session stays inside the Tauri runtime.
+        and the Better Auth session is restored from the desktop runtime on relaunch.
       </p>
 
       <template v-if="loading">
@@ -173,7 +173,7 @@ onMounted(() => {
         <div>
           <p class="eyebrow">Main Window</p>
           <h1>{{ session.user.name }}</h1>
-          <p class="lede">Signed in through `service-internal` with a Rust-managed Better Auth session.</p>
+          <p class="lede">Signed in through `service-internal` with a Rust-managed Better Auth session that survives app restarts.</p>
         </div>
 
         <div class="toolbar">
