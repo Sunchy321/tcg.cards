@@ -25,6 +25,7 @@ export function createServerAuth(options: CreateServerAuthOptions) {
   }).process;
 
   return betterAuth({
+    basePath: '/auth',
     secret: options.secret ?? nodeProcess?.env?.BETTER_AUTH_SECRET,
 
     database: drizzleAdapter(options.database, {

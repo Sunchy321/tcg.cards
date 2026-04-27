@@ -10,6 +10,7 @@ export interface CreateConsoleAuthClientOptions {
 
 export function createConsoleAuthClient(options: CreateConsoleAuthClientOptions) {
   return createAuthClient({
+    basePath: '/auth',
     baseURL: options.baseURL,
     plugins: [usernameClient()],
   });

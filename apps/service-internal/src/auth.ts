@@ -1,17 +1,13 @@
 import { createServerAuth } from '@tcg-cards/auth';
 
-import { db } from '@tcg-cards/db';
+import { createDb } from '@tcg-cards/db';
 import { accounts, sessions, users, verifications } from '@tcg-cards/db';
 
 import type { InternalServiceEnv } from './env';
 
-let auth: ReturnType<typeof createServerAuth> | null = null;
-
 export function getAuth(env: InternalServiceEnv) {
-  (globalThis as { HYPERDRIVE?: InternalServiceEnv['HYPERDRIVE'] }).HYPERDRIVE = env.HYPERDRIVE;
-
-  auth ??= createServerAuth({
-    database: db,
+  return createServerAuth({
+    database: createDb(env.HYPERDRIVE.connectionString),
     secret:   env.BETTER_AUTH_SECRET,
     schema:   {
       users,
@@ -20,6 +16,4 @@ export function getAuth(env: InternalServiceEnv) {
       verifications,
     },
   });
-
-  return auth;
 }

@@ -69,7 +69,7 @@
 当前 `site-console` 的服务端接口主要由两部分组成：
 
 - ORPC：`apps/site-console/server/orpc/*`
-- Auth API：`apps/site-console/server/routes/api/auth/[...].ts`
+- Auth API：`apps/site-console/server/routes/auth/[...].ts`
 
 路由总入口为：
 
@@ -102,7 +102,7 @@
 
 | 接口 | 文件 | 当前作用 | 迁移建议 |
 |------|------|------|------|
-| `/api/auth/[...]` | `apps/site-console/server/routes/api/auth/[...].ts` | `better-auth` 登录、会话、登出 | 保持远端认证服务，桌面端改用独立 auth client 消费 |
+| `/auth/[...]` | `apps/site-console/server/routes/auth/[...].ts` | `better-auth` 登录、会话、登出 | 保持远端认证服务，桌面端改用独立 auth client 消费 |
 
 ## 4. 脚本与本地能力清单
 

@@ -1,160 +1,228 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { computed, onMounted, reactive, ref } from "vue";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isAdminRole } from "@tcg-cards/auth";
 
-const greetMsg = ref("");
-const name = ref("");
+import { getSession, internalAuthURL, signIn, signOut, type DesktopAuthState } from "./auth";
+import { ensureLoginWindow, ensureMainWindow } from "./windows";
 
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("greet", { name: name.value });
+const form = reactive({
+  username: "",
+  password: "",
+});
+
+const currentWindow = getCurrentWindow();
+const isLoginWindow = currentWindow.label === "login";
+
+const loading = ref(true);
+const submitting = ref(false);
+const errorMsg = ref("");
+const session = ref<DesktopAuthState | null>(null);
+
+const role = computed(() => session.value?.user.role ?? null);
+const hasAdminAccess = computed(() => isAdminRole(role.value));
+
+async function switchToMainWindow() {
+  await ensureMainWindow();
+  await currentWindow.close();
 }
+
+async function switchToLoginWindow() {
+  await ensureLoginWindow();
+  await currentWindow.close();
+}
+
+async function refreshSession() {
+  loading.value = true;
+  errorMsg.value = "";
+
+  try {
+    const nextSession = await getSession();
+
+    if (!nextSession) {
+      session.value = null;
+
+      if (!isLoginWindow) {
+        await switchToLoginWindow();
+      }
+
+      return;
+    }
+
+    if (!isAdminRole(nextSession.user.role)) {
+      await signOut();
+      session.value = null;
+
+      if (isLoginWindow) {
+        errorMsg.value = "Admin role is required to access the desktop console.";
+      } else {
+        await switchToLoginWindow();
+      }
+
+      return;
+    }
+
+    session.value = nextSession;
+
+    if (isLoginWindow) {
+      await switchToMainWindow();
+    }
+  } catch (error) {
+    errorMsg.value = error instanceof Error ? error.message : "Failed to restore session";
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function handleSignIn() {
+  submitting.value = true;
+  errorMsg.value = "";
+
+  try {
+    const nextSession = await signIn(form);
+
+    if (!isAdminRole(nextSession.user.role)) {
+      await signOut();
+      session.value = null;
+      errorMsg.value = "Admin role is required to access the desktop console.";
+      return;
+    }
+
+    session.value = nextSession;
+    form.password = "";
+    await switchToMainWindow();
+  } catch (error) {
+    errorMsg.value = error instanceof Error ? error.message : "Failed to sign in";
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function handleSignOut() {
+  submitting.value = true;
+  errorMsg.value = "";
+
+  try {
+    await signOut();
+    session.value = null;
+    await switchToLoginWindow();
+  } catch (error) {
+    errorMsg.value = error instanceof Error ? error.message : "Failed to sign out";
+  } finally {
+    submitting.value = false;
+  }
+}
+
+onMounted(() => {
+  void refreshSession();
+});
 </script>
 
 <template>
-  <main class="container">
-    <h1>Welcome to Tauri + Vue</h1>
+  <main v-if="isLoginWindow" class="login-shell">
+    <section class="login-card">
+      <p class="eyebrow">Desktop Console</p>
+      <h1>Sign in with the internal service.</h1>
+      <p class="lede">
+        Authentication is handled by
+        <code>{{ internalAuthURL }}</code>
+        and the Better Auth session stays inside the Tauri runtime.
+      </p>
 
-    <div class="row">
-      <a href="https://vite.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
-      </a>
-      <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
-      </a>
-      <a href="https://vuejs.org/" target="_blank">
-        <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-      </a>
-    </div>
-    <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
+      <template v-if="loading">
+        <p class="status">Checking current session...</p>
+      </template>
 
-    <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
-      <button type="submit">Greet</button>
-    </form>
-    <p>{{ greetMsg }}</p>
+      <template v-else>
+        <form class="form" @submit.prevent="handleSignIn">
+          <label class="field">
+            <span>Username</span>
+            <input v-model="form.username" autocomplete="username" required />
+          </label>
+
+          <label class="field">
+            <span>Password</span>
+            <input
+              v-model="form.password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+
+          <button type="submit" :disabled="submitting">
+            {{ submitting ? "Signing In..." : "Sign In" }}
+          </button>
+        </form>
+      </template>
+
+      <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
+    </section>
+  </main>
+
+  <main v-else class="main-shell">
+    <template v-if="loading">
+      <section class="status-card">
+        <p class="eyebrow">Desktop Console</p>
+        <h1>Loading session...</h1>
+      </section>
+    </template>
+
+    <template v-else-if="session">
+      <section class="hero-card">
+        <div>
+          <p class="eyebrow">Main Window</p>
+          <h1>{{ session.user.name }}</h1>
+          <p class="lede">Signed in through `service-internal` with a Rust-managed Better Auth session.</p>
+        </div>
+
+        <div class="toolbar">
+          <span class="badge" :class="{ danger: !hasAdminAccess }">
+            {{ session.user.role ?? "user" }}
+          </span>
+          <button class="secondary" :disabled="submitting" @click="refreshSession">
+            Refresh Session
+          </button>
+          <button :disabled="submitting" @click="handleSignOut">Sign Out</button>
+        </div>
+      </section>
+
+      <section class="facts-grid">
+        <article class="fact-card">
+          <p class="label">Username</p>
+          <p class="value">{{ session.user.username ?? "—" }}</p>
+        </article>
+
+        <article class="fact-card">
+          <p class="label">Email</p>
+          <p class="value">{{ session.user.email }}</p>
+        </article>
+
+        <article class="fact-card">
+          <p class="label">Session ID</p>
+          <p class="value">{{ session.session.id }}</p>
+        </article>
+
+        <article class="fact-card">
+          <p class="label">Expires</p>
+          <p class="value">{{ session.session.expiresAt }}</p>
+        </article>
+      </section>
+    </template>
+
+    <template v-else>
+      <section class="status-card">
+        <p class="eyebrow">Desktop Console</p>
+        <h1>Session unavailable.</h1>
+        <p class="lede">The main window could not restore the current login state.</p>
+        <div class="toolbar">
+          <button class="secondary" :disabled="submitting" @click="refreshSession">
+            Retry
+          </button>
+        </div>
+      </section>
+    </template>
+
+    <p v-if="errorMsg" class="error floating-error">{{ errorMsg }}</p>
   </main>
 </template>
-
-<style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
-</style>
-<style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
-}
-
-</style>

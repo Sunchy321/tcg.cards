@@ -4,24 +4,28 @@ import { getAuth } from './auth';
 
 import type { InternalServiceEnv } from './env';
 
-const app = new Hono<{
+const hono = new Hono<{
   Bindings: InternalServiceEnv;
 }>();
 
-app.get('/', c => c.json({
+hono.get('/', c => c.json({
   service: 'service-internal',
   status:  'ok',
   auth:    'better-auth',
 }));
 
-app.get('/health', c => c.json({
+hono.get('/health', c => c.json({
   service: 'service-internal',
   status:  'ok',
   time:    new Date().toISOString(),
 }));
 
-app.all('/api/auth/*', c => {
-  return getAuth(c.env).handler(c.req.raw);
+function handleAuthRequest(request: Request, env: InternalServiceEnv) {
+  return getAuth(env).handler(request);
+}
+
+hono.all('/auth/*', c => {
+  return handleAuthRequest(c.req.raw, c.env);
 });
 
-export default app;
+export default hono;

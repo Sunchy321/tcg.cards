@@ -12,9 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "tcg-cards-console-desktop",
-        "width": 800,
-        "height": 600
+        "label": "login",
+        "title": "Sign In - TCG Cards Console",
+        "width": 460,
+        "height": 640,
+        "minWidth": 420,
+        "minHeight": 560,
+        "center": true
       }
     ],
     "security": {

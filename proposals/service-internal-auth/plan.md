@@ -4,7 +4,7 @@
 
 - [x] 调整共享 auth 工厂以支持 Worker 环境注入 secret
 - [x] 将 `service-internal` 从 Nuxt 服务替换为 Hono Worker
-- [x] 保持 `site-console` 的 `/api/auth/[...]` 转发目标不变
+- [x] 保持 `site-console` 的 `/auth/[...]` 转发目标不变
 - [x] 清理 Nuxt 专属文件与依赖
 - [x] 验证 `service-internal` 与 `site-console` 的类型检查
 
@@ -20,7 +20,7 @@
 
 ### 3. 切换 `site-console` 的认证入口
 
-保留前端同源访问方式，仅将服务端 `/api/auth/[...]` 改为转发到 `service-internal`。
+保留前端同源访问方式，仅将服务端 `/auth/[...]` 改为转发到 `service-internal`。
 
 ### 4. 配置与校验
 

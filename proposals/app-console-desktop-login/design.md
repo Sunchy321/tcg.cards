@@ -1,0 +1,120 @@
+# app-console-desktop 登录功能设计
+
+## 背景
+
+当前 `apps/app-console-desktop` 仍是 Tauri 初始化模板，尚未具备任何正式业务能力。
+
+仓库内现有管理登录能力主要存在于：
+
+- `site-console`：网页端登录页与管理壳层
+- `service-internal`：当前统一承载 Better Auth 登录服务
+
+本次需求是让 `app-console-desktop` 具备独立登录能力，并明确以 `service-internal` 作为登录后端。
+
+## 目标
+
+1. 为 `app-console-desktop` 提供独立登录窗口
+2. 通过 `service-internal` 完成用户名密码登录
+3. 登录成功后打开主界面窗口
+4. 主界面默认以最大化状态打开
+5. 桌面端可在登录后读取当前 session 并展示基础用户信息
+6. 提供退出登录能力
+
+## 非目标
+
+1. 本次不迁移完整管理路由与管理布局
+2. 本次不接入 ORPC 管理接口
+3. 本次不实现跨应用共享 session
+4. 本次不实现持久化登录到下次应用重启
+
+## 方案
+
+### 1. Rust 侧持有认证会话
+
+桌面端不直接依赖 WebView 的浏览器 cookie 行为。
+
+改为在 `src-tauri` 内通过 `reqwest::Client` + cookie store 管理登录态：
+
+- 登录时由 Rust 命令请求 `service-internal`
+- Better Auth 返回的 session cookie 存入 `reqwest` 的 cookie jar
+- 后续 `getSession` 与 `signOut` 继续复用同一 client
+
+这样可以避免：
+
+- WebView 跨域 cookie 不稳定
+- 桌面端 origin 与网页端 origin 不一致导致的 cookie 限制
+- 前端直接管理认证 cookie 的复杂度
+
+### 2. 提供三组 Tauri command
+
+新增命令：
+
+- `auth_sign_in`
+- `auth_get_session`
+- `auth_sign_out`
+
+命令职责：
+
+- `auth_sign_in`：用户名密码登录，并在成功后返回当前 session
+- `auth_get_session`：返回当前内存中的登录态对应的服务端 session
+- `auth_sign_out`：调用 Better Auth 退出登录接口，并清理本地 client
+
+### 3. 配置内部服务地址
+
+桌面端通过前端环境变量指定认证服务地址，例如：
+
+- `VITE_INTERNAL_AUTH_URL=http://localhost:2998`
+
+默认本地开发回退到 `http://localhost:2998`。
+
+### 4. 双窗口壳层
+
+桌面端改为两个窗口角色：
+
+- `login`：应用启动时默认打开，仅承载登录流程
+- `main`：登录成功后再创建，用于承载主界面
+
+窗口流转规则：
+
+- 应用启动后只显示 `login`
+- `login` 启动时先调用 `auth_get_session`
+- 若当前运行期内已有有效 session，则直接打开 `main` 并关闭 `login`
+- 登录成功后创建 `main` 窗口，再关闭 `login`
+- 退出登录后重新打开 `login`，并关闭 `main`
+
+### 5. 主窗口默认最大化
+
+`main` 窗口创建时显式设置 `maximized: true`，避免依赖用户手动调整窗口尺寸。
+
+### 6. 前端分窗体渲染
+
+继续使用单套 Vue 前端入口，但根据当前 Tauri 窗口 label 渲染不同界面：
+
+- `login` 窗口：显示登录表单与登录态校验提示
+- `main` 窗口：显示已登录用户信息和退出登录操作
+
+这样可以避免额外引入路由层或多入口打包配置，同时保持窗口职责清晰。
+
+## 风险与约束
+
+### 1. 登录态仅在当前应用运行期内保持
+
+本次不做 cookie jar 落盘，因此关闭应用后需要重新登录。
+
+### 2. 仍依赖 `service-internal` 的可达性
+
+桌面端无法脱离 `service-internal` 独立认证。
+
+### 3. 权限判断只做基础校验
+
+本次只需确认用户已登录，并展示角色信息；后续页面级能力控制应在完整管理壳层阶段继续建设。
+
+## 验收标准
+
+1. `app-console-desktop` 启动后先显示独立登录窗口，而不是模板页
+2. 输入用户名密码后可通过 `service-internal` 登录
+3. 登录成功后关闭登录窗口并打开主界面
+4. 主界面首次打开时默认处于最大化状态
+5. 主界面可展示当前用户与角色信息
+6. 点击退出登录后可关闭主界面并重新回到登录窗口
+7. 前后端代码通过基础类型检查或构建验证

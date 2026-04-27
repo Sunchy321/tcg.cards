@@ -1,0 +1,260 @@
+:root {
+  color: #ecfeff;
+  background:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.22), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.18), transparent 24%),
+    linear-gradient(180deg, #07131a 0%, #02070a 100%);
+  font-family:
+    "IBM Plex Sans",
+    "Segoe UI",
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.9rem 1.1rem;
+  color: #04111b;
+  background: linear-gradient(135deg, #67e8f9 0%, #2dd4bf 100%);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+button.secondary {
+  color: #dffcff;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(103, 232, 249, 0.18);
+}
+
+input {
+  width: 100%;
+  border: 1px solid rgba(125, 211, 252, 0.2);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  color: #ecfeff;
+  background: rgba(10, 19, 28, 0.74);
+  outline: none;
+}
+
+input:focus {
+  border-color: rgba(103, 232, 249, 0.6);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12);
+}
+
+code {
+  font-family:
+    "SFMono-Regular",
+    "SF Mono",
+    monospace;
+}
+
+.login-shell,
+.main-shell {
+  min-height: 100vh;
+}
+
+.login-shell {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.main-shell {
+  padding: 24px;
+}
+
+.login-card,
+.hero-card,
+.fact-card,
+.status-card {
+  border: 1px solid rgba(125, 211, 252, 0.12);
+  border-radius: 28px;
+  background: rgba(5, 13, 20, 0.76);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(16px);
+}
+
+.login-card {
+  width: min(100%, 440px);
+  padding: 32px;
+}
+
+.hero-card,
+.status-card {
+  padding: 32px;
+}
+
+.hero-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.facts-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.fact-card {
+  padding: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #67e8f9;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.lede {
+  margin: 18px 0 0;
+  color: rgba(236, 254, 255, 0.74);
+  font-size: 1rem;
+}
+
+.lede code {
+  color: #a5f3fc;
+}
+
+.status,
+.error {
+  margin: 16px 0 0;
+  font-size: 0.96rem;
+}
+
+.error {
+  color: #fda4af;
+}
+
+.floating-error {
+  margin-top: 16px;
+}
+
+.form {
+  margin-top: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field span,
+.label {
+  color: rgba(165, 243, 252, 0.82);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  color: #05202d;
+  background: #67e8f9;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge.danger {
+  color: #450a0a;
+  background: #fda4af;
+}
+
+.value {
+  margin: 10px 0 0;
+  color: #f0fdff;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1080px) {
+  .hero-card {
+    flex-direction: column;
+  }
+
+  .facts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .login-shell,
+  .main-shell {
+    padding: 16px;
+  }
+
+  .login-card,
+  .hero-card,
+  .fact-card,
+  .status-card {
+    border-radius: 22px;
+  }
+
+  .facts-grid {
+    grid-template-columns: 1fr;
+  }
+}

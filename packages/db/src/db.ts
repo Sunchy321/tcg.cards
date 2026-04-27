@@ -20,17 +20,21 @@ type Db = ReturnType<typeof drizzle>;
 
 let _db: Db | null = null;
 
-function createDb() {
+export function createDb(connection: string): Db {
+  return drizzle({ connection });
+}
+
+function getDb() {
   if (process.env.NODE_ENV === 'development') {
-    _db ??= drizzle({ connection: getHyperdrive().connectionString });
+    _db ??= createDb(getHyperdrive().connectionString);
     return _db;
   } else {
-    return drizzle({ connection: getHyperdrive().connectionString });
+    return createDb(getHyperdrive().connectionString);
   }
 }
 
 export const db: Db = new Proxy({} as Db, {
   get(_, prop: string | symbol) {
-    return createDb()[prop as keyof Db];
+    return getDb()[prop as keyof Db];
   },
 });
