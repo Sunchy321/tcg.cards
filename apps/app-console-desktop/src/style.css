@@ -1,9 +1,10 @@
 @import "tailwindcss";
+@import "@nuxt/ui";
 
 @theme static {
   --font-sans: "Public Sans", "Segoe UI", sans-serif;
 
-  --color-console-50: #eef2ff;
+  --color-console-50:  #eef2ff;
   --color-console-100: #e0e7ff;
   --color-console-200: #c7d2fe;
   --color-console-300: #a5b4fc;
@@ -16,41 +17,11 @@
   --color-console-950: #1e1b4b;
 }
 
-:root {
-  color: #0f172a;
-  background: #f8fafc;
-  font-family: "Public Sans", "Segoe UI", sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app {
+html, body, #app {
   min-height: 100vh;
 }
 
 body {
   margin: 0;
   min-width: 320px;
-}
-
-button,
-input {
-  font: inherit;
-}
-
-code {
-  font-family:
-    "SFMono-Regular",
-    "SF Mono",
-    monospace;
 }

@@ -106,6 +106,12 @@ fn auth_cookie_url(base_url: &str) -> Result<Url, String> {
         .map_err(|error| format!("Failed to parse auth URL: {error}"))
 }
 
+fn auth_origin_header(base_url: &str) -> Result<String, String> {
+    let url = Url::parse(base_url).map_err(|error| format!("Failed to parse auth URL: {error}"))?;
+
+    Ok(url.origin().ascii_serialization())
+}
+
 fn create_client(base_url: &str, cookie_header: Option<&str>) -> Result<SessionClient, String> {
     let origin = auth_cookie_url(base_url)?;
     let jar = Arc::new(Jar::default());
@@ -357,6 +363,8 @@ async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Re
         .client
         .post(build_url(&session_client.base_url, "/auth/sign-out"))
         .header(reqwest::header::ACCEPT, "application/json")
+        .header(reqwest::header::ORIGIN, auth_origin_header(&session_client.base_url)?)
+        .json(&serde_json::json!({}))
         .send()
         .await
         .map_err(|error| format!("Failed to sign out: {error}"))?;
@@ -376,6 +384,61 @@ async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Re
     Ok(())
 }
 
+const CREDENTIAL_SERVICE: &str = "tcg-cards-console-desktop";
+
+#[tauri::command]
+fn create_login_window(app: AppHandle) -> Result<(), String> {
+    if app.get_webview_window("login").is_some() {
+        return Ok(());
+    }
+
+    let config = app.config();
+    let window_config = config
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "login")
+        .ok_or_else(|| "Login window config not found".to_string())?;
+
+    tauri::WebviewWindowBuilder::from_config(&app, window_config)
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn credential_get(username: &str) -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new(CREDENTIAL_SERVICE, username).map_err(|e| e.to_string())?;
+
+    match entry.get_password() {
+        Ok(password) => Ok(Some(password)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+fn credential_set(username: String, password: String) -> Result<(), String> {
+    keyring::Entry::new(CREDENTIAL_SERVICE, &username)
+        .map_err(|e| e.to_string())?
+        .set_password(&password)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn credential_delete(username: String) -> Result<(), String> {
+    let entry =
+        keyring::Entry::new(CREDENTIAL_SERVICE, &username).map_err(|e| e.to_string())?;
+
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -384,7 +447,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             auth_sign_in,
             auth_get_session,
-            auth_sign_out
+            auth_sign_out,
+            credential_get,
+            credential_set,
+            credential_delete,
+            create_login_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

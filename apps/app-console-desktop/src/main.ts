@@ -1,5 +1,13 @@
-import { createApp } from "vue";
-import App from "./App.vue";
-import "./style.css";
+import { createApp } from 'vue';
+import ui from '@nuxt/ui/vue-plugin';
+import App from './App.vue';
+import './style.css';
 
-createApp(App).mount("#app");
+// Sync system color scheme to dark class on <html>
+const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
+document.documentElement.classList.toggle('dark', darkMq.matches);
+darkMq.addEventListener('change', e => {
+  document.documentElement.classList.toggle('dark', e.matches);
+});
+
+createApp(App).use(ui).mount('#app');
