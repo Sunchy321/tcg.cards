@@ -6,7 +6,8 @@
     "paths": {
       "@tcg-cards/auth": ["./node_modules/@tcg-cards/auth/src/index.ts"],
       "@tcg-cards/db": ["./node_modules/@tcg-cards/db/src/index.ts"],
-      "#model/*": ["./node_modules/@tcg-cards/db/node_modules/@tcg-cards/model/src/*"]
+      "#model/*": ["./node_modules/@tcg-cards/db/node_modules/@tcg-cards/model/src/*"],
+      "#schema/*": ["./node_modules/@tcg-cards/db/src/schema/*"]
     },
     "strict": true,
     "skipLibCheck": true,

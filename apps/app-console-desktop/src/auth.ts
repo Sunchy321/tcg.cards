@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { ref } from 'vue';
 
 export interface DesktopAuthUser {
   id:       string;
@@ -14,15 +15,17 @@ export interface DesktopAuthSession {
 }
 
 export interface DesktopAuthState {
+  baseUrl: string;
   user:    DesktopAuthUser;
   session: DesktopAuthSession;
 }
 
-export const internalAuthURL = import.meta.env.VITE_INTERNAL_AUTH_URL ?? 'http://localhost:2998';
+// Global reactive auth state shared across all components
+export const currentAuthState = ref<DesktopAuthState | null>(null);
 
-export function signIn(input: { username: string, password: string }) {
+export function signIn(input: { baseUrl: string, username: string, password: string }) {
   return invoke<DesktopAuthState>('auth_sign_in', {
-    baseUrl:  internalAuthURL,
+    baseUrl:  input.baseUrl,
     username: input.username,
     password: input.password,
   });
@@ -34,4 +37,8 @@ export function getSession() {
 
 export function signOut() {
   return invoke('auth_sign_out');
+}
+
+export function getCookieHeader() {
+  return invoke<string | null>('auth_get_cookie_header');
 }

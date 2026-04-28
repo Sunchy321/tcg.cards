@@ -11,6 +11,7 @@
     "core:window:allow-unminimize",
     "core:window:allow-maximize",
     "core:window:allow-set-focus",
+    "http:default",
     "opener:default"
   ]
 }

@@ -51,6 +51,7 @@ struct RemoteUser {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DesktopAuthState {
+    base_url: String,
     session: DesktopSession,
     user: DesktopUser,
 }
@@ -72,21 +73,20 @@ struct DesktopUser {
     role: Option<String>,
 }
 
-impl From<RemoteAuthState> for DesktopAuthState {
-    fn from(value: RemoteAuthState) -> Self {
-        Self {
-            session: DesktopSession {
-                id: value.session.id,
-                expires_at: value.session.expires_at,
-            },
-            user: DesktopUser {
-                id: value.user.id,
-                name: value.user.name,
-                email: value.user.email,
-                username: value.user.username,
-                role: value.user.role,
-            },
-        }
+fn build_desktop_auth_state(base_url: &str, remote: RemoteAuthState) -> DesktopAuthState {
+    DesktopAuthState {
+        base_url: base_url.to_string(),
+        session: DesktopSession {
+            id: remote.session.id,
+            expires_at: remote.session.expires_at,
+        },
+        user: DesktopUser {
+            id: remote.user.id,
+            name: remote.user.name,
+            email: remote.user.email,
+            username: remote.user.username,
+            role: remote.user.role,
+        },
     }
 }
 
@@ -253,7 +253,7 @@ async fn fetch_session(session_client: &SessionClient) -> Result<Option<DesktopA
         .await
         .map_err(|error| format!("Failed to decode session: {error}"))?;
 
-    Ok(session.map(Into::into))
+    Ok(session.map(|s| build_desktop_auth_state(&session_client.base_url, s)))
 }
 
 #[tauri::command]
@@ -387,6 +387,26 @@ async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Re
 const CREDENTIAL_SERVICE: &str = "tcg-cards-console-desktop";
 
 #[tauri::command]
+fn auth_get_cookie_header(state: tauri::State<'_, AuthState>) -> Result<Option<String>, String> {
+    let current = state
+        .current
+        .lock()
+        .map_err(|_| "Failed to read auth state".to_string())?;
+
+    let Some(ref session_client) = *current else {
+        return Ok(None);
+    };
+
+    let origin = auth_cookie_url(&session_client.base_url)?;
+    let cookie_header = session_client
+        .jar
+        .cookies(&origin)
+        .map(|v| v.to_str().unwrap_or("").to_string());
+
+    Ok(cookie_header)
+}
+
+#[tauri::command]
 fn create_login_window(app: AppHandle) -> Result<(), String> {
     if app.get_webview_window("login").is_some() {
         return Ok(());
@@ -444,10 +464,12 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AuthState::default())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             auth_sign_in,
             auth_get_session,
             auth_sign_out,
+            auth_get_cookie_header,
             credential_get,
             credential_set,
             credential_delete,

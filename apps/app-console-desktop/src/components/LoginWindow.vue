@@ -4,10 +4,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isAdminRole } from '@tcg-cards/auth';
 
-import { getSession, signIn, signOut } from '../auth';
+import { currentAuthState, getSession, signIn, signOut } from '../auth';
 import { ensureMainWindow } from '../windows';
 
 const STORED_USERNAME_KEY = 'console-desktop-username';
+
+const BASE_URL = import.meta.env.VITE_INTERNAL_AUTH_URL as string ?? 'http://localhost:2998';
 
 const form = reactive({
   username: localStorage.getItem(STORED_USERNAME_KEY) ?? '',
@@ -39,13 +41,19 @@ async function handleSignIn() {
   errorMsg.value = '';
 
   try {
-    const session = await signIn(form);
+    const session = await signIn({
+      baseUrl:  BASE_URL,
+      username: form.username,
+      password: form.password,
+    });
 
     if (!isAdminRole(session.user.role)) {
       await signOut();
       errorMsg.value = 'Admin role is required to access the desktop console.';
       return;
     }
+
+    currentAuthState.value = session;
 
     // Persist credentials
     localStorage.setItem(STORED_USERNAME_KEY, form.username);
@@ -79,6 +87,8 @@ onMounted(async () => {
       errorMsg.value = 'Admin role is required to access the desktop console.';
       return;
     }
+
+    currentAuthState.value = session;
 
     // Already authenticated — go straight to main window
     await switchToMainWindow();
@@ -140,13 +150,15 @@ onMounted(async () => {
           />
         </UFormField>
 
-        <UAlert
-          v-if="errorMsg"
-          color="error"
-          variant="soft"
-          :description="errorMsg"
-          icon="i-lucide-circle-alert"
-        />
+        <div class="h-16">
+          <UAlert
+            v-if="errorMsg"
+            color="error"
+            variant="soft"
+            :description="errorMsg"
+            icon="i-lucide-circle-alert"
+          />
+        </div>
 
         <UButton
           type="submit"
