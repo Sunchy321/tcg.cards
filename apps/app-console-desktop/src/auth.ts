@@ -15,7 +15,6 @@ export interface DesktopAuthSession {
 }
 
 export interface DesktopAuthState {
-  baseUrl: string;
   user:    DesktopAuthUser;
   session: DesktopAuthSession;
 }
@@ -23,9 +22,8 @@ export interface DesktopAuthState {
 // Global reactive auth state shared across all components
 export const currentAuthState = ref<DesktopAuthState | null>(null);
 
-export function signIn(input: { baseUrl: string, username: string, password: string }) {
+export function signIn(input: { username: string, password: string }) {
   return invoke<DesktopAuthState>('auth_sign_in', {
-    baseUrl:  input.baseUrl,
     username: input.username,
     password: input.password,
   });
@@ -37,8 +35,4 @@ export function getSession() {
 
 export function signOut() {
   return invoke('auth_sign_out');
-}
-
-export function getCookieHeader() {
-  return invoke<string | null>('auth_get_cookie_header');
 }

@@ -1,14 +1,21 @@
 use reqwest::cookie::{CookieStore, Jar};
-use reqwest::{Client, Url};
+use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 
-#[derive(Default)]
 struct AuthState {
     current: Mutex<Option<SessionClient>>,
+}
+
+impl Default for AuthState {
+    fn default() -> Self {
+        Self {
+            current: Mutex::new(None),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -51,7 +58,6 @@ struct RemoteUser {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DesktopAuthState {
-    base_url: String,
     session: DesktopSession,
     user: DesktopUser,
 }
@@ -73,9 +79,8 @@ struct DesktopUser {
     role: Option<String>,
 }
 
-fn build_desktop_auth_state(base_url: &str, remote: RemoteAuthState) -> DesktopAuthState {
+fn build_desktop_auth_state(remote: RemoteAuthState) -> DesktopAuthState {
     DesktopAuthState {
-        base_url: base_url.to_string(),
         session: DesktopSession {
             id: remote.session.id,
             expires_at: remote.session.expires_at,
@@ -97,8 +102,36 @@ struct StoredSession {
     cookie_header: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopFetchResponse {
+    body: Vec<u8>,
+    headers: Vec<(String, String)>,
+    status: u16,
+}
+
+const DEFAULT_AUTH_BASE_URL: &str = "http://127.0.0.1:2998";
+
 fn build_url(base_url: &str, path: &str) -> String {
     format!("{}{}", base_url.trim_end_matches('/'), path)
+}
+
+fn resolve_auth_base_url() -> String {
+    let base_url = std::env::var("INTERNAL_AUTH_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| DEFAULT_AUTH_BASE_URL.to_string());
+
+    match Url::parse(&base_url) {
+        Ok(mut url) => {
+            if url.host_str() == Some("localhost") {
+                let _ = url.set_host(Some("127.0.0.1"));
+            }
+
+            url.to_string().trim_end_matches('/').to_string()
+        }
+        Err(_) => base_url.trim_end_matches('/').to_string(),
+    }
 }
 
 fn auth_cookie_url(base_url: &str) -> Result<Url, String> {
@@ -127,6 +160,9 @@ fn create_client(base_url: &str, cookie_header: Option<&str>) -> Result<SessionC
     }
 
     let client = Client::builder()
+        // Desktop localhost requests must bypass any system proxy behavior so they
+        // behave the same as a direct curl to the local dev server.
+        .no_proxy()
         .cookie_provider(jar.clone())
         .user_agent("tcg-cards-console-desktop")
         .build()
@@ -236,9 +272,10 @@ async fn parse_error(response: reqwest::Response) -> String {
 }
 
 async fn fetch_session(session_client: &SessionClient) -> Result<Option<DesktopAuthState>, String> {
+    let url = build_url(&session_client.base_url, "/auth/get-session");
     let response = session_client
         .client
-        .get(build_url(&session_client.base_url, "/auth/get-session"))
+        .get(&url)
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await
@@ -253,22 +290,23 @@ async fn fetch_session(session_client: &SessionClient) -> Result<Option<DesktopA
         .await
         .map_err(|error| format!("Failed to decode session: {error}"))?;
 
-    Ok(session.map(|s| build_desktop_auth_state(&session_client.base_url, s)))
+    Ok(session.map(build_desktop_auth_state))
 }
 
 #[tauri::command]
 async fn auth_sign_in(
     app: AppHandle,
     state: tauri::State<'_, AuthState>,
-    base_url: String,
     username: String,
     password: String,
 ) -> Result<DesktopAuthState, String> {
+    let base_url = resolve_auth_base_url();
     let session_client = create_client(&base_url, None)?;
+    let url = build_url(&base_url, "/auth/sign-in/username");
 
     let response = session_client
         .client
-        .post(build_url(&base_url, "/auth/sign-in/username"))
+        .post(&url)
         .header(reqwest::header::ACCEPT, "application/json")
         .json(&serde_json::json!({
             "username": username,
@@ -358,10 +396,11 @@ async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Re
 
         current.clone()
     };
+    let url = build_url(&session_client.base_url, "/auth/sign-out");
 
     let response = session_client
         .client
-        .post(build_url(&session_client.base_url, "/auth/sign-out"))
+        .post(&url)
         .header(reqwest::header::ACCEPT, "application/json")
         .header(reqwest::header::ORIGIN, auth_origin_header(&session_client.base_url)?)
         .json(&serde_json::json!({}))
@@ -387,23 +426,64 @@ async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Re
 const CREDENTIAL_SERVICE: &str = "tcg-cards-console-desktop";
 
 #[tauri::command]
-fn auth_get_cookie_header(state: tauri::State<'_, AuthState>) -> Result<Option<String>, String> {
-    let current = state
-        .current
-        .lock()
-        .map_err(|_| "Failed to read auth state".to_string())?;
+async fn auth_fetch(
+    state: tauri::State<'_, AuthState>,
+    path: String,
+    method: String,
+    headers: Vec<(String, String)>,
+    body: Option<String>,
+) -> Result<DesktopFetchResponse, String> {
+    let session_client = {
+        let current = state
+            .current
+            .lock()
+            .map_err(|_| "Failed to read auth state".to_string())?;
 
-    let Some(ref session_client) = *current else {
-        return Ok(None);
+        current
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| "Auth session is unavailable".to_string())?
     };
 
-    let origin = auth_cookie_url(&session_client.base_url)?;
-    let cookie_header = session_client
-        .jar
-        .cookies(&origin)
-        .map(|v| v.to_str().unwrap_or("").to_string());
+    let url = build_url(&session_client.base_url, &path);
+    let method = Method::from_bytes(method.as_bytes())
+        .map_err(|error| format!("Invalid request method: {error}"))?;
+    let mut request = session_client.client.request(method, &url);
 
-    Ok(cookie_header)
+    for (name, value) in headers {
+        request = request.header(&name, &value);
+    }
+
+    if let Some(body) = body {
+        request = request.body(body);
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("Failed to send request: {error}"))?;
+    let status = response.status().as_u16();
+    let response_headers = response
+        .headers()
+        .iter()
+        .map(|(name, value)| {
+            (
+                name.as_str().to_string(),
+                value.to_str().unwrap_or_default().to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let body = response
+        .bytes()
+        .await
+        .map_err(|error| format!("Failed to read response body: {error}"))?
+        .to_vec();
+
+    Ok(DesktopFetchResponse {
+        body,
+        headers: response_headers,
+        status,
+    })
 }
 
 #[tauri::command]
@@ -464,12 +544,11 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AuthState::default())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             auth_sign_in,
             auth_get_session,
             auth_sign_out,
-            auth_get_cookie_header,
+            auth_fetch,
             credential_get,
             credential_set,
             credential_delete,

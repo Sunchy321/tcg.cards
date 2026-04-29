@@ -31,12 +31,15 @@ hono.get('/health', c => c.json({
   time:    new Date().toISOString(),
 }));
 
-function handleAuthRequest(request: Request, env: InternalServiceEnv) {
-  return getAuth(env).handler(request);
+async function handleAuthRequest(request: Request, env: InternalServiceEnv) {
+  // Recreate the request inside the current handler context to avoid
+  // Cloudflare Worker I/O ownership issues when downstream code reads the body.
+  const authRequest = new Request(request);
+  return await getAuth(env).handler(authRequest);
 }
 
-hono.all('/auth/*', c => {
-  return handleAuthRequest(c.req.raw, c.env);
+hono.all('/auth/*', async c => {
+  return await handleAuthRequest(c.req.raw, c.env);
 });
 
 hono.all('/rpc/*', async c => {

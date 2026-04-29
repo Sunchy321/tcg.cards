@@ -9,8 +9,6 @@ import { ensureMainWindow } from '../windows';
 
 const STORED_USERNAME_KEY = 'console-desktop-username';
 
-const BASE_URL = import.meta.env.VITE_INTERNAL_AUTH_URL as string ?? 'http://localhost:2998';
-
 const form = reactive({
   username: localStorage.getItem(STORED_USERNAME_KEY) ?? '',
   password: '',
@@ -42,7 +40,6 @@ async function handleSignIn() {
 
   try {
     const session = await signIn({
-      baseUrl:  BASE_URL,
       username: form.username,
       password: form.password,
     });
@@ -66,7 +63,7 @@ async function handleSignIn() {
     form.password = '';
     await switchToMainWindow();
   } catch (error) {
-    errorMsg.value = error instanceof Error ? error.message : 'Failed to sign in';
+    errorMsg.value = error instanceof Error ? error.message : String(error);
   } finally {
     submitting.value = false;
   }
@@ -93,7 +90,7 @@ onMounted(async () => {
     // Already authenticated — go straight to main window
     await switchToMainWindow();
   } catch (error) {
-    errorMsg.value = error instanceof Error ? error.message : 'Failed to restore session';
+    errorMsg.value = error instanceof Error ? error.message : String(error);
   } finally {
     loading.value = false;
   }
