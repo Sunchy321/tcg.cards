@@ -102,15 +102,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="flex h-screen overflow-hidden bg-slate-50 text-slate-950">
+  <main class="flex h-screen overflow-hidden bg-default text-default">
     <!-- Sidebar -->
-    <aside class="flex w-56 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <aside class="flex w-56 shrink-0 flex-col border-r border-default bg-elevated/80 backdrop-blur">
       <!-- Logo -->
-      <div class="flex h-12 items-center gap-3 border-b border-slate-200 px-4">
+      <div class="flex h-12 items-center gap-3 border-b border-default px-4">
         <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-xs font-bold text-white">
           CC
         </div>
-        <span class="text-sm font-semibold text-slate-900">Console Desktop</span>
+        <span class="text-sm font-semibold text-default">Console Desktop</span>
       </div>
 
       <!-- Nav -->
@@ -138,8 +138,8 @@ onMounted(async () => {
               <button
                 class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
                 :class="isActive
-                  ? 'bg-primary-50 text-primary-700 font-medium'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted hover:bg-elevated hover:text-default'"
                 @click="navigate"
               >
                 <UIcon :name="item.icon" class="size-4 shrink-0" />
@@ -150,7 +150,7 @@ onMounted(async () => {
         </template>
 
         <!-- Divider -->
-        <div class="my-1.5 border-t border-slate-100" />
+        <div class="my-1.5 border-t border-default" />
 
         <!-- User management nav -->
         <template v-if="showUserManagement">
@@ -165,8 +165,8 @@ onMounted(async () => {
               <button
                 class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
                 :class="isActive
-                  ? 'bg-primary-50 text-primary-700 font-medium'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted hover:bg-elevated hover:text-default'"
                 @click="navigate"
               >
                 <UIcon :name="item.icon" class="size-4 shrink-0" />
@@ -185,8 +185,8 @@ onMounted(async () => {
           <button
             class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
             :class="isActive
-              ? 'bg-primary-50 text-primary-700 font-medium'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+              ? 'bg-primary/10 text-primary font-medium'
+              : 'text-muted hover:bg-elevated hover:text-default'"
             @click="navigate"
           >
             <UIcon name="i-lucide-settings" class="size-4 shrink-0" />
@@ -196,14 +196,14 @@ onMounted(async () => {
       </nav>
 
       <!-- User footer -->
-      <div class="border-t border-slate-200 p-2.5">
+      <div class="border-t border-default p-2.5">
         <div class="flex items-center gap-2.5">
-          <div class="flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700 shrink-0">
+          <div class="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary shrink-0">
             {{ userInitial }}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-xs font-medium text-slate-900 truncate">{{ userName }}</p>
-            <p class="text-xs text-slate-500 truncate">{{ session?.user.email }}</p>
+            <p class="truncate text-xs font-medium text-default">{{ userName }}</p>
+            <p class="truncate text-xs text-muted">{{ session?.user.email }}</p>
           </div>
           <UButton
             icon="i-lucide-log-out"
@@ -220,12 +220,12 @@ onMounted(async () => {
     <!-- Main content -->
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
       <div v-if="loading" class="flex flex-1 items-center justify-center">
-        <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-slate-400" />
+        <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
       </div>
 
       <RouterView v-else-if="session" />
 
-      <div v-else class="flex flex-1 flex-col items-center justify-center gap-4 text-slate-500">
+      <div v-else class="flex flex-1 flex-col items-center justify-center gap-4 text-muted">
         <UIcon name="i-lucide-lock" class="size-10" />
         <p class="text-sm">Session unavailable</p>
         <UButton label="Retry" :loading="loading" @click="refreshSession" />

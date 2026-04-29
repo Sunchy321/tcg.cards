@@ -1,16 +1,16 @@
 <template>
-  <div class="flex-1 overflow-y-auto p-6">
+  <div class="desktop-page">
     <div class="space-y-4">
-      <h1 class="text-lg font-semibold text-slate-900">Magic: The Gathering — 概览</h1>
+      <h1 class="desktop-section-title">Magic: The Gathering — 概览</h1>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <UCard v-for="item in items" :key="item.label">
           <div class="flex items-center gap-3">
-            <div class="rounded-lg bg-primary-50 p-2.5">
-              <UIcon :name="item.icon" class="size-5 text-primary-600" />
+            <div class="rounded-lg bg-primary/10 p-2.5">
+              <UIcon :name="item.icon" class="size-5 text-primary" />
             </div>
             <div>
-              <p class="text-xs text-slate-500">{{ item.label }}</p>
-              <p class="text-xl font-semibold text-slate-900">—</p>
+              <p class="text-xs text-muted">{{ item.label }}</p>
+              <p class="text-xl font-semibold text-default">—</p>
             </div>
           </div>
         </UCard>

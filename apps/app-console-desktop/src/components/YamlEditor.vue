@@ -2,7 +2,7 @@
   <div class="relative flex-1 flex flex-col min-h-0">
     <div
       v-if="error"
-      class="px-4 py-2 bg-red-50 text-red-600 text-sm border-b border-red-200"
+      class="border-b border-error/30 bg-error/10 px-4 py-2 text-sm text-error"
     >
       {{ error }}
     </div>
@@ -17,21 +17,21 @@
     >
       <div
         v-if="contextMenu.show"
-        class="absolute z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-40"
+        class="absolute z-50 min-w-40 rounded-lg border border-default bg-default py-1 shadow-lg"
         :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
       >
-        <div class="px-3 py-2 text-xs text-slate-500 border-b border-slate-100 truncate max-w-60">
+        <div class="max-w-60 truncate border-b border-default px-3 py-2 text-xs text-muted">
           {{ contextMenu.url }}
         </div>
         <button
-          class="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 flex items-center gap-2"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-elevated"
           @click="handleOpenLink"
         >
           <UIcon name="i-lucide-external-link" class="size-4" />
           <span>跳转</span>
         </button>
         <button
-          class="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 flex items-center gap-2"
+          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-elevated"
           @click="handleCopyLink"
         >
           <UIcon name="i-lucide-copy" class="size-4" />
@@ -48,6 +48,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSp
 import { EditorState, StateEffect, type Extension } from '@codemirror/state';
 import { indentOnInput, syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { oneDark } from '@codemirror/theme-one-dark';
 import { yaml } from '@codemirror/lang-yaml';
 import { isScalar, isSeq, parseDocument, visit } from 'yaml';
 
@@ -62,6 +63,7 @@ const emit = defineEmits<{
 
 const editorRef = ref<HTMLElement>();
 const editorView = shallowRef<EditorView>();
+const isDark = ref(document.documentElement.classList.contains('dark'));
 
 const contextMenu = ref({
   show: false,
@@ -174,6 +176,7 @@ function createExtensions(): Extension[] {
     highlightActiveLine(),
     keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
     yaml(),
+    ...(isDark.value ? [oneDark] : []),
     EditorView.lineWrapping,
     EditorView.updateListener.of(update => {
       if (update.docChanged) {
@@ -227,15 +230,31 @@ watch(
   },
 );
 
-watch(
-  () => document.documentElement.classList.contains('dark'),
-  () => {
-    const view = editorView.value;
-    if (!view) return;
-    view.dispatch({ effects: StateEffect.reconfigure.of(createExtensions()) });
-  },
-);
+watch(isDark, () => {
+  const view = editorView.value;
+  if (!view) return;
+  view.dispatch({ effects: StateEffect.reconfigure.of(createExtensions()) });
+});
 
-onMounted(() => { initEditor(); });
-onUnmounted(() => { editorView.value?.destroy(); });
+let removeColorModeListener: (() => void) | undefined;
+
+onMounted(() => {
+  const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleChange = (event: MediaQueryListEvent) => {
+    isDark.value = event.matches;
+  };
+
+  isDark.value = darkMq.matches;
+  darkMq.addEventListener('change', handleChange);
+  removeColorModeListener = () => {
+    darkMq.removeEventListener('change', handleChange);
+  };
+
+  initEditor();
+});
+
+onUnmounted(() => {
+  removeColorModeListener?.();
+  editorView.value?.destroy();
+});
 </script>
