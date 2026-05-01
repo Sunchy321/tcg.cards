@@ -1,5 +1,5 @@
-import { createConsoleApiClient } from '@tcg-cards/app-console';
 import {
+  createConsoleApiClient,
   createConsolePlatform,
   createConsoleSession,
   createConsoleStorage,

@@ -23,7 +23,6 @@
     "@orpc/server": "^1.14.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
-    "@tcg-cards/app-console": "workspace:*",
     "@tcg-cards/console-core": "workspace:*",
     "@tcg-cards/console-platform": "workspace:*",
     "@tcg-cards/console-ui": "workspace:*",

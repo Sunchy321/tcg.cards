@@ -1,4 +1,4 @@
-import { createConsoleApiClient } from '@tcg-cards/app-console';
+import { createConsoleApiClient } from '@tcg-cards/console-platform';
 
 import type { Router } from '~~/server/orpc/service';
 

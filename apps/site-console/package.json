@@ -27,7 +27,6 @@
     "@nuxt/ui": "^4.6.1",
     "@orpc/client": "^1.13.6",
     "@orpc/server": "^1.13.6",
-    "@tcg-cards/app-console": "workspace:*",
     "@tcg-cards/console-core": "workspace:*",
     "@tcg-cards/console-platform": "workspace:*",
     "@tcg-cards/console-ui": "workspace:*",

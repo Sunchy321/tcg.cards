@@ -1,6 +1,14 @@
+import { createORPCClient } from '@orpc/client';
+import { RPCLink } from '@orpc/client/fetch';
 import { inject, provide, type InjectionKey } from 'vue';
 
 import type { AnyRouter, RouterClient } from '@orpc/server';
+
+export interface CreateConsoleApiClientOptions {
+  url: string;
+  headers?: ConstructorParameters<typeof RPCLink>[0]['headers'];
+  fetch?: ConstructorParameters<typeof RPCLink>[0]['fetch'];
+}
 
 export interface ConsoleApi {
   request(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
@@ -48,6 +56,18 @@ export function createConsolePlatform<TSession>(
   platform: ConsolePlatform<TSession>,
 ): ConsolePlatform<TSession> {
   return platform;
+}
+
+export function createConsoleApiClient<TRouter extends AnyRouter>(
+  options: CreateConsoleApiClientOptions,
+): RouterClient<TRouter> {
+  const link = new RPCLink({
+    url: options.url,
+    headers: options.headers,
+    fetch: options.fetch,
+  });
+
+  return createORPCClient(link) as RouterClient<TRouter>;
 }
 
 export function createConsoleSession<TSession>(options: {

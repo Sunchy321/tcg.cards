@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { createConsoleApiClient } from '@tcg-cards/app-console';
-import { useConsolePlatform } from '@tcg-cards/console-platform';
+import { createConsoleApiClient, useConsolePlatform } from '@tcg-cards/console-platform';
 
 import type { AnyRouter, RouterClient } from '@orpc/server';
 

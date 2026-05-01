@@ -480,7 +480,9 @@ apps/
 
 packages/
   query-core/              查询应用共享前端模块
-  app-console/             管理应用共享前端模块
+  console-core/            管理应用共享核心逻辑
+  console-platform/        管理应用平台适配层
+  console-ui/              管理应用共享页面与组件
   app-console-capabilities/  管理能力协议与类型
   auth/                    API client、鉴权与权限封装
 ```
@@ -488,7 +490,7 @@ packages/
 其中：
 
 - `site-magic`、`site-hearthstone`、未来的 `site-<game>` 与 `app-main` 共享 `packages/query-core` 中的跨游戏通用能力，但不共享“单游戏详情页实现”
-- `site-admin`、`app-console-desktop`、`app-console-mobile` 共享 `packages/app-console`
+- `site-admin`、`app-console-desktop`、`app-console-mobile` 共享 `packages/console-core`、`packages/console-platform`、`packages/console-ui`
 - `app-console-desktop` 与 `app-console-mobile` 仅补充各自 Tauri 宿主、命令与能力桥接
 - 网页端复用管理 UI，但只开启轻量能力
 

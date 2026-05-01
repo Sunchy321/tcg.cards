@@ -7,10 +7,6 @@
 - `apps/site-console`：基于 Nuxt 的网页管理端
 - `apps/app-console-desktop`：基于 Tauri + Vue Router + Vite 的桌面端
 
-同时还存在一个较薄的共享包：
-
-- `packages/app-console`：当前主要提供导航元数据、错误处理与 ORPC client 工厂
-
 现阶段的主要问题不是“是否使用同一前端框架”，而是“页面层与页面逻辑的复用边界没有建立起来”。
 
 从当前代码结构可以直接看到几类问题：
@@ -47,15 +43,15 @@
 
 ## 现状分析
 
-### 1. 当前共享层过薄
+### 1. 共享层在迁移前曾经过薄
 
-`packages/app-console` 当前主要承载：
+在本轮迁移启动前，仓库曾通过 `packages/app-console` 承载一小部分共享能力，例如：
 
 - `createConsoleApiClient`
 - 导航数据与游戏选择逻辑
 - 基础错误处理
 
-它还没有承载以下真正决定复用价值的内容：
+但它当时并没有承载以下真正决定复用价值的内容：
 
 - 页面级状态模型
 - 列表筛选与分页逻辑
@@ -64,7 +60,20 @@
 - 页面级通用容器
 - 平台无关的 toast、router、session、storage 适配接口
 
-这导致“共享包存在，但页面仍然只能复制”。
+这导致当时出现“共享包存在，但页面仍然只能复制”的问题。
+
+### 1.1 `app-console` 已完成过渡并可删除
+
+随着 `console-core`、`console-platform`、`console-ui` 落地，`packages/app-console` 的剩余职责已经被完全回收：
+
+1. 对 `console-core` 的兼容重导出已移除
+2. `createConsoleApiClient` 已迁入 `console-platform`
+3. 应用侧对 `@tcg-cards/app-console` 的直接依赖已清空
+
+因此，当前设计上的附加结论是：
+
+- `app-console` 只是阶段性过渡包，不再是长期主包
+- 在兼容入口清空后，应直接删除 `packages/app-console`
 
 ### 2. `site-console` 不是纯客户端壳
 
@@ -212,9 +221,9 @@
 
 ## 目标结构
 
-### 1. 共享层拆分建议
+### 1. 当前共享层结构
 
-建议把当前 `packages/app-console` 扩展或拆分为以下层次：
+当前共享能力已经收敛为以下层次：
 
 #### `packages/console-core`
 
@@ -423,9 +432,9 @@
 
 ### 阶段 1：抽共享核心
 
-1. 从 `packages/app-console` 中分离或扩展出 `console-core`
-2. 抽离页面中与平台无关的状态模型、筛选逻辑、分页逻辑、错误处理
-3. 移除共享逻辑对 `navigateTo`、`useState`、`useRequestEvent` 等 Nuxt API 的直接依赖
+1. 以 `console-core` 为核心承载平台无关的状态模型、筛选逻辑、分页逻辑与错误处理
+2. 将页面中可复用的业务逻辑持续收敛到 `console-core`
+3. 保持共享逻辑不直接依赖 `navigateTo`、`useState`、`useRequestEvent` 等 Nuxt API
 
 ### 阶段 2：拆分 SSR / BFF 与独立 app 后端能力
 

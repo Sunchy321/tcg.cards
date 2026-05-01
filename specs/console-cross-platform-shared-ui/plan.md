@@ -10,6 +10,9 @@
 - [x] 为 Web、Desktop、Mobile 预留统一的平台适配接口
 - [x] 按页面迁移顺序逐步回收 `site-console` 与桌面端的复制实现
 - [x] 在共享层稳定后重新评估桌面壳是否迁移到 Nuxt
+- [x] 清理 `app-console` 对 `console-core` 的兼容重导出
+- [x] 收敛 ORPC client 工厂的长期归属，并减少应用对 `@tcg-cards/app-console` 的直接依赖
+- [x] 在兼容入口清空后评估 `app-console` 是否可以归档或删除
 
 ## 实施步骤
 
@@ -119,3 +122,30 @@
 1. 继续保留 `Vite + Vue Router + Tauri`
 2. 不把桌面端迁移到 `Nuxt SPA + Tauri` 作为当前阶段任务
 3. 后续仍以共享层扩展为主，而不是以桌面壳替换为主
+
+### 9. 清理 `app-console` 过渡边界
+
+在 `console-core`、`console-platform`、`console-ui` 稳定后，`packages/app-console` 曾只剩两类残留职责：
+
+- 对 `console-core` 的兼容重导出
+- `createConsoleApiClient` 这一层 ORPC client 工厂
+
+本轮清理按以下顺序完成：
+
+1. 先去掉 `app-console` 对 `console-core` 的重导出，消除最明显的功能重叠
+2. 再明确 `createConsoleApiClient` 的长期归属，优先避免继续把 `app-console` 作为平台边界的必经入口
+3. 当应用侧不再依赖 `@tcg-cards/app-console` 后，再评估该包是保留为极薄兼容包、归档，还是直接删除
+
+当前评估结论：
+
+1. `site-console` 与 `app-console-desktop` 已不再直接依赖 `@tcg-cards/app-console`
+2. `createConsoleApiClient` 已迁入 `console-platform`
+3. `app-console` 已不再承载独有功能，仅剩对 `console-platform` 的单一转发
+4. 因此不再保留兼容包，直接删除 `packages/app-console`
+
+这一阶段的验收标准是：
+
+1. `app-console` 不再承担 `console-core` 的兼容职责
+2. 应用侧对 `@tcg-cards/app-console` 的依赖明显减少或完全消失
+3. `app-console` 的存废可以基于真实剩余职责判断，而不是基于历史包名判断
+4. 若兼容包已无真实职责，则应直接删除，而不是继续保留历史空壳
