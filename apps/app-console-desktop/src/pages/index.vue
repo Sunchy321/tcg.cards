@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { getAccessibleGames } from '@tcg-cards/app-console';
+import { getAccessibleGames } from '@tcg-cards/console-core';
 import { currentAuthState } from '../auth';
 
 const router = useRouter();

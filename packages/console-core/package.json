@@ -1,5 +1,5 @@
 {
-  "name": "@tcg-cards/app-console",
+  "name": "@tcg-cards/console-core",
   "module": "src/index.ts",
   "type": "module",
   "exports": {
@@ -12,9 +12,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tcg-cards/console-core": "workspace:*",
-    "@orpc/client": "^1.13.6",
-    "@orpc/server": "^1.13.6",
     "@tcg-cards/shared": "workspace:*"
   },
   "devDependencies": {

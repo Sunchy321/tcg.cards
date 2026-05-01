@@ -1,4 +1,4 @@
-import { getConsoleErrorMessage } from '@tcg-cards/app-console';
+import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 export interface HsdataSourceHistory {
   tag:    string;

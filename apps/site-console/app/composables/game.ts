@@ -3,7 +3,7 @@ import {
   GAME_LABELS,
   resolveGameFromPath,
   type Game,
-} from '@tcg-cards/app-console';
+} from '@tcg-cards/console-core';
 
 export function useCurrentGame() {
   const route = useRoute();

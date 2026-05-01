@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { RouterLink, RouterView, useRoute } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isAdminRole } from '@tcg-cards/auth';
 import {
@@ -11,16 +11,21 @@ import {
   getUserNavItems,
   resolveGameFromPath,
   type Game,
-} from '@tcg-cards/app-console';
+} from '@tcg-cards/console-core';
 
 import { currentAuthState, getSession, signOut } from '../auth';
 import { ensureLoginWindow } from '../windows';
 
 const route = useRoute();
+const router = useRouter();
+
+const LAST_GAME_KEY = 'console-desktop-last-game';
+const LAST_ROUTE_KEY = 'console-desktop-last-route';
 
 const loading = ref(true);
 const submitting = ref(false);
 const errorMsg = ref('');
+const hasRestoredState = ref(false);
 
 const session = computed(() => currentAuthState.value);
 const userRole = computed(() => session.value?.user.role ?? null);
@@ -34,13 +39,97 @@ const currentGame = ref<Game | null>(null);
 const navItems = computed(() => currentGame.value ? getGameNavItems(currentGame.value) : []);
 const userNavItems = computed(() => getUserNavItems());
 
-function resolveActiveGame() {
-  const fromPath = resolveGameFromPath(route.path);
+function loadStoredGame(): Game | null {
+  const value = localStorage.getItem(LAST_GAME_KEY);
+  return accessibleGames.value.find(game => game === value) ?? null;
+}
+
+function saveStoredGame(game: Game | null) {
+  if (!game) {
+    localStorage.removeItem(LAST_GAME_KEY);
+    return;
+  }
+
+  localStorage.setItem(LAST_GAME_KEY, game);
+}
+
+function loadStoredRoute(): string | null {
+  const value = localStorage.getItem(LAST_ROUTE_KEY);
+  return value && value.startsWith('/') ? value : null;
+}
+
+function saveStoredRoute(path: string) {
+  localStorage.setItem(LAST_ROUTE_KEY, path);
+}
+
+function isRouteAccessible(path: string) {
+  if (router.resolve(path).matched.length === 0) {
+    return false;
+  }
+
+  const game = resolveGameFromPath(path);
+
+  if (game) {
+    return accessibleGames.value.includes(game);
+  }
+
+  if (path === '/user') {
+    return showUserManagement.value;
+  }
+
+  return path === '/settings';
+}
+
+function resolveActiveGame(path: string) {
+  const fromPath = resolveGameFromPath(path);
+
   if (fromPath && accessibleGames.value.includes(fromPath)) {
     currentGame.value = fromPath;
-  } else if (accessibleGames.value.length > 0 && !currentGame.value) {
-    currentGame.value = accessibleGames.value[0]!;
+    return;
   }
+
+  const savedGame = loadStoredGame();
+  if (savedGame) {
+    currentGame.value = savedGame;
+    return;
+  }
+
+  currentGame.value = accessibleGames.value[0] ?? null;
+}
+
+function resolveInitialPath() {
+  const savedRoute = loadStoredRoute();
+  if (savedRoute && isRouteAccessible(savedRoute)) {
+    return savedRoute;
+  }
+
+  const savedGame = loadStoredGame();
+  if (savedGame) {
+    return `/${savedGame}`;
+  }
+
+  if (isRouteAccessible(route.path)) {
+    return route.path;
+  }
+
+  return accessibleGames.value[0] ? `/${accessibleGames.value[0]}` : '/settings';
+}
+
+function resolveGameSwitchPath(game: Game) {
+  const activeGame = resolveGameFromPath(route.path);
+
+  if (!activeGame) {
+    return route.path;
+  }
+
+  const suffix = route.path.slice(`/${activeGame}`.length);
+  const candidate = `/${game}${suffix}`;
+  return isRouteAccessible(candidate) ? candidate : `/${game}`;
+}
+
+function persistState() {
+  saveStoredRoute(route.path);
+  saveStoredGame(currentGame.value);
 }
 
 async function switchToLoginWindow() {
@@ -69,7 +158,15 @@ async function refreshSession() {
     }
 
     currentAuthState.value = next;
-    resolveActiveGame();
+    const nextPath = resolveInitialPath();
+
+    if (nextPath !== route.path) {
+      await router.replace(nextPath);
+    }
+
+    resolveActiveGame(nextPath);
+    hasRestoredState.value = true;
+    persistState();
   } catch (error) {
     errorMsg.value = error instanceof Error ? error.message : 'Failed to restore session';
   } finally {
@@ -92,12 +189,42 @@ async function handleSignOut() {
   }
 }
 
-function handleGameSelect(value: string) {
-  currentGame.value = value as Game;
+async function handleGameSelect(value: string) {
+  const game = accessibleGames.value.find(item => item === value);
+  if (!game) {
+    return;
+  }
+
+  currentGame.value = game;
+
+  const nextPath = resolveGameSwitchPath(game);
+  if (nextPath !== route.path) {
+    await router.push(nextPath);
+  }
 }
 
 onMounted(async () => {
   await refreshSession();
+});
+
+watch(
+  () => route.path,
+  path => {
+    if (!hasRestoredState.value) {
+      return;
+    }
+
+    resolveActiveGame(path);
+    persistState();
+  },
+);
+
+watch(currentGame, game => {
+  if (!hasRestoredState.value) {
+    return;
+  }
+
+  saveStoredGame(game);
 });
 </script>
 
@@ -121,7 +248,7 @@ onMounted(async () => {
             :model-value="currentGame ?? undefined"
             :items="gameSelectItems"
             size="sm"
-            @update:model-value="handleGameSelect($event as string)"
+            @update:model-value="void handleGameSelect($event as string)"
           />
         </div>
 

@@ -106,7 +106,7 @@ import {
   getGameNavItems,
   getGameSelectItems,
   getUserNavItems,
-} from '@tcg-cards/app-console';
+} from '@tcg-cards/console-core';
 import { authClient } from '~/composables/auth';
 import { useCurrentGame } from '~/composables/game';
 

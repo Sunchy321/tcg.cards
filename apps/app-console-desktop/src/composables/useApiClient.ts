@@ -1,9 +1,10 @@
 import { invoke } from '@tauri-apps/api/core';
 import { createConsoleApiClient } from '@tcg-cards/app-console';
+import { useConsolePlatform } from '@tcg-cards/console-platform';
 
 import type { AnyRouter, RouterClient } from '@orpc/server';
 
-const PLACEHOLDER_RPC_URL = 'http://desktop.invalid/rpc';
+export const PLACEHOLDER_RPC_URL = 'http://desktop.invalid/rpc';
 
 interface DesktopHttpResponse {
   body: ArrayLike<number>;
@@ -11,7 +12,7 @@ interface DesktopHttpResponse {
   status: number;
 }
 
-async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const source = typeof input === 'string'
     ? input
     : input instanceof URL
@@ -70,9 +71,13 @@ async function readBody(body: RequestInit['body']) {
   throw new Error('Unsupported request body type');
 }
 
-export function useApiClient<TRouter extends AnyRouter>(): RouterClient<TRouter> {
+export function createDesktopApiClient<TRouter extends AnyRouter>(): RouterClient<TRouter> {
   return createConsoleApiClient<TRouter>({
     url:   PLACEHOLDER_RPC_URL,
     fetch: authFetch,
   });
+}
+
+export function useApiClient(): any {
+  return useConsolePlatform().api.createClient<AnyRouter>() as any;
 }

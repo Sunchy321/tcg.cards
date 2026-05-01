@@ -1,5 +1,5 @@
 {
-  "name": "@tcg-cards/app-console",
+  "name": "@tcg-cards/console-ui",
   "module": "src/index.ts",
   "type": "module",
   "exports": {
@@ -12,10 +12,17 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.7.1",
+    "@codemirror/lang-yaml": "^6.1.2",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.36.2",
+    "@nuxt/ui": "^4.7.0",
     "@tcg-cards/console-core": "workspace:*",
-    "@orpc/client": "^1.13.6",
-    "@orpc/server": "^1.13.6",
-    "@tcg-cards/shared": "workspace:*"
+    "@tcg-cards/console-platform": "workspace:*",
+    "@tcg-cards/model": "workspace:*",
+    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -23,6 +30,7 @@
     "eslint-config-custom": "workspace:*"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5",
+    "vue": "^3.5.0"
   }
 }

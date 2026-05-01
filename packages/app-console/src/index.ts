@@ -3,8 +3,7 @@ import { RPCLink } from '@orpc/client/fetch';
 
 import type { AnyRouter, RouterClient } from '@orpc/server';
 
-export * from './error';
-export * from './layout';
+export * from '@tcg-cards/console-core';
 export type { Game } from '@tcg-cards/shared';
 
 export interface CreateConsoleApiClientOptions {
