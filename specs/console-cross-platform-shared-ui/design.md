@@ -399,6 +399,7 @@
    - `hearthstone/announcement`
    - `hearthstone/set`
    - `hearthstone/tag`
+   - `hearthstone/data-source`
 4. `site-console` 与 `app-console-desktop` 已将上述页面回收为薄 wrapper
 
 基于这轮真实落地结果，复评结论维持不变：
@@ -466,7 +467,8 @@
 2. `hearthstone/tag`
 3. `hearthstone/set`
 4. `hearthstone/announcement`
-5. `magic/announcement`
+5. `hearthstone/data-source`
+6. `magic/announcement`
 
 这些页面当前重复度高、复杂度中等、复用收益直接。
 

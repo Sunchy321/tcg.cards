@@ -14,6 +14,7 @@
 - [x] 收敛 ORPC client 工厂的长期归属，并减少应用对 `@tcg-cards/app-console` 的直接依赖
 - [x] 在兼容入口清空后评估 `app-console` 是否可以归档或删除
 - [x] 收敛 `app-console-capabilities` 的宿主能力协议归属，并删除空转包
+- [x] 迁移 `hearthstone/data-source` 页面到 `console-ui` 共享层
 
 ## 实施步骤
 
@@ -102,8 +103,9 @@
 1. `hearthstone/tag`
 2. `hearthstone/set`
 3. `hearthstone/announcement`
-4. `magic/announcement`
-5. `magic/data-source`
+4. `hearthstone/data-source`
+5. `magic/announcement`
+6. `magic/data-source`
 
 这些页面重复度高、表单和列表结构明确，迁移后能快速验证共享层设计是否成立。
 

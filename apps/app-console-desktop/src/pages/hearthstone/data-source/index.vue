@@ -1,5 +1,7 @@
 <template>
-  <div class="flex flex-1 items-center justify-center text-slate-400">
-    <p class="text-sm">Data Sources — Coming soon</p>
-  </div>
+  <HearthstoneDataSourcePage />
 </template>
+
+<script setup lang="ts">
+import { HearthstoneDataSourcePage } from '@tcg-cards/console-ui';
+</script>
