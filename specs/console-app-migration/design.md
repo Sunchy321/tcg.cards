@@ -152,7 +152,7 @@
 - `packages/console-core`：页面状态、领域模型、管理路由、组合式逻辑中的平台无关部分
 - `packages/console-platform`：router、toast、session、storage、api client 等平台适配接口
 - `packages/console-ui`：共享页面、组件与页面级组合块
-- `packages/app-console-capabilities`：宿主能力接口与错误模型
+- `packages/console-platform`：宿主能力接口、错误模型与平台适配协议
 - `packages/auth`：认证、请求、错误处理、权限管理与轮询
 
 ## 6. 目标代码结构
@@ -169,7 +169,6 @@ packages/
   console-core/
   console-platform/
   console-ui/
-  app-console-capabilities/
   auth/
 ```
 
@@ -181,7 +180,7 @@ packages/
 - `packages/console-core`：共享领域逻辑、路由元数据与平台无关状态模型
 - `packages/console-platform`：跨端平台适配接口与默认实现
 - `packages/console-ui`：共享页面模块与页面区块
-- `packages/app-console-capabilities`：文件、Git、工具调用、上传、通知等能力抽象
+- `packages/console-platform`：router、toast、session、storage、api 以及文件、Git、工具调用、上传等宿主能力抽象
 - `packages/auth`：认证与权限访问封装
 
 ## 7. 分阶段迁移策略

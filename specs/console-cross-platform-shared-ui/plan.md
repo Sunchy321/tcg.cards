@@ -13,6 +13,7 @@
 - [x] 清理 `app-console` 对 `console-core` 的兼容重导出
 - [x] 收敛 ORPC client 工厂的长期归属，并减少应用对 `@tcg-cards/app-console` 的直接依赖
 - [x] 在兼容入口清空后评估 `app-console` 是否可以归档或删除
+- [x] 收敛 `app-console-capabilities` 的宿主能力协议归属，并删除空转包
 
 ## 实施步骤
 
@@ -149,3 +150,30 @@
 2. 应用侧对 `@tcg-cards/app-console` 的依赖明显减少或完全消失
 3. `app-console` 的存废可以基于真实剩余职责判断，而不是基于历史包名判断
 4. 若兼容包已无真实职责，则应直接删除，而不是继续保留历史空壳
+
+### 10. 清理 `app-console-capabilities` 过渡边界
+
+在 `console-platform` 已经成为平台适配主边界后，`packages/app-console-capabilities` 的剩余职责只包括：
+
+- 宿主能力等级定义
+- 文件、Git、工具执行、上传等宿主能力接口
+- 对不支持能力的默认报错实现
+
+本轮清理按以下顺序完成：
+
+1. 将宿主能力协议与默认兜底实现迁入 `console-platform`
+2. 保持现阶段只收敛导出边界，不额外引入新的运行时耦合
+3. 在确认工作区无实际依赖后，直接删除 `packages/app-console-capabilities`
+
+当前评估结论：
+
+1. `app-console-capabilities` 的内容语义上属于平台适配层，而不是独立业务层
+2. 当前工作区几乎没有实际消费该包，迁移成本很低
+3. 继续单独保留该包只会增加包边界数量，而不会带来明确隔离收益
+4. 因此将其并入 `console-platform`，并删除独立包
+
+这一阶段的验收标准是：
+
+1. 宿主能力协议改由 `console-platform` 导出
+2. 工作区不再依赖 `@tcg-cards/app-console-capabilities`
+3. `packages/app-console-capabilities` 被删除，lockfile 完成同步

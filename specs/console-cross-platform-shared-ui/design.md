@@ -269,6 +269,9 @@
 - `ConsoleSession`
 - `ConsoleStorage`
 - `ConsoleApi`
+- 宿主能力等级定义
+- 文件、Git、工具执行、上传等宿主能力接口
+- 宿主能力默认兜底实现
 
 不同壳层分别提供实现：
 

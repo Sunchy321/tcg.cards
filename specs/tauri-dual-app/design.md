@@ -483,7 +483,6 @@ packages/
   console-core/            管理应用共享核心逻辑
   console-platform/        管理应用平台适配层
   console-ui/              管理应用共享页面与组件
-  app-console-capabilities/  管理能力协议与类型
   auth/                    API client、鉴权与权限封装
 ```
 
