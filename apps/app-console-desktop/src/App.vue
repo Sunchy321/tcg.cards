@@ -3,10 +3,9 @@ import { provideConsolePlatform } from '@tcg-cards/console-platform';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import LoginWindow from './components/LoginWindow.vue';
-import MainWindow from './components/MainWindow.vue';
 import { useDesktopConsolePlatform } from './composables/useConsolePlatform';
 
-const isLoginWindow = getCurrentWindow().label === 'login';
+const isLoginWindow = import.meta.client && getCurrentWindow().label === 'login';
 
 provideConsolePlatform(useDesktopConsolePlatform());
 </script>
@@ -14,6 +13,8 @@ provideConsolePlatform(useDesktopConsolePlatform());
 <template>
   <UApp>
     <LoginWindow v-if="isLoginWindow" />
-    <MainWindow v-else />
+    <NuxtLayout v-else>
+      <NuxtPage />
+    </NuxtLayout>
   </UApp>
 </template>

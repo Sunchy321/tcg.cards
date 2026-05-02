@@ -4,13 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview",
+    "dev": "nuxt dev --port 1420",
+    "build": "nuxt generate",
+    "preview": "nuxt preview --port 1420",
+    "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "tauri": "tauri"
   },
   "dependencies": {
+    "@nuxt/icon": "^1.15.0",
     "@codemirror/commands": "^6.7.1",
     "@codemirror/lang-yaml": "^6.1.2",
     "@codemirror/language": "^6.12.3",
@@ -27,21 +29,18 @@
     "@tcg-cards/console-platform": "workspace:*",
     "@tcg-cards/console-ui": "workspace:*",
     "@tcg-cards/auth": "workspace:*",
+    "nuxt": "^4.3.1",
     "vue": "^3.5.13",
     "vue-router": "^4",
     "yaml": "^2"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.2",
     "@tauri-apps/cli": "^2",
-    "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",
     "eslint-plugin-vue": "^10.9.0",
     "tailwindcss": "^4.2.2",
     "typescript": "~5.6.2",
-    "typescript-eslint": "^8.59.0",
-    "vite": "^6.0.3",
-    "vue-tsc": "^2.1.10"
+    "typescript-eslint": "^8.59.0"
   }
 }
