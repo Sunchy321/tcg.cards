@@ -3,7 +3,8 @@
   "module": "src/index.ts",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tailwind.css": "./src/tailwind.css"
   },
   "private": true,
   "scripts": {

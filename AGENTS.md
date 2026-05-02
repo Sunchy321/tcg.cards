@@ -12,6 +12,8 @@ Prefer the nullish coalescing operator (`??`) over the logical OR operator (`||`
 
 Only use the logical OR operator (`||`) for frontend fallback behavior when boolean coercion is explicitly intended.
 
+Avoid cross-package relative paths in frontend code. Prefer `node_modules`-based imports and package exports whenever possible.
+
 ## Naming
 
 Within a local file scope, do not use overly complex naming. Prefer clear and simple names for local variables, local types, and helper functions.
