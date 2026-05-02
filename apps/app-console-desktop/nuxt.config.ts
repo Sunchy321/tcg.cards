@@ -2,7 +2,7 @@ export default defineNuxtConfig({
   ssr: false,
   srcDir: 'src',
 
-  modules: ['@nuxt/ui', '@nuxt/icon'],
+  modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 
   devServer: {
     port: 1420,

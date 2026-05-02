@@ -1,7 +1,4 @@
 import eslint from "@eslint/js";
-import globals from "globals";
-import tseslint from "typescript-eslint";
-import pluginVue from "eslint-plugin-vue";
 import stylistic from '@stylistic/eslint-plugin';
 
 import { defineConfig } from "eslint/config";
@@ -12,6 +9,14 @@ export default defineConfig([
   },
   eslint.configs.recommended,
   stylistic.configs.recommended,
+  {
+    files: ['**/*.vue'],
+    rules: {
+      'vue/block-order': ['warn', {
+        order: ['template', 'script', 'style'],
+      }],
+    },
+  },
   {
     rules: {
       'no-unused-vars': 'off',
