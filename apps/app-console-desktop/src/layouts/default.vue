@@ -1,3 +1,110 @@
+<template>
+  <div class="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <aside class="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex h-14 items-center gap-2 border-b border-gray-200 px-5 dark:border-gray-800">
+        <UIcon name="i-lucide-layout-dashboard" class="size-5 text-primary" />
+        <span class="text-base font-semibold">Console</span>
+      </div>
+
+      <nav class="flex flex-1 flex-col overflow-y-auto p-2">
+        <template v-if="accessibleGames.length > 0">
+          <div class="px-2 py-2">
+            <p class="mb-1.5 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">游戏数据</p>
+          <USelect
+            :model-value="currentGame ?? undefined"
+            :items="gameSelectItems"
+            size="sm"
+            class="w-full"
+            @update:model-value="void handleGameSelect($event as string)"
+          />
+          </div>
+          <UNavigationMenu :items="navItems" orientation="vertical" class="w-full" />
+        </template>
+
+        <template v-if="showUserManagement">
+          <div class="px-2 py-2">
+            <p class="mb-1 px-1 text-xs font-medium text-gray-400 dark:text-gray-500">用户管理</p>
+          </div>
+          <UNavigationMenu :items="userNavItems" orientation="vertical" class="w-full" />
+        </template>
+      </nav>
+
+      <div class="shrink-0 border-t border-gray-200 p-3 dark:border-gray-800">
+        <UButton
+          icon="i-lucide-settings"
+          label="设置"
+          color="neutral"
+          variant="ghost"
+          class="w-full justify-start"
+          to="/settings"
+        />
+      </div>
+    </aside>
+
+    <div class="flex flex-1 flex-col overflow-hidden">
+      <header class="flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-6 dark:border-gray-800 dark:bg-gray-900">
+        <div class="flex-1">
+          <h1 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+            {{ currentTitle }}
+          </h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span
+            v-if="session"
+            class="text-sm text-gray-500 dark:text-gray-400"
+          >
+            {{ userName }}
+          </span>
+
+          <UBadge
+            v-if="session"
+            :label="sessionRole"
+            color="primary"
+            variant="soft"
+            size="sm"
+          />
+
+          <UButton
+            icon="i-lucide-log-out"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            title="退出登录"
+            :loading="submitting"
+            @click="handleSignOut"
+          />
+        </div>
+      </header>
+
+      <main class="flex-1 overflow-y-auto">
+        <div v-if="loading" class="flex h-full items-center justify-center">
+          <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-gray-500 dark:text-gray-400" />
+        </div>
+
+        <div v-else-if="session" class="min-h-full">
+          <slot />
+        </div>
+
+        <div v-else class="flex h-full flex-col items-center justify-center gap-4 text-gray-500 dark:text-gray-400">
+          <UIcon name="i-lucide-lock" class="size-10" />
+          <p class="text-sm">Session unavailable</p>
+          <UButton label="Retry" :loading="loading" @click="refreshSession" />
+        </div>
+
+        <UAlert
+          v-if="errorMsg"
+          color="error"
+          variant="soft"
+          :description="errorMsg"
+          icon="i-lucide-circle-alert"
+          class="m-6"
+        />
+      </main>
+    </div>
+  </div>
+</template>
+
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -29,7 +136,6 @@ const hasRestoredState = ref(false);
 const session = computed(() => currentAuthState.value);
 const userRole = computed(() => session.value?.user.role ?? null);
 const userName = computed(() => session.value?.user.name ?? 'Console User');
-const userInitial = computed(() => userName.value.slice(0, 1).toUpperCase());
 const accessibleGames = computed(() => getAccessibleGames(userRole.value));
 const showUserManagement = computed(() => canManageUsers(userRole.value));
 const gameSelectItems = computed(() => getGameSelectItems(accessibleGames.value));
@@ -37,6 +143,26 @@ const gameSelectItems = computed(() => getGameSelectItems(accessibleGames.value)
 const currentGame = ref<Game | null>(null);
 const navItems = computed(() => currentGame.value ? getGameNavItems(currentGame.value) : []);
 const userNavItems = computed(() => getUserNavItems());
+const sessionRole = computed(() => session.value?.user.role ?? 'user');
+
+const currentTitle = computed(() => {
+  const title = route.meta.title;
+  if (typeof title === 'string' && title.length > 0) {
+    return title;
+  }
+
+  const items = [
+    ...navItems.value.flat(),
+    ...userNavItems.value.flat(),
+    { label: '设置', to: '/settings' },
+  ];
+
+  const match = items
+    .filter(item => route.path === item.to || (item.to !== '/' && route.path.startsWith(`${item.to}/`)))
+    .sort((a, b) => b.to.length - a.to.length)[0];
+
+  return match?.label ?? '';
+});
 
 function loadStoredGame(): Game | null {
   const value = localStorage.getItem(LAST_GAME_KEY);
@@ -226,137 +352,3 @@ watch(currentGame, game => {
   saveStoredGame(game);
 });
 </script>
-
-<template>
-  <main class="flex h-screen overflow-hidden bg-default text-default">
-    <aside class="flex w-56 shrink-0 flex-col border-r border-default bg-elevated/80 backdrop-blur">
-      <div class="flex h-12 items-center gap-3 border-b border-default px-4">
-        <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-xs font-bold text-white">
-          CC
-        </div>
-        <span class="text-sm font-semibold text-default">Console Desktop</span>
-      </div>
-
-      <nav class="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
-        <div v-if="accessibleGames.length > 0" class="px-1 pb-2">
-          <USelect
-            :model-value="currentGame ?? undefined"
-            :items="gameSelectItems"
-            size="sm"
-            @update:model-value="void handleGameSelect($event as string)"
-          />
-        </div>
-
-        <template v-if="currentGame && navItems.length > 0">
-          <template v-for="(group, gi) in navItems" :key="gi">
-            <NuxtLink
-              v-for="item in group"
-              :key="item.to"
-              :to="item.to"
-              custom
-              v-slot="{ isActive, navigate }"
-            >
-              <button
-                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
-                :class="isActive
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted hover:bg-elevated hover:text-default'"
-                @click="navigate"
-              >
-                <UIcon :name="item.icon" class="size-4 shrink-0" />
-                {{ item.label }}
-              </button>
-            </NuxtLink>
-          </template>
-        </template>
-
-        <div class="my-1.5 border-t border-default" />
-
-        <template v-if="showUserManagement">
-          <template v-for="(group, gi) in userNavItems" :key="gi">
-            <NuxtLink
-              v-for="item in group"
-              :key="item.to"
-              :to="item.to"
-              custom
-              v-slot="{ isActive, navigate }"
-            >
-              <button
-                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
-                :class="isActive
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted hover:bg-elevated hover:text-default'"
-                @click="navigate"
-              >
-                <UIcon :name="item.icon" class="size-4 shrink-0" />
-                {{ item.label }}
-              </button>
-            </NuxtLink>
-          </template>
-        </template>
-
-        <NuxtLink
-          to="/settings"
-          custom
-          v-slot="{ isActive, navigate }"
-        >
-          <button
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
-            :class="isActive
-              ? 'bg-primary/10 text-primary font-medium'
-              : 'text-muted hover:bg-elevated hover:text-default'"
-            @click="navigate"
-          >
-            <UIcon name="i-lucide-settings" class="size-4 shrink-0" />
-            设置
-          </button>
-        </NuxtLink>
-      </nav>
-
-      <div class="border-t border-default p-2.5">
-        <div class="flex items-center gap-2.5">
-          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-            {{ userInitial }}
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-xs font-medium text-default">{{ userName }}</p>
-            <p class="truncate text-xs text-muted">{{ session?.user.email }}</p>
-          </div>
-          <UButton
-            icon="i-lucide-log-out"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :loading="submitting"
-            @click="handleSignOut"
-          />
-        </div>
-      </div>
-    </aside>
-
-    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <div v-if="loading" class="flex flex-1 items-center justify-center">
-        <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
-      </div>
-
-      <div v-else-if="session" class="flex min-h-0 flex-1 flex-col">
-        <slot />
-      </div>
-
-      <div v-else class="flex flex-1 flex-col items-center justify-center gap-4 text-muted">
-        <UIcon name="i-lucide-lock" class="size-10" />
-        <p class="text-sm">Session unavailable</p>
-        <UButton label="Retry" :loading="loading" @click="refreshSession" />
-      </div>
-
-      <UAlert
-        v-if="errorMsg"
-        color="error"
-        variant="soft"
-        :description="errorMsg"
-        icon="i-lucide-circle-alert"
-        class="m-4"
-      />
-    </div>
-  </main>
-</template>

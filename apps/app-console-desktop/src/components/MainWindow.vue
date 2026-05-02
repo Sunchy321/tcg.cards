@@ -1,3 +1,145 @@
+<template>
+  <main class="flex h-screen overflow-hidden bg-default text-default">
+    <!-- Sidebar -->
+    <aside class="flex w-56 shrink-0 flex-col border-r border-default bg-elevated/80 backdrop-blur">
+      <!-- Logo -->
+      <div class="flex h-12 items-center gap-3 border-b border-default px-4">
+        <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-xs font-bold text-white">
+          CC
+        </div>
+        <span class="text-sm font-semibold text-default">Console Desktop</span>
+      </div>
+
+      <!-- Nav -->
+      <nav class="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
+        <!-- Game selector -->
+        <div v-if="accessibleGames.length > 0" class="px-1 pb-2">
+          <USelect
+            :model-value="currentGame ?? undefined"
+            :items="gameSelectItems"
+            size="sm"
+            @update:model-value="void handleGameSelect($event as string)"
+          />
+        </div>
+
+        <!-- Game nav items -->
+        <template v-if="currentGame && navItems.length > 0">
+          <template v-for="(group, gi) in navItems" :key="gi">
+            <RouterLink
+              v-for="item in group"
+              :key="item.to"
+              v-slot="{ isActive, navigate }"
+              :to="item.to"
+              custom
+            >
+              <button
+                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
+                :class="isActive
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted hover:bg-elevated hover:text-default'"
+                @click="navigate"
+              >
+                <UIcon :name="item.icon" class="size-4 shrink-0" />
+                {{ item.label }}
+              </button>
+            </RouterLink>
+          </template>
+        </template>
+
+        <!-- Divider -->
+        <div class="my-1.5 border-t border-default" />
+
+        <!-- User management nav -->
+        <template v-if="showUserManagement">
+          <template v-for="(group, gi) in userNavItems" :key="gi">
+            <RouterLink
+              v-for="item in group"
+              :key="item.to"
+              v-slot="{ isActive, navigate }"
+              :to="item.to"
+              custom
+            >
+              <button
+                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
+                :class="isActive
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-muted hover:bg-elevated hover:text-default'"
+                @click="navigate"
+              >
+                <UIcon :name="item.icon" class="size-4 shrink-0" />
+                {{ item.label }}
+              </button>
+            </RouterLink>
+          </template>
+        </template>
+
+        <!-- Settings -->
+        <RouterLink
+          v-slot="{ isActive, navigate }"
+          to="/settings"
+          custom
+        >
+          <button
+            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
+            :class="isActive
+              ? 'bg-primary/10 text-primary font-medium'
+              : 'text-muted hover:bg-elevated hover:text-default'"
+            @click="navigate"
+          >
+            <UIcon name="i-lucide-settings" class="size-4 shrink-0" />
+            设置
+          </button>
+        </RouterLink>
+      </nav>
+
+      <!-- User footer -->
+      <div class="border-t border-default p-2.5">
+        <div class="flex items-center gap-2.5">
+          <div class="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary shrink-0">
+            {{ userInitial }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="truncate text-xs font-medium text-default">{{ userName }}</p>
+            <p class="truncate text-xs text-muted">{{ session?.user.email }}</p>
+          </div>
+          <UButton
+            icon="i-lucide-log-out"
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :loading="submitting"
+            @click="handleSignOut"
+          />
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div v-if="loading" class="flex flex-1 items-center justify-center">
+        <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
+      </div>
+
+      <RouterView v-else-if="session" />
+
+      <div v-else class="flex flex-1 flex-col items-center justify-center gap-4 text-muted">
+        <UIcon name="i-lucide-lock" class="size-10" />
+        <p class="text-sm">Session unavailable</p>
+        <UButton label="Retry" :loading="loading" @click="refreshSession" />
+      </div>
+
+      <UAlert
+        v-if="errorMsg"
+        color="error"
+        variant="soft"
+        :description="errorMsg"
+        icon="i-lucide-circle-alert"
+        class="m-4"
+      />
+    </div>
+  </main>
+</template>
+
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
@@ -227,145 +369,3 @@ watch(currentGame, game => {
   saveStoredGame(game);
 });
 </script>
-
-<template>
-  <main class="flex h-screen overflow-hidden bg-default text-default">
-    <!-- Sidebar -->
-    <aside class="flex w-56 shrink-0 flex-col border-r border-default bg-elevated/80 backdrop-blur">
-      <!-- Logo -->
-      <div class="flex h-12 items-center gap-3 border-b border-default px-4">
-        <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-xs font-bold text-white">
-          CC
-        </div>
-        <span class="text-sm font-semibold text-default">Console Desktop</span>
-      </div>
-
-      <!-- Nav -->
-      <nav class="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-        <!-- Game selector -->
-        <div v-if="accessibleGames.length > 0" class="px-1 pb-2">
-          <USelect
-            :model-value="currentGame ?? undefined"
-            :items="gameSelectItems"
-            size="sm"
-            @update:model-value="void handleGameSelect($event as string)"
-          />
-        </div>
-
-        <!-- Game nav items -->
-        <template v-if="currentGame && navItems.length > 0">
-          <template v-for="(group, gi) in navItems" :key="gi">
-            <RouterLink
-              v-for="item in group"
-              :key="item.to"
-              :to="item.to"
-              custom
-              v-slot="{ isActive, navigate }"
-            >
-              <button
-                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
-                :class="isActive
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted hover:bg-elevated hover:text-default'"
-                @click="navigate"
-              >
-                <UIcon :name="item.icon" class="size-4 shrink-0" />
-                {{ item.label }}
-              </button>
-            </RouterLink>
-          </template>
-        </template>
-
-        <!-- Divider -->
-        <div class="my-1.5 border-t border-default" />
-
-        <!-- User management nav -->
-        <template v-if="showUserManagement">
-          <template v-for="(group, gi) in userNavItems" :key="gi">
-            <RouterLink
-              v-for="item in group"
-              :key="item.to"
-              :to="item.to"
-              custom
-              v-slot="{ isActive, navigate }"
-            >
-              <button
-                class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
-                :class="isActive
-                  ? 'bg-primary/10 text-primary font-medium'
-                  : 'text-muted hover:bg-elevated hover:text-default'"
-                @click="navigate"
-              >
-                <UIcon :name="item.icon" class="size-4 shrink-0" />
-                {{ item.label }}
-              </button>
-            </RouterLink>
-          </template>
-        </template>
-
-        <!-- Settings -->
-        <RouterLink
-          to="/settings"
-          custom
-          v-slot="{ isActive, navigate }"
-        >
-          <button
-            class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors"
-            :class="isActive
-              ? 'bg-primary/10 text-primary font-medium'
-              : 'text-muted hover:bg-elevated hover:text-default'"
-            @click="navigate"
-          >
-            <UIcon name="i-lucide-settings" class="size-4 shrink-0" />
-            设置
-          </button>
-        </RouterLink>
-      </nav>
-
-      <!-- User footer -->
-      <div class="border-t border-default p-2.5">
-        <div class="flex items-center gap-2.5">
-          <div class="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary shrink-0">
-            {{ userInitial }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="truncate text-xs font-medium text-default">{{ userName }}</p>
-            <p class="truncate text-xs text-muted">{{ session?.user.email }}</p>
-          </div>
-          <UButton
-            icon="i-lucide-log-out"
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :loading="submitting"
-            @click="handleSignOut"
-          />
-        </div>
-      </div>
-    </aside>
-
-    <!-- Main content -->
-    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <div v-if="loading" class="flex flex-1 items-center justify-center">
-        <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
-      </div>
-
-      <RouterView v-else-if="session" />
-
-      <div v-else class="flex flex-1 flex-col items-center justify-center gap-4 text-muted">
-        <UIcon name="i-lucide-lock" class="size-10" />
-        <p class="text-sm">Session unavailable</p>
-        <UButton label="Retry" :loading="loading" @click="refreshSession" />
-      </div>
-
-      <UAlert
-        v-if="errorMsg"
-        color="error"
-        variant="soft"
-        :description="errorMsg"
-        icon="i-lucide-circle-alert"
-        class="m-4"
-      />
-    </div>
-  </main>
-</template>

@@ -2,6 +2,10 @@
 import { computed } from 'vue';
 import { currentAuthState } from '../../auth';
 
+definePageMeta({
+  title: '账号',
+});
+
 const session = computed(() => currentAuthState.value);
 const user = computed(() => session.value?.user);
 </script>

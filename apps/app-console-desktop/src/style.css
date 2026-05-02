@@ -2,8 +2,9 @@
 @import "@nuxt/ui";
 
 @theme static {
-  --font-sans: "Public Sans", "Segoe UI", sans-serif;
+  --font-sans: 'Public Sans', sans-serif;
 
+  /* ── Console theme color (indigo) ───────────────────────────────────────── */
   --color-console-50:  #eef2ff;
   --color-console-100: #e0e7ff;
   --color-console-200: #c7d2fe;
@@ -15,6 +16,11 @@
   --color-console-800: #3730a3;
   --color-console-900: #312e81;
   --color-console-950: #1e1b4b;
+}
+:root {
+  --color-theme-from: var(--color-console-400);
+  --color-theme-via:  var(--color-console-500);
+  --color-theme-to:   var(--color-console-600);
 }
 
 html {
@@ -37,19 +43,19 @@ body {
 
 @layer components {
   .desktop-page {
-    @apply flex-1 overflow-y-auto p-6;
+    @apply space-y-6 p-6;
   }
 
   .desktop-panel {
-    @apply rounded-xl border border-default bg-default;
+    @apply rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900;
   }
 
   .desktop-section-title {
-    @apply text-lg font-semibold text-default;
+    @apply text-2xl font-semibold text-gray-900 dark:text-white;
   }
 
   .desktop-muted {
-    @apply text-muted;
+    @apply text-sm text-gray-500 dark:text-gray-400;
   }
 }
 

@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { currentAuthState } from '../../auth';
+
+definePageMeta({
+  title: '设置',
+});
 </script>
 
 <template>
