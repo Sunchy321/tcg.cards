@@ -51,6 +51,5 @@ binding = "R2_ASSET"
 bucket_name = "asset"
 
 [vars]
-INTERNAL_AUTH_URL = "https://internal.tcg.cards"
 R2_DATA_BUCKET = "data"
 R2_ASSET_BUCKET = "asset"

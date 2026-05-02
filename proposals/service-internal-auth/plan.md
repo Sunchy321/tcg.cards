@@ -4,9 +4,10 @@
 
 - [x] 调整共享 auth 工厂以支持 Worker 环境注入 secret
 - [x] 将 `service-internal` 从 Nuxt 服务替换为 Hono Worker
-- [x] 保持 `site-console` 的 `/auth/[...]` 转发目标不变
+- [ ] 恢复 `site-console` 的本地 `/auth/[...]` 处理
+- [ ] 移除 `site-*` 对认证代理地址的运行时依赖
 - [x] 清理 Nuxt 专属文件与依赖
-- [x] 验证 `service-internal` 与 `site-console` 的类型检查
+- [ ] 验证 `service-internal` 与 `site-*` 的边界修正
 
 ## 实施步骤
 
@@ -18,10 +19,10 @@
 
 新增 `apps/service-internal` workspace，提供最小 Hono Worker 入口、认证 handler 和基础状态输出。
 
-### 3. 切换 `site-console` 的认证入口
+### 3. 修正 `site-*` 的认证入口
 
-保留前端同源访问方式，仅将服务端 `/auth/[...]` 改为转发到 `service-internal`。
+保留前端同源访问方式，并将站点服务端 `/auth/[...]` 恢复为本地处理，而不是转发到 `service-internal`。
 
 ### 4. 配置与校验
 
-补充 `.env.example` 与必要文档，并执行最小范围验证，确认服务能构建或完成类型检查。
+补充 `.env.example` 与必要文档，移除不再需要的认证代理配置，并执行最小范围验证。

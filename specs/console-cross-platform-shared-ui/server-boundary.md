@@ -7,43 +7,40 @@
 本清单回答四个问题：
 
 1. 当前 `site-console/server/*` 中哪些职责必须留在站点侧
-2. 哪些职责应迁移到 `service-internal`
-3. 哪些职责适合采用“入口留在站点，执行迁到服务”的双层结构
-4. 当前仓库里哪些模块已经出现重复，足以支持收口判断
+2. 哪些职责属于 `app-*` 共用后端，应由 `service-internal` 承担
+3. 哪些共享逻辑应抽到包内复用，而不是通过 HTTP 复用
+4. 当前仓库里哪些模块已经出现重复，足以支持抽取共享模块
 
 ## 2. 当前现状总结
 
-### 2.1 `site-console` 当前承担两类混合职责
+### 2.1 目标边界
 
-`apps/site-console/server/*` 当前同时承担：
+本规格当前确认的运行时边界是：
 
-1. 面向网页 SSR 的站点侧职责
-2. 独立 app 也需要消费的通用管理后端职责
+1. `site-*` 的后端请求应在各自 Worker 内本地处理
+2. `app-*` 的后端请求统一走 `service-*`
+3. 两边共享能力时，应共享代码模块，不共享运行时路由
 
-这两类职责继续混放，会直接带来以下问题：
+如果继续把 `site-*` 设计成“浏览器入口留站点、业务执行走外部 service”的结构，会直接带来以下问题：
 
-- 页面壳层与通用后端无法独立迁移
-- Desktop / Mobile 需要绕过 `site-console`
-- `service-internal` 无法成为真正稳定的独立 app 后端入口
+- 站点首屏与登录态链路增加网络跳转与代理故障面
+- 浏览器 cookie、压缩、重定向与同源语义更容易出现环境差异
+- `service-internal` 会重新变成站点运行时的隐式依赖
+- 共享边界会退化成“共享 HTTP 路由”而不是“共享代码模块”
 
-### 2.2 `service-internal` 已经具备初始后端收口形态
+### 2.2 当前冲突点
 
-`apps/service-internal/src/index.ts` 已经直接提供：
+当前仓库里已经存在以下与目标边界冲突的实现或表述：
 
-- `/auth/*`
-- `/rpc/*`
+- `site-console` 的 `/auth/*` 仍被描述为转发到 `service-internal`
+- `server-boundary.md` 旧版把多类能力定义为“入口留站点，执行迁服务”
+- `service-internal-auth` proposal 旧版把站点同源转发作为推荐方案
 
-其 ORPC 结构已经与 `site-console/server/orpc/*` 对齐。
+这些内容需要统一修正为：
 
-当前已确认在两边同时存在的模块包括：
-
-- `magic/announcement.ts`
-- `hearthstone/announcement.ts`
-- `hearthstone/set.ts`
-- `hearthstone/tag.ts`
-- 对应的 `index.ts` / `service.ts` 入口拼装
-
-这说明至少这批通用管理 API 已经具备收口到 `service-internal` 的现实基础。
+1. `site-*` 保留本地后端入口与本地执行
+2. `service-internal` 只服务于 `app-*`
+3. 共享逻辑通过 `packages/*` 抽取
 
 ## 3. 边界分类
 
@@ -53,112 +50,109 @@
 
 | 模块 | 当前文件 | 结论 | 理由 |
 |------|------|------|------|
-| 同源认证入口 | `apps/site-console/server/routes/auth/[...].ts` | 保留在 `site-console` | 该文件本质上是同源转发层，负责把浏览器认证请求转发到内部服务，属于典型 BFF / 站点入口能力 |
-| 浏览器 RPC 入口 | `apps/site-console/server/routes/rpc/[...].ts` | 保留在 `site-console` | 这是浏览器同源访问的入口，后续即使底层执行迁到 `service-internal`，站点侧入口仍然有保留价值 |
-| 页面级 SSR 聚合 | 未来新增或收敛后的 `site-console/server/*` 页面聚合逻辑 | 保留在 `site-console` | 依赖 cookie、header、URL、缓存策略、重定向策略，天然属于站点 BFF |
+| 同源认证入口 | `apps/site-console/server/routes/auth/[...].ts` | 保留在 `site-console` 且本地执行 | 站点认证属于浏览器同源会话入口，应直接在站点 Worker 内处理，不应代理到外部 service |
+| 浏览器 RPC 入口 | `apps/site-console/server/routes/rpc/[...].ts` | 保留在 `site-console` 且本地执行 | 站点后端请求应在本地 Worker 内完成，不能把浏览器请求再转发到外部内部服务 |
+| 页面级 SSR 聚合 | 未来新增或收敛后的 `site-console/server/*` 页面聚合逻辑 | 保留在 `site-console` | 依赖 cookie、header、URL、缓存策略、重定向策略，天然属于站点本地后端 |
+| 站点页面直接依赖的领域 API | `apps/site-console/server/orpc/*` | 保留在 `site-console` | 如果站点页面需要这些能力，应本地装配共享逻辑，而不是把 HTTP 请求路由到 `service-internal` |
 
 补充说明：
 
-1. 这里的“保留”不等于继续保留全部业务实现
-2. 这里保留的是浏览器入口、请求上下文控制和页面级服务端编排
+1. 这里的“保留”不仅是入口保留，也包括本地执行保留
+2. 可共享的是内部模块、schema、仓储与服务逻辑，不是跨服务转发链路
 
 ### 3.2 迁移到 `service-internal` 的能力
 
-这类能力不依赖网页 SSR 请求上下文，且独立 app 也需要直接消费，应收口为稳定的内部服务能力。
+这类能力不面向网页站点浏览器请求，而是面向独立 app 的统一服务能力。
 
 | 模块 | 当前文件 | 结论 | 理由 |
 |------|------|------|------|
-| Magic 公告 CRUD | `apps/site-console/server/orpc/magic/announcement.ts` | 迁移到 `service-internal` | 已经在 `apps/service-internal/src/orpc/magic/announcement.ts` 出现重复实现，属于典型通用管理 API |
-| Hearthstone 公告 CRUD | `apps/site-console/server/orpc/hearthstone/announcement.ts` | 迁移到 `service-internal` | 已经在 `apps/service-internal/src/orpc/hearthstone/announcement.ts` 出现重复实现 |
-| Hearthstone Set 管理 | `apps/site-console/server/orpc/hearthstone/set.ts` | 迁移到 `service-internal` | 已经在 `apps/service-internal/src/orpc/hearthstone/set.ts` 出现重复实现 |
-| Hearthstone Tag 管理 | `apps/site-console/server/orpc/hearthstone/tag.ts` | 迁移到 `service-internal` | 已经在 `apps/service-internal/src/orpc/hearthstone/tag.ts` 出现重复实现 |
-| Magic 数据源策略快照 | `apps/site-console/server/orpc/magic/data-source.ts` | 迁移到 `service-internal` | 该模块当前不依赖 SSR 请求上下文，也不是页面专属聚合，适合作为通用管理 API |
+| `app-*` 认证与 session 判定 | `apps/service-internal/src/index.ts` 的 `/auth/*` | 保留在 `service-internal` | 独立 app 需要统一认证服务，但不应反向成为 `site-*` 的认证后端 |
+| `app-*` 共用管理 API | `apps/service-internal/src/orpc/*` | 保留在 `service-internal` | 这些接口属于独立 app 直接消费的服务能力 |
+| `app-*` 长任务与后台处理 | 后续 `service-internal` 任务链 | 保留在 `service-internal` | 更适合作为统一服务后端存在 |
 
 补充说明：
 
-1. 这批模块应以 `service-internal` 为单一主实现
-2. `site-console` 后续若仍需同源访问，应改由站点侧 BFF 入口转发或聚合，而不是继续保留完整执行实现
+1. `service-internal` 是 `app-*` 的统一后端，不是 `site-*` 的下游执行面
+2. `site-*` 如需相同能力，应复用共享代码，在自己的 Worker 内本地装配
 
-### 3.3 采用“入口留站点，执行迁服务”的能力
+### 3.3 应抽到共享包复用的能力
 
-这类能力通常既有浏览器同源入口需求，又有明显的独立 app 复用价值。最合适的结构是：
+这类能力同时被 `site-*` 与 `app-*` 需要，但不应通过跨服务 HTTP 复用。最合适的结构是：
 
-- 浏览器入口保留在 `site-console`
-- 主要业务执行迁到 `service-internal`
+- 共享逻辑下沉到 `packages/*`
+- `site-*` 在自己的 Worker 中本地装配
+- `service-internal` 在自己的 Worker 中本地装配
 
 | 模块 | 当前文件 | 结论 | 理由 |
 |------|------|------|------|
-| Hearthstone hsdata 数据源状态与导入 | `apps/site-console/server/orpc/hearthstone/data-source/hsdata.ts` | 双层结构 | 浏览器页可继续走同源 `/rpc`，但导入与投影执行链不应长期留在站点侧 |
-| Hearthstone hsdata 导入实现 | `apps/site-console/server/lib/hearthstone/hsdata-import.ts` | 执行迁到 `service-internal` | 属于通用后台导入逻辑，不依赖 SSR 请求上下文 |
-| Hearthstone hsdata 投影实现 | `apps/site-console/server/lib/hearthstone/hsdata-project.ts` | 执行迁到 `service-internal` | 属于通用后台投影逻辑，不依赖 SSR 请求上下文 |
-| Hearthstone 图片导入与导出 | `apps/site-console/server/orpc/hearthstone/image.ts` | 双层结构 | 浏览器上传入口可保留站点侧，但核心图片处理与写库 / 写 R2 流程应迁服务 |
-| Hearthstone 图片处理实现 | `apps/site-console/server/lib/hearthstone/card-image.ts` | 执行迁到 `service-internal` | 属于通用后台处理能力，独立 app 也可直接复用 |
-| Magic 规则管理 API | `apps/site-console/server/orpc/magic/rule.ts` | 双层结构 | 页面入口可继续走同源，但规则导入、重匹配、审查等执行逻辑不应长期留站点侧 |
-| Magic 文档导入 / 审查 / 历史实现 | `apps/site-console/server/lib/magic/document/*` | 执行迁到 `service-internal` | 这些逻辑本质上是通用业务执行，不依赖浏览器 SSR 请求上下文 |
+| 公告、Set、Tag 领域逻辑 | `apps/site-console/server/orpc/*` 与 `apps/service-internal/src/orpc/*` 的重复部分 | 抽到共享包 | 两边都需要，但应共享实现模块，而不是共享 HTTP 路由 |
+| `hsdata` 导入与投影逻辑 | `apps/site-console/server/lib/hearthstone/hsdata-*` | 抽到共享包 | 站点与 app 可能都需要，应拆成可复用的纯服务逻辑 |
+| Hearthstone 图片处理逻辑 | `apps/site-console/server/lib/hearthstone/card-image.ts` | 抽到共享包 | 适合作为平台无关的处理能力，再由不同 Worker 本地装配 |
+| Magic 规则导入、匹配、审查逻辑 | `apps/site-console/server/lib/magic/document/*` | 抽到共享包 | 领域执行逻辑可以复用，但站点与 service 的请求入口应继续分离 |
 
 补充说明：
 
 这类模块后续最推荐的形态是：
 
-1. `service-internal` 提供稳定业务后端 API
-2. `site-console` 的 `/rpc` 入口根据需要做代理、裁剪或聚合
-3. Desktop / Mobile 直接消费 `service-internal`
+1. 共享逻辑沉淀到 `packages/*`
+2. `site-console` 的 `/auth`、`/rpc` 在本地 Worker 中直接调用共享逻辑
+3. Desktop / Mobile 通过 `service-internal` 调用相同共享逻辑
 
 ### 3.4 清理或过渡中的能力
 
 | 模块 | 当前文件 | 结论 | 理由 |
 |------|------|------|------|
-| 旧站点侧 auth 实例 | `apps/site-console/server/lib/auth/index.ts` | 倾向清理或仅保留过渡引用 | 当前认证主服务已由 `service-internal` 直接提供，站点侧完整 auth 实例不应再继续作为长期主实现 |
-| 站点侧 ORPC 拼装入口 | `apps/site-console/server/orpc/index.ts`、`service.ts` | 过渡保留 | 在站点侧仍存在本地执行模块期间需要保留，后续应收敛为 BFF 入口或转发层 |
+| `site-console` 的 auth 代理实现 | `apps/site-console/server/routes/auth/[...].ts` | 应回收为本地 handler | 该文件不应再作为到 `service-internal` 的转发层存在 |
+| 站点侧 auth 实例 | `apps/site-console/server/lib/auth/index.ts` | 保留并作为站点主实现 | `site-*` 应保留自己的认证服务，仅复用共享 auth 工厂 |
+| 站点侧 ORPC 拼装入口 | `apps/site-console/server/orpc/index.ts`、`service.ts` | 保留 | 这是站点本地后端入口，不应被收敛为外部 service 转发层 |
 
 ## 4. 推荐迁移顺序
 
-### 4.1 第一批：消除已存在的重复主实现
+### 4.1 第一批：回收跨服务运行时依赖
 
-优先收口到 `service-internal`：
+优先处理：
 
-1. `magic/announcement`
-2. `hearthstone/announcement`
-3. `hearthstone/set`
-4. `hearthstone/tag`
-
-理由：
-
-- 两边已经存在重复实现
-- 这批模块属于标准管理 CRUD
-- 与 SSR 请求上下文耦合最弱
-
-### 4.2 第二批：迁移后台执行链
-
-在第一批稳定后继续迁移：
-
-1. `hearthstone/data-source/hsdata`
-2. `hearthstone/image`
-3. `magic/rule`
-4. `server/lib/hearthstone/*`
-5. `server/lib/magic/document/*`
+1. 恢复 `site-console` 本地 `/auth/*` 处理
+2. 清理 `site-* -> service-*` 的运行时路由依赖
+3. 明确 `site-*` 与 `app-*` 的后端入口边界
 
 理由：
 
-- 这批能力更偏后台执行与长流程
-- 独立 app 复用价值高
-- 与 SSR 页面壳的耦合主要体现在入口，而不是执行逻辑本身
+- 先消除站点首屏、cookie 与代理链路的不必要故障面
+- 先固定运行时边界，再抽取共享代码会更稳定
 
-### 4.3 最后收敛站点侧 ORPC 入口
+### 4.2 第二批：抽取共享服务逻辑
 
-当共享后端主实现收口完成后，再逐步把 `site-console/server/orpc/*` 收敛为：
+在第一批稳定后继续抽取：
 
-1. SSR / BFF 聚合逻辑
-2. 面向浏览器的同源入口
-3. 必要的请求裁剪、权限补充与错误映射
+1. `announcement / set / tag` 的重复领域逻辑
+2. `hearthstone/data-source/hsdata`
+3. `hearthstone/image`
+4. `magic/rule`
+5. `server/lib/hearthstone/*`
+6. `server/lib/magic/document/*`
 
-而不是继续承担完整业务执行。
+理由：
+
+- 这批能力更适合沉淀为平台无关模块
+- 站点与 app 都能通过本地装配复用
+- 与运行时边界相比，代码抽取是后续步骤
+
+### 4.3 最后统一装配方式
+
+当共享逻辑稳定后，再逐步把 `site-console/server/orpc/*` 与 `service-internal/src/orpc/*` 收敛为：
+
+1. 各自的本地入口与平台适配层
+2. 对共享模块的薄装配
+3. 必要的权限补充、错误映射与平台差异处理
+
+而不是继续保留重复的业务执行实现。
 
 ## 5. 结论
 
 本次第 4 步的边界结论为：
 
-1. `site-console` 必须保留同源 `/auth`、同源 `/rpc` 和 SSR / BFF 所需的薄后端能力
-2. `announcement / set / tag / data-source policy` 这类通用管理 API 应收口到 `service-internal`
-3. `hsdata`、`image`、`magic rule` 这类复杂模块应采用“站点入口保留、业务执行迁服务”的双层结构
-4. `site-console/server/*` 后续应逐步从“业务执行层”收敛为“SSR / BFF 层”
+1. `site-*` 的后端请求必须在各自 Worker 中本地处理，不能路由到外部内部服务
+2. `app-*` 统一使用 `service-*` 作为后端入口
+3. 站点与 service 共享能力时，应共享代码模块，而不是共享 HTTP 路由
+4. `site-console/server/*` 后续应保留为完整站点本地后端，而不是被收敛为外部 service 的转发层

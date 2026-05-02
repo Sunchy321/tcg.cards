@@ -51,7 +51,7 @@
 
 ### 4. 拆分 SSR / BFF 与独立 app 后端能力
 
-先识别 `site-console/server/*` 中哪些能力必须保留在站点侧用于：
+先识别 `site-console/server/*` 中哪些能力必须保留在站点侧并在本地 Worker 中执行，用于：
 
 - 请求上下文读取
 - 同源认证与 session 判定
@@ -59,12 +59,14 @@
 - 首屏聚合
 - 页面级错误映射
 
-再识别哪些能力应迁移到 `service-internal` 作为独立 app 共用后端，例如：
+再识别哪些能力应保留给 `app-* -> service-internal` 作为共用后端，例如：
 
 - 通用管理 API
 - 领域层 CRUD 主实现
 - 长任务执行链
 - 不依赖 SSR 上下文的后台流程
+
+同时识别哪些逻辑应抽到共享包，由 `site-*` 与 `service-*` 各自在本地装配，而不是通过 HTTP 路由复用。
 
 这一阶段的验收标准是：`site-console` 与 `service-internal` 的 server 侧职责边界形成明确清单。
 

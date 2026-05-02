@@ -29,7 +29,7 @@
 1. 为 `site-console`、`app-console-desktop`、未来的 `app-console-mobile` 建立可持续的前端复用结构
 2. 明确哪些能力应该进入共享层，哪些能力应保留在各自平台壳层
 3. 明确是否应立即把当前桌面端从 Vite 壳迁移为 Nuxt 壳
-4. 明确后端迁移后的双落点：`site-console` 保留 SSR / BFF 能力，独立 app 的后端能力收口到 `service-internal`
+4. 明确后端迁移后的双落点：`site-*` 保留各自 Worker 内的本地后端能力，独立 app 的后端能力由 `service-internal` 承担
 5. 降低页面复制、样式分叉、状态逻辑重复和环境特定 API 泄漏
 6. 为未来移动端接入提供前端结构基础，而不是再复制第三套页面
 
@@ -98,7 +98,7 @@
 
 需要明确后续双落点：
 
-- `site-console` 保留 SSR / BFF 所需的薄后端能力
+- `site-console` 保留 SSR / BFF 所需的站点本地后端能力
 - `service-internal` 承担独立 app 共用的业务后端能力
 
 这里的 BFF 指 `Backend for Frontend`，即专门面向某个前端壳层的薄后端，用于处理：
@@ -309,10 +309,12 @@
 - 领域逻辑主实现
 - 长任务与后台执行链
 - Desktop / Mobile 直接消费的后端能力
-- 可被 `site-console` 的 BFF 调用的内部服务接口
+- 仅供 `app-*` 使用的认证与会话入口
 
 不再承担：
 
+- `site-*` 浏览器请求的运行时执行
+- `site-*` 通过 HTTP 调用的内部服务入口
 - 网页端 SSR 页面专属的请求上下文处理
 - 直接面向浏览器页面的重定向与首屏渲染控制
 
@@ -345,7 +347,7 @@
 
 ### 3. 后端迁移落点
 
-后端迁移时，需要明确区分“SSR / BFF 能力”和“独立 app 共用业务后端能力”。
+后端迁移时，需要明确区分“`site-*` 本地 Worker 后端能力”和“`app-*` 共用服务后端能力”。
 
 #### 应保留在 `site-console` 的能力
 
@@ -355,8 +357,10 @@
 - 页面首屏聚合
 - 页面级缓存控制
 - 页面级错误映射
+- 站点侧 `/auth` 与 `/rpc` 的本地执行入口
+- 站点页面直接依赖的领域 API 本地装配
 
-这些能力天然依赖 Nuxt 页面壳、浏览器请求上下文和站点级渲染策略，不适合下沉到 `service-internal`。
+这些能力天然依赖 Nuxt 页面壳、浏览器请求上下文和站点级渲染策略，应直接保留在 `site-*` 自己的 Worker 中执行，不应通过 HTTP 下沉到 `service-internal`。
 
 #### 应迁移到 `service-internal` 的能力
 
@@ -365,14 +369,16 @@
 - 长任务执行链
 - 导入、同步、后台处理流程
 - 不依赖 SSR 请求上下文的通用业务接口
+- `app-*` 使用的认证与 session 判定
 
 这些能力应作为稳定的内部服务能力存在，由：
 
 - `app-console-desktop`
 - 未来的 `app-console-mobile`
-- `site-console` 的 SSR / BFF 层
 
-共同消费。
+直接消费。
+
+如果 `site-*` 也需要相同能力，应复用相同的共享代码模块，在自己的 Worker 内本地装配与执行，而不是通过 HTTP 调用 `service-internal`。
 
 ## 关于“桌面端是否应改用 Nuxt”的最终判断
 
@@ -386,7 +392,7 @@
 2. 立即迁移 Nuxt 只能让桌面端更容易运行被复制的 Nuxt 页面，但不会自动消除复制
 3. `site-console` 当前同时承载 server 侧能力，直接对齐到桌面端会扩大耦合面
 4. 移动端复用目标要求共享层尽量独立于 Nuxt 壳
-5. 当前更关键的工作是把 `site-console` 的 SSR / BFF 职责和独立 app 后端职责拆清，而不是先统一桌面壳
+5. 当前更关键的工作是把 `site-*` 的本地后端职责和 `app-*` 的服务后端职责拆清，而不是先统一桌面壳
 
 ### 共享层落地后的复评结果
 
@@ -528,7 +534,7 @@
 
 1. 当前不应立即把 `app-console-desktop` 迁移为 Nuxt
 2. 应优先建设平台无关的 console 共享前端层
-3. `site-console` 应保留 SSR / BFF 所需的薄后端能力
+3. `site-*` 应保留各自 Worker 内的本地后端能力，其中包括 SSR / BFF 所需部分
 4. 独立 app 共用的后端能力应逐步收口到 `service-internal`
 5. `site-console`、`app-console-desktop`、`app-console-mobile` 的平台边界应被显式定义
 6. 后续实施应按“核心逻辑 -> SSR / BFF 与后端拆分 -> 共享 UI -> 平台适配 -> 页面迁移 -> 壳层复评”的顺序推进

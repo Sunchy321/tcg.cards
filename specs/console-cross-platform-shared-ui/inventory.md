@@ -100,8 +100,9 @@
 
 `site-console/server/*` 当前不应被看作单一整体，后续需要继续拆分为：
 
-1. 应保留在 `site-console` 的 SSR / BFF 能力
-2. 应迁移到 `service-internal` 的独立 app 共用后端能力
+1. `site-*` 自己 Worker 内的站点本地后端能力
+2. `app-*` 通过 `service-internal` 消费的共用服务能力
+3. 可抽到共享包内复用的领域逻辑与基础设施逻辑
 
 应保留在 `site-console` 的典型职责：
 
@@ -111,12 +112,19 @@
 - 首屏聚合
 - 页面级缓存与错误映射
 
-应迁移到 `service-internal` 的典型职责：
+应保留给 `app-* -> service-internal` 的典型职责：
 
 - 独立 app 共用管理 API
 - 领域层 CRUD 主实现
 - 长任务执行链
 - 不依赖 SSR 请求上下文的后台处理流程
+
+应优先抽到共享包的典型职责：
+
+- auth 工厂与权限模型
+- 领域 service / repository
+- schema、校验与错误模型
+- 不依赖特定 Worker 入口的导入与处理逻辑
 
 ### 4.3 Desktop / Tauri 侧依赖
 

@@ -8,7 +8,7 @@
 
 1. 方案准确识别了当前问题的根因，重点不在于 Nuxt 与 Vite 的框架差异，而在于共享边界缺失
 2. 方案把 `site-console`、`app-console-desktop` 与未来 `app-console-mobile` 放在同一目标结构下评估，避免只优化两端复用
-3. 方案补充了后端双落点约束，明确 `site-console` 保留 SSR / BFF 薄后端，独立 app 共用后端能力收口到 `service-internal`
+3. 方案补充了后端双落点约束，明确 `site-*` 保留各自 Worker 内的本地后端，独立 app 共用后端能力由 `service-internal` 承担
 4. 方案避免过早把桌面端绑到 Nuxt 运行时，有利于保持桌面与移动平台能力边界清晰
 5. 方案允许按“核心逻辑、SSR / BFF 与后端拆分、共享 UI、平台适配、页面迁移、壳层复评”分阶段推进，实施风险可控
 6. 方案已经结合当前仓库实际问题，例如页面复制、`#model` alias 泄漏和 Nuxt 运行时依赖外溢，判断依据充分
