@@ -2,7 +2,7 @@ import { fileURLToPath } from 'url';
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  extends: ['../../packages/ui'],
+  extends: ['../../packages/ui', '@tcg-cards/console-shell'],
 
   modules: ['nitro-cloudflare-dev', '@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
 

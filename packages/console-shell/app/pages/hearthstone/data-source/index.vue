@@ -245,6 +245,11 @@
 </template>
 
 <script setup lang="ts">
+
+definePageMeta({
+  layout: 'admin',
+  title:  '数据源',
+});
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, ref } from 'vue';
 
@@ -318,135 +323,139 @@ interface HsdataRawEntitySnapshotTagOverview {
   distinctEnumCount: number;
 }
 
-interface HsdataTagValueViewOverview {
-  name: 'tag_value_view';
+interface HsdataTagMapOverview {
+  name: 'tag_map';
   kind: 'view';
   rows: number;
-  distinctSnapshotCount: number;
-  distinctEnumCount: number;
+  distinctTags: number;
+  distinctEnums: number;
 }
 
 interface HsdataOverview {
   summary: HsdataOverviewSummary;
-  tables: {
-    sourceVersions: HsdataSourceVersionOverview;
-    rawEntitySnapshots: HsdataRawEntitySnapshotOverview;
-    rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
-    tagValueView: HsdataTagValueViewOverview;
-  };
+  sourceVersions: HsdataSourceVersionOverview;
+  rawEntitySnapshots: HsdataRawEntitySnapshotOverview;
+  rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
+  tagMap: HsdataTagMapOverview;
 }
 
 const hsdataSources = [
   {
-    id: 'hsdata',
-    name: 'Hearthstone Data (hsdata)',
+    id: 'main',
+    name: 'Hearthstone JSON / XML',
     icon: 'i-lucide-database',
-    official: false,
-    description: 'HearthSim 社区维护的炉石传说卡牌数据库，从游戏客户端提取的原始卡牌数据。',
-    url: 'https://github.com/HearthSim/hsdata',
+    url: 'https://api.hearthstonejson.com/v1/latest/all/enUS/cards.collectible.json',
+    description: '当前管理站点使用的 HSData / XML 来源状态。',
+    official: true,
   },
-] as const;
-
-const historyColumns = [
-  { accessorKey: 'tag', header: '版本' },
-  { accessorKey: 'commit', header: 'Commit' },
-  { accessorKey: 'type', header: '类型' },
-  { accessorKey: 'date', header: '时间' },
-  { accessorKey: 'count', header: '数量' },
 ];
 
 const state = ref<HsdataSourceState | null>(null);
-const loadingState = ref(false);
 const files = ref<HsdataFile[]>([]);
+const loadingState = ref(false);
 const loadingFiles = ref(false);
-const overview = ref<HsdataOverview | null>(null);
 const loadingOverview = ref(false);
+const overview = ref<HsdataOverview | null>(null);
 const overviewError = ref('');
 
 const history = computed(() => state.value?.history ?? []);
 
-const overviewSummaryCards = computed(() => {
-  const summary = overview.value?.summary;
+const historyColumns = [
+  { accessorKey: 'tag', header: 'Tag' },
+  { accessorKey: 'commit', header: 'Commit' },
+  { accessorKey: 'type', header: '类型' },
+  { accessorKey: 'date', header: '时间' },
+  { accessorKey: 'count', header: '文件数' },
+  { accessorKey: 'size', header: '大小' },
+];
 
-  if (!summary) {
-    return [];
-  }
+const overviewSummaryCards = computed(() => {
+  if (!overview.value) return [];
 
   return [
-    { key: 'sourceVersions', label: '来源版本数', value: formatHsdataCount(summary.sourceVersionCount) },
-    { key: 'completedVersions', label: '已完成导入', value: formatHsdataCount(summary.completedSourceVersionCount) },
-    { key: 'failedVersions', label: '失败版本数', value: formatHsdataCount(summary.failedSourceVersionCount) },
-    { key: 'snapshots', label: '快照总数', value: formatHsdataCount(summary.snapshotCount) },
-    { key: 'latestSnapshots', label: 'Latest 快照数', value: formatHsdataCount(summary.latestSnapshotCount) },
-    { key: 'tagRows', label: 'Tag 行总数', value: formatHsdataCount(summary.tagRowCount) },
+    { key: 'sourceVersionCount', label: '版本记录', value: overview.value.summary.sourceVersionCount },
+    { key: 'completedSourceVersionCount', label: '完成版本', value: overview.value.summary.completedSourceVersionCount },
+    { key: 'failedSourceVersionCount', label: '失败版本', value: overview.value.summary.failedSourceVersionCount },
+    { key: 'snapshotCount', label: '快照总数', value: overview.value.summary.snapshotCount },
+    { key: 'latestSnapshotCount', label: '最新快照行数', value: overview.value.summary.latestSnapshotCount },
+    { key: 'tagRowCount', label: '标签投影行数', value: overview.value.summary.tagRowCount },
   ];
 });
 
 const overviewTableCards = computed(() => {
-  const tables = overview.value?.tables;
-
-  if (!tables) {
-    return [];
-  }
+  if (!overview.value) return [];
 
   return [
     {
-      key: 'sourceVersions',
-      name: tables.sourceVersions.name,
-      kind: tables.sourceVersions.kind,
+      key: 'source_versions',
+      name: overview.value.sourceVersions.name,
+      kind: overview.value.sourceVersions.kind,
       metrics: [
-        { label: '总行数', value: formatHsdataCount(tables.sourceVersions.rows) },
-        { label: '最近导入时间', value: formatHsdataDate(tables.sourceVersions.latestImportedAt) },
-        { label: '最近完成 sourceTag', value: tables.sourceVersions.latestCompletedSourceTag ?? '-' },
-        { label: 'completed / failed', value: `${formatHsdataCount(tables.sourceVersions.statusCounts.completed)} / ${formatHsdataCount(tables.sourceVersions.statusCounts.failed)}` },
-        { label: 'processing / pending', value: `${formatHsdataCount(tables.sourceVersions.statusCounts.processing)} / ${formatHsdataCount(tables.sourceVersions.statusCounts.pending)}` },
+        { label: '总行数', value: overview.value.sourceVersions.rows },
+        { label: '最后导入时间', value: overview.value.sourceVersions.latestImportedAt ?? '-' },
+        { label: '最后完成版本', value: overview.value.sourceVersions.latestCompletedSourceTag ?? '-' },
+        { label: 'completed', value: overview.value.sourceVersions.statusCounts.completed },
+        { label: 'failed', value: overview.value.sourceVersions.statusCounts.failed },
+        { label: 'processing', value: overview.value.sourceVersions.statusCounts.processing },
+        { label: 'pending', value: overview.value.sourceVersions.statusCounts.pending },
       ],
     },
     {
-      key: 'rawEntitySnapshots',
-      name: tables.rawEntitySnapshots.name,
-      kind: tables.rawEntitySnapshots.kind,
+      key: 'raw_entity_snapshots',
+      name: overview.value.rawEntitySnapshots.name,
+      kind: overview.value.rawEntitySnapshots.kind,
       metrics: [
-        { label: '总行数', value: formatHsdataCount(tables.rawEntitySnapshots.rows) },
-        { label: 'Latest 行数', value: formatHsdataCount(tables.rawEntitySnapshots.latestRows) },
-        { label: '不同 card_id 数量', value: formatHsdataCount(tables.rawEntitySnapshots.distinctCardCount) },
-        { label: '最近更新时间', value: formatHsdataDate(tables.rawEntitySnapshots.updatedAt) },
+        { label: '总行数', value: overview.value.rawEntitySnapshots.rows },
+        { label: '最新快照行数', value: overview.value.rawEntitySnapshots.latestRows },
+        { label: '去重卡牌数', value: overview.value.rawEntitySnapshots.distinctCardCount },
+        { label: '更新时间', value: overview.value.rawEntitySnapshots.updatedAt ?? '-' },
       ],
     },
     {
-      key: 'rawEntitySnapshotTags',
-      name: tables.rawEntitySnapshotTags.name,
-      kind: tables.rawEntitySnapshotTags.kind,
+      key: 'raw_entity_snapshot_tags',
+      name: overview.value.rawEntitySnapshotTags.name,
+      kind: overview.value.rawEntitySnapshotTags.kind,
       metrics: [
-        { label: '总行数', value: formatHsdataCount(tables.rawEntitySnapshotTags.rows) },
-        { label: '不同 snapshot_id 数量', value: formatHsdataCount(tables.rawEntitySnapshotTags.distinctSnapshotCount) },
-        { label: '不同 enum_id 数量', value: formatHsdataCount(tables.rawEntitySnapshotTags.distinctEnumCount) },
+        { label: '总行数', value: overview.value.rawEntitySnapshotTags.rows },
+        { label: '快照数', value: overview.value.rawEntitySnapshotTags.distinctSnapshotCount },
+        { label: '枚举数', value: overview.value.rawEntitySnapshotTags.distinctEnumCount },
       ],
     },
     {
-      key: 'tagValueView',
-      name: tables.tagValueView.name,
-      kind: tables.tagValueView.kind,
+      key: 'tag_map',
+      name: overview.value.tagMap.name,
+      kind: overview.value.tagMap.kind,
       metrics: [
-        { label: '总行数', value: formatHsdataCount(tables.tagValueView.rows) },
-        { label: '不同 snapshot_id 数量', value: formatHsdataCount(tables.tagValueView.distinctSnapshotCount) },
-        { label: '不同 enum_id 数量', value: formatHsdataCount(tables.tagValueView.distinctEnumCount) },
+        { label: '总行数', value: overview.value.tagMap.rows },
+        { label: '标签数', value: overview.value.tagMap.distinctTags },
+        { label: '枚举数', value: overview.value.tagMap.distinctEnums },
       ],
     },
   ];
 });
 
-async function openDataImport() {
-  await platform.router.push('/hearthstone/data-import');
+function formatHsdataDate(value?: string) {
+  if (!value) return '-';
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
+}
+
+function formatHsdataBytes(size?: number) {
+  if (size == null || Number.isNaN(size)) return '-';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 ** 2) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 ** 3) return `${(size / (1024 ** 2)).toFixed(1)} MB`;
+  return `${(size / (1024 ** 3)).toFixed(1)} GB`;
 }
 
 async function loadState() {
   loadingState.value = true;
-
   try {
-    state.value = await orpc.hearthstone.dataSource.hsdata.getState();
-  } catch (error) {
-    console.error('Failed to load hsdata state:', error);
+    state.value = await orpc.hearthstone.hsdata.state();
   } finally {
     loadingState.value = false;
   }
@@ -454,16 +463,8 @@ async function loadState() {
 
 async function loadFiles() {
   loadingFiles.value = true;
-
   try {
-    const result = await orpc.hearthstone.dataSource.hsdata.listFiles();
-    files.value = [...result].sort((first, second) => {
-      const firstTime = first.time ?? '';
-      const secondTime = second.time ?? '';
-      return secondTime.localeCompare(firstTime);
-    });
-  } catch (error) {
-    console.error('Failed to load hsdata files:', error);
+    files.value = await orpc.hearthstone.hsdata.files();
   } finally {
     loadingFiles.value = false;
   }
@@ -472,12 +473,10 @@ async function loadFiles() {
 async function loadOverview() {
   loadingOverview.value = true;
   overviewError.value = '';
-
   try {
-    overview.value = await orpc.hearthstone.dataSource.hsdata.getOverview();
+    overview.value = await orpc.hearthstone.hsdata.overview();
   } catch (error) {
-    console.error('Failed to load hsdata overview:', error);
-    overviewError.value = '数据表概览加载失败';
+    overviewError.value = error instanceof Error ? error.message : String(error);
   } finally {
     loadingOverview.value = false;
   }
@@ -487,46 +486,8 @@ async function reloadAll() {
   await Promise.all([loadState(), loadFiles(), loadOverview()]);
 }
 
-function formatHsdataDate(dateStr: string | undefined) {
-  if (!dateStr) {
-    return '-';
-  }
-
-  try {
-    return new Date(dateStr).toLocaleString('zh-CN');
-  } catch {
-    return dateStr;
-  }
-}
-
-function formatHsdataBytes(value: number) {
-  if (!Number.isFinite(value)) {
-    return '-';
-  }
-
-  if (value < 1024) {
-    return `${value} B`;
-  }
-
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let size = value;
-  let unitIndex = -1;
-
-  do {
-    size /= 1024;
-    unitIndex += 1;
-  } while (size >= 1024 && unitIndex < units.length - 1);
-
-  const digits = size >= 10 ? 1 : 2;
-  return `${size.toFixed(digits)} ${units[unitIndex]}`;
-}
-
-function formatHsdataCount(value: number | undefined) {
-  if (value == null || !Number.isFinite(value)) {
-    return '-';
-  }
-
-  return new Intl.NumberFormat('zh-CN').format(value);
+async function openDataImport() {
+  await platform.router.push('/hearthstone/data-import');
 }
 
 onMounted(() => {

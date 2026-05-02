@@ -172,10 +172,15 @@
 </template>
 
 <script setup lang="ts">
+
+definePageMeta({
+  layout: 'admin',
+  title:  'Set 管理',
+});
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import type { SetLocalization, SetProfile } from '../../../../model/src/hearthstone/schema/set';
+import type { SetLocalization, SetProfile } from '@tcg-cards/model/src/hearthstone/schema/set';
 
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();
@@ -259,11 +264,72 @@ function resetForm() {
   formError.value = '';
 }
 
+function parseOptionalInt(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`无效整数: ${value}`);
+  }
+  return parsed;
+}
+
+function normalizeLocalizations() {
+  return form.localization
+    .map(item => ({ lang: item.lang.trim(), name: item.name.trim() }))
+    .filter(item => item.lang.length > 0 && item.name.length > 0);
+}
+
+async function loadSets() {
+  loading.value = true;
+  try {
+    const result = await orpc.hearthstone.set.list({
+      q: filters.q.trim() || undefined,
+      type: filters.type.trim() || undefined,
+      group: filters.group.trim() || undefined,
+      page: page.value,
+      limit: limit.value,
+    });
+    items.value = result.items;
+    total.value = result.total;
+  } catch (error) {
+    showToast({ title: '加载失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+function searchSets() {
+  page.value = 1;
+  void loadSets();
+}
+
 function resetFilters() {
   filters.q = '';
   filters.type = '';
   filters.group = '';
-  void loadSets(1);
+  page.value = 1;
+  void loadSets();
+}
+
+function goPage(nextPage: number) {
+  if (nextPage < 1 || nextPage > totalPages.value || nextPage === page.value) return;
+  page.value = nextPage;
+  void loadSets();
+}
+
+async function selectSet(setId: string) {
+  selectedSetId.value = setId;
+  detailLoading.value = true;
+  try {
+    const item = await orpc.hearthstone.set.get({ setId });
+    applyProfile(item);
+  } catch (error) {
+    showToast({ title: '加载详情失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    detailLoading.value = false;
+  }
 }
 
 function addLocalization() {
@@ -274,91 +340,37 @@ function removeLocalization(key: string) {
   form.localization = form.localization.filter(item => item.key !== key);
 }
 
-function parseNullableInt(value: string, field: string) {
-  const text = value.trim();
-  if (text.length === 0) return null;
-  const parsed = Number(text);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`${field} 必须是整数`);
-  return parsed;
-}
-
-function normalizeNullableText(value: string) {
-  const text = value.trim();
-  return text.length > 0 ? text : null;
-}
-
-async function loadSets(targetPage = page.value) {
-  loading.value = true;
-  try {
-    const result = await orpc.hearthstone.set.list({
-      q: filters.q.trim().length > 0 ? filters.q.trim() : undefined,
-      type: filters.type.trim().length > 0 ? filters.type.trim() : undefined,
-      group: filters.group.trim().length > 0 ? filters.group.trim() : undefined,
-      page: targetPage,
-      limit: limit.value,
-    });
-    items.value = result.items;
-    total.value = result.total;
-    page.value = result.page;
-    limit.value = result.limit;
-    if (selectedSetId.value && !items.value.some(item => item.setId === selectedSetId.value)) {
-      selectedSetId.value = null;
-      resetForm();
-    }
-    if (selectedSetId.value == null && items.value.length > 0) {
-      await selectSet(items.value[0]!.setId);
-    }
-  } catch (error) {
-    formError.value = error instanceof Error ? error.message : '操作失败';
-  } finally {
-    loading.value = false;
-  }
-}
-
-function searchSets() {
-  void loadSets(1);
-}
-
-function goPage(targetPage: number) {
-  void loadSets(targetPage);
-}
-
-async function selectSet(setId: string) {
-  selectedSetId.value = setId;
-  detailLoading.value = true;
-  formError.value = '';
-  try {
-    const detail = await orpc.hearthstone.set.get({ setId });
-    applyProfile(detail);
-  } catch (error) {
-    formError.value = error instanceof Error ? error.message : '操作失败';
-  } finally {
-    detailLoading.value = false;
-  }
-}
-
 async function saveSet() {
-  formError.value = '';
+  if (!form.setId.trim()) return;
+  if (!form.type.trim()) {
+    formError.value = 'type 不能为空';
+    return;
+  }
+
   saving.value = true;
+  formError.value = '';
   try {
-    const result = await orpc.hearthstone.set.update({
+    await orpc.hearthstone.set.update({
       setId: form.setId,
-      dbfId: parseNullableInt(form.dbfId, 'dbfId'),
-      slug: normalizeNullableText(form.slug),
-      rawName: normalizeNullableText(form.rawName),
+      dbfId: parseOptionalInt(form.dbfId),
+      slug: form.slug.trim() || null,
+      rawName: form.rawName.trim() || null,
       type: form.type.trim(),
       releaseDate: form.releaseDate,
-      cardCountFull: parseNullableInt(form.cardCountFull, 'cardCountFull'),
-      cardCount: parseNullableInt(form.cardCount, 'cardCount'),
-      group: normalizeNullableText(form.group),
-      localization: form.localization.map(item => ({ lang: item.lang.trim(), name: item.name.trim() })).filter(item => item.lang.length > 0 && item.name.length > 0),
+      cardCountFull: parseOptionalInt(form.cardCountFull),
+      cardCount: parseOptionalInt(form.cardCount),
+      group: form.group.trim() || null,
+      localization: normalizeLocalizations(),
     });
-    applyProfile(result);
-    await loadSets(page.value);
-    showToast({ title: '保存成功', description: `已更新 Set ${result.setId}`, color: 'success' });
+    showToast({ title: '保存成功', color: 'success' });
+    await loadSets();
+    if (selectedSetId.value) {
+      await selectSet(selectedSetId.value);
+    }
   } catch (error) {
-    formError.value = error instanceof Error ? error.message : '操作失败';
-    showToast({ title: '保存失败', description: formError.value, color: 'error' });
+    const message = error instanceof Error ? error.message : String(error);
+    formError.value = message;
+    showToast({ title: '保存失败', description: message, color: 'error' });
   } finally {
     saving.value = false;
   }

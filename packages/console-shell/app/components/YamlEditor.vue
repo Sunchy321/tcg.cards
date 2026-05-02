@@ -39,14 +39,6 @@
           <UIcon name="i-lucide-copy" class="size-4" />
           <span>复制</span>
         </button>
-        <button
-          v-if="showOpenNewTab"
-          class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-elevated"
-          @click="handleOpenNewTab"
-        >
-          <UIcon name="i-lucide-plus-square" class="size-4" />
-          <span>新标签页打开</span>
-        </button>
       </div>
     </Transition>
   </div>
@@ -76,7 +68,6 @@ import { isScalar, isSeq, parseDocument, visit } from 'yaml';
 const props = defineProps<{
   modelValue: string;
   error?: string;
-  showOpenNewTab?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -192,14 +183,6 @@ function handleCopyLink() {
   hideContextMenu();
 }
 
-function handleOpenNewTab() {
-  if (contextMenu.value.url) {
-    window.open(contextMenu.value.url, '_blank');
-  }
-
-  hideContextMenu();
-}
-
 function createExtensions(): Extension[] {
   return [
     lineNumbers(),
@@ -258,44 +241,51 @@ function syncDarkMode() {
   isDark.value = document.documentElement.classList.contains('dark');
 }
 
-watch(
-  () => props.modelValue,
-  newValue => {
-    const view = editorView.value;
-    if (!view) return;
-
-    const currentContent = view.state.doc.toString();
-    if (newValue === currentContent) return;
-
-    view.dispatch({
-      changes: { from: 0, to: currentContent.length, insert: newValue },
-    });
-
-    updateLinkRanges(newValue);
-  },
-);
-
-watch(isDark, () => {
-  const view = editorView.value;
-  if (!view) return;
-
-  view.dispatch({
-    effects: StateEffect.reconfigure.of(createExtensions()),
-  });
-});
-
-onMounted(() => {
+function setupColorModeObserver() {
   syncDarkMode();
-  initEditor();
 
   colorModeObserver = new MutationObserver(() => {
+    const wasDark = isDark.value;
     syncDarkMode();
+
+    if (wasDark !== isDark.value && editorView.value) {
+      const content = editorView.value.state.doc.toString();
+      const state = EditorState.create({
+        doc: content,
+        extensions: createExtensions(),
+      });
+
+      editorView.value.setState(state);
+    }
   });
 
   colorModeObserver.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['class'],
   });
+}
+
+watch(() => props.modelValue, (value) => {
+  if (!editorView.value) return;
+
+  const current = editorView.value.state.doc.toString();
+  if (current !== value) {
+    const transaction = editorView.value.state.update({
+      changes: {
+        from: 0,
+        to: current.length,
+        insert: value,
+      },
+      effects: StateEffect.reconfigure.of(createExtensions()),
+    });
+
+    editorView.value.dispatch(transaction);
+  }
+});
+
+onMounted(() => {
+  setupColorModeObserver();
+  initEditor();
 });
 
 onUnmounted(() => {
@@ -303,22 +293,3 @@ onUnmounted(() => {
   editorView.value?.destroy();
 });
 </script>
-
-<style>
-.cm-editor {
-  height: 100%;
-}
-
-.cm-editor.cm-focused {
-  outline: none;
-}
-
-.cm-link-range {
-  background: rgba(37, 99, 235, 0.15);
-  border-radius: 2px;
-}
-
-.dark .cm-link-range {
-  background: rgba(96, 165, 250, 0.2);
-}
-</style>

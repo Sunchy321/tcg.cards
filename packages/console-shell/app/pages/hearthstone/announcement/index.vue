@@ -154,13 +154,17 @@
 </template>
 
 <script setup lang="ts">
+
+definePageMeta({
+  layout: 'admin',
+  title:  '公告管理',
+});
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 import YAML from 'yaml';
 
-import type { AnnouncementProfile } from '../../../../model/src/hearthstone/schema/announcement';
-
-import YamlEditor from '../../components/YamlEditor.vue';
+import YamlEditor from '../../../components/YamlEditor.vue';
+import type { AnnouncementProfile } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 
 type ItemForm = {
   id?: string;
@@ -258,36 +262,40 @@ function fromYaml(content: string): boolean {
     if (data.version !== undefined) form.version = data.version ?? 1;
     if (data.link !== undefined) form.link = Array.isArray(data.link) ? data.link : [];
     if (data.items !== undefined) {
-      form.items = Array.isArray(data.items) ? data.items.map((item: any) => ({
-        type: item.type ?? 'ban',
-        effectiveDate: item.effectiveDate ?? '',
-        format: item.format ?? '',
-        cardId: item.cardId ?? '',
-        setId: item.setId ?? '',
-        ruleId: item.ruleId ?? '',
-        status: item.status ?? '',
-        score: item.score ?? undefined,
+      form.items = Array.isArray(data.items) ? data.items.map((i: any) => ({
+        id: i.id,
+        type: i.type ?? 'ban',
+        effectiveDate: i.effectiveDate ?? '',
+        format: i.format ?? '',
+        cardId: i.cardId ?? '',
+        setId: i.setId ?? '',
+        ruleId: i.ruleId ?? '',
+        status: i.status ?? '',
+        score: i.score ?? undefined,
       })) : [];
     }
     yamlError.value = '';
     return true;
   } catch (error) {
-    yamlError.value = error instanceof Error ? error.message : 'YAML 解析错误';
+    yamlError.value = error instanceof Error ? error.message : 'YAML 解析失败';
     return false;
   }
 }
 
+function syncYaml() {
+  yamlContent.value = toYaml();
+  yamlError.value = '';
+}
+
 function toggleYamlMode() {
-  if (isYamlMode.value) {
-    if (fromYaml(yamlContent.value)) {
-      isYamlMode.value = false;
-    } else {
-      showToast({ title: 'YAML 格式错误', description: yamlError.value, color: 'error' });
-    }
-  } else {
-    yamlContent.value = toYaml();
-    yamlError.value = '';
+  if (!isYamlMode.value) {
+    syncYaml();
     isYamlMode.value = true;
+    return;
+  }
+
+  if (fromYaml(yamlContent.value)) {
+    isYamlMode.value = false;
   }
 }
 
@@ -300,90 +308,102 @@ function resetForm() {
   form.name = '';
   form.link = [];
   form.items = [];
-  yamlContent.value = '';
-  yamlError.value = '';
+  selectedId.value = null;
+  isCreating.value = false;
   isYamlMode.value = false;
-  isCreating.value = false;
-  selectedId.value = null;
+  yamlError.value = '';
 }
 
-function createNew() {
-  selectedId.value = null;
-  resetForm();
-  isCreating.value = true;
-  yamlContent.value = toYaml();
-}
-
-async function selectAnnouncement(item: AnnouncementProfile) {
-  selectedId.value = item.id;
-  isCreating.value = false;
+function fillForm(item: AnnouncementProfile) {
   form.id = item.id;
   form.source = item.source;
   form.date = item.date;
+  form.effectiveDate = item.effectiveDate ?? '';
+  form.version = item.version;
   form.name = item.name;
-  form.effectiveDate = '';
-  form.version = 1;
-  form.link = [];
-  form.items = [];
+  form.link = [...item.link];
+  form.items = item.items.map(i => ({
+    id: i.id,
+    type: i.type,
+    effectiveDate: i.effectiveDate ?? '',
+    format: i.format ?? '',
+    cardId: i.cardId ?? '',
+    setId: i.setId ?? '',
+    ruleId: i.ruleId ?? '',
+    status: i.status ?? '',
+    score: i.score ?? undefined,
+  }));
+  isCreating.value = false;
+  isYamlMode.value = false;
+  yamlError.value = '';
+}
 
-  try {
-    const detail = await orpc.hearthstone.announcement.get({ id: item.id });
-    form.effectiveDate = detail.effectiveDate ?? '';
-    form.version = detail.version;
-    form.link = detail.link ?? [];
-    form.items = detail.items.map((row: any) => ({
-      id: row.id,
-      type: row.type,
-      effectiveDate: row.effectiveDate ?? '',
-      format: row.format ?? '',
-      cardId: row.cardId ?? '',
-      setId: row.setId ?? '',
-      ruleId: row.ruleId ?? '',
-      status: row.status ?? '',
-      score: row.score ?? undefined,
-    }));
-    if (isYamlMode.value) {
-      yamlContent.value = toYaml();
-    }
-  } catch (error) {
-    showToast({
-      title: '加载详情失败',
-      description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
-    });
-  }
+function selectAnnouncement(item: AnnouncementProfile) {
+  selectedId.value = item.id;
+  fillForm(item);
+}
+
+function createNew() {
+  resetForm();
+  isCreating.value = true;
 }
 
 function addLink() {
   form.link.push('');
-  if (isYamlMode.value) yamlContent.value = toYaml();
 }
 
 function removeLink(index: number) {
   form.link.splice(index, 1);
-  if (isYamlMode.value) yamlContent.value = toYaml();
 }
 
 function addItem() {
-  form.items.push({ type: 'ban', effectiveDate: '', format: '', cardId: '', setId: '', ruleId: '', status: '' });
-  if (isYamlMode.value) yamlContent.value = toYaml();
+  form.items.push({
+    type: 'ban',
+    effectiveDate: '',
+    format: '',
+    cardId: '',
+    setId: '',
+    ruleId: '',
+    status: '',
+    score: undefined,
+  });
 }
 
 function removeItem(index: number) {
   form.items.splice(index, 1);
-  if (isYamlMode.value) yamlContent.value = toYaml();
+}
+
+function normalizePayload() {
+  return {
+    source: form.source,
+    date: form.date,
+    effectiveDate: form.effectiveDate || null,
+    version: form.version,
+    name: form.name.trim(),
+    link: form.link.filter(Boolean),
+    items: form.items.map(item => ({
+      type: item.type,
+      effectiveDate: item.effectiveDate || null,
+      format: item.format || null,
+      cardId: item.cardId || null,
+      setId: item.setId || null,
+      ruleId: item.ruleId || null,
+      status: item.status || null,
+      score: item.score ?? null,
+    })),
+  };
 }
 
 async function loadAnnouncements() {
   loading.value = true;
   try {
     announcements.value = await orpc.hearthstone.announcement.list();
+    if (selectedId.value) {
+      const current = announcements.value.find(item => item.id === selectedId.value);
+      if (current) fillForm(current);
+    }
   } catch (error) {
-    showToast({
-      title: '加载失败',
-      description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
-    });
+    showToast({ title: '加载失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
   } finally {
     loading.value = false;
   }
@@ -391,41 +411,28 @@ async function loadAnnouncements() {
 
 async function handleSubmit() {
   if (isYamlMode.value && !fromYaml(yamlContent.value)) {
-    showToast({ title: 'YAML 格式错误', description: yamlError.value, color: 'error' });
+    return;
+  }
+
+  if (!form.name.trim()) {
+    showToast({ title: '名称不能为空', color: 'error' });
     return;
   }
 
   saving.value = true;
   try {
-    const payload = {
-      source: form.source,
-      date: form.date,
-      name: form.name,
-      effectiveDate: form.effectiveDate || null,
-      version: form.version,
-      link: form.link.filter(link => link.trim() !== ''),
-    };
-
-    if (form.id) {
-      await orpc.hearthstone.announcement.update({ id: form.id, ...payload });
-      showToast({ title: '更新成功', color: 'success' });
-    } else {
-      const result = await orpc.hearthstone.announcement.create(payload);
-      if (result) {
-        selectedId.value = result.id;
-        form.id = result.id;
-        isCreating.value = false;
-      }
+    const payload = normalizePayload();
+    if (isCreating.value) {
+      await orpc.hearthstone.announcement.create(payload);
       showToast({ title: '创建成功', color: 'success' });
+    } else if (form.id) {
+      await orpc.hearthstone.announcement.update({ id: form.id, ...payload });
+      showToast({ title: '保存成功', color: 'success' });
     }
-
     await loadAnnouncements();
+    resetForm();
   } catch (error) {
-    showToast({
-      title: '保存失败',
-      description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
-    });
+    showToast({ title: '保存失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
   } finally {
     saving.value = false;
   }
@@ -438,22 +445,18 @@ function confirmDelete(item: AnnouncementProfile) {
 
 async function handleDelete() {
   if (!announcementToDelete.value) return;
+
   deleting.value = true;
   try {
     await orpc.hearthstone.announcement.remove({ id: announcementToDelete.value.id });
     showToast({ title: '删除成功', color: 'success' });
+    deleteModalOpen.value = false;
     if (selectedId.value === announcementToDelete.value.id) {
-      selectedId.value = null;
       resetForm();
     }
-    deleteModalOpen.value = false;
     await loadAnnouncements();
   } catch (error) {
-    showToast({
-      title: '删除失败',
-      description: error instanceof Error ? error.message : '请稍后重试',
-      color: 'error',
-    });
+    showToast({ title: '删除失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
   } finally {
     deleting.value = false;
   }

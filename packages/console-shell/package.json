@@ -1,16 +1,13 @@
 {
-  "name": "@tcg-cards/console-ui",
-  "module": "src/index.ts",
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./tailwind.css": "./src/tailwind.css"
-  },
+  "name": "@tcg-cards/console-shell",
   "private": true,
+  "type": "module",
+  "main": "./nuxt.config.ts",
   "scripts": {
     "build": "echo No build needed",
+    "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
     "@codemirror/commands": "^6.7.1",
@@ -20,18 +17,16 @@
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.36.2",
     "@nuxt/ui": "^4.7.0",
-    "@tcg-cards/console-core": "workspace:*",
     "@tcg-cards/console-platform": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "yaml": "^2.5.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "eslint": "^10.0.3",
-    "eslint-config-custom": "workspace:*"
+    "@nuxt/eslint": "^1.15.2",
+    "eslint": "^10.0.2",
+    "eslint-config-custom": "workspace:*",
+    "nuxt": "^4.3.1",
+    "typescript": "^5.9.3"
   },
-  "peerDependencies": {
-    "typescript": "^5",
-    "vue": "^3.5.0"
-  }
+  "packageManager": "bun@1.3.10"
 }

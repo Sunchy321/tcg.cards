@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
-@import "@tcg-cards/console-ui/tailwind.css";
 
 @theme static {
   --font-sans: 'Public Sans', sans-serif;

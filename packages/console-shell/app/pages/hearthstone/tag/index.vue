@@ -208,10 +208,15 @@
 </template>
 
 <script setup lang="ts">
+
+definePageMeta({
+  layout: 'admin',
+  title:  'Tag 配置',
+});
 import { useConsolePlatform } from '@tcg-cards/console-platform';
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import type { TagProfile } from '../../../../model/src/hearthstone/schema/tag';
+import type { TagProfile } from '@tcg-cards/model/src/hearthstone/schema/tag';
 
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();
@@ -259,115 +264,88 @@ const statusItems = [
 const statusFilterItems = [{ label: '全部状态', value: allValue }, ...statusItems];
 
 const valueKindItems = [
-  { label: 'bool', value: 'bool' },
-  { label: 'card_ref', value: 'card_ref' },
-  { label: 'int', value: 'int' },
   { label: 'json', value: 'json' },
-  { label: 'loc_string', value: 'loc_string' },
+  { label: 'number', value: 'number' },
   { label: 'string', value: 'string' },
+  { label: 'boolean', value: 'boolean' },
 ];
 
 const normalizeKindItems = [
   { label: 'identity', value: 'identity' },
-  { label: 'identity_int', value: 'identity_int' },
-  { label: 'identity_string', value: 'identity_string' },
-  { label: 'identity_loc_string', value: 'identity_loc_string' },
-  { label: 'identity_card_ref', value: 'identity_card_ref' },
-  { label: 'bool_from_int', value: 'bool_from_int' },
-  { label: 'enum_from_int', value: 'enum_from_int' },
-  { label: 'card_ref_from_int', value: 'card_ref_from_int' },
-  { label: 'json_wrap', value: 'json_wrap' },
+  { label: 'array', value: 'array' },
+  { label: 'rich_text', value: 'rich_text' },
+  { label: 'enum', value: 'enum' },
 ];
 
-const projectKindValues = [
-  'assign_scalar', 'assign_bool', 'assign_int', 'assign_string', 'assign_enum',
-  'append_string_array', 'assign_card_ref', 'assign_localized_text',
-  'assign_mechanic', 'assign_referenced_tag', 'assign_legacy',
+const projectKindItems = [
+  { label: '无', value: noneValue },
+  { label: 'scalar', value: 'scalar' },
+  { label: 'append', value: 'append' },
+  { label: 'merge', value: 'merge' },
 ];
-const projectKindItems = [{ label: '不投影', value: noneValue }, ...projectKindValues.map(value => ({ label: value, value }))];
-const projectKindFilterItems = [{ label: '全部投影类型', value: allValue }, ...projectKindValues.map(value => ({ label: value, value }))];
+const projectKindFilterItems = [{ label: '全部投影', value: allValue }, ...projectKindItems];
 
 const projectTargetTypeItems = [
-  { label: '不设置', value: noneValue },
+  { label: '无', value: noneValue },
+  { label: 'card', value: 'card' },
   { label: 'entity', value: 'entity' },
-  { label: 'entity_localization', value: 'entity_localization' },
   { label: 'relation', value: 'relation' },
-  { label: 'legacy', value: 'legacy' },
 ];
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit)));
-const canSave = computed(() => form.enumId > 0 && form.slug.trim().length > 0 && !saving.value && !hasConfigIssue.value);
+const canSave = computed(() => form.enumId > 0 && form.slug.trim().length > 0 && !saving.value && !detailLoading.value);
 
-function showToast(input: { title: string; description?: string; color?: 'error' | 'success' | 'warning' | 'primary' | 'neutral' }) {
-  platform.toast.show(input as any);
+const normalizeConfigIssue = computed(() => validateJson(form.normalizeConfigText));
+const projectConfigIssue = computed(() => validateJson(form.projectConfigText));
+
+function showToast(input: { title: string; description?: string; color?: 'error' | 'success' }) {
+  platform.toast.show(input);
 }
 
-function statusColor(status: string) {
-  if (status === 'configured') return 'success' as const;
-  if (status === 'ignored') return 'warning' as const;
-  if (status === 'deprecated') return 'neutral' as const;
-  return 'primary' as const;
-}
-
-function textOrNull(value: string) {
-  const text = value.trim();
-  return text.length > 0 ? text : null;
-}
-
-function filterValue(value: string) {
-  return value === allValue ? undefined : value;
-}
-
-function optionalValue(value: string) {
-  return value === noneValue ? null : textOrNull(value);
-}
-
-function listFromText(value: string) {
-  return [...new Set(value.split(/\r?\n|,/).map(item => item.trim()).filter(Boolean))];
-}
-
-function jsonText(value: unknown) {
-  return JSON.stringify(value ?? {}, null, 2);
-}
-
-function parseJsonObject(value: string, label: string): Record<string, unknown> {
-  const text = value.trim();
-  if (text.length === 0) return {};
-  const parsed = JSON.parse(text) as unknown;
-  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(`${label} 必须是 JSON object`);
-  return parsed as Record<string, unknown>;
-}
-
-type ConfigField = 'normalizeConfigText' | 'projectConfigText';
-
-function parseConfigField(field: ConfigField) {
-  return parseJsonObject(form[field], field === 'normalizeConfigText' ? 'normalizeConfig' : 'projectConfig');
-}
-
-function configFieldIssue(field: ConfigField) {
+function validateJson(text: string) {
   try {
-    parseConfigField(field);
+    JSON.parse(text || '{}');
     return '';
   } catch (error) {
-    return error instanceof Error ? error.message : 'JSON 格式错误';
+    return error instanceof Error ? error.message : 'JSON 解析失败';
   }
 }
 
-const normalizeConfigIssue = computed(() => configFieldIssue('normalizeConfigText'));
-const projectConfigIssue = computed(() => configFieldIssue('projectConfigText'));
-const hasConfigIssue = computed(() => normalizeConfigIssue.value.length > 0 || projectConfigIssue.value.length > 0);
-
-function formatJsonField(field: ConfigField) {
-  if (configFieldIssue(field).length > 0) return;
-  form[field] = jsonText(parseConfigField(field));
+function statusColor(status: string) {
+  switch (status) {
+    case 'configured':
+      return 'success';
+    case 'ignored':
+      return 'warning';
+    case 'deprecated':
+      return 'neutral';
+    default:
+      return 'primary';
+  }
 }
 
-function normalizeLegacyValueKind(tag: TagProfile) {
-  if (tag.valueKind !== 'enum') return tag.valueKind;
-  return tag.normalizeKind === 'enum_from_int' ? 'int' : 'string';
+function resetForm() {
+  form.enumId = 0;
+  form.slug = '';
+  form.slugAliasesText = '';
+  form.name = '';
+  form.rawName = '';
+  form.rawType = '';
+  form.rawNamesText = '';
+  form.valueKind = 'json';
+  form.normalizeKind = 'identity';
+  form.normalizeConfigText = '{}';
+  form.projectTargetType = noneValue;
+  form.projectTargetPath = '';
+  form.projectKind = noneValue;
+  form.projectConfigText = '{}';
+  form.status = 'discovered';
+  form.description = '';
+  formError.value = '';
 }
 
-function fillForm(tag: TagProfile) {
+function applyTag(tag: TagProfile) {
+  selectedTag.value = tag;
   form.enumId = tag.enumId;
   form.slug = tag.slug;
   form.slugAliasesText = tag.slugAliases.join('\n');
@@ -375,13 +353,13 @@ function fillForm(tag: TagProfile) {
   form.rawName = tag.rawName ?? '';
   form.rawType = tag.rawType ?? '';
   form.rawNamesText = tag.rawNames.join('\n');
-  form.valueKind = normalizeLegacyValueKind(tag);
+  form.valueKind = tag.valueKind;
   form.normalizeKind = tag.normalizeKind;
-  form.normalizeConfigText = jsonText(tag.normalizeConfig);
+  form.normalizeConfigText = JSON.stringify(tag.normalizeConfig ?? {}, null, 2);
   form.projectTargetType = tag.projectTargetType ?? noneValue;
   form.projectTargetPath = tag.projectTargetPath ?? '';
   form.projectKind = tag.projectKind ?? noneValue;
-  form.projectConfigText = jsonText(tag.projectConfig);
+  form.projectConfigText = JSON.stringify(tag.projectConfig ?? {}, null, 2);
   form.status = tag.status;
   form.description = tag.description ?? '';
   formError.value = '';
@@ -390,34 +368,19 @@ function fillForm(tag: TagProfile) {
 async function loadTags() {
   loading.value = true;
   try {
-    const q = filters.q.trim();
     const result = await orpc.hearthstone.tag.list({
-      q: q.length > 0 ? q : undefined,
-      status: filterValue(filters.status),
-      projectKind: filterValue(filters.projectKind),
+      q: filters.q.trim() || undefined,
+      status: filters.status === allValue ? undefined : filters.status,
+      projectKind: filters.projectKind === allValue ? undefined : filters.projectKind,
       page: page.value,
       limit,
     });
     items.value = result.items;
     total.value = result.total;
   } catch (error) {
-    showToast({ title: '加载 Tag 失败', description: error instanceof Error ? error.message : '请稍后重试', color: 'error' });
+    showToast({ title: '加载失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
   } finally {
     loading.value = false;
-  }
-}
-
-async function selectTag(enumId: number) {
-  selectedEnumId.value = enumId;
-  detailLoading.value = true;
-  try {
-    const tag = await orpc.hearthstone.tag.get({ enumId });
-    selectedTag.value = tag;
-    fillForm(tag);
-  } catch (error) {
-    showToast({ title: '加载 Tag 详情失败', description: error instanceof Error ? error.message : '请稍后重试', color: 'error' });
-  } finally {
-    detailLoading.value = false;
   }
 }
 
@@ -430,52 +393,88 @@ function resetFilters() {
   filters.q = '';
   filters.status = allValue;
   filters.projectKind = allValue;
-  searchTags();
-}
-
-function goPage(nextPage: number) {
-  page.value = Math.min(Math.max(nextPage, 1), totalPages.value);
+  page.value = 1;
   void loadTags();
 }
 
+function goPage(nextPage: number) {
+  if (nextPage < 1 || nextPage > totalPages.value || nextPage === page.value) return;
+  page.value = nextPage;
+  void loadTags();
+}
+
+async function selectTag(enumId: number) {
+  selectedEnumId.value = enumId;
+  detailLoading.value = true;
+  try {
+    const tag = await orpc.hearthstone.tag.get({ enumId });
+    applyTag(tag);
+  } catch (error) {
+    showToast({ title: '加载详情失败', description: error instanceof Error ? error.message : String(error), color: 'error' });
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+function parseLines(text: string) {
+  return text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function parseNullableJson(text: string) {
+  const value = text.trim();
+  if (!value) return {};
+  return JSON.parse(value);
+}
+
+function formatJsonField(field: 'normalizeConfigText' | 'projectConfigText') {
+  try {
+    const parsed = parseNullableJson(form[field]);
+    form[field] = JSON.stringify(parsed, null, 2);
+  } catch {
+    // Keep current content when invalid.
+  }
+}
+
 async function saveTag() {
-  formError.value = '';
-  if (form.projectTargetPath === 'text' || form.projectTargetPath === 'displayText') {
-    formError.value = '`text` 和 `displayText` 是派生字段，请改用 `richText`';
+  if (!canSave.value) return;
+  if (normalizeConfigIssue.value || projectConfigIssue.value) {
+    formError.value = '请先修正 JSON 配置';
     return;
   }
-  if (hasConfigIssue.value) return;
 
-  const normalizeConfig = parseConfigField('normalizeConfigText');
-  const projectConfig = parseConfigField('projectConfigText');
   saving.value = true;
-
+  formError.value = '';
   try {
-    const saved = await orpc.hearthstone.tag.update({
+    await orpc.hearthstone.tag.update({
       enumId: form.enumId,
-      slug: form.slug,
-      slugAliases: listFromText(form.slugAliasesText),
-      name: textOrNull(form.name),
-      rawName: textOrNull(form.rawName),
-      rawType: textOrNull(form.rawType),
-      rawNames: listFromText(form.rawNamesText),
+      slug: form.slug.trim(),
+      slugAliases: parseLines(form.slugAliasesText),
+      name: form.name.trim() || null,
+      rawName: form.rawName.trim() || null,
+      rawType: form.rawType.trim() || null,
+      rawNames: parseLines(form.rawNamesText),
       valueKind: form.valueKind,
       normalizeKind: form.normalizeKind,
-      normalizeConfig,
-      projectTargetType: optionalValue(form.projectTargetType),
-      projectTargetPath: textOrNull(form.projectTargetPath),
-      projectKind: optionalValue(form.projectKind),
-      projectConfig,
+      normalizeConfig: parseNullableJson(form.normalizeConfigText),
+      projectTargetType: form.projectTargetType === noneValue ? null : form.projectTargetType,
+      projectTargetPath: form.projectTargetPath.trim() || null,
+      projectKind: form.projectKind === noneValue ? null : form.projectKind,
+      projectConfig: parseNullableJson(form.projectConfigText),
       status: form.status,
-      description: textOrNull(form.description),
+      description: form.description.trim() || null,
     });
-    selectedTag.value = saved;
-    fillForm(saved);
-    const index = items.value.findIndex(item => item.enumId === saved.enumId);
-    if (index >= 0) items.value[index] = saved;
-    showToast({ title: 'Tag 已保存', color: 'success' });
+    showToast({ title: '保存成功', color: 'success' });
+    await loadTags();
+    if (selectedEnumId.value != null) {
+      await selectTag(selectedEnumId.value);
+    }
   } catch (error) {
-    showToast({ title: '保存失败', description: error instanceof Error ? error.message : '操作失败', color: 'error' });
+    const message = error instanceof Error ? error.message : String(error);
+    formError.value = message;
+    showToast({ title: '保存失败', description: message, color: 'error' });
   } finally {
     saving.value = false;
   }

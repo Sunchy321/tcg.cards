@@ -28,6 +28,5 @@ declare module 'vue' {
     USelect: typeof import('./../../node_modules/.bun/@nuxt+ui@4.7.0+5b9a1ffec07feb9e/node_modules/@nuxt/ui/dist/runtime/components/Select.vue')['default']
     UTable: typeof import('./../../node_modules/.bun/@nuxt+ui@4.7.0+5b9a1ffec07feb9e/node_modules/@nuxt/ui/dist/runtime/components/Table.vue')['default']
     UTextarea: typeof import('./../../node_modules/.bun/@nuxt+ui@4.7.0+5b9a1ffec07feb9e/node_modules/@nuxt/ui/dist/runtime/components/Textarea.vue')['default']
-    YamlEditor: typeof import('./src/components/YamlEditor.vue')['default']
   }
 }

@@ -13,12 +13,6 @@
   },
   "dependencies": {
     "@nuxt/icon": "^1.15.0",
-    "@codemirror/commands": "^6.7.1",
-    "@codemirror/lang-yaml": "^6.1.2",
-    "@codemirror/language": "^6.12.3",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/theme-one-dark": "^6.1.2",
-    "@codemirror/view": "^6.36.2",
     "@iconify-json/lucide": "^1.2.104",
     "@nuxt/ui": "^4.7.0",
     "@orpc/client": "^1.13.6",
@@ -27,12 +21,11 @@
     "@tauri-apps/plugin-opener": "^2",
     "@tcg-cards/console-core": "workspace:*",
     "@tcg-cards/console-platform": "workspace:*",
-    "@tcg-cards/console-ui": "workspace:*",
+    "@tcg-cards/console-shell": "workspace:*",
     "@tcg-cards/auth": "workspace:*",
     "nuxt": "^4.3.1",
     "vue": "^3.5.13",
-    "vue-router": "^4",
-    "yaml": "^2"
+    "vue-router": "^4"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",

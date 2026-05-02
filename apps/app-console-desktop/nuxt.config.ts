@@ -1,4 +1,6 @@
 export default defineNuxtConfig({
+  extends: ['@tcg-cards/console-shell'],
+
   ssr: false,
   srcDir: 'src',
 

@@ -49,7 +49,7 @@
 | P0 边界确认 | 固化双应用和三端能力模型 | 明确查询应用边界；明确管理应用边界；定义 `light` / `medium` / `full`；梳理现有功能归属 | 产品边界清单、能力矩阵 | 无 | 所有现有核心功能都能归到某个应用与某个能力级别 |
 | P1 服务分层 | 建立统一后端边界 | 设计后端模块化单体模型；明确 `service-api` 与 `service-internal` 边界；设计公开 Query API、Internal Query API、管理 API、桌面任务网关；明确 auth 集中化；设计统一权限模型；明确对象存储上传流程；明确审计与任务模型 | API 边界文档、任务模型草案 | P0 | `service-api` 与 `service-internal` 职责清晰，公开、内部、管理、桌面执行四类协议入口边界明确，权限模型统一且内部模块职责明确 |
 | P2 管理网页端收口 | 让现有管理网页端只承载轻量能力 | 识别 `site-console` 页面；下线或隐藏桌面专属入口；接入任务分级；统一 API client，并作为 `site-admin` 演进目标 | 管理网页端 v1 | P1 | 网页端可安全执行全部 `light` 任务，且不暴露 `full` 本地能力 |
-| P3 管理共享模块 | 抽离三端共用的领域层 | 提取页面状态、表单模型、任务模型、API client、权限判断、能力开关 | `packages/console-core`、`packages/console-platform`、`packages/console-ui` 等共享包 | P2 | 网页端能完全基于共享模块运行 |
+| P3 管理共享模块 | 抽离三端共用的领域层 | 提取页面状态、表单模型、任务模型、API client、权限判断、能力开关 | `packages/console-core`、`packages/console-platform`、`packages/console-shell` 等共享包 | P2 | 网页端能完全基于共享模块运行 |
 | P4 Tauri 桌面端 | 交付全能力管理终端 | 创建 `app-console-desktop`；实现文件系统、Git、第三方工具桥接；接入设备鉴权与桌面任务执行 | 管理桌面端 v1 | P3 | 可执行 `full` 任务，包括本地仓库读取、卡图生成、产物上传 |
 | P5 Tauri 手机端 | 交付中等能力移动终端 | 创建 `app-console-mobile`；接入登录、通知、任务列表、审核、轻中量操作；屏蔽 `full` 能力 | 管理手机端 v1 | P3 | 手机端可完成状态查看、审核与 `medium` 任务，不暴露桌面专属能力 |
 | P6 查询应用独立化 | 将用户查询体验从管理体系中拆出 | 让现有 `site-magic`、`site-hearthstone`、未来 `site-<game>` 与 `app-main` 共享查询架构；固定 `app-main` 通过内嵌页面消费单游戏详情能力；设计主动缓存与离线快照；对接只读 API；保留收藏、偏好等用户态操作 | 查询应用 v1 | P1 | 各游戏查询站点与查询 app 都不依赖管理端上下文，读操作链路清晰，`app-main` 不复制单游戏详情逻辑，且常用内容可离线读取 |

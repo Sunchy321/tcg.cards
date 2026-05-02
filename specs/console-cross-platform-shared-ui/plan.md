@@ -14,7 +14,7 @@
 - [x] 收敛 ORPC client 工厂的长期归属，并减少应用对 `@tcg-cards/app-console` 的直接依赖
 - [x] 在兼容入口清空后评估 `app-console` 是否可以归档或删除
 - [x] 收敛 `app-console-capabilities` 的宿主能力协议归属，并删除空转包
-- [x] 迁移 `hearthstone/data-source` 页面到 `console-ui` 共享层
+- [x] 迁移 `hearthstone/data-source` 页面到共享页面层
 
 ## 实施步骤
 
@@ -130,7 +130,7 @@
 
 ### 9. 清理 `app-console` 过渡边界
 
-在 `console-core`、`console-platform`、`console-ui` 稳定后，`packages/app-console` 曾只剩两类残留职责：
+在 `console-core`、`console-platform` 与共享页面层稳定后，`packages/app-console` 曾只剩两类残留职责：
 
 - 对 `console-core` 的兼容重导出
 - `createConsoleApiClient` 这一层 ORPC client 工厂

@@ -64,7 +64,7 @@
 
 ### 1.1 `app-console` 已完成过渡并可删除
 
-随着 `console-core`、`console-platform`、`console-ui` 落地，`packages/app-console` 的剩余职责已经被完全回收：
+随着 `console-core`、`console-platform` 与后续的共享页面层落地，`packages/app-console` 的剩余职责已经被完全回收：
 
 1. 对 `console-core` 的兼容重导出已移除
 2. `createConsoleApiClient` 已迁入 `console-platform`
@@ -244,20 +244,20 @@
 - 不直接依赖浏览器存储
 - 不直接依赖 `window`
 
-#### `packages/console-ui`
+#### `packages/console-shell`
 
-负责平台无关的 Vue 组件与页面块：
+负责共享 Nuxt 页面层与 console 专属页面组件：
 
-- 页面框架组件
-- 面板、详情卡片、筛选区块
-- 通用编辑器组件
+- 共享页面路由入口
+- 共享布局与页面容器
+- 页面级编辑器组件
 - 可复用的列表页、详情页片段
-- 通用表单区块
+- 通用表单区块与页面级组合块
 
 约束：
 
-- 可以依赖 Vue、Vue Router、`@nuxt/ui`
-- 不依赖 Nuxt runtime API
+- 可以依赖 Nuxt、Vue、`@nuxt/ui`
+- 不承载 SSR 专属后端逻辑
 - 不直接依赖 Tauri API
 
 #### `packages/console-platform`
@@ -400,7 +400,7 @@
 
 1. `packages/console-core` 已承载导航与基础错误处理等平台无关核心逻辑
 2. `packages/console-platform` 已提供 `router`、`toast`、`session`、`storage`、`api client` 的统一适配接口
-3. `packages/console-ui` 已承载共享 `YamlEditor` 与以下共享页面：
+3. `packages/console-shell` 已承载共享 `YamlEditor` 与以下共享页面：
    - `magic/announcement`
    - `hearthstone/announcement`
    - `hearthstone/set`
@@ -420,7 +420,7 @@
 
 - Web 继续保留 `Nuxt`
 - Desktop 继续保留 `Vite + Vue Router + Tauri`
-- 三端复用继续以 `console-core`、`console-platform`、`console-ui` 为主轴推进
+- 三端复用继续以 `console-core`、`console-platform`、`console-shell` 为主轴推进
 - 桌面壳迁移 Nuxt 暂不立项
 
 ### 未来可以重新评估的条件
