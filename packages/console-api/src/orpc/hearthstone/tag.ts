@@ -1,8 +1,8 @@
-import { ORPCError } from '@orpc/server';
+import { ORPCError, os } from '@orpc/server';
 import { asc, eq } from 'drizzle-orm';
 
-import { db } from '#db/db';
-import { Tag } from '#schema/hearthstone';
+import { db } from '@tcg-cards/db/db';
+import { Tag } from '@tcg-cards/db/schema/hearthstone';
 import {
   tagGetInput,
   tagListInput,
@@ -12,9 +12,7 @@ import {
   type TagListInput,
   type TagProfile,
   type TagUpdateInput,
-} from '#model/hearthstone/schema/tag';
-
-import { os } from '#server/orpc';
+} from '@tcg-cards/model/src/hearthstone/schema/tag';
 
 type TagRow = typeof Tag.$inferSelect;
 

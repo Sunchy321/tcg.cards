@@ -1,7 +1,7 @@
-import { ORPCError } from '@orpc/server';
+import { ORPCError, os } from '@orpc/server';
 import { asc, eq, inArray } from 'drizzle-orm';
 
-import { db } from '@tcg-cards/db';
+import { db } from '@tcg-cards/db/db';
 import {
   setGetInput,
   setListInput,
@@ -12,9 +12,8 @@ import {
   type SetListInput,
   type SetProfile,
   type SetUpdateInput,
-} from '#model/hearthstone/schema/set';
-import { Set as HearthstoneSet, SetLocalization as HearthstoneSetLocalization } from '#schema/hearthstone';
-import { os } from '../index';
+} from '@tcg-cards/model/src/hearthstone/schema/set';
+import { Set as HearthstoneSet, SetLocalization as HearthstoneSetLocalization } from '@tcg-cards/db/schema/hearthstone';
 
 type SetRow = typeof HearthstoneSet.$inferSelect;
 type SetLocalizationRow = typeof HearthstoneSetLocalization.$inferSelect;

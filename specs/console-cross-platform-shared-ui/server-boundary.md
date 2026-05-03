@@ -94,9 +94,16 @@
 
 这类模块后续最推荐的形态是：
 
-1. 共享逻辑沉淀到 `packages/*`
+1. 共享逻辑优先沉淀到 `packages/console-api`，复杂领域逻辑后续再视情况细分
 2. `site-console` 的 `/auth`、`/rpc` 在本地 Worker 中直接调用共享逻辑
 3. Desktop / Mobile 通过 `service-internal` 调用相同共享逻辑
+
+其中第一阶段应优先收敛到 `packages/console-api` 的模块为：
+
+- `magic/announcement`
+- `hearthstone/announcement`
+- `hearthstone/set`
+- `hearthstone/tag`
 
 ### 3.4 清理或过渡中的能力
 

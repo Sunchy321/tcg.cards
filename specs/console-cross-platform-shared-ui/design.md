@@ -279,6 +279,28 @@
 - `app-console-desktop` 提供 Tauri/Vite 适配
 - `app-console-mobile` 提供移动端适配
 
+#### `packages/console-api`
+
+负责共享 oRPC 服务端定义层：
+
+- 共享 oRPC procedure 定义
+- 共享 router 片段与 router 组装
+- `site-console` 与 `service-internal` 都会消费的 server 侧领域读写入口
+
+第一阶段优先收敛：
+
+- `magic/announcement`
+- `hearthstone/announcement`
+- `hearthstone/set`
+- `hearthstone/tag`
+
+约束：
+
+- 不承载 Nuxt `server/routes` 入口
+- 不承载 Hono `/rpc/*` 入口
+- 不反向依赖 `site-console` 或 `service-internal`
+- 不进入 `console-core`、`console-platform` 或 `model` 的职责范围
+
 ### 2. 各应用壳层职责
 
 #### `apps/site-console`
@@ -380,7 +402,141 @@
 
 如果 `site-*` 也需要相同能力，应复用相同的共享代码模块，在自己的 Worker 内本地装配与执行，而不是通过 HTTP 调用 `service-internal`。
 
-## 关于“桌面端是否应改用 Nuxt”的最终判断
+### 3.1 共享 oRPC 服务端层的落点
+
+在完成 server 边界澄清之后，下一步应把“共享的 oRPC 过程定义”从宿主应用中独立出来。
+
+推荐新增：
+
+- `packages/console-api`
+
+其定位不是统一 HTTP 入口，而是统一：
+
+- 共享 procedure 定义
+- 共享 router 片段
+- 重复领域接口的 server 侧实现
+
+宿主职责保持不变：
+
+- `site-console` 继续保留本地 `server/routes/rpc/[...].ts`
+- `service-internal` 继续保留本地 Hono `/rpc/*`
+
+也就是说，共享的是 router 与过程，不共享入口文件。
+
+### 3.2 第一阶段收敛范围
+
+第一阶段只收敛已经在多个宿主中重复存在、且上下文依赖较轻的模块：
+
+1. `magic/announcement`
+2. `hearthstone/announcement`
+3. `hearthstone/set`
+4. `hearthstone/tag`
+
+这批模块的特点是：
+
+- 已在 `site-console` 与 `service-internal` 中重复实现
+- 主要依赖数据库与 schema
+- 不强依赖 Cloudflare `env`
+
+第一阶段暂不收敛：
+
+- `hearthstone/data-source/hsdata`
+- `hearthstone/image`
+- `magic/rule`
+
+原因是这些模块当前仍更强依赖：
+
+- 宿主本地 `server/lib/*`
+- `env` 上下文
+- 长任务与大文件处理
+
+应在 `console-api` 稳定后再分批下沉。
+
+### 3.3 分层 Router 设计
+
+当 `console-api` 中积累的共享 procedure 足够多时，需要根据应用类型和能力等级为不同的客户端提供对应的 router 子集，同时通过编译时 tree-shaking 自动消除未使用的端点代码。
+
+#### 应用分层
+
+基于功能覆盖范围和安全性，定义三个应用层级：
+
+**Desktop**（完整功能）
+- 标准数据管理（announcement、set、tag 等 CRUD）
+- 导入与批量处理（dataSource、批量文件处理）
+- Git 库操作（克隆、提交、推送等）
+- 第三方工具集成（Scryfall、Gatherer 等）
+- 包括：Magic、Hearthstone 的全量端点
+
+**Mobile**（次级功能）
+- 标准数据管理（announcement、set、tag 等 CRUD）
+- 导入与批量处理（dataSource、批量文件处理）
+- 不含：Git 操作、第三方工具集成
+
+**Web**（轻量级）
+- 轻量级数据访问（announcement 列表查询）
+- 用户管理（权限、角色分配等）
+- 简单审批流程
+- 不含：数据编辑、导入、Git 操作
+
+#### Router 导出设计
+
+在 `packages/console-api` 中定义三个独立的 router 导出：
+
+```typescript
+// 完整 router（Desktop 应用）
+export const fullRouter = {
+  magic: magicTrpc,         // 完整端点
+  hearthstone: hearthstoneTrpc,  // 完整端点
+  // 未来：git: gitTrpc, tools: toolsTrpc
+} as const;
+
+// 次级 router（Mobile 应用）
+export const mobileRouter = {
+  magic: magicTrpc,
+  hearthstone: hearthstoneTrpc,
+  // 不含 git、tools
+} as const;
+
+// 轻量级 router（Web 应用）
+export const webRouter = {
+  magic: { announcement: magicTrpc.announcement },
+  hearthstone: { announcement: hearthstoneTrpc.announcement },
+  // 用户管理端点（待定）
+} as const;
+
+export type FullRouter = typeof fullRouter;
+export type MobileRouter = typeof mobileRouter;
+export type WebRouter = typeof webRouter;
+```
+
+#### 宿主应用的 Router 选择
+
+各宿主应用在其 `service.ts` 中选择对应的导出：
+
+```typescript
+// service-internal/src/orpc/service.ts（Desktop）
+export { fullRouter as router, type FullRouter as Router } from '@tcg-cards/console-api';
+
+// site-console/server/orpc/service.ts（Web）
+export { webRouter as router, type WebRouter as Router } from '@tcg-cards/console-api';
+
+// 未来的 mobile 应用
+export { mobileRouter as router, type MobileRouter as Router } from '@tcg-cards/console-api';
+```
+
+#### Tree-shaking 机制
+
+由于各宿主只导入对应的 router 变量，bundler 在编译时会自动消除其他未使用的导出和相关的依赖代码。
+
+优势：
+
+1. **自动优化** — 无需额外配置，tree-shaking 自动进行
+2. **类型安全** — 不同应用的 Router 类型完全独立，IDE 能提示可用端点
+3. **易于维护** — 新增端点时清楚知道应加到哪个 router 中
+4. **安全隔离** — 轻量级应用无法访问高权限端点
+
+## 关于"桌面端是否应改用 Nuxt"的最终判断
+
 
 ### 当前阶段判断
 
@@ -453,7 +609,14 @@
 3. 将后者逐步迁移或沉淀到 `service-internal`
 4. 保留 `site-console` 的同源认证、首屏聚合与页面级服务端控制能力
 
-### 阶段 3：抽共享 UI
+### 阶段 3：建立共享 oRPC 服务端层
+
+1. 新建 `packages/console-api`
+2. 先收敛 `announcement / set / tag` 的重复过程定义
+3. 让 `site-console` 与 `service-internal` 在本地分别装配共享 router
+4. 保持 `/rpc` 入口继续留在各自宿主中
+
+### 阶段 4：抽共享 UI
 
 1. 抽离 `YamlEditor`、筛选面板、详情编辑区等共享组件
 2. 抽离页面区块，而不是一开始就追求完整页面 100% 共享

@@ -2,10 +2,18 @@
 
 ## TODO List
 
+- [x] 将共享 oRPC 服务端包方案并入现有迁移规格
 - [x] 盘点 `site-console` 与 `app-console-desktop` 的重复页面、重复组件与环境特定依赖
 - [x] 设计并创建平台无关的 console 共享层目录与包边界
 - [x] 抽离共享核心逻辑，消除对 Nuxt 运行时 API 的直接依赖
 - [x] 拆分 `site-console` 的 SSR / BFF 能力与 `service-internal` 的独立 app 后端能力
+- [x] 创建 `packages/console-api` 共享 oRPC 包骨架
+- [x] 将 `magic/announcement` 迁移到 `console-api`
+- [x] 将 `hearthstone/announcement` 迁移到 `console-api`
+- [x] 将 `hearthstone/set` 迁移到 `console-api`
+- [x] 将 `hearthstone/tag` 迁移到 `console-api`
+- [x] 让 `site-console` 改为从 `console-api` 装配共享 router
+- [x] 让 `service-internal` 改为从 `console-api` 装配共享 router
 - [x] 抽离共享 UI 组件与页面区块，优先覆盖高重复页面
 - [x] 为 Web、Desktop、Mobile 预留统一的平台适配接口
 - [x] 按页面迁移顺序逐步回收 `site-console` 与桌面端的复制实现
@@ -82,7 +90,28 @@
 
 优先抽“页面块”，而不是强行一次性抽整页。
 
-### 6. 建立平台适配器
+### 6. 建立共享 oRPC 服务端层
+
+在 server 边界稳定后，新增 `packages/console-api` 作为共享 oRPC 服务端层：
+
+- 收敛重复的 procedure 定义
+- 收敛共享 router 片段
+- 让 `site-console` 与 `service-internal` 在本地各自装配
+
+第一阶段仅收敛：
+
+- `magic/announcement`
+- `hearthstone/announcement`
+- `hearthstone/set`
+- `hearthstone/tag`
+
+这一阶段的验收标准是：
+
+1. `/rpc` 入口仍保留在宿主中
+2. 共享模块不反向依赖宿主应用
+3. 第一批重复过程不再在两个宿主中各维护一份
+
+### 7. 建立平台适配器
 
 为共享页面与组件提供统一适配接口，至少覆盖：
 
@@ -98,7 +127,7 @@
 - `app-console-desktop` 提供 Tauri/Vite 适配
 - `app-console-mobile` 后续提供移动端适配
 
-### 7. 按优先级迁移页面
+### 8. 按优先级迁移页面
 
 建议优先迁移以下高重复页面：
 
@@ -111,7 +140,7 @@
 
 这些页面重复度高、表单和列表结构明确，迁移后能快速验证共享层设计是否成立。
 
-### 8. 复评桌面壳选型
+### 9. 复评桌面壳选型
 
 当共享层已覆盖主要页面并稳定运行后，再单独评估：
 
@@ -128,7 +157,7 @@
 2. 不把桌面端迁移到 `Nuxt SPA + Tauri` 作为当前阶段任务
 3. 后续仍以共享层扩展为主，而不是以桌面壳替换为主
 
-### 9. 清理 `app-console` 过渡边界
+### 10. 清理 `app-console` 过渡边界
 
 在 `console-core`、`console-platform` 与共享页面层稳定后，`packages/app-console` 曾只剩两类残留职责：
 
@@ -155,7 +184,7 @@
 3. `app-console` 的存废可以基于真实剩余职责判断，而不是基于历史包名判断
 4. 若兼容包已无真实职责，则应直接删除，而不是继续保留历史空壳
 
-### 10. 清理 `app-console-capabilities` 过渡边界
+### 11. 清理 `app-console-capabilities` 过渡边界
 
 在 `console-platform` 已经成为平台适配主边界后，`packages/app-console-capabilities` 的剩余职责只包括：
 

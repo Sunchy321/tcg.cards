@@ -1,9 +1,9 @@
-import { announcementTrpc } from './announcement';
+import { magicTrpc as sharedMagic } from '@tcg-cards/console-api';
 import { dataSourceTrpc } from './data-source';
 import { ruleTrpc } from './rule';
 
 export const magicTrpc = {
-  announcement: announcementTrpc,
-  dataSource:   dataSourceTrpc,
-  rule:         ruleTrpc,
+  ...sharedMagic,
+  dataSource: dataSourceTrpc,
+  rule:       ruleTrpc,
 };

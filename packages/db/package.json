@@ -2,6 +2,13 @@
   "name": "@tcg-cards/db",
   "module": "src/index.ts",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./db": "./src/db.ts",
+    "./schema/auth": "./src/schema/auth.ts",
+    "./schema/hearthstone": "./src/schema/hearthstone/index.ts",
+    "./schema/magic": "./src/schema/magic/index.ts"
+  },
   "scripts": {
     "build": "echo No build needed",
     "db:generate": "drizzle-kit generate",

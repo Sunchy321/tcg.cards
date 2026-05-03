@@ -1,13 +1,9 @@
-import { announcementTrpc } from './announcement';
+import { hearthstoneTrpc as sharedHearthstone } from '@tcg-cards/console-api';
 import { dataSourceTrpc } from './data-source';
 import { imageTrpc } from './image';
-import { setTrpc } from './set';
-import { tagTrpc } from './tag';
 
 export const hearthstoneTrpc = {
-  announcement: announcementTrpc,
-  dataSource:   dataSourceTrpc,
-  image:        imageTrpc,
-  set:          setTrpc,
-  tag:          tagTrpc,
+  ...sharedHearthstone,
+  dataSource: dataSourceTrpc,
+  image:      imageTrpc,
 };

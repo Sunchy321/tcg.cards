@@ -2,16 +2,16 @@ import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
 import { desc, eq } from 'drizzle-orm';
 
-import { announcementProfile } from '#model/magic/schema/announcement';
+import { announcementProfile } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 
-import { db } from '#db/db';
-import { Announcement, AnnouncementItem } from '#schema/magic/announcement';
+import { db } from '@tcg-cards/db/db';
+import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/hearthstone';
 
 const list = os
   .route({
     method:      'GET',
     description: 'Get the list of announcements',
-    tags:        ['Console', 'Magic', 'Announcement'],
+    tags:        ['Console', 'Hearthstone', 'Announcement'],
   })
   .input(z.any())
   .output(announcementProfile.array())
@@ -33,7 +33,7 @@ const get = os
   .route({
     method:      'GET',
     description: 'Get announcement by ID',
-    tags:        ['Console', 'Magic', 'Announcement'],
+    tags:        ['Console', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({ id: z.uuid() }))
   .output(z.object({
@@ -42,6 +42,7 @@ const get = os
     date:          z.string(),
     name:          z.string(),
     effectiveDate: z.string().nullable(),
+    version:       z.number(),
     link:          z.string().array(),
     items:         z.array(z.object({
       id:            z.uuid(),
@@ -64,7 +65,7 @@ const get = os
       .then(rows => rows[0]);
 
     if (!announcement) {
-      throw new ORPCError('NOT_FOUND');
+      throw new ORPCError('NOT_FOUND', { message: 'Announcement not found' });
     }
 
     const items = await db.select({
@@ -92,13 +93,14 @@ const create = os
   .route({
     method:      'POST',
     description: 'Create a new announcement',
-    tags:        ['Console', 'Magic', 'Announcement'],
+    tags:        ['Console', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
     source:        z.string(),
     date:          z.string(),
     name:          z.string(),
     effectiveDate: z.string().nullable().optional(),
+    version:       z.number().default(1),
     link:          z.string().array(),
   }))
   .output(z.object({
@@ -107,6 +109,7 @@ const create = os
     date:          z.string(),
     name:          z.string(),
     effectiveDate: z.string().nullable().optional(),
+    version:       z.number(),
     link:          z.string().array(),
   }))
   .handler(async ({ input }) => {
@@ -117,6 +120,7 @@ const create = os
         date:          input.date,
         name:          input.name,
         effectiveDate: input.effectiveDate ?? null,
+        version:       input.version ?? 1,
         link:          input.link,
       })
       .returning();
@@ -129,7 +133,7 @@ const update = os
   .route({
     method:      'PUT',
     description: 'Update an announcement',
-    tags:        ['Console', 'Magic', 'Announcement'],
+    tags:        ['Console', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
     id:            z.uuid(),
@@ -137,6 +141,7 @@ const update = os
     date:          z.string(),
     name:          z.string(),
     effectiveDate: z.string().nullable().optional(),
+    version:       z.number(),
     link:          z.string().array(),
   }))
   .output(z.void())
@@ -149,7 +154,7 @@ const update = os
       .then(rows => rows[0]);
 
     if (!existing) {
-      throw new ORPCError('NOT_FOUND');
+      throw new ORPCError('NOT_FOUND', { message: 'Announcement not found' });
     }
 
     await db.update(Announcement)
@@ -158,6 +163,7 @@ const update = os
         date:          data.date,
         name:          data.name,
         effectiveDate: data.effectiveDate ?? null,
+        version:       data.version,
         link:          data.link,
       })
       .where(eq(Announcement.id, id));
@@ -168,7 +174,7 @@ const remove = os
   .route({
     method:      'DELETE',
     description: 'Delete an announcement',
-    tags:        ['Console', 'Magic', 'Announcement'],
+    tags:        ['Console', 'Hearthstone', 'Announcement'],
   })
   .input(z.object({
     id: z.uuid(),
@@ -177,11 +183,9 @@ const remove = os
   .handler(async ({ input }) => {
     const { id } = input;
 
-    // Delete related items first
     await db.delete(AnnouncementItem)
       .where(eq(AnnouncementItem.announcementId, id));
 
-    // Delete announcement
     await db.delete(Announcement)
       .where(eq(Announcement.id, id));
   })

@@ -1,3 +1,5 @@
+export * from './announcement';
+
 import { announcementTrpc } from './announcement';
 
 export const magicTrpc = {
