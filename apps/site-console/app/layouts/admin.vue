@@ -65,14 +65,14 @@
 
         <div class="flex items-center gap-2">
           <span
-            v-if="session"
+            v-if="sessionState"
             class="text-sm text-gray-500 dark:text-gray-400"
           >
-            {{ session.data?.user?.name }}
+            {{ sessionState.user?.name }}
           </span>
 
           <UBadge
-            v-if="session"
+            v-if="sessionState"
             :label="sessionRole"
             color="primary"
             variant="soft"
@@ -107,29 +107,33 @@ import {
   getGameSelectItems,
   getUserNavItems,
 } from '@tcg-cards/console-core';
-import { authClient } from '~/composables/auth';
+import { authClient, type Session } from '~/composables/auth';
 import { useCurrentGame } from '~/composables/game';
 
 const route = useRoute();
 
 const currentTitle = computed(() => String(route.meta.title ?? ''));
 
-const session = authClient.useSession();
+// Session is populated by the global auth middleware via useState so that
+// SSR and client hydration both start with the same data, preventing
+// structural hydration mismatches in the sidebar v-if conditions.
+const sessionState = useState<Session | null>('console-auth-session', () => null);
 
 const signingOut = ref(false);
 
 const sessionRole = computed(() =>
-  (session.value.data?.user as { role?: string } | undefined)?.role ?? 'user',
+  (sessionState.value?.user as { role?: string } | undefined)?.role ?? 'user',
 );
 
 async function signOut() {
   signingOut.value = true;
   await authClient.signOut();
+  sessionState.value = null;
   await navigateTo('/login');
 }
 
 const role = computed(() =>
-  (session.value.data?.user as { role?: string } | undefined)?.role ?? null,
+  (sessionState.value?.user as { role?: string } | undefined)?.role ?? null,
 );
 
 // owner can manage all games; admin/xxx can only manage game xxx
