@@ -1,5 +1,7 @@
 import type { R2Bucket } from '@cloudflare/workers-types';
-import type { auth } from '#server/lib/auth';
+import type { createServerAuth } from '@tcg-cards/auth';
+
+type Auth = ReturnType<typeof createServerAuth>;
 
 export type HonoEnv = {
   Bindings: {
@@ -9,7 +11,7 @@ export type HonoEnv = {
     R2_ASSET_BUCKET: string;
   };
   Variables: {
-    user:    typeof auth.$Infer.Session.user | null;
-    session: typeof auth.$Infer.Session.session | null;
+    user:    Auth['$Infer']['Session']['user'] | null;
+    session: Auth['$Infer']['Session']['session'] | null;
   };
 };

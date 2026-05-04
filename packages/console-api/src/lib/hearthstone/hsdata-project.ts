@@ -83,79 +83,11 @@ type NormalizedValue
     | JsonMap
     | null;
 
-interface EntityRow {
-  cardId:            string;
-  version:           number[];
-  revisionHash:      string;
-  dbfId:             number;
-  legacyPayload:     JsonMap;
-  set:               string;
-  classes:           string[];
-  type:              string;
-  cost:              number;
-  attack:            number | null;
-  health:            number | null;
-  durability:        number | null;
-  armor:             number | null;
-  rune:              string[] | null;
-  race:              string[] | null;
-  spellSchool:       string | null;
-  questType:         string | null;
-  questProgress:     number | null;
-  questPart:         number | null;
-  heroPower:         string | null;
-  techLevel:         number | null;
-  inBobsTavern:      boolean;
-  tripleCard:        string | null;
-  raceBucket:        string | null;
-  armorBucket:       number | null;
-  buddy:             string | null;
-  bannedRace:        string | null;
-  mercenaryRole:     string | null;
-  mercenaryFaction:  string | null;
-  colddown:          number | null;
-  collectible:       boolean;
-  elite:             boolean;
-  rarity:            string | null;
-  artist:            string;
-  overrideWatermark: string | null;
-  faction:           string | null;
-  mechanics:         Record<string, MechanicValue>;
-  referencedTags:    Record<string, MechanicValue>;
-  textBuilderType:   string;
-  changeType:        string;
-  isLatest:          boolean;
-}
+type EntityRow = typeof Entity.$inferSelect;
 
-interface LocalizationRow {
-  cardId:           string;
-  version:          number[];
-  lang:             string;
-  revisionHash:     string;
-  localizationHash: string;
-  renderHash:       string | null;
-  renderModel:      RenderModel | null;
-  isLatest:         boolean;
-  name:             string;
-  text:             string;
-  richText:         string;
-  displayText:      string;
-  targetText:       string | null;
-  textInPlay:       string | null;
-  howToEarn:        string | null;
-  howToEarnGolden:  string | null;
-  flavorText:       string | null;
-  locChangeType:    string;
-}
+type LocalizationRow = typeof EntityLocalization.$inferSelect;
 
-interface RelationRow {
-  sourceId:           string;
-  sourceRevisionHash: string;
-  relation:           string;
-  targetId:           string;
-  version:            number[];
-  isLatest:           boolean;
-}
+type RelationRow = typeof EntityRelation.$inferSelect;
 
 interface LocalizationDraft {
   name:            string;
@@ -703,7 +635,7 @@ function applyEntityScalar(draft: EntityRow, path: string, value: unknown) {
   }
 
   if (path === 'type' && (typeof value === 'string' || Number.isSafeInteger(value))) {
-    draft.type = normalizeProjectedEnumValue(path, value as string | number) ?? draft.type;
+    draft.type = (normalizeProjectedEnumValue(path, value as string | number) ?? draft.type) as EntityRow['type'];
     return;
   }
 
@@ -733,12 +665,12 @@ function applyEntityScalar(draft: EntityRow, path: string, value: unknown) {
   }
 
   if (path === 'spellSchool' && (value == null || typeof value === 'string')) {
-    draft.spellSchool = value as string | null;
+    draft.spellSchool = value as EntityRow['spellSchool'];
     return;
   }
 
   if (path === 'questType' && (value == null || typeof value === 'string')) {
-    draft.questType = value as string | null;
+    draft.questType = value as EntityRow['questType'];
     return;
   }
 
@@ -763,7 +695,7 @@ function applyEntityScalar(draft: EntityRow, path: string, value: unknown) {
   }
 
   if (path === 'raceBucket' && (value == null || typeof value === 'string')) {
-    draft.raceBucket = value as string | null;
+    draft.raceBucket = value as EntityRow['raceBucket'];
     return;
   }
 
@@ -778,12 +710,12 @@ function applyEntityScalar(draft: EntityRow, path: string, value: unknown) {
   }
 
   if (path === 'mercenaryRole' && (value == null || typeof value === 'string')) {
-    draft.mercenaryRole = value as string | null;
+    draft.mercenaryRole = value as EntityRow['mercenaryRole'];
     return;
   }
 
   if (path === 'mercenaryFaction' && (value == null || typeof value === 'string')) {
-    draft.mercenaryFaction = value as string | null;
+    draft.mercenaryFaction = value as EntityRow['mercenaryFaction'];
     return;
   }
 
@@ -803,7 +735,7 @@ function applyEntityScalar(draft: EntityRow, path: string, value: unknown) {
   }
 
   if (path === 'rarity' && (value == null || typeof value === 'string' || Number.isSafeInteger(value))) {
-    draft.rarity = value == null ? null : normalizeProjectedEnumValue(path, value as string | number);
+    draft.rarity = (value == null ? null : normalizeProjectedEnumValue(path, value as string | number)) as EntityRow['rarity'];
     return;
   }
 
@@ -818,12 +750,12 @@ function applyEntityScalar(draft: EntityRow, path: string, value: unknown) {
   }
 
   if (path === 'faction' && (value == null || typeof value === 'string')) {
-    draft.faction = value as string | null;
+    draft.faction = value as EntityRow['faction'];
     return;
   }
 
   if (path === 'textBuilderType' && typeof value === 'string') {
-    draft.textBuilderType = value;
+    draft.textBuilderType = value as EntityRow['textBuilderType'];
   }
 }
 
@@ -831,17 +763,17 @@ function appendEntityStringArray(draft: EntityRow, path: string, value: unknown)
   const values = uniqueStrings(asStringArray(value));
 
   if (path === 'classes') {
-    draft.classes = uniqueStrings([...draft.classes, ...values]);
+    draft.classes = uniqueStrings([...draft.classes, ...values]) as EntityRow['classes'];
     return;
   }
 
   if (path === 'rune') {
-    draft.rune = uniqueStrings([...(draft.rune ?? []), ...values]);
+    draft.rune = uniqueStrings([...(draft.rune ?? []), ...values]) as EntityRow['rune'];
     return;
   }
 
   if (path === 'race') {
-    draft.race = uniqueStrings([...(draft.race ?? []), ...values]);
+    draft.race = uniqueStrings([...(draft.race ?? []), ...values]) as EntityRow['race'];
   }
 }
 
@@ -1210,9 +1142,9 @@ function relationName(field: string): string {
 function finalizeEntityDraft(
   draft: EntityRow,
 ): LocalizationlessEntityRow {
-  draft.classes = uniqueStrings(draft.classes);
-  draft.rune = draft.rune != null && draft.rune.length > 0 ? uniqueStrings(draft.rune) : null;
-  draft.race = draft.race != null && draft.race.length > 0 ? uniqueStrings(draft.race) : null;
+  draft.classes = uniqueStrings(draft.classes) as EntityRow['classes'];
+  draft.rune = (draft.rune != null && draft.rune.length > 0 ? uniqueStrings(draft.rune) : null) as EntityRow['rune'];
+  draft.race = (draft.race != null && draft.race.length > 0 ? uniqueStrings(draft.race) : null) as EntityRow['race'];
 
   if (draft.type === 'minion') {
     if (draft.attack != null && draft.health == null) {
@@ -1294,7 +1226,7 @@ function finalizeLocalizationRows(
 
     const row: LocalizationlessLocalizationRow = {
       cardId:           entity.cardId,
-      lang,
+      lang:             lang as LocalizationRow['lang'],
       revisionHash:     entity.revisionHash,
       localizationHash: '',
       renderHash:       null,
@@ -1308,7 +1240,7 @@ function finalizeLocalizationRows(
       howToEarn:        localization.howToEarn,
       howToEarnGolden:  localization.howToEarnGolden,
       flavorText:       localization.flavorText,
-      locChangeType:    localization.locChangeType,
+      locChangeType:    localization.locChangeType as LocalizationRow['locChangeType'],
     };
 
     const localizationHash = hashCanonicalJson(buildLocalizationHashPayload(row));
@@ -1757,7 +1689,7 @@ async function insertEntities(tx: DbTx, rows: EntityRow[]) {
       continue;
     }
 
-    await tx.insert(Entity).values(chunk);
+    await tx.insert(Entity).values(chunk as typeof Entity.$inferInsert[]);
   }
 }
 
@@ -1767,7 +1699,7 @@ async function insertLocalizations(tx: DbTx, rows: LocalizationRow[]) {
       continue;
     }
 
-    await tx.insert(EntityLocalization).values(chunk);
+    await tx.insert(EntityLocalization).values(chunk as typeof EntityLocalization.$inferInsert[]);
   }
 }
 
