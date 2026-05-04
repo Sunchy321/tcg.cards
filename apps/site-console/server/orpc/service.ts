@@ -1,9 +1,2 @@
-import { magicTrpc } from './magic';
-import { hearthstoneTrpc } from './hearthstone';
-
-export const router = {
-  magic:       magicTrpc,
-  hearthstone: hearthstoneTrpc,
-};
-
-export type Router = typeof router;
+export { webRouter as router } from '@tcg-cards/console-api';
+export type { WebRouter as Router } from '@tcg-cards/console-api';

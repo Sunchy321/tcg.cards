@@ -3,14 +3,14 @@ import { createHash } from 'node:crypto';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { SaxesParser, type SaxesTagPlain } from 'saxes';
 
-import { db } from '#db/db';
+import { db } from '@tcg-cards/db/db';
 import {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   Set as HearthstoneSet,
   SourceVersion,
   Tag,
-} from '#schema/hearthstone';
+} from '@tcg-cards/db/schema/hearthstone';
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 

@@ -1,3 +1,3 @@
-export * from './service';
-export * from './magic';
-export * from './hearthstone';
+export * from './web-router';
+export * from './mobile-router';
+export * from './desktop-router';

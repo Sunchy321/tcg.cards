@@ -84,12 +84,12 @@ const dbMock = {
   }),
 };
 
-mock.module('#db/db', () => ({ db: dbMock }));
-mock.module('#schema/hearthstone', () => schemaMock);
-mock.module('#model/hearthstone/schema/data/image', async () => {
+mock.module('@tcg-cards/db/db', () => ({ db: dbMock }));
+mock.module('@tcg-cards/db/schema/hearthstone', () => schemaMock);
+mock.module('@tcg-cards/model/src/hearthstone/schema/data/image', async () => {
   return await import('@tcg-cards/model/src/hearthstone/schema/data/image');
 });
-mock.module('#model/hearthstone/constant/tag', async () => {
+mock.module('@tcg-cards/model/src/hearthstone/constant/tag', async () => {
   return await import('@tcg-cards/model/src/hearthstone/constant/tag');
 });
 

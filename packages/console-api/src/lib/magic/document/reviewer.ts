@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
-import { db } from '#db/db';
+import { db } from '@tcg-cards/db/db';
 import {
   DocumentChangeReview,
   DocumentNodeChange,
@@ -9,13 +9,13 @@ import {
   DocumentVersion,
   DocumentVersionImport,
   DocumentVersionPairRevision,
-} from '#schema/magic/document';
+} from '@tcg-cards/db/schema/magic';
 
 import type {
   ChangeReviewOverridePayload,
   ChangeReviewStatus,
   NodeChangeReviewStateCache,
-} from '#model/magic/schema/document';
+} from '@tcg-cards/model/src/magic/schema/document';
 
 function reviewStatusToCache(status: ChangeReviewStatus): NodeChangeReviewStateCache {
   switch (status) {

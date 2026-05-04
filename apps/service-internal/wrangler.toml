@@ -15,3 +15,25 @@ enabled = true
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "34ff130776904528bff88fe51caea444"
+
+[[r2_buckets]]
+binding = "R2_DATA"
+bucket_name = "data"
+
+[[r2_buckets]]
+binding = "R2_ASSET"
+bucket_name = "asset"
+
+[vars]
+R2_ASSET_BUCKET = "asset"
+
+[[r2_buckets]]
+binding = "R2_DATA"
+bucket_name = "data"
+
+[[r2_buckets]]
+binding = "R2_ASSET"
+bucket_name = "asset"
+
+[vars]
+R2_ASSET_BUCKET = "asset"

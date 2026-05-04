@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
@@ -8,7 +8,9 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
-    "paths": {},
+    "paths": {
+      "#model/*": ["../model/src/*"]
+    },
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,

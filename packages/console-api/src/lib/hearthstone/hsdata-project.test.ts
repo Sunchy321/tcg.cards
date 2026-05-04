@@ -568,14 +568,14 @@ class MemoryProjectDb {
 
 const memoryDb = new MemoryProjectDb();
 
-mock.module('#db/db', () => ({ db: memoryDb }));
-mock.module('#model/hearthstone/schema/basic', async () => {
+mock.module('@tcg-cards/db/db', () => ({ db: memoryDb }));
+mock.module('@tcg-cards/model/src/hearthstone/schema/basic', async () => {
   return await import('@tcg-cards/model/src/hearthstone/schema/basic');
 });
-mock.module('#model/hearthstone/schema/entity', async () => {
+mock.module('@tcg-cards/model/src/hearthstone/schema/entity', async () => {
   return await import('@tcg-cards/model/src/hearthstone/schema/entity');
 });
-mock.module('#schema/hearthstone', () => ({
+mock.module('@tcg-cards/db/schema/hearthstone', () => ({
   Entity,
   EntityLocalization,
   EntityRelation,

@@ -3,7 +3,7 @@ import { onError } from '@orpc/server';
 import { DrizzleQueryError } from 'drizzle-orm';
 
 import type { HonoEnv } from '~~/server/orpc/hono-env';
-import { router } from '~~/server/orpc/service';
+import { webRouter as router } from '@tcg-cards/console-api';
 
 const handler = new RPCHandler(router, {
   interceptors: [

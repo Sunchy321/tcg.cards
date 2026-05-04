@@ -3,7 +3,7 @@ import { gzipSync } from 'node:zlib';
 
 import { and, asc, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 
-import { db } from '#db/db';
+import { db } from '@tcg-cards/db/db';
 import {
   DocumentChangeReview,
   DocumentDefinition,
@@ -16,7 +16,7 @@ import {
   DocumentVersion,
   DocumentVersionImport,
   DocumentVersionPairRevision,
-} from '#schema/magic/document';
+} from '@tcg-cards/db/schema/magic';
 
 import { getDocumentConfig } from './config';
 import {

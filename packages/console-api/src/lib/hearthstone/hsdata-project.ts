@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 
 import { eq, inArray, sql } from 'drizzle-orm';
 
-import { db } from '#db/db';
-import { renderModel as renderModelSchema, type RenderModel } from '#model/hearthstone/schema/entity';
-import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '#model/hearthstone/schema/basic';
+import { db } from '@tcg-cards/db/db';
+import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
+import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
   Entity,
   EntityLocalization,
@@ -14,7 +14,7 @@ import {
   Set as HearthstoneSet,
   SourceVersion,
   Tag,
-} from '#schema/hearthstone';
+} from '@tcg-cards/db/schema/hearthstone';
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type JsonMap = Record<string, unknown>;
@@ -1757,7 +1757,7 @@ async function insertEntities(tx: DbTx, rows: EntityRow[]) {
       continue;
     }
 
-    await tx.insert(Entity).values(chunk as Array<typeof Entity.$inferInsert>);
+    await tx.insert(Entity).values(chunk);
   }
 }
 
@@ -1767,7 +1767,7 @@ async function insertLocalizations(tx: DbTx, rows: LocalizationRow[]) {
       continue;
     }
 
-    await tx.insert(EntityLocalization).values(chunk as Array<typeof EntityLocalization.$inferInsert>);
+    await tx.insert(EntityLocalization).values(chunk);
   }
 }
 
@@ -1777,7 +1777,7 @@ async function insertRelations(tx: DbTx, rows: RelationRow[]) {
       continue;
     }
 
-    await tx.insert(EntityRelation).values(chunk as Array<typeof EntityRelation.$inferInsert>);
+    await tx.insert(EntityRelation).values(chunk);
   }
 }
 

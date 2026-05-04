@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 
-import { db } from '#db/db';
+import { db } from '@tcg-cards/db/db';
 import {
   DocumentNode,
   DocumentNodeChange,
@@ -9,7 +9,7 @@ import {
   DocumentVersion,
   DocumentVersionImport,
   DocumentVersionPairRevision,
-} from '#schema/magic/document';
+} from '@tcg-cards/db/schema/magic';
 
 import {
   loadPreviousVersionNodes,

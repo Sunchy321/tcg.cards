@@ -2,6 +2,9 @@ import { ORPCError, os as create } from '@orpc/server';
 import { z } from 'zod';
 import { desc, sql } from 'drizzle-orm';
 
+import { importHsdata } from '../../../lib/hearthstone/hsdata-import';
+import { projectHsdata } from '../../../lib/hearthstone/hsdata-project';
+
 import { db } from '@tcg-cards/db/db';
 import {
   RawEntitySnapshot,
@@ -160,26 +163,6 @@ type HsdataImportReport = z.infer<typeof hsdataImportReport>;
 type HsdataProjectInput = z.infer<typeof hsdataProjectInput>;
 type HsdataProjectReport = z.infer<typeof hsdataProjectReport>;
 
-export interface ImportHsdataTaskInput {
-  xml: string;
-  sourceTag: number;
-  sourceCommit?: string | null;
-  sourceUri?: string | null;
-  dryRun?: boolean;
-  force?: boolean;
-}
-
-export interface ProjectHsdataTaskInput {
-  sourceTag: number;
-  dryRun?: boolean;
-  force?: boolean;
-}
-
-export interface CreateHsdataTrpcOptions {
-  importHsdata(input: ImportHsdataTaskInput): Promise<HsdataImportReport>;
-  projectHsdata(input: ProjectHsdataTaskInput): Promise<HsdataProjectReport>;
-}
-
 function normalizeFileName(name: string): string {
   const normalized = name.trim();
 
@@ -248,286 +231,284 @@ function normalizeDate(value: Date | string | null | undefined) {
   return value.toISOString();
 }
 
-export function createHsdataTrpc(options: CreateHsdataTrpcOptions) {
-  const getState = os
-    .route({
-      method:      'GET',
-      description: 'Get hsdata sync state from R2',
-      tags:        ['Console', 'Hearthstone', 'DataSource'],
-    })
-    .input(z.void())
-    .output(dataSourceState.nullable())
-    .handler(async ({ context }) => {
-      try {
-        const env = context.env;
-        const object = await env?.R2_DATA?.get('hearthstone/hsdata/state.json');
+const getState = os
+  .route({
+    method:      'GET',
+    description: 'Get hsdata sync state from R2',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(z.void())
+  .output(dataSourceState.nullable())
+  .handler(async ({ context }) => {
+    try {
+      const env = context.env;
+      const object = await env?.R2_DATA?.get('hearthstone/hsdata/state.json');
 
-        if (!object) {
-          return null;
-        }
-
-        const payload = JSON.parse(await object.text()) as unknown;
-        return dataSourceState.parse(payload);
-      } catch {
+      if (!object) {
         return null;
       }
-    });
 
-  const listFiles = os
-    .route({
-      method:      'GET',
-      description: 'List hsdata files from R2',
-      tags:        ['Console', 'Hearthstone', 'DataSource'],
-    })
-    .input(z.void())
-    .output(z.array(z.object({
-      name: z.string(),
-      size: z.number(),
-      time: z.string().optional(),
-    })))
-    .handler(async ({ context }) => {
-      try {
-        const env = context.env;
-        const bucket = env?.R2_DATA;
+      const payload = JSON.parse(await object.text()) as unknown;
+      return dataSourceState.parse(payload);
+    } catch {
+      return null;
+    }
+  });
 
-        if (!bucket) {
-          return [];
-        }
-
-        const files: Array<{
-          name: string;
-          size: number;
-          time?: string;
-        }> = [];
-        let cursor: string | undefined;
-
-        do {
-          const listResult = await bucket.list({
-            prefix: hsdataDataPrefix,
-            ...(cursor == null ? {} : { cursor }),
-          });
-
-          for (const object of listResult.objects ?? []) {
-            const name = object.key.startsWith(hsdataDataPrefix)
-              ? object.key.slice(hsdataDataPrefix.length)
-              : object.key;
-
-            if (name.length === 0) {
-              continue;
-            }
-
-            files.push({
-              name,
-              size: object.size,
-              time: object.uploaded?.toISOString(),
-            });
-          }
-
-          cursor = listResult.truncated ? listResult.cursor : undefined;
-        } while (cursor);
-
-        return files;
-      } catch {
-        return [];
-      }
-    });
-
-  const getOverview = os
-    .route({
-      method:      'GET',
-      description: 'Get hsdata data table overview',
-      tags:        ['Console', 'Hearthstone', 'DataSource'],
-    })
-    .input(z.void())
-    .output(hsdataOverview)
-    .handler(async () => {
-      const [
-        sourceVersionSummary,
-        latestCompletedSourceVersion,
-        snapshotSummary,
-        snapshotTagSummary,
-        tagValueSummary,
-      ] = await Promise.all([
-        db.select({
-          rows:       sql<number>`cast(count(*) as integer)`,
-          completed:  sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'completed' then 1 else 0 end), 0) as integer)`,
-          failed:     sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'failed' then 1 else 0 end), 0) as integer)`,
-          processing: sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'processing' then 1 else 0 end), 0) as integer)`,
-          pending:    sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'pending' then 1 else 0 end), 0) as integer)`,
-        })
-          .from(SourceVersion)
-          .then(rows => rows[0]!),
-
-        db.select({
-          sourceTag:  SourceVersion.sourceTag,
-          importedAt: SourceVersion.importedAt,
-        })
-          .from(SourceVersion)
-          .where(sql<boolean>`${SourceVersion.status} = 'completed'`)
-          .orderBy(desc(SourceVersion.importedAt), desc(SourceVersion.sourceTag))
-          .limit(1)
-          .then(rows => rows[0]),
-
-        db.select({
-          rows:              sql<number>`cast(count(*) as integer)`,
-          latestRows:        sql<number>`cast(coalesce(sum(case when ${RawEntitySnapshot.isLatest} then 1 else 0 end), 0) as integer)`,
-          distinctCardCount: sql<number>`cast(count(distinct ${RawEntitySnapshot.cardId}) as integer)`,
-          updatedAt:         sql<Date | null>`max(${RawEntitySnapshot.updatedAt})`,
-        })
-          .from(RawEntitySnapshot)
-          .then(rows => rows[0]!),
-
-        db.select({
-          rows:                  sql<number>`cast(count(*) as integer)`,
-          distinctSnapshotCount: sql<number>`cast(count(distinct ${RawEntitySnapshotTag.snapshotId}) as integer)`,
-          distinctEnumCount:     sql<number>`cast(count(distinct ${RawEntitySnapshotTag.enumId}) as integer)`,
-        })
-          .from(RawEntitySnapshotTag)
-          .then(rows => rows[0]!),
-
-        db.select({
-          rows:                  sql<number>`cast(count(*) as integer)`,
-          distinctSnapshotCount: sql<number>`cast(count(distinct ${TagValueView.snapshotId}) as integer)`,
-          distinctEnumCount:     sql<number>`cast(count(distinct ${TagValueView.enumId}) as integer)`,
-        })
-          .from(TagValueView)
-          .then(rows => rows[0]!),
-      ]);
-
-      return {
-        summary: {
-          sourceVersionCount:          normalizeCount(sourceVersionSummary.rows),
-          completedSourceVersionCount: normalizeCount(sourceVersionSummary.completed),
-          failedSourceVersionCount:    normalizeCount(sourceVersionSummary.failed),
-          snapshotCount:               normalizeCount(snapshotSummary.rows),
-          latestSnapshotCount:         normalizeCount(snapshotSummary.latestRows),
-          tagRowCount:                 normalizeCount(snapshotTagSummary.rows),
-        },
-        tables: {
-          sourceVersions: {
-            name:                     'source_versions',
-            kind:                     'table',
-            rows:                     normalizeCount(sourceVersionSummary.rows),
-            latestImportedAt:         normalizeDate(latestCompletedSourceVersion?.importedAt),
-            latestCompletedSourceTag: latestCompletedSourceVersion?.sourceTag ?? undefined,
-            statusCounts:             {
-              completed:  normalizeCount(sourceVersionSummary.completed),
-              failed:     normalizeCount(sourceVersionSummary.failed),
-              processing: normalizeCount(sourceVersionSummary.processing),
-              pending:    normalizeCount(sourceVersionSummary.pending),
-            },
-          },
-          rawEntitySnapshots: {
-            name:              'raw_entity_snapshots',
-            kind:              'table',
-            rows:              normalizeCount(snapshotSummary.rows),
-            latestRows:        normalizeCount(snapshotSummary.latestRows),
-            distinctCardCount: normalizeCount(snapshotSummary.distinctCardCount),
-            updatedAt:         normalizeDate(snapshotSummary.updatedAt),
-          },
-          rawEntitySnapshotTags: {
-            name:                  'raw_entity_snapshot_tags',
-            kind:                  'table',
-            rows:                  normalizeCount(snapshotTagSummary.rows),
-            distinctSnapshotCount: normalizeCount(snapshotTagSummary.distinctSnapshotCount),
-            distinctEnumCount:     normalizeCount(snapshotTagSummary.distinctEnumCount),
-          },
-          tagValueView: {
-            name:                  'tag_value_view',
-            kind:                  'view',
-            rows:                  normalizeCount(tagValueSummary.rows),
-            distinctSnapshotCount: normalizeCount(tagValueSummary.distinctSnapshotCount),
-            distinctEnumCount:     normalizeCount(tagValueSummary.distinctEnumCount),
-          },
-        },
-      };
-    });
-
-  const importArchive = os
-    .route({
-      method:      'POST',
-      description: 'Import one hsdata XML snapshot from R2 into Hearthstone raw archive tables',
-      tags:        ['Console', 'Hearthstone', 'DataSource'],
-    })
-    .input(hsdataImportInput)
-    .output(hsdataImportReport)
-    .handler(async ({ context, input }) => {
+const listFiles = os
+  .route({
+    method:      'GET',
+    description: 'List hsdata files from R2',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(z.void())
+  .output(z.array(z.object({
+    name: z.string(),
+    size: z.number(),
+    time: z.string().optional(),
+  })))
+  .handler(async ({ context }) => {
+    try {
       const env = context.env;
       const bucket = env?.R2_DATA;
 
       if (!bucket) {
-        throw new ORPCError('NOT_FOUND', { message: 'R2_DATA bucket is not configured' });
+        return [];
       }
 
-      const name = normalizeFileName(input.name);
-      const object = await bucket.get(`${hsdataDataPrefix}${name}`);
+      const files: Array<{
+        name: string;
+        size: number;
+        time?: string;
+      }> = [];
+      let cursor: string | undefined;
 
-      if (!object) {
-        throw new ORPCError('NOT_FOUND', { message: `hsdata file not found: ${name}` });
-      }
-
-      const xml = await object.text();
-      const sourceTag = inferHsdataSourceTag(name) ?? inferHsdataBuild(xml);
-
-      if (sourceTag == null) {
-        throw new ORPCError('BAD_REQUEST', { message: `Cannot infer sourceTag from hsdata file: ${name}` });
-      }
-
-      try {
-        return await options.importHsdata({
-          xml,
-          sourceTag,
-          sourceCommit: inferHsdataSourceCommit(name),
-          sourceUri:    `r2://R2_DATA/${hsdataDataPrefix}${name}`,
-          dryRun:       input.dryRun,
-          force:        input.force,
+      do {
+        const listResult = await bucket.list({
+          prefix: hsdataDataPrefix,
+          ...(cursor == null ? {} : { cursor }),
         });
-      } catch (error) {
-        if (error instanceof Error) {
-          const code = error.message.includes('force=true') ? 'CONFLICT' : 'BAD_REQUEST';
-          throw new ORPCError(code, { message: error.message });
+
+        for (const object of listResult.objects ?? []) {
+          const name = object.key.startsWith(hsdataDataPrefix)
+            ? object.key.slice(hsdataDataPrefix.length)
+            : object.key;
+
+          if (name.length === 0) {
+            continue;
+          }
+
+          files.push({
+            name,
+            size: object.size,
+            time: object.uploaded?.toISOString(),
+          });
         }
 
-        throw error;
+        cursor = listResult.truncated ? listResult.cursor : undefined;
+      } while (cursor);
+
+      return files;
+    } catch {
+      return [];
+    }
+  });
+
+const getOverview = os
+  .route({
+    method:      'GET',
+    description: 'Get hsdata data table overview',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(z.void())
+  .output(hsdataOverview)
+  .handler(async () => {
+    const [
+      sourceVersionSummary,
+      latestCompletedSourceVersion,
+      snapshotSummary,
+      snapshotTagSummary,
+      tagValueSummary,
+    ] = await Promise.all([
+      db.select({
+        rows:       sql<number>`cast(count(*) as integer)`,
+        completed:  sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'completed' then 1 else 0 end), 0) as integer)`,
+        failed:     sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'failed' then 1 else 0 end), 0) as integer)`,
+        processing: sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'processing' then 1 else 0 end), 0) as integer)`,
+        pending:    sql<number>`cast(coalesce(sum(case when ${SourceVersion.status} = 'pending' then 1 else 0 end), 0) as integer)`,
+      })
+        .from(SourceVersion)
+        .then(rows => rows[0]!),
+
+      db.select({
+        sourceTag:  SourceVersion.sourceTag,
+        importedAt: SourceVersion.importedAt,
+      })
+        .from(SourceVersion)
+        .where(sql<boolean>`${SourceVersion.status} = 'completed'`)
+        .orderBy(desc(SourceVersion.importedAt), desc(SourceVersion.sourceTag))
+        .limit(1)
+        .then(rows => rows[0]),
+
+      db.select({
+        rows:              sql<number>`cast(count(*) as integer)`,
+        latestRows:        sql<number>`cast(coalesce(sum(case when ${RawEntitySnapshot.isLatest} then 1 else 0 end), 0) as integer)`,
+        distinctCardCount: sql<number>`cast(count(distinct ${RawEntitySnapshot.cardId}) as integer)`,
+        updatedAt:         sql<Date | null>`max(${RawEntitySnapshot.updatedAt})`,
+      })
+        .from(RawEntitySnapshot)
+        .then(rows => rows[0]!),
+
+      db.select({
+        rows:                  sql<number>`cast(count(*) as integer)`,
+        distinctSnapshotCount: sql<number>`cast(count(distinct ${RawEntitySnapshotTag.snapshotId}) as integer)`,
+        distinctEnumCount:     sql<number>`cast(count(distinct ${RawEntitySnapshotTag.enumId}) as integer)`,
+      })
+        .from(RawEntitySnapshotTag)
+        .then(rows => rows[0]!),
+
+      db.select({
+        rows:                  sql<number>`cast(count(*) as integer)`,
+        distinctSnapshotCount: sql<number>`cast(count(distinct ${TagValueView.snapshotId}) as integer)`,
+        distinctEnumCount:     sql<number>`cast(count(distinct ${TagValueView.enumId}) as integer)`,
+      })
+        .from(TagValueView)
+        .then(rows => rows[0]!),
+    ]);
+
+    return {
+      summary: {
+        sourceVersionCount:          normalizeCount(sourceVersionSummary.rows),
+        completedSourceVersionCount: normalizeCount(sourceVersionSummary.completed),
+        failedSourceVersionCount:    normalizeCount(sourceVersionSummary.failed),
+        snapshotCount:               normalizeCount(snapshotSummary.rows),
+        latestSnapshotCount:         normalizeCount(snapshotSummary.latestRows),
+        tagRowCount:                 normalizeCount(snapshotTagSummary.rows),
+      },
+      tables: {
+        sourceVersions: {
+          name:                     'source_versions',
+          kind:                     'table',
+          rows:                     normalizeCount(sourceVersionSummary.rows),
+          latestImportedAt:         normalizeDate(latestCompletedSourceVersion?.importedAt),
+          latestCompletedSourceTag: latestCompletedSourceVersion?.sourceTag ?? undefined,
+          statusCounts:             {
+            completed:  normalizeCount(sourceVersionSummary.completed),
+            failed:     normalizeCount(sourceVersionSummary.failed),
+            processing: normalizeCount(sourceVersionSummary.processing),
+            pending:    normalizeCount(sourceVersionSummary.pending),
+          },
+        },
+        rawEntitySnapshots: {
+          name:              'raw_entity_snapshots',
+          kind:              'table',
+          rows:              normalizeCount(snapshotSummary.rows),
+          latestRows:        normalizeCount(snapshotSummary.latestRows),
+          distinctCardCount: normalizeCount(snapshotSummary.distinctCardCount),
+          updatedAt:         normalizeDate(snapshotSummary.updatedAt),
+        },
+        rawEntitySnapshotTags: {
+          name:                  'raw_entity_snapshot_tags',
+          kind:                  'table',
+          rows:                  normalizeCount(snapshotTagSummary.rows),
+          distinctSnapshotCount: normalizeCount(snapshotTagSummary.distinctSnapshotCount),
+          distinctEnumCount:     normalizeCount(snapshotTagSummary.distinctEnumCount),
+        },
+        tagValueView: {
+          name:                  'tag_value_view',
+          kind:                  'view',
+          rows:                  normalizeCount(tagValueSummary.rows),
+          distinctSnapshotCount: normalizeCount(tagValueSummary.distinctSnapshotCount),
+          distinctEnumCount:     normalizeCount(tagValueSummary.distinctEnumCount),
+        },
+      },
+    };
+  });
+
+const importArchive = os
+  .route({
+    method:      'POST',
+    description: 'Import one hsdata XML snapshot from R2 into Hearthstone raw archive tables',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(hsdataImportInput)
+  .output(hsdataImportReport)
+  .handler(async ({ context, input }) => {
+    const env = context.env;
+    const bucket = env?.R2_DATA;
+
+    if (!bucket) {
+      throw new ORPCError('NOT_FOUND', { message: 'R2_DATA bucket is not configured' });
+    }
+
+    const name = normalizeFileName(input.name);
+    const object = await bucket.get(`${hsdataDataPrefix}${name}`);
+
+    if (!object) {
+      throw new ORPCError('NOT_FOUND', { message: `hsdata file not found: ${name}` });
+    }
+
+    const xml = await object.text();
+    const sourceTag = inferHsdataSourceTag(name) ?? inferHsdataBuild(xml);
+
+    if (sourceTag == null) {
+      throw new ORPCError('BAD_REQUEST', { message: `Cannot infer sourceTag from hsdata file: ${name}` });
+    }
+
+    try {
+      return await importHsdata({
+        xml,
+        sourceTag,
+        sourceCommit: inferHsdataSourceCommit(name),
+        sourceUri:    `r2://R2_DATA/${hsdataDataPrefix}${name}`,
+        dryRun:       input.dryRun,
+        force:        input.force,
+      }) as HsdataImportReport;
+    } catch (error) {
+      if (error instanceof Error) {
+        const code = error.message.includes('force=true') ? 'CONFLICT' : 'BAD_REQUEST';
+        throw new ORPCError(code, { message: error.message });
       }
-    });
 
-  const projectSourceVersion = os
-    .route({
-      method:      'POST',
-      description: 'Project one completed hsdata source version into Hearthstone domain tables',
-      tags:        ['Console', 'Hearthstone', 'DataSource'],
-    })
-    .input(hsdataProjectInput)
-    .output(hsdataProjectReport)
-    .handler(async ({ input }) => {
-      try {
-        return await options.projectHsdata({
-          sourceTag: input.sourceTag,
-          dryRun:    input.dryRun,
-          force:     input.force,
-        });
-      } catch (error) {
-        if (error instanceof Error) {
-          const message = error.message;
-          const code = message.includes('does not exist')
-            ? 'NOT_FOUND'
-            : message.includes('not completed')
-              ? 'CONFLICT'
-              : 'BAD_REQUEST';
+      throw error;
+    }
+  });
 
-          throw new ORPCError(code, { message });
-        }
+const projectSourceVersion = os
+  .route({
+    method:      'POST',
+    description: 'Project one completed hsdata source version into Hearthstone domain tables',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(hsdataProjectInput)
+  .output(hsdataProjectReport)
+  .handler(async ({ input }) => {
+    try {
+      return await projectHsdata({
+        sourceTag: input.sourceTag,
+        dryRun:    input.dryRun,
+        force:     input.force,
+      }) as HsdataProjectReport;
+    } catch (error) {
+      if (error instanceof Error) {
+        const message = error.message;
+        const code = message.includes('does not exist')
+          ? 'NOT_FOUND'
+          : message.includes('not completed')
+            ? 'CONFLICT'
+            : 'BAD_REQUEST';
 
-        throw error;
+        throw new ORPCError(code, { message });
       }
-    });
 
-  return {
-    getState,
-    listFiles,
-    getOverview,
-    importArchive,
-    projectSourceVersion,
-  };
-}
+      throw error;
+    }
+  });
+
+export const hsdataTrpc = {
+  getState,
+  listFiles,
+  getOverview,
+  importArchive,
+  projectSourceVersion,
+};

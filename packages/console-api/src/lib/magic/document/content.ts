@@ -2,13 +2,13 @@ import { gunzipSync } from 'node:zlib';
 
 import { and, eq, inArray } from 'drizzle-orm';
 
-import { db } from '#db/db';
+import { db } from '@tcg-cards/db/db';
 import {
   DocumentNode,
   DocumentNodeContent,
-} from '#schema/magic/document';
+} from '@tcg-cards/db/schema/magic';
 
-import type { Locale } from '#model/magic/schema/basic';
+import type { Locale } from '@tcg-cards/model/src/magic/schema/basic';
 
 interface ContentResult {
   nodeId:  string;

@@ -3,15 +3,15 @@ import { gunzipSync } from 'node:zlib';
 
 import { and, desc, eq, lt } from 'drizzle-orm';
 
-import { db } from '#db/db';
+import { db } from '@tcg-cards/db/db';
 import {
   DocumentNode,
   DocumentNodeContent,
   DocumentVersion,
   DocumentVersionImport,
-} from '#schema/magic/document';
+} from '@tcg-cards/db/schema/magic';
 
-import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '#model/magic/schema/document';
+import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '@tcg-cards/model/src/magic/schema/document';
 
 import type { ParsedDocumentNode } from './parser';
 import { generateHash, normalizeFingerprint } from './importer';

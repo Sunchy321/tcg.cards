@@ -11,7 +11,7 @@ const hono = new Hono<{
   Bindings: InternalServiceEnv;
 }>();
 
-const rpcHandler = new RPCHandler(router, {
+const rpcHandler = new RPCHandler(router as any, {
   interceptors: [
     onError(error => {
       console.error('[orpc] error:', error);
@@ -43,7 +43,7 @@ hono.all('/auth/*', async c => {
 });
 
 hono.all('/rpc/*', async c => {
-  const { response } = await rpcHandler.handle(c.req.raw, { prefix: '/rpc' });
+  const { response } = await rpcHandler.handle(c.req.raw, { prefix: '/rpc', context: { env: c.env } });
   return response ?? c.notFound();
 });
 

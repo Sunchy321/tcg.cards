@@ -552,8 +552,8 @@ class MemoryHsdataDb {
 
 const memoryDb = new MemoryHsdataDb();
 
-mock.module('#db/db', () => ({ db: memoryDb }));
-mock.module('#schema/hearthstone', () => ({
+mock.module('@tcg-cards/db/db', () => ({ db: memoryDb }));
+mock.module('@tcg-cards/db/schema/hearthstone', () => ({
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   Set: HearthstoneSet,

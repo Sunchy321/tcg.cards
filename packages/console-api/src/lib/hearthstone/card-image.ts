@@ -3,9 +3,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { R2Bucket } from '@cloudflare/workers-types';
 
-import { db } from '#db/db';
-import type { Locale } from '#model/hearthstone/schema/basic';
-import type { RenderModel } from '#model/hearthstone/schema/entity';
+import { db } from '@tcg-cards/db/db';
+import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
+import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import {
   cardImageBrowserImportManifest,
   cardImageImportResult,
@@ -21,8 +21,8 @@ import {
   type ImageRequestRenderModel,
   type ImageStyle,
   type ImageVariant,
-} from '#model/hearthstone/schema/data/image';
-import { CardImageAsset, CardImageExport, CardImageImport, Entity, EntityLocalization, Set as HearthstoneSet, Tag } from '#schema/hearthstone';
+} from '@tcg-cards/model/src/hearthstone/schema/data/image';
+import { CardImageAsset, CardImageExport, CardImageImport, Entity, EntityLocalization, Set as HearthstoneSet, Tag } from '@tcg-cards/db/schema/hearthstone';
 
 export const hearthstoneImageSpecVersion = 'v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';
