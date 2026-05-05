@@ -323,20 +323,22 @@ interface HsdataRawEntitySnapshotTagOverview {
   distinctEnumCount: number;
 }
 
-interface HsdataTagMapOverview {
-  name: 'tag_map';
+interface HsdataTagValueViewOverview {
+  name: 'tag_value_view';
   kind: 'view';
   rows: number;
-  distinctTags: number;
-  distinctEnums: number;
+  distinctSnapshotCount: number;
+  distinctEnumCount: number;
 }
 
 interface HsdataOverview {
   summary: HsdataOverviewSummary;
-  sourceVersions: HsdataSourceVersionOverview;
-  rawEntitySnapshots: HsdataRawEntitySnapshotOverview;
-  rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
-  tagMap: HsdataTagMapOverview;
+  tables: {
+    sourceVersions: HsdataSourceVersionOverview;
+    rawEntitySnapshots: HsdataRawEntitySnapshotOverview;
+    rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
+    tagValueView: HsdataTagValueViewOverview;
+  };
 }
 
 const hsdataSources = [
@@ -370,65 +372,69 @@ const historyColumns = [
 ];
 
 const overviewSummaryCards = computed(() => {
-  if (!overview.value) return [];
+  const summary = overview.value?.summary;
+
+  if (!summary) return [];
 
   return [
-    { key: 'sourceVersionCount', label: '版本记录', value: overview.value.summary.sourceVersionCount },
-    { key: 'completedSourceVersionCount', label: '完成版本', value: overview.value.summary.completedSourceVersionCount },
-    { key: 'failedSourceVersionCount', label: '失败版本', value: overview.value.summary.failedSourceVersionCount },
-    { key: 'snapshotCount', label: '快照总数', value: overview.value.summary.snapshotCount },
-    { key: 'latestSnapshotCount', label: '最新快照行数', value: overview.value.summary.latestSnapshotCount },
-    { key: 'tagRowCount', label: '标签投影行数', value: overview.value.summary.tagRowCount },
+    { key: 'sourceVersionCount', label: '版本记录', value: summary.sourceVersionCount },
+    { key: 'completedSourceVersionCount', label: '完成版本', value: summary.completedSourceVersionCount },
+    { key: 'failedSourceVersionCount', label: '失败版本', value: summary.failedSourceVersionCount },
+    { key: 'snapshotCount', label: '快照总数', value: summary.snapshotCount },
+    { key: 'latestSnapshotCount', label: '最新快照行数', value: summary.latestSnapshotCount },
+    { key: 'tagRowCount', label: '标签投影行数', value: summary.tagRowCount },
   ];
 });
 
 const overviewTableCards = computed(() => {
-  if (!overview.value) return [];
+  const tables = overview.value?.tables;
+
+  if (!tables) return [];
 
   return [
     {
       key: 'source_versions',
-      name: overview.value.sourceVersions.name,
-      kind: overview.value.sourceVersions.kind,
+      name: tables.sourceVersions.name,
+      kind: tables.sourceVersions.kind,
       metrics: [
-        { label: '总行数', value: overview.value.sourceVersions.rows },
-        { label: '最后导入时间', value: overview.value.sourceVersions.latestImportedAt ?? '-' },
-        { label: '最后完成版本', value: overview.value.sourceVersions.latestCompletedSourceTag ?? '-' },
-        { label: 'completed', value: overview.value.sourceVersions.statusCounts.completed },
-        { label: 'failed', value: overview.value.sourceVersions.statusCounts.failed },
-        { label: 'processing', value: overview.value.sourceVersions.statusCounts.processing },
-        { label: 'pending', value: overview.value.sourceVersions.statusCounts.pending },
+        { label: '总行数', value: tables.sourceVersions.rows },
+        { label: '最后导入时间', value: tables.sourceVersions.latestImportedAt ?? '-' },
+        { label: '最后完成版本', value: tables.sourceVersions.latestCompletedSourceTag ?? '-' },
+        { label: 'completed', value: tables.sourceVersions.statusCounts.completed },
+        { label: 'failed', value: tables.sourceVersions.statusCounts.failed },
+        { label: 'processing', value: tables.sourceVersions.statusCounts.processing },
+        { label: 'pending', value: tables.sourceVersions.statusCounts.pending },
       ],
     },
     {
       key: 'raw_entity_snapshots',
-      name: overview.value.rawEntitySnapshots.name,
-      kind: overview.value.rawEntitySnapshots.kind,
+      name: tables.rawEntitySnapshots.name,
+      kind: tables.rawEntitySnapshots.kind,
       metrics: [
-        { label: '总行数', value: overview.value.rawEntitySnapshots.rows },
-        { label: '最新快照行数', value: overview.value.rawEntitySnapshots.latestRows },
-        { label: '去重卡牌数', value: overview.value.rawEntitySnapshots.distinctCardCount },
-        { label: '更新时间', value: overview.value.rawEntitySnapshots.updatedAt ?? '-' },
+        { label: '总行数', value: tables.rawEntitySnapshots.rows },
+        { label: '最新快照行数', value: tables.rawEntitySnapshots.latestRows },
+        { label: '去重卡牌数', value: tables.rawEntitySnapshots.distinctCardCount },
+        { label: '更新时间', value: tables.rawEntitySnapshots.updatedAt ?? '-' },
       ],
     },
     {
       key: 'raw_entity_snapshot_tags',
-      name: overview.value.rawEntitySnapshotTags.name,
-      kind: overview.value.rawEntitySnapshotTags.kind,
+      name: tables.rawEntitySnapshotTags.name,
+      kind: tables.rawEntitySnapshotTags.kind,
       metrics: [
-        { label: '总行数', value: overview.value.rawEntitySnapshotTags.rows },
-        { label: '快照数', value: overview.value.rawEntitySnapshotTags.distinctSnapshotCount },
-        { label: '枚举数', value: overview.value.rawEntitySnapshotTags.distinctEnumCount },
+        { label: '总行数', value: tables.rawEntitySnapshotTags.rows },
+        { label: '快照数', value: tables.rawEntitySnapshotTags.distinctSnapshotCount },
+        { label: '枚举数', value: tables.rawEntitySnapshotTags.distinctEnumCount },
       ],
     },
     {
-      key: 'tag_map',
-      name: overview.value.tagMap.name,
-      kind: overview.value.tagMap.kind,
+      key: 'tag_value_view',
+      name: tables.tagValueView.name,
+      kind: tables.tagValueView.kind,
       metrics: [
-        { label: '总行数', value: overview.value.tagMap.rows },
-        { label: '标签数', value: overview.value.tagMap.distinctTags },
-        { label: '枚举数', value: overview.value.tagMap.distinctEnums },
+        { label: '总行数', value: tables.tagValueView.rows },
+        { label: '快照数', value: tables.tagValueView.distinctSnapshotCount },
+        { label: '枚举数', value: tables.tagValueView.distinctEnumCount },
       ],
     },
   ];
@@ -455,7 +461,9 @@ function formatHsdataBytes(size?: number) {
 async function loadState() {
   loadingState.value = true;
   try {
-    state.value = await orpc.hearthstone.hsdata.state();
+    state.value = await orpc.hearthstone.dataSource.hsdata.getState();
+  } catch (error) {
+    console.error('Failed to load hsdata state:', error);
   } finally {
     loadingState.value = false;
   }
@@ -464,7 +472,14 @@ async function loadState() {
 async function loadFiles() {
   loadingFiles.value = true;
   try {
-    files.value = await orpc.hearthstone.hsdata.files();
+    const result = await orpc.hearthstone.dataSource.hsdata.listFiles();
+    files.value = [...result].sort((first, second) => {
+      const firstTime = first.time ?? '';
+      const secondTime = second.time ?? '';
+      return secondTime.localeCompare(firstTime);
+    });
+  } catch (error) {
+    console.error('Failed to load hsdata files:', error);
   } finally {
     loadingFiles.value = false;
   }
@@ -474,9 +489,10 @@ async function loadOverview() {
   loadingOverview.value = true;
   overviewError.value = '';
   try {
-    overview.value = await orpc.hearthstone.hsdata.overview();
+    overview.value = await orpc.hearthstone.dataSource.hsdata.getOverview();
   } catch (error) {
-    overviewError.value = error instanceof Error ? error.message : String(error);
+    console.error('Failed to load hsdata overview:', error);
+    overviewError.value = '数据表概览加载失败';
   } finally {
     loadingOverview.value = false;
   }

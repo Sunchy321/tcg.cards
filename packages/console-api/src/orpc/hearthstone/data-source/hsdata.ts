@@ -505,7 +505,13 @@ const projectSourceVersion = os
     }
   });
 
-export const hsdataTrpc = {
+export const hsdataLight = {
+  getState,
+  listFiles,
+  getOverview,
+};
+
+export const hsdataFull = {
   getState,
   listFiles,
   getOverview,

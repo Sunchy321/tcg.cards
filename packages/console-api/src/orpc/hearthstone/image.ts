@@ -2,10 +2,13 @@ import { ORPCError, os as create } from '@orpc/server';
 import { z } from 'zod';
 
 import {
+  type CardImageRequirementExportInput,
+  cardImageRequirementExportInput,
+  cardImageRequirementExportResult,
   cardImageImportResult,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 
-import { importCardImageArchiveFromBrowser } from '../../lib/hearthstone/card-image';
+import { exportCardImageRequirements, importCardImageArchiveFromBrowser } from '../../lib/hearthstone/card-image';
 
 interface ImageEnv {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,7 +18,33 @@ interface ImageEnv {
 
 const os = create.$context<{ env: ImageEnv }>();
 
-export const importArchive = os
+const exportRequirements = os
+  .route({
+    method:      'POST',
+    description: 'Export missing Hearthstone card image requirements as JSON',
+    tags:        ['Console', 'Hearthstone', 'Image'],
+  })
+  .input(cardImageRequirementExportInput)
+  .output(cardImageRequirementExportResult)
+  .handler(async ({ context, input }: { context: { env: ImageEnv }, input: CardImageRequirementExportInput }) => {
+    try {
+      return await exportCardImageRequirements(input, {
+        r2Bucket: context.env.R2_ASSET_BUCKET,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        const code = error.message === 'No missing card images matched filters'
+          ? 'NOT_FOUND'
+          : 'BAD_REQUEST';
+
+        throw new ORPCError(code, { message: error.message });
+      }
+
+      throw error;
+    }
+  });
+
+const importArchive = os
   .route({
     method:      'POST',
     description: 'Import Hearthstone card image archive and upload converted WebP files to R2',
@@ -55,3 +84,8 @@ export const importArchive = os
       throw error;
     }
   });
+
+export const imageTrpc = {
+  exportRequirements,
+  importArchive,
+};

@@ -1,26 +1,9 @@
-import { announcementTrpc as magicAnnouncementTrpc } from './magic/announcement';
-import { dataSourceTrpc as magicDataSourceTrpc } from './magic/data-source';
-import { list, get, getNodes } from './magic/rule-light';
-
-import { announcementTrpc as hearthstoneAnnouncementTrpc } from './hearthstone/announcement';
-import { setTrpc } from './hearthstone/set';
-import { tagTrpc } from './hearthstone/tag';
+import { magicLight } from './magic';
+import { hearthstoneLight } from './hearthstone';
 
 export const webRouter = {
-  magic: {
-    announcement: magicAnnouncementTrpc,
-    dataSource:   magicDataSourceTrpc,
-    rule:         {
-      list,
-      get,
-      getNodes,
-    },
-  },
-  hearthstone: {
-    announcement: hearthstoneAnnouncementTrpc,
-    set:          setTrpc,
-    tag:          tagTrpc,
-  },
+  magic:       magicLight,
+  hearthstone: hearthstoneLight,
 };
 
 export type WebRouter = typeof webRouter;
