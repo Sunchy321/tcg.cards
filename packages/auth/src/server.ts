@@ -6,6 +6,7 @@ import { ac, roles } from './permissions';
 
 export interface CreateServerAuthOptions {
   adminUserIds?: string[];
+  baseURL?: string;
   database: Parameters<typeof drizzleAdapter>[0];
   schema: {
     accounts: any;
@@ -26,6 +27,9 @@ export function createServerAuth(options: CreateServerAuthOptions) {
 
   return betterAuth({
     basePath: '/auth',
+    baseURL: options.baseURL
+      ?? nodeProcess?.env?.BETTER_AUTH_URL
+      ?? nodeProcess?.env?.BETTER_AUTH_BASE_URL,
     secret: options.secret ?? nodeProcess?.env?.BETTER_AUTH_SECRET,
 
     database: drizzleAdapter(options.database, {
