@@ -3,3 +3,9 @@
     <p class="text-sm">Rules — Coming soon</p>
   </div>
 </template>
+
+<script setup lang="ts">
+definePageMeta({
+  layout: 'admin',
+});
+</script>

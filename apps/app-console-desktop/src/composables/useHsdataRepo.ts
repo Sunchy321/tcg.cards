@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
+import { getDesktopGameRepo, setDesktopGameRepo } from './useDesktopSettings';
+
 export interface HsdataSourceState {
   tag?:       string;
   commit?:    string;
@@ -70,11 +72,11 @@ export interface ReportMetric {
 }
 
 export function getHsdataRepoPath() {
-  return invoke<string | null>('hsdata_get_repo_path');
+  return getDesktopGameRepo('hearthstone', 'hsdata');
 }
 
 export function setHsdataRepoPath(repoPath: string | null) {
-  return invoke<string | null>('hsdata_set_repo_path', { repoPath });
+  return setDesktopGameRepo('hearthstone', 'hsdata', repoPath);
 }
 
 export function getHsdataRepoState() {

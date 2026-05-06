@@ -30,7 +30,8 @@
 
 <script setup lang="ts">
 definePageMeta({
-  title: '概览',
+  layout: 'admin',
+  title:  '概览',
 });
 
 const stats = [

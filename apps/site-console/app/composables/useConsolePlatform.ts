@@ -14,7 +14,7 @@ export function useSiteConsolePlatform() {
   const route = useRoute();
   const router = useRouter();
   const toast = useToast();
-  const session = authClient.useSession();
+  const sessionState = useState<Session | null>('console-auth-session', () => null);
   const requestUrl = import.meta.client ? null : useRequestURL();
   const requestHeaders = import.meta.server
     ? useRequestHeaders(['authorization', 'cookie'])
@@ -35,7 +35,7 @@ export function useSiteConsolePlatform() {
           : requestUrl?.origin ?? '';
 
         return createConsoleApiClient<TRouter>({
-          url: `${origin}/rpc`,
+          url:     `${origin}/rpc`,
           headers: requestHeaders,
         });
       },
@@ -53,7 +53,10 @@ export function useSiteConsolePlatform() {
     },
     session: createConsoleSession<Session>({
       get() {
-        return session.value.data ?? null;
+        return sessionState.value;
+      },
+      set(session) {
+        sessionState.value = session;
       },
     }),
     storage,

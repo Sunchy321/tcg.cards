@@ -1,15 +1,3 @@
-<script setup lang="ts">
-import { computed } from 'vue';
-import { currentAuthState } from '../../auth';
-
-definePageMeta({
-  title: '账号',
-});
-
-const session = computed(() => currentAuthState.value);
-const user = computed(() => session.value?.user);
-</script>
-
 <template>
   <div class="desktop-page">
     <div class="mx-auto max-w-2xl space-y-4">
@@ -47,3 +35,16 @@ const user = computed(() => session.value?.user);
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+import { computed } from 'vue';
+import { currentAuthState } from '../../auth';
+
+definePageMeta({
+  layout: 'admin',
+  title:  '账号',
+});
+
+const session = computed(() => currentAuthState.value);
+const user = computed(() => session.value?.user);
+</script>

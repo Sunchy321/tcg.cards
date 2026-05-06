@@ -17,8 +17,11 @@
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.36.2",
     "@nuxt/ui": "^4.7.0",
+    "@tcg-cards/console-core": "workspace:*",
     "@tcg-cards/console-platform": "workspace:*",
     "@tcg-cards/model": "workspace:*",
+    "@tcg-cards/shared": "workspace:*",
+    "vue": "^3.5.29",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

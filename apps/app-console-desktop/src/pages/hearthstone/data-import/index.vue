@@ -26,8 +26,22 @@
       color="warning"
       variant="soft"
       icon="i-lucide-folder-search"
-      description="尚未配置 hsdata 本地仓库路径，请先在数据源页完成配置。"
-    />
+    >
+      <template #description>
+        <div class="flex flex-col gap-3">
+          <span>尚未配置 hsdata 本地仓库路径，请先在设置页的 Hearthstone 配置中完成设置。</span>
+          <div>
+            <UButton
+              label="打开设置"
+              icon="i-lucide-settings"
+              color="warning"
+              variant="soft"
+              :to="{ path: '/settings', query: { game: 'hearthstone' } }"
+            />
+          </div>
+        </div>
+      </template>
+    </UAlert>
 
     <UAlert
       v-if="sourceError"
@@ -278,7 +292,8 @@ import type {
 } from '~/composables/useHsdataRepo';
 
 definePageMeta({
-  title: '数据导入',
+  layout: 'admin',
+  title:  '数据导入',
 });
 
 const route = useRoute();
@@ -497,7 +512,7 @@ async function submitImport() {
     importForm.sourceCommit = source.sourceCommit;
     importForm.sourceUri = source.sourceUri;
 
-    importResult.value = await orpc.hearthstone.dataSource.hsdata.importArchive({
+    const result = await orpc.hearthstone.dataSource.hsdata.importArchive({
       xml:          source.xml,
       sourceTag:    source.sourceTag,
       sourceCommit: source.sourceCommit,
@@ -506,7 +521,8 @@ async function submitImport() {
       force:        importForm.force,
     });
 
-    projectForm.sourceTag = importResult.value.sourceTag;
+    importResult.value = result;
+    projectForm.sourceTag = result.sourceTag;
   } catch (error) {
     console.error('Failed to import hsdata archive:', error);
     importError.value = getHsdataErrorMessage(error);

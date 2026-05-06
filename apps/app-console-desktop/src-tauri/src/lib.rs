@@ -111,10 +111,58 @@ struct DesktopFetchResponse {
     status: u16,
 }
 
+fn desktop_config_version() -> u32 {
+    1
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopConfig {
+    #[serde(default = "desktop_config_version")]
+    version: u32,
+    #[serde(default, skip_serializing_if = "DesktopGamesSettings::is_empty")]
+    games: DesktopGamesSettings,
+}
+
+impl Default for DesktopConfig {
+    fn default() -> Self {
+        Self {
+            version: desktop_config_version(),
+            games: DesktopGamesSettings::default(),
+        }
+    }
+}
+
 #[derive(Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct StoredHsdataSettings {
-    repo_path: Option<String>,
+struct DesktopGamesSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hearthstone: Option<StoredHearthstoneSettings>,
+}
+
+impl DesktopGamesSettings {
+    fn is_empty(&self) -> bool {
+        self.hearthstone.is_none()
+    }
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredHearthstoneSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hsdata: Option<StoredRepoPath>,
+}
+
+impl StoredHearthstoneSettings {
+    fn is_empty(&self) -> bool {
+        self.hsdata.is_none()
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredRepoPath {
+    repo_path: String,
 }
 
 #[derive(Serialize)]
@@ -297,44 +345,104 @@ fn restore_session_client(app: &AppHandle) -> Result<Option<SessionClient>, Stri
     create_client(&stored.base_url, Some(&stored.cookie_header)).map(Some)
 }
 
-fn hsdata_settings_file(app: &AppHandle) -> Result<PathBuf, String> {
+fn desktop_config_file(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_data_dir()
         .map_err(|error| format!("Failed to resolve app data directory: {error}"))?;
 
-    Ok(dir.join("hsdata-settings.json"))
+    Ok(dir.join("desktop-config.json"))
 }
 
-fn load_hsdata_settings(app: &AppHandle) -> Result<StoredHsdataSettings, String> {
-    let path = hsdata_settings_file(app)?;
+fn load_desktop_config(app: &AppHandle) -> Result<DesktopConfig, String> {
+    let path = desktop_config_file(app)?;
 
     if !path.exists() {
-        return Ok(StoredHsdataSettings::default());
+        return Ok(DesktopConfig::default());
     }
 
     let text = fs::read_to_string(&path)
-        .map_err(|error| format!("Failed to read hsdata settings: {error}"))?;
+        .map_err(|error| format!("Failed to read desktop config: {error}"))?;
 
-    serde_json::from_str::<StoredHsdataSettings>(&text)
-        .map_err(|error| format!("Failed to decode hsdata settings: {error}"))
+    serde_json::from_str::<DesktopConfig>(&text)
+        .map_err(|error| format!("Failed to decode desktop config: {error}"))
 }
 
-fn store_hsdata_settings(app: &AppHandle, settings: &StoredHsdataSettings) -> Result<(), String> {
-    let path = hsdata_settings_file(app)?;
+fn store_desktop_config(app: &AppHandle, settings: &DesktopConfig) -> Result<(), String> {
+    let path = desktop_config_file(app)?;
     let Some(parent) = path.parent() else {
-        return Err("Failed to resolve hsdata settings directory".to_string());
+        return Err("Failed to resolve desktop config directory".to_string());
     };
 
     fs::create_dir_all(parent)
-        .map_err(|error| format!("Failed to create hsdata settings directory: {error}"))?;
+        .map_err(|error| format!("Failed to create desktop config directory: {error}"))?;
 
     let text = serde_json::to_string(settings)
-        .map_err(|error| format!("Failed to encode hsdata settings: {error}"))?;
+        .map_err(|error| format!("Failed to encode desktop config: {error}"))?;
 
-    fs::write(path, text).map_err(|error| format!("Failed to write hsdata settings: {error}"))?;
+    fs::write(path, text).map_err(|error| format!("Failed to write desktop config: {error}"))?;
 
     Ok(())
+}
+
+fn desktop_repo_label(game: &str, repo_key: &str) -> Result<&'static str, String> {
+    match (game, repo_key) {
+        ("hearthstone", "hsdata") => Ok("Local hsdata repo"),
+        _ => Err(format!("Unsupported desktop repo setting: {game}.{repo_key}")),
+    }
+}
+
+fn get_desktop_game_repo_path(
+    config: &DesktopConfig,
+    game: &str,
+    repo_key: &str,
+) -> Result<Option<String>, String> {
+    match (game, repo_key) {
+        ("hearthstone", "hsdata") => Ok(config
+            .games
+            .hearthstone
+            .as_ref()
+            .and_then(|settings| settings.hsdata.as_ref())
+            .map(|repo| repo.repo_path.clone())),
+        _ => Err(format!("Unsupported desktop repo setting: {game}.{repo_key}")),
+    }
+}
+
+fn set_desktop_game_repo_path(
+    config: &mut DesktopConfig,
+    game: &str,
+    repo_key: &str,
+    repo_path: Option<String>,
+) -> Result<(), String> {
+    match (game, repo_key) {
+        ("hearthstone", "hsdata") => {
+            if let Some(repo_path) = repo_path {
+                let settings = config
+                    .games
+                    .hearthstone
+                    .get_or_insert_with(StoredHearthstoneSettings::default);
+                settings.hsdata = Some(StoredRepoPath { repo_path });
+            } else if let Some(settings) = config.games.hearthstone.as_mut() {
+                settings.hsdata = None;
+
+                if settings.is_empty() {
+                    config.games.hearthstone = None;
+                }
+            }
+
+            Ok(())
+        }
+        _ => Err(format!("Unsupported desktop repo setting: {game}.{repo_key}")),
+    }
+}
+
+fn load_desktop_game_repo_path(
+    app: &AppHandle,
+    game: &str,
+    repo_key: &str,
+) -> Result<Option<String>, String> {
+    let config = load_desktop_config(app)?;
+    get_desktop_game_repo_path(&config, game, repo_key)
 }
 
 fn trim_git_output(output: String) -> String {
@@ -381,9 +489,7 @@ fn resolve_repo_root(repo_path: &str) -> Result<String, String> {
 }
 
 fn resolve_saved_repo_path(app: &AppHandle) -> Result<String, String> {
-    let settings = load_hsdata_settings(app)?;
-    let repo_path = settings
-        .repo_path
+    let repo_path = load_desktop_game_repo_path(app, "hearthstone", "hsdata")?
         .ok_or_else(|| "Local hsdata repo is not configured".to_string())?;
 
     resolve_repo_root(&repo_path)
@@ -563,7 +669,7 @@ fn list_hsdata_sources(repo_path: &str) -> Result<Vec<HsdataSourceEntry>, String
 }
 
 fn get_hsdata_repo_state(app: &AppHandle) -> Result<HsdataRepoState, String> {
-    let repo_path = match load_hsdata_settings(app)?.repo_path {
+    let repo_path = match load_desktop_game_repo_path(app, "hearthstone", "hsdata")? {
         Some(repo_path) => Some(resolve_repo_root(&repo_path)?),
         None => None,
     };
@@ -770,12 +876,23 @@ async fn auth_sign_out(app: AppHandle, state: tauri::State<'_, AuthState>) -> Re
 const CREDENTIAL_SERVICE: &str = "tcg-cards-console-desktop";
 
 #[tauri::command]
-fn hsdata_get_repo_path(app: AppHandle) -> Result<Option<String>, String> {
-    Ok(load_hsdata_settings(&app)?.repo_path)
+fn desktop_get_game_repo(
+    app: AppHandle,
+    game: String,
+    repo_key: String,
+) -> Result<Option<String>, String> {
+    desktop_repo_label(&game, &repo_key)?;
+    load_desktop_game_repo_path(&app, &game, &repo_key)
 }
 
 #[tauri::command]
-fn hsdata_set_repo_path(app: AppHandle, repo_path: Option<String>) -> Result<Option<String>, String> {
+fn desktop_set_game_repo(
+    app: AppHandle,
+    game: String,
+    repo_key: String,
+    repo_path: Option<String>,
+) -> Result<Option<String>, String> {
+    desktop_repo_label(&game, &repo_key)?;
     let repo_path = repo_path.and_then(|value| {
         let trimmed = value.trim().to_string();
         (!trimmed.is_empty()).then_some(trimmed)
@@ -784,13 +901,10 @@ fn hsdata_set_repo_path(app: AppHandle, repo_path: Option<String>) -> Result<Opt
         Some(repo_path) => Some(resolve_repo_root(&repo_path)?),
         None => None,
     };
+    let mut config = load_desktop_config(&app)?;
 
-    store_hsdata_settings(
-        &app,
-        &StoredHsdataSettings {
-            repo_path: resolved_repo_path.clone(),
-        },
-    )?;
+    set_desktop_game_repo_path(&mut config, &game, &repo_key, resolved_repo_path.clone())?;
+    store_desktop_config(&app, &config)?;
 
     Ok(resolved_repo_path)
 }
@@ -936,8 +1050,8 @@ pub fn run() {
             auth_get_session,
             auth_sign_out,
             auth_fetch,
-            hsdata_get_repo_path,
-            hsdata_set_repo_path,
+            desktop_get_game_repo,
+            desktop_set_game_repo,
             hsdata_get_repo_state,
             hsdata_list_sources,
             hsdata_read_source,

@@ -2,6 +2,10 @@
 import { GAMES } from '#shared';
 import { authClient } from '~/composables/auth';
 
+definePageMeta({
+  layout: 'admin',
+});
+
 const session = authClient.useSession();
 
 const role = computed(() => (session.value.data?.user as { role?: string } | undefined)?.role ?? null);

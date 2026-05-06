@@ -4,6 +4,10 @@ import { useRouter } from 'vue-router';
 import { getAccessibleGames } from '@tcg-cards/console-core';
 import { currentAuthState } from '../auth';
 
+definePageMeta({
+  layout: 'admin',
+});
+
 const router = useRouter();
 const role = computed(() => currentAuthState.value?.user.role ?? null);
 const games = computed(() => getAccessibleGames(role.value));
