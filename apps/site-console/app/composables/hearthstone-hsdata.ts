@@ -16,13 +16,23 @@ export interface HsdataSourceState {
   synced_at?:  string;
   type?:       string;
   file_count?: number;
+  repo_path?:  string;
+  dirty?:      boolean;
   history?:    HsdataSourceHistory[];
 }
 
+export type HsdataSourceKind = 'tag' | 'worktree';
+
 export interface HsdataFile {
-  name:  string;
-  size:  number;
-  time?: string;
+  id:           string;
+  name:         string;
+  kind:         HsdataSourceKind;
+  size:         number;
+  time?:        string;
+  sourceTag?:   number;
+  sourceCommit: string;
+  shortCommit:  string;
+  sourceUri:    string;
 }
 
 export interface HsdataImportReport {
@@ -176,40 +186,6 @@ export function formatHsdataCount(value: number | undefined) {
   }
 
   return new Intl.NumberFormat('zh-CN').format(value);
-}
-
-export function r2HsdataFileUri(name: string) {
-  return `r2://R2_DATA/hearthstone/hsdata/data/${name}`;
-}
-
-const hsdataArchiveFileName = /^(\d{4,})-([a-z0-9][a-z0-9-]*)\.xml$/i;
-
-function parsePositiveInteger(rawValue: string | undefined) {
-  if (!rawValue) {
-    return null;
-  }
-
-  const value = Number(rawValue);
-  return Number.isSafeInteger(value) && value > 0 ? value : null;
-}
-
-function baseName(name: string) {
-  return name.split('/').pop() ?? name;
-}
-
-export function inferHsdataSourceTag(name: string) {
-  const fileName = baseName(name);
-  const archiveMatch = fileName.match(hsdataArchiveFileName);
-  const fallbackMatch = fileName.match(/(?:^|[^\d])(\d{5,})(?:[^\d]|$)/);
-
-  return parsePositiveInteger(archiveMatch?.[1] ?? fallbackMatch?.[1]);
-}
-
-export function inferHsdataSourceCommit(name: string) {
-  const match = baseName(name).match(hsdataArchiveFileName);
-  const commit = match?.[2]?.toLowerCase();
-
-  return commit && commit !== 'local' ? commit : null;
 }
 
 export function getHsdataErrorMessage(error: unknown) {

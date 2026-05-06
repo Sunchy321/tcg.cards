@@ -12,7 +12,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@nuxt/icon": "^1.15.0",
+    "@nuxt/icon": "^2.2.1",
     "@iconify-json/lucide": "^1.2.104",
     "@nuxt/ui": "^4.7.0",
     "@orpc/client": "^1.13.6",

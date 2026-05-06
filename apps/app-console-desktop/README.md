@@ -1,7 +1,35 @@
-# Tauri + Vue + TypeScript
+# `app-console-desktop`
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Desktop admin console built with Tauri, Nuxt, and TypeScript.
 
-## Recommended IDE Setup
+## Development
 
-- [VS Code](https://code.visualstudio.com/) + [Vue - Official](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+Install dependencies from the repository root:
+
+```bash
+bun install
+```
+
+Start the desktop app in development mode:
+
+```bash
+cd apps/app-console-desktop
+bun run dev
+```
+
+## hsdata Local Repo Workflow
+
+The desktop app is the local runtime that owns hsdata git access.
+
+Current hsdata capabilities in the desktop app:
+
+- store a local hsdata repository path in desktop app data
+- inspect worktree and importable git tags that contain `CardDefs.xml`
+- read local XML and send it to the worker-safe hsdata import API
+- trigger projection for an already imported `sourceTag`
+
+## Notes
+
+- site-console does not read local git.
+- service-internal does not read local git.
+- Real end-to-end validation still requires a local hsdata checkout and a reachable backend auth/API environment.

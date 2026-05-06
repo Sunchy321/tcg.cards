@@ -1,8 +1,8 @@
 import { announcementTrpc } from './announcement';
+import { hsdataFull, hsdataLight } from './data-source/hsdata';
 import { setTrpc } from './set';
 import { tagTrpc } from './tag';
 import { imageTrpc } from './image';
-import { hsdataLight, hsdataFull } from './data-source/hsdata';
 
 export const hearthstoneLight = {
 	announcement: announcementTrpc,
@@ -16,7 +16,6 @@ export const hearthstoneMedium = {
 	set:          setTrpc,
 	tag:          tagTrpc,
 	image:        imageTrpc,
-	dataSource:   { hsdata: hsdataLight },
 };
 
 export const hearthstoneFull = {

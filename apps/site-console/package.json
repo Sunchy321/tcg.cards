@@ -5,7 +5,6 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
-    "hsdata:upload": "bun run ./scripts/hsdata-upload.ts",
     "hsimg:import": "bun run ./scripts/hearthstone-image-import.ts",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",

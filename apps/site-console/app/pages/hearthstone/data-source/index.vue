@@ -8,7 +8,7 @@
             <h1 class="text-xl font-semibold">hsdata 数据源</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            默认页面仅展示 hsdata 数据表概览。任何本地 git repo 读取或导入能力都应由具体宿主应用按自身运行时提供。
+            site-console 运行在 Cloudflare Workers 上，只提供 hsdata 数据表观测；本地 git repo 读取与导入仅桌面端可用。
           </p>
         </div>
 
@@ -29,7 +29,7 @@
       color="warning"
       variant="soft"
       icon="i-lucide-monitor-smartphone"
-      description="本地 hsdata repo 的枚举、读取和导入属于运行时特定能力。Web 宿主不应在这里直接访问本地 git，也不应暴露导入界面。"
+      description="site-console 不再提供 hsdata 导入界面；本地 repo 浏览和导入请使用 desktop 端。"
     />
 
     <UCard>
@@ -109,67 +109,72 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({
+  layout: 'admin',
+  title:  '数据源',
+});
+
+const { $orpc } = useNuxtApp();
+
 interface HsdataOverviewSummary {
-  sourceVersionCount: number;
+  sourceVersionCount:          number;
   completedSourceVersionCount: number;
-  failedSourceVersionCount: number;
-  snapshotCount: number;
-  latestSnapshotCount: number;
-  tagRowCount: number;
+  failedSourceVersionCount:    number;
+  snapshotCount:               number;
+  latestSnapshotCount:         number;
+  tagRowCount:                 number;
 }
 
 interface HsdataStatusCounts {
-  completed: number;
-  failed: number;
+  completed:  number;
+  failed:     number;
   processing: number;
-  pending: number;
+  pending:    number;
 }
 
 interface HsdataSourceVersionOverview {
-  name: 'source_versions';
-  kind: 'table';
-  rows: number;
-  latestImportedAt?: string;
+  name:                      'source_versions';
+  kind:                      'table';
+  rows:                      number;
+  latestImportedAt?:         string;
   latestCompletedSourceTag?: number;
-  statusCounts: HsdataStatusCounts;
+  statusCounts:              HsdataStatusCounts;
 }
 
 interface HsdataRawEntitySnapshotOverview {
-  name: 'raw_entity_snapshots';
-  kind: 'table';
-  rows: number;
-  latestRows: number;
+  name:              'raw_entity_snapshots';
+  kind:              'table';
+  rows:              number;
+  latestRows:        number;
   distinctCardCount: number;
-  updatedAt?: string;
+  updatedAt?:        string;
 }
 
 interface HsdataRawEntitySnapshotTagOverview {
-  name: 'raw_entity_snapshot_tags';
-  kind: 'table';
-  rows: number;
+  name:                  'raw_entity_snapshot_tags';
+  kind:                  'table';
+  rows:                  number;
   distinctSnapshotCount: number;
-  distinctEnumCount: number;
+  distinctEnumCount:     number;
 }
 
 interface HsdataTagValueViewOverview {
-  name: 'tag_value_view';
-  kind: 'view';
-  rows: number;
+  name:                  'tag_value_view';
+  kind:                  'view';
+  rows:                  number;
   distinctSnapshotCount: number;
-  distinctEnumCount: number;
+  distinctEnumCount:     number;
 }
 
 interface HsdataOverview {
   summary: HsdataOverviewSummary;
   tables: {
-    sourceVersions: HsdataSourceVersionOverview;
-    rawEntitySnapshots: HsdataRawEntitySnapshotOverview;
+    sourceVersions:        HsdataSourceVersionOverview;
+    rawEntitySnapshots:    HsdataRawEntitySnapshotOverview;
     rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
-    tagValueView: HsdataTagValueViewOverview;
+    tagValueView:          HsdataTagValueViewOverview;
   };
 }
-
-const { $orpc: orpc } = useNuxtApp();
 
 const loadingOverview = ref(false);
 const overview = ref<HsdataOverview | null>(null);
@@ -197,9 +202,9 @@ const overviewTableCards = computed(() => {
 
   return [
     {
-      key: 'source_versions',
-      name: tables.sourceVersions.name,
-      kind: tables.sourceVersions.kind,
+      key:     'source_versions',
+      name:    tables.sourceVersions.name,
+      kind:    tables.sourceVersions.kind,
       metrics: [
         { label: '总行数', value: tables.sourceVersions.rows },
         { label: '最后导入时间', value: tables.sourceVersions.latestImportedAt ?? '-' },
@@ -211,9 +216,9 @@ const overviewTableCards = computed(() => {
       ],
     },
     {
-      key: 'raw_entity_snapshots',
-      name: tables.rawEntitySnapshots.name,
-      kind: tables.rawEntitySnapshots.kind,
+      key:     'raw_entity_snapshots',
+      name:    tables.rawEntitySnapshots.name,
+      kind:    tables.rawEntitySnapshots.kind,
       metrics: [
         { label: '总行数', value: tables.rawEntitySnapshots.rows },
         { label: '最新快照行数', value: tables.rawEntitySnapshots.latestRows },
@@ -222,9 +227,9 @@ const overviewTableCards = computed(() => {
       ],
     },
     {
-      key: 'raw_entity_snapshot_tags',
-      name: tables.rawEntitySnapshotTags.name,
-      kind: tables.rawEntitySnapshotTags.kind,
+      key:     'raw_entity_snapshot_tags',
+      name:    tables.rawEntitySnapshotTags.name,
+      kind:    tables.rawEntitySnapshotTags.kind,
       metrics: [
         { label: '总行数', value: tables.rawEntitySnapshotTags.rows },
         { label: '快照数', value: tables.rawEntitySnapshotTags.distinctSnapshotCount },
@@ -232,9 +237,9 @@ const overviewTableCards = computed(() => {
       ],
     },
     {
-      key: 'tag_value_view',
-      name: tables.tagValueView.name,
-      kind: tables.tagValueView.kind,
+      key:     'tag_value_view',
+      name:    tables.tagValueView.name,
+      kind:    tables.tagValueView.kind,
       metrics: [
         { label: '总行数', value: tables.tagValueView.rows },
         { label: '快照数', value: tables.tagValueView.distinctSnapshotCount },
@@ -249,7 +254,7 @@ async function loadOverview() {
   overviewError.value = '';
 
   try {
-    overview.value = await orpc.hearthstone.dataSource.hsdata.getOverview();
+    overview.value = await $orpc.hearthstone.dataSource.hsdata.getOverview();
   } catch (error) {
     console.error('Failed to load hsdata overview:', error);
     overviewError.value = error instanceof Error ? error.message : '数据表概览加载失败';

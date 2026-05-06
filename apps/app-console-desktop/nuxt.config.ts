@@ -1,7 +1,7 @@
 export default defineNuxtConfig({
   extends: ['@tcg-cards/console-shell'],
 
-  ssr: false,
+  ssr:    false,
   srcDir: 'src',
 
   modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/icon'],
@@ -20,11 +20,24 @@ export default defineNuxtConfig({
 
   fonts: {
     providers: {
-      google: false,
+      google:      false,
       googleicons: false,
-      bunny: false,
-      fontshare: false,
-      fontsource: false,
+      bunny:       false,
+      fontshare:   false,
+      fontsource:  false,
+    },
+  },
+
+  icon: {
+    provider:     'none',
+    clientBundle: {
+      scan: {
+        globInclude: [
+          'src/**/*.{vue,ts}',
+          'node_modules/@tcg-cards/console-shell/app/**/*.{vue,ts}',
+          'node_modules/@nuxt/ui/dist/**/*.{js,mjs,ts}',
+        ],
+      },
     },
   },
 
