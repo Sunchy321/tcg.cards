@@ -10,7 +10,7 @@
     "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@orpc/server": "^1.13.6",
+    "@orpc/server": "^1.14.0",
     "@tcg-cards/auth": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/console-api": "workspace:*",
@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260329.1",
-    "eslint": "^10.0.2",
+    "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",
     "typescript": "^5.9.3",
     "wrangler": "^4.85.0"
