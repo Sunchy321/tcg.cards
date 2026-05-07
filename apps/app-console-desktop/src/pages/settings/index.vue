@@ -6,7 +6,7 @@
           设置
         </h1>
         <p class="mt-2 text-sm text-muted">
-          按游戏维护 desktop 端的本地配置项，功能页只消费这里已经保存的设置。
+          在这里管理各游戏的配置与数据来源。
         </p>
       </div>
 
@@ -38,7 +38,7 @@
             <template #header>
               <div>
                 <div class="font-medium">当前账号</div>
-                <div class="mt-1 text-xs text-muted">服务器连接仍由桌面应用内部管理，不在这里暴露。</div>
+                <div class="mt-1 text-xs text-muted">查看当前登录账号。</div>
               </div>
             </template>
 
@@ -53,7 +53,7 @@
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div class="font-medium">{{ selectedGameItem.label }} 配置</div>
-                    <div class="mt-1 text-xs text-muted">维护炉石相关的本地仓库路径，供数据源和导入页面复用。</div>
+                    <div class="mt-1 text-xs text-muted">配置炉石数据源路径，供相关功能使用。</div>
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <UButton
@@ -76,9 +76,9 @@
 
               <div class="space-y-4">
                 <div>
-                  <div class="text-sm font-medium text-default">hsdata repo path</div>
+                  <div class="text-sm font-medium text-default">hsdata 数据源路径</div>
                   <div class="mt-1 text-xs text-muted">
-                    请输入本机 hsdata 仓库根目录。保存时会校验 git repo 与 CardDefs.xml 是否存在。
+                    请输入 hsdata 数据源目录。保存时会校验路径是否可用。
                   </div>
                 </div>
 
@@ -128,7 +128,7 @@
                   color="warning"
                   variant="soft"
                   icon="i-lucide-folder-search"
-                  description="尚未配置 hsdata 本地仓库路径。"
+                  description="尚未配置 hsdata 数据源路径。"
                 />
               </div>
             </UCard>
@@ -139,12 +139,12 @@
               <template #header>
                 <div>
                   <div class="font-medium">{{ selectedGameItem.label }} 配置</div>
-                  <div class="mt-1 text-xs text-muted">该游戏的设置入口已经预留，后续可继续追加具体配置项。</div>
+                  <div class="mt-1 text-xs text-muted">该游戏暂时没有可编辑配置。</div>
                 </div>
               </template>
 
               <div class="text-sm text-muted">
-                当前还没有可编辑的本地配置项。
+                当前还没有可编辑配置项。
               </div>
             </UCard>
           </template>
@@ -177,12 +177,12 @@ const games = [
   {
     key:         'hearthstone',
     label:       'Hearthstone',
-    description: '炉石本地数据源与导入相关设置。',
+    description: '炉石数据源与导入相关设置。',
   },
   {
     key:         'magic',
     label:       'Magic',
-    description: '当前还没有专门的本地配置项。',
+    description: '当前还没有可编辑配置项。',
   },
 ] satisfies Array<{
   key:         DesktopSettingsGame;

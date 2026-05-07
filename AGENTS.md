@@ -14,6 +14,8 @@ Only use the logical OR operator (`||`) for frontend fallback behavior when bool
 
 Avoid cross-package relative paths in frontend code. Prefer `node_modules`-based imports and package exports whenever possible.
 
+In frontend UI text, do not mention specific deployment details or internal design and implementation plans. Keep user-facing copy focused on product behavior and functionality.
+
 ## Naming
 
 Within a local file scope, do not use overly complex naming. Prefer clear and simple names for local variables, local types, and helper functions.

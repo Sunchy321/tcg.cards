@@ -8,7 +8,7 @@
             <h1 class="text-xl font-semibold">hsdata 数据源</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            site-console 运行在 Cloudflare Workers 上，只提供 hsdata 数据表观测；本地 git repo 读取与导入仅桌面端可用。
+            查看 hsdata 数据表概览与状态信息。
           </p>
         </div>
 
@@ -24,13 +24,6 @@
         </div>
       </div>
     </UCard>
-
-    <UAlert
-      color="warning"
-      variant="soft"
-      icon="i-lucide-monitor-smartphone"
-      description="site-console 不再提供 hsdata 导入界面；本地 repo 浏览和导入请使用 desktop 端。"
-    />
 
     <UCard>
       <template #header>

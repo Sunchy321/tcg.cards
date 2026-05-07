@@ -5,10 +5,10 @@
         <div>
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-database" class="size-5 text-primary" />
-            <h1 class="text-xl font-semibold">万智牌数据导入</h1>
+            <h1 class="text-xl font-semibold">万智牌数据策略</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            只读展示当前生效的 P0 导入策略快照，不触发导入、审批或写库。
+            查看当前数据来源、字段覆盖和规则配置。
           </p>
         </div>
 
@@ -27,7 +27,7 @@
           />
           <UButton
             icon="i-lucide-refresh-cw"
-            label="刷新快照"
+            label="刷新"
             color="neutral"
             variant="ghost"
             :loading="loading"
@@ -46,7 +46,7 @@
     <UCard v-else-if="!snapshot">
       <div class="py-12 text-center">
         <UIcon name="i-lucide-circle-alert" class="mx-auto size-8 text-muted" />
-        <p class="mt-3 text-sm text-muted">{{ errorMessage ?? '暂无导入快照数据' }}</p>
+        <p class="mt-3 text-sm text-muted">{{ errorMessage ?? '暂无数据' }}</p>
       </div>
     </UCard>
 
@@ -291,7 +291,7 @@
                   </div>
 
                   <p class="mt-4 text-sm text-muted">
-                    P0 禁止脚本、正则和跨字段表达式，只允许可序列化、可解释的结构化 matcher。
+                    仅支持结构化 matcher，便于校验与追踪。
                   </p>
                 </UCard>
               </div>
@@ -548,7 +548,7 @@
               <div class="grid gap-4 xl:grid-cols-3">
                 <UCard>
                   <template #header>
-                    <span class="font-medium">magic_data</span>
+                    <span class="font-medium">导入数据</span>
                   </template>
                   <div class="space-y-3">
                     <div
@@ -572,7 +572,7 @@
 
                 <UCard>
                   <template #header>
-                    <span class="font-medium">magic_app</span>
+                    <span class="font-medium">应用数据</span>
                   </template>
                   <div class="space-y-3">
                     <div
@@ -596,7 +596,7 @@
 
                 <UCard>
                   <template #header>
-                    <span class="font-medium">magic</span>
+                    <span class="font-medium">领域数据</span>
                   </template>
                   <div class="space-y-3">
                     <div
@@ -622,7 +622,7 @@
               <div class="grid gap-4 xl:grid-cols-2">
                 <UCard>
                   <template #header>
-                    <span class="font-medium">遗留兼容</span>
+                    <span class="font-medium">兼容规则</span>
                   </template>
                   <div class="space-y-3 text-sm">
                     <div class="rounded-lg border border-default p-3">
@@ -655,7 +655,7 @@
               <UCard>
                 <template #header>
                   <div class="flex items-center justify-between">
-                    <span class="font-medium">P1 migration 输入清单</span>
+                    <span class="font-medium">相关数据表</span>
                     <UBadge :label="`${snapshot.p1Inputs.tables.length} 张表`" variant="soft" />
                   </div>
                 </template>
@@ -700,7 +700,7 @@
 
               <UCard>
                 <template #header>
-                  <span class="font-medium">预留冷热分层字段</span>
+                  <span class="font-medium">相关存储字段</span>
                 </template>
                 <div class="flex flex-wrap gap-2">
                   <UBadge
@@ -743,7 +743,7 @@ const tabs = [
   { label: '匹配边界', slot: 'matching' as const, icon: 'i-lucide-key-round' },
   { label: '字段覆盖', slot: 'coverage' as const, icon: 'i-lucide-table-2' },
   { label: '导入策略', slot: 'policy' as const, icon: 'i-lucide-git-compare-arrows' },
-  { label: '事实边界', slot: 'boundary' as const, icon: 'i-lucide-shield-check' },
+  { label: '数据边界', slot: 'boundary' as const, icon: 'i-lucide-shield-check' },
 ];
 
 const snapshot = ref<ImportPolicySnapshot | null>(null);

@@ -8,7 +8,7 @@
             <h1 class="text-xl font-semibold">hsdata 导入与投影</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            desktop 端负责读取本地 hsdata git repo；真正的导入写库继续通过远端 worker-safe hsdata 接口执行。
+            选择数据版本后执行导入和投影。
           </p>
         </div>
 
@@ -26,11 +26,12 @@
       color="warning"
       variant="soft"
       icon="i-lucide-folder-search"
+      :ui="{ icon: 'sm:self-center' }"
     >
       <template #description>
-        <div class="flex flex-col gap-3">
-          <span>尚未配置 hsdata 本地仓库路径，请先在设置页的 Hearthstone 配置中完成设置。</span>
-          <div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span>尚未配置 hsdata 数据源路径，请先在设置页完成设置。</span>
+          <div class="sm:ml-auto">
             <UButton
               label="打开设置"
               icon="i-lucide-settings"
@@ -57,9 +58,9 @@
           <template #header>
             <div class="flex items-center justify-between gap-3">
               <div>
-                <div class="font-medium">本地 repo 导入</div>
+                <div class="font-medium">数据导入</div>
                 <p class="mt-1 text-xs text-muted">
-                  选择 worktree 或 tag，读取本地 `CardDefs.xml` 后调用远端 `importArchive`。
+                  选择一个可用版本后执行导入。
                 </p>
               </div>
               <UBadge :label="importForm.dryRun ? 'Dry run' : 'Write mode'" :color="importForm.dryRun ? 'neutral' : 'warning'" variant="soft" />
@@ -101,7 +102,7 @@
                 <input v-model="importForm.dryRun" type="checkbox" class="mt-0.5 size-4 rounded border-default">
                 <span>
                   <span class="block text-sm font-medium">Dry run</span>
-                  <span class="text-xs text-muted">默认开启，只解析和统计，不写库。</span>
+                  <span class="text-xs text-muted">默认开启，仅进行解析和统计。</span>
                 </span>
               </label>
 
@@ -156,7 +157,7 @@
                 <input v-model="projectForm.dryRun" type="checkbox" class="mt-0.5 size-4 rounded border-default">
                 <span>
                   <span class="block text-sm font-medium">Dry run</span>
-                  <span class="text-xs text-muted">默认开启，只投影和统计，不写领域表。</span>
+                  <span class="text-xs text-muted">默认开启，仅进行投影预览和统计。</span>
                 </span>
               </label>
 
@@ -164,7 +165,7 @@
                 <input v-model="projectForm.force" type="checkbox" class="mt-0.5 size-4 rounded border-default">
                 <span>
                   <span class="block text-sm font-medium">Force</span>
-                  <span class="text-xs text-muted">即使当前结果无变化，也允许重新执行一轮写库。</span>
+                  <span class="text-xs text-muted">即使当前结果没有变化，也允许重新执行。</span>
                 </span>
               </label>
             </div>
@@ -183,8 +184,8 @@
         <template #header>
           <div class="flex items-center justify-between gap-3">
             <div>
-              <div class="font-medium">本地 repo 版本</div>
-              <p class="mt-1 text-xs text-muted">展示当前 worktree 与包含 `CardDefs.xml` 的 git tag。</p>
+              <div class="font-medium">可用版本</div>
+              <p class="mt-1 text-xs text-muted">展示当前可选择的数据版本。</p>
             </div>
             <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loadingFiles" :disabled="!state?.repoPath" @click="loadFiles" />
           </div>
@@ -374,7 +375,7 @@ const reportMetrics = computed<ReportMetric[]>(() => {
 
   return [
     { key: 'sourceTag', label: 'sourceTag', value: report.sourceTag },
-    { key: 'build', label: 'build', value: report.build },
+    { key: 'build', label: 'version', value: report.build },
     { key: 'entityCount', label: 'entities', value: report.entityCount },
     { key: 'insertedSnapshots', label: 'inserted snapshots', value: report.insertedSnapshots },
     { key: 'reusedSnapshots', label: 'reused snapshots', value: report.reusedSnapshots },
@@ -396,7 +397,7 @@ const projectReportMetrics = computed<ReportMetric[]>(() => {
 
   return [
     { key: 'sourceTag', label: 'sourceTag', value: report.sourceTag },
-    { key: 'build', label: 'build', value: report.build },
+    { key: 'build', label: 'version', value: report.build },
     { key: 'snapshotCount', label: 'snapshots', value: report.snapshotCount },
     { key: 'insertedEntities', label: 'inserted entities', value: report.insertedEntities },
     { key: 'reusedEntities', label: 'reused entities', value: report.reusedEntities },

@@ -8,7 +8,7 @@
             <h1 class="text-xl font-semibold">hsdata 数据源</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            desktop 端负责本地 hsdata git repo 的来源浏览；仓库路径请在设置页的 Hearthstone 配置中维护。
+            查看 hsdata 数据源状态与可用版本。
           </p>
         </div>
 
@@ -33,19 +33,17 @@
     <UCard>
       <template #header>
         <div>
-          <div>
-            <div class="font-medium">当前仓库状态</div>
-            <p class="mt-1 text-xs text-muted">
-              数据源页只展示当前已配置仓库的状态。路径编辑已经迁移到设置页。
-            </p>
-          </div>
+          <div class="font-medium">当前仓库状态</div>
+          <p class="mt-1 text-xs text-muted">
+            查看当前已配置数据源的状态。
+          </p>
         </div>
       </template>
 
       <div class="space-y-4">
         <div v-if="state?.repoPath" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <UCard class="bg-elevated">
-            <div class="text-xs text-muted">当前 build</div>
+            <div class="text-xs text-muted">当前版本</div>
             <div class="mt-1 text-lg font-semibold">{{ state.tag ?? '-' }}</div>
           </UCard>
           <UCard class="bg-elevated">
@@ -67,11 +65,12 @@
           color="warning"
           variant="soft"
           icon="i-lucide-folder-search"
+          :ui="{ icon: 'sm:self-center' }"
         >
           <template #description>
-            <div class="flex flex-col gap-3">
-              <span>尚未配置 hsdata 本地仓库路径，请先前往设置页的 Hearthstone 配置。</span>
-              <div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>尚未配置 hsdata 数据源路径，请先前往设置页完成设置。</span>
+              <div class="sm:ml-auto">
                 <UButton
                   label="打开设置"
                   icon="i-lucide-settings"
@@ -103,9 +102,9 @@
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="font-medium">本地来源列表</div>
+            <div class="font-medium">可用来源列表</div>
             <p class="mt-1 text-xs text-muted">
-              展示当前 worktree 与包含 `CardDefs.xml` 的 git tag。
+              展示当前可用的数据版本。
             </p>
           </div>
           <UButton
@@ -132,7 +131,7 @@
         />
 
         <div v-if="!state?.repoPath && !filesError" class="py-8 text-center text-sm text-muted">
-          请先在设置页的 Hearthstone 配置中设置 hsdata 仓库
+          请先在设置页完成 hsdata 数据源配置
         </div>
         <div v-else-if="files.length === 0 && !filesError" class="py-8 text-center text-sm text-muted">
           暂无可导入来源

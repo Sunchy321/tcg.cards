@@ -127,7 +127,7 @@ import { useConsolePlatform } from '@tcg-cards/console-platform';
 
 import { consoleAdminHostKey } from '../composables/admin-host';
 
-import { type Game } from '@tcg-cards/shared'
+import type { Game } from '@tcg-cards/shared';
 
 interface ConsoleSessionLike {
   user?: {
@@ -158,7 +158,15 @@ const currentGame = useState<Game | null>('console-admin-current-game', () =>
   resolveGameFromPath(route.path) ?? accessibleGames.value[0] ?? null,
 );
 
-const gameNavItems = computed(() => currentGame.value ? getGameNavItems(currentGame.value) : []);
+const gameNavItems = computed(() => {
+  if (!currentGame.value) {
+    return [];
+  }
+
+  return getGameNavItems(currentGame.value)
+    .map(group => group.filter(item => isRouteAccessible(item.to)))
+    .filter(group => group.length > 0);
+});
 
 const currentTitle = computed(() => {
   const title = route.meta.title;
