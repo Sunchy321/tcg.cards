@@ -25,8 +25,8 @@
     "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/auth": "workspace:*",
     "nuxt": "^4.3.1",
-    "vue": "^3.5.13",
-    "vue-router": "^4"
+    "vue": "^3.5.29",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
@@ -34,6 +34,6 @@
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",
     "tailwindcss": "^4.2.2",
-    "typescript": "~5.6.2"
+    "typescript": "^5.9.3"
   }
 }

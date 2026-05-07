@@ -22,6 +22,7 @@
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/shared": "workspace:*",
     "vue": "^3.5.29",
+    "vue-router": "^4.6.4",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

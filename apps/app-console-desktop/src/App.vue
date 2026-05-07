@@ -8,6 +8,7 @@
 </template>
 
 <script setup lang="ts">
+import { isTauri } from '@tauri-apps/api/core';
 import { provideConsolePlatform } from '@tcg-cards/console-platform';
 import { provideConsoleAdminHost } from '@tcg-cards/console-shell/app/composables/admin-host';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -16,12 +17,13 @@ import LoginWindow from './components/LoginWindow.vue';
 import { useDesktopConsoleAdminHost } from './composables/useConsoleAdminHost';
 import { useDesktopConsolePlatform } from './composables/useConsolePlatform';
 
-const isLoginWindow = import.meta.client && getCurrentWindow().label === 'login';
+const isDesktopRuntime = import.meta.client && isTauri();
+const isLoginWindow = isDesktopRuntime && getCurrentWindow().label === 'login';
 const platform = useDesktopConsolePlatform();
 
 provideConsolePlatform(platform);
 
-if (!isLoginWindow) {
+if (isDesktopRuntime && !isLoginWindow) {
   provideConsoleAdminHost(useDesktopConsoleAdminHost(platform.storage));
 }
 </script>

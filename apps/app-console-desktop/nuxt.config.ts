@@ -32,8 +32,10 @@ export default defineNuxtConfig({
     provider:     'none',
     clientBundle: {
       scan: {
+        globExclude: ['dist', 'build', 'coverage', 'test', 'tests', '.*'],
         globInclude: [
           'src/**/*.{vue,ts}',
+          'node_modules/@tcg-cards/console-core/src/**/*.{vue,ts}',
           'node_modules/@tcg-cards/console-shell/app/**/*.{vue,ts}',
           'node_modules/@nuxt/ui/dist/**/*.{js,mjs,ts}',
         ],
