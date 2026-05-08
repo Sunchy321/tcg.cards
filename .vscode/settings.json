@@ -1,4 +1,7 @@
 {
+    "rust-analyzer.linkedProjects": [
+        "apps/app-console-desktop/src-tauri/Cargo.toml"
+    ],
     "cSpell.words": [
         "alcarin",
         "beleren",
