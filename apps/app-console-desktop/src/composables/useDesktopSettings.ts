@@ -14,3 +14,7 @@ export function setDesktopGameRepo(
 ) {
   return invoke<string | null>('desktop_set_game_repo', { game, repoKey, repoPath });
 }
+
+export function pickDesktopDirectory(directory: string | null) {
+  return invoke<string | null>('desktop_pick_directory', { directory });
+}

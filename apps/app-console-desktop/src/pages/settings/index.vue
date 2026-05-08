@@ -1,6 +1,6 @@
 <template>
   <div class="desktop-page">
-    <div class="mx-auto max-w-6xl space-y-6">
+    <div class="space-y-6">
       <div>
         <h1 class="desktop-section-title">
           设置
@@ -78,34 +78,20 @@
                 <div>
                   <div class="text-sm font-medium text-default">hsdata 数据源路径</div>
                   <div class="mt-1 text-xs text-muted">
-                    请输入 hsdata 数据源目录。保存时会校验路径是否可用。
+                    通过目录选择框选择 hsdata 数据源目录。选择后会自动校验并保存。
                   </div>
                 </div>
 
-                <div class="flex flex-col gap-3 xl:flex-row">
-                  <UInput
-                    v-model="hsdataRepoPathInput"
-                    class="flex-1"
-                    placeholder="/absolute/path/to/hsdata"
-                    :loading="loadingHsdataRepoPath"
-                  />
-                  <div class="flex flex-wrap gap-2">
-                    <UButton
-                      label="保存"
-                      icon="i-lucide-save"
-                      :loading="savingHsdataRepoPath"
-                      @click="saveHsdataRepoPath"
-                    />
-                    <UButton
-                      label="清空"
-                      icon="i-lucide-eraser"
-                      color="neutral"
-                      variant="ghost"
-                      :disabled="savingHsdataRepoPath || hsdataRepoPathInput.trim().length === 0"
-                      @click="clearHsdataRepoPath"
-                    />
-                  </div>
-                </div>
+                <DirectoryPickerField
+                  :value="hsdataRepoPathInput"
+                  placeholder="/absolute/path/to/hsdata"
+                  :loading="loadingHsdataRepoPath || pickingHsdataRepoPath"
+                  :pick-loading="pickingHsdataRepoPath"
+                  :pick-disabled="loadingHsdataRepoPath || savingHsdataRepoPath"
+                  :clear-disabled="savingHsdataRepoPath || pickingHsdataRepoPath || hsdataRepoPathInput.trim().length === 0"
+                  @pick="pickHsdataRepoPath"
+                  @clear="clearHsdataRepoPath"
+                />
 
                 <UAlert
                   v-if="hsdataRepoPathError"
@@ -161,6 +147,7 @@ import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import {
   getDesktopGameRepo,
+  pickDesktopDirectory,
   setDesktopGameRepo,
   type DesktopSettingsGame,
 } from '~/composables/useDesktopSettings';
@@ -198,6 +185,7 @@ const selectedGame = computed<DesktopSettingsGame>(() => {
 const hsdataRepoPathInput = ref('');
 const savedHsdataRepoPath = ref<string | null>(null);
 const loadingHsdataRepoPath = ref(false);
+const pickingHsdataRepoPath = ref(false);
 const savingHsdataRepoPath = ref(false);
 const hsdataRepoPathError = ref('');
 
@@ -230,15 +218,16 @@ async function loadHearthstoneSettings() {
   }
 }
 
-async function saveHsdataRepoPath() {
+async function saveHsdataRepoPath(nextPath?: string | null) {
   savingHsdataRepoPath.value = true;
   hsdataRepoPathError.value = '';
 
   try {
+    const repoPathInput = (nextPath ?? hsdataRepoPathInput.value).trim();
     const repoPath = await setDesktopGameRepo(
       'hearthstone',
       'hsdata',
-      hsdataRepoPathInput.value.trim().length > 0 ? hsdataRepoPathInput.value : null,
+      repoPathInput.length > 0 ? repoPathInput : null,
     );
 
     savedHsdataRepoPath.value = repoPath;
@@ -246,14 +235,33 @@ async function saveHsdataRepoPath() {
   } catch (error) {
     console.error('Failed to save desktop Hearthstone settings:', error);
     hsdataRepoPathError.value = getConsoleErrorMessage(error, '设置保存失败');
+    hsdataRepoPathInput.value = savedHsdataRepoPath.value ?? '';
   } finally {
     savingHsdataRepoPath.value = false;
   }
 }
 
 async function clearHsdataRepoPath() {
-  hsdataRepoPathInput.value = '';
-  await saveHsdataRepoPath();
+  await saveHsdataRepoPath('');
+}
+
+async function pickHsdataRepoPath() {
+  pickingHsdataRepoPath.value = true;
+  hsdataRepoPathError.value = '';
+
+  try {
+    const directoryInput = hsdataRepoPathInput.value.trim();
+    const directory = await pickDesktopDirectory(directoryInput.length > 0 ? directoryInput : null);
+
+    if (directory) {
+      await saveHsdataRepoPath(directory);
+    }
+  } catch (error) {
+    console.error('Failed to pick desktop Hearthstone repo path:', error);
+    hsdataRepoPathError.value = getConsoleErrorMessage(error, '目录选择失败');
+  } finally {
+    pickingHsdataRepoPath.value = false;
+  }
 }
 
 onMounted(() => {

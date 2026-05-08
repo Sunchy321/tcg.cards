@@ -392,6 +392,168 @@ fn desktop_repo_label(game: &str, repo_key: &str) -> Result<&'static str, String
     }
 }
 
+fn trim_non_empty(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        (!trimmed.is_empty()).then_some(trimmed)
+    })
+}
+
+fn trim_command_text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).trim().to_string()
+}
+
+#[cfg(target_os = "macos")]
+fn escape_applescript_string(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(target_os = "windows")]
+fn escape_powershell_string(value: &str) -> String {
+    value.replace('\'', "''")
+}
+
+#[cfg(target_os = "macos")]
+fn pick_directory(directory: Option<String>) -> Result<Option<String>, String> {
+    let mut script = String::from("set selectedFolder to choose folder\nreturn POSIX path of selectedFolder");
+
+    if let Some(directory) =
+        trim_non_empty(directory).filter(|directory| Path::new(directory).exists())
+    {
+        let directory = escape_applescript_string(&directory);
+        script = format!(
+            "set selectedFolder to choose folder default location POSIX file \"{directory}\"\nreturn POSIX path of selectedFolder"
+        );
+    }
+
+    let output = Command::new("osascript")
+        .args(["-e", &script])
+        .output()
+        .map_err(|error| format!("Failed to open directory picker: {error}"))?;
+
+    if output.status.success() {
+        return Ok(trim_non_empty(Some(trim_command_text(&output.stdout))));
+    }
+
+    let stderr = trim_command_text(&output.stderr);
+    if stderr.contains("User canceled") || stderr.contains("(-128)") {
+        return Ok(None);
+    }
+
+    let message = if stderr.is_empty() {
+        trim_command_text(&output.stdout)
+    } else {
+        stderr
+    };
+
+    Err(if message.is_empty() {
+        "Failed to open directory picker".to_string()
+    } else {
+        format!("Failed to open directory picker: {message}")
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn pick_directory(directory: Option<String>) -> Result<Option<String>, String> {
+    let mut script = String::from(
+        "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')\n\
+         $dialog = New-Object System.Windows.Forms.FolderBrowserDialog\n",
+    );
+
+    if let Some(directory) =
+        trim_non_empty(directory).filter(|directory| Path::new(directory).exists())
+    {
+        let directory = escape_powershell_string(&directory);
+        script.push_str(&format!("$dialog.SelectedPath = '{directory}'\n"));
+    }
+
+    script.push_str(
+        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {\n\
+         [Console]::Out.Write($dialog.SelectedPath)\n\
+         }\n",
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-STA", "-Command", &script])
+        .output()
+        .map_err(|error| format!("Failed to open directory picker: {error}"))?;
+
+    if !output.status.success() {
+        let stderr = trim_command_text(&output.stderr);
+        return Err(if stderr.is_empty() {
+            "Failed to open directory picker".to_string()
+        } else {
+            format!("Failed to open directory picker: {stderr}")
+        });
+    }
+
+    Ok(trim_non_empty(Some(trim_command_text(&output.stdout))))
+}
+
+#[cfg(target_os = "linux")]
+fn pick_directory(directory: Option<String>) -> Result<Option<String>, String> {
+    let directory = trim_non_empty(directory).filter(|directory| Path::new(directory).exists());
+
+    let mut zenity = Command::new("zenity");
+    zenity.args(["--file-selection", "--directory"]);
+    if let Some(directory) = directory.as_ref() {
+        zenity.arg(format!("--filename={directory}/"));
+    }
+
+    match zenity.output() {
+        Ok(output) => {
+            if output.status.success() {
+                return Ok(trim_non_empty(Some(trim_command_text(&output.stdout))));
+            }
+
+            if output.status.code() == Some(1) {
+                return Ok(None);
+            }
+
+            let stderr = trim_command_text(&output.stderr);
+            return Err(if stderr.is_empty() {
+                "Failed to open directory picker".to_string()
+            } else {
+                format!("Failed to open directory picker: {stderr}")
+            });
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(format!("Failed to open directory picker: {error}")),
+    }
+
+    let mut kdialog = Command::new("kdialog");
+    kdialog.arg("--getexistingdirectory");
+    if let Some(directory) = directory.as_ref() {
+        kdialog.arg(directory);
+    }
+
+    match kdialog.output() {
+        Ok(output) => {
+            if output.status.success() {
+                Ok(trim_non_empty(Some(trim_command_text(&output.stdout))))
+            } else if output.status.code() == Some(1) {
+                Ok(None)
+            } else {
+                let stderr = trim_command_text(&output.stderr);
+                Err(if stderr.is_empty() {
+                    "Failed to open directory picker".to_string()
+                } else {
+                    format!("Failed to open directory picker: {stderr}")
+                })
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            Err("Directory picker is unavailable on Linux. Install zenity or kdialog.".to_string())
+        }
+        Err(error) => Err(format!("Failed to open directory picker: {error}")),
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+fn pick_directory(_directory: Option<String>) -> Result<Option<String>, String> {
+    Err("Directory picker is not supported on this platform".to_string())
+}
+
 fn get_desktop_game_repo_path(
     config: &DesktopConfig,
     game: &str,
@@ -893,10 +1055,7 @@ fn desktop_set_game_repo(
     repo_path: Option<String>,
 ) -> Result<Option<String>, String> {
     desktop_repo_label(&game, &repo_key)?;
-    let repo_path = repo_path.and_then(|value| {
-        let trimmed = value.trim().to_string();
-        (!trimmed.is_empty()).then_some(trimmed)
-    });
+    let repo_path = trim_non_empty(repo_path);
     let resolved_repo_path = match repo_path {
         Some(repo_path) => Some(resolve_repo_root(&repo_path)?),
         None => None,
@@ -907,6 +1066,11 @@ fn desktop_set_game_repo(
     store_desktop_config(&app, &config)?;
 
     Ok(resolved_repo_path)
+}
+
+#[tauri::command]
+fn desktop_pick_directory(directory: Option<String>) -> Result<Option<String>, String> {
+    pick_directory(directory)
 }
 
 #[tauri::command]
@@ -1052,6 +1216,7 @@ pub fn run() {
             auth_fetch,
             desktop_get_game_repo,
             desktop_set_game_repo,
+            desktop_pick_directory,
             hsdata_get_repo_state,
             hsdata_list_sources,
             hsdata_read_source,
