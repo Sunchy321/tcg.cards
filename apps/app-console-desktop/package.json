@@ -12,6 +12,8 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@iconify/utils": "^3.1.0",
+    "@iconify/vue": "^5.0.0",
     "@nuxt/icon": "^2.2.1",
     "@iconify-json/lucide": "^1.2.104",
     "@nuxt/ui": "4.5.1",
@@ -24,6 +26,7 @@
     "@tcg-cards/console-shell": "workspace:*",
     "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/auth": "workspace:*",
+    "better-auth": "^1.5.5",
     "nuxt": "4.3.1",
     "vue": "^3.5.29",
     "vue-router": "^4.6.4"

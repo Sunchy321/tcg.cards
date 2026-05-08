@@ -10,6 +10,29 @@ export default defineNuxtConfig({
     port: 1420,
   },
 
+  vite: {
+    optimizeDeps: {
+      include: [
+        // Tauri cold starts are more sensitive to Vite's late dependency discovery.
+        // Pre-bundle the desktop app's first-screen client deps to avoid a dev-time full reload.
+        '@tauri-apps/api/core',
+        '@tauri-apps/api/window',
+        '@tauri-apps/api/webviewWindow',
+        '@orpc/client',
+        '@orpc/client/fetch',
+        'better-auth',
+        'better-auth/client/plugins',
+        'better-auth/vue',
+        'better-auth/adapters/drizzle',
+        'better-auth/plugins',
+        'better-auth/plugins/access',
+        'better-auth/plugins/admin/access',
+        '@iconify/vue',
+        '@iconify/utils/lib/css/icon',
+      ],
+    },
+  },
+
   css: ['./src/style.css'],
 
   router: {
