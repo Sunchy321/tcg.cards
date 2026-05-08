@@ -8,11 +8,20 @@
             <h1 class="text-xl font-semibold">hsdata 数据源</h1>
           </div>
           <p class="mt-1 text-sm text-muted">
-            查看 hsdata 数据源状态与可用版本。
+            查看 hsdata 数据源路径与可用版本。
           </p>
         </div>
 
         <div class="flex flex-wrap gap-2">
+          <UButton
+            label="同步远端版本"
+            icon="i-lucide-cloud-sync"
+            color="primary"
+            variant="soft"
+            :loading="syncing"
+            :disabled="!state?.repoPath || loadingState || loadingFiles"
+            @click="syncRemoteVersions"
+          />
           <UButton
             label="打开数据导入"
             icon="i-lucide-download"
@@ -33,35 +42,16 @@
     <UCard>
       <template #header>
         <div>
-          <div class="font-medium">当前仓库状态</div>
+          <div class="font-medium">仓库配置</div>
           <p class="mt-1 text-xs text-muted">
-            查看当前已配置数据源的状态。
+            查看当前已配置的数据源路径。
           </p>
         </div>
       </template>
 
       <div class="space-y-4">
-        <div v-if="state?.repoPath" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <UCard class="bg-elevated">
-            <div class="text-xs text-muted">当前版本</div>
-            <div class="mt-1 text-lg font-semibold">{{ state.tag ?? '-' }}</div>
-          </UCard>
-          <UCard class="bg-elevated">
-            <div class="text-xs text-muted">HEAD</div>
-            <div class="mt-1 text-lg font-mono">{{ state.short ?? '-' }}</div>
-          </UCard>
-          <UCard class="bg-elevated">
-            <div class="text-xs text-muted">工作树状态</div>
-            <div class="mt-1 text-sm">{{ state.dirty ? 'dirty' : 'clean' }}</div>
-          </UCard>
-          <UCard class="bg-elevated">
-            <div class="text-xs text-muted">可导入来源</div>
-            <div class="mt-1 text-lg font-semibold">{{ state.fileCount ?? files.length }}</div>
-          </UCard>
-        </div>
-
         <UAlert
-          v-else
+          v-if="!state?.repoPath"
           color="warning"
           variant="soft"
           icon="i-lucide-folder-search"
@@ -176,16 +166,18 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@nuxt/ui/composables';
 import {
   formatHsdataBytes,
   formatHsdataDate,
   getHsdataErrorMessage,
   getHsdataRepoState,
   listHsdataSources,
+  syncHsdataRemoteVersions,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataFile,
-  HsdataSourceState,
+  HsdataRepoState,
 } from '~/composables/useHsdataRepo';
 
 definePageMeta({
@@ -195,12 +187,14 @@ definePageMeta({
 
 const router = useRouter();
 
-const state = ref<HsdataSourceState | null>(null);
+const state = ref<HsdataRepoState | null>(null);
 const files = ref<HsdataFile[]>([]);
 const stateError = ref('');
 const filesError = ref('');
 const loadingState = ref(false);
 const loadingFiles = ref(false);
+const syncing = ref(false);
+const toast = useToast();
 
 function openImport(sourceId?: string) {
   void router.push({
@@ -255,6 +249,31 @@ async function loadFiles() {
 async function reloadAll() {
   await loadState();
   await loadFiles();
+}
+
+async function syncRemoteVersions() {
+  syncing.value = true;
+  await nextTick();
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+  try {
+    const result = await syncHsdataRemoteVersions();
+    await reloadAll();
+    toast.add({
+      title:       '已完成远端版本同步',
+      description: `${result.remote} -> ${result.repoPath}`,
+      color:       'success',
+    });
+  } catch (error) {
+    console.error('Failed to sync hsdata remote versions:', error);
+    toast.add({
+      title:       '同步远端版本失败',
+      description: getHsdataErrorMessage(error),
+      color:       'error',
+    });
+  } finally {
+    syncing.value = false;
+  }
 }
 
 onMounted(() => {

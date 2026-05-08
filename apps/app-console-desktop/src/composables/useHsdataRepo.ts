@@ -3,13 +3,13 @@ import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { getDesktopGameRepo, setDesktopGameRepo } from './useDesktopSettings';
 
-export interface HsdataSourceState {
-  tag?:       string;
-  commit?:    string;
-  short?:     string;
-  fileCount?: number;
-  repoPath?:  string;
-  dirty?:     boolean;
+export interface HsdataRepoState {
+  repoPath?: string;
+}
+
+export interface HsdataSyncResult {
+  repoPath: string;
+  remote:   string;
 }
 
 export type HsdataSourceKind = 'tag' | 'worktree';
@@ -80,7 +80,11 @@ export function setHsdataRepoPath(repoPath: string | null) {
 }
 
 export function getHsdataRepoState() {
-  return invoke<HsdataSourceState>('hsdata_get_repo_state');
+  return invoke<HsdataRepoState>('hsdata_get_repo_state');
+}
+
+export function syncHsdataRemoteVersions() {
+  return invoke<HsdataSyncResult>('hsdata_sync_remote_versions');
 }
 
 export function listHsdataSources() {

@@ -13,9 +13,15 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UBadge v-if="state?.tag" :label="`当前版本 ${state.tag}`" color="primary" variant="soft" />
-          <UBadge v-if="state?.short" :label="state.short" color="neutral" variant="outline" />
-          <UBadge v-if="state?.dirty" label="Worktree dirty" color="warning" variant="soft" />
+          <UButton
+            label="同步远端版本"
+            icon="i-lucide-cloud-sync"
+            color="primary"
+            variant="soft"
+            :loading="syncing"
+            :disabled="!state?.repoPath || loadingState || loadingFiles || importing || projecting"
+            @click="syncRemoteVersions"
+          />
           <UButton label="管理数据源" icon="i-lucide-database" color="neutral" variant="ghost" to="/hearthstone/data-source" />
         </div>
       </div>
@@ -275,6 +281,7 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from '@nuxt/ui/composables';
 import { useApiClient } from '~/composables/useApiClient';
 import {
   formatHsdataBytes,
@@ -283,12 +290,13 @@ import {
   getHsdataRepoState,
   listHsdataSources,
   readHsdataSource,
+  syncHsdataRemoteVersions,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataFile,
   HsdataImportReport,
   HsdataProjectReport,
-  HsdataSourceState,
+  HsdataRepoState,
   ReportMetric,
 } from '~/composables/useHsdataRepo';
 
@@ -300,7 +308,7 @@ definePageMeta({
 const route = useRoute();
 const orpc = useApiClient();
 
-const state = ref<HsdataSourceState | null>(null);
+const state = ref<HsdataRepoState | null>(null);
 const loadingState = ref(false);
 const stateError = ref('');
 const files = ref<HsdataFile[]>([]);
@@ -312,6 +320,8 @@ const importResult = ref<HsdataImportReport | null>(null);
 const projectError = ref('');
 const projecting = ref(false);
 const projectResult = ref<HsdataProjectReport | null>(null);
+const syncing = ref(false);
+const toast = useToast();
 
 const importForm = reactive({
   id:           '',
@@ -435,6 +445,25 @@ function applyRouteSelection() {
   }
 }
 
+function restoreSelection(selectedId: string | null) {
+  if (selectedId) {
+    const file = files.value.find(item => item.id === selectedId);
+    if (file) {
+      selectSource(file);
+      return;
+    }
+
+    const selectedTag = importForm.sourceTag;
+    resetImportForm();
+    if (projectForm.sourceTag === selectedTag) {
+      projectForm.sourceTag = null;
+    }
+    return;
+  }
+
+  applyRouteSelection();
+}
+
 function resetImportForm() {
   importError.value = '';
   importResult.value = null;
@@ -486,13 +515,45 @@ async function loadFiles() {
 
   try {
     files.value = await listHsdataSources();
-    applyRouteSelection();
   } catch (error) {
     console.error('Failed to load hsdata files:', error);
     filesError.value = getHsdataErrorMessage(error);
     files.value = [];
   } finally {
     loadingFiles.value = false;
+  }
+}
+
+async function reloadAll(selectedId: string | null = null) {
+  await loadState();
+  await loadFiles();
+  restoreSelection(selectedId);
+}
+
+async function syncRemoteVersions() {
+  const selectedId = importForm.id.length > 0 ? importForm.id : null;
+
+  syncing.value = true;
+  await nextTick();
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+  try {
+    const result = await syncHsdataRemoteVersions();
+    await reloadAll(selectedId);
+    toast.add({
+      title:       '已完成远端版本同步',
+      description: `${result.remote} -> ${result.repoPath}`,
+      color:       'success',
+    });
+  } catch (error) {
+    console.error('Failed to sync hsdata remote versions:', error);
+    toast.add({
+      title:       '同步远端版本失败',
+      description: getHsdataErrorMessage(error),
+      color:       'error',
+    });
+  } finally {
+    syncing.value = false;
   }
 }
 
@@ -560,7 +621,6 @@ watch(() => route.query.source, () => {
 });
 
 onMounted(async () => {
-  await loadState();
-  await loadFiles();
+  await reloadAll();
 });
 </script>

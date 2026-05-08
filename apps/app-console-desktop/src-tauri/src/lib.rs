@@ -1,9 +1,10 @@
 use reqwest::cookie::{CookieStore, Jar};
 use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 
@@ -168,13 +169,17 @@ struct StoredRepoPath {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct HsdataRepoState {
-    tag: Option<String>,
-    commit: Option<String>,
-    short: Option<String>,
     repo_path: Option<String>,
-    dirty: bool,
-    file_count: usize,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HsdataSyncResult {
+    repo_path: String,
+    remote: String,
+}
+
+const HSDATA_REMOTE_NAME: &str = "origin";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -632,6 +637,44 @@ fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     String::from_utf8(output.stdout).map_err(|error| format!("Failed to decode git output: {error}"))
 }
 
+fn run_git_with_input(repo_path: &str, args: &[&str], input: &str) -> Result<String, String> {
+    let mut child = Command::new("git")
+        .current_dir(repo_path)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Failed to run git {:?}: {error}", args))?;
+
+    {
+        let Some(stdin) = child.stdin.as_mut() else {
+            return Err("Failed to open git stdin".to_string());
+        };
+
+        stdin
+            .write_all(input.as_bytes())
+            .map_err(|error| format!("Failed to write git stdin: {error}"))?;
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("Failed to wait for git {:?}: {error}", args))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let message = if stderr.is_empty() {
+            format!("git {:?} exited with status {}", args, output.status)
+        } else {
+            stderr
+        };
+
+        return Err(message);
+    }
+
+    String::from_utf8(output.stdout).map_err(|error| format!("Failed to decode git output: {error}"))
+}
+
 fn resolve_repo_root(repo_path: &str) -> Result<String, String> {
     let canonical = fs::canonicalize(repo_path)
         .map_err(|error| format!("Failed to access repo path: {error}"))?;
@@ -657,17 +700,26 @@ fn resolve_saved_repo_path(app: &AppHandle) -> Result<String, String> {
     resolve_repo_root(&repo_path)
 }
 
-fn git_object_exists(repo_path: &str, object: &str) -> bool {
-    Command::new("git")
-        .current_dir(repo_path)
-        .args(["cat-file", "-e", object])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+fn resolve_hsdata_sync_repo(app: &AppHandle) -> Result<(String, &'static str), String> {
+    let repo_path = resolve_saved_repo_path(app)?;
+    Ok((repo_path, HSDATA_REMOTE_NAME))
+}
+
+fn sync_hsdata_remote_versions(repo_path: &str, remote: &str) -> Result<HsdataSyncResult, String> {
+    run_git(repo_path, &["fetch", "--prune", "--tags", remote])?;
+
+    Ok(HsdataSyncResult {
+        repo_path: repo_path.to_string(),
+        remote: remote.to_string(),
+    })
 }
 
 fn short_commit(commit: &str) -> String {
     commit.chars().take(7).collect()
+}
+
+fn tag_ref_name(tag: &str) -> String {
+    format!("refs/tags/{tag}")
 }
 
 fn parse_carddefs_build(xml: &str) -> Result<u32, String> {
@@ -733,14 +785,15 @@ fn read_worktree_source(repo_path: &str) -> Result<HsdataResolvedSource, String>
 }
 
 fn read_tag_source(repo_path: &str, tag: &str) -> Result<HsdataResolvedSource, String> {
-    let object = format!("{tag}:CardDefs.xml");
+    let tag_ref = tag_ref_name(tag);
+    let object = format!("{tag_ref}:CardDefs.xml");
     let xml = run_git(repo_path, &["show", &object])?;
     let source_tag = parse_carddefs_build(&xml)?;
-    let source_commit = trim_git_output(run_git(repo_path, &["rev-list", "-n", "1", tag])?);
+    let source_commit = trim_git_output(run_git(repo_path, &["rev-list", "-n", "1", &tag_ref])?);
     let size = trim_git_output(run_git(repo_path, &["cat-file", "-s", &object])?)
         .parse::<u64>()
         .map_err(|error| format!("Failed to parse git object size: {error}"))?;
-    let time = trim_git_output(run_git(repo_path, &["log", "-1", "--format=%cI", tag])?);
+    let time = trim_git_output(run_git(repo_path, &["log", "-1", "--format=%cI", &tag_ref])?);
 
     Ok(HsdataResolvedSource {
         id: format!("tag:{tag}"),
@@ -768,63 +821,155 @@ fn resolve_hsdata_source(repo_path: &str, id: &str) -> Result<HsdataResolvedSour
     read_tag_source(repo_path, tag)
 }
 
-fn list_hsdata_sources(repo_path: &str) -> Result<Vec<HsdataSourceEntry>, String> {
-    let worktree = read_worktree_source(repo_path)?;
-    let mut sources = vec![HsdataSourceEntry {
-        id: worktree.id,
-        name: worktree.name,
-        kind: worktree.kind,
-        size: worktree.size,
-        time: worktree.time,
-        source_tag: Some(worktree.source_tag),
-        source_commit: worktree.source_commit,
-        short_commit: worktree.short_commit,
-        source_uri: worktree.source_uri,
-    }];
+struct HsdataTagRefMeta {
+    tag_ref: String,
+    tag: String,
+    time: Option<String>,
+    source_commit: String,
+}
 
+struct HsdataBlobCheck {
+    size: Option<u64>,
+}
+
+fn parse_tag_ref_meta(line: &str) -> Option<HsdataTagRefMeta> {
+    let mut parts = line.splitn(5, '\t');
+    let tag_ref = parts.next()?.trim();
+    let tag = parts.next()?.trim();
+    let object_name = parts.next()?.trim();
+    let peeled_object_name = parts.next()?.trim();
+    let time = parts
+        .next()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+
+    if tag_ref.is_empty() || tag.is_empty() {
+        return None;
+    }
+
+    let source_commit = if !peeled_object_name.is_empty() {
+        peeled_object_name.to_string()
+    } else if !object_name.is_empty() {
+        object_name.to_string()
+    } else {
+        return None;
+    };
+
+    Some(HsdataTagRefMeta {
+        tag_ref: tag_ref.to_string(),
+        tag: tag.to_string(),
+        time,
+        source_commit,
+    })
+}
+
+fn parse_blob_check_line(line: &str) -> Result<HsdataBlobCheck, String> {
+    let trimmed = line.trim();
+
+    if trimmed.is_empty() {
+        return Err("Missing git cat-file batch output".to_string());
+    }
+
+    if trimmed.ends_with(" missing") {
+        return Ok(HsdataBlobCheck { size: None });
+    }
+
+    let mut parts = trimmed.split_whitespace();
+    let _object_name = parts
+        .next()
+        .ok_or_else(|| format!("Invalid git cat-file batch output: {trimmed}"))?;
+    let object_type = parts
+        .next()
+        .ok_or_else(|| format!("Invalid git cat-file batch output: {trimmed}"))?;
+    let object_size = parts
+        .next()
+        .ok_or_else(|| format!("Invalid git cat-file batch output: {trimmed}"))?;
+
+    if object_type != "blob" {
+        return Err(format!("Expected blob for hsdata source, got {object_type}: {trimmed}"));
+    }
+
+    let size = object_size
+        .parse::<u64>()
+        .map_err(|error| format!("Failed to parse git object size: {error}"))?;
+
+    Ok(HsdataBlobCheck { size: Some(size) })
+}
+
+fn parse_numeric_tag(tag: &str) -> Option<u32> {
+    tag.parse::<u32>().ok()
+}
+
+fn list_hsdata_sources(repo_path: &str) -> Result<Vec<HsdataSourceEntry>, String> {
     let tags = run_git(
         repo_path,
         &[
             "for-each-ref",
-            "--sort=-creatordate",
-            "--format=%(refname:short)\t%(creatordate:iso-strict)",
+            "--format=%(refname)\t%(refname:short)\t%(objectname)\t%(*objectname)\t%(creatordate:iso-strict)",
             "refs/tags",
         ],
     )?;
-
+    let mut tag_refs = Vec::new();
     for line in tags.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
 
-        let mut parts = trimmed.splitn(2, '\t');
-        let Some(tag) = parts.next() else {
-            continue;
-        };
-        let time = parts.next().map(str::to_string).filter(|value| !value.is_empty());
-        let object = format!("{tag}:CardDefs.xml");
+        if let Some(tag_ref) = parse_tag_ref_meta(trimmed) {
+            tag_refs.push(tag_ref);
+        }
+    }
 
-        if !git_object_exists(repo_path, &object) {
-            continue;
+    tag_refs.sort_by(|left, right| {
+        match (parse_numeric_tag(&left.tag), parse_numeric_tag(&right.tag)) {
+            (Some(left_num), Some(right_num)) => right_num.cmp(&left_num).then_with(|| right.tag.cmp(&left.tag)),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => left.tag.cmp(&right.tag),
+        }
+    });
+
+    let mut sources = Vec::new();
+
+    if !tag_refs.is_empty() {
+        let batch_input = tag_refs
+            .iter()
+            .map(|tag_ref| format!("{}:CardDefs.xml\n", tag_ref.tag_ref))
+            .collect::<String>();
+        let batch_output = run_git_with_input(repo_path, &["cat-file", "--batch-check"], &batch_input)?;
+
+        let blob_checks = batch_output
+            .lines()
+            .map(parse_blob_check_line)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        if blob_checks.len() != tag_refs.len() {
+            return Err(format!(
+                "Unexpected git cat-file batch output count: expected {}, got {}",
+                tag_refs.len(),
+                blob_checks.len()
+            ));
         }
 
-        let source_commit = trim_git_output(run_git(repo_path, &["rev-list", "-n", "1", tag])?);
-        let size = trim_git_output(run_git(repo_path, &["cat-file", "-s", &object])?)
-            .parse::<u64>()
-            .map_err(|error| format!("Failed to parse git object size: {error}"))?;
+        for (tag_ref, blob_check) in tag_refs.into_iter().zip(blob_checks.into_iter()) {
+            let Some(size) = blob_check.size else {
+                continue;
+            };
 
-        sources.push(HsdataSourceEntry {
-            id: format!("tag:{tag}"),
-            name: tag.to_string(),
-            kind: "tag".to_string(),
-            size,
-            time,
-            source_tag: None,
-            source_commit: source_commit.clone(),
-            short_commit: short_commit(&source_commit),
-            source_uri: build_source_uri(&format!("tag:{tag}")),
-        });
+            sources.push(HsdataSourceEntry {
+                id: format!("tag:{}", tag_ref.tag),
+                name: tag_ref.tag.clone(),
+                kind: "tag".to_string(),
+                size,
+                time: tag_ref.time,
+                source_tag: None,
+                source_commit: tag_ref.source_commit.clone(),
+                short_commit: short_commit(&tag_ref.source_commit),
+                source_uri: build_source_uri(&format!("tag:{}", tag_ref.tag)),
+            });
+        }
     }
 
     Ok(sources)
@@ -836,30 +981,7 @@ fn get_hsdata_repo_state(app: &AppHandle) -> Result<HsdataRepoState, String> {
         None => None,
     };
 
-    let Some(repo_path) = repo_path else {
-        return Ok(HsdataRepoState {
-            tag: None,
-            commit: None,
-            short: None,
-            repo_path: None,
-            dirty: false,
-            file_count: 0,
-        });
-    };
-
-    let commit = trim_git_output(run_git(&repo_path, &["rev-parse", "HEAD"])?);
-    let dirty_output = trim_git_output(run_git(&repo_path, &["status", "--short"])?);
-    let worktree = read_worktree_source(&repo_path)?;
-    let file_count = list_hsdata_sources(&repo_path)?.len();
-
-    Ok(HsdataRepoState {
-        tag: Some(worktree.source_tag.to_string()),
-        commit: Some(commit.clone()),
-        short: Some(short_commit(&commit)),
-        repo_path: Some(repo_path),
-        dirty: !dirty_output.is_empty(),
-        file_count,
-    })
+    Ok(HsdataRepoState { repo_path })
 }
 
 async fn parse_error(response: reqwest::Response) -> String {
@@ -1091,6 +1213,15 @@ fn hsdata_read_source(app: AppHandle, id: String) -> Result<HsdataResolvedSource
 }
 
 #[tauri::command]
+async fn hsdata_sync_remote_versions(app: AppHandle) -> Result<HsdataSyncResult, String> {
+    let (repo_path, remote) = resolve_hsdata_sync_repo(&app)?;
+
+    tauri::async_runtime::spawn_blocking(move || sync_hsdata_remote_versions(&repo_path, remote))
+        .await
+        .map_err(|error| format!("Failed to join hsdata remote sync task: {error}"))?
+}
+
+#[tauri::command]
 async fn auth_fetch(
     state: tauri::State<'_, AuthState>,
     path: String,
@@ -1220,6 +1351,7 @@ pub fn run() {
             hsdata_get_repo_state,
             hsdata_list_sources,
             hsdata_read_source,
+            hsdata_sync_remote_versions,
             credential_get,
             credential_set,
             credential_delete,
