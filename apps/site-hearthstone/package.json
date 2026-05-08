@@ -15,7 +15,7 @@
     "@iconify-json/lucide": "^1.2.104",
     "@iconify-json/simple-icons": "^1.2.72",
     "@nuxt/icon": "^2.2.1",
-    "@nuxt/ui": "^4.7.0",
+    "@nuxt/ui": "4.5.1",
     "@orpc/client": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@tcg-cards/db": "workspace:*",
@@ -28,7 +28,7 @@
     "drizzle-orm": "^1.0.0-beta.22",
     "jsondiffpatch": "^0.7.3",
     "lodash-es": "^4.17.23",
-    "nuxt": "^4.3.1",
+    "nuxt": "4.3.1",
     "tailwindcss": "^4.2.2",
     "zod": "^4.3.6"
   },

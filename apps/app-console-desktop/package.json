@@ -14,7 +14,7 @@
   "dependencies": {
     "@nuxt/icon": "^2.2.1",
     "@iconify-json/lucide": "^1.2.104",
-    "@nuxt/ui": "^4.7.0",
+    "@nuxt/ui": "4.5.1",
     "@orpc/client": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@tauri-apps/api": "^2",
@@ -24,7 +24,7 @@
     "@tcg-cards/console-shell": "workspace:*",
     "@tcg-cards/console-api": "workspace:*",
     "@tcg-cards/auth": "workspace:*",
-    "nuxt": "^4.3.1",
+    "nuxt": "4.3.1",
     "vue": "^3.5.29",
     "vue-router": "^4.6.4"
   },
