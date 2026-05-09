@@ -6,9 +6,9 @@ import type { AnyRouter, RouterClient } from '@orpc/server';
 export const PLACEHOLDER_RPC_URL = 'http://desktop.invalid/rpc';
 
 interface DesktopHttpResponse {
-  body: ArrayLike<number>;
+  body:    ArrayLike<number>;
   headers: Array<[string, string]>;
-  status: number;
+  status:  number;
 }
 
 export async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -17,12 +17,21 @@ export async function authFetch(input: RequestInfo | URL, init?: RequestInit): P
     : input instanceof URL
       ? input.toString()
       : input.url;
+  const request = input instanceof Request ? input : null;
 
   const requestUrl = new URL(source, PLACEHOLDER_RPC_URL);
   const path = `${requestUrl.pathname}${requestUrl.search}`;
-  const method = init?.method?.toUpperCase() ?? 'GET';
-  const headers = [...new Headers(init?.headers).entries()];
-  const body = await readBody(init?.body);
+  const method = (init?.method ?? request?.method ?? 'GET').toUpperCase();
+  const mergedHeaders = new Headers(request?.headers);
+
+  for (const [name, value] of new Headers(init?.headers).entries()) {
+    mergedHeaders.set(name, value);
+  }
+
+  const headers = [...mergedHeaders.entries()];
+  const body = init?.body != null
+    ? await readBody(init.body)
+    : await readRequestBody(request);
 
   try {
     const response = await invoke<DesktopHttpResponse>('auth_fetch', {
@@ -68,6 +77,14 @@ async function readBody(body: RequestInit['body']) {
   }
 
   throw new Error('Unsupported request body type');
+}
+
+async function readRequestBody(request: Request | null) {
+  if (request == null || request.body == null) {
+    return null;
+  }
+
+  return await request.clone().text();
 }
 
 export function createDesktopApiClient<TRouter extends AnyRouter>(): RouterClient<TRouter> {
