@@ -6,7 +6,7 @@ import {
   RawEntitySnapshotTag,
   SourceVersion,
   TagValueView,
-} from '@tcg-cards/db/schema/hearthstone';
+} from '@tcg-cards/db/schema/hearthstone/data/card-model';
 
 export interface HsdataOverviewSummary {
   sourceVersionCount:          number;

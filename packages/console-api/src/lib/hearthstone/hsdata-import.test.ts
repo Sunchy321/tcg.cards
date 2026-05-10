@@ -21,6 +21,7 @@ interface SourceVersionRow {
   build:        number | null;
   sourceHash:   string;
   sourceUri:    string;
+  importEngineVersion: string | null;
   status:       string;
   importedAt:   Date | null;
 }
@@ -115,6 +116,7 @@ const SourceVersion = table('source_versions', [
   'build',
   'sourceHash',
   'sourceUri',
+  'importEngineVersion',
   'status',
   'importedAt',
 ]);
@@ -553,15 +555,27 @@ class MemoryHsdataDb {
 const memoryDb = new MemoryHsdataDb();
 
 mock.module('@tcg-cards/db/db', () => ({ db: memoryDb }));
-mock.module('@tcg-cards/db/schema/hearthstone', () => ({
+const hsdataCardModelSchemaMock = {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
-  Set: HearthstoneSet,
   SourceVersion,
+};
+const hsdataSetSchemaMock = {
+  Set: HearthstoneSet,
+};
+const hsdataTagSchemaMock = {
   Tag,
-}));
+};
+mock.module('@tcg-cards/db/schema/hearthstone/data/card-model', () => hsdataCardModelSchemaMock);
+mock.module('@tcg-cards/db/schema/hearthstone/set', () => hsdataSetSchemaMock);
+mock.module('@tcg-cards/db/schema/hearthstone/tag', () => hsdataTagSchemaMock);
 
-const { importHsdata } = await import('./hsdata-import');
+const {
+  importHsdata,
+  importParsedHsdata,
+  normalizeHsdataSourceXml,
+  parseHsdataXml,
+} = await import('./hsdata-import');
 
 const fixtureXml = `
 <CardDefs build="12345">
@@ -693,6 +707,23 @@ describe('importHsdata', () => {
 
     expect(report.skipped).toBe(true);
     expect(counts()).toEqual(beforeCounts);
+  });
+
+  test('records importEngineVersion on parsed imports', async () => {
+    const parsed = parseHsdataXml(normalizeHsdataSourceXml(fixtureXml));
+
+    await importParsedHsdata({
+      parsed,
+      sourceTag:           12345,
+      sourceHash:          'fixture-hash',
+      importEngineVersion: 'desktop-rust-v1',
+    });
+
+    expect(memoryDb.state.sourceVersions.get(12345)).toMatchObject({
+      sourceHash:          'fixture-hash',
+      importEngineVersion: 'desktop-rust-v1',
+      status:              'completed',
+    });
   });
 
   test('force rebuilds reused raw snapshot tags', async () => {

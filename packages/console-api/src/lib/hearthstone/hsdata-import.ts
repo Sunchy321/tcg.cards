@@ -7,32 +7,40 @@ import { db } from '@tcg-cards/db/db';
 import {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
-  Set as HearthstoneSet,
   SourceVersion,
-  Tag,
-} from '@tcg-cards/db/schema/hearthstone';
+} from '@tcg-cards/db/schema/hearthstone/data/card-model';
+import { Set as HearthstoneSet } from '@tcg-cards/db/schema/hearthstone/set';
+import { Tag } from '@tcg-cards/db/schema/hearthstone/tag';
 
+// Shared transaction shape for import helpers.
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// XML node children used by the local parser.
 type XmlChild = XmlElement | string;
-type JsonMap = Record<string, unknown>;
+// Generic JSON payload fragments stored during import.
+export type JsonMap = Record<string, unknown>;
+// Referenced tag values that can collapse to booleans.
 type ReferencedTagValue = boolean | number;
 
+// Parsed XML element node.
 interface XmlElement {
   name:       string;
   attributes: Record<string, string>;
   children:   XmlChild[];
 }
 
+// Legacy whole-archive import entrypoint.
 export interface ImportHsdataInput {
   xml:           string;
   sourceTag:     number;
   sourceCommit?: string | null;
   sourceUri?:    string | null;
+  importEngineVersion?: string | null;
   dryRun?:       boolean;
   force?:        boolean;
 }
 
+// Normalized tag value shapes used by raw tag storage.
 type TagValueKind
   = | 'bool'
     | 'card_ref'
@@ -41,7 +49,8 @@ type TagValueKind
     | 'loc_string'
     | 'string';
 
-interface RawTagInput {
+// Normalized raw tag before database projection.
+export interface RawTagInput {
   enumId:         number;
   rawName:        string;
   rawType:        string;
@@ -52,24 +61,17 @@ interface RawTagInput {
   tagOrder:       number;
 }
 
-interface EntitySnapshotPayload {
+// Snapshot content used to derive one parsed entity and snapshot hash.
+export interface HsdataSnapshotInput {
   cardId:           string;
   dbfId:            number;
   entityXmlVersion: number;
-  tags: Array<{
-    enumId:         number;
-    rawName:        string;
-    rawType:        string;
-    rawValue:       string | null;
-    locStringValue: Record<string, string> | null;
-    cardRefCardId:  string | null;
-    tagOrder:       number;
-    rawPayload:     JsonMap;
-  }>;
+  tags:             RawTagInput[];
   extraPayload: JsonMap;
 }
 
-interface ParsedEntity {
+// Parsed hsdata entity snapshot.
+export interface ParsedEntity {
   cardId:           string;
   dbfId:            number;
   entityXmlVersion: number;
@@ -78,11 +80,13 @@ interface ParsedEntity {
   snapshotHash:     string;
 }
 
-interface ParsedHsdata {
+// Parsed hsdata source payload.
+export interface ParsedHsdata {
   build:    number;
   entities: ParsedEntity[];
 }
 
+// Discovered-tag data already stored in the database.
 interface ExistingTagRow {
   enumId:             number;
   slug:               string;
@@ -98,6 +102,7 @@ interface ExistingTagRow {
   lastSeenSourceTag:  number | null;
 }
 
+// Existing raw snapshot row used for reuse checks.
 interface SnapshotRow {
   id:           string;
   cardId:       string;
@@ -105,24 +110,29 @@ interface SnapshotRow {
   sourceTags:   number[];
 }
 
+// source_versions row used by import guards.
 interface SourceVersionRow {
   sourceTag:  number;
   build:      number | null;
   sourceHash: string;
+  importEngineVersion: string | null;
   status:     string;
 }
 
+// source_versions write payload used by status updates.
 interface SourceVersionWriteInput {
   sourceTag:    number;
   build:        number | null;
   sourceHash:   string;
   sourceCommit: string | null | undefined;
   sourceUri:    string | null | undefined;
+  importEngineVersion: string | null | undefined;
 }
 
 const cardSetEnumId = 183;
 const cardSetRawName = 'CARD_SET';
 
+// Completed raw hsdata import report.
 export interface ImportHsdataReport {
   dryRun:                boolean;
   skipped:               boolean;
@@ -140,10 +150,24 @@ export interface ImportHsdataReport {
   discoveredTags:        number[];
 }
 
+// Parsed hsdata payload accepted by the shared import path.
+export interface ImportParsedHsdataInput {
+  parsed: ParsedHsdata;
+  sourceTag: number;
+  sourceHash: string;
+  sourceCommit?: string | null;
+  sourceUri?: string | null;
+  importEngineVersion?: string | null;
+  dryRun?: boolean;
+  force?: boolean;
+}
+
+// Stable sha256 digest.
 function sha256(input: string): string {
   return createHash('sha256').update(input, 'utf8').digest('hex');
 }
 
+// Array form of nullable-or-array inputs.
 function toArray<T>(value: T | T[] | null | undefined): T[] {
   if (value == null) {
     return [];
@@ -152,6 +176,7 @@ function toArray<T>(value: T | T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : [value];
 }
 
+// Deterministic JSON serialization for snapshot hashing.
 function canonicalizeJson(value: unknown): string {
   if (value == null) return 'null';
   if (typeof value === 'string') return JSON.stringify(value);
@@ -166,21 +191,68 @@ function canonicalizeJson(value: unknown): string {
   return `{${keys.map(key => `${JSON.stringify(key)}:${canonicalizeJson(object[key])}`).join(',')}}`;
 }
 
+// Hash of canonical JSON payloads.
 function hashCanonicalJson(value: unknown): string {
   return sha256(canonicalizeJson(value));
 }
 
-function normalizeXmlSource(input: string): string {
+// Snapshot hash payload reduced from one normalized entity.
+function normalizeSnapshotPayload(input: HsdataSnapshotInput) {
+  return {
+    cardId:           input.cardId,
+    dbfId:            input.dbfId,
+    entityXmlVersion: input.entityXmlVersion,
+    tags:             input.tags.map(tag => ({
+      enumId:         tag.enumId,
+      rawName:        tag.rawName,
+      rawType:        tag.rawType,
+      rawValue:       tag.rawValue,
+      locStringValue: tag.locStringValue,
+      cardRefCardId:  tag.cardRefCardId,
+      tagOrder:       tag.tagOrder,
+      rawPayload:     tag.rawPayload,
+    })),
+    extraPayload:     input.extraPayload,
+  };
+}
+
+// Snapshot hash derived from the canonical entity payload.
+export function computeHsdataSnapshotHash(input: HsdataSnapshotInput): string {
+  return hashCanonicalJson(normalizeSnapshotPayload(input));
+}
+
+// Parsed entity assembled from normalized snapshot content.
+export function buildParsedEntity(input: HsdataSnapshotInput): ParsedEntity {
+  return {
+    cardId:           input.cardId,
+    dbfId:            input.dbfId,
+    entityXmlVersion: input.entityXmlVersion,
+    tags:             input.tags,
+    extraPayload:     input.extraPayload,
+    snapshotHash:     computeHsdataSnapshotHash(input),
+  };
+}
+
+// Canonical sourceHash normalization shared by job imports and the legacy
+// whole-archive path so source_versions.source_hash keeps one meaning.
+export function normalizeHsdataSourceXml(input: string): string {
   return input
     .replace(/^\uFEFF/, '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 }
 
+// Canonical sourceHash for one XML payload.
+export function computeHsdataSourceHash(input: string): string {
+  return sha256(normalizeHsdataSourceXml(input));
+}
+
+// Child elements with a given XML tag name.
 function getElements(node: XmlElement, name: string): XmlElement[] {
   return node.children.filter(child => typeof child !== 'string' && child.name === name) as XmlElement[];
 }
 
+// Trimmed text content from one XML node.
 function getText(node: XmlElement): string {
   return node.children
     .filter(child => typeof child === 'string')
@@ -188,6 +260,7 @@ function getText(node: XmlElement): string {
     .trim();
 }
 
+// Required integer attribute parser.
 function toInt(value: string | undefined, field: string): number {
   if (value == null) {
     throw new Error(`Missing integer field: ${field}`);
@@ -201,6 +274,7 @@ function toInt(value: string | undefined, field: string): number {
   return parsed;
 }
 
+// Optional integer attribute parser.
 function toOptionalInt(value: string | undefined): number | null {
   if (value == null || value.length === 0) {
     return null;
@@ -210,6 +284,7 @@ function toOptionalInt(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+// XML boolean attribute parser.
 function toXmlBoolean(value: string | undefined, field: string): boolean {
   if (value == null) {
     throw new Error(`Missing boolean field: ${field}`);
@@ -222,6 +297,7 @@ function toXmlBoolean(value: string | undefined, field: string): boolean {
   throw new Error(`Invalid boolean field ${field}: ${value}`);
 }
 
+// Flag-like integers collapsed to boolean-or-number values.
 function toFlagValue(value: number): ReferencedTagValue {
   if (value === 0 || value === 1) {
     return value === 1;
@@ -230,6 +306,7 @@ function toFlagValue(value: number): ReferencedTagValue {
   return value;
 }
 
+// Stable discovered-tag slug.
 function slugify(rawName: string, enumId: number): string {
   const base = rawName
     .trim()
@@ -240,10 +317,12 @@ function slugify(rawName: string, enumId: number): string {
   return `${base || 'tag'}-${enumId}`;
 }
 
+// Map key for cardId plus snapshotHash lookups.
 function snapshotKey(cardId: string, snapshotHash: string): string {
   return `${cardId}\u0000${snapshotHash}`;
 }
 
+// Predictable query-sized chunks for large lists.
 function chunkValues<T>(values: T[], size = 2000): T[][] {
   if (values.length <= size) {
     return [values];
@@ -258,14 +337,17 @@ function chunkValues<T>(values: T[], size = 2000): T[][] {
   return chunks;
 }
 
+// Sorted unique integers.
 function sortUniqueIntegers(values: number[]): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
 }
 
+// CARD_SET tag detection in raw tag payloads.
 function isCardSetTag(tag: RawTagInput): boolean {
   return tag.enumId === cardSetEnumId || tag.rawName === cardSetRawName;
 }
 
+// Integer-like set references parsed from raw tags.
 function parseTagIntValue(tag: RawTagInput): number | null {
   if (tag.rawValue == null || tag.rawValue.length === 0) {
     return null;
@@ -275,6 +357,7 @@ function parseTagIntValue(tag: RawTagInput): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+// Distinct set dbf ids referenced by parsed entities.
 function collectSetDbfIds(entities: ParsedEntity[]): number[] {
   return sortUniqueIntegers(
     entities
@@ -285,6 +368,7 @@ function collectSetDbfIds(entities: ParsedEntity[]): number[] {
   );
 }
 
+// LocString child nodes normalized into locale maps.
 function normalizeLocString(tag: XmlElement): Record<string, string> {
   const value: Record<string, string> = {};
 
@@ -296,6 +380,7 @@ function normalizeLocString(tag: XmlElement): Record<string, string> {
   return value;
 }
 
+// Raw XML Tag node normalized into RawTagInput.
 function normalizeRawTag(tag: XmlElement, tagOrder: number): RawTagInput {
   const enumId = toInt(tag.attributes.enumID, 'Tag.enumID');
   const rawName = tag.attributes.name ?? '';
@@ -332,6 +417,7 @@ function normalizeRawTag(tag: XmlElement, tagOrder: number): RawTagInput {
   };
 }
 
+// Non-Tag entity payload that still affects snapshot identity.
 function normalizeExtraPayload(entity: XmlElement): JsonMap {
   const referencedTags = Object.fromEntries(
     toArray(getElements(entity, 'ReferencedTag')).map(node => {
@@ -374,6 +460,7 @@ function normalizeExtraPayload(entity: XmlElement): JsonMap {
   };
 }
 
+// Duplicate card ids that point to different snapshots rejected.
 function validateAndDedupeEntities(entities: ParsedEntity[]): ParsedEntity[] {
   const byCardId = new Map<string, ParsedEntity>();
 
@@ -393,6 +480,7 @@ function validateAndDedupeEntities(entities: ParsedEntity[]): ParsedEntity[] {
   return [...byCardId.values()];
 }
 
+// Normalized Entity node plus computed snapshot hash.
 function normalizeEntitySnapshot(entity: XmlElement): ParsedEntity {
   const cardId = entity.attributes.CardID ?? '';
   if (cardId.length === 0) {
@@ -404,34 +492,17 @@ function normalizeEntitySnapshot(entity: XmlElement): ParsedEntity {
   const tags = toArray(getElements(entity, 'Tag')).map((tag, index) => normalizeRawTag(tag, index));
   const extraPayload = normalizeExtraPayload(entity);
 
-  const snapshotPayload: EntitySnapshotPayload = {
-    cardId,
-    dbfId,
-    entityXmlVersion,
-    tags: tags.map(tag => ({
-      enumId:         tag.enumId,
-      rawName:        tag.rawName,
-      rawType:        tag.rawType,
-      rawValue:       tag.rawValue,
-      locStringValue: tag.locStringValue,
-      cardRefCardId:  tag.cardRefCardId,
-      tagOrder:       tag.tagOrder,
-      rawPayload:     tag.rawPayload,
-    })),
-    extraPayload,
-  };
-
-  return {
+  return buildParsedEntity({
     cardId,
     dbfId,
     entityXmlVersion,
     tags,
     extraPayload,
-    snapshotHash: hashCanonicalJson(snapshotPayload),
-  };
+  });
 }
 
-function parseHsdataXml(xml: string): ParsedHsdata {
+// mini-CardDefs XML parser that returns normalized entities.
+export function parseHsdataXml(xml: string): ParsedHsdata {
   const parser = new SaxesParser({ xmlns: false, position: true });
   const entityStack: XmlElement[] = [];
   const entities: ParsedEntity[] = [];
@@ -512,6 +583,7 @@ function parseHsdataXml(xml: string): ParsedHsdata {
   return { build, entities: normalizedEntities };
 }
 
+// Projected value kind for one raw tag.
 function guessValueKind(tag: RawTagInput, existing: ExistingTagRow | undefined): TagValueKind {
   const configured = existing?.valueKind;
 
@@ -532,6 +604,7 @@ function guessValueKind(tag: RawTagInput, existing: ExistingTagRow | undefined):
   return 'json';
 }
 
+// Typed storage representation resolved from one raw tag.
 function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined) {
   const valueKind = guessValueKind(tag, existing);
   const parsedInt = tag.rawValue != null ? Number.parseInt(tag.rawValue, 10) : null;
@@ -602,11 +675,13 @@ function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined)
   };
 }
 
+// source_versions row loader for import guards.
 async function getSourceVersion(sourceTag: number): Promise<SourceVersionRow | null> {
   return await db.select({
     sourceTag:  SourceVersion.sourceTag,
     build:      SourceVersion.build,
     sourceHash: SourceVersion.sourceHash,
+    importEngineVersion: SourceVersion.importEngineVersion,
     status:     SourceVersion.status,
   })
     .from(SourceVersion)
@@ -614,6 +689,7 @@ async function getSourceVersion(sourceTag: number): Promise<SourceVersionRow | n
     .then(rows => rows[0] ?? null);
 }
 
+// Discovered tag definitions needed by one import batch.
 async function getExistingTags(tx: DbTx, enumIds: number[]): Promise<Map<number, ExistingTagRow>> {
   const rows: ExistingTagRow[] = [];
 
@@ -643,6 +719,7 @@ async function getExistingTags(tx: DbTx, enumIds: number[]): Promise<Map<number,
   return new Map(rows.map(row => [row.enumId, row]));
 }
 
+// Existing set ids needed for pre-import validation.
 async function loadExistingSetDbfIds(dbfIds: number[]): Promise<Set<number>> {
   const rows: Array<{ dbfId: number | null }> = [];
 
@@ -661,6 +738,7 @@ async function loadExistingSetDbfIds(dbfIds: number[]): Promise<Set<number>> {
   return new Set(rows.map(row => row.dbfId).filter((value): value is number => value != null));
 }
 
+// Placeholder set rows inserted so missing dependencies become explicit.
 async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
   if (dbfIds.length === 0) {
     return 0;
@@ -683,6 +761,7 @@ async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
   return dbfIds.length;
 }
 
+// Set ids still missing from the model tables.
 async function findMissingSetDbfIds(dbfIds: number[]): Promise<number[]> {
   if (dbfIds.length === 0) {
     return [];
@@ -692,6 +771,7 @@ async function findMissingSetDbfIds(dbfIds: number[]): Promise<number[]> {
   return dbfIds.filter(dbfId => !existingDbfIds.has(dbfId));
 }
 
+// Discovered tag metadata upserted before snapshot rows are written.
 async function upsertDiscoveredTags(
   tx: DbTx,
   sourceTag: number,
@@ -793,6 +873,7 @@ async function upsertDiscoveredTags(
   return { existing, discovered, updated };
 }
 
+// Reusable snapshots for the given card ids.
 async function loadExistingSnapshots(tx: DbTx, cardIds: string[]): Promise<Map<string, SnapshotRow>> {
   const rows: SnapshotRow[] = [];
 
@@ -814,6 +895,7 @@ async function loadExistingSnapshots(tx: DbTx, cardIds: string[]): Promise<Map<s
   return new Map(rows.map(row => [snapshotKey(row.cardId, row.snapshotHash), row]));
 }
 
+// Snapshots currently linked to one sourceTag.
 async function loadSnapshotsForSourceTag(tx: DbTx, sourceTag: number): Promise<SnapshotRow[]> {
   return await tx.select({
     id:           RawEntitySnapshot.id,
@@ -825,6 +907,7 @@ async function loadSnapshotsForSourceTag(tx: DbTx, sourceTag: number): Promise<S
     .where(sql<boolean>`${sourceTag} = ANY(${RawEntitySnapshot.sourceTags})`);
 }
 
+// Normalized tag rows inserted for one snapshot.
 async function insertSnapshotTags(
   tx: DbTx,
   snapshotId: string,
@@ -864,6 +947,7 @@ async function insertSnapshotTags(
   return rows.length;
 }
 
+// Tag rows deleted for the provided snapshot ids.
 async function deleteSnapshotTags(tx: DbTx, snapshotIds: string[]) {
   for (const chunk of chunkValues(snapshotIds)) {
     if (chunk.length === 0) {
@@ -875,6 +959,7 @@ async function deleteSnapshotTags(tx: DbTx, snapshotIds: string[]) {
   }
 }
 
+// source_versions moved into processing before import work begins.
 async function upsertSourceVersionProcessing(
   input: SourceVersionWriteInput,
 ) {
@@ -885,6 +970,7 @@ async function upsertSourceVersionProcessing(
       build:        input.build,
       sourceHash:   input.sourceHash,
       sourceUri:    input.sourceUri ?? '',
+      importEngineVersion: input.importEngineVersion ?? null,
       status:       'processing',
       importedAt:   null,
     })
@@ -895,12 +981,14 @@ async function upsertSourceVersionProcessing(
         build:        input.build,
         sourceHash:   input.sourceHash,
         sourceUri:    input.sourceUri ?? '',
+        importEngineVersion: input.importEngineVersion ?? null,
         status:       'processing',
         importedAt:   null,
       },
     });
 }
 
+// source_versions row marked as completed.
 async function markSourceVersionCompleted(sourceTag: number, importedAt: Date) {
   await db.update(SourceVersion)
     .set({
@@ -910,6 +998,7 @@ async function markSourceVersionCompleted(sourceTag: number, importedAt: Date) {
     .where(eq(SourceVersion.sourceTag, sourceTag));
 }
 
+// Failed source_versions state persisted.
 async function upsertSourceVersionFailed(input: SourceVersionWriteInput) {
   await db.insert(SourceVersion)
     .values({
@@ -918,6 +1007,7 @@ async function upsertSourceVersionFailed(input: SourceVersionWriteInput) {
       build:        input.build,
       sourceHash:   input.sourceHash,
       sourceUri:    input.sourceUri ?? '',
+      importEngineVersion: input.importEngineVersion ?? null,
       status:       'failed',
       importedAt:   null,
     })
@@ -928,12 +1018,14 @@ async function upsertSourceVersionFailed(input: SourceVersionWriteInput) {
         build:        input.build,
         sourceHash:   input.sourceHash,
         sourceUri:    input.sourceUri ?? '',
+        importEngineVersion: input.importEngineVersion ?? null,
         status:       'failed',
         importedAt:   null,
       },
     });
 }
 
+// Source version marked as failed unless the same completed import already exists.
 async function markSourceVersionFailedIfNeeded(
   input: SourceVersionWriteInput,
   sourceVersion: SourceVersionRow | null,
@@ -945,6 +1037,7 @@ async function markSourceVersionFailedIfNeeded(
   await upsertSourceVersionFailed(input);
 }
 
+// Skip decision for an identical completed source.
 function shouldSkipSourceVersionImport(
   sourceVersion: SourceVersionRow | null,
   sourceHash: string,
@@ -957,6 +1050,7 @@ function shouldSkipSourceVersionImport(
   return sourceVersion?.status === 'completed' && sourceVersion.sourceHash === sourceHash;
 }
 
+// sourceTag overwrite rules enforced before import begins.
 function assertSourceVersionImportable(
   sourceVersion: SourceVersionRow | null,
   sourceTag: number,
@@ -972,10 +1066,299 @@ function assertSourceVersionImportable(
   }
 }
 
+// Parsed raw import applied inside one transaction.
+async function applyHsdataImport(
+  tx: DbTx,
+  input: {
+    parsed: ParsedHsdata;
+    sourceTag: number;
+    dryRun: boolean;
+    force: boolean;
+  },
+): Promise<Omit<ImportHsdataReport, 'build' | 'dryRun' | 'skipped' | 'sourceHash' | 'sourceTag'>> {
+  const allTags = input.parsed.entities.flatMap(entity => entity.tags);
+  const dbfIdByCardId = new Map(input.parsed.entities.map(entity => [entity.cardId, entity.dbfId]));
+  const { existing, discovered, updated } = await upsertDiscoveredTags(
+    tx,
+    input.sourceTag,
+    allTags,
+    input.dryRun,
+  );
+
+  const fallbackTagRowCount = input.parsed.entities.reduce((count, entity) => {
+    return count + entity.tags.filter(tag => {
+      const resolved = resolveTagValue(tag, existing.get(tag.enumId));
+      return resolved.parseStatus === 'fallback';
+    }).length;
+  }, 0);
+
+  const previousSnapshots = await loadSnapshotsForSourceTag(tx, input.sourceTag);
+  const previousSnapshotIds = new Set(previousSnapshots.map(row => row.id));
+  const existingSnapshots = await loadExistingSnapshots(
+    tx,
+    [...new Set(input.parsed.entities.map(entity => entity.cardId))],
+  );
+
+  const newEntities: ParsedEntity[] = [];
+  const sourceTagUpdates: Array<{ id: string, sourceTags: number[] }> = [];
+  const snapshotIdByKey = new Map<string, string>();
+  const targetSnapshotIds: string[] = [];
+  let insertedSnapshots = 0;
+  let reusedSnapshots = 0;
+
+  for (const entity of input.parsed.entities) {
+    const key = snapshotKey(entity.cardId, entity.snapshotHash);
+    const existingSnapshot = existingSnapshots.get(key);
+
+    if (!existingSnapshot) {
+      insertedSnapshots += 1;
+      newEntities.push(entity);
+      continue;
+    }
+
+    reusedSnapshots += 1;
+    targetSnapshotIds.push(existingSnapshot.id);
+    snapshotIdByKey.set(key, existingSnapshot.id);
+
+    if (!existingSnapshot.sourceTags.includes(input.sourceTag)) {
+      sourceTagUpdates.push({
+        id:         existingSnapshot.id,
+        sourceTags: sortUniqueIntegers([...existingSnapshot.sourceTags, input.sourceTag]),
+      });
+    }
+  }
+
+  const newSnapshotIds = new Map<string, string>();
+
+  if (!input.dryRun && newEntities.length > 0) {
+    const inserted = await tx.insert(RawEntitySnapshot)
+      .values(newEntities.map(entity => ({
+        cardId:           entity.cardId,
+        dbfId:            entity.dbfId,
+        sourceTags:       [input.sourceTag],
+        entityXmlVersion: entity.entityXmlVersion,
+        snapshotHash:     entity.snapshotHash,
+        extraPayload:     entity.extraPayload,
+        isLatest:         false,
+      })))
+      .returning({
+        id:           RawEntitySnapshot.id,
+        cardId:       RawEntitySnapshot.cardId,
+        snapshotHash: RawEntitySnapshot.snapshotHash,
+      });
+
+    for (const row of inserted) {
+      const key = snapshotKey(row.cardId, row.snapshotHash);
+      newSnapshotIds.set(key, row.id);
+      snapshotIdByKey.set(key, row.id);
+    }
+  }
+
+  if (input.dryRun) {
+    for (const entity of newEntities) {
+      const key = snapshotKey(entity.cardId, entity.snapshotHash);
+      const snapshotId = `dry-run:${entity.cardId}:${entity.snapshotHash}`;
+      newSnapshotIds.set(key, snapshotId);
+      snapshotIdByKey.set(key, snapshotId);
+    }
+  }
+
+  for (const entity of newEntities) {
+    const snapshotId = newSnapshotIds.get(snapshotKey(entity.cardId, entity.snapshotHash));
+
+    if (!snapshotId) {
+      throw new Error(`Inserted snapshot id not found for cardId ${entity.cardId}`);
+    }
+
+    targetSnapshotIds.push(snapshotId);
+  }
+
+  const uniqueTargetSnapshotIds = [...new Set(targetSnapshotIds)];
+  let insertedTagRows = 0;
+  const tagEntities = input.force ? input.parsed.entities : newEntities;
+
+  if (!input.dryRun) {
+    for (const update of sourceTagUpdates) {
+      await tx.update(RawEntitySnapshot)
+        .set({ sourceTags: update.sourceTags })
+        .where(eq(RawEntitySnapshot.id, update.id));
+    }
+
+    for (const previousSnapshot of previousSnapshots) {
+      if (uniqueTargetSnapshotIds.includes(previousSnapshot.id)) {
+        continue;
+      }
+
+      const nextSourceTags = previousSnapshot.sourceTags.filter(value => value !== input.sourceTag);
+
+      if (nextSourceTags.length === 0) {
+        await tx.delete(RawEntitySnapshot)
+          .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
+        continue;
+      }
+
+      await tx.update(RawEntitySnapshot)
+        .set({
+          sourceTags: nextSourceTags,
+          isLatest:   false,
+        })
+        .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
+    }
+
+    if (previousSnapshotIds.size > 0) {
+      await tx.update(RawEntitySnapshot)
+        .set({ isLatest: false })
+        .where(inArray(RawEntitySnapshot.id, [...previousSnapshotIds]));
+    }
+
+    if (input.force) {
+      await deleteSnapshotTags(tx, uniqueTargetSnapshotIds);
+    }
+
+    for (const entity of tagEntities) {
+      const snapshotId = snapshotIdByKey.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
+      insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing, dbfIdByCardId);
+    }
+
+    if (uniqueTargetSnapshotIds.length > 0) {
+      await tx.update(RawEntitySnapshot)
+        .set({ isLatest: true })
+        .where(inArray(RawEntitySnapshot.id, uniqueTargetSnapshotIds));
+    }
+  } else {
+    insertedTagRows = tagEntities.reduce((count, entity) => count + entity.tags.length, 0);
+  }
+
+  return {
+    entityCount:           input.parsed.entities.length,
+    insertedSnapshots,
+    reusedSnapshots,
+    insertedTagRows,
+    discoveredTagCount:    discovered.length,
+    updatedDiscoveredTags: updated,
+    fallbackTagRowCount,
+    latestSnapshotCount:   uniqueTargetSnapshotIds.length,
+    discoveredTags:        discovered,
+  };
+}
+
+// Parsed hsdata payload imported through the shared raw archive path.
+export async function importParsedHsdata(input: ImportParsedHsdataInput): Promise<ImportHsdataReport> {
+  const dryRun = input.dryRun ?? false;
+  const force = input.force ?? false;
+  const sourceVersion = await getSourceVersion(input.sourceTag);
+
+  const missingSetDbfIds = await findMissingSetDbfIds(collectSetDbfIds(input.parsed.entities));
+
+  if (missingSetDbfIds.length > 0) {
+    let insertedPlaceholderSetCount = 0;
+
+    if (!dryRun) {
+      insertedPlaceholderSetCount = await insertPlaceholderSets(missingSetDbfIds);
+      await markSourceVersionFailedIfNeeded({
+        sourceTag:    input.sourceTag,
+        build:        input.parsed.build,
+        sourceHash:   input.sourceHash,
+        sourceCommit: input.sourceCommit,
+        sourceUri:    input.sourceUri,
+        importEngineVersion: input.importEngineVersion,
+      }, sourceVersion);
+    }
+
+    const action = dryRun
+      ? 'Dry run detected missing set rows and did not insert placeholders'
+      : `Inserted ${insertedPlaceholderSetCount} placeholder set row(s)`;
+
+    throw new Error(
+      `[hearthstone][hsdata-import] missing set rows for dbfId(s): ${missingSetDbfIds.join(', ')}. ${action}. Complete set modeling before retrying import.`,
+    );
+  }
+
+  if (shouldSkipSourceVersionImport(sourceVersion, input.sourceHash, force)) {
+    return {
+      dryRun,
+      skipped:               true,
+      sourceTag:             input.sourceTag,
+      build:                 input.parsed.build,
+      sourceHash:            input.sourceHash,
+      entityCount:           input.parsed.entities.length,
+      insertedSnapshots:     0,
+      reusedSnapshots:       0,
+      insertedTagRows:       0,
+      discoveredTagCount:    0,
+      updatedDiscoveredTags: 0,
+      fallbackTagRowCount:   0,
+      latestSnapshotCount:   0,
+      discoveredTags:        [],
+    };
+  }
+
+  assertSourceVersionImportable(sourceVersion, input.sourceTag, input.sourceHash, force);
+
+  if (!dryRun) {
+    await upsertSourceVersionProcessing(
+      {
+        sourceTag:    input.sourceTag,
+        build:        input.parsed.build,
+        sourceHash:   input.sourceHash,
+        sourceCommit: input.sourceCommit,
+        sourceUri:    input.sourceUri,
+        importEngineVersion: input.importEngineVersion,
+      },
+    );
+  }
+
+  try {
+    return await db.transaction(async tx => {
+      const applied = await applyHsdataImport(tx, {
+        parsed:     input.parsed,
+        sourceTag:  input.sourceTag,
+        dryRun,
+        force,
+      });
+
+      return {
+        dryRun,
+        skipped:    false,
+        sourceTag:  input.sourceTag,
+        build:      input.parsed.build,
+        sourceHash: input.sourceHash,
+        ...applied,
+      } satisfies ImportHsdataReport;
+    }).then(async report => {
+      if (!dryRun) {
+        await markSourceVersionCompleted(input.sourceTag, new Date());
+      }
+
+      return report;
+    });
+  } catch (error) {
+    if (!dryRun) {
+      await markSourceVersionFailedIfNeeded({
+        sourceTag:    input.sourceTag,
+        build:        input.parsed.build,
+        sourceHash:   input.sourceHash,
+        sourceCommit: input.sourceCommit,
+        sourceUri:    input.sourceUri,
+        importEngineVersion: input.importEngineVersion,
+      }, sourceVersion);
+    }
+
+    console.error('[hearthstone][hsdata-import] failed', {
+      sourceTag: input.sourceTag,
+      build:     input.parsed.build,
+      error,
+    });
+
+    throw error;
+  }
+}
+
+// Legacy whole-archive API kept on top of the shared import path.
 export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsdataReport> {
   const dryRun = input.dryRun ?? false;
-  const normalizedXml = normalizeXmlSource(input.xml);
-  const sourceHash = sha256(normalizedXml);
+  const normalizedXml = normalizeHsdataSourceXml(input.xml);
+  const sourceHash = computeHsdataSourceHash(input.xml);
   const sourceVersion = await getSourceVersion(input.sourceTag);
   let parsed: ParsedHsdata;
 
@@ -989,265 +1372,21 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
         sourceHash,
         sourceCommit: input.sourceCommit,
         sourceUri:    input.sourceUri,
+        importEngineVersion: input.importEngineVersion,
       }, sourceVersion);
     }
 
     throw error;
   }
 
-  const missingSetDbfIds = await findMissingSetDbfIds(collectSetDbfIds(parsed.entities));
-
-  if (missingSetDbfIds.length > 0) {
-    let insertedPlaceholderSetCount = 0;
-
-    if (!dryRun) {
-      insertedPlaceholderSetCount = await insertPlaceholderSets(missingSetDbfIds);
-      await markSourceVersionFailedIfNeeded({
-        sourceTag:    input.sourceTag,
-        build:        parsed.build,
-        sourceHash,
-        sourceCommit: input.sourceCommit,
-        sourceUri:    input.sourceUri,
-      }, sourceVersion);
-    }
-
-    const action = dryRun
-      ? 'Dry run detected missing set rows and did not insert placeholders'
-      : `Inserted ${insertedPlaceholderSetCount} placeholder set row(s)`;
-
-    throw new Error(
-      `[hearthstone][hsdata-import] missing set rows for dbfId(s): ${missingSetDbfIds.join(', ')}. ${action}. Complete set modeling before retrying import.`,
-    );
-  }
-
-  if (shouldSkipSourceVersionImport(sourceVersion, sourceHash, input.force ?? false)) {
-    return {
-      dryRun,
-      skipped:               true,
-      sourceTag:             input.sourceTag,
-      build:                 parsed.build,
-      sourceHash,
-      entityCount:           parsed.entities.length,
-      insertedSnapshots:     0,
-      reusedSnapshots:       0,
-      insertedTagRows:       0,
-      discoveredTagCount:    0,
-      updatedDiscoveredTags: 0,
-      fallbackTagRowCount:   0,
-      latestSnapshotCount:   0,
-      discoveredTags:        [],
-    };
-  }
-
-  assertSourceVersionImportable(sourceVersion, input.sourceTag, sourceHash, input.force ?? false);
-
-  if (!dryRun) {
-    await upsertSourceVersionProcessing(
-      {
-        sourceTag:    input.sourceTag,
-        build:        parsed.build,
-        sourceHash,
-        sourceCommit: input.sourceCommit,
-        sourceUri:    input.sourceUri,
-      },
-    );
-  }
-
-  try {
-    return await db.transaction(async tx => {
-      const allTags = parsed.entities.flatMap(entity => entity.tags);
-      const dbfIdByCardId = new Map(parsed.entities.map(entity => [entity.cardId, entity.dbfId]));
-      const { existing, discovered, updated } = await upsertDiscoveredTags(
-        tx,
-        input.sourceTag,
-        allTags,
-        dryRun,
-      );
-
-      const fallbackTagRowCount = parsed.entities.reduce((count, entity) => {
-        return count + entity.tags.filter(tag => {
-          const resolved = resolveTagValue(tag, existing.get(tag.enumId));
-          return resolved.parseStatus === 'fallback';
-        }).length;
-      }, 0);
-
-      const previousSnapshots = await loadSnapshotsForSourceTag(tx, input.sourceTag);
-      const previousSnapshotIds = new Set(previousSnapshots.map(row => row.id));
-      const existingSnapshots = await loadExistingSnapshots(
-        tx,
-        [...new Set(parsed.entities.map(entity => entity.cardId))],
-      );
-
-      const newEntities: ParsedEntity[] = [];
-      const sourceTagUpdates: Array<{ id: string, sourceTags: number[] }> = [];
-      const snapshotIdByKey = new Map<string, string>();
-      const targetSnapshotIds: string[] = [];
-      let insertedSnapshots = 0;
-      let reusedSnapshots = 0;
-
-      for (const entity of parsed.entities) {
-        const key = snapshotKey(entity.cardId, entity.snapshotHash);
-        const existingSnapshot = existingSnapshots.get(key);
-
-        if (!existingSnapshot) {
-          insertedSnapshots += 1;
-          newEntities.push(entity);
-          continue;
-        }
-
-        reusedSnapshots += 1;
-        targetSnapshotIds.push(existingSnapshot.id);
-        snapshotIdByKey.set(key, existingSnapshot.id);
-
-        if (!existingSnapshot.sourceTags.includes(input.sourceTag)) {
-          sourceTagUpdates.push({
-            id:         existingSnapshot.id,
-            sourceTags: sortUniqueIntegers([...existingSnapshot.sourceTags, input.sourceTag]),
-          });
-        }
-      }
-
-      const newSnapshotIds = new Map<string, string>();
-
-      if (!dryRun && newEntities.length > 0) {
-        const inserted = await tx.insert(RawEntitySnapshot)
-          .values(newEntities.map(entity => ({
-            cardId:           entity.cardId,
-            dbfId:            entity.dbfId,
-            sourceTags:       [input.sourceTag],
-            entityXmlVersion: entity.entityXmlVersion,
-            snapshotHash:     entity.snapshotHash,
-            extraPayload:     entity.extraPayload,
-            isLatest:         false,
-          })))
-          .returning({
-            id:           RawEntitySnapshot.id,
-            cardId:       RawEntitySnapshot.cardId,
-            snapshotHash: RawEntitySnapshot.snapshotHash,
-          });
-
-        for (const row of inserted) {
-          const key = snapshotKey(row.cardId, row.snapshotHash);
-          newSnapshotIds.set(key, row.id);
-          snapshotIdByKey.set(key, row.id);
-        }
-      }
-
-      if (dryRun) {
-        for (const entity of newEntities) {
-          const key = snapshotKey(entity.cardId, entity.snapshotHash);
-          const snapshotId = `dry-run:${entity.cardId}:${entity.snapshotHash}`;
-          newSnapshotIds.set(key, snapshotId);
-          snapshotIdByKey.set(key, snapshotId);
-        }
-      }
-
-      for (const entity of newEntities) {
-        const snapshotId = newSnapshotIds.get(snapshotKey(entity.cardId, entity.snapshotHash));
-
-        if (!snapshotId) {
-          throw new Error(`Inserted snapshot id not found for cardId ${entity.cardId}`);
-        }
-
-        targetSnapshotIds.push(snapshotId);
-      }
-
-      const uniqueTargetSnapshotIds = [...new Set(targetSnapshotIds)];
-      let insertedTagRows = 0;
-      const tagEntities = input.force === true ? parsed.entities : newEntities;
-
-      if (!dryRun) {
-        for (const update of sourceTagUpdates) {
-          await tx.update(RawEntitySnapshot)
-            .set({ sourceTags: update.sourceTags })
-            .where(eq(RawEntitySnapshot.id, update.id));
-        }
-
-        for (const previousSnapshot of previousSnapshots) {
-          if (uniqueTargetSnapshotIds.includes(previousSnapshot.id)) {
-            continue;
-          }
-
-          const nextSourceTags = previousSnapshot.sourceTags.filter(value => value !== input.sourceTag);
-
-          if (nextSourceTags.length === 0) {
-            await tx.delete(RawEntitySnapshot)
-              .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
-            continue;
-          }
-
-          await tx.update(RawEntitySnapshot)
-            .set({
-              sourceTags: nextSourceTags,
-              isLatest:   false,
-            })
-            .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
-        }
-
-        if (previousSnapshotIds.size > 0) {
-          await tx.update(RawEntitySnapshot)
-            .set({ isLatest: false })
-            .where(inArray(RawEntitySnapshot.id, [...previousSnapshotIds]));
-        }
-
-        if (input.force === true) {
-          await deleteSnapshotTags(tx, uniqueTargetSnapshotIds);
-        }
-
-        for (const entity of tagEntities) {
-          const snapshotId = snapshotIdByKey.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
-          insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing, dbfIdByCardId);
-        }
-
-        if (uniqueTargetSnapshotIds.length > 0) {
-          await tx.update(RawEntitySnapshot)
-            .set({ isLatest: true })
-            .where(inArray(RawEntitySnapshot.id, uniqueTargetSnapshotIds));
-        }
-      } else {
-        insertedTagRows = tagEntities.reduce((count, entity) => count + entity.tags.length, 0);
-      }
-
-      return {
-        dryRun,
-        skipped:               false,
-        sourceTag:             input.sourceTag,
-        build:                 parsed.build,
-        sourceHash,
-        entityCount:           parsed.entities.length,
-        insertedSnapshots,
-        reusedSnapshots,
-        insertedTagRows,
-        discoveredTagCount:    discovered.length,
-        updatedDiscoveredTags: updated,
-        fallbackTagRowCount,
-        latestSnapshotCount:   uniqueTargetSnapshotIds.length,
-        discoveredTags:        discovered,
-      } satisfies ImportHsdataReport;
-    }).then(async report => {
-      if (!dryRun) {
-        await markSourceVersionCompleted(input.sourceTag, new Date());
-      }
-
-      return report;
-    });
-  } catch (error) {
-    if (!dryRun) {
-      await markSourceVersionFailedIfNeeded({
-        sourceTag:    input.sourceTag,
-        build:        parsed.build,
-        sourceHash,
-        sourceCommit: input.sourceCommit,
-        sourceUri:    input.sourceUri,
-      }, sourceVersion);
-    }
-
-    console.error('[hearthstone][hsdata-import] failed', {
-      sourceTag: input.sourceTag,
-      build:     parsed.build,
-      error,
-    });
-
-    throw error;
-  }
+  return await importParsedHsdata({
+    parsed,
+    sourceTag: input.sourceTag,
+    sourceHash,
+    sourceCommit: input.sourceCommit,
+    sourceUri: input.sourceUri,
+    importEngineVersion: input.importEngineVersion,
+    dryRun,
+    force: input.force,
+  });
 }

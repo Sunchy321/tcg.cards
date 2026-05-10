@@ -66,7 +66,7 @@
               <div>
                 <div class="font-medium">数据导入</div>
                 <p class="mt-1 text-xs text-muted">
-                  选择一个可用版本后执行导入。
+                  选择一个可用版本后执行导入，完成后可继续执行投影。
                 </p>
               </div>
               <UBadge :label="importForm.dryRun ? 'Dry run' : 'Write mode'" :color="importForm.dryRun ? 'neutral' : 'warning'" variant="soft" />
@@ -96,7 +96,6 @@
             <div v-if="selectedFile" class="rounded-lg border border-default p-3">
               <div class="text-xs text-muted">来源信息</div>
               <div class="mt-1 flex flex-wrap gap-3 text-sm">
-                <span>{{ selectedFile.kind }}</span>
                 <span>{{ selectedFile.shortCommit }}</span>
                 <span>{{ formatHsdataBytes(selectedFile.size) }}</span>
                 <span v-if="selectedFile.time">{{ formatHsdataDate(selectedFile.time) }}</span>
@@ -122,6 +121,46 @@
             </div>
 
             <UAlert v-if="importError" color="error" variant="soft" icon="i-lucide-circle-alert" :description="importError" />
+
+            <div v-if="importProgress" class="space-y-3 rounded-lg border border-default p-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div class="text-sm font-medium">导入任务进度</div>
+                  <div class="mt-1 text-xs text-muted">{{ importProgress.message }}</div>
+                  <div class="mt-1 text-xs text-muted">{{ importProgressStageText }}</div>
+                </div>
+                <UBadge :label="importProgressPhaseLabel" :color="importProgress.phase === 'failed' ? 'error' : importProgress.phase === 'completed' ? 'success' : 'primary'" variant="soft" />
+              </div>
+
+              <div v-if="importProgress.totalChunkCount != null" class="space-y-2">
+                <div class="flex items-center justify-between gap-3 text-xs text-muted">
+                  <span>{{ importProgressChunkText }}</span>
+                  <span>{{ importProgressPercent }}%</span>
+                </div>
+                <div class="h-2 overflow-hidden rounded-full bg-muted">
+                  <div class="h-full rounded-full bg-primary transition-all duration-300" :style="{ width: `${importProgressPercent}%` }" />
+                </div>
+              </div>
+
+              <div class="grid gap-3 md:grid-cols-4">
+                <div class="rounded-lg border border-default p-3">
+                  <div class="text-xs text-muted">总体进度</div>
+                  <div class="mt-1 break-all font-mono text-sm">{{ importProgressChunkText }}</div>
+                </div>
+                <div class="rounded-lg border border-default p-3">
+                  <div class="text-xs text-muted">jobId</div>
+                  <div class="mt-1 break-all font-mono text-sm">{{ importProgress.jobId ?? '-' }}</div>
+                </div>
+                <div class="rounded-lg border border-default p-3">
+                  <div class="text-xs text-muted">sourceTag</div>
+                  <div class="mt-1 break-all font-mono text-sm">{{ importProgress.sourceTag ?? '-' }}</div>
+                </div>
+                <div class="rounded-lg border border-default p-3">
+                  <div class="text-xs text-muted">entities</div>
+                  <div class="mt-1 break-all font-mono text-sm">{{ importProgress.totalEntityCount ?? '-' }}</div>
+                </div>
+              </div>
+            </div>
 
             <div class="flex flex-wrap justify-end gap-2">
               <UButton label="清空选择" icon="i-lucide-rotate-ccw" color="neutral" variant="ghost" @click="resetImportForm" />
@@ -211,7 +250,6 @@
             <button type="button" class="min-w-0 flex-1 text-left" @click="selectSource(file)">
               <div class="truncate font-mono text-xs">{{ file.name }}</div>
               <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted">
-                <span>{{ file.kind }}</span>
                 <span v-if="file.sourceTag != null">{{ file.sourceTag }}</span>
                 <span>{{ file.shortCommit }}</span>
                 <span>{{ formatHsdataBytes(file.size) }}</span>
@@ -288,12 +326,14 @@ import {
   formatHsdataDate,
   getHsdataErrorMessage,
   getHsdataRepoState,
+  importHsdataSource,
+  listenHsdataImportProgress,
   listHsdataSources,
-  readHsdataSource,
   syncHsdataRemoteVersions,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataFile,
+  HsdataImportProgressEvent,
   HsdataImportReport,
   HsdataProjectReport,
   HsdataRepoState,
@@ -316,12 +356,15 @@ const loadingFiles = ref(false);
 const filesError = ref('');
 const importError = ref('');
 const importing = ref(false);
+const activeImportSourceId = ref<string | null>(null);
+const importProgress = ref<HsdataImportProgressEvent | null>(null);
 const importResult = ref<HsdataImportReport | null>(null);
 const projectError = ref('');
 const projecting = ref(false);
 const projectResult = ref<HsdataProjectReport | null>(null);
 const syncing = ref(false);
 const toast = useToast();
+let stopHsdataImportProgressListener: (() => void) | null = null;
 
 const importForm = reactive({
   id:           '',
@@ -358,6 +401,60 @@ const selectedUri = computed(() => importForm.sourceUri.length > 0 ? importForm.
 
 const canImport = computed(() => Boolean(state.value?.repoPath) && importForm.id.trim().length > 0 && !importing.value);
 const canProject = computed(() => projectForm.sourceTag != null && !projecting.value);
+const importProgressPhaseLabel = computed(() => {
+  switch (importProgress.value?.phase) {
+  case 'preparing': return '本地准备';
+  case 'prepared': return '准备完成';
+  case 'creating_job': return '创建任务';
+  case 'uploading': return '上传中';
+  case 'ready_to_finalize': return '等待完成';
+  case 'finalizing': return '收尾中';
+  case 'completed': return '已完成';
+  case 'failed': return '失败';
+  default: return '进行中';
+  }
+});
+const importProgressStageText = computed(() => {
+  switch (importProgress.value?.phase) {
+  case 'preparing':
+    return '正在读取所选版本并准备开始导入。';
+  case 'prepared':
+    return '导入准备已完成，即将开始处理。';
+  case 'creating_job':
+    return '正在初始化导入任务。';
+  case 'uploading':
+    return '正在处理并传输导入数据。';
+  case 'ready_to_finalize':
+    return '导入数据已准备完成，正在进入最后阶段。';
+  case 'finalizing':
+    return '正在写入最终导入结果。';
+  case 'completed':
+    return '导入任务已经完成，可以继续执行后续投影。';
+  case 'failed':
+    return '导入任务已停止，请根据上方错误信息排查。';
+  default:
+    return '正在等待下一条任务进度更新。';
+  }
+});
+const importProgressPercent = computed(() => {
+  const progress = importProgress.value;
+
+  if (!progress || progress.totalChunkCount == null || progress.totalChunkCount <= 0) {
+    return progress?.phase === 'completed' ? 100 : 0;
+  }
+
+  const completed = progress.completedChunkCount ?? 0;
+  return Math.max(0, Math.min(100, Math.round((completed / progress.totalChunkCount) * 100)));
+});
+const importProgressChunkText = computed(() => {
+  const progress = importProgress.value;
+
+  if (!progress || progress.totalChunkCount == null) {
+    return '-';
+  }
+
+  return `${progress.completedChunkCount ?? 0} / ${progress.totalChunkCount}`;
+});
 
 const projectSourceTagInput = computed({
   get() {
@@ -465,7 +562,9 @@ function restoreSelection(selectedId: string | null) {
 }
 
 function resetImportForm() {
+  activeImportSourceId.value = null;
   importError.value = '';
+  importProgress.value = null;
   importResult.value = null;
   importForm.id = '';
   importForm.name = '';
@@ -516,7 +615,7 @@ async function loadFiles() {
   try {
     files.value = await listHsdataSources();
   } catch (error) {
-    console.error('Failed to load hsdata files:', error);
+    console.error('Failed to load hsdata sources:', error);
     filesError.value = getHsdataErrorMessage(error);
     files.value = [];
   } finally {
@@ -563,30 +662,23 @@ async function submitImport() {
   }
 
   importing.value = true;
+  activeImportSourceId.value = importForm.id;
   importError.value = '';
+  importProgress.value = null;
   importResult.value = null;
 
   try {
-    const source = await readHsdataSource(importForm.id);
+    const result = await importHsdataSource(
+      importForm.id,
+      importForm.dryRun,
+      importForm.force,
+    );
 
-    importForm.name = source.name;
-    importForm.sourceTag = source.sourceTag;
-    importForm.sourceCommit = source.sourceCommit;
-    importForm.sourceUri = source.sourceUri;
-
-    const result = await orpc.hearthstone.dataSource.hsdata.importArchive({
-      xml:          source.xml,
-      sourceTag:    source.sourceTag,
-      sourceCommit: source.sourceCommit,
-      sourceUri:    source.sourceUri,
-      dryRun:       importForm.dryRun,
-      force:        importForm.force,
-    });
-
+    importForm.sourceTag = result.sourceTag;
     importResult.value = result;
     projectForm.sourceTag = result.sourceTag;
   } catch (error) {
-    console.error('Failed to import hsdata archive:', error);
+    console.error('Failed to import hsdata source:', error);
     importError.value = getHsdataErrorMessage(error);
   } finally {
     importing.value = false;
@@ -621,6 +713,23 @@ watch(() => route.query.source, () => {
 });
 
 onMounted(async () => {
+  stopHsdataImportProgressListener = await listenHsdataImportProgress(progress => {
+    if (
+      progress.sourceId !== activeImportSourceId.value
+      && progress.sourceId !== importForm.id
+      && progress.sourceId !== importProgress.value?.sourceId
+    ) {
+      return;
+    }
+
+    importProgress.value = progress;
+  });
+
   await reloadAll();
+});
+
+onBeforeUnmount(() => {
+  stopHsdataImportProgressListener?.();
+  stopHsdataImportProgressListener = null;
 });
 </script>

@@ -6,15 +6,14 @@ import { db } from '@tcg-cards/db/db';
 import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
-  Entity,
-  EntityLocalization,
-  EntityRelation,
   RawEntitySnapshot,
   RawEntitySnapshotTag,
-  Set as HearthstoneSet,
   SourceVersion,
-  Tag,
-} from '@tcg-cards/db/schema/hearthstone';
+} from '@tcg-cards/db/schema/hearthstone/data/card-model';
+import { Entity, EntityLocalization } from '@tcg-cards/db/schema/hearthstone/entity';
+import { EntityRelation } from '@tcg-cards/db/schema/hearthstone/entity-relation';
+import { Set as HearthstoneSet } from '@tcg-cards/db/schema/hearthstone/set';
+import { Tag } from '@tcg-cards/db/schema/hearthstone/tag';
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type JsonMap = Record<string, unknown>;

@@ -5,9 +5,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./db": "./src/db.ts",
+    "./schema/*": "./src/schema/*.ts",
     "./schema/auth": "./src/schema/auth.ts",
     "./schema/hearthstone": "./src/schema/hearthstone/index.ts",
-    "./schema/magic": "./src/schema/magic/index.ts"
+    "./schema/hearthstone/*": "./src/schema/hearthstone/*.ts",
+    "./schema/magic": "./src/schema/magic/index.ts",
+    "./schema/magic/*": "./src/schema/magic/*.ts"
   },
   "scripts": {
     "build": "echo No build needed",

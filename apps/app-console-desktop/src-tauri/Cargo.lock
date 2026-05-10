@@ -4152,10 +4152,13 @@ dependencies = [
 name = "tcg-cards-console-desktop"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "keyring",
+ "quick-xml",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",

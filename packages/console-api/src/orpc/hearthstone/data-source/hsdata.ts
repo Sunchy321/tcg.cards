@@ -1,9 +1,17 @@
 import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
 
+import { getHsdataImportJobErrorCode } from '../../../lib/hearthstone/hsdata-import-job-error';
 import { importHsdata } from '../../../lib/hearthstone/hsdata-import';
+import {
+  createHsdataImportJob,
+  finalizeHsdataImportJob,
+  getHsdataImportJobState,
+} from '../../../lib/hearthstone/hsdata-import-job';
 import { getHsdataOverview } from '../../../lib/hearthstone/hsdata-overview';
 import { projectHsdata } from '../../../lib/hearthstone/hsdata-project';
+
+const hsdataHash = z.string().trim().min(1);
 
 const hsdataImportInput = z.object({
   xml:          z.string().min(1),
@@ -29,6 +37,76 @@ const hsdataImportReport = z.object({
   fallbackTagRowCount:   z.number().int().nonnegative(),
   latestSnapshotCount:   z.number().int().nonnegative(),
   discoveredTags:        z.array(z.number().int().nonnegative()),
+});
+
+const hsdataImportChunkManifestItem = z.object({
+  chunkIndex:  z.number().int().nonnegative(),
+  payloadHash: hsdataHash,
+  entityCount: z.number().int().positive(),
+});
+
+const hsdataImportJobInput = z.object({
+  jobId: z.string().uuid(),
+});
+
+const hsdataCreateImportJobInput = z.object({
+  sourceTag:           z.number().int().positive(),
+  sourceCommit:        z.string().trim().min(1).optional().nullable(),
+  sourceUri:           z.string().trim().min(1).optional().nullable(),
+  build:               z.number().int().nonnegative(),
+  sourceHash:          hsdataHash,
+  chunkingVersion:     z.string().trim().min(1),
+  payloadFormatVersion: z.string().trim().min(1),
+  payloadEncoding:      z.string().trim().min(1),
+  importEngineVersion:  z.string().trim().min(1),
+  maxBytesPerChunk:    z.number().int().positive(),
+  maxEntitiesPerChunk: z.number().int().positive(),
+  dryRun:              z.boolean().optional(),
+  force:               z.boolean().optional(),
+  totalChunkCount:     z.number().int().positive(),
+  totalEntityCount:    z.number().int().positive(),
+  chunks:              z.array(hsdataImportChunkManifestItem).min(1),
+});
+
+const hsdataCreateImportJobResult = z.object({
+  jobId:        z.string().uuid(),
+  manifestHash: hsdataHash,
+});
+
+const hsdataImportJobStatus = z.enum([
+  'uploading',
+  'ready_to_finalize',
+  'finalizing',
+  'completed',
+  'failed',
+]);
+
+const hsdataImportCleanupStatus = z.enum([
+  'not_started',
+  'pending',
+  'succeeded',
+  'failed',
+]);
+
+const hsdataImportJobState = z.object({
+  jobId:                z.string().uuid(),
+  sourceTag:            z.number().int().positive(),
+  build:                z.number().int().nonnegative(),
+  sourceHash:           hsdataHash,
+  dryRun:               z.boolean(),
+  force:                z.boolean(),
+  status:               hsdataImportJobStatus,
+  stagingCleanupStatus: hsdataImportCleanupStatus,
+  totalChunkCount:      z.number().int().positive(),
+  totalEntityCount:     z.number().int().positive(),
+  completedChunkCount:  z.number().int().nonnegative(),
+  failedChunkCount:     z.number().int().nonnegative(),
+  processingChunkCount: z.number().int().nonnegative(),
+  report:               hsdataImportReport.nullable(),
+  error:                z.string().nullable(),
+  stagingCleanupError:  z.string().nullable(),
+  cleanedAt:            z.string().nullable(),
+  finalizedAt:          z.string().nullable(),
 });
 
 const hsdataProjectInput = z.object({
@@ -140,6 +218,89 @@ const importArchive = os
     }
   });
 
+const createImportJob = os
+  .route({
+    method:      'POST',
+    description: 'Create one staged hsdata import job from a client chunk manifest',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(hsdataCreateImportJobInput)
+  .output(hsdataCreateImportJobResult)
+  .handler(async ({ input }) => {
+    try {
+      return await createHsdataImportJob({
+        sourceTag:           input.sourceTag,
+        sourceCommit:        input.sourceCommit,
+        sourceUri:           input.sourceUri,
+        build:               input.build,
+        sourceHash:          input.sourceHash,
+        chunkingVersion:     input.chunkingVersion,
+        payloadFormatVersion: input.payloadFormatVersion,
+        payloadEncoding:      input.payloadEncoding,
+        importEngineVersion:  input.importEngineVersion,
+        maxBytesPerChunk:    input.maxBytesPerChunk,
+        maxEntitiesPerChunk: input.maxEntitiesPerChunk,
+        dryRun:              input.dryRun,
+        force:               input.force,
+        totalChunkCount:     input.totalChunkCount,
+        totalEntityCount:    input.totalEntityCount,
+        chunks:              input.chunks,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new ORPCError(getHsdataImportJobErrorCode(error.message), {
+          message: error.message,
+        });
+      }
+
+      throw error;
+    }
+  });
+
+const finalizeImportJob = os
+  .route({
+    method:      'POST',
+    description: 'Finalize one staged hsdata import job into raw archive tables',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(hsdataImportJobInput)
+  .output(hsdataImportReport)
+  .handler(async ({ input }) => {
+    try {
+      return await finalizeHsdataImportJob(input.jobId);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new ORPCError(getHsdataImportJobErrorCode(error.message), {
+          message: error.message,
+        });
+      }
+
+      throw error;
+    }
+  });
+
+const getImportJob = os
+  .route({
+    method:      'GET',
+    description: 'Get one staged hsdata import job state and progress',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(hsdataImportJobInput)
+  .output(hsdataImportJobState)
+  .handler(async ({ input }) => {
+    try {
+      return await getHsdataImportJobState(input.jobId);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new ORPCError(getHsdataImportJobErrorCode(error.message), {
+          message: error.message,
+        });
+      }
+
+      throw error;
+    }
+  });
+
 const projectSourceVersion = os
   .route({
     method:      'POST',
@@ -178,5 +339,8 @@ export const hsdataLight = {
 export const hsdataFull = {
   getOverview,
   importArchive,
+  createImportJob,
+  finalizeImportJob,
+  getImportJob,
   projectSourceVersion,
 };

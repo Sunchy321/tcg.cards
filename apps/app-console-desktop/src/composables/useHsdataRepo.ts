@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { getDesktopGameRepo, setDesktopGameRepo } from './useDesktopSettings';
@@ -12,8 +13,10 @@ export interface HsdataSyncResult {
   remote:   string;
 }
 
-export type HsdataSourceKind = 'tag' | 'worktree';
+/** Supported hsdata source kinds returned by the desktop source list. */
+export type HsdataSourceKind = 'tag';
 
+/** One hsdata source entry listed from the local git repository. */
 export interface HsdataFile {
   id:           string;
   name:         string;
@@ -46,6 +49,30 @@ export interface HsdataImportReport {
   fallbackTagRowCount:   number;
   latestSnapshotCount:   number;
   discoveredTags:        number[];
+}
+
+/** Desktop hsdata import phases emitted by the staged upload workflow. */
+export type HsdataImportPhase =
+  | 'preparing'
+  | 'prepared'
+  | 'creating_job'
+  | 'uploading'
+  | 'ready_to_finalize'
+  | 'finalizing'
+  | 'completed'
+  | 'failed';
+
+/** Desktop hsdata import progress event payload. */
+export interface HsdataImportProgressEvent {
+  sourceId:            string;
+  sourceTag:           number | null;
+  jobId:               string | null;
+  phase:               HsdataImportPhase | string;
+  message:             string;
+  totalChunkCount:     number | null;
+  completedChunkCount: number | null;
+  totalEntityCount:    number | null;
+  currentChunkIndex:   number | null;
 }
 
 export interface HsdataProjectReport {
@@ -93,6 +120,23 @@ export function listHsdataSources() {
 
 export function readHsdataSource(id: string) {
   return invoke<HsdataResolvedSource>('hsdata_read_source', { id });
+}
+
+export function importHsdataSource(id: string, dryRun: boolean, force: boolean) {
+  return invoke<HsdataImportReport>('hsdata_import_source', {
+    id,
+    dryRun,
+    force,
+  });
+}
+
+// hsdata import progress listener for the desktop window.
+export function listenHsdataImportProgress(
+  handler: (event: HsdataImportProgressEvent) => void,
+) {
+  return listen<HsdataImportProgressEvent>('hsdata-import-progress', event => {
+    handler(event.payload);
+  });
 }
 
 export function formatHsdataDate(dateStr: string | undefined) {

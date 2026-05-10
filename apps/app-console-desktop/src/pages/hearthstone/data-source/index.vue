@@ -94,7 +94,7 @@
           <div>
             <div class="font-medium">可用来源列表</div>
             <p class="mt-1 text-xs text-muted">
-              展示当前可用的数据版本。
+              展示当前可同步并可导入的数据版本。
             </p>
           </div>
           <UButton
@@ -135,7 +135,6 @@
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-mono text-sm">{{ file.name }}</span>
-                <UBadge :label="file.kind" size="xs" color="neutral" variant="soft" />
                 <UBadge
                   v-if="file.sourceTag != null"
                   :label="String(file.sourceTag)"

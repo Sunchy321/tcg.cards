@@ -20,15 +20,18 @@ type LocalizedText = Record<string, string>;
 type JsonValue = unknown;
 
 export const SourceVersion = dataSchema.table('source_versions', {
-  sourceTag:    integer('source_tag').primaryKey(),
-  sourceCommit: text('source_commit').notNull().default(''),
-  build:        integer('build'),
-  sourceHash:   text('source_hash').notNull().default(''),
-  sourceUri:    text('source_uri').notNull().default(''),
-  status:       text('status').notNull().default('pending'),
-  importedAt:   timestamp('imported_at'),
-  createdAt:    timestamp('created_at').defaultNow().notNull(),
-  updatedAt:    timestamp('updated_at')
+  sourceTag:           integer('source_tag').primaryKey(),
+  sourceCommit:        text('source_commit').notNull().default(''),
+  build:               integer('build'),
+  sourceHash:          text('source_hash').notNull().default(''),
+  sourceUri:           text('source_uri').notNull().default(''),
+  // Historical rows may not have parser metadata. New imports must always
+  // write this field so future engine changes can target full re-imports.
+  importEngineVersion: text('import_engine_version'),
+  status:              text('status').notNull().default('pending'),
+  importedAt:          timestamp('imported_at'),
+  createdAt:           timestamp('created_at').defaultNow().notNull(),
+  updatedAt:           timestamp('updated_at')
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),

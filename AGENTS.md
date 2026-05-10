@@ -6,6 +6,18 @@ This file must always be written in English.
 
 All code comments must be written in English. When editing files, translate any non-English comments to English.
 
+When code is not obvious at a glance, add comments that explain the local reasoning, invariants, edge cases, or cross-step dependencies that a reader would otherwise have to recover from design documents, specs, or historical context.
+
+Do not rely on proposals, specs, reviews, plans, PR descriptions, or commit history as the only place where non-obvious implementation intent is explained. The relevant code should remain understandable in place.
+
+Keep these comments focused and high-signal. Explain why the code is shaped this way or what must remain true, not line-by-line mechanics that are already obvious from the code itself.
+
+All function and type declarations must include a short English comment that describes their purpose. This applies to exported and local declarations alike.
+
+For function and type comments, describe the behavior or role directly. Do not use meta phrasing such as "This helper...", "This function...", "This interface...", or "This type...".
+
+Do not write comments in forms such as "This is used for..." or "Used to...". State the behavior directly instead.
+
 ## Frontend Code
 
 Prefer the nullish coalescing operator (`??`) over the logical OR operator (`||`) for default values in frontend code.

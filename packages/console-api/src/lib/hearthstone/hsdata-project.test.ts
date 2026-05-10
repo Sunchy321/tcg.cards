@@ -569,22 +569,29 @@ class MemoryProjectDb {
 const memoryDb = new MemoryProjectDb();
 
 mock.module('@tcg-cards/db/db', () => ({ db: memoryDb }));
-mock.module('@tcg-cards/model/src/hearthstone/schema/basic', async () => {
-  return await import('@tcg-cards/model/src/hearthstone/schema/basic');
-});
-mock.module('@tcg-cards/model/src/hearthstone/schema/entity', async () => {
-  return await import('@tcg-cards/model/src/hearthstone/schema/entity');
-});
-mock.module('@tcg-cards/db/schema/hearthstone', () => ({
-  Entity,
-  EntityLocalization,
-  EntityRelation,
+const hsdataProjectCardModelSchemaMock = {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
-  Set: HearthstoneSet,
   SourceVersion,
+};
+const hsdataProjectEntitySchemaMock = {
+  Entity,
+  EntityLocalization,
+};
+const hsdataProjectEntityRelationSchemaMock = {
+  EntityRelation,
+};
+const hsdataProjectSetSchemaMock = {
+  Set: HearthstoneSet,
+};
+const hsdataProjectTagSchemaMock = {
   Tag,
-}));
+};
+mock.module('@tcg-cards/db/schema/hearthstone/data/card-model', () => hsdataProjectCardModelSchemaMock);
+mock.module('@tcg-cards/db/schema/hearthstone/entity', () => hsdataProjectEntitySchemaMock);
+mock.module('@tcg-cards/db/schema/hearthstone/entity-relation', () => hsdataProjectEntityRelationSchemaMock);
+mock.module('@tcg-cards/db/schema/hearthstone/set', () => hsdataProjectSetSchemaMock);
+mock.module('@tcg-cards/db/schema/hearthstone/tag', () => hsdataProjectTagSchemaMock);
 
 const { projectHsdata } = await import('./hsdata-project');
 
