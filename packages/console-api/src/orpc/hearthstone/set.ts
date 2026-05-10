@@ -3,6 +3,15 @@ import { asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import {
+  AnnouncementItem,
+  CardChange,
+  Entity,
+  FormatChange,
+  Set as HearthstoneSet,
+  SetChange,
+  SetLocalization as HearthstoneSetLocalization,
+} from '@tcg-cards/db/schema/hearthstone';
+import {
   setGetInput,
   setListInput,
   setListResult,
@@ -13,20 +22,31 @@ import {
   type SetProfile,
   type SetUpdateInput,
 } from '@tcg-cards/model/src/hearthstone/schema/set';
-import { Set as HearthstoneSet, SetLocalization as HearthstoneSetLocalization } from '@tcg-cards/db/schema/hearthstone';
 
+/** Transaction type used by the set management helpers. */
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+/** Database row shape for one Hearthstone set. */
 type SetRow = typeof HearthstoneSet.$inferSelect;
+/** Database row shape for one Hearthstone set localization. */
 type SetLocalizationRow = typeof HearthstoneSetLocalization.$inferSelect;
 
+/** Nullable text fields normalized for storage. */
 function normalizeText(value: string | null) {
   const text = value?.trim();
   return text && text.length > 0 ? text : null;
 }
 
+/** Required text fields normalized for storage. */
 function normalizeRequiredText(value: string) {
   return value.trim();
 }
 
+/** Target set ids normalized before rename checks. */
+function normalizeSetId(value: string) {
+  return value.trim();
+}
+
+/** Deduplicated localization rows ready for persistence. */
 function normalizeLocalization(localization: SetLocalization[]) {
   const items = localization
     .map(item => ({
@@ -49,6 +69,7 @@ function normalizeLocalization(localization: SetLocalization[]) {
   return items.sort((left, right) => left.lang.localeCompare(right.lang));
 }
 
+/** Localization rows grouped by set id for list and detail views. */
 function buildLocalizationMap(rows: SetLocalizationRow[]) {
   const map = new Map<string, SetLocalization[]>();
 
@@ -64,6 +85,7 @@ function buildLocalizationMap(rows: SetLocalizationRow[]) {
   return map;
 }
 
+/** API profile converted from one set row plus localizations. */
 function toProfile(
   row: SetRow,
   localization: SetLocalization[] = [],
@@ -82,6 +104,7 @@ function toProfile(
   };
 }
 
+/** In-memory filter match for the current list query. */
 function matchesSearch(profile: SetProfile, input: SetListInput) {
   const type = input.type?.trim().toLowerCase();
   if (type && profile.type.toLowerCase() !== type) {
@@ -112,6 +135,7 @@ function matchesSearch(profile: SetProfile, input: SetListInput) {
   return values.some(value => value?.toLowerCase().includes(q));
 }
 
+/** Localization rows loaded for the requested set ids. */
 async function loadLocalizations(setIds: string[]) {
   if (setIds.length === 0) {
     return new Map<string, SetLocalization[]>();
@@ -126,6 +150,127 @@ async function loadLocalizations(setIds: string[]) {
     );
 
   return buildLocalizationMap(rows);
+}
+
+/** Stored set row loaded by set id. */
+async function loadSetRow(tx: DbTx, setId: string) {
+  return await tx.select()
+    .from(HearthstoneSet)
+    .where(eq(HearthstoneSet.setId, setId))
+    .then(items => items[0]);
+}
+
+/** Target set id conflict checked before rename. */
+async function assertSetRenameTargetAvailable(tx: DbTx, originalSetId: string, nextSetId: string) {
+  if (originalSetId === nextSetId) {
+    return;
+  }
+
+  const existingSet = await tx.select({
+    setId: HearthstoneSet.setId,
+  })
+    .from(HearthstoneSet)
+    .where(eq(HearthstoneSet.setId, nextSetId))
+    .then(items => items[0]);
+
+  if (existingSet) {
+    throw new ORPCError('CONFLICT', {
+      message: `Set ${nextSetId} already exists`,
+    });
+  }
+
+  const existingLocalization = await tx.select({
+    setId: HearthstoneSetLocalization.setId,
+  })
+    .from(HearthstoneSetLocalization)
+    .where(eq(HearthstoneSetLocalization.setId, nextSetId))
+    .then(items => items[0]);
+
+  if (existingLocalization) {
+    throw new ORPCError('CONFLICT', {
+      message: `Set ${nextSetId} already has localization rows`,
+    });
+  }
+}
+
+/** Stored set id references renamed across Hearthstone tables. */
+async function syncSetIdReferences(tx: DbTx, originalSetId: string, nextSetId: string) {
+  if (originalSetId === nextSetId) {
+    return;
+  }
+
+  await tx.update(Entity)
+    .set({ set: nextSetId })
+    .where(eq(Entity.set, originalSetId));
+
+  await tx.update(AnnouncementItem)
+    .set({ setId: nextSetId })
+    .where(eq(AnnouncementItem.setId, originalSetId));
+
+  await tx.update(CardChange)
+    .set({ setId: nextSetId })
+    .where(eq(CardChange.setId, originalSetId));
+
+  await tx.update(SetChange)
+    .set({ setId: nextSetId })
+    .where(eq(SetChange.setId, originalSetId));
+
+  await tx.update(FormatChange)
+    .set({ setId: nextSetId })
+    .where(eq(FormatChange.setId, originalSetId));
+}
+
+/** Set profile updated with optional setId rename and reference sync. */
+export async function updateSetProfile(input: SetUpdateInput): Promise<SetProfile> {
+  const localization = normalizeLocalization(input.localization);
+  const originalSetId = normalizeSetId(input.originalSetId);
+  const nextSetId = normalizeSetId(input.setId);
+
+  return await db.transaction(async tx => {
+    const existing = await loadSetRow(tx, originalSetId);
+
+    if (!existing) {
+      throw new ORPCError('NOT_FOUND', { message: 'Set not found' });
+    }
+
+    await assertSetRenameTargetAvailable(tx, originalSetId, nextSetId);
+
+    await tx.update(HearthstoneSet)
+      .set({
+        setId:         nextSetId,
+        dbfId:         input.dbfId,
+        slug:          normalizeText(input.slug),
+        rawName:       normalizeText(input.rawName),
+        type:          normalizeRequiredText(input.type),
+        releaseDate:   input.releaseDate,
+        cardCountFull: input.cardCountFull,
+        cardCount:     input.cardCount,
+        group:         normalizeText(input.group),
+      })
+      .where(eq(HearthstoneSet.setId, originalSetId));
+
+    await syncSetIdReferences(tx, originalSetId, nextSetId);
+
+    await tx.delete(HearthstoneSetLocalization)
+      .where(eq(HearthstoneSetLocalization.setId, originalSetId));
+
+    if (localization.length > 0) {
+      await tx.insert(HearthstoneSetLocalization)
+        .values(localization.map(item => ({
+          setId: nextSetId,
+          lang:  item.lang,
+          name:  item.name,
+        })));
+    }
+
+    const row = await loadSetRow(tx, nextSetId);
+
+    if (!row) {
+      throw new ORPCError('NOT_FOUND', { message: 'Set not found' });
+    }
+
+    return toProfile(row, localization);
+  });
 }
 
 const list = os
@@ -190,55 +335,7 @@ const update = os
   })
   .input(setUpdateInput)
   .output(setProfile)
-  .handler(async ({ input }) => {
-    const localization = normalizeLocalization(input.localization);
-
-    return await db.transaction(async tx => {
-      const existing = await tx.select({
-        setId: HearthstoneSet.setId,
-      })
-        .from(HearthstoneSet)
-        .where(eq(HearthstoneSet.setId, input.setId))
-        .then(items => items[0]);
-
-      if (!existing) {
-        throw new ORPCError('NOT_FOUND', { message: 'Set not found' });
-      }
-
-      const row = await tx.update(HearthstoneSet)
-        .set({
-          dbfId:         input.dbfId,
-          slug:          normalizeText(input.slug),
-          rawName:       normalizeText(input.rawName),
-          type:          normalizeRequiredText(input.type),
-          releaseDate:   input.releaseDate,
-          cardCountFull: input.cardCountFull,
-          cardCount:     input.cardCount,
-          group:         normalizeText(input.group),
-        })
-        .where(eq(HearthstoneSet.setId, input.setId))
-        .returning()
-        .then(items => items[0]);
-
-      if (!row) {
-        throw new ORPCError('NOT_FOUND', { message: 'Set not found' });
-      }
-
-      await tx.delete(HearthstoneSetLocalization)
-        .where(eq(HearthstoneSetLocalization.setId, input.setId));
-
-      if (localization.length > 0) {
-        await tx.insert(HearthstoneSetLocalization)
-          .values(localization.map(item => ({
-            setId: input.setId,
-            lang:  item.lang,
-            name:  item.name,
-          })));
-      }
-
-      return toProfile(row, localization);
-    });
-  });
+  .handler(async ({ input }) => await updateSetProfile(input));
 
 export const setTrpc = {
   list,

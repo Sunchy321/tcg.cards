@@ -83,7 +83,7 @@
         <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div>
             <div class="font-medium text-slate-700">编辑配置</div>
-            <p class="mt-1 text-xs text-slate-400">setId 为主键不可修改，localization 保存时整组覆盖。</p>
+            <p class="mt-1 text-xs text-slate-400">修改 setId 会同步更新相关引用数据，localization 保存时整组覆盖。</p>
           </div>
           <div class="flex gap-2">
             <UButton
@@ -105,7 +105,7 @@
           <div class="grid gap-3 md:grid-cols-2">
             <div class="space-y-1">
               <div class="text-xs text-slate-400">setId</div>
-              <UInput :model-value="form.setId" disabled class="w-full font-mono" />
+              <UInput v-model="form.setId" class="w-full font-mono" />
             </div>
             <div class="space-y-1">
               <div class="text-xs text-slate-400">dbfId</div>
@@ -185,6 +185,7 @@ import type { SetLocalization, SetProfile } from '@tcg-cards/model/src/hearthsto
 const platform = useConsolePlatform();
 const orpc: any = platform.api.createClient();
 
+/** Editable localization row used by the set form. */
 interface LocalizationFormItem {
   key: string;
   lang: string;
@@ -204,6 +205,7 @@ const selectedSetId = ref<string | null>(null);
 const nextLocKey = ref(0);
 
 const form = reactive({
+  originalSetId: '',
   setId: '',
   dbfId: '',
   slug: '',
@@ -217,17 +219,26 @@ const form = reactive({
 });
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / limit.value)));
-const canSave = computed(() => form.setId.length > 0 && form.type.trim().length > 0 && !saving.value && !detailLoading.value);
+const canSave = computed(() => {
+  return form.originalSetId.length > 0
+    && form.setId.trim().length > 0
+    && form.type.trim().length > 0
+    && !saving.value
+    && !detailLoading.value;
+});
 
+/** Toast shown through the shared console platform. */
 function showToast(input: { title: string; description?: string; color?: 'error' | 'success' }) {
   platform.toast.show(input);
 }
 
+/** Localization form rows created for the editable set profile. */
 function createLocRow(item?: Partial<SetLocalization>): LocalizationFormItem {
   nextLocKey.value += 1;
   return { key: `loc-${nextLocKey.value}`, lang: item?.lang ?? '', name: item?.name ?? '' };
 }
 
+/** Preferred display name derived from the available localizations. */
 function preferredName(item: SetProfile) {
   const zh = item.localization.find(loc => loc.lang === 'zhs');
   if (zh) return zh.name;
@@ -236,7 +247,9 @@ function preferredName(item: SetProfile) {
   return item.localization[0]?.name ?? item.rawName ?? item.slug ?? '未命名';
 }
 
+/** Selected set profile copied into the editable form. */
 function applyProfile(item: SetProfile) {
+  form.originalSetId = item.setId;
   form.setId = item.setId;
   form.dbfId = item.dbfId == null ? '' : String(item.dbfId);
   form.slug = item.slug ?? '';
@@ -250,7 +263,9 @@ function applyProfile(item: SetProfile) {
   formError.value = '';
 }
 
+/** Editable form reset when no set is selected. */
 function resetForm() {
+  form.originalSetId = '';
   form.setId = '';
   form.dbfId = '';
   form.slug = '';
@@ -264,6 +279,7 @@ function resetForm() {
   formError.value = '';
 }
 
+/** Optional integer inputs parsed from the form fields. */
 function parseOptionalInt(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -275,12 +291,14 @@ function parseOptionalInt(value: string) {
   return parsed;
 }
 
+/** Persisted localization rows normalized from the form. */
 function normalizeLocalizations() {
   return form.localization
     .map(item => ({ lang: item.lang.trim(), name: item.name.trim() }))
     .filter(item => item.lang.length > 0 && item.name.length > 0);
 }
 
+/** Set list loaded for the current filter and page. */
 async function loadSets() {
   loading.value = true;
   try {
@@ -300,11 +318,13 @@ async function loadSets() {
   }
 }
 
+/** Filter submission reset to the first list page. */
 function searchSets() {
   page.value = 1;
   void loadSets();
 }
 
+/** All list filters cleared before reloading. */
 function resetFilters() {
   filters.q = '';
   filters.type = '';
@@ -313,12 +333,14 @@ function resetFilters() {
   void loadSets();
 }
 
+/** List page changed when the requested page is valid. */
 function goPage(nextPage: number) {
   if (nextPage < 1 || nextPage > totalPages.value || nextPage === page.value) return;
   page.value = nextPage;
   void loadSets();
 }
 
+/** One set detail loaded into the editor panel. */
 async function selectSet(setId: string) {
   selectedSetId.value = setId;
   detailLoading.value = true;
@@ -332,16 +354,19 @@ async function selectSet(setId: string) {
   }
 }
 
+/** Empty localization row appended to the form. */
 function addLocalization() {
   form.localization.push(createLocRow());
 }
 
+/** One localization row removed from the form. */
 function removeLocalization(key: string) {
   form.localization = form.localization.filter(item => item.key !== key);
 }
 
+/** Edited set profile persisted through the console API. */
 async function saveSet() {
-  if (!form.setId.trim()) return;
+  if (!form.originalSetId.trim() || !form.setId.trim()) return;
   if (!form.type.trim()) {
     formError.value = 'type 不能为空';
     return;
@@ -350,8 +375,9 @@ async function saveSet() {
   saving.value = true;
   formError.value = '';
   try {
-    await orpc.hearthstone.set.update({
-      setId: form.setId,
+    const result = await orpc.hearthstone.set.update({
+      originalSetId: form.originalSetId,
+      setId: form.setId.trim(),
       dbfId: parseOptionalInt(form.dbfId),
       slug: form.slug.trim() || null,
       rawName: form.rawName.trim() || null,
@@ -364,9 +390,8 @@ async function saveSet() {
     });
     showToast({ title: '保存成功', color: 'success' });
     await loadSets();
-    if (selectedSetId.value) {
-      await selectSet(selectedSetId.value);
-    }
+    selectedSetId.value = result.setId;
+    await selectSet(result.setId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     formError.value = message;

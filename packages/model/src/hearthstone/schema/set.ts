@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const nullableInt = z.int().nullable();
 const nullableText = z.string().nullable();
+const setIdText = z.string().trim().min(1).max(160);
 
 export const setLocalization = z.strictObject({
   lang: z.string(),
@@ -42,10 +43,12 @@ export const setListResult = z.strictObject({
 });
 
 export const setGetInput = z.strictObject({
-  setId: z.string().trim().min(1).max(160),
+  setId: setIdText,
 });
 
-export const setUpdateInput = setGetInput.extend({
+export const setUpdateInput = z.strictObject({
+  originalSetId: setIdText,
+  setId:         setIdText,
   dbfId:         nullableInt,
   slug:          nullableText,
   rawName:       nullableText,
