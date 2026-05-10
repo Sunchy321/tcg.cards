@@ -19,6 +19,13 @@ type JsonMap = Record<string, unknown>;
 type LocalizedText = Record<string, string>;
 type JsonValue = unknown;
 
+export const hsdataProjectionStatus = dataSchema.enum('hsdata_projection_status', [
+  'not_started',
+  'processing',
+  'completed',
+  'failed',
+]);
+
 export const SourceVersion = dataSchema.table('source_versions', {
   sourceTag:           integer('source_tag').primaryKey(),
   sourceCommit:        text('source_commit').notNull().default(''),
@@ -29,7 +36,11 @@ export const SourceVersion = dataSchema.table('source_versions', {
   // write this field so future engine changes can target full re-imports.
   importEngineVersion: text('import_engine_version'),
   status:              text('status').notNull().default('pending'),
+  // Projection state tracks the last known outcome of the sourceTag's project job.
+  projectionStatus:    hsdataProjectionStatus('projection_status').notNull().default('not_started'),
+  projectionError:     text('projection_error'),
   importedAt:          timestamp('imported_at'),
+  projectedAt:         timestamp('projected_at'),
   createdAt:           timestamp('created_at').defaultNow().notNull(),
   updatedAt:           timestamp('updated_at')
     .defaultNow()
@@ -37,6 +48,7 @@ export const SourceVersion = dataSchema.table('source_versions', {
     .notNull(),
 }, table => [
   index('source_versions_status_idx').on(table.status),
+  index('source_versions_projection_status_idx').on(table.projectionStatus),
   index('source_versions_build_idx').on(table.build),
   index('source_versions_source_hash_idx').on(table.sourceHash),
 ]);

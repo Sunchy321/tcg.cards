@@ -24,9 +24,12 @@ type MechanicValue = boolean | number;
 type RowKey = string;
 
 interface SourceVersionRow {
-  sourceTag: number;
-  build:     number | null;
-  status:    string;
+  sourceTag:        number;
+  build:            number | null;
+  status:           string;
+  projectionStatus: string;
+  projectionError:  string | null;
+  projectedAt:      Date | null;
 }
 
 interface RawSnapshotRow {
@@ -123,6 +126,11 @@ interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
   inserted:  number;
   reused:    number;
   updated:   number;
+}
+
+// Error converted into one display-safe message string.
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export interface ProjectHsdataInput {
@@ -1445,13 +1453,47 @@ function projectSnapshot(
 
 async function getSourceVersion(sourceTag: number): Promise<SourceVersionRow | null> {
   return await db.select({
-    sourceTag: SourceVersion.sourceTag,
-    build:     SourceVersion.build,
-    status:    SourceVersion.status,
+    sourceTag:        SourceVersion.sourceTag,
+    build:            SourceVersion.build,
+    status:           SourceVersion.status,
+    projectionStatus: SourceVersion.projectionStatus,
+    projectionError:  SourceVersion.projectionError,
+    projectedAt:      SourceVersion.projectedAt,
   })
     .from(SourceVersion)
     .where(eq(SourceVersion.sourceTag, sourceTag))
     .then(rows => rows[0] ?? null);
+}
+
+// Source version projection marked as in progress.
+async function markSourceVersionProjectionProcessing(sourceTag: number) {
+  await db.update(SourceVersion)
+    .set({
+      projectionStatus: 'processing',
+      projectionError:  null,
+    })
+    .where(eq(SourceVersion.sourceTag, sourceTag));
+}
+
+// Source version projection marked as successfully completed.
+async function markSourceVersionProjectionCompleted(sourceTag: number, projectedAt: Date) {
+  await db.update(SourceVersion)
+    .set({
+      projectionStatus: 'completed',
+      projectedAt,
+      projectionError:  null,
+    })
+    .where(eq(SourceVersion.sourceTag, sourceTag));
+}
+
+// Source version projection marked as failed while preserving the last success time.
+async function markSourceVersionProjectionFailed(sourceTag: number, projectionError: string) {
+  await db.update(SourceVersion)
+    .set({
+      projectionStatus: 'failed',
+      projectionError,
+    })
+    .where(eq(SourceVersion.sourceTag, sourceTag));
 }
 
 async function loadSnapshots(sourceTag: number): Promise<RawSnapshotRow[]> {
@@ -1740,111 +1782,135 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} is missing build`);
   }
 
-  const snapshots = await loadSnapshots(input.sourceTag);
-
-  if (snapshots.length === 0) {
-    throw new Error(`[hearthstone][hsdata-project] no raw snapshots found for sourceTag ${input.sourceTag}`);
+  if (!input.dryRun) {
+    await markSourceVersionProjectionProcessing(input.sourceTag);
   }
 
-  const snapshotIdSet = new Set(snapshots.map(snapshot => snapshot.id));
-  const rawTags = await loadSnapshotTags([...snapshotIdSet]);
-  const enumIds = [...new Set(rawTags.map(row => row.enumId))].sort((left, right) => left - right);
-  const tagMap = await loadTagRows(enumIds);
-  const rawTagsBySnapshotId = new Map<string, RawSnapshotTagRow[]>();
+  try {
+    const snapshots = await loadSnapshots(input.sourceTag);
 
-  for (const row of rawTags) {
-    const rows = rawTagsBySnapshotId.get(row.snapshotId) ?? [];
-    rows.push(row);
-    rawTagsBySnapshotId.set(row.snapshotId, rows);
-  }
+    if (snapshots.length === 0) {
+      throw new Error(`[hearthstone][hsdata-project] no raw snapshots found for sourceTag ${input.sourceTag}`);
+    }
 
-  const cardIdByDbfId = new Map(snapshots.map(snapshot => [snapshot.dbfId, snapshot.cardId]));
-  const slugByEnumId = new Map(
-    [...tagMap.values()].map(tag => [tag.enumId, tag.slug]),
-  );
-  const setIdByDbfId = await loadSetIdByDbfId();
-  const context: ProjectionContext = {
-    slugByEnumId,
-    cardIdByDbfId,
-    setIdByDbfId,
-  };
+    const snapshotIdSet = new Set(snapshots.map(snapshot => snapshot.id));
+    const rawTags = await loadSnapshotTags([...snapshotIdSet]);
+    const enumIds = [...new Set(rawTags.map(row => row.enumId))].sort((left, right) => left - right);
+    const tagMap = await loadTagRows(enumIds);
+    const rawTagsBySnapshotId = new Map<string, RawSnapshotTagRow[]>();
 
-  const projected = snapshots.map(snapshot => {
-    return projectSnapshot(
-      snapshot,
-      rawTagsBySnapshotId.get(snapshot.id) ?? [],
-      tagMap,
-      context,
+    for (const row of rawTags) {
+      const rows = rawTagsBySnapshotId.get(row.snapshotId) ?? [];
+      rows.push(row);
+      rawTagsBySnapshotId.set(row.snapshotId, rows);
+    }
+
+    const cardIdByDbfId = new Map(snapshots.map(snapshot => [snapshot.dbfId, snapshot.cardId]));
+    const slugByEnumId = new Map(
+      [...tagMap.values()].map(tag => [tag.enumId, tag.slug]),
     );
-  });
+    const setIdByDbfId = await loadSetIdByDbfId();
+    const context: ProjectionContext = {
+      slugByEnumId,
+      cardIdByDbfId,
+      setIdByDbfId,
+    };
 
-  const targetEntities = projected.map(item => ({
-    ...item.entity,
-    version:  [sourceVersion.build!],
-    isLatest: false,
-  }));
-  const targetLocalizations = projected.flatMap(item => item.localizations.map(row => ({
-    ...row,
-    version:  [sourceVersion.build!],
-    isLatest: false,
-  })));
-  const targetRelations = projected.flatMap(item => item.relations.map(row => ({
-    ...row,
-    version:  [sourceVersion.build!],
-    isLatest: false,
-  })));
-
-  const cardIds = [...new Set(targetEntities.map(row => row.cardId))].sort();
-  const sourceIds = [...cardIds];
-  const [existingEntities, existingLocalizations, existingRelations] = await Promise.all([
-    loadExistingEntities(cardIds),
-    loadExistingLocalizations(cardIds),
-    loadExistingRelations(sourceIds),
-  ]);
-
-  const entityResult = reconcileRows(existingEntities, targetEntities, {
-    build:    sourceVersion.build,
-    keyOf:    entityKey,
-    groupKey: row => row.cardId,
-  });
-  const localizationResult = reconcileRows(existingLocalizations, targetLocalizations, {
-    build:    sourceVersion.build,
-    keyOf:    localizationKey,
-    groupKey: row => `${row.cardId}\u0000${row.lang}`,
-  });
-  const relationResult = reconcileRows(existingRelations, targetRelations, {
-    build:    sourceVersion.build,
-    keyOf:    relationKey,
-    groupKey: row => row.sourceId,
-  });
-
-  const changed = entityResult.changed || localizationResult.changed || relationResult.changed;
-  const skipped = !changed && !(input.force ?? false);
-
-  if (!input.dryRun && !skipped) {
-    await db.transaction(async tx => {
-      await deleteByCardIds(tx, cardIds);
-      await deleteBySourceIds(tx, sourceIds);
-      await insertEntities(tx, entityResult.finalRows);
-      await insertLocalizations(tx, localizationResult.finalRows);
-      await insertRelations(tx, relationResult.finalRows);
+    const projected = snapshots.map(snapshot => {
+      return projectSnapshot(
+        snapshot,
+        rawTagsBySnapshotId.get(snapshot.id) ?? [],
+        tagMap,
+        context,
+      );
     });
-  }
 
-  return {
-    dryRun:                input.dryRun ?? false,
-    skipped,
-    sourceTag:             input.sourceTag,
-    build:                 sourceVersion.build,
-    snapshotCount:         snapshots.length,
-    insertedEntities:      entityResult.inserted,
-    reusedEntities:        entityResult.reused,
-    updatedEntities:       entityResult.updated,
-    insertedLocalizations: localizationResult.inserted,
-    reusedLocalizations:   localizationResult.reused,
-    updatedLocalizations:  localizationResult.updated,
-    insertedRelations:     relationResult.inserted,
-    updatedRelations:      relationResult.updated,
-    unprojectedTagCount:   projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
-  };
+    const targetEntities = projected.map(item => ({
+      ...item.entity,
+      version:  [sourceVersion.build!],
+      isLatest: false,
+    }));
+    const targetLocalizations = projected.flatMap(item => item.localizations.map(row => ({
+      ...row,
+      version:  [sourceVersion.build!],
+      isLatest: false,
+    })));
+    const targetRelations = projected.flatMap(item => item.relations.map(row => ({
+      ...row,
+      version:  [sourceVersion.build!],
+      isLatest: false,
+    })));
+
+    const cardIds = [...new Set(targetEntities.map(row => row.cardId))].sort();
+    const sourceIds = [...cardIds];
+    const [existingEntities, existingLocalizations, existingRelations] = await Promise.all([
+      loadExistingEntities(cardIds),
+      loadExistingLocalizations(cardIds),
+      loadExistingRelations(sourceIds),
+    ]);
+
+    const entityResult = reconcileRows(existingEntities, targetEntities, {
+      build:    sourceVersion.build,
+      keyOf:    entityKey,
+      groupKey: row => row.cardId,
+    });
+    const localizationResult = reconcileRows(existingLocalizations, targetLocalizations, {
+      build:    sourceVersion.build,
+      keyOf:    localizationKey,
+      groupKey: row => `${row.cardId}\u0000${row.lang}`,
+    });
+    const relationResult = reconcileRows(existingRelations, targetRelations, {
+      build:    sourceVersion.build,
+      keyOf:    relationKey,
+      groupKey: row => row.sourceId,
+    });
+
+    const changed = entityResult.changed || localizationResult.changed || relationResult.changed;
+    const skipped = !changed && !(input.force ?? false);
+    const projectedAt = skipped && sourceVersion.projectedAt != null
+      ? sourceVersion.projectedAt
+      : new Date();
+
+    if (!input.dryRun && !skipped) {
+      await db.transaction(async tx => {
+        await deleteByCardIds(tx, cardIds);
+        await deleteBySourceIds(tx, sourceIds);
+        await insertEntities(tx, entityResult.finalRows);
+        await insertLocalizations(tx, localizationResult.finalRows);
+        await insertRelations(tx, relationResult.finalRows);
+        await tx.update(SourceVersion)
+          .set({
+            projectionStatus: 'completed',
+            projectedAt,
+            projectionError:  null,
+          })
+          .where(eq(SourceVersion.sourceTag, input.sourceTag));
+      });
+    } else if (!input.dryRun) {
+      await markSourceVersionProjectionCompleted(input.sourceTag, projectedAt);
+    }
+
+    return {
+      dryRun:                input.dryRun ?? false,
+      skipped,
+      sourceTag:             input.sourceTag,
+      build:                 sourceVersion.build,
+      snapshotCount:         snapshots.length,
+      insertedEntities:      entityResult.inserted,
+      reusedEntities:        entityResult.reused,
+      updatedEntities:       entityResult.updated,
+      insertedLocalizations: localizationResult.inserted,
+      reusedLocalizations:   localizationResult.reused,
+      updatedLocalizations:  localizationResult.updated,
+      insertedRelations:     relationResult.inserted,
+      updatedRelations:      relationResult.updated,
+      unprojectedTagCount:   projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
+    };
+  } catch (error) {
+    if (!input.dryRun) {
+      await markSourceVersionProjectionFailed(input.sourceTag, toErrorMessage(error));
+    }
+
+    throw error;
+  }
 }

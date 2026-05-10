@@ -19,7 +19,7 @@
             color="primary"
             variant="soft"
             :loading="syncing"
-            :disabled="!state?.repoPath || loadingState || loadingFiles || importing || projecting"
+            :disabled="!state?.repoPath || loadingState || loadingFiles || loadingSourceVersions || importing || projecting"
             @click="syncRemoteVersions"
           />
           <UButton label="管理数据源" icon="i-lucide-database" color="neutral" variant="ghost" to="/hearthstone/data-source" />
@@ -58,6 +58,14 @@
       :description="sourceError"
     />
 
+    <UAlert
+      v-if="sourceVersionError"
+      color="error"
+      variant="soft"
+      icon="i-lucide-circle-alert"
+      :description="`sourceTag 状态加载失败：${sourceVersionError}`"
+    />
+
     <div class="grid gap-4 xl:grid-cols-3">
       <div class="space-y-4 xl:col-span-2">
         <UCard>
@@ -81,7 +89,15 @@
               </div>
               <div class="rounded-lg border border-default p-3">
                 <div class="text-xs text-muted">sourceTag</div>
-                <div class="mt-1 break-all font-mono text-sm">{{ importForm.sourceTag ?? '-' }}</div>
+                <div class="mt-2">
+                  <UBadge
+                    v-if="importForm.sourceTag != null"
+                    :label="String(importForm.sourceTag)"
+                    color="primary"
+                    variant="soft"
+                  />
+                  <div v-else class="break-all font-mono text-sm">-</div>
+                </div>
               </div>
               <div class="rounded-lg border border-default p-3">
                 <div class="text-xs text-muted">sourceCommit</div>
@@ -94,11 +110,62 @@
             </div>
 
             <div v-if="selectedFile" class="rounded-lg border border-default p-3">
-              <div class="text-xs text-muted">来源信息</div>
-              <div class="mt-1 flex flex-wrap gap-3 text-sm">
-                <span>{{ selectedFile.shortCommit }}</span>
-                <span>{{ formatHsdataBytes(selectedFile.size) }}</span>
-                <span v-if="selectedFile.time">{{ formatHsdataDate(selectedFile.time) }}</span>
+              <div class="space-y-3">
+                <div>
+                  <div class="text-xs text-muted">来源信息</div>
+                  <div class="mt-1 flex flex-wrap gap-3 text-sm">
+                    <span>{{ selectedFile.shortCommit }}</span>
+                    <span>{{ formatHsdataBytes(selectedFile.size) }}</span>
+                    <span v-if="selectedFile.time">{{ formatHsdataDate(selectedFile.time) }}</span>
+                  </div>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div class="rounded-lg border border-default p-3">
+                    <div class="text-xs text-muted">导入状态</div>
+                    <div class="mt-2">
+                      <UBadge
+                        :label="selectedImportBadge.label"
+                        :color="selectedImportBadge.color"
+                        :variant="selectedImportBadge.variant"
+                      />
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-default p-3">
+                    <div class="text-xs text-muted">导入时间</div>
+                    <div class="mt-1 break-all font-mono text-sm">
+                      {{ formatHsdataDate(selectedSourceVersion?.importedAt ?? undefined) }}
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-default p-3">
+                    <div class="text-xs text-muted">投影状态</div>
+                    <div class="mt-2">
+                      <UBadge
+                        :label="selectedProjectionBadge.label"
+                        :color="selectedProjectionBadge.color"
+                        :variant="selectedProjectionBadge.variant"
+                      />
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-default p-3">
+                    <div class="text-xs text-muted">投影时间</div>
+                    <div class="mt-1 break-all font-mono text-sm">
+                      {{ formatHsdataDate(selectedSourceVersion?.projectedAt ?? undefined) }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="text-xs text-muted">
+                  {{ selectedSourceStatusText }}
+                </div>
+
+                <UAlert
+                  v-if="selectedSourceVersion?.projectionError"
+                  color="error"
+                  variant="soft"
+                  icon="i-lucide-circle-alert"
+                  :description="selectedSourceVersion.projectionError"
+                />
               </div>
             </div>
 
@@ -193,7 +260,24 @@
               </div>
               <div class="rounded-lg border border-default p-3">
                 <div class="text-xs text-muted">可执行条件</div>
-                <div class="mt-1 text-sm text-muted">`source_versions.status = completed`</div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <UBadge
+                    :label="projectImportBadge.label"
+                    :color="projectImportBadge.color"
+                    :variant="projectImportBadge.variant"
+                    size="xs"
+                  />
+                  <UBadge
+                    :label="projectProjectionBadge.label"
+                    :color="projectProjectionBadge.color"
+                    :variant="projectProjectionBadge.variant"
+                    size="xs"
+                  />
+                </div>
+                <div class="mt-2 text-xs text-muted">{{ projectConditionText }}</div>
+                <div v-if="projectSourceVersion?.projectionError" class="mt-2 break-all text-xs text-error">
+                  {{ projectSourceVersion.projectionError }}
+                </div>
               </div>
             </div>
 
@@ -232,7 +316,7 @@
               <div class="font-medium">可用版本</div>
               <p class="mt-1 text-xs text-muted">展示当前可选择的数据版本。</p>
             </div>
-            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loadingFiles" :disabled="!state?.repoPath" @click="loadFiles" />
+            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" :loading="loadingFiles || loadingSourceVersions" :disabled="!state?.repoPath" @click="reloadSourceList" />
           </div>
         </template>
 
@@ -242,21 +326,53 @@
         <div v-else-if="files.length === 0" class="py-8 text-center text-sm text-muted">暂无可导入版本</div>
         <div v-else class="max-h-136 space-y-2 overflow-y-auto pr-1">
           <div
-            v-for="file in files"
-            :key="file.id"
-            class="flex items-center gap-2 rounded-lg border border-default p-3"
-            :class="importForm.id === file.id ? 'ring-2 ring-primary' : ''"
+            v-for="item in sourceListItems"
+            :key="item.file.id"
+            class="flex items-center gap-2 rounded-lg border p-3 transition-colors"
+            :class="[
+              getSourceListItemClass(item.status, item.file.sourceTag != null, loadingSourceVersions, sourceVersionError.length > 0),
+              importForm.id === item.file.id ? 'ring-2 ring-primary' : '',
+            ]"
           >
-            <button type="button" class="min-w-0 flex-1 text-left" @click="selectSource(file)">
-              <div class="truncate font-mono text-xs">{{ file.name }}</div>
+            <button type="button" class="min-w-0 flex-1 text-left" @click="selectSource(item.file)">
+              <div class="truncate font-mono text-xs">{{ item.file.name }}</div>
               <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted">
-                <span v-if="file.sourceTag != null">{{ file.sourceTag }}</span>
-                <span>{{ file.shortCommit }}</span>
-                <span>{{ formatHsdataBytes(file.size) }}</span>
-                <span v-if="file.time">{{ formatHsdataDate(file.time) }}</span>
+                <span>{{ item.file.shortCommit }}</span>
+                <span>{{ formatHsdataBytes(item.file.size) }}</span>
+                <span v-if="item.file.time">{{ formatHsdataDate(item.file.time) }}</span>
+              </div>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <UBadge
+                  v-if="item.file.sourceTag != null"
+                  :label="`sourceTag ${item.file.sourceTag}`"
+                  size="xs"
+                  color="primary"
+                  variant="soft"
+                />
+                <UBadge
+                  v-else
+                  label="未解析 sourceTag"
+                  size="xs"
+                  color="neutral"
+                  variant="outline"
+                />
+                <template v-if="item.file.sourceTag != null">
+                  <UBadge
+                    :label="getImportStatusBadge(item.status, true, loadingSourceVersions, sourceVersionError.length > 0).label"
+                    :color="getImportStatusBadge(item.status, true, loadingSourceVersions, sourceVersionError.length > 0).color"
+                    :variant="getImportStatusBadge(item.status, true, loadingSourceVersions, sourceVersionError.length > 0).variant"
+                    size="xs"
+                  />
+                  <UBadge
+                    :label="getProjectionStatusBadge(item.status, true, loadingSourceVersions, sourceVersionError.length > 0).label"
+                    :color="getProjectionStatusBadge(item.status, true, loadingSourceVersions, sourceVersionError.length > 0).color"
+                    :variant="getProjectionStatusBadge(item.status, true, loadingSourceVersions, sourceVersionError.length > 0).variant"
+                    size="xs"
+                  />
+                </template>
               </div>
             </button>
-            <UButton :label="importForm.id === file.id ? '已选中' : '选择'" size="xs" :color="importForm.id === file.id ? 'primary' : 'neutral'" variant="soft" @click="selectSource(file)" />
+            <UButton :label="importForm.id === item.file.id ? '已选中' : '选择'" size="xs" :color="importForm.id === item.file.id ? 'primary' : 'neutral'" variant="soft" @click="selectSource(item.file)" />
           </div>
         </div>
       </UCard>
@@ -340,6 +456,38 @@ import type {
   ReportMetric,
 } from '~/composables/useHsdataRepo';
 
+/** Import status values loaded from `source_versions`. */
+type SourceImportStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+/** Projection status values loaded from `source_versions`. */
+type SourceProjectionStatus = 'not_started' | 'processing' | 'completed' | 'failed';
+
+/** One persisted sourceTag status row used by the desktop import page. */
+interface HsdataSourceVersionStatus {
+  sourceTag:         number;
+  build:             number | null;
+  sourceCommit:      string;
+  sourceUri:         string;
+  importStatus:      SourceImportStatus;
+  importedAt:        string | null;
+  projectionStatus:  SourceProjectionStatus;
+  projectedAt:       string | null;
+  projectionError:   string | null;
+}
+
+/** One badge descriptor rendered for sourceTag statuses. */
+interface SourceStatusBadge {
+  label:   string;
+  color:   'neutral' | 'primary' | 'success' | 'warning' | 'error';
+  variant: 'soft' | 'outline';
+}
+
+/** One local source row merged with persisted sourceTag status data. */
+interface HsdataSourceListItem {
+  file:   HsdataFile;
+  status: HsdataSourceVersionStatus | null;
+}
+
 definePageMeta({
   layout: 'admin',
   title:  '数据导入',
@@ -354,6 +502,9 @@ const stateError = ref('');
 const files = ref<HsdataFile[]>([]);
 const loadingFiles = ref(false);
 const filesError = ref('');
+const sourceVersions = ref<HsdataSourceVersionStatus[]>([]);
+const loadingSourceVersions = ref(false);
+const sourceVersionError = ref('');
 const importError = ref('');
 const importing = ref(false);
 const activeImportSourceId = ref<string | null>(null);
@@ -398,6 +549,57 @@ const selectedFile = computed(() => files.value.find(file => file.id === importF
 const selectedName = computed(() => importForm.name.length > 0 ? importForm.name : '-');
 const selectedCommit = computed(() => importForm.sourceCommit.length > 0 ? importForm.sourceCommit : '-');
 const selectedUri = computed(() => importForm.sourceUri.length > 0 ? importForm.sourceUri : '-');
+const sourceVersionMap = computed(() => {
+  return new Map(sourceVersions.value.map(sourceVersion => [sourceVersion.sourceTag, sourceVersion]));
+});
+const sourceListItems = computed<HsdataSourceListItem[]>(() => {
+  return files.value.map(file => ({
+    file,
+    status: file.sourceTag == null ? null : sourceVersionMap.value.get(file.sourceTag) ?? null,
+  }));
+});
+const selectedSourceVersion = computed(() => {
+  return importForm.sourceTag == null ? null : sourceVersionMap.value.get(importForm.sourceTag) ?? null;
+});
+const projectSourceVersion = computed(() => {
+  return projectForm.sourceTag == null ? null : sourceVersionMap.value.get(projectForm.sourceTag) ?? null;
+});
+const selectedImportBadge = computed(() => getImportStatusBadge(
+  selectedSourceVersion.value,
+  importForm.sourceTag != null,
+  loadingSourceVersions.value,
+  sourceVersionError.value.length > 0,
+));
+const selectedProjectionBadge = computed(() => getProjectionStatusBadge(
+  selectedSourceVersion.value,
+  importForm.sourceTag != null,
+  loadingSourceVersions.value,
+  sourceVersionError.value.length > 0,
+));
+const projectImportBadge = computed(() => getImportStatusBadge(
+  projectSourceVersion.value,
+  projectForm.sourceTag != null,
+  loadingSourceVersions.value,
+  sourceVersionError.value.length > 0,
+));
+const projectProjectionBadge = computed(() => getProjectionStatusBadge(
+  projectSourceVersion.value,
+  projectForm.sourceTag != null,
+  loadingSourceVersions.value,
+  sourceVersionError.value.length > 0,
+));
+const selectedSourceStatusText = computed(() => describeSelectedSourceStatus(
+  selectedSourceVersion.value,
+  importForm.sourceTag,
+  loadingSourceVersions.value,
+  sourceVersionError.value.length > 0,
+));
+const projectConditionText = computed(() => describeProjectCondition(
+  projectSourceVersion.value,
+  projectForm.sourceTag,
+  loadingSourceVersions.value,
+  sourceVersionError.value.length > 0,
+));
 
 const canImport = computed(() => Boolean(state.value?.repoPath) && importForm.id.trim().length > 0 && !importing.value);
 const canProject = computed(() => projectForm.sourceTag != null && !projecting.value);
@@ -518,6 +720,194 @@ const projectReportMetrics = computed<ReportMetric[]>(() => {
   ];
 });
 
+/** Source list row tone derived from high-level import and projection stages. */
+function getSourceListItemClass(
+  status: HsdataSourceVersionStatus | null,
+  hasSourceTag: boolean,
+  isLoading: boolean,
+  hasError: boolean,
+): string {
+  if (!hasSourceTag) {
+    return 'border-default bg-default hover:bg-elevated';
+  }
+
+  if (isLoading && status == null) {
+    return 'border-default bg-default hover:bg-elevated';
+  }
+
+  if (hasError && status == null) {
+    return 'border-default bg-default hover:bg-elevated';
+  }
+
+  if (status == null || status.importStatus !== 'completed') {
+    return 'border-default bg-default hover:bg-elevated';
+  }
+
+  if (status.projectionStatus === 'completed') {
+    return 'border-success/40 bg-success/5 hover:bg-success/10';
+  }
+
+  return 'border-warning/40 bg-warning/5 hover:bg-warning/10';
+}
+
+/** Import badge rendered for one sourceTag status. */
+function getImportStatusBadge(
+  status: HsdataSourceVersionStatus | null,
+  hasSourceTag: boolean,
+  isLoading: boolean,
+  hasError: boolean,
+): SourceStatusBadge {
+  if (!hasSourceTag) {
+    return { label: '待解析 sourceTag', color: 'neutral', variant: 'outline' };
+  }
+
+  if (isLoading && status == null) {
+    return { label: '导入状态加载中', color: 'neutral', variant: 'outline' };
+  }
+
+  if (hasError && status == null) {
+    return { label: '导入状态不可用', color: 'warning', variant: 'outline' };
+  }
+
+  if (status == null) {
+    return { label: '未导入', color: 'neutral', variant: 'outline' };
+  }
+
+  switch (status.importStatus) {
+  case 'pending':
+    return { label: '待导入', color: 'neutral', variant: 'soft' };
+  case 'processing':
+    return { label: '导入中', color: 'primary', variant: 'soft' };
+  case 'completed':
+    return { label: '已导入', color: 'success', variant: 'soft' };
+  case 'failed':
+    return { label: '导入失败', color: 'error', variant: 'soft' };
+  }
+
+  return { label: '导入状态不可用', color: 'warning', variant: 'outline' };
+}
+
+/** Projection badge rendered for one sourceTag status. */
+function getProjectionStatusBadge(
+  status: HsdataSourceVersionStatus | null,
+  hasSourceTag: boolean,
+  isLoading: boolean,
+  hasError: boolean,
+): SourceStatusBadge {
+  if (!hasSourceTag) {
+    return { label: '待解析 sourceTag', color: 'neutral', variant: 'outline' };
+  }
+
+  if (isLoading && status == null) {
+    return { label: '投影状态加载中', color: 'neutral', variant: 'outline' };
+  }
+
+  if (hasError && status == null) {
+    return { label: '投影状态不可用', color: 'warning', variant: 'outline' };
+  }
+
+  if (status == null) {
+    return { label: '未投影', color: 'neutral', variant: 'outline' };
+  }
+
+  switch (status.projectionStatus) {
+  case 'not_started':
+    return { label: '未投影', color: 'neutral', variant: 'outline' };
+  case 'processing':
+    return { label: '投影中', color: 'primary', variant: 'soft' };
+  case 'completed':
+    return { label: '已投影', color: 'success', variant: 'soft' };
+  case 'failed':
+    return { label: '投影失败', color: 'error', variant: 'soft' };
+  }
+
+  return { label: '投影状态不可用', color: 'warning', variant: 'outline' };
+}
+
+/** Selected source status summary text shown below the detail badges. */
+function describeSelectedSourceStatus(
+  status: HsdataSourceVersionStatus | null,
+  sourceTag: number | null,
+  isLoading: boolean,
+  hasError: boolean,
+): string {
+  if (sourceTag == null) {
+    return '当前来源还没有可用的 sourceTag，暂时无法匹配数据库状态。';
+  }
+
+  if (isLoading && status == null) {
+    return '正在加载这个 sourceTag 的导入与投影状态。';
+  }
+
+  if (hasError && status == null) {
+    return '这个 sourceTag 的状态暂时不可用，请先排查上方状态接口错误。';
+  }
+
+  if (status == null) {
+    return '数据库中还没有这个 sourceTag 的导入记录。';
+  }
+
+  if (status.importStatus !== 'completed') {
+    return '这个 sourceTag 还没有完成导入，暂时不能执行正式投影。';
+  }
+
+  if (status.projectionStatus === 'failed') {
+    return '这个 sourceTag 已完成导入，但最近一次投影失败，可以在修正问题后重试。';
+  }
+
+  if (status.projectionStatus === 'processing') {
+    return '这个 sourceTag 正在投影中，请等待状态完成后再决定是否重试。';
+  }
+
+  if (status.projectionStatus === 'completed') {
+    return '这个 sourceTag 已完成导入和投影，可以直接复查投影结果。';
+  }
+
+  return '这个 sourceTag 已完成导入，下一步可以执行投影。';
+}
+
+/** Projection condition text for the manual project panel. */
+function describeProjectCondition(
+  status: HsdataSourceVersionStatus | null,
+  sourceTag: number | null,
+  isLoading: boolean,
+  hasError: boolean,
+): string {
+  if (sourceTag == null) {
+    return '请输入一个 sourceTag，系统会根据 source_versions 判断是否可投影。';
+  }
+
+  if (isLoading && status == null) {
+    return '正在加载 sourceTag 状态。';
+  }
+
+  if (hasError && status == null) {
+    return '当前无法读取 source_versions 状态，请先排查状态接口错误。';
+  }
+
+  if (status == null) {
+    return '数据库中还没有这个 sourceTag 的导入记录。';
+  }
+
+  if (status.importStatus !== 'completed') {
+    return '只有 `source_versions.status = completed` 的 sourceTag 才能执行投影。';
+  }
+
+  if (status.projectionStatus === 'failed') {
+    return '这个 sourceTag 已完成导入，但最近一次投影失败，可以直接重试。';
+  }
+
+  if (status.projectionStatus === 'processing') {
+    return '这个 sourceTag 当前正在投影中。';
+  }
+
+  if (status.projectionStatus === 'completed') {
+    return '这个 sourceTag 已完成投影，若需要强制重跑可开启 Force。';
+  }
+
+  return '这个 sourceTag 已完成导入，可以开始投影。';
+}
+
 function selectSource(file: HsdataFile) {
   importError.value = '';
   projectError.value = '';
@@ -623,8 +1013,35 @@ async function loadFiles() {
   }
 }
 
+/** Persisted sourceTag statuses loaded from the console API. */
+async function loadSourceVersions() {
+  loadingSourceVersions.value = true;
+  sourceVersionError.value = '';
+
+  try {
+    sourceVersions.value = await orpc.hearthstone.dataSource.hsdata.listSourceVersions();
+  } catch (error) {
+    console.error('Failed to load hsdata source versions:', error);
+    sourceVersionError.value = getHsdataErrorMessage(error);
+    sourceVersions.value = [];
+  } finally {
+    loadingSourceVersions.value = false;
+  }
+}
+
+/** Source list and sourceTag statuses refreshed together. */
+async function reloadSourceList() {
+  await Promise.all([
+    loadFiles(),
+    loadSourceVersions(),
+  ]);
+}
+
 async function reloadAll(selectedId: string | null = null) {
-  await loadState();
+  await Promise.all([
+    loadState(),
+    loadSourceVersions(),
+  ]);
   await loadFiles();
   restoreSelection(selectedId);
 }
@@ -674,6 +1091,11 @@ async function submitImport() {
       importForm.force,
     );
 
+    const file = files.value.find(item => item.id === importForm.id);
+    if (file) {
+      file.sourceTag = result.sourceTag;
+    }
+
     importForm.sourceTag = result.sourceTag;
     importResult.value = result;
     projectForm.sourceTag = result.sourceTag;
@@ -682,6 +1104,7 @@ async function submitImport() {
     importError.value = getHsdataErrorMessage(error);
   } finally {
     importing.value = false;
+    await loadSourceVersions();
   }
 }
 
@@ -705,6 +1128,7 @@ async function submitProject() {
     projectError.value = getHsdataErrorMessage(error);
   } finally {
     projecting.value = false;
+    await loadSourceVersions();
   }
 }
 

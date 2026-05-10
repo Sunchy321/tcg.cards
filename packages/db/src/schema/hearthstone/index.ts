@@ -14,6 +14,7 @@ export {
   RawEntitySnapshotTag,
   SourceVersion,
   TagValueView,
+  hsdataProjectionStatus,
 } from './data/card-model';
 export * from './data/card-image';
 export {

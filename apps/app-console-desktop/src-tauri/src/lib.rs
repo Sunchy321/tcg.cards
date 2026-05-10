@@ -1188,7 +1188,7 @@ fn list_hsdata_sources(repo_path: &str) -> Result<Vec<HsdataSourceEntry>, String
                 kind: "tag".to_string(),
                 size,
                 time: tag_ref.time,
-                source_tag: None,
+                source_tag: parse_numeric_tag(&tag_ref.tag),
                 source_commit: tag_ref.source_commit.clone(),
                 short_commit: short_commit(&tag_ref.source_commit),
                 source_uri: build_source_uri(&format!("tag:{}", tag_ref.tag)),

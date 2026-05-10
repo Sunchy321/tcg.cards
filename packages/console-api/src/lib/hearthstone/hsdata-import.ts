@@ -117,11 +117,11 @@ interface SnapshotRow {
 
 // source_versions row used by import guards.
 interface SourceVersionRow {
-  sourceTag:  number;
-  build:      number | null;
-  sourceHash: string;
+  sourceTag:           number;
+  build:               number | null;
+  sourceHash:          string;
   importEngineVersion: string | null;
-  status:     string;
+  status:              string;
 }
 
 // source_versions write payload used by status updates.
@@ -1013,25 +1013,28 @@ async function upsertSourceVersionProcessing(
 ) {
   await db.insert(SourceVersion)
     .values({
-      sourceTag:    input.sourceTag,
-      sourceCommit: input.sourceCommit ?? '',
-      build:        input.build,
-      sourceHash:   input.sourceHash,
-      sourceUri:    input.sourceUri ?? '',
+      sourceTag:           input.sourceTag,
+      sourceCommit:        input.sourceCommit ?? '',
+      build:               input.build,
+      sourceHash:          input.sourceHash,
+      sourceUri:           input.sourceUri ?? '',
       importEngineVersion: input.importEngineVersion ?? null,
-      status:       'processing',
-      importedAt:   null,
+      status:              'processing',
+      projectionStatus:    'not_started',
+      projectionError:     null,
+      importedAt:          null,
+      projectedAt:         null,
     })
     .onConflictDoUpdate({
       target: [SourceVersion.sourceTag],
       set:    {
-        sourceCommit: input.sourceCommit ?? '',
-        build:        input.build,
-        sourceHash:   input.sourceHash,
-        sourceUri:    input.sourceUri ?? '',
+        sourceCommit:        input.sourceCommit ?? '',
+        build:               input.build,
+        sourceHash:          input.sourceHash,
+        sourceUri:           input.sourceUri ?? '',
         importEngineVersion: input.importEngineVersion ?? null,
-        status:       'processing',
-        importedAt:   null,
+        status:              'processing',
+        importedAt:          null,
       },
     });
 }
@@ -1040,8 +1043,11 @@ async function upsertSourceVersionProcessing(
 async function markSourceVersionCompleted(sourceTag: number, importedAt: Date) {
   await db.update(SourceVersion)
     .set({
-      status: 'completed',
+      status:           'completed',
+      projectionStatus: 'not_started',
+      projectionError:  null,
       importedAt,
+      projectedAt:      null,
     })
     .where(eq(SourceVersion.sourceTag, sourceTag));
 }
@@ -1050,25 +1056,28 @@ async function markSourceVersionCompleted(sourceTag: number, importedAt: Date) {
 async function upsertSourceVersionFailed(input: SourceVersionWriteInput) {
   await db.insert(SourceVersion)
     .values({
-      sourceTag:    input.sourceTag,
-      sourceCommit: input.sourceCommit ?? '',
-      build:        input.build,
-      sourceHash:   input.sourceHash,
-      sourceUri:    input.sourceUri ?? '',
+      sourceTag:           input.sourceTag,
+      sourceCommit:        input.sourceCommit ?? '',
+      build:               input.build,
+      sourceHash:          input.sourceHash,
+      sourceUri:           input.sourceUri ?? '',
       importEngineVersion: input.importEngineVersion ?? null,
-      status:       'failed',
-      importedAt:   null,
+      status:              'failed',
+      projectionStatus:    'not_started',
+      projectionError:     null,
+      importedAt:          null,
+      projectedAt:         null,
     })
     .onConflictDoUpdate({
       target: [SourceVersion.sourceTag],
       set:    {
-        sourceCommit: input.sourceCommit ?? '',
-        build:        input.build,
-        sourceHash:   input.sourceHash,
-        sourceUri:    input.sourceUri ?? '',
+        sourceCommit:        input.sourceCommit ?? '',
+        build:               input.build,
+        sourceHash:          input.sourceHash,
+        sourceUri:           input.sourceUri ?? '',
         importEngineVersion: input.importEngineVersion ?? null,
-        status:       'failed',
-        importedAt:   null,
+        status:              'failed',
+        importedAt:          null,
       },
     });
 }

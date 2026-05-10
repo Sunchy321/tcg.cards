@@ -10,6 +10,7 @@ import {
 } from '../../../lib/hearthstone/hsdata-import-job';
 import { getHsdataOverview } from '../../../lib/hearthstone/hsdata-overview';
 import { projectHsdata } from '../../../lib/hearthstone/hsdata-project';
+import { listHsdataSourceVersions } from '../../../lib/hearthstone/hsdata-source-version';
 
 const hsdataHash = z.string().trim().min(1);
 
@@ -132,6 +133,32 @@ const hsdataProjectReport = z.object({
   unprojectedTagCount:   z.number().int().nonnegative(),
 });
 
+const hsdataImportStatus = z.enum([
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+]);
+
+const hsdataProjectionStatus = z.enum([
+  'not_started',
+  'processing',
+  'completed',
+  'failed',
+]);
+
+const hsdataSourceVersionStatus = z.object({
+  sourceTag:        z.number().int().positive(),
+  build:            z.number().int().nonnegative().nullable(),
+  sourceCommit:     z.string(),
+  sourceUri:        z.string(),
+  importStatus:     hsdataImportStatus,
+  importedAt:       z.string().nullable(),
+  projectionStatus: hsdataProjectionStatus,
+  projectedAt:      z.string().nullable(),
+  projectionError:  z.string().nullable(),
+});
+
 const hsdataOverview = z.object({
   summary: z.object({
     sourceVersionCount:          z.number().int().nonnegative(),
@@ -189,6 +216,16 @@ const getOverview = os
   .input(z.void())
   .output(hsdataOverview)
   .handler(async () => await getHsdataOverview());
+
+const listSourceVersions = os
+  .route({
+    method:      'GET',
+    description: 'List hsdata sourceTag import and projection statuses',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(z.void())
+  .output(z.array(hsdataSourceVersionStatus))
+  .handler(async () => await listHsdataSourceVersions());
 
 const importArchive = os
   .route({
@@ -334,10 +371,12 @@ const projectSourceVersion = os
 
 export const hsdataLight = {
   getOverview,
+  listSourceVersions,
 };
 
 export const hsdataFull = {
   getOverview,
+  listSourceVersions,
   importArchive,
   createImportJob,
   finalizeImportJob,

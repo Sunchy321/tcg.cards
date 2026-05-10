@@ -19,9 +19,12 @@ interface Table {
 }
 
 interface SourceVersionRow {
-  sourceTag: number;
-  build:     number | null;
-  status:    string;
+  sourceTag:           number;
+  build:               number | null;
+  status:              string;
+  projectionStatus:    string;
+  projectionError:     string | null;
+  projectedAt:         Date | null;
 }
 
 interface TagRow {
@@ -186,6 +189,9 @@ const SourceVersion = table('source_versions', [
   'sourceTag',
   'build',
   'status',
+  'projectionStatus',
+  'projectionError',
+  'projectedAt',
 ]);
 
 const HearthstoneSet = table('sets', [
@@ -495,6 +501,25 @@ class DeleteBuilder {
   }
 }
 
+class UpdateBuilder {
+  private valuesToSet: Partial<Row> = {};
+
+  constructor(
+    private readonly memoryDb: MemoryProjectDb,
+    private readonly tableName: TableName,
+  ) {}
+
+  set(values: Partial<Row>) {
+    this.valuesToSet = values;
+    return this;
+  }
+
+  where(condition: unknown) {
+    this.memoryDb.updateRows(this.tableName, condition, this.valuesToSet);
+    return Promise.resolve([]);
+  }
+}
+
 class MemoryProjectDb {
   state: MemoryState = this.createState();
 
@@ -512,6 +537,10 @@ class MemoryProjectDb {
 
   delete(tableInput: Table) {
     return new DeleteBuilder(this, getTableName(tableInput));
+  }
+
+  update(tableInput: Table) {
+    return new UpdateBuilder(this, getTableName(tableInput));
   }
 
   async transaction<T>(callback: (tx: MemoryProjectDb) => Promise<T>) {
@@ -549,6 +578,43 @@ class MemoryProjectDb {
 
     if (tableName === 'entity_relations') {
       this.state.relations = this.state.relations.filter(row => !matchesCondition(row, condition));
+    }
+  }
+
+  updateRows(tableName: TableName, condition: unknown, values: Partial<Row>) {
+    if (tableName === 'source_versions') {
+      for (const row of this.state.sourceVersions) {
+        if (matchesCondition(row, condition)) {
+          Object.assign(row, values);
+        }
+      }
+      return;
+    }
+
+    if (tableName === 'entities') {
+      for (const row of this.state.entities) {
+        if (matchesCondition(row, condition)) {
+          Object.assign(row, values);
+        }
+      }
+      return;
+    }
+
+    if (tableName === 'entity_localizations') {
+      for (const row of this.state.localizations) {
+        if (matchesCondition(row, condition)) {
+          Object.assign(row, values);
+        }
+      }
+      return;
+    }
+
+    if (tableName === 'entity_relations') {
+      for (const row of this.state.relations) {
+        if (matchesCondition(row, condition)) {
+          Object.assign(row, values);
+        }
+      }
     }
   }
 
@@ -624,7 +690,10 @@ function addSourceVersion(sourceTag: number, build: number) {
   memoryDb.state.sourceVersions.push({
     sourceTag,
     build,
-    status: 'completed',
+    status:           'completed',
+    projectionStatus: 'not_started',
+    projectionError:  null,
+    projectedAt:      null,
   });
 }
 
@@ -1304,6 +1373,15 @@ describe('projectHsdata', () => {
     const relation = memoryDb.state.relations.find(row => row.relation === 'triple_card');
     expect(relation?.version).toEqual([31001, 31002]);
     expect(relation?.isLatest).toBe(true);
+
+    expect(memoryDb.state.sourceVersions.find(row => row.sourceTag === 50001)).toMatchObject({
+      projectionStatus: 'completed',
+      projectionError:  null,
+    });
+    expect(memoryDb.state.sourceVersions.find(row => row.sourceTag === 50002)).toMatchObject({
+      projectionStatus: 'completed',
+      projectionError:  null,
+    });
   });
 
   test('rejects projection when set enum resolves to a placeholder setId', async () => {
@@ -1325,6 +1403,10 @@ describe('projectHsdata', () => {
     expect(memoryDb.state.entities).toHaveLength(0);
     expect(memoryDb.state.localizations).toHaveLength(0);
     expect(memoryDb.state.relations).toHaveLength(0);
+    expect(memoryDb.state.sourceVersions.find(row => row.sourceTag === 50001)).toMatchObject({
+      projectionStatus: 'failed',
+      projectionError:  '[hearthstone][hsdata-project] unresolved setId for card MAIN_001 (1001) from set dbfId 10',
+    });
   });
 
   test('prefers modeled set rows over placeholder set rows for the same dbfId', async () => {

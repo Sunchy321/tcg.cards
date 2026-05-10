@@ -16,14 +16,17 @@ interface Table {
 }
 
 interface SourceVersionRow {
-  sourceTag:    number;
-  sourceCommit: string;
-  build:        number | null;
-  sourceHash:   string;
+  sourceTag:           number;
+  sourceCommit:        string;
+  build:               number | null;
+  sourceHash:          string;
   sourceUri:    string;
   importEngineVersion: string | null;
-  status:       string;
-  importedAt:   Date | null;
+  status:              string;
+  projectionStatus:    string;
+  projectionError:     string | null;
+  importedAt:          Date | null;
+  projectedAt:         Date | null;
 }
 
 interface TagRow {
@@ -118,7 +121,10 @@ const SourceVersion = table('source_versions', [
   'sourceUri',
   'importEngineVersion',
   'status',
+  'projectionStatus',
+  'projectionError',
   'importedAt',
+  'projectedAt',
 ]);
 
 const HearthstoneSet = table('sets', [
@@ -653,6 +659,9 @@ describe('importHsdata', () => {
       build:        12345,
       sourceUri:    'fixture://carddefs.xml',
       status:       'completed',
+      projectionStatus: 'not_started',
+      projectionError:  null,
+      projectedAt:      null,
     });
 
     const snapshots = [...memoryDb.state.snapshots.values()];
@@ -724,6 +733,7 @@ describe('importHsdata', () => {
       sourceHash:          'fixture-hash',
       importEngineVersion: 'desktop-rust-v1',
       status:              'completed',
+      projectionStatus:    'not_started',
     });
   });
 
@@ -817,9 +827,12 @@ describe('importHsdata', () => {
       group:         null,
     });
     expect(memoryDb.state.sourceVersions.get(12346)).toMatchObject({
-      build:      12346,
-      status:     'failed',
-      importedAt: null,
+      build:            12346,
+      status:           'failed',
+      projectionStatus: 'not_started',
+      projectionError:  null,
+      importedAt:       null,
+      projectedAt:      null,
     });
     expect(memoryDb.state.snapshots.size).toBe(0);
     expect(memoryDb.state.snapshotTags).toHaveLength(0);
