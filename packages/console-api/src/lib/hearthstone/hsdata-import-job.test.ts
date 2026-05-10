@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   computeHsdataManifestHash,
   type CreateHsdataImportJobInput,
+  normalizeHsdataImportJobStatus,
   validateHsdataImportManifest,
 } from './hsdata-import-job';
 import { getHsdataImportJobErrorCode } from './hsdata-import-job-error';
@@ -108,5 +109,27 @@ describe('getHsdataImportJobErrorCode', () => {
 
   test('keeps validation failures as BAD_REQUEST', () => {
     expect(getHsdataImportJobErrorCode('unsupported payloadEncoding br')).toBe('BAD_REQUEST');
+  });
+});
+
+describe('normalizeHsdataImportJobStatus', () => {
+  test('promotes uploading jobs once every chunk is completed', () => {
+    expect(normalizeHsdataImportJobStatus({
+      status:               'uploading',
+      totalChunkCount:      2,
+      completedChunkCount:  2,
+      failedChunkCount:     0,
+      processingChunkCount: 0,
+    })).toBe('ready_to_finalize');
+  });
+
+  test('keeps uploading jobs open while chunks are still in flight', () => {
+    expect(normalizeHsdataImportJobStatus({
+      status:               'uploading',
+      totalChunkCount:      2,
+      completedChunkCount:  2,
+      failedChunkCount:     0,
+      processingChunkCount: 1,
+    })).toBe('uploading');
   });
 });

@@ -250,6 +250,27 @@ async function countCompletedChunks(tx: DbTx, jobId: string) {
   return rows[0]?.value ?? 0;
 }
 
+// Job status normalized from persisted state and aggregated chunk progress.
+export function normalizeHsdataImportJobStatus(input: {
+  status: HsdataImportJobState['status'];
+  totalChunkCount: number;
+  completedChunkCount: number;
+  failedChunkCount: number;
+  processingChunkCount: number;
+}): HsdataImportJobState['status'] {
+  if (input.status !== 'uploading') {
+    return input.status;
+  }
+
+  if (input.failedChunkCount > 0 || input.processingChunkCount > 0) {
+    return input.status;
+  }
+
+  return input.completedChunkCount === input.totalChunkCount
+    ? 'ready_to_finalize'
+    : input.status;
+}
+
 // Supported structured payload metadata enforced by the shared job service.
 function assertSupportedChunkPayload(job: {
   payloadFormatVersion: string;
@@ -579,18 +600,60 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
     return job.report as unknown as ImportHsdataReport;
   }
 
-  if (job.status !== 'ready_to_finalize') {
-    throw new Error(`job ${jobId} cannot be finalized from status ${job.status}`);
-  }
-
   const chunkRows = await db.select({
     status: HsdataImportJobChunk.status,
   })
     .from(HsdataImportJobChunk)
     .where(eq(HsdataImportJobChunk.jobId, jobId));
 
-  if (chunkRows.length !== job.totalChunkCount || chunkRows.some(row => row.status !== 'completed')) {
+  const completedChunkCount = chunkRows.filter(row => row.status === 'completed').length;
+  const failedChunkCount = chunkRows.filter(row => row.status === 'failed').length;
+  const processingChunkCount = chunkRows.filter(row => row.status === 'processing').length;
+  const normalizedStatus = normalizeHsdataImportJobStatus({
+    status: job.status,
+    totalChunkCount: job.totalChunkCount,
+    completedChunkCount,
+    failedChunkCount,
+    processingChunkCount,
+  });
+
+  if (normalizedStatus !== 'ready_to_finalize') {
+    throw new Error(`job ${jobId} cannot be finalized from status ${job.status}`);
+  }
+
+  if (chunkRows.length !== job.totalChunkCount || completedChunkCount !== job.totalChunkCount) {
     throw new Error(`job ${jobId} is missing completed chunks`);
+  }
+
+  const [claimedJob] = await db.update(HsdataImportJob)
+    .set({
+      status: 'finalizing',
+      error:  null,
+    })
+    .where(and(
+      eq(HsdataImportJob.id, jobId),
+      inArray(HsdataImportJob.status, ['uploading', 'ready_to_finalize']),
+    ))
+    .returning({
+      id: HsdataImportJob.id,
+    });
+
+  if (!claimedJob) {
+    const latestJob = await getHsdataImportJobRow(jobId);
+
+    if (!latestJob) {
+      throw new Error(`hsdata import job ${jobId} does not exist`);
+    }
+
+    if (latestJob.status === 'completed') {
+      if (latestJob.report == null) {
+        throw new Error(`hsdata import job ${jobId} completed without a report`);
+      }
+
+      return latestJob.report as unknown as ImportHsdataReport;
+    }
+
+    throw new Error(`job ${jobId} cannot be finalized from status ${latestJob.status}`);
   }
 
   const snapshotRows = await db.select({
@@ -613,13 +676,6 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
       extraPayload: row.extraPayload as JsonMap,
     })),
   };
-
-  await db.update(HsdataImportJob)
-    .set({
-      status: 'finalizing',
-      error:  null,
-    })
-    .where(eq(HsdataImportJob.id, jobId));
 
   try {
     // Delay the legacy import module load so manifest-only helpers and tests do not
@@ -671,6 +727,8 @@ export async function getHsdataImportJobState(jobId: string): Promise<HsdataImpo
     throw new Error(`hsdata import job ${jobId} does not exist`);
   }
 
+  let currentJob = job;
+
   const chunkStatusRows = await db.select({
     status: HsdataImportJobChunk.status,
     value:  count(),
@@ -683,27 +741,61 @@ export async function getHsdataImportJobState(jobId: string): Promise<HsdataImpo
   const completedChunkCount = statusCounts.get('completed') ?? 0;
   const failedChunkCount = statusCounts.get('failed') ?? 0;
   const processingChunkCount = statusCounts.get('processing') ?? 0;
+  let status = normalizeHsdataImportJobStatus({
+    status: currentJob.status,
+    totalChunkCount: currentJob.totalChunkCount,
+    completedChunkCount,
+    failedChunkCount,
+    processingChunkCount,
+  });
+
+  if (status !== currentJob.status) {
+    // Concurrent chunk completions can leave the persisted job row one transition behind.
+    // Promote the durable status once reads can prove the staging set is fully complete.
+    const [updatedJob] = await db.update(HsdataImportJob)
+      .set({
+        status,
+      })
+      .where(and(
+        eq(HsdataImportJob.id, jobId),
+        eq(HsdataImportJob.status, currentJob.status),
+      ))
+      .returning({
+        status: HsdataImportJob.status,
+      });
+
+    if (!updatedJob) {
+      const latestJob = await getHsdataImportJobRow(jobId);
+
+      if (!latestJob) {
+        throw new Error(`hsdata import job ${jobId} does not exist`);
+      }
+
+      currentJob = latestJob;
+      status = currentJob.status;
+    }
+  }
 
   return {
-    jobId:                job.id,
-    sourceTag:            job.sourceTag,
-    build:                job.build,
-    sourceHash:           job.sourceHash,
-    dryRun:               job.dryRun,
-    force:                job.force,
-    status:               job.status,
-    stagingCleanupStatus: job.stagingCleanupStatus,
-    totalChunkCount:      job.totalChunkCount,
-    totalEntityCount:     job.totalEntityCount,
-    completedChunkCount:  job.status === 'completed' && completedChunkCount === 0
-      ? job.totalChunkCount
+    jobId:                currentJob.id,
+    sourceTag:            currentJob.sourceTag,
+    build:                currentJob.build,
+    sourceHash:           currentJob.sourceHash,
+    dryRun:               currentJob.dryRun,
+    force:                currentJob.force,
+    status,
+    stagingCleanupStatus: currentJob.stagingCleanupStatus,
+    totalChunkCount:      currentJob.totalChunkCount,
+    totalEntityCount:     currentJob.totalEntityCount,
+    completedChunkCount:  status === 'completed' && completedChunkCount === 0
+      ? currentJob.totalChunkCount
       : completedChunkCount,
     failedChunkCount,
     processingChunkCount,
-    report:               job.report as ImportHsdataReport | null,
-    error:                job.error,
-    stagingCleanupError:  job.stagingCleanupError,
-    cleanedAt:            job.cleanedAt?.toISOString() ?? null,
-    finalizedAt:          job.finalizedAt?.toISOString() ?? null,
+    report:               currentJob.report as ImportHsdataReport | null,
+    error:                currentJob.error,
+    stagingCleanupError:  currentJob.stagingCleanupError,
+    cleanedAt:            currentJob.cleanedAt?.toISOString() ?? null,
+    finalizedAt:          currentJob.finalizedAt?.toISOString() ?? null,
   };
 }
