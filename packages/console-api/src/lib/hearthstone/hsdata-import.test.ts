@@ -576,6 +576,7 @@ const {
   normalizeHsdataSourceXml,
   parseHsdataXml,
 } = await import('./hsdata-import');
+const { buildHsdataPlaceholderSetId } = await import('./hsdata-set-placeholder');
 
 const fixtureXml = `
 <CardDefs build="12345">
@@ -805,7 +806,7 @@ describe('importHsdata', () => {
 
     expect(memoryDb.state.sets.size).toBe(1);
     expect([...memoryDb.state.sets.values()][0]).toMatchObject({
-      setId:         '',
+      setId:         buildHsdataPlaceholderSetId(10),
       dbfId:         10,
       slug:          null,
       rawName:       null,
@@ -822,5 +823,42 @@ describe('importHsdata', () => {
     });
     expect(memoryDb.state.snapshots.size).toBe(0);
     expect(memoryDb.state.snapshotTags).toHaveLength(0);
+  });
+
+  test('syncs placeholder set rows during dry run validation', async () => {
+    await expect(importHsdata({
+      xml:       missingSetXml,
+      sourceTag: 12347,
+      dryRun:    true,
+    })).rejects.toThrow('missing set rows for dbfId(s): 10');
+
+    expect(memoryDb.state.sets.size).toBe(1);
+    expect([...memoryDb.state.sets.values()][0]).toMatchObject({
+      setId: buildHsdataPlaceholderSetId(10),
+      dbfId: 10,
+    });
+    expect(memoryDb.state.sourceVersions.size).toBe(0);
+    expect(memoryDb.state.snapshots.size).toBe(0);
+    expect(memoryDb.state.snapshotTags).toHaveLength(0);
+  });
+
+  test('keeps placeholder set rows unresolved across retries', async () => {
+    await expect(importHsdata({
+      xml:       missingSetXml,
+      sourceTag: 12348,
+      dryRun:    true,
+    })).rejects.toThrow('missing set rows for dbfId(s): 10');
+
+    await expect(importHsdata({
+      xml:       missingSetXml,
+      sourceTag: 12349,
+      dryRun:    true,
+    })).rejects.toThrow('Placeholder set row(s) already exist');
+
+    expect(memoryDb.state.sets.size).toBe(1);
+    expect([...memoryDb.state.sets.values()][0]).toMatchObject({
+      setId: buildHsdataPlaceholderSetId(10),
+      dbfId: 10,
+    });
   });
 });

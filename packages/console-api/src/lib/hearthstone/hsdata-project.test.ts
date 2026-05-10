@@ -594,6 +594,7 @@ mock.module('@tcg-cards/db/schema/hearthstone/set', () => hsdataProjectSetSchema
 mock.module('@tcg-cards/db/schema/hearthstone/tag', () => hsdataProjectTagSchemaMock);
 
 const { projectHsdata } = await import('./hsdata-project');
+const { buildHsdataPlaceholderSetId } = await import('./hsdata-set-placeholder');
 
 const enumId = {
   attack:          47,
@@ -1305,9 +1306,9 @@ describe('projectHsdata', () => {
     expect(relation?.isLatest).toBe(true);
   });
 
-  test('rejects projection when set enum resolves to an empty setId', async () => {
+  test('rejects projection when set enum resolves to a placeholder setId', async () => {
     memoryDb.state.sets = [{
-      setId:         '',
+      setId:         buildHsdataPlaceholderSetId(10),
       dbfId:         10,
       slug:          null,
       type:          'unknown',
@@ -1324,5 +1325,38 @@ describe('projectHsdata', () => {
     expect(memoryDb.state.entities).toHaveLength(0);
     expect(memoryDb.state.localizations).toHaveLength(0);
     expect(memoryDb.state.relations).toHaveLength(0);
+  });
+
+  test('prefers modeled set rows over placeholder set rows for the same dbfId', async () => {
+    memoryDb.state.sets = [
+      {
+        setId:         buildHsdataPlaceholderSetId(10),
+        dbfId:         10,
+        slug:          null,
+        type:          'unknown',
+        releaseDate:   '',
+        cardCountFull: null,
+        cardCount:     null,
+        group:         null,
+      },
+      {
+        setId:         'CORE',
+        dbfId:         10,
+        slug:          'core',
+        type:          'core',
+        releaseDate:   '2024-01-01',
+        cardCountFull: 0,
+        cardCount:     0,
+        group:         null,
+      },
+    ];
+    seedSource(50001, 31001, '法术迸发：获得 +2 攻击力。');
+
+    const report = await projectHsdata({ sourceTag: 50001 });
+
+    expect(report.skipped).toBe(false);
+    expect(memoryDb.state.entities.find(row => row.cardId === 'MAIN_001')).toMatchObject({
+      set: 'CORE',
+    });
   });
 });

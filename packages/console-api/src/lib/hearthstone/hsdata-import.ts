@@ -12,6 +12,11 @@ import {
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/hearthstone/tag';
 
+import {
+  buildHsdataPlaceholderSetId,
+  isHsdataPlaceholderSetId,
+} from './hsdata-set-placeholder';
+
 // Shared transaction shape for import helpers.
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -131,6 +136,11 @@ interface SourceVersionWriteInput {
 
 const cardSetEnumId = 183;
 const cardSetRawName = 'CARD_SET';
+
+// Modeled set ids accepted by downstream projection.
+function isModeledSetId(setId: string): boolean {
+  return setId.length > 0 && !isHsdataPlaceholderSetId(setId);
+}
 
 // Completed raw hsdata import report.
 export interface ImportHsdataReport {
@@ -721,13 +731,14 @@ async function getExistingTags(tx: DbTx, enumIds: number[]): Promise<Map<number,
 
 // Existing set ids needed for pre-import validation.
 async function loadExistingSetDbfIds(dbfIds: number[]): Promise<Set<number>> {
-  const rows: Array<{ dbfId: number | null }> = [];
+  const rows: Array<{ dbfId: number | null, setId: string }> = [];
 
   for (const chunk of chunkValues(dbfIds)) {
     if (chunk.length === 0) continue;
 
     const result = await db.select({
       dbfId: HearthstoneSet.dbfId,
+      setId: HearthstoneSet.setId,
     })
       .from(HearthstoneSet)
       .where(inArray(HearthstoneSet.dbfId, chunk));
@@ -735,7 +746,37 @@ async function loadExistingSetDbfIds(dbfIds: number[]): Promise<Set<number>> {
     rows.push(...result);
   }
 
-  return new Set(rows.map(row => row.dbfId).filter((value): value is number => value != null));
+  return new Set(
+    rows
+      .filter((row): row is { dbfId: number, setId: string } => row.dbfId != null)
+      .filter(row => isModeledSetId(row.setId))
+      .map(row => row.dbfId),
+  );
+}
+
+// Placeholder set ids already present for the provided dbf ids.
+async function loadPlaceholderSetDbfIds(dbfIds: number[]): Promise<Set<number>> {
+  const rows: Array<{ dbfId: number | null, setId: string }> = [];
+
+  for (const chunk of chunkValues(dbfIds)) {
+    if (chunk.length === 0) continue;
+
+    const result = await db.select({
+      dbfId: HearthstoneSet.dbfId,
+      setId: HearthstoneSet.setId,
+    })
+      .from(HearthstoneSet)
+      .where(inArray(HearthstoneSet.dbfId, chunk));
+
+    rows.push(...result);
+  }
+
+  return new Set(
+    rows
+      .filter((row): row is { dbfId: number, setId: string } => row.dbfId != null)
+      .filter(row => isHsdataPlaceholderSetId(row.setId))
+      .map(row => row.dbfId),
+  );
 }
 
 // Placeholder set rows inserted so missing dependencies become explicit.
@@ -744,9 +785,16 @@ async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
     return 0;
   }
 
+  const existingPlaceholderDbfIds = await loadPlaceholderSetDbfIds(dbfIds);
+  const missingPlaceholderDbfIds = dbfIds.filter(dbfId => !existingPlaceholderDbfIds.has(dbfId));
+
+  if (missingPlaceholderDbfIds.length === 0) {
+    return 0;
+  }
+
   await db.insert(HearthstoneSet).values(
-    dbfIds.map(dbfId => ({
-      setId:         '',
+    missingPlaceholderDbfIds.map(dbfId => ({
+      setId:         buildHsdataPlaceholderSetId(dbfId),
       dbfId,
       slug:          null,
       rawName:       null,
@@ -758,7 +806,7 @@ async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
     })),
   );
 
-  return dbfIds.length;
+  return missingPlaceholderDbfIds.length;
 }
 
 // Set ids still missing from the model tables.
@@ -1251,10 +1299,9 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
   const missingSetDbfIds = await findMissingSetDbfIds(collectSetDbfIds(input.parsed.entities));
 
   if (missingSetDbfIds.length > 0) {
-    let insertedPlaceholderSetCount = 0;
+    const insertedPlaceholderSetCount = await insertPlaceholderSets(missingSetDbfIds);
 
     if (!dryRun) {
-      insertedPlaceholderSetCount = await insertPlaceholderSets(missingSetDbfIds);
       await markSourceVersionFailedIfNeeded({
         sourceTag:    input.sourceTag,
         build:        input.parsed.build,
@@ -1265,9 +1312,9 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
       }, sourceVersion);
     }
 
-    const action = dryRun
-      ? 'Dry run detected missing set rows and did not insert placeholders'
-      : `Inserted ${insertedPlaceholderSetCount} placeholder set row(s)`;
+    const action = insertedPlaceholderSetCount > 0
+      ? `Inserted ${insertedPlaceholderSetCount} placeholder set row(s)`
+      : 'Placeholder set row(s) already exist';
 
     throw new Error(
       `[hearthstone][hsdata-import] missing set rows for dbfId(s): ${missingSetDbfIds.join(', ')}. ${action}. Complete set modeling before retrying import.`,

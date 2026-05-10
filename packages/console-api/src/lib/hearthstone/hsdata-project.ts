@@ -15,6 +15,8 @@ import { EntityRelation } from '@tcg-cards/db/schema/hearthstone/entity-relation
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/hearthstone/tag';
 
+import { isHsdataPlaceholderSetId } from './hsdata-set-placeholder';
+
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type JsonMap = Record<string, unknown>;
 type LocalizedText = Record<string, string>;
@@ -431,7 +433,7 @@ function assertResolvedSetId(
   row: RawSnapshotTagRow,
   normalized: NormalizedValue,
 ) {
-  if (typeof normalized === 'string' && normalized.length > 0) {
+  if (typeof normalized === 'string' && normalized.length > 0 && !isHsdataPlaceholderSetId(normalized)) {
     return;
   }
 
@@ -1536,7 +1538,18 @@ async function loadSetIdByDbfId(): Promise<Map<number, string>> {
     .from(HearthstoneSet)
     .then(items => items.filter(item => item.dbfId != null));
 
-  return new Map(rows.map(row => [row.dbfId!, row.setId]));
+  const setIdByDbfId = new Map<number, string>();
+
+  for (const row of rows) {
+    const dbfId = row.dbfId!;
+    const existing = setIdByDbfId.get(dbfId);
+
+    if (existing == null || (isHsdataPlaceholderSetId(existing) && !isHsdataPlaceholderSetId(row.setId))) {
+      setIdByDbfId.set(dbfId, row.setId);
+    }
+  }
+
+  return setIdByDbfId;
 }
 
 async function loadExistingEntities(cardIds: string[]): Promise<EntityRow[]> {
