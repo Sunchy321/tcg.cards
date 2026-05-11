@@ -1,5 +1,6 @@
 #[allow(dead_code)]
 mod hsdata_import_payload;
+mod hsdata_legacy_dbf_id_table;
 
 use crate::hsdata_import_payload::{
     collect_legacy_entity_card_ids, prepare_hsdata_payload_profiled_with_dbf_ids,
@@ -7,6 +8,7 @@ use crate::hsdata_import_payload::{
     HsdataPreparedPayloadResult, HSDATA_IMPORT_ENGINE_VERSION, HSDATA_PAYLOAD_ENCODING,
     HSDATA_PAYLOAD_FORMAT_VERSION,
 };
+use crate::hsdata_legacy_dbf_id_table::get_legacy_hsdata_dbf_id;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use reqwest::cookie::{CookieStore, Jar};
@@ -239,8 +241,6 @@ const HSDATA_MAX_BYTES_PER_CHUNK: usize = 1024 * 1024;
 const HSDATA_MAX_ENTITIES_PER_CHUNK: usize = 256;
 const HSDATA_UPLOAD_CONCURRENCY: usize = 4;
 const HSDATA_CREATE_IMPORT_JOB_PATH: &str = "/rpc/hearthstone/dataSource/hsdata/createImportJob";
-const HSDATA_RESOLVE_CARD_DBF_IDS_PATH: &str =
-    "/rpc/hearthstone/dataSource/hsdata/resolveCardDbfIds";
 const HSDATA_UPLOAD_IMPORT_CHUNK_PATH: &str =
     "/rpc/hearthstone/dataSource/hsdata/uploadImportChunk";
 const HSDATA_FINALIZE_IMPORT_JOB_PATH: &str =
@@ -352,29 +352,6 @@ struct HsdataCreateImportJobInput {
 #[serde(rename_all = "camelCase")]
 struct HsdataCreateImportJobResult {
     job_id: String,
-}
-
-/// Remote resolveCardDbfIds request.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataResolveCardDbfIdsInput {
-    card_ids: Vec<String>,
-}
-
-/// One resolved cardId-to-dbfId row returned by the remote fallback lookup.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataCardDbfId {
-    card_id: String,
-    dbf_id: u32,
-}
-
-/// Remote resolveCardDbfIds response.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataResolveCardDbfIdsResult {
-    items: Vec<HsdataCardDbfId>,
-    missing_card_ids: Vec<String>,
 }
 
 /// Remote uploadImportChunk response.
@@ -1558,17 +1535,14 @@ async fn create_remote_hsdata_import_job(
     rpc_post_json(session_client, HSDATA_CREATE_IMPORT_JOB_PATH, &manifest).await
 }
 
-/// Legacy cardId fallback mappings fetched from the authenticated console API.
-async fn resolve_remote_hsdata_card_dbf_ids(
-    session_client: &SessionClient,
-    card_ids: Vec<String>,
-) -> Result<HsdataResolveCardDbfIdsResult, String> {
-    rpc_post_json(
-        session_client,
-        HSDATA_RESOLVE_CARD_DBF_IDS_PATH,
-        &HsdataResolveCardDbfIdsInput { card_ids },
-    )
-    .await
+/// Local legacy cardId fallback mappings resolved from the git-tracked Rust table.
+fn resolve_local_hsdata_card_dbf_ids(card_ids: Vec<String>) -> HashMap<String, u32> {
+    card_ids
+        .into_iter()
+        .filter_map(|card_id| {
+            get_legacy_hsdata_dbf_id(&card_id).map(|dbf_id| (card_id, dbf_id))
+        })
+        .collect()
 }
 
 /// Gzip-compressed NDJSON payload encoded for the raw upload endpoint.
@@ -2182,13 +2156,11 @@ async fn hsdata_import_source(
             }),
         );
 
-        let session_client = require_session_client(&app, &state)?;
         let mut dbf_id_by_card_id = HashMap::<String, u32>::new();
 
         if !legacy_card_ids.is_empty() {
             let resolve_legacy_dbf_ids_started_at = Instant::now();
-            let resolved =
-                resolve_remote_hsdata_card_dbf_ids(&session_client, legacy_card_ids.clone()).await?;
+            dbf_id_by_card_id = resolve_local_hsdata_card_dbf_ids(legacy_card_ids.clone());
             let resolve_legacy_dbf_ids_ms = elapsed_millis(&resolve_legacy_dbf_ids_started_at);
 
             log_hsdata_import_profile(
@@ -2197,17 +2169,11 @@ async fn hsdata_import_source(
                     "sourceId": source.id,
                     "sourceTag": source.source_tag,
                     "legacyEntityCount": legacy_card_ids.len(),
-                    "resolvedEntityCount": resolved.items.len(),
-                    "missingEntityCount": resolved.missing_card_ids.len(),
+                    "resolvedEntityCount": dbf_id_by_card_id.len(),
+                    "missingEntityCount": legacy_card_ids.len().saturating_sub(dbf_id_by_card_id.len()),
                     "elapsedMs": resolve_legacy_dbf_ids_ms,
                 }),
             );
-
-            dbf_id_by_card_id = resolved
-                .items
-                .into_iter()
-                .map(|item| (item.card_id, item.dbf_id))
-                .collect();
         }
 
         let HsdataPreparedImportResult {
@@ -2343,6 +2309,7 @@ async fn hsdata_import_source(
                 "elapsedMs": prepare_profile.total_ms,
             }),
         );
+        let session_client = require_session_client(&app, &state)?;
 
         emit_hsdata_import_progress(
             &app,

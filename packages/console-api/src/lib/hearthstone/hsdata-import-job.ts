@@ -726,8 +726,8 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
   });
 
   try {
-    // Delay the legacy import module load so manifest-only helpers and tests do not
-    // pay for the full raw-import dependency graph during module initialization.
+    // Delay the raw import module load so manifest-only helpers and tests do not pay for the full
+    // raw-import dependency graph during module initialization.
     const { importParsedHsdata } = await import('./hsdata-import');
     const report = await importParsedHsdata({
       parsed,

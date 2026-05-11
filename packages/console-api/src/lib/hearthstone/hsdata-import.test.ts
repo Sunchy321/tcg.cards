@@ -193,12 +193,6 @@ const RawEntitySnapshotTag = table('raw_entity_snapshot_tags', [
   'parseStatus',
 ]);
 
-const Entity = table('entities', [
-  'cardId',
-  'dbfId',
-  'isLatest',
-]);
-
 function getTableName(tableInput: Table): TableName {
   return tableInput.tableName;
 }
@@ -592,71 +586,160 @@ const hsdataSetSchemaMock = {
 const hsdataTagSchemaMock = {
   Tag,
 };
-const hsdataEntitySchemaMock = {
-  Entity,
-};
 mock.module('@tcg-cards/db/schema/hearthstone/data/card-model', () => hsdataCardModelSchemaMock);
-mock.module('@tcg-cards/db/schema/hearthstone/entity', () => hsdataEntitySchemaMock);
 mock.module('@tcg-cards/db/schema/hearthstone/set', () => hsdataSetSchemaMock);
 mock.module('@tcg-cards/db/schema/hearthstone/tag', () => hsdataTagSchemaMock);
 
 const {
-  collectLegacyEntityCardIds,
-  importHsdata,
+  buildParsedEntity,
   importParsedHsdata,
-  normalizeHsdataSourceXml,
-  parseHsdataXml,
 } = await import('./hsdata-import');
 const { buildHsdataPlaceholderSetId } = await import('./hsdata-set-placeholder');
 
-const fixtureXml = `
-<CardDefs build="12345">
-  <Entity CardID="CORE_TEST_001" ID="1001" version="3">
-    <Tag enumID="48" name="CardName" type="LocString">
-      <enUS>Test Minion</enUS>
-      <zhCN>测试随从</zhCN>
-    </Tag>
-    <Tag enumID="185" name="COST" type="Int" value="2" />
-    <Tag enumID="47" name="CARDTYPE" type="Int" value="4" />
-    <Tag enumID="999001" name="CUSTOM_FLAG" type="Int" value="1" />
-    <ReferencedTag enumID="999002" value="1" />
-    <Power definition="POWER_TEST">
-      <PlayRequirement reqID="1" param="2" />
-    </Power>
-    <EntourageCard cardID="CORE_TEST_002" />
-  </Entity>
-  <Entity CardID="CORE_TEST_002" ID="1002" version="1">
-    <Tag enumID="48" name="CardName" type="LocString">
-      <enUS>Token</enUS>
-    </Tag>
-    <Tag enumID="999003" name="CARD_REF" type="Card" cardID="CORE_TEST_001" />
-  </Entity>
-</CardDefs>
-`.trim();
+function createLocStringTag(
+  enumId: number,
+  rawName: string,
+  values: Record<string, string>,
+  tagOrder: number,
+) {
+  return {
+    enumId,
+    rawName,
+    rawType:        'LocString',
+    rawPayload:     {
+      attributes: {
+        enumID: String(enumId),
+        name:   rawName,
+        type:   'LocString',
+      },
+      children: values,
+    },
+    rawValue:       null,
+    locStringValue: values,
+    cardRefCardId:  null,
+    tagOrder,
+  };
+}
 
-const missingSetXml = `
-<CardDefs build="12346">
-  <Entity CardID="CORE_TEST_MISSING_SET" ID="2001" version="1">
-    <Tag enumID="48" name="CardName" type="LocString">
-      <enUS>Missing Set Card</enUS>
-    </Tag>
-    <Tag enumID="183" name="CARD_SET" type="Int" value="10" />
-    <Tag enumID="185" name="COST" type="Int" value="2" />
-  </Entity>
-</CardDefs>
-`.trim();
+function createIntTag(
+  enumId: number,
+  rawName: string,
+  value: number,
+  tagOrder: number,
+) {
+  return {
+    enumId,
+    rawName,
+    rawType:        'Int',
+    rawPayload:     {
+      attributes: {
+        enumID: String(enumId),
+        name:   rawName,
+        type:   'Int',
+        value:  String(value),
+      },
+    },
+    rawValue:       String(value),
+    locStringValue: null,
+    cardRefCardId:  null,
+    tagOrder,
+  };
+}
 
-const legacyFixtureXml = `
-<CardDefs build="10784">
-  <Entity CardID="AT_001" version="2">
-    <Tag enumID="48" name="CardName" type="LocString">
-      <enUS>Flame Lance</enUS>
-      <zhCN>炎枪术</zhCN>
-    </Tag>
-    <Tag enumID="185" name="COST" type="Int" value="5" />
-  </Entity>
-</CardDefs>
-`.trim();
+function createCardRefTag(
+  enumId: number,
+  rawName: string,
+  cardRefCardId: string,
+  tagOrder: number,
+) {
+  return {
+    enumId,
+    rawName,
+    rawType:        'Card',
+    rawPayload:     {
+      attributes: {
+        enumID: String(enumId),
+        name:   rawName,
+        type:   'Card',
+        cardID: cardRefCardId,
+      },
+    },
+    rawValue:       null,
+    locStringValue: null,
+    cardRefCardId,
+    tagOrder,
+  };
+}
+
+function createFixtureParsed() {
+  return {
+    build:    12345,
+    entities: [
+      buildParsedEntity({
+        cardId:           'CORE_TEST_001',
+        dbfId:            1001,
+        entityXmlVersion: 3,
+        tags:             [
+          createLocStringTag(48, 'CardName', { enUS: 'Test Minion', zhCN: '测试随从' }, 0),
+          createIntTag(185, 'COST', 2, 1),
+          createIntTag(47, 'CARDTYPE', 4, 2),
+          createIntTag(999001, 'CUSTOM_FLAG', 1, 3),
+        ],
+        extraPayload:     {
+          referencedTags:            { 999002: true },
+          powers:                    [{ definition: 'POWER_TEST', playRequirements: [{ reqId: 1, param: 2 }] }],
+          entourageCards:            [{ cardId: 'CORE_TEST_002' }],
+          masterPowers:              [],
+          triggeredPowerHistoryInfo: [],
+        },
+      }),
+      buildParsedEntity({
+        cardId:           'CORE_TEST_002',
+        dbfId:            1002,
+        entityXmlVersion: 1,
+        tags:             [
+          createLocStringTag(48, 'CardName', { enUS: 'Token' }, 0),
+          createCardRefTag(999003, 'CARD_REF', 'CORE_TEST_001', 1),
+        ],
+        extraPayload:     {
+          referencedTags:            {},
+          powers:                    [],
+          entourageCards:            [],
+          masterPowers:              [],
+          triggeredPowerHistoryInfo: [],
+        },
+      }),
+    ],
+  };
+}
+
+function createMissingSetParsed() {
+  return {
+    build:    12346,
+    entities: [
+      buildParsedEntity({
+        cardId:           'CORE_TEST_MISSING_SET',
+        dbfId:            2001,
+        entityXmlVersion: 1,
+        tags:             [
+          createLocStringTag(48, 'CardName', { enUS: 'Missing Set Card' }, 0),
+          createIntTag(183, 'CARD_SET', 10, 1),
+          createIntTag(185, 'COST', 2, 2),
+        ],
+        extraPayload:     {
+          referencedTags:            {},
+          powers:                    [],
+          entourageCards:            [],
+          masterPowers:              [],
+          triggeredPowerHistoryInfo: [],
+        },
+      }),
+    ],
+  };
+}
+
+const fixtureSourceHash = 'fixture-hash';
+const missingSetSourceHash = 'missing-set-hash';
 
 function counts() {
   return {
@@ -672,79 +755,14 @@ beforeEach(() => {
   memoryDb.reset();
 });
 
-describe('importHsdata', () => {
-  test('collects legacy Entity card ids that omit dbfId attributes', () => {
-    expect(collectLegacyEntityCardIds(normalizeHsdataSourceXml(legacyFixtureXml))).toEqual(['AT_001']);
-  });
-
-  test('collects legacy Entity card ids when dbfId is zero', () => {
-    const zeroDbfXml = `
-<CardDefs build="10784">
-  <Entity CardID="AT_001" ID="0" version="2" />
-</CardDefs>
-`.trim();
-
-    expect(collectLegacyEntityCardIds(normalizeHsdataSourceXml(zeroDbfXml))).toEqual(['AT_001']);
-  });
-
-  test('parses legacy CardDefs with a fallback dbfId map', () => {
-    const parsed = parseHsdataXml(
-      normalizeHsdataSourceXml(legacyFixtureXml),
-      {
-        dbfIdByCardId: new Map([['AT_001', 1]]),
-      },
-    );
-
-    expect(parsed.build).toBe(10784);
-    expect(parsed.entities).toHaveLength(1);
-    expect(parsed.entities[0]).toMatchObject({
-      cardId:           'AT_001',
-      dbfId:            1,
-      entityXmlVersion: 2,
-    });
-  });
-
-  test('parses zero dbfId Entity nodes with a fallback dbfId map', () => {
-    const zeroDbfXml = `
-<CardDefs build="10784">
-  <Entity CardID="AT_001" ID="0" version="2" />
-</CardDefs>
-`.trim();
-
-    const parsed = parseHsdataXml(
-      normalizeHsdataSourceXml(zeroDbfXml),
-      {
-        dbfIdByCardId: new Map([['AT_001', 1]]),
-      },
-    );
-
-    expect(parsed.entities[0]).toMatchObject({
-      cardId: 'AT_001',
-      dbfId:  1,
-    });
-  });
-
-  test('keeps legacy dbfId at zero when no fallback map entry exists', () => {
-    const unresolvedXml = `
-<CardDefs build="3140">
-  <Entity CardID="PlaceholderCard" version="2" />
-</CardDefs>
-`.trim();
-
-    const parsed = parseHsdataXml(normalizeHsdataSourceXml(unresolvedXml));
-
-    expect(parsed.entities[0]).toMatchObject({
-      cardId: 'PlaceholderCard',
-      dbfId:  0,
-    });
-  });
-
-  test('imports CardDefs fixture into raw archive tables', async () => {
-    const report = await importHsdata({
-      xml:          fixtureXml,
+describe('importParsedHsdata', () => {
+  test('imports parsed fixture into raw archive tables', async () => {
+    const report = await importParsedHsdata({
+      parsed:       createFixtureParsed(),
       sourceTag:    12345,
+      sourceHash:   fixtureSourceHash,
       sourceCommit: 'abc123',
-      sourceUri:    'fixture://carddefs.xml',
+      sourceUri:    'fixture://carddefs.json',
     });
 
     expect(report.skipped).toBe(false);
@@ -760,7 +778,8 @@ describe('importHsdata', () => {
     expect(memoryDb.state.sourceVersions.get(12345)).toMatchObject({
       sourceCommit: 'abc123',
       build:        12345,
-      sourceUri:    'fixture://carddefs.xml',
+      sourceHash:   fixtureSourceHash,
+      sourceUri:    'fixture://carddefs.json',
       status:       'completed',
       projectionStatus: 'not_started',
       projectionError:  null,
@@ -807,15 +826,17 @@ describe('importHsdata', () => {
   });
 
   test('skips repeated import of the same completed source version', async () => {
-    await importHsdata({
-      xml:       fixtureXml,
-      sourceTag: 12345,
+    await importParsedHsdata({
+      parsed:     createFixtureParsed(),
+      sourceTag:  12345,
+      sourceHash: fixtureSourceHash,
     });
     const beforeCounts = counts();
 
-    const report = await importHsdata({
-      xml:       fixtureXml,
-      sourceTag: 12345,
+    const report = await importParsedHsdata({
+      parsed:     createFixtureParsed(),
+      sourceTag:  12345,
+      sourceHash: fixtureSourceHash,
     });
 
     expect(report.skipped).toBe(true);
@@ -823,10 +844,8 @@ describe('importHsdata', () => {
   });
 
   test('records importEngineVersion on parsed imports', async () => {
-    const parsed = parseHsdataXml(normalizeHsdataSourceXml(fixtureXml));
-
     await importParsedHsdata({
-      parsed,
+      parsed:               createFixtureParsed(),
       sourceTag:           12345,
       sourceHash:          'fixture-hash',
       importEngineVersion: 'desktop-rust-v1',
@@ -840,86 +859,11 @@ describe('importHsdata', () => {
     });
   });
 
-  test('imports legacy CardDefs with the git-tracked static dbfId table', async () => {
-    const report = await importHsdata({
-      xml:       legacyFixtureXml,
-      sourceTag: 10784,
-    });
-
-    expect(report.skipped).toBe(false);
-    expect(report.build).toBe(10784);
-    expect(report.entityCount).toBe(1);
-
-    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'AT_001');
-    expect(imported).toMatchObject({
-      cardId:           'AT_001',
-      dbfId:            2539,
-      entityXmlVersion: 2,
-      isLatest:         true,
-    });
-  });
-
-  test('imports unresolved legacy CardDefs with dbfId zero', async () => {
-    const report = await importHsdata({
-      xml:       `
-<CardDefs build="3140">
-  <Entity CardID="PlaceholderCard" ID="0" version="2" />
-</CardDefs>
-`.trim(),
-      sourceTag: 3140,
-    });
-
-    expect(report.skipped).toBe(false);
-
-    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'PlaceholderCard');
-    expect(imported).toMatchObject({
-      cardId: 'PlaceholderCard',
-      dbfId:  0,
-    });
-  });
-
-  test('uses the static conflict decision for XXX_094', async () => {
-    const report = await importHsdata({
-      xml:       `
-<CardDefs build="10784">
-  <Entity CardID="XXX_094" version="2" />
-</CardDefs>
-`.trim(),
-      sourceTag: 10784,
-    });
-
-    expect(report.skipped).toBe(false);
-
-    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'XXX_094');
-    expect(imported).toMatchObject({
-      cardId: 'XXX_094',
-      dbfId:  2631,
-    });
-  });
-
-  test('uses the static conflict decision for XXX_100', async () => {
-    const report = await importHsdata({
-      xml:       `
-<CardDefs build="11959">
-  <Entity CardID="XXX_100" version="2" />
-</CardDefs>
-`.trim(),
-      sourceTag: 11959,
-    });
-
-    expect(report.skipped).toBe(false);
-
-    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'XXX_100');
-    expect(imported).toMatchObject({
-      cardId: 'XXX_100',
-      dbfId:  39849,
-    });
-  });
-
   test('force rebuilds reused raw snapshot tags', async () => {
-    await importHsdata({
-      xml:       fixtureXml,
-      sourceTag: 12345,
+    await importParsedHsdata({
+      parsed:     createFixtureParsed(),
+      sourceTag:  12345,
+      sourceHash: fixtureSourceHash,
     });
 
     const snapshots = [...memoryDb.state.snapshots.values()];
@@ -936,10 +880,11 @@ describe('importHsdata', () => {
     costTag!.enumValue = '2';
     costConfig!.valueKind = 'enum';
 
-    const report = await importHsdata({
-      xml:       fixtureXml,
-      sourceTag: 12345,
-      force:     true,
+    const report = await importParsedHsdata({
+      parsed:     createFixtureParsed(),
+      sourceTag:  12345,
+      sourceHash: fixtureSourceHash,
+      force:      true,
     });
 
     expect(report.skipped).toBe(false);
@@ -959,14 +904,16 @@ describe('importHsdata', () => {
   });
 
   test('reuses equal snapshots across source versions and merges sourceTags', async () => {
-    await importHsdata({
-      xml:       fixtureXml,
-      sourceTag: 12345,
+    await importParsedHsdata({
+      parsed:     createFixtureParsed(),
+      sourceTag:  12345,
+      sourceHash: fixtureSourceHash,
     });
 
-    const report = await importHsdata({
-      xml:       fixtureXml,
-      sourceTag: 12346,
+    const report = await importParsedHsdata({
+      parsed:     createFixtureParsed(),
+      sourceTag:  12346,
+      sourceHash: fixtureSourceHash,
     });
 
     expect(report.skipped).toBe(false);
@@ -988,9 +935,10 @@ describe('importHsdata', () => {
   });
 
   test('inserts a placeholder set row and rejects import when set mapping is missing', async () => {
-    await expect(importHsdata({
-      xml:       missingSetXml,
-      sourceTag: 12346,
+    await expect(importParsedHsdata({
+      parsed:     createMissingSetParsed(),
+      sourceTag:  12346,
+      sourceHash: missingSetSourceHash,
     })).rejects.toThrow('missing set rows for dbfId(s): 10');
 
     expect(memoryDb.state.sets.size).toBe(1);
@@ -1007,6 +955,7 @@ describe('importHsdata', () => {
     });
     expect(memoryDb.state.sourceVersions.get(12346)).toMatchObject({
       build:            12346,
+      sourceHash:       missingSetSourceHash,
       status:           'failed',
       projectionStatus: 'not_started',
       projectionError:  null,
@@ -1018,10 +967,11 @@ describe('importHsdata', () => {
   });
 
   test('syncs placeholder set rows during dry run validation', async () => {
-    await expect(importHsdata({
-      xml:       missingSetXml,
-      sourceTag: 12347,
-      dryRun:    true,
+    await expect(importParsedHsdata({
+      parsed:     createMissingSetParsed(),
+      sourceTag:  12347,
+      sourceHash: missingSetSourceHash,
+      dryRun:     true,
     })).rejects.toThrow('missing set rows for dbfId(s): 10');
 
     expect(memoryDb.state.sets.size).toBe(1);
@@ -1035,16 +985,18 @@ describe('importHsdata', () => {
   });
 
   test('keeps placeholder set rows unresolved across retries', async () => {
-    await expect(importHsdata({
-      xml:       missingSetXml,
-      sourceTag: 12348,
-      dryRun:    true,
+    await expect(importParsedHsdata({
+      parsed:     createMissingSetParsed(),
+      sourceTag:  12348,
+      sourceHash: missingSetSourceHash,
+      dryRun:     true,
     })).rejects.toThrow('missing set rows for dbfId(s): 10');
 
-    await expect(importHsdata({
-      xml:       missingSetXml,
-      sourceTag: 12349,
-      dryRun:    true,
+    await expect(importParsedHsdata({
+      parsed:     createMissingSetParsed(),
+      sourceTag:  12349,
+      sourceHash: missingSetSourceHash,
+      dryRun:     true,
     })).rejects.toThrow('Placeholder set row(s) already exist');
 
     expect(memoryDb.state.sets.size).toBe(1);

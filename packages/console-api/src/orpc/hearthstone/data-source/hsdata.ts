@@ -2,7 +2,6 @@ import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
 
 import { getHsdataImportJobErrorCode } from '../../../lib/hearthstone/hsdata-import-job-error';
-import { importHsdata, resolveHsdataCardDbfIds } from '../../../lib/hearthstone/hsdata-import';
 import {
   createHsdataImportJob,
   finalizeHsdataImportJob,
@@ -13,15 +12,6 @@ import { projectHsdata } from '../../../lib/hearthstone/hsdata-project';
 import { listHsdataSourceVersions } from '../../../lib/hearthstone/hsdata-source-version';
 
 const hsdataHash = z.string().trim().min(1);
-
-const hsdataImportInput = z.object({
-  xml:          z.string().min(1),
-  sourceTag:    z.number().int().positive(),
-  sourceCommit: z.string().trim().min(1).optional().nullable(),
-  sourceUri:    z.string().trim().min(1).optional().nullable(),
-  dryRun:       z.boolean().optional(),
-  force:        z.boolean().optional(),
-});
 
 const hsdataImportReport = z.object({
   dryRun:                z.boolean(),
@@ -44,20 +34,6 @@ const hsdataImportChunkManifestItem = z.object({
   chunkIndex:  z.number().int().nonnegative(),
   payloadHash: hsdataHash,
   entityCount: z.number().int().positive(),
-});
-
-const hsdataResolveCardDbfIdsInput = z.object({
-  cardIds: z.array(z.string().trim().min(1)).min(1),
-});
-
-const hsdataCardDbfId = z.object({
-  cardId: z.string().trim().min(1),
-  dbfId:  z.number().int().positive(),
-});
-
-const hsdataResolveCardDbfIdsResult = z.object({
-  items:          z.array(hsdataCardDbfId),
-  missingCardIds: z.array(z.string().trim().min(1)),
 });
 
 const hsdataImportJobInput = z.object({
@@ -241,34 +217,6 @@ const listSourceVersions = os
   .output(z.array(hsdataSourceVersionStatus))
   .handler(async () => await listHsdataSourceVersions());
 
-const importArchive = os
-  .route({
-    method:      'POST',
-    description: 'Import one hsdata XML snapshot into Hearthstone raw archive tables',
-    tags:        ['Console', 'Hearthstone', 'DataSource'],
-  })
-  .input(hsdataImportInput)
-  .output(hsdataImportReport)
-  .handler(async ({ input }) => {
-    try {
-      return await importHsdata({
-        xml:          input.xml,
-        sourceTag:    input.sourceTag,
-        sourceCommit: input.sourceCommit,
-        sourceUri:    input.sourceUri,
-        dryRun:       input.dryRun,
-        force:        input.force,
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        const code = error.message.includes('force=true') ? 'CONFLICT' : 'BAD_REQUEST';
-        throw new ORPCError(code, { message: error.message });
-      }
-
-      throw error;
-    }
-  });
-
 const createImportJob = os
   .route({
     method:      'POST',
@@ -307,16 +255,6 @@ const createImportJob = os
       throw error;
     }
   });
-
-const resolveCardDbfIds = os
-  .route({
-    method:      'POST',
-    description: 'Resolve cardId to dbfId mappings for legacy hsdata Entity nodes',
-    tags:        ['Console', 'Hearthstone', 'DataSource'],
-  })
-  .input(hsdataResolveCardDbfIdsInput)
-  .output(hsdataResolveCardDbfIdsResult)
-  .handler(async ({ input }) => await resolveHsdataCardDbfIds(input.cardIds));
 
 const finalizeImportJob = os
   .route({
@@ -401,9 +339,7 @@ export const hsdataLight = {
 export const hsdataFull = {
   getOverview,
   listSourceVersions,
-  importArchive,
   createImportJob,
-  resolveCardDbfIds,
   finalizeImportJob,
   getImportJob,
   projectSourceVersion,
