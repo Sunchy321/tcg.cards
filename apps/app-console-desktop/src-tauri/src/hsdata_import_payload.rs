@@ -385,6 +385,133 @@ fn parse_xml_bool(value: Option<&str>, field: &str) -> Result<bool, String> {
     }
 }
 
+/// Legacy Entity.ID values that still require dbfId fallback resolution.
+fn is_legacy_entity_dbf_id(value: Option<&str>) -> bool {
+    matches!(value.map(str::trim), None | Some("0"))
+}
+
+/// Legacy card ids whose Entity nodes omit the ID attribute.
+pub fn collect_legacy_entity_card_ids(xml: &str) -> Result<Vec<String>, String> {
+    let NormalizedSourceXml {
+        xml: normalized_xml,
+        ..
+    } = normalize_source_xml(xml);
+    let mut reader = Reader::from_str(&normalized_xml);
+    reader.config_mut().trim_text(false);
+
+    let mut has_root = false;
+    let mut entity_depth = 0usize;
+    let mut card_ids = Vec::<String>::new();
+
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(event)) => {
+                let name = decode_tag_name(event.name().as_ref());
+                let attributes = decode_attributes(&reader, &event)?;
+
+                if !has_root {
+                    if name != "CardDefs" {
+                        return Err(format!("Unexpected root tag: {name}"));
+                    }
+
+                    has_root = true;
+                    continue;
+                }
+
+                if entity_depth == 0 && name != "Entity" {
+                    continue;
+                }
+
+                if name == "Entity" {
+                    entity_depth += 1;
+
+                    if is_legacy_entity_dbf_id(attributes.get("ID").map(String::as_str)) {
+                        let card_id = attributes.get("CardID").cloned().unwrap_or_default();
+                        if card_id.is_empty() {
+                            return Err("Entity.CardID is required".to_string());
+                        }
+
+                        card_ids.push(card_id);
+                    }
+
+                    continue;
+                }
+
+                if entity_depth > 0 {
+                    entity_depth += 1;
+                }
+            }
+            Ok(Event::Empty(event)) => {
+                let name = decode_tag_name(event.name().as_ref());
+                let attributes = decode_attributes(&reader, &event)?;
+
+                if !has_root {
+                    if name != "CardDefs" {
+                        return Err(format!("Unexpected root tag: {name}"));
+                    }
+
+                    has_root = true;
+                    continue;
+                }
+
+                if entity_depth == 0 && name != "Entity" {
+                    continue;
+                }
+
+                if name == "Entity"
+                    && is_legacy_entity_dbf_id(attributes.get("ID").map(String::as_str))
+                {
+                    let card_id = attributes.get("CardID").cloned().unwrap_or_default();
+                    if card_id.is_empty() {
+                        return Err("Entity.CardID is required".to_string());
+                    }
+
+                    card_ids.push(card_id);
+                }
+            }
+            Ok(Event::End(_)) => {
+                entity_depth = entity_depth.saturating_sub(1);
+            }
+            Ok(Event::Comment(_))
+            | Ok(Event::Decl(_))
+            | Ok(Event::PI(_))
+            | Ok(Event::DocType(_))
+            | Ok(Event::GeneralRef(_))
+            | Ok(Event::Text(_))
+            | Ok(Event::CData(_)) => {}
+            Ok(Event::Eof) => break,
+            Err(error) => return Err(format!("Failed to parse CardDefs XML: {error}")),
+        }
+    }
+
+    card_ids.sort();
+    card_ids.dedup();
+    Ok(card_ids)
+}
+
+/// Entity dbfId resolved from the XML attribute or a legacy cardId lookup map.
+fn resolve_entity_dbf_id(
+    entity: &XmlElement,
+    card_id: &str,
+    dbf_id_by_card_id: &HashMap<String, u32>,
+) -> Result<u32, String> {
+    if let Some(value) = entity.attributes.get("ID").map(String::as_str) {
+        let parsed = parse_u32(Some(value), "Entity.ID")?;
+        if parsed > 0 {
+            return Ok(parsed);
+        }
+    }
+
+    if let Some(value) = dbf_id_by_card_id.get(card_id) {
+        return Ok(*value);
+    }
+
+    // A small set of legacy hsdata entities never receives a positive dbfId in any scanned
+    // CardDefs revision. Those rows intentionally keep dbfId 0 so the import can preserve the
+    // historical entity instead of failing the whole sourceTag.
+    Ok(0)
+}
+
 /// Flag-like integer values collapsed to booleans when possible.
 fn to_flag_value(value: u32) -> Value {
     match value {
@@ -1265,13 +1392,14 @@ fn hash_snapshot_entity(entity: &HsdataEntitySnapshot) -> Result<String, String>
 fn normalize_entity_snapshot(
     entity: &XmlElement,
     profile: &mut HsdataParseXmlAccumulator,
+    dbf_id_by_card_id: &HashMap<String, u32>,
 ) -> Result<HsdataEntitySnapshot, String> {
     let card_id = entity.attributes.get("CardID").cloned().unwrap_or_default();
     if card_id.is_empty() {
         return Err("Entity.CardID is required".to_string());
     }
 
-    let dbf_id = parse_u32(entity.attributes.get("ID").map(String::as_str), "Entity.ID")?;
+    let dbf_id = resolve_entity_dbf_id(entity, &card_id, dbf_id_by_card_id)?;
     let entity_xml_version = parse_u32(
         entity.attributes.get("version").map(String::as_str),
         "Entity.version",
@@ -1360,6 +1488,7 @@ fn finish_node(
     node: XmlElement,
     entities: &mut Vec<HsdataEntitySnapshot>,
     profile: &mut HsdataParseXmlAccumulator,
+    dbf_id_by_card_id: &HashMap<String, u32>,
 ) -> Result<(), String> {
     if let Some(parent) = stack.last_mut() {
         parent.children.push(XmlChild::Element(node));
@@ -1371,7 +1500,11 @@ fn finish_node(
     }
 
     let normalize_entity_started_at = Instant::now();
-    entities.push(normalize_entity_snapshot(&node, profile)?);
+    entities.push(normalize_entity_snapshot(
+        &node,
+        profile,
+        dbf_id_by_card_id,
+    )?);
     add_elapsed_nanos(
         &mut profile.normalize_entity_ns,
         &normalize_entity_started_at,
@@ -1381,7 +1514,11 @@ fn finish_node(
 }
 
 /// CardDefs XML parsed into normalized entity snapshots.
-fn parse_hsdata_xml(xml: &str) -> Result<ParseHsdataXmlResult, String> {
+/// CardDefs XML parsed into normalized entity snapshots with optional legacy dbfId fallbacks.
+fn parse_hsdata_xml_with_dbf_ids(
+    xml: &str,
+    dbf_id_by_card_id: &HashMap<String, u32>,
+) -> Result<ParseHsdataXmlResult, String> {
     let total_started_at = Instant::now();
     let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(false);
@@ -1473,13 +1610,20 @@ fn parse_hsdata_xml(xml: &str) -> Result<ParseHsdataXmlResult, String> {
                     },
                     &mut entities,
                     &mut profile,
+                    dbf_id_by_card_id,
                 )?;
             }
             Ok(Event::End(_)) => {
                 add_elapsed_nanos(&mut profile.read_event_ns, &read_event_started_at);
                 profile.end_event_count += 1;
                 if let Some(node) = stack.pop() {
-                    finish_node(&mut stack, node, &mut entities, &mut profile)?;
+                    finish_node(
+                        &mut stack,
+                        node,
+                        &mut entities,
+                        &mut profile,
+                        dbf_id_by_card_id,
+                    )?;
                 }
             }
             Ok(Event::Text(event)) => {
@@ -1539,6 +1683,12 @@ fn parse_hsdata_xml(xml: &str) -> Result<ParseHsdataXmlResult, String> {
         document: ParsedHsdataDocument { build, entities },
         profile: profile.finish(&total_started_at),
     })
+}
+
+/// CardDefs XML parsed into normalized entity snapshots without legacy dbfId fallbacks.
+fn parse_hsdata_xml(xml: &str) -> Result<ParseHsdataXmlResult, String> {
+    let dbf_id_by_card_id = HashMap::new();
+    parse_hsdata_xml_with_dbf_ids(xml, &dbf_id_by_card_id)
 }
 
 /// Canonical NDJSON tag record serialized in the fixed field order.
@@ -1744,8 +1894,13 @@ pub fn prepare_hsdata_payload(
     max_bytes_per_chunk: usize,
     max_entities_per_chunk: usize,
 ) -> Result<HsdataPreparedPayload, String> {
-    prepare_hsdata_payload_profiled(xml, max_bytes_per_chunk, max_entities_per_chunk)
-        .map(|result| result.payload)
+    let dbf_id_by_card_id = HashMap::new();
+    prepare_hsdata_payload_with_dbf_ids(
+        xml,
+        max_bytes_per_chunk,
+        max_entities_per_chunk,
+        &dbf_id_by_card_id,
+    )
 }
 
 /// Canonical NDJSON payload and profiling prepared from one hsdata CardDefs XML payload.
@@ -1753,6 +1908,38 @@ pub fn prepare_hsdata_payload_profiled(
     xml: &str,
     max_bytes_per_chunk: usize,
     max_entities_per_chunk: usize,
+) -> Result<HsdataPreparedPayloadResult, String> {
+    let dbf_id_by_card_id = HashMap::new();
+    prepare_hsdata_payload_profiled_with_dbf_ids(
+        xml,
+        max_bytes_per_chunk,
+        max_entities_per_chunk,
+        &dbf_id_by_card_id,
+    )
+}
+
+/// Canonical NDJSON chunks prepared with optional legacy dbfId fallbacks.
+pub fn prepare_hsdata_payload_with_dbf_ids(
+    xml: &str,
+    max_bytes_per_chunk: usize,
+    max_entities_per_chunk: usize,
+    dbf_id_by_card_id: &HashMap<String, u32>,
+) -> Result<HsdataPreparedPayload, String> {
+    prepare_hsdata_payload_profiled_with_dbf_ids(
+        xml,
+        max_bytes_per_chunk,
+        max_entities_per_chunk,
+        dbf_id_by_card_id,
+    )
+    .map(|result| result.payload)
+}
+
+/// Canonical NDJSON payload and profiling prepared with optional legacy dbfId fallbacks.
+pub fn prepare_hsdata_payload_profiled_with_dbf_ids(
+    xml: &str,
+    max_bytes_per_chunk: usize,
+    max_entities_per_chunk: usize,
+    dbf_id_by_card_id: &HashMap<String, u32>,
 ) -> Result<HsdataPreparedPayloadResult, String> {
     let total_started_at = Instant::now();
 
@@ -1767,7 +1954,7 @@ pub fn prepare_hsdata_payload_profiled(
     let ParseHsdataXmlResult {
         document: parsed,
         profile: parse_xml_profile,
-    } = parse_hsdata_xml(&normalized_xml)?;
+    } = parse_hsdata_xml_with_dbf_ids(&normalized_xml, dbf_id_by_card_id)?;
     let parse_xml_ms = elapsed_millis(&parse_xml_started_at);
 
     let build_chunks_started_at = Instant::now();
@@ -1818,11 +2005,13 @@ pub fn prepare_hsdata_payload_profiled(
 #[cfg(test)]
 mod tests {
     use super::{
-        hash_canonical_json, hash_snapshot_entity, parse_hsdata_xml, prepare_hsdata_payload,
-        prepare_hsdata_payload_profiled, sha256_hex, snapshot_hash_value, write_json_string,
+        collect_legacy_entity_card_ids, hash_canonical_json, hash_snapshot_entity,
+        parse_hsdata_xml, prepare_hsdata_payload, prepare_hsdata_payload_profiled,
+        prepare_hsdata_payload_with_dbf_ids, sha256_hex, snapshot_hash_value, write_json_string,
         write_json_string_hash, Digest, Sha256, HSDATA_IMPORT_ENGINE_VERSION,
         HSDATA_PAYLOAD_ENCODING, HSDATA_PAYLOAD_FORMAT_VERSION,
     };
+    use std::collections::HashMap;
 
     /// Canonical payload generation stays stable for a simple single-entity source.
     #[test]
@@ -1890,6 +2079,72 @@ mod tests {
         assert_eq!(prepared.source_hash, sha256_hex(canonical));
     }
 
+    /// Legacy CardDefs revisions report the card ids that still need dbfId fallbacks.
+    #[test]
+    fn collects_legacy_entity_card_ids_for_missing_dbf_ids() {
+        let xml = concat!(
+            "<CardDefs build=\"10784\">",
+            "<Entity CardID=\"AT_001\" version=\"2\"></Entity>",
+            "<Entity CardID=\"AT_002\" ID=\"2\" version=\"2\"></Entity>",
+            "</CardDefs>",
+        );
+
+        let card_ids = collect_legacy_entity_card_ids(xml).unwrap();
+        assert_eq!(card_ids, vec!["AT_001".to_string()]);
+    }
+
+    /// Zero dbfId values follow the same legacy fallback path as missing Entity.ID values.
+    #[test]
+    fn collects_legacy_entity_card_ids_for_zero_dbf_ids() {
+        let xml = concat!(
+            "<CardDefs build=\"10784\">",
+            "<Entity CardID=\"AT_001\" ID=\"0\" version=\"2\"></Entity>",
+            "<Entity CardID=\"AT_002\" ID=\"2\" version=\"2\"></Entity>",
+            "</CardDefs>",
+        );
+
+        let card_ids = collect_legacy_entity_card_ids(xml).unwrap();
+        assert_eq!(card_ids, vec!["AT_001".to_string()]);
+    }
+
+    /// Legacy Entity nodes can reuse dbfId values supplied by a cardId lookup map.
+    #[test]
+    fn prepares_payload_with_legacy_dbf_id_fallback() {
+        let xml = concat!(
+            "<CardDefs build=\"10784\">",
+            "<Entity CardID=\"AT_001\" version=\"2\"><Tag enumID=\"1\" name=\"ONE\" type=\"String\" value=\"abc\"/></Entity>",
+            "</CardDefs>",
+        );
+        let dbf_id_by_card_id = HashMap::from([(String::from("AT_001"), 1u32)]);
+
+        let prepared =
+            prepare_hsdata_payload_with_dbf_ids(xml, usize::MAX, usize::MAX, &dbf_id_by_card_id)
+                .unwrap();
+
+        assert_eq!(prepared.build, 10784);
+        assert_eq!(prepared.total_entity_count, 1);
+        assert!(prepared.chunks[0].ndjson.contains("\"cardId\":\"AT_001\""));
+        assert!(prepared.chunks[0].ndjson.contains("\"dbfId\":1"));
+    }
+
+    /// Zero dbfId values still resolve through the legacy cardId lookup map.
+    #[test]
+    fn prepares_payload_with_zero_dbf_id_fallback() {
+        let xml = concat!(
+            "<CardDefs build=\"10784\">",
+            "<Entity CardID=\"AT_001\" ID=\"0\" version=\"2\"><Tag enumID=\"1\" name=\"ONE\" type=\"String\" value=\"abc\"/></Entity>",
+            "</CardDefs>",
+        );
+        let dbf_id_by_card_id = HashMap::from([(String::from("AT_001"), 1u32)]);
+
+        let prepared =
+            prepare_hsdata_payload_with_dbf_ids(xml, usize::MAX, usize::MAX, &dbf_id_by_card_id)
+                .unwrap();
+
+        assert!(prepared.chunks[0].ndjson.contains("\"cardId\":\"AT_001\""));
+        assert!(prepared.chunks[0].ndjson.contains("\"dbfId\":1"));
+    }
+
     /// Chunk hashes remain stable when multiple entity lines share one chunk.
     #[test]
     fn preserves_chunk_hash_for_multi_entity_chunk() {
@@ -1954,6 +2209,20 @@ mod tests {
 
         let error = prepare_hsdata_payload(xml, usize::MAX, usize::MAX).unwrap_err();
         assert_eq!(error, "Conflicting snapshots found for cardId CARD_001");
+    }
+
+    /// Missing legacy dbfId fallbacks now preserve dbfId zero for unresolved historical rows.
+    #[test]
+    fn preserves_zero_for_legacy_entity_without_dbf_id_fallback() {
+        let xml = concat!(
+            "<CardDefs build=\"10784\">",
+            "<Entity CardID=\"AT_001\" version=\"2\"></Entity>",
+            "</CardDefs>",
+        );
+
+        let prepared = prepare_hsdata_payload(xml, usize::MAX, usize::MAX).unwrap();
+        assert!(prepared.chunks[0].ndjson.contains("\"cardId\":\"AT_001\""));
+        assert!(prepared.chunks[0].ndjson.contains("\"dbfId\":0"));
     }
 
     /// Signed effect indexes remain valid inside TriggeredPowerHistoryInfo payloads.

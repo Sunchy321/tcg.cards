@@ -2,9 +2,10 @@
 mod hsdata_import_payload;
 
 use crate::hsdata_import_payload::{
-    prepare_hsdata_payload_profiled, HsdataPreparedPayload, HsdataPreparedPayloadChunk,
-    HsdataPreparedPayloadProfile, HsdataPreparedPayloadResult, HSDATA_IMPORT_ENGINE_VERSION,
-    HSDATA_PAYLOAD_ENCODING, HSDATA_PAYLOAD_FORMAT_VERSION,
+    collect_legacy_entity_card_ids, prepare_hsdata_payload_profiled_with_dbf_ids,
+    HsdataPreparedPayload, HsdataPreparedPayloadChunk, HsdataPreparedPayloadProfile,
+    HsdataPreparedPayloadResult, HSDATA_IMPORT_ENGINE_VERSION, HSDATA_PAYLOAD_ENCODING,
+    HSDATA_PAYLOAD_FORMAT_VERSION,
 };
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -12,6 +13,7 @@ use reqwest::cookie::{CookieStore, Jar};
 use reqwest::{Client, Method, Url};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -237,6 +239,8 @@ const HSDATA_MAX_BYTES_PER_CHUNK: usize = 1024 * 1024;
 const HSDATA_MAX_ENTITIES_PER_CHUNK: usize = 256;
 const HSDATA_UPLOAD_CONCURRENCY: usize = 4;
 const HSDATA_CREATE_IMPORT_JOB_PATH: &str = "/rpc/hearthstone/dataSource/hsdata/createImportJob";
+const HSDATA_RESOLVE_CARD_DBF_IDS_PATH: &str =
+    "/rpc/hearthstone/dataSource/hsdata/resolveCardDbfIds";
 const HSDATA_UPLOAD_IMPORT_CHUNK_PATH: &str =
     "/rpc/hearthstone/dataSource/hsdata/uploadImportChunk";
 const HSDATA_FINALIZE_IMPORT_JOB_PATH: &str =
@@ -348,6 +352,29 @@ struct HsdataCreateImportJobInput {
 #[serde(rename_all = "camelCase")]
 struct HsdataCreateImportJobResult {
     job_id: String,
+}
+
+/// Remote resolveCardDbfIds request.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HsdataResolveCardDbfIdsInput {
+    card_ids: Vec<String>,
+}
+
+/// One resolved cardId-to-dbfId row returned by the remote fallback lookup.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HsdataCardDbfId {
+    card_id: String,
+    dbf_id: u32,
+}
+
+/// Remote resolveCardDbfIds response.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HsdataResolveCardDbfIdsResult {
+    items: Vec<HsdataCardDbfId>,
+    missing_card_ids: Vec<String>,
 }
 
 /// Remote uploadImportChunk response.
@@ -1339,16 +1366,12 @@ fn clear_hsdata_import_job_quietly(app: &AppHandle, source_tag: u32) {
     }
 }
 
-/// Local hsdata source prepared as chunked upload payloads.
+/// Resolved local hsdata source prepared as chunked upload payloads.
 fn prepare_hsdata_import_source(
-    repo_path: &str,
-    id: &str,
+    source: HsdataResolvedSource,
+    resolve_source_ms: u128,
+    dbf_id_by_card_id: &HashMap<String, u32>,
 ) -> Result<HsdataPreparedImportResult, String> {
-    let total_started_at = Instant::now();
-    let resolve_source_started_at = Instant::now();
-    let source = resolve_hsdata_source(repo_path, id)?;
-    let resolve_source_ms = elapsed_millis(&resolve_source_started_at);
-
     let prepare_payload_started_at = Instant::now();
     let HsdataPreparedPayloadResult {
         payload:
@@ -1362,10 +1385,11 @@ fn prepare_hsdata_import_source(
                 chunks,
             },
         profile: payload_profile,
-    } = prepare_hsdata_payload_profiled(
+    } = prepare_hsdata_payload_profiled_with_dbf_ids(
         &source.xml,
         HSDATA_MAX_BYTES_PER_CHUNK,
         HSDATA_MAX_ENTITIES_PER_CHUNK,
+        dbf_id_by_card_id,
     )?;
     let prepare_payload_ms = elapsed_millis(&prepare_payload_started_at);
 
@@ -1388,7 +1412,7 @@ fn prepare_hsdata_import_source(
         profile: HsdataPreparedImportProfile {
             resolve_source_ms,
             prepare_payload_ms,
-            total_ms: elapsed_millis(&total_started_at),
+            total_ms: resolve_source_ms + prepare_payload_ms,
             payload: payload_profile,
         },
     })
@@ -1532,6 +1556,19 @@ async fn create_remote_hsdata_import_job(
     };
 
     rpc_post_json(session_client, HSDATA_CREATE_IMPORT_JOB_PATH, &manifest).await
+}
+
+/// Legacy cardId fallback mappings fetched from the authenticated console API.
+async fn resolve_remote_hsdata_card_dbf_ids(
+    session_client: &SessionClient,
+    card_ids: Vec<String>,
+) -> Result<HsdataResolveCardDbfIdsResult, String> {
+    rpc_post_json(
+        session_client,
+        HSDATA_RESOLVE_CARD_DBF_IDS_PATH,
+        &HsdataResolveCardDbfIdsInput { card_ids },
+    )
+    .await
 }
 
 /// Gzip-compressed NDJSON payload encoded for the raw upload endpoint.
@@ -2118,12 +2155,66 @@ async fn hsdata_import_source(
 
     let result = async {
         let repo_path = resolve_saved_repo_path(&app)?;
-        let prepare_source_id = source_id.clone();
+        let resolve_source_id = source_id.clone();
+        let (source, resolve_source_ms) = tauri::async_runtime::spawn_blocking(move || {
+            let resolve_source_started_at = Instant::now();
+            resolve_hsdata_source(&repo_path, &resolve_source_id)
+                .map(|source| (source, elapsed_millis(&resolve_source_started_at)))
+        })
+        .await
+        .map_err(|error| format!("Failed to join hsdata source resolution task: {error}"))??;
+
+        let collect_legacy_dbf_ids_started_at = Instant::now();
+        let legacy_scan_xml = source.xml.clone();
+        let legacy_card_ids = tauri::async_runtime::spawn_blocking(move || {
+            collect_legacy_entity_card_ids(&legacy_scan_xml)
+        })
+        .await
+        .map_err(|error| format!("Failed to join legacy hsdata scan task: {error}"))??;
+        let collect_legacy_dbf_ids_ms = elapsed_millis(&collect_legacy_dbf_ids_started_at);
+        log_hsdata_import_profile(
+            "prepare_source_collect_legacy_dbf_ids",
+            serde_json::json!({
+                "sourceId": source.id,
+                "sourceTag": source.source_tag,
+                "legacyEntityCount": legacy_card_ids.len(),
+                "elapsedMs": collect_legacy_dbf_ids_ms,
+            }),
+        );
+
+        let session_client = require_session_client(&app, &state)?;
+        let mut dbf_id_by_card_id = HashMap::<String, u32>::new();
+
+        if !legacy_card_ids.is_empty() {
+            let resolve_legacy_dbf_ids_started_at = Instant::now();
+            let resolved =
+                resolve_remote_hsdata_card_dbf_ids(&session_client, legacy_card_ids.clone()).await?;
+            let resolve_legacy_dbf_ids_ms = elapsed_millis(&resolve_legacy_dbf_ids_started_at);
+
+            log_hsdata_import_profile(
+                "prepare_source_resolve_legacy_dbf_ids",
+                serde_json::json!({
+                    "sourceId": source.id,
+                    "sourceTag": source.source_tag,
+                    "legacyEntityCount": legacy_card_ids.len(),
+                    "resolvedEntityCount": resolved.items.len(),
+                    "missingEntityCount": resolved.missing_card_ids.len(),
+                    "elapsedMs": resolve_legacy_dbf_ids_ms,
+                }),
+            );
+
+            dbf_id_by_card_id = resolved
+                .items
+                .into_iter()
+                .map(|item| (item.card_id, item.dbf_id))
+                .collect();
+        }
+
         let HsdataPreparedImportResult {
             prepared,
             profile: prepare_profile,
         } = tauri::async_runtime::spawn_blocking(move || {
-            prepare_hsdata_import_source(&repo_path, &prepare_source_id)
+            prepare_hsdata_import_source(source, resolve_source_ms, &dbf_id_by_card_id)
         })
         .await
         .map_err(|error| format!("Failed to join hsdata import preparation task: {error}"))??;
@@ -2252,7 +2343,6 @@ async fn hsdata_import_source(
                 "elapsedMs": prepare_profile.total_ms,
             }),
         );
-        let session_client = require_session_client(&app, &state)?;
 
         emit_hsdata_import_progress(
             &app,

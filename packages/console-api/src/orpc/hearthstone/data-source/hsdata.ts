@@ -2,7 +2,7 @@ import { ORPCError, os } from '@orpc/server';
 import { z } from 'zod';
 
 import { getHsdataImportJobErrorCode } from '../../../lib/hearthstone/hsdata-import-job-error';
-import { importHsdata } from '../../../lib/hearthstone/hsdata-import';
+import { importHsdata, resolveHsdataCardDbfIds } from '../../../lib/hearthstone/hsdata-import';
 import {
   createHsdataImportJob,
   finalizeHsdataImportJob,
@@ -44,6 +44,20 @@ const hsdataImportChunkManifestItem = z.object({
   chunkIndex:  z.number().int().nonnegative(),
   payloadHash: hsdataHash,
   entityCount: z.number().int().positive(),
+});
+
+const hsdataResolveCardDbfIdsInput = z.object({
+  cardIds: z.array(z.string().trim().min(1)).min(1),
+});
+
+const hsdataCardDbfId = z.object({
+  cardId: z.string().trim().min(1),
+  dbfId:  z.number().int().positive(),
+});
+
+const hsdataResolveCardDbfIdsResult = z.object({
+  items:          z.array(hsdataCardDbfId),
+  missingCardIds: z.array(z.string().trim().min(1)),
 });
 
 const hsdataImportJobInput = z.object({
@@ -294,6 +308,16 @@ const createImportJob = os
     }
   });
 
+const resolveCardDbfIds = os
+  .route({
+    method:      'POST',
+    description: 'Resolve cardId to dbfId mappings for legacy hsdata Entity nodes',
+    tags:        ['Console', 'Hearthstone', 'DataSource'],
+  })
+  .input(hsdataResolveCardDbfIdsInput)
+  .output(hsdataResolveCardDbfIdsResult)
+  .handler(async ({ input }) => await resolveHsdataCardDbfIds(input.cardIds));
+
 const finalizeImportJob = os
   .route({
     method:      'POST',
@@ -379,6 +403,7 @@ export const hsdataFull = {
   listSourceVersions,
   importArchive,
   createImportJob,
+  resolveCardDbfIds,
   finalizeImportJob,
   getImportJob,
   projectSourceVersion,

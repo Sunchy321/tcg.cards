@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 type TableName
   = | 'raw_entity_snapshot_tags'
     | 'raw_entity_snapshots'
+    | 'entities'
     | 'sets'
     | 'source_versions'
     | 'tags';
@@ -79,6 +80,12 @@ interface SnapshotTagRow {
   parseStatus:    string;
 }
 
+interface EntityRow {
+  cardId:   string;
+  dbfId:    number;
+  isLatest: boolean;
+}
+
 interface SetRow {
   setId:         string;
   dbfId:         number | null;
@@ -97,10 +104,11 @@ interface MemoryState {
   tags:           Map<number, TagRow>;
   snapshots:      Map<string, SnapshotRow>;
   snapshotTags:   SnapshotTagRow[];
+  entities:       Map<string, EntityRow>;
   nextSnapshotId: number;
 }
 
-type Row = SourceVersionRow | SetRow | TagRow | SnapshotRow | SnapshotTagRow;
+type Row = SourceVersionRow | SetRow | TagRow | SnapshotRow | SnapshotTagRow | EntityRow;
 
 function column(name: string): Column {
   return { name };
@@ -185,6 +193,12 @@ const RawEntitySnapshotTag = table('raw_entity_snapshot_tags', [
   'parseStatus',
 ]);
 
+const Entity = table('entities', [
+  'cardId',
+  'dbfId',
+  'isLatest',
+]);
+
 function getTableName(tableInput: Table): TableName {
   return tableInput.tableName;
 }
@@ -200,6 +214,7 @@ function cloneState(state: MemoryState): MemoryState {
     tags:           cloneMap(state.tags) as Map<number, TagRow>,
     snapshots:      cloneMap(state.snapshots) as Map<string, SnapshotRow>,
     snapshotTags:   structuredClone(state.snapshotTags),
+    entities:       cloneMap(state.entities) as Map<string, EntityRow>,
     nextSnapshotId: state.nextSnapshotId,
   };
 }
@@ -515,6 +530,10 @@ class MemoryHsdataDb {
       return [...this.state.snapshots.values()];
     }
 
+    if (tableName === 'entities') {
+      return [...this.state.entities.values()];
+    }
+
     return this.state.snapshotTags;
   }
 
@@ -553,6 +572,7 @@ class MemoryHsdataDb {
       tags:           new Map(),
       snapshots:      new Map(),
       snapshotTags:   [],
+      entities:       new Map(),
       nextSnapshotId: 1,
     };
   }
@@ -572,11 +592,16 @@ const hsdataSetSchemaMock = {
 const hsdataTagSchemaMock = {
   Tag,
 };
+const hsdataEntitySchemaMock = {
+  Entity,
+};
 mock.module('@tcg-cards/db/schema/hearthstone/data/card-model', () => hsdataCardModelSchemaMock);
+mock.module('@tcg-cards/db/schema/hearthstone/entity', () => hsdataEntitySchemaMock);
 mock.module('@tcg-cards/db/schema/hearthstone/set', () => hsdataSetSchemaMock);
 mock.module('@tcg-cards/db/schema/hearthstone/tag', () => hsdataTagSchemaMock);
 
 const {
+  collectLegacyEntityCardIds,
   importHsdata,
   importParsedHsdata,
   normalizeHsdataSourceXml,
@@ -621,6 +646,18 @@ const missingSetXml = `
 </CardDefs>
 `.trim();
 
+const legacyFixtureXml = `
+<CardDefs build="10784">
+  <Entity CardID="AT_001" version="2">
+    <Tag enumID="48" name="CardName" type="LocString">
+      <enUS>Flame Lance</enUS>
+      <zhCN>炎枪术</zhCN>
+    </Tag>
+    <Tag enumID="185" name="COST" type="Int" value="5" />
+  </Entity>
+</CardDefs>
+`.trim();
+
 function counts() {
   return {
     sourceVersions: memoryDb.state.sourceVersions.size,
@@ -636,6 +673,72 @@ beforeEach(() => {
 });
 
 describe('importHsdata', () => {
+  test('collects legacy Entity card ids that omit dbfId attributes', () => {
+    expect(collectLegacyEntityCardIds(normalizeHsdataSourceXml(legacyFixtureXml))).toEqual(['AT_001']);
+  });
+
+  test('collects legacy Entity card ids when dbfId is zero', () => {
+    const zeroDbfXml = `
+<CardDefs build="10784">
+  <Entity CardID="AT_001" ID="0" version="2" />
+</CardDefs>
+`.trim();
+
+    expect(collectLegacyEntityCardIds(normalizeHsdataSourceXml(zeroDbfXml))).toEqual(['AT_001']);
+  });
+
+  test('parses legacy CardDefs with a fallback dbfId map', () => {
+    const parsed = parseHsdataXml(
+      normalizeHsdataSourceXml(legacyFixtureXml),
+      {
+        dbfIdByCardId: new Map([['AT_001', 1]]),
+      },
+    );
+
+    expect(parsed.build).toBe(10784);
+    expect(parsed.entities).toHaveLength(1);
+    expect(parsed.entities[0]).toMatchObject({
+      cardId:           'AT_001',
+      dbfId:            1,
+      entityXmlVersion: 2,
+    });
+  });
+
+  test('parses zero dbfId Entity nodes with a fallback dbfId map', () => {
+    const zeroDbfXml = `
+<CardDefs build="10784">
+  <Entity CardID="AT_001" ID="0" version="2" />
+</CardDefs>
+`.trim();
+
+    const parsed = parseHsdataXml(
+      normalizeHsdataSourceXml(zeroDbfXml),
+      {
+        dbfIdByCardId: new Map([['AT_001', 1]]),
+      },
+    );
+
+    expect(parsed.entities[0]).toMatchObject({
+      cardId: 'AT_001',
+      dbfId:  1,
+    });
+  });
+
+  test('keeps legacy dbfId at zero when no fallback map entry exists', () => {
+    const unresolvedXml = `
+<CardDefs build="3140">
+  <Entity CardID="PlaceholderCard" version="2" />
+</CardDefs>
+`.trim();
+
+    const parsed = parseHsdataXml(normalizeHsdataSourceXml(unresolvedXml));
+
+    expect(parsed.entities[0]).toMatchObject({
+      cardId: 'PlaceholderCard',
+      dbfId:  0,
+    });
+  });
+
   test('imports CardDefs fixture into raw archive tables', async () => {
     const report = await importHsdata({
       xml:          fixtureXml,
@@ -734,6 +837,82 @@ describe('importHsdata', () => {
       importEngineVersion: 'desktop-rust-v1',
       status:              'completed',
       projectionStatus:    'not_started',
+    });
+  });
+
+  test('imports legacy CardDefs with the git-tracked static dbfId table', async () => {
+    const report = await importHsdata({
+      xml:       legacyFixtureXml,
+      sourceTag: 10784,
+    });
+
+    expect(report.skipped).toBe(false);
+    expect(report.build).toBe(10784);
+    expect(report.entityCount).toBe(1);
+
+    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'AT_001');
+    expect(imported).toMatchObject({
+      cardId:           'AT_001',
+      dbfId:            2539,
+      entityXmlVersion: 2,
+      isLatest:         true,
+    });
+  });
+
+  test('imports unresolved legacy CardDefs with dbfId zero', async () => {
+    const report = await importHsdata({
+      xml:       `
+<CardDefs build="3140">
+  <Entity CardID="PlaceholderCard" ID="0" version="2" />
+</CardDefs>
+`.trim(),
+      sourceTag: 3140,
+    });
+
+    expect(report.skipped).toBe(false);
+
+    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'PlaceholderCard');
+    expect(imported).toMatchObject({
+      cardId: 'PlaceholderCard',
+      dbfId:  0,
+    });
+  });
+
+  test('uses the static conflict decision for XXX_094', async () => {
+    const report = await importHsdata({
+      xml:       `
+<CardDefs build="10784">
+  <Entity CardID="XXX_094" version="2" />
+</CardDefs>
+`.trim(),
+      sourceTag: 10784,
+    });
+
+    expect(report.skipped).toBe(false);
+
+    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'XXX_094');
+    expect(imported).toMatchObject({
+      cardId: 'XXX_094',
+      dbfId:  2631,
+    });
+  });
+
+  test('uses the static conflict decision for XXX_100', async () => {
+    const report = await importHsdata({
+      xml:       `
+<CardDefs build="11959">
+  <Entity CardID="XXX_100" version="2" />
+</CardDefs>
+`.trim(),
+      sourceTag: 11959,
+    });
+
+    expect(report.skipped).toBe(false);
+
+    const imported = [...memoryDb.state.snapshots.values()].find(row => row.cardId === 'XXX_100');
+    expect(imported).toMatchObject({
+      cardId: 'XXX_100',
+      dbfId:  39849,
     });
   });
 

@@ -16,6 +16,7 @@ import {
   buildHsdataPlaceholderSetId,
   isHsdataPlaceholderSetId,
 } from './hsdata-set-placeholder';
+import { getLegacyHsdataDbfId } from './hsdata-legacy-dbf-id-table';
 import { createHsdataProfiler } from './hsdata-profile';
 
 // Shared transaction shape for import helpers.
@@ -90,6 +91,23 @@ export interface ParsedEntity {
 export interface ParsedHsdata {
   build:    number;
   entities: ParsedEntity[];
+}
+
+// Existing dbfId rows recovered for requested card ids.
+export interface HsdataCardDbfId {
+  cardId: string;
+  dbfId:  number;
+}
+
+// Missing and resolved dbfId rows returned by the legacy fallback lookup.
+export interface ResolveHsdataCardDbfIdsResult {
+  items:          HsdataCardDbfId[];
+  missingCardIds: string[];
+}
+
+// Optional parser context used for legacy Entity nodes that omit the ID attribute.
+export interface ParseHsdataOptions {
+  dbfIdByCardId?: ReadonlyMap<string, number>;
 }
 
 // Discovered-tag data already stored in the database.
@@ -348,6 +366,16 @@ function chunkValues<T>(values: T[], size = 2000): T[][] {
   return chunks;
 }
 
+// Sorted unique strings with empty entries removed.
+function sortUniqueStrings(values: string[]): string[] {
+  return [...new Set(values.map(value => value.trim()).filter(value => value.length > 0))].sort();
+}
+
+// Legacy Entity.ID values that still require dbfId fallback resolution.
+function isLegacyEntityDbfId(value: string | undefined): boolean {
+  return value == null || value.trim() === '0';
+}
+
 // Sorted unique integers.
 function sortUniqueIntegers(values: number[]): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
@@ -377,6 +405,66 @@ function collectSetDbfIds(entities: ParsedEntity[]): number[] {
       .map(tag => parseTagIntValue(tag))
       .filter((value): value is number => value != null),
   );
+}
+
+// Legacy Entity card ids that still need a dbfId lookup.
+export function collectLegacyEntityCardIds(xml: string): string[] {
+  const parser = new SaxesParser({ xmlns: false, position: true });
+  const cardIds = new Set<string>();
+  let hasRoot = false;
+  let entityDepth = 0;
+
+  parser.on('opentag', (tag: SaxesTagPlain) => {
+    if (!hasRoot) {
+      if (tag.name !== 'CardDefs') {
+        throw new Error(`Unexpected root tag: ${tag.name}`);
+      }
+
+      hasRoot = true;
+      return;
+    }
+
+    if (entityDepth === 0 && tag.name !== 'Entity') {
+      return;
+    }
+
+    if (tag.name === 'Entity') {
+      entityDepth += 1;
+
+      if (isLegacyEntityDbfId(tag.attributes.ID)) {
+        const cardId = tag.attributes.CardID?.trim() ?? '';
+
+        if (cardId.length === 0) {
+          throw new Error('Entity.CardID is required');
+        }
+
+        cardIds.add(cardId);
+      }
+
+      return;
+    }
+
+    if (entityDepth > 0) {
+      entityDepth += 1;
+    }
+  });
+
+  parser.on('closetag', (tag: SaxesTagPlain) => {
+    if (entityDepth > 0 && tag.name === 'Entity') {
+      entityDepth -= 1;
+      return;
+    }
+
+    if (entityDepth > 0) {
+      entityDepth -= 1;
+    }
+  });
+  parser.on('error', error => {
+    throw error;
+  });
+
+  parser.write(xml).close();
+  return [...cardIds].sort();
 }
 
 // LocString child nodes normalized into locale maps.
@@ -426,6 +514,32 @@ function normalizeRawTag(tag: XmlElement, tagOrder: number): RawTagInput {
     cardRefCardId,
     tagOrder,
   };
+}
+
+// Entity dbfId resolved from the XML attribute or a legacy cardId lookup map.
+function resolveEntityDbfId(
+  entity: XmlElement,
+  cardId: string,
+  options: ParseHsdataOptions,
+): number {
+  const explicit = entity.attributes.ID;
+
+  if (explicit != null) {
+    const parsed = toInt(explicit, 'Entity.ID');
+    if (parsed > 0) {
+      return parsed;
+    }
+  }
+
+  const fallback = options.dbfIdByCardId?.get(cardId);
+  if (fallback != null) {
+    return fallback;
+  }
+
+  // A small set of legacy hsdata entities never receives a positive dbfId in any scanned
+  // CardDefs revision. Those rows intentionally keep dbfId 0 so the import can preserve the
+  // historical entity instead of failing the whole sourceTag.
+  return 0;
 }
 
 // Non-Tag entity payload that still affects snapshot identity.
@@ -492,13 +606,16 @@ function validateAndDedupeEntities(entities: ParsedEntity[]): ParsedEntity[] {
 }
 
 // Normalized Entity node plus computed snapshot hash.
-function normalizeEntitySnapshot(entity: XmlElement): ParsedEntity {
+function normalizeEntitySnapshot(
+  entity: XmlElement,
+  options: ParseHsdataOptions,
+): ParsedEntity {
   const cardId = entity.attributes.CardID ?? '';
   if (cardId.length === 0) {
     throw new Error('Entity.CardID is required');
   }
 
-  const dbfId = toInt(entity.attributes.ID, 'Entity.ID');
+  const dbfId = resolveEntityDbfId(entity, cardId, options);
   const entityXmlVersion = toInt(entity.attributes.version, 'Entity.version');
   const tags = toArray(getElements(entity, 'Tag')).map((tag, index) => normalizeRawTag(tag, index));
   const extraPayload = normalizeExtraPayload(entity);
@@ -513,7 +630,10 @@ function normalizeEntitySnapshot(entity: XmlElement): ParsedEntity {
 }
 
 // mini-CardDefs XML parser that returns normalized entities.
-export function parseHsdataXml(xml: string): ParsedHsdata {
+export function parseHsdataXml(
+  xml: string,
+  options: ParseHsdataOptions = {},
+): ParsedHsdata {
   const parser = new SaxesParser({ xmlns: false, position: true });
   const entityStack: XmlElement[] = [];
   const entities: ParsedEntity[] = [];
@@ -563,12 +683,12 @@ export function parseHsdataXml(xml: string): ParsedHsdata {
       throw new Error(`Unexpected closing tag: ${tag.name}`);
     }
 
-    if (entityStack.length === 0) {
-      if (node.name !== 'Entity') {
-        throw new Error(`Unexpected top-level closing tag: ${node.name}`);
-      }
+      if (entityStack.length === 0) {
+        if (node.name !== 'Entity') {
+          throw new Error(`Unexpected top-level closing tag: ${node.name}`);
+        }
 
-      entities.push(normalizeEntitySnapshot(node));
+      entities.push(normalizeEntitySnapshot(node, options));
     }
   }
 
@@ -683,6 +803,32 @@ function resolveTagValue(tag: RawTagInput, existing: ExistingTagRow | undefined)
     valueKind:   'json' as const,
     parseStatus: 'fallback' as const,
     jsonValue:   tag.locStringValue ?? tag.rawValue ?? tag.rawPayload,
+  };
+}
+
+// Static legacy cardId-to-dbfId mappings resolved from the git-tracked analysis table.
+export async function resolveHsdataCardDbfIds(
+  cardIds: string[],
+): Promise<ResolveHsdataCardDbfIdsResult> {
+  const orderedCardIds = sortUniqueStrings(cardIds);
+
+  if (orderedCardIds.length === 0) {
+    return {
+      items:          [],
+      missingCardIds: [],
+    };
+  }
+
+  const items = orderedCardIds.flatMap(cardId => {
+    const dbfId = getLegacyHsdataDbfId(cardId);
+    return dbfId == null ? [] : [{ cardId, dbfId }];
+  });
+  const resolvedCardIds = new Set(items.map(item => item.cardId));
+  const missingCardIds = orderedCardIds.filter(cardId => !resolvedCardIds.has(cardId));
+
+  return {
+    items,
+    missingCardIds,
   };
 }
 
@@ -1457,7 +1603,25 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
   let parsed: ParsedHsdata;
 
   try {
-    parsed = parseHsdataXml(normalizedXml);
+    const legacyCardIds = collectLegacyEntityCardIds(normalizedXml);
+    let parseOptions: ParseHsdataOptions | undefined;
+
+    if (legacyCardIds.length > 0) {
+      const resolved = await resolveHsdataCardDbfIds(legacyCardIds);
+      profiler.mark('resolve_legacy_dbf_ids', {
+        legacyEntityCount:  legacyCardIds.length,
+        resolvedEntityCount: resolved.items.length,
+        missingEntityCount:  resolved.missingCardIds.length,
+      });
+
+      parseOptions = {
+        // The git-tracked static map preserves the stable legacy decisions from the offline scan.
+        // Any unresolved cardId intentionally remains at dbfId 0 instead of failing import.
+        dbfIdByCardId: new Map(resolved.items.map(item => [item.cardId, item.dbfId])),
+      };
+    }
+
+    parsed = parseHsdataXml(normalizedXml, parseOptions);
     profiler.mark('parse_xml', {
       build:       parsed.build,
       entityCount: parsed.entities.length,
