@@ -2,8 +2,9 @@
 mod hsdata_import_payload;
 
 use crate::hsdata_import_payload::{
-    prepare_hsdata_payload, HsdataPreparedPayload, HsdataPreparedPayloadChunk,
-    HSDATA_IMPORT_ENGINE_VERSION, HSDATA_PAYLOAD_ENCODING, HSDATA_PAYLOAD_FORMAT_VERSION,
+    prepare_hsdata_payload_profiled, HsdataPreparedPayload, HsdataPreparedPayloadChunk,
+    HsdataPreparedPayloadProfile, HsdataPreparedPayloadResult, HSDATA_IMPORT_ENGINE_VERSION,
+    HSDATA_PAYLOAD_ENCODING, HSDATA_PAYLOAD_FORMAT_VERSION,
 };
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -16,6 +17,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 
 struct AuthState {
@@ -169,6 +171,19 @@ impl Default for DesktopConfig {
             games: DesktopGamesSettings::default(),
         }
     }
+}
+
+/// Whole-millisecond duration measured from one monotonic timer.
+fn elapsed_millis(started_at: &Instant) -> u128 {
+    started_at.elapsed().as_millis()
+}
+
+/// Structured profiling log emitted for one desktop hsdata import stage.
+fn log_hsdata_import_profile(stage: &str, fields: serde_json::Value) {
+    eprintln!(
+        "[hearthstone][hsdata-import][profile][desktop] {} {}",
+        stage, fields
+    );
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -367,6 +382,8 @@ struct HsdataImportJobState {
 /// Desktop-prepared hsdata import payload.
 struct HsdataPreparedImport {
     source_id: String,
+    source_kind: String,
+    source_size_bytes: u64,
     source_tag: u32,
     build: u32,
     source_commit: String,
@@ -377,6 +394,20 @@ struct HsdataPreparedImport {
     import_engine_version: String,
     total_entity_count: u32,
     chunks: Vec<HsdataPreparedPayloadChunk>,
+}
+
+/// Fine-grained timings captured while the desktop prepares one hsdata import source.
+struct HsdataPreparedImportProfile {
+    resolve_source_ms: u128,
+    prepare_payload_ms: u128,
+    total_ms: u128,
+    payload: HsdataPreparedPayloadProfile,
+}
+
+/// Prepared desktop import source paired with the local profiling summary.
+struct HsdataPreparedImportResult {
+    prepared: HsdataPreparedImport,
+    profile: HsdataPreparedImportProfile,
 }
 
 /// Persisted desktop resume state for one hsdata import job.
@@ -1309,34 +1340,57 @@ fn clear_hsdata_import_job_quietly(app: &AppHandle, source_tag: u32) {
 }
 
 /// Local hsdata source prepared as chunked upload payloads.
-fn prepare_hsdata_import_source(repo_path: &str, id: &str) -> Result<HsdataPreparedImport, String> {
+fn prepare_hsdata_import_source(
+    repo_path: &str,
+    id: &str,
+) -> Result<HsdataPreparedImportResult, String> {
+    let total_started_at = Instant::now();
+    let resolve_source_started_at = Instant::now();
     let source = resolve_hsdata_source(repo_path, id)?;
-    let HsdataPreparedPayload {
-        build,
-        source_hash,
-        payload_format_version,
-        payload_encoding,
-        import_engine_version,
-        total_entity_count,
-        chunks,
-    } = prepare_hsdata_payload(
+    let resolve_source_ms = elapsed_millis(&resolve_source_started_at);
+
+    let prepare_payload_started_at = Instant::now();
+    let HsdataPreparedPayloadResult {
+        payload:
+            HsdataPreparedPayload {
+                build,
+                source_hash,
+                payload_format_version,
+                payload_encoding,
+                import_engine_version,
+                total_entity_count,
+                chunks,
+            },
+        profile: payload_profile,
+    } = prepare_hsdata_payload_profiled(
         &source.xml,
         HSDATA_MAX_BYTES_PER_CHUNK,
         HSDATA_MAX_ENTITIES_PER_CHUNK,
     )?;
+    let prepare_payload_ms = elapsed_millis(&prepare_payload_started_at);
 
-    Ok(HsdataPreparedImport {
-        source_id: source.id,
-        source_tag: source.source_tag,
-        build,
-        source_commit: source.source_commit,
-        source_uri: source.source_uri,
-        source_hash,
-        payload_format_version,
-        payload_encoding,
-        import_engine_version,
-        total_entity_count,
-        chunks,
+    Ok(HsdataPreparedImportResult {
+        prepared: HsdataPreparedImport {
+            source_id: source.id,
+            source_kind: source.kind,
+            source_size_bytes: source.size,
+            source_tag: source.source_tag,
+            build,
+            source_commit: source.source_commit,
+            source_uri: source.source_uri,
+            source_hash,
+            payload_format_version,
+            payload_encoding,
+            import_engine_version,
+            total_entity_count,
+            chunks,
+        },
+        profile: HsdataPreparedImportProfile {
+            resolve_source_ms,
+            prepare_payload_ms,
+            total_ms: elapsed_millis(&total_started_at),
+            payload: payload_profile,
+        },
     })
 }
 
@@ -1684,6 +1738,7 @@ async fn upload_hsdata_chunks(
     initial_completed_chunk_count: u32,
     chunks: &[HsdataPreparedPayloadChunk],
 ) -> Result<(), String> {
+    let upload_started_at = Instant::now();
     emit_hsdata_import_progress(
         app,
         HsdataImportProgressEvent {
@@ -1699,8 +1754,10 @@ async fn upload_hsdata_chunks(
         },
     );
 
-    for batch in chunks.chunks(HSDATA_UPLOAD_CONCURRENCY) {
+    for (batch_index, batch) in chunks.chunks(HSDATA_UPLOAD_CONCURRENCY).enumerate() {
+        let batch_started_at = Instant::now();
         let mut handles = Vec::with_capacity(batch.len());
+        let batch_entity_count = batch.iter().map(|chunk| chunk.entity_count).sum::<u32>();
 
         for chunk in batch {
             let session_client = session_client.clone();
@@ -1714,6 +1771,8 @@ async fn upload_hsdata_chunks(
                     .map_err(|error| format!("Chunk {} upload failed: {error}", chunk.chunk_index))
             }));
         }
+
+        let mut batch_completed_chunk_count = initial_completed_chunk_count;
 
         for handle in handles {
             let (chunk_index, result) = handle
@@ -1738,8 +1797,33 @@ async fn upload_hsdata_chunks(
                     current_chunk_index: Some(chunk_index),
                 },
             );
+            batch_completed_chunk_count = result.completed_chunk_count;
         }
+
+        log_hsdata_import_profile(
+            "upload_chunk_batch",
+            serde_json::json!({
+                "sourceTag": source_tag,
+                "jobId": job_id,
+                "batchIndex": batch_index,
+                "batchChunkCount": batch.len(),
+                "batchEntityCount": batch_entity_count,
+                "completedChunkCount": batch_completed_chunk_count,
+                "elapsedMs": elapsed_millis(&batch_started_at),
+            }),
+        );
     }
+
+    log_hsdata_import_profile(
+        "upload_chunks",
+        serde_json::json!({
+            "sourceTag": source_tag,
+            "jobId": job_id,
+            "chunkCount": chunks.len(),
+            "totalEntityCount": total_entity_count,
+            "elapsedMs": elapsed_millis(&upload_started_at),
+        }),
+    );
 
     Ok(())
 }
@@ -2015,6 +2099,7 @@ async fn hsdata_import_source(
     force: bool,
 ) -> Result<HsdataImportReport, String> {
     let source_id = id.clone();
+    let total_started_at = Instant::now();
 
     emit_hsdata_import_progress(
         &app,
@@ -2034,11 +2119,139 @@ async fn hsdata_import_source(
     let result = async {
         let repo_path = resolve_saved_repo_path(&app)?;
         let prepare_source_id = source_id.clone();
-        let prepared = tauri::async_runtime::spawn_blocking(move || {
+        let HsdataPreparedImportResult {
+            prepared,
+            profile: prepare_profile,
+        } = tauri::async_runtime::spawn_blocking(move || {
             prepare_hsdata_import_source(&repo_path, &prepare_source_id)
         })
         .await
         .map_err(|error| format!("Failed to join hsdata import preparation task: {error}"))??;
+        log_hsdata_import_profile(
+            "prepare_source_resolve_source",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceKind": prepared.source_kind,
+                "sourceSizeBytes": prepared.source_size_bytes,
+                "sourceTag": prepared.source_tag,
+                "elapsedMs": prepare_profile.resolve_source_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_normalize_xml",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "normalizedXmlBytes": prepare_profile.payload.normalized_xml_bytes,
+                "elapsedMs": prepare_profile.payload.normalize_xml_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_parse_xml",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "build": prepared.build,
+                "totalEntityCount": prepare_profile.payload.total_entity_count,
+                "elapsedMs": prepare_profile.payload.parse_xml_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_parse_xml_decode",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "startEventCount": prepare_profile.payload.parse_xml_profile.start_event_count,
+                "emptyEventCount": prepare_profile.payload.parse_xml_profile.empty_event_count,
+                "endEventCount": prepare_profile.payload.parse_xml_profile.end_event_count,
+                "textEventCount": prepare_profile.payload.parse_xml_profile.text_event_count,
+                "cdataEventCount": prepare_profile.payload.parse_xml_profile.cdata_event_count,
+                "decodedAttributeCount": prepare_profile.payload.parse_xml_profile.decoded_attribute_count,
+                "decodedTextNodeCount": prepare_profile.payload.parse_xml_profile.decoded_text_node_count,
+                "decodedTextBytes": prepare_profile.payload.parse_xml_profile.decoded_text_bytes,
+                "readEventMs": prepare_profile.payload.parse_xml_profile.read_event_ms,
+                "decodeAttributesMs": prepare_profile.payload.parse_xml_profile.decode_attributes_ms,
+                "decodeTextMs": prepare_profile.payload.parse_xml_profile.decode_text_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_parse_xml_normalize_entities",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "parsedEntityCount": prepare_profile.payload.parse_xml_profile.parsed_entity_count,
+                "tagCount": prepare_profile.payload.parse_xml_profile.tag_count,
+                "locStringTagCount": prepare_profile.payload.parse_xml_profile.loc_string_tag_count,
+                "normalizeEntityMs": prepare_profile.payload.parse_xml_profile.normalize_entity_ms,
+                "normalizeTagsMs": prepare_profile.payload.parse_xml_profile.normalize_tags_ms,
+                "normalizeExtraPayloadMs": prepare_profile.payload.parse_xml_profile.normalize_extra_payload_ms,
+                "serializeSnapshotJsonMs": prepare_profile.payload.parse_xml_profile.serialize_snapshot_json_ms,
+                "hashSerializedSnapshotMs": prepare_profile.payload.parse_xml_profile.hash_serialized_snapshot_ms,
+                "snapshotHashMs": prepare_profile.payload.parse_xml_profile.snapshot_hash_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_parse_xml_validate_dedupe",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "parsedEntityCount": prepare_profile.payload.parse_xml_profile.parsed_entity_count,
+                "dedupedEntityCount": prepare_profile.payload.parse_xml_profile.deduped_entity_count,
+                "validateDedupeMs": prepare_profile.payload.parse_xml_profile.validate_dedupe_ms,
+                "totalMs": prepare_profile.payload.parse_xml_profile.total_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_build_chunks",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "chunkCount": prepare_profile.payload.chunk_count,
+                "totalEntityCount": prepare_profile.payload.total_entity_count,
+                "serializedLineCount": prepare_profile.payload.build_chunks_profile.serialized_line_count,
+                "serializedLineBytes": prepare_profile.payload.build_chunks_profile.serialized_line_bytes,
+                "materializeLineMs": prepare_profile.payload.build_chunks_profile.materialize_line_ms,
+                "updateChunkHashMs": prepare_profile.payload.build_chunks_profile.update_chunk_hash_ms,
+                "appendChunkMs": prepare_profile.payload.build_chunks_profile.append_chunk_ms,
+                "flushChunkMs": prepare_profile.payload.build_chunks_profile.flush_chunk_ms,
+                "elapsedMs": prepare_profile.payload.build_chunks_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_compute_source_hash",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "normalizedXmlBytes": prepare_profile.payload.normalized_xml_bytes,
+                "elapsedMs": prepare_profile.payload.compute_source_hash_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source_prepare_payload",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "build": prepared.build,
+                "normalizedXmlBytes": prepare_profile.payload.normalized_xml_bytes,
+                "chunkCount": prepare_profile.payload.chunk_count,
+                "totalEntityCount": prepare_profile.payload.total_entity_count,
+                "elapsedMs": prepare_profile.prepare_payload_ms,
+            }),
+        );
+        log_hsdata_import_profile(
+            "prepare_source",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceKind": prepared.source_kind,
+                "sourceSizeBytes": prepared.source_size_bytes,
+                "sourceTag": prepared.source_tag,
+                "build": prepared.build,
+                "normalizedXmlBytes": prepare_profile.payload.normalized_xml_bytes,
+                "chunkCount": prepared.chunks.len(),
+                "totalEntityCount": prepared.total_entity_count,
+                "elapsedMs": prepare_profile.total_ms,
+            }),
+        );
         let session_client = require_session_client(&app, &state)?;
 
         emit_hsdata_import_progress(
@@ -2071,14 +2284,45 @@ async fn hsdata_import_source(
             },
         );
 
+        let ensure_job_started_at = Instant::now();
         let (job_id, state) =
             match ensure_hsdata_import_job(&app, &session_client, &prepared, dry_run, force).await?
             {
                 HsdataImportJobResolution::Completed(report) => {
-                    return Ok((prepared, None, report))
+                    log_hsdata_import_profile(
+                        "ensure_remote_job",
+                        serde_json::json!({
+                            "sourceId": prepared.source_id,
+                            "sourceTag": prepared.source_tag,
+                            "resolution": "completed_cached",
+                            "elapsedMs": elapsed_millis(&ensure_job_started_at),
+                        }),
+                    );
+                    log_hsdata_import_profile(
+                        "total",
+                        serde_json::json!({
+                            "sourceId": prepared.source_id,
+                            "sourceTag": prepared.source_tag,
+                            "chunkCount": prepared.chunks.len(),
+                            "totalEntityCount": prepared.total_entity_count,
+                            "outcome": "completed_cached",
+                            "elapsedMs": elapsed_millis(&total_started_at),
+                        }),
+                    );
+                    return Ok((prepared, None, report));
                 }
                 HsdataImportJobResolution::Pending { job_id, state } => (job_id, state),
             };
+        log_hsdata_import_profile(
+            "ensure_remote_job",
+            serde_json::json!({
+                "sourceId": prepared.source_id,
+                "sourceTag": prepared.source_tag,
+                "jobId": job_id,
+                "reusedRemoteState": state.is_some(),
+                "elapsedMs": elapsed_millis(&ensure_job_started_at),
+            }),
+        );
 
         let mut job_state = match state {
             Some(state) => state,
@@ -2101,6 +2345,7 @@ async fn hsdata_import_source(
         );
 
         if job_state.status == "uploading" {
+            let upload_started_at = Instant::now();
             upload_hsdata_chunks(
                 &app,
                 &session_client,
@@ -2112,6 +2357,15 @@ async fn hsdata_import_source(
                 &prepared.chunks,
             )
             .await?;
+            log_hsdata_import_profile(
+                "upload_chunks_complete",
+                serde_json::json!({
+                    "sourceId": prepared.source_id,
+                    "sourceTag": prepared.source_tag,
+                    "jobId": job_id,
+                    "elapsedMs": elapsed_millis(&upload_started_at),
+                }),
+            );
             job_state = get_remote_hsdata_import_job(&session_client, &job_id).await?;
         }
 
@@ -2139,7 +2393,17 @@ async fn hsdata_import_source(
                 },
             );
 
+            let finalize_started_at = Instant::now();
             let report = finalize_remote_hsdata_import_job(&session_client, &job_id).await?;
+            log_hsdata_import_profile(
+                "finalize_remote_job",
+                serde_json::json!({
+                    "sourceId": prepared.source_id,
+                    "sourceTag": prepared.source_tag,
+                    "jobId": job_id,
+                    "elapsedMs": elapsed_millis(&finalize_started_at),
+                }),
+            );
             return Ok((prepared, Some(job_id), report));
         }
 
@@ -2167,6 +2431,18 @@ async fn hsdata_import_source(
     match result {
         Ok((prepared, job_id, report)) => {
             clear_hsdata_import_job_quietly(&app, prepared.source_tag);
+            log_hsdata_import_profile(
+                "total",
+                serde_json::json!({
+                    "sourceId": prepared.source_id,
+                    "sourceTag": report.source_tag,
+                    "jobId": job_id,
+                    "chunkCount": prepared.chunks.len(),
+                    "totalEntityCount": prepared.total_entity_count,
+                    "outcome": "completed",
+                    "elapsedMs": elapsed_millis(&total_started_at),
+                }),
+            );
             emit_hsdata_import_progress(
                 &app,
                 HsdataImportProgressEvent {
@@ -2185,6 +2461,15 @@ async fn hsdata_import_source(
             Ok(report)
         }
         Err(error) => {
+            log_hsdata_import_profile(
+                "total",
+                serde_json::json!({
+                    "sourceId": source_id,
+                    "outcome": "failed",
+                    "error": error,
+                    "elapsedMs": elapsed_millis(&total_started_at),
+                }),
+            );
             emit_hsdata_import_progress(
                 &app,
                 HsdataImportProgressEvent {

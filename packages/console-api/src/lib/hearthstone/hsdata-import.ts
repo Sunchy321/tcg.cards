@@ -16,6 +16,7 @@ import {
   buildHsdataPlaceholderSetId,
   isHsdataPlaceholderSetId,
 } from './hsdata-set-placeholder';
+import { createHsdataProfiler } from './hsdata-profile';
 
 // Shared transaction shape for import helpers.
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -1303,12 +1304,26 @@ async function applyHsdataImport(
 export async function importParsedHsdata(input: ImportParsedHsdataInput): Promise<ImportHsdataReport> {
   const dryRun = input.dryRun ?? false;
   const force = input.force ?? false;
+  const profiler = createHsdataProfiler('raw', {
+    sourceTag:  input.sourceTag,
+    build:      input.parsed.build,
+    dryRun,
+    force,
+    entityCount: input.parsed.entities.length,
+  });
   const sourceVersion = await getSourceVersion(input.sourceTag);
+  profiler.mark('load_source_version');
 
   const missingSetDbfIds = await findMissingSetDbfIds(collectSetDbfIds(input.parsed.entities));
+  profiler.mark('check_missing_sets', {
+    missingSetDbfIdCount: missingSetDbfIds.length,
+  });
 
   if (missingSetDbfIds.length > 0) {
     const insertedPlaceholderSetCount = await insertPlaceholderSets(missingSetDbfIds);
+    profiler.mark('insert_placeholder_sets', {
+      insertedPlaceholderSetCount,
+    });
 
     if (!dryRun) {
       await markSourceVersionFailedIfNeeded({
@@ -1331,6 +1346,9 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
   }
 
   if (shouldSkipSourceVersionImport(sourceVersion, input.sourceHash, force)) {
+    profiler.mark('skip_existing_source');
+    profiler.done({ outcome: 'skipped' });
+
     return {
       dryRun,
       skipped:               true,
@@ -1362,6 +1380,7 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
         importEngineVersion: input.importEngineVersion,
       },
     );
+    profiler.mark('mark_processing');
   }
 
   try {
@@ -1382,10 +1401,18 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
         ...applied,
       } satisfies ImportHsdataReport;
     }).then(async report => {
+      profiler.mark('apply_import', {
+        insertedSnapshots: report.insertedSnapshots,
+        reusedSnapshots:   report.reusedSnapshots,
+        insertedTagRows:   report.insertedTagRows,
+      });
+
       if (!dryRun) {
         await markSourceVersionCompleted(input.sourceTag, new Date());
+        profiler.mark('mark_completed');
       }
 
+      profiler.done({ outcome: 'completed' });
       return report;
     });
   } catch (error) {
@@ -1406,6 +1433,11 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
       error,
     });
 
+    profiler.mark('failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    profiler.done({ outcome: 'failed' });
+
     throw error;
   }
 }
@@ -1415,11 +1447,21 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
   const dryRun = input.dryRun ?? false;
   const normalizedXml = normalizeHsdataSourceXml(input.xml);
   const sourceHash = computeHsdataSourceHash(input.xml);
+  const profiler = createHsdataProfiler('legacy', {
+    sourceTag: input.sourceTag,
+    dryRun,
+    force:     input.force ?? false,
+  });
   const sourceVersion = await getSourceVersion(input.sourceTag);
+  profiler.mark('load_source_version');
   let parsed: ParsedHsdata;
 
   try {
     parsed = parseHsdataXml(normalizedXml);
+    profiler.mark('parse_xml', {
+      build:       parsed.build,
+      entityCount: parsed.entities.length,
+    });
   } catch (error) {
     if (!dryRun) {
       await markSourceVersionFailedIfNeeded({
@@ -1432,10 +1474,14 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
       }, sourceVersion);
     }
 
+    profiler.mark('parse_xml_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    profiler.done({ outcome: 'failed' });
     throw error;
   }
 
-  return await importParsedHsdata({
+  const report = await importParsedHsdata({
     parsed,
     sourceTag: input.sourceTag,
     sourceHash,
@@ -1445,4 +1491,8 @@ export async function importHsdata(input: ImportHsdataInput): Promise<ImportHsda
     dryRun,
     force: input.force,
   });
+
+  profiler.mark('delegate_import_parsed');
+  profiler.done({ outcome: 'completed' });
+  return report;
 }

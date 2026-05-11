@@ -21,6 +21,7 @@ import {
   HSDATA_PAYLOAD_FORMAT_VERSION,
   parseHsdataImportChunkPayload,
 } from './hsdata-import-payload';
+import { createHsdataProfiler } from './hsdata-profile';
 
 // Shared transaction shape for job service helpers.
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -592,11 +593,26 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
     throw new Error(`hsdata import job ${jobId} does not exist`);
   }
 
+  const profiler = createHsdataProfiler('finalize', {
+    jobId,
+    sourceTag:        job.sourceTag,
+    build:            job.build,
+    dryRun:           job.dryRun,
+    force:            job.force,
+    totalChunkCount:  job.totalChunkCount,
+    totalEntityCount: job.totalEntityCount,
+  });
+  profiler.mark('load_job');
+
   if (job.status === 'completed') {
     if (job.report == null) {
+      profiler.mark('completed_without_report');
+      profiler.done({ outcome: 'failed' });
       throw new Error(`hsdata import job ${jobId} completed without a report`);
     }
 
+    profiler.mark('reuse_completed_job');
+    profiler.done({ outcome: 'completed_cached' });
     return job.report as unknown as ImportHsdataReport;
   }
 
@@ -609,6 +625,11 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
   const completedChunkCount = chunkRows.filter(row => row.status === 'completed').length;
   const failedChunkCount = chunkRows.filter(row => row.status === 'failed').length;
   const processingChunkCount = chunkRows.filter(row => row.status === 'processing').length;
+  profiler.mark('load_chunk_status', {
+    completedChunkCount,
+    failedChunkCount,
+    processingChunkCount,
+  });
   const normalizedStatus = normalizeHsdataImportJobStatus({
     status: job.status,
     totalChunkCount: job.totalChunkCount,
@@ -618,10 +639,20 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
   });
 
   if (normalizedStatus !== 'ready_to_finalize') {
+    profiler.mark('validate_ready_to_finalize_failed', {
+      status:           job.status,
+      normalizedStatus,
+    });
+    profiler.done({ outcome: 'failed' });
     throw new Error(`job ${jobId} cannot be finalized from status ${job.status}`);
   }
 
   if (chunkRows.length !== job.totalChunkCount || completedChunkCount !== job.totalChunkCount) {
+    profiler.mark('validate_completed_chunks_failed', {
+      chunkRowCount: chunkRows.length,
+      completedChunkCount,
+    });
+    profiler.done({ outcome: 'failed' });
     throw new Error(`job ${jobId} is missing completed chunks`);
   }
 
@@ -637,22 +668,33 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
     .returning({
       id: HsdataImportJob.id,
     });
+  profiler.mark('claim_job');
 
   if (!claimedJob) {
     const latestJob = await getHsdataImportJobRow(jobId);
 
     if (!latestJob) {
+      profiler.mark('reload_latest_job_missing');
+      profiler.done({ outcome: 'failed' });
       throw new Error(`hsdata import job ${jobId} does not exist`);
     }
 
     if (latestJob.status === 'completed') {
       if (latestJob.report == null) {
+        profiler.mark('reload_completed_without_report');
+        profiler.done({ outcome: 'failed' });
         throw new Error(`hsdata import job ${jobId} completed without a report`);
       }
 
+      profiler.mark('reuse_completed_job_after_claim');
+      profiler.done({ outcome: 'completed_cached' });
       return latestJob.report as unknown as ImportHsdataReport;
     }
 
+    profiler.mark('claim_job_failed', {
+      latestStatus: latestJob.status,
+    });
+    profiler.done({ outcome: 'failed' });
     throw new Error(`job ${jobId} cannot be finalized from status ${latestJob.status}`);
   }
 
@@ -667,6 +709,9 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
     .from(HsdataImportJobSnapshot)
     .where(eq(HsdataImportJobSnapshot.jobId, jobId))
     .orderBy(asc(HsdataImportJobSnapshot.chunkIndex), asc(HsdataImportJobSnapshot.cardId));
+  profiler.mark('load_staged_snapshots', {
+    snapshotCount: snapshotRows.length,
+  });
 
   const parsed: ParsedHsdata = {
     build:    job.build,
@@ -676,6 +721,9 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
       extraPayload: row.extraPayload as JsonMap,
     })),
   };
+  profiler.mark('map_staged_entities', {
+    entityCount: parsed.entities.length,
+  });
 
   try {
     // Delay the legacy import module load so manifest-only helpers and tests do not
@@ -691,6 +739,7 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
       dryRun:       job.dryRun,
       force:        job.force,
     });
+    profiler.mark('import_parsed_hsdata');
 
     await db.update(HsdataImportJob)
       .set({
@@ -702,19 +751,29 @@ export async function finalizeHsdataImportJob(jobId: string): Promise<ImportHsda
         stagingCleanupError:  null,
       })
       .where(eq(HsdataImportJob.id, jobId));
+    profiler.mark('persist_completed_job');
 
     try {
       await cleanupHsdataImportJobStaging(jobId);
+      profiler.mark('cleanup_staging');
     } catch (error) {
+      profiler.mark('cleanup_staging_failed', {
+        error: toErrorMessage(error),
+      });
       console.error('[hearthstone][hsdata-import-job] cleanup failed', {
         jobId,
         error,
       });
     }
 
+    profiler.done({ outcome: 'completed' });
     return report;
   } catch (error) {
     await markHsdataImportJobFailed(jobId, toErrorMessage(error));
+    profiler.mark('failed', {
+      error: toErrorMessage(error),
+    });
+    profiler.done({ outcome: 'failed' });
     throw error;
   }
 }
