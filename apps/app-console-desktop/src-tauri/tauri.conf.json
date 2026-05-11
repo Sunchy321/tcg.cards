@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tcg-cards-console-desktop",
+  "productName": "tcg.cards控制台",
   "version": "0.1.0",
   "identifier": "cards.tcg.console-desktop",
   "build": {
