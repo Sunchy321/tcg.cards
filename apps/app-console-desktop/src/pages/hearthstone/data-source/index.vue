@@ -204,8 +204,7 @@ function openImport(sourceId?: string) {
 
 function openSettings() {
   void router.push({
-    path:  '/settings',
-    query: { game: 'hearthstone' },
+    path: '/settings/games/hearthstone',
   });
 }
 

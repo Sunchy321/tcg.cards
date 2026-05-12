@@ -59,7 +59,7 @@
               icon="i-lucide-settings"
               color="warning"
               variant="soft"
-              :to="{ path: '/settings', query: { game: 'hearthstone' } }"
+              to="/settings/games/hearthstone"
             />
           </div>
         </div>
@@ -975,9 +975,9 @@ type HsdataBatchTaskItemStatus = 'pending' | 'completed' | 'skipped' | 'failed';
 
 /** Next action chosen for one batch item after checking the latest durable state. */
 type HsdataBatchTaskDecision
-  = | { action: 'run'; file?: HsdataFile | null }
-    | { action: 'skip'; note: string }
-    | { action: 'blocked'; note: string };
+  = | { action: 'run', file?: HsdataFile | null }
+    | { action: 'skip', note: string }
+    | { action: 'blocked', note: string };
 
 /** One batch status badge rendered in the batch operation card. */
 interface HsdataBatchStatusBadge {
@@ -987,28 +987,28 @@ interface HsdataBatchStatusBadge {
 
 /** One source or sourceTag item scheduled inside a durable batch task snapshot. */
 interface HsdataBatchTaskItem {
-  key:      string;
-  sourceId: string | null;
+  key:       string;
+  sourceId:  string | null;
   sourceTag: number | null;
-  label:    string;
-  status:   HsdataBatchTaskItemStatus;
-  note:     string | null;
+  label:     string;
+  status:    HsdataBatchTaskItemStatus;
+  note:      string | null;
 }
 
 /** Persisted batch controller state restored independently from the page option state. */
 interface HsdataBatchTaskState {
-  version:     1;
-  executionId: string | null;
-  kind:        HsdataBatchTaskKind;
-  status:      HsdataBatchTaskStatus;
+  version:         1;
+  executionId:     string | null;
+  kind:            HsdataBatchTaskKind;
+  status:          HsdataBatchTaskStatus;
   requestedAction: HsdataBatchTaskRequestedAction | null;
-  order:       SourceListSortOrder;
-  dryRun:      boolean;
-  force:       boolean;
-  items:       HsdataBatchTaskItem[];
-  activeKey:   string | null;
-  startedAt:   string;
-  updatedAt:   string;
+  order:           SourceListSortOrder;
+  dryRun:          boolean;
+  force:           boolean;
+  items:           HsdataBatchTaskItem[];
+  activeKey:       string | null;
+  startedAt:       string;
+  updatedAt:       string;
 }
 
 /** Persisted desktop import page options restored across route switches and app restarts. */
@@ -1071,7 +1071,7 @@ const batchTask = ref<HsdataBatchTaskState | null>(null);
 const restoredSelectedSourceId = ref<string | null>(null);
 const hasRestoredImportPageState = ref(false);
 const currentBatchExecutionId = ref<string | null>(null);
-let batchStatePollTimer: ReturnType<typeof setInterval> | null = null;
+let batchStatePollTimer: number | null = null;
 let stopHsdataImportProgressListener: (() => void) | null = null;
 
 const importForm = reactive({
@@ -1299,6 +1299,7 @@ const batchCompletedCount = computed(() => {
 
   return task.items.filter(item => item.status === 'completed').length;
 });
+
 const batchSkippedCount = computed(() => {
   const task = batchTask.value;
 
@@ -1308,6 +1309,7 @@ const batchSkippedCount = computed(() => {
 
   return task.items.filter(item => item.status === 'skipped').length;
 });
+
 const batchFailedCount = computed(() => {
   const task = batchTask.value;
 
@@ -1317,6 +1319,7 @@ const batchFailedCount = computed(() => {
 
   return task.items.filter(item => item.status === 'failed').length;
 });
+
 const batchFailedItem = computed(() => {
   const task = batchTask.value;
 
@@ -1326,6 +1329,7 @@ const batchFailedItem = computed(() => {
 
   return task.items.find(item => item.status === 'failed') ?? null;
 });
+
 const batchStatusBadge = computed<HsdataBatchStatusBadge>(() => {
   const task = batchTask.value;
 
@@ -1353,8 +1357,11 @@ const batchStatusBadge = computed<HsdataBatchStatusBadge>(() => {
     return { label: '已失败', color: 'error' };
   case 'completed':
     return { label: '已完成', color: 'success' };
+  default:
+    throw new Error('unreachable');
   }
 });
+
 const batchProgressText = computed(() => {
   const task = batchTask.value;
 
@@ -1364,6 +1371,7 @@ const batchProgressText = computed(() => {
 
   return `${batchProcessedCount.value} / ${task.items.length}`;
 });
+
 const batchStatusText = computed(() => {
   const task = batchTask.value;
 
@@ -1380,9 +1388,11 @@ const batchStatusText = computed(() => {
       : '';
   return `${kindLabel} · ${runtimeLabel} · 完成 ${batchCompletedCount.value} · 跳过 ${batchSkippedCount.value} · 剩余 ${batchRemainingCount.value}${requestedActionLabel}`;
 });
+
 const batchCurrentItemLabel = computed(() => {
   return batchCurrentItem.value?.label ?? '-';
 });
+
 const batchCurrentItemHint = computed(() => {
   const task = batchTask.value;
 
@@ -1433,9 +1443,11 @@ const canResumeBatchTask = computed(() => {
     && !projecting.value,
   );
 });
+
 const canPauseBatchTask = computed(() => {
   return batchOwnsRunningExecution.value && batchRequestedAction.value == null;
 });
+
 const canStopBatchTask = computed(() => {
   return batchOwnsRunningExecution.value && batchRequestedAction.value !== 'clear';
 });
@@ -1925,7 +1937,7 @@ function normalizeBatchTaskItem(value: unknown): HsdataBatchTaskItem | null {
     sourceTag,
     label,
     status: data.status,
-    note: typeof data.note === 'string' && data.note.length > 0 ? data.note : null,
+    note:   typeof data.note === 'string' && data.note.length > 0 ? data.note : null,
   };
 }
 
@@ -1972,12 +1984,12 @@ function normalizeBatchTaskState(value: unknown): HsdataBatchTaskState | null {
   return {
     version: 1,
     executionId,
-    kind: data.kind,
-    status: data.status,
+    kind:    data.kind,
+    status:  data.status,
     requestedAction,
-    order: data.order,
-    dryRun: data.dryRun,
-    force: data.force,
+    order:   data.order,
+    dryRun:  data.dryRun,
+    force:   data.force,
     items,
     activeKey,
     startedAt,
@@ -2110,24 +2122,24 @@ function buildBatchItemLabel(file: HsdataFile) {
 /** One import batch task item built from a visible source row. */
 function buildBatchImportTaskItem(file: HsdataFile): HsdataBatchTaskItem {
   return {
-    key:      `source:${file.id}`,
-    sourceId: file.id,
+    key:       `source:${file.id}`,
+    sourceId:  file.id,
     sourceTag: file.sourceTag ?? null,
-    label:    buildBatchItemLabel(file),
-    status:   'pending',
-    note:     null,
+    label:     buildBatchItemLabel(file),
+    status:    'pending',
+    note:      null,
   };
 }
 
 /** One projection batch task item built from a visible source row. */
 function buildBatchProjectTaskItem(file: HsdataFile): HsdataBatchTaskItem {
   return {
-    key:      `tag:${file.sourceTag}`,
-    sourceId: file.id,
+    key:       `tag:${file.sourceTag}`,
+    sourceId:  file.id,
     sourceTag: file.sourceTag ?? null,
-    label:    buildBatchItemLabel(file),
-    status:   'pending',
-    note:     null,
+    label:     buildBatchItemLabel(file),
+    status:    'pending',
+    note:      null,
   };
 }
 
@@ -2145,7 +2157,7 @@ function isBatchImportCandidate(
   }
 
   if (force) {
-    return status.importStatus !== 'processing';
+    return true;
   }
 
   return status.importStatus !== 'completed';
@@ -2436,18 +2448,18 @@ function createBatchTask(
   const now = new Date().toISOString();
 
   return {
-    version: 1,
-    executionId: null,
+    version:         1,
+    executionId:     null,
     kind,
-    status: 'paused',
+    status:          'paused',
     requestedAction: null,
-    order: sourceSortOrder.value,
+    order:           sourceSortOrder.value,
     dryRun,
     force,
     items,
-    activeKey: null,
-    startedAt: now,
-    updatedAt: now,
+    activeKey:       null,
+    startedAt:       now,
+    updatedAt:       now,
   };
 }
 
@@ -2571,7 +2583,7 @@ function resolveBatchImportDecision(
 
     return {
       action: 'blocked',
-      note: `sourceTag ${file.sourceTag} 正在导入中，请等待该状态完成后再继续批量导入。`,
+      note:   `sourceTag ${file.sourceTag} 正在导入中，请等待该状态完成后再继续批量导入。`,
     };
   }
 
@@ -2599,14 +2611,14 @@ function resolveBatchProjectDecision(
   if (status.importStatus !== 'completed') {
     return {
       action: 'blocked',
-      note: `sourceTag ${item.sourceTag} 当前不是 completed，无法继续批量投影。`,
+      note:   `sourceTag ${item.sourceTag} 当前不是 completed，无法继续批量投影。`,
     };
   }
 
   if (status.projectionStatus === 'processing') {
     return {
       action: 'blocked',
-      note: `sourceTag ${item.sourceTag} 正在投影中，请等待该状态完成后再继续批量投影。`,
+      note:   `sourceTag ${item.sourceTag} 正在投影中，请等待该状态完成后再继续批量投影。`,
     };
   }
 
@@ -2657,7 +2669,7 @@ function requestBatchTaskAction(
   }
 
   toast.add({
-    title: action === 'pause' ? '已请求暂停批量任务' : '已请求停止批量任务',
+    title:       action === 'pause' ? '已请求暂停批量任务' : '已请求停止批量任务',
     description: action === 'pause'
       ? '当前项完成后会暂停，并保留剩余队列。'
       : '当前项完成后会停止，并清空本轮批量状态。',
@@ -2726,9 +2738,9 @@ function applyRequestedBatchTaskAction(task: HsdataBatchTaskState) {
   if (task.requestedAction === 'pause') {
     pauseBatchTask(task);
     toast.add({
-      title: task.kind === 'import' ? '批量导入已暂停' : '批量投影已暂停',
+      title:       task.kind === 'import' ? '批量导入已暂停' : '批量投影已暂停',
       description: '剩余队列已保留，可稍后继续未完成任务。',
-      color: 'warning',
+      color:       'warning',
     });
     return true;
   }
@@ -2737,9 +2749,9 @@ function applyRequestedBatchTaskAction(task: HsdataBatchTaskState) {
     clearBatchTaskState();
     refreshBatchTaskPolling();
     toast.add({
-      title: task.kind === 'import' ? '批量导入已停止' : '批量投影已停止',
+      title:       task.kind === 'import' ? '批量导入已停止' : '批量投影已停止',
       description: '当前项已结束，本轮批量状态已清除。',
-      color: 'success',
+      color:       'success',
     });
     return true;
   }
@@ -2781,9 +2793,9 @@ async function runBatchTask(task: HsdataBatchTaskState) {
       if (!item) {
         completeBatchTask(currentTask);
         toast.add({
-          title: currentTask.kind === 'import' ? '批量导入完成' : '批量投影完成',
+          title:       currentTask.kind === 'import' ? '批量导入完成' : '批量投影完成',
           description: `完成 ${batchCompletedCount.value} 项，跳过 ${batchSkippedCount.value} 项。`,
-          color: 'success',
+          color:       'success',
         });
         return;
       }
@@ -2809,9 +2821,9 @@ async function runBatchTask(task: HsdataBatchTaskState) {
         setBatchTaskItemState(currentTask, item, 'failed', decision.note);
         pauseBatchTask(currentTask);
         toast.add({
-          title: currentTask.kind === 'import' ? '批量导入已暂停' : '批量投影已暂停',
+          title:       currentTask.kind === 'import' ? '批量导入已暂停' : '批量投影已暂停',
           description: decision.note,
-          color: 'warning',
+          color:       'warning',
         });
         return;
       }
@@ -2836,9 +2848,9 @@ async function runBatchTask(task: HsdataBatchTaskState) {
         setBatchTaskItemState(currentTask, item, 'failed', message);
         failBatchTask(currentTask);
         toast.add({
-          title: currentTask.kind === 'import' ? '批量导入失败' : '批量投影失败',
+          title:       currentTask.kind === 'import' ? '批量导入失败' : '批量投影失败',
           description: message,
-          color: 'error',
+          color:       'error',
         });
         return;
       }

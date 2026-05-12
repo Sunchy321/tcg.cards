@@ -4,9 +4,10 @@ import {
   canManageUsers,
   getAccessibleGames,
   resolveGameFromPath,
-  type Game,
 } from '@tcg-cards/console-core';
 import type { ConsoleStorage } from '@tcg-cards/console-platform';
+
+import type { Game } from '@tcg-cards/shared';
 
 import { currentAuthState, getSession, signOut as desktopSignOut } from '../auth';
 import { ensureLoginWindow } from '../windows';
@@ -62,7 +63,7 @@ export function useDesktopConsoleAdminHost(storage: ConsoleStorage) {
       return showUserManagement.value;
     }
 
-    return path === '/' || path === '/settings';
+    return path === '/' || path === '/settings' || path.startsWith('/settings/');
   }
 
   function resolveActiveGame(path: string) {

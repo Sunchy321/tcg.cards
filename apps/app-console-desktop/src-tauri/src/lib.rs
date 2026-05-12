@@ -1,7 +1,12 @@
 #[allow(dead_code)]
+mod desktop_database;
+#[allow(dead_code)]
 mod hsdata_import_payload;
 mod hsdata_legacy_dbf_id_table;
 
+use crate::desktop_database::{
+    desktop_get_database_settings, desktop_set_database_settings, desktop_test_database_connection,
+};
 use crate::hsdata_import_payload::{
     collect_legacy_entity_card_ids, prepare_hsdata_payload_profiled_with_dbf_ids,
     HsdataPreparedPayload, HsdataPreparedPayloadChunk, HsdataPreparedPayloadProfile,
@@ -2670,6 +2675,9 @@ pub fn run() {
             auth_get_session,
             auth_sign_out,
             auth_fetch,
+            desktop_get_database_settings,
+            desktop_set_database_settings,
+            desktop_test_database_connection,
             desktop_get_game_repo,
             desktop_set_game_repo,
             desktop_pick_directory,

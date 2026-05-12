@@ -33,6 +33,7 @@
         "@tcg-cards/console-core": "workspace:*",
         "@tcg-cards/console-platform": "workspace:*",
         "@tcg-cards/console-shell": "workspace:*",
+        "@tcg-cards/shared": "workspace:*",
         "better-auth": "^1.5.5",
         "nuxt": "4.3.1",
         "vue": "^3.5.29",
