@@ -3,7 +3,7 @@ import { os } from '@orpc/server';
 import { duplicate, duplicateMode } from '#model/magic/schema/data/duplicate';
 
 import { db } from '#db/db';
-import { Print, PrintPart } from '#schema/magic/print';
+import { Print, PrintPart } from '#schema/shared/magic/print';
 
 import { and, eq, sql } from 'drizzle-orm';
 

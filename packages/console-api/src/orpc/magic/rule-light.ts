@@ -6,8 +6,8 @@ import { db } from '@tcg-cards/db/db';
 import {
   DocumentNode,
   DocumentVersion,
-  DocumentVersionImport,
-} from '@tcg-cards/db/schema/magic';
+} from '@tcg-cards/db/schema/shared/magic';
+import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
 
 import { locale } from '@tcg-cards/model/src/magic/schema/basic';
 

@@ -9,11 +9,11 @@ import {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   SourceVersion,
-} from '@tcg-cards/db/schema/hearthstone/data/card-model';
-import { Entity, EntityLocalization } from '@tcg-cards/db/schema/hearthstone/entity';
-import { EntityRelation } from '@tcg-cards/db/schema/hearthstone/entity-relation';
-import { Set as HearthstoneSet } from '@tcg-cards/db/schema/hearthstone/set';
-import { Tag } from '@tcg-cards/db/schema/hearthstone/tag';
+} from '@tcg-cards/db/schema/local/hearthstone/card-model';
+import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
+import { EntityRelation } from '@tcg-cards/db/schema/shared/hearthstone/entity-relation';
+import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
+import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 
 import { isHsdataPlaceholderSetId } from './hsdata-set-placeholder';
 

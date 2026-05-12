@@ -8,8 +8,8 @@ import {
   DocumentNode,
   DocumentNodeContent,
   DocumentVersion,
-  DocumentVersionImport,
-} from '@tcg-cards/db/schema/magic';
+} from '@tcg-cards/db/schema/shared/magic';
+import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
 
 import type { NodeChangeDetails, NodeChangeReviewStateCache, NodeChangeType } from '@tcg-cards/model/src/magic/schema/document';
 

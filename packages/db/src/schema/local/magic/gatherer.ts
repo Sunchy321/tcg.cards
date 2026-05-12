@@ -1,6 +1,6 @@
 import { integer, jsonb, timestamp } from 'drizzle-orm/pg-core';
 
-import { dataSchema } from '../schema';
+import { dataSchema } from '../../shared/magic/schema';
 
 export const Gatherer = dataSchema.table('gatherer', {
   multiverseId: integer('multiverse_id').primaryKey(),

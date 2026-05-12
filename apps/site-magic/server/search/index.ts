@@ -5,7 +5,7 @@ import { model } from '#model/magic/search';
 import * as commands from './command-list';
 import * as actions from './action';
 
-import { CardEditorView, CardPrintView } from '#schema/magic/print';
+import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 
 export const search = ss
   .from(model)

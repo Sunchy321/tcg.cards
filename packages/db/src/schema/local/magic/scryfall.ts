@@ -1,6 +1,6 @@
 import { jsonb, uuid } from 'drizzle-orm/pg-core';
 
-import { dataSchema } from '../schema';
+import { dataSchema } from '../../shared/magic/schema';
 
 import type { Legality } from '#model/magic/schema/data/scryfall/basic';
 

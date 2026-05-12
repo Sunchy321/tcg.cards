@@ -653,11 +653,11 @@ const hsdataProjectSetSchemaMock = {
 const hsdataProjectTagSchemaMock = {
   Tag,
 };
-mock.module('@tcg-cards/db/schema/hearthstone/data/card-model', () => hsdataProjectCardModelSchemaMock);
-mock.module('@tcg-cards/db/schema/hearthstone/entity', () => hsdataProjectEntitySchemaMock);
-mock.module('@tcg-cards/db/schema/hearthstone/entity-relation', () => hsdataProjectEntityRelationSchemaMock);
-mock.module('@tcg-cards/db/schema/hearthstone/set', () => hsdataProjectSetSchemaMock);
-mock.module('@tcg-cards/db/schema/hearthstone/tag', () => hsdataProjectTagSchemaMock);
+mock.module('@tcg-cards/db/schema/local/hearthstone/card-model', () => hsdataProjectCardModelSchemaMock);
+mock.module('@tcg-cards/db/schema/shared/hearthstone/entity', () => hsdataProjectEntitySchemaMock);
+mock.module('@tcg-cards/db/schema/shared/hearthstone/entity-relation', () => hsdataProjectEntityRelationSchemaMock);
+mock.module('@tcg-cards/db/schema/shared/hearthstone/set', () => hsdataProjectSetSchemaMock);
+mock.module('@tcg-cards/db/schema/shared/hearthstone/tag', () => hsdataProjectTagSchemaMock);
 
 const { projectHsdata } = await import('./hsdata-project');
 const { buildHsdataPlaceholderSetId } = await import('./hsdata-set-placeholder');

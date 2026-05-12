@@ -5,7 +5,7 @@
 // import { imageTaskStatus } from '#model/magic/schema/data/gatherer/image';
 
 // import { db } from '@nuxthub/db';
-// import { Print } from '#schema/magic/print';
+// import { Print } from '#schema/shared/magic/print';
 
 // // import { GathererImageTask, saveGathererImage } from '@/magic/data/gatherer/image';
 

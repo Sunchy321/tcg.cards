@@ -8,7 +8,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-import { dataSchema } from '../schema';
+import { dataSchema } from '../../shared/hearthstone/schema';
 
 type JsonMap = Record<string, unknown>;
 

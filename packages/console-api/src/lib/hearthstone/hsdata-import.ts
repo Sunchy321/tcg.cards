@@ -7,9 +7,9 @@ import {
   RawEntitySnapshot,
   RawEntitySnapshotTag,
   SourceVersion,
-} from '@tcg-cards/db/schema/hearthstone/data/card-model';
-import { Set as HearthstoneSet } from '@tcg-cards/db/schema/hearthstone/set';
-import { Tag } from '@tcg-cards/db/schema/hearthstone/tag';
+} from '@tcg-cards/db/schema/local/hearthstone/card-model';
+import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
+import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 
 import {
   buildHsdataPlaceholderSetId,

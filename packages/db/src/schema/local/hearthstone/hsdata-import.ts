@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-import { dataSchema } from '../schema';
+import { dataSchema } from '../../shared/hearthstone/schema';
 
 type JsonMap = Record<string, unknown>;
 type LocalizedText = Record<string, string>;
@@ -61,12 +61,12 @@ export const HsdataImportJob = dataSchema.table('hsdata_import_jobs', {
   sourceHash:   text('source_hash').notNull(),
   manifestHash: text('manifest_hash').notNull(),
 
-  chunkingVersion:     text('chunking_version').notNull(),
+  chunkingVersion:      text('chunking_version').notNull(),
   payloadFormatVersion: text('payload_format_version').notNull(),
   payloadEncoding:      text('payload_encoding').notNull(),
   importEngineVersion:  text('import_engine_version').notNull(),
-  maxBytesPerChunk:    integer('max_bytes_per_chunk').notNull(),
-  maxEntitiesPerChunk: integer('max_entities_per_chunk').notNull(),
+  maxBytesPerChunk:     integer('max_bytes_per_chunk').notNull(),
+  maxEntitiesPerChunk:  integer('max_entities_per_chunk').notNull(),
 
   dryRun: boolean('dry_run').notNull().default(false),
   force:  boolean('force').notNull().default(false),

@@ -5,10 +5,10 @@ import { z } from 'zod';
 import { and, count, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
-import { Deck, DeckLike, DeckFavorite } from '#schema/magic/app/deck';
-import { Card, CardPart } from '#schema/magic/card';
-import { Format } from '#schema/magic/format';
-import { users } from '#schema/auth';
+import { Deck, DeckLike, DeckFavorite } from '#schema/remote/magic/deck';
+import { Card, CardPart } from '#schema/shared/magic/card';
+import { Format } from '#schema/shared/magic/format';
+import { users } from '#schema/remote/auth';
 
 import type { DeckView } from '#model/magic/schema/deck';
 import { deckCard, deckVisibility, deckView } from '#model/magic/schema/deck';

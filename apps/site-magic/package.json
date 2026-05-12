@@ -23,6 +23,7 @@
     "@orpc/client": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@tailwindcss/typography": "^0.5.19",
+    "@tcg-cards/auth": "workspace:*",
     "@tcg-cards/db": "workspace:*",
     "@tcg-cards/model": "workspace:*",
     "@tcg-cards/search": "workspace:*",

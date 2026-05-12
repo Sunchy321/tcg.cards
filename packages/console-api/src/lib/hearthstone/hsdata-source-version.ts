@@ -1,7 +1,7 @@
 import { desc } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
-import { SourceVersion } from '@tcg-cards/db/schema/hearthstone/data/card-model';
+import { SourceVersion } from '@tcg-cards/db/schema/local/hearthstone/card-model';
 
 /** Import states returned for one hsdata sourceTag row. */
 export type HsdataImportStatus = 'pending' | 'processing' | 'completed' | 'failed';

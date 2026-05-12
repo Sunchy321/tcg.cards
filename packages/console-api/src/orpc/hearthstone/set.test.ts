@@ -187,9 +187,14 @@ function readEqValue(chunks: unknown[]): unknown {
   return columnIndex >= 0 ? chunks[columnIndex + 2] : undefined;
 }
 
+/** Object record view used for dynamic row field access in the memory db. */
+function asRecord(value: unknown): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
+
 /** Row field value read through the mocked column name. */
 function rowValue(row: Row, columnName: string): unknown {
-  return (row as Record<string, unknown>)[columnName];
+  return asRecord(row)[columnName];
 }
 
 /** Condition match against the simplified mocked drizzle SQL. */
@@ -454,7 +459,7 @@ class MemorySetDb {
 const memoryDb = new MemorySetDb();
 
 mock.module('@tcg-cards/db/db', () => ({ db: memoryDb }));
-mock.module('@tcg-cards/db/schema/hearthstone', () => ({
+mock.module('@tcg-cards/db/schema/shared/hearthstone', () => ({
   AnnouncementItem,
   CardChange,
   Entity,

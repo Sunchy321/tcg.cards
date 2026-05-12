@@ -5,7 +5,7 @@ import { desc, eq } from 'drizzle-orm';
 import { announcementProfile } from '@tcg-cards/model/src/magic/schema/announcement';
 
 import { db } from '@tcg-cards/db/db';
-import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/magic';
+import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/magic';
 
 const list = os
 	.route({

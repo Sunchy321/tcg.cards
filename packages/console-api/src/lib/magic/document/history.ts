@@ -3,13 +3,15 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { db } from '@tcg-cards/db/db';
 import {
   DocumentNode,
-  DocumentNodeChange,
-  DocumentChangeReviewState,
   DocumentNodeEntity,
   DocumentVersion,
-  DocumentVersionImport,
+  DocumentNodeChange,
+} from '@tcg-cards/db/schema/shared/magic';
+import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
+import {
+  DocumentChangeReviewState,
   DocumentVersionPairRevision,
-} from '@tcg-cards/db/schema/magic';
+} from '@tcg-cards/db/schema/remote/magic/document';
 
 import {
   loadPreviousVersionNodes,

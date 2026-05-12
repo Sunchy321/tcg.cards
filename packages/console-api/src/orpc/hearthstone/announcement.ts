@@ -5,7 +5,7 @@ import { desc, eq } from 'drizzle-orm';
 import { announcementProfile } from '@tcg-cards/model/src/hearthstone/schema/announcement';
 
 import { db } from '@tcg-cards/db/db';
-import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/hearthstone';
+import { Announcement, AnnouncementItem } from '@tcg-cards/db/schema/shared/hearthstone';
 
 const list = os
   .route({

@@ -8,7 +8,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { dataSchema } from '../schema';
+import { dataSchema } from '../../shared/hearthstone/schema';
 import { vector } from '../../../type/vector';
 
 type JsonMap = Record<string, unknown>;

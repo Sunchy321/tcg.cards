@@ -12,8 +12,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { Tag } from '../tag';
-import { dataSchema } from '../schema';
+import { Tag } from '../../shared/hearthstone/tag';
+import { dataSchema } from '../../shared/hearthstone/schema';
 
 type JsonMap = Record<string, unknown>;
 type LocalizedText = Record<string, string>;

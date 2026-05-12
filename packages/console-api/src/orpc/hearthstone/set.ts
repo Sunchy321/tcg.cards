@@ -10,7 +10,7 @@ import {
   Set as HearthstoneSet,
   SetChange,
   SetLocalization as HearthstoneSetLocalization,
-} from '@tcg-cards/db/schema/hearthstone';
+} from '@tcg-cards/db/schema/shared/hearthstone';
 import {
   setGetInput,
   setListInput,

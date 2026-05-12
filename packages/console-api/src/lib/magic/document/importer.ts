@@ -5,18 +5,20 @@ import { and, asc, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import {
-  DocumentChangeReview,
   DocumentDefinition,
   DocumentNode,
   DocumentNodeChange,
   DocumentNodeChangeRelation,
-  DocumentChangeReviewState,
   DocumentNodeContent,
   DocumentNodeEntity,
   DocumentVersion,
-  DocumentVersionImport,
+} from '@tcg-cards/db/schema/shared/magic';
+import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
+import {
+  DocumentChangeReview,
+  DocumentChangeReviewState,
   DocumentVersionPairRevision,
-} from '@tcg-cards/db/schema/magic';
+} from '@tcg-cards/db/schema/remote/magic/document';
 
 import { getDocumentConfig } from './config';
 import {

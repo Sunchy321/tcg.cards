@@ -6,7 +6,7 @@ import { db } from '@tcg-cards/db/db';
 import {
   DocumentNode,
   DocumentNodeContent,
-} from '@tcg-cards/db/schema/magic';
+} from '@tcg-cards/db/schema/shared/magic';
 
 import type { Locale } from '@tcg-cards/model/src/magic/schema/basic';
 

@@ -85,7 +85,7 @@ const dbMock = {
 };
 
 mock.module('@tcg-cards/db/db', () => ({ db: dbMock }));
-mock.module('@tcg-cards/db/schema/hearthstone', () => schemaMock);
+mock.module('@tcg-cards/db/schema/shared/hearthstone', () => schemaMock);
 mock.module('@tcg-cards/model/src/hearthstone/schema/data/image', async () => {
   return await import('@tcg-cards/model/src/hearthstone/schema/data/image');
 });

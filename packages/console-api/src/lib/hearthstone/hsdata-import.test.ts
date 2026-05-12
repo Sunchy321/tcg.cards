@@ -586,9 +586,9 @@ const hsdataSetSchemaMock = {
 const hsdataTagSchemaMock = {
   Tag,
 };
-mock.module('@tcg-cards/db/schema/hearthstone/data/card-model', () => hsdataCardModelSchemaMock);
-mock.module('@tcg-cards/db/schema/hearthstone/set', () => hsdataSetSchemaMock);
-mock.module('@tcg-cards/db/schema/hearthstone/tag', () => hsdataTagSchemaMock);
+mock.module('@tcg-cards/db/schema/local/hearthstone/card-model', () => hsdataCardModelSchemaMock);
+mock.module('@tcg-cards/db/schema/shared/hearthstone/set', () => hsdataSetSchemaMock);
+mock.module('@tcg-cards/db/schema/shared/hearthstone/tag', () => hsdataTagSchemaMock);
 
 const {
   buildParsedEntity,

@@ -22,7 +22,10 @@ import {
   type ImageStyle,
   type ImageVariant,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
-import { CardImageAsset, CardImageExport, CardImageImport, Entity, EntityLocalization, Set as HearthstoneSet, Tag } from '@tcg-cards/db/schema/hearthstone';
+import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/schema/remote/hearthstone/card-image';
+import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
+import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
+import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 
 export const hearthstoneImageSpecVersion = 'v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';

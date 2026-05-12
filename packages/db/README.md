@@ -2,14 +2,37 @@
 
 Database schema and migrations for TCG Cards project.
 
+## Schema Tracks
+
+This package now maintains two database tracks:
+
+- `local`: desktop-side local PostgreSQL used for import, build, and local review state
+- `remote`: remote PostgreSQL used for serving, remote-only app data, and control-plane tables
+
+Shared tables stay in `src/schema/shared/`. Track-specific aggregators live under:
+
+- `src/schema/local/`
+- `src/schema/remote/`
+- `src/schema/shared/`
+
+Game-specific tables must stay under per-game entry folders:
+
+- `src/schema/shared/{game}/index.ts`
+- `src/schema/local/{game}/index.ts`
+- `src/schema/remote/{game}/index.ts`
+
+Non-game tables stay directly under their ownership track, for example:
+
+- `src/schema/remote/auth.ts`
+
 ## Migration Workflow
 
 ### 1. Modify Schema
 
-Edit files in `src/schema/` to change table structures.
+Edit the schema files under the ownership track they belong to. For game-specific tables, update the matching per-game `index.ts` when a table should be exposed from that track.
 
 ```typescript
-// src/schema/magic/rule.ts
+// src/schema/shared/magic/rule.ts
 export const RuleSource = pgTable('magic_rule_source', {
   id: text('id').primaryKey(),
   // ... add new fields
@@ -19,85 +42,108 @@ export const RuleSource = pgTable('magic_rule_source', {
 ### 2. Generate Migration
 
 ```bash
-bun run db:generate
+bun run db:generate:local
+bun run db:generate:remote
 ```
 
-This creates a new SQL file in `migrations/` with the changes.
+Use the script that matches the target track:
+
+- `db:generate:local` writes to `migrations/local`
+- `db:generate:remote` writes to `migrations/remote`
 
 ### 3. Review Migration
 
-Check the generated SQL file in `migrations/` before applying.
+Check the generated SQL file in the matching migration directory before applying.
 
 ### 4. Push Schema (Development)
 
 ```bash
-bun run db:push
+bun run db:push:local:dev
+bun run db:push:remote:dev
 ```
 
-This uses `DATABASE_URL_DEV`.
-This loads `DATABASE_URL` from `.env.development`.
+These scripts target the explicit schema track and load `DATABASE_URL` from the matching env file.
 
 ### 5. Apply Migration (Production)
 
 Migrations are automatically applied in CI/CD, or manually:
 
 ```bash
-bun run db:migrate
+bun run db:migrate:local:dev
+bun run db:migrate:remote:dev
+bun run db:migrate:remote:prod
 ```
 
-This uses `DATABASE_URL_PROD`.
-This loads `DATABASE_URL` from `.env.production`.
+Each script targets one schema track and one instance environment.
 
 ## Environment Files
 
-Configure separate database URLs for development and production:
+Configure separate database URLs for each tracked workflow:
 
 ```bash
-cp .env.development.example .env.development
-cp .env.production.example .env.production
+cp .env.local-dev.example .env.local-dev
+cp .env.remote-dev.example .env.remote-dev
+cp .env.remote-prod.example .env.remote-prod
 ```
 
 Example contents:
 
 ```bash
-# .env.development
-DATABASE_URL="postgres://user:password@localhost:5432/tcg_cards_dev"
+# .env.local-dev
+DATABASE_URL="postgres://user:password@localhost:5432/tcg_cards_local_dev"
 ```
 
 ```bash
-# .env.production
-DATABASE_URL="postgres://user:password@localhost:5432/tcg_cards_prod"
+# .env.remote-dev
+DATABASE_URL="postgres://user:password@localhost:5432/tcg_cards_remote_dev"
+```
+
+```bash
+# .env.remote-prod
+DATABASE_URL="postgres://user:password@db.example.com:5432/tcg_cards_remote_prod"
 ```
 
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
-| `bun run db:generate` | Generate migration from schema changes |
-| `bun run db:migrate` | Apply pending migrations to the production database |
-| `bun run db:push` | Push schema directly to the development database |
-| `bun run db:studio` | Open Drizzle Studio for the development database |
-| `bun run db:check` | Check for schema drift |
-| `bun run db:up` | Apply a single migration to the production database |
+| `bun run db:generate:local` | Generate a local migration |
+| `bun run db:generate:remote` | Generate a remote migration |
+| `bun run db:migrate:local:dev` | Apply local-track migrations to the dev local instance |
+| `bun run db:migrate:remote:dev` | Apply remote-track migrations to the dev remote instance |
+| `bun run db:migrate:remote:prod` | Apply remote-track migrations to the prod remote instance |
+| `bun run db:push:local:dev` | Push the local schema directly to the dev local instance |
+| `bun run db:push:remote:dev` | Push the remote schema directly to the dev remote instance |
+| `bun run db:studio:local:dev` | Open Drizzle Studio for the dev local instance |
+| `bun run db:check:local` | Check local schema drift |
+| `bun run db:check:remote` | Check remote schema drift |
+| `bun run db:up:remote:prod` | Apply a single migration to the prod remote instance |
 
 ## Directory Structure
 
 ```
 packages/db/
 ├── src/
-│   ├── schema/           # Table definitions
-│   │   ├── index.ts
-│   │   └── magic/
+│   ├── schema/
+│   │   ├── shared/       # Shared-track entries grouped by game
+│   │   ├── local/        # Local-track entries plus local non-game tables
+│   │   ├── remote/       # Remote-track entries plus remote non-game tables
 │   ├── db.ts
 │   └── index.ts
-├── migrations/           # Generated SQL files (tracked by git)
-│   ├── meta/
-│   │   └── _journal.json
-│   ├── 0000_initial.sql
-│   └── 0001_xxx.sql
-├── drizzle.config.ts     # Drizzle configuration
+├── migrations/
+│   ├── local/            # Local-track migrations
+│   └── remote/           # Remote-track migrations
+├── drizzle.local.config.ts
+├── drizzle.remote.config.ts
+├── drizzle.config.ts     # Remote alias for backward compatibility
 └── package.json
 ```
+
+## Naming Rules
+
+- `local / remote` always describe the schema track
+- `dev / prod` always describe the target instance environment
+- Commands that touch a real database instance must encode both dimensions in their name
 
 ## Database Design Guidelines
 
@@ -129,4 +175,4 @@ Additional rules:
 2. **Never edit generated SQL files** - regenerate instead
 3. **Commit migrations** to git with the schema changes
 4. **Test migrations** on a copy of production data first
-5. **Use transactions** for complex migrations (drizzle-kit does this automatically)
+5. **Keep local and remote track ownership explicit** instead of assuming one schema fits both

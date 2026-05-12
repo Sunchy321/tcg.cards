@@ -2,14 +2,16 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
 import {
-  DocumentChangeReview,
   DocumentNodeChange,
-  DocumentNodeChangeRelation,
-  DocumentChangeReviewState,
   DocumentVersion,
-  DocumentVersionImport,
+  DocumentNodeChangeRelation,
+} from '@tcg-cards/db/schema/shared/magic';
+import { DocumentVersionImport } from '@tcg-cards/db/schema/local/magic/document';
+import {
+  DocumentChangeReview,
+  DocumentChangeReviewState,
   DocumentVersionPairRevision,
-} from '@tcg-cards/db/schema/magic';
+} from '@tcg-cards/db/schema/remote/magic/document';
 
 import type {
   ChangeReviewOverridePayload,

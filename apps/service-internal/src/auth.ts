@@ -1,6 +1,7 @@
 import { createServerAuth } from '@tcg-cards/auth';
 
-import { accounts, db, sessions, users, verifications } from '@tcg-cards/db';
+import { db } from '@tcg-cards/db';
+import { accounts, sessions, users, verifications } from '@tcg-cards/db/schema/remote/auth';
 
 import type { InternalServiceEnv } from './env';
 

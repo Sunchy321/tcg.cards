@@ -1,6 +1,6 @@
 import { jsonb, primaryKey, text, timestamp } from 'drizzle-orm/pg-core';
 
-import { dataSchema } from '../schema';
+import { dataSchema } from '../../shared/magic/schema';
 
 import type { MtgchCard } from '#model/magic/schema/data/mtgch/card';
 

@@ -5,8 +5,8 @@ import type { Updation, UpdationMode } from '#model/magic/schema/data/updation';
 import { updation, updationResponse, updationMode } from '#model/magic/schema/data/updation';
 
 import { db } from '#db/db';
-import { Card, CardLocalization, CardPart, CardPartLocalization } from '#schema/magic/card';
-import { Print, PrintPart } from '#schema/magic/print';
+import { Card, CardLocalization, CardPart, CardPartLocalization } from '#schema/shared/magic/card';
+import { Print, PrintPart } from '#schema/shared/magic/print';
 
 import { and, eq, getTableColumns, sql } from 'drizzle-orm';
 import { isEqual, pick } from 'lodash-es';

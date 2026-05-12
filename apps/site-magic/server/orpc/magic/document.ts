@@ -18,12 +18,12 @@ import {
   DocumentDefinition,
   DocumentNode,
   DocumentNodeChange,
-  DocumentChangeReviewState,
   DocumentNodeContent,
   DocumentNodeEntity,
   DocumentVersion,
-  DocumentVersionImport,
-} from '#schema/magic/document';
+} from '#schema/shared/magic/document';
+import { DocumentVersionImport } from '#schema/local/magic/document';
+import { DocumentChangeReviewState } from '#schema/remote/magic/document';
 import { diffString } from '../../lib/diff';
 
 function getNodeSerial(nodeId: string): string | null {

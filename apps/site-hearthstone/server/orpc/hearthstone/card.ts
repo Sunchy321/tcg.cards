@@ -6,8 +6,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { diff as jsonDiff } from 'jsondiffpatch';
 
 import { db } from '#db/db';
-import { CardEntityView, EntityView } from '#schema/hearthstone/entity';
-import { EntityRelation } from '#schema/hearthstone/entity-relation';
+import { CardEntityView, EntityView } from '#schema/shared/hearthstone/entity';
+import { EntityRelation } from '#schema/shared/hearthstone/entity-relation';
 
 import { locale } from '#model/hearthstone/schema/basic';
 import { cardProfile } from '#model/hearthstone/schema/card';

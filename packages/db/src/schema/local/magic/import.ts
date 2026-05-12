@@ -9,8 +9,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { appSchema, dataSchema } from '../schema';
-import { users } from '../../auth';
+import { dataSchema } from '../../shared/magic/schema';
 
 import type {
   ImportCoverageState,
@@ -24,20 +23,40 @@ import type {
   ImportStrategy,
 } from '#model/magic/schema/data/import';
 
+/** JSON object payload stored in import-side snapshots and diagnostics. */
 type JsonMap = Record<string, unknown>;
+
+/** JSON value payload stored in before/after field snapshots. */
 type JsonValue = unknown;
 
+/** Lifecycle state of an import rule-set revision. */
 type ImportRuleSetStatus = 'draft' | 'published' | 'archived';
+
+/** Trigger that started an import run. */
 type ImportTriggerType = 'manual' | 'scheduled' | 'webhook' | 'backfill';
+
+/** Runtime state of an import run. */
 type ImportRunStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'canceled';
+
+/** Decision state tracked on change candidates. */
 type ImportDecisionStatus = 'pending' | 'ignored' | 'approved' | 'rejected' | 'applied' | 'rolled_back';
+
+/** Actor that produced the current decision state. */
 type ImportDecisionSource = 'system' | 'review' | 'apply' | 'rollback';
+
+/** Storage mode used for serialized before/after values. */
 type ImportValueStorageMode = 'inline' | 'compressed_inline' | 'object_storage_ref';
+
+/** Apply log operation written against the publish target. */
 type ImportApplyAction = 'apply' | 'rollback';
-type ImportReviewScopeType = 'change_set' | 'field_change' | 'batch';
-type ImportReviewAction = 'approve' | 'reject' | 'ignore' | 'override';
+
+/** Trust level assigned to an external import source. */
 type ImportTrustLevel = 'high' | 'medium';
+
+/** Fallback action when a rule cannot safely auto-resolve. */
 type ImportFallbackAction = 'ignore' | 'manual_review';
+
+/** Availability state of an import source definition. */
 type ImportSourceStatus = 'enabled' | 'candidate' | 'reconcile_only';
 
 export const importSourceStatus = dataSchema.enum('import_source_status', [
@@ -158,19 +177,6 @@ export const importValueStorageMode = dataSchema.enum('import_value_storage_mode
 export const importApplyAction = dataSchema.enum('import_apply_action', [
   'apply',
   'rollback',
-]);
-
-export const importReviewScopeType = appSchema.enum('import_review_scope_type', [
-  'change_set',
-  'field_change',
-  'batch',
-]);
-
-export const importReviewAction = appSchema.enum('import_review_action', [
-  'approve',
-  'reject',
-  'ignore',
-  'override',
 ]);
 
 export const ImportSource = dataSchema.table('import_sources', {
@@ -435,25 +441,4 @@ export const ImportApplyLog = dataSchema.table('import_apply_logs', {
 }, table => [
   index('import_apply_logs_field_change_id_action_idx').on(table.fieldChangeId, table.action),
   index('import_apply_logs_change_set_id_applied_at_idx').on(table.changeSetId, table.appliedAt),
-]);
-
-export const ImportReviewAction = appSchema.table('import_review_actions', {
-  id:            uuid('id').primaryKey().defaultRandom(),
-  changeSetId:   uuid('change_set_id').references(() => ImportChangeSet.id, { onDelete: 'cascade' }),
-  fieldChangeId: uuid('field_change_id').references(() => ImportFieldChange.id, { onDelete: 'cascade' }),
-
-  scopeType: importReviewScopeType('scope_type').$type<ImportReviewScopeType>().notNull(),
-  scopeKey:  text('scope_key').notNull(),
-  action:    importReviewAction('action').$type<ImportReviewAction>().notNull(),
-
-  reviewerId:    text('reviewer_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  reason:        text('reason'),
-  overrideValue: jsonb('override_value').$type<JsonValue>(),
-
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-}, table => [
-  index('import_review_actions_change_set_id_created_at_idx').on(table.changeSetId, table.createdAt),
-  index('import_review_actions_field_change_id_created_at_idx').on(table.fieldChangeId, table.createdAt),
-  index('import_review_actions_scope_type_scope_key_idx').on(table.scopeType, table.scopeKey),
-  index('import_review_actions_reviewer_id_created_at_idx').on(table.reviewerId, table.createdAt),
 ]);

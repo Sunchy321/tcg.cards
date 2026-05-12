@@ -9,7 +9,7 @@ import type { SQL } from 'drizzle-orm';
 import { and, arrayContains, asc, desc, eq, gt, gte, inArray, lt, lte, ne, not, notInArray, or, sql } from 'drizzle-orm';
 
 import { model } from '#model/magic/search';
-import { CardEditorView, CardPrintView } from '#schema/magic/print';
+import { CardEditorView, CardPrintView } from '#schema/shared/magic/print';
 
 import { toIdentifier } from '#shared/magic/utils';
 

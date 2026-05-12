@@ -2,7 +2,7 @@ import { ORPCError, os } from '@orpc/server';
 import { asc, eq } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
-import { Tag } from '@tcg-cards/db/schema/hearthstone';
+import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 import {
   tagGetInput,
   tagListInput,

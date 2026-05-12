@@ -9,7 +9,7 @@ import { desc, eq } from 'drizzle-orm';
 import { announcement, announcementProfile } from '#model/magic/schema/announcement';
 
 import { db } from '#db/db';
-import { Announcement, AnnouncementItem } from '#schema/magic/announcement';
+import { Announcement, AnnouncementItem } from '#schema/shared/magic/announcement';
 
 const list = os
   .route({

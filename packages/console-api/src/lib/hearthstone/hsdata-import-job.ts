@@ -7,7 +7,7 @@ import {
   HsdataImportJob,
   HsdataImportJobChunk,
   HsdataImportJobSnapshot,
-} from '@tcg-cards/db/schema/hearthstone/data/hsdata-import';
+} from '@tcg-cards/db/schema/local/hearthstone/hsdata-import';
 
 import {
   type ImportHsdataReport,
