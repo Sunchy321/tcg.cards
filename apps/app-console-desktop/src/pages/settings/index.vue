@@ -31,20 +31,14 @@
                 to="/settings/database"
               />
               <UButton
-                label="Hearthstone 设置"
-                icon="i-lucide-flame"
+                v-for="item in gameButtons"
+                :key="item.to"
+                :label="item.buttonLabel"
+                :icon="item.icon"
                 color="neutral"
                 variant="soft"
                 class="justify-start"
-                to="/settings/games/hearthstone"
-              />
-              <UButton
-                label="Magic 设置"
-                icon="i-lucide-sparkles"
-                color="neutral"
-                variant="soft"
-                class="justify-start"
-                to="/settings/games/magic"
+                :to="item.to"
               />
             </div>
           </UCard>
@@ -65,7 +59,14 @@
 </template>
 
 <script setup lang="ts">
+import { settingsGameItems } from '~/composables/settings-games';
+
 import { currentAuthState } from '../../auth';
+
+const gameButtons = settingsGameItems.map(item => ({
+  ...item,
+  buttonLabel: `${item.label} 设置`,
+}));
 
 definePageMeta({
   layout: 'admin',

@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'url';
+
 export default defineNuxtConfig({
   extends: ['@tcg-cards/console-shell'],
 
@@ -52,7 +54,14 @@ export default defineNuxtConfig({
   },
 
   icon: {
-    provider:     'none',
+    provider:          'none',
+    customCollections: [
+      {
+        prefix:    'i',
+        dir:       fileURLToPath(new URL('./node_modules/@tcg-cards/ui/app/assets/icons', import.meta.url)),
+        recursive: true,
+      },
+    ],
     clientBundle: {
       scan: {
         globExclude: ['dist', 'build', 'coverage', 'test', 'tests', '.*'],

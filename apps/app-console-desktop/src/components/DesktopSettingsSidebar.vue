@@ -47,6 +47,8 @@
 </template>
 
 <script setup lang="ts">
+import { settingsGameItems } from '~/composables/settings-games';
+
 const route = useRoute();
 
 const generalItems = [
@@ -57,16 +59,5 @@ const generalItems = [
   },
 ];
 
-const gameItems = [
-  {
-    label: 'Hearthstone',
-    icon:  'i-lucide-flame',
-    to:    '/settings/games/hearthstone',
-  },
-  {
-    label: 'Magic',
-    icon:  'i-lucide-sparkles',
-    to:    '/settings/games/magic',
-  },
-];
+const gameItems = settingsGameItems;
 </script>
