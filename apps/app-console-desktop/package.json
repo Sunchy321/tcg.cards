@@ -9,7 +9,8 @@
     "preview": "nuxt preview --port 1420",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "db:pull": "bun --env-file=../../packages/db/.env.local-dev scripts/generate-seaorm-entities.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.104",
@@ -39,6 +40,7 @@
     "eslint": "^10.2.1",
     "eslint-config-custom": "workspace:*",
     "tailwindcss": "^4.2.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.0"
   }
 }
