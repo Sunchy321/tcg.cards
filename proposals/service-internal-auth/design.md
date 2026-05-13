@@ -1,5 +1,7 @@
 # service-internal 登录服务设计
 
+> 稳定的运行时边界、能力分层和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 `service-internal` 登录服务的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前仓库中的登录能力分散在多个运行时入口中：

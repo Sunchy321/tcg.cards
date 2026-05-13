@@ -1,5 +1,7 @@
 # 本地 PostgreSQL 权威构建层实施计划
 
+> 稳定的运行时边界、数据归属维度、remote-owned 范围和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的实施计划；若有冲突，以主架构文档为准。
+
 ## TODO List
 
 - [x] 固定本地构建层、远端 serving 层与远端残留表的职责边界

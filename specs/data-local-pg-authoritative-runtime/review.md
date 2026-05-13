@@ -1,5 +1,7 @@
 # 本地 PostgreSQL 权威构建层提案评审
 
+> 稳定的运行时边界、数据归属维度、remote-owned 范围和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的评审结论；若有冲突，以主架构文档为准。
+
 ## 评审结论
 
 接受该设计方向。当前版本已经把最关键的结构性问题收口到可以进入后续细化设计的程度，尤其是：

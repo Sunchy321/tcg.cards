@@ -1,5 +1,7 @@
 # hsdata 本地数据库处理迁移实施计划
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的实施计划；若有冲突，以主架构文档为准。
+
 ## TODO List
 
 - [x] 新增中文设计包，固定 hsdata 本地数据库处理迁移的运行时边界

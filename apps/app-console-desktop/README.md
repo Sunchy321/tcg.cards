@@ -2,6 +2,8 @@
 
 Desktop admin console built with Tauri, Nuxt, and TypeScript.
 
+Stable runtime and authority boundaries live in [../../docs/project-architecture.md](../../docs/project-architecture.md).
+
 ## Development
 
 Install dependencies from the repository root:
@@ -19,7 +21,7 @@ bun run dev
 
 ## hsdata Local Repo Workflow
 
-The desktop app is the local runtime that owns hsdata git access.
+The desktop app is the primary local runtime for heavy hsdata and other heavy domain-data workflows.
 
 Current hsdata capabilities in the desktop app:
 

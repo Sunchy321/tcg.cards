@@ -1,5 +1,7 @@
 # 本地 PostgreSQL 权威构建层提案
 
+> 稳定的运行时边界、数据归属维度、remote-owned 范围和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述本地 PostgreSQL 权威构建层的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前关于数据导入与 `_data` 分层的讨论，已经收敛到同一条主线：

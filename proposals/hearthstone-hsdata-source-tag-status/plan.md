@@ -1,5 +1,7 @@
 # hsdata sourceTag 导入与投影状态展示实施计划
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的实施计划；若有冲突，以主架构文档为准。
+
 ## TODO List
 
 - [x] 更新设计，改为 source_versions 持久化 projection 字段

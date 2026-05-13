@@ -1,5 +1,7 @@
 # Tauri 双应用架构设计草案
 
+> 稳定的运行时边界、能力分层和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 Tauri 双应用方案的需求级设计；若有冲突，以主架构文档为准。
+
 ## 1. 背景
 
 当前系统同时存在以下几类需求：

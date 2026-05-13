@@ -1,5 +1,7 @@
 # service-internal 登录服务评审
 
+> 稳定的运行时边界、能力分层和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的评审结论；若有冲突，以主架构文档为准。
+
 ## 评审结论
 
 建议按修正版方案实施。

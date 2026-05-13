@@ -1,5 +1,7 @@
 # hsdata 本地数据库处理迁移设计
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 hsdata 本地数据库处理迁移的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 `hsdata` 链路虽然已经把 XML 读取、规范化、分块准备收敛到 desktop Rust，但真正的数据处理仍然依赖远端数据库与远端 ORPC：

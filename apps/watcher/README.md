@@ -2,6 +2,8 @@
 
 A Cloudflare Worker that monitors data sources and sends email notifications when changes are detected.
 
+Within the workspace architecture, watcher is a scheduled operational runtime rather than a general backend API surface. Stable runtime boundaries live in [../../docs/project-architecture.md](../../docs/project-architecture.md).
+
 ## Features
 
 - **Scheduled Monitoring**: Automatically checks data sources daily

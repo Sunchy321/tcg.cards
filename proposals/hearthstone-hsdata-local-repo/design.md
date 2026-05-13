@@ -1,5 +1,7 @@
 # hsdata 本地 git repo 导入重构设计
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 hsdata 本地 repo 导入链路的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 hsdata 原始导入已经不再需要依赖 R2 作为 XML 中转存储，但运行时边界需要重新明确：

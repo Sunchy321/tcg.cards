@@ -1,8 +1,10 @@
 # 统一 API 服务实施计划表
 
+> 稳定的运行时边界、能力分层、命名规则和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的实施计划；若有冲突，以主架构文档为准。
+
 ## TODO List
 
-- [ ] 创建 `apps/site-api` 应用骨架（Nuxt + Nitro + Cloudflare Workers 配置）
+- [ ] 创建 `apps/service-api` 应用骨架（Nuxt + Nitro + Cloudflare Workers 配置）
 - [ ] 配置 monorepo 集成（package.json、workspace 依赖、turbo 构建）
 - [ ] 创建 ORPC 基础实例与 context 类型定义
 - [ ] 聚合 magic 与 hearthstone 路由到统一 router
@@ -23,7 +25,7 @@
 
 基于 `docs/api-design.md` 的设计，交付两个独立服务：
 
-1. **site-api**：可独立部署到 Cloudflare Workers 的统一 API 服务，对外提供 OpenAPI 兼容的 REST 接口，支持 API Key 鉴权，以及第一方网页登录用户基于 Session Cookie 的只读访问。
+1. **service-api**：可独立部署到 Cloudflare Workers 的统一 API 服务，对外提供 OpenAPI 兼容的 REST 接口，支持 API Key 鉴权，以及第一方网页登录用户基于 Session Cookie 的只读访问。
 2. **site-docs**：与现有站点风格一致的 API 文档站，部署到 `docs.tcg.cards`。
 
 ## 实施原则
@@ -37,7 +39,7 @@
 
 | 阶段 | 目标 | 核心任务 | 输出物 | 依赖 | 验收标准 |
 |------|------|----------|--------|------|----------|
-| P0 应用骨架 | 建立可运行的空 Nuxt 应用 | 创建 `apps/site-api` 目录；编写 `nuxt.config.ts`（仅 server 模块）；编写 `wrangler.toml`（域名 `api.tcg.cards`、Hyperdrive 绑定）；编写 `package.json`（workspace 依赖）；编写 `tsconfig.json`；添加最小 `app/app.vue` | 可 `bun run dev` 启动的空应用 | 无 | `bun run dev` 启动无报错；`bun run build` 产出 `.output/` |
+| P0 应用骨架 | 建立可运行的空 Nuxt 应用 | 创建 `apps/service-api` 目录；编写 `nuxt.config.ts`（仅 server 模块）；编写 `wrangler.toml`（域名 `api.tcg.cards`、Hyperdrive 绑定）；编写 `package.json`（workspace 依赖）；编写 `tsconfig.json`；添加最小 `app/app.vue` | 可 `bun run dev` 启动的空应用 | 无 | `bun run dev` 启动无报错；`bun run build` 产出 `.output/` |
 | P1 路由聚合 | 聚合 magic + hearthstone handler | 创建 `server/orpc/index.ts`（ORPC 基础实例）；创建 `server/orpc/service.ts`（聚合 router）；将现有站点的 magic handler 和 hearthstone handler 通过 re-export 引入 | 统一 router 对象，可在代码中引用 | P0 | TypeScript 编译通过；router 包含 `magic.*` 和 `hearthstone.*` 路由 |
 | P2 OpenAPI 入口 | 对外暴露 REST 端点 | 创建 `server/routes/api/[...].ts`（OpenAPI handler）；创建 `server/routes/openapi.json.ts`（spec 端点）；安装并配置 `@orpc/openapi` | 可访问的 REST 端点和 OpenAPI spec | P1 | `GET /openapi.json` 返回有效 spec；`GET /api/magic/card/random` 返回数据 |
 | P3 鉴权链路 | 实现 API Key + Session 的完整鉴权链路 | 创建 `server/lib/auth/index.ts`（better-auth 配置）；创建 `server/lib/auth/perms.ts`（权限定义）；创建 `server/middleware/auth.ts`（统一鉴权中间件）；实现 `allowedGames` 解析、游戏路由校验、Session 用户只读放行规则 | 鉴权中间件，注入 ORPC context | P2 | 无凭证返回 401；无效 key 返回 401；禁用 key 返回 403；越权游戏返回 403；有效 session 可访问允许的只读接口 |
@@ -54,12 +56,12 @@
 
 | 序号 | 任务 | 说明 |
 |------|------|------|
-| 0.1 | 创建 `apps/site-api/package.json` | 依赖 `@orpc/server`、`@orpc/openapi`、`@tcg-cards/db`、`@tcg-cards/model`、`@tcg-cards/shared`、`better-auth`、`@better-auth/api-key`、`drizzle-orm`、`zod` |
-| 0.2 | 创建 `apps/site-api/nuxt.config.ts` | 不 extend `packages/ui`（无前端需求）；配置 Nitro preset `cloudflare_module`；配置 alias（`#db`、`#schema`、`#model`、`#shared`） |
-| 0.3 | 创建 `apps/site-api/wrangler.toml` | `name = "api-tcg-cards"`；域名 `api.tcg.cards`；Hyperdrive 绑定 |
-| 0.4 | 创建 `apps/site-api/tsconfig.json` | 继承 `@tcg-cards/tsconfig/nuxt.json` |
-| 0.5 | 创建 `apps/site-api/app/app.vue` | 最小壳：空 `<template>` |
-| 0.6 | 创建 `apps/site-api/eslint.config.mjs` | 沿用现有站点的 eslint 配置 |
+| 0.1 | 创建 `apps/service-api/package.json` | 依赖 `@orpc/server`、`@orpc/openapi`、`@tcg-cards/db`、`@tcg-cards/model`、`@tcg-cards/shared`、`better-auth`、`@better-auth/api-key`、`drizzle-orm`、`zod` |
+| 0.2 | 创建 `apps/service-api/nuxt.config.ts` | 不 extend `packages/ui`（无前端需求）；配置 Nitro preset `cloudflare_module`；配置 alias（`#db`、`#schema`、`#model`、`#shared`） |
+| 0.3 | 创建 `apps/service-api/wrangler.toml` | `name = "api-tcg-cards"`；域名 `api.tcg.cards`；Hyperdrive 绑定 |
+| 0.4 | 创建 `apps/service-api/tsconfig.json` | 继承 `@tcg-cards/tsconfig/nuxt.json` |
+| 0.5 | 创建 `apps/service-api/app/app.vue` | 最小壳：空 `<template>` |
+| 0.6 | 创建 `apps/service-api/eslint.config.mjs` | 沿用现有站点的 eslint 配置 |
 
 ### P1 路由聚合
 
@@ -121,7 +123,7 @@
 
 | 序号 | 任务 | 说明 |
 |------|------|------|
-| 7.1 | 创建 `lib/spec.ts` | 构建时从 `site-api/server/orpc/service.ts` 的 router 对象生成 OpenAPI spec（`OpenAPIGenerator` + `ZodToJsonSchemaConverter`），输出 JSON 供页面组件引用 |
+| 7.1 | 创建 `lib/spec.ts` | 构建时从 `service-api/server/orpc/service.ts` 的 router 对象生成 OpenAPI spec（`OpenAPIGenerator` + `ZodToJsonSchemaConverter`），输出 JSON 供页面组件引用 |
 | 7.2 | 创建 `app/components/ApiReference.vue` | 包装 `@scalar/api-reference` Vue 组件，传入构建时生成的 spec 对象 |
 | 7.3 | 创建 `app/pages/index.vue` | 文档首页，展示 API 概览、鉴权说明、快速开始 |
 | 7.4 | 创建 `app/pages/reference.vue` | Scalar API Reference 渲染页面 |

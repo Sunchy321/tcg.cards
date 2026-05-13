@@ -1,5 +1,7 @@
 # hsdata sourceTag 导入与投影状态展示设计
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 hsdata 状态展示需求的增量设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 hsdata 页面能执行：

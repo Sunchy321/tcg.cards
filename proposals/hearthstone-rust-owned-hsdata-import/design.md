@@ -1,5 +1,7 @@
 # hsdata Rust 主导导入重构设计
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 hsdata Rust 主导导入的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 hsdata 导入同时存在两条路径：

@@ -1,5 +1,7 @@
 # hsdata 本地 git repo 导入重构实施计划
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的实施计划；若有冲突，以主架构文档为准。
+
 ## TODO List
 
 - [x] 恢复 worker-safe 的 hsdata 共享导入与投影路由

@@ -1,6 +1,8 @@
 # `site-console`
 
-Admin console for local data operations and import tooling.
+Lower-capability web management surface for remote-backed console workflows.
+
+Stable runtime and authority boundaries live in [../../docs/project-architecture.md](../../docs/project-architecture.md).
 
 ## Development
 
@@ -21,15 +23,16 @@ bun run dev
 
 site-console runs on Cloudflare Workers.
 
-Because of that runtime boundary, this package does not read a local `hsdata` git checkout and does not provide local git-backed `CardDefs.xml` import.
+Because of that runtime boundary, this package does not read a local `hsdata` git checkout and does not provide local git-backed `CardDefs.xml` import or other heavy domain-data execution paths.
 
 The current hsdata capabilities in site-console are limited to:
 
-- browsing non-import hsdata-related console pages
+- browsing overview-oriented hsdata console pages
+- performing only lightweight remote-backed management actions that fit the web runtime boundary
 
 ## Notes
 
 - There is no hsdata R2 upload step anymore.
 - There is no `state.json`-based hsdata source sync anymore.
-- hsdata import status and data table overview are only available in the desktop app.
+- Heavy hsdata import, projection, and local repository access belong to the desktop app.
 - Local hsdata repository access is intended to live in the desktop app, not in site-console.

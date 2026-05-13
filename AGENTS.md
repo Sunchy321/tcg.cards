@@ -46,6 +46,14 @@ Workspace app names under `apps/` must use prefixes that match the deployment sh
 
 Use these prefixes consistently in new workspace names, proposal examples, specs, and implementation plans.
 
+## Architecture Docs
+
+Use `docs/project-architecture.md` and `docs/project-architecture.zh-CN.md` as the stable reference for project-level runtime boundaries, data ownership, and workspace responsibilities.
+
+When a new requirement changes those stable boundaries, update the architecture docs in both languages together.
+
+Keep project-level architecture in `docs/`. Keep requirement-specific design work in `proposals/`, `specs/`, and `archive/`.
+
 ## Delivery Workflow
 
 When a non-simple requirement is given, first create a design proposal under the `proposals/` folder.

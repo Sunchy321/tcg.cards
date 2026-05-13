@@ -1,5 +1,7 @@
 # console 三端共享与桌面壳选型设计
 
+> 稳定的运行时边界、能力分层和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 console 三端共享与宿主选型的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前仓库中已经存在两个与 console 相关的前端应用：

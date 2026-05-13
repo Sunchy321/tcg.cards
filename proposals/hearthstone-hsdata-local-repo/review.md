@@ -1,5 +1,7 @@
 # hsdata 本地 git repo 导入重构设计评审
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只记录本需求的评审结论；若有冲突，以主架构文档为准。
+
 ## 评审结论
 
 接受修正后的设计方向，按“worker-safe 共享导入层 + desktop 本地重能力层”推进。

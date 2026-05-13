@@ -1,5 +1,7 @@
 # 数据库轨道与环境命名收口提案
 
+> 稳定的运行时边界、schema 来源、部署轨道、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述数据库命名收口的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 `packages/db` 已经开始拆分为两条 schema 轨道：

@@ -1,5 +1,7 @@
 # console 桌面端 Nuxt 迁移设计
 
+> 稳定的运行时边界、能力分层和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 desktop 宿主迁移的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 `apps/app-console-desktop` 仍然使用 `Vite + Vue Router + Tauri`。

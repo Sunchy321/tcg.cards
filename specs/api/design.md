@@ -1,10 +1,12 @@
 # 统一 API 服务设计文档
 
+> 稳定的运行时边界、能力分层、命名规则和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述统一 API 服务的需求级设计；若有冲突，以主架构文档为准。
+
 ---
 
 ## 1. 概述
 
-新建一个独立部署的 API 服务（`apps/site-api`），聚合 magic 与 hearthstone 两个游戏的只读数据接口，对外通过 OpenAPI（REST）协议提供服务，内部使用 ORPC 作为实现层。支持 API Key 鉴权，权限按游戏维度划分，部署目标为 Cloudflare Workers。
+新建一个独立部署的 API 服务（`apps/service-api`），聚合 magic 与 hearthstone 两个游戏的只读数据接口，对外通过 OpenAPI（REST）协议提供服务，内部使用 ORPC 作为实现层。支持 API Key 鉴权，权限按游戏维度划分，部署目标为 Cloudflare Workers。
 
 ### 1.1 设计目标
 
@@ -50,7 +52,7 @@
 ## 3. 应用结构
 
 ```
-apps/site-api/
+apps/service-api/
 ├── nuxt.config.ts              # Nuxt 配置，仅启用 server 相关模块
 ├── wrangler.toml               # Cloudflare Workers 部署配置
 ├── package.json
@@ -243,7 +245,7 @@ X-RateLimit-Reset: 1713254400
     ┌────────▼─────────┐        ┌────────▼─────────┐
     │  Cloudflare      │        │  Cloudflare      │
     │  Worker          │        │  Worker           │
-    │  (site-api)      │        │  (site-docs,      │
+    │ (service-api)    │        │  (site-docs,      │
     │                  │        │   hybrid SSG+SSR) │
     └────────┬─────────┘        └────────┬─────────┘
              │                           │
@@ -258,14 +260,14 @@ X-RateLimit-Reset: 1713254400
     └──────────────────┘
 ```
 
-- site-api：独立 Worker，域名 `api.tcg.cards`，纯后端 API 服务
+- service-api：独立 Worker，域名 `api.tcg.cards`，纯后端 API 服务
 - site-docs：Hybrid Worker，域名 `docs.tcg.cards`，文档页面预渲染为静态 HTML，`/settings` 走 SSR
 - site-docs 在构建时从 monorepo 内的 router 对象直接生成 OpenAPI spec，无运行时网络依赖
-- site-api 与 site-docs 共享同一数据库，通过 Hyperdrive 提供连接池（site-docs 的 `/settings` 页面需要 auth 查询）
+- service-api 与 site-docs 共享同一数据库，通过 Hyperdrive 提供连接池（site-docs 的 `/settings` 页面需要 auth 查询）
 
 ### 7.1 环境变量
 
-site-api 与 site-docs 共享以下环境变量：
+service-api 与 site-docs 共享以下环境变量：
 
 | 变量名 | 说明 |
 |--------|------|
@@ -312,7 +314,7 @@ v1 仅迁移只读静态数据接口：
 
 | 方案 | 描述 | 不采用的原因 |
 |------|------|-------------|
-| A：放 site-api `/docs` | 在 API 服务中加前端页面 | 需将纯后端服务改为完整 SSR 应用，架构污染，构建体积膨胀，Worker 冷启动变慢 |
+| A：放 service-api `/docs` | 在 API 服务中加前端页面 | 需将纯后端服务改为完整 SSR 应用，架构污染，构建体积膨胀，Worker 冷启动变慢 |
 | B：放 site-main `tcg.cards/api` | 在门户首页加文档页面 | site-main 风格偏展示入口，跨域拉取 spec，扩展空间有限 |
 | D：分散到各 `${game}.tcg.cards/docs` | 各游戏站点各自承载文档 | 接口统一但文档分散，域名与端点不一致，鉴权文档需重复，每新增游戏多一份维护 |
 
@@ -328,7 +330,7 @@ v1 仅迁移只读静态数据接口：
 
 ### 9.3 spec 同步策略
 
-spec 在构建时由 `@orpc/openapi` 的 `OpenAPIGenerator` 从 `site-api/server/orpc/service.ts` 的 router 对象生成。API 变更后需重新构建文档站。可在 CI 中设置：site-api 相关代码变更时自动触发 site-docs 重建。
+spec 在构建时由 `@orpc/openapi` 的 `OpenAPIGenerator` 从 `service-api/server/orpc/service.ts` 的 router 对象生成。API 变更后需重新构建文档站。可在 CI 中设置：service-api 相关代码变更时自动触发 site-docs 重建。
 
 ### 9.4 未来演进
 
@@ -369,8 +371,8 @@ apps/site-docs/
 - Cloudflare Worker，域名 `docs.tcg.cards`
 - 文档页面预渲染为静态 HTML（SSG），`/settings` 走 SSR
 - 需要 Hyperdrive 绑定（`/settings` 页面的 auth 需要查询数据库）
-- 与 site-api 独立部署，互不影响发布节奏
-- CI 中设置 site-api 路由变更时自动触发 site-docs 重建
+- 与 service-api 独立部署，互不影响发布节奏
+- CI 中设置 service-api 路由变更时自动触发 site-docs 重建
 
 ---
 

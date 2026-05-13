@@ -1,5 +1,7 @@
 # desktop 游戏设置与本地 repo 配置设计
 
+> 稳定的运行时边界、数据归属和同步规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 desktop 本地配置需求的增量设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 desktop 端把 hsdata 本地仓库路径单独存放在 `hsdata-settings.json` 中，结构只有一个 `repoPath` 字段。

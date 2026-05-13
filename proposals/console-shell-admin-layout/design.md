@@ -1,5 +1,7 @@
 # console-shell 统一 admin 布局设计
 
+> 稳定的运行时边界、能力分层和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 console 壳层复用的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 console 的后台壳已经出现两套实现：

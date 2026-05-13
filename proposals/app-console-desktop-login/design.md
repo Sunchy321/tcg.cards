@@ -1,5 +1,7 @@
 # app-console-desktop 登录功能设计
 
+> 稳定的运行时边界、能力分层和数据归属规则以 [../../docs/project-architecture.zh-CN.md](../../docs/project-architecture.zh-CN.md) 为准。本文只描述 desktop 登录能力的需求级设计；若有冲突，以主架构文档为准。
+
 ## 背景
 
 当前 `apps/app-console-desktop` 仍是 Tauri 初始化模板，尚未具备任何正式业务能力。
