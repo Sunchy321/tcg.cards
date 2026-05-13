@@ -1,207 +1,101 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use serde::Serialize;
-use tauri::async_runtime;
+use sea_orm::{
+    ConnectionTrait, Database, DatabaseConnection, DbBackend, QueryResult, Statement,
+    TransactionTrait, TryGetable,
+};
 use tokio::time::timeout;
-use tokio_postgres::NoTls;
 
-use crate::{trim_non_empty, CREDENTIAL_SERVICE};
+use crate::desktop_database_settings::require_desktop_database_connection_string;
 
-/// Resolved database settings returned to the desktop frontend.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct DesktopDatabaseSettings {
-    external_connection_string: Option<String>,
+const DESKTOP_DATABASE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const DESKTOP_DATABASE_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
+const DESKTOP_DATABASE_TRANSACTION_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Database identity resolved from one desktop PostgreSQL session.
+pub(crate) struct DesktopDatabaseIdentity {
+    pub(crate) database_name: String,
+    pub(crate) user_name: String,
 }
 
-/// Connection test result returned to the desktop frontend.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct DesktopDatabaseConnectionTestResult {
-    database_name: String,
-    user_name: String,
-    latency_ms: u128,
+/// SeaORM connection used by desktop local data-processing commands.
+pub(crate) struct DesktopDatabase {
+    connection: DatabaseConnection,
 }
 
-const DATABASE_EXTERNAL_LOCAL_PG_ACCOUNT: &str = "database-external-local-pg";
+impl DesktopDatabase {
+    /// SeaORM connection opened with one explicit PostgreSQL connection string.
+    pub(crate) async fn connect(connection_string: &str) -> Result<Self, String> {
+        let connection = timeout(
+            DESKTOP_DATABASE_CONNECT_TIMEOUT,
+            Database::connect(connection_string),
+        )
+        .await
+        .map_err(|_| "Timed out while connecting to PostgreSQL.".to_string())?
+        .map_err(|error| format!("Failed to connect to PostgreSQL: {error}"))?;
 
-/// External PostgreSQL connection string loaded from secure storage.
-fn load_external_local_pg_connection_string() -> Result<Option<String>, String> {
-    let entry = keyring::Entry::new(CREDENTIAL_SERVICE, DATABASE_EXTERNAL_LOCAL_PG_ACCOUNT)
-        .map_err(|error| format!("Failed to open database credential entry: {error}"))?;
+        Ok(Self { connection })
+    }
 
-    match entry.get_password() {
-        Ok(connection_string) => {
-            let trimmed_connection_string = trim_non_empty(Some(connection_string));
-            eprintln!(
-                "[desktop][database] loaded external PostgreSQL connection string: found={}, nonEmpty={}",
-                true,
-                trimmed_connection_string.is_some(),
-            );
-            Ok(trimmed_connection_string)
-        }
-        Err(keyring::Error::NoEntry) => {
-            eprintln!(
-                "[desktop][database] loaded external PostgreSQL connection string: found=false reason=no-entry"
-            );
-            Ok(None)
-        }
-        Err(error) => Err(format!(
-            "Failed to read external local PostgreSQL connection string: {error}"
-        )),
+    /// Borrowed SeaORM connection for desktop queries.
+    pub(crate) fn connection(&self) -> &DatabaseConnection {
+        &self.connection
+    }
+
+    /// Transaction started from the current desktop PostgreSQL connection.
+    pub(crate) async fn transaction(&self) -> Result<sea_orm::DatabaseTransaction, String> {
+        timeout(
+            DESKTOP_DATABASE_TRANSACTION_TIMEOUT,
+            self.connection.begin(),
+        )
+        .await
+        .map_err(|_| "Timed out while starting PostgreSQL transaction.".to_string())?
+        .map_err(|error| format!("Failed to start PostgreSQL transaction: {error}"))
     }
 }
 
-/// External PostgreSQL connection string persisted to secure storage.
-fn store_external_local_pg_connection_string(
-    connection_string: Option<String>,
-) -> Result<(), String> {
-    let entry = keyring::Entry::new(CREDENTIAL_SERVICE, DATABASE_EXTERNAL_LOCAL_PG_ACCOUNT)
-        .map_err(|error| format!("Failed to open database credential entry: {error}"))?;
-
-    match trim_non_empty(connection_string) {
-        Some(connection_string) => {
-            eprintln!(
-                "[desktop][database] storing external PostgreSQL connection string: nonEmpty=true length={}",
-                connection_string.len(),
-            );
-            entry.set_password(&connection_string).map_err(|error| {
-                format!("Failed to store external local PostgreSQL connection string: {error}")
-            })?;
-
-            let stored_connection_string = entry.get_password().map_err(|error| {
-                format!(
-                    "Failed to verify external local PostgreSQL connection string after save: {error}"
-                )
-            })?;
-
-            if stored_connection_string != connection_string {
-                return Err(
-                    "Stored external local PostgreSQL connection string did not match the saved value."
-                        .to_string(),
-                );
-            }
-
-            eprintln!(
-                "[desktop][database] verified external PostgreSQL connection string after save: nonEmpty=true length={}",
-                stored_connection_string.len(),
-            );
-
-            Ok(())
-        }
-        None => match entry.delete_credential() {
-            Ok(()) => {
-                eprintln!(
-                    "[desktop][database] cleared external PostgreSQL connection string: deleted=true"
-                );
-                Ok(())
-            }
-            Err(keyring::Error::NoEntry) => {
-                eprintln!(
-                    "[desktop][database] cleared external PostgreSQL connection string: deleted=false reason=no-entry"
-                );
-                Ok(())
-            }
-            Err(error) => Err(format!(
-                "Failed to clear external local PostgreSQL connection string: {error}"
-            )),
-        },
-    }
+/// Configured SeaORM connection loaded from desktop secure storage.
+pub(crate) async fn connect_configured_desktop_database() -> Result<DesktopDatabase, String> {
+    let connection_string = require_desktop_database_connection_string()?;
+    DesktopDatabase::connect(&connection_string).await
 }
 
-/// Database settings resolved from secure storage.
-fn resolve_desktop_database_settings() -> Result<DesktopDatabaseSettings, String> {
-    Ok(DesktopDatabaseSettings {
-        external_connection_string: load_external_local_pg_connection_string()?,
-    })
+/// PostgreSQL statement built from one static SQL string.
+pub(crate) fn postgres_statement(sql: &str) -> Statement {
+    Statement::from_string(DbBackend::Postgres, sql.to_string())
 }
 
-/// Database settings resolved from one already-known connection string value.
-fn build_desktop_database_settings(
-    external_connection_string: Option<String>,
-) -> DesktopDatabaseSettings {
-    DesktopDatabaseSettings {
-        external_connection_string,
-    }
+/// PostgreSQL statement built from SQL plus one explicit value list.
+pub(crate) fn postgres_statement_with_values(sql: &str, values: Vec<sea_orm::Value>) -> Statement {
+    Statement::from_sql_and_values(DbBackend::Postgres, sql, values)
 }
 
-/// External PostgreSQL connection string resolved from one explicit test request.
-fn resolve_database_test_connection_string(
-    external_connection_string: Option<String>,
-) -> Result<String, String> {
-    let external_connection_string = trim_non_empty(external_connection_string)
-        .ok_or_else(|| "External local PostgreSQL connection string is required.".to_string())?;
-
-    Ok(external_connection_string)
+/// Typed column loaded from one raw SeaORM query row.
+pub(crate) fn read_query_value<T>(row: &QueryResult, column: &str) -> Result<T, String>
+where
+    T: TryGetable,
+{
+    row.try_get("", column)
+        .map_err(|error| format!("Failed to decode PostgreSQL column {column}: {error}"))
 }
 
-/// Executes one database connection probe against the configured PostgreSQL server.
-async fn test_external_local_pg_connection_inner(
-    external_connection_string: String,
-) -> Result<DesktopDatabaseConnectionTestResult, String> {
-    let started_at = Instant::now();
-    let connect_result = timeout(
-        Duration::from_secs(5),
-        tokio_postgres::connect(&external_connection_string, NoTls),
-    )
-    .await
-    .map_err(|_| "Timed out while connecting to PostgreSQL.".to_string())?
-    .map_err(|error| format!("Failed to connect to PostgreSQL: {error}"))?;
-
-    let (client, connection) = connect_result;
-    async_runtime::spawn(async move {
-        if let Err(error) = connection.await {
-            eprintln!("[desktop][database] PostgreSQL connection task failed: {error}");
-        }
-    });
-
+/// Database identity loaded from one borrowed SeaORM connection.
+pub(crate) async fn read_desktop_database_identity(
+    connection: &DatabaseConnection,
+) -> Result<DesktopDatabaseIdentity, String> {
     let row = timeout(
-        Duration::from_secs(5),
-        client.query_one(
+        DESKTOP_DATABASE_QUERY_TIMEOUT,
+        connection.query_one(postgres_statement(
             "select current_database()::text as database_name, current_user::text as user_name",
-            &[],
-        ),
+        )),
     )
     .await
     .map_err(|_| "Timed out while querying PostgreSQL.".to_string())?
-    .map_err(|error| format!("Failed to query PostgreSQL: {error}"))?;
+    .map_err(|error| format!("Failed to query PostgreSQL: {error}"))?
+    .ok_or_else(|| "Failed to load PostgreSQL identity.".to_string())?;
 
-    Ok(DesktopDatabaseConnectionTestResult {
-        database_name: row.get::<usize, String>(0),
-        user_name: row.get::<usize, String>(1),
-        latency_ms: started_at.elapsed().as_millis(),
+    Ok(DesktopDatabaseIdentity {
+        database_name: read_query_value(&row, "database_name")?,
+        user_name: read_query_value(&row, "user_name")?,
     })
-}
-
-/// Database settings loaded by the desktop frontend.
-#[tauri::command]
-pub(crate) fn desktop_get_database_settings() -> Result<DesktopDatabaseSettings, String> {
-    resolve_desktop_database_settings()
-}
-
-/// Database connection tested by the desktop frontend.
-#[tauri::command]
-pub(crate) async fn desktop_test_database_connection(
-    external_connection_string: Option<String>,
-) -> Result<DesktopDatabaseConnectionTestResult, String> {
-    let external_connection_string =
-        resolve_database_test_connection_string(external_connection_string)?;
-
-    test_external_local_pg_connection_inner(external_connection_string).await
-}
-
-/// Database settings persisted from the desktop frontend.
-#[tauri::command]
-pub(crate) fn desktop_set_database_settings(
-    external_connection_string: Option<String>,
-) -> Result<DesktopDatabaseSettings, String> {
-    let external_connection_string = trim_non_empty(external_connection_string);
-
-    if external_connection_string.is_none() {
-        return Err("External local PostgreSQL connection string is required.".to_string());
-    }
-
-    store_external_local_pg_connection_string(external_connection_string.clone())?;
-
-    Ok(build_desktop_database_settings(external_connection_string))
 }

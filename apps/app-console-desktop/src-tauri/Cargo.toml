@@ -30,4 +30,4 @@ sha2 = { version = "0.10", features = ["asm"] }
 quick-xml = "0.38.4"
 flate2 = "1"
 tokio = { version = "1", features = ["time"] }
-tokio-postgres = "0.7"
+sea-orm = { version = "1", default-features = false, features = ["macros", "runtime-tokio-rustls", "sqlx-postgres"] }

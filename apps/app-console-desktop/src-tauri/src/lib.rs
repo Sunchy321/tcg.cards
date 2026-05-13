@@ -1,11 +1,20 @@
 #[allow(dead_code)]
 mod desktop_database;
 #[allow(dead_code)]
+mod desktop_database_commands;
+#[allow(dead_code)]
+mod desktop_database_settings;
+#[allow(dead_code)]
+mod desktop_hsdata_status_commands;
+#[allow(dead_code)]
 mod hsdata_import_payload;
 mod hsdata_legacy_dbf_id_table;
 
-use crate::desktop_database::{
+use crate::desktop_database_commands::{
     desktop_get_database_settings, desktop_set_database_settings, desktop_test_database_connection,
+};
+use crate::desktop_hsdata_status_commands::{
+    hsdata_get_local_import_job, hsdata_get_local_overview, hsdata_list_local_source_versions,
 };
 use crate::hsdata_import_payload::{
     collect_legacy_entity_card_ids, prepare_hsdata_payload_profiled_with_dbf_ids,
@@ -1544,9 +1553,7 @@ async fn create_remote_hsdata_import_job(
 fn resolve_local_hsdata_card_dbf_ids(card_ids: Vec<String>) -> HashMap<String, u32> {
     card_ids
         .into_iter()
-        .filter_map(|card_id| {
-            get_legacy_hsdata_dbf_id(&card_id).map(|dbf_id| (card_id, dbf_id))
-        })
+        .filter_map(|card_id| get_legacy_hsdata_dbf_id(&card_id).map(|dbf_id| (card_id, dbf_id)))
         .collect()
 }
 
@@ -2684,6 +2691,9 @@ pub fn run() {
             hsdata_get_repo_state,
             hsdata_list_sources,
             hsdata_read_source,
+            hsdata_get_local_overview,
+            hsdata_list_local_source_versions,
+            hsdata_get_local_import_job,
             hsdata_sync_remote_versions,
             hsdata_import_source,
             credential_get,
