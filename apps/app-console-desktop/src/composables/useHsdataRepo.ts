@@ -51,14 +51,94 @@ export interface HsdataImportReport {
   discoveredTags:        number[];
 }
 
-/** Desktop hsdata import phases emitted by the staged upload workflow. */
+/** Import status values returned from the local `source_versions` table. */
+export type HsdataSourceImportStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+/** Projection status values returned from the local `source_versions` table. */
+export type HsdataSourceProjectionStatus = 'not_started' | 'processing' | 'completed' | 'failed';
+
+/** One local source version row returned by the desktop database commands. */
+export interface HsdataSourceVersionStatus {
+  sourceTag:        number;
+  build:            number | null;
+  sourceCommit:     string;
+  sourceUri:        string;
+  importStatus:     HsdataSourceImportStatus;
+  importedAt:       string | null;
+  projectionStatus: HsdataSourceProjectionStatus;
+  projectedAt:      string | null;
+  projectionError:  string | null;
+}
+
+/** Status counters grouped by import state for the local overview. */
+export interface HsdataStatusCounts {
+  completed:  number;
+  failed:     number;
+  processing: number;
+  pending:    number;
+}
+
+/** `source_versions` overview returned from the local desktop database. */
+export interface HsdataSourceVersionOverview {
+  name:                      'source_versions';
+  kind:                      'table';
+  rows:                      number;
+  latestImportedAt?:         string;
+  latestCompletedSourceTag?: number;
+  statusCounts:              HsdataStatusCounts;
+}
+
+/** `raw_entity_snapshots` overview returned from the local desktop database. */
+export interface HsdataRawEntitySnapshotOverview {
+  name:              'raw_entity_snapshots';
+  kind:              'table';
+  rows:              number;
+  latestRows:        number;
+  distinctCardCount: number;
+  updatedAt?:        string;
+}
+
+/** `raw_entity_snapshot_tags` overview returned from the local desktop database. */
+export interface HsdataRawEntitySnapshotTagOverview {
+  name:                  'raw_entity_snapshot_tags';
+  kind:                  'table';
+  rows:                  number;
+  distinctSnapshotCount: number;
+  distinctEnumCount:     number;
+}
+
+/** `tag_value_view` overview returned from the local desktop database. */
+export interface HsdataTagValueViewOverview {
+  name:                  'tag_value_view';
+  kind:                  'view';
+  rows:                  number;
+  distinctSnapshotCount: number;
+  distinctEnumCount:     number;
+}
+
+/** Aggregate hsdata overview returned from the local desktop database. */
+export interface HsdataOverview {
+  summary: {
+    sourceVersionCount:          number;
+    completedSourceVersionCount: number;
+    failedSourceVersionCount:    number;
+    snapshotCount:               number;
+    latestSnapshotCount:         number;
+    tagRowCount:                 number;
+  };
+  tables: {
+    sourceVersions:        HsdataSourceVersionOverview;
+    rawEntitySnapshots:    HsdataRawEntitySnapshotOverview;
+    rawEntitySnapshotTags: HsdataRawEntitySnapshotTagOverview;
+    tagValueView:          HsdataTagValueViewOverview;
+  };
+}
+
+/** Desktop hsdata import phases emitted by the local import workflow. */
 export type HsdataImportPhase =
   | 'preparing'
   | 'prepared'
-  | 'creating_job'
-  | 'uploading'
-  | 'ready_to_finalize'
-  | 'finalizing'
+  | 'importing_local'
   | 'completed'
   | 'failed';
 
@@ -128,6 +208,16 @@ export function importHsdataSource(id: string, dryRun: boolean, force: boolean) 
     dryRun,
     force,
   });
+}
+
+/** Local hsdata source version rows loaded from the configured desktop database. */
+export function listLocalHsdataSourceVersions() {
+  return invoke<HsdataSourceVersionStatus[]>('hsdata_list_local_source_versions');
+}
+
+/** Local hsdata overview loaded from the configured desktop database. */
+export function getLocalHsdataOverview() {
+  return invoke<HsdataOverview>('hsdata_get_local_overview');
 }
 
 // hsdata import progress listener for the desktop window.

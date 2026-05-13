@@ -7,11 +7,18 @@ mod desktop_database_settings;
 #[allow(dead_code)]
 mod desktop_hsdata_status_commands;
 #[allow(dead_code)]
+mod desktop_hsdata_local_import;
+#[allow(dead_code)]
+mod entity;
+#[allow(dead_code)]
 mod hsdata_import_payload;
 mod hsdata_legacy_dbf_id_table;
 
 use crate::desktop_database_commands::{
     desktop_get_database_settings, desktop_set_database_settings, desktop_test_database_connection,
+};
+use crate::desktop_hsdata_local_import::{
+    import_hsdata_to_local_database, DesktopHsdataImportReport, DesktopHsdataLocalImportInput,
 };
 use crate::desktop_hsdata_status_commands::{
     hsdata_get_local_import_job, hsdata_get_local_overview, hsdata_list_local_source_versions,
@@ -19,15 +26,11 @@ use crate::desktop_hsdata_status_commands::{
 use crate::hsdata_import_payload::{
     collect_legacy_entity_card_ids, prepare_hsdata_payload_profiled_with_dbf_ids,
     HsdataPreparedPayload, HsdataPreparedPayloadChunk, HsdataPreparedPayloadProfile,
-    HsdataPreparedPayloadResult, HSDATA_IMPORT_ENGINE_VERSION, HSDATA_PAYLOAD_ENCODING,
-    HSDATA_PAYLOAD_FORMAT_VERSION,
+    HsdataPreparedPayloadResult,
 };
 use crate::hsdata_legacy_dbf_id_table::get_legacy_hsdata_dbf_id;
-use flate2::write::GzEncoder;
-use flate2::Compression;
 use reqwest::cookie::{CookieStore, Jar};
 use reqwest::{Client, Method, Url};
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -62,14 +65,6 @@ struct SessionClient {
 struct ApiErrorBody {
     code: Option<String>,
     message: Option<String>,
-}
-
-/// ORPC JSON envelope for request and response payloads.
-#[derive(Deserialize, Serialize)]
-struct OrpcJsonEnvelope<T> {
-    json: T,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    meta: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Deserialize)]
@@ -134,11 +129,6 @@ fn build_desktop_auth_state(remote: RemoteAuthState) -> DesktopAuthState {
             role: remote.user.role,
         },
     }
-}
-
-/// ORPC JSON envelope built from one payload.
-fn orpc_json<T>(json: T) -> OrpcJsonEnvelope<T> {
-    OrpcJsonEnvelope { json, meta: None }
 }
 
 /// API error message formatted from one decoded payload.
@@ -253,18 +243,7 @@ const HSDATA_REMOTE_NAME: &str = "origin";
 const HSDATA_CHUNKING_VERSION: &str = "desktop-v1";
 const HSDATA_MAX_BYTES_PER_CHUNK: usize = 1024 * 1024;
 const HSDATA_MAX_ENTITIES_PER_CHUNK: usize = 256;
-const HSDATA_UPLOAD_CONCURRENCY: usize = 4;
-const HSDATA_CREATE_IMPORT_JOB_PATH: &str = "/rpc/hearthstone/dataSource/hsdata/createImportJob";
-const HSDATA_UPLOAD_IMPORT_CHUNK_PATH: &str =
-    "/rpc/hearthstone/dataSource/hsdata/uploadImportChunk";
-const HSDATA_FINALIZE_IMPORT_JOB_PATH: &str =
-    "/rpc/hearthstone/dataSource/hsdata/finalizeImportJob";
-const HSDATA_GET_IMPORT_JOB_PATH: &str = "/rpc/hearthstone/dataSource/hsdata/getImportJob";
 const HSDATA_IMPORT_PROGRESS_EVENT: &str = "hsdata-import-progress";
-const HSDATA_UPLOAD_IMPORT_CHUNK_CONTENT_TYPE: &str = "application/x-ndjson";
-const HSDATA_UPLOAD_IMPORT_CHUNK_CONTENT_ENCODING: &str = "gzip";
-const HSDATA_UPLOAD_IMPORT_CHUNK_PAYLOAD_HASH_HEADER: &str = "x-hsdata-payload-hash";
-const HSDATA_UPLOAD_IMPORT_CHUNK_ENTITY_COUNT_HEADER: &str = "x-hsdata-entity-count";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -330,73 +309,6 @@ struct HsdataImportProgressEvent {
     current_chunk_index: Option<u32>,
 }
 
-/// Chunk manifest entry sent to the remote import job.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataImportChunkManifestItem {
-    chunk_index: u32,
-    payload_hash: String,
-    entity_count: u32,
-}
-
-/// Remote createImportJob payload.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataCreateImportJobInput {
-    source_tag: u32,
-    source_commit: String,
-    source_uri: String,
-    build: u32,
-    source_hash: String,
-    chunking_version: String,
-    payload_format_version: String,
-    payload_encoding: String,
-    import_engine_version: String,
-    max_bytes_per_chunk: u32,
-    max_entities_per_chunk: u32,
-    dry_run: bool,
-    force: bool,
-    total_chunk_count: u32,
-    total_entity_count: u32,
-    chunks: Vec<HsdataImportChunkManifestItem>,
-}
-
-/// Remote createImportJob response.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataCreateImportJobResult {
-    job_id: String,
-}
-
-/// Remote uploadImportChunk response.
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataUploadImportChunkResult {
-    chunk_status: String,
-    completed_chunk_count: u32,
-    total_chunk_count: u32,
-    job_status: String,
-}
-
-/// Remote getImportJob and finalizeImportJob request.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataImportJobInput {
-    job_id: String,
-}
-
-/// Remote getImportJob response.
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HsdataImportJobState {
-    job_id: String,
-    status: String,
-    total_chunk_count: u32,
-    completed_chunk_count: u32,
-    report: Option<HsdataImportReport>,
-    error: Option<String>,
-}
-
 /// Desktop-prepared hsdata import payload.
 struct HsdataPreparedImport {
     source_id: String,
@@ -428,44 +340,51 @@ struct HsdataPreparedImportResult {
     profile: HsdataPreparedImportProfile,
 }
 
-/// Persisted desktop resume state for one hsdata import job.
-#[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct StoredHsdataImportJob {
-    job_id: String,
-    source_id: String,
-    source_tag: u32,
-    source_hash: String,
-    chunking_version: String,
-    #[serde(default = "default_hsdata_payload_format_version")]
-    payload_format_version: String,
-    #[serde(default = "default_hsdata_payload_encoding")]
-    payload_encoding: String,
-    #[serde(default = "default_hsdata_import_engine_version")]
-    import_engine_version: String,
-    max_bytes_per_chunk: u32,
-    max_entities_per_chunk: u32,
-    total_chunk_count: u32,
-    total_entity_count: u32,
-    dry_run: bool,
-    force: bool,
-}
-
 const DEFAULT_AUTH_BASE_URL: &str = "http://127.0.0.1:2998";
 
-/// Default payload format version used to read older local resume files.
-fn default_hsdata_payload_format_version() -> String {
-    HSDATA_PAYLOAD_FORMAT_VERSION.to_string()
+/// Desktop-prepared payload converted into the local import module input shape.
+fn build_local_hsdata_import_input(
+    prepared: &HsdataPreparedImport,
+    dry_run: bool,
+    force: bool,
+) -> DesktopHsdataLocalImportInput {
+    DesktopHsdataLocalImportInput {
+        source_tag: prepared.source_tag,
+        source_commit: prepared.source_commit.clone(),
+        source_uri: prepared.source_uri.clone(),
+        build: prepared.build,
+        source_hash: prepared.source_hash.clone(),
+        chunking_version: HSDATA_CHUNKING_VERSION.to_string(),
+        payload_format_version: prepared.payload_format_version.clone(),
+        payload_encoding: prepared.payload_encoding.clone(),
+        import_engine_version: prepared.import_engine_version.clone(),
+        max_bytes_per_chunk: HSDATA_MAX_BYTES_PER_CHUNK,
+        max_entities_per_chunk: HSDATA_MAX_ENTITIES_PER_CHUNK,
+        dry_run,
+        force,
+        total_entity_count: prepared.total_entity_count,
+        chunks: prepared.chunks.clone(),
+    }
 }
 
-/// Default payload encoding used to read older local resume files.
-fn default_hsdata_payload_encoding() -> String {
-    HSDATA_PAYLOAD_ENCODING.to_string()
-}
-
-/// Default import engine version used to read older local resume files.
-fn default_hsdata_import_engine_version() -> String {
-    HSDATA_IMPORT_ENGINE_VERSION.to_string()
+/// Local import report translated into the command response shape.
+fn into_hsdata_import_report(report: DesktopHsdataImportReport) -> HsdataImportReport {
+    HsdataImportReport {
+        dry_run: report.dry_run,
+        skipped: report.skipped,
+        source_tag: report.source_tag,
+        build: report.build,
+        source_hash: report.source_hash,
+        entity_count: report.entity_count,
+        inserted_snapshots: report.inserted_snapshots,
+        reused_snapshots: report.reused_snapshots,
+        inserted_tag_rows: report.inserted_tag_rows,
+        discovered_tag_count: report.discovered_tag_count,
+        updated_discovered_tags: report.updated_discovered_tags,
+        fallback_tag_row_count: report.fallback_tag_row_count,
+        latest_snapshot_count: report.latest_snapshot_count,
+        discovered_tags: report.discovered_tags,
+    }
 }
 
 fn build_url(base_url: &str, path: &str) -> String {
@@ -1257,106 +1176,6 @@ fn get_hsdata_repo_state(app: &AppHandle) -> Result<HsdataRepoState, String> {
     Ok(HsdataRepoState { repo_path })
 }
 
-/// Session client resolved from memory or persisted desktop state.
-fn require_session_client(
-    app: &AppHandle,
-    state: &tauri::State<'_, AuthState>,
-) -> Result<SessionClient, String> {
-    {
-        let current = state
-            .current
-            .lock()
-            .map_err(|_| "Failed to read auth state".to_string())?;
-
-        if let Some(session_client) = current.as_ref() {
-            return Ok(session_client.clone());
-        }
-    }
-
-    let session_client =
-        restore_session_client(app)?.ok_or_else(|| "Auth session is unavailable".to_string())?;
-
-    let mut current = state
-        .current
-        .lock()
-        .map_err(|_| "Failed to update auth state".to_string())?;
-    *current = Some(session_client.clone());
-
-    Ok(session_client)
-}
-
-/// hsdata import resume file path for one sourceTag.
-fn hsdata_import_job_file(app: &AppHandle, source_tag: u32) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("Failed to resolve app data directory: {error}"))?;
-
-    Ok(dir.join(format!("hsdata-import-job-{source_tag}.json")))
-}
-
-/// Stored hsdata import job loaded from the desktop resume file.
-fn load_stored_hsdata_import_job(
-    app: &AppHandle,
-    source_tag: u32,
-) -> Result<Option<StoredHsdataImportJob>, String> {
-    let path = hsdata_import_job_file(app, source_tag)?;
-
-    if !path.exists() {
-        return Ok(None);
-    }
-
-    let text = fs::read_to_string(&path)
-        .map_err(|error| format!("Failed to read hsdata import job state: {error}"))?;
-
-    let stored = serde_json::from_str::<StoredHsdataImportJob>(&text)
-        .map_err(|error| format!("Failed to decode hsdata import job state: {error}"))?;
-
-    Ok(Some(stored))
-}
-
-/// Stored hsdata import job written to the desktop resume file.
-fn store_hsdata_import_job(
-    app: &AppHandle,
-    source_tag: u32,
-    job: &StoredHsdataImportJob,
-) -> Result<(), String> {
-    let path = hsdata_import_job_file(app, source_tag)?;
-    let Some(parent) = path.parent() else {
-        return Err("Failed to resolve hsdata import job directory".to_string());
-    };
-
-    fs::create_dir_all(parent)
-        .map_err(|error| format!("Failed to create hsdata import job directory: {error}"))?;
-
-    let text = serde_json::to_string(job)
-        .map_err(|error| format!("Failed to encode hsdata import job state: {error}"))?;
-
-    fs::write(path, text)
-        .map_err(|error| format!("Failed to write hsdata import job state: {error}"))?;
-
-    Ok(())
-}
-
-/// Stored hsdata import job removed from the desktop resume file.
-fn clear_hsdata_import_job(app: &AppHandle, source_tag: u32) -> Result<(), String> {
-    let path = hsdata_import_job_file(app, source_tag)?;
-
-    if path.exists() {
-        fs::remove_file(path)
-            .map_err(|error| format!("Failed to remove hsdata import job state: {error}"))?;
-    }
-
-    Ok(())
-}
-
-/// Best-effort cleanup for the desktop resume file after terminal job states.
-fn clear_hsdata_import_job_quietly(app: &AppHandle, source_tag: u32) {
-    if let Err(error) = clear_hsdata_import_job(app, source_tag) {
-        eprintln!("[hearthstone][hsdata-import] failed to clear local job state: {error}");
-    }
-}
-
 /// Resolved local hsdata source prepared as chunked upload payloads.
 fn prepare_hsdata_import_source(
     source: HsdataResolvedSource,
@@ -1409,458 +1228,12 @@ fn prepare_hsdata_import_source(
     })
 }
 
-/// Remote import job compatibility check against the current desktop manifest.
-fn matches_stored_hsdata_import_job(
-    stored: &StoredHsdataImportJob,
-    prepared: &HsdataPreparedImport,
-    dry_run: bool,
-    force: bool,
-) -> bool {
-    stored.source_id == prepared.source_id
-        && stored.source_tag == prepared.source_tag
-        && stored.source_hash == prepared.source_hash
-        && stored.chunking_version == HSDATA_CHUNKING_VERSION
-        && stored.payload_format_version == prepared.payload_format_version
-        && stored.payload_encoding == prepared.payload_encoding
-        && stored.import_engine_version == prepared.import_engine_version
-        && stored.max_bytes_per_chunk == HSDATA_MAX_BYTES_PER_CHUNK as u32
-        && stored.max_entities_per_chunk == HSDATA_MAX_ENTITIES_PER_CHUNK as u32
-        && stored.total_chunk_count == prepared.chunks.len() as u32
-        && stored.total_entity_count == prepared.total_entity_count
-        && stored.dry_run == dry_run
-        && stored.force == force
-}
-
-/// JSON RPC GET call against the authenticated internal console API.
-async fn rpc_get_json<TInput, TOutput>(
-    session_client: &SessionClient,
-    path: &str,
-    input: &TInput,
-) -> Result<TOutput, String>
-where
-    TInput: Serialize + ?Sized,
-    TOutput: DeserializeOwned,
-{
-    let mut url = Url::parse(&build_url(&session_client.base_url, path))
-        .map_err(|error| format!("Failed to parse RPC URL: {error}"))?;
-    let data = serde_json::to_string(&orpc_json(input))
-        .map_err(|error| format!("Failed to encode RPC query: {error}"))?;
-    url.query_pairs_mut().append_pair("data", &data);
-
-    let response = session_client
-        .client
-        .get(url)
-        .header(reqwest::header::ACCEPT, "application/json")
-        .send()
-        .await
-        .map_err(|error| format!("Failed to send RPC request: {error}"))?;
-
-    if !response.status().is_success() {
-        return Err(parse_error(response).await);
-    }
-
-    response
-        .json::<OrpcJsonEnvelope<TOutput>>()
-        .await
-        .map(|envelope| envelope.json)
-        .map_err(|error| format!("Failed to decode RPC response: {error}"))
-}
-
-/// JSON RPC POST call against the authenticated internal console API.
-async fn rpc_post_json<TInput, TOutput>(
-    session_client: &SessionClient,
-    path: &str,
-    input: &TInput,
-) -> Result<TOutput, String>
-where
-    TInput: Serialize + ?Sized,
-    TOutput: DeserializeOwned,
-{
-    let url = build_url(&session_client.base_url, path);
-    let response = session_client
-        .client
-        .post(url)
-        .header(reqwest::header::ACCEPT, "application/json")
-        .json(&orpc_json(input))
-        .send()
-        .await
-        .map_err(|error| format!("Failed to send RPC request: {error}"))?;
-
-    if !response.status().is_success() {
-        return Err(parse_error(response).await);
-    }
-
-    response
-        .json::<OrpcJsonEnvelope<TOutput>>()
-        .await
-        .map(|envelope| envelope.json)
-        .map_err(|error| format!("Failed to decode RPC response: {error}"))
-}
-
-/// Remote hsdata import job state fetched by jobId.
-async fn get_remote_hsdata_import_job(
-    session_client: &SessionClient,
-    job_id: &str,
-) -> Result<HsdataImportJobState, String> {
-    rpc_get_json(
-        session_client,
-        HSDATA_GET_IMPORT_JOB_PATH,
-        &HsdataImportJobInput {
-            job_id: job_id.to_string(),
-        },
-    )
-    .await
-}
-
-/// Remote hsdata import job created from the desktop chunk manifest.
-async fn create_remote_hsdata_import_job(
-    session_client: &SessionClient,
-    prepared: &HsdataPreparedImport,
-    dry_run: bool,
-    force: bool,
-) -> Result<HsdataCreateImportJobResult, String> {
-    let manifest = HsdataCreateImportJobInput {
-        source_tag: prepared.source_tag,
-        source_commit: prepared.source_commit.clone(),
-        source_uri: prepared.source_uri.clone(),
-        build: prepared.build,
-        source_hash: prepared.source_hash.clone(),
-        chunking_version: HSDATA_CHUNKING_VERSION.to_string(),
-        payload_format_version: prepared.payload_format_version.clone(),
-        payload_encoding: prepared.payload_encoding.clone(),
-        import_engine_version: prepared.import_engine_version.clone(),
-        max_bytes_per_chunk: HSDATA_MAX_BYTES_PER_CHUNK as u32,
-        max_entities_per_chunk: HSDATA_MAX_ENTITIES_PER_CHUNK as u32,
-        dry_run,
-        force,
-        total_chunk_count: prepared.chunks.len() as u32,
-        total_entity_count: prepared.total_entity_count,
-        chunks: prepared
-            .chunks
-            .iter()
-            .map(|chunk| HsdataImportChunkManifestItem {
-                chunk_index: chunk.chunk_index,
-                payload_hash: chunk.payload_hash.clone(),
-                entity_count: chunk.entity_count,
-            })
-            .collect(),
-    };
-
-    rpc_post_json(session_client, HSDATA_CREATE_IMPORT_JOB_PATH, &manifest).await
-}
-
 /// Local legacy cardId fallback mappings resolved from the git-tracked Rust table.
 fn resolve_local_hsdata_card_dbf_ids(card_ids: Vec<String>) -> HashMap<String, u32> {
     card_ids
         .into_iter()
         .filter_map(|card_id| get_legacy_hsdata_dbf_id(&card_id).map(|dbf_id| (card_id, dbf_id)))
         .collect()
-}
-
-/// Gzip-compressed NDJSON payload encoded for the raw upload endpoint.
-fn compress_gzip_payload(payload: &str) -> Result<Vec<u8>, String> {
-    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    encoder
-        .write_all(payload.as_bytes())
-        .map_err(|error| format!("Failed to gzip hsdata payload: {error}"))?;
-    encoder
-        .finish()
-        .map_err(|error| format!("Failed to finish hsdata payload gzip stream: {error}"))
-}
-
-/// One gzip-compressed NDJSON chunk uploaded to the remote staging job.
-async fn upload_remote_hsdata_chunk(
-    session_client: &SessionClient,
-    job_id: &str,
-    chunk: &HsdataPreparedPayloadChunk,
-) -> Result<HsdataUploadImportChunkResult, String> {
-    let compressed_payload = compress_gzip_payload(&chunk.ndjson)?;
-    let mut url = Url::parse(&build_url(
-        &session_client.base_url,
-        HSDATA_UPLOAD_IMPORT_CHUNK_PATH,
-    ))
-    .map_err(|error| format!("Failed to parse hsdata upload URL: {error}"))?;
-    url.query_pairs_mut()
-        .append_pair("jobId", job_id)
-        .append_pair("chunkIndex", &chunk.chunk_index.to_string());
-
-    let response = session_client
-        .client
-        .post(url)
-        .header(reqwest::header::ACCEPT, "application/json")
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            HSDATA_UPLOAD_IMPORT_CHUNK_CONTENT_TYPE,
-        )
-        .header(
-            reqwest::header::CONTENT_ENCODING,
-            HSDATA_UPLOAD_IMPORT_CHUNK_CONTENT_ENCODING,
-        )
-        .header(
-            HSDATA_UPLOAD_IMPORT_CHUNK_PAYLOAD_HASH_HEADER,
-            &chunk.payload_hash,
-        )
-        .header(
-            HSDATA_UPLOAD_IMPORT_CHUNK_ENTITY_COUNT_HEADER,
-            chunk.entity_count.to_string(),
-        )
-        .body(compressed_payload)
-        .send()
-        .await
-        .map_err(|error| format!("Failed to send hsdata upload request: {error}"))?;
-
-    if !response.status().is_success() {
-        return Err(parse_error(response).await);
-    }
-
-    response
-        .json::<HsdataUploadImportChunkResult>()
-        .await
-        .map_err(|error| format!("Failed to decode hsdata upload response: {error}"))
-}
-
-/// Remote hsdata import job finalized into the raw archive tables.
-async fn finalize_remote_hsdata_import_job(
-    session_client: &SessionClient,
-    job_id: &str,
-) -> Result<HsdataImportReport, String> {
-    rpc_post_json(
-        session_client,
-        HSDATA_FINALIZE_IMPORT_JOB_PATH,
-        &HsdataImportJobInput {
-            job_id: job_id.to_string(),
-        },
-    )
-    .await
-}
-
-/// Local resume decision for one hsdata import job.
-enum HsdataImportJobResolution {
-    Completed(HsdataImportReport),
-    Pending {
-        job_id: String,
-        state: Option<HsdataImportJobState>,
-    },
-}
-
-/// Remote NOT_FOUND error detection for stale desktop resume state.
-fn is_remote_not_found_error(message: &str) -> bool {
-    message.starts_with("NOT_FOUND:")
-}
-
-/// Active hsdata import job chosen from local resume state or remote job creation.
-async fn ensure_hsdata_import_job(
-    app: &AppHandle,
-    session_client: &SessionClient,
-    prepared: &HsdataPreparedImport,
-    dry_run: bool,
-    force: bool,
-) -> Result<HsdataImportJobResolution, String> {
-    if let Some(stored) = load_stored_hsdata_import_job(app, prepared.source_tag)? {
-        if matches_stored_hsdata_import_job(&stored, prepared, dry_run, force) {
-            let state = match get_remote_hsdata_import_job(session_client, &stored.job_id).await {
-                Ok(state) => state,
-                Err(error) if is_remote_not_found_error(&error) => {
-                    clear_hsdata_import_job(app, prepared.source_tag)?;
-                    let created =
-                        create_remote_hsdata_import_job(session_client, prepared, dry_run, force)
-                            .await?;
-
-                    store_hsdata_import_job(
-                        app,
-                        prepared.source_tag,
-                        &StoredHsdataImportJob {
-                            job_id: created.job_id.clone(),
-                            source_id: prepared.source_id.clone(),
-                            source_tag: prepared.source_tag,
-                            source_hash: prepared.source_hash.clone(),
-                            chunking_version: HSDATA_CHUNKING_VERSION.to_string(),
-                            payload_format_version: prepared.payload_format_version.clone(),
-                            payload_encoding: prepared.payload_encoding.clone(),
-                            import_engine_version: prepared.import_engine_version.clone(),
-                            max_bytes_per_chunk: HSDATA_MAX_BYTES_PER_CHUNK as u32,
-                            max_entities_per_chunk: HSDATA_MAX_ENTITIES_PER_CHUNK as u32,
-                            total_chunk_count: prepared.chunks.len() as u32,
-                            total_entity_count: prepared.total_entity_count,
-                            dry_run,
-                            force,
-                        },
-                    )?;
-
-                    return Ok(HsdataImportJobResolution::Pending {
-                        job_id: created.job_id,
-                        state: None,
-                    });
-                }
-                Err(error) => return Err(error),
-            };
-
-            if state.status == "completed" {
-                if let Some(report) = state.report.clone() {
-                    clear_hsdata_import_job_quietly(app, prepared.source_tag);
-                    return Ok(HsdataImportJobResolution::Completed(report));
-                }
-
-                clear_hsdata_import_job_quietly(app, prepared.source_tag);
-                return Err(format!(
-                    "hsdata import job {} completed without a report",
-                    stored.job_id
-                ));
-            }
-
-            if state.status != "failed" {
-                return Ok(HsdataImportJobResolution::Pending {
-                    job_id: stored.job_id,
-                    state: Some(state),
-                });
-            }
-        }
-
-        clear_hsdata_import_job(app, prepared.source_tag)?;
-    }
-
-    let created = create_remote_hsdata_import_job(session_client, prepared, dry_run, force).await?;
-
-    // The desktop side persists only job identity and manifest invariants. Completed chunks are
-    // idempotent on the server, so resume does not need to maintain its own per-chunk ledger.
-    store_hsdata_import_job(
-        app,
-        prepared.source_tag,
-        &StoredHsdataImportJob {
-            job_id: created.job_id.clone(),
-            source_id: prepared.source_id.clone(),
-            source_tag: prepared.source_tag,
-            source_hash: prepared.source_hash.clone(),
-            chunking_version: HSDATA_CHUNKING_VERSION.to_string(),
-            payload_format_version: prepared.payload_format_version.clone(),
-            payload_encoding: prepared.payload_encoding.clone(),
-            import_engine_version: prepared.import_engine_version.clone(),
-            max_bytes_per_chunk: HSDATA_MAX_BYTES_PER_CHUNK as u32,
-            max_entities_per_chunk: HSDATA_MAX_ENTITIES_PER_CHUNK as u32,
-            total_chunk_count: prepared.chunks.len() as u32,
-            total_entity_count: prepared.total_entity_count,
-            dry_run,
-            force,
-        },
-    )?;
-
-    Ok(HsdataImportJobResolution::Pending {
-        job_id: created.job_id,
-        state: None,
-    })
-}
-
-/// Chunk upload fan-out with a fixed number of concurrent Worker requests.
-async fn upload_hsdata_chunks(
-    app: &AppHandle,
-    session_client: &SessionClient,
-    source_id: &str,
-    source_tag: u32,
-    job_id: &str,
-    total_entity_count: u32,
-    initial_completed_chunk_count: u32,
-    chunks: &[HsdataPreparedPayloadChunk],
-) -> Result<(), String> {
-    let upload_started_at = Instant::now();
-    emit_hsdata_import_progress(
-        app,
-        HsdataImportProgressEvent {
-            source_id: source_id.to_string(),
-            source_tag: Some(source_tag),
-            job_id: Some(job_id.to_string()),
-            phase: "uploading".to_string(),
-            message: "Uploading hsdata payload chunks".to_string(),
-            total_chunk_count: Some(chunks.len() as u32),
-            completed_chunk_count: Some(initial_completed_chunk_count),
-            total_entity_count: Some(total_entity_count),
-            current_chunk_index: None,
-        },
-    );
-
-    for (batch_index, batch) in chunks.chunks(HSDATA_UPLOAD_CONCURRENCY).enumerate() {
-        let batch_started_at = Instant::now();
-        let mut handles = Vec::with_capacity(batch.len());
-        let batch_entity_count = batch.iter().map(|chunk| chunk.entity_count).sum::<u32>();
-
-        for chunk in batch {
-            let session_client = session_client.clone();
-            let job_id = job_id.to_string();
-            let chunk = chunk.clone();
-
-            handles.push(tauri::async_runtime::spawn(async move {
-                upload_remote_hsdata_chunk(&session_client, &job_id, &chunk)
-                    .await
-                    .map(|result| (chunk.chunk_index, result))
-                    .map_err(|error| format!("Chunk {} upload failed: {error}", chunk.chunk_index))
-            }));
-        }
-
-        let mut batch_completed_chunk_count = initial_completed_chunk_count;
-
-        for handle in handles {
-            let (chunk_index, result) = handle
-                .await
-                .map_err(|error| format!("Failed to join hsdata upload task: {error}"))??;
-
-            emit_hsdata_import_progress(
-                app,
-                HsdataImportProgressEvent {
-                    source_id: source_id.to_string(),
-                    source_tag: Some(source_tag),
-                    job_id: Some(job_id.to_string()),
-                    phase: result.job_status.clone(),
-                    message: format!(
-                        "Uploaded payload chunk {} ({})",
-                        chunk_index + 1,
-                        result.chunk_status
-                    ),
-                    total_chunk_count: Some(result.total_chunk_count),
-                    completed_chunk_count: Some(result.completed_chunk_count),
-                    total_entity_count: Some(total_entity_count),
-                    current_chunk_index: Some(chunk_index),
-                },
-            );
-            batch_completed_chunk_count = result.completed_chunk_count;
-        }
-
-        log_hsdata_import_profile(
-            "upload_chunk_batch",
-            serde_json::json!({
-                "sourceTag": source_tag,
-                "jobId": job_id,
-                "batchIndex": batch_index,
-                "batchChunkCount": batch.len(),
-                "batchEntityCount": batch_entity_count,
-                "completedChunkCount": batch_completed_chunk_count,
-                "elapsedMs": elapsed_millis(&batch_started_at),
-            }),
-        );
-    }
-
-    log_hsdata_import_profile(
-        "upload_chunks",
-        serde_json::json!({
-            "sourceTag": source_tag,
-            "jobId": job_id,
-            "chunkCount": chunks.len(),
-            "totalEntityCount": total_entity_count,
-            "elapsedMs": elapsed_millis(&upload_started_at),
-        }),
-    );
-
-    Ok(())
-}
-
-/// Final import report extracted from a completed remote job state.
-fn completed_hsdata_import_report(
-    state: HsdataImportJobState,
-) -> Result<HsdataImportReport, String> {
-    state.report.ok_or_else(|| {
-        format!(
-            "hsdata import job {} completed without a report",
-            state.job_id
-        )
-    })
 }
 
 /// hsdata import progress event emitted to the desktop window.
@@ -1874,9 +1247,13 @@ async fn parse_error(response: reqwest::Response) -> String {
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
 
-    if let Ok(body) = serde_json::from_str::<OrpcJsonEnvelope<ApiErrorBody>>(&text) {
-        if let Some(message) = format_api_error(body.json) {
-            return message;
+    if let Ok(body) = serde_json::from_str::<serde_json::Value>(&text) {
+        if let Some(json) = body.get("json").cloned() {
+            if let Ok(enveloped) = serde_json::from_value::<ApiErrorBody>(json) {
+                if let Some(message) = format_api_error(enveloped) {
+                    return message;
+                }
+            }
         }
     }
 
@@ -2116,7 +1493,7 @@ async fn hsdata_sync_remote_versions(app: AppHandle) -> Result<HsdataSyncResult,
 #[tauri::command]
 async fn hsdata_import_source(
     app: AppHandle,
-    state: tauri::State<'_, AuthState>,
+    _state: tauri::State<'_, AuthState>,
     id: String,
     dry_run: bool,
     force: bool,
@@ -2139,7 +1516,7 @@ async fn hsdata_import_source(
         },
     );
 
-    let result = async {
+    let result: Result<(HsdataPreparedImport, Option<String>, HsdataImportReport), String> = async {
         let repo_path = resolve_saved_repo_path(&app)?;
         let resolve_source_id = source_id.clone();
         let (source, resolve_source_ms) = tauri::async_runtime::spawn_blocking(move || {
@@ -2321,8 +1698,6 @@ async fn hsdata_import_source(
                 "elapsedMs": prepare_profile.total_ms,
             }),
         );
-        let session_client = require_session_client(&app, &state)?;
-
         emit_hsdata_import_progress(
             &app,
             HsdataImportProgressEvent {
@@ -2344,8 +1719,8 @@ async fn hsdata_import_source(
                 source_id: prepared.source_id.clone(),
                 source_tag: Some(prepared.source_tag),
                 job_id: None,
-                phase: "creating_job".to_string(),
-                message: "Creating or resuming remote import job".to_string(),
+                phase: "importing_local".to_string(),
+                message: "Writing hsdata payload into the local database".to_string(),
                 total_chunk_count: Some(prepared.chunks.len() as u32),
                 completed_chunk_count: Some(0),
                 total_entity_count: Some(prepared.total_entity_count),
@@ -2353,153 +1728,32 @@ async fn hsdata_import_source(
             },
         );
 
-        let ensure_job_started_at = Instant::now();
-        let (job_id, state) =
-            match ensure_hsdata_import_job(&app, &session_client, &prepared, dry_run, force).await?
-            {
-                HsdataImportJobResolution::Completed(report) => {
-                    log_hsdata_import_profile(
-                        "ensure_remote_job",
-                        serde_json::json!({
-                            "sourceId": prepared.source_id,
-                            "sourceTag": prepared.source_tag,
-                            "resolution": "completed_cached",
-                            "elapsedMs": elapsed_millis(&ensure_job_started_at),
-                        }),
-                    );
-                    log_hsdata_import_profile(
-                        "total",
-                        serde_json::json!({
-                            "sourceId": prepared.source_id,
-                            "sourceTag": prepared.source_tag,
-                            "chunkCount": prepared.chunks.len(),
-                            "totalEntityCount": prepared.total_entity_count,
-                            "outcome": "completed_cached",
-                            "elapsedMs": elapsed_millis(&total_started_at),
-                        }),
-                    );
-                    return Ok((prepared, None, report));
-                }
-                HsdataImportJobResolution::Pending { job_id, state } => (job_id, state),
-            };
+        let import_started_at = Instant::now();
+        let local_import =
+            import_hsdata_to_local_database(build_local_hsdata_import_input(&prepared, dry_run, force))
+                .await?;
         log_hsdata_import_profile(
-            "ensure_remote_job",
+            "local_import_complete",
             serde_json::json!({
                 "sourceId": prepared.source_id,
                 "sourceTag": prepared.source_tag,
-                "jobId": job_id,
-                "reusedRemoteState": state.is_some(),
-                "elapsedMs": elapsed_millis(&ensure_job_started_at),
+                "jobId": local_import.job_id,
+                "chunkCount": prepared.chunks.len(),
+                "totalEntityCount": prepared.total_entity_count,
+                "elapsedMs": elapsed_millis(&import_started_at),
             }),
         );
 
-        let mut job_state = match state {
-            Some(state) => state,
-            None => get_remote_hsdata_import_job(&session_client, &job_id).await?,
-        };
-
-        emit_hsdata_import_progress(
-            &app,
-            HsdataImportProgressEvent {
-                source_id: prepared.source_id.clone(),
-                source_tag: Some(prepared.source_tag),
-                job_id: Some(job_id.clone()),
-                phase: job_state.status.clone(),
-                message: "Remote import job is ready".to_string(),
-                total_chunk_count: Some(job_state.total_chunk_count),
-                completed_chunk_count: Some(job_state.completed_chunk_count),
-                total_entity_count: Some(prepared.total_entity_count),
-                current_chunk_index: None,
-            },
-        );
-
-        if job_state.status == "uploading" {
-            let upload_started_at = Instant::now();
-            upload_hsdata_chunks(
-                &app,
-                &session_client,
-                &prepared.source_id,
-                prepared.source_tag,
-                &job_id,
-                prepared.total_entity_count,
-                job_state.completed_chunk_count,
-                &prepared.chunks,
-            )
-            .await?;
-            log_hsdata_import_profile(
-                "upload_chunks_complete",
-                serde_json::json!({
-                    "sourceId": prepared.source_id,
-                    "sourceTag": prepared.source_tag,
-                    "jobId": job_id,
-                    "elapsedMs": elapsed_millis(&upload_started_at),
-                }),
-            );
-            job_state = get_remote_hsdata_import_job(&session_client, &job_id).await?;
-        }
-
-        if job_state.status == "completed" {
-            let report = completed_hsdata_import_report(job_state)?;
-            return Ok((prepared, Some(job_id), report));
-        }
-
-        if job_state.status == "ready_to_finalize"
-            || (job_state.status == "uploading"
-                && job_state.completed_chunk_count == job_state.total_chunk_count)
-        {
-            emit_hsdata_import_progress(
-                &app,
-                HsdataImportProgressEvent {
-                    source_id: prepared.source_id.clone(),
-                    source_tag: Some(prepared.source_tag),
-                    job_id: Some(job_id.clone()),
-                    phase: "finalizing".to_string(),
-                    message: "Finalizing hsdata import job".to_string(),
-                    total_chunk_count: Some(job_state.total_chunk_count),
-                    completed_chunk_count: Some(job_state.total_chunk_count),
-                    total_entity_count: Some(prepared.total_entity_count),
-                    current_chunk_index: None,
-                },
-            );
-
-            let finalize_started_at = Instant::now();
-            let report = finalize_remote_hsdata_import_job(&session_client, &job_id).await?;
-            log_hsdata_import_profile(
-                "finalize_remote_job",
-                serde_json::json!({
-                    "sourceId": prepared.source_id,
-                    "sourceTag": prepared.source_tag,
-                    "jobId": job_id,
-                    "elapsedMs": elapsed_millis(&finalize_started_at),
-                }),
-            );
-            return Ok((prepared, Some(job_id), report));
-        }
-
-        if job_state.status == "failed" {
-            clear_hsdata_import_job_quietly(&app, prepared.source_tag);
-            return Err(job_state
-                .error
-                .unwrap_or_else(|| format!("hsdata import job {} failed", job_state.job_id)));
-        }
-
-        if job_state.status == "finalizing" {
-            return Err(format!(
-                "hsdata import job {} is already finalizing",
-                job_state.job_id
-            ));
-        }
-
-        Err(format!(
-            "hsdata import job {} is still incomplete after upload ({}/{})",
-            job_state.job_id, job_state.completed_chunk_count, job_state.total_chunk_count
+        Ok((
+            prepared,
+            Some(local_import.job_id),
+            into_hsdata_import_report(local_import.report),
         ))
     }
     .await;
 
     match result {
         Ok((prepared, job_id, report)) => {
-            clear_hsdata_import_job_quietly(&app, prepared.source_tag);
             log_hsdata_import_profile(
                 "total",
                 serde_json::json!({

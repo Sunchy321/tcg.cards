@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use sea_orm::{
-    ConnectionTrait, Database, DatabaseConnection, DbBackend, QueryResult, Statement,
+    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DbBackend, QueryResult, Statement,
     TransactionTrait, TryGetable,
 };
 use tokio::time::timeout;
@@ -11,6 +11,7 @@ use crate::desktop_database_settings::require_desktop_database_connection_string
 const DESKTOP_DATABASE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const DESKTOP_DATABASE_QUERY_TIMEOUT: Duration = Duration::from_secs(5);
 const DESKTOP_DATABASE_TRANSACTION_TIMEOUT: Duration = Duration::from_secs(5);
+const DESKTOP_DATABASE_SCHEMA_SEARCH_PATH: &str = "hearthstone_data, hearthstone, public";
 
 /// Database identity resolved from one desktop PostgreSQL session.
 pub(crate) struct DesktopDatabaseIdentity {
@@ -26,9 +27,14 @@ pub(crate) struct DesktopDatabase {
 impl DesktopDatabase {
     /// SeaORM connection opened with one explicit PostgreSQL connection string.
     pub(crate) async fn connect(connection_string: &str) -> Result<Self, String> {
+        let mut options = ConnectOptions::new(connection_string.to_string());
+        // Keep the hsdata and hearthstone schemas on the session search path so generated SeaORM
+        // enums resolve correctly even when codegen emits unqualified Postgres enum names.
+        options.set_schema_search_path(DESKTOP_DATABASE_SCHEMA_SEARCH_PATH);
+
         let connection = timeout(
             DESKTOP_DATABASE_CONNECT_TIMEOUT,
-            Database::connect(connection_string),
+            Database::connect(options),
         )
         .await
         .map_err(|_| "Timed out while connecting to PostgreSQL.".to_string())?

@@ -25,10 +25,11 @@ Because of that runtime boundary, this package does not read a local `hsdata` gi
 
 The current hsdata capabilities in site-console are limited to:
 
-- database overview for hsdata raw/import tables
+- browsing non-import hsdata-related console pages
 
 ## Notes
 
 - There is no hsdata R2 upload step anymore.
 - There is no `state.json`-based hsdata source sync anymore.
+- hsdata import status and data table overview are only available in the desktop app.
 - Local hsdata repository access is intended to live in the desktop app, not in site-console.

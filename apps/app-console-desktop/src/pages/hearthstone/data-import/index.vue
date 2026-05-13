@@ -910,6 +910,7 @@ import {
   getHsdataRepoState,
   importHsdataSource,
   listenHsdataImportProgress,
+  listLocalHsdataSourceVersions,
   listHsdataSources,
   syncHsdataRemoteVersions,
 } from '~/composables/useHsdataRepo';
@@ -917,33 +918,11 @@ import type {
   HsdataFile,
   HsdataImportProgressEvent,
   HsdataImportReport,
+  HsdataSourceVersionStatus,
   HsdataProjectReport,
   HsdataRepoState,
   ReportMetric,
 } from '~/composables/useHsdataRepo';
-
-/** Import status values loaded from `source_versions`. */
-type SourceImportStatus = 'pending' | 'processing' | 'completed' | 'failed';
-
-/** Projection status values loaded from `source_versions`. */
-type SourceProjectionStatus
-  = | 'not_started'
-    | 'processing'
-    | 'completed'
-    | 'failed';
-
-/** One persisted sourceTag status row used by the desktop import page. */
-interface HsdataSourceVersionStatus {
-  sourceTag:        number;
-  build:            number | null;
-  sourceCommit:     string;
-  sourceUri:        string;
-  importStatus:     SourceImportStatus;
-  importedAt:       string | null;
-  projectionStatus: SourceProjectionStatus;
-  projectedAt:      string | null;
-  projectionError:  string | null;
-}
 
 /** Sort orders supported by the available source list. */
 type SourceListSortOrder = 'desc' | 'asc';
@@ -2943,14 +2922,13 @@ async function loadFiles() {
   }
 }
 
-/** Persisted sourceTag statuses loaded from the console API. */
+/** Persisted sourceTag statuses loaded from the local desktop database. */
 async function loadSourceVersions() {
   loadingSourceVersions.value = true;
   sourceVersionError.value = '';
 
   try {
-    sourceVersions.value
-      = await orpc.hearthstone.dataSource.hsdata.listSourceVersions();
+    sourceVersions.value = await listLocalHsdataSourceVersions();
   } catch (error) {
     console.error('Failed to load hsdata source versions:', error);
     sourceVersionError.value = getHsdataErrorMessage(error);

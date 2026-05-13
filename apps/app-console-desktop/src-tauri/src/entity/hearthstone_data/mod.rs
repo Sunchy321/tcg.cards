@@ -9,3 +9,4 @@ pub mod raw_entity_snapshot_tags;
 pub mod raw_entity_snapshots;
 pub mod sea_orm_active_enums;
 pub mod source_versions;
+pub mod tags;

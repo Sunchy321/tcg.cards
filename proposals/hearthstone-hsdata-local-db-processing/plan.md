@@ -5,7 +5,7 @@
 - [x] 新增中文设计包，固定 hsdata 本地数据库处理迁移的运行时边界
 - [x] 为 desktop 本地 PostgreSQL 建立可复用的 hsdata 连接与 transaction 模块
 - [x] 为 desktop 新增本地 hsdata source version、overview 和 import job 状态命令
-- [ ] 将 hsdata staged import、finalize 和 raw snapshot 写入迁入本地数据库
+- [x] 将 hsdata staged import、finalize 和 raw snapshot 写入迁入本地数据库
 - [ ] 将 desktop 导入页和数据源页切换为读取本地 hsdata 状态
 - [ ] 将 hsdata projection 执行迁入 desktop 本地运行时
 - [ ] 收缩远端 hsdata 写路径为非主路径或冻结维护路径
