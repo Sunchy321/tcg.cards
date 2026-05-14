@@ -1092,6 +1092,15 @@ async fn insert_snapshot_tags(
     Ok((entity.tags.len() as u32, fallback_count))
 }
 
+/// Tag rows need rewriting only when the import created a new snapshot or force mode cleared them first.
+fn should_insert_snapshot_tags(
+    force: bool,
+    inserted_snapshot_ids: &HashSet<Uuid>,
+    snapshot_id: Uuid,
+) -> bool {
+    force || inserted_snapshot_ids.contains(&snapshot_id)
+}
+
 /// Staged local job snapshot rows loaded in deterministic finalize order.
 async fn load_staged_job_entities(
     connection: &impl ConnectionTrait,
@@ -1191,6 +1200,7 @@ async fn apply_raw_import(
     let previous_snapshot_ids = previous_snapshots.iter().map(|row| row.id).collect::<HashSet<_>>();
     let mut target_snapshot_ids = Vec::<Uuid>::new();
     let mut entity_by_snapshot_id = HashMap::<Uuid, &LocalHsdataParsedEntity>::new();
+    let mut inserted_snapshot_ids = HashSet::<Uuid>::new();
     let mut inserted_snapshots = 0_u32;
     let mut reused_snapshots = 0_u32;
     let mut inserted_tag_rows = 0_u32;
@@ -1236,6 +1246,7 @@ async fn apply_raw_import(
         let snapshot_id = Uuid::new_v4();
         target_snapshot_ids.push(snapshot_id);
         entity_by_snapshot_id.insert(snapshot_id, entity);
+        inserted_snapshot_ids.insert(snapshot_id);
 
         if input.dry_run {
             continue;
@@ -1329,36 +1340,20 @@ async fn apply_raw_import(
                 continue;
             };
 
-            if !input.force && previous_snapshot_ids.contains(snapshot_id) && inserted_snapshots == 0 {
+            if !should_insert_snapshot_tags(input.force, &inserted_snapshot_ids, *snapshot_id) {
                 continue;
             }
 
-            if !input.force && !previous_snapshot_ids.contains(snapshot_id) {
-                let (row_count, fallback_count) = insert_snapshot_tags(
-                    connection,
-                    *snapshot_id,
-                    entity,
-                    &existing_tags,
-                    &dbf_id_by_card_id,
-                )
-                .await?;
-                inserted_tag_rows += row_count;
-                fallback_tag_row_count += fallback_count;
-                continue;
-            }
-
-            if input.force {
-                let (row_count, fallback_count) = insert_snapshot_tags(
-                    connection,
-                    *snapshot_id,
-                    entity,
-                    &existing_tags,
-                    &dbf_id_by_card_id,
-                )
-                .await?;
-                inserted_tag_rows += row_count;
-                fallback_tag_row_count += fallback_count;
-            }
+            let (row_count, fallback_count) = insert_snapshot_tags(
+                connection,
+                *snapshot_id,
+                entity,
+                &existing_tags,
+                &dbf_id_by_card_id,
+            )
+            .await?;
+            inserted_tag_rows += row_count;
+            fallback_tag_row_count += fallback_count;
         }
 
         for snapshot_id in &unique_target_snapshot_ids {
@@ -1590,4 +1585,38 @@ pub(crate) async fn import_hsdata_to_local_database(
         job_id: job_id.to_string(),
         report,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_insert_snapshot_tags;
+    use std::collections::HashSet;
+    use uuid::Uuid;
+
+    /// Reused snapshots from another sourceTag keep their existing tag rows during a normal import.
+    #[test]
+    fn skips_tag_rewrite_for_reused_snapshot_without_force() {
+        let snapshot_id = Uuid::new_v4();
+        let inserted_snapshot_ids = HashSet::new();
+
+        assert!(!should_insert_snapshot_tags(
+            false,
+            &inserted_snapshot_ids,
+            snapshot_id,
+        ));
+    }
+
+    /// Newly created snapshots and force imports both rewrite tag rows deterministically.
+    #[test]
+    fn inserts_tags_for_new_or_forced_snapshot() {
+        let snapshot_id = Uuid::new_v4();
+        let inserted_snapshot_ids = HashSet::from([snapshot_id]);
+
+        assert!(should_insert_snapshot_tags(
+            false,
+            &inserted_snapshot_ids,
+            snapshot_id,
+        ));
+        assert!(should_insert_snapshot_tags(true, &HashSet::new(), snapshot_id));
+    }
 }
