@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use serde::Serialize;
+use tauri::AppHandle;
 
 use crate::desktop_database::{read_desktop_database_identity, DesktopDatabase};
 use crate::desktop_database_settings::{
@@ -43,8 +44,10 @@ async fn test_desktop_database_connection(
 
 /// Database settings loaded by the desktop frontend.
 #[tauri::command]
-pub(crate) fn desktop_get_database_settings() -> Result<DesktopDatabaseSettings, String> {
-    load_desktop_database_settings()
+pub(crate) fn desktop_get_database_settings(
+    app: AppHandle,
+) -> Result<DesktopDatabaseSettings, String> {
+    load_desktop_database_settings(&app)
 }
 
 /// Database connection tested by the desktop frontend.
@@ -61,6 +64,7 @@ pub(crate) async fn desktop_test_database_connection(
 /// Database settings persisted from the desktop frontend.
 #[tauri::command]
 pub(crate) fn desktop_set_database_settings(
+    app: AppHandle,
     external_connection_string: Option<String>,
 ) -> Result<DesktopDatabaseSettings, String> {
     let external_connection_string = trim_non_empty(external_connection_string);
@@ -69,7 +73,7 @@ pub(crate) fn desktop_set_database_settings(
         return Err("External local PostgreSQL connection string is required.".to_string());
     }
 
-    store_desktop_database_connection_string(external_connection_string.clone())?;
+    store_desktop_database_connection_string(&app, external_connection_string.clone())?;
 
     Ok(build_desktop_database_settings(external_connection_string))
 }

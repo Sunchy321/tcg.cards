@@ -17,6 +17,7 @@ mod hsdata_legacy_dbf_id_table;
 use crate::desktop_database_commands::{
     desktop_get_database_settings, desktop_set_database_settings, desktop_test_database_connection,
 };
+use crate::desktop_database_settings::DesktopDatabaseConnectionStringCache;
 use crate::desktop_hsdata_local_import::{
     import_hsdata_to_local_database, DesktopHsdataImportReport, DesktopHsdataLocalImportInput,
 };
@@ -1729,9 +1730,11 @@ async fn hsdata_import_source(
         );
 
         let import_started_at = Instant::now();
-        let local_import =
-            import_hsdata_to_local_database(build_local_hsdata_import_input(&prepared, dry_run, force))
-                .await?;
+        let local_import = import_hsdata_to_local_database(
+            &app,
+            build_local_hsdata_import_input(&prepared, dry_run, force),
+        )
+        .await?;
         log_hsdata_import_profile(
             "local_import_complete",
             serde_json::json!({
@@ -1930,6 +1933,7 @@ fn credential_delete(username: String) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .manage(AuthState::default())
+        .manage(DesktopDatabaseConnectionStringCache::default())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             auth_sign_in,

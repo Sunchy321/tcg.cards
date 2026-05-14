@@ -4,6 +4,7 @@ use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DbBackend, QueryResult, Statement,
     TransactionTrait, TryGetable,
 };
+use tauri::AppHandle;
 use tokio::time::timeout;
 
 use crate::desktop_database_settings::require_desktop_database_connection_string;
@@ -61,8 +62,10 @@ impl DesktopDatabase {
 }
 
 /// Configured SeaORM connection loaded from desktop secure storage.
-pub(crate) async fn connect_configured_desktop_database() -> Result<DesktopDatabase, String> {
-    let connection_string = require_desktop_database_connection_string()?;
+pub(crate) async fn connect_configured_desktop_database(
+    app: &AppHandle,
+) -> Result<DesktopDatabase, String> {
+    let connection_string = require_desktop_database_connection_string(app)?;
     DesktopDatabase::connect(&connection_string).await
 }
 

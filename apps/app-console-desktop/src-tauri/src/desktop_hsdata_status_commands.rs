@@ -1,6 +1,7 @@
 use sea_orm::ConnectionTrait;
 use serde::Serialize;
 use serde_json::Value;
+use tauri::AppHandle;
 
 use crate::desktop_database::{
     connect_configured_desktop_database, postgres_statement, postgres_statement_with_values,
@@ -164,8 +165,9 @@ fn normalize_hsdata_import_job_status(
 
 /// Local hsdata source version rows ordered for sourceTag-focused desktop display.
 async fn list_local_hsdata_source_versions_inner(
+    app: &AppHandle,
 ) -> Result<Vec<DesktopHsdataSourceVersionStatus>, String> {
-    let database = connect_configured_desktop_database().await?;
+    let database = connect_configured_desktop_database(app).await?;
     let rows = database
         .connection()
         .query_all(postgres_statement(
@@ -206,8 +208,8 @@ async fn list_local_hsdata_source_versions_inner(
 }
 
 /// Local hsdata overview rows aggregated from the configured desktop PostgreSQL database.
-async fn get_local_hsdata_overview_inner() -> Result<DesktopHsdataOverview, String> {
-    let database = connect_configured_desktop_database().await?;
+async fn get_local_hsdata_overview_inner(app: &AppHandle) -> Result<DesktopHsdataOverview, String> {
+    let database = connect_configured_desktop_database(app).await?;
     let connection = database.connection();
 
     let source_version_summary = connection
@@ -353,9 +355,10 @@ async fn get_local_hsdata_overview_inner() -> Result<DesktopHsdataOverview, Stri
 
 /// Local hsdata import job state resolved from one configured desktop PostgreSQL database.
 async fn get_local_hsdata_import_job_inner(
+    app: &AppHandle,
     input: DesktopHsdataImportJobInput,
 ) -> Result<DesktopHsdataImportJobState, String> {
-    let database = connect_configured_desktop_database().await?;
+    let database = connect_configured_desktop_database(app).await?;
     let connection = database.connection();
 
     let job = connection
@@ -463,21 +466,25 @@ async fn get_local_hsdata_import_job_inner(
 
 /// Local hsdata overview loaded by the desktop frontend.
 #[tauri::command]
-pub(crate) async fn hsdata_get_local_overview() -> Result<DesktopHsdataOverview, String> {
-    get_local_hsdata_overview_inner().await
+pub(crate) async fn hsdata_get_local_overview(
+    app: AppHandle,
+) -> Result<DesktopHsdataOverview, String> {
+    get_local_hsdata_overview_inner(&app).await
 }
 
 /// Local hsdata source version rows loaded by the desktop frontend.
 #[tauri::command]
 pub(crate) async fn hsdata_list_local_source_versions(
+    app: AppHandle,
 ) -> Result<Vec<DesktopHsdataSourceVersionStatus>, String> {
-    list_local_hsdata_source_versions_inner().await
+    list_local_hsdata_source_versions_inner(&app).await
 }
 
 /// Local hsdata import job state loaded by the desktop frontend.
 #[tauri::command]
 pub(crate) async fn hsdata_get_local_import_job(
+    app: AppHandle,
     input: DesktopHsdataImportJobInput,
 ) -> Result<DesktopHsdataImportJobState, String> {
-    get_local_hsdata_import_job_inner(input).await
+    get_local_hsdata_import_job_inner(&app, input).await
 }

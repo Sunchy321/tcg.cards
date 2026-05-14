@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
+use tauri::AppHandle;
 use uuid::Uuid;
 
 /// Naive UTC timestamp resolved from the current system clock.
@@ -1553,9 +1554,10 @@ async fn finalize_local_import_job(
 
 /// Prepared hsdata payload imported into the local desktop PostgreSQL database.
 pub(crate) async fn import_hsdata_to_local_database(
+    app: &AppHandle,
     input: DesktopHsdataLocalImportInput,
 ) -> Result<DesktopHsdataLocalImportResult, String> {
-    let database = connect_configured_desktop_database().await?;
+    let database = connect_configured_desktop_database(app).await?;
     let job_id = create_local_import_job(database.connection(), &input).await?;
 
     for chunk in &input.chunks {
