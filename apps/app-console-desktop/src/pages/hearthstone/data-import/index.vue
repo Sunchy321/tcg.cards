@@ -416,13 +416,13 @@
               </div>
 
               <div
-                v-if="importProgress.totalChunkCount != null"
+                v-if="importProgress.totalEntityCount != null || importProgress.totalBatchCount != null"
                 class="space-y-2"
               >
                 <div
                   class="flex items-center justify-between gap-3 text-xs text-muted"
                 >
-                  <span>{{ importProgressChunkText }}</span>
+                  <span>{{ importProgressCountText }}</span>
                   <span>{{ importProgressPercent }}%</span>
                 </div>
                 <div class="h-2 overflow-hidden rounded-full bg-muted">
@@ -435,9 +435,9 @@
 
               <div class="grid gap-3 md:grid-cols-4">
                 <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">总体进度</div>
+                  <div class="text-xs text-muted">实体进度</div>
                   <div class="mt-1 break-all font-mono text-sm">
-                    {{ importProgressChunkText }}
+                    {{ importProgressCountText }}
                   </div>
                 </div>
                 <div class="rounded-lg border border-default p-3">
@@ -453,7 +453,7 @@
                   </div>
                 </div>
                 <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">entities</div>
+                  <div class="text-xs text-muted">总实体数</div>
                   <div class="mt-1 break-all font-mono text-sm">
                     {{ importProgress.totalEntityCount ?? "-" }}
                   </div>
@@ -1464,18 +1464,14 @@ const canStartBatchProject = computed(() => {
 });
 const importProgressPhaseLabel = computed(() => {
   switch (importProgress.value?.phase) {
-  case 'preparing':
-    return '本地准备';
-  case 'prepared':
-    return '准备完成';
-  case 'creating_job':
-    return '创建任务';
-  case 'uploading':
-    return '上传中';
-  case 'ready_to_finalize':
-    return '等待完成';
-  case 'finalizing':
-    return '收尾中';
+  case 'reading_source':
+    return '读取来源';
+  case 'parsing_entities':
+    return '解析实体';
+  case 'writing_batches':
+    return '写入批次';
+  case 'finalizing_source_tag':
+    return '收口 sourceTag';
   case 'completed':
     return '已完成';
   case 'failed':
@@ -1486,18 +1482,14 @@ const importProgressPhaseLabel = computed(() => {
 });
 const importProgressStageText = computed(() => {
   switch (importProgress.value?.phase) {
-  case 'preparing':
-    return '正在读取所选版本并准备开始导入。';
-  case 'prepared':
-    return '导入准备已完成，即将开始处理。';
-  case 'creating_job':
-    return '正在初始化导入任务。';
-  case 'uploading':
-    return '正在处理并传输导入数据。';
-  case 'ready_to_finalize':
-    return '导入数据已准备完成，正在进入最后阶段。';
-  case 'finalizing':
-    return '正在写入最终导入结果。';
+  case 'reading_source':
+    return '正在读取所选版本，并准备开始本地导入。';
+  case 'parsing_entities':
+    return '正在规范化 XML 实体并组装本地写入批次。';
+  case 'writing_batches':
+    return '正在按批次写入本地归档，并持续累计实体进度。';
+  case 'finalizing_source_tag':
+    return '正在重写 sourceTag 的 latest/sourceTags 收口结果。';
   case 'completed':
     return '导入任务已经完成，可以继续执行后续投影。';
   case 'failed':
@@ -1510,27 +1502,42 @@ const importProgressPercent = computed(() => {
   const progress = importProgress.value;
 
   if (
+    progress?.totalEntityCount != null
+    && progress.totalEntityCount > 0
+  ) {
+    const completed = progress.completedEntityCount ?? 0;
+    return Math.max(
+      0,
+      Math.min(100, Math.round((completed / progress.totalEntityCount) * 100)),
+    );
+  }
+
+  if (
     !progress
-    || progress.totalChunkCount == null
-    || progress.totalChunkCount <= 0
+    || progress.totalBatchCount == null
+    || progress.totalBatchCount <= 0
   ) {
     return progress?.phase === 'completed' ? 100 : 0;
   }
 
-  const completed = progress.completedChunkCount ?? 0;
+  const completed = progress.completedBatchCount ?? 0;
   return Math.max(
     0,
-    Math.min(100, Math.round((completed / progress.totalChunkCount) * 100)),
+    Math.min(100, Math.round((completed / progress.totalBatchCount) * 100)),
   );
 });
-const importProgressChunkText = computed(() => {
+const importProgressCountText = computed(() => {
   const progress = importProgress.value;
 
-  if (!progress || progress.totalChunkCount == null) {
-    return '-';
+  if (progress?.totalEntityCount != null) {
+    return `${progress.completedEntityCount ?? 0} / ${progress.totalEntityCount}`;
   }
 
-  return `${progress.completedChunkCount ?? 0} / ${progress.totalChunkCount}`;
+  if (progress?.totalBatchCount != null) {
+    return `${progress.completedBatchCount ?? 0} / ${progress.totalBatchCount}`;
+  }
+
+  return '-';
 });
 
 const projectSourceTagInput = computed({

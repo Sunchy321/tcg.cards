@@ -49,21 +49,14 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::hsdata_import_job_chunks::Entity")]
-    HsdataImportJobChunks,
-    #[sea_orm(has_many = "super::hsdata_import_job_snapshots::Entity")]
-    HsdataImportJobSnapshots,
+    #[sea_orm(has_many = "super::hsdata_import_job_workspace_snapshots::Entity")]
+    HsdataImportJobWorkspaceSnapshots,
 }
 
-impl Related<super::hsdata_import_job_chunks::Entity> for Entity {
+impl Related<super::hsdata_import_job_workspace_snapshots::Entity> for Entity {
+    /// Lightweight workspace relation used by the streaming import path.
     fn to() -> RelationDef {
-        Relation::HsdataImportJobChunks.def()
-    }
-}
-
-impl Related<super::hsdata_import_job_snapshots::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::HsdataImportJobSnapshots.def()
+        Relation::HsdataImportJobWorkspaceSnapshots.def()
     }
 }
 

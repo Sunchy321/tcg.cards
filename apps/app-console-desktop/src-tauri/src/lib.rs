@@ -244,7 +244,7 @@ const HSDATA_REMOTE_NAME: &str = "origin";
 const HSDATA_CHUNKING_VERSION: &str = "desktop-v1";
 const HSDATA_MAX_BYTES_PER_CHUNK: usize = 1024 * 1024;
 const HSDATA_MAX_ENTITIES_PER_CHUNK: usize = 256;
-const HSDATA_IMPORT_PROGRESS_EVENT: &str = "hsdata-import-progress";
+pub(crate) const HSDATA_IMPORT_PROGRESS_EVENT: &str = "hsdata-import-progress";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -298,16 +298,17 @@ struct HsdataImportReport {
 /// hsdata import progress event payload for the desktop window.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct HsdataImportProgressEvent {
+pub(crate) struct HsdataImportProgressEvent {
     source_id: String,
     source_tag: Option<u32>,
     job_id: Option<String>,
     phase: String,
     message: String,
-    total_chunk_count: Option<u32>,
-    completed_chunk_count: Option<u32>,
+    total_batch_count: Option<u32>,
+    completed_batch_count: Option<u32>,
     total_entity_count: Option<u32>,
-    current_chunk_index: Option<u32>,
+    completed_entity_count: Option<u32>,
+    current_batch_index: Option<u32>,
 }
 
 /// Desktop-prepared hsdata import payload.
@@ -350,6 +351,7 @@ fn build_local_hsdata_import_input(
     force: bool,
 ) -> DesktopHsdataLocalImportInput {
     DesktopHsdataLocalImportInput {
+        source_id: prepared.source_id.clone(),
         source_tag: prepared.source_tag,
         source_commit: prepared.source_commit.clone(),
         source_uri: prepared.source_uri.clone(),
@@ -1508,12 +1510,13 @@ async fn hsdata_import_source(
             source_id: source_id.clone(),
             source_tag: None,
             job_id: None,
-            phase: "preparing".to_string(),
-            message: "Reading and preparing hsdata payload".to_string(),
-            total_chunk_count: None,
-            completed_chunk_count: None,
+            phase: "reading_source".to_string(),
+            message: "Reading hsdata source from the selected local repository".to_string(),
+            total_batch_count: None,
+            completed_batch_count: None,
             total_entity_count: None,
-            current_chunk_index: None,
+            completed_entity_count: None,
+            current_batch_index: None,
         },
     );
 
@@ -1527,6 +1530,22 @@ async fn hsdata_import_source(
         })
         .await
         .map_err(|error| format!("Failed to join hsdata source resolution task: {error}"))??;
+
+        emit_hsdata_import_progress(
+            &app,
+            HsdataImportProgressEvent {
+                source_id: source.id.clone(),
+                source_tag: Some(source.source_tag),
+                job_id: None,
+                phase: "parsing_entities".to_string(),
+                message: "Parsing normalized hsdata entities and assembling local batches".to_string(),
+                total_batch_count: None,
+                completed_batch_count: None,
+                total_entity_count: None,
+                completed_entity_count: None,
+                current_batch_index: None,
+            },
+        );
 
         let collect_legacy_dbf_ids_started_at = Instant::now();
         let legacy_scan_xml = source.xml.clone();
@@ -1705,27 +1724,13 @@ async fn hsdata_import_source(
                 source_id: prepared.source_id.clone(),
                 source_tag: Some(prepared.source_tag),
                 job_id: None,
-                phase: "prepared".to_string(),
-                message: "Prepared hsdata payload locally".to_string(),
-                total_chunk_count: Some(prepared.chunks.len() as u32),
-                completed_chunk_count: Some(0),
+                phase: "writing_batches".to_string(),
+                message: "Writing prepared hsdata batches into the local database".to_string(),
+                total_batch_count: Some(prepared.chunks.len() as u32),
+                completed_batch_count: Some(0),
                 total_entity_count: Some(prepared.total_entity_count),
-                current_chunk_index: None,
-            },
-        );
-
-        emit_hsdata_import_progress(
-            &app,
-            HsdataImportProgressEvent {
-                source_id: prepared.source_id.clone(),
-                source_tag: Some(prepared.source_tag),
-                job_id: None,
-                phase: "importing_local".to_string(),
-                message: "Writing hsdata payload into the local database".to_string(),
-                total_chunk_count: Some(prepared.chunks.len() as u32),
-                completed_chunk_count: Some(0),
-                total_entity_count: Some(prepared.total_entity_count),
-                current_chunk_index: None,
+                completed_entity_count: Some(0),
+                current_batch_index: None,
             },
         );
 
@@ -1777,10 +1782,11 @@ async fn hsdata_import_source(
                     job_id,
                     phase: "completed".to_string(),
                     message: "hsdata import completed".to_string(),
-                    total_chunk_count: Some(prepared.chunks.len() as u32),
-                    completed_chunk_count: Some(prepared.chunks.len() as u32),
+                    total_batch_count: Some(prepared.chunks.len() as u32),
+                    completed_batch_count: Some(prepared.chunks.len() as u32),
                     total_entity_count: Some(prepared.total_entity_count),
-                    current_chunk_index: None,
+                    completed_entity_count: Some(prepared.total_entity_count),
+                    current_batch_index: None,
                 },
             );
 
@@ -1804,10 +1810,11 @@ async fn hsdata_import_source(
                     job_id: None,
                     phase: "failed".to_string(),
                     message: error.clone(),
-                    total_chunk_count: None,
-                    completed_chunk_count: None,
+                    total_batch_count: None,
+                    completed_batch_count: None,
                     total_entity_count: None,
-                    current_chunk_index: None,
+                    completed_entity_count: None,
+                    current_batch_index: None,
                 },
             );
 

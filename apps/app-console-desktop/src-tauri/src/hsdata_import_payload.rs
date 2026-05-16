@@ -28,34 +28,34 @@ struct XmlElement {
 
 /// Normalized raw tag payload emitted by the desktop parser.
 #[derive(Clone, Debug, PartialEq)]
-struct HsdataTagSnapshot {
-    enum_id: u32,
-    raw_name: String,
-    raw_type: String,
-    raw_payload: Value,
+pub struct HsdataTagSnapshot {
+    pub enum_id: u32,
+    pub raw_name: String,
+    pub raw_type: String,
+    pub raw_payload: Value,
     // Keep the canonical bytes beside the structured value because the same payload is reused by
     // compatibility hashing and the final entity serializer.
-    raw_payload_json: String,
-    raw_value: Option<String>,
-    loc_string_value: Option<LocalizedText>,
+    pub raw_payload_json: String,
+    pub raw_value: Option<String>,
+    pub loc_string_value: Option<LocalizedText>,
     // Cache the canonical LocString bytes once so later paths do not reserialize the locale map.
-    loc_string_value_json: Option<String>,
-    card_ref_card_id: Option<String>,
-    tag_order: u32,
+    pub loc_string_value_json: Option<String>,
+    pub card_ref_card_id: Option<String>,
+    pub tag_order: u32,
 }
 
 /// Normalized entity snapshot emitted by the desktop parser.
 #[derive(Clone, Debug, PartialEq)]
-struct HsdataEntitySnapshot {
-    card_id: String,
-    dbf_id: u32,
-    entity_xml_version: u32,
-    tags: Vec<HsdataTagSnapshot>,
-    extra_payload: Value,
+pub struct HsdataEntitySnapshot {
+    pub card_id: String,
+    pub dbf_id: u32,
+    pub entity_xml_version: u32,
+    pub tags: Vec<HsdataTagSnapshot>,
+    pub extra_payload: Value,
     // Extra payload is read structurally in tests, but hot production paths consume these bytes.
-    extra_payload_json: String,
+    pub extra_payload_json: String,
     // Eager canonical serialization looks early, but chunk building and dedupe both need it.
-    serialized_json: String,
+    pub serialized_json: String,
 }
 
 /// Parsed hsdata source document normalized from one CardDefs XML payload.
@@ -86,6 +86,25 @@ pub struct HsdataPreparedPayload {
     pub chunks: Vec<HsdataPreparedPayloadChunk>,
 }
 
+/// One normalized entity batch prepared for the local streaming import path.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HsdataEntityBatch {
+    pub batch_index: u32,
+    pub entity_count: u32,
+    pub estimated_bytes: usize,
+    pub entities: Vec<HsdataEntitySnapshot>,
+}
+
+/// Source-level metadata prepared for the local streaming import path.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HsdataPreparedStream {
+    pub build: u32,
+    pub source_hash: String,
+    pub payload_encoding: String,
+    pub import_engine_version: String,
+    pub total_entity_count: u32,
+}
+
 /// Fine-grained timings captured while one hsdata payload is prepared locally.
 #[derive(Clone, Debug, PartialEq)]
 pub struct HsdataPreparedPayloadProfile {
@@ -98,6 +117,19 @@ pub struct HsdataPreparedPayloadProfile {
     pub build_chunks_ms: u128,
     pub build_chunks_profile: HsdataBuildChunksProfile,
     pub compute_source_hash_ms: u128,
+    pub total_ms: u128,
+}
+
+/// Fine-grained timings captured while one hsdata entity stream is prepared locally.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HsdataPreparedStreamProfile {
+    pub normalized_xml_bytes: usize,
+    pub total_entity_count: u32,
+    pub batch_count: u32,
+    pub normalize_xml_ms: u128,
+    pub parse_xml_ms: u128,
+    pub parse_xml_profile: HsdataParseXmlProfile,
+    pub split_batches_ms: u128,
     pub total_ms: u128,
 }
 
@@ -195,6 +227,14 @@ pub struct HsdataPreparedPayloadResult {
     pub profile: HsdataPreparedPayloadProfile,
 }
 
+/// Prepared entity batches paired with the local streaming profiling summary.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HsdataPreparedStreamResult {
+    pub source: HsdataPreparedStream,
+    pub batches: Vec<HsdataEntityBatch>,
+    pub profile: HsdataPreparedStreamProfile,
+}
+
 /// Canonical source XML paired with the matching normalized source hash.
 struct NormalizedSourceXml {
     xml: String,
@@ -211,6 +251,11 @@ struct ParseHsdataXmlResult {
 struct BuildChunksResult {
     chunks: Vec<HsdataPreparedPayloadChunk>,
     profile: HsdataBuildChunksProfile,
+}
+
+/// Normalized entity batches paired with lightweight batch-splitting profiling.
+struct BuildEntityBatchesResult {
+    batches: Vec<HsdataEntityBatch>,
 }
 
 impl HsdataParseXmlAccumulator {
@@ -1888,6 +1933,81 @@ fn build_chunks(
     })
 }
 
+/// Entity batches built from one normalized entity list for the local streaming path.
+fn build_entity_batches(
+    entities: Vec<HsdataEntitySnapshot>,
+    max_bytes_per_batch: usize,
+    max_entities_per_batch: usize,
+) -> Result<BuildEntityBatchesResult, String> {
+    if max_bytes_per_batch == 0 {
+        return Err("max_bytes_per_batch must be greater than 0".to_string());
+    }
+
+    if max_entities_per_batch == 0 {
+        return Err("max_entities_per_batch must be greater than 0".to_string());
+    }
+
+    let mut batches = Vec::new();
+    let mut current_entities = Vec::new();
+    let mut current_bytes = 0usize;
+
+    for entity in entities {
+        let entity_bytes = if entity.serialized_json.is_empty() {
+            serialize_snapshot_json(&entity)?.len() + 1
+        } else {
+            entity.serialized_json.len() + 1
+        };
+
+        if entity_bytes > max_bytes_per_batch {
+            return Err(format!(
+                "Entity {} exceeds max_bytes_per_batch",
+                entity.card_id
+            ));
+        }
+
+        let should_flush = !current_entities.is_empty()
+            && (current_entities.len() >= max_entities_per_batch
+                || current_bytes + entity_bytes > max_bytes_per_batch);
+
+        if should_flush {
+            let batch_index = u32::try_from(batches.len())
+                .map_err(|_| "Too many hsdata entity batches to index".to_string())?;
+            let entity_count = u32::try_from(current_entities.len())
+                .map_err(|_| "Too many entities inside one streaming batch".to_string())?;
+            batches.push(HsdataEntityBatch {
+                batch_index,
+                entity_count,
+                estimated_bytes: current_bytes,
+                entities: current_entities,
+            });
+            current_entities = Vec::new();
+            current_bytes = 0;
+        }
+
+        current_bytes += entity_bytes;
+        current_entities.push(entity);
+    }
+
+    if !current_entities.is_empty() {
+        let batch_index = u32::try_from(batches.len())
+            .map_err(|_| "Too many hsdata entity batches to index".to_string())?;
+        let entity_count = u32::try_from(current_entities.len())
+            .map_err(|_| "Too many entities inside one streaming batch".to_string())?;
+        batches.push(HsdataEntityBatch {
+            batch_index,
+            entity_count,
+            estimated_bytes: current_bytes,
+            entities: current_entities,
+        });
+    }
+
+    if batches.is_empty() {
+        return Err("No hsdata entities were prepared for import".to_string());
+    }
+
+    Ok(BuildEntityBatchesResult { batches })
+}
+
 /// Canonical NDJSON chunks prepared from one hsdata CardDefs XML payload.
 pub fn prepare_hsdata_payload(
     xml: &str,
@@ -2002,11 +2122,69 @@ pub fn prepare_hsdata_payload_profiled_with_dbf_ids(
     })
 }
 
+/// Entity batches and profiling prepared with optional legacy dbfId fallbacks.
+pub fn prepare_hsdata_stream_with_dbf_ids(
+    xml: &str,
+    max_bytes_per_batch: usize,
+    max_entities_per_batch: usize,
+    dbf_id_by_card_id: &HashMap<String, u32>,
+) -> Result<HsdataPreparedStreamResult, String> {
+    let total_started_at = Instant::now();
+
+    let normalize_xml_started_at = Instant::now();
+    let NormalizedSourceXml {
+        xml: normalized_xml,
+        source_hash,
+    } = normalize_source_xml(xml);
+    let normalize_xml_ms = elapsed_millis(&normalize_xml_started_at);
+
+    let parse_xml_started_at = Instant::now();
+    let ParseHsdataXmlResult {
+        document: parsed,
+        profile: parse_xml_profile,
+    } = parse_hsdata_xml_with_dbf_ids(&normalized_xml, dbf_id_by_card_id)?;
+    let parse_xml_ms = elapsed_millis(&parse_xml_started_at);
+
+    let build_batches_started_at = Instant::now();
+    let total_entity_count = u32::try_from(parsed.entities.len())
+        .map_err(|_| "Too many hsdata entities to count".to_string())?;
+    let BuildEntityBatchesResult { batches } = build_entity_batches(
+        parsed.entities,
+        max_bytes_per_batch,
+        max_entities_per_batch,
+    )?;
+    let split_batches_ms = elapsed_millis(&build_batches_started_at);
+    let batch_count = u32::try_from(batches.len())
+        .map_err(|_| "Too many hsdata entity batches to count".to_string())?;
+
+    Ok(HsdataPreparedStreamResult {
+        source: HsdataPreparedStream {
+            build: parsed.build,
+            source_hash,
+            payload_encoding: HSDATA_PAYLOAD_ENCODING.to_string(),
+            import_engine_version: HSDATA_IMPORT_ENGINE_VERSION.to_string(),
+            total_entity_count,
+        },
+        batches,
+        profile: HsdataPreparedStreamProfile {
+            normalized_xml_bytes: normalized_xml.len(),
+            total_entity_count,
+            batch_count,
+            normalize_xml_ms,
+            parse_xml_ms,
+            parse_xml_profile,
+            split_batches_ms,
+            total_ms: elapsed_millis(&total_started_at),
+        },
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         collect_legacy_entity_card_ids, hash_canonical_json, hash_snapshot_entity,
         parse_hsdata_xml, prepare_hsdata_payload, prepare_hsdata_payload_profiled,
+        prepare_hsdata_stream_with_dbf_ids,
         prepare_hsdata_payload_with_dbf_ids, sha256_hex, snapshot_hash_value, write_json_string,
         write_json_string_hash, Digest, Sha256, HSDATA_IMPORT_ENGINE_VERSION,
         HSDATA_PAYLOAD_ENCODING, HSDATA_PAYLOAD_FORMAT_VERSION,
@@ -2059,6 +2237,37 @@ mod tests {
         assert_eq!(prepared.chunks[1].entity_count, 1);
         assert!(prepared.chunks[0].ndjson.contains("\"CARD_001\""));
         assert!(prepared.chunks[1].ndjson.contains("\"CARD_002\""));
+    }
+
+    /// Entity batches keep batch boundaries stable for the local streaming import path.
+    #[test]
+    fn splits_entity_batches_by_entity_limit() {
+        let xml = concat!(
+            "<CardDefs build=\"7\">",
+            "<Entity CardID=\"CARD_001\" ID=\"1\" version=\"1\"><Tag enumID=\"1\" name=\"ONE\" type=\"String\" value=\"abc\"/></Entity>",
+            "<Entity CardID=\"CARD_002\" ID=\"2\" version=\"1\"><Tag enumID=\"2\" name=\"TWO\" type=\"String\" value=\"def\"/></Entity>",
+            "</CardDefs>",
+        );
+
+        let prepared =
+            prepare_hsdata_stream_with_dbf_ids(xml, usize::MAX, 1, &HashMap::new()).unwrap();
+
+        assert_eq!(prepared.source.build, 7);
+        assert_eq!(prepared.source.source_hash, sha256_hex(xml));
+        assert_eq!(prepared.source.payload_encoding, HSDATA_PAYLOAD_ENCODING);
+        assert_eq!(
+            prepared.source.import_engine_version,
+            HSDATA_IMPORT_ENGINE_VERSION
+        );
+        assert_eq!(prepared.source.total_entity_count, 2);
+        assert_eq!(prepared.profile.batch_count, 2);
+        assert_eq!(prepared.batches.len(), 2);
+        assert_eq!(prepared.batches[0].batch_index, 0);
+        assert_eq!(prepared.batches[0].entity_count, 1);
+        assert_eq!(prepared.batches[0].entities[0].card_id, "CARD_001");
+        assert_eq!(prepared.batches[1].batch_index, 1);
+        assert_eq!(prepared.batches[1].entity_count, 1);
+        assert_eq!(prepared.batches[1].entities[0].card_id, "CARD_002");
     }
 
     /// Source hashes are computed from canonical XML line endings and without a BOM.

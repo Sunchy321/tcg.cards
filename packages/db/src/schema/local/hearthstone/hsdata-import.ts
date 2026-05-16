@@ -15,30 +15,11 @@ import { sql } from 'drizzle-orm';
 import { dataSchema } from '../../shared/hearthstone/schema';
 
 type JsonMap = Record<string, unknown>;
-type LocalizedText = Record<string, string>;
-
-interface HsdataImportSnapshotTag {
-  enumId:         number;
-  rawName:        string;
-  rawType:        string;
-  rawPayload:     JsonMap;
-  rawValue:       string | null;
-  locStringValue: LocalizedText | null;
-  cardRefCardId:  string | null;
-  tagOrder:       number;
-}
 
 export const hsdataImportJobStatus = dataSchema.enum('hsdata_import_job_status', [
   'uploading',
   'ready_to_finalize',
   'finalizing',
-  'completed',
-  'failed',
-]);
-
-export const hsdataImportChunkStatus = dataSchema.enum('hsdata_import_chunk_status', [
-  'pending',
-  'processing',
   'completed',
   'failed',
 ]);
@@ -104,49 +85,17 @@ export const HsdataImportJob = dataSchema.table('hsdata_import_jobs', {
   check('hsdata_import_jobs_max_entities_per_chunk_positive_chk', sql`${table.maxEntitiesPerChunk} > 0`),
 ]);
 
-export const HsdataImportJobChunk = dataSchema.table('hsdata_import_job_chunks', {
-  jobId: uuid('job_id')
-    .notNull()
-    .references(() => HsdataImportJob.id, { onDelete: 'cascade' }),
-  chunkIndex:  integer('chunk_index').notNull(),
-  entityCount: integer('entity_count').notNull(),
-  payloadHash: text('payload_hash').notNull(),
-
-  status: hsdataImportChunkStatus('status').notNull().default('pending'),
-  error:  text('error'),
-
-  claimedAt:   timestamp('claimed_at'),
-  completedAt: timestamp('completed_at'),
-  createdAt:   timestamp('created_at').defaultNow().notNull(),
-  updatedAt:   timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-}, table => [
-  primaryKey({ columns: [table.jobId, table.chunkIndex] }),
-  index('hsdata_import_job_chunks_job_id_status_idx').on(table.jobId, table.status),
-  index('hsdata_import_job_chunks_job_id_payload_hash_idx').on(table.jobId, table.payloadHash),
-  check('hsdata_import_job_chunks_chunk_index_nonnegative_chk', sql`${table.chunkIndex} >= 0`),
-  check('hsdata_import_job_chunks_entity_count_positive_chk', sql`${table.entityCount} > 0`),
-]);
-
-export const HsdataImportJobSnapshot = dataSchema.table('hsdata_import_job_snapshots', {
-  id: uuid('id').primaryKey().defaultRandom(),
-
+export const HsdataImportJobWorkspaceSnapshot = dataSchema.table('hsdata_import_job_workspace_snapshots', {
   jobId: uuid('job_id')
     .notNull()
     .references(() => HsdataImportJob.id, { onDelete: 'cascade' }),
   chunkIndex: integer('chunk_index').notNull(),
 
-  cardId:           text('card_id').notNull(),
-  dbfId:            integer('dbf_id').notNull(),
-  entityXmlVersion: integer('entity_xml_version').notNull(),
-  snapshotHash:     text('snapshot_hash').notNull(),
+  cardId:       text('card_id').notNull(),
+  snapshotId:   uuid('snapshot_id').notNull(),
+  snapshotHash: text('snapshot_hash').notNull(),
 
-  // Finalize needs the normalized tag payload without reparsing chunk XML, so each
-  // staged snapshot keeps its tag list inline instead of splitting it into another table.
-  tags:         jsonb('tags').$type<HsdataImportSnapshotTag[]>().notNull().default([]),
-  extraPayload: jsonb('extra_payload').$type<JsonMap>().notNull().default({}),
+  isNewSnapshot: boolean('is_new_snapshot').notNull().default(false),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
@@ -154,8 +103,9 @@ export const HsdataImportJobSnapshot = dataSchema.table('hsdata_import_job_snaps
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
 }, table => [
-  uniqueIndex('hsdata_import_job_snapshots_job_id_card_id_uq').on(table.jobId, table.cardId),
-  index('hsdata_import_job_snapshots_job_id_chunk_index_idx').on(table.jobId, table.chunkIndex),
-  index('hsdata_import_job_snapshots_job_id_snapshot_hash_idx').on(table.jobId, table.snapshotHash),
-  check('hsdata_import_job_snapshots_chunk_index_nonnegative_chk', sql`${table.chunkIndex} >= 0`),
+  primaryKey({ columns: [table.jobId, table.cardId] }),
+  index('hsdata_import_job_workspace_snapshots_job_id_chunk_index_idx').on(table.jobId, table.chunkIndex),
+  index('hsdata_import_job_workspace_snapshots_job_id_snapshot_id_idx').on(table.jobId, table.snapshotId),
+  index('hsdata_import_job_workspace_snapshots_job_id_snapshot_hash_idx').on(table.jobId, table.snapshotHash),
+  check('hsdata_import_job_workspace_snapshots_chunk_index_nonnegative_chk', sql`${table.chunkIndex} >= 0`),
 ]);

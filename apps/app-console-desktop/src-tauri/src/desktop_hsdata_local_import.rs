@@ -1,25 +1,25 @@
 use crate::desktop_database::connect_configured_desktop_database;
-use crate::entity::hearthstone_data::hsdata_import_job_chunks;
-use crate::entity::hearthstone_data::hsdata_import_job_snapshots;
 use crate::entity::hearthstone_data::hsdata_import_jobs;
+use crate::entity::hearthstone_data::hsdata_import_job_workspace_snapshots;
 use crate::entity::hearthstone_data::raw_entity_snapshot_tags;
 use crate::entity::hearthstone_data::raw_entity_snapshots;
 use crate::entity::hearthstone_data::sea_orm_active_enums::{
-    HsdataImportChunkStatus, HsdataImportCleanupStatus, HsdataImportJobStatus,
+    HsdataImportCleanupStatus, HsdataImportJobStatus,
     HsdataProjectionStatus,
 };
 use crate::entity::hearthstone_data::source_versions;
 use crate::entity::hearthstone_data::tags;
 use crate::hsdata_import_payload::HsdataPreparedPayloadChunk;
+use crate::{HsdataImportProgressEvent, HSDATA_IMPORT_PROGRESS_EVENT};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
-    IntoActiveModel, Order, PaginatorTrait, QueryFilter, QueryOrder, Statement, TransactionTrait,
+    IntoActiveModel, QueryFilter, Statement, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, HashMap, HashSet};
-use tauri::AppHandle;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 /// Naive UTC timestamp resolved from the current system clock.
@@ -27,9 +27,40 @@ fn now_utc() -> chrono::NaiveDateTime {
     chrono::Utc::now().naive_utc()
 }
 
+/// Desktop hsdata import progress emitted after one local batch advances the persisted job state.
+fn emit_local_import_progress(
+    app: &AppHandle,
+    input: &DesktopHsdataLocalImportInput,
+    job_id: Uuid,
+    phase: &str,
+    message: &str,
+    completed_batch_count: u32,
+    completed_entity_count: u32,
+    current_batch_index: Option<u32>,
+) {
+    if let Err(error) = app.emit(
+        HSDATA_IMPORT_PROGRESS_EVENT,
+        HsdataImportProgressEvent {
+            source_id: input.source_id.clone(),
+            source_tag: Some(input.source_tag),
+            job_id: Some(job_id.to_string()),
+            phase: phase.to_string(),
+            message: message.to_string(),
+            total_batch_count: Some(input.chunks.len() as u32),
+            completed_batch_count: Some(completed_batch_count),
+            total_entity_count: Some(input.total_entity_count),
+            completed_entity_count: Some(completed_entity_count),
+            current_batch_index,
+        },
+    ) {
+        eprintln!("[hearthstone][hsdata-import] failed to emit progress event: {error}");
+    }
+}
+
 /// Prepared hsdata payload written into the local desktop database.
 #[derive(Clone)]
 pub(crate) struct DesktopHsdataLocalImportInput {
+    pub(crate) source_id: String,
     pub(crate) source_tag: u32,
     pub(crate) source_commit: String,
     pub(crate) source_uri: String,
@@ -126,6 +157,38 @@ struct ResolvedTagValue {
     loc_string_value: Option<Value>,
     card_ref_card_id: Option<String>,
     json_value: Option<Value>,
+}
+
+/// Batch-scoped write counts accumulated while one raw import batch is applied.
+struct RawImportBatchReport {
+    processed_entity_count: u32,
+    target_snapshot_count: u32,
+    inserted_snapshots: u32,
+    reused_snapshots: u32,
+    inserted_tag_rows: u32,
+    discovered_tags: Vec<u32>,
+    updated_discovered_tags: u32,
+    fallback_tag_row_count: u32,
+}
+
+/// SourceTag-scoped write session accumulated across all raw import batches.
+struct RawImportSession {
+    previous_snapshots: Vec<ExistingSnapshotRow>,
+    previous_snapshot_ids: HashSet<Uuid>,
+    processed_entity_count: u32,
+    inserted_snapshots: u32,
+    reused_snapshots: u32,
+    inserted_tag_rows: u32,
+    discovered_tags: BTreeSet<u32>,
+    updated_discovered_tags: u32,
+    fallback_tag_row_count: u32,
+    target_snapshot_count: u32,
+}
+
+/// Initial raw import outcome before any batch write starts.
+enum RawImportStart {
+    Skipped(DesktopHsdataImportReport),
+    Active(RawImportSession),
 }
 
 /// Stable sha256 digest rendered as lowercase hexadecimal.
@@ -318,70 +381,11 @@ async fn create_local_import_job(
     .await
     .map_err(|error| format!("Failed to create local hsdata import job: {error}"))?;
 
-    let chunk_models = input
-        .chunks
-        .iter()
-        .map(|chunk| {
-            Ok(hsdata_import_job_chunks::ActiveModel {
-                job_id: Set(job_id),
-                chunk_index: Set(i32::try_from(chunk.chunk_index).map_err(|_| {
-                    "chunkIndex overflowed PostgreSQL integer range.".to_string()
-                })?),
-                entity_count: Set(i32::try_from(chunk.entity_count).map_err(|_| {
-                    "entityCount overflowed PostgreSQL integer range.".to_string()
-                })?),
-                payload_hash: Set(chunk.payload_hash.clone()),
-                status: Set(HsdataImportChunkStatus::Pending),
-                error: Set(None),
-                claimed_at: Set(None),
-                completed_at: Set(None),
-                created_at: Default::default(),
-                updated_at: Default::default(),
-            })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-
-    if !chunk_models.is_empty() {
-        hsdata_import_job_chunks::Entity::insert_many(chunk_models)
-            .exec(database)
-            .await
-            .map_err(|error| format!("Failed to create local hsdata import job chunks: {error}"))?;
-    }
-
     Ok(job_id)
 }
 
-/// Chunk progress row updated into one transient processing state.
-async fn mark_chunk_processing(
-    transaction: &sea_orm::DatabaseTransaction,
-    job_id: Uuid,
-    chunk_index: i32,
-) -> Result<(), String> {
-    let Some(model) = hsdata_import_job_chunks::Entity::find_by_id((job_id, chunk_index))
-        .one(transaction)
-        .await
-        .map_err(|error| format!("Failed to load local hsdata import chunk: {error}"))?
-    else {
-        return Err(format!(
-            "Chunk {} is not registered for local job {}.",
-            chunk_index, job_id
-        ));
-    };
-
-    let mut active = model.into_active_model();
-    active.status = Set(HsdataImportChunkStatus::Processing);
-    active.claimed_at = Set(Some(now_utc()));
-    active.error = Set(None);
-    active
-        .update(transaction)
-        .await
-        .map_err(|error| format!("Failed to mark local hsdata import chunk as processing: {error}"))?;
-
-    Ok(())
-}
-
-/// Staged card ids already owned by a different chunk in the same local job.
-async fn load_conflicting_staged_card_ids(
+/// Workspace card ids already owned by a different chunk in the same local job.
+async fn load_conflicting_workspace_card_ids(
     transaction: &sea_orm::DatabaseTransaction,
     job_id: Uuid,
     chunk_index: i32,
@@ -391,13 +395,13 @@ async fn load_conflicting_staged_card_ids(
         return Ok(Vec::new());
     }
 
-    let rows = hsdata_import_job_snapshots::Entity::find()
-        .filter(hsdata_import_job_snapshots::Column::JobId.eq(job_id))
-        .filter(hsdata_import_job_snapshots::Column::CardId.is_in(card_ids.iter().cloned()))
+    let rows = hsdata_import_job_workspace_snapshots::Entity::find()
+        .filter(hsdata_import_job_workspace_snapshots::Column::JobId.eq(job_id))
+        .filter(hsdata_import_job_workspace_snapshots::Column::CardId.is_in(card_ids.iter().cloned()))
         .all(transaction)
         .await
         .map_err(|error| {
-            format!("Failed to query local hsdata staged snapshot conflicts: {error}")
+            format!("Failed to query local hsdata workspace snapshot conflicts: {error}")
         })?;
 
     Ok(rows
@@ -409,16 +413,31 @@ async fn load_conflicting_staged_card_ids(
         .collect())
 }
 
-/// Prepared NDJSON chunk staged into one local hsdata import job.
+/// Lightweight workspace rows deleted for one local hsdata import chunk.
+async fn delete_chunk_workspace_rows(
+    connection: &impl ConnectionTrait,
+    job_id: Uuid,
+    chunk_index: i32,
+) -> Result<(), String> {
+    hsdata_import_job_workspace_snapshots::Entity::delete_many()
+        .filter(hsdata_import_job_workspace_snapshots::Column::JobId.eq(job_id))
+        .filter(hsdata_import_job_workspace_snapshots::Column::ChunkIndex.eq(chunk_index))
+        .exec(connection)
+        .await
+        .map_err(|error| format!("Failed to clear local hsdata workspace chunk rows: {error}"))?;
+
+    Ok(())
+}
+
+/// Prepared NDJSON chunk applied into raw tables and recorded in the lightweight workspace.
 async fn stage_local_import_chunk(
     transaction: &sea_orm::DatabaseTransaction,
     job_id: Uuid,
-    job_total_chunk_count: i32,
+    input: &DesktopHsdataLocalImportInput,
     chunk: &HsdataPreparedPayloadChunk,
-) -> Result<(), String> {
+) -> Result<RawImportBatchReport, String> {
     let chunk_index = i32::try_from(chunk.chunk_index)
         .map_err(|_| "chunkIndex overflowed PostgreSQL integer range.".to_string())?;
-    mark_chunk_processing(transaction, job_id, chunk_index).await?;
 
     let entities = parse_chunk_entities(chunk)?;
     let card_ids = entities
@@ -426,7 +445,7 @@ async fn stage_local_import_chunk(
         .map(|(entity, _)| entity.card_id.clone())
         .collect::<Vec<_>>();
     let conflicts =
-        load_conflicting_staged_card_ids(transaction, job_id, chunk_index, &card_ids).await?;
+        load_conflicting_workspace_card_ids(transaction, job_id, chunk_index, &card_ids).await?;
 
     if !conflicts.is_empty() {
         return Err(format!(
@@ -436,67 +455,13 @@ async fn stage_local_import_chunk(
         ));
     }
 
-    hsdata_import_job_snapshots::Entity::delete_many()
-        .filter(hsdata_import_job_snapshots::Column::JobId.eq(job_id))
-        .filter(hsdata_import_job_snapshots::Column::ChunkIndex.eq(chunk_index))
-        .exec(transaction)
-        .await
-        .map_err(|error| format!("Failed to clear local hsdata staged chunk rows: {error}"))?;
+    delete_chunk_workspace_rows(transaction, job_id, chunk_index).await?;
 
-    let staged_models = entities
+    let parsed_entities = entities
         .into_iter()
-        .map(|(entity, snapshot_hash)| {
-            Ok(hsdata_import_job_snapshots::ActiveModel {
-                id: Set(Uuid::new_v4()),
-                job_id: Set(job_id),
-                chunk_index: Set(chunk_index),
-                card_id: Set(entity.card_id),
-                dbf_id: Set(entity.dbf_id as i32),
-                entity_xml_version: Set(entity.entity_xml_version as i32),
-                snapshot_hash: Set(snapshot_hash),
-                tags: Set(serde_json::to_value(entity.tags).map_err(|error| {
-                    format!("Failed to encode local hsdata staged tags: {error}")
-                })?),
-                extra_payload: Set(entity.extra_payload),
-                created_at: Default::default(),
-                updated_at: Default::default(),
-            })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-
-    if !staged_models.is_empty() {
-        hsdata_import_job_snapshots::Entity::insert_many(staged_models)
-            .exec(transaction)
-            .await
-            .map_err(|error| format!("Failed to insert local hsdata staged snapshots: {error}"))?;
-    }
-
-    let Some(chunk_model) = hsdata_import_job_chunks::Entity::find_by_id((job_id, chunk_index))
-        .one(transaction)
-        .await
-        .map_err(|error| format!("Failed to reload local hsdata import chunk: {error}"))?
-    else {
-        return Err(format!(
-            "Chunk {} is not registered for local job {}.",
-            chunk_index, job_id
-        ));
-    };
-
-    let mut chunk_active = chunk_model.into_active_model();
-    chunk_active.status = Set(HsdataImportChunkStatus::Completed);
-    chunk_active.completed_at = Set(Some(now_utc()));
-    chunk_active.error = Set(None);
-    chunk_active
-        .update(transaction)
-        .await
-        .map_err(|error| format!("Failed to complete local hsdata import chunk: {error}"))?;
-
-    let completed_chunk_count = hsdata_import_job_chunks::Entity::find()
-        .filter(hsdata_import_job_chunks::Column::JobId.eq(job_id))
-        .filter(hsdata_import_job_chunks::Column::Status.eq(HsdataImportChunkStatus::Completed))
-        .count(transaction)
-        .await
-        .map_err(|error| format!("Failed to count local hsdata completed chunks: {error}"))?;
+        .map(|(entity, _)| entity)
+        .collect::<Vec<_>>();
+    let report = apply_raw_import_batch(transaction, input, job_id, chunk_index, &parsed_entities).await?;
 
     let Some(job_model) = hsdata_import_jobs::Entity::find_by_id(job_id)
         .one(transaction)
@@ -507,18 +472,14 @@ async fn stage_local_import_chunk(
     };
 
     let mut job_active = job_model.into_active_model();
-    job_active.status = Set(if completed_chunk_count == job_total_chunk_count as u64 {
-        HsdataImportJobStatus::ReadyToFinalize
-    } else {
-        HsdataImportJobStatus::Uploading
-    });
+    job_active.status = Set(HsdataImportJobStatus::Uploading);
     job_active.error = Set(None);
     job_active
         .update(transaction)
         .await
         .map_err(|error| format!("Failed to update local hsdata import job progress: {error}"))?;
 
-    Ok(())
+    Ok(report)
 }
 
 /// Existing hearthstone tag rows loaded for one import batch.
@@ -1102,56 +1063,24 @@ fn should_insert_snapshot_tags(
     force || inserted_snapshot_ids.contains(&snapshot_id)
 }
 
-/// Staged local job snapshot rows loaded in deterministic finalize order.
-async fn load_staged_job_entities(
-    connection: &impl ConnectionTrait,
-    job_id: Uuid,
-) -> Result<Vec<(LocalHsdataParsedEntity, String)>, String> {
-    let rows = hsdata_import_job_snapshots::Entity::find()
-        .filter(hsdata_import_job_snapshots::Column::JobId.eq(job_id))
-        .order_by(hsdata_import_job_snapshots::Column::ChunkIndex, Order::Asc)
-        .order_by(hsdata_import_job_snapshots::Column::CardId, Order::Asc)
-        .all(connection)
-        .await
-        .map_err(|error| format!("Failed to load local hsdata staged snapshots: {error}"))?;
-
-    rows.into_iter()
-        .map(|row| {
-            let tags = serde_json::from_value::<Vec<LocalHsdataRawTag>>(row.tags)
-                .map_err(|error| format!("Failed to decode local hsdata staged tags: {error}"))?;
-
-            Ok((
-                LocalHsdataParsedEntity {
-                    card_id: row.card_id,
-                    dbf_id: row.dbf_id as u32,
-                    entity_xml_version: row.entity_xml_version as u32,
-                    tags,
-                    extra_payload: row.extra_payload,
-                },
-                row.snapshot_hash,
-            ))
-        })
-        .collect()
-}
-
-/// Parsed raw import applied into the local snapshot archive tables.
-async fn apply_raw_import(
+/// Raw import session initialized after skip and overwrite preconditions are checked.
+async fn start_raw_import(
     connection: &impl ConnectionTrait,
     input: &DesktopHsdataLocalImportInput,
-    parsed_entities: &[LocalHsdataParsedEntity],
-) -> Result<DesktopHsdataImportReport, String> {
+    entity_count: u32,
+) -> Result<RawImportStart, String> {
     let previous_source_version = load_source_version(connection, input.source_tag as i32).await?;
 
     if !input.force {
         if let Some(previous) = previous_source_version.as_ref() {
             if previous.status == "completed" && previous.source_hash == input.source_hash {
-                return Ok(DesktopHsdataImportReport {
+                return Ok(RawImportStart::Skipped(DesktopHsdataImportReport {
                     dry_run: input.dry_run,
                     skipped: true,
                     source_tag: input.source_tag,
                     build: input.build,
                     source_hash: input.source_hash.clone(),
-                    entity_count: parsed_entities.len() as u32,
+                    entity_count,
                     inserted_snapshots: 0,
                     reused_snapshots: 0,
                     inserted_tag_rows: 0,
@@ -1160,7 +1089,7 @@ async fn apply_raw_import(
                     fallback_tag_row_count: 0,
                     latest_snapshot_count: 0,
                     discovered_tags: Vec::new(),
-                });
+                }));
             }
 
             if !previous.source_hash.is_empty() && previous.source_hash != input.source_hash {
@@ -1176,12 +1105,44 @@ async fn apply_raw_import(
         upsert_source_version_processing(connection, input).await?;
     }
 
-    let all_enum_ids = parsed_entities
-        .iter()
-        .flat_map(|entity| entity.tags.iter().map(|tag| tag.enum_id as i32))
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect::<Vec<_>>();
+    let previous_snapshots = load_source_tag_snapshots(connection, input.source_tag as i32).await?;
+    let previous_snapshot_ids = previous_snapshots.iter().map(|row| row.id).collect::<HashSet<_>>();
+
+    Ok(RawImportStart::Active(RawImportSession {
+        previous_snapshots,
+        previous_snapshot_ids,
+        processed_entity_count: 0,
+        inserted_snapshots: 0,
+        reused_snapshots: 0,
+        inserted_tag_rows: 0,
+        discovered_tags: BTreeSet::new(),
+        updated_discovered_tags: 0,
+        fallback_tag_row_count: 0,
+        target_snapshot_count: 0,
+    }))
+}
+
+/// One raw import batch applied into the local snapshot archive tables.
+async fn apply_raw_import_batch(
+    connection: &impl ConnectionTrait,
+    input: &DesktopHsdataLocalImportInput,
+    job_id: Uuid,
+    chunk_index: i32,
+    parsed_entities: &[LocalHsdataParsedEntity],
+) -> Result<RawImportBatchReport, String> {
+    if parsed_entities.is_empty() {
+        return Ok(RawImportBatchReport {
+            processed_entity_count: 0,
+            target_snapshot_count: 0,
+            inserted_snapshots: 0,
+            reused_snapshots: 0,
+            inserted_tag_rows: 0,
+            discovered_tags: Vec::new(),
+            updated_discovered_tags: 0,
+            fallback_tag_row_count: 0,
+        });
+    }
+
     let (existing_tags, discovered_tags, updated_discovered_tags) =
         insert_missing_tags(connection, input.source_tag, parsed_entities).await?;
 
@@ -1197,10 +1158,9 @@ async fn apply_raw_import(
             .collect::<Vec<_>>(),
     )
     .await?;
-    let previous_snapshots = load_source_tag_snapshots(connection, input.source_tag as i32).await?;
-    let previous_snapshot_ids = previous_snapshots.iter().map(|row| row.id).collect::<HashSet<_>>();
     let mut target_snapshot_ids = Vec::<Uuid>::new();
     let mut entity_by_snapshot_id = HashMap::<Uuid, &LocalHsdataParsedEntity>::new();
+    let mut workspace_models = Vec::with_capacity(parsed_entities.len());
     let mut inserted_snapshot_ids = HashSet::<Uuid>::new();
     let mut inserted_snapshots = 0_u32;
     let mut reused_snapshots = 0_u32;
@@ -1218,6 +1178,16 @@ async fn apply_raw_import(
             reused_snapshots += 1;
             target_snapshot_ids.push(existing.id);
             entity_by_snapshot_id.insert(existing.id, entity);
+            workspace_models.push(hsdata_import_job_workspace_snapshots::ActiveModel {
+                job_id: Set(job_id),
+                card_id: Set(entity.card_id.clone()),
+                chunk_index: Set(chunk_index),
+                snapshot_id: Set(existing.id),
+                snapshot_hash: Set(line_hash.clone()),
+                is_new_snapshot: Set(false),
+                created_at: Default::default(),
+                updated_at: Default::default(),
+            });
 
             if !input.dry_run && !existing.source_tags.contains(&(input.source_tag as i32)) {
                 let Some(model) = raw_entity_snapshots::Entity::find_by_id(existing.id)
@@ -1248,6 +1218,16 @@ async fn apply_raw_import(
         target_snapshot_ids.push(snapshot_id);
         entity_by_snapshot_id.insert(snapshot_id, entity);
         inserted_snapshot_ids.insert(snapshot_id);
+        workspace_models.push(hsdata_import_job_workspace_snapshots::ActiveModel {
+            job_id: Set(job_id),
+            card_id: Set(entity.card_id.clone()),
+            chunk_index: Set(chunk_index),
+            snapshot_id: Set(snapshot_id),
+            snapshot_hash: Set(line_hash.clone()),
+            is_new_snapshot: Set(true),
+            created_at: Default::default(),
+            updated_at: Default::default(),
+        });
 
         if input.dry_run {
             continue;
@@ -1278,60 +1258,6 @@ async fn apply_raw_import(
         .collect::<Vec<_>>();
 
     if !input.dry_run {
-        for previous in &previous_snapshots {
-            if unique_target_snapshot_ids.contains(&previous.id) {
-                continue;
-            }
-
-            let Some(model) = raw_entity_snapshots::Entity::find_by_id(previous.id)
-                .one(connection)
-                .await
-                .map_err(|error| format!("Failed to reload previous local raw snapshot row: {error}"))?
-            else {
-                continue;
-            };
-
-            let next_source_tags = previous
-                .source_tags
-                .iter()
-                .copied()
-                .filter(|value| *value != input.source_tag as i32)
-                .collect::<Vec<_>>();
-
-            if next_source_tags.is_empty() {
-                raw_entity_snapshots::Entity::delete_by_id(previous.id)
-                    .exec(connection)
-                    .await
-                    .map_err(|error| format!("Failed to delete local raw snapshot row: {error}"))?;
-                continue;
-            }
-
-            let mut active = model.into_active_model();
-            active.source_tags = Set(next_source_tags);
-            active.is_latest = Set(false);
-            active
-                .update(connection)
-                .await
-                .map_err(|error| format!("Failed to rewrite local raw snapshot sourceTags: {error}"))?;
-        }
-
-        if !previous_snapshot_ids.is_empty() {
-            for snapshot_id in &previous_snapshot_ids {
-                if let Some(model) = raw_entity_snapshots::Entity::find_by_id(*snapshot_id)
-                    .one(connection)
-                    .await
-                    .map_err(|error| format!("Failed to reload previous latest snapshot row: {error}"))?
-                {
-                    let mut active = model.into_active_model();
-                    active.is_latest = Set(false);
-                    active
-                        .update(connection)
-                        .await
-                        .map_err(|error| format!("Failed to clear local raw snapshot latest flag: {error}"))?;
-                }
-            }
-        }
-
         if input.force {
             delete_snapshot_tags(connection, &unique_target_snapshot_ids).await?;
         }
@@ -1356,6 +1282,123 @@ async fn apply_raw_import(
             inserted_tag_rows += row_count;
             fallback_tag_row_count += fallback_count;
         }
+    } else {
+        inserted_tag_rows = parsed_entities
+            .iter()
+            .map(|entity| entity.tags.len() as u32)
+            .sum();
+        fallback_tag_row_count = parsed_entities
+            .iter()
+            .flat_map(|entity| entity.tags.iter())
+            .filter(|tag| resolve_tag_value(tag, existing_tags.get(&(tag.enum_id as i32))).parse_status == "fallback")
+            .count() as u32;
+    }
+
+    if !input.dry_run && !workspace_models.is_empty() {
+        hsdata_import_job_workspace_snapshots::Entity::insert_many(workspace_models)
+            .exec(connection)
+            .await
+            .map_err(|error| format!("Failed to insert local hsdata workspace snapshots: {error}"))?;
+    }
+
+    Ok(RawImportBatchReport {
+        processed_entity_count: parsed_entities.len() as u32,
+        target_snapshot_count: unique_target_snapshot_ids.len() as u32,
+        inserted_snapshots,
+        reused_snapshots,
+        inserted_tag_rows,
+        discovered_tags,
+        updated_discovered_tags,
+        fallback_tag_row_count,
+    })
+}
+
+/// Lightweight workspace snapshot ids loaded for one local hsdata import job.
+async fn load_workspace_snapshot_ids(
+    connection: &impl ConnectionTrait,
+    job_id: Uuid,
+) -> Result<HashSet<Uuid>, String> {
+    let rows = hsdata_import_job_workspace_snapshots::Entity::find()
+        .filter(hsdata_import_job_workspace_snapshots::Column::JobId.eq(job_id))
+        .all(connection)
+        .await
+        .map_err(|error| format!("Failed to load local hsdata workspace snapshots: {error}"))?;
+
+    Ok(rows.into_iter().map(|row| row.snapshot_id).collect())
+}
+
+/// SourceTag removed from one snapshot's source tag list while preserving the remaining order.
+fn strip_source_tag(source_tags: &[i32], source_tag: i32) -> Vec<i32> {
+    source_tags
+        .iter()
+        .copied()
+        .filter(|value| *value != source_tag)
+        .collect::<Vec<_>>()
+}
+
+/// SourceTag-scoped cleanup and report materialization completed after all raw import batches finish.
+async fn finish_raw_import(
+    connection: &impl ConnectionTrait,
+    input: &DesktopHsdataLocalImportInput,
+    job_id: Uuid,
+    session: RawImportSession,
+) -> Result<DesktopHsdataImportReport, String> {
+    let target_snapshot_ids = if input.dry_run {
+        HashSet::new()
+    } else {
+        load_workspace_snapshot_ids(connection, job_id).await?
+    };
+    let unique_target_snapshot_ids = target_snapshot_ids.iter().copied().collect::<Vec<_>>();
+
+    if !input.dry_run {
+        for previous in &session.previous_snapshots {
+            if target_snapshot_ids.contains(&previous.id) {
+                continue;
+            }
+
+            let Some(model) = raw_entity_snapshots::Entity::find_by_id(previous.id)
+                .one(connection)
+                .await
+                .map_err(|error| format!("Failed to reload previous local raw snapshot row: {error}"))?
+            else {
+                continue;
+            };
+
+            let next_source_tags = strip_source_tag(&previous.source_tags, input.source_tag as i32);
+
+            if next_source_tags.is_empty() {
+                raw_entity_snapshots::Entity::delete_by_id(previous.id)
+                    .exec(connection)
+                    .await
+                    .map_err(|error| format!("Failed to delete local raw snapshot row: {error}"))?;
+                continue;
+            }
+
+            let mut active = model.into_active_model();
+            active.source_tags = Set(next_source_tags);
+            active.is_latest = Set(false);
+            active
+                .update(connection)
+                .await
+                .map_err(|error| format!("Failed to rewrite local raw snapshot sourceTags: {error}"))?;
+        }
+
+        if !session.previous_snapshot_ids.is_empty() {
+            for snapshot_id in &session.previous_snapshot_ids {
+                if let Some(model) = raw_entity_snapshots::Entity::find_by_id(*snapshot_id)
+                    .one(connection)
+                    .await
+                    .map_err(|error| format!("Failed to reload previous latest snapshot row: {error}"))?
+                {
+                    let mut active = model.into_active_model();
+                    active.is_latest = Set(false);
+                    active
+                        .update(connection)
+                        .await
+                        .map_err(|error| format!("Failed to clear local raw snapshot latest flag: {error}"))?;
+                }
+            }
+        }
 
         for snapshot_id in &unique_target_snapshot_ids {
             let Some(model) = raw_entity_snapshots::Entity::find_by_id(*snapshot_id)
@@ -1375,19 +1418,7 @@ async fn apply_raw_import(
         }
 
         mark_source_version_completed(connection, input.source_tag as i32).await?;
-    } else {
-        inserted_tag_rows = parsed_entities
-            .iter()
-            .map(|entity| entity.tags.len() as u32)
-            .sum();
-        fallback_tag_row_count = parsed_entities
-            .iter()
-            .flat_map(|entity| entity.tags.iter())
-            .filter(|tag| resolve_tag_value(tag, existing_tags.get(&(tag.enum_id as i32))).parse_status == "fallback")
-            .count() as u32;
     }
-
-    let _ = all_enum_ids;
 
     Ok(DesktopHsdataImportReport {
         dry_run: input.dry_run,
@@ -1395,15 +1426,19 @@ async fn apply_raw_import(
         source_tag: input.source_tag,
         build: input.build,
         source_hash: input.source_hash.clone(),
-        entity_count: parsed_entities.len() as u32,
-        inserted_snapshots,
-        reused_snapshots,
-        inserted_tag_rows,
-        discovered_tag_count: discovered_tags.len() as u32,
-        updated_discovered_tags,
-        fallback_tag_row_count,
-        latest_snapshot_count: unique_target_snapshot_ids.len() as u32,
-        discovered_tags,
+        entity_count: session.processed_entity_count,
+        inserted_snapshots: session.inserted_snapshots,
+        reused_snapshots: session.reused_snapshots,
+        inserted_tag_rows: session.inserted_tag_rows,
+        discovered_tag_count: session.discovered_tags.len() as u32,
+        updated_discovered_tags: session.updated_discovered_tags,
+        fallback_tag_row_count: session.fallback_tag_row_count,
+        latest_snapshot_count: if input.dry_run {
+            session.target_snapshot_count
+        } else {
+            target_snapshot_ids.len() as u32
+        },
+        discovered_tags: session.discovered_tags.into_iter().collect(),
     })
 }
 
@@ -1432,22 +1467,31 @@ async fn mark_local_job_failed(
     Ok(())
 }
 
+/// Source version and job state moved into failed when the local import aborts before finalize completes.
+async fn fail_local_import_job(
+    connection: &impl ConnectionTrait,
+    input: &DesktopHsdataLocalImportInput,
+    job_id: Uuid,
+    error_message: &str,
+) -> Result<(), String> {
+    if !input.dry_run {
+        let previous = load_source_version(connection, input.source_tag as i32).await?;
+        upsert_source_version_failed(connection, input, previous.as_ref()).await?;
+    }
+
+    mark_local_job_failed(connection, job_id, error_message).await
+}
+
 /// Staging rows deleted after one local hsdata import job has completed.
 async fn cleanup_local_job_staging(
     connection: &impl ConnectionTrait,
     job_id: Uuid,
 ) -> Result<(), String> {
-    hsdata_import_job_snapshots::Entity::delete_many()
-        .filter(hsdata_import_job_snapshots::Column::JobId.eq(job_id))
+    hsdata_import_job_workspace_snapshots::Entity::delete_many()
+        .filter(hsdata_import_job_workspace_snapshots::Column::JobId.eq(job_id))
         .exec(connection)
         .await
-        .map_err(|error| format!("Failed to delete local hsdata staged snapshots: {error}"))?;
-
-    hsdata_import_job_chunks::Entity::delete_many()
-        .filter(hsdata_import_job_chunks::Column::JobId.eq(job_id))
-        .exec(connection)
-        .await
-        .map_err(|error| format!("Failed to delete local hsdata staged chunks: {error}"))?;
+        .map_err(|error| format!("Failed to delete local hsdata workspace snapshots: {error}"))?;
 
     let Some(model) = hsdata_import_jobs::Entity::find_by_id(job_id)
         .one(connection)
@@ -1474,24 +1518,8 @@ async fn finalize_local_import_job(
     database: &sea_orm::DatabaseConnection,
     input: &DesktopHsdataLocalImportInput,
     job_id: Uuid,
+    session: RawImportSession,
 ) -> Result<DesktopHsdataImportReport, String> {
-    let chunk_rows = hsdata_import_job_chunks::Entity::find()
-        .filter(hsdata_import_job_chunks::Column::JobId.eq(job_id))
-        .all(database)
-        .await
-        .map_err(|error| format!("Failed to load local hsdata import chunk rows: {error}"))?;
-
-    let completed_chunk_count = chunk_rows
-        .iter()
-        .filter(|row| row.status == HsdataImportChunkStatus::Completed)
-        .count();
-    if chunk_rows.len() != input.chunks.len() || completed_chunk_count != input.chunks.len() {
-        return Err(format!(
-            "Local hsdata import job {} is missing completed chunks.",
-            job_id
-        ));
-    }
-
     let Some(model) = hsdata_import_jobs::Entity::find_by_id(job_id)
         .one(database)
         .await
@@ -1507,13 +1535,9 @@ async fn finalize_local_import_job(
         .await
         .map_err(|error| format!("Failed to claim local hsdata import job for finalize: {error}"))?;
 
-    let parsed_entities = load_staged_job_entities(database, job_id).await?;
-    let parsed_entities = parsed_entities
-        .into_iter()
-        .map(|(entity, _)| entity)
-        .collect::<Vec<_>>();
+    let result = finish_raw_import(database, input, job_id, session).await;
 
-    match apply_raw_import(database, input, &parsed_entities).await {
+    match result {
         Ok(report) => {
             let Some(model) = hsdata_import_jobs::Entity::find_by_id(job_id)
                 .one(database)
@@ -1542,11 +1566,7 @@ async fn finalize_local_import_job(
             Ok(report)
         }
         Err(error) => {
-            if !input.dry_run {
-                let previous = load_source_version(database, input.source_tag as i32).await?;
-                upsert_source_version_failed(database, input, previous.as_ref()).await?;
-            }
-            mark_local_job_failed(database, job_id, &error).await?;
+            fail_local_import_job(database, input, job_id, &error).await?;
             Err(error)
         }
     }
@@ -1559,29 +1579,118 @@ pub(crate) async fn import_hsdata_to_local_database(
 ) -> Result<DesktopHsdataLocalImportResult, String> {
     let database = connect_configured_desktop_database(app).await?;
     let job_id = create_local_import_job(database.connection(), &input).await?;
+    let mut session =
+        match start_raw_import(database.connection(), &input, input.total_entity_count).await {
+            Ok(RawImportStart::Skipped(report)) => {
+            let Some(model) = hsdata_import_jobs::Entity::find_by_id(job_id)
+                .one(database.connection())
+                .await
+                .map_err(|error| format!("Failed to reload completed local hsdata import job: {error}"))?
+            else {
+                return Err(format!("Local hsdata import job {} does not exist.", job_id));
+            };
 
-    for chunk in &input.chunks {
+            let mut active = model.into_active_model();
+            active.status = Set(HsdataImportJobStatus::Completed);
+            active.error = Set(None);
+            active.report = Set(Some(
+                serde_json::to_value(&report)
+                    .map_err(|error| format!("Failed to encode local hsdata import report: {error}"))?,
+            ));
+            active.finalized_at = Set(Some(now_utc()));
+            active.staging_cleanup_status = Set(HsdataImportCleanupStatus::Pending);
+            active.staging_cleanup_error = Set(None);
+            active
+                .update(database.connection())
+                .await
+                .map_err(|error| format!("Failed to persist completed local hsdata import job: {error}"))?;
+
+            cleanup_local_job_staging(database.connection(), job_id).await?;
+            return Ok(DesktopHsdataLocalImportResult {
+                job_id: job_id.to_string(),
+                report,
+            });
+            }
+            Ok(RawImportStart::Active(session)) => session,
+            Err(error) => {
+                fail_local_import_job(database.connection(), &input, job_id, &error).await?;
+                return Err(error);
+            }
+        };
+
+    emit_local_import_progress(
+        app,
+        &input,
+        job_id,
+        "writing_batches",
+        "Writing prepared hsdata batches into the local database",
+        0,
+        0,
+        None,
+    );
+
+    for (chunk_offset, chunk) in input.chunks.iter().enumerate() {
         let transaction = database
             .connection()
             .begin()
             .await
             .map_err(|error| format!("Failed to start local hsdata staging transaction: {error}"))?;
 
-        if let Err(error) =
-            stage_local_import_chunk(&transaction, job_id, input.chunks.len() as i32, chunk).await
+        let batch_report = match stage_local_import_chunk(
+            &transaction,
+            job_id,
+            &input,
+            chunk,
+        )
+        .await
         {
-            let _ = transaction.rollback().await;
-            let _ = mark_local_job_failed(database.connection(), job_id, &error).await;
-            return Err(error);
+            Ok(report) => report,
+            Err(error) => {
+                let _ = transaction.rollback().await;
+                let _ = fail_local_import_job(database.connection(), &input, job_id, &error).await;
+                return Err(error);
+            }
+        };
+
+        if let Err(error) = transaction.commit().await {
+            let message = format!("Failed to commit local hsdata staging transaction: {error}");
+            let _ = fail_local_import_job(database.connection(), &input, job_id, &message).await;
+            return Err(message);
         }
 
-        transaction
-            .commit()
-            .await
-            .map_err(|error| format!("Failed to commit local hsdata staging transaction: {error}"))?;
+        session.processed_entity_count += batch_report.processed_entity_count;
+        session.target_snapshot_count += batch_report.target_snapshot_count;
+        session.inserted_snapshots += batch_report.inserted_snapshots;
+        session.reused_snapshots += batch_report.reused_snapshots;
+        session.inserted_tag_rows += batch_report.inserted_tag_rows;
+        session.updated_discovered_tags += batch_report.updated_discovered_tags;
+        session.fallback_tag_row_count += batch_report.fallback_tag_row_count;
+        session.discovered_tags.extend(batch_report.discovered_tags);
+
+        emit_local_import_progress(
+            app,
+            &input,
+            job_id,
+            "writing_batches",
+            "Writing prepared hsdata batches into the local database",
+            u32::try_from(chunk_offset + 1).unwrap_or(u32::MAX),
+            session.processed_entity_count,
+            Some(u32::try_from(chunk_offset + 1).unwrap_or(u32::MAX)),
+        );
     }
 
-    let report = finalize_local_import_job(database.connection(), &input, job_id).await?;
+    emit_local_import_progress(
+        app,
+        &input,
+        job_id,
+        "finalizing_source_tag",
+        "Reconciling latest snapshots for the imported sourceTag",
+        input.chunks.len() as u32,
+        session.processed_entity_count,
+        None,
+    );
+
+    let report = finalize_local_import_job(database.connection(), &input, job_id, session).await?;
 
     Ok(DesktopHsdataLocalImportResult {
         job_id: job_id.to_string(),
@@ -1591,9 +1700,95 @@ pub(crate) async fn import_hsdata_to_local_database(
 
 #[cfg(test)]
 mod tests {
-    use super::should_insert_snapshot_tags;
-    use std::collections::HashSet;
+    use super::{
+        finish_raw_import, should_insert_snapshot_tags, strip_source_tag,
+        DesktopHsdataLocalImportInput, RawImportSession,
+    };
+    use crate::hsdata_import_payload::HsdataPreparedPayloadChunk;
+    use sea_orm::{DbBackend, MockDatabase};
+    use std::collections::{BTreeSet, HashSet};
+    use tauri::async_runtime::block_on;
     use uuid::Uuid;
+
+    /// Minimal local import input assembled for finish-raw-import tests.
+    fn test_input(dry_run: bool, source_tag: u32) -> DesktopHsdataLocalImportInput {
+        DesktopHsdataLocalImportInput {
+            source_id: "test-source".to_string(),
+            source_tag,
+            source_commit: "commit".to_string(),
+            source_uri: "file:///tmp/test.xml".to_string(),
+            build: 321,
+            source_hash: "source-hash".to_string(),
+            chunking_version: "v1".to_string(),
+            payload_format_version: "v1".to_string(),
+            payload_encoding: "utf-8".to_string(),
+            import_engine_version: "engine".to_string(),
+            max_bytes_per_chunk: 1024,
+            max_entities_per_chunk: 64,
+            dry_run,
+            force: false,
+            total_entity_count: 2,
+            chunks: vec![HsdataPreparedPayloadChunk {
+                chunk_index: 0,
+                entity_count: 2,
+                payload_hash: "payload-hash".to_string(),
+                ndjson: String::new(),
+            }],
+        }
+    }
+
+    /// Raw import session assembled with deterministic counters for report assertions.
+    fn test_session(target_snapshot_count: u32) -> RawImportSession {
+        RawImportSession {
+            previous_snapshots: Vec::new(),
+            previous_snapshot_ids: HashSet::new(),
+            processed_entity_count: 2,
+            inserted_snapshots: 1,
+            reused_snapshots: 1,
+            inserted_tag_rows: 5,
+            discovered_tags: BTreeSet::from([7, 11]),
+            updated_discovered_tags: 1,
+            fallback_tag_row_count: 2,
+            target_snapshot_count,
+        }
+    }
+
+
+    /// Dry-run finalize keeps all aggregate counters in memory and avoids touching the database.
+    #[test]
+    fn finish_raw_import_dry_run_reports_accumulated_counts() {
+        let db = MockDatabase::new(DbBackend::Postgres).into_connection();
+        let report = block_on(finish_raw_import(
+            &db,
+            &test_input(true, 42),
+            Uuid::new_v4(),
+            test_session(3),
+        ))
+        .unwrap();
+
+        assert_eq!(report.dry_run, true);
+        assert_eq!(report.skipped, false);
+        assert_eq!(report.source_tag, 42);
+        assert_eq!(report.build, 321);
+        assert_eq!(report.source_hash, "source-hash");
+        assert_eq!(report.entity_count, 2);
+        assert_eq!(report.inserted_snapshots, 1);
+        assert_eq!(report.reused_snapshots, 1);
+        assert_eq!(report.inserted_tag_rows, 5);
+        assert_eq!(report.discovered_tag_count, 2);
+        assert_eq!(report.updated_discovered_tags, 1);
+        assert_eq!(report.fallback_tag_row_count, 2);
+        assert_eq!(report.latest_snapshot_count, 3);
+        assert_eq!(report.discovered_tags, vec![7, 11]);
+        assert!(db.into_transaction_log().is_empty());
+    }
+
+    /// SourceTag removal keeps the remaining tags in their original order.
+    #[test]
+    fn strips_source_tag_without_reordering_other_entries() {
+        assert_eq!(strip_source_tag(&[5, 7, 5, 9], 5), vec![7, 9]);
+        assert_eq!(strip_source_tag(&[1, 2, 3], 4), vec![1, 2, 3]);
+    }
 
     /// Reused snapshots from another sourceTag keep their existing tag rows during a normal import.
     #[test]

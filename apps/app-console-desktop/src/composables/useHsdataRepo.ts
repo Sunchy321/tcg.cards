@@ -136,9 +136,10 @@ export interface HsdataOverview {
 
 /** Desktop hsdata import phases emitted by the local import workflow. */
 export type HsdataImportPhase =
-  | 'preparing'
-  | 'prepared'
-  | 'importing_local'
+  | 'reading_source'
+  | 'parsing_entities'
+  | 'writing_batches'
+  | 'finalizing_source_tag'
   | 'completed'
   | 'failed';
 
@@ -149,10 +150,11 @@ export interface HsdataImportProgressEvent {
   jobId:               string | null;
   phase:               HsdataImportPhase | string;
   message:             string;
-  totalChunkCount:     number | null;
-  completedChunkCount: number | null;
+  totalBatchCount:     number | null;
+  completedBatchCount: number | null;
   totalEntityCount:    number | null;
-  currentChunkIndex:   number | null;
+  completedEntityCount: number | null;
+  currentBatchIndex:   number | null;
 }
 
 export interface HsdataProjectReport {

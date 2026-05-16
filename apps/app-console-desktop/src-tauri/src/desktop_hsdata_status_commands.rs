@@ -121,16 +121,25 @@ pub(crate) struct DesktopHsdataImportJobState {
     force: bool,
     status: String,
     staging_cleanup_status: String,
-    total_chunk_count: i32,
+    total_batch_count: i32,
+    completed_batch_count: i64,
+    failed_batch_count: i64,
+    processing_batch_count: i64,
     total_entity_count: i32,
-    completed_chunk_count: i64,
-    failed_chunk_count: i64,
-    processing_chunk_count: i64,
+    completed_entity_count: i64,
     report: Option<Value>,
     error: Option<String>,
     staging_cleanup_error: Option<String>,
     cleaned_at: Option<String>,
     finalized_at: Option<String>,
+}
+
+/// Batch and entity progress derived from one persisted import job row and its workspace rows.
+struct DesktopHsdataImportJobProgress {
+    completed_batch_count: i64,
+    failed_batch_count: i64,
+    processing_batch_count: i64,
+    completed_entity_count: i64,
 }
 
 /// Input used to resolve one local hsdata import job.
@@ -140,26 +149,46 @@ pub(crate) struct DesktopHsdataImportJobInput {
     job_id: String,
 }
 
-/// Uploading import jobs promoted to ready_to_finalize when all chunks are completed.
-fn normalize_hsdata_import_job_status(
-    status: &str,
-    total_chunk_count: i32,
-    completed_chunk_count: i64,
-    failed_chunk_count: i64,
-    processing_chunk_count: i64,
-) -> String {
-    if status != "uploading" {
-        return status.to_string();
-    }
-
-    if failed_chunk_count > 0 || processing_chunk_count > 0 {
-        return status.to_string();
-    }
-
-    if completed_chunk_count == i64::from(total_chunk_count) {
-        "ready_to_finalize".to_string()
+/// Legacy import statuses normalized to the reduced local runtime state machine.
+fn normalize_hsdata_import_job_status(status: &str) -> &str {
+    if status == "ready_to_finalize" {
+        "finalizing"
     } else {
-        status.to_string()
+        status
+    }
+}
+
+/// Batch and entity progress inferred from one local hsdata import job state.
+fn derive_hsdata_import_job_progress(
+    status: &str,
+    total_batch_count: i32,
+    total_entity_count: i32,
+    completed_batch_count: i64,
+    completed_entity_count: i64,
+) -> DesktopHsdataImportJobProgress {
+    let status = normalize_hsdata_import_job_status(status);
+    let mut completed_batch_count = completed_batch_count;
+    let mut completed_entity_count = completed_entity_count;
+
+    if (status == "finalizing" || status == "completed") && completed_batch_count == 0 {
+        completed_batch_count = i64::from(total_batch_count);
+    }
+
+    if (status == "finalizing" || status == "completed") && completed_entity_count == 0 {
+        completed_entity_count = i64::from(total_entity_count);
+    }
+
+    DesktopHsdataImportJobProgress {
+        completed_batch_count,
+        failed_batch_count: if status == "failed" { 1 } else { 0 },
+        processing_batch_count: if status == "uploading"
+            && completed_batch_count < i64::from(total_batch_count)
+        {
+            1
+        } else {
+            0
+        },
+        completed_entity_count,
     }
 }
 
@@ -373,7 +402,7 @@ async fn get_local_hsdata_import_job_inner(
               force,
               status::text as status,
               staging_cleanup_status::text as staging_cleanup_status,
-              total_chunk_count,
+              total_chunk_count as total_batch_count,
               total_entity_count,
               report::text as report,
               error,
@@ -389,46 +418,42 @@ async fn get_local_hsdata_import_job_inner(
         .map_err(|error| format!("Failed to load local hsdata import job: {error}"))?
         .ok_or_else(|| format!("hsdata import job {} does not exist", input.job_id))?;
 
-    let chunk_status_rows = connection
-        .query_all(postgres_statement_with_values(
+    let workspace_progress = connection
+        .query_one(postgres_statement_with_values(
             r#"
             select
-              status::text as status,
-              count(*)::bigint as value
-            from hearthstone_data.hsdata_import_job_chunks
+              count(distinct chunk_index)::bigint as completed_batch_count,
+              count(*)::bigint as completed_entity_count
+            from hearthstone_data.hsdata_import_job_workspace_snapshots
             where job_id = $1::uuid
-            group by status
             "#,
             vec![input.job_id.clone().into()],
         ))
         .await
         .map_err(|error| {
-            format!("Failed to load local hsdata import job chunk progress: {error}")
+            format!("Failed to load local hsdata import job workspace progress: {error}")
         })?;
 
-    let mut completed_chunk_count = 0_i64;
-    let mut failed_chunk_count = 0_i64;
-    let mut processing_chunk_count = 0_i64;
-
-    for row in chunk_status_rows {
-        let status: String = read_query_value(&row, "status")?;
-        let value: i64 = read_query_value(&row, "value")?;
-
-        match status.as_str() {
-            "completed" => completed_chunk_count = value,
-            "failed" => failed_chunk_count = value,
-            "processing" => processing_chunk_count = value,
-            _ => {}
-        }
-    }
-
-    let total_chunk_count: i32 = read_query_value(&job, "total_chunk_count")?;
-    let normalized_status = normalize_hsdata_import_job_status(
-        &read_query_value::<String>(&job, "status")?,
-        total_chunk_count,
-        completed_chunk_count,
-        failed_chunk_count,
-        processing_chunk_count,
+    let total_batch_count: i32 = read_query_value(&job, "total_batch_count")?;
+    let total_entity_count: i32 = read_query_value(&job, "total_entity_count")?;
+    let job_status: String = read_query_value(&job, "status")?;
+    let completed_batch_count = workspace_progress
+        .as_ref()
+        .map(|row| read_query_value::<i64>(row, "completed_batch_count"))
+        .transpose()?
+        .unwrap_or(0);
+    let completed_entity_count = workspace_progress
+        .as_ref()
+        .map(|row| read_query_value::<i64>(row, "completed_entity_count"))
+        .transpose()?
+        .unwrap_or(0);
+    let normalized_status = normalize_hsdata_import_job_status(&job_status).to_string();
+    let progress = derive_hsdata_import_job_progress(
+        &normalized_status,
+        total_batch_count,
+        total_entity_count,
+        completed_batch_count,
+        completed_entity_count,
     );
     let report = read_query_value::<Option<String>>(&job, "report")?
         .map(|text| {
@@ -445,17 +470,14 @@ async fn get_local_hsdata_import_job_inner(
         source_hash: read_query_value(&job, "source_hash")?,
         dry_run: read_query_value(&job, "dry_run")?,
         force: read_query_value(&job, "force")?,
-        status: normalized_status.clone(),
+        status: normalized_status,
         staging_cleanup_status: read_query_value(&job, "staging_cleanup_status")?,
-        total_chunk_count,
-        total_entity_count: read_query_value(&job, "total_entity_count")?,
-        completed_chunk_count: if normalized_status == "completed" && completed_chunk_count == 0 {
-            i64::from(total_chunk_count)
-        } else {
-            completed_chunk_count
-        },
-        failed_chunk_count,
-        processing_chunk_count,
+        total_batch_count,
+        completed_batch_count: progress.completed_batch_count,
+        failed_batch_count: progress.failed_batch_count,
+        processing_batch_count: progress.processing_batch_count,
+        total_entity_count,
+        completed_entity_count: progress.completed_entity_count,
         report,
         error: read_query_value(&job, "error")?,
         staging_cleanup_error: read_query_value(&job, "staging_cleanup_error")?,
@@ -487,4 +509,49 @@ pub(crate) async fn hsdata_get_local_import_job(
     input: DesktopHsdataImportJobInput,
 ) -> Result<DesktopHsdataImportJobState, String> {
     get_local_hsdata_import_job_inner(&app, input).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{derive_hsdata_import_job_progress, normalize_hsdata_import_job_status};
+
+    /// Legacy ready-to-finalize rows collapse into finalizing for local runtime reads.
+    #[test]
+    fn normalizes_ready_to_finalize_status() {
+        assert_eq!(normalize_hsdata_import_job_status("ready_to_finalize"), "finalizing");
+        assert_eq!(normalize_hsdata_import_job_status("uploading"), "uploading");
+    }
+
+    /// Completed jobs recover full batch and entity totals after workspace cleanup removes rows.
+    #[test]
+    fn restores_completed_progress_after_workspace_cleanup() {
+        let progress = derive_hsdata_import_job_progress("completed", 3, 12, 0, 0);
+
+        assert_eq!(progress.completed_batch_count, 3);
+        assert_eq!(progress.completed_entity_count, 12);
+        assert_eq!(progress.failed_batch_count, 0);
+        assert_eq!(progress.processing_batch_count, 0);
+    }
+
+    /// Uploading jobs keep one in-flight batch marker until every prepared batch has been written.
+    #[test]
+    fn keeps_uploading_progress_while_batches_are_in_flight() {
+        let progress = derive_hsdata_import_job_progress("uploading", 3, 12, 2, 8);
+
+        assert_eq!(progress.completed_batch_count, 2);
+        assert_eq!(progress.completed_entity_count, 8);
+        assert_eq!(progress.failed_batch_count, 0);
+        assert_eq!(progress.processing_batch_count, 1);
+    }
+
+    /// Failed jobs surface one failed batch marker without fabricating extra completed rows.
+    #[test]
+    fn marks_failed_progress_without_promoting_completion() {
+        let progress = derive_hsdata_import_job_progress("failed", 3, 12, 2, 8);
+
+        assert_eq!(progress.completed_batch_count, 2);
+        assert_eq!(progress.completed_entity_count, 8);
+        assert_eq!(progress.failed_batch_count, 1);
+        assert_eq!(progress.processing_batch_count, 0);
+    }
 }
