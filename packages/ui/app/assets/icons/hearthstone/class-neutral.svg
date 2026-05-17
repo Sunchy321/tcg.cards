@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="neutralBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#6a6a6a"/>
+      <stop offset="100%" style="stop-color:#3a3a3a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="24" cy="24" r="20" fill="url(#neutralBg)" stroke="#8a8a8a" stroke-width="2"/>
+  <circle cx="24" cy="24" r="16" fill="none" stroke="#a8a8a8" stroke-width="1" opacity="0.5"/>
+  <!-- Neutral eye (Eye of C'Thun style) -->
+  <ellipse cx="24" cy="22" rx="12" ry="8" fill="none" stroke="#cccccc" stroke-width="1.5"/>
+  <circle cx="24" cy="22" r="4" fill="#cccccc" opacity="0.8"/>
+  <circle cx="24" cy="22" r="2" fill="#ffffff"/>
+  <!-- Tentacles -->
+  <path d="M12 30 Q16 36 24 32 Q32 36 36 30" fill="none" stroke="#aaaaaa" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M16 34 Q20 40 24 36 Q28 40 32 34" fill="none" stroke="#aaaaaa" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
+</svg>

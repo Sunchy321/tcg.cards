@@ -7,13 +7,14 @@ export const useGameLocale = () => {
 
   const locales = appConfig.locales ?? ['en'];
   const cookieKey = `${appConfig.gameId}_locale`;
+  const defaultLocale = appConfig.defaultLocale ?? locales[0] ?? '';
 
   const resolveLocale = (value: string): string =>
     locales.find(l => l === value) ?? locales[0] ?? value;
 
   const locale = useCookie<string>(cookieKey, {
     domain:  import.meta.dev ? undefined : '.tcg.cards',
-    default: () => locales[0] ?? '',
+    default: () => defaultLocale,
     decode:  value => resolveLocale(value),
     encode:  value => resolveLocale(value),
   });

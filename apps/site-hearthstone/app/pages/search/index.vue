@@ -99,6 +99,7 @@
                 <CardImage
                   :card-id="card.cardId"
                   :version="minVersion(card)"
+                  :lang="card.lang"
                 />
               </div>
 
@@ -137,9 +138,6 @@
                     <UBadge color="neutral" variant="subtle">
                       {{ card.set }}
                     </UBadge>
-                    <UBadge color="neutral" variant="subtle">
-                      {{ $te(`lang.${card.lang}`) ? $t(`lang.${card.lang}`) : card.lang }}
-                    </UBadge>
                     <UBadge
                       v-for="klass in card.classes"
                       :key="klass"
@@ -162,6 +160,7 @@
 <script setup lang="ts">
 import type { CardEntityView } from '#model/hearthstone/schema/entity';
 import type { NormalResult } from '#model/hearthstone/schema/search';
+import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
 
@@ -180,7 +179,6 @@ type SearchResponse = {
 const { $orpc } = useNuxtApp();
 const route = useRoute('search');
 const router = useRouter();
-const gameLocale = useGameLocale();
 const { setActions } = useActions();
 const actions = useHearthstoneActions();
 const i18n = useI18n();
@@ -203,6 +201,10 @@ const pageSize = computed(() => {
   const value = Number(route.query.pageSize);
   return Number.isFinite(value) && value >= 1 ? value : 50;
 });
+
+const searchLang = computed(() =>
+  localeSchema.safeParse(route.query.lang as string).data ?? 'zhs',
+);
 
 const explained = computed(() => model.explain(q.value ?? '', (key: string, named?: Record<string, any>) => {
   const realKey = key.startsWith('$.')
@@ -320,7 +322,7 @@ const minVersion = (card: CardEntityView) => {
 };
 
 const previewText = (card: CardEntityView) => {
-  const text = card.localization.displayText || card.localization.text || '';
+  const text = card.localization.displayText ?? card.localization.text ?? '';
   return text.replace(/\s+/g, ' ').trim().slice(0, 180);
 };
 
@@ -337,7 +339,7 @@ const doSearch = async () => {
   try {
     const result = await $orpc.hearthstone.search.basic({
       q:        q.value,
-      lang:     gameLocale.value,
+      lang:     searchLang.value,
       page:     page.value,
       pageSize: pageSize.value,
     });
@@ -353,7 +355,7 @@ const doSearch = async () => {
   }
 };
 
-watch([q, page, pageSize, gameLocale], doSearch, { immediate: true });
+watch([q, page, pageSize, searchLang], doSearch, { immediate: true });
 </script>
 
 <style lang="scss" scoped>

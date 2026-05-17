@@ -24,7 +24,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       gameBaseUrls: {
-        hearthstone: process.env.HEARTHSTONE_BASE_URL ?? 'http://localhost:3002',
+        hearthstone: process.env.HEARTHSTONE_BASE_URL ?? 'http://localhost:3008',
         magic:       process.env.MAGIC_BASE_URL ?? 'https://magic.tcg.cards',
         yugioh:      process.env.YUGIOH_BASE_URL ?? 'https://yugioh.tcg.cards',
         ptcg:        process.env.PTCG_BASE_URL ?? 'https://ptcg.tcg.cards',

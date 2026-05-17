@@ -45,3 +45,4 @@ directory = "./.output/public/"
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "34ff130776904528bff88fe51caea444"
+localConnectionString = "postgres://user:password@127.0.0.1:5432/tcg_cards"

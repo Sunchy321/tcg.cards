@@ -15,6 +15,7 @@ export interface AdvancedSearchState {
   classes:      string[];
   types:        string[];
   races:        string[];
+  factions:     string[];
   spellSchools: string[];
   rarities:     string[];
   costs:        string[];
@@ -28,7 +29,7 @@ export interface AdvancedSearchState {
 
 const defaultNumericFieldState = (): NumericFieldState => ({
   value:    '',
-  operator: '=',
+  operator: '>=',
 });
 
 const createDefaultState = (): AdvancedSearchState => ({
@@ -36,6 +37,7 @@ const createDefaultState = (): AdvancedSearchState => ({
   classes:      [],
   types:        [],
   races:        [],
+  factions:     [],
   spellSchools: [],
   rarities:     [],
   costs:        [],
@@ -117,6 +119,7 @@ export const buildAdvancedSearchDSL = (state: AdvancedSearchState) => {
     buildMulti('class', state.classes),
     buildMulti('type', state.types),
     buildMulti('race', state.races),
+    buildMulti('faction', state.factions),
     buildMulti('spell-school', state.spellSchools),
     buildMulti('rarity', state.rarities),
     buildNumericChips('cost', state.costs),

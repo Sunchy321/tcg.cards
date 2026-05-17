@@ -8,14 +8,22 @@
             <CardImage
               :card-id="data.cardId"
               :version="minVersion"
+              :lang="lang"
               :variant="variant"
             />
 
-            <div class="mt-4">
+            <div class="mt-4 flex gap-2">
               <USelect
                 v-model="variant"
                 :items="variantOptions"
                 size="sm"
+                class="flex-1"
+              />
+              <USelect
+                v-model="lang"
+                :items="languageSelectItems"
+                size="sm"
+                class="flex-1"
               />
             </div>
 
@@ -184,12 +192,13 @@
 import { last } from 'lodash-es';
 
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
+import type { Locale } from '#model/hearthstone/schema/basic';
+import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
 
 const { $orpc } = useNuxtApp();
 const route = useRoute('card-id');
 const router = useRouter();
-const gameLocale = useGameLocale();
 const { setActions } = useActions();
 const actionMeta = getHearthstoneActionMeta();
 const actions = useHearthstoneActions();
@@ -203,14 +212,63 @@ definePageMeta({
 
 setActions([actions.random]);
 
-// ─── Language ────────────────────────────────────────────────────────────────
+// Language
 
-const lang = computed({
-  get: () => localeSchema.safeParse(route.query.lang as string).data ?? gameLocale.value,
+const lang = computed<Locale>({
+  get: () => localeSchema.safeParse(route.query.lang as string).data
+    ?? 'zhs',
   set: (v: string) => { void router.replace({ query: { ...route.query, lang: v } }); },
 });
 
-// ─── Data fetching ────────────────────────────────────────────────────────────
+const profile = ref<CardProfile | null>(null);
+
+watchEffect(async () => {
+  try {
+    profile.value = await $orpc.hearthstone.card.profile(route.params.id as string);
+  } catch {
+    profile.value = null;
+  }
+});
+
+const localeOrder = localeSchema.options;
+
+const nativeLanguageNames: Record<Locale, string> = {
+  en:  'English',
+  de:  'Deutsch',
+  es:  'Español',
+  fr:  'Français',
+  it:  'Italiano',
+  ja:  '日本語',
+  ko:  '한국어',
+  mx:  'Español (México)',
+  pl:  'Polski',
+  pt:  'Português',
+  ru:  'Русский',
+  th:  'ไทย',
+  zhs: '简体中文',
+  zht: '繁體中文',
+};
+
+const languageOptions = computed(() => {
+  const byLang = new Map<Locale, CardProfile['localization'][number]>();
+
+  for (const localization of profile.value?.localization ?? []) {
+    byLang.set(localization.lang, localization);
+  }
+
+  return [...byLang.values()].sort((a, b) =>
+    localeOrder.indexOf(a.lang) - localeOrder.indexOf(b.lang),
+  );
+});
+
+const languageSelectItems = computed(() =>
+  languageOptions.value.map(option => ({
+    label: nativeLanguageNames[option.lang],
+    value: option.lang,
+  })),
+);
+
+// Data fetching
 
 const query = computed(() => ({
   cardId:  route.params.id as string,
@@ -235,7 +293,7 @@ const { data, status } = await useAsyncData(
 
 useTitle(() => data.value?.localization.name ?? '');
 
-// ─── Version ─────────────────────────────────────────────────────────────────
+// Version
 
 const versions = computed(() => data.value?.versions ?? []);
 
@@ -264,7 +322,7 @@ const version = computed({
 
 const minVersion = computed(() => Math.min(...(data.value?.version ?? [0])));
 
-// ─── Patch profiles ───────────────────────────────────────────────────────────
+// Patch profiles
 
 const patchProfiles = ref<Record<number, Patch>>({});
 
@@ -300,7 +358,7 @@ const versionInfos = computed(() => versions.value.map(v => {
   };
 }));
 
-// ─── Stats ───────────────────────────────────────────────────────────────────
+// Stats
 
 const stats = computed(() => {
   const c = data.value;
@@ -312,7 +370,7 @@ const stats = computed(() => {
   return null;
 });
 
-// ─── Mechanics / Tags ─────────────────────────────────────────────────────────
+// Mechanics and tags
 
 const mechanics = computed(() =>
   (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')),
@@ -346,7 +404,7 @@ const copyTag = async (tag: string) => {
   }
 };
 
-// ─── Legalities ───────────────────────────────────────────────────────────────
+// Legalities
 
 const legalityEntries = computed(() =>
   Object.entries(data.value?.legalities ?? {}),
@@ -358,7 +416,7 @@ const legalityColor = (status: string) => ({
   restricted: 'text-yellow-500',
 }[status] ?? 'text-gray-500');
 
-// ─── Variant ─────────────────────────────────────────────────────────────────
+// Variant
 
 const variant = ref('normal');
 
@@ -387,9 +445,7 @@ watch(hasTechLevel, v => {
   if (!v) variant.value = 'normal';
 }, { immediate: true });
 
-// ─── Links ────────────────────────────────────────────────────────────────────
-
-const { public: { assetBaseUrl } } = useRuntimeConfig();
+// Links
 
 const jsonLink = computed(() => {
   if (!data.value) return undefined;
@@ -401,7 +457,7 @@ const jsonLink = computed(() => {
   return `/rpc/hearthstone/card/get?${params.toString()}`;
 });
 
-// ─── Relation icon ────────────────────────────────────────────────────────────
+// Relation icon
 
 const relationIcon = (relation: string): string => ({
   emblem:         'lucide:shield',
