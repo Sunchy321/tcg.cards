@@ -447,8 +447,10 @@ export default {
 
       relation: {
         collection_related: 'Upgrades and related forms',
+        cataclysm:          'Cataclysms',
         emblem:             'Emblem',
         entourage:          'Tokens',
+        fabled_related:     'Fabled related cards',
         herald_token:       'Herald tokens',
         heroic_hero_power:  'Hero Power',
         hero_power:         'Hero Power',
@@ -615,6 +617,7 @@ export default {
       SET_1935: 'The Great Dark Beyond',
       SET_1946: 'Into the Emerald Dream',
       SET_1952: 'The Lost City of Un\'Goro',
+      SET_1957: 'Across the Timeways',
       SET_1980: 'CATACLYSM',
     },
 

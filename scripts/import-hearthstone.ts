@@ -394,6 +394,8 @@ async function parseAndTransform(state: ImportState): Promise<EntityData[]> {
   resolveDbfRelations(transformed);
   resolveHeraldRelations(transformed);
   resolveTitanRelations(transformed);
+  resolveCataclysmRelations(transformed);
+  resolveFabledRelations(transformed);
   resolvePlagueRelations(transformed);
 
   state.processedEntities = processedCount;
@@ -790,14 +792,18 @@ function cleanCardText(value: string, entity: EntityData) {
     .replace(/\[x\]/gi, '')
     .replace(/_/g, ' ')
     .replace(/\$(\d+)/g, '$1')
+    .replace(/\$[a-z]+(\d+)/gi, '$1')
+    .replace(/#(\d+)/g, '$1')
     .replace(/@/g, scriptNum != null ? String(scriptNum) : '')
     .replace(/\{(\d+)\}/g, (match, index: string, offset: number, input: string) => {
       const before = input.slice(Math.max(0, offset - 24), offset);
       if (/(?:Herald|兆示|预兆|預兆)(?:<\/b>)?\s*$/.test(before)) return '';
 
       const number = entity.scriptDataNums?.[Number.parseInt(index, 10)] ?? scriptNum;
-      return number != null ? String(number) : match;
+      return number != null ? String(number) : '';
     })
+    .replace(/\s*[\(（]\s*[\)）]/g, '')
+    .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/\|4\(([^)]*)\)/g, (_match, options: string) => {
       const forms = options.split(',').map(part => part.trim()).filter(Boolean);
       return forms.at(-1) ?? '';
@@ -897,6 +903,48 @@ function resolveTitanRelations(entities: EntityData[]) {
   }
 }
 
+function resolveCataclysmRelations(entities: EntityData[]) {
+  for (const entity of entities) {
+    const text = entity.text?.en ?? '';
+    if (!entity.collectible || !/\bCataclysms?\b/.test(text)) continue;
+
+    const prefix = entity.cardId.replace(/[a-z]+$/i, '');
+    const cataclysms = entities
+      .filter(card => card.cardId.startsWith(`${prefix}t`))
+      .filter(card => card.cardType === 5);
+
+    if (cataclysms.length === 0) continue;
+
+    entity.relations = dedupeRelations([
+      ...(entity.relations ?? []),
+      ...cataclysms.map(card => ({
+        relation: 'cataclysm',
+        targetId:  card.cardId,
+      })),
+    ]);
+  }
+}
+
+function resolveFabledRelations(entities: EntityData[]) {
+  for (const entity of entities) {
+    if (!entity.collectible || !mentionsFabled(entity)) continue;
+
+    const related = entities
+      .filter(card => card.cardId.startsWith(`${entity.cardId}t`))
+      .filter(card => card.cardType !== 6);
+
+    if (related.length === 0) continue;
+
+    entity.relations = dedupeRelations([
+      ...(entity.relations ?? []),
+      ...related.map(card => ({
+        relation: 'fabled_related',
+        targetId:  card.cardId,
+      })),
+    ]);
+  }
+}
+
 function resolvePlagueRelations(entities: EntityData[]) {
   const tokenIds = new Set(PLAGUE_TOKEN_IDS);
   const plagueTokens = entities.filter(entity => tokenIds.has(entity.cardId));
@@ -919,6 +967,11 @@ function resolvePlagueRelations(entities: EntityData[]) {
 function mentionsPlague(entity: EntityData) {
   const text = Object.values(entity.text ?? {}).join('\n');
   return /\bPlagues?\b|疫病|瘟疫/.test(text);
+}
+
+function mentionsFabled(entity: EntityData) {
+  const text = Object.values(entity.text ?? {}).join('\n');
+  return /\bFabled\+?\b|奇闻|奇聞/.test(text);
 }
 
 function isHeraldToken(entity: EntityData) {

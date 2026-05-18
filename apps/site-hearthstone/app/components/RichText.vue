@@ -38,6 +38,10 @@ const rendered = computed(() => {
   text = text
     .replace(/\[x\]/gi, '')
     .replace(/&lt;\/?(?:b|i)&gt;/gi, '')
+    .replace(/\$[a-z]+(\d+)/gi, '$1')
+    .replace(/#(\d+)/g, '$1')
+    .replace(/\s*[\(（]?\{\d+\}[\)）]?/g, '')
+    .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/@/g, '');
 
   if (!props.disableNewline) {

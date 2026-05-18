@@ -453,8 +453,10 @@ export default {
 
       relation: {
         collection_related: '升级与相关形态',
+        cataclysm:          '灾变',
         emblem:             '标记',
         entourage:          '衍生物',
+        fabled_related:     '奇闻相关',
         herald_token:       '兆示衍生物',
         heroic_hero_power:  '英雄技能',
         hero_power:         '英雄技能',
@@ -615,6 +617,7 @@ export default {
       SET_1935: '深暗领域',
       SET_1946: '翡翠梦境',
       SET_1952: '安戈洛龟途',
+      SET_1957: '穿越时间流',
       SET_1980: '大地的裂变',
     },
 

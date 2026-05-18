@@ -6,7 +6,7 @@
       :src="imageUrl"
       :alt="cardId"
       class="w-full h-full object-contain"
-      loading="lazy"
+      :loading="loading"
       @error="onError"
     >
     <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
@@ -23,9 +23,11 @@ const props = withDefaults(defineProps<{
   version:  number;
   lang?:    Locale;
   variant?: string;
+  loading?: 'eager' | 'lazy';
 }>(), {
   lang:    'zhs',
   variant: 'normal',
+  loading: 'lazy',
 });
 
 const { public: { assetBaseUrl } } = useRuntimeConfig();
@@ -51,15 +53,16 @@ const sourceIndex = ref(0);
 const hasError = ref(false);
 
 const imageSources = computed(() => {
+  const jsonSource = `https://art.hearthstonejson.com/v1/render/latest/${hearthstoneJsonLocales[props.lang]}/256x/${props.cardId}.png`;
   const sources = [
+    ...(props.variant === 'normal' ? [jsonSource] : []),
     `${assetBaseUrl}/hearthstone/card/image/webp/${props.version}/${props.lang}/${props.variant}/${props.cardId}.webp`,
   ];
 
   if (props.variant !== 'normal') {
     sources.push(`${assetBaseUrl}/hearthstone/card/image/webp/${props.version}/${props.lang}/normal/${props.cardId}.webp`);
+    sources.push(jsonSource);
   }
-
-  sources.push(`https://art.hearthstonejson.com/v1/render/latest/${hearthstoneJsonLocales[props.lang]}/256x/${props.cardId}.png`);
 
   return sources;
 });

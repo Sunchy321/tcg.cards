@@ -1,6 +1,6 @@
 <template>
   <div class="advanced-search-page">
-    <Teleport to="#subheader-portal">
+    <Teleport v-if="subheaderReady" to="#subheader-portal">
       <div class="controller h-12 flex items-center gap-3 px-4 shadow-md">
         <code class="flex-1 min-w-0 truncate font-mono text-xs text-white/70">
           {{ dsl || $t('hearthstone.search.advanced.emptyQuery') }}
@@ -464,6 +464,12 @@ const { state, dsl, reset } = useAdvancedSearch();
 
 setActions([actions.random]);
 useTitle(() => t('hearthstone.search.advanced.$self'));
+
+const subheaderReady = ref(false);
+
+onMounted(() => {
+  subheaderReady.value = true;
+});
 
 const searchUrl = computed(() => dsl.value === '' ? undefined : `/search?q=${encodeURIComponent(dsl.value)}`);
 const browseSetsUrl = {

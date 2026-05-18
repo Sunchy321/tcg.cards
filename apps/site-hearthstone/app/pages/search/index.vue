@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Teleport to="#subheader-portal">
+    <Teleport v-if="subheaderReady" to="#subheader-portal">
       <div class="controller h-12 flex items-center gap-3 px-4 shadow-md">
         <UIcon
           v-show="searching"
@@ -185,6 +185,12 @@ const i18n = useI18n();
 setActions([actions.random]);
 useTitle(() => i18n.t('hearthstone.search.$self'));
 
+const subheaderReady = ref(false);
+
+onMounted(() => {
+  subheaderReady.value = true;
+});
+
 const data = ref<SearchResponse | null>(null);
 const searching = ref(false);
 const fetchError = ref<string | null>(null);
@@ -325,6 +331,10 @@ const previewText = (card: CardEntityView) => {
   return text
     .replace(/<[^>]+>/g, '')
     .replace(/\[\/?[bi]\]/gi, '')
+    .replace(/\$[a-z]+(\d+)/gi, '$1')
+    .replace(/#(\d+)/g, '$1')
+    .replace(/\s*[\(（]?\{\d+\}[\)）]?/g, '')
+    .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 180);

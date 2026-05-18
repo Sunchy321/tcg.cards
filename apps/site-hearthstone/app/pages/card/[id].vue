@@ -10,6 +10,7 @@
               :version="minVersion"
               :lang="lang"
               :variant="variant"
+              loading="eager"
             />
 
             <div class="mt-4 flex gap-2">
@@ -47,15 +48,15 @@
           <!-- Type + Race + Stats -->
           <div class="flex items-center gap-2 py-2 my-4 bg-gray-50 dark:bg-gray-800 px-3 rounded">
             <span class="font-medium flex-1">
-              {{ $t(`hearthstone.card.type.${data.type}`) }}
+              {{ cardTypeLabel(data.type) }}
               <template v-if="data.race && data.race.length > 0">
                 ·
                 <span v-for="(r, i) in data.race" :key="r">
-                  {{ $t(`hearthstone.card.race.${r}`) }}<span v-if="i < data.race.length - 1">/</span>
+                  {{ raceLabel(r) }}<span v-if="i < data.race.length - 1">/</span>
                 </span>
               </template>
               <template v-if="data.spellSchool">
-                · {{ $t(`hearthstone.card.spellSchool.${data.spellSchool}`) }}
+                / {{ spellSchoolLabel(data.spellSchool) }}
               </template>
             </span>
             <span v-if="stats" class="font-medium shrink-0">{{ stats }}</span>
@@ -63,7 +64,7 @@
 
           <!-- Card text -->
           <div v-if="data.localization.displayText" class="border-l-2 border-primary bg-gray-50 dark:bg-gray-800 rounded-r-lg p-4 mb-6 leading-relaxed">
-            <RichText>{{ data.localization.displayText }}</RichText>
+            <RichText :key="`${data.cardId}:${lang}:${data.localization.displayText}`">{{ data.localization.displayText }}</RichText>
           </div>
 
           <!-- Flavor text -->
@@ -85,7 +86,7 @@
             <div class="space-y-4">
               <div
                 v-for="group in relatedGroups"
-                :key="group.relation"
+                :key="`${group.relation}:${lang}`"
                 class="border rounded-lg overflow-hidden"
               >
                 <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm font-medium">
@@ -95,7 +96,7 @@
                 <div class="grid gap-2 p-3 sm:grid-cols-2">
                   <NuxtLink
                     v-for="rel in group.cards"
-                    :key="`${rel.relation}:${rel.cardId}`"
+                    :key="`${rel.relation}:${rel.cardId}:${lang}`"
                     :to="relatedLink(rel)"
                     class="block min-w-0 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 hover:opacity-80"
                   >
@@ -104,11 +105,12 @@
                         {{ rel.name ?? rel.cardId }}
                       </span>
                       <UBadge v-if="rel.type" color="neutral" variant="subtle" size="sm">
-                        {{ $t(`hearthstone.card.type.${rel.type}`) }}
+                        {{ cardTypeLabel(rel.type) }}
                       </UBadge>
                     </div>
                     <RichText
                       v-if="rel.displayText"
+                      :key="`${rel.cardId}:${lang}:${rel.displayText}`"
                       class="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-300"
                     >
                       {{ rel.displayText }}
@@ -193,6 +195,8 @@ import type { Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
 
+import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
+
 const { $orpc } = useNuxtApp();
 const route = useRoute('card-id');
 const router = useRouter();
@@ -275,12 +279,12 @@ const query = computed(() => ({
     : undefined,
 }));
 
-const asyncDataKey = () => [
+const asyncDataKey = computed(() => [
   'hearthstone-card',
   query.value.cardId,
   query.value.lang,
   query.value.version ?? '',
-].join(':');
+].join(':'));
 
 const { data, status } = await useAsyncData(
   asyncDataKey,
@@ -408,6 +412,7 @@ const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
     SET_1935: 'The Great Dark Beyond',
     SET_1946: 'Into the Emerald Dream',
     SET_1952: 'The Lost City of Un\'Goro',
+    SET_1957: 'Across the Timeways',
     SET_1980: 'CATACLYSM',
   },
   zhs: {
@@ -421,6 +426,7 @@ const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
     SET_1935: '深暗领域',
     SET_1946: '翡翠梦境',
     SET_1952: '安戈洛龟途',
+    SET_1957: '穿越时间流',
     SET_1980: '大地的裂变',
   },
   zht: {
@@ -434,6 +440,7 @@ const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
     SET_1935: '無垠黑暗之境',
     SET_1946: '深入翡翠夢境',
     SET_1952: '安戈洛失落之城',
+    SET_1957: '時光特攻隊',
     SET_1980: '浩劫與重生',
   },
 };
@@ -443,8 +450,10 @@ const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
 const relationOrder = [
   'hero_power',
   'heroic_hero_power',
+  'cataclysm',
   'titan_ability',
   'plague_token',
+  'fabled_related',
   'herald_token',
   'entourage',
   'collection_related',
@@ -471,9 +480,16 @@ const relatedGroups = computed(() => {
 });
 
 const relationText = (relation: string): string => {
+  const label = getHearthstoneLabel('relation', relation, lang.value);
+  if (label !== relation) return label;
+
   const key = `hearthstone.card.relation.${relation}`;
   return te(key) ? t(key) : relation;
 };
+
+const cardTypeLabel = (value: string) => getHearthstoneLabel('type', value, lang.value);
+const raceLabel = (value: string) => getHearthstoneLabel('race', value, lang.value);
+const spellSchoolLabel = (value: string) => getHearthstoneLabel('spellSchool', value, lang.value);
 
 const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]) => ({
   path:  `/card/${rel.cardId}`,
@@ -516,6 +532,7 @@ watch(hasTechLevel, v => {
 
 const relationIcon = (relation: string): string => ({
   collection_related: 'lucide:refresh-cw',
+  cataclysm:      'lucide:flame',
   emblem:         'lucide:shield',
   intext:         'lucide:search',
   meld:           'lucide:git-merge',
@@ -525,6 +542,7 @@ const relationIcon = (relation: string): string => ({
   stick_on:       'lucide:layers',
   token:          'lucide:square',
   entourage:      'lucide:boxes',
+  fabled_related: 'lucide:sparkles',
   herald_token:   'lucide:sparkles',
   hero_power:     'lucide:zap',
   heroic_hero_power: 'lucide:zap',

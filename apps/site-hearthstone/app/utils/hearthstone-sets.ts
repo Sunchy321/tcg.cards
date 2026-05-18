@@ -40,5 +40,6 @@ export const hearthstoneSets = [
   'SET_1935',
   'SET_1946',
   'SET_1952',
+  'SET_1957',
   'SET_1980',
 ] as const;
