@@ -5,22 +5,39 @@ mod desktop_database_commands;
 #[allow(dead_code)]
 mod desktop_database_settings;
 #[allow(dead_code)]
-mod desktop_hsdata_status_commands;
+mod desktop_hearthstone_publish_target;
 #[allow(dead_code)]
 mod desktop_hsdata_local_import;
+#[allow(dead_code)]
+mod desktop_hsdata_publish;
+#[allow(dead_code)]
+mod desktop_hsdata_projection;
+#[allow(dead_code)]
+mod desktop_hsdata_projection_compat;
+#[allow(dead_code)]
+mod desktop_hsdata_status_commands;
 #[allow(dead_code)]
 mod entity;
 #[allow(dead_code)]
 mod hsdata_import_payload;
+#[allow(dead_code)]
+mod hearthstone_publish_row_family;
 mod hsdata_legacy_dbf_id_table;
 
 use crate::desktop_database_commands::{
     desktop_get_database_settings, desktop_set_database_settings, desktop_test_database_connection,
 };
 use crate::desktop_database_settings::DesktopDatabaseConnectionStringCache;
+use crate::desktop_hearthstone_publish_target::{
+    desktop_get_hearthstone_publish_target, desktop_set_hearthstone_publish_target,
+    desktop_test_hearthstone_publish_target, desktop_validate_hearthstone_publish_target_binding,
+    HearthstonePublishTargetConnectionStringCache,
+};
 use crate::desktop_hsdata_local_import::{
     import_hsdata_to_local_database, DesktopHsdataImportReport, DesktopHsdataLocalImportInput,
 };
+use crate::desktop_hsdata_publish::hsdata_publish_current_to_remote;
+use crate::desktop_hsdata_projection::hsdata_project_source_version_local;
 use crate::desktop_hsdata_status_commands::{
     hsdata_get_local_import_job, hsdata_get_local_overview, hsdata_list_local_source_versions,
 };
@@ -197,12 +214,14 @@ fn log_hsdata_import_profile(stage: &str, fields: serde_json::Value) {
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Per-game settings persisted in the desktop config file.
 struct DesktopGamesSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     hearthstone: Option<StoredHearthstoneSettings>,
 }
 
 impl DesktopGamesSettings {
+    /// Whether the config currently contains any persisted game settings.
     fn is_empty(&self) -> bool {
         self.hearthstone.is_none()
     }
@@ -210,21 +229,35 @@ impl DesktopGamesSettings {
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Hearthstone-specific settings persisted in the desktop config file.
 struct StoredHearthstoneSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     hsdata: Option<StoredRepoPath>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    publish: Option<StoredHearthstonePublishTargetProfile>,
 }
 
 impl StoredHearthstoneSettings {
+    /// Whether the Hearthstone settings currently contain any persisted values.
     fn is_empty(&self) -> bool {
-        self.hsdata.is_none()
+        self.hsdata.is_none() && self.publish.is_none()
     }
 }
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+/// Local repository path persisted for one game integration.
 struct StoredRepoPath {
     repo_path: String,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Publish target profile persisted for one Hearthstone environment binding.
+struct StoredHearthstonePublishTargetProfile {
+    publish_target_id: String,
+    environment: String,
+    target_fingerprint: String,
 }
 
 #[derive(Serialize)]
@@ -1941,6 +1974,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AuthState::default())
         .manage(DesktopDatabaseConnectionStringCache::default())
+        .manage(HearthstonePublishTargetConnectionStringCache::default())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             auth_sign_in,
@@ -1950,6 +1984,10 @@ pub fn run() {
             desktop_get_database_settings,
             desktop_set_database_settings,
             desktop_test_database_connection,
+            desktop_get_hearthstone_publish_target,
+            desktop_set_hearthstone_publish_target,
+            desktop_test_hearthstone_publish_target,
+            desktop_validate_hearthstone_publish_target_binding,
             desktop_get_game_repo,
             desktop_set_game_repo,
             desktop_pick_directory,
@@ -1959,6 +1997,8 @@ pub fn run() {
             hsdata_get_local_overview,
             hsdata_list_local_source_versions,
             hsdata_get_local_import_job,
+            hsdata_project_source_version_local,
+            hsdata_publish_current_to_remote,
             hsdata_sync_remote_versions,
             hsdata_import_source,
             credential_get,

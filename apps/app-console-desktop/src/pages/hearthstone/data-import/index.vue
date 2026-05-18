@@ -7,9 +7,9 @@
         <div>
           <div class="flex items-center gap-2">
             <UIcon name="i-lucide-download" class="size-5 text-primary" />
-            <h1 class="text-xl font-semibold">hsdata 导入与投影</h1>
+            <h1 class="text-xl font-semibold">hsdata 导入、本地投影与远端发布</h1>
           </div>
-          <p class="mt-1 text-sm text-muted">选择数据版本后执行导入和投影。</p>
+          <p class="mt-1 text-sm text-muted">选择数据版本后执行本地导入与投影，确认结果后再发布到远端。</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -611,206 +611,349 @@
         </UCard>
       </div>
 
-      <UCard>
-        <template #header>
-          <div class="space-y-3">
+      <div class="space-y-4">
+        <UCard>
+          <template #header>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <div class="font-medium">可用版本</div>
+                  <p class="mt-1 text-xs text-muted">
+                    展示当前可选择的数据版本。
+                  </p>
+                </div>
+                <UButton
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="ghost"
+                  :loading="loadingFiles || loadingSourceVersions"
+                  :disabled="!state?.repoPath || batchRunning"
+                  @click="reloadSourceList"
+                />
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <UButton
+                  :label="
+                    sourceSortOrder === 'desc' ? '倒序 · 大到小' : '顺序 · 小到大'
+                  "
+                  :icon="
+                    sourceSortOrder === 'desc'
+                      ? 'i-lucide-arrow-down-wide-narrow'
+                      : 'i-lucide-arrow-up-narrow-wide'
+                  "
+                  size="xs"
+                  color="neutral"
+                  variant="soft"
+                  :disabled="batchRunning"
+                  @click="toggleSourceSortOrder"
+                />
+
+                <label
+                  class="flex items-center gap-2 rounded-lg border border-default px-3 py-1.5 text-xs"
+                >
+                  <input
+                    v-model="hideImportedSources"
+                    type="checkbox"
+                    class="size-3.5 rounded border-default"
+                    :disabled="batchRunning"
+                  >
+                  <span>隐藏已导入</span>
+                </label>
+
+                <label
+                  class="flex items-center gap-2 rounded-lg border border-default px-3 py-1.5 text-xs"
+                >
+                  <input
+                    v-model="hideProjectedSources"
+                    type="checkbox"
+                    class="size-3.5 rounded border-default"
+                    :disabled="batchRunning"
+                  >
+                  <span>隐藏已投影</span>
+                </label>
+
+                <span class="text-xs text-muted">{{
+                  sourceListSummaryText
+                }}</span>
+              </div>
+            </div>
+          </template>
+
+          <div
+            v-if="loadingFiles && files.length === 0"
+            class="flex justify-center py-8"
+          >
+            <UIcon
+              name="i-lucide-loader-2"
+              class="size-6 animate-spin text-muted"
+            />
+          </div>
+          <div
+            v-else-if="sourceListItems.length === 0"
+            class="py-8 text-center text-sm text-muted"
+          >
+            暂无可导入版本
+          </div>
+          <div
+            v-else-if="visibleSourceListItems.length === 0"
+            class="py-8 text-center text-sm text-muted"
+          >
+            当前筛选条件下暂无可显示版本
+          </div>
+          <div v-else class="max-h-136 space-y-2 overflow-y-auto pr-1">
+            <div
+              v-for="item in visibleSourceListItems"
+              :key="item.file.id"
+              class="flex items-center gap-2 rounded-lg border p-3 transition-colors"
+              :class="[
+                getSourceListItemClass(
+                  item.status,
+                  item.file.sourceTag != null,
+                  loadingSourceVersions,
+                  sourceVersionError.length > 0,
+                ),
+                importForm.id === item.file.id ? 'ring-2 ring-primary' : '',
+              ]"
+            >
+              <button
+                type="button"
+                class="min-w-0 flex-1 text-left"
+                @click="selectSource(item.file)"
+              >
+                <div class="truncate font-mono text-xs">{{ item.file.name }}</div>
+                <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted">
+                  <span>{{ item.file.shortCommit }}</span>
+                  <span>{{ formatHsdataBytes(item.file.size) }}</span>
+                  <span v-if="item.file.time">{{
+                    formatHsdataDate(item.file.time)
+                  }}</span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <UBadge
+                    v-if="item.file.sourceTag != null"
+                    :label="`sourceTag ${item.file.sourceTag}`"
+                    size="xs"
+                    color="primary"
+                    variant="soft"
+                  />
+                  <UBadge
+                    v-else
+                    label="未解析 sourceTag"
+                    size="xs"
+                    color="neutral"
+                    variant="outline"
+                  />
+                  <template v-if="item.file.sourceTag != null">
+                    <UBadge
+                      :label="
+                        getImportStatusBadge(
+                          item.status,
+                          true,
+                          loadingSourceVersions,
+                          sourceVersionError.length > 0,
+                        ).label
+                      "
+                      :color="
+                        getImportStatusBadge(
+                          item.status,
+                          true,
+                          loadingSourceVersions,
+                          sourceVersionError.length > 0,
+                        ).color
+                      "
+                      :variant="
+                        getImportStatusBadge(
+                          item.status,
+                          true,
+                          loadingSourceVersions,
+                          sourceVersionError.length > 0,
+                        ).variant
+                      "
+                      size="xs"
+                    />
+                    <UBadge
+                      :label="
+                        getProjectionStatusBadge(
+                          item.status,
+                          true,
+                          loadingSourceVersions,
+                          sourceVersionError.length > 0,
+                        ).label
+                      "
+                      :color="
+                        getProjectionStatusBadge(
+                          item.status,
+                          true,
+                          loadingSourceVersions,
+                          sourceVersionError.length > 0,
+                        ).color
+                      "
+                      :variant="
+                        getProjectionStatusBadge(
+                          item.status,
+                          true,
+                          loadingSourceVersions,
+                          sourceVersionError.length > 0,
+                        ).variant
+                      "
+                      size="xs"
+                    />
+                  </template>
+                </div>
+              </button>
+              <UButton
+                :label="importForm.id === item.file.id ? '已选中' : '选择'"
+                size="xs"
+                :color="importForm.id === item.file.id ? 'primary' : 'neutral'"
+                variant="soft"
+                @click="selectSource(item.file)"
+              />
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
             <div class="flex items-center justify-between gap-3">
               <div>
-                <div class="font-medium">可用版本</div>
+                <div class="font-medium">远端发布</div>
                 <p class="mt-1 text-xs text-muted">
-                  展示当前可选择的数据版本。
+                  将当前本地最新投影结果按整卡 row family 发布到已配置的 remote target。
                 </p>
               </div>
+              <UBadge
+                :label="hasPublishTarget ? 'Target ready' : 'Target missing'"
+                :color="hasPublishTarget ? 'success' : 'warning'"
+                variant="soft"
+              />
+            </div>
+          </template>
+
+          <div class="space-y-4">
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">Target ID</div>
+                <div class="mt-1 break-all font-mono text-sm">
+                  {{ publishTargetId ?? '-' }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">Environment</div>
+                <div class="mt-1 break-all font-mono text-sm">
+                  {{ publishTargetEnvironment ?? '-' }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">Fingerprint</div>
+                <div class="mt-1 break-all font-mono text-sm">
+                  {{ publishTargetFingerprint ?? '-' }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">最近结果</div>
+                <div class="mt-1 break-all font-mono text-sm">
+                  {{ publishResult?.batchId ?? '-' }}
+                </div>
+              </div>
+            </div>
+
+            <UAlert
+              v-if="!hasPublishTarget && publishTargetError.length === 0"
+              color="warning"
+              variant="soft"
+              icon="i-lucide-plug-zap"
+            >
+              <template #description>
+                <div
+                  class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span>尚未配置远端 publish target，请先到设置页完成绑定。</span>
+                  <div class="sm:ml-auto">
+                    <UButton
+                      label="打开设置"
+                      icon="i-lucide-settings"
+                      color="warning"
+                      variant="soft"
+                      to="/settings/games/hearthstone"
+                    />
+                  </div>
+                </div>
+              </template>
+            </UAlert>
+
+            <UAlert
+              v-if="publishTargetError.length > 0"
+              color="error"
+              variant="soft"
+              icon="i-lucide-circle-alert"
+              :description="publishTargetError"
+            />
+
+            <UAlert
+              v-if="publishError.length > 0"
+              color="error"
+              variant="soft"
+              icon="i-lucide-octagon-alert"
+              :description="publishError"
+            />
+
+            <div class="flex flex-wrap justify-end gap-2">
               <UButton
+                label="重新加载目标"
                 icon="i-lucide-refresh-cw"
                 color="neutral"
                 variant="ghost"
-                :loading="loadingFiles || loadingSourceVersions"
-                :disabled="!state?.repoPath || batchRunning"
-                @click="reloadSourceList"
+                :disabled="publishing"
+                @click="loadPublishTarget"
               />
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
               <UButton
-                :label="
-                  sourceSortOrder === 'desc' ? '倒序 · 大到小' : '顺序 · 小到大'
-                "
-                :icon="
-                  sourceSortOrder === 'desc'
-                    ? 'i-lucide-arrow-down-wide-narrow'
-                    : 'i-lucide-arrow-up-narrow-wide'
-                "
-                size="xs"
-                color="neutral"
-                variant="soft"
-                :disabled="batchRunning"
-                @click="toggleSourceSortOrder"
+                label="发布当前本地投影"
+                icon="i-lucide-upload"
+                :loading="publishing"
+                :disabled="!canPublish"
+                @click="submitPublish"
               />
+            </div>
 
-              <label
-                class="flex items-center gap-2 rounded-lg border border-default px-3 py-1.5 text-xs"
-              >
-                <input
-                  v-model="hideImportedSources"
-                  type="checkbox"
-                  class="size-3.5 rounded border-default"
-                  :disabled="batchRunning"
-                >
-                <span>隐藏已导入</span>
-              </label>
-
-              <label
-                class="flex items-center gap-2 rounded-lg border border-default px-3 py-1.5 text-xs"
-              >
-                <input
-                  v-model="hideProjectedSources"
-                  type="checkbox"
-                  class="size-3.5 rounded border-default"
-                  :disabled="batchRunning"
-                >
-                <span>隐藏已投影</span>
-              </label>
-
-              <span class="text-xs text-muted">{{
-                sourceListSummaryText
-              }}</span>
+            <div
+              v-if="publishResult"
+              class="grid gap-3 sm:grid-cols-2"
+            >
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">批次</div>
+                <div class="mt-1 break-all font-mono text-sm">
+                  {{ publishResult.batchId }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">Manifest</div>
+                <div class="mt-1 break-all font-mono text-sm">
+                  {{ publishResult.manifestHash }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">变化统计</div>
+                <div class="mt-1 font-mono text-sm">
+                  {{ publishResult.changedCardCount }} / {{ publishResult.cardCount }}
+                </div>
+                <div class="mt-1 text-xs text-muted">
+                  +{{ publishResult.insertedCardCount }}
+                  ~{{ publishResult.updatedCardCount }}
+                  -{{ publishResult.deletedCardCount }}
+                  ={{ publishResult.unchangedCardCount }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <div class="text-xs text-muted">发布时间</div>
+                <div class="mt-1 break-all font-mono text-sm">
+                  {{ formatHsdataDate(publishResult.publishedAt) }}
+                </div>
+              </div>
             </div>
           </div>
-        </template>
-
-        <div
-          v-if="loadingFiles && files.length === 0"
-          class="flex justify-center py-8"
-        >
-          <UIcon
-            name="i-lucide-loader-2"
-            class="size-6 animate-spin text-muted"
-          />
-        </div>
-        <div
-          v-else-if="sourceListItems.length === 0"
-          class="py-8 text-center text-sm text-muted"
-        >
-          暂无可导入版本
-        </div>
-        <div
-          v-else-if="visibleSourceListItems.length === 0"
-          class="py-8 text-center text-sm text-muted"
-        >
-          当前筛选条件下暂无可显示版本
-        </div>
-        <div v-else class="max-h-136 space-y-2 overflow-y-auto pr-1">
-          <div
-            v-for="item in visibleSourceListItems"
-            :key="item.file.id"
-            class="flex items-center gap-2 rounded-lg border p-3 transition-colors"
-            :class="[
-              getSourceListItemClass(
-                item.status,
-                item.file.sourceTag != null,
-                loadingSourceVersions,
-                sourceVersionError.length > 0,
-              ),
-              importForm.id === item.file.id ? 'ring-2 ring-primary' : '',
-            ]"
-          >
-            <button
-              type="button"
-              class="min-w-0 flex-1 text-left"
-              @click="selectSource(item.file)"
-            >
-              <div class="truncate font-mono text-xs">{{ item.file.name }}</div>
-              <div class="mt-1 flex flex-wrap gap-2 text-xs text-muted">
-                <span>{{ item.file.shortCommit }}</span>
-                <span>{{ formatHsdataBytes(item.file.size) }}</span>
-                <span v-if="item.file.time">{{
-                  formatHsdataDate(item.file.time)
-                }}</span>
-              </div>
-              <div class="mt-2 flex flex-wrap gap-2">
-                <UBadge
-                  v-if="item.file.sourceTag != null"
-                  :label="`sourceTag ${item.file.sourceTag}`"
-                  size="xs"
-                  color="primary"
-                  variant="soft"
-                />
-                <UBadge
-                  v-else
-                  label="未解析 sourceTag"
-                  size="xs"
-                  color="neutral"
-                  variant="outline"
-                />
-                <template v-if="item.file.sourceTag != null">
-                  <UBadge
-                    :label="
-                      getImportStatusBadge(
-                        item.status,
-                        true,
-                        loadingSourceVersions,
-                        sourceVersionError.length > 0,
-                      ).label
-                    "
-                    :color="
-                      getImportStatusBadge(
-                        item.status,
-                        true,
-                        loadingSourceVersions,
-                        sourceVersionError.length > 0,
-                      ).color
-                    "
-                    :variant="
-                      getImportStatusBadge(
-                        item.status,
-                        true,
-                        loadingSourceVersions,
-                        sourceVersionError.length > 0,
-                      ).variant
-                    "
-                    size="xs"
-                  />
-                  <UBadge
-                    :label="
-                      getProjectionStatusBadge(
-                        item.status,
-                        true,
-                        loadingSourceVersions,
-                        sourceVersionError.length > 0,
-                      ).label
-                    "
-                    :color="
-                      getProjectionStatusBadge(
-                        item.status,
-                        true,
-                        loadingSourceVersions,
-                        sourceVersionError.length > 0,
-                      ).color
-                    "
-                    :variant="
-                      getProjectionStatusBadge(
-                        item.status,
-                        true,
-                        loadingSourceVersions,
-                        sourceVersionError.length > 0,
-                      ).variant
-                    "
-                    size="xs"
-                  />
-                </template>
-              </div>
-            </button>
-            <UButton
-              :label="importForm.id === item.file.id ? '已选中' : '选择'"
-              size="xs"
-              :color="importForm.id === item.file.id ? 'primary' : 'neutral'"
-              variant="soft"
-              @click="selectSource(item.file)"
-            />
-          </div>
-        </div>
-      </UCard>
+        </UCard>
+      </div>
     </div>
 
     <UCard v-if="importResult">
@@ -896,13 +1039,44 @@
           <div class="mt-1 break-all font-mono text-sm">{{ metric.value }}</div>
         </div>
       </div>
+
+      <div
+        v-if="projectUnprojectedTagRows.length > 0"
+        class="rounded-lg border border-default p-3"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="text-xs text-muted">Unprojected Tag 明细</div>
+          <div class="text-xs text-muted">
+            显示前 {{ projectUnprojectedTagRows.length }} 项，共
+            {{ projectResult.unprojectedTags.length }} 项
+          </div>
+        </div>
+        <div class="mt-3 space-y-2">
+          <div
+            v-for="tag in projectUnprojectedTagRows"
+            :key="`${tag.enumId}:${tag.slug}`"
+            class="flex flex-wrap items-center gap-2 rounded-md border border-default px-3 py-2"
+          >
+            <UBadge
+              :label="String(tag.enumId)"
+              color="neutral"
+              variant="outline"
+              size="xs"
+            />
+            <span class="font-mono text-sm">{{ tag.slug }}</span>
+            <span class="ml-auto font-mono text-sm text-muted">
+              {{ tag.count }}
+            </span>
+          </div>
+        </div>
+      </div>
     </UCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
-import { useApiClient } from '~/composables/useApiClient';
+import { getDesktopHearthstonePublishTarget } from '~/composables/useDesktopSettings';
 import {
   formatHsdataBytes,
   formatHsdataDate,
@@ -912,12 +1086,15 @@ import {
   listenHsdataImportProgress,
   listLocalHsdataSourceVersions,
   listHsdataSources,
+  publishCurrentHsdataToRemote,
+  projectLocalHsdataSourceVersion,
   syncHsdataRemoteVersions,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataFile,
   HsdataImportProgressEvent,
   HsdataImportReport,
+  HsdataPublishReport,
   HsdataSourceVersionStatus,
   HsdataProjectReport,
   HsdataRepoState,
@@ -1022,7 +1199,6 @@ const IMPORT_PAGE_STATE_KEY = 'console-desktop-hearthstone-hsdata-import-page';
 const HSDATA_BATCH_TASK_STATE_KEY = 'console-desktop-hearthstone-hsdata-batch-task';
 
 const route = useRoute();
-const orpc = useApiClient();
 
 const state = ref<HsdataRepoState | null>(null);
 const loadingState = ref(false);
@@ -1041,6 +1217,13 @@ const importResult = ref<HsdataImportReport | null>(null);
 const projectError = ref('');
 const projecting = ref(false);
 const projectResult = ref<HsdataProjectReport | null>(null);
+const publishTargetId = ref<string | null>(null);
+const publishTargetEnvironment = ref<string | null>(null);
+const publishTargetFingerprint = ref<string | null>(null);
+const publishTargetError = ref('');
+const publishError = ref('');
+const publishing = ref(false);
+const publishResult = ref<HsdataPublishReport | null>(null);
 const syncing = ref(false);
 const sourceSortOrder = ref<SourceListSortOrder>('desc');
 const hideImportedSources = ref(false);
@@ -1462,6 +1645,25 @@ const canStartBatchProject = computed(() => {
     && !importing.value
     && !projecting.value;
 });
+const hasPublishTarget = computed(() => {
+  return Boolean(
+    publishTargetId.value
+    && publishTargetEnvironment.value
+    && publishTargetFingerprint.value,
+  );
+});
+const canPublish = computed(() => {
+  return Boolean(state.value?.repoPath)
+    && hasPublishTarget.value
+    && !hasBlockingBatchTask.value
+    && !loadingState.value
+    && !loadingFiles.value
+    && !loadingSourceVersions.value
+    && !syncing.value
+    && !importing.value
+    && !projecting.value
+    && !publishing.value;
+});
 const importProgressPhaseLabel = computed(() => {
   switch (importProgress.value?.phase) {
   case 'reading_source':
@@ -1665,6 +1867,11 @@ const projectReportMetrics = computed<ReportMetric[]>(() => {
       value: report.unprojectedTagCount,
     },
   ];
+});
+
+const projectUnprojectedTagRows = computed(() => {
+  const rows = projectResult.value?.unprojectedTags ?? [];
+  return rows.slice(0, 20);
 });
 
 /** Whether the provided value matches one supported source list sort order. */
@@ -2286,7 +2493,7 @@ function describeSelectedSourceStatus(
   }
 
   if (isLoading && status == null) {
-    return '正在加载这个 sourceTag 的导入与投影状态。';
+    return '正在加载这个 sourceTag 的导入、本地投影与发布状态。';
   }
 
   if (hasError && status == null) {
@@ -2310,7 +2517,7 @@ function describeSelectedSourceStatus(
   }
 
   if (status.projectionStatus === 'completed') {
-    return '这个 sourceTag 已完成导入和投影，可以直接复查投影结果。';
+    return '这个 sourceTag 已完成导入和本地投影，可以直接复查结果或继续发布。';
   }
 
   return '这个 sourceTag 已完成导入，下一步可以执行投影。';
@@ -2524,12 +2731,7 @@ async function runProjectForSourceTag(
   projectResult.value = null;
 
   try {
-    const result
-      = await orpc.hearthstone.dataSource.hsdata.projectSourceVersion({
-        sourceTag,
-        dryRun,
-        force,
-      });
+    const result = await projectLocalHsdataSourceVersion(sourceTag, dryRun, force);
     projectResult.value = result;
     return result;
   } catch (error) {
@@ -2907,6 +3109,24 @@ async function loadState() {
   }
 }
 
+/** Saved publish-target profile loaded for the remote publish card. */
+async function loadPublishTarget() {
+  publishTargetError.value = '';
+
+  try {
+    const target = await getDesktopHearthstonePublishTarget();
+    publishTargetId.value = target.publishTargetId ?? null;
+    publishTargetEnvironment.value = target.environment ?? null;
+    publishTargetFingerprint.value = target.targetFingerprint ?? null;
+  } catch (error) {
+    console.error('Failed to load Hearthstone publish target:', error);
+    publishTargetError.value = getHsdataErrorMessage(error);
+    publishTargetId.value = null;
+    publishTargetEnvironment.value = null;
+    publishTargetFingerprint.value = null;
+  }
+}
+
 /** Local hsdata source files loaded from the configured desktop repository. */
 async function loadFiles() {
   if (!state.value?.repoPath) {
@@ -2953,7 +3173,7 @@ async function reloadSourceList() {
 
 /** Full page data reload that reapplies the preferred selection after async loading completes. */
 async function reloadAll(selectedId: string | null = resolvePreferredSelectionId()) {
-  await Promise.all([loadState(), loadSourceVersions()]);
+  await Promise.all([loadState(), loadSourceVersions(), loadPublishTarget()]);
   await loadFiles();
   restoreSelection(selectedId);
 }
@@ -3006,6 +3226,37 @@ async function submitProject() {
     projectForm.dryRun,
     projectForm.force,
   );
+}
+
+/** Current local latest projection published to the configured remote target. */
+async function submitPublish() {
+  if (!canPublish.value) {
+    return;
+  }
+
+  publishing.value = true;
+  publishError.value = '';
+  publishResult.value = null;
+
+  try {
+    const result = await publishCurrentHsdataToRemote();
+    publishResult.value = result;
+    toast.add({
+      title:       '远端发布已完成',
+      description: `${result.publishTargetId} / ${result.environment} / changed=${result.changedCardCount}`,
+      color:       'success',
+    });
+  } catch (error) {
+    console.error('Failed to publish hsdata projection to remote:', error);
+    publishError.value = getHsdataErrorMessage(error);
+    toast.add({
+      title:       '远端发布失败',
+      description: publishError.value,
+      color:       'error',
+    });
+  } finally {
+    publishing.value = false;
+  }
 }
 
 watch(

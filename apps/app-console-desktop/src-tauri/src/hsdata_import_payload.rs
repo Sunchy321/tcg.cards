@@ -2148,11 +2148,8 @@ pub fn prepare_hsdata_stream_with_dbf_ids(
     let build_batches_started_at = Instant::now();
     let total_entity_count = u32::try_from(parsed.entities.len())
         .map_err(|_| "Too many hsdata entities to count".to_string())?;
-    let BuildEntityBatchesResult { batches } = build_entity_batches(
-        parsed.entities,
-        max_bytes_per_batch,
-        max_entities_per_batch,
-    )?;
+    let BuildEntityBatchesResult { batches } =
+        build_entity_batches(parsed.entities, max_bytes_per_batch, max_entities_per_batch)?;
     let split_batches_ms = elapsed_millis(&build_batches_started_at);
     let batch_count = u32::try_from(batches.len())
         .map_err(|_| "Too many hsdata entity batches to count".to_string())?;
@@ -2184,10 +2181,9 @@ mod tests {
     use super::{
         collect_legacy_entity_card_ids, hash_canonical_json, hash_snapshot_entity,
         parse_hsdata_xml, prepare_hsdata_payload, prepare_hsdata_payload_profiled,
-        prepare_hsdata_stream_with_dbf_ids,
-        prepare_hsdata_payload_with_dbf_ids, sha256_hex, snapshot_hash_value, write_json_string,
-        write_json_string_hash, Digest, Sha256, HSDATA_IMPORT_ENGINE_VERSION,
-        HSDATA_PAYLOAD_ENCODING, HSDATA_PAYLOAD_FORMAT_VERSION,
+        prepare_hsdata_payload_with_dbf_ids, prepare_hsdata_stream_with_dbf_ids, sha256_hex,
+        snapshot_hash_value, write_json_string, write_json_string_hash, Digest, Sha256,
+        HSDATA_IMPORT_ENGINE_VERSION, HSDATA_PAYLOAD_ENCODING, HSDATA_PAYLOAD_FORMAT_VERSION,
     };
     use std::collections::HashMap;
 

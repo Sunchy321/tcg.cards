@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use sea_orm::{
-    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DbBackend, QueryResult, Statement,
-    TransactionTrait, TryGetable,
+    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, DbBackend, QueryResult,
+    Statement, TransactionTrait, TryGetable,
 };
 use tauri::AppHandle;
 use tokio::time::timeout;
@@ -18,6 +18,8 @@ const DESKTOP_DATABASE_SCHEMA_SEARCH_PATH: &str = "hearthstone_data, hearthstone
 pub(crate) struct DesktopDatabaseIdentity {
     pub(crate) database_name: String,
     pub(crate) user_name: String,
+    pub(crate) server_host: Option<String>,
+    pub(crate) server_port: Option<i32>,
 }
 
 /// SeaORM connection used by desktop local data-processing commands.
@@ -33,13 +35,10 @@ impl DesktopDatabase {
         // enums resolve correctly even when codegen emits unqualified Postgres enum names.
         options.set_schema_search_path(DESKTOP_DATABASE_SCHEMA_SEARCH_PATH);
 
-        let connection = timeout(
-            DESKTOP_DATABASE_CONNECT_TIMEOUT,
-            Database::connect(options),
-        )
-        .await
-        .map_err(|_| "Timed out while connecting to PostgreSQL.".to_string())?
-        .map_err(|error| format!("Failed to connect to PostgreSQL: {error}"))?;
+        let connection = timeout(DESKTOP_DATABASE_CONNECT_TIMEOUT, Database::connect(options))
+            .await
+            .map_err(|_| "Timed out while connecting to PostgreSQL.".to_string())?
+            .map_err(|error| format!("Failed to connect to PostgreSQL: {error}"))?;
 
         Ok(Self { connection })
     }
@@ -95,7 +94,11 @@ pub(crate) async fn read_desktop_database_identity(
     let row = timeout(
         DESKTOP_DATABASE_QUERY_TIMEOUT,
         connection.query_one(postgres_statement(
-            "select current_database()::text as database_name, current_user::text as user_name",
+            "select \
+                current_database()::text as database_name, \
+                current_user::text as user_name, \
+                inet_server_addr()::text as server_host, \
+                coalesce(inet_server_port(), nullif(current_setting('port', true), '')::integer) as server_port",
         )),
     )
     .await
@@ -106,5 +109,7 @@ pub(crate) async fn read_desktop_database_identity(
     Ok(DesktopDatabaseIdentity {
         database_name: read_query_value(&row, "database_name")?,
         user_name: read_query_value(&row, "user_name")?,
+        server_host: read_query_value(&row, "server_host")?,
+        server_port: read_query_value(&row, "server_port")?,
     })
 }

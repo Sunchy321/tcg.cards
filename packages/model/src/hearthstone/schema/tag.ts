@@ -25,24 +25,20 @@ export const tagNormalizeKind = z.enum([
 ]);
 
 export const tagProjectKind = z.enum([
-  'assign_scalar',
-  'assign_bool',
-  'assign_int',
-  'assign_string',
-  'assign_enum',
+  'assign_value',
   'append_string_array',
   'assign_card_ref',
   'assign_localized_text',
   'assign_mechanic',
   'assign_referenced_tag',
   'assign_legacy',
+  'emit_relation',
 ]);
 
 export const tagProjectTargetType = z.enum([
   'entity',
   'entity_localization',
-  'relation',
-  'legacy',
+  'entity_relation',
 ]);
 
 export const tagStatus = z.enum([

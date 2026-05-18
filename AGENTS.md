@@ -76,6 +76,10 @@ Within a proposal or spec package, use these standard filenames:
 - `review.md` for the design review
 - `plan.md` for the implementation plan
 
+When moving a completed spec package into `archive/`, keep the original `design.md`, `review.md`, and `plan.md` files and also add a `summary.md`.
+
+The `summary.md` file must be the primary entry point for future lookup. It should tell readers to check `summary.md` first and only open `design.md`, `review.md`, or `plan.md` when they need detailed design reasoning, review history, or implementation history.
+
 After the related implementation is completed and the spec is no longer active, move the finalized spec package to `archive/`.
 
 Temporary proposals that are only used to reason through a small or discarded idea should be deleted when finished. Do not move temporary proposals to `archive/`.

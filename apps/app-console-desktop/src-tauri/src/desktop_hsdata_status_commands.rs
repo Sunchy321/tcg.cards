@@ -518,7 +518,10 @@ mod tests {
     /// Legacy ready-to-finalize rows collapse into finalizing for local runtime reads.
     #[test]
     fn normalizes_ready_to_finalize_status() {
-        assert_eq!(normalize_hsdata_import_job_status("ready_to_finalize"), "finalizing");
+        assert_eq!(
+            normalize_hsdata_import_job_status("ready_to_finalize"),
+            "finalizing"
+        );
         assert_eq!(normalize_hsdata_import_job_status("uploading"), "uploading");
     }
 

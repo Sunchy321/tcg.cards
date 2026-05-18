@@ -68,3 +68,51 @@ pub enum HsdataProjectionStatus {
     #[sea_orm(string_value = "failed")]
     Failed,
 }
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "publish_batch_status"
+)]
+pub enum PublishBatchStatus {
+    #[sea_orm(string_value = "draft")]
+    Draft,
+    #[sea_orm(string_value = "applying")]
+    Applying,
+    #[sea_orm(string_value = "completed")]
+    Completed,
+    #[sea_orm(string_value = "failed")]
+    Failed,
+}
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "publish_batch_card_action"
+)]
+pub enum PublishBatchCardAction {
+    #[sea_orm(string_value = "insert")]
+    Insert,
+    #[sea_orm(string_value = "update")]
+    Update,
+    #[sea_orm(string_value = "delete")]
+    Delete,
+    #[sea_orm(string_value = "unchanged")]
+    Unchanged,
+}
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "publish_batch_card_status"
+)]
+pub enum PublishBatchCardStatus {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "applied")]
+    Applied,
+    #[sea_orm(string_value = "skipped")]
+    Skipped,
+    #[sea_orm(string_value = "failed")]
+    Failed,
+}

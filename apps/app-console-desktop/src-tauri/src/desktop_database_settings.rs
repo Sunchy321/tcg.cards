@@ -88,7 +88,9 @@ pub(crate) fn load_desktop_database_connection_string(
 }
 
 /// Required external PostgreSQL connection string loaded from desktop secure storage.
-pub(crate) fn require_desktop_database_connection_string(app: &AppHandle) -> Result<String, String> {
+pub(crate) fn require_desktop_database_connection_string(
+    app: &AppHandle,
+) -> Result<String, String> {
     load_desktop_database_connection_string(app)?
         .ok_or_else(|| "External local PostgreSQL connection string is required.".to_string())
 }

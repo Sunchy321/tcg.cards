@@ -1,0 +1,46 @@
+import {
+  check,
+  index,
+  integer,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+import { dataSchema } from '../../shared/hearthstone/schema';
+
+// Remote publish ledger keeps the last successful batch per publish target so serving-side
+// environments can be reconciled without treating the remote database as a build authority.
+export const PublishLedger = dataSchema.table('publish_ledgers', {
+  publishTargetId: text('publish_target_id').primaryKey(),
+  environment:     text('environment').notNull(),
+
+  targetFingerprint: text('target_fingerprint').notNull(),
+  batchId:           uuid('batch_id').notNull(),
+
+  sourceTagMin: integer('source_tag_min').notNull(),
+  sourceTagMax: integer('source_tag_max').notNull(),
+  buildMin:     integer('build_min').notNull(),
+  buildMax:     integer('build_max').notNull(),
+
+  manifestHash:     text('manifest_hash').notNull(),
+  cardCount:        integer('card_count').notNull(),
+  changedCardCount: integer('changed_card_count').notNull().default(0),
+  publishedAt:      timestamp('published_at').notNull(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+}, table => [
+  index('publish_ledgers_environment_idx').on(table.environment),
+  index('publish_ledgers_published_at_idx').on(table.publishedAt),
+  check('publish_ledgers_source_tag_range_chk', sql`${table.sourceTagMin} <= ${table.sourceTagMax}`),
+  check('publish_ledgers_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
+  check('publish_ledgers_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
+  check('publish_ledgers_build_min_positive_chk', sql`${table.buildMin} > 0`),
+  check('publish_ledgers_card_count_nonnegative_chk', sql`${table.cardCount} >= 0`),
+  check('publish_ledgers_changed_card_count_nonnegative_chk', sql`${table.changedCardCount} >= 0`),
+]);

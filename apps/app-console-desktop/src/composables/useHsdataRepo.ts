@@ -172,6 +172,34 @@ export interface HsdataProjectReport {
   insertedRelations:     number;
   updatedRelations:      number;
   unprojectedTagCount:   number;
+  unprojectedTags:       HsdataUnprojectedTagReportRow[];
+}
+
+/** Remote publish report returned after applying the current local projection. */
+export interface HsdataPublishReport {
+  batchId:              string;
+  publishTargetId:      string;
+  environment:          string;
+  targetFingerprint:    string;
+  manifestHash:         string;
+  previousManifestHash: string | null;
+  sourceTagMin:         number;
+  sourceTagMax:         number;
+  buildMin:             number;
+  buildMax:             number;
+  cardCount:            number;
+  changedCardCount:     number;
+  insertedCardCount:    number;
+  updatedCardCount:     number;
+  deletedCardCount:     number;
+  unchangedCardCount:   number;
+  publishedAt:          string;
+}
+
+export interface HsdataUnprojectedTagReportRow {
+  enumId: number;
+  slug:   string;
+  count:  number;
 }
 
 export interface ReportMetric {
@@ -210,6 +238,26 @@ export function importHsdataSource(id: string, dryRun: boolean, force: boolean) 
     dryRun,
     force,
   });
+}
+
+/** Local Rust projection command executed against the configured desktop database. */
+export function projectLocalHsdataSourceVersion(
+  sourceTag: number,
+  dryRun: boolean,
+  force: boolean,
+) {
+  return invoke<HsdataProjectReport>('hsdata_project_source_version_local', {
+    input: {
+      sourceTag,
+      dryRun,
+      force,
+    },
+  });
+}
+
+/** Current local latest projection published to the configured remote target. */
+export function publishCurrentHsdataToRemote() {
+  return invoke<HsdataPublishReport>('hsdata_publish_current_to_remote');
 }
 
 /** Local hsdata source version rows loaded from the configured desktop database. */

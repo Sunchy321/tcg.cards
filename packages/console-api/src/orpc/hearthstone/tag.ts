@@ -16,6 +16,31 @@ import {
 
 type TagRow = typeof Tag.$inferSelect;
 
+const projectKinds = new Set([
+  'assign_value',
+  'append_string_array',
+  'assign_card_ref',
+  'assign_localized_text',
+  'assign_mechanic',
+  'assign_referenced_tag',
+  'assign_legacy',
+  'emit_relation',
+]);
+
+const projectTargetTypes = new Set([
+  'entity',
+  'entity_localization',
+  'entity_relation',
+]);
+
+const enumMapAliases = new Set([
+  'set',
+  'rarity',
+  'multiclass',
+  'spell-school',
+  'race',
+]);
+
 function toIsoString(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
@@ -106,17 +131,41 @@ function assertTagUpdate(input: TagUpdateInput) {
   if (input.normalizeKind === 'enum_from_int') {
     const enumMap = input.normalizeConfig.enumMap;
 
-    if (typeof enumMap === 'string' && enumMap !== 'set') {
+    if (typeof enumMap === 'string' && !enumMapAliases.has(enumMap)) {
       throw new ORPCError('BAD_REQUEST', {
-        message: 'normalizeConfig.enumMap only supports the special string value "set"',
+        message: 'normalizeConfig.enumMap only supports the string aliases "set", "rarity", "multiclass", "spell-school", and "race"',
       });
     }
 
     if (enumMap != null && typeof enumMap !== 'string' && (typeof enumMap !== 'object' || Array.isArray(enumMap))) {
       throw new ORPCError('BAD_REQUEST', {
-        message: 'normalizeConfig.enumMap must be an object or the special string value "set"',
+        message: 'normalizeConfig.enumMap must be an object or one of the supported string aliases',
       });
     }
+  }
+
+  if (input.projectKind != null && !projectKinds.has(input.projectKind)) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: `Unsupported projectKind: ${input.projectKind}`,
+    });
+  }
+
+  if (input.projectTargetType != null && !projectTargetTypes.has(input.projectTargetType)) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: `Unsupported projectTargetType: ${input.projectTargetType}`,
+    });
+  }
+
+  if (input.projectKind === 'assign_localized_text' && input.projectTargetType !== 'entity_localization') {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'assign_localized_text requires projectTargetType=entity_localization',
+    });
+  }
+
+  if (input.projectKind === 'emit_relation' && input.projectTargetType !== 'entity_relation') {
+    throw new ORPCError('BAD_REQUEST', {
+      message: 'emit_relation requires projectTargetType=entity_relation',
+    });
   }
 }
 
