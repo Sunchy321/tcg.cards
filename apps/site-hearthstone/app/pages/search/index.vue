@@ -42,7 +42,7 @@
         <UButton
           icon="lucide:library"
           variant="soft"
-          :to="{ path: '/search', query: { q: 'order:set+,name+' } }"
+          to="/sets"
         >
           {{ $t('hearthstone.search.advanced.browseSets') }}
         </UButton>
@@ -63,7 +63,7 @@
           <UButton
             icon="lucide:library"
             variant="soft"
-            :to="{ path: '/search', query: { q: 'order:set+,name+' } }"
+            to="/sets"
           >
             {{ $t('hearthstone.search.advanced.browseSets') }}
           </UButton>
@@ -111,12 +111,11 @@
                         {{ card.localization.name }}
                       </h2>
 
-                      <div
+                      <ManaCost
                         v-if="card.cost != null"
-                        class="shrink-0 rounded-full bg-primary text-white text-sm font-bold w-8 h-8 flex items-center justify-center"
-                      >
-                        {{ card.cost }}
-                      </div>
+                        :value="card.cost"
+                        size="sm"
+                      />
                     </div>
 
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -323,7 +322,12 @@ const minVersion = (card: CardEntityView) => {
 
 const previewText = (card: CardEntityView) => {
   const text = card.localization.displayText ?? card.localization.text ?? '';
-  return text.replace(/\s+/g, ' ').trim().slice(0, 180);
+  return text
+    .replace(/<[^>]+>/g, '')
+    .replace(/\[\/?[bi]\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
 };
 
 const doSearch = async () => {

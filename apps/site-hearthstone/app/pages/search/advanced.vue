@@ -126,7 +126,7 @@
                     v-for="item in costItems"
                     :key="item.value"
                     class="cost-btn"
-                    :class="{ active: state.costs.includes(item.value) }"
+                    :class="{ active: state.costs.includes(item.value), 'cost-btn--plus': item.value === '10+' }"
                     @click="toggleMulti(state.costs, item.value)"
                   >
                     <span class="cost-num">{{ item.label === '10+' ? '10' : item.label }}</span>
@@ -467,8 +467,7 @@ useTitle(() => t('hearthstone.search.advanced.$self'));
 
 const searchUrl = computed(() => dsl.value === '' ? undefined : `/search?q=${encodeURIComponent(dsl.value)}`);
 const browseSetsUrl = {
-  path:  '/search',
-  query: { q: 'order:set+,name+' },
+  path: '/sets',
 };
 
 const costItems = computed(() => ([
@@ -480,7 +479,7 @@ const costItems = computed(() => ([
 ]));
 
 const attackItems = computed(() => ([
-  ...Array.from({ length: 11 }, (_, index) => {
+  ...Array.from({ length: 10 }, (_, index) => {
     const value = String(index);
     return { value, label: value };
   }),
@@ -488,7 +487,7 @@ const attackItems = computed(() => ([
 ]));
 
 const healthItems = computed(() => ([
-  ...Array.from({ length: 11 }, (_, index) => {
+  ...Array.from({ length: 10 }, (_, index) => {
     const value = String(index);
     return { value, label: value };
   }),
@@ -610,7 +609,7 @@ const classColors: Record<string, string> = {
 };
 
 const getClassColorStyle = (className: string) => {
-  const color = classColors[className] || '#9E9E9E';
+  const color = classColors[className] ?? '#9E9E9E';
   return { backgroundColor: color };
 };
 
@@ -821,6 +820,18 @@ const getClassIconStyle = (className: string) => {
     transform: translateY(-50%);
     z-index: 1;
     line-height: 1;
+  }
+
+  &.cost-btn--plus {
+    .cost-num {
+      font-size: 14px;
+      transform: translateX(-2px);
+    }
+
+    .cost-plus {
+      font-size: 16px;
+      right: 3px;
+    }
   }
 
   &::before {

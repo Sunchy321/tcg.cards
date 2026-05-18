@@ -19,6 +19,22 @@ type SearchOption = {
   orderBy:  string;
 };
 
+const defaultVisibleCardQuery = and(
+  eq(CardEntityView.collectible, true),
+  eq(CardEntityView.inBobsTavern, false),
+  sql`${CardEntityView.type} in ('minion', 'spell', 'weapon', 'location', 'hero')`,
+  sql`(
+    ${CardEntityView.type} in ('minion', 'spell', 'weapon', 'location')
+    or (
+      ${CardEntityView.type} = 'hero'
+      and (
+        nullif(btrim(${CardEntityView.localization.displayText}), '') is not null
+        or ${CardEntityView.armor} is not null
+      )
+    )
+  )`,
+);
+
 export const search = as
   .table(CardEntityView)
   .handler(async (query, post, options: SearchOption): Promise<NormalResult> => {
@@ -40,11 +56,12 @@ export const search = as
         meta:  {},
         table: CardEntityView,
       });
+    const visibleQuery = and(query, defaultVisibleCardQuery);
 
     const subquery = db
       .selectDistinctOn([CardEntityView.cardId])
       .from(CardEntityView)
-      .where(query)
+      .where(visibleQuery)
       .orderBy(
         CardEntityView.cardId,
         sql`CASE
@@ -79,7 +96,7 @@ export const search = as
     const countResult = await db
       .select({ count: sql`count(distinct card_id)`.as('count') })
       .from(CardEntityView)
-      .where(query);
+      .where(visibleQuery);
 
     const total = Number(countResult[0]?.count ?? 0);
     const totalPage = Math.ceil(total / pageSize);

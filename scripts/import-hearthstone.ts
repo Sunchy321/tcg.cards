@@ -28,6 +28,7 @@ const DATABASE_URL = process.env.DATABASE_URL
   ?? process.env['HYPERDRIVE.localConnectionString']
   ?? process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE;
 const BATCH_SIZE = 50; // Insert in batches of 50 to avoid memory issues
+const PLAGUE_TOKEN_IDS = ['TTN_450t', 'TTN_450t2', 'TTN_450t3'];
 
 const IMPORT_TO_DB = process.argv.includes('--db');
 const REUSE_HS_DATA = process.argv.includes('--reuse') || process.argv.includes('--skip-download');
@@ -119,6 +120,10 @@ interface EntityData {
   referencedTags?: string[];
   entourages?: string[];
   relations?: Array<{ relation: string; targetId: string }>;
+  relatedDbfIds?: number[];
+  scriptDataNums?: number[];
+  questProgress?: number | null;
+  isHerald?: boolean;
   tags?: Array<Record<string, unknown>>;
 }
 
@@ -216,6 +221,19 @@ async function clearVersionData(databaseUrl: string, version: number) {
     await sql.unsafe(`delete from hearthstone.card_relations where version = ARRAY[${version}]::integer[]`);
     await sql.unsafe(`delete from hearthstone.entity_localizations where version = ARRAY[${version}]::integer[]`);
     await sql.unsafe(`delete from hearthstone.entities where version = ARRAY[${version}]::integer[]`);
+  } finally {
+    await sql.end();
+  }
+}
+
+async function clearLegacyFallbackData(databaseUrl: string, sourceVersion: number) {
+  if (sourceVersion === 1) return;
+
+  const sql = postgres(databaseUrl, { max: 1 });
+  try {
+    await sql.unsafe('delete from hearthstone.card_relations where version = ARRAY[1]::integer[]');
+    await sql.unsafe('delete from hearthstone.entity_localizations where version = ARRAY[1]::integer[]');
+    await sql.unsafe('delete from hearthstone.entities where version = ARRAY[1]::integer[]');
   } finally {
     await sql.end();
   }
@@ -373,6 +391,11 @@ async function parseAndTransform(state: ImportState): Promise<EntityData[]> {
     }
   }
 
+  resolveDbfRelations(transformed);
+  resolveHeraldRelations(transformed);
+  resolveTitanRelations(transformed);
+  resolvePlagueRelations(transformed);
+
   state.processedEntities = processedCount;
   state.progress = 80;
   state.currentStep = 'Transformation completed';
@@ -448,6 +471,10 @@ function transformEntity(entity: any, sourceVersion: number): EntityData | null 
   const health = getNumber('HEALTH');
   const durability = getNumber('DURABILITY');
   const armor = getNumber('ARMOR');
+  const questProgress = getNumber('QUEST_PROGRESS_TOTAL');
+  const scriptDataNums = [1, 2, 3, 4, 5, 6]
+    .map(index => getNumber(`TAG_SCRIPT_DATA_NUM_${index}`))
+    .filter((value): value is number => value != null);
 
   // Extract enum values
   const cardType = getNumber('CARDTYPE');
@@ -457,6 +484,7 @@ function transformEntity(entity: any, sourceVersion: number): EntityData | null 
   const spellSchool = getNumber('SPELL_SCHOOL');
   const set = getNumber('CARD_SET');
   const classes = getTagValues('CLASS');
+  const relatedDbfIds = getTagValues('COLLECTION_RELATED_CARD_DATABASE_ID');
 
   // Extract boolean flags
   const collectible = getTagValue('COLLECTIBLE') === '1';
@@ -513,6 +541,10 @@ function transformEntity(entity: any, sourceVersion: number): EntityData | null 
     referencedTags,
     entourages,
     relations: dedupeRelations(relations),
+    relatedDbfIds,
+    scriptDataNums,
+    questProgress: questProgress ?? scriptDataNums[0] ?? null,
+    isHerald: getTagValue('HERALD') === '1',
     tags: tagArray,
   };
 }
@@ -568,6 +600,8 @@ async function importToDatabase(entities: EntityData[], state: ImportState): Pro
   const sourceVersion = importableEntities[0]?.version;
 
   if (sourceVersion != null) {
+    log('Clearing legacy fallback build rows before import...');
+    await clearLegacyFallbackData(DATABASE_URL, sourceVersion);
     log(`Clearing existing rows for build ${sourceVersion} before import...`);
     await clearVersionData(DATABASE_URL, sourceVersion);
   }
@@ -622,7 +656,7 @@ async function importToDatabase(entities: EntityData[], state: ImportState): Pro
           race: race ? [race] : null,
           spellSchool,
           questType: null,
-          questProgress: null,
+          questProgress: entity.questProgress ?? null,
           questPart: null,
           heroPower: null,
           heroicHeroPower: null,
@@ -731,16 +765,185 @@ function buildLocalizations(entity: EntityData) {
   const fallbackName = entity.name?.en ?? Object.values(entity.name ?? {})[0] ?? 'Unknown';
   const fallbackText = entity.text?.en ?? Object.values(entity.text ?? {})[0] ?? '';
 
-  return [...langs].map(lang => ({
-    lang,
-    name:   entity.name?.[lang] ?? fallbackName,
-    text:   entity.text?.[lang] ?? fallbackText,
-    flavor: entity.flavor?.[lang] ?? null,
-  }));
+  return [...langs].map(lang => {
+    const text = cleanCardText(entity.text?.[lang] ?? fallbackText, entity);
+
+    return {
+      lang,
+      name:   entity.name?.[lang] ?? fallbackName,
+      text,
+      flavor: entity.flavor?.[lang] ?? null,
+    };
+  });
 }
 
 function normalizeRelationName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function cleanCardText(value: string, entity: EntityData) {
+  const scriptNum = entity.scriptDataNums?.[0] ?? entity.questProgress ?? null;
+  const alternateTextSeparator = /@(?=(?:\[x\])?(?:&lt;b&gt;|<b>))/;
+  let text = alternateTextSeparator.test(value) ? value.split(alternateTextSeparator)[0]! : value;
+
+  text = text
+    .replace(/\[x\]/gi, '')
+    .replace(/_/g, ' ')
+    .replace(/\$(\d+)/g, '$1')
+    .replace(/@/g, scriptNum != null ? String(scriptNum) : '')
+    .replace(/\{(\d+)\}/g, (match, index: string, offset: number, input: string) => {
+      const before = input.slice(Math.max(0, offset - 24), offset);
+      if (/(?:Herald|兆示|预兆|預兆)(?:<\/b>)?\s*$/.test(before)) return '';
+
+      const number = entity.scriptDataNums?.[Number.parseInt(index, 10)] ?? scriptNum;
+      return number != null ? String(number) : match;
+    })
+    .replace(/\|4\(([^)]*)\)/g, (_match, options: string) => {
+      const forms = options.split(',').map(part => part.trim()).filter(Boolean);
+      return forms.at(-1) ?? '';
+    })
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+
+  return text;
+}
+
+function resolveDbfRelations(entities: EntityData[]) {
+  const cardIdByDbf = new Map(entities.map(entity => [entity.dbfId, entity.cardId]));
+
+  for (const entity of entities) {
+    const collectionRelations = (entity.relatedDbfIds ?? [])
+      .map(dbfId => cardIdByDbf.get(dbfId))
+      .filter((targetId): targetId is string => targetId != null && targetId !== entity.cardId)
+      .map(targetId => ({
+        relation: 'collection_related',
+        targetId,
+      }));
+
+    if (collectionRelations.length > 0) {
+      entity.relations = dedupeRelations([
+        ...(entity.relations ?? []),
+        ...collectionRelations,
+      ]);
+    }
+  }
+}
+
+function resolveHeraldRelations(entities: EntityData[]) {
+  const tokenByClass = new Map<string, EntityData[]>();
+  const allTokens: EntityData[] = [];
+
+  for (const entity of entities) {
+    if (!isHeraldToken(entity)) continue;
+
+    const classes = getEntityClasses(entity);
+    for (const klass of classes) {
+      const tokens = tokenByClass.get(klass) ?? [];
+      tokens.push(entity);
+      tokenByClass.set(klass, tokens);
+    }
+    allTokens.push(entity);
+  }
+
+  for (const entity of entities) {
+    if (!entity.isHerald || !entity.collectible) continue;
+
+    const classes = getEntityClasses(entity);
+    const tokens = classes.length === 0
+      ? allTokens
+      : classes.flatMap(klass => tokenByClass.get(klass) ?? []);
+
+    const heraldRelations = dedupeHeraldTokens(tokens).map(token => ({
+      relation: 'herald_token',
+      targetId:  token.cardId,
+    }));
+
+    if (heraldRelations.length > 0) {
+      entity.relations = dedupeRelations([
+        ...(entity.relations ?? []),
+        ...heraldRelations,
+      ]);
+    }
+  }
+}
+
+function resolveTitanRelations(entities: EntityData[]) {
+  const entitiesByPrefix = new Map<string, EntityData[]>();
+
+  for (const entity of entities) {
+    const prefix = entity.cardId.replace(/[et]\d*$/, '');
+    const group = entitiesByPrefix.get(prefix) ?? [];
+    group.push(entity);
+    entitiesByPrefix.set(prefix, group);
+  }
+
+  for (const entity of entities) {
+    if (!entity.collectible || !entity.mechanics?.includes('titan')) continue;
+
+    const titanAbilities = (entitiesByPrefix.get(entity.cardId) ?? [])
+      .filter(card => card.cardId !== entity.cardId)
+      .filter(card => card.cardId.startsWith(`${entity.cardId}t`))
+      .filter(card => card.cardType === 5);
+
+    if (titanAbilities.length === 0) continue;
+
+    entity.relations = dedupeRelations([
+      ...(entity.relations ?? []),
+      ...titanAbilities.map(card => ({
+        relation: 'titan_ability',
+        targetId:  card.cardId,
+      })),
+    ]);
+  }
+}
+
+function resolvePlagueRelations(entities: EntityData[]) {
+  const tokenIds = new Set(PLAGUE_TOKEN_IDS);
+  const plagueTokens = entities.filter(entity => tokenIds.has(entity.cardId));
+
+  if (plagueTokens.length === 0) return;
+
+  for (const entity of entities) {
+    if (tokenIds.has(entity.cardId) || !mentionsPlague(entity)) continue;
+
+    entity.relations = dedupeRelations([
+      ...(entity.relations ?? []),
+      ...plagueTokens.map(token => ({
+        relation: 'plague_token',
+        targetId:  token.cardId,
+      })),
+    ]);
+  }
+}
+
+function mentionsPlague(entity: EntityData) {
+  const text = Object.values(entity.text ?? {}).join('\n');
+  return /\bPlagues?\b|疫病|瘟疫/.test(text);
+}
+
+function isHeraldToken(entity: EntityData) {
+  const text = `${entity.text?.en ?? ''}\n${entity.text?.zhs ?? ''}`;
+  return entity.collectible !== true
+    && entity.cardType === 4
+    && /(?:Herald|兆示|预兆|預兆)/.test(text);
+}
+
+function getEntityClasses(entity: EntityData) {
+  return (entity.classes ?? []).map(mapClass).filter((value): value is string => value != null);
+}
+
+function dedupeHeraldTokens(tokens: EntityData[]) {
+  const seen = new Set<string>();
+  const result: EntityData[] = [];
+
+  for (const token of tokens) {
+    const key = token.name?.en ?? token.cardId;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(token);
+  }
+
+  return result;
 }
 
 function dedupeRelations(relations: Array<{ relation: string; targetId: string }>) {

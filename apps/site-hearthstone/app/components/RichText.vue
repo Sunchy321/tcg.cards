@@ -22,19 +22,24 @@ const rawText = computed(() => {
 const rendered = computed(() => {
   let text = rawText.value.trim();
 
-  // Escape HTML
   text = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // Bold keyword patterns: [b]...[/b] or lines starting with keywords
-  text = text.replace(/\[b\](.*?)\[\/b\]/g, '<strong>$1</strong>');
+  text = text
+    .replace(/\[b\](.*?)\[\/b\]/gis, '<strong>$1</strong>')
+    .replace(/&lt;b&gt;(.*?)&lt;\/b&gt;/gis, '<strong>$1</strong>');
 
-  // Italic
-  text = text.replace(/\[i\](.*?)\[\/i\]/g, '<em>$1</em>');
+  text = text
+    .replace(/\[i\](.*?)\[\/i\]/gis, '<em>$1</em>')
+    .replace(/&lt;i&gt;(.*?)&lt;\/i&gt;/gis, '<em>$1</em>');
 
-  // Newlines to <br> unless disabled
+  text = text
+    .replace(/\[x\]/gi, '')
+    .replace(/&lt;\/?(?:b|i)&gt;/gi, '')
+    .replace(/@/g, '');
+
   if (!props.disableNewline) {
     text = text.replace(/\n/g, '<br>');
   }

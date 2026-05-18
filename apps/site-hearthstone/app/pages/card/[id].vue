@@ -31,19 +31,6 @@
               {{ data.artist }}
             </div>
 
-            <div class="mt-4 flex gap-2">
-              <UButton
-                v-if="jsonLink"
-                class="flex-1"
-                size="sm"
-                variant="outline"
-                :to="jsonLink"
-                target="_blank"
-                icon="lucide:braces"
-              >
-                JSON
-              </UButton>
-            </div>
           </UCard>
         </div>
       </div>
@@ -54,9 +41,7 @@
           <!-- Name + Cost -->
           <div class="flex items-center justify-between gap-2 mb-2">
             <h1 class="text-3xl font-bold">{{ data.localization.name }}</h1>
-            <div v-if="data.cost != null" class="text-2xl font-bold shrink-0 bg-blue-500 text-white rounded-full w-10 h-10 flex items-center justify-center shadow">
-              {{ data.cost }}
-            </div>
+            <ManaCost v-if="data.cost != null" :value="data.cost" />
           </div>
 
           <!-- Type + Race + Stats -->
@@ -86,39 +71,51 @@
             {{ data.localization.flavorText }}
           </div>
 
-          <!-- Mechanics + Referenced tags -->
-          <div v-if="mechanics.length > 0 || referencedTags.length > 0" class="flex flex-wrap gap-2 mb-6">
-            <UBadge
-              v-for="m in mechanics"
-              :key="m"
-              color="primary"
-              variant="subtle"
-              class="cursor-pointer"
-              @click="copyTag(m)"
-            >
-              {{ mechanicText(m) }}
-            </UBadge>
-            <UBadge
-              v-for="r in referencedTags"
-              :key="r"
-              color="neutral"
-              variant="subtle"
-              class="cursor-pointer"
-              @click="copyTag(r)"
-            >
-              {{ mechanicText(r) }}
+          <!-- Set -->
+          <div v-if="setText" class="flex flex-wrap gap-2 mb-6">
+            <UBadge color="primary" variant="subtle" size="lg">
+              {{ setText }}
             </UBadge>
           </div>
 
           <!-- Related cards -->
-          <div v-if="data.relatedCards.length > 0" class="border rounded-lg divide-y mb-6">
-            <div
-              v-for="rel in data.relatedCards"
-              :key="rel.cardId"
-              class="flex items-center gap-2 px-3 py-2"
-            >
-              <UIcon :name="relationIcon(rel.relation)" class="shrink-0 text-gray-400" />
-              <CardAvatar :card-id="rel.cardId" :version="rel.version[0]" />
+          <div v-if="relatedGroups.length > 0" class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.related') }}</h2>
+
+            <div class="space-y-4">
+              <div
+                v-for="group in relatedGroups"
+                :key="group.relation"
+                class="border rounded-lg overflow-hidden"
+              >
+                <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm font-medium">
+                  <UIcon :name="relationIcon(group.relation)" class="shrink-0 text-gray-400" />
+                  <span>{{ relationText(group.relation) }}</span>
+                </div>
+                <div class="grid gap-2 p-3 sm:grid-cols-2">
+                  <NuxtLink
+                    v-for="rel in group.cards"
+                    :key="`${rel.relation}:${rel.cardId}`"
+                    :to="relatedLink(rel)"
+                    class="block min-w-0 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 hover:opacity-80"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-medium text-primary truncate">
+                        {{ rel.name ?? rel.cardId }}
+                      </span>
+                      <UBadge v-if="rel.type" color="neutral" variant="subtle" size="sm">
+                        {{ $t(`hearthstone.card.type.${rel.type}`) }}
+                      </UBadge>
+                    </div>
+                    <RichText
+                      v-if="rel.displayText"
+                      class="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-300"
+                    >
+                      {{ rel.displayText }}
+                    </RichText>
+                  </NuxtLink>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -147,7 +144,7 @@
           <UCard>
             <h2 class="text-xl font-semibold mb-4">{{ $t('hearthstone.card.versions') }}</h2>
 
-            <div class="divide-y">
+            <div v-if="versionInfos.length > 0" class="divide-y">
               <div
                 v-for="v in versionInfos"
                 :key="v.versions[0]"
@@ -336,7 +333,7 @@ watch(versions, async values => {
         const p = await $orpc.hearthstone.patch.full({ buildNumber: n });
         if (p) patchProfiles.value[n] = p;
       } catch {
-        // patch info unavailable
+        // Patch info can be unavailable for older imported builds.
       }
     });
   }));
@@ -376,34 +373,6 @@ const mechanics = computed(() =>
   (data.value?.mechanics ?? []).filter(v => !v.startsWith('?')),
 );
 
-const referencedTags = computed(() =>
-  (data.value?.referencedTags ?? []).filter(v => !v.startsWith('?')),
-);
-
-const mechanicText = (m: string) => {
-  if (m.includes(':')) {
-    const sep = m.indexOf(':');
-    const mid = m.slice(0, sep);
-    const arg = m.slice(sep + 1);
-    const key = `hearthstone.tag.${mid}`;
-    return `${te(key) ? t(key) : mid}:${arg}`;
-  }
-  const key = `hearthstone.tag.${m}`;
-  return te(key) ? t(key) : m;
-};
-
-const toast = useToast();
-
-const copyTag = async (tag: string) => {
-  const tagName = /^[^:]+(:|$)/.exec(tag)![0]!;
-  try {
-    await navigator.clipboard.writeText(tagName);
-    toast.add({ title: t('hearthstone.card.tagCopied'), color: 'success' });
-  } catch {
-    // clipboard not available
-  }
-};
-
 // Legalities
 
 const legalityEntries = computed(() =>
@@ -415,6 +384,104 @@ const legalityColor = (status: string) => ({
   banned:     'text-red-500',
   restricted: 'text-yellow-500',
 }[status] ?? 'text-gray-500');
+
+// Set
+
+const setText = computed(() => {
+  const set = data.value?.set;
+  if (!set) return null;
+
+  const setLocale = lang.value === 'zhs' || lang.value === 'zht' ? lang.value : 'en';
+  const key = `hearthstone.set.${set}`;
+  return nativeSetNames[setLocale][set] ?? (te(key) ? t(key) : set);
+});
+
+const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
+  en: {
+    CORE:     'Core',
+    SET_1691: 'Murder at Castle Nathria',
+    SET_1809: 'Festival of Legends',
+    SET_1858: 'TITANS',
+    SET_1892: 'Showdown in the Badlands',
+    SET_1897: 'Whizbang\'s Workshop',
+    SET_1905: 'Perils in Paradise',
+    SET_1935: 'The Great Dark Beyond',
+    SET_1946: 'Into the Emerald Dream',
+    SET_1952: 'The Lost City of Un\'Goro',
+    SET_1980: 'CATACLYSM',
+  },
+  zhs: {
+    CORE:     '核心',
+    SET_1691: '纳斯利亚堡的悬案',
+    SET_1809: '传奇音乐节',
+    SET_1858: '泰坦诸神',
+    SET_1892: '决战荒芜之地',
+    SET_1897: '威兹班的工坊',
+    SET_1905: '胜地历险记',
+    SET_1935: '深暗领域',
+    SET_1946: '翡翠梦境',
+    SET_1952: '安戈洛龟途',
+    SET_1980: '大地的裂变',
+  },
+  zht: {
+    CORE:     '核心',
+    SET_1691: '納斯利亞堡懸案',
+    SET_1809: '傳奇音樂祭',
+    SET_1858: '泰坦',
+    SET_1892: '決戰荒蕪之地',
+    SET_1897: '威茲邦的工作坊',
+    SET_1905: '天堂島危機',
+    SET_1935: '無垠黑暗之境',
+    SET_1946: '深入翡翠夢境',
+    SET_1952: '安戈洛失落之城',
+    SET_1980: '浩劫與重生',
+  },
+};
+
+// Related cards
+
+const relationOrder = [
+  'hero_power',
+  'heroic_hero_power',
+  'titan_ability',
+  'plague_token',
+  'herald_token',
+  'entourage',
+  'collection_related',
+  'token',
+  'source',
+];
+
+const relatedGroups = computed(() => {
+  const groups = new Map<string, NonNullable<typeof data.value>['relatedCards']>();
+
+  for (const rel of data.value?.relatedCards ?? []) {
+    const cards = groups.get(rel.relation) ?? [];
+    cards.push(rel);
+    groups.set(rel.relation, cards);
+  }
+
+  return [...groups.entries()]
+    .sort(([a], [b]) => {
+      const ai = relationOrder.indexOf(a);
+      const bi = relationOrder.indexOf(b);
+      return (ai === -1 ? relationOrder.length : ai) - (bi === -1 ? relationOrder.length : bi);
+    })
+    .map(([relation, cards]) => ({ relation, cards }));
+});
+
+const relationText = (relation: string): string => {
+  const key = `hearthstone.card.relation.${relation}`;
+  return te(key) ? t(key) : relation;
+};
+
+const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]) => ({
+  path:  `/card/${rel.cardId}`,
+  query: {
+    lang: lang.value,
+    ...(rel.version[0] != null ? { version: rel.version[0] } : {}),
+  },
+});
 
 // Variant
 
@@ -445,21 +512,10 @@ watch(hasTechLevel, v => {
   if (!v) variant.value = 'normal';
 }, { immediate: true });
 
-// Links
-
-const jsonLink = computed(() => {
-  if (!data.value) return undefined;
-  const params = new URLSearchParams({
-    cardId: data.value.cardId,
-    lang:   lang.value,
-  });
-  if (version.value) params.set('version', String(version.value));
-  return `/rpc/hearthstone/card/get?${params.toString()}`;
-});
-
 // Relation icon
 
 const relationIcon = (relation: string): string => ({
+  collection_related: 'lucide:refresh-cw',
   emblem:         'lucide:shield',
   intext:         'lucide:search',
   meld:           'lucide:git-merge',
@@ -468,5 +524,11 @@ const relationIcon = (relation: string): string => ({
   source:         'lucide:list-tree',
   stick_on:       'lucide:layers',
   token:          'lucide:square',
+  entourage:      'lucide:boxes',
+  herald_token:   'lucide:sparkles',
+  hero_power:     'lucide:zap',
+  heroic_hero_power: 'lucide:zap',
+  plague_token:   'lucide:biohazard',
+  titan_ability:  'lucide:badge-bolt',
 } as Record<string, string>)[relation] ?? 'lucide:copy';
 </script>

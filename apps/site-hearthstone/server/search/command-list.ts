@@ -147,7 +147,23 @@ export const flavorText = cs
 
 export const set = cs
   .commands.set
-  .apply(table => table.set, {});
+  .handler(({ value, operator, qualifier }, { table }) => {
+    const column = sql<string>`lower(${table.set})`;
+    const values = value.split(',').map(v => v.toLowerCase());
+
+    switch (operator) {
+    case ':':
+      return !qualifier.includes('!')
+        ? inArray(column, values)
+        : notInArray(column, values);
+    case '=':
+      return !qualifier.includes('!')
+        ? eq(column, value.toLowerCase())
+        : not(eq(column, value.toLowerCase()));
+    default:
+      throw new QueryError({ type: 'invalid-query' });
+    }
+  });
 
 export const classes = cs
   .commands.classes

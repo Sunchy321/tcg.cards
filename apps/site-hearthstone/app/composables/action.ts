@@ -10,12 +10,10 @@ export const getHearthstoneActionMeta = () => {
 export const useHearthstoneActions = () => {
   const meta = getHearthstoneActionMeta();
 
-  const { $orpc } = useNuxtApp();
-
   const random = {
     ...meta.random,
     handler: async () => {
-      const cardId = await $orpc.hearthstone.card.random();
+      const cardId = await $fetch<string>('/api/hearthstone/random-card');
 
       await navigateTo(`/card/${cardId}`);
     },

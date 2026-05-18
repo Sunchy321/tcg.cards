@@ -1,18 +1,19 @@
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
-import { random as randomInt, omit } from 'lodash-es';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { omit } from 'lodash-es';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { diff as jsonDiff } from 'jsondiffpatch';
 
 import { db } from '#db/db';
-import { Card } from '#schema/hearthstone/card';
 import { CardEntityView, EntityView } from '#schema/hearthstone/entity';
 import { CardRelation } from '#schema/hearthstone/card-relation';
 
 import { locale } from '#model/hearthstone/schema/basic';
 import { cardProfile } from '#model/hearthstone/schema/card';
 import { cardEntityView, cardFullView } from '#model/hearthstone/schema/entity';
+
+import { getRandomCardId } from '~~/server/utils/random-card';
 
 const random = os
   .route({
@@ -23,8 +24,11 @@ const random = os
   .input(z.any())
   .output(z.string())
   .handler(async () => {
-    const cards = await db.select({ cardId: Card.cardId }).from(Card);
-    const cardId = cards[randomInt(0, cards.length - 1)]!.cardId;
+    const cardId = await getRandomCardId();
+
+    if (cardId == null) {
+      throw new ORPCError('NOT_FOUND');
+    }
 
     return cardId;
   });
@@ -44,7 +48,7 @@ const summary = os
   .handler(async ({ input }) => {
     const { cardId, lang, version } = input;
 
-    const card = await db.select().from(CardEntityView)
+    let card = await db.select().from(CardEntityView)
       .where(and(
         eq(CardEntityView.cardId, cardId),
         eq(CardEntityView.lang, lang),
@@ -101,7 +105,7 @@ const full = os
   .handler(async ({ input }) => {
     const { cardId, lang, version } = input;
 
-    const card = await db.select().from(CardEntityView)
+    let card = await db.select().from(CardEntityView)
       .where(and(
         eq(CardEntityView.cardId, cardId),
         eq(CardEntityView.lang, lang),
@@ -110,6 +114,17 @@ const full = os
       .orderBy(desc(CardEntityView.version))
       .limit(1)
       .then(rows => rows[0]);
+
+    if (card == null && version != null) {
+      card = await db.select().from(CardEntityView)
+        .where(and(
+          eq(CardEntityView.cardId, cardId),
+          eq(CardEntityView.lang, lang),
+        ))
+        .orderBy(desc(CardEntityView.version))
+        .limit(1)
+        .then(rows => rows[0]);
+    }
 
     if (card == null) {
       throw new ORPCError('NOT_FOUND');
@@ -136,7 +151,44 @@ const full = os
       cardId:   CardRelation.sourceId,
     }).from(CardRelation).where(eq(CardRelation.targetId, cardId));
 
-    const relatedCards = [...sourceRelation, ...targetRelation];
+    const entourageRelation = (card.entourages ?? []).map(relatedCardId => ({
+      relation: 'entourage',
+      version:  card.version,
+      cardId:   relatedCardId,
+    }));
+
+    const relatedBase = dedupeRelatedCards([
+      ...sourceRelation,
+      ...targetRelation,
+      ...entourageRelation,
+    ]);
+
+    const relatedIds = [...new Set(relatedBase.map(rel => rel.cardId))];
+    const relatedRows = relatedIds.length === 0
+      ? []
+      : await db.select().from(CardEntityView)
+        .where(and(
+          eq(CardEntityView.lang, lang),
+          inArray(CardEntityView.cardId, relatedIds),
+        ))
+        .orderBy(desc(CardEntityView.version));
+
+    const relatedDetail = new Map<string, typeof relatedRows[number]>();
+    for (const row of relatedRows) {
+      if (!relatedDetail.has(row.cardId)) {
+        relatedDetail.set(row.cardId, row);
+      }
+    }
+
+    const relatedCards = relatedBase.map(rel => {
+      const detail = relatedDetail.get(rel.cardId);
+      return {
+        ...rel,
+        name:        detail?.localization.name ?? null,
+        displayText: detail?.localization.displayText ?? null,
+        type:        detail?.type ?? null,
+      };
+    });
 
     return {
       ...card,
@@ -243,3 +295,17 @@ export const cardApi = {
   full,
   diff,
 };
+
+function dedupeRelatedCards(cards: Array<{ relation: string; version: number[]; cardId: string }>) {
+  const seen = new Set<string>();
+  const result: Array<{ relation: string; version: number[]; cardId: string }> = [];
+
+  for (const card of cards) {
+    const key = `${card.relation}:${card.cardId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(card);
+  }
+
+  return result;
+}

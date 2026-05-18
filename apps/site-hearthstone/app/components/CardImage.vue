@@ -2,11 +2,11 @@
   <div class="relative aspect-68/94 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
     <img
       v-if="!hasError && imageUrl"
+      :key="imageUrl"
       :src="imageUrl"
       :alt="cardId"
       class="w-full h-full object-contain"
       loading="lazy"
-      @load="onLoad"
       @error="onError"
     >
     <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
@@ -49,16 +49,17 @@ const hearthstoneJsonLocales: Record<Locale, string> = {
 
 const sourceIndex = ref(0);
 const hasError = ref(false);
-const errorTimer = ref<ReturnType<typeof setTimeout> | null>(null);
 
 const imageSources = computed(() => {
   const sources = [
     `${assetBaseUrl}/hearthstone/card/image/webp/${props.version}/${props.lang}/${props.variant}/${props.cardId}.webp`,
   ];
 
-  if (props.variant === 'normal') {
-    sources.push(`https://art.hearthstonejson.com/v1/render/latest/${hearthstoneJsonLocales[props.lang]}/256x/${props.cardId}.png`);
+  if (props.variant !== 'normal') {
+    sources.push(`${assetBaseUrl}/hearthstone/card/image/webp/${props.version}/${props.lang}/normal/${props.cardId}.webp`);
   }
+
+  sources.push(`https://art.hearthstonejson.com/v1/render/latest/${hearthstoneJsonLocales[props.lang]}/256x/${props.cardId}.png`);
 
   return sources;
 });
@@ -72,16 +73,7 @@ watch(() => [props.cardId, props.version, props.lang, props.variant], () => {
   hasError.value = false;
 });
 
-const clearErrorTimer = () => {
-  if (errorTimer.value != null) {
-    clearTimeout(errorTimer.value);
-    errorTimer.value = null;
-  }
-};
-
 function onError() {
-  clearErrorTimer();
-
   if (sourceIndex.value < imageSources.value.length - 1) {
     sourceIndex.value += 1;
     return;
@@ -90,17 +82,4 @@ function onError() {
   hasError.value = true;
 }
 
-watch(imageUrl, () => {
-  clearErrorTimer();
-
-  if (import.meta.client && imageUrl.value != null && !hasError.value) {
-    errorTimer.value = setTimeout(onError, 2500);
-  }
-}, { immediate: true });
-
-const onLoad = () => {
-  clearErrorTimer();
-};
-
-onBeforeUnmount(clearErrorTimer);
 </script>
