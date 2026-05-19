@@ -135,7 +135,7 @@
                       {{ stats(card) }}
                     </UBadge>
                     <UBadge color="neutral" variant="subtle">
-                      {{ card.set }}
+                      {{ setText(card.set) }}
                     </UBadge>
                     <UBadge
                       v-for="klass in card.classes"
@@ -162,6 +162,7 @@ import type { NormalResult } from '#model/hearthstone/schema/search';
 import { locale as localeSchema } from '#model/hearthstone/schema/basic';
 
 import { explain as model } from '~/search';
+import { hearthstoneSets } from '~/utils/hearthstone-sets';
 
 definePageMeta({
   layout:    'main',
@@ -229,7 +230,10 @@ const explainText = computed(() => {
   return explained.value.text;
 });
 
-const cards = computed<CardEntityView[]>(() => data.value?.result?.result ?? []);
+const visibleSets = new Set<string>(hearthstoneSets);
+const cards = computed<CardEntityView[]>(() =>
+  (data.value?.result?.result ?? []).filter(card => visibleSets.has(card.set)),
+);
 const total = computed(() => data.value?.result?.total ?? 0);
 const pageCount = computed(() => data.value?.result?.totalPage ?? Math.ceil(total.value / pageSize.value));
 
@@ -280,6 +284,12 @@ const classText = (value: string) => {
 const typeText = (value: string) => {
   return i18n.te(`hearthstone.card.type.${value}`)
     ? i18n.t(`hearthstone.card.type.${value}`)
+    : value;
+};
+
+const setText = (value: string) => {
+  return i18n.te(`hearthstone.set.${value}`)
+    ? i18n.t(`hearthstone.set.${value}`)
     : value;
 };
 

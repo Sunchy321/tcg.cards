@@ -459,7 +459,7 @@ definePageMeta({
 
 const { setActions } = useActions();
 const actions = useHearthstoneActions();
-const { t } = useI18n();
+const { t, te } = useI18n();
 const { state, dsl, reset } = useAdvancedSearch();
 
 setActions([actions.random]);
@@ -518,7 +518,14 @@ const classItems = computed(() => makeItems('hearthstone.class', ['death_knight'
 const formatItems = computed(() => makeItems('hearthstone.format', ['standard', 'wild', 'classic']));
 const typeItems = computed(() => makeItems('hearthstone.card.type', ['minion', 'spell', 'weapon', 'hero', 'location']));
 const raceItems = computed(() => makeItems('hearthstone.card.race', ['dragon', 'demon', 'beast', 'murloc', 'pirate', 'mech', 'elemental', 'naga', 'quilboar', 'totem', 'undead', 'draenei', 'all']));
-const factionItems = computed(() => makeItems('hearthstone.search.parameter.faction', ['all', 'grimy_goons', 'jade_lotus', 'kabal', 'zerg', 'human', 'protoss']));
+const factionText = (value: string) => te(`hearthstone.search.parameter.faction.${value}`)
+  ? t(`hearthstone.search.parameter.faction.${value}`)
+  : value;
+
+const factionItems = computed(() => ['all', 'grimy_goons', 'jade_lotus', 'kabal', 'zerg', 'human', 'protoss'].map(value => ({
+  value,
+  label: factionText(value),
+})));
 const spellSchoolItems = computed(() => makeItems('hearthstone.card.spellSchool', ['arcane', 'fire', 'frost', 'nature', 'holy', 'shadow', 'fel']));
 const rarityItems = computed(() => makeItems('hearthstone.search.parameter.rarity', ['free', 'common', 'rare', 'epic', 'legendary']));
 
@@ -579,7 +586,7 @@ const selectedFilters = computed(() => {
   state.value.classes.forEach(v => filters.push({ label: t('hearthstone.search.command.class'), value: t(`hearthstone.class.${v}`) }));
   state.value.types.forEach(v => filters.push({ label: t('hearthstone.search.command.type'), value: t(`hearthstone.card.type.${v}`) }));
   state.value.races.forEach(v => filters.push({ label: t('hearthstone.search.command.race'), value: t(`hearthstone.card.race.${v}`) }));
-  state.value.factions.forEach(v => filters.push({ label: t('hearthstone.search.command.faction'), value: t(`hearthstone.search.parameter.faction.${v}`) }));
+  state.value.factions.forEach(v => filters.push({ label: t('hearthstone.search.command.faction'), value: factionText(v) }));
   state.value.spellSchools.forEach(v => filters.push({ label: t('hearthstone.search.command.spell-school'), value: t(`hearthstone.card.spellSchool.${v}`) }));
   state.value.rarities.forEach(v => filters.push({ label: t('hearthstone.search.command.rarity'), value: t(`hearthstone.search.parameter.rarity.${v}`) }));
   state.value.costs.forEach(v => filters.push({ label: t('hearthstone.search.command.cost'), value: v }));

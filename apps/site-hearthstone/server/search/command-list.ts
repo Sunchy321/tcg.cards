@@ -217,6 +217,33 @@ export const mercenaryRole = cs
   .commands.mercenaryRole
   .apply(table => table.mercenaryRole, {});
 
+const factionTags = ['grimy_goons', 'jade_lotus', 'kabal', 'zerg', 'human', 'protoss'];
+
+const normalizeFaction = (value: string) => value === 'terran' ? 'human' : value;
+
+const getFactionValues = (value: string) => {
+  const faction = normalizeFaction(value.toLowerCase());
+  return faction === 'all' ? factionTags : [faction];
+};
+
+export const faction = cs
+  .commands.faction
+  .handler(({ value, qualifier }, { table }) => {
+    const values = getFactionValues(value);
+
+    if (!qualifier.includes('!')) {
+      return or(...values.map(faction => or(
+        arrayContains(table.mechanics, [faction]),
+        arrayContains(table.referencedTags, [faction]),
+      )!))!;
+    }
+
+    return and(...values.map(faction => and(
+      not(arrayContains(table.mechanics, [faction])),
+      not(arrayContains(table.referencedTags, [faction])),
+    )!))!;
+  });
+
 export const mercenaryFaction = cs
   .commands.mercenaryFaction
   .apply(table => table.mercenaryFaction, {});

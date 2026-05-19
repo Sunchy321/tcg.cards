@@ -120,6 +120,10 @@ export const mercenaryRole = cc
   .commands.mercenaryRole
   .apply({ id: 'mercenary-role', mapValue: true });
 
+export const faction = cc
+  .commands.faction
+  .apply({ id: 'faction', mapValue: true });
+
 export const mercenaryFaction = cc
   .commands.mercenaryFaction
   .apply({ id: 'mercenary-faction', mapValue: true });

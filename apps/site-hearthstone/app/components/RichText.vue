@@ -5,8 +5,12 @@
 <script setup lang="ts">
 const props = withDefaults(defineProps<{
   disableNewline?: boolean;
+  preserveLineBreaks?: boolean;
+  flattenLineBreaks?: boolean;
 }>(), {
   disableNewline: false,
+  preserveLineBreaks: true,
+  flattenLineBreaks: false,
 });
 
 const slots = defineSlots<{
@@ -44,11 +48,13 @@ const rendered = computed(() => {
     .replace(/\s+([.,!?;:。！？；：])/g, '$1')
     .replace(/@/g, '');
 
-  if (!props.disableNewline) {
-    text = text.replace(/\n/g, '<br>');
+  if (props.flattenLineBreaks) {
+    text = text.replace(/\s*\r?\n\s*/g, ' ');
+  } else if (props.preserveLineBreaks && !props.disableNewline) {
+    text = text.replace(/\r?\n/g, '<br>');
   }
 
-  return text;
+  return text.trim();
 });
 </script>
 

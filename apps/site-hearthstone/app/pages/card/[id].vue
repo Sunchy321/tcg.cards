@@ -64,7 +64,7 @@
 
           <!-- Card text -->
           <div v-if="data.localization.displayText" class="border-l-2 border-primary bg-gray-50 dark:bg-gray-800 rounded-r-lg p-4 mb-6 leading-relaxed">
-            <RichText :key="`${data.cardId}:${lang}:${data.localization.displayText}`">{{ data.localization.displayText }}</RichText>
+            <RichText :key="`${data.cardId}:${lang}:${data.localization.displayText}`" :flatten-line-breaks="true">{{ data.localization.displayText }}</RichText>
           </div>
 
           <!-- Flavor text -->
@@ -111,6 +111,7 @@
                     <RichText
                       v-if="rel.displayText"
                       :key="`${rel.cardId}:${lang}:${rel.displayText}`"
+                      :flatten-line-breaks="true"
                       class="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-300"
                     >
                       {{ rel.displayText }}
@@ -450,11 +451,13 @@ const nativeSetNames: Record<'en' | 'zhs' | 'zht', Record<string, string>> = {
 const relationOrder = [
   'hero_power',
   'heroic_hero_power',
+  'colossal_token',
   'cataclysm',
   'titan_ability',
   'plague_token',
   'fabled_related',
   'herald_token',
+  'herald_upgrade',
   'entourage',
   'collection_related',
   'token',
@@ -480,6 +483,14 @@ const relatedGroups = computed(() => {
 });
 
 const relationText = (relation: string): string => {
+  if (relation === 'colossal_token') {
+    return lang.value === 'zht' ? '巨型衍生物' : lang.value === 'zhs' ? '巨型衍生物' : 'Colossal tokens';
+  }
+
+  if (relation === 'herald_upgrade') {
+    return lang.value === 'zht' ? '預兆升級' : lang.value === 'zhs' ? '兆示升级' : 'Herald upgrades';
+  }
+
   const label = getHearthstoneLabel('relation', relation, lang.value);
   if (label !== relation) return label;
 
@@ -532,6 +543,7 @@ watch(hasTechLevel, v => {
 
 const relationIcon = (relation: string): string => ({
   collection_related: 'lucide:refresh-cw',
+  colossal_token: 'lucide:boxes',
   cataclysm:      'lucide:flame',
   emblem:         'lucide:shield',
   intext:         'lucide:search',
@@ -544,6 +556,7 @@ const relationIcon = (relation: string): string => ({
   entourage:      'lucide:boxes',
   fabled_related: 'lucide:sparkles',
   herald_token:   'lucide:sparkles',
+  herald_upgrade: 'lucide:chevrons-up',
   hero_power:     'lucide:zap',
   heroic_hero_power: 'lucide:zap',
   plague_token:   'lucide:biohazard',

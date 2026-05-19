@@ -79,6 +79,12 @@ const MECHANIC_TAG_NAMES = new Set([
   'FORGE',
   'TITAN',
   'ELUSIVE',
+  'GRIMY_GOONS',
+  'JADE_LOTUS',
+  'KABAL',
+  'ZERG',
+  'TERRAN',
+  'PROTOSS',
 ]);
 
 interface ImportState {
@@ -394,6 +400,7 @@ async function parseAndTransform(state: ImportState): Promise<EntityData[]> {
   resolveDbfRelations(transformed);
   resolveHeraldRelations(transformed);
   resolveTitanRelations(transformed);
+  resolveColossalRelations(transformed);
   resolveCataclysmRelations(transformed);
   resolveFabledRelations(transformed);
   resolvePlagueRelations(transformed);
@@ -482,7 +489,7 @@ function transformEntity(entity: any, sourceVersion: number): EntityData | null 
   const cardType = getNumber('CARDTYPE');
   const rarity = getNumber('RARITY');
   const faction = getNumber('FACTION');
-  const race = getNumber('RACE');
+  const race = getNumber('CARDRACE') ?? getNumber('RACE');
   const spellSchool = getNumber('SPELL_SCHOOL');
   const set = getNumber('CARD_SET');
   const classes = getTagValues('CLASS');
@@ -494,7 +501,7 @@ function transformEntity(entity: any, sourceVersion: number): EntityData | null 
 
   const mechanics = tagArray
     .filter((tag: any) => MECHANIC_TAG_NAMES.has(tag.name) && String(tag.value ?? '1') === '1')
-    .map((tag: any) => String(tag.name).toLowerCase());
+    .map((tag: any) => normalizeMechanicTag(String(tag.name)));
 
   const referencedTags = toArray(entity.ReferencedTag)
     .map((tag: any) => tag.name)
@@ -783,10 +790,21 @@ function normalizeRelationName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
 
+function normalizeMechanicTag(value: string) {
+  const tag = value.toLowerCase();
+  return tag === 'terran' ? 'human' : tag;
+}
+
 function cleanCardText(value: string, entity: EntityData) {
   const scriptNum = entity.scriptDataNums?.[0] ?? entity.questProgress ?? null;
   const alternateTextSeparator = /@(?=(?:\[x\])?(?:&lt;b&gt;|<b>))/;
-  let text = alternateTextSeparator.test(value) ? value.split(alternateTextSeparator)[0]! : value;
+  const sourceText = entity.text?.en ?? value;
+  const shouldKeepUpgradeStages = /@\s*(?:\[x\])?[\s\S]*<b>Herald<\/b>[\s\S]*upgrade/i.test(sourceText);
+  let text = shouldKeepUpgradeStages
+    ? getUpgradeStageText(value, entity.cardId)
+    : alternateTextSeparator.test(value)
+      ? value.split(alternateTextSeparator)[0]!
+      : value;
 
   text = text
     .replace(/\[x\]/gi, '')
@@ -814,6 +832,21 @@ function cleanCardText(value: string, entity: EntityData) {
   return text;
 }
 
+function getUpgradeStageText(value: string, cardId: string) {
+  const stages = value.split('@').map(part => part.trim()).filter(Boolean);
+  const stageIndex = getUpgradeStageIndex(cardId);
+  return stages[stageIndex] ?? stages[0] ?? value;
+}
+
+function getUpgradeStageIndex(cardId: string) {
+  const match = /t(\d+)$/.exec(cardId);
+  return match?.[1] != null ? Number.parseInt(match[1], 10) : 0;
+}
+
+function getHeraldBaseId(cardId: string) {
+  return cardId.replace(/t\d+$/, 't');
+}
+
 function resolveDbfRelations(entities: EntityData[]) {
   const cardIdByDbf = new Map(entities.map(entity => [entity.dbfId, entity.cardId]));
 
@@ -838,17 +871,41 @@ function resolveDbfRelations(entities: EntityData[]) {
 function resolveHeraldRelations(entities: EntityData[]) {
   const tokenByClass = new Map<string, EntityData[]>();
   const allTokens: EntityData[] = [];
+  const upgradesByBaseId = new Map<string, EntityData[]>();
 
   for (const entity of entities) {
     if (!isHeraldToken(entity)) continue;
 
-    const classes = getEntityClasses(entity);
-    for (const klass of classes) {
-      const tokens = tokenByClass.get(klass) ?? [];
-      tokens.push(entity);
-      tokenByClass.set(klass, tokens);
+    const baseId = getHeraldBaseId(entity.cardId);
+    if (baseId !== entity.cardId) {
+      const upgrades = upgradesByBaseId.get(baseId) ?? [];
+      upgrades.push(entity);
+      upgradesByBaseId.set(baseId, upgrades);
+      continue;
     }
-    allTokens.push(entity);
+
+    if (isBasicHeraldToken(entity)) {
+      const classes = getEntityClasses(entity);
+      for (const klass of classes) {
+        const tokens = tokenByClass.get(klass) ?? [];
+        tokens.push(entity);
+        tokenByClass.set(klass, tokens);
+      }
+      allTokens.push(entity);
+    }
+  }
+
+  for (const entity of entities) {
+    const upgrades = upgradesByBaseId.get(entity.cardId);
+    if (upgrades == null || upgrades.length === 0) continue;
+
+    entity.relations = dedupeRelations([
+      ...(entity.relations ?? []),
+      ...upgrades.map(token => ({
+        relation: 'herald_upgrade',
+        targetId:  token.cardId,
+      })),
+    ]);
   }
 
   for (const entity of entities) {
@@ -897,6 +954,26 @@ function resolveTitanRelations(entities: EntityData[]) {
       ...(entity.relations ?? []),
       ...titanAbilities.map(card => ({
         relation: 'titan_ability',
+        targetId:  card.cardId,
+      })),
+    ]);
+  }
+}
+
+function resolveColossalRelations(entities: EntityData[]) {
+  for (const entity of entities) {
+    if (!entity.collectible || !entity.mechanics?.includes('colossal')) continue;
+
+    const tokens = entities
+      .filter(card => card.cardId.startsWith(`${entity.cardId}t`))
+      .filter(card => card.cardType === 4);
+
+    if (tokens.length === 0) continue;
+
+    entity.relations = dedupeRelations([
+      ...(entity.relations ?? []),
+      ...tokens.map(card => ({
+        relation: 'colossal_token',
         targetId:  card.cardId,
       })),
     ]);
@@ -981,6 +1058,10 @@ function isHeraldToken(entity: EntityData) {
     && /(?:Herald|兆示|预兆|預兆)/.test(text);
 }
 
+function isBasicHeraldToken(entity: EntityData) {
+  return /^Soldier of\b/.test(entity.name?.en ?? '');
+}
+
 function getEntityClasses(entity: EntityData) {
   return (entity.classes ?? []).map(mapClass).filter((value): value is string => value != null);
 }
@@ -990,7 +1071,7 @@ function dedupeHeraldTokens(tokens: EntityData[]) {
   const result: EntityData[] = [];
 
   for (const token of tokens) {
-    const key = token.name?.en ?? token.cardId;
+    const key = token.cardId;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(token);
