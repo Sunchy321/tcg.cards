@@ -1,7 +1,10 @@
-import { ORPCError, os } from '@orpc/server';
-import { asc, eq } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+
+import { ORPCError, os as create } from '@orpc/server';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
+import { FieldWinner } from '@tcg-cards/db/schema/shared/hearthstone';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 import {
   tagGetInput,
@@ -13,8 +16,47 @@ import {
   type TagProfile,
   type TagUpdateInput,
 } from '@tcg-cards/model/src/hearthstone/schema/tag';
+import {
+  applyTagCommit,
+  buildFallbackBaseRevision,
+  buildTagRowRevision,
+  buildWinnerRevision,
+  toTagEntityKey,
+  toTagFieldPath,
+  type FieldCommitInsert,
+  type FieldWinnerRow,
+  type TagRow,
+  type TagWrite,
+} from '../../lib/hearthstone/tag-commit';
+import type { ConsoleApiRequestMeta } from '../../request-meta';
 
-type TagRow = typeof Tag.$inferSelect;
+const os = create.$context<{ meta?: ConsoleApiRequestMeta }>();
+
+/** One changed field that must be projected into `field_winners` and persisted into commit history. */
+type TagFieldDiff = {
+  field: keyof TagWrite;
+  fieldPath: string;
+  value: TagWrite[keyof TagWrite];
+  previousWinner?: FieldWinnerRow;
+};
+
+const editableFields: Array<keyof TagWrite> = [
+  'slug',
+  'slugAliases',
+  'name',
+  'rawName',
+  'rawType',
+  'rawNames',
+  'valueKind',
+  'normalizeKind',
+  'normalizeConfig',
+  'projectTargetType',
+  'projectTargetPath',
+  'projectKind',
+  'projectConfig',
+  'status',
+  'description',
+];
 
 const projectKinds = new Set([
   'assign_value',
@@ -40,6 +82,51 @@ const enumMapAliases = new Set([
   'spell-school',
   'race',
 ]);
+
+/** Converts one write-mode hint into the persisted sync state. */
+function toSyncStatus(mode: ConsoleApiRequestMeta['syncMode']) {
+  switch (mode) {
+    case 'remote_edit':
+      return 'synced';
+    case 'pull':
+      return 'pulled';
+    case 'local_edit':
+    default:
+      return 'pending_push';
+  }
+}
+
+/** Maps one request runtime mode to the side and stage that process the commit. */
+function toConflictTarget(mode: ConsoleApiRequestMeta['syncMode']) {
+  switch (mode) {
+    case 'remote_edit':
+      return {
+        processingSide:  'remote',
+        processingStage: 'apply',
+      } as const;
+    case 'pull':
+      return {
+        processingSide:  'local',
+        processingStage: 'replay',
+      } as const;
+    case 'local_edit':
+    default:
+      return {
+        processingSide:  'local',
+        processingStage: 'apply',
+      } as const;
+  }
+}
+
+/** Resolves the persisted commit metadata from one caller-provided request meta object. */
+function resolveCommitMeta(meta: ConsoleApiRequestMeta | undefined) {
+  return {
+    editorRuntime:  meta?.editorRuntime ?? 'desktop',
+    editorIdentity: meta?.editorIdentity ?? null,
+    syncStatus:     toSyncStatus(meta?.syncMode),
+    conflictTarget: toConflictTarget(meta?.syncMode),
+  };
+}
 
 function toIsoString(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -77,6 +164,94 @@ function normalizeText(value: string | null) {
 
 function uniqueTexts(values: string[]) {
   return [...new Set(values.map(value => value.trim()).filter(Boolean))];
+}
+
+/** Normalizes one incoming tag payload into the exact table write shape. */
+function normalizeTagWrite(input: TagUpdateInput): TagWrite {
+  return {
+    slug:              input.slug.trim(),
+    slugAliases:       uniqueTexts(input.slugAliases),
+    name:              normalizeText(input.name),
+    rawName:           normalizeText(input.rawName),
+    rawType:           normalizeText(input.rawType),
+    rawNames:          uniqueTexts(input.rawNames),
+    valueKind:         input.valueKind.trim(),
+    normalizeKind:     input.normalizeKind.trim(),
+    normalizeConfig:   input.normalizeConfig,
+    projectTargetType: normalizeText(input.projectTargetType),
+    projectTargetPath: normalizeText(input.projectTargetPath),
+    projectKind:       normalizeText(input.projectKind),
+    projectConfig:     input.projectConfig,
+    status:            input.status.trim(),
+    description:       normalizeText(input.description),
+  };
+}
+
+/** Extracts the sync-relevant editable fields from one current tag row. */
+function rowToTagWrite(row: TagRow): TagWrite {
+  return {
+    slug:              row.slug,
+    slugAliases:       row.slugAliases,
+    name:              row.name,
+    rawName:           row.rawName,
+    rawType:           row.rawType,
+    rawNames:          row.rawNames,
+    valueKind:         row.valueKind,
+    normalizeKind:     row.normalizeKind,
+    normalizeConfig:   row.normalizeConfig,
+    projectTargetType: row.projectTargetType,
+    projectTargetPath: row.projectTargetPath,
+    projectKind:       row.projectKind,
+    projectConfig:     row.projectConfig,
+    status:            row.status,
+    description:       row.description,
+  };
+}
+
+/** Serializes JSON-compatible values with stable key ordering for revision hashing. */
+function stableStringify(value: unknown): string {
+  if (value == null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map(item => stableStringify(item)).join(',')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`).join(',')}}`;
+}
+
+/** Builds one local mutation id that can be matched back during later remote ack. */
+function buildClientMutationId(enumId: number, fieldPath: string) {
+  const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : createHash('sha256')
+      .update(`${enumId}:${fieldPath}:${Date.now()}:${Math.random()}`, 'utf8')
+      .digest('hex');
+
+  return `tag:${enumId}:${fieldPath}:${random}`;
+}
+
+/** Compares the current row with the incoming write and returns only changed fields. */
+function collectTagDiffs(current: TagRow, next: TagWrite, winners: FieldWinnerRow[]) {
+  const currentWrite = rowToTagWrite(current);
+  const winnerByField = new Map(winners.map(winner => [winner.fieldPath, winner]));
+
+  return editableFields
+    .filter(field => stableStringify(currentWrite[field]) !== stableStringify(next[field]))
+    .map(field => {
+      const fieldPath = toTagFieldPath(field);
+
+      return {
+        field,
+        fieldPath,
+        value: next[field],
+        previousWinner: winnerByField.get(fieldPath),
+      } satisfies TagFieldDiff;
+    });
 }
 
 function matchesSearch(tag: TagProfile, input: TagListInput) {
@@ -214,43 +389,81 @@ const get = os
     return toProfile(row);
   });
 
-const update = os
+const manualUpdate = os
   .route({
     method:      'PUT',
-    description: 'Update one Hearthstone tag configuration',
+    description: 'Save one manual Hearthstone tag edit',
     tags:        ['Console', 'Hearthstone', 'Tag'],
   })
   .input(tagUpdateInput)
   .output(tagProfile)
-  .handler(async ({ input }) => {
+  .handler(async ({ input, context }) => {
     assertTagUpdate(input);
 
     try {
-      const row = await db.update(Tag)
-        .set({
-          slug:              input.slug.trim(),
-          slugAliases:       uniqueTexts(input.slugAliases),
-          name:              normalizeText(input.name),
-          rawName:           normalizeText(input.rawName),
-          rawType:           normalizeText(input.rawType),
-          rawNames:          uniqueTexts(input.rawNames),
-          valueKind:         input.valueKind.trim(),
-          normalizeKind:     input.normalizeKind.trim(),
-          normalizeConfig:   input.normalizeConfig,
-          projectTargetType: normalizeText(input.projectTargetType),
-          projectTargetPath: normalizeText(input.projectTargetPath),
-          projectKind:       normalizeText(input.projectKind),
-          projectConfig:     input.projectConfig,
-          status:            input.status.trim(),
-          description:       normalizeText(input.description),
-        })
-        .where(eq(Tag.enumId, input.enumId))
-        .returning()
-        .then(rows => rows[0]);
+      const row = await db.transaction(async tx => {
+        const current = await tx.select()
+          .from(Tag)
+          .where(eq(Tag.enumId, input.enumId))
+          .then(rows => rows[0]);
 
-      if (!row) {
-        throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
-      }
+        if (!current) {
+          throw new ORPCError('NOT_FOUND', { message: 'Tag not found' });
+        }
+
+        const next = normalizeTagWrite(input);
+        const fieldPaths = editableFields.map(toTagFieldPath);
+        const entityKey = toTagEntityKey(input.enumId);
+        const existingWinners = await tx.select()
+          .from(FieldWinner)
+          .where(and(
+            eq(FieldWinner.entityType, 'tag'),
+            eq(FieldWinner.status, 'active'),
+            eq(FieldWinner.entityKey, entityKey),
+            inArray(FieldWinner.fieldPath, fieldPaths),
+          ));
+
+        const diffs = collectTagDiffs(current, next, existingWinners);
+
+        if (diffs.length === 0) {
+          return current;
+        }
+
+        const commitMeta = resolveCommitMeta(context.meta);
+        let currentRow = current;
+
+        for (const diff of diffs) {
+          const commit = {
+            entityType:             'tag',
+            entityKey,
+            fieldPath:              diff.fieldPath,
+            value:                  diff.value,
+            operation:              'set',
+            commitKind:             'source_edit',
+            clientMutationId:       buildClientMutationId(input.enumId, diff.fieldPath),
+            editorRuntime:          commitMeta.editorRuntime,
+            editorIdentity:         commitMeta.editorIdentity,
+            expectedRowRevision:    buildTagRowRevision(currentRow),
+            expectedWinnerRevision: buildWinnerRevision(diff.previousWinner),
+            baseRevision:           diff.previousWinner?.baseRevision ?? buildFallbackBaseRevision(currentRow, diff.field),
+            reviewStatus:           'auto_approved',
+            reviewedBy:             null,
+            reviewedAt:             null,
+            reviewReason:           null,
+            projectionStatus:       'pending',
+            syncStatus:             commitMeta.syncStatus,
+            createdAt:              new Date(),
+            projectedAt:            null,
+          } satisfies FieldCommitInsert;
+
+          const applied = await applyTagCommit(tx, commit, {
+            conflictTarget: commitMeta.conflictTarget,
+          });
+          currentRow = applied.row;
+        }
+
+        return currentRow;
+      });
 
       return toProfile(row);
     } catch (error) {
@@ -269,5 +482,5 @@ const update = os
 export const tagTrpc = {
   list,
   get,
-  update,
+  manualUpdate,
 };

@@ -460,7 +460,7 @@ async function saveTag() {
   saving.value = true;
   formError.value = '';
   try {
-    await orpc.hearthstone.tag.update({
+    await orpc.hearthstone.tag.manualUpdate({
       enumId:            form.enumId,
       slug:              form.slug.trim(),
       slugAliases:       parseLines(form.slugAliasesText),

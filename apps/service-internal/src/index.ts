@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { RPCHandler } from '@orpc/server/fetch';
 import { onError } from '@orpc/server';
 import { createDb, runWithDb } from '@tcg-cards/db';
+import type { ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
 
 import { getAuth } from './auth';
 import { router } from './orpc/service';
@@ -20,6 +21,15 @@ function installRuntimeBindings(env: InternalServiceEnv) {
 
   runtimeGlobal.__env__ = env;
   runtimeGlobal.HYPERDRIVE = env.HYPERDRIVE;
+}
+
+/** Decodes caller-provided commit metadata from transport headers. */
+function readRequestMeta(request: Request): ConsoleApiRequestMeta {
+  return {
+    editorRuntime:  request.headers.get('x-tcg-editor-runtime') as ConsoleApiRequestMeta['editorRuntime'] ?? undefined,
+    syncMode:       request.headers.get('x-tcg-sync-mode') as ConsoleApiRequestMeta['syncMode'] ?? undefined,
+    editorIdentity: request.headers.get('x-tcg-editor-identity'),
+  };
 }
 
 const rpcHandler = new RPCHandler(router as any, {
@@ -84,7 +94,10 @@ hono.all('/rpc/*', async c => {
   installRuntimeBindings(c.env);
   const { response } = await withRequestDb(c.env, async () => await rpcHandler.handle(c.req.raw, {
     prefix:  '/rpc',
-    context: { env: c.env },
+    context: {
+      env:  c.env,
+      meta: readRequestMeta(c.req.raw),
+    },
   }));
   return response ?? c.notFound();
 });

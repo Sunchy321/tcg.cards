@@ -3,16 +3,19 @@ import { RPCLink } from '@orpc/client/fetch';
 import { inject, provide, type InjectionKey } from 'vue';
 
 import type { AnyRouter, RouterClient } from '@orpc/server';
+import type { ConsoleApiClientContext, ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
+export type { ConsoleApiClientContext, ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
 
 export interface CreateConsoleApiClientOptions {
   url: string;
   headers?: ConstructorParameters<typeof RPCLink>[0]['headers'];
   fetch?: ConstructorParameters<typeof RPCLink>[0]['fetch'];
+  defaultContext?: ConsoleApiClientContext;
 }
 
 export interface ConsoleApi {
   request(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
-  createClient<TRouter extends AnyRouter>(): RouterClient<TRouter>;
+  createClient<TRouter extends AnyRouter>(): RouterClient<TRouter, ConsoleApiClientContext>;
 }
 
 export interface ConsoleRouter {
@@ -154,14 +157,90 @@ export function createConsolePlatform<TSession>(
 
 export function createConsoleApiClient<TRouter extends AnyRouter>(
   options: CreateConsoleApiClientOptions,
-): RouterClient<TRouter> {
-  const link = new RPCLink({
+): RouterClient<TRouter, ConsoleApiClientContext> {
+  const link = new RPCLink<ConsoleApiClientContext>({
     url: options.url,
-    headers: options.headers,
+    headers: async (clientOptions, path, input) => {
+      const mergedContext = mergeClientContext(options.defaultContext, clientOptions.context);
+      const baseHeaders = await resolveHeaders(options.headers, {
+        ...clientOptions,
+        context: mergedContext,
+      }, path, input);
+      const headers = toHeaders(baseHeaders);
+
+      applyRequestMetaHeaders(headers, mergedContext.meta);
+
+      return headers;
+    },
     fetch: options.fetch,
   });
 
-  return createORPCClient(link) as RouterClient<TRouter>;
+  return createORPCClient(link) as RouterClient<TRouter, ConsoleApiClientContext>;
+}
+
+/** Resolves user-supplied headers into a concrete header bag. */
+async function resolveHeaders(
+  value: CreateConsoleApiClientOptions['headers'],
+  clientOptions: { context: ConsoleApiClientContext; signal?: AbortSignal; lastEventId?: string },
+  path: readonly string[],
+  input: unknown,
+) {
+  if (typeof value === 'function') {
+    return await value(clientOptions, path, input);
+  }
+
+  return value;
+}
+
+/** Converts supported header containers into a mutable `Headers` instance. */
+function toHeaders(value: Headers | Record<string, string | string[] | undefined> | undefined) {
+  if (value instanceof Headers) {
+    return new Headers(value);
+  }
+
+  const headers = new Headers();
+
+  for (const [key, item] of Object.entries(value ?? {})) {
+    if (Array.isArray(item)) {
+      for (const entry of item) {
+        headers.append(key, entry);
+      }
+    } else if (item != null) {
+      headers.set(key, item);
+    }
+  }
+
+  return headers;
+}
+
+/** Merges per-platform default context with one call-specific context. */
+function mergeClientContext(
+  base: ConsoleApiClientContext | undefined,
+  override: ConsoleApiClientContext | undefined,
+): ConsoleApiClientContext {
+  return {
+    ...base,
+    ...override,
+    meta: {
+      ...base?.meta,
+      ...override?.meta,
+    },
+  };
+}
+
+/** Encodes request metadata into transport headers understood by the RPC server. */
+function applyRequestMetaHeaders(headers: Headers, meta: ConsoleApiRequestMeta | undefined) {
+  if (meta?.editorRuntime != null) {
+    headers.set('x-tcg-editor-runtime', meta.editorRuntime);
+  }
+
+  if (meta?.syncMode != null) {
+    headers.set('x-tcg-sync-mode', meta.syncMode);
+  }
+
+  if (meta?.editorIdentity != null) {
+    headers.set('x-tcg-editor-identity', meta.editorIdentity);
+  }
 }
 
 export function createConsoleSession<TSession>(options: {

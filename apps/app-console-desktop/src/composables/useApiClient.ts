@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { createConsoleApiClient, useConsolePlatform } from '@tcg-cards/console-platform';
 
 import type { AnyRouter, RouterClient } from '@orpc/server';
+import type { ConsoleApiClientContext } from '@tcg-cards/console-platform';
 
 export const PLACEHOLDER_RPC_URL = 'http://desktop.invalid/rpc';
 
@@ -87,10 +88,16 @@ async function readRequestBody(request: Request | null) {
   return await request.clone().text();
 }
 
-export function createDesktopApiClient<TRouter extends AnyRouter>(): RouterClient<TRouter> {
+export function createDesktopApiClient<TRouter extends AnyRouter>(): RouterClient<TRouter, ConsoleApiClientContext> {
   return createConsoleApiClient<TRouter>({
-    url:   PLACEHOLDER_RPC_URL,
-    fetch: authFetch,
+    url:            PLACEHOLDER_RPC_URL,
+    fetch:          authFetch,
+    defaultContext: {
+      meta: {
+        editorRuntime: 'desktop',
+        syncMode:      'local_edit',
+      },
+    },
   });
 }
 

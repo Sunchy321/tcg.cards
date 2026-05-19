@@ -4,6 +4,7 @@ import { DrizzleQueryError } from 'drizzle-orm';
 
 import { webRouter as router } from '@tcg-cards/console-api';
 import type { HonoEnv } from '@tcg-cards/console-api';
+import type { ConsoleApiRequestMeta } from '@tcg-cards/console-api/request-meta';
 
 const handler = new RPCHandler(router, {
   interceptors: [
@@ -17,13 +18,23 @@ const handler = new RPCHandler(router, {
   ],
 });
 
+/** Decodes caller-provided commit metadata from transport headers. */
+function readRequestMeta(request: Request): ConsoleApiRequestMeta {
+  return {
+    editorRuntime:  request.headers.get('x-tcg-editor-runtime') as ConsoleApiRequestMeta['editorRuntime'] ?? undefined,
+    syncMode:       request.headers.get('x-tcg-sync-mode') as ConsoleApiRequestMeta['syncMode'] ?? undefined,
+    editorIdentity: request.headers.get('x-tcg-editor-identity'),
+  };
+}
+
 export default defineEventHandler(async event => {
   const request = toWebRequest(event);
 
   const { response } = await handler.handle(request, {
     prefix:  '/rpc',
     context: {
-      env: event.context.cloudflare?.env as HonoEnv['Bindings'],
+      env:  event.context.cloudflare?.env as HonoEnv['Bindings'],
+      meta: readRequestMeta(request),
     },
   });
 

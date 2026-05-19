@@ -35,8 +35,14 @@ export function useSiteConsolePlatform() {
           : requestUrl?.origin ?? '';
 
         return createConsoleApiClient<TRouter>({
-          url:     `${origin}/rpc`,
-          headers: requestHeaders,
+          url:            `${origin}/rpc`,
+          headers:        requestHeaders,
+          defaultContext: {
+            meta: {
+              editorRuntime: 'site',
+              syncMode:      'remote_edit',
+            },
+          },
         });
       },
     },
