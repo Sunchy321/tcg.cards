@@ -52,6 +52,57 @@
               {{ currentAuthState?.user.name ?? '—' }}
             </p>
           </UCard>
+
+          <UCard>
+            <template #header>
+              <div>
+                <div class="font-medium">Desktop Runtime</div>
+                <div class="mt-1 text-xs text-muted">本地 Bun runtime 的最小连通性检查。</div>
+              </div>
+            </template>
+
+            <div class="space-y-3 text-sm">
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-muted">RPC URL</span>
+                <code class="text-xs">{{ runtimeUrl }}</code>
+              </div>
+
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-muted">状态</span>
+                <UBadge
+                  :color="runtimeStateColor"
+                  variant="soft"
+                >
+                  {{ runtimeStateLabel }}
+                </UBadge>
+              </div>
+
+              <div
+                v-if="runtimeHealth"
+                class="flex items-center justify-between gap-3"
+              >
+                <span class="text-muted">响应时间</span>
+                <span>{{ runtimeHealth.time }}</span>
+              </div>
+
+              <div
+                v-if="runtimeError"
+                class="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-error"
+              >
+                {{ runtimeError }}
+              </div>
+
+              <div class="flex gap-3">
+                <UButton
+                  label="检查运行时"
+                  icon="i-lucide-activity"
+                  color="primary"
+                  :loading="runtimeLoading"
+                  @click="refreshRuntimeHealth"
+                />
+              </div>
+            </div>
+          </UCard>
         </div>
       </div>
     </div>
@@ -59,7 +110,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
+
 import { settingsGameItems } from '~/composables/settings-games';
+import {
+  readDesktopRuntimeRpcUrl,
+  useDesktopRuntimeClient,
+} from '~/composables/useDesktopRuntimeClient';
 
 import { currentAuthState } from '../../auth';
 
@@ -68,8 +125,57 @@ const gameButtons = settingsGameItems.map(item => ({
   buttonLabel: `${item.label} 设置`,
 }));
 
+const runtimeClient = useDesktopRuntimeClient();
+const runtimeUrl = readDesktopRuntimeRpcUrl();
+const runtimeHealth = ref<Awaited<ReturnType<typeof runtimeClient.runtime.health>> | null>(null);
+const runtimeError = ref<string | null>(null);
+const runtimeLoading = ref(false);
+
+const runtimeStateLabel = computed(() => {
+  if (runtimeLoading.value) {
+    return 'checking';
+  }
+
+  if (runtimeError.value) {
+    return 'offline';
+  }
+
+  return runtimeHealth.value?.status ?? 'idle';
+});
+
+const runtimeStateColor = computed(() => {
+  if (runtimeLoading.value) {
+    return 'warning';
+  }
+
+  if (runtimeError.value) {
+    return 'error';
+  }
+
+  return runtimeHealth.value ? 'success' : 'neutral';
+});
+
+/** Loads the current desktop runtime health state from the local Bun RPC endpoint. */
+async function refreshRuntimeHealth() {
+  runtimeLoading.value = true;
+  runtimeError.value = null;
+
+  try {
+    runtimeHealth.value = await runtimeClient.runtime.health();
+  } catch (error) {
+    runtimeHealth.value = null;
+    runtimeError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    runtimeLoading.value = false;
+  }
+}
+
 definePageMeta({
   layout: 'admin',
   title:  '设置',
+});
+
+onMounted(() => {
+  void refreshRuntimeHealth();
 });
 </script>
