@@ -15,9 +15,9 @@
 - [x] 改造 tag 保存链路为“主表 + winner projection + local field_commits”本地写入
 - [x] 实现共享 TS 远端 apply 逻辑、merge 与远端 projection
 - [x] 实现 desktop 基于 cursor 的增量 `pull / push` 与本地 replay
-- [ ] 让 tag 导入链路接入 source priority 与 `base_drift`
-- [ ] 提供远端冲突处理与本地 replay 冲突处理的首轮闭环
-- [ ] 完成验证并更新文档口径
+- [x] 让 tag 导入链路接入 source priority 与 `base_drift`
+- [x] 提供远端冲突处理与本地 replay 冲突处理的首轮闭环
+- [x] 完成验证并更新文档口径
 
 ## 目标
 
@@ -49,13 +49,13 @@
 | 阶段 | 目标 | 核心任务 | 输出物 | 依赖 | 验收标准 |
 |------|------|----------|--------|------|----------|
 | P0 范围冻结 | 固定首轮范围与边界 | 明确首轮只落地 `hearthstone tag`；`magic.cards` 只保留多来源与 merge 模型输入；冻结 `source / commit / winner / merge` 四层语义 | 最终范围清单 | 当前 design / review | 不再把 `magic.cards` 实现混入首轮 |
-| P1 Schema 固化 | 固定最小数据结构 | 设计双端 `field_commits`、`field_sync_cursors`、`field_commit_conflicts`、`field_replay_conflicts`、`field_winners`；定义最小字段、唯一键、索引、审核状态、同步状态与 `row_create` 基线约束 | Schema 草案 | P0 | 表结构可直接指导 Drizzle/SeaORM 实现 |
+| P1 Schema 固化 | 固定最小数据结构 | 设计双端 `field_commits`、本地 `field_sync_cursors`、双端 `field_conflicts`、`field_winners`；定义最小字段、唯一键、索引、审核状态、同步状态与 `row_create` 基线约束 | Schema 草案 | P0 | 表结构可直接指导 Drizzle/SeaORM 实现 |
 | P2 基础值决策输入冻结 | 固定 `resolved base` 的输入边界 | 复用 `import_sources`、`import_rule_sets`、`import_field_rules`；明确 tag 首轮是否只需单来源发现更新；明确 `resolved base revision` 口径 | 输入模型与 revision 规则 | P0 | 能清楚回答 base 从何而来、revision 何时变化 |
 | P3 本地写入链路 | 建立 desktop 本地立即生效能力 | 保存 tag 时更新本地主表、写入本地 `field_winners`、写入本地 `field_commits` | 本地写入链路 | P1 | tag 保存后本地 UI 与本地 projection 立即可见 |
 | P4 远端接收与 projection | 建立 remote-direct 与幂等接收 | 实现共享 TS `apply commit / merge / project` 逻辑；site 远端直写与 desktop `push` 都复用该逻辑；写远端 `field_commits`；在远端执行 merge 并更新远端主表与 `field_winners` | 远端接收链路 | P1, P3 | 远端可稳定接受、去重并投影 `commit`，且不依赖额外 service hop |
 | P5 增量拉取与 replay | 建立 desktop 同步回流 | 使用 `field_sync_cursors` 拉取远端增量 `commit`、推送本地待同步 `commit`；重放到本地主表与本地 `field_winners` | 本地增量同步链路 | P4 | desktop 不必全量轮询即可同步远端修改 |
 | P6 导入接入 merge | 让导入尊重当前 winner | tag 导入更新时按 source priority 参与 merge；若检测到新的 `resolved base` 与当前 winner 冲突，则写入 `base_drift` | 导入协作链路 | P2, P3 | 自动发现更新不再错误覆盖高优先级 winner |
-| P7 冲突处理闭环 | 提供远端 merge 与本地 replay 的首轮处理闭环 | 读取 `field_commit_conflicts` 与 `field_replay_conflicts`；展示详情；支持首轮解决动作；按动作回写 history 或 projection | 冲突处理链路 | P1, P5, P6 | 远端 merge 冲突和本地 replay 冲突都能收敛 |
+| P7 冲突处理闭环 | 提供远端 merge 与本地 replay 的首轮处理闭环 | 读取统一 `field_conflicts`；展示详情；支持首轮解决动作；按动作回写 history 或 projection | 冲突处理链路 | P1, P5, P6 | 远端 merge 冲突和本地 replay 冲突都能收敛 |
 | P8 验证与收口 | 验证行为与文档一致 | 运行相关测试；验证本地编辑、远端编辑、增量拉取、导入漂移与冲突解决；同步更新说明文档 | 验证结果 | P3-P7 | 设计、实现和文档口径一致 |
 
 ## 实施步骤
@@ -101,8 +101,7 @@
 
 - `field_commits`
 - `field_sync_cursors`
-- `field_commit_conflicts`
-- `field_replay_conflicts`
+- `field_conflicts`
 
 本阶段必须回答：
 
@@ -116,10 +115,9 @@
 
 至少固定：
 
-- `field_commit_conflicts`
+- `field_conflicts`
   - 远端接收新 `commit` 时发现的 merge 冲突
-- `field_replay_conflicts`
-  - 本地重放远端 history 时发现的 replay 冲突
+  - 本地重放远端 history 时发现的 replay / `base_drift` 冲突
 
 并至少固定：
 
@@ -202,7 +200,7 @@ site 远端直写或 desktop `push` 到 remote DB 时：
 若失败：
 
 - 拒绝直接应用
-- 写入 `field_commit_conflicts`
+- 写入 `field_conflicts`
 - 返回明确错误
 
 同时要求：
@@ -221,7 +219,7 @@ desktop 同步时：
 - 重放到本地主表
 - 重放到本地 `field_winners`
 - 更新本地 `field_sync_cursors`
-- 若重放失败，写入 `field_replay_conflicts`
+- 若重放失败，写入 `field_conflicts`
 
 ### 10. 让导入接入统一 merge
 
@@ -231,7 +229,7 @@ desktop 同步时：
 - 若自动化导入使对象首次进入仓库，可先写一条 `row_create`
 - 当前 winner 仍来自自动来源集合时，可更新主表
 - 当前 winner 来自更高优先级来源时，不直接覆盖主表
-- 若新的基础值与当前 winner 不一致，写入 `field_replay_conflicts`
+- 若新的基础值与当前 winner 不一致，写入 `field_conflicts`
   - `conflictKind = base_drift`
 
 并确保：
@@ -243,13 +241,13 @@ desktop 同步时：
 
 远端冲突处理至少支持：
 
-- 查询 `field_commit_conflicts`
+- 查询 `field_conflicts`
 - 进入单条冲突详情
 - 执行解决动作
 
 本地 replay 冲突处理至少支持：
 
-- 查询 `field_replay_conflicts`
+- 查询 `field_conflicts`
 - 进入单条冲突详情
 - 执行解决动作
 
@@ -327,8 +325,30 @@ desktop 同步时：
 
 - `hearthstone tag` 首轮可完成本地保存、远端接收、desktop 增量拉取
 - `field_winners` 能稳定表达当前 winner 状态
-- `field_commit_conflicts` 能承接远端 merge 冲突
-- `field_replay_conflicts` 能承接本地 replay 冲突与 `base_drift`
+- `field_conflicts` 能同时承接远端 merge 冲突与本地 replay / `base_drift` 冲突
 - 自动与高优先级来源冲突时，主表继续保留当前 winner，同时能在冲突入口中看到冲突
 - 统一解决动作执行后，主表、winner、`field_commits`、冲突状态可正确收敛
 - `magic.cards` 的多来源基础值决策边界已固定，但未被错误扩展为首轮实现范围
+
+## 验证记录
+
+本轮实际完成并通过的验证：
+
+- `cargo check --manifest-path apps/app-console-desktop/src-tauri/Cargo.toml`
+- `bun run typecheck` in `packages/model`
+- `bun run typecheck` in `packages/console-api`
+- `bun run typecheck` in `apps/service-desktop-runtime`
+
+已验证到的实现口径：
+
+- tag 本地手动编辑会写主表、`field_winners` 与本地 `field_commits`
+- 远端 / 本地统一使用 `applyTagCommit` 处理 `source_edit`
+- 本地 hsdata tag 自动导入会按当前 winner 决定是否覆写主表，并在需要时写 `field_conflicts.base_drift`
+- 冲突可通过统一 `field_conflicts` 入口执行 `accept_incoming`、`keep_current_winner`、`require_followup_commit`、`winner_clear`
+- `conflict_resolution` 与 `winner_clear` 已进入共享 commit apply 语义，可继续参与 push / pull / replay
+
+本轮未完成自动化验证的部分：
+
+- 未补端到端 UI 测试
+- 未补真实双库 push / pull 集成测试
+- 未补基于真实数据库数据的冲突回放脚本

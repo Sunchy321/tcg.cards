@@ -7,6 +7,11 @@ import { db } from '@tcg-cards/db/db';
 import { FieldWinner } from '@tcg-cards/db/schema/shared/hearthstone';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
 import {
+  tagConflictGetInput,
+  tagConflictListInput,
+  tagConflictListResult,
+  tagConflictProfile,
+  tagConflictResolveInput,
   tagGetInput,
   tagListInput,
   tagListResult,
@@ -28,6 +33,11 @@ import {
   type TagRow,
   type TagWrite,
 } from '../../lib/hearthstone/tag-commit';
+import {
+  getTagConflict,
+  listTagConflicts,
+  resolveTagConflict,
+} from '../../lib/hearthstone/tag-conflict';
 import type { ConsoleApiRequestMeta } from '../../request-meta';
 
 const os = create.$context<{ meta?: ConsoleApiRequestMeta }>();
@@ -389,6 +399,26 @@ const get = os
     return toProfile(row);
   });
 
+const listConflicts = os
+  .route({
+    method:      'GET',
+    description: 'List Hearthstone tag conflicts',
+    tags:        ['Console', 'Hearthstone', 'Tag'],
+  })
+  .input(tagConflictListInput)
+  .output(tagConflictListResult)
+  .handler(async ({ input }) => await listTagConflicts(db, input));
+
+const getConflict = os
+  .route({
+    method:      'GET',
+    description: 'Get one Hearthstone tag conflict',
+    tags:        ['Console', 'Hearthstone', 'Tag'],
+  })
+  .input(tagConflictGetInput)
+  .output(tagConflictProfile)
+  .handler(async ({ input }) => await getTagConflict(db, input.id));
+
 const manualUpdate = os
   .route({
     method:      'PUT',
@@ -479,8 +509,30 @@ const manualUpdate = os
     }
   });
 
+const resolveConflict = os
+  .route({
+    method:      'POST',
+    description: 'Resolve one Hearthstone tag conflict',
+    tags:        ['Console', 'Hearthstone', 'Tag'],
+  })
+  .input(tagConflictResolveInput)
+  .output(tagConflictProfile)
+  .handler(async ({ input, context }) => {
+    const commitMeta = resolveCommitMeta(context.meta);
+
+    return await resolveTagConflict(db, input, {
+      editorRuntime:  commitMeta.editorRuntime,
+      editorIdentity: commitMeta.editorIdentity,
+      syncStatus:     commitMeta.syncStatus,
+      conflictTarget: commitMeta.conflictTarget,
+    });
+  });
+
 export const tagTrpc = {
   list,
   get,
+  listConflicts,
+  getConflict,
   manualUpdate,
+  resolveConflict,
 };

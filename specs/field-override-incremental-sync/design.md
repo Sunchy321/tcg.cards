@@ -742,8 +742,8 @@
 
 - 自动来源竞争的原始候选不应直接写入 `field_commits`
 - 只有已经收敛完成、会影响当前态的变化才进入 `field_commits`
-- 双端导入外来 `commit` 时的冲突进入各自的 `field_commit_conflicts`
-- 本地 base / replay 阶段的冲突单独进入 `field_replay_conflicts`
+- 双端导入外来 `commit` 与本地 base / replay 阶段的冲突统一进入 `field_conflicts`
+- `processingSide + processingStage` 区分远端 apply、本地 apply 与本地 replay 的处理上下文
 
 ## 3. 同步过程改为“双端各自 `field_commits` + 轻审核状态”
 
@@ -759,9 +759,8 @@
 - `local hearthstone_data.field_commits`
 - `remote hearthstone_data.field_commits`
 - `local hearthstone_data.field_sync_cursors`
-- `local hearthstone_data.field_commit_conflicts`
-- `remote hearthstone_data.field_commit_conflicts`
-- `local hearthstone_data.field_replay_conflicts`
+- `local hearthstone_data.field_conflicts`
+- `remote hearthstone_data.field_conflicts`
 
 其中：
 
@@ -769,9 +768,8 @@
   - 双端各自的正式 `commit history`
 - `field_sync_cursors`
   - 本地记录 push / pull 的同步位置
-- `field_commit_conflicts`
+- `field_conflicts`
   - 任一端导入外来 `commit` 时发现的冲突
-- `field_replay_conflicts`
   - 本地 base / replay 阶段的冲突
 
 ### 3.0 同步语义
@@ -885,7 +883,7 @@
   - 类似 `git push`
 - 本地 `pull`
   - 类似 `git fetch / pull`
-- `field_commit_conflicts`
+- `field_conflicts`
   - 类似导入外来提交时的 merge conflict / review decision
 - `field_winners` 与主表
   - 类似基于已接受提交重建出来的工作树当前态
@@ -965,13 +963,15 @@
 
 - `(consumer, stream)`
 
-### 3.3 `field_commit_conflicts`
+### 3.3 `field_conflicts`
 
-保存任一端导入外来 `commit` 时发现的冲突与解决结果。
+保存任一端导入外来 `commit` 时发现的冲突、本地 replay 冲突与解决结果。
 
 最小字段：
 
 - `id`
+- `processingSide`
+- `processingStage`
 - `conflictKind`
 - `entityType`
 - `entityKey`
@@ -989,9 +989,23 @@
 - `resolvedAt`
 - `resolution`
 
+第一版 `processingSide` 固定为：
+
+- `local`
+- `remote`
+
+第一版 `processingStage` 固定为：
+
+- `apply`
+- `replay`
+
 第一版 `conflictKind` 固定为：
 
-- `external_commit_merge`
+- `expected_row_revision_mismatch`
+- `expected_winner_revision_mismatch`
+- `source_resolution`
+- `base_drift`
+- `history_replay`
 
 第一版 `status` 固定为：
 
@@ -1005,41 +1019,23 @@
 - `accept_incoming`
 - `keep_current_winner`
 - `require_followup_commit`
+- `winner_clear`
 
 处理原则：
 
-- `field_commit_conflicts` 只负责“导入外来 `commit` 时”的 merge 冲突
+- 远端导入外来 `commit` 的 merge 冲突与本地 replay / `base_drift` 冲突都进入 `field_conflicts`
+- 通过 `processingSide + processingStage` 区分冲突发生位置
 - 解决结果最终仍应通过新的 `conflict_resolution commit` 回写到 `field_commits`
 
-### 3.4 `field_replay_conflicts`
-
-保存本地 base / replay 阶段的冲突。
-
-第一版 `conflictKind` 固定为：
-
-- `source_resolution`
-- `base_drift`
-- `history_replay`
-
-语义如下：
-
-- `source_resolution`
-  - 多来源无法稳定收敛出唯一 `resolved base`
-- `base_drift`
-  - 新的 `resolved base` 已产生，但字段当前 winner 不是自动来源
-- `history_replay`
-  - 外来 `commit` 在当前本地 base 上无法直接重放为一致结果
-
-### 3.5 通用同步过程表的最小部署边界
+### 3.4 通用同步过程表的最小部署边界
 
 首轮固定如下：
 
 - `local hearthstone_data.field_commits`
 - `remote hearthstone_data.field_commits`
 - `local hearthstone_data.field_sync_cursors`
-- `local hearthstone_data.field_commit_conflicts`
-- `remote hearthstone_data.field_commit_conflicts`
-- `local hearthstone_data.field_replay_conflicts`
+- `local hearthstone_data.field_conflicts`
+- `remote hearthstone_data.field_conflicts`
 
 首轮不再把 `field_commit_outbox` 作为核心真源。
 
@@ -1117,9 +1113,9 @@
 - 本地 `hearthstone.tags`
 - 本地 `hearthstone_data.field_winners`
 - 本地 `field_commits`
-- 本地 `field_commit_conflicts`
+- 本地 `field_conflicts`
 - 本地基于 `pull` 缓存的远端冲突状态
-- 本地未解决的 `field_replay_conflicts`
+- 本地未解决的 replay / `base_drift` 冲突
 
 ### 5.2 保存阶段
 
@@ -1148,7 +1144,7 @@
 
 若远端导入该 `commit` 时发现 revision 不匹配或同字段并发 `commit`，则：
 
-- 远端写入 `field_commit_conflicts`
+- 远端写入 `field_conflicts`
 - 当前 `push` 返回冲突结果
 - 本地等待后续 `pull` 获取远端冲突结论或 follow-up commit
 - 本地等待后续 `pull` 获取远端冲突结论
@@ -1159,7 +1155,7 @@
 
 - 当前 `resolved base` 已完成收敛
 - 相关远端 `commit` 已 `pull` 到本地
-- 当前字段不存在未解决的 `field_replay_conflicts`
+- 当前字段不存在未解决的 replay / `base_drift` 冲突
 
 本地先执行与远端相同的 `project` 规则：
 
@@ -1184,7 +1180,7 @@ site 保存时直接在远端生成 `commit`：
 1. 先调用共享 TS `apply commit / merge / project` 逻辑
 2. 写入 `field_commits`
 3. 根据来源策略决定 `reviewStatus`
-4. 如有 revision 冲突，则写入远端 `field_commit_conflicts`
+4. 如有 revision 冲突，则写入远端 `field_conflicts`
 5. 只有 `reviewStatus = auto_approved | approved` 的 `commit` 才参与远端 projection
 
 这里特意不要求第一版增加独立的 remote service 接收入口。
@@ -1219,10 +1215,10 @@ desktop 后续同步时：
 
 1. 读取 `field_sync_cursors`
 2. 从远端 `field_commits` 拉取 `lastPulledSequence` 之后的新 `commit`
-3. 同步读取本地关心对象上的远端 `field_commit_conflicts` 变化与解决结果
+3. 同步读取本地关心对象上的远端 `field_conflicts` 变化与解决结果
 4. 将远端 `commit` 导入本地 `field_commits`
 5. 用与远端相同的 `project` 规则尝试更新本地主表
-6. 若在当前本地 base 上无法得到一致结果，则写入 `field_replay_conflicts`
+6. 若在当前本地 base 上无法得到一致结果，则写入 `field_conflicts`
 7. 更新本地 `field_sync_cursors`
 
 这样 desktop 不需要轮询整表，也不直接抄远端目标表，只需 `pull` 远端 `commit` 并在本地重放。
@@ -1258,13 +1254,13 @@ desktop 后续同步时：
 ### 7.3 当前 winner 来自更高优先级来源的字段
 
 - 即使来源层已生成新的 `resolved base`，导入也不更新该字段的主表当前值
-- 但如果新的 `resolved base` 与当前 winner value 不一致，必须写入 `field_replay_conflicts`
+- 但如果新的 `resolved base` 与当前 winner value 不一致，必须写入 `field_conflicts`
 
 此时系统行为应固定为：
 
 - 主表继续保留当前 winner value
 - `field_winners` 继续保持 `active`
-- `field_replay_conflicts` 中新增一条 `base_drift` 或等价类型的冲突记录
+- `field_conflicts` 中新增一条 `base_drift` 冲突记录
 
 这样维护者之后可以：
 
@@ -1282,57 +1278,46 @@ desktop 后续同步时：
 
 该字段重新回到自动来源 merge 结果驱动。
 
-## 8. 分层冲突处理
+## 8. 统一冲突处理入口
 
-本轮不再追求“所有冲突统一在一个地方处理”，而是明确拆成两层。
+本轮改为统一使用 `field_conflicts` 作为冲突记录表。
 
-### 8.1 远端 `commit` merge 冲突
+### 8.1 远端 apply 冲突
 
-远端 `field_commit_conflicts` 只处理：
+远端通过：
 
-- `remote_merge`
+- `processingSide = remote`
+- `processingStage = apply`
 
-也就是：
+记录导入外来 `commit` 时的 merge 冲突。
+
+典型场景包括：
 
 - 多个来源提交的 `commit` 在远端发生并发
 - 本地 `push` 与远端已接受 `commit` 并发
 - 远端发现当前 `commit` 的预期状态已过期
 
-处理结果的目标是：
+### 8.2 本地 replay 冲突
 
-- 决定远端最终接受哪一个 `commit` 结果
-- 持久化这次解决动作，作为双端后续重放的权威输入
+本地通过：
 
-它不直接负责：
+- `processingSide = local`
+- `processingStage = replay`
 
-- 多来源 `resolved base` 冲突
-- `base_drift`
-- 外来 `commit` 如何落到当前本地 base
+记录 replay / `base_drift` 冲突。
 
-### 8.2 本地 merge 冲突
-
-本地 `field_replay_conflicts` 处理：
-
-- `source_resolution`
-- `base_drift`
-- `history_replay`
-
-也就是：
+典型场景包括：
 
 - 自动来源无法收敛出唯一 `resolved base`
-- 新 base 已出现，但当前字段当前 winner 不是自动来源
+- 新 base 已出现，但当前字段 winner 不是自动来源
 - 外来 `commit` 无法直接在当前本地 base 上重放
 
-处理结果的目标是：
+### 8.3 统一入口下的处理原则
 
-- 决定本地当前字段能否继续发布
-- 决定发布时采用哪个 effective value
-
-### 8.3 分层后的处理原则
-
-- 远端决定“权威过程上接受什么结果”
-- 远端和本地都按同一套规则重放这一权威过程
-- 如有下游产物，本地再决定“重放结果如何继续发布到下游产物”
+- 冲突统一写入 `field_conflicts`
+- 冲突详情与解决动作统一读取 `field_conflicts`
+- 远端和本地通过 `processingSide + processingStage` 区分处理上下文
+- 解决结果仍回写到 `field_commits`、主表与 `field_winners`
 - 远端冲突解决后，本地仍可能出现 merge 冲突
 - 本地 merge 冲突解决后，双端 projection 才能重新收敛
 
@@ -1388,9 +1373,8 @@ tag 的主要问题已经不是“字段该放哪张表”，而是：
 - `local hearthstone_data.field_commits`
 - `remote hearthstone_data.field_commits`
 - `local hearthstone_data.field_sync_cursors`
-- `local hearthstone_data.field_commit_conflicts`
-- `remote hearthstone_data.field_commit_conflicts`
-- `local hearthstone_data.field_replay_conflicts`
+- `local hearthstone_data.field_conflicts`
+- `remote hearthstone_data.field_conflicts`
 
 ### 10.3 用户动作表
 
@@ -1408,9 +1392,8 @@ tag 的主要问题已经不是“字段该放哪张表”，而是：
 - 新增本地 `field_commits`
 - 新增远端 `field_commits`
 - 新增本地 `field_sync_cursors`
-- 新增本地 `field_commit_conflicts`
-- 新增远端 `field_commit_conflicts`
-- 新增本地 `field_replay_conflicts`
+- 新增本地 `field_conflicts`
+- 新增远端 `field_conflicts`
 - 明确复用 `import_sources`、`import_rule_sets`、`import_field_rules` 作为多来源基础值决策输入
 
 ### 阶段二：tag 页面改为“本地双写 + local commits”
@@ -1426,7 +1409,7 @@ tag 的主要问题已经不是“字段该放哪张表”，而是：
 - 远端按同一套 `project` 规则更新远端目标表
 - desktop 按 cursor 增量 `pull` 远端 `commit`
 - desktop 同步拉取远端冲突状态与解决结果
-- desktop 在本地重放同一过程，并写入可能的 `field_replay_conflicts`
+- desktop 在本地重放同一过程，并写入可能的 `field_conflicts`
 
 ### 阶段四：导入链路接入基础值决策与 winner merge
 
@@ -1482,8 +1465,7 @@ tag 的主要问题已经不是“字段该放哪张表”，而是：
 - 新增一套通用同步过程表：
   - `local / remote field_commits`
   - `field_sync_cursors`
-  - `field_commit_conflicts`
-  - `field_replay_conflicts`
+  - `field_conflicts`
 - desktop 采用“本地立即生效 + 本地 `commit` 再 `push`”
 - site 采用“远端直接写共享上游 `commit history` 并触发 `merge`”
 - 远端独立承接来源提交、轻审核、冲突解决，并更新远端 projection

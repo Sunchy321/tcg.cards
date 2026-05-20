@@ -3,6 +3,11 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "#model/*": ["../../packages/model/src/*"],
+      "@tcg-cards/model/src/*": ["../../packages/model/src/*"]
+    },
     "strict": true,
     "skipLibCheck": true,
     "types": ["bun", "node"]

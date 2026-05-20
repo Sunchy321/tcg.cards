@@ -90,6 +90,65 @@ export const tagGetInput = z.strictObject({
   enumId: z.int(),
 });
 
+export const tagConflictStatus = z.enum([
+  'open',
+  'in_review',
+  'resolved',
+  'dismissed',
+]);
+
+export const tagConflictResolution = z.enum([
+  'accept_incoming',
+  'keep_current_winner',
+  'require_followup_commit',
+  'winner_clear',
+]);
+
+export const tagConflictProfile = z.strictObject({
+  id:                 z.string().uuid(),
+  processingSide:     z.string(),
+  processingStage:    z.string(),
+  conflictKind:       z.string(),
+  enumId:             z.int(),
+  fieldPath:          z.string(),
+  sourceSummary:      z.record(z.string(), z.unknown()),
+  candidateBaseValue: z.unknown().nullable(),
+  localValue:         z.unknown().nullable(),
+  incomingValue:      z.unknown().nullable(),
+  effectiveValue:     z.unknown().nullable(),
+  winnerValue:        z.unknown().nullable(),
+  baseRevision:       z.string(),
+  status:             tagConflictStatus,
+  reason:             nullableText,
+  resolution:         tagConflictResolution.nullable(),
+  createdAt:          z.string(),
+  resolvedAt:         z.string().nullable(),
+});
+
+export const tagConflictListInput = z.strictObject({
+  status:          tagConflictStatus.optional(),
+  processingSide:  z.string().trim().max(32).optional(),
+  processingStage: z.string().trim().max(32).optional(),
+  enumId:          z.int().optional(),
+  page:            z.int().positive().default(1),
+  limit:           z.int().positive().max(200).default(50),
+});
+
+export const tagConflictListResult = z.strictObject({
+  items: z.array(tagConflictProfile),
+  total: z.int().nonnegative(),
+  page:  z.int().positive(),
+  limit: z.int().positive(),
+});
+
+export const tagConflictGetInput = z.strictObject({
+  id: z.string().uuid(),
+});
+
+export const tagConflictResolveInput = tagConflictGetInput.extend({
+  resolution: tagConflictResolution,
+});
+
 export const tagUpdateInput = tagGetInput.extend({
   slug:              z.string().trim().min(1).max(160),
   slugAliases:       z.array(z.string().trim().min(1).max(160)).default([]),
@@ -117,4 +176,11 @@ export type TagProfile = z.infer<typeof tagProfile>;
 export type TagListInput = z.infer<typeof tagListInput>;
 export type TagListResult = z.infer<typeof tagListResult>;
 export type TagGetInput = z.infer<typeof tagGetInput>;
+export type TagConflictStatus = z.infer<typeof tagConflictStatus>;
+export type TagConflictResolution = z.infer<typeof tagConflictResolution>;
+export type TagConflictProfile = z.infer<typeof tagConflictProfile>;
+export type TagConflictListInput = z.infer<typeof tagConflictListInput>;
+export type TagConflictListResult = z.infer<typeof tagConflictListResult>;
+export type TagConflictGetInput = z.infer<typeof tagConflictGetInput>;
+export type TagConflictResolveInput = z.infer<typeof tagConflictResolveInput>;
 export type TagUpdateInput = z.infer<typeof tagUpdateInput>;

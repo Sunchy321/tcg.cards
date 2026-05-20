@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./request-meta": "./src/request-meta.ts",
     "./lib/hearthstone/tag-commit": "./src/lib/hearthstone/tag-commit.ts",
+    "./lib/hearthstone/tag-conflict": "./src/lib/hearthstone/tag-conflict.ts",
     "./lib/hearthstone/tag-pull": "./src/lib/hearthstone/tag-pull.ts",
     "./lib/hearthstone/tag-push": "./src/lib/hearthstone/tag-push.ts"
   },

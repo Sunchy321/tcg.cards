@@ -1,4 +1,6 @@
-use crate::desktop_database::connect_configured_desktop_database;
+use crate::desktop_database::{
+    connect_configured_desktop_database, postgres_statement_with_values, read_query_value,
+};
 use crate::entity::hearthstone_data::hsdata_import_job_workspace_snapshots;
 use crate::entity::hearthstone_data::hsdata_import_jobs;
 use crate::entity::hearthstone_data::raw_entity_snapshot_tags;
@@ -20,6 +22,15 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
+
+const TAG_AUTO_WINNER_SOURCE: &str = "auto:hsdata";
+const TAG_AUTO_RESOLUTION_MODE: &str = "rule_auto";
+const TAG_AUTO_RESOLUTION_FINGERPRINT: &str = "hearthstone-tag-hsdata-discovery:v1";
+const TAG_AUTO_SOURCE_RUNTIME: &str = "desktop";
+const TAG_AUTO_FIELD_PATH_RAW_NAME: &str = "tag.rawName";
+const TAG_AUTO_FIELD_PATH_RAW_TYPE: &str = "tag.rawType";
+const TAG_AUTO_FIELD_PATH_RAW_NAMES: &str = "tag.rawNames";
+const TAG_AUTO_FIELD_PATH_VALUE_KIND: &str = "tag.valueKind";
 
 /// Naive UTC timestamp resolved from the current system clock.
 fn now_utc() -> chrono::NaiveDateTime {
@@ -144,6 +155,32 @@ struct ExistingTagRow {
     raw_names: Vec<String>,
     raw_name: Option<String>,
     raw_type: Option<String>,
+    last_seen_source_tag: Option<i32>,
+    field_winners: HashMap<String, ExistingFieldWinner>,
+}
+
+/// Active winner projection reused while importing discovered tag fields.
+#[derive(Clone)]
+struct ExistingFieldWinner {
+    winner_value: Option<Value>,
+    winner_source: Option<String>,
+    base_revision: String,
+}
+
+/// Auto-discovered tag fields derived from one hsdata tag observation.
+struct DiscoveredTagFields {
+    raw_name: Option<String>,
+    raw_type: Option<String>,
+    raw_names: Vec<String>,
+    value_kind: String,
+}
+
+/// Import decision resolved for one auto-discovered tag field.
+struct AutoFieldPlan {
+    base_revision: String,
+    allow_auto_projection: bool,
+    rebase_manual_winner: bool,
+    record_base_drift: bool,
 }
 
 /// Parsed tag value resolved into the raw archive storage columns.
@@ -195,6 +232,85 @@ fn sha256_hex(input: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(input.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+/// JSON value canonicalized with stable key ordering for revision hashing.
+fn canonicalize_json(value: &Value) -> String {
+    match value {
+        Value::Null => "null".to_string(),
+        Value::Bool(flag) => serde_json::to_string(flag).unwrap_or_else(|_| "false".to_string()),
+        Value::Number(number) => number.to_string(),
+        Value::String(text) => serde_json::to_string(text).unwrap_or_else(|_| "\"\"".to_string()),
+        Value::Array(items) => format!(
+            "[{}]",
+            items
+                .iter()
+                .map(canonicalize_json)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        Value::Object(object) => {
+            let mut keys = object.keys().cloned().collect::<Vec<_>>();
+            keys.sort();
+
+            format!(
+                "{{{}}}",
+                keys.iter()
+                    .map(|key| {
+                        format!(
+                            "{}:{}",
+                            serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string()),
+                            canonicalize_json(object.get(key).unwrap_or(&Value::Null))
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+        }
+    }
+}
+
+/// Revision string hashed from one logical JSON payload.
+fn hash_revision(value: &Value) -> String {
+    format!("sha256:{}", sha256_hex(&canonicalize_json(value)))
+}
+
+/// PostgreSQL text array value built from one borrowed string slice.
+fn string_array_value(values: &[String]) -> sea_orm::Value {
+    sea_orm::Value::Array(
+        sea_orm::sea_query::ArrayType::String,
+        Some(Box::new(
+            values.iter().cloned().map(Into::into).collect::<Vec<_>>(),
+        )),
+    )
+}
+
+/// PostgreSQL integer array value built from one borrowed integer slice.
+fn int_array_value(values: &[i32]) -> sea_orm::Value {
+    sea_orm::Value::Array(
+        sea_orm::sea_query::ArrayType::Int,
+        Some(Box::new(
+            values.iter().copied().map(Into::into).collect::<Vec<_>>(),
+        )),
+    )
+}
+
+/// Nullable PostgreSQL JSON value built from one optional serde payload.
+fn optional_json_value(value: Option<Value>) -> sea_orm::Value {
+    match value {
+        Some(value) => sea_orm::Value::Json(Some(Box::new(value))),
+        None => sea_orm::Value::Json(None),
+    }
+}
+
+/// Structured entity key used by the shared tag field-sync rows.
+fn to_tag_entity_key(enum_id: i32) -> Value {
+    json!({ "enumId": enum_id })
+}
+
+/// Shared field-sync path rendered for one tag field.
+fn to_tag_field_path(field: &str) -> String {
+    format!("tag.{field}")
 }
 
 /// Stable discovered-tag slug derived from one raw tag name and enum id.
@@ -488,6 +604,7 @@ async fn load_existing_tags(
         return Ok(HashMap::new());
     }
 
+    let existing_winners = load_existing_tag_winners(connection, enum_ids).await?;
     let rows = tags::Entity::find()
         .filter(tags::Column::EnumId.is_in(enum_ids.iter().copied()))
         .all(connection)
@@ -504,10 +621,184 @@ async fn load_existing_tags(
                     raw_names: row.raw_names,
                     raw_name: row.raw_name,
                     raw_type: row.raw_type,
+                    last_seen_source_tag: row.last_seen_source_tag,
+                    field_winners: existing_winners.get(&row.enum_id).cloned().unwrap_or_default(),
                 },
             )
         })
         .collect())
+}
+
+/// Active winner rows loaded for the provided tag enum ids and auto-managed fields.
+async fn load_existing_tag_winners(
+    connection: &impl ConnectionTrait,
+    enum_ids: &[i32],
+) -> Result<HashMap<i32, HashMap<String, ExistingFieldWinner>>, String> {
+    if enum_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let field_paths = vec![
+        TAG_AUTO_FIELD_PATH_RAW_NAME.to_string(),
+        TAG_AUTO_FIELD_PATH_RAW_TYPE.to_string(),
+        TAG_AUTO_FIELD_PATH_RAW_NAMES.to_string(),
+        TAG_AUTO_FIELD_PATH_VALUE_KIND.to_string(),
+    ];
+    let rows = connection
+        .query_all(postgres_statement_with_values(
+            r#"
+            select
+              (entity_key ->> 'enumId')::integer as enum_id,
+              field_path,
+              winner_value,
+              winner_source,
+              base_revision
+            from hearthstone_data.field_winners
+            where entity_type = 'tag'
+              and status = 'active'
+              and (entity_key ->> 'enumId')::integer = any($1)
+              and field_path = any($2)
+            "#,
+            vec![int_array_value(enum_ids), string_array_value(&field_paths)],
+        ))
+        .await
+        .map_err(|error| format!("Failed to load hearthstone tag field winners: {error}"))?;
+
+    let mut winners = HashMap::<i32, HashMap<String, ExistingFieldWinner>>::new();
+    for row in rows {
+        let enum_id: i32 = read_query_value(&row, "enum_id")?;
+        let field_path: String = read_query_value(&row, "field_path")?;
+        let winner_value: Option<Value> = read_query_value(&row, "winner_value")?;
+        let winner_source: Option<String> = read_query_value(&row, "winner_source")?;
+        let base_revision: String = read_query_value(&row, "base_revision")?;
+
+        winners.entry(enum_id).or_default().insert(
+            field_path,
+            ExistingFieldWinner {
+                winner_value,
+                winner_source,
+                base_revision,
+            },
+        );
+    }
+
+    Ok(winners)
+}
+
+/// Auto-discovered value kind inferred directly from one raw hsdata tag type.
+fn guess_auto_value_kind(tag: &LocalHsdataRawTag) -> String {
+    match tag.raw_type.as_str() {
+        "Bool" => "bool".to_string(),
+        "Card" => "card_ref".to_string(),
+        "Int" => "int".to_string(),
+        "LocString" => "loc_string".to_string(),
+        "String" => "string".to_string(),
+        _ => "json".to_string(),
+    }
+}
+
+/// Auto-discovered base fields merged from one raw observation and one current effective row.
+fn build_discovered_tag_fields(
+    tag: &LocalHsdataRawTag,
+    existing: Option<&ExistingTagRow>,
+) -> DiscoveredTagFields {
+    let raw_name = if tag.raw_name.is_empty() {
+        existing.and_then(|row| row.raw_name.clone())
+    } else {
+        Some(tag.raw_name.clone())
+    };
+    let raw_type = if tag.raw_type.is_empty() {
+        existing.and_then(|row| row.raw_type.clone())
+    } else {
+        Some(tag.raw_type.clone())
+    };
+    let mut raw_names = existing
+        .map(|row| row.raw_names.clone())
+        .unwrap_or_default();
+
+    if let Some(raw_name) = raw_name.as_ref() {
+        if !raw_name.is_empty() && !raw_names.contains(raw_name) {
+            raw_names.push(raw_name.clone());
+            raw_names.sort();
+        }
+    }
+
+    let value_kind = if tag.raw_type.is_empty() {
+        existing
+            .map(|row| row.value_kind.clone())
+            .unwrap_or_else(|| guess_auto_value_kind(tag))
+    } else {
+        guess_auto_value_kind(tag)
+    };
+
+    DiscoveredTagFields {
+        raw_name,
+        raw_type,
+        raw_names,
+        value_kind,
+    }
+}
+
+/// JSON value projected from one nullable string field.
+fn string_option_json(value: &Option<String>) -> Option<Value> {
+    value.as_ref().map(|value| Value::String(value.clone()))
+}
+
+/// JSON value projected from one non-null string field.
+fn string_json(value: &str) -> Option<Value> {
+    Some(Value::String(value.to_string()))
+}
+
+/// JSON value projected from one ordered string list field.
+fn string_array_json(values: &[String]) -> Option<Value> {
+    Some(json!(values))
+}
+
+/// Shared base revision built for one auto-discovered tag field.
+fn build_auto_base_revision(enum_id: i32, field_path: &str, value: Option<Value>) -> String {
+    hash_revision(&json!({
+        "entityType": "tag",
+        "entityKey": to_tag_entity_key(enum_id),
+        "fieldPath": field_path,
+        "resolvedBaseValue": value,
+        "resolvedSource": TAG_AUTO_WINNER_SOURCE,
+        "resolutionMode": TAG_AUTO_RESOLUTION_MODE,
+        "resolutionFingerprint": TAG_AUTO_RESOLUTION_FINGERPRINT,
+    }))
+}
+
+/// Auto winner detection applied to one current winner source label.
+fn is_auto_winner_source(source: Option<&str>) -> bool {
+    matches!(source, Some(source) if source.starts_with("auto:"))
+}
+
+/// Import action resolved from one candidate auto base and the current winner projection.
+fn plan_auto_field_update(
+    enum_id: i32,
+    field_path: &str,
+    current_value: Option<Value>,
+    candidate_value: Option<Value>,
+    winner: Option<&ExistingFieldWinner>,
+) -> AutoFieldPlan {
+    let base_revision = build_auto_base_revision(enum_id, field_path, candidate_value.clone());
+
+    match winner {
+        Some(winner) if !is_auto_winner_source(winner.winner_source.as_deref()) => {
+            let values_match = current_value == candidate_value;
+            AutoFieldPlan {
+                base_revision: base_revision.clone(),
+                allow_auto_projection: false,
+                rebase_manual_winner: values_match && winner.base_revision != base_revision,
+                record_base_drift: !values_match,
+            }
+        }
+        _ => AutoFieldPlan {
+            base_revision,
+            allow_auto_projection: true,
+            rebase_manual_winner: false,
+            record_base_drift: false,
+        },
+    }
 }
 
 /// Raw tag value kind guessed from one normalized raw tag payload.
@@ -521,20 +812,189 @@ fn guess_value_kind(tag: &LocalHsdataRawTag, existing: Option<&ExistingTagRow>) 
         }
     }
 
-    match tag.raw_type.as_str() {
-        "Bool" => "bool".to_string(),
-        "Card" => "card_ref".to_string(),
-        "Int" => "int".to_string(),
-        "LocString" => "loc_string".to_string(),
-        "String" => "string".to_string(),
-        _ => "json".to_string(),
-    }
+    guess_auto_value_kind(tag)
+}
+
+/// Active auto winner projection upserted for one discovered tag field.
+async fn upsert_auto_field_winner(
+    connection: &impl ConnectionTrait,
+    enum_id: i32,
+    field_path: &str,
+    winner_value: Option<Value>,
+    base_revision: &str,
+    source_tag: u32,
+) -> Result<(), String> {
+    connection
+        .execute(postgres_statement_with_values(
+            r#"
+            insert into hearthstone_data.field_winners (
+              entity_type,
+              entity_key,
+              field_path,
+              winner_value,
+              winner_source,
+              status,
+              source_runtime,
+              updated_by,
+              base_revision,
+              updated_at,
+              cleared_at
+            )
+            values (
+              'tag',
+              $1::jsonb,
+              $2,
+              $3::jsonb,
+              $4,
+              'active',
+              $5,
+              $6,
+              $7,
+              now(),
+              null
+            )
+            on conflict (entity_type, entity_key, field_path)
+              where status = 'active'
+            do update set
+              winner_value = excluded.winner_value,
+              winner_source = excluded.winner_source,
+              status = excluded.status,
+              source_runtime = excluded.source_runtime,
+              updated_by = excluded.updated_by,
+              base_revision = excluded.base_revision,
+              updated_at = excluded.updated_at,
+              cleared_at = excluded.cleared_at
+            "#,
+            vec![
+                to_tag_entity_key(enum_id).into(),
+                field_path.to_string().into(),
+                optional_json_value(winner_value),
+                TAG_AUTO_WINNER_SOURCE.to_string().into(),
+                TAG_AUTO_SOURCE_RUNTIME.to_string().into(),
+                format!("hsdata:{source_tag}").into(),
+                base_revision.to_string().into(),
+            ],
+        ))
+        .await
+        .map_err(|error| format!("Failed to upsert auto tag field winner: {error}"))?;
+
+    Ok(())
+}
+
+/// Existing non-auto winner rebased onto the latest identical auto base revision.
+async fn rebase_manual_field_winner(
+    connection: &impl ConnectionTrait,
+    enum_id: i32,
+    field_path: &str,
+    base_revision: &str,
+) -> Result<(), String> {
+    connection
+        .execute(postgres_statement_with_values(
+            r#"
+            update hearthstone_data.field_winners
+            set
+              base_revision = $1,
+              updated_at = now()
+            where entity_type = 'tag'
+              and status = 'active'
+              and field_path = $2
+              and (entity_key ->> 'enumId')::integer = $3
+            "#,
+            vec![
+                base_revision.to_string().into(),
+                field_path.to_string().into(),
+                enum_id.into(),
+            ],
+        ))
+        .await
+        .map_err(|error| format!("Failed to rebase manual tag field winner: {error}"))?;
+
+    Ok(())
+}
+
+/// Unified base-drift conflict inserted for one discovered tag field that cannot project.
+async fn insert_base_drift_conflict(
+    connection: &impl ConnectionTrait,
+    enum_id: i32,
+    field_path: &str,
+    candidate_base_value: Option<Value>,
+    effective_value: Option<Value>,
+    winner_value: Option<Value>,
+    base_revision: &str,
+    source_tag: u32,
+) -> Result<(), String> {
+    connection
+        .execute(postgres_statement_with_values(
+            r#"
+            insert into hearthstone_data.field_conflicts (
+              processing_side,
+              processing_stage,
+              conflict_kind,
+              entity_type,
+              entity_key,
+              field_path,
+              source_summary,
+              candidate_base_value,
+              local_value,
+              incoming_value,
+              effective_value,
+              winner_value,
+              base_revision,
+              status,
+              reason,
+              resolution,
+              resolved_at,
+              created_at
+            )
+            values (
+              'local',
+              'replay',
+              'base_drift',
+              'tag',
+              $1::jsonb,
+              $2,
+              $3::jsonb,
+              $4::jsonb,
+              $5::jsonb,
+              null,
+              $6::jsonb,
+              $7::jsonb,
+              $8,
+              'open',
+              'Auto-discovered base differs from the current non-auto winner.',
+              null,
+              null,
+              now()
+            )
+            "#,
+            vec![
+                to_tag_entity_key(enum_id).into(),
+                field_path.to_string().into(),
+                json!({
+                    "sourceTag": source_tag,
+                    "resolvedSource": TAG_AUTO_WINNER_SOURCE,
+                    "resolutionMode": TAG_AUTO_RESOLUTION_MODE,
+                    "resolutionFingerprint": TAG_AUTO_RESOLUTION_FINGERPRINT,
+                })
+                .into(),
+                optional_json_value(candidate_base_value),
+                optional_json_value(effective_value.clone()),
+                optional_json_value(effective_value),
+                optional_json_value(winner_value),
+                base_revision.to_string().into(),
+            ],
+        ))
+        .await
+        .map_err(|error| format!("Failed to insert tag base-drift conflict: {error}"))?;
+
+    Ok(())
 }
 
 /// Missing hearthstone tag rows inserted before raw tag rows are written.
 async fn insert_missing_tags(
     connection: &impl ConnectionTrait,
     source_tag: u32,
+    dry_run: bool,
     parsed_entities: &[LocalHsdataParsedEntity],
 ) -> Result<(HashMap<i32, ExistingTagRow>, Vec<u32>, u32), String> {
     let mut first_tag_by_enum = HashMap::<i32, &LocalHsdataRawTag>::new();
@@ -548,7 +1008,7 @@ async fn insert_missing_tags(
     let mut enum_ids = first_tag_by_enum.keys().copied().collect::<Vec<_>>();
     enum_ids.sort_unstable();
     let mut existing = load_existing_tags(connection, &enum_ids).await?;
-    let mut discovered = Vec::new();
+    let mut discovered_enum_ids = Vec::new();
     let mut updated = 0_u32;
 
     for enum_id in enum_ids {
@@ -557,90 +1017,431 @@ async fn insert_missing_tags(
         };
 
         if let Some(row) = existing.get_mut(&enum_id) {
-            let mut needs_update = false;
-            if !input.raw_name.is_empty() && !row.raw_names.contains(&input.raw_name) {
-                row.raw_names.push(input.raw_name.clone());
-                row.raw_names.sort();
-                needs_update = true;
-            }
-            if row.raw_name.is_none() && !input.raw_name.is_empty() {
-                row.raw_name = Some(input.raw_name.clone());
-                needs_update = true;
-            }
-            if row.raw_type.is_none() && !input.raw_type.is_empty() {
-                row.raw_type = Some(input.raw_type.clone());
-                needs_update = true;
+            let discovered_fields = build_discovered_tag_fields(input, Some(row));
+            let raw_name_current = string_option_json(&row.raw_name);
+            let raw_type_current = string_option_json(&row.raw_type);
+            let raw_names_current = string_array_json(&row.raw_names);
+            let value_kind_current = string_json(&row.value_kind);
+
+            let raw_name_candidate = string_option_json(&discovered_fields.raw_name);
+            let raw_type_candidate = string_option_json(&discovered_fields.raw_type);
+            let raw_names_candidate = string_array_json(&discovered_fields.raw_names);
+            let value_kind_candidate = string_json(&discovered_fields.value_kind);
+
+            let raw_name_plan = plan_auto_field_update(
+                enum_id,
+                TAG_AUTO_FIELD_PATH_RAW_NAME,
+                raw_name_current.clone(),
+                raw_name_candidate.clone(),
+                row.field_winners.get(TAG_AUTO_FIELD_PATH_RAW_NAME),
+            );
+            let raw_type_plan = plan_auto_field_update(
+                enum_id,
+                TAG_AUTO_FIELD_PATH_RAW_TYPE,
+                raw_type_current.clone(),
+                raw_type_candidate.clone(),
+                row.field_winners.get(TAG_AUTO_FIELD_PATH_RAW_TYPE),
+            );
+            let raw_names_plan = plan_auto_field_update(
+                enum_id,
+                TAG_AUTO_FIELD_PATH_RAW_NAMES,
+                raw_names_current.clone(),
+                raw_names_candidate.clone(),
+                row.field_winners.get(TAG_AUTO_FIELD_PATH_RAW_NAMES),
+            );
+            let value_kind_plan = plan_auto_field_update(
+                enum_id,
+                TAG_AUTO_FIELD_PATH_VALUE_KIND,
+                value_kind_current.clone(),
+                value_kind_candidate.clone(),
+                row.field_winners.get(TAG_AUTO_FIELD_PATH_VALUE_KIND),
+            );
+
+            if raw_name_plan.allow_auto_projection {
+                row.raw_name = discovered_fields.raw_name.clone();
+                if !dry_run {
+                    upsert_auto_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_NAME,
+                        raw_name_candidate.clone(),
+                        &raw_name_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
+                row.field_winners.insert(
+                    TAG_AUTO_FIELD_PATH_RAW_NAME.to_string(),
+                    ExistingFieldWinner {
+                        winner_value: raw_name_candidate.clone(),
+                        winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                        base_revision: raw_name_plan.base_revision.clone(),
+                    },
+                );
+            } else if raw_name_plan.rebase_manual_winner {
+                if !dry_run {
+                    rebase_manual_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_NAME,
+                        &raw_name_plan.base_revision,
+                    )
+                    .await?;
+                }
+                if let Some(winner) = row.field_winners.get_mut(TAG_AUTO_FIELD_PATH_RAW_NAME) {
+                    winner.base_revision = raw_name_plan.base_revision.clone();
+                }
+            } else if raw_name_plan.record_base_drift {
+                if !dry_run {
+                    insert_base_drift_conflict(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_NAME,
+                        raw_name_candidate.clone(),
+                        raw_name_current.clone(),
+                        row.field_winners
+                            .get(TAG_AUTO_FIELD_PATH_RAW_NAME)
+                            .and_then(|winner| winner.winner_value.clone()),
+                        &raw_name_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
             }
 
-            if needs_update {
-                updated += 1;
-                let Some(model) = tags::Entity::find_by_id(enum_id)
-                    .one(connection)
-                    .await
-                    .map_err(|error| format!("Failed to reload hearthstone tag row: {error}"))?
-                else {
-                    continue;
-                };
-                let mut active = model.into_active_model();
-                active.raw_name = Set(row.raw_name.clone());
-                active.raw_type = Set(row.raw_type.clone());
-                active.raw_names = Set(row.raw_names.clone());
-                active.last_seen_source_tag = Set(Some(source_tag as i32));
-                active
-                    .update(connection)
-                    .await
-                    .map_err(|error| format!("Failed to update hearthstone tag row: {error}"))?;
+            if raw_type_plan.allow_auto_projection {
+                row.raw_type = discovered_fields.raw_type.clone();
+                if !dry_run {
+                    upsert_auto_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_TYPE,
+                        raw_type_candidate.clone(),
+                        &raw_type_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
+                row.field_winners.insert(
+                    TAG_AUTO_FIELD_PATH_RAW_TYPE.to_string(),
+                    ExistingFieldWinner {
+                        winner_value: raw_type_candidate.clone(),
+                        winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                        base_revision: raw_type_plan.base_revision.clone(),
+                    },
+                );
+            } else if raw_type_plan.rebase_manual_winner {
+                if !dry_run {
+                    rebase_manual_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_TYPE,
+                        &raw_type_plan.base_revision,
+                    )
+                    .await?;
+                }
+                if let Some(winner) = row.field_winners.get_mut(TAG_AUTO_FIELD_PATH_RAW_TYPE) {
+                    winner.base_revision = raw_type_plan.base_revision.clone();
+                }
+            } else if raw_type_plan.record_base_drift {
+                if !dry_run {
+                    insert_base_drift_conflict(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_TYPE,
+                        raw_type_candidate.clone(),
+                        raw_type_current.clone(),
+                        row.field_winners
+                            .get(TAG_AUTO_FIELD_PATH_RAW_TYPE)
+                            .and_then(|winner| winner.winner_value.clone()),
+                        &raw_type_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
+            }
+
+            if raw_names_plan.allow_auto_projection {
+                row.raw_names = discovered_fields.raw_names.clone();
+                if !dry_run {
+                    upsert_auto_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_NAMES,
+                        raw_names_candidate.clone(),
+                        &raw_names_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
+                row.field_winners.insert(
+                    TAG_AUTO_FIELD_PATH_RAW_NAMES.to_string(),
+                    ExistingFieldWinner {
+                        winner_value: raw_names_candidate.clone(),
+                        winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                        base_revision: raw_names_plan.base_revision.clone(),
+                    },
+                );
+            } else if raw_names_plan.rebase_manual_winner {
+                if !dry_run {
+                    rebase_manual_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_NAMES,
+                        &raw_names_plan.base_revision,
+                    )
+                    .await?;
+                }
+                if let Some(winner) = row.field_winners.get_mut(TAG_AUTO_FIELD_PATH_RAW_NAMES) {
+                    winner.base_revision = raw_names_plan.base_revision.clone();
+                }
+            } else if raw_names_plan.record_base_drift {
+                if !dry_run {
+                    insert_base_drift_conflict(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_RAW_NAMES,
+                        raw_names_candidate.clone(),
+                        raw_names_current.clone(),
+                        row.field_winners
+                            .get(TAG_AUTO_FIELD_PATH_RAW_NAMES)
+                            .and_then(|winner| winner.winner_value.clone()),
+                        &raw_names_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
+            }
+
+            if value_kind_plan.allow_auto_projection {
+                row.value_kind = discovered_fields.value_kind.clone();
+                if !dry_run {
+                    upsert_auto_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_VALUE_KIND,
+                        value_kind_candidate.clone(),
+                        &value_kind_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
+                row.field_winners.insert(
+                    TAG_AUTO_FIELD_PATH_VALUE_KIND.to_string(),
+                    ExistingFieldWinner {
+                        winner_value: value_kind_candidate.clone(),
+                        winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                        base_revision: value_kind_plan.base_revision.clone(),
+                    },
+                );
+            } else if value_kind_plan.rebase_manual_winner {
+                if !dry_run {
+                    rebase_manual_field_winner(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_VALUE_KIND,
+                        &value_kind_plan.base_revision,
+                    )
+                    .await?;
+                }
+                if let Some(winner) = row.field_winners.get_mut(TAG_AUTO_FIELD_PATH_VALUE_KIND) {
+                    winner.base_revision = value_kind_plan.base_revision.clone();
+                }
+            } else if value_kind_plan.record_base_drift {
+                if !dry_run {
+                    insert_base_drift_conflict(
+                        connection,
+                        enum_id,
+                        TAG_AUTO_FIELD_PATH_VALUE_KIND,
+                        value_kind_candidate.clone(),
+                        value_kind_current.clone(),
+                        row.field_winners
+                            .get(TAG_AUTO_FIELD_PATH_VALUE_KIND)
+                            .and_then(|winner| winner.winner_value.clone()),
+                        &value_kind_plan.base_revision,
+                        source_tag,
+                    )
+                    .await?;
+                }
+            }
+
+            let main_fields_changed = (raw_name_plan.allow_auto_projection
+                && raw_name_current != raw_name_candidate)
+                || (raw_type_plan.allow_auto_projection
+                    && raw_type_current != raw_type_candidate)
+                || (raw_names_plan.allow_auto_projection
+                    && raw_names_current != raw_names_candidate)
+                || (value_kind_plan.allow_auto_projection
+                    && value_kind_current != value_kind_candidate);
+            let needs_persist =
+                main_fields_changed || row.last_seen_source_tag != Some(source_tag as i32);
+
+            if needs_persist {
+                if main_fields_changed {
+                    updated += 1;
+                }
+
+                if !dry_run {
+                    let Some(model) = tags::Entity::find_by_id(enum_id)
+                        .one(connection)
+                        .await
+                        .map_err(|error| format!("Failed to reload hearthstone tag row: {error}"))?
+                    else {
+                        continue;
+                    };
+                    let mut active = model.into_active_model();
+                    active.raw_name = Set(row.raw_name.clone());
+                    active.raw_type = Set(row.raw_type.clone());
+                    active.raw_names = Set(row.raw_names.clone());
+                    active.value_kind = Set(row.value_kind.clone());
+                    active.last_seen_source_tag = Set(Some(source_tag as i32));
+                    active
+                        .update(connection)
+                        .await
+                        .map_err(|error| format!("Failed to update hearthstone tag row: {error}"))?;
+                }
+                row.last_seen_source_tag = Some(source_tag as i32);
             }
 
             continue;
         }
 
-        let raw_names = if input.raw_name.is_empty() {
-            Vec::new()
-        } else {
-            vec![input.raw_name.clone()]
-        };
-        let value_kind = guess_value_kind(input, None);
-        tags::Entity::insert(tags::ActiveModel {
-            enum_id: Set(enum_id),
-            slug: Set(slugify_tag(&input.raw_name, input.enum_id)),
-            slug_aliases: Set(Vec::new()),
-            name: Set((!input.raw_name.is_empty()).then_some(input.raw_name.clone())),
-            raw_name: Set((!input.raw_name.is_empty()).then_some(input.raw_name.clone())),
-            raw_type: Set((!input.raw_type.is_empty()).then_some(input.raw_type.clone())),
-            raw_names: Set(raw_names.clone()),
-            value_kind: Set(value_kind.clone()),
-            normalize_kind: Set("identity".to_string()),
-            normalize_config: Set(json!({})),
-            project_target_type: Set(None),
-            project_target_path: Set(None),
-            project_kind: Set(None),
-            project_config: Set(json!({})),
-            status: Set("discovered".to_string()),
-            description: Set(None),
-            first_seen_source_tag: Set(Some(source_tag as i32)),
-            last_seen_source_tag: Set(Some(source_tag as i32)),
-            created_at: Default::default(),
-            updated_at: Default::default(),
-        })
-        .exec(connection)
-        .await
-        .map_err(|error| format!("Failed to insert hearthstone tag row: {error}"))?;
+        let discovered_fields = build_discovered_tag_fields(input, None);
+        let raw_name_base_revision = build_auto_base_revision(
+            enum_id,
+            TAG_AUTO_FIELD_PATH_RAW_NAME,
+            string_option_json(&discovered_fields.raw_name),
+        );
+        let raw_type_base_revision = build_auto_base_revision(
+            enum_id,
+            TAG_AUTO_FIELD_PATH_RAW_TYPE,
+            string_option_json(&discovered_fields.raw_type),
+        );
+        let raw_names_base_revision = build_auto_base_revision(
+            enum_id,
+            TAG_AUTO_FIELD_PATH_RAW_NAMES,
+            string_array_json(&discovered_fields.raw_names),
+        );
+        let value_kind_base_revision = build_auto_base_revision(
+            enum_id,
+            TAG_AUTO_FIELD_PATH_VALUE_KIND,
+            string_json(&discovered_fields.value_kind),
+        );
+        if !dry_run {
+            tags::Entity::insert(tags::ActiveModel {
+                enum_id: Set(enum_id),
+                slug: Set(slugify_tag(&input.raw_name, input.enum_id)),
+                slug_aliases: Set(Vec::new()),
+                name: Set((!input.raw_name.is_empty()).then_some(input.raw_name.clone())),
+                raw_name: Set(discovered_fields.raw_name.clone()),
+                raw_type: Set(discovered_fields.raw_type.clone()),
+                raw_names: Set(discovered_fields.raw_names.clone()),
+                value_kind: Set(discovered_fields.value_kind.clone()),
+                normalize_kind: Set("identity".to_string()),
+                normalize_config: Set(json!({})),
+                project_target_type: Set(None),
+                project_target_path: Set(None),
+                project_kind: Set(None),
+                project_config: Set(json!({})),
+                status: Set("discovered".to_string()),
+                description: Set(None),
+                first_seen_source_tag: Set(Some(source_tag as i32)),
+                last_seen_source_tag: Set(Some(source_tag as i32)),
+                created_at: Default::default(),
+                updated_at: Default::default(),
+            })
+            .exec(connection)
+            .await
+            .map_err(|error| format!("Failed to insert hearthstone tag row: {error}"))?;
+
+            upsert_auto_field_winner(
+                connection,
+                enum_id,
+                TAG_AUTO_FIELD_PATH_RAW_NAME,
+                string_option_json(&discovered_fields.raw_name),
+                &raw_name_base_revision,
+                source_tag,
+            )
+            .await?;
+            upsert_auto_field_winner(
+                connection,
+                enum_id,
+                TAG_AUTO_FIELD_PATH_RAW_TYPE,
+                string_option_json(&discovered_fields.raw_type),
+                &raw_type_base_revision,
+                source_tag,
+            )
+            .await?;
+            upsert_auto_field_winner(
+                connection,
+                enum_id,
+                TAG_AUTO_FIELD_PATH_RAW_NAMES,
+                string_array_json(&discovered_fields.raw_names),
+                &raw_names_base_revision,
+                source_tag,
+            )
+            .await?;
+            upsert_auto_field_winner(
+                connection,
+                enum_id,
+                TAG_AUTO_FIELD_PATH_VALUE_KIND,
+                string_json(&discovered_fields.value_kind),
+                &value_kind_base_revision,
+                source_tag,
+            )
+            .await?;
+        }
+
+        let mut field_winners = HashMap::new();
+        field_winners.insert(
+            TAG_AUTO_FIELD_PATH_RAW_NAME.to_string(),
+            ExistingFieldWinner {
+                winner_value: string_option_json(&discovered_fields.raw_name),
+                winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                base_revision: raw_name_base_revision,
+            },
+        );
+        field_winners.insert(
+            TAG_AUTO_FIELD_PATH_RAW_TYPE.to_string(),
+            ExistingFieldWinner {
+                winner_value: string_option_json(&discovered_fields.raw_type),
+                winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                base_revision: raw_type_base_revision,
+            },
+        );
+        field_winners.insert(
+            TAG_AUTO_FIELD_PATH_RAW_NAMES.to_string(),
+            ExistingFieldWinner {
+                winner_value: string_array_json(&discovered_fields.raw_names),
+                winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                base_revision: raw_names_base_revision,
+            },
+        );
+        field_winners.insert(
+            TAG_AUTO_FIELD_PATH_VALUE_KIND.to_string(),
+            ExistingFieldWinner {
+                winner_value: string_json(&discovered_fields.value_kind),
+                winner_source: Some(TAG_AUTO_WINNER_SOURCE.to_string()),
+                base_revision: value_kind_base_revision,
+            },
+        );
 
         existing.insert(
             enum_id,
             ExistingTagRow {
-                value_kind,
-                raw_names,
-                raw_name: (!input.raw_name.is_empty()).then_some(input.raw_name.clone()),
-                raw_type: (!input.raw_type.is_empty()).then_some(input.raw_type.clone()),
+                value_kind: discovered_fields.value_kind,
+                raw_names: discovered_fields.raw_names,
+                raw_name: discovered_fields.raw_name,
+                raw_type: discovered_fields.raw_type,
+                last_seen_source_tag: Some(source_tag as i32),
+                field_winners,
             },
         );
-        discovered.push(input.enum_id);
+        discovered_enum_ids.push(input.enum_id);
     }
 
-    discovered.sort_unstable();
-    Ok((existing, discovered, updated))
+    discovered_enum_ids.sort_unstable();
+    Ok((existing, discovered_enum_ids, updated))
 }
 
 /// Typed raw tag columns resolved from one normalized hsdata tag snapshot.
@@ -1144,7 +1945,7 @@ async fn apply_raw_import_batch(
     }
 
     let (existing_tags, discovered_tags, updated_discovered_tags) =
-        insert_missing_tags(connection, input.source_tag, parsed_entities).await?;
+        insert_missing_tags(connection, input.source_tag, input.dry_run, parsed_entities).await?;
 
     let dbf_id_by_card_id = parsed_entities
         .iter()

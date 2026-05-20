@@ -166,23 +166,28 @@
 - 冲突解决上下文
 - `baseRevision`
 
-### 5. 远端冲突与本地 replay 冲突分层，是当前更现实的方案
+### 5. 统一 `field_conflicts` 比拆成两张冲突表更合适
 
-当前版本保留两类冲突表：
+当前版本已经收敛为一张统一冲突表：
 
-- `field_commit_conflicts`
-- `field_replay_conflicts`
+- `field_conflicts`
 
-这是可以接受的。
+这是更合适的方向。
 
-从模型纯度看，单一冲突中心更漂亮；但在当前需求下，分层更现实：
+保留单表的前提是：
 
-- 双端都要处理“导入外来 commit 时”的冲突
-- 本地还要处理“在当前本地 base 上重放 history 时”的冲突
+- 用 `processingSide` 区分 `local / remote`
+- 用 `processingStage` 区分 `apply / replay`
 
-这两类冲突虽然都叫 merge 冲突，但触发时点和处理上下文并不相同。
+这样仍然能表达：
 
-当前把它们拆开，比强行塞进一张表更清楚。
+- 双端导入外来 `commit` 时的冲突
+- 本地在当前 base 上 replay history 时的冲突
+
+同时避免：
+
+- 远端 merge 冲突和本地 replay 冲突长期维持两套几乎重复的结构
+- 后续 UI 和处理动作还要为两张表分别维护入口
 
 ### 6. `tags` 继续不拆主表，是当前更合适的落地范围
 
@@ -269,12 +274,12 @@
 
 否则模型虽然表面统一了，落地时又会被拖回“人工是特殊机制”的旧路径。
 
-### 3. `field_commit_conflicts` 更像工作队列，应避免把它当唯一真源
+### 3. `field_conflicts` 更像工作队列，应避免把它当唯一真源
 
 当前评审建议继续明确：
 
 - 真源是 `field_commits`
-- `field_commit_conflicts` 是冲突处理工作表
+- `field_conflicts` 是冲突处理工作表
 
 也就是说，冲突表里的解决结果最终仍应通过：
 

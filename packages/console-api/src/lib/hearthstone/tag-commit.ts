@@ -99,6 +99,12 @@ const autoBaseFields = new Set<keyof TagWrite>([
   'valueKind',
 ]);
 
+const supportedCommitKinds = new Set<FieldCommitInsert['commitKind']>([
+  'source_edit',
+  'conflict_resolution',
+  'winner_clear',
+]);
+
 /** Serializes JSON-compatible values with stable key ordering for revision hashing. */
 function stableStringify(value: unknown): string {
   if (value == null || typeof value !== 'object') {
@@ -267,7 +273,14 @@ function canProjectCommit(commit: Pick<FieldCommitInsert, 'reviewStatus'>) {
 }
 
 /** Derives the winner source label for current tag manual edit commits. */
-function toWinnerSource(commit: Pick<FieldCommitInsert, 'commitKind' | 'editorRuntime'>) {
+function toWinnerSource(
+  commit: Pick<FieldCommitInsert, 'commitKind' | 'editorRuntime'>,
+  field: keyof TagWrite,
+) {
+  if (commit.commitKind === 'winner_clear' && autoBaseFields.has(field)) {
+    return 'auto:hsdata';
+  }
+
   if (commit.commitKind === 'source_edit') {
     return `manual:${commit.editorRuntime}`;
   }
@@ -318,7 +331,7 @@ export async function applyTagCommit(
     });
   }
 
-  if (commit.commitKind !== 'source_edit') {
+  if (!supportedCommitKinds.has(commit.commitKind)) {
     throw new ORPCError('BAD_REQUEST', {
       message: `Unsupported tag commitKind: ${commit.commitKind}`,
     });
@@ -447,7 +460,7 @@ export async function applyTagCommit(
         entityKey:     toTagEntityKey(enumId),
         fieldPath:     commit.fieldPath,
         winnerValue:   commit.value,
-        winnerSource:  toWinnerSource(commit),
+        winnerSource:  toWinnerSource(commit, field),
         status:        'active',
         sourceRuntime: commit.editorRuntime,
         updatedBy:     commit.editorIdentity,
@@ -462,7 +475,7 @@ export async function applyTagCommit(
       entityKey:     toTagEntityKey(enumId),
       fieldPath:     commit.fieldPath,
       winnerValue:   commit.value,
-      winnerSource:  toWinnerSource(commit),
+      winnerSource:  toWinnerSource(commit, field),
       status:        'active',
       sourceRuntime: commit.editorRuntime,
       updatedBy:     commit.editorIdentity,
