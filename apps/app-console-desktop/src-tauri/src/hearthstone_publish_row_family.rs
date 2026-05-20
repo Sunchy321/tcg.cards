@@ -5,7 +5,11 @@ use sea_orm::entity::prelude::*;
 /// Stored `change_type` tokens used by the published Hearthstone rows.
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
 // HACK: Keep the quoted schema-qualified enum name as a temporary workaround for SeaORM issue #2581 until upstream supports schema-aware ActiveEnum mapping.
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "hearthstone\".\"change_type")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "hearthstone\".\"change_type"
+)]
 pub enum ChangeType {
     #[sea_orm(string_value = "unknown")]
     Unknown,
@@ -24,7 +28,11 @@ pub enum ChangeType {
 /// Stored `locale` tokens used by the published Hearthstone localizations.
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
 // HACK: Keep the quoted schema-qualified enum name as a temporary workaround for SeaORM issue #2581 until upstream supports schema-aware ActiveEnum mapping.
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "hearthstone\".\"locale")]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "hearthstone\".\"locale"
+)]
 pub enum Locale {
     #[sea_orm(string_value = "en")]
     En,

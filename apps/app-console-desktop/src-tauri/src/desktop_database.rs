@@ -60,7 +60,7 @@ impl DesktopDatabase {
     }
 }
 
-/// Configured SeaORM connection loaded from desktop secure storage.
+/// Configured SeaORM connection loaded from the desktop config file.
 pub(crate) async fn connect_configured_desktop_database(
     app: &AppHandle,
 ) -> Result<DesktopDatabase, String> {

@@ -31,6 +31,7 @@ export default defineNuxtConfig({
         'better-auth/plugins/admin/access',
         '@iconify/vue',
         '@iconify/utils/lib/css/icon',
+        'monaco-editor/esm/vs/editor/editor.api',
       ],
     },
   },

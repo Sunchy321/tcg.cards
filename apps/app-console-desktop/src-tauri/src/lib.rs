@@ -1,4 +1,6 @@
 #[allow(dead_code)]
+mod desktop_config_commands;
+#[allow(dead_code)]
 mod desktop_database;
 #[allow(dead_code)]
 mod desktop_database_commands;
@@ -9,21 +11,25 @@ mod desktop_hearthstone_publish_target;
 #[allow(dead_code)]
 mod desktop_hsdata_local_import;
 #[allow(dead_code)]
-mod desktop_hsdata_publish;
-#[allow(dead_code)]
 mod desktop_hsdata_projection;
 #[allow(dead_code)]
 mod desktop_hsdata_projection_compat;
+#[allow(dead_code)]
+mod desktop_hsdata_publish;
 #[allow(dead_code)]
 mod desktop_hsdata_status_commands;
 #[allow(dead_code)]
 mod entity;
 #[allow(dead_code)]
-mod hsdata_import_payload;
-#[allow(dead_code)]
 mod hearthstone_publish_row_family;
+#[allow(dead_code)]
+mod hsdata_import_payload;
 mod hsdata_legacy_dbf_id_table;
 
+use crate::desktop_config_commands::{
+    desktop_get_config_file_info, desktop_get_raw_config, desktop_open_config_directory,
+    desktop_set_raw_config,
+};
 use crate::desktop_database_commands::{
     desktop_get_database_settings, desktop_set_database_settings, desktop_test_database_connection,
 };
@@ -36,8 +42,8 @@ use crate::desktop_hearthstone_publish_target::{
 use crate::desktop_hsdata_local_import::{
     import_hsdata_to_local_database, DesktopHsdataImportReport, DesktopHsdataLocalImportInput,
 };
-use crate::desktop_hsdata_publish::hsdata_publish_current_to_remote;
 use crate::desktop_hsdata_projection::hsdata_project_source_version_local;
+use crate::desktop_hsdata_publish::hsdata_publish_current_to_remote;
 use crate::desktop_hsdata_status_commands::{
     hsdata_get_local_import_job, hsdata_get_local_overview, hsdata_list_local_source_versions,
 };
@@ -183,9 +189,11 @@ fn desktop_config_version() -> u32 {
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct DesktopConfig {
+pub(crate) struct DesktopConfig {
     #[serde(default = "desktop_config_version")]
     version: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    external_database_connection_string: Option<String>,
     #[serde(default, skip_serializing_if = "DesktopGamesSettings::is_empty")]
     games: DesktopGamesSettings,
 }
@@ -194,6 +202,7 @@ impl Default for DesktopConfig {
     fn default() -> Self {
         Self {
             version: desktop_config_version(),
+            external_database_connection_string: None,
             games: DesktopGamesSettings::default(),
         }
     }
@@ -561,7 +570,8 @@ fn restore_session_client(app: &AppHandle) -> Result<Option<SessionClient>, Stri
     create_client(&stored.base_url, Some(&stored.cookie_header)).map(Some)
 }
 
-fn desktop_config_file(app: &AppHandle) -> Result<PathBuf, String> {
+/// Absolute file path resolved for the desktop JSON config file.
+pub(crate) fn desktop_config_file(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_data_dir()
@@ -570,7 +580,8 @@ fn desktop_config_file(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("desktop-config.json"))
 }
 
-fn load_desktop_config(app: &AppHandle) -> Result<DesktopConfig, String> {
+/// Structured desktop config decoded from the JSON config file.
+pub(crate) fn load_desktop_config(app: &AppHandle) -> Result<DesktopConfig, String> {
     let path = desktop_config_file(app)?;
 
     if !path.exists() {
@@ -584,7 +595,11 @@ fn load_desktop_config(app: &AppHandle) -> Result<DesktopConfig, String> {
         .map_err(|error| format!("Failed to decode desktop config: {error}"))
 }
 
-fn store_desktop_config(app: &AppHandle, settings: &DesktopConfig) -> Result<(), String> {
+/// Structured desktop config encoded and written into the JSON config file.
+pub(crate) fn store_desktop_config(
+    app: &AppHandle,
+    settings: &DesktopConfig,
+) -> Result<(), String> {
     let path = desktop_config_file(app)?;
     let Some(parent) = path.parent() else {
         return Err("Failed to resolve desktop config directory".to_string());
@@ -593,7 +608,7 @@ fn store_desktop_config(app: &AppHandle, settings: &DesktopConfig) -> Result<(),
     fs::create_dir_all(parent)
         .map_err(|error| format!("Failed to create desktop config directory: {error}"))?;
 
-    let text = serde_json::to_string(settings)
+    let text = serde_json::to_string_pretty(settings)
         .map_err(|error| format!("Failed to encode desktop config: {error}"))?;
 
     fs::write(path, text).map_err(|error| format!("Failed to write desktop config: {error}"))?;
@@ -1981,6 +1996,10 @@ pub fn run() {
             auth_get_session,
             auth_sign_out,
             auth_fetch,
+            desktop_get_raw_config,
+            desktop_set_raw_config,
+            desktop_get_config_file_info,
+            desktop_open_config_directory,
             desktop_get_database_settings,
             desktop_set_database_settings,
             desktop_test_database_connection,

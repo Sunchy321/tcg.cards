@@ -41,8 +41,43 @@ export interface DesktopHearthstonePublishTargetValidationResult {
   currentTargetFingerprint: string | null;
 }
 
+/** Desktop config file location metadata returned by the desktop runtime. */
+export interface DesktopConfigFileInfo {
+  configFilePath:      string;
+  configDirectoryPath: string;
+  exists:              boolean;
+}
+
+/** Raw desktop config payload returned by the desktop runtime. */
+export interface DesktopRawConfig {
+  text: string;
+  file: DesktopConfigFileInfo;
+}
+
 export type DesktopSettingsGame = 'hearthstone' | 'magic';
 export type DesktopGameRepoKey = 'hsdata';
+
+/** Raw desktop config loaded from the desktop runtime. */
+export function getDesktopRawConfig() {
+  return invoke<DesktopRawConfig>('desktop_get_raw_config');
+}
+
+/** Raw desktop config persisted in the desktop runtime. */
+export function setDesktopRawConfig(jsonText: string) {
+  return invoke<DesktopRawConfig>('desktop_set_raw_config', {
+    jsonText,
+  });
+}
+
+/** Desktop config file location loaded from the desktop runtime. */
+export function getDesktopConfigFileInfo() {
+  return invoke<DesktopConfigFileInfo>('desktop_get_config_file_info');
+}
+
+/** Desktop config directory opened by the desktop runtime. */
+export function openDesktopConfigDirectory() {
+  return invoke<void>('desktop_open_config_directory');
+}
 
 /** Database settings loaded from the desktop runtime. */
 export function getDesktopDatabaseSettings() {

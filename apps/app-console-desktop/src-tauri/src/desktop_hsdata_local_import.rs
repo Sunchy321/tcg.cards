@@ -622,7 +622,10 @@ async fn load_existing_tags(
                     raw_name: row.raw_name,
                     raw_type: row.raw_type,
                     last_seen_source_tag: row.last_seen_source_tag,
-                    field_winners: existing_winners.get(&row.enum_id).cloned().unwrap_or_default(),
+                    field_winners: existing_winners
+                        .get(&row.enum_id)
+                        .cloned()
+                        .unwrap_or_default(),
                 },
             )
         })
@@ -1267,8 +1270,7 @@ async fn insert_missing_tags(
 
             let main_fields_changed = (raw_name_plan.allow_auto_projection
                 && raw_name_current != raw_name_candidate)
-                || (raw_type_plan.allow_auto_projection
-                    && raw_type_current != raw_type_candidate)
+                || (raw_type_plan.allow_auto_projection && raw_type_current != raw_type_candidate)
                 || (raw_names_plan.allow_auto_projection
                     && raw_names_current != raw_names_candidate)
                 || (value_kind_plan.allow_auto_projection
@@ -1285,7 +1287,9 @@ async fn insert_missing_tags(
                     let Some(model) = tags::Entity::find_by_id(enum_id)
                         .one(connection)
                         .await
-                        .map_err(|error| format!("Failed to reload hearthstone tag row: {error}"))?
+                        .map_err(|error| {
+                            format!("Failed to reload hearthstone tag row: {error}")
+                        })?
                     else {
                         continue;
                     };
@@ -1295,10 +1299,9 @@ async fn insert_missing_tags(
                     active.raw_names = Set(row.raw_names.clone());
                     active.value_kind = Set(row.value_kind.clone());
                     active.last_seen_source_tag = Set(Some(source_tag as i32));
-                    active
-                        .update(connection)
-                        .await
-                        .map_err(|error| format!("Failed to update hearthstone tag row: {error}"))?;
+                    active.update(connection).await.map_err(|error| {
+                        format!("Failed to update hearthstone tag row: {error}")
+                    })?;
                 }
                 row.last_seen_source_tag = Some(source_tag as i32);
             }

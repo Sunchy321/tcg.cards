@@ -1,13 +1,17 @@
 <template>
   <div class="desktop-page">
     <div class="space-y-6">
-      <div>
-        <h1 class="desktop-section-title">
-          设置
-        </h1>
-        <p class="mt-2 text-sm text-muted">
-          从左侧选择通用设置或游戏设置页面。
-        </p>
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 class="desktop-section-title">
+            设置
+          </h1>
+          <p class="mt-2 text-sm text-muted">
+            从左侧选择通用设置或游戏设置页面。
+          </p>
+        </div>
+
+        <DesktopConfigHeaderActions />
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">

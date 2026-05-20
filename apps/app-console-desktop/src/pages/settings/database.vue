@@ -1,7 +1,7 @@
 <template>
   <div class="desktop-page">
     <div class="space-y-6">
-      <div>
+      <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 class="desktop-section-title">
             数据库
@@ -10,6 +10,8 @@
             配置应用使用的数据库连接。
           </p>
         </div>
+
+        <DesktopConfigHeaderActions />
       </div>
 
       <div class="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">

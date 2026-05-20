@@ -2,8 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel, QueryFilter,
-    Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel, QueryFilter, Set,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -378,7 +377,10 @@ async fn load_current_publish_snapshots(
 
     for row in relation_rows {
         card_ids.insert(row.source_id.clone());
-        relation_map.entry(row.source_id.clone()).or_default().push(row);
+        relation_map
+            .entry(row.source_id.clone())
+            .or_default()
+            .push(row);
     }
 
     let mut card_rows = cards::Entity::find()
@@ -450,8 +452,13 @@ async fn load_current_publish_snapshots(
 async fn load_previous_publish_manifests(
     connection: &impl ConnectionTrait,
     publish_target_id: &str,
-) -> Result<(Option<publish_baselines::Model>, BTreeMap<String, PublishCardManifestState>), String>
-{
+) -> Result<
+    (
+        Option<publish_baselines::Model>,
+        BTreeMap<String, PublishCardManifestState>,
+    ),
+    String,
+> {
     let baseline = publish_baselines::Entity::find_by_id(publish_target_id.to_string())
         .one(connection)
         .await
@@ -507,12 +514,12 @@ async fn derive_publish_dataset_range(
         }
     }
 
-    let build_min = *builds
-        .first()
-        .ok_or_else(|| "Local publish snapshot does not include any Hearthstone build numbers.".to_string())?;
-    let build_max = *builds
-        .last()
-        .ok_or_else(|| "Local publish snapshot does not include any Hearthstone build numbers.".to_string())?;
+    let build_min = *builds.first().ok_or_else(|| {
+        "Local publish snapshot does not include any Hearthstone build numbers.".to_string()
+    })?;
+    let build_max = *builds.last().ok_or_else(|| {
+        "Local publish snapshot does not include any Hearthstone build numbers.".to_string()
+    })?;
 
     let rows = source_versions::Entity::find()
         .filter(source_versions::Column::Build.is_in(builds.iter().copied()))
@@ -520,7 +527,9 @@ async fn derive_publish_dataset_range(
         .filter(source_versions::Column::ProjectionStatus.eq(HsdataProjectionStatus::Completed))
         .all(connection)
         .await
-        .map_err(|error| format!("Failed to map latest Hearthstone builds back to source tags: {error}"))?;
+        .map_err(|error| {
+            format!("Failed to map latest Hearthstone builds back to source tags: {error}")
+        })?;
 
     let mut source_tags = BTreeSet::<i32>::new();
 
@@ -531,10 +540,12 @@ async fn derive_publish_dataset_range(
     }
 
     let source_tag_min = *source_tags.first().ok_or_else(|| {
-        "Local publish snapshot could not resolve source tags for the current build set.".to_string()
+        "Local publish snapshot could not resolve source tags for the current build set."
+            .to_string()
     })?;
     let source_tag_max = *source_tags.last().ok_or_else(|| {
-        "Local publish snapshot could not resolve source tags for the current build set.".to_string()
+        "Local publish snapshot could not resolve source tags for the current build set."
+            .to_string()
     })?;
 
     Ok(PublishDatasetRange {
@@ -553,7 +564,10 @@ fn build_publish_batch_plan(
     let mut current = BTreeMap::<String, PublishCardManifestState>::new();
 
     for snapshot in snapshots {
-        current.insert(snapshot.card_id.clone(), build_current_card_manifest(snapshot));
+        current.insert(
+            snapshot.card_id.clone(),
+            build_current_card_manifest(snapshot),
+        );
     }
 
     let mut card_ids = BTreeSet::<String>::new();
@@ -569,11 +583,9 @@ fn build_publish_batch_plan(
         let previous_row = previous.get(&card_id);
 
         let (action, current_manifest, previous_manifest_hash) = match (current_row, previous_row) {
-            (Some(current_row), None) => (
-                PublishBatchCardAction::Insert,
-                current_row.clone(),
-                None,
-            ),
+            (Some(current_row), None) => {
+                (PublishBatchCardAction::Insert, current_row.clone(), None)
+            }
             (Some(current_row), Some(previous_row))
                 if current_row.manifest_hash == previous_row.manifest_hash =>
             {
@@ -623,7 +635,8 @@ fn build_publish_batch_plan(
     }
 
     let manifest_hash = hash_json(&Value::Array(
-        plans.iter()
+        plans
+            .iter()
             .filter(|plan| plan.action != PublishBatchCardAction::Delete)
             .map(|plan| {
                 json!({
@@ -742,9 +755,9 @@ async fn mark_publish_batch_applying(
     active.started_at = Set(Some(current_publish_timestamp()));
     active.error = Set(None);
     active.summary = Set(None);
-    active.update(connection)
-        .await
-        .map_err(|error| format!("Failed to mark local publish batch {batch_id} as applying: {error}"))?;
+    active.update(connection).await.map_err(|error| {
+        format!("Failed to mark local publish batch {batch_id} as applying: {error}")
+    })?;
     Ok(())
 }
 
@@ -839,7 +852,8 @@ async fn finalize_publish_batch_success(
             active.manifest_hash = Set(manifest_hash.to_string());
             active.card_count = Set(counts.card_count);
             active.published_at = Set(published_at);
-            active.update(connection)
+            active
+                .update(connection)
                 .await
                 .map_err(|error| format!("Failed to update local publish baseline: {error}"))?;
         }
@@ -876,15 +890,16 @@ async fn finalize_publish_batch_failure(
     error: &str,
 ) -> Result<(), String> {
     if let Some(failed_card_id) = failed_card_id {
-        if let Some(row) = publish_batch_cards::Entity::find_by_id((batch_id, failed_card_id.to_string()))
-            .one(connection)
-            .await
-            .map_err(|load_error| {
-                format!(
-                    "Failed to reload failed publish batch card {}: {load_error}",
-                    failed_card_id
-                )
-            })?
+        if let Some(row) =
+            publish_batch_cards::Entity::find_by_id((batch_id, failed_card_id.to_string()))
+                .one(connection)
+                .await
+                .map_err(|load_error| {
+                    format!(
+                        "Failed to reload failed publish batch card {}: {load_error}",
+                        failed_card_id
+                    )
+                })?
         {
             let mut active = row.into_active_model();
             active.status = Set(PublishBatchCardStatus::Failed);
@@ -946,7 +961,8 @@ async fn upsert_remote_publish_ledger(
             active.card_count = Set(counts.card_count);
             active.changed_card_count = Set(counts.changed_card_count);
             active.published_at = Set(published_at);
-            active.update(connection)
+            active
+                .update(connection)
                 .await
                 .map_err(|error| format!("Failed to update remote publish ledger: {error}"))?;
         }
@@ -1153,10 +1169,12 @@ async fn apply_publish_batch_to_remote(
         return Err((None, error));
     }
 
-    remote_transaction
-        .commit()
-        .await
-        .map_err(|error| (None, format!("Failed to commit remote publish transaction: {error}")))?;
+    remote_transaction.commit().await.map_err(|error| {
+        (
+            None,
+            format!("Failed to commit remote publish transaction: {error}"),
+        )
+    })?;
     Ok(())
 }
 
@@ -1166,24 +1184,24 @@ pub(crate) async fn hsdata_publish_current_to_remote(
     app: AppHandle,
 ) -> Result<DesktopHsdataPublishReport, String> {
     let target = require_resolved_publish_target(&app).await?;
-    let connection_string = load_publish_target_connection_string(&app)?
-        .ok_or_else(|| "Hearthstone publish target connection string is not configured.".to_string())?;
+    let connection_string = load_publish_target_connection_string(&app)?.ok_or_else(|| {
+        "Hearthstone publish target connection string is not configured.".to_string()
+    })?;
     let local_database = connect_configured_desktop_database(&app).await?;
     let snapshots = load_current_publish_snapshots(local_database.connection()).await?;
 
     if snapshots.is_empty() {
-        return Err("No latest local Hearthstone projection rows are available for publish.".to_string());
+        return Err(
+            "No latest local Hearthstone projection rows are available for publish.".to_string(),
+        );
     }
 
     let range = derive_publish_dataset_range(local_database.connection(), &snapshots).await?;
-    let (baseline, previous_manifests) = load_previous_publish_manifests(
-        local_database.connection(),
-        &target.publish_target_id,
-    )
-    .await?;
+    let (baseline, previous_manifests) =
+        load_previous_publish_manifests(local_database.connection(), &target.publish_target_id)
+            .await?;
     let previous_manifest_hash = baseline.as_ref().map(|row| row.manifest_hash.clone());
-    let (plans, counts, manifest_hash) =
-        build_publish_batch_plan(&snapshots, &previous_manifests);
+    let (plans, counts, manifest_hash) = build_publish_batch_plan(&snapshots, &previous_manifests);
     let batch_id = Uuid::new_v4();
 
     insert_publish_batch(

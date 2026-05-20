@@ -3,9 +3,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-use crate::{trim_non_empty, CREDENTIAL_SERVICE};
-
-const DATABASE_EXTERNAL_LOCAL_PG_ACCOUNT: &str = "database-external-local-pg";
+use crate::{load_desktop_config, store_desktop_config, trim_non_empty};
 
 /// In-process cache for the configured desktop PostgreSQL connection string.
 pub(crate) struct DesktopDatabaseConnectionStringCache {
@@ -41,7 +39,20 @@ fn write_cached_connection_string(
     Ok(())
 }
 
-/// Optional external PostgreSQL connection string loaded from desktop secure storage.
+/// In-process cache cleared before the next config-backed database read.
+pub(crate) fn clear_desktop_database_connection_string_cache(
+    app: &AppHandle,
+) -> Result<(), String> {
+    let cache = app.state::<DesktopDatabaseConnectionStringCache>();
+    let mut current = cache
+        .current
+        .lock()
+        .map_err(|_| "Failed to lock database connection string cache.".to_string())?;
+    *current = None;
+    Ok(())
+}
+
+/// Optional external PostgreSQL connection string loaded from the desktop config file.
 pub(crate) fn load_desktop_database_connection_string(
     app: &AppHandle,
 ) -> Result<Option<String>, String> {
@@ -60,34 +71,20 @@ pub(crate) fn load_desktop_database_connection_string(
         return Ok(connection_string);
     }
 
-    let entry = keyring::Entry::new(CREDENTIAL_SERVICE, DATABASE_EXTERNAL_LOCAL_PG_ACCOUNT)
-        .map_err(|error| format!("Failed to open database credential entry: {error}"))?;
+    let config = load_desktop_config(app)?;
+    let connection_string = trim_non_empty(config.external_database_connection_string);
+    *current = Some(connection_string.clone());
 
-    match entry.get_password() {
-        Ok(connection_string) => {
-            let trimmed_connection_string = trim_non_empty(Some(connection_string));
-            *current = Some(trimmed_connection_string.clone());
-            eprintln!(
-                "[desktop][database] loaded external PostgreSQL connection string: found={}, nonEmpty={}",
-                true,
-                trimmed_connection_string.is_some(),
-            );
-            Ok(trimmed_connection_string)
-        }
-        Err(keyring::Error::NoEntry) => {
-            *current = Some(None);
-            eprintln!(
-                "[desktop][database] loaded external PostgreSQL connection string: found=false reason=no-entry"
-            );
-            Ok(None)
-        }
-        Err(error) => Err(format!(
-            "Failed to read external local PostgreSQL connection string: {error}"
-        )),
-    }
+    eprintln!(
+        "[desktop][database] loaded external PostgreSQL connection string from config: found={}, nonEmpty={}",
+        connection_string.is_some(),
+        connection_string.is_some(),
+    );
+
+    Ok(connection_string)
 }
 
-/// Required external PostgreSQL connection string loaded from desktop secure storage.
+/// Required external PostgreSQL connection string loaded from the desktop config file.
 pub(crate) fn require_desktop_database_connection_string(
     app: &AppHandle,
 ) -> Result<String, String> {
@@ -95,65 +92,23 @@ pub(crate) fn require_desktop_database_connection_string(
         .ok_or_else(|| "External local PostgreSQL connection string is required.".to_string())
 }
 
-/// External PostgreSQL connection string persisted to desktop secure storage.
+/// External PostgreSQL connection string persisted to the desktop config file.
 pub(crate) fn store_desktop_database_connection_string(
     app: &AppHandle,
     connection_string: Option<String>,
 ) -> Result<(), String> {
-    let entry = keyring::Entry::new(CREDENTIAL_SERVICE, DATABASE_EXTERNAL_LOCAL_PG_ACCOUNT)
-        .map_err(|error| format!("Failed to open database credential entry: {error}"))?;
+    let connection_string = trim_non_empty(connection_string);
+    let mut config = load_desktop_config(app)?;
+    config.external_database_connection_string = connection_string.clone();
+    store_desktop_config(app, &config)?;
 
-    match trim_non_empty(connection_string) {
-        Some(connection_string) => {
-            eprintln!(
-                "[desktop][database] storing external PostgreSQL connection string: nonEmpty=true length={}",
-                connection_string.len(),
-            );
-            entry.set_password(&connection_string).map_err(|error| {
-                format!("Failed to store external local PostgreSQL connection string: {error}")
-            })?;
+    eprintln!(
+        "[desktop][database] stored external PostgreSQL connection string in config: found={}, nonEmpty={}",
+        connection_string.is_some(),
+        connection_string.is_some(),
+    );
 
-            let stored_connection_string = entry.get_password().map_err(|error| {
-                format!(
-                    "Failed to verify external local PostgreSQL connection string after save: {error}"
-                )
-            })?;
-
-            if stored_connection_string != connection_string {
-                return Err(
-                    "Stored external local PostgreSQL connection string did not match the saved value."
-                        .to_string(),
-                );
-            }
-
-            eprintln!(
-                "[desktop][database] verified external PostgreSQL connection string after save: nonEmpty=true length={}",
-                stored_connection_string.len(),
-            );
-            write_cached_connection_string(app, Some(connection_string))?;
-
-            Ok(())
-        }
-        None => match entry.delete_credential() {
-            Ok(()) => {
-                eprintln!(
-                    "[desktop][database] cleared external PostgreSQL connection string: deleted=true"
-                );
-                write_cached_connection_string(app, None)?;
-                Ok(())
-            }
-            Err(keyring::Error::NoEntry) => {
-                eprintln!(
-                    "[desktop][database] cleared external PostgreSQL connection string: deleted=false reason=no-entry"
-                );
-                write_cached_connection_string(app, None)?;
-                Ok(())
-            }
-            Err(error) => Err(format!(
-                "Failed to clear external local PostgreSQL connection string: {error}"
-            )),
-        },
-    }
+    write_cached_connection_string(app, connection_string)
 }
 
 /// Frontend settings payload built from one resolved connection string value.
@@ -165,7 +120,7 @@ pub(crate) fn build_desktop_database_settings(
     }
 }
 
-/// Frontend settings payload loaded from desktop secure storage.
+/// Frontend settings payload loaded from the desktop config file.
 pub(crate) fn load_desktop_database_settings(
     app: &AppHandle,
 ) -> Result<DesktopDatabaseSettings, String> {
