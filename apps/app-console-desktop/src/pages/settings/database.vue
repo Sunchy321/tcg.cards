@@ -109,6 +109,7 @@ import {
   setDesktopDatabaseSettings,
   testDesktopDatabaseConnection,
 } from '~/composables/useDesktopSettings';
+import { useDesktopRuntimeClient } from '~/composables/useDesktopRuntimeClient';
 
 definePageMeta({
   layout: 'admin',
@@ -127,6 +128,14 @@ const databaseConnectionTestResult = ref<{
   userName:     string;
   latencyMs:    number;
 } | null>(null);
+const runtimeClient = useDesktopRuntimeClient();
+
+/** Pushes the current desktop database setting into the local Bun runtime. */
+async function syncRuntimeDatabaseSettings(connectionString: string | null) {
+  await runtimeClient.runtime.configureLocalDatabase({
+    connectionString,
+  });
+}
 
 /** Loads the database connection settings from the desktop runtime. */
 async function loadDatabaseSettings() {
@@ -139,6 +148,7 @@ async function loadDatabaseSettings() {
   try {
     const settings = await getDesktopDatabaseSettings();
     externalConnectionString.value = settings.externalConnectionString ?? '';
+    await syncRuntimeDatabaseSettings(settings.externalConnectionString);
   } catch (error) {
     console.error('Failed to load desktop database settings:', error);
     databaseSettingsError.value = getConsoleErrorMessage(error, '数据库设置读取失败');
@@ -159,6 +169,7 @@ async function saveDatabaseSettings() {
     );
 
     externalConnectionString.value = settings.externalConnectionString ?? '';
+    await syncRuntimeDatabaseSettings(settings.externalConnectionString);
     databaseSettingsSaved.value = true;
   } catch (error) {
     console.error('Failed to save desktop database settings:', error);

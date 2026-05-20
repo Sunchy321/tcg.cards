@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
+import { nullableText } from '../../common';
+
 const jsonConfig = z.record(z.string(), z.unknown());
-const nullableText = z.string().nullable();
 
 export const tagValueKind = z.enum([
   'bool',

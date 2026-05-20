@@ -1,11 +1,19 @@
 import { createHash } from 'node:crypto';
 
 import { ORPCError, os as create } from '@orpc/server';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@tcg-cards/db/db';
-import { FieldWinner } from '@tcg-cards/db/schema/shared/hearthstone';
+import { FieldCommit, FieldWinner } from '@tcg-cards/db/schema/shared/hearthstone';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
+import {
+  fieldCommitGetInput,
+  fieldCommitListInput,
+  fieldCommitListResult,
+  fieldCommitProfile,
+  type FieldCommitListInput,
+  type FieldCommitProfile,
+} from '@tcg-cards/model/src/field-commit';
 import {
   tagConflictGetInput,
   tagConflictListInput,
@@ -41,6 +49,9 @@ import {
 import type { ConsoleApiRequestMeta } from '../../request-meta';
 
 const os = create.$context<{ meta?: ConsoleApiRequestMeta }>();
+
+/** Commit rows loaded from the shared field history table. */
+type FieldCommitRow = typeof FieldCommit.$inferSelect;
 
 /** One changed field that must be projected into `field_winners` and persisted into commit history. */
 type TagFieldDiff = {
@@ -164,6 +175,34 @@ function toProfile(row: TagRow): TagProfile {
     lastSeenSourceTag:  row.lastSeenSourceTag,
     createdAt:          toIsoString(row.createdAt),
     updatedAt:          toIsoString(row.updatedAt),
+  };
+}
+
+/** Maps one persisted field commit into the public tag commit shape. */
+function toCommitProfile(row: FieldCommitRow): FieldCommitProfile {
+  return {
+    id:                     row.id,
+    sequence:               row.sequence,
+    entityType:             row.entityType,
+    entityKey:              row.entityKey,
+    fieldPath:              row.fieldPath,
+    value:                  row.value ?? null,
+    operation:              row.operation,
+    commitKind:             row.commitKind,
+    clientMutationId:       row.clientMutationId,
+    editorRuntime:          row.editorRuntime,
+    editorIdentity:         row.editorIdentity ?? null,
+    expectedRowRevision:    row.expectedRowRevision,
+    expectedWinnerRevision: row.expectedWinnerRevision ?? null,
+    baseRevision:           row.baseRevision,
+    reviewStatus:           row.reviewStatus,
+    reviewedBy:             row.reviewedBy ?? null,
+    reviewedAt:             row.reviewedAt ? toIsoString(row.reviewedAt) : null,
+    reviewReason:           row.reviewReason ?? null,
+    projectionStatus:       row.projectionStatus,
+    syncStatus:             row.syncStatus,
+    createdAt:              toIsoString(row.createdAt),
+    projectedAt:            row.projectedAt ? toIsoString(row.projectedAt) : null,
   };
 }
 
@@ -300,6 +339,49 @@ function matchesSearch(tag: TagProfile, input: TagListInput) {
   return values.some(value => value?.toLowerCase().includes(q));
 }
 
+/** Matches one public tag commit profile against the current list filters. */
+function matchesCommitFilters(commit: FieldCommitProfile, input: FieldCommitListInput) {
+  if (input.entityType && commit.entityType !== input.entityType) {
+    return false;
+  }
+
+  if (input.entityKey && !matchesEntityKey(commit.entityKey, input.entityKey)) {
+    return false;
+  }
+
+  const fieldPath = input.fieldPath?.trim();
+  if (fieldPath && commit.fieldPath !== fieldPath) {
+    return false;
+  }
+
+  const commitKind = input.commitKind?.trim();
+  if (commitKind && commit.commitKind !== commitKind) {
+    return false;
+  }
+
+  const reviewStatus = input.reviewStatus?.trim();
+  if (reviewStatus && commit.reviewStatus !== reviewStatus) {
+    return false;
+  }
+
+  const syncStatus = input.syncStatus?.trim();
+  if (syncStatus && commit.syncStatus !== syncStatus) {
+    return false;
+  }
+
+  return true;
+}
+
+/** Returns whether one actual entity key contains every filter key/value pair. */
+function matchesEntityKey(actual: unknown, expected: Record<string, unknown>) {
+  if (typeof actual !== 'object' || actual == null || Array.isArray(actual)) {
+    return false;
+  }
+
+  const actualKey = actual as Record<string, unknown>;
+  return Object.entries(expected).every(([key, value]) => actualKey[key] === value);
+}
+
 function assertTagUpdate(input: TagUpdateInput) {
   if (input.valueKind === 'enum') {
     throw new ORPCError('BAD_REQUEST', {
@@ -397,6 +479,57 @@ const get = os
     }
 
     return toProfile(row);
+  });
+
+const listCommits = os
+  .route({
+    method:      'GET',
+    description: 'List Hearthstone tag field commits',
+    tags:        ['Console', 'Hearthstone', 'Tag'],
+  })
+  .input(fieldCommitListInput)
+  .output(fieldCommitListResult)
+  .handler(async ({ input }) => {
+    const rows = await db.select()
+      .from(FieldCommit)
+      .where(eq(FieldCommit.entityType, 'tag'))
+      .orderBy(desc(FieldCommit.sequence));
+
+    const profiles = rows.map(toCommitProfile).filter(commit => matchesCommitFilters(commit, input));
+    const offset = (input.page - 1) * input.limit;
+
+    return {
+      items: profiles.slice(offset, offset + input.limit),
+      total: profiles.length,
+      page:  input.page,
+      limit: input.limit,
+    };
+  });
+
+const getCommit = os
+  .route({
+    method:      'GET',
+    description: 'Get one Hearthstone tag field commit',
+    tags:        ['Console', 'Hearthstone', 'Tag'],
+  })
+  .input(fieldCommitGetInput)
+  .output(fieldCommitProfile)
+  .handler(async ({ input }) => {
+    const row = await db.select()
+      .from(FieldCommit)
+      .where(and(
+        eq(FieldCommit.id, input.id),
+        eq(FieldCommit.entityType, 'tag'),
+      ))
+      .then(rows => rows[0]);
+
+    if (!row) {
+      throw new ORPCError('NOT_FOUND', {
+        message: 'Tag commit not found',
+      });
+    }
+
+    return toCommitProfile(row);
   });
 
 const listConflicts = os
@@ -531,6 +664,8 @@ const resolveConflict = os
 export const tagTrpc = {
   list,
   get,
+  listCommits,
+  getCommit,
   listConflicts,
   getConflict,
   manualUpdate,

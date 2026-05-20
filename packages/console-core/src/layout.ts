@@ -61,7 +61,7 @@ export function getGameSelectItems(games: readonly Game[]): ConsoleSelectItem[] 
 }
 
 export function getGameNavItems(game: Game): ConsoleNavItem[][] {
-  return [[
+  const primary: ConsoleNavItem[] = [
     {
       label: '概览',
       icon: 'i-lucide-layout-dashboard',
@@ -121,7 +121,26 @@ export function getGameNavItems(game: Game): ConsoleNavItem[][] {
         },
       ]
       : []),
-  ]];
+  ];
+
+  const groups: ConsoleNavItem[][] = [primary];
+
+  if (game === 'hearthstone') {
+    groups.push([
+      {
+        label: '提交',
+        icon: 'i-lucide-git-commit-horizontal',
+        to: `/${game}/commit`,
+      },
+      {
+        label: '冲突',
+        icon: 'i-lucide-git-compare-arrows',
+        to: `/${game}/conflict`,
+      },
+    ]);
+  }
+
+  return groups;
 }
 
 export function getUserNavItems(): ConsoleNavItem[][] {
