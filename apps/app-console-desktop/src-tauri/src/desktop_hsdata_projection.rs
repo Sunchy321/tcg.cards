@@ -1741,12 +1741,14 @@ where
         let rows = tags_by_snapshot_id
             .remove(snapshot.id.as_str())
             .unwrap_or_default();
-        result.push(project_snapshot(
+        if let Some(projected) = project_snapshot(
             snapshot,
             &rows,
             parsed_by_enum_id,
             &context,
-        )?);
+        )? {
+            result.push(projected);
+        }
         on_snapshot_projected(u32::try_from(index + 1).unwrap_or(u32::MAX));
     }
 
@@ -1759,7 +1761,7 @@ fn project_snapshot(
     raw_tags: &[&ProjectionSnapshotTagRow],
     parsed_by_enum_id: &HashMap<i32, ParsedTagProjection>,
     context: &ProjectionContext,
-) -> Result<ProjectedSnapshot, String> {
+) -> Result<Option<ProjectedSnapshot>, String> {
     let mut entity = create_entity_draft(snapshot);
     let mut localizations: HashMap<String, LocalizationDraft> = HashMap::new();
     let mut relation_drafts = Vec::new();
@@ -1908,6 +1910,10 @@ fn project_snapshot(
 
     finalize_entity_row(&mut entity);
     if localizations.is_empty() {
+        if should_skip_placeholder_snapshot(snapshot) {
+            return Ok(None);
+        }
+
         return Err(build_missing_localization_error(
             snapshot,
             raw_tags,
@@ -1917,13 +1923,18 @@ fn project_snapshot(
     let localizations = finalize_localizations(&entity, localizations);
     let relations = build_relations(&entity, &relation_drafts);
 
-    Ok(ProjectedSnapshot {
+    Ok(Some(ProjectedSnapshot {
         entity,
         localizations,
         relations,
         unprojected_tag_count,
         unprojected_tags,
-    })
+    }))
+}
+
+/// Historical PlaceholderCard shell skipped because some hsdata revisions keep only an empty `dbfId 0` row.
+fn should_skip_placeholder_snapshot(snapshot: &ProjectionSnapshotRow) -> bool {
+    snapshot.card_id == "PlaceholderCard" && snapshot.dbf_id == 0
 }
 
 /// Missing-localization failure formatted with localized-tag diagnostics for one snapshot.
@@ -4004,5 +4015,21 @@ mod tests {
         expected_relations.sort();
 
         assert_eq!(actual_relations, expected_relations);
+    }
+
+    /// Historical PlaceholderCard shell is ignored instead of failing the whole projection run.
+    #[test]
+    fn skips_placeholder_card_without_localizations() {
+        let snapshots = vec![ProjectionSnapshotRow {
+            id: "placeholder".to_string(),
+            card_id: "PlaceholderCard".to_string(),
+            dbf_id: 0,
+            extra_payload: json!({}),
+        }];
+
+        let projected = project_snapshots(&snapshots, &[], &HashMap::new(), &[])
+            .expect("PlaceholderCard shell should be skipped");
+
+        assert!(projected.is_empty());
     }
 }
