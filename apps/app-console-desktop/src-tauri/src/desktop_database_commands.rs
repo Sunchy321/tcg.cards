@@ -4,6 +4,7 @@ use serde::Serialize;
 use tauri::AppHandle;
 
 use crate::desktop_database::{read_desktop_database_identity, DesktopDatabase};
+use crate::desktop_runtime_config_sync::schedule_desktop_runtime_config_sync;
 use crate::desktop_database_settings::{
     build_desktop_database_settings, load_desktop_database_settings,
     store_desktop_database_connection_string, DesktopDatabaseSettings,
@@ -74,6 +75,7 @@ pub(crate) fn desktop_set_database_settings(
     }
 
     store_desktop_database_connection_string(&app, external_connection_string.clone())?;
+    schedule_desktop_runtime_config_sync(app.clone());
 
     Ok(build_desktop_database_settings(external_connection_string))
 }

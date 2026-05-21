@@ -15,7 +15,6 @@ import type {
 } from '@tcg-cards/model/src/hearthstone/schema/tag';
 import { createConsoleFieldSyncHost } from '@tcg-cards/console-shell/app/composables/field-sync-host';
 
-import { getDesktopDatabaseSettings } from './useDesktopSettings';
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
 
 /** Builds the field-sync host that switches between local runtime data and the remote repository. */
@@ -52,10 +51,6 @@ export function useDesktopConsoleFieldSyncHost(api: ConsoleApi) {
     hasProbedSources.value = true;
 
     try {
-      const settings = await getDesktopDatabaseSettings();
-      await local.runtime.configureLocalDatabase({
-        connectionString: settings.externalConnectionString,
-      });
       const health = await local.runtime.health();
       availableSources.value = health.localDatabaseConfigured
         ? ['local', 'remote']

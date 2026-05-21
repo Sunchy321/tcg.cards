@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
+import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
 import { getDesktopGameRepo, setDesktopGameRepo } from './useDesktopSettings';
 
 export interface HsdataRepoState {
@@ -14,7 +14,7 @@ export interface HsdataSyncResult {
 }
 
 /** Supported hsdata source kinds returned by the desktop source list. */
-export type HsdataSourceKind = 'tag';
+export type HsdataSourceKind = 'tag' | 'worktree';
 
 /** One hsdata source entry listed from the local git repository. */
 export interface HsdataFile {
@@ -227,6 +227,9 @@ export interface ReportMetric {
   value: string | number | boolean;
 }
 
+const trackedImportSourceIds = new Set<string>();
+const trackedProjectSourceTags = new Set<number>();
+
 export function getHsdataRepoPath() {
   return getDesktopGameRepo('hearthstone', 'hsdata');
 }
@@ -235,43 +238,47 @@ export function setHsdataRepoPath(repoPath: string | null) {
   return setDesktopGameRepo('hearthstone', 'hsdata', repoPath);
 }
 
-export function getHsdataRepoState() {
-  return invoke<HsdataRepoState>('hsdata_get_repo_state');
+export async function getHsdataRepoState() {
+  return await useDesktopRuntimeClient().hsdata.getRepoState() as HsdataRepoState;
 }
 
-export function syncHsdataRemoteVersions() {
-  return invoke<HsdataSyncResult>('hsdata_sync_remote_versions');
+export async function syncHsdataRemoteVersions() {
+  return await useDesktopRuntimeClient().hsdata.syncRemoteVersions() as HsdataSyncResult;
 }
 
-export function listHsdataSources() {
-  return invoke<HsdataFile[]>('hsdata_list_sources');
+export async function listHsdataSources() {
+  return await useDesktopRuntimeClient().hsdata.listSources() as HsdataFile[];
 }
 
-export function readHsdataSource(id: string) {
-  return invoke<HsdataResolvedSource>('hsdata_read_source', { id });
+export async function readHsdataSource(id: string) {
+  return await useDesktopRuntimeClient().hsdata.readSource({ id }) as HsdataResolvedSource;
 }
 
-export function importHsdataSource(id: string, dryRun: boolean, force: boolean) {
-  return invoke<HsdataImportReport>('hsdata_import_source', {
+export async function importHsdataSource(id: string, dryRun: boolean, force: boolean) {
+  trackedImportSourceIds.add(id);
+
+  return await useDesktopRuntimeClient().hsdata.importSource({
     id,
     dryRun,
     force,
-  });
+  }) as HsdataImportReport;
 }
 
-/** Local Rust projection command executed against the configured desktop database. */
+/** Local Bun runtime projection command executed against the configured desktop database. */
 export function projectLocalHsdataSourceVersion(
   sourceTag: number,
   dryRun: boolean,
   force: boolean,
 ) {
-  return invoke<HsdataProjectReport>('hsdata_project_source_version_local', {
-    input: {
+  return (async () => {
+    trackedProjectSourceTags.add(sourceTag);
+
+    return await useDesktopRuntimeClient().hsdata.projectSourceVersion({
       sourceTag,
       dryRun,
       force,
-    },
-  });
+    }) as HsdataProjectReport;
+  })();
 }
 
 /** Current local latest projection published to the configured remote target. */
@@ -281,20 +288,68 @@ export function publishCurrentHsdataToRemote() {
 
 /** Local hsdata source version rows loaded from the configured desktop database. */
 export function listLocalHsdataSourceVersions() {
-  return invoke<HsdataSourceVersionStatus[]>('hsdata_list_local_source_versions');
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.listLocalSourceVersions() as HsdataSourceVersionStatus[];
+  })();
 }
 
 /** Local hsdata overview loaded from the configured desktop database. */
 export function getLocalHsdataOverview() {
-  return invoke<HsdataOverview>('hsdata_get_local_overview');
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.getLocalOverview() as HsdataOverview;
+  })();
 }
 
-// hsdata import progress listener for the desktop window.
+/** Polls the local Bun runtime for the latest hsdata import progress snapshots. */
 export function listenHsdataImportProgress(
   handler: (event: HsdataImportProgressEvent) => void,
 ) {
-  return listen<HsdataImportProgressEvent>('hsdata-import-progress', event => {
-    handler(event.payload);
+  const runtimeClient = useDesktopRuntimeClient();
+  const seenUpdates = new Map<string, string>();
+  let stopped = false;
+
+  const poll = async () => {
+    if (stopped || trackedImportSourceIds.size === 0) {
+      return;
+    }
+
+    const sourceIds = [...trackedImportSourceIds];
+    const jobs = await Promise.all(sourceIds.map(async sourceId => {
+      try {
+        return await runtimeClient.hsdata.getLocalImportJob({ sourceId }) as {
+          updatedAt: string;
+          progress: HsdataImportProgressEvent;
+        } | null;
+      } catch {
+        return null;
+      }
+    }));
+
+    for (const [index, job] of jobs.entries()) {
+      const sourceId = sourceIds[index]!;
+
+      if (!job || seenUpdates.get(sourceId) === job.updatedAt) {
+        continue;
+      }
+
+      seenUpdates.set(sourceId, job.updatedAt);
+      handler(job.progress);
+
+      if (job.progress.phase === 'completed' || job.progress.phase === 'failed') {
+        trackedImportSourceIds.delete(sourceId);
+      }
+    }
+  };
+
+  const timer = window.setInterval(() => {
+    void poll();
+  }, 600);
+
+  void poll();
+
+  return Promise.resolve(() => {
+    stopped = true;
+    window.clearInterval(timer);
   });
 }
 
@@ -302,8 +357,52 @@ export function listenHsdataImportProgress(
 export function listenHsdataProjectProgress(
   handler: (event: HsdataProjectProgressEvent) => void,
 ) {
-  return listen<HsdataProjectProgressEvent>('hsdata-project-progress', event => {
-    handler(event.payload);
+  const runtimeClient = useDesktopRuntimeClient();
+  const seenUpdates = new Map<number, string>();
+  let stopped = false;
+
+  const poll = async () => {
+    if (stopped || trackedProjectSourceTags.size === 0) {
+      return;
+    }
+
+    const sourceTags = [...trackedProjectSourceTags];
+    const jobs = await Promise.all(sourceTags.map(async sourceTag => {
+      try {
+        return await runtimeClient.hsdata.getLocalProjectJob({ sourceTag }) as {
+          updatedAt: string;
+          progress: HsdataProjectProgressEvent;
+        } | null;
+      } catch {
+        return null;
+      }
+    }));
+
+    for (const [index, job] of jobs.entries()) {
+      const sourceTag = sourceTags[index]!;
+
+      if (!job || seenUpdates.get(sourceTag) === job.updatedAt) {
+        continue;
+      }
+
+      seenUpdates.set(sourceTag, job.updatedAt);
+      handler(job.progress);
+
+      if (job.progress.phase === 'completed' || job.progress.phase === 'failed') {
+        trackedProjectSourceTags.delete(sourceTag);
+      }
+    }
+  };
+
+  const timer = window.setInterval(() => {
+    void poll();
+  }, 600);
+
+  void poll();
+
+  return Promise.resolve(() => {
+    stopped = true;
+    window.clearInterval(timer);
   });
 }
 

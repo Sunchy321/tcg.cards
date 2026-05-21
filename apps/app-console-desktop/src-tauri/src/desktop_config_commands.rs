@@ -6,6 +6,7 @@ use serde_json::Value;
 use tauri::AppHandle;
 
 use crate::desktop_database_settings::clear_desktop_database_connection_string_cache;
+use crate::desktop_runtime_config_sync::schedule_desktop_runtime_config_sync;
 use crate::{desktop_config_file, DesktopConfig};
 
 /// Config file location metadata returned to the desktop frontend.
@@ -201,5 +202,6 @@ pub(crate) fn desktop_set_raw_config(
         .map_err(|error| format!("Failed to write desktop config: {error}"))?;
 
     clear_raw_config_dependent_caches(&app)?;
+    schedule_desktop_runtime_config_sync(app.clone());
     load_raw_config(&app)
 }

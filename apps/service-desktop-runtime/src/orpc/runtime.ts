@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 import { os } from './index';
-import { hasLocalDatabaseUrl, setLocalDatabaseUrlOverride } from '../runtime-config';
+import {
+  hasHsdataRepoPath,
+  hasLocalDatabaseUrl,
+  setHsdataRepoPathOverride,
+  setLocalDatabaseUrlOverride,
+} from '../runtime-config';
 
 /** Runtime status returned by desktop runtime health procedures. */
 const runtimeStatus = z.object({
@@ -9,6 +14,7 @@ const runtimeStatus = z.object({
   runtime:                 z.string(),
   status:                  z.literal('ok'),
   localDatabaseConfigured: z.boolean(),
+  hsdataRepoConfigured:    z.boolean(),
   time:                    z.string(),
 });
 
@@ -19,12 +25,17 @@ function buildStatus() {
     runtime:                 'bun',
     status:                  'ok' as const,
     localDatabaseConfigured: hasLocalDatabaseUrl(),
+    hsdataRepoConfigured:    hasHsdataRepoPath(),
     time:                    new Date().toISOString(),
   };
 }
 
 const configureLocalDatabaseInput = z.strictObject({
   connectionString: z.string().trim().min(1).nullable(),
+});
+
+const configureHsdataRepoInput = z.strictObject({
+  repoPath: z.string().trim().min(1).nullable(),
 });
 
 const health = os
@@ -49,8 +60,22 @@ const configureLocalDatabase = os
     return buildStatus();
   });
 
+const configureHsdataRepo = os
+  .route({
+    method:      'POST',
+    description: 'Configure the local hsdata repository path used by runtime-backed procedures',
+    tags:        ['Desktop Runtime'],
+  })
+  .input(configureHsdataRepoInput)
+  .output(runtimeStatus)
+  .handler(async ({ input }) => {
+    setHsdataRepoPathOverride(input.repoPath);
+    return buildStatus();
+  });
+
 /** Desktop runtime procedures exposed over the local RPC transport. */
 export const runtimeRouter = {
   health,
   configureLocalDatabase,
+  configureHsdataRepo,
 };

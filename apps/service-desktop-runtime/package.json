@@ -11,6 +11,7 @@
     "dev": "bun --watch src/index.ts",
     "lint": "eslint .",
     "start": "bun src/index.ts",
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "@tcg-cards/model": "workspace:*",
     "@orpc/server": "^1.14.0",
     "hono": "^4.10.5",
+    "saxes": "^6.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
