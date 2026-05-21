@@ -223,391 +223,462 @@
     <div class="grid gap-4 xl:grid-cols-3">
       <div class="space-y-4 xl:col-span-2">
         <UCard>
-          <template #header>
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <div class="font-medium">数据导入</div>
-                <p class="mt-1 text-xs text-muted">
-                  选择一个可用版本后执行导入，完成后可继续执行投影。
-                </p>
-              </div>
-              <UBadge
-                :label="importForm.dryRun ? 'Dry run' : 'Write mode'"
-                :color="importForm.dryRun ? 'neutral' : 'warning'"
-                variant="soft"
-              />
-            </div>
-          </template>
-
-          <div class="space-y-4">
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">选中来源</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ selectedName }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">sourceTag</div>
-                <div class="mt-2">
+          <UTabs
+            v-model="activeWorkflowTab"
+            :items="workflowTabs"
+            variant="link"
+          >
+            <template #import>
+              <div class="space-y-4 pt-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <div class="font-medium">数据导入</div>
+                    <p class="mt-1 text-xs text-muted">
+                      选择一个可用版本后执行导入，完成后可继续执行投影。
+                    </p>
+                  </div>
                   <UBadge
-                    v-if="importForm.sourceTag != null"
-                    :label="String(importForm.sourceTag)"
-                    color="primary"
+                    :label="importForm.dryRun ? 'Dry run' : 'Write mode'"
+                    :color="importForm.dryRun ? 'neutral' : 'warning'"
                     variant="soft"
                   />
-                  <div v-else class="break-all font-mono text-sm">-</div>
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">sourceCommit</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ selectedCommit }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">sourceUri</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ selectedUri }}
-                </div>
-              </div>
-            </div>
-
-            <div
-              v-if="selectedFile"
-              class="rounded-lg border border-default p-3"
-            >
-              <div class="space-y-3">
-                <div>
-                  <div class="text-xs text-muted">来源信息</div>
-                  <div class="mt-1 flex flex-wrap gap-3 text-sm">
-                    <span>{{ selectedFile.shortCommit }}</span>
-                    <span>{{ formatHsdataBytes(selectedFile.size) }}</span>
-                    <span v-if="selectedFile.time">{{
-                      formatHsdataDate(selectedFile.time)
-                    }}</span>
-                  </div>
                 </div>
 
                 <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <div class="rounded-lg border border-default p-3">
-                    <div class="text-xs text-muted">导入状态</div>
+                    <div class="text-xs text-muted">选中来源</div>
+                    <div class="mt-1 break-all font-mono text-sm">
+                      {{ selectedName }}
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-default p-3">
+                    <div class="text-xs text-muted">sourceTag</div>
                     <div class="mt-2">
                       <UBadge
-                        :label="selectedImportBadge.label"
-                        :color="selectedImportBadge.color"
-                        :variant="selectedImportBadge.variant"
+                        v-if="importForm.sourceTag != null"
+                        :label="String(importForm.sourceTag)"
+                        color="primary"
+                        variant="soft"
                       />
+                      <div v-else class="break-all font-mono text-sm">-</div>
                     </div>
                   </div>
                   <div class="rounded-lg border border-default p-3">
-                    <div class="text-xs text-muted">导入时间</div>
+                    <div class="text-xs text-muted">sourceCommit</div>
                     <div class="mt-1 break-all font-mono text-sm">
-                      {{
-                        formatHsdataDate(
-                          selectedSourceVersion?.importedAt ?? undefined,
-                        )
-                      }}
+                      {{ selectedCommit }}
                     </div>
                   </div>
                   <div class="rounded-lg border border-default p-3">
-                    <div class="text-xs text-muted">投影状态</div>
-                    <div class="mt-2">
-                      <UBadge
-                        :label="selectedProjectionBadge.label"
-                        :color="selectedProjectionBadge.color"
-                        :variant="selectedProjectionBadge.variant"
-                      />
-                    </div>
-                  </div>
-                  <div class="rounded-lg border border-default p-3">
-                    <div class="text-xs text-muted">投影时间</div>
+                    <div class="text-xs text-muted">sourceUri</div>
                     <div class="mt-1 break-all font-mono text-sm">
-                      {{
-                        formatHsdataDate(
-                          selectedSourceVersion?.projectedAt ?? undefined,
-                        )
-                      }}
+                      {{ selectedUri }}
                     </div>
                   </div>
                 </div>
 
-                <div class="text-xs text-muted">
-                  {{ selectedSourceStatusText }}
+                <div
+                  v-if="selectedFile"
+                  class="rounded-lg border border-default p-3"
+                >
+                  <div class="space-y-3">
+                    <div>
+                      <div class="text-xs text-muted">来源信息</div>
+                      <div class="mt-1 flex flex-wrap gap-3 text-sm">
+                        <span>{{ selectedFile.shortCommit }}</span>
+                        <span>{{ formatHsdataBytes(selectedFile.size) }}</span>
+                        <span v-if="selectedFile.time">{{
+                          formatHsdataDate(selectedFile.time)
+                        }}</span>
+                      </div>
+                    </div>
+
+                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div class="rounded-lg border border-default p-3">
+                        <div class="text-xs text-muted">导入状态</div>
+                        <div class="mt-2">
+                          <UBadge
+                            :label="selectedImportBadge.label"
+                            :color="selectedImportBadge.color"
+                            :variant="selectedImportBadge.variant"
+                          />
+                        </div>
+                      </div>
+                      <div class="rounded-lg border border-default p-3">
+                        <div class="text-xs text-muted">导入时间</div>
+                        <div class="mt-1 break-all font-mono text-sm">
+                          {{
+                            formatHsdataDate(
+                              selectedSourceVersion?.importedAt ?? undefined,
+                            )
+                          }}
+                        </div>
+                      </div>
+                      <div class="rounded-lg border border-default p-3">
+                        <div class="text-xs text-muted">投影状态</div>
+                        <div class="mt-2">
+                          <UBadge
+                            :label="selectedProjectionBadge.label"
+                            :color="selectedProjectionBadge.color"
+                            :variant="selectedProjectionBadge.variant"
+                          />
+                        </div>
+                      </div>
+                      <div class="rounded-lg border border-default p-3">
+                        <div class="text-xs text-muted">投影时间</div>
+                        <div class="mt-1 break-all font-mono text-sm">
+                          {{
+                            formatHsdataDate(
+                              selectedSourceVersion?.projectedAt ?? undefined,
+                            )
+                          }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="text-xs text-muted">
+                      {{ selectedSourceStatusText }}
+                    </div>
+
+                    <UAlert
+                      v-if="selectedSourceVersion?.projectionError"
+                      color="error"
+                      variant="soft"
+                      icon="i-lucide-circle-alert"
+                      :description="selectedSourceVersion.projectionError"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label
+                    class="flex items-start gap-3 rounded-lg border border-default p-3"
+                  >
+                    <input
+                      v-model="importForm.dryRun"
+                      type="checkbox"
+                      class="mt-0.5 size-4 rounded border-default"
+                    >
+                    <span>
+                      <span class="block text-sm font-medium">Dry run</span>
+                      <span class="text-xs text-muted"
+                        >默认开启，仅进行解析和统计。</span
+                      >
+                    </span>
+                  </label>
+
+                  <label
+                    class="flex items-start gap-3 rounded-lg border border-default p-3"
+                  >
+                    <input
+                      v-model="importForm.force"
+                      type="checkbox"
+                      class="mt-0.5 size-4 rounded border-default"
+                    >
+                    <span>
+                      <span class="block text-sm font-medium">Force</span>
+                      <span class="text-xs text-muted"
+                        >允许重新导入同版本但内容不同的归档。</span
+                      >
+                    </span>
+                  </label>
                 </div>
 
                 <UAlert
-                  v-if="selectedSourceVersion?.projectionError"
+                  v-if="importError"
                   color="error"
                   variant="soft"
                   icon="i-lucide-circle-alert"
-                  :description="selectedSourceVersion.projectionError"
+                  :description="importError"
                 />
-              </div>
-            </div>
 
-            <div class="grid gap-3 md:grid-cols-2">
-              <label
-                class="flex items-start gap-3 rounded-lg border border-default p-3"
-              >
-                <input
-                  v-model="importForm.dryRun"
-                  type="checkbox"
-                  class="mt-0.5 size-4 rounded border-default"
-                >
-                <span>
-                  <span class="block text-sm font-medium">Dry run</span>
-                  <span class="text-xs text-muted"
-                    >默认开启，仅进行解析和统计。</span
-                  >
-                </span>
-              </label>
-
-              <label
-                class="flex items-start gap-3 rounded-lg border border-default p-3"
-              >
-                <input
-                  v-model="importForm.force"
-                  type="checkbox"
-                  class="mt-0.5 size-4 rounded border-default"
-                >
-                <span>
-                  <span class="block text-sm font-medium">Force</span>
-                  <span class="text-xs text-muted"
-                    >允许重新导入同版本但内容不同的归档。</span
-                  >
-                </span>
-              </label>
-            </div>
-
-            <UAlert
-              v-if="importError"
-              color="error"
-              variant="soft"
-              icon="i-lucide-circle-alert"
-              :description="importError"
-            />
-
-            <div
-              v-if="importProgress"
-              class="space-y-3 rounded-lg border border-default p-3"
-            >
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div class="text-sm font-medium">导入任务进度</div>
-                  <div class="mt-1 text-xs text-muted">
-                    {{ importProgress.message }}
-                  </div>
-                  <div class="mt-1 text-xs text-muted">
-                    {{ importProgressStageText }}
-                  </div>
-                </div>
-                <UBadge
-                  :label="importProgressPhaseLabel"
-                  :color="
-                    importProgress.phase === 'failed'
-                      ? 'error'
-                      : importProgress.phase === 'completed'
-                        ? 'success'
-                        : 'primary'
-                  "
-                  variant="soft"
-                />
-              </div>
-
-              <div
-                v-if="importProgress.totalEntityCount != null || importProgress.totalBatchCount != null"
-                class="space-y-2"
-              >
                 <div
-                  class="flex items-center justify-between gap-3 text-xs text-muted"
+                  v-if="importProgress"
+                  class="space-y-3 rounded-lg border border-default p-3"
                 >
-                  <span>{{ importProgressCountText }}</span>
-                  <span>{{ importProgressPercent }}%</span>
-                </div>
-                <div class="h-2 overflow-hidden rounded-full bg-muted">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div class="text-sm font-medium">导入任务进度</div>
+                      <div class="mt-1 text-xs text-muted">
+                        {{ importProgress.message }}
+                      </div>
+                      <div class="mt-1 text-xs text-muted">
+                        {{ importProgressStageText }}
+                      </div>
+                    </div>
+                    <UBadge
+                      :label="importProgressPhaseLabel"
+                      :color="
+                        importProgress.phase === 'failed'
+                          ? 'error'
+                          : importProgress.phase === 'completed'
+                            ? 'success'
+                            : 'primary'
+                      "
+                      variant="soft"
+                    />
+                  </div>
+
                   <div
-                    class="h-full rounded-full bg-primary transition-all duration-300"
-                    :style="{ width: `${importProgressPercent}%` }"
-                  />
-                </div>
-              </div>
+                    v-if="importProgress.totalEntityCount != null || importProgress.totalBatchCount != null"
+                    class="space-y-2"
+                  >
+                    <div
+                      class="flex items-center justify-between gap-3 text-xs text-muted"
+                    >
+                      <span>{{ importProgressCountText }}</span>
+                      <span>{{ importProgressPercent }}%</span>
+                    </div>
+                    <div class="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        class="h-full rounded-full bg-primary transition-all duration-300"
+                        :style="{ width: `${importProgressPercent}%` }"
+                      />
+                    </div>
+                  </div>
 
-              <div class="grid gap-3 md:grid-cols-4">
-                <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">实体进度</div>
-                  <div class="mt-1 break-all font-mono text-sm">
-                    {{ importProgressCountText }}
+                  <div class="grid gap-3 md:grid-cols-4">
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">实体进度</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ importProgressCountText }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">jobId</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ importProgress.jobId ?? "-" }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">sourceTag</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ importProgress.sourceTag ?? "-" }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">总实体数</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ importProgress.totalEntityCount ?? "-" }}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">jobId</div>
-                  <div class="mt-1 break-all font-mono text-sm">
-                    {{ importProgress.jobId ?? "-" }}
-                  </div>
-                </div>
-                <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">sourceTag</div>
-                  <div class="mt-1 break-all font-mono text-sm">
-                    {{ importProgress.sourceTag ?? "-" }}
-                  </div>
-                </div>
-                <div class="rounded-lg border border-default p-3">
-                  <div class="text-xs text-muted">总实体数</div>
-                  <div class="mt-1 break-all font-mono text-sm">
-                    {{ importProgress.totalEntityCount ?? "-" }}
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <div class="flex flex-wrap justify-end gap-2">
-              <UButton
-                label="清空选择"
-                icon="i-lucide-rotate-ccw"
-                color="neutral"
-                variant="ghost"
-                :disabled="batchRunning"
-                @click="resetImportForm"
-              />
-              <UButton
-                label="执行导入"
-                icon="i-lucide-play"
-                :loading="importing"
-                :disabled="!canImport || batchRunning"
-                @click="submitImport"
-              />
-            </div>
-          </div>
-        </UCard>
-
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <div class="font-medium">领域数据投影</div>
-                <p class="mt-1 text-xs text-muted">
-                  针对已完成导入的 `sourceTag` 手动触发领域投影。
-                </p>
-              </div>
-              <UBadge
-                :label="projectForm.dryRun ? 'Dry run' : 'Write mode'"
-                :color="projectForm.dryRun ? 'neutral' : 'warning'"
-                variant="soft"
-              />
-            </div>
-          </template>
-
-          <div class="space-y-4">
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <div class="rounded-lg border border-default p-3 xl:col-span-2">
-                <div class="text-xs text-muted">sourceTag</div>
-                <div class="mt-2 flex flex-col gap-2 sm:flex-row">
-                  <UInput
-                    v-model="projectSourceTagInput"
-                    type="number"
-                    inputmode="numeric"
-                    placeholder="输入已完成导入的 sourceTag"
-                    class="flex-1"
+                <div class="flex flex-wrap justify-end gap-2">
+                  <UButton
+                    label="清空选择"
+                    icon="i-lucide-rotate-ccw"
+                    color="neutral"
+                    variant="ghost"
+                    :disabled="batchRunning"
+                    @click="resetImportForm"
                   />
                   <UButton
-                    label="使用当前选择"
-                    icon="i-lucide-arrow-down-to-line"
-                    color="neutral"
+                    label="执行导入"
+                    icon="i-lucide-play"
+                    :loading="importing"
+                    :disabled="!canImport || batchRunning"
+                    @click="submitImport"
+                  />
+                </div>
+              </div>
+            </template>
+
+            <template #project>
+              <div class="space-y-4 pt-4">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <div class="font-medium">领域数据投影</div>
+                    <p class="mt-1 text-xs text-muted">
+                      针对已完成导入的 `sourceTag` 手动触发领域投影。
+                    </p>
+                  </div>
+                  <UBadge
+                    :label="projectForm.dryRun ? 'Dry run' : 'Write mode'"
+                    :color="projectForm.dryRun ? 'neutral' : 'warning'"
                     variant="soft"
-                    :disabled="importForm.sourceTag == null"
-                    @click="useSelectedSourceTag"
                   />
                 </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">可执行条件</div>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  <UBadge
-                    :label="projectImportBadge.label"
-                    :color="projectImportBadge.color"
-                    :variant="projectImportBadge.variant"
-                    size="xs"
-                  />
-                  <UBadge
-                    :label="projectProjectionBadge.label"
-                    :color="projectProjectionBadge.color"
-                    :variant="projectProjectionBadge.variant"
-                    size="xs"
-                  />
+
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div class="rounded-lg border border-default p-3 xl:col-span-2">
+                    <div class="text-xs text-muted">sourceTag</div>
+                    <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <UInput
+                        v-model="projectSourceTagInput"
+                        type="number"
+                        inputmode="numeric"
+                        placeholder="输入已完成导入的 sourceTag"
+                        class="flex-1"
+                      />
+                      <UButton
+                        label="使用当前选择"
+                        icon="i-lucide-arrow-down-to-line"
+                        color="neutral"
+                        variant="soft"
+                        :disabled="importForm.sourceTag == null"
+                        @click="useSelectedSourceTag"
+                      />
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-default p-3">
+                    <div class="text-xs text-muted">可执行条件</div>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                      <UBadge
+                        :label="projectImportBadge.label"
+                        :color="projectImportBadge.color"
+                        :variant="projectImportBadge.variant"
+                        size="xs"
+                      />
+                      <UBadge
+                        :label="projectProjectionBadge.label"
+                        :color="projectProjectionBadge.color"
+                        :variant="projectProjectionBadge.variant"
+                        size="xs"
+                      />
+                    </div>
+                    <div class="mt-2 text-xs text-muted">
+                      {{ projectConditionText }}
+                    </div>
+                    <div
+                      v-if="projectSourceVersion?.projectionError"
+                      class="mt-2 break-all text-xs text-error"
+                    >
+                      {{ projectSourceVersion.projectionError }}
+                    </div>
+                  </div>
                 </div>
-                <div class="mt-2 text-xs text-muted">
-                  {{ projectConditionText }}
+
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label
+                    class="flex items-start gap-3 rounded-lg border border-default p-3"
+                  >
+                    <input
+                      v-model="projectForm.dryRun"
+                      type="checkbox"
+                      class="mt-0.5 size-4 rounded border-default"
+                    >
+                    <span>
+                      <span class="block text-sm font-medium">Dry run</span>
+                      <span class="text-xs text-muted"
+                        >默认开启，仅进行投影预览和统计。</span
+                      >
+                    </span>
+                  </label>
+
+                  <label
+                    class="flex items-start gap-3 rounded-lg border border-default p-3"
+                  >
+                    <input
+                      v-model="projectForm.force"
+                      type="checkbox"
+                      class="mt-0.5 size-4 rounded border-default"
+                    >
+                    <span>
+                      <span class="block text-sm font-medium">Force</span>
+                      <span class="text-xs text-muted"
+                        >即使当前结果没有变化，也允许重新执行。</span
+                      >
+                    </span>
+                  </label>
                 </div>
+
+                <UAlert
+                  v-if="projectError"
+                  color="error"
+                  variant="soft"
+                  icon="i-lucide-circle-alert"
+                  :description="projectError"
+                />
+
                 <div
-                  v-if="projectSourceVersion?.projectionError"
-                  class="mt-2 break-all text-xs text-error"
+                  v-if="projectProgress"
+                  class="space-y-3 rounded-lg border border-default p-3"
                 >
-                  {{ projectSourceVersion.projectionError }}
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div class="text-sm font-medium">投影任务进度</div>
+                      <div class="mt-1 text-xs text-muted">
+                        {{ projectProgress.message }}
+                      </div>
+                      <div class="mt-1 text-xs text-muted">
+                        {{ projectProgressStageText }}
+                      </div>
+                    </div>
+                    <UBadge
+                      :label="projectProgressPhaseLabel"
+                      :color="
+                        projectProgress.phase === 'failed'
+                          ? 'error'
+                          : projectProgress.phase === 'completed'
+                            ? 'success'
+                            : 'primary'
+                      "
+                      variant="soft"
+                    />
+                  </div>
+
+                  <div
+                    v-if="projectProgress.totalSnapshotCount != null"
+                    class="space-y-2"
+                  >
+                    <div
+                      class="flex items-center justify-between gap-3 text-xs text-muted"
+                    >
+                      <span>{{ projectProgressCountText }}</span>
+                      <span>{{ projectProgressPercent }}%</span>
+                    </div>
+                    <div class="h-2 overflow-hidden rounded-full bg-muted">
+                      <div
+                        class="h-full rounded-full bg-primary transition-all duration-300"
+                        :style="{ width: `${projectProgressPercent}%` }"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="grid gap-3 md:grid-cols-3">
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">snapshot 进度</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ projectProgressCountText }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">sourceTag</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ projectProgress.sourceTag }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">总 snapshot 数</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ projectProgress.totalSnapshotCount ?? "-" }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap justify-end gap-2">
+                  <UButton
+                    label="清空投影参数"
+                    icon="i-lucide-rotate-ccw"
+                    color="neutral"
+                    variant="ghost"
+                    :disabled="batchRunning"
+                    @click="resetProjectForm"
+                  />
+                  <UButton
+                    label="执行投影"
+                    icon="i-lucide-waypoints"
+                    :loading="projecting"
+                    :disabled="!canProject || batchRunning"
+                    @click="submitProject"
+                  />
                 </div>
               </div>
-            </div>
-
-            <div class="grid gap-3 md:grid-cols-2">
-              <label
-                class="flex items-start gap-3 rounded-lg border border-default p-3"
-              >
-                <input
-                  v-model="projectForm.dryRun"
-                  type="checkbox"
-                  class="mt-0.5 size-4 rounded border-default"
-                >
-                <span>
-                  <span class="block text-sm font-medium">Dry run</span>
-                  <span class="text-xs text-muted"
-                    >默认开启，仅进行投影预览和统计。</span
-                  >
-                </span>
-              </label>
-
-              <label
-                class="flex items-start gap-3 rounded-lg border border-default p-3"
-              >
-                <input
-                  v-model="projectForm.force"
-                  type="checkbox"
-                  class="mt-0.5 size-4 rounded border-default"
-                >
-                <span>
-                  <span class="block text-sm font-medium">Force</span>
-                  <span class="text-xs text-muted"
-                    >即使当前结果没有变化，也允许重新执行。</span
-                  >
-                </span>
-              </label>
-            </div>
-
-            <UAlert
-              v-if="projectError"
-              color="error"
-              variant="soft"
-              icon="i-lucide-circle-alert"
-              :description="projectError"
-            />
-
-            <div class="flex flex-wrap justify-end gap-2">
-              <UButton
-                label="清空投影参数"
-                icon="i-lucide-rotate-ccw"
-                color="neutral"
-                variant="ghost"
-                :disabled="batchRunning"
-                @click="resetProjectForm"
-              />
-              <UButton
-                label="执行投影"
-                icon="i-lucide-waypoints"
-                :loading="projecting"
-                :disabled="!canProject || batchRunning"
-                @click="submitProject"
-              />
-            </div>
-          </div>
+            </template>
+          </UTabs>
         </UCard>
       </div>
 
@@ -1084,6 +1155,7 @@ import {
   getHsdataRepoState,
   importHsdataSource,
   listenHsdataImportProgress,
+  listenHsdataProjectProgress,
   listLocalHsdataSourceVersions,
   listHsdataSources,
   publishCurrentHsdataToRemote,
@@ -1095,6 +1167,7 @@ import type {
   HsdataImportProgressEvent,
   HsdataImportReport,
   HsdataPublishReport,
+  HsdataProjectProgressEvent,
   HsdataSourceVersionStatus,
   HsdataProjectReport,
   HsdataRepoState,
@@ -1216,6 +1289,8 @@ const importProgress = ref<HsdataImportProgressEvent | null>(null);
 const importResult = ref<HsdataImportReport | null>(null);
 const projectError = ref('');
 const projecting = ref(false);
+const activeProjectSourceTag = ref<number | null>(null);
+const projectProgress = ref<HsdataProjectProgressEvent | null>(null);
 const projectResult = ref<HsdataProjectReport | null>(null);
 const publishTargetId = ref<string | null>(null);
 const publishTargetEnvironment = ref<string | null>(null);
@@ -1228,6 +1303,7 @@ const syncing = ref(false);
 const sourceSortOrder = ref<SourceListSortOrder>('desc');
 const hideImportedSources = ref(false);
 const hideProjectedSources = ref(false);
+const activeWorkflowTab = ref<'import' | 'project'>('import');
 const toast = useToast();
 const batchTask = ref<HsdataBatchTaskState | null>(null);
 const restoredSelectedSourceId = ref<string | null>(null);
@@ -1235,6 +1311,21 @@ const hasRestoredImportPageState = ref(false);
 const currentBatchExecutionId = ref<string | null>(null);
 let batchStatePollTimer: number | null = null;
 let stopHsdataImportProgressListener: (() => void) | null = null;
+let stopHsdataProjectProgressListener: (() => void) | null = null;
+const workflowTabs = [
+  {
+    value: 'import',
+    slot:  'import' as const,
+    label: '数据导入',
+    icon:  'i-lucide-download',
+  },
+  {
+    value: 'project',
+    slot:  'project' as const,
+    label: '数据投影',
+    icon:  'i-lucide-waypoints',
+  },
+] as const;
 
 const importForm = reactive({
   id:           '',
@@ -1737,6 +1828,71 @@ const importProgressCountText = computed(() => {
 
   if (progress?.totalBatchCount != null) {
     return `${progress.completedBatchCount ?? 0} / ${progress.totalBatchCount}`;
+  }
+
+  return '-';
+});
+const projectProgressPhaseLabel = computed(() => {
+  switch (projectProgress.value?.phase) {
+  case 'loading_snapshots':
+    return '加载快照';
+  case 'loading_tags':
+    return '加载标签';
+  case 'projecting_snapshots':
+    return '投影快照';
+  case 'summarizing_changes':
+    return '汇总变更';
+  case 'writing_rows':
+    return '写入结果';
+  case 'completed':
+    return '已完成';
+  case 'failed':
+    return '失败';
+  default:
+    return '进行中';
+  }
+});
+const projectProgressStageText = computed(() => {
+  switch (projectProgress.value?.phase) {
+  case 'loading_snapshots':
+    return '正在读取当前 sourceTag 关联的 raw snapshot。';
+  case 'loading_tags':
+    return '正在读取 snapshot tag 和投影配置。';
+  case 'projecting_snapshots':
+    return '正在把 raw snapshot 转换成实体、本地化和关系行。';
+  case 'summarizing_changes':
+    return '正在比对现有投影结果并汇总写入差异。';
+  case 'writing_rows':
+    return '正在把本轮投影结果写入本地 Hearthstone 表。';
+  case 'completed':
+    return '投影任务已经完成，可以复查结果或继续发布。';
+  case 'failed':
+    return '投影任务已停止，请根据上方错误信息排查。';
+  default:
+    return '正在等待下一条投影进度更新。';
+  }
+});
+const projectProgressPercent = computed(() => {
+  const progress = projectProgress.value;
+
+  if (
+    progress?.totalSnapshotCount != null
+    && progress.totalSnapshotCount > 0
+  ) {
+    const completed = progress.completedSnapshotCount ?? 0;
+    return Math.max(
+      0,
+      Math.min(100, Math.round((completed / progress.totalSnapshotCount) * 100)),
+    );
+  }
+
+  return progress?.phase === 'completed' ? 100 : 0;
+});
+const projectProgressCountText = computed(() => {
+  const progress = projectProgress.value;
+
+  if (progress?.totalSnapshotCount != null) {
+    return `${progress.completedSnapshotCount ?? 0} / ${progress.totalSnapshotCount}`;
   }
 
   return '-';
@@ -2622,6 +2778,7 @@ function resetImportForm() {
 /** Project panel reset that clears transient result state without discarding stored execution preferences. */
 function resetProjectForm() {
   projectError.value = '';
+  projectProgress.value = null;
   projectResult.value = null;
   projectForm.sourceTag = importForm.sourceTag;
 }
@@ -2677,6 +2834,7 @@ async function runImportForSource(
   dryRun: boolean,
   force: boolean,
 ): Promise<HsdataImportReport> {
+  activeWorkflowTab.value = 'import';
   const file = findSourceById(sourceId);
   if (file) {
     selectSource(file);
@@ -2719,6 +2877,7 @@ async function runProjectForSourceTag(
   dryRun: boolean,
   force: boolean,
 ): Promise<HsdataProjectReport> {
+  activeWorkflowTab.value = 'project';
   const file = findSourceByTag(sourceTag);
   if (file) {
     selectSource(file);
@@ -2727,7 +2886,9 @@ async function runProjectForSourceTag(
   }
 
   projecting.value = true;
+  activeProjectSourceTag.value = sourceTag;
   projectError.value = '';
+  projectProgress.value = null;
   projectResult.value = null;
 
   try {
@@ -3312,6 +3473,19 @@ onMounted(async () => {
       importProgress.value = progress;
     },
   );
+  stopHsdataProjectProgressListener = await listenHsdataProjectProgress(
+    progress => {
+      if (
+        progress.sourceTag !== activeProjectSourceTag.value
+        && progress.sourceTag !== projectForm.sourceTag
+        && progress.sourceTag !== projectProgress.value?.sourceTag
+      ) {
+        return;
+      }
+
+      projectProgress.value = progress;
+    },
+  );
 
   await reloadAll(resolvePreferredSelectionId());
   hasRestoredImportPageState.value = true;
@@ -3334,5 +3508,7 @@ onBeforeUnmount(() => {
 
   stopHsdataImportProgressListener?.();
   stopHsdataImportProgressListener = null;
+  stopHsdataProjectProgressListener?.();
+  stopHsdataProjectProgressListener = null;
 });
 </script>

@@ -6,7 +6,7 @@ use sea_orm::{
 };
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 use crate::desktop_database::{
     connect_configured_desktop_database, postgres_statement_with_values, read_query_value,
@@ -18,6 +18,7 @@ use crate::desktop_hsdata_projection_compat::{
 use crate::entity::hearthstone_data::sea_orm_active_enums::HsdataProjectionStatus;
 use crate::entity::hearthstone_data::source_versions;
 use crate::entity::hearthstone_data::tags;
+use crate::{HsdataProjectProgressEvent, HSDATA_PROJECT_PROGRESS_EVENT};
 
 /// Locale-specific strings preserved from one localized tag payload.
 pub(crate) type LocalizedText = HashMap<String, String>;
@@ -121,6 +122,36 @@ pub(crate) struct DesktopHsdataUnprojectedTagReportRow {
     pub(crate) enum_id: i32,
     pub(crate) slug: String,
     pub(crate) count: u32,
+}
+
+/// Projection progress event emitted to the desktop window.
+fn emit_hsdata_project_progress(
+    app: &AppHandle,
+    source_tag: u32,
+    phase: &str,
+    message: &str,
+    total_snapshot_count: Option<u32>,
+    completed_snapshot_count: Option<u32>,
+) {
+    if let Err(error) = app.emit(
+        HSDATA_PROJECT_PROGRESS_EVENT,
+        HsdataProjectProgressEvent {
+            source_tag,
+            phase: phase.to_string(),
+            message: message.to_string(),
+            total_snapshot_count,
+            completed_snapshot_count,
+        },
+    ) {
+        eprintln!("[hearthstone][hsdata-project] failed to emit progress event: {error}");
+    }
+}
+
+/// Snapshot projection progress is throttled after the initial rows so large source tags do not flood the UI.
+fn should_emit_snapshot_progress(completed_snapshot_count: u32, total_snapshot_count: u32) -> bool {
+    completed_snapshot_count <= 10
+        || completed_snapshot_count == total_snapshot_count
+        || completed_snapshot_count % 25 == 0
 }
 
 #[derive(Clone, Debug)]
@@ -365,9 +396,23 @@ pub(crate) async fn hsdata_project_source_version_local(
     input: DesktopHsdataProjectInput,
 ) -> Result<DesktopHsdataProjectReport, String> {
     let database = connect_configured_desktop_database(&app).await?;
+    let requested_source_tag = input.source_tag;
 
     if input.dry_run.unwrap_or(false) {
-        return project_hsdata_to_local_database(database.connection(), input).await;
+        return match project_hsdata_to_local_database(database.connection(), &app, input).await {
+            Ok(report) => Ok(report),
+            Err(error) => {
+                emit_hsdata_project_progress(
+                    &app,
+                    requested_source_tag,
+                    "failed",
+                    &error,
+                    None,
+                    None,
+                );
+                Err(error)
+            }
+        };
     }
 
     let source_tag = i32::try_from(input.source_tag).map_err(|_| {
@@ -380,7 +425,7 @@ pub(crate) async fn hsdata_project_source_version_local(
     mark_source_version_projection_processing(database.connection(), source_tag).await?;
 
     let transaction = database.transaction().await?;
-    match project_hsdata_to_local_database(&transaction, input.clone()).await {
+    match project_hsdata_to_local_database(&transaction, &app, input.clone()).await {
         Ok(report) => {
             transaction
                 .commit()
@@ -403,6 +448,7 @@ pub(crate) async fn hsdata_project_source_version_local(
         }
         Err(error) => {
             let _ = transaction.rollback().await;
+            emit_hsdata_project_progress(&app, input.source_tag, "failed", &error, None, None);
             mark_source_version_projection_failed(database.connection(), source_tag, &error)
                 .await?;
             Err(error)
@@ -413,6 +459,7 @@ pub(crate) async fn hsdata_project_source_version_local(
 /// Local hsdata projection pass executed against one borrowed desktop database connection.
 pub(crate) async fn project_hsdata_to_local_database(
     connection: &impl ConnectionTrait,
+    app: &AppHandle,
     input: DesktopHsdataProjectInput,
 ) -> Result<DesktopHsdataProjectReport, String> {
     let source_version = load_source_version(connection, input.source_tag as i32).await?;
@@ -437,6 +484,15 @@ pub(crate) async fn project_hsdata_to_local_database(
         ));
     };
 
+    emit_hsdata_project_progress(
+        app,
+        input.source_tag,
+        "loading_snapshots",
+        "Loading raw snapshots for projection.",
+        None,
+        None,
+    );
+
     let snapshots = load_projection_snapshots(connection, input.source_tag as i32).await?;
 
     if snapshots.is_empty() {
@@ -445,6 +501,16 @@ pub(crate) async fn project_hsdata_to_local_database(
             input.source_tag
         ));
     }
+
+    let total_snapshot_count = u32::try_from(snapshots.len()).unwrap_or(u32::MAX);
+    emit_hsdata_project_progress(
+        app,
+        input.source_tag,
+        "loading_tags",
+        "Loading raw tag rows and projection config.",
+        Some(total_snapshot_count),
+        Some(0),
+    );
 
     let snapshot_ids = snapshots
         .iter()
@@ -460,7 +526,32 @@ pub(crate) async fn project_hsdata_to_local_database(
         .collect::<Vec<_>>();
     let tags_by_enum_id = load_projection_tags(connection, &enum_ids).await?;
     let parsed_by_enum_id = parse_projection_tags(&tags_by_enum_id)?;
-    let projected = project_snapshots(&snapshots, &snapshot_tags, &parsed_by_enum_id, &sets)?;
+    emit_hsdata_project_progress(
+        app,
+        input.source_tag,
+        "projecting_snapshots",
+        "Projecting raw snapshots into Hearthstone rows.",
+        Some(total_snapshot_count),
+        Some(0),
+    );
+    let projected = project_snapshots_with_progress(
+        &snapshots,
+        &snapshot_tags,
+        &parsed_by_enum_id,
+        &sets,
+        |completed_snapshot_count| {
+            if should_emit_snapshot_progress(completed_snapshot_count, total_snapshot_count) {
+                emit_hsdata_project_progress(
+                    app,
+                    input.source_tag,
+                    "projecting_snapshots",
+                    "Projecting raw snapshots into Hearthstone rows.",
+                    Some(total_snapshot_count),
+                    Some(completed_snapshot_count),
+                );
+            }
+        },
+    )?;
     let card_ids = unique_strings(
         projected
             .iter()
@@ -468,6 +559,14 @@ pub(crate) async fn project_hsdata_to_local_database(
             .collect(),
     );
     let source_ids = card_ids.clone();
+    emit_hsdata_project_progress(
+        app,
+        input.source_tag,
+        "summarizing_changes",
+        "Summarizing projected row changes.",
+        Some(total_snapshot_count),
+        Some(total_snapshot_count),
+    );
     let existing_entities = load_existing_entity_keys(connection, &card_ids).await?;
     let existing_localizations = load_existing_localization_keys(connection, &card_ids).await?;
     let existing_relations = load_existing_relation_keys(connection, &source_ids).await?;
@@ -491,10 +590,18 @@ pub(crate) async fn project_hsdata_to_local_database(
     let skipped = !change_summary.changed && !input.force.unwrap_or(false);
 
     if !dry_run && !skipped {
+        emit_hsdata_project_progress(
+            app,
+            input.source_tag,
+            "writing_rows",
+            "Writing projected rows into the local Hearthstone tables.",
+            Some(total_snapshot_count),
+            Some(total_snapshot_count),
+        );
         write_projected_rows(connection, build, &projected).await?;
     }
 
-    Ok(DesktopHsdataProjectReport {
+    let report = DesktopHsdataProjectReport {
         dry_run,
         skipped,
         source_tag: source_version.source_tag as u32,
@@ -515,7 +622,17 @@ pub(crate) async fn project_hsdata_to_local_database(
         updated_relations: change_summary.write_stats.relations.updated,
         unprojected_tag_count,
         unprojected_tags,
-    })
+    };
+    emit_hsdata_project_progress(
+        app,
+        input.source_tag,
+        "completed",
+        "Projection completed.",
+        Some(total_snapshot_count),
+        Some(total_snapshot_count),
+    );
+
+    Ok(report)
 }
 
 /// Source version loaded for one local hsdata projection request.
@@ -1583,6 +1700,20 @@ fn project_snapshots(
     parsed_by_enum_id: &HashMap<i32, ParsedTagProjection>,
     sets: &[ProjectionSetRow],
 ) -> Result<Vec<ProjectedSnapshot>, String> {
+    project_snapshots_with_progress(snapshots, snapshot_tags, parsed_by_enum_id, sets, |_| {})
+}
+
+/// Raw snapshots projected into memory with one callback notified after each snapshot finishes.
+fn project_snapshots_with_progress<F>(
+    snapshots: &[ProjectionSnapshotRow],
+    snapshot_tags: &[ProjectionSnapshotTagRow],
+    parsed_by_enum_id: &HashMap<i32, ParsedTagProjection>,
+    sets: &[ProjectionSetRow],
+    mut on_snapshot_projected: F,
+) -> Result<Vec<ProjectedSnapshot>, String>
+where
+    F: FnMut(u32),
+{
     let mut tags_by_snapshot_id: HashMap<&str, Vec<&ProjectionSnapshotTagRow>> =
         HashMap::with_capacity(snapshots.len());
 
@@ -1606,7 +1737,7 @@ fn project_snapshots(
 
     let mut result = Vec::with_capacity(snapshots.len());
 
-    for snapshot in snapshots {
+    for (index, snapshot) in snapshots.iter().enumerate() {
         let rows = tags_by_snapshot_id
             .remove(snapshot.id.as_str())
             .unwrap_or_default();
@@ -1616,6 +1747,7 @@ fn project_snapshots(
             parsed_by_enum_id,
             &context,
         )?);
+        on_snapshot_projected(u32::try_from(index + 1).unwrap_or(u32::MAX));
     }
 
     Ok(result)

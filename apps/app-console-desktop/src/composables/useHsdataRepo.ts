@@ -157,6 +157,25 @@ export interface HsdataImportProgressEvent {
   currentBatchIndex:   number | null;
 }
 
+/** Desktop hsdata projection phases emitted by the local projection workflow. */
+export type HsdataProjectPhase =
+  | 'loading_snapshots'
+  | 'loading_tags'
+  | 'projecting_snapshots'
+  | 'summarizing_changes'
+  | 'writing_rows'
+  | 'completed'
+  | 'failed';
+
+/** Desktop hsdata projection progress event payload. */
+export interface HsdataProjectProgressEvent {
+  sourceTag:               number;
+  phase:                   HsdataProjectPhase | string;
+  message:                 string;
+  totalSnapshotCount:      number | null;
+  completedSnapshotCount:  number | null;
+}
+
 export interface HsdataProjectReport {
   dryRun:                boolean;
   skipped:               boolean;
@@ -275,6 +294,15 @@ export function listenHsdataImportProgress(
   handler: (event: HsdataImportProgressEvent) => void,
 ) {
   return listen<HsdataImportProgressEvent>('hsdata-import-progress', event => {
+    handler(event.payload);
+  });
+}
+
+/** hsdata projection progress listener for the desktop window. */
+export function listenHsdataProjectProgress(
+  handler: (event: HsdataProjectProgressEvent) => void,
+) {
+  return listen<HsdataProjectProgressEvent>('hsdata-project-progress', event => {
     handler(event.payload);
   });
 }

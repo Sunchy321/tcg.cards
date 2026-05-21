@@ -287,6 +287,7 @@ const HSDATA_CHUNKING_VERSION: &str = "desktop-v1";
 const HSDATA_MAX_BYTES_PER_CHUNK: usize = 1024 * 1024;
 const HSDATA_MAX_ENTITIES_PER_CHUNK: usize = 256;
 pub(crate) const HSDATA_IMPORT_PROGRESS_EVENT: &str = "hsdata-import-progress";
+pub(crate) const HSDATA_PROJECT_PROGRESS_EVENT: &str = "hsdata-project-progress";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -351,6 +352,17 @@ pub(crate) struct HsdataImportProgressEvent {
     total_entity_count: Option<u32>,
     completed_entity_count: Option<u32>,
     current_batch_index: Option<u32>,
+}
+
+/// hsdata projection progress event payload for the desktop window.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HsdataProjectProgressEvent {
+    source_tag: u32,
+    phase: String,
+    message: String,
+    total_snapshot_count: Option<u32>,
+    completed_snapshot_count: Option<u32>,
 }
 
 /// Desktop-prepared hsdata import payload.
