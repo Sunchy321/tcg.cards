@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
@@ -283,7 +282,9 @@ export function projectLocalHsdataSourceVersion(
 
 /** Current local latest projection published to the configured remote target. */
 export function publishCurrentHsdataToRemote() {
-  return invoke<HsdataPublishReport>('hsdata_publish_current_to_remote');
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote() as HsdataPublishReport;
+  })();
 }
 
 /** Local hsdata source version rows loaded from the configured desktop database. */

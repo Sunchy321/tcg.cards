@@ -1,14 +1,11 @@
 use std::sync::Mutex;
 use std::time::Instant;
 
-use reqwest::Url;
-use serde::Serialize;
-use sha2::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tauri::{AppHandle, Manager};
 
-use crate::desktop_database::{
-    read_desktop_database_identity, DesktopDatabase, DesktopDatabaseIdentity,
-};
+use crate::desktop_runtime_config_sync::{post_runtime_json, schedule_desktop_runtime_config_sync};
 use crate::{
     load_desktop_config, store_desktop_config, trim_non_empty,
     StoredHearthstonePublishTargetProfile, StoredHearthstoneSettings, CREDENTIAL_SERVICE,
@@ -41,7 +38,7 @@ pub(crate) struct DesktopHearthstonePublishTargetSettings {
 }
 
 /// Resolved publish target identity returned after one live connection test.
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DesktopHearthstonePublishTargetTestResult {
     publish_target_id: String,
@@ -65,13 +62,9 @@ pub(crate) struct DesktopHearthstonePublishTargetValidationResult {
     current_target_fingerprint: Option<String>,
 }
 
-/// Normalized network endpoint extracted for one PostgreSQL target.
-struct PostgresTargetEndpoint {
-    host: String,
-    port: u16,
-}
-
 /// Fully resolved publish target identity derived from one live PostgreSQL session.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ResolvedHearthstonePublishTarget {
     pub(crate) publish_target_id: String,
     pub(crate) environment: String,
@@ -223,130 +216,6 @@ fn load_publish_target_settings(
     ))
 }
 
-/// Lowercase hex string encoded from one finalized sha256 hasher.
-fn finish_sha256_hex(hasher: Sha256) -> String {
-    let digest = hasher.finalize();
-    let mut output = String::with_capacity(digest.len() * 2);
-
-    for byte in digest {
-        output.push_str(&format!("{byte:02x}"));
-    }
-
-    output
-}
-
-/// Stable sha256 digest rendered as lowercase hexadecimal.
-fn sha256_hex(input: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    finish_sha256_hex(hasher)
-}
-
-/// Leading and trailing single or double quotes removed from one parsed connection value.
-fn trim_connection_value(value: &str) -> String {
-    value
-        .trim()
-        .trim_matches(|character| character == '\'' || character == '"')
-        .to_string()
-}
-
-/// PostgreSQL endpoint parsed from one URL-style connection string.
-fn parse_postgres_endpoint_from_url(connection_string: &str) -> Option<PostgresTargetEndpoint> {
-    let url = Url::parse(connection_string).ok()?;
-
-    if !matches!(url.scheme(), "postgres" | "postgresql") {
-        return None;
-    }
-
-    let host = url
-        .host_str()
-        .map(|host| host.trim().to_ascii_lowercase())
-        .or_else(|| {
-            url.query_pairs()
-                .find(|(key, _)| key == "host")
-                .map(|(_, value)| value.trim().to_ascii_lowercase())
-        })?;
-
-    let port = url.port().or_else(|| {
-        url.query_pairs()
-            .find(|(key, _)| key == "port")
-            .and_then(|(_, value)| value.parse::<u16>().ok())
-    })?;
-
-    Some(PostgresTargetEndpoint { host, port })
-}
-
-/// PostgreSQL endpoint parsed from one keyword connection string.
-fn parse_postgres_endpoint_from_keywords(
-    connection_string: &str,
-) -> Option<PostgresTargetEndpoint> {
-    let mut host: Option<String> = None;
-    let mut port: Option<u16> = None;
-
-    for part in connection_string.split_whitespace() {
-        let Some((key, value)) = part.split_once('=') else {
-            continue;
-        };
-
-        let value = trim_connection_value(value);
-
-        match key {
-            "host" if !value.is_empty() => {
-                host = Some(value.to_ascii_lowercase());
-            }
-            "port" => {
-                port = value.parse::<u16>().ok();
-            }
-            _ => {}
-        }
-    }
-
-    Some(PostgresTargetEndpoint {
-        host: host?,
-        port: port.unwrap_or(5432),
-    })
-}
-
-/// PostgreSQL endpoint parsed from one connection string when the server session omits host data.
-fn parse_postgres_endpoint(connection_string: &str) -> Option<PostgresTargetEndpoint> {
-    parse_postgres_endpoint_from_url(connection_string)
-        .or_else(|| parse_postgres_endpoint_from_keywords(connection_string))
-}
-
-/// Publish target endpoint resolved from one live session identity plus connection-string fallback.
-fn resolve_target_endpoint(
-    identity: &DesktopDatabaseIdentity,
-    connection_string: &str,
-) -> PostgresTargetEndpoint {
-    let parsed = parse_postgres_endpoint(connection_string);
-    let host = identity
-        .server_host
-        .as_deref()
-        .map(str::trim)
-        .filter(|host| !host.is_empty())
-        .map(|host| host.to_ascii_lowercase())
-        .or_else(|| parsed.as_ref().map(|endpoint| endpoint.host.clone()))
-        .unwrap_or_else(|| "local-socket".to_string());
-    let port = identity
-        .server_port
-        .and_then(|port| u16::try_from(port).ok())
-        .or_else(|| parsed.as_ref().map(|endpoint| endpoint.port))
-        .unwrap_or(5432);
-
-    PostgresTargetEndpoint { host, port }
-}
-
-/// Stable fingerprint derived from one resolved PostgreSQL endpoint and identity pair.
-fn compute_target_fingerprint(
-    endpoint: &PostgresTargetEndpoint,
-    identity: &DesktopDatabaseIdentity,
-) -> String {
-    sha256_hex(&format!(
-        "host={}\nport={}\ndatabase={}\nuser={}",
-        endpoint.host, endpoint.port, identity.database_name, identity.user_name
-    ))
-}
-
 /// Publish target fields normalized from one explicit frontend request.
 fn resolve_requested_target_fields(
     publish_target_id: Option<String>,
@@ -377,20 +246,15 @@ async fn resolve_publish_target(
     environment: String,
     connection_string: String,
 ) -> Result<ResolvedHearthstonePublishTarget, String> {
-    let database = DesktopDatabase::connect(&connection_string).await?;
-    let identity = read_desktop_database_identity(database.connection()).await?;
-    let endpoint = resolve_target_endpoint(&identity, &connection_string);
-    let target_fingerprint = compute_target_fingerprint(&endpoint, &identity);
-
-    Ok(ResolvedHearthstonePublishTarget {
-        publish_target_id,
-        environment,
-        target_fingerprint,
-        database_name: identity.database_name,
-        user_name: identity.user_name,
-        server_host: endpoint.host,
-        server_port: endpoint.port,
-    })
+    post_runtime_json(
+        "desktop/test-hearthstone-publish-target",
+        json!({
+            "publishTargetId": publish_target_id,
+            "environment": environment,
+            "connectionString": connection_string,
+        }),
+    )
+    .await
 }
 
 /// Stored publish target resolved and revalidated against the current live PostgreSQL target.
@@ -466,6 +330,7 @@ pub(crate) async fn desktop_set_hearthstone_publish_target(
     let Some((publish_target_id, environment, connection_string)) = requested else {
         store_publish_target_profile(&app, None)?;
         store_publish_target_connection_string(&app, None)?;
+        schedule_desktop_runtime_config_sync(app.clone());
         return Ok(DesktopHearthstonePublishTargetSettings {
             publish_target_id: None,
             environment: None,
@@ -490,6 +355,7 @@ pub(crate) async fn desktop_set_hearthstone_publish_target(
             target_fingerprint: target.target_fingerprint.clone(),
         }),
     )?;
+    schedule_desktop_runtime_config_sync(app.clone());
 
     Ok(DesktopHearthstonePublishTargetSettings {
         publish_target_id: Some(target.publish_target_id),
@@ -596,77 +462,4 @@ pub(crate) async fn desktop_validate_hearthstone_publish_target_binding(
         current_environment,
         current_target_fingerprint,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{
-        compute_target_fingerprint, parse_postgres_endpoint, resolve_target_endpoint,
-        PostgresTargetEndpoint,
-    };
-    use crate::desktop_database::DesktopDatabaseIdentity;
-
-    /// URL-style PostgreSQL connection strings should expose host and port for fallback use.
-    #[test]
-    fn parses_postgres_endpoint_from_url() {
-        let endpoint = parse_postgres_endpoint("postgres://user:pass@Db.EXAMPLE.com:6543/cards")
-            .expect("endpoint");
-
-        assert_eq!(endpoint.host, "db.example.com");
-        assert_eq!(endpoint.port, 6543);
-    }
-
-    /// Keyword PostgreSQL connection strings should expose host and default port when omitted.
-    #[test]
-    fn parses_postgres_endpoint_from_keywords() {
-        let endpoint =
-            parse_postgres_endpoint("host=Db.EXAMPLE.com user=cards dbname=tcg_cards_remote_dev")
-                .expect("endpoint");
-
-        assert_eq!(endpoint.host, "db.example.com");
-        assert_eq!(endpoint.port, 5432);
-    }
-
-    /// Live session data should win when PostgreSQL already reports the connected server address.
-    #[test]
-    fn prefers_live_server_identity_over_connection_string_fallback() {
-        let identity = DesktopDatabaseIdentity {
-            database_name: "cards".to_string(),
-            user_name: "writer".to_string(),
-            server_host: Some("10.0.0.5".to_string()),
-            server_port: Some(6432),
-        };
-
-        let endpoint =
-            resolve_target_endpoint(&identity, "postgres://user:pass@db.example.com:5432/cards");
-
-        assert_eq!(endpoint.host, "10.0.0.5");
-        assert_eq!(endpoint.port, 6432);
-    }
-
-    /// Fingerprints should stay stable for semantically identical normalized endpoints.
-    #[test]
-    fn computes_stable_target_fingerprint() {
-        let identity = DesktopDatabaseIdentity {
-            database_name: "cards".to_string(),
-            user_name: "writer".to_string(),
-            server_host: None,
-            server_port: None,
-        };
-        let endpoint = PostgresTargetEndpoint {
-            host: "db.example.com".to_string(),
-            port: 5432,
-        };
-
-        let left = compute_target_fingerprint(&endpoint, &identity);
-        let right = compute_target_fingerprint(
-            &PostgresTargetEndpoint {
-                host: "db.example.com".to_string(),
-                port: 5432,
-            },
-            &identity,
-        );
-
-        assert_eq!(left, right);
-    }
 }

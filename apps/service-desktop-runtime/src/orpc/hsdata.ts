@@ -26,6 +26,7 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
+import { publishCurrentHsdataToRemote } from '../lib/hearthstone/hsdata-publish';
 import {
   computeHsdataSourceHash,
   normalizeHsdataXmlSource,
@@ -87,6 +88,26 @@ const sourceVersionStatus = z.object({
   projectionStatus: z.string(),
   projectedAt: z.string().nullable(),
   projectionError: z.string().nullable(),
+});
+
+const publishReport = z.object({
+  batchId: z.string(),
+  publishTargetId: z.string(),
+  environment: z.string(),
+  targetFingerprint: z.string(),
+  manifestHash: z.string(),
+  previousManifestHash: z.string().nullable(),
+  sourceTagMin: z.number(),
+  sourceTagMax: z.number(),
+  buildMin: z.number(),
+  buildMax: z.number(),
+  cardCount: z.number(),
+  changedCardCount: z.number(),
+  insertedCardCount: z.number(),
+  updatedCardCount: z.number(),
+  deletedCardCount: z.number(),
+  unchangedCardCount: z.number(),
+  publishedAt: z.string(),
 });
 
 /** Normalizes one thrown value into a runtime RPC error. */
@@ -353,6 +374,22 @@ const getLocalProjectJob = os
   .output(z.any().nullable())
   .handler(async ({ input }) => getProjectJobBySourceTag(input.sourceTag));
 
+/** Publishes the current local latest projection to the configured remote target through Bun. */
+const publishCurrentToRemote = os
+  .route({
+    method:      'POST',
+    description: 'Publish the current local hsdata projection to the configured remote target',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(publishReport)
+  .handler(async () => {
+    try {
+      return await publishCurrentHsdataToRemote();
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
 /** Groups the desktop runtime hsdata procedures under one router namespace. */
 export const hsdataRouter = {
   getRepoState,
@@ -365,4 +402,5 @@ export const hsdataRouter = {
   getLocalOverview,
   getLocalImportJob,
   getLocalProjectJob,
+  publishCurrentToRemote,
 };

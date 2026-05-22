@@ -1,18 +1,18 @@
 use std::time::Instant;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tauri::AppHandle;
 
-use crate::desktop_database::{read_desktop_database_identity, DesktopDatabase};
-use crate::desktop_runtime_config_sync::schedule_desktop_runtime_config_sync;
 use crate::desktop_database_settings::{
     build_desktop_database_settings, load_desktop_database_settings,
     store_desktop_database_connection_string, DesktopDatabaseSettings,
 };
+use crate::desktop_runtime_config_sync::{post_runtime_json, schedule_desktop_runtime_config_sync};
 use crate::trim_non_empty;
 
 /// Connection test result returned to the desktop frontend.
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DesktopDatabaseConnectionTestResult {
     database_name: String,
@@ -33,14 +33,16 @@ async fn test_desktop_database_connection(
     external_connection_string: String,
 ) -> Result<DesktopDatabaseConnectionTestResult, String> {
     let started_at = Instant::now();
-    let database = DesktopDatabase::connect(&external_connection_string).await?;
-    let identity = read_desktop_database_identity(database.connection()).await?;
+    let mut result = post_runtime_json::<DesktopDatabaseConnectionTestResult>(
+        "desktop/test-local-database",
+        json!({
+            "connectionString": external_connection_string,
+        }),
+    )
+    .await?;
+    result.latency_ms = started_at.elapsed().as_millis();
 
-    Ok(DesktopDatabaseConnectionTestResult {
-        database_name: identity.database_name,
-        user_name: identity.user_name,
-        latency_ms: started_at.elapsed().as_millis(),
-    })
+    Ok(result)
 }
 
 /// Database settings loaded by the desktop frontend.

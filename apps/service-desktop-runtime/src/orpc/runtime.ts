@@ -2,8 +2,10 @@ import { z } from 'zod';
 
 import { os } from './index';
 import {
+  hasHearthstonePublishTargetOverride,
   hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  setHearthstonePublishTargetOverride,
   setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
 } from '../runtime-config';
@@ -15,6 +17,7 @@ const runtimeStatus = z.object({
   status:                  z.literal('ok'),
   localDatabaseConfigured: z.boolean(),
   hsdataRepoConfigured:    z.boolean(),
+  publishTargetConfigured: z.boolean(),
   time:                    z.string(),
 });
 
@@ -26,6 +29,7 @@ function buildStatus() {
     status:                  'ok' as const,
     localDatabaseConfigured: hasLocalDatabaseUrl(),
     hsdataRepoConfigured:    hasHsdataRepoPath(),
+    publishTargetConfigured: hasHearthstonePublishTargetOverride(),
     time:                    new Date().toISOString(),
   };
 }
@@ -37,6 +41,34 @@ const configureLocalDatabaseInput = z.strictObject({
 const configureHsdataRepoInput = z.strictObject({
   repoPath: z.string().trim().min(1).nullable(),
 });
+
+const configureDesktopStateInput = z.strictObject({
+  localDatabase: z.strictObject({
+    connectionString: z.string().trim().min(1).nullable(),
+  }),
+  games: z.strictObject({
+    hearthstone: z.strictObject({
+      hsdata: z.strictObject({
+        repoPath: z.string().trim().min(1).nullable(),
+      }),
+      publish: z.strictObject({
+        publishTargetId: z.string().trim().min(1).nullable(),
+        environment: z.string().trim().min(1).nullable(),
+        targetFingerprint: z.string().trim().min(1).nullable(),
+        connectionString: z.string().trim().min(1).nullable(),
+      }),
+    }),
+  }),
+});
+
+/** Applies one desktop runtime configuration snapshot into the current Bun process. */
+function applyDesktopState(
+  input: z.infer<typeof configureDesktopStateInput>,
+) {
+  setLocalDatabaseUrlOverride(input.localDatabase.connectionString);
+  setHsdataRepoPathOverride(input.games.hearthstone.hsdata.repoPath);
+  setHearthstonePublishTargetOverride(input.games.hearthstone.publish);
+}
 
 const health = os
   .route({
@@ -73,9 +105,23 @@ const configureHsdataRepo = os
     return buildStatus();
   });
 
+const configureDesktopState = os
+  .route({
+    method:      'POST',
+    description: 'Configure the desktop runtime from one injected desktop state snapshot',
+    tags:        ['Desktop Runtime'],
+  })
+  .input(configureDesktopStateInput)
+  .output(runtimeStatus)
+  .handler(async ({ input }) => {
+    applyDesktopState(input);
+    return buildStatus();
+  });
+
 /** Desktop runtime procedures exposed over the local RPC transport. */
 export const runtimeRouter = {
   health,
+  configureDesktopState,
   configureLocalDatabase,
   configureHsdataRepo,
 };

@@ -1,12 +1,17 @@
 use std::time::Duration;
 
 use reqwest::StatusCode;
+use serde::de::DeserializeOwned;
 use serde_json::json;
 use tauri::AppHandle;
 
 use crate::desktop_database_settings::load_desktop_database_connection_string;
+use crate::desktop_hearthstone_publish_target::{
+    load_publish_target_connection_string, load_publish_target_profile,
+};
 use crate::load_desktop_game_repo_path;
 
+const DESKTOP_RUNTIME_HTTP_BASE_URL: &str = "http://127.0.0.1:4318";
 const DESKTOP_RUNTIME_RPC_BASE_URL: &str = "http://127.0.0.1:4318/rpc";
 const DESKTOP_RUNTIME_SYNC_INTERVAL_SECONDS: u64 = 5;
 
@@ -22,13 +27,45 @@ fn log_runtime_sync(message: &str) {
     eprintln!("[desktop][runtime-sync] {message}");
 }
 
+/// One reqwest client built with one explicit desktop runtime timeout.
+fn build_runtime_http_client(timeout_ms: u64) -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(Duration::from_millis(timeout_ms))
+        .build()
+        .map_err(|error| format!("Failed to build desktop runtime HTTP client: {error}"))
+}
+
+/// Builds one unified desktop-state snapshot payload for the local Bun runtime.
+fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, String> {
+    let connection_string = load_desktop_database_connection_string(app)?;
+    let repo_path = load_desktop_game_repo_path(app, "hearthstone", "hsdata")?;
+    let publish_target = load_publish_target_profile(app)?;
+    let publish_connection_string = load_publish_target_connection_string(app)?;
+
+    Ok(json!({
+        "localDatabase": {
+            "connectionString": connection_string,
+        },
+        "games": {
+            "hearthstone": {
+                "hsdata": {
+                    "repoPath": repo_path,
+                },
+                "publish": {
+                    "publishTargetId": publish_target.as_ref().map(|profile| profile.publish_target_id.clone()),
+                    "environment": publish_target.as_ref().map(|profile| profile.environment.clone()),
+                    "targetFingerprint": publish_target.as_ref().map(|profile| profile.target_fingerprint.clone()),
+                    "connectionString": publish_connection_string,
+                },
+            },
+        },
+    }))
+}
+
 /// Posts one runtime configuration procedure call into the local Bun desktop runtime.
 async fn post_runtime_rpc(path: &str, input: serde_json::Value) -> Result<(), String> {
     let url = format!("{DESKTOP_RUNTIME_RPC_BASE_URL}/{path}");
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_millis(800))
-        .build()
-        .map_err(|error| format!("Failed to build desktop runtime HTTP client: {error}"))?;
+    let client = build_runtime_http_client(800)?;
 
     let response = client
         .post(&url)
@@ -56,28 +93,48 @@ async fn post_runtime_rpc(path: &str, input: serde_json::Value) -> Result<(), St
     })
 }
 
+/// Posts one JSON request into the local Bun desktop runtime and decodes one JSON response body.
+pub(crate) async fn post_runtime_json<T>(
+    path: &str,
+    input: serde_json::Value,
+) -> Result<T, String>
+where
+    T: DeserializeOwned,
+{
+    let url = format!("{DESKTOP_RUNTIME_HTTP_BASE_URL}/{path}");
+    let client = build_runtime_http_client(6_000)?;
+    let response = client
+        .post(&url)
+        .json(&input)
+        .send()
+        .await
+        .map_err(|error| format!("Failed to call desktop runtime {path}: {error}"))?;
+
+    if response.status().is_success() {
+        return response
+            .json::<T>()
+            .await
+            .map_err(|error| format!("Failed to decode desktop runtime {path} response: {error}"));
+    }
+
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+
+    Err(match status {
+        StatusCode::NOT_FOUND => format!("Desktop runtime endpoint not found: {path}"),
+        _ if body.trim().is_empty() => {
+            format!("Desktop runtime endpoint {path} failed with status {status}")
+        }
+        _ => format!(
+            "Desktop runtime endpoint {path} failed with status {status}: {}",
+            body.trim()
+        ),
+    })
+}
+
 /// Pushes the current desktop config values into the local Bun runtime once.
 pub(crate) async fn sync_desktop_runtime_config_once(app: &AppHandle) -> Result<(), String> {
-    let connection_string = load_desktop_database_connection_string(app)?;
-    let repo_path = load_desktop_game_repo_path(app, "hearthstone", "hsdata")?;
-
-    post_runtime_rpc(
-        "runtime/configureLocalDatabase",
-        json!({
-            "connectionString": connection_string,
-        }),
-    )
-    .await?;
-
-    post_runtime_rpc(
-        "runtime/configureHsdataRepo",
-        json!({
-            "repoPath": repo_path,
-        }),
-    )
-    .await?;
-
-    Ok(())
+    post_runtime_rpc("runtime/configureDesktopState", build_desktop_state_payload(app)?).await
 }
 
 /// Runs one startup sync inline so the desktop UI can observe backend-injected config sooner.

@@ -1,21 +1,13 @@
 #[allow(dead_code)]
 mod desktop_config_commands;
 #[allow(dead_code)]
-mod desktop_database;
-#[allow(dead_code)]
 mod desktop_database_commands;
 #[allow(dead_code)]
 mod desktop_database_settings;
 #[allow(dead_code)]
 mod desktop_hearthstone_publish_target;
 #[allow(dead_code)]
-mod desktop_hsdata_publish;
-#[allow(dead_code)]
 mod desktop_runtime_config_sync;
-#[allow(dead_code)]
-mod entity;
-#[allow(dead_code)]
-mod hearthstone_publish_row_family;
 
 use crate::desktop_config_commands::{
     desktop_get_config_file_info, desktop_get_raw_config, desktop_open_config_directory,
@@ -30,7 +22,6 @@ use crate::desktop_hearthstone_publish_target::{
     desktop_test_hearthstone_publish_target, desktop_validate_hearthstone_publish_target_binding,
     HearthstonePublishTargetConnectionStringCache,
 };
-use crate::desktop_hsdata_publish::hsdata_publish_current_to_remote;
 use crate::desktop_runtime_config_sync::{
     schedule_desktop_runtime_config_sync, start_desktop_runtime_config_sync_loop,
     sync_desktop_runtime_config_blocking,
@@ -1058,7 +1049,6 @@ pub fn run() {
             desktop_get_game_repo,
             desktop_set_game_repo,
             desktop_pick_directory,
-            hsdata_publish_current_to_remote,
             credential_get,
             credential_set,
             credential_delete,

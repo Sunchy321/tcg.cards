@@ -2,8 +2,13 @@ import { onError } from '@orpc/server';
 import { RPCHandler } from '@orpc/server/fetch';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { z } from 'zod';
 
 import { router } from './orpc/service';
+import {
+  resolveHearthstonePublishTarget,
+  testDesktopDatabaseConnection,
+} from './lib/runtime/desktop-database';
 
 /** Resolves the local listen port from the current process environment. */
 function readPort() {
@@ -24,6 +29,21 @@ function buildStatus() {
     status:  'ok',
     time:    new Date().toISOString(),
   };
+}
+
+const testLocalDatabaseInput = z.strictObject({
+  connectionString: z.string().trim().min(1),
+});
+
+const testHearthstonePublishTargetInput = z.strictObject({
+  publishTargetId: z.string().trim().min(1),
+  environment: z.string().trim().min(1),
+  connectionString: z.string().trim().min(1),
+});
+
+/** Human-readable message normalized from one unknown thrown value. */
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 const hono = new Hono();
@@ -66,6 +86,42 @@ hono.get('/', c => c.json({
 }));
 
 hono.get('/health', c => c.json(buildStatus()));
+
+hono.post('/desktop/test-local-database', async c => {
+  const parsed = testLocalDatabaseInput.safeParse(await c.req.json());
+
+  if (!parsed.success) {
+    return c.json({
+      message: 'Local database connection string is required.',
+    }, 400);
+  }
+
+  try {
+    return c.json(await testDesktopDatabaseConnection(parsed.data.connectionString));
+  } catch (error) {
+    return c.json({
+      message: getErrorMessage(error),
+    }, 500);
+  }
+});
+
+hono.post('/desktop/test-hearthstone-publish-target', async c => {
+  const parsed = testHearthstonePublishTargetInput.safeParse(await c.req.json());
+
+  if (!parsed.success) {
+    return c.json({
+      message: 'Publish target id, environment, and connection string are required.',
+    }, 400);
+  }
+
+  try {
+    return c.json(await resolveHearthstonePublishTarget(parsed.data));
+  } catch (error) {
+    return c.json({
+      message: getErrorMessage(error),
+    }, 500);
+  }
+});
 
 hono.all('/rpc/*', async c => {
   const { response } = await rpcHandler.handle(c.req.raw, {
