@@ -119,6 +119,11 @@ function sha256Hex(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+/** Closes one short-lived publish database client after the current apply finishes. */
+async function closePublishDb(db: PublishDb) {
+  await db.$client.end({ timeout: 1 });
+}
+
 /** Stable SHA-256 digest for one JSON-serializable value. */
 function hashJson(value: unknown): string {
   return sha256Hex(Buffer.from(JSON.stringify(value)));
@@ -960,36 +965,54 @@ export async function publishCurrentHsdataToRemote(): Promise<HsdataPublishRepor
   const target = requireHearthstonePublishTarget();
   const localDb = getLocalDb();
   const remoteDb = createDb(target.connectionString);
-  const snapshots = await loadCurrentPublishSnapshots(localDb);
-
-  if (snapshots.length === 0) {
-    throw new Error('No latest local Hearthstone projection rows are available for publish.');
-  }
-
-  const range = await derivePublishDatasetRange(localDb, snapshots);
-  const previous = await loadPreviousPublishManifests(localDb, target.publishTargetId);
-  const previousManifestHash = previous.baseline?.manifestHash ?? null;
-  const { plans, counts, manifestHash } = buildPublishBatchPlan(snapshots, previous.manifests);
-  const batchId = randomUUID();
-  const publishedAt = new Date();
-
-  await insertPublishBatch(localDb, {
-    batchId,
-    publishTargetId: target.publishTargetId,
-    environment: target.environment,
-    targetFingerprint: target.targetFingerprint,
-    range,
-    manifestHash,
-    previousManifestHash,
-    counts,
-  });
-  await insertPublishBatchCards(localDb, batchId, plans);
-  await markPublishBatchApplying(localDb, batchId);
-
   try {
-    await applyPublishBatchToRemote(remoteDb, {
-      snapshots,
-      plans,
+    const snapshots = await loadCurrentPublishSnapshots(localDb);
+
+    if (snapshots.length === 0) {
+      throw new Error('No latest local Hearthstone projection rows are available for publish.');
+    }
+
+    const range = await derivePublishDatasetRange(localDb, snapshots);
+    const previous = await loadPreviousPublishManifests(localDb, target.publishTargetId);
+    const previousManifestHash = previous.baseline?.manifestHash ?? null;
+    const { plans, counts, manifestHash } = buildPublishBatchPlan(snapshots, previous.manifests);
+    const batchId = randomUUID();
+    const publishedAt = new Date();
+
+    await insertPublishBatch(localDb, {
+      batchId,
+      publishTargetId: target.publishTargetId,
+      environment: target.environment,
+      targetFingerprint: target.targetFingerprint,
+      range,
+      manifestHash,
+      previousManifestHash,
+      counts,
+    });
+    await insertPublishBatchCards(localDb, batchId, plans);
+    await markPublishBatchApplying(localDb, batchId);
+
+    try {
+      await applyPublishBatchToRemote(remoteDb, {
+        snapshots,
+        plans,
+        batchId,
+        publishTargetId: target.publishTargetId,
+        environment: target.environment,
+        targetFingerprint: target.targetFingerprint,
+        range,
+        counts,
+        manifestHash,
+        publishedAt,
+      });
+    } catch (error) {
+      const failure = normalizePublishApplyFailure(error);
+
+      await finalizePublishBatchFailure(localDb, batchId, failure.cardId, failure.message);
+      throw new Error(failure.message);
+    }
+
+    await finalizePublishBatchSuccess(localDb, {
       batchId,
       publishTargetId: target.publishTargetId,
       environment: target.environment,
@@ -997,46 +1020,32 @@ export async function publishCurrentHsdataToRemote(): Promise<HsdataPublishRepor
       range,
       counts,
       manifestHash,
+      plans,
       publishedAt,
     });
-  } catch (error) {
-    const failure = normalizePublishApplyFailure(error);
 
-    await finalizePublishBatchFailure(localDb, batchId, failure.cardId, failure.message);
-    throw new Error(failure.message);
+    return {
+      batchId,
+      publishTargetId: target.publishTargetId,
+      environment: target.environment,
+      targetFingerprint: target.targetFingerprint,
+      manifestHash,
+      previousManifestHash,
+      sourceTagMin: range.sourceTagMin,
+      sourceTagMax: range.sourceTagMax,
+      buildMin: range.buildMin,
+      buildMax: range.buildMax,
+      cardCount: counts.cardCount,
+      changedCardCount: counts.changedCardCount,
+      insertedCardCount: counts.insertedCardCount,
+      updatedCardCount: counts.updatedCardCount,
+      deletedCardCount: counts.deletedCardCount,
+      unchangedCardCount: counts.unchangedCardCount,
+      publishedAt: publishedAt.toISOString(),
+    };
+  } finally {
+    await closePublishDb(remoteDb);
   }
-
-  await finalizePublishBatchSuccess(localDb, {
-    batchId,
-    publishTargetId: target.publishTargetId,
-    environment: target.environment,
-    targetFingerprint: target.targetFingerprint,
-    range,
-    counts,
-    manifestHash,
-    plans,
-    publishedAt,
-  });
-
-  return {
-    batchId,
-    publishTargetId: target.publishTargetId,
-    environment: target.environment,
-    targetFingerprint: target.targetFingerprint,
-    manifestHash,
-    previousManifestHash,
-    sourceTagMin: range.sourceTagMin,
-    sourceTagMax: range.sourceTagMax,
-    buildMin: range.buildMin,
-    buildMax: range.buildMax,
-    cardCount: counts.cardCount,
-    changedCardCount: counts.changedCardCount,
-    insertedCardCount: counts.insertedCardCount,
-    updatedCardCount: counts.updatedCardCount,
-    deletedCardCount: counts.deletedCardCount,
-    unchangedCardCount: counts.unchangedCardCount,
-    publishedAt: publishedAt.toISOString(),
-  };
 }
 
 /** Test-only publish helpers that lock the migrated Rust diff semantics in place. */

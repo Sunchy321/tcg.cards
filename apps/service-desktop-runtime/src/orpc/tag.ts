@@ -1,7 +1,6 @@
 import { ORPCError } from '@orpc/server';
 import { and, desc, eq } from 'drizzle-orm';
 
-import { createDb } from '@tcg-cards/db/db';
 import { FieldCommit } from '@tcg-cards/db/schema/shared/hearthstone';
 import {
   fieldCommitGetInput,
@@ -25,28 +24,10 @@ import {
 } from '@tcg-cards/console-api/lib/hearthstone/tag-conflict';
 
 import { os } from './index';
-import { readLocalDatabaseUrl } from '../runtime-config';
+import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 
 /** Commit rows loaded from the shared field history table. */
 type FieldCommitRow = typeof FieldCommit.$inferSelect;
-
-/** Local desktop database URL required by runtime-backed tag conflict procedures. */
-function requireLocalDatabaseUrl() {
-  const connection = readLocalDatabaseUrl();
-
-  if (!connection) {
-    throw new ORPCError('INTERNAL_SERVER_ERROR', {
-      message: 'Local desktop database URL is not configured',
-    });
-  }
-
-  return connection;
-}
-
-/** Desktop-local Drizzle database used by runtime-backed tag conflict procedures. */
-function getLocalDb() {
-  return createDb(requireLocalDatabaseUrl());
-}
 
 /** Converts one persisted timestamp into an ISO string. */
 function toIsoString(value: Date | string) {
