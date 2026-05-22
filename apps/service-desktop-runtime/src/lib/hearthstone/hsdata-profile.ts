@@ -4,7 +4,7 @@ export type HsdataProfileValue = boolean | number | string | null | undefined;
 /** Structured fields attached to one hsdata profiling event. */
 export type HsdataProfileFields = Record<string, HsdataProfileValue>;
 
-/** Incremental profiler used by hsdata import and finalize paths. */
+/** Incremental profiler used by hsdata import, projection, and publish paths. */
 export interface HsdataProfiler {
   mark(step: string, extra?: HsdataProfileFields): void;
   done(extra?: HsdataProfileFields): void;
@@ -12,7 +12,7 @@ export interface HsdataProfiler {
 
 // Structured hsdata profiling event written to the runtime log stream.
 function logHsdataProfile(scope: string, event: string, fields: HsdataProfileFields) {
-  console.info(`[hearthstone][hsdata-import][profile][${scope}] ${event}`, fields);
+  console.info(`[hearthstone][hsdata][profile][${scope}] ${event}`, fields);
 }
 
 /** Profiler that records elapsed time since the previous step and the total start. */

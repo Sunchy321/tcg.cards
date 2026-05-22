@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 import { eq, inArray, sql } from 'drizzle-orm';
 
@@ -15,6 +17,7 @@ import {
   SourceVersion,
   Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
+import { createHsdataProfiler } from './hsdata-profile';
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type JsonMap = Record<string, unknown>;
@@ -183,13 +186,39 @@ interface ProjectedSnapshot {
 
 type LocalizationlessEntityRow = Omit<EntityRow, 'version' | 'isLatest'>;
 type LocalizationlessLocalizationRow = Omit<LocalizationRow, 'version' | 'isLatest'>;
+type EntityStateRow = Pick<EntityRow, 'cardId' | 'version' | 'revisionHash' | 'isLatest'>;
+type LocalizationStateRow = Pick<LocalizationRow, 'cardId' | 'version' | 'lang' | 'revisionHash' | 'localizationHash' | 'renderHash' | 'isLatest'>;
+type CopyCapableClient = {
+  unsafe(query: string): {
+    writable(): Promise<NodeJS.WritableStream>;
+  };
+};
+type CopyTx = DbTx & { session: { client: CopyCapableClient } };
 
 interface ReconcileResult<T extends { version: number[], isLatest: boolean }> {
   finalRows: T[];
+  syncPlan:  SyncPlan<T>;
   changed:   boolean;
   inserted:  number;
   reused:    number;
   updated:   number;
+}
+
+/** Write-plan rows that must be deleted or upserted after reconciliation. */
+interface SyncPlan<T extends { version: number[], isLatest: boolean }> {
+  deleteRows: T[];
+  upsertRows: T[];
+  inserted:  number;
+  updated:   number;
+  deleted:   number;
+}
+
+/** Reconciliation hooks that derive row identity groups and lightweight change signatures. */
+interface ReconcileOptions<T extends { version: number[], isLatest: boolean }> {
+  build:    number;
+  keyOf:    (row: T) => RowKey;
+  groupKey: (row: T) => string;
+  stateOf:  (row: T) => string;
 }
 
 export interface ProjectHsdataInput {
@@ -1106,8 +1135,12 @@ function relationKey(
   return `${row.sourceId}\u0000${row.sourceRevisionHash}\u0000${row.relation}\u0000${row.targetId}`;
 }
 
-function cloneRow<T>(row: T): T {
-  return structuredClone(row);
+/** Clones one reconciled row while keeping nested payload references and only copying the mutable version array. */
+function cloneReconcileRow<T extends { version: number[], isLatest: boolean }>(row: T): T {
+  return {
+    ...row,
+    version: [...row.version],
+  };
 }
 
 function recomputeLatest<T extends { version: number[], isLatest: boolean }>(
@@ -1130,16 +1163,42 @@ function recomputeLatest<T extends { version: number[], isLatest: boolean }>(
   }
 }
 
+/** Builds one lightweight entity state signature so reconciliation compares hashes and version flags instead of full-row JSON. */
+function entityState(row: Pick<EntityRow, 'revisionHash' | 'version' | 'isLatest'>): string {
+  return `${row.revisionHash}\u0000${row.version.join(',')}\u0000${row.isLatest ? 1 : 0}`;
+}
+
+/** Builds one lightweight localization state signature so reconciliation uses renderHash instead of serializing renderModel JSON. */
+function localizationState(row: Pick<LocalizationRow, 'revisionHash' | 'localizationHash' | 'renderHash' | 'version' | 'isLatest'>): string {
+  return [
+    row.revisionHash,
+    row.localizationHash,
+    row.renderHash ?? '',
+    row.version.join(','),
+    row.isLatest ? '1' : '0',
+  ].join('\u0000');
+}
+
+/** Builds one lightweight relation state signature so reconciliation checks stable identifiers and version flags only. */
+function relationState(row: RelationRow): string {
+  return [
+    row.sourceRevisionHash,
+    row.relation,
+    row.targetId,
+    row.version.join(','),
+    row.isLatest ? '1' : '0',
+  ].join('\u0000');
+}
+
+/** Reconciles one projected row family by updating version membership and comparing lightweight state signatures. */
 function reconcileRows<T extends { version: number[], isLatest: boolean }>(
   existingRows: T[],
   targetRows: T[],
-  options: {
-    build:    number;
-    keyOf:    (row: T) => RowKey;
-    groupKey: (row: T) => string;
-  },
+  options: ReconcileOptions<T>,
 ): ReconcileResult<T> {
-  const existingByKey = new Map(existingRows.map(row => [options.keyOf(row), cloneRow(row)]));
+  // Keep the original rows as read-only lookup input. The final row set is rebuilt separately so
+  // reconciliation does not deep-clone every existing row before any change is known.
+  const existingByKey = new Map(existingRows.map(row => [options.keyOf(row), row]));
   const finalByKey = new Map<RowKey, T>();
 
   for (const row of existingRows) {
@@ -1150,7 +1209,7 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
     }
 
     finalByKey.set(options.keyOf(row), {
-      ...cloneRow(row),
+      ...cloneReconcileRow(row),
       version:  nextVersion,
       isLatest: false,
     });
@@ -1168,7 +1227,7 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
     if (!existing) {
       inserted += 1;
       finalByKey.set(key, {
-        ...cloneRow(row),
+        ...cloneReconcileRow(row),
         version:  [options.build],
         isLatest: false,
       });
@@ -1182,8 +1241,8 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
     }
 
     finalByKey.set(key, {
-      ...(current ?? cloneRow(row)),
-      ...cloneRow(row),
+      ...(current ?? cloneReconcileRow(row)),
+      ...cloneReconcileRow(row),
       version:  mergeVersion(current?.version ?? [], options.build),
       isLatest: false,
     });
@@ -1192,13 +1251,50 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
   recomputeLatest(finalByKey, options.groupKey);
 
   const finalRows = [...finalByKey.values()];
-  const finalState = new Map(finalRows.map(row => [options.keyOf(row), canonicalizeJson(row)]));
-  const existingState = new Map(existingRows.map(row => [options.keyOf(row), canonicalizeJson(row)]));
-  const changed = finalState.size !== existingState.size
-    || [...finalState.entries()].some(([key, value]) => existingState.get(key) !== value);
+  const deleteRows: T[] = [];
+  const upsertRows: T[] = [];
+  let syncInserted = 0;
+  let syncUpdated = 0;
+
+  for (const row of existingRows) {
+    const key = options.keyOf(row);
+
+    if (!finalByKey.has(key)) {
+      deleteRows.push(row);
+    }
+  }
+
+  for (const row of finalRows) {
+    const key = options.keyOf(row);
+    const existing = existingByKey.get(key);
+    const currentState = options.stateOf(row);
+    const previousState = existing == null ? null : options.stateOf(existing);
+
+    if (currentState === previousState) {
+      continue;
+    }
+
+    if (existing == null) {
+      syncInserted += 1;
+    } else {
+      syncUpdated += 1;
+    }
+
+    upsertRows.push(row);
+  }
+
+  const changed = deleteRows.length > 0 || upsertRows.length > 0;
+  const syncPlan = {
+    deleteRows,
+    upsertRows,
+    inserted: syncInserted,
+    updated:  syncUpdated,
+    deleted:  deleteRows.length,
+  };
 
   return {
     finalRows,
+    syncPlan,
     changed,
     inserted,
     reused,
@@ -1618,8 +1714,9 @@ async function loadSetIdByDbfId(): Promise<Map<number, string>> {
   return new Map(rows.map(row => [row.dbfId!, row.setId]));
 }
 
-async function loadExistingEntities(cardIds: string[]): Promise<EntityRow[]> {
-  const rows: EntityRow[] = [];
+/** Loads only the entity state columns needed to reconcile versions and latest flags. */
+async function loadExistingEntities(cardIds: string[]): Promise<EntityStateRow[]> {
+  const rows: EntityStateRow[] = [];
 
   for (const chunk of chunkValues(cardIds)) {
     if (chunk.length === 0) {
@@ -1627,47 +1724,10 @@ async function loadExistingEntities(cardIds: string[]): Promise<EntityRow[]> {
     }
 
     const result = await db.select({
-      cardId:            Entity.cardId,
-      version:           Entity.version,
-      revisionHash:      Entity.revisionHash,
-      dbfId:             Entity.dbfId,
-      legacyPayload:     Entity.legacyPayload,
-      set:               Entity.set,
-      classes:           Entity.classes,
-      type:              Entity.type,
-      cost:              Entity.cost,
-      attack:            Entity.attack,
-      health:            Entity.health,
-      durability:        Entity.durability,
-      armor:             Entity.armor,
-      rune:              Entity.rune,
-      race:              Entity.race,
-      spellSchool:       Entity.spellSchool,
-      questType:         Entity.questType,
-      questProgress:     Entity.questProgress,
-      questPart:         Entity.questPart,
-      heroPower:         Entity.heroPower,
-      techLevel:         Entity.techLevel,
-      inBobsTavern:      Entity.inBobsTavern,
-      tripleCard:        Entity.tripleCard,
-      raceBucket:        Entity.raceBucket,
-      armorBucket:       Entity.armorBucket,
-      buddy:             Entity.buddy,
-      bannedRace:        Entity.bannedRace,
-      mercenaryRole:     Entity.mercenaryRole,
-      mercenaryFaction:  Entity.mercenaryFaction,
-      colddown:          Entity.colddown,
-      collectible:       Entity.collectible,
-      elite:             Entity.elite,
-      rarity:            Entity.rarity,
-      artist:            Entity.artist,
-      overrideWatermark: Entity.overrideWatermark,
-      faction:           Entity.faction,
-      mechanics:         Entity.mechanics,
-      referencedTags:    Entity.referencedTags,
-      textBuilderType:   Entity.textBuilderType,
-      changeType:        Entity.changeType,
-      isLatest:          Entity.isLatest,
+      cardId:       Entity.cardId,
+      version:      Entity.version,
+      revisionHash: Entity.revisionHash,
+      isLatest:     Entity.isLatest,
     })
       .from(Entity)
       .where(inArray(Entity.cardId, chunk));
@@ -1678,8 +1738,9 @@ async function loadExistingEntities(cardIds: string[]): Promise<EntityRow[]> {
   return rows;
 }
 
-async function loadExistingLocalizations(cardIds: string[]): Promise<LocalizationRow[]> {
-  const rows: LocalizationRow[] = [];
+/** Loads only the localization state columns needed to reconcile versions, latest flags, and render signatures. */
+async function loadExistingLocalizations(cardIds: string[]): Promise<LocalizationStateRow[]> {
+  const rows: LocalizationStateRow[] = [];
 
   for (const chunk of chunkValues(cardIds)) {
     if (chunk.length === 0) {
@@ -1693,18 +1754,7 @@ async function loadExistingLocalizations(cardIds: string[]): Promise<Localizatio
       revisionHash:     EntityLocalization.revisionHash,
       localizationHash: EntityLocalization.localizationHash,
       renderHash:       EntityLocalization.renderHash,
-      renderModel:      EntityLocalization.renderModel,
       isLatest:         EntityLocalization.isLatest,
-      name:             EntityLocalization.name,
-      text:             EntityLocalization.text,
-      richText:         EntityLocalization.richText,
-      displayText:      EntityLocalization.displayText,
-      targetText:       EntityLocalization.targetText,
-      textInPlay:       EntityLocalization.textInPlay,
-      howToEarn:        EntityLocalization.howToEarn,
-      howToEarnGolden:  EntityLocalization.howToEarnGolden,
-      flavorText:       EntityLocalization.flavorText,
-      locChangeType:    EntityLocalization.locChangeType,
     })
       .from(EntityLocalization)
       .where(inArray(EntityLocalization.cardId, chunk));
@@ -1740,17 +1790,6 @@ async function loadExistingRelations(sourceIds: string[]): Promise<RelationRow[]
   return rows;
 }
 
-async function deleteByCardIds(tx: DbTx, cardIds: string[]) {
-  for (const chunk of chunkValues(cardIds)) {
-    if (chunk.length === 0) {
-      continue;
-    }
-
-    await tx.delete(Entity).where(inArray(Entity.cardId, chunk));
-    await tx.delete(EntityLocalization).where(inArray(EntityLocalization.cardId, chunk));
-  }
-}
-
 async function deleteBySourceIds(tx: DbTx, sourceIds: string[]) {
   for (const chunk of chunkValues(sourceIds)) {
     if (chunk.length === 0) {
@@ -1761,24 +1800,967 @@ async function deleteBySourceIds(tx: DbTx, sourceIds: string[]) {
   }
 }
 
-async function insertEntities(tx: DbTx, rows: EntityRow[]) {
-  for (const chunk of chunkValues(rows)) {
-    if (chunk.length === 0) {
-      continue;
-    }
+/** Loads duplicate entity rows into a temp table, then inserts only missing primary keys into the shared table. */
+async function insertEntitiesIgnoreDuplicates(tx: CopyTx, rows: EntityRow[]) {
+  await tx.session.client.unsafe(`
+    create temp table hsdata_projection_entity_copy_stage (
+      like hearthstone.entities including defaults
+    ) on commit drop
+  `);
 
-    await tx.insert(Entity).values(chunk as (typeof Entity.$inferInsert)[]);
-  }
+  await copyEntitiesIntoTable(tx, rows, 'hsdata_projection_entity_copy_stage');
+
+  await tx.session.client.unsafe(`
+    insert into hearthstone.entities (
+      card_id,
+      version,
+      revision_hash,
+      dbf_id,
+      legacy_payload,
+      set,
+      class,
+      type,
+      cost,
+      attack,
+      health,
+      durability,
+      armor,
+      rune,
+      race,
+      spell_school,
+      quest_type,
+      quest_progress,
+      quest_part,
+      hero_power,
+      tech_level,
+      in_bobs_tavern,
+      triple_card,
+      race_bucket,
+      armor_bucket,
+      buddy,
+      banned_race,
+      mercenary_role,
+      mercenary_faction,
+      colddown,
+      collectible,
+      elite,
+      rarity,
+      artist,
+      override_watermark,
+      faction,
+      mechanics,
+      referenced_tags,
+      text_builder_type,
+      change_type,
+      is_latest
+    )
+    select
+      card_id,
+      version,
+      revision_hash,
+      dbf_id,
+      legacy_payload,
+      set,
+      class,
+      type,
+      cost,
+      attack,
+      health,
+      durability,
+      armor,
+      rune,
+      race,
+      spell_school,
+      quest_type,
+      quest_progress,
+      quest_part,
+      hero_power,
+      tech_level,
+      in_bobs_tavern,
+      triple_card,
+      race_bucket,
+      armor_bucket,
+      buddy,
+      banned_race,
+      mercenary_role,
+      mercenary_faction,
+      colddown,
+      collectible,
+      elite,
+      rarity,
+      artist,
+      override_watermark,
+      faction,
+      mechanics,
+      referenced_tags,
+      text_builder_type,
+      change_type,
+      is_latest
+    from hsdata_projection_entity_copy_stage
+    on conflict do nothing
+  `);
 }
 
-async function insertLocalizations(tx: DbTx, rows: LocalizationRow[]) {
-  for (const chunk of chunkValues(rows)) {
-    if (chunk.length === 0) {
-      continue;
-    }
-
-    await tx.insert(EntityLocalization).values(chunk as (typeof EntityLocalization.$inferInsert)[]);
+/** Encodes one nullable CSV field for PostgreSQL COPY with tab delimiter and `\N` nulls. */
+function encodeCopyCsvField(value: string | null): string {
+  if (value == null) {
+    return '\\N';
   }
+
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+/** Encodes one PostgreSQL integer-array literal for COPY input. */
+function encodeCopyIntArray(values: number[]): string {
+  return `{${values.join(',')}}`;
+}
+
+/** Encodes one PostgreSQL text-array literal for COPY input. */
+function encodeCopyTextArray(values: string[]): string {
+  return `{${values.map(value => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',')}}`;
+}
+
+/** Renders one entity primary-key row into one COPY-compatible line for temp delete staging tables. */
+function encodeEntityKeyCopyRow(row: Pick<EntityRow, 'cardId' | 'revisionHash'>): string {
+  return [
+    encodeCopyCsvField(row.cardId),
+    encodeCopyCsvField(row.revisionHash),
+  ].join('\t') + '\n';
+}
+
+/** Renders one entity version/isLatest row into one COPY-compatible line for temp meta-update staging tables. */
+function encodeEntityMetaCopyRow(row: EntityStateRow): string {
+  return [
+    encodeCopyCsvField(row.cardId),
+    encodeCopyCsvField(row.revisionHash),
+    encodeCopyCsvField(encodeCopyIntArray(row.version)),
+    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
+  ].join('\t') + '\n';
+}
+
+/** Renders one localization primary-key row into one COPY-compatible line for temp delete staging tables. */
+function encodeLocalizationKeyCopyRow(
+  row: Pick<LocalizationRow, 'cardId' | 'lang' | 'revisionHash' | 'localizationHash'>,
+): string {
+  return [
+    encodeCopyCsvField(row.cardId),
+    encodeCopyCsvField(row.lang),
+    encodeCopyCsvField(row.revisionHash),
+    encodeCopyCsvField(row.localizationHash),
+  ].join('\t') + '\n';
+}
+
+/** Renders one localization version/isLatest row into one COPY-compatible line for temp meta-update staging tables. */
+function encodeLocalizationMetaCopyRow(row: LocalizationStateRow): string {
+  return [
+    encodeCopyCsvField(row.cardId),
+    encodeCopyCsvField(row.lang),
+    encodeCopyCsvField(row.revisionHash),
+    encodeCopyCsvField(row.localizationHash),
+    encodeCopyCsvField(encodeCopyIntArray(row.version)),
+    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
+  ].join('\t') + '\n';
+}
+
+/** Encodes one JSON payload for COPY input using PostgreSQL text parsing. */
+function encodeCopyJson(value: unknown): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  return JSON.stringify(value);
+}
+
+/** Renders one entity row into one COPY-compatible TSV/CSV line. */
+function encodeEntityCopyRow(row: EntityRow): string {
+  return [
+    encodeCopyCsvField(row.cardId),
+    encodeCopyCsvField(encodeCopyIntArray(row.version)),
+    encodeCopyCsvField(row.revisionHash),
+    encodeCopyCsvField(String(row.dbfId)),
+    encodeCopyCsvField(encodeCopyJson(row.legacyPayload)),
+    encodeCopyCsvField(row.set),
+    encodeCopyCsvField(encodeCopyTextArray(row.classes)),
+    encodeCopyCsvField(row.type),
+    encodeCopyCsvField(String(row.cost)),
+    encodeCopyCsvField(row.attack == null ? null : String(row.attack)),
+    encodeCopyCsvField(row.health == null ? null : String(row.health)),
+    encodeCopyCsvField(row.durability == null ? null : String(row.durability)),
+    encodeCopyCsvField(row.armor == null ? null : String(row.armor)),
+    encodeCopyCsvField(row.rune == null ? null : encodeCopyTextArray(row.rune)),
+    encodeCopyCsvField(row.race == null ? null : encodeCopyTextArray(row.race)),
+    encodeCopyCsvField(row.spellSchool),
+    encodeCopyCsvField(row.questType),
+    encodeCopyCsvField(row.questProgress == null ? null : String(row.questProgress)),
+    encodeCopyCsvField(row.questPart == null ? null : String(row.questPart)),
+    encodeCopyCsvField(row.heroPower),
+    encodeCopyCsvField(row.techLevel == null ? null : String(row.techLevel)),
+    encodeCopyCsvField(row.inBobsTavern ? 't' : 'f'),
+    encodeCopyCsvField(row.tripleCard),
+    encodeCopyCsvField(row.raceBucket),
+    encodeCopyCsvField(row.armorBucket == null ? null : String(row.armorBucket)),
+    encodeCopyCsvField(row.buddy),
+    encodeCopyCsvField(row.bannedRace),
+    encodeCopyCsvField(row.mercenaryRole),
+    encodeCopyCsvField(row.mercenaryFaction),
+    encodeCopyCsvField(row.colddown == null ? null : String(row.colddown)),
+    encodeCopyCsvField(row.collectible ? 't' : 'f'),
+    encodeCopyCsvField(row.elite ? 't' : 'f'),
+    encodeCopyCsvField(row.rarity),
+    encodeCopyCsvField(row.artist),
+    encodeCopyCsvField(row.overrideWatermark),
+    encodeCopyCsvField(row.faction),
+    encodeCopyCsvField(encodeCopyJson(row.mechanics)),
+    encodeCopyCsvField(encodeCopyJson(row.referencedTags)),
+    encodeCopyCsvField(row.textBuilderType),
+    encodeCopyCsvField(row.changeType),
+    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
+  ].join('\t') + '\n';
+}
+
+/** Renders one localization row into one COPY-compatible TSV/CSV line. */
+function encodeLocalizationCopyRow(row: LocalizationRow): string {
+  return [
+    encodeCopyCsvField(row.cardId),
+    encodeCopyCsvField(encodeCopyIntArray(row.version)),
+    encodeCopyCsvField(row.lang),
+    encodeCopyCsvField(row.revisionHash),
+    encodeCopyCsvField(row.localizationHash),
+    encodeCopyCsvField(row.renderHash),
+    encodeCopyCsvField(encodeCopyJson(row.renderModel)),
+    encodeCopyCsvField(row.isLatest ? 't' : 'f'),
+    encodeCopyCsvField(row.name),
+    encodeCopyCsvField(row.text),
+    encodeCopyCsvField(row.richText),
+    encodeCopyCsvField(row.displayText),
+    encodeCopyCsvField(row.targetText),
+    encodeCopyCsvField(row.textInPlay),
+    encodeCopyCsvField(row.howToEarn),
+    encodeCopyCsvField(row.howToEarnGolden),
+    encodeCopyCsvField(row.flavorText),
+    encodeCopyCsvField(row.locChangeType),
+  ].join('\t') + '\n';
+}
+
+/** Streams entity rows into one COPY target so large entity batches avoid hundreds of insert statements. */
+async function copyEntitiesIntoTable(
+  tx: CopyTx,
+  rows: EntityRow[],
+  targetTable: string,
+) {
+  const writable = await tx.session.client.unsafe(`
+    copy ${targetTable} (
+      card_id,
+      version,
+      revision_hash,
+      dbf_id,
+      legacy_payload,
+      set,
+      class,
+      type,
+      cost,
+      attack,
+      health,
+      durability,
+      armor,
+      rune,
+      race,
+      spell_school,
+      quest_type,
+      quest_progress,
+      quest_part,
+      hero_power,
+      tech_level,
+      in_bobs_tavern,
+      triple_card,
+      race_bucket,
+      armor_bucket,
+      buddy,
+      banned_race,
+      mercenary_role,
+      mercenary_faction,
+      colddown,
+      collectible,
+      elite,
+      rarity,
+      artist,
+      override_watermark,
+      faction,
+      mechanics,
+      referenced_tags,
+      text_builder_type,
+      change_type,
+      is_latest
+    ) from stdin with (
+      format csv,
+      delimiter E'\\t',
+      null '\\N'
+    )
+  `).writable();
+
+  /** Yields one COPY line per entity row so PostgreSQL can stream the whole batch. */
+  async function* generateEntityCopyLines() {
+    for (const row of rows) {
+      yield encodeEntityCopyRow(row);
+    }
+  }
+
+  await pipeline(
+    Readable.from(generateEntityCopyLines()),
+    writable,
+  );
+}
+
+/** Streams localization rows into one COPY target so large localization batches avoid hundreds of insert statements. */
+async function copyLocalizationsIntoTable(
+  tx: CopyTx,
+  rows: LocalizationRow[],
+  targetTable: string,
+) {
+  const writable = await tx.session.client.unsafe(`
+    copy ${targetTable} (
+      card_id,
+      version,
+      lang,
+      revision_hash,
+      localization_hash,
+      render_hash,
+      render_model,
+      is_latest,
+      name,
+      text,
+      rich_text,
+      display_text,
+      target_text,
+      text_in_play,
+      how_to_earn,
+      how_to_earn_golden,
+      flavor_text,
+      loc_change_type
+    ) from stdin with (
+      format csv,
+      delimiter E'\\t',
+      null '\\N'
+    )
+  `).writable();
+
+  /** Yields one COPY line per localization row so PostgreSQL can stream the whole batch. */
+  async function* generateLocalizationCopyLines() {
+    for (const row of rows) {
+      yield encodeLocalizationCopyRow(row);
+    }
+  }
+
+  await pipeline(
+    Readable.from(generateLocalizationCopyLines()),
+    writable,
+  );
+}
+
+/** Streams entity primary keys into one temp table so shared-row deletes only touch rows removed by reconciliation. */
+async function copyEntityKeysIntoTable(
+  tx: CopyTx,
+  rows: Array<Pick<EntityRow, 'cardId' | 'revisionHash'>>,
+  targetTable: string,
+) {
+  const writable = await tx.session.client.unsafe(`
+    copy ${targetTable} (
+      card_id,
+      revision_hash
+    ) from stdin with (
+      format csv,
+      delimiter E'\\t',
+      null '\\N'
+    )
+  `).writable();
+
+  /** Yields one COPY line per entity key so composite-key deletes can stay set-based. */
+  async function* generateEntityKeyCopyLines() {
+    for (const row of rows) {
+      yield encodeEntityKeyCopyRow(row);
+    }
+  }
+
+  await pipeline(
+    Readable.from(generateEntityKeyCopyLines()),
+    writable,
+  );
+}
+
+/** Streams entity version/isLatest rows into one temp table so historical rows can update metadata without reloading payload columns. */
+async function copyEntityMetaRowsIntoTable(
+  tx: CopyTx,
+  rows: EntityStateRow[],
+  targetTable: string,
+) {
+  const writable = await tx.session.client.unsafe(`
+    copy ${targetTable} (
+      card_id,
+      revision_hash,
+      version,
+      is_latest
+    ) from stdin with (
+      format csv,
+      delimiter E'\\t',
+      null '\\N'
+    )
+  `).writable();
+
+  /** Yields one COPY line per entity metadata row so historical latest/version flips stay set-based. */
+  async function* generateEntityMetaCopyLines() {
+    for (const row of rows) {
+      yield encodeEntityMetaCopyRow(row);
+    }
+  }
+
+  await pipeline(
+    Readable.from(generateEntityMetaCopyLines()),
+    writable,
+  );
+}
+
+/** Streams localization primary keys into one temp table so shared-row deletes only touch rows removed by reconciliation. */
+async function copyLocalizationKeysIntoTable(
+  tx: CopyTx,
+  rows: Array<Pick<LocalizationRow, 'cardId' | 'lang' | 'revisionHash' | 'localizationHash'>>,
+  targetTable: string,
+) {
+  const writable = await tx.session.client.unsafe(`
+    copy ${targetTable} (
+      card_id,
+      lang,
+      revision_hash,
+      localization_hash
+    ) from stdin with (
+      format csv,
+      delimiter E'\\t',
+      null '\\N'
+    )
+  `).writable();
+
+  /** Yields one COPY line per localization key so composite-key deletes can stay set-based. */
+  async function* generateLocalizationKeyCopyLines() {
+    for (const row of rows) {
+      yield encodeLocalizationKeyCopyRow(row);
+    }
+  }
+
+  await pipeline(
+    Readable.from(generateLocalizationKeyCopyLines()),
+    writable,
+  );
+}
+
+/** Streams localization version/isLatest rows into one temp table so historical rows can update metadata without reloading text payloads. */
+async function copyLocalizationMetaRowsIntoTable(
+  tx: CopyTx,
+  rows: LocalizationStateRow[],
+  targetTable: string,
+) {
+  const writable = await tx.session.client.unsafe(`
+    copy ${targetTable} (
+      card_id,
+      lang,
+      revision_hash,
+      localization_hash,
+      version,
+      is_latest
+    ) from stdin with (
+      format csv,
+      delimiter E'\\t',
+      null '\\N'
+    )
+  `).writable();
+
+  /** Yields one COPY line per localization metadata row so historical latest/version flips stay set-based. */
+  async function* generateLocalizationMetaCopyLines() {
+    for (const row of rows) {
+      yield encodeLocalizationMetaCopyRow(row);
+    }
+  }
+
+  await pipeline(
+    Readable.from(generateLocalizationMetaCopyLines()),
+    writable,
+  );
+}
+
+/** Loads duplicate localization rows into a temp table, then inserts only missing primary keys into the shared table. */
+async function insertLocalizationsIgnoreDuplicates(tx: CopyTx, rows: LocalizationRow[]) {
+  await tx.session.client.unsafe(`
+    create temp table hsdata_projection_localization_copy_stage (
+      like hearthstone.entity_localizations including defaults
+    ) on commit drop
+  `);
+
+  await copyLocalizationsIntoTable(tx, rows, 'hsdata_projection_localization_copy_stage');
+
+  await tx.session.client.unsafe(`
+    insert into hearthstone.entity_localizations (
+      card_id,
+      version,
+      lang,
+      revision_hash,
+      localization_hash,
+      render_hash,
+      render_model,
+      is_latest,
+      name,
+      text,
+      rich_text,
+      display_text,
+      target_text,
+      text_in_play,
+      how_to_earn,
+      how_to_earn_golden,
+      flavor_text,
+      loc_change_type
+    )
+    select
+      card_id,
+      version,
+      lang,
+      revision_hash,
+      localization_hash,
+      render_hash,
+      render_model,
+      is_latest,
+      name,
+      text,
+      rich_text,
+      display_text,
+      target_text,
+      text_in_play,
+      how_to_earn,
+      how_to_earn_golden,
+      flavor_text,
+      loc_change_type
+    from hsdata_projection_localization_copy_stage
+    on conflict do nothing
+  `);
+}
+
+/** Deletes only reconciled entity keys so unchanged historical rows stay in place. */
+async function deleteEntities(
+  tx: CopyTx,
+  rows: Array<Pick<EntityRow, 'cardId' | 'revisionHash'>>,
+) {
+  if (rows.length === 0) {
+    return;
+  }
+
+  await tx.session.client.unsafe(`
+    create temp table hsdata_projection_entity_delete_stage as
+    select
+      card_id,
+      revision_hash
+    from hearthstone.entities
+    with no data
+  `);
+
+  await copyEntityKeysIntoTable(tx, rows, 'hsdata_projection_entity_delete_stage');
+
+  await tx.session.client.unsafe(`
+    delete from hearthstone.entities as target
+    using hsdata_projection_entity_delete_stage as stage
+    where target.card_id = stage.card_id
+      and target.revision_hash = stage.revision_hash
+  `);
+}
+
+/** Upserts only reconciled entity deltas so unchanged historical rows are no longer deleted and reinserted. */
+async function upsertEntities(
+  tx: CopyTx,
+  plan: SyncPlan<EntityStateRow>,
+  targetRowsByKey: Map<RowKey, EntityRow>,
+) {
+  if (plan.upsertRows.length === 0) {
+    return;
+  }
+
+  const fullRows: EntityRow[] = [];
+  const metaRows: EntityStateRow[] = [];
+
+  for (const row of plan.upsertRows) {
+    const full = targetRowsByKey.get(entityKey(row));
+
+    if (full) {
+      fullRows.push({
+        ...full,
+        version:  [...row.version],
+        isLatest: row.isLatest,
+      });
+    } else {
+      metaRows.push(row);
+    }
+  }
+
+  if (metaRows.length > 0) {
+    await updateEntityMetaRows(tx, metaRows);
+  }
+
+  if (fullRows.length === 0) {
+    return;
+  }
+
+  await tx.session.client.unsafe(`
+    create temp table hsdata_projection_entity_copy_stage (
+      like hearthstone.entities including defaults
+    ) on commit drop
+  `);
+
+  await copyEntitiesIntoTable(tx, fullRows, 'hsdata_projection_entity_copy_stage');
+
+  // The staged entity delta lets PostgreSQL update only keys whose version membership or entity payload
+  // changed, instead of rewriting every historical entity row through repeated on-conflict upserts.
+  await tx.session.client.unsafe(`
+    update hearthstone.entities as target
+    set
+      version = stage.version,
+      dbf_id = stage.dbf_id,
+      legacy_payload = stage.legacy_payload,
+      set = stage.set,
+      class = stage.class,
+      type = stage.type,
+      cost = stage.cost,
+      attack = stage.attack,
+      health = stage.health,
+      durability = stage.durability,
+      armor = stage.armor,
+      rune = stage.rune,
+      race = stage.race,
+      spell_school = stage.spell_school,
+      quest_type = stage.quest_type,
+      quest_progress = stage.quest_progress,
+      quest_part = stage.quest_part,
+      hero_power = stage.hero_power,
+      tech_level = stage.tech_level,
+      in_bobs_tavern = stage.in_bobs_tavern,
+      triple_card = stage.triple_card,
+      race_bucket = stage.race_bucket,
+      armor_bucket = stage.armor_bucket,
+      buddy = stage.buddy,
+      banned_race = stage.banned_race,
+      mercenary_role = stage.mercenary_role,
+      mercenary_faction = stage.mercenary_faction,
+      colddown = stage.colddown,
+      collectible = stage.collectible,
+      elite = stage.elite,
+      rarity = stage.rarity,
+      artist = stage.artist,
+      override_watermark = stage.override_watermark,
+      faction = stage.faction,
+      mechanics = stage.mechanics,
+      referenced_tags = stage.referenced_tags,
+      text_builder_type = stage.text_builder_type,
+      change_type = stage.change_type,
+      is_latest = stage.is_latest
+    from hsdata_projection_entity_copy_stage as stage
+    where target.card_id = stage.card_id
+      and target.revision_hash = stage.revision_hash
+  `);
+
+  await tx.session.client.unsafe(`
+    insert into hearthstone.entities (
+      card_id,
+      version,
+      revision_hash,
+      dbf_id,
+      legacy_payload,
+      set,
+      class,
+      type,
+      cost,
+      attack,
+      health,
+      durability,
+      armor,
+      rune,
+      race,
+      spell_school,
+      quest_type,
+      quest_progress,
+      quest_part,
+      hero_power,
+      tech_level,
+      in_bobs_tavern,
+      triple_card,
+      race_bucket,
+      armor_bucket,
+      buddy,
+      banned_race,
+      mercenary_role,
+      mercenary_faction,
+      colddown,
+      collectible,
+      elite,
+      rarity,
+      artist,
+      override_watermark,
+      faction,
+      mechanics,
+      referenced_tags,
+      text_builder_type,
+      change_type,
+      is_latest
+    )
+    select
+      stage.card_id,
+      stage.version,
+      stage.revision_hash,
+      stage.dbf_id,
+      stage.legacy_payload,
+      stage.set,
+      stage.class,
+      stage.type,
+      stage.cost,
+      stage.attack,
+      stage.health,
+      stage.durability,
+      stage.armor,
+      stage.rune,
+      stage.race,
+      stage.spell_school,
+      stage.quest_type,
+      stage.quest_progress,
+      stage.quest_part,
+      stage.hero_power,
+      stage.tech_level,
+      stage.in_bobs_tavern,
+      stage.triple_card,
+      stage.race_bucket,
+      stage.armor_bucket,
+      stage.buddy,
+      stage.banned_race,
+      stage.mercenary_role,
+      stage.mercenary_faction,
+      stage.colddown,
+      stage.collectible,
+      stage.elite,
+      stage.rarity,
+      stage.artist,
+      stage.override_watermark,
+      stage.faction,
+      stage.mechanics,
+      stage.referenced_tags,
+      stage.text_builder_type,
+      stage.change_type,
+      stage.is_latest
+    from hsdata_projection_entity_copy_stage as stage
+    where not exists (
+      select 1
+      from hearthstone.entities as target
+      where target.card_id = stage.card_id
+        and target.revision_hash = stage.revision_hash
+    )
+  `);
+}
+
+/** Updates only entity version/isLatest metadata for historical rows whose payload did not change. */
+async function updateEntityMetaRows(
+  tx: CopyTx,
+  rows: EntityStateRow[],
+) {
+  if (rows.length === 0) {
+    return;
+  }
+
+  await tx.session.client.unsafe(`
+    create temp table hsdata_projection_entity_meta_stage as
+    select
+      card_id,
+      revision_hash,
+      version,
+      is_latest
+    from hearthstone.entities
+    with no data
+  `);
+
+  await copyEntityMetaRowsIntoTable(tx, rows, 'hsdata_projection_entity_meta_stage');
+
+  await tx.session.client.unsafe(`
+    update hearthstone.entities as target
+    set
+      version = stage.version,
+      is_latest = stage.is_latest
+    from hsdata_projection_entity_meta_stage as stage
+    where target.card_id = stage.card_id
+      and target.revision_hash = stage.revision_hash
+  `);
+}
+
+/** Synchronizes only reconciled localization deltas instead of staging every historical row for the projected cards. */
+async function syncLocalizations(
+  tx: CopyTx,
+  plan: SyncPlan<LocalizationStateRow>,
+  targetRowsByKey: Map<RowKey, LocalizationRow>,
+) {
+  if (plan.deleteRows.length === 0 && plan.upsertRows.length === 0) {
+    return;
+  }
+
+  if (plan.deleteRows.length > 0) {
+    await tx.session.client.unsafe(`
+      create temp table hsdata_projection_localization_delete_stage as
+      select
+        card_id,
+        lang,
+        revision_hash,
+        localization_hash
+      from hearthstone.entity_localizations
+      with no data
+    `);
+
+    await copyLocalizationKeysIntoTable(tx, plan.deleteRows, 'hsdata_projection_localization_delete_stage');
+
+    await tx.session.client.unsafe(`
+      delete from hearthstone.entity_localizations as target
+      using hsdata_projection_localization_delete_stage as stage
+      where target.card_id = stage.card_id
+        and target.lang = stage.lang
+        and target.revision_hash = stage.revision_hash
+        and target.localization_hash = stage.localization_hash
+    `);
+  }
+
+  if (plan.upsertRows.length === 0) {
+    return;
+  }
+
+  const fullRows: LocalizationRow[] = [];
+  const metaRows: LocalizationStateRow[] = [];
+
+  for (const row of plan.upsertRows) {
+    const full = targetRowsByKey.get(localizationKey(row));
+
+    if (full) {
+      fullRows.push({
+        ...full,
+        version:  [...row.version],
+        isLatest: row.isLatest,
+      });
+    } else {
+      metaRows.push(row);
+    }
+  }
+
+  if (metaRows.length > 0) {
+    await tx.session.client.unsafe(`
+      create temp table hsdata_projection_localization_meta_stage as
+      select
+        card_id,
+        lang,
+        revision_hash,
+        localization_hash,
+        version,
+        is_latest
+      from hearthstone.entity_localizations
+      with no data
+    `);
+
+    await copyLocalizationMetaRowsIntoTable(tx, metaRows, 'hsdata_projection_localization_meta_stage');
+
+    await tx.session.client.unsafe(`
+      update hearthstone.entity_localizations as target
+      set
+        version = stage.version,
+        is_latest = stage.is_latest
+      from hsdata_projection_localization_meta_stage as stage
+      where target.card_id = stage.card_id
+        and target.lang = stage.lang
+        and target.revision_hash = stage.revision_hash
+        and target.localization_hash = stage.localization_hash
+    `);
+  }
+
+  if (fullRows.length === 0) {
+    return;
+  }
+
+  await tx.session.client.unsafe(`
+    create temp table hsdata_projection_localization_copy_stage (
+      like hearthstone.entity_localizations including defaults
+    ) on commit drop
+  `);
+
+  await copyLocalizationsIntoTable(tx, fullRows, 'hsdata_projection_localization_copy_stage');
+
+  // The staged localization delta lets PostgreSQL update only keys whose version membership or rendered
+  // payload changed, instead of rewriting every historical localization row for every projected card.
+  await tx.session.client.unsafe(`
+    update hearthstone.entity_localizations as target
+    set
+      version = stage.version,
+      render_hash = stage.render_hash,
+      render_model = stage.render_model,
+      is_latest = stage.is_latest,
+      name = stage.name,
+      text = stage.text,
+      rich_text = stage.rich_text,
+      display_text = stage.display_text,
+      target_text = stage.target_text,
+      text_in_play = stage.text_in_play,
+      how_to_earn = stage.how_to_earn,
+      how_to_earn_golden = stage.how_to_earn_golden,
+      flavor_text = stage.flavor_text,
+      loc_change_type = stage.loc_change_type
+    from hsdata_projection_localization_copy_stage as stage
+    where target.card_id = stage.card_id
+      and target.lang = stage.lang
+      and target.revision_hash = stage.revision_hash
+      and target.localization_hash = stage.localization_hash
+  `);
+
+  await tx.session.client.unsafe(`
+    insert into hearthstone.entity_localizations (
+      card_id,
+      version,
+      lang,
+      revision_hash,
+      localization_hash,
+      render_hash,
+      render_model,
+      is_latest,
+      name,
+      text,
+      rich_text,
+      display_text,
+      target_text,
+      text_in_play,
+      how_to_earn,
+      how_to_earn_golden,
+      flavor_text,
+      loc_change_type
+    )
+    select
+      stage.card_id,
+      stage.version,
+      stage.lang,
+      stage.revision_hash,
+      stage.localization_hash,
+      stage.render_hash,
+      stage.render_model,
+      stage.is_latest,
+      stage.name,
+      stage.text,
+      stage.rich_text,
+      stage.display_text,
+      stage.target_text,
+      stage.text_in_play,
+      stage.how_to_earn,
+      stage.how_to_earn_golden,
+      stage.flavor_text,
+      stage.loc_change_type
+    from hsdata_projection_localization_copy_stage as stage
+    where not exists (
+      select 1
+      from hearthstone.entity_localizations as target
+      where target.card_id = stage.card_id
+        and target.lang = stage.lang
+        and target.revision_hash = stage.revision_hash
+        and target.localization_hash = stage.localization_hash
+    )
+  `);
 }
 
 async function insertRelations(tx: DbTx, rows: RelationRow[]) {
@@ -1791,20 +2773,42 @@ async function insertRelations(tx: DbTx, rows: RelationRow[]) {
   }
 }
 
+/** Inserts relation rows while ignoring existing primary keys so repeated writes can exercise the write path safely. */
+async function insertRelationsIgnoreDuplicates(tx: DbTx, rows: RelationRow[]) {
+  for (const chunk of chunkValues(rows)) {
+    if (chunk.length === 0) {
+      continue;
+    }
+
+    await tx.insert(EntityRelation)
+      .values(chunk as (typeof EntityRelation.$inferInsert)[])
+      .onConflictDoNothing();
+  }
+}
+
 export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectHsdataReport> {
-  const sourceVersion = await getSourceVersion(input.sourceTag);
+  const dryRun = input.dryRun ?? false;
+  const force = input.force ?? false;
+  const profiler = createHsdataProfiler('project', {
+    sourceTag: input.sourceTag,
+    dryRun,
+    force,
+  });
+  try {
+    const sourceVersion = await getSourceVersion(input.sourceTag);
+    profiler.mark('load_source_version');
 
-  if (!sourceVersion) {
-    throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} does not exist`);
-  }
+    if (!sourceVersion) {
+      throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} does not exist`);
+    }
 
-  if (sourceVersion.status !== 'completed') {
-    throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} is not completed`);
-  }
+    if (sourceVersion.status !== 'completed') {
+      throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} is not completed`);
+    }
 
-  if (sourceVersion.build == null) {
-    throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} is missing build`);
-  }
+    if (sourceVersion.build == null) {
+      throw new Error(`[hearthstone][hsdata-project] sourceTag ${input.sourceTag} is missing build`);
+    }
 
   await input.onProgress?.({
     phase:                   'loading_snapshots',
@@ -1814,10 +2818,14 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   });
 
   const snapshots = await loadSnapshots(input.sourceTag);
+  profiler.mark('load_snapshots', {
+    build:         sourceVersion.build,
+    snapshotCount: snapshots.length,
+  });
 
-  if (snapshots.length === 0) {
-    throw new Error(`[hearthstone][hsdata-project] no raw snapshots found for sourceTag ${input.sourceTag}`);
-  }
+    if (snapshots.length === 0) {
+      throw new Error(`[hearthstone][hsdata-project] no raw snapshots found for sourceTag ${input.sourceTag}`);
+    }
 
   await input.onProgress?.({
     phase:                   'loading_tags',
@@ -1828,8 +2836,16 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
   const snapshotIdSet = new Set(snapshots.map(snapshot => snapshot.id));
   const rawTags = await loadSnapshotTags([...snapshotIdSet]);
+  profiler.mark('load_snapshot_tags', {
+    snapshotCount: snapshots.length,
+    rawTagCount:   rawTags.length,
+  });
   const enumIds = [...new Set(rawTags.map(row => row.enumId))].sort((left, right) => left - right);
   const tagMap = await loadTagRows(enumIds);
+  profiler.mark('load_tag_rows', {
+    enumIdCount: enumIds.length,
+    tagRuleCount: tagMap.size,
+  });
   const rawTagsBySnapshotId = new Map<string, RawSnapshotTagRow[]>();
 
   for (const row of rawTags) {
@@ -1843,6 +2859,11 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     [...tagMap.values()].map(tag => [tag.enumId, tag.slug]),
   );
   const setIdByDbfId = await loadSetIdByDbfId();
+  profiler.mark('build_projection_context', {
+    cardRefCount: cardIdByDbfId.size,
+    slugCount:    slugByEnumId.size,
+    setCount:     setIdByDbfId.size,
+  });
   const context: ProjectionContext = {
     slugByEnumId,
     cardIdByDbfId,
@@ -1878,22 +2899,46 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
 
     return result;
   });
+  profiler.mark('project_snapshots', {
+    snapshotCount:      projected.length,
+    entityCount:        projected.length,
+    localizationCount:  projected.reduce((count, item) => count + item.localizations.length, 0),
+    relationCount:      projected.reduce((count, item) => count + item.relations.length, 0),
+    unprojectedTagCount: projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
+  });
 
   const targetEntities = projected.map(item => ({
     ...item.entity,
     version:  [sourceVersion.build!],
     isLatest: false,
   }));
+  const targetEntityStates: EntityStateRow[] = targetEntities.map(row => ({
+    cardId:       row.cardId,
+    version:      row.version,
+    revisionHash: row.revisionHash,
+    isLatest:     row.isLatest,
+  }));
   const targetLocalizations = projected.flatMap(item => item.localizations.map(row => ({
     ...row,
     version:  [sourceVersion.build!],
     isLatest: false,
   })));
+  const targetLocalizationStates: LocalizationStateRow[] = targetLocalizations.map(row => ({
+    cardId:           row.cardId,
+    version:          row.version,
+    lang:             row.lang,
+    revisionHash:     row.revisionHash,
+    localizationHash: row.localizationHash,
+    renderHash:       row.renderHash,
+    isLatest:         row.isLatest,
+  }));
   const targetRelations = projected.flatMap(item => item.relations.map(row => ({
     ...row,
     version:  [sourceVersion.build!],
     isLatest: false,
   })));
+  const targetEntityRowsByKey = new Map(targetEntities.map(row => [entityKey(row), row]));
+  const targetLocalizationRowsByKey = new Map(targetLocalizations.map(row => [localizationKey(row), row]));
 
   const cardIds = [...new Set(targetEntities.map(row => row.cardId))].sort();
   const sourceIds = [...cardIds];
@@ -1902,6 +2947,15 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     loadExistingLocalizations(cardIds),
     loadExistingRelations(sourceIds),
   ]);
+  profiler.mark('load_existing_rows', {
+    cardCount:                   cardIds.length,
+    existingEntityCount:         existingEntities.length,
+    existingLocalizationCount:   existingLocalizations.length,
+    existingRelationCount:       existingRelations.length,
+    targetEntityCount:           targetEntities.length,
+    targetLocalizationCount:     targetLocalizations.length,
+    targetRelationCount:         targetRelations.length,
+  });
 
   await input.onProgress?.({
     phase:                   'summarizing_changes',
@@ -1910,26 +2964,63 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     completedSnapshotCount:  snapshots.length,
   });
 
-  const entityResult = reconcileRows(existingEntities, targetEntities, {
+  const entityResult = reconcileRows(existingEntities, targetEntityStates, {
     build:    sourceVersion.build,
     keyOf:    entityKey,
     groupKey: row => row.cardId,
+    stateOf:  entityState,
   });
-  const localizationResult = reconcileRows(existingLocalizations, targetLocalizations, {
+  profiler.mark('reconcile_entities', {
+    insertedEntities: entityResult.inserted,
+    reusedEntities:   entityResult.reused,
+    updatedEntities:  entityResult.updated,
+    finalEntityCount: entityResult.finalRows.length,
+    changed:          entityResult.changed,
+  });
+  const localizationResult = reconcileRows(existingLocalizations, targetLocalizationStates, {
     build:    sourceVersion.build,
     keyOf:    localizationKey,
     groupKey: row => `${row.cardId}\u0000${row.lang}`,
+    stateOf:  localizationState,
+  });
+  profiler.mark('reconcile_localizations', {
+    insertedLocalizations: localizationResult.inserted,
+    reusedLocalizations:   localizationResult.reused,
+    updatedLocalizations:  localizationResult.updated,
+    finalLocalizationCount: localizationResult.finalRows.length,
+    changed:               localizationResult.changed,
   });
   const relationResult = reconcileRows(existingRelations, targetRelations, {
     build:    sourceVersion.build,
     keyOf:    relationKey,
     groupKey: row => row.sourceId,
+    stateOf:  relationState,
+  });
+  profiler.mark('reconcile_relations', {
+    insertedRelations: relationResult.inserted,
+    reusedRelations:   relationResult.reused,
+    updatedRelations:  relationResult.updated,
+    finalRelationCount: relationResult.finalRows.length,
+    changed:           relationResult.changed,
   });
 
+  const entityPlan = entityResult.syncPlan;
+  const localizationPlan = localizationResult.syncPlan;
   const changed = entityResult.changed || localizationResult.changed || relationResult.changed;
-  const skipped = !changed && !(input.force ?? false);
+  const skipped = !changed && !force;
+  // `force` keeps the source eligible for a fresh write-path run. When the reconciled result is
+  // unchanged, the duplicate-safe branch writes only the current target rows and ignores existing
+  // primary keys so repeated runs do not rewrite or remove shared-table state.
+  const shouldWrite = changed || force;
+  const ignoreDuplicates = force && !changed;
+  profiler.mark('summarize_projection', {
+    changed,
+    skipped,
+    shouldWrite,
+    ignoreDuplicates,
+  });
 
-  if (!input.dryRun && !skipped) {
+  if (!dryRun && shouldWrite) {
     await input.onProgress?.({
       phase:                   'writing_rows',
       message:                 'Writing projected rows into the shared tables',
@@ -1938,28 +3029,82 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     });
 
     await db.transaction(async tx => {
-      await deleteByCardIds(tx, cardIds);
-      await deleteBySourceIds(tx, sourceIds);
-      await insertEntities(tx, entityResult.finalRows);
-      await insertLocalizations(tx, localizationResult.finalRows);
-      await insertRelations(tx, relationResult.finalRows);
+      if (!ignoreDuplicates) {
+        await deleteEntities(tx as CopyTx, entityPlan.deleteRows);
+        profiler.mark('write_delete_entities', {
+          rowCount: entityPlan.deleted,
+        });
+        await deleteBySourceIds(tx, sourceIds);
+        profiler.mark('write_delete_relations', {
+          sourceCount: sourceIds.length,
+        });
+      }
+
+      if (ignoreDuplicates) {
+        await insertEntitiesIgnoreDuplicates(tx as CopyTx, targetEntities);
+      } else {
+        await upsertEntities(tx as CopyTx, entityPlan, targetEntityRowsByKey);
+      }
+      profiler.mark('write_insert_entities', {
+        rowCount: ignoreDuplicates ? targetEntities.length : entityPlan.upsertRows.length,
+      });
+
+      if (ignoreDuplicates) {
+        await insertLocalizationsIgnoreDuplicates(tx as CopyTx, targetLocalizations);
+      } else {
+        await syncLocalizations(tx as CopyTx, localizationPlan, targetLocalizationRowsByKey);
+      }
+      profiler.mark('write_insert_localizations', {
+        rowCount: ignoreDuplicates ? targetLocalizations.length : localizationPlan.upsertRows.length,
+      });
+
+      if (ignoreDuplicates) {
+        await insertRelationsIgnoreDuplicates(tx, targetRelations);
+      } else {
+        await insertRelations(tx, relationResult.finalRows);
+      }
+      profiler.mark('write_insert_relations', {
+        rowCount: ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
+      });
     });
+    profiler.mark('write_transaction_committed');
   }
 
-  return {
-    dryRun:                input.dryRun ?? false,
-    skipped,
-    sourceTag:             input.sourceTag,
-    build:                 sourceVersion.build,
-    snapshotCount:         snapshots.length,
-    insertedEntities:      entityResult.inserted,
-    reusedEntities:        entityResult.reused,
-    updatedEntities:       entityResult.updated,
-    insertedLocalizations: localizationResult.inserted,
-    reusedLocalizations:   localizationResult.reused,
-    updatedLocalizations:  localizationResult.updated,
-    insertedRelations:     relationResult.inserted,
-    updatedRelations:      relationResult.updated,
-    unprojectedTagCount:   projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
-  };
+    const report = {
+      dryRun,
+      skipped,
+      sourceTag:             input.sourceTag,
+      build:                 sourceVersion.build,
+      snapshotCount:         snapshots.length,
+      insertedEntities:      entityResult.inserted,
+      reusedEntities:        entityResult.reused,
+      updatedEntities:       entityResult.updated,
+      insertedLocalizations: localizationResult.inserted,
+      reusedLocalizations:   localizationResult.reused,
+      updatedLocalizations:  localizationResult.updated,
+      insertedRelations:     relationResult.inserted,
+      updatedRelations:      relationResult.updated,
+      unprojectedTagCount:   projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
+    };
+
+    profiler.done({
+      outcome: skipped ? 'skipped' : dryRun ? 'dry_run' : 'completed',
+      snapshotCount: report.snapshotCount,
+      insertedEntities: report.insertedEntities,
+      updatedEntities: report.updatedEntities,
+      insertedLocalizations: report.insertedLocalizations,
+      updatedLocalizations: report.updatedLocalizations,
+      insertedRelations: report.insertedRelations,
+      updatedRelations: report.updatedRelations,
+      unprojectedTagCount: report.unprojectedTagCount,
+    });
+
+    return report;
+  } catch (error) {
+    profiler.mark('failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    profiler.done({ outcome: 'failed' });
+    throw error;
+  }
 }
