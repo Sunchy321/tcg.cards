@@ -2350,7 +2350,8 @@ async function deleteEntities(
   }
 
   await tx.session.client.unsafe(`
-    create temp table hsdata_projection_entity_delete_stage as
+    create temp table hsdata_projection_entity_delete_stage
+    on commit drop as
     select
       card_id,
       revision_hash
@@ -2566,7 +2567,8 @@ async function updateEntityMetaRows(
   }
 
   await tx.session.client.unsafe(`
-    create temp table hsdata_projection_entity_meta_stage as
+    create temp table hsdata_projection_entity_meta_stage
+    on commit drop as
     select
       card_id,
       revision_hash,
@@ -2601,7 +2603,8 @@ async function syncLocalizations(
 
   if (plan.deleteRows.length > 0) {
     await tx.session.client.unsafe(`
-      create temp table hsdata_projection_localization_delete_stage as
+      create temp table hsdata_projection_localization_delete_stage
+      on commit drop as
       select
         card_id,
         lang,
@@ -2646,7 +2649,8 @@ async function syncLocalizations(
 
   if (metaRows.length > 0) {
     await tx.session.client.unsafe(`
-      create temp table hsdata_projection_localization_meta_stage as
+      create temp table hsdata_projection_localization_meta_stage
+      on commit drop as
       select
         card_id,
         lang,
