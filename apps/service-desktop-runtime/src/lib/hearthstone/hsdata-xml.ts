@@ -37,6 +37,12 @@ interface ParsedXmlDocument {
   entities: XmlElement[];
 }
 
+/** Parsed hsdata payload plus the stable hash of the normalized XML source. */
+export interface ParsedHsdataStreamResult {
+  parsed: ParsedHsdata;
+  sourceHash: string;
+}
+
 /** Removes BOM and normalizes line endings before XML parsing. */
 export const normalizeHsdataXmlSource = (input: string) => {
   return input
@@ -48,6 +54,92 @@ export const normalizeHsdataXmlSource = (input: string) => {
 /** Computes the stable source hash used by raw import guards. */
 export const computeHsdataSourceHash = (input: string) => {
   return createHash('sha256').update(input, 'utf8').digest('hex');
+};
+
+/** Yields normalized XML text chunks from one UTF-8 byte stream. */
+async function* normalizeHsdataXmlChunks(
+  stream: ReadableStream<Uint8Array>,
+): AsyncGenerator<string> {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let atStart = true;
+  let pendingCarriageReturn = false;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+
+      let text = decoder.decode(value, { stream: true });
+      if (text.length === 0) {
+        continue;
+      }
+
+      if (atStart) {
+        atStart = false;
+        if (text.startsWith('\uFEFF')) {
+          text = text.slice(1);
+        }
+      }
+
+      if (pendingCarriageReturn) {
+        text = text.startsWith('\n')
+          ? `\n${text.slice(1)}`
+          : `\n${text}`;
+        pendingCarriageReturn = false;
+      }
+
+      if (text.endsWith('\r')) {
+        pendingCarriageReturn = true;
+        text = text.slice(0, -1);
+      }
+
+      text = text
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+
+      if (text.length > 0) {
+        yield text;
+      }
+    }
+
+    let trailing = decoder.decode();
+    if (atStart) {
+      atStart = false;
+      if (trailing.startsWith('\uFEFF')) {
+        trailing = trailing.slice(1);
+      }
+    }
+
+    if (pendingCarriageReturn) {
+      trailing = trailing.startsWith('\n')
+        ? `\n${trailing.slice(1)}`
+        : `\n${trailing}`;
+    }
+
+    trailing = trailing
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n');
+
+    if (trailing.length > 0) {
+      yield trailing;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/** Collects one normalized XML byte stream into a single UTF-8 string. */
+export const readNormalizedHsdataXmlStream = async (stream: ReadableStream<Uint8Array>) => {
+  let xml = '';
+
+  for await (const chunk of normalizeHsdataXmlChunks(stream)) {
+    xml += chunk;
+  }
+
+  return xml;
 };
 
 /** Returns every child element with the requested tag name. */
@@ -153,122 +245,142 @@ const toXmlElement = (tag: SaxesTagPlain): XmlElement => {
   };
 };
 
-/** Parses CardDefs XML into the lightweight element tree consumed by the hsdata normalizers. */
-const parseHsdataXmlDocument = (xml: string): ParsedXmlDocument => {
+/** Builds one streaming XML collector shared by string and stream parsing paths. */
+const createParsedXmlDocumentCollector = () => {
   let rootName: string | null = null;
   let rootAttributes: Record<string, string> | null = null;
   let rootClosed = false;
   let ignoredTopLevelDepth = 0;
   const stack: XmlElement[] = [];
   const entities: XmlElement[] = [];
+
+  return {
+    /** Handles one XML open-tag event emitted by saxes. */
+    handleOpenTag(tag: SaxesTagPlain) {
+      const node = toXmlElement(tag);
+
+      if (rootName == null) {
+        rootName = node.name;
+        rootAttributes = node.attributes;
+        rootClosed = tag.isSelfClosing;
+        return;
+      }
+
+      if (rootClosed) {
+        throw new Error(`Unexpected XML content after root element ${rootName}`);
+      }
+
+      if (ignoredTopLevelDepth > 0) {
+        if (!tag.isSelfClosing) {
+          ignoredTopLevelDepth += 1;
+        }
+
+        return;
+      }
+
+      // Ignore non-Entity siblings directly under CardDefs so the temporary tree only holds
+      // structures that can affect snapshot normalization.
+      if (stack.length === 0 && node.name !== 'Entity') {
+        if (!tag.isSelfClosing) {
+          ignoredTopLevelDepth = 1;
+        }
+
+        return;
+      }
+
+      if (tag.isSelfClosing) {
+        attachParsedNode(stack, node, entities);
+        return;
+      }
+
+      stack.push(node);
+    },
+
+    /** Handles one XML text event emitted by saxes. */
+    handleText(text: string) {
+      if (ignoredTopLevelDepth > 0 || stack.length === 0 || text.length === 0) {
+        return;
+      }
+
+      stack[stack.length - 1]!.children.push(text);
+    },
+
+    /** Handles one XML CDATA event emitted by saxes. */
+    handleCdata(cdata: string) {
+      if (ignoredTopLevelDepth > 0 || stack.length === 0 || cdata.length === 0) {
+        return;
+      }
+
+      stack[stack.length - 1]!.children.push(cdata);
+    },
+
+    /** Handles one XML close-tag event emitted by saxes. */
+    handleCloseTag(tag: SaxesTagPlain) {
+      if (ignoredTopLevelDepth > 0) {
+        ignoredTopLevelDepth -= 1;
+        return;
+      }
+
+      if (tag.isSelfClosing) {
+        return;
+      }
+
+      if (stack.length === 0) {
+        if (tag.name !== rootName) {
+          throw new Error(`Unexpected top-level closing tag: ${tag.name}`);
+        }
+
+        rootClosed = true;
+        return;
+      }
+
+      const node = stack.pop();
+      if (!node || node.name !== tag.name) {
+        throw new Error(`Mismatched closing tag: ${tag.name}`);
+      }
+
+      attachParsedNode(stack, node, entities);
+    },
+
+    /** Finalizes the collected XML document state after saxes input ends. */
+    finish(): ParsedXmlDocument {
+      if (rootName == null || rootAttributes == null) {
+        throw new Error('Failed to parse CardDefs.xml');
+      }
+
+      if (stack.length > 0) {
+        throw new Error(`Unclosed XML tag: ${stack[stack.length - 1]!.name}`);
+      }
+
+      if (!rootClosed) {
+        throw new Error(`Missing closing tag for root element ${rootName}`);
+      }
+
+      return {
+        rootName,
+        rootAttributes,
+        entities,
+      };
+    },
+  };
+};
+
+/** Parses CardDefs XML into the lightweight element tree consumed by the hsdata normalizers. */
+const parseHsdataXmlDocument = (xml: string): ParsedXmlDocument => {
+  const collector = createParsedXmlDocumentCollector();
   const parser = new SaxesParser({ xmlns: false, position: false });
 
-  parser.on('opentag', tag => {
-    const node = toXmlElement(tag);
-
-    if (rootName == null) {
-      rootName = node.name;
-      rootAttributes = node.attributes;
-      rootClosed = tag.isSelfClosing;
-      return;
-    }
-
-    if (rootClosed) {
-      throw new Error(`Unexpected XML content after root element ${rootName}`);
-    }
-
-    if (ignoredTopLevelDepth > 0) {
-      if (!tag.isSelfClosing) {
-        ignoredTopLevelDepth += 1;
-      }
-
-      return;
-    }
-
-    // Ignore non-Entity siblings directly under CardDefs so the temporary tree only holds
-    // structures that can affect snapshot normalization.
-    if (stack.length === 0 && node.name !== 'Entity') {
-      if (!tag.isSelfClosing) {
-        ignoredTopLevelDepth = 1;
-      }
-
-      return;
-    }
-
-    if (tag.isSelfClosing) {
-      attachParsedNode(stack, node, entities);
-      return;
-    }
-
-    stack.push(node);
-  });
-
-  parser.on('text', text => {
-    if (ignoredTopLevelDepth > 0 || stack.length === 0 || text.length === 0) {
-      return;
-    }
-
-    stack[stack.length - 1]!.children.push(text);
-  });
-
-  parser.on('cdata', cdata => {
-    if (ignoredTopLevelDepth > 0 || stack.length === 0 || cdata.length === 0) {
-      return;
-    }
-
-    stack[stack.length - 1]!.children.push(cdata);
-  });
-
-  parser.on('closetag', tag => {
-    if (ignoredTopLevelDepth > 0) {
-      ignoredTopLevelDepth -= 1;
-      return;
-    }
-
-    if (tag.isSelfClosing) {
-      return;
-    }
-
-    if (stack.length === 0) {
-      if (tag.name !== rootName) {
-        throw new Error(`Unexpected top-level closing tag: ${tag.name}`);
-      }
-
-      rootClosed = true;
-      return;
-    }
-
-    const node = stack.pop();
-    if (!node || node.name !== tag.name) {
-      throw new Error(`Mismatched closing tag: ${tag.name}`);
-    }
-
-    attachParsedNode(stack, node, entities);
-  });
+  parser.on('opentag', collector.handleOpenTag);
+  parser.on('text', collector.handleText);
+  parser.on('cdata', collector.handleCdata);
+  parser.on('closetag', collector.handleCloseTag);
 
   parser.on('error', error => {
     throw new Error(`Failed to parse CardDefs XML: ${error.message}`);
   });
 
   parser.write(xml).close();
-
-  if (rootName == null || rootAttributes == null) {
-    throw new Error('Failed to parse CardDefs.xml');
-  }
-
-  if (stack.length > 0) {
-    throw new Error(`Unclosed XML tag: ${stack[stack.length - 1]!.name}`);
-  }
-
-  if (!rootClosed) {
-    throw new Error(`Missing closing tag for root element ${rootName}`);
-  }
-
-  return {
-    rootName,
-    rootAttributes,
-    entities,
-  };
+  return collector.finish();
 };
 
 /** Normalizes one raw `<Tag>` node into the canonical raw-tag payload. */
@@ -406,5 +518,50 @@ export const parseHsdataXml = (xml: string): ParsedHsdata => {
   return {
     build,
     entities: validateAndDedupeEntities(entities),
+  };
+};
+
+/** Parses one UTF-8 XML stream into the canonical hsdata payload and source hash. */
+export const parseHsdataXmlStream = async (
+  stream: ReadableStream<Uint8Array>,
+): Promise<ParsedHsdataStreamResult> => {
+  const collector = createParsedXmlDocumentCollector();
+  const parser = new SaxesParser({ xmlns: false, position: false });
+  const sourceHash = createHash('sha256');
+
+  parser.on('opentag', collector.handleOpenTag);
+  parser.on('text', collector.handleText);
+  parser.on('cdata', collector.handleCdata);
+  parser.on('closetag', collector.handleCloseTag);
+
+  parser.on('error', error => {
+    throw new Error(`Failed to parse CardDefs XML: ${error.message}`);
+  });
+
+  for await (const chunk of normalizeHsdataXmlChunks(stream)) {
+    sourceHash.update(chunk, 'utf8');
+    parser.write(chunk);
+  }
+
+  parser.close();
+
+  const document = collector.finish();
+  if (document.rootName !== 'CardDefs') {
+    throw new Error(`Unexpected root tag: ${document.rootName}`);
+  }
+
+  const build = toInt(document.rootAttributes.build, 'CardDefs.build');
+  const entities = document.entities.map(entity => normalizeEntitySnapshot(entity));
+
+  if (entities.length === 0) {
+    throw new Error('CardDefs must contain at least one Entity');
+  }
+
+  return {
+    parsed: {
+      build,
+      entities: validateAndDedupeEntities(entities),
+    },
+    sourceHash: sourceHash.digest('hex'),
   };
 };

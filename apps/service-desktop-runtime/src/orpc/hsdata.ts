@@ -17,6 +17,7 @@ import {
 import { projectHsdata } from '../lib/hearthstone/hsdata-project';
 import {
   getHsdataRepoState,
+  readHsdataImportSource,
   listHsdataSources,
   readHsdataSource,
   syncHsdataRemoteVersions,
@@ -27,11 +28,6 @@ import {
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import { publishCurrentHsdataToRemote } from '../lib/hearthstone/hsdata-publish';
-import {
-  computeHsdataSourceHash,
-  normalizeHsdataXmlSource,
-  parseHsdataXml,
-} from '../lib/hearthstone/hsdata-xml';
 
 const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
@@ -177,7 +173,7 @@ const readSource = os
   }))
   .handler(async ({ input }) => {
     try {
-      return readHsdataSource(input.id);
+      return await readHsdataSource(input.id);
     } catch (error) {
       throw toRuntimeError(error);
     }
@@ -202,22 +198,18 @@ const importSource = os
     });
 
     try {
-      const source = readHsdataSource(input.id);
+      const source = await readHsdataImportSource(input.id);
       updateImportJob(job.jobId, {
         sourceTag: source.sourceTag,
         phase: 'parsing_entities',
         message: 'Parsing CardDefs.xml into canonical entity snapshots',
       });
 
-      const xml = normalizeHsdataXmlSource(source.xml);
-      const parsed = parseHsdataXml(xml);
-      const sourceHash = computeHsdataSourceHash(xml);
-
       updateImportJob(job.jobId, {
         sourceTag: source.sourceTag,
         phase: 'writing_batches',
         message: 'Writing raw snapshots into the local database',
-        totalEntityCount: parsed.entities.length,
+        totalEntityCount: source.parsed.entities.length,
         completedEntityCount: 0,
         totalBatchCount: 1,
         completedBatchCount: 0,
@@ -225,9 +217,9 @@ const importSource = os
       });
 
       const report = await runWithDb(getLocalDb(), () => importParsedHsdata({
-        parsed,
+        parsed: source.parsed,
         sourceTag: source.sourceTag,
-        sourceHash,
+        sourceHash: source.sourceHash,
         sourceCommit: source.sourceCommit,
         sourceUri: source.sourceUri,
         importEngineVersion: 'desktop-runtime-bun-import:v1',

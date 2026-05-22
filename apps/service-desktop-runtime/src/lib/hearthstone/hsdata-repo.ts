@@ -1,10 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { ORPCError } from '@orpc/server';
 
 import { readHsdataRepoPath } from '../../runtime-config';
+import {
+  parseHsdataXmlStream,
+  readNormalizedHsdataXmlStream,
+  type ParsedHsdataStreamResult,
+} from './hsdata-xml';
 
 /** Supported hsdata source kinds returned by the desktop runtime repository scan. */
 export type HsdataSourceKind = 'tag' | 'worktree';
@@ -26,6 +31,15 @@ export interface HsdataFile {
 export interface HsdataResolvedSource extends HsdataFile {
   xml: string;
   sourceTag: number;
+}
+
+/** One hsdata source resolved into parsed import data without materializing the full XML string. */
+export interface HsdataImportSource {
+  sourceTag: number;
+  sourceCommit: string;
+  sourceUri: string;
+  sourceHash: string;
+  parsed: ParsedHsdataStreamResult['parsed'];
 }
 
 /** Repo state returned to the desktop frontend. */
@@ -53,6 +67,15 @@ interface HsdataBlobCheck {
 }
 
 const hsdataRemoteName = 'origin';
+const gitOutputMaxBufferBytes = 64 * 1024 * 1024;
+
+/** One minimal git subprocess result shape used for readable runtime errors. */
+interface GitCommandResult {
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  error?: Error | null;
+  stderr: string;
+}
 
 /** Trims one optional string into a nullable non-empty string. */
 const trimToNull = (value: string | null | undefined) => {
@@ -97,24 +120,117 @@ const parseCardDefsBuild = (xml: string) => {
   return build;
 };
 
+/** Formats one git subprocess failure into a readable runtime error message. */
+const formatGitCommandFailure = (args: string[], command: GitCommandResult) => {
+  const stderr = trimToNull(command.stderr);
+  if (stderr) {
+    return stderr;
+  }
+
+  const commandText = `git ${args.join(' ')}`;
+  if (command.error) {
+    return `${commandText} failed: ${command.error.message}`;
+  }
+
+  if (command.signal) {
+    return `${commandText} was terminated by signal ${command.signal}`;
+  }
+
+  if (command.status == null) {
+    return `${commandText} failed without an exit status`;
+  }
+
+  return `${commandText} exited with status ${command.status}`;
+};
+
 /** Runs one git command inside the configured repository and returns stdout as UTF-8 text. */
 const runGit = (repoPath: string, args: string[], stdin?: string) => {
   const command = spawnSync('git', args, {
     cwd:    repoPath,
     input:  stdin,
     encoding: 'utf8',
+    maxBuffer: gitOutputMaxBufferBytes,
   });
 
   if (command.status !== 0) {
-    const stderr = command.stderr.trim();
-    throw new Error(
-      stderr.length > 0
-        ? stderr
-        : `git ${args.join(' ')} exited with status ${command.status}`,
-    );
+    throw new Error(formatGitCommandFailure(args, command));
   }
 
   return command.stdout;
+};
+
+/** Starts one Bun-managed git subprocess with piped stdout and stderr. */
+const spawnGit = (repoPath: string, args: string[], stdin?: string) => {
+  try {
+    return Bun.spawn({
+      cmd: ['git', ...args],
+      cwd: repoPath,
+      stdin: stdin == null ? 'ignore' : Buffer.from(stdin, 'utf8'),
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+  } catch (error) {
+    throw new Error(formatGitCommandFailure(args, {
+      status: null,
+      signal: null,
+      error:  error instanceof Error ? error : new Error(String(error)),
+      stderr: '',
+    }));
+  }
+};
+
+/** Reads one git command stdout fully through Bun.spawn for payload-sized outputs. */
+const runGitText = async (repoPath: string, args: string[], stdin?: string) => {
+  const command = spawnGit(repoPath, args, stdin);
+  const [status, stdout, stderr] = await Promise.all([
+    command.exited,
+    new Response(command.stdout).text(),
+    new Response(command.stderr).text(),
+  ]);
+
+  if (status !== 0) {
+    throw new Error(formatGitCommandFailure(args, {
+      status,
+      signal: command.signalCode,
+      error:  null,
+      stderr,
+    }));
+  }
+
+  return stdout;
+};
+
+/** Parses one large git XML payload through Bun.spawn without first buffering the full document. */
+const parseGitHsdataXml = async (repoPath: string, args: string[]) => {
+  const command = spawnGit(repoPath, args);
+  const [parsedResult, statusResult, stderrResult] = await Promise.allSettled([
+    parseHsdataXmlStream(command.stdout),
+    command.exited,
+    new Response(command.stderr).text(),
+  ]);
+
+  const status = statusResult.status === 'fulfilled' ? statusResult.value : null;
+  const stderr = stderrResult.status === 'fulfilled' ? stderrResult.value : '';
+
+  if (status !== 0) {
+    throw new Error(formatGitCommandFailure(args, {
+      status,
+      signal: command.signalCode,
+      error:  null,
+      stderr,
+    }));
+  }
+
+  if (parsedResult.status === 'rejected') {
+    throw parsedResult.reason;
+  }
+
+  return parsedResult.value;
+};
+
+/** Test-only helpers exposed for focused hsdata repository unit tests. */
+export const hsdataRepoTestUtils = {
+  formatGitCommandFailure,
 };
 
 /** Resolves one saved hsdata repository path into a canonical git worktree root. */
@@ -182,13 +298,13 @@ export const syncHsdataRemoteVersions = () => {
 };
 
 /** Reads CardDefs.xml from the current worktree. */
-const readWorktreeXml = (repoPath: string) => {
-  return readFileSync(`${repoPath}/CardDefs.xml`, 'utf8');
+const readWorktreeXml = async (repoPath: string) => {
+  return await readNormalizedHsdataXmlStream(Bun.file(`${repoPath}/CardDefs.xml`).stream());
 };
 
 /** Reads the current worktree source metadata and XML content. */
-const readWorktreeSource = (repoPath: string) => {
-  const xml = readWorktreeXml(repoPath);
+const readWorktreeSource = async (repoPath: string) => {
+  const xml = await readWorktreeXml(repoPath);
   const sourceTag = parseCardDefsBuild(xml);
   const sourceCommit = trimToNull(runGit(repoPath, ['rev-parse', 'HEAD'])) ?? '';
   const time = trimToNull(runGit(repoPath, ['log', '-1', '--format=%cI', 'HEAD'])) ?? undefined;
@@ -209,10 +325,10 @@ const readWorktreeSource = (repoPath: string) => {
 };
 
 /** Reads CardDefs.xml from one git tag. */
-const readTagSource = (repoPath: string, tag: string) => {
+const readTagSource = async (repoPath: string, tag: string) => {
   const tagRef = `refs/tags/${tag}`;
   const object = `${tagRef}:CardDefs.xml`;
-  const xml = runGit(repoPath, ['show', object]);
+  const xml = await runGitText(repoPath, ['cat-file', 'blob', object]);
   const sourceTag = parseCardDefsBuild(xml);
   const sourceCommit = trimToNull(runGit(repoPath, ['rev-list', '-n', '1', tagRef])) ?? '';
   const sizeText = trimToNull(runGit(repoPath, ['cat-file', '-s', object])) ?? '0';
@@ -234,12 +350,12 @@ const readTagSource = (repoPath: string, tag: string) => {
 };
 
 /** Resolves one supported hsdata source id into its XML payload. */
-export const readHsdataSource = (id: string) => {
+export const readHsdataSource = async (id: string) => {
   const repoPath = requireHsdataRepoRoot();
 
   try {
     if (id === 'worktree') {
-      return readWorktreeSource(repoPath);
+      return await readWorktreeSource(repoPath);
     }
 
     const tag = id.startsWith('tag:') ? id.slice(4) : null;
@@ -247,7 +363,59 @@ export const readHsdataSource = (id: string) => {
       throw new Error(`Unsupported hsdata source id: ${id}`);
     }
 
-    return readTagSource(repoPath, tag);
+    return await readTagSource(repoPath, tag);
+  } catch (error) {
+    throw new ORPCError('BAD_REQUEST', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
+
+/** Parses the current worktree XML source for import without materializing duplicate buffers. */
+const readWorktreeImportSource = async (repoPath: string) => {
+  const sourceCommit = trimToNull(runGit(repoPath, ['rev-parse', 'HEAD'])) ?? '';
+  const result = await parseHsdataXmlStream(Bun.file(`${repoPath}/CardDefs.xml`).stream());
+
+  return {
+    sourceTag: result.parsed.build,
+    sourceCommit,
+    sourceUri:  buildSourceUri('worktree'),
+    sourceHash: result.sourceHash,
+    parsed:     result.parsed,
+  } satisfies HsdataImportSource;
+};
+
+/** Parses one tagged XML source for import directly from git stdout. */
+const readTagImportSource = async (repoPath: string, tag: string) => {
+  const tagRef = `refs/tags/${tag}`;
+  const object = `${tagRef}:CardDefs.xml`;
+  const sourceCommit = trimToNull(runGit(repoPath, ['rev-list', '-n', '1', tagRef])) ?? '';
+  const result = await parseGitHsdataXml(repoPath, ['cat-file', 'blob', object]);
+
+  return {
+    sourceTag: result.parsed.build,
+    sourceCommit,
+    sourceUri:  buildSourceUri(`tag:${tag}`),
+    sourceHash: result.sourceHash,
+    parsed:     result.parsed,
+  } satisfies HsdataImportSource;
+};
+
+/** Resolves one supported hsdata source id into parsed import data. */
+export const readHsdataImportSource = async (id: string) => {
+  const repoPath = requireHsdataRepoRoot();
+
+  try {
+    if (id === 'worktree') {
+      return await readWorktreeImportSource(repoPath);
+    }
+
+    const tag = id.startsWith('tag:') ? id.slice(4) : null;
+    if (!tag) {
+      throw new Error(`Unsupported hsdata source id: ${id}`);
+    }
+
+    return await readTagImportSource(repoPath, tag);
   } catch (error) {
     throw new ORPCError('BAD_REQUEST', {
       message: error instanceof Error ? error.message : String(error),
