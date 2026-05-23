@@ -148,6 +148,18 @@ export interface ImportParsedHsdataInput {
   importEngineVersion?: string | null;
   dryRun?: boolean;
   force?: boolean;
+  onProgress?: (input: {
+    phase: 'parsing_entities' | 'writing_batches' | 'finalizing_source_tag';
+    message: string;
+    totalEntityCount?: number | null;
+    completedEntityCount?: number | null;
+    totalBatchCount?: number | null;
+    completedBatchCount?: number | null;
+    currentBatchIndex?: number | null;
+    totalWorkCount?: number | null;
+    completedWorkCount?: number | null;
+    workLabel?: string | null;
+  }) => void | Promise<void>;
 }
 
 // Stable sha256 digest.
@@ -812,6 +824,7 @@ async function applyHsdataImport(
     sourceTag: number;
     dryRun: boolean;
     force: boolean;
+    onProgress?: ImportParsedHsdataInput['onProgress'];
   },
 ): Promise<Omit<ImportHsdataReport, 'build' | 'dryRun' | 'skipped' | 'sourceHash' | 'sourceTag'>> {
   const allTags = input.parsed.entities.flatMap(entity => entity.tags);
@@ -844,7 +857,7 @@ async function applyHsdataImport(
   let insertedSnapshots = 0;
   let reusedSnapshots = 0;
 
-  for (const entity of input.parsed.entities) {
+  for (const [index, entity] of input.parsed.entities.entries()) {
     const key = snapshotKey(entity.cardId, entity.snapshotHash);
     const existingSnapshot = existingSnapshots.get(key);
 
@@ -862,6 +875,21 @@ async function applyHsdataImport(
       sourceTagUpdates.push({
         id:         existingSnapshot.id,
         sourceTags: sortUniqueIntegers([...existingSnapshot.sourceTags, input.sourceTag]),
+      });
+    }
+
+    if (
+      input.onProgress
+      && (index < 10 || index + 1 === input.parsed.entities.length || (index + 1) % 100 === 0)
+    ) {
+      void input.onProgress({
+        phase:                'parsing_entities',
+        message:              `Analyzing ${index + 1} of ${input.parsed.entities.length} entities for raw snapshot reuse`,
+        totalEntityCount:     input.parsed.entities.length,
+        completedEntityCount: index + 1,
+        totalWorkCount:       input.parsed.entities.length,
+        completedWorkCount:   index + 1,
+        workLabel:            'entity',
       });
     }
   }
@@ -912,17 +940,46 @@ async function applyHsdataImport(
   }
 
   const uniqueTargetSnapshotIds = [...new Set(targetSnapshotIds)];
+  const removedPreviousSnapshots = previousSnapshots.filter(snapshot => !uniqueTargetSnapshotIds.includes(snapshot.id));
   let insertedTagRows = 0;
   const tagEntities = input.force ? input.parsed.entities : newEntities;
+  const totalWriteWorkCount = sourceTagUpdates.length
+    + removedPreviousSnapshots.length
+    + tagEntities.length
+    + (newEntities.length > 0 ? 1 : 0)
+    + (previousSnapshotIds.size > 0 ? 1 : 0)
+    + (input.force ? 1 : 0)
+    + (uniqueTargetSnapshotIds.length > 0 ? 1 : 0);
+  let completedWriteWorkCount = 0;
+
+  if (input.onProgress) {
+    void input.onProgress({
+      phase:                'writing_batches',
+      message:              'Writing raw snapshots, sourceTag links, and tag rows into the local database',
+      totalEntityCount:     tagEntities.length,
+      completedEntityCount: 0,
+      totalBatchCount:      1,
+      completedBatchCount:  0,
+      currentBatchIndex:    0,
+      totalWorkCount:       totalWriteWorkCount,
+      completedWorkCount:   0,
+      workLabel:            'operation',
+    });
+  }
 
   if (!input.dryRun) {
+    if (newEntities.length > 0) {
+      completedWriteWorkCount += 1;
+    }
+
     for (const update of sourceTagUpdates) {
       await tx.update(RawEntitySnapshot)
         .set({ sourceTags: update.sourceTags })
         .where(eq(RawEntitySnapshot.id, update.id));
+      completedWriteWorkCount += 1;
     }
 
-    for (const previousSnapshot of previousSnapshots) {
+    for (const [index, previousSnapshot] of previousSnapshots.entries()) {
       if (uniqueTargetSnapshotIds.includes(previousSnapshot.id)) {
         continue;
       }
@@ -932,6 +989,7 @@ async function applyHsdataImport(
       if (nextSourceTags.length === 0) {
         await tx.delete(RawEntitySnapshot)
           .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
+        completedWriteWorkCount += 1;
         continue;
       }
 
@@ -941,27 +999,68 @@ async function applyHsdataImport(
           isLatest:   false,
         })
         .where(eq(RawEntitySnapshot.id, previousSnapshot.id));
+      completedWriteWorkCount += 1;
+
+      if (
+        input.onProgress
+        && (index < 10 || index + 1 === previousSnapshots.length || (index + 1) % 100 === 0)
+      ) {
+        void input.onProgress({
+          phase:                'writing_batches',
+          message:              `Rewriting sourceTag links for ${index + 1} of ${previousSnapshots.length} previous snapshots`,
+          totalEntityCount:     tagEntities.length,
+          completedEntityCount: 0,
+          totalBatchCount:      1,
+          completedBatchCount:  0,
+          currentBatchIndex:    0,
+          totalWorkCount:       totalWriteWorkCount,
+          completedWorkCount:   completedWriteWorkCount,
+          workLabel:            'operation',
+        });
+      }
     }
 
     if (previousSnapshotIds.size > 0) {
       await tx.update(RawEntitySnapshot)
         .set({ isLatest: false })
         .where(inArray(RawEntitySnapshot.id, [...previousSnapshotIds]));
+      completedWriteWorkCount += 1;
     }
 
     if (input.force) {
       await deleteSnapshotTags(tx, uniqueTargetSnapshotIds);
+      completedWriteWorkCount += 1;
     }
 
-    for (const entity of tagEntities) {
+    for (const [index, entity] of tagEntities.entries()) {
       const snapshotId = snapshotIdByKey.get(snapshotKey(entity.cardId, entity.snapshotHash))!;
       insertedTagRows += await insertSnapshotTags(tx, snapshotId, entity.tags, existing, dbfIdByCardId);
+      completedWriteWorkCount += 1;
+
+      if (
+        input.onProgress
+        && (index < 10 || index + 1 === tagEntities.length || (index + 1) % 100 === 0)
+      ) {
+        void input.onProgress({
+          phase:                'writing_batches',
+          message:              `Writing tag rows for ${index + 1} of ${tagEntities.length} snapshots`,
+          totalEntityCount:     tagEntities.length,
+          completedEntityCount: index + 1,
+          totalBatchCount:      1,
+          completedBatchCount:  0,
+          currentBatchIndex:    0,
+          totalWorkCount:       totalWriteWorkCount,
+          completedWorkCount:   completedWriteWorkCount,
+          workLabel:            'operation',
+        });
+      }
     }
 
     if (uniqueTargetSnapshotIds.length > 0) {
       await tx.update(RawEntitySnapshot)
         .set({ isLatest: true })
         .where(inArray(RawEntitySnapshot.id, uniqueTargetSnapshotIds));
+      completedWriteWorkCount += 1;
     }
   } else {
     insertedTagRows = tagEntities.reduce((count, entity) => count + entity.tags.length, 0);
@@ -1049,6 +1148,19 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
 
   assertSourceVersionImportable(sourceVersion, input.sourceTag, input.sourceHash, force);
 
+  await input.onProgress?.({
+    phase:                'parsing_entities',
+    message:              'Analyzing normalized entities and snapshot reuse',
+    totalEntityCount:     input.parsed.entities.length,
+    completedEntityCount: 0,
+    totalBatchCount:      1,
+    completedBatchCount:  0,
+    currentBatchIndex:    0,
+    totalWorkCount:       input.parsed.entities.length,
+    completedWorkCount:   0,
+    workLabel:            'entity',
+  });
+
   if (!dryRun) {
     await upsertSourceVersionProcessing(
       {
@@ -1070,6 +1182,7 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
         sourceTag:  input.sourceTag,
         dryRun,
         force,
+        onProgress: input.onProgress,
       });
 
       return {
@@ -1088,8 +1201,32 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
       });
 
       if (!dryRun) {
+        await input.onProgress?.({
+          phase:                'finalizing_source_tag',
+          message:              'Finalizing sourceTag status and latest snapshot markers',
+          totalEntityCount:     input.parsed.entities.length,
+          completedEntityCount: input.parsed.entities.length,
+          totalBatchCount:      1,
+          completedBatchCount:  1,
+          currentBatchIndex:    1,
+          totalWorkCount:       1,
+          completedWorkCount:   0,
+          workLabel:            'sourceTag',
+        });
         await markSourceVersionCompleted(input.sourceTag, new Date());
         profiler.mark('mark_completed');
+        await input.onProgress?.({
+          phase:                'finalizing_source_tag',
+          message:              'Finalized sourceTag status and latest snapshot markers',
+          totalEntityCount:     input.parsed.entities.length,
+          completedEntityCount: input.parsed.entities.length,
+          totalBatchCount:      1,
+          completedBatchCount:  1,
+          currentBatchIndex:    1,
+          totalWorkCount:       1,
+          completedWorkCount:   1,
+          workLabel:            'sourceTag',
+        });
       }
 
       profiler.done({ outcome: 'completed' });

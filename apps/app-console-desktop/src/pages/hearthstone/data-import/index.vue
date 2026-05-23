@@ -420,13 +420,13 @@
                   </div>
 
                   <div
-                    v-if="importProgress.totalEntityCount != null || importProgress.totalBatchCount != null"
+                    v-if="importProgress.totalWorkCount != null || importProgress.totalEntityCount != null || importProgress.totalBatchCount != null"
                     class="space-y-2"
                   >
                     <div
                       class="flex items-center justify-between gap-3 text-xs text-muted"
                     >
-                      <span>{{ importProgressCountText }}</span>
+                      <span>{{ importProgressMetricLabel }} {{ importProgressCountText }}</span>
                       <span>{{ importProgressPercent }}%</span>
                     </div>
                     <div class="h-2 overflow-hidden rounded-full bg-muted">
@@ -437,11 +437,14 @@
                     </div>
                   </div>
 
-                  <div class="grid gap-3 md:grid-cols-4">
+                  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <div class="rounded-lg border border-default p-3">
-                      <div class="text-xs text-muted">实体进度</div>
+                      <div class="text-xs text-muted">阶段进度</div>
                       <div class="mt-1 break-all font-mono text-sm">
                         {{ importProgressCountText }}
+                      </div>
+                      <div class="mt-1 text-xs text-muted">
+                        {{ importProgressMetricLabel }}
                       </div>
                     </div>
                     <div class="rounded-lg border border-default p-3">
@@ -460,6 +463,18 @@
                       <div class="text-xs text-muted">总实体数</div>
                       <div class="mt-1 break-all font-mono text-sm">
                         {{ importProgress.totalEntityCount ?? "-" }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">总耗时</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ importElapsedText }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">阶段耗时</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ importPhaseElapsedText }}
                       </div>
                     </div>
                   </div>
@@ -620,13 +635,13 @@
                   </div>
 
                   <div
-                    v-if="projectProgress.totalSnapshotCount != null"
+                    v-if="projectProgress.totalWorkCount != null || projectProgress.totalSnapshotCount != null"
                     class="space-y-2"
                   >
                     <div
                       class="flex items-center justify-between gap-3 text-xs text-muted"
                     >
-                      <span>{{ projectProgressCountText }}</span>
+                      <span>{{ projectProgressMetricLabel }} {{ projectProgressCountText }}</span>
                       <span>{{ projectProgressPercent }}%</span>
                     </div>
                     <div class="h-2 overflow-hidden rounded-full bg-muted">
@@ -637,11 +652,14 @@
                     </div>
                   </div>
 
-                  <div class="grid gap-3 md:grid-cols-3">
+                  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                     <div class="rounded-lg border border-default p-3">
-                      <div class="text-xs text-muted">snapshot 进度</div>
+                      <div class="text-xs text-muted">阶段进度</div>
                       <div class="mt-1 break-all font-mono text-sm">
                         {{ projectProgressCountText }}
+                      </div>
+                      <div class="mt-1 text-xs text-muted">
+                        {{ projectProgressMetricLabel }}
                       </div>
                     </div>
                     <div class="rounded-lg border border-default p-3">
@@ -654,6 +672,18 @@
                       <div class="text-xs text-muted">总 snapshot 数</div>
                       <div class="mt-1 break-all font-mono text-sm">
                         {{ projectProgress.totalSnapshotCount ?? "-" }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">总耗时</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ projectElapsedText }}
+                      </div>
+                    </div>
+                    <div class="rounded-lg border border-default p-3">
+                      <div class="text-xs text-muted">阶段耗时</div>
+                      <div class="mt-1 break-all font-mono text-sm">
+                        {{ projectPhaseElapsedText }}
                       </div>
                     </div>
                   </div>
@@ -1161,6 +1191,8 @@ import {
   publishCurrentHsdataToRemote,
   projectLocalHsdataSourceVersion,
   syncHsdataRemoteVersions,
+  trackHsdataImportSourceProgress,
+  trackHsdataProjectSourceProgress,
 } from '~/composables/useHsdataRepo';
 import type {
   HsdataFile,
@@ -1309,7 +1341,9 @@ const batchTask = ref<HsdataBatchTaskState | null>(null);
 const restoredSelectedSourceId = ref<string | null>(null);
 const hasRestoredImportPageState = ref(false);
 const currentBatchExecutionId = ref<string | null>(null);
+const progressClockMs = ref(Date.now());
 let batchStatePollTimer: number | null = null;
+let progressClockTimer: number | null = null;
 let stopHsdataImportProgressListener: (() => void) | null = null;
 let stopHsdataProjectProgressListener: (() => void) | null = null;
 const workflowTabs = [
@@ -1755,6 +1789,99 @@ const canPublish = computed(() => {
     && !projecting.value
     && !publishing.value;
 });
+
+/** Formats one started-at timestamp into a compact elapsed duration label. */
+function formatElapsedDuration(
+  startedAt: string | null | undefined,
+  nowMs: number,
+  finishedAt?: string | null,
+) {
+  if (!startedAt) {
+    return '-';
+  }
+
+  const startedMs = new Date(startedAt).getTime();
+  const endMs = finishedAt ? new Date(finishedAt).getTime() : nowMs;
+
+  if (!Number.isFinite(startedMs) || !Number.isFinite(endMs)) {
+    return '-';
+  }
+
+  const elapsedSeconds = Math.max(0, Math.floor((endMs - startedMs) / 1000));
+  const hours = Math.floor(elapsedSeconds / 3600);
+  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+  const seconds = elapsedSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+/** Converts one backend work-unit key into the short label shown beside progress counters. */
+function formatProgressWorkLabel(workLabel: string | null | undefined) {
+  switch (workLabel) {
+  case 'entity':
+    return '实体';
+  case 'snapshot':
+    return '快照';
+  case 'row':
+    return '行';
+  case 'operation':
+    return '操作';
+  case 'source':
+    return '来源';
+  case 'sourceTag':
+    return 'sourceTag';
+  default:
+    return '阶段';
+  }
+}
+
+/** Computes one determinate progress percentage from phase work counters or legacy totals. */
+function computeProgressPercent(input: {
+  completedWorkCount: number | null;
+  totalWorkCount: number | null;
+  completedCount: number | null;
+  totalCount: number | null;
+  phase: string | null | undefined;
+}) {
+  if (input.totalWorkCount != null && input.totalWorkCount > 0) {
+    return Math.max(
+      0,
+      Math.min(100, Math.round(((input.completedWorkCount ?? 0) / input.totalWorkCount) * 100)),
+    );
+  }
+
+  if (input.totalCount != null && input.totalCount > 0) {
+    return Math.max(
+      0,
+      Math.min(100, Math.round(((input.completedCount ?? 0) / input.totalCount) * 100)),
+    );
+  }
+
+  return input.phase === 'completed' ? 100 : 0;
+}
+
+/** Builds one compact counter label from phase work counters or legacy totals. */
+function formatProgressCountText(input: {
+  completedWorkCount: number | null;
+  totalWorkCount: number | null;
+  completedCount: number | null;
+  totalCount: number | null;
+}) {
+  if (input.totalWorkCount != null) {
+    return `${input.completedWorkCount ?? 0} / ${input.totalWorkCount}`;
+  }
+
+  if (input.totalCount != null) {
+    return `${input.completedCount ?? 0} / ${input.totalCount}`;
+  }
+
+  return '-';
+}
+
 const importProgressPhaseLabel = computed(() => {
   switch (importProgress.value?.phase) {
   case 'reading_source':
@@ -1793,45 +1920,36 @@ const importProgressStageText = computed(() => {
 });
 const importProgressPercent = computed(() => {
   const progress = importProgress.value;
-
-  if (
-    progress?.totalEntityCount != null
-    && progress.totalEntityCount > 0
-  ) {
-    const completed = progress.completedEntityCount ?? 0;
-    return Math.max(
-      0,
-      Math.min(100, Math.round((completed / progress.totalEntityCount) * 100)),
-    );
-  }
-
-  if (
-    !progress
-    || progress.totalBatchCount == null
-    || progress.totalBatchCount <= 0
-  ) {
-    return progress?.phase === 'completed' ? 100 : 0;
-  }
-
-  const completed = progress.completedBatchCount ?? 0;
-  return Math.max(
-    0,
-    Math.min(100, Math.round((completed / progress.totalBatchCount) * 100)),
-  );
+  return computeProgressPercent({
+    completedWorkCount: progress?.completedWorkCount ?? null,
+    totalWorkCount:     progress?.totalWorkCount ?? null,
+    completedCount:     progress?.completedEntityCount ?? progress?.completedBatchCount ?? null,
+    totalCount:         progress?.totalEntityCount ?? progress?.totalBatchCount ?? null,
+    phase:              progress?.phase,
+  });
 });
 const importProgressCountText = computed(() => {
   const progress = importProgress.value;
-
-  if (progress?.totalEntityCount != null) {
-    return `${progress.completedEntityCount ?? 0} / ${progress.totalEntityCount}`;
-  }
-
-  if (progress?.totalBatchCount != null) {
-    return `${progress.completedBatchCount ?? 0} / ${progress.totalBatchCount}`;
-  }
-
-  return '-';
+  return formatProgressCountText({
+    completedWorkCount: progress?.completedWorkCount ?? null,
+    totalWorkCount:     progress?.totalWorkCount ?? null,
+    completedCount:     progress?.completedEntityCount ?? progress?.completedBatchCount ?? null,
+    totalCount:         progress?.totalEntityCount ?? progress?.totalBatchCount ?? null,
+  });
 });
+const importProgressMetricLabel = computed(() => formatProgressWorkLabel(importProgress.value?.workLabel));
+const importElapsedText = computed(() =>
+  formatElapsedDuration(
+    importProgress.value?.startedAt,
+    progressClockMs.value,
+    importProgress.value?.finishedAt,
+  ));
+const importPhaseElapsedText = computed(() =>
+  formatElapsedDuration(
+    importProgress.value?.phaseStartedAt,
+    progressClockMs.value,
+    importProgress.value?.finishedAt,
+  ));
 const projectProgressPhaseLabel = computed(() => {
   switch (projectProgress.value?.phase) {
   case 'loading_snapshots':
@@ -1874,29 +1992,36 @@ const projectProgressStageText = computed(() => {
 });
 const projectProgressPercent = computed(() => {
   const progress = projectProgress.value;
-
-  if (
-    progress?.totalSnapshotCount != null
-    && progress.totalSnapshotCount > 0
-  ) {
-    const completed = progress.completedSnapshotCount ?? 0;
-    return Math.max(
-      0,
-      Math.min(100, Math.round((completed / progress.totalSnapshotCount) * 100)),
-    );
-  }
-
-  return progress?.phase === 'completed' ? 100 : 0;
+  return computeProgressPercent({
+    completedWorkCount: progress?.completedWorkCount ?? null,
+    totalWorkCount:     progress?.totalWorkCount ?? null,
+    completedCount:     progress?.completedSnapshotCount ?? null,
+    totalCount:         progress?.totalSnapshotCount ?? null,
+    phase:              progress?.phase,
+  });
 });
 const projectProgressCountText = computed(() => {
   const progress = projectProgress.value;
-
-  if (progress?.totalSnapshotCount != null) {
-    return `${progress.completedSnapshotCount ?? 0} / ${progress.totalSnapshotCount}`;
-  }
-
-  return '-';
+  return formatProgressCountText({
+    completedWorkCount: progress?.completedWorkCount ?? null,
+    totalWorkCount:     progress?.totalWorkCount ?? null,
+    completedCount:     progress?.completedSnapshotCount ?? null,
+    totalCount:         progress?.totalSnapshotCount ?? null,
+  });
 });
+const projectProgressMetricLabel = computed(() => formatProgressWorkLabel(projectProgress.value?.workLabel));
+const projectElapsedText = computed(() =>
+  formatElapsedDuration(
+    projectProgress.value?.startedAt,
+    progressClockMs.value,
+    projectProgress.value?.finishedAt,
+  ));
+const projectPhaseElapsedText = computed(() =>
+  formatElapsedDuration(
+    projectProgress.value?.phaseStartedAt,
+    progressClockMs.value,
+    projectProgress.value?.finishedAt,
+  ));
 
 const projectSourceTagInput = computed({
   get() {
@@ -3326,6 +3451,29 @@ async function loadSourceVersions() {
   }
 }
 
+/** Reconnects progress streams for tasks that were already running before this page instance mounted. */
+function restoreActiveProgressTracking() {
+  for (const file of files.value) {
+    const sourceTag = file.sourceTag;
+    if (sourceTag == null) {
+      continue;
+    }
+
+    const status = sourceVersionMap.value.get(sourceTag) ?? null;
+    if (!status) {
+      continue;
+    }
+
+    if (status.importStatus === 'processing') {
+      trackHsdataImportSourceProgress(file.id);
+    }
+
+    if (status.projectionStatus === 'processing') {
+      trackHsdataProjectSourceProgress(sourceTag);
+    }
+  }
+}
+
 /** Source list and sourceTag statuses refreshed together. */
 async function reloadSourceList() {
   await Promise.all([loadFiles(), loadSourceVersions()]);
@@ -3336,6 +3484,7 @@ async function reloadSourceList() {
 async function reloadAll(selectedId: string | null = resolvePreferredSelectionId()) {
   await Promise.all([loadState(), loadSourceVersions(), loadPublishTarget()]);
   await loadFiles();
+  restoreActiveProgressTracking();
   restoreSelection(selectedId);
 }
 
@@ -3459,6 +3608,9 @@ onMounted(async () => {
   restoreImportPageState();
   restoreBatchTaskState();
   refreshBatchTaskPolling();
+  progressClockTimer = window.setInterval(() => {
+    progressClockMs.value = Date.now();
+  }, 500);
 
   stopHsdataImportProgressListener = await listenHsdataImportProgress(
     progress => {
@@ -3504,6 +3656,10 @@ onBeforeUnmount(() => {
   if (batchStatePollTimer != null) {
     clearInterval(batchStatePollTimer);
     batchStatePollTimer = null;
+  }
+  if (progressClockTimer != null) {
+    clearInterval(progressClockTimer);
+    progressClockTimer = null;
   }
 
   stopHsdataImportProgressListener?.();

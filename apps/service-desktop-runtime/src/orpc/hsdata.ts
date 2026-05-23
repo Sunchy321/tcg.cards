@@ -1,4 +1,4 @@
-import { ORPCError } from '@orpc/server';
+import { ORPCError, eventIterator } from '@orpc/server';
 import { runWithDb } from '@tcg-cards/db';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -7,12 +7,14 @@ import { SourceVersion } from '@tcg-cards/db/schema/local/hearthstone';
 import { os } from './index';
 import { importParsedHsdata } from '../lib/hearthstone/hsdata-import';
 import {
-  getImportJobBySourceId,
-  getProjectJobBySourceTag,
   startImportJob,
   startProjectJob,
   updateImportJob,
   updateProjectJob,
+  watchImportJobBySourceId,
+  watchProjectJobBySourceTag,
+  type HsdataImportProgressEvent,
+  type HsdataProjectProgressEvent,
 } from '../lib/hearthstone/hsdata-progress';
 import { projectHsdata } from '../lib/hearthstone/hsdata-project';
 import {
@@ -196,6 +198,11 @@ const importSource = os
       totalBatchCount: 1,
       totalEntityCount: null,
     });
+    updateImportJob(job.jobId, {
+      totalWorkCount: 1,
+      completedWorkCount: 0,
+      workLabel: 'source',
+    });
 
     try {
       const source = await readHsdataImportSource(input.id);
@@ -203,17 +210,11 @@ const importSource = os
         sourceTag: source.sourceTag,
         phase: 'parsing_entities',
         message: 'Parsing CardDefs.xml into canonical entity snapshots',
-      });
-
-      updateImportJob(job.jobId, {
-        sourceTag: source.sourceTag,
-        phase: 'writing_batches',
-        message: 'Writing raw snapshots into the local database',
         totalEntityCount: source.parsed.entities.length,
         completedEntityCount: 0,
-        totalBatchCount: 1,
-        completedBatchCount: 0,
-        currentBatchIndex: 0,
+        totalWorkCount: source.parsed.entities.length,
+        completedWorkCount: 0,
+        workLabel: 'entity',
       });
 
       const report = await runWithDb(getLocalDb(), () => importParsedHsdata({
@@ -225,6 +226,12 @@ const importSource = os
         importEngineVersion: 'desktop-runtime-bun-import:v1',
         dryRun: input.dryRun,
         force: input.force,
+        onProgress(progress) {
+          updateImportJob(job.jobId, {
+            sourceTag: source.sourceTag,
+            ...progress,
+          });
+        },
       }));
 
       updateImportJob(job.jobId, {
@@ -236,6 +243,9 @@ const importSource = os
         totalBatchCount: 1,
         completedBatchCount: 1,
         currentBatchIndex: 1,
+        totalWorkCount: report.entityCount,
+        completedWorkCount: report.entityCount,
+        workLabel: 'entity',
       });
 
       return report;
@@ -243,6 +253,7 @@ const importSource = os
       updateImportJob(job.jobId, {
         phase: 'failed',
         message: error instanceof Error ? error.message : String(error),
+        workLabel: null,
       });
       throw toRuntimeError(error);
     }
@@ -300,6 +311,9 @@ const projectSourceVersion = os
         message: 'Completed hsdata projection',
         totalSnapshotCount: report.snapshotCount,
         completedSnapshotCount: report.snapshotCount,
+        totalWorkCount: report.snapshotCount,
+        completedWorkCount: report.snapshotCount,
+        workLabel: 'snapshot',
       });
 
       return report;
@@ -317,6 +331,7 @@ const projectSourceVersion = os
       updateProjectJob(input.sourceTag, {
         phase: 'failed',
         message: error instanceof Error ? error.message : String(error),
+        workLabel: null,
       });
       throw toRuntimeError(error);
     }
@@ -342,29 +357,31 @@ const getLocalOverview = os
   .output(z.any())
   .handler(async () => await getLocalHsdataOverview());
 
-/** Reads the latest in-memory import progress snapshot for one source id. */
-const getLocalImportJob = os
+/** Streams in-memory import progress updates for one source id. */
+const watchImportJob = os
   .route({
     method:      'GET',
-    description: 'Read the latest in-memory hsdata import job for one source id',
+    description: 'Stream in-memory hsdata import progress for one source id',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
   .input(importJobInput)
-  .output(z.any().nullable())
-  .handler(async ({ input }) => {
-    return getImportJobBySourceId(input.sourceId);
+  .output(eventIterator(z.custom<HsdataImportProgressEvent>()))
+  .handler(async function* ({ input }) {
+    yield* watchImportJobBySourceId(input.sourceId);
   });
 
-/** Reads the latest in-memory projection progress snapshot for one source tag. */
-const getLocalProjectJob = os
+/** Streams in-memory projection progress updates for one source tag. */
+const watchProjectJob = os
   .route({
     method:      'GET',
-    description: 'Read the latest in-memory hsdata projection job for one source tag',
+    description: 'Stream in-memory hsdata projection progress for one source tag',
     tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
   })
   .input(projectJobInput)
-  .output(z.any().nullable())
-  .handler(async ({ input }) => getProjectJobBySourceTag(input.sourceTag));
+  .output(eventIterator(z.custom<HsdataProjectProgressEvent>()))
+  .handler(async function* ({ input }) {
+    yield* watchProjectJobBySourceTag(input.sourceTag);
+  });
 
 /** Publishes the current local latest projection to the configured remote target through Bun. */
 const publishCurrentToRemote = os
@@ -392,7 +409,7 @@ export const hsdataRouter = {
   projectSourceVersion,
   listLocalSourceVersions,
   getLocalOverview,
-  getLocalImportJob,
-  getLocalProjectJob,
+  watchImportJob,
+  watchProjectJob,
   publishCurrentToRemote,
 };

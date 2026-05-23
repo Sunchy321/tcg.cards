@@ -1,3 +1,4 @@
+import { consumeEventIterator } from '@orpc/client';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
@@ -149,11 +150,17 @@ export interface HsdataImportProgressEvent {
   jobId:               string | null;
   phase:               HsdataImportPhase | string;
   message:             string;
+  startedAt:           string;
+  phaseStartedAt:      string;
+  finishedAt:          string | null;
   totalBatchCount:     number | null;
   completedBatchCount: number | null;
   totalEntityCount:    number | null;
   completedEntityCount: number | null;
   currentBatchIndex:   number | null;
+  totalWorkCount:      number | null;
+  completedWorkCount:  number | null;
+  workLabel:           string | null;
 }
 
 /** Desktop hsdata projection phases emitted by the local projection workflow. */
@@ -171,8 +178,14 @@ export interface HsdataProjectProgressEvent {
   sourceTag:               number;
   phase:                   HsdataProjectPhase | string;
   message:                 string;
+  startedAt:               string;
+  phaseStartedAt:          string;
+  finishedAt:              string | null;
   totalSnapshotCount:      number | null;
   completedSnapshotCount:  number | null;
+  totalWorkCount:          number | null;
+  completedWorkCount:      number | null;
+  workLabel:               string | null;
 }
 
 export interface HsdataProjectReport {
@@ -228,6 +241,43 @@ export interface ReportMetric {
 
 const trackedImportSourceIds = new Set<string>();
 const trackedProjectSourceTags = new Set<number>();
+const importTrackingListeners = new Set<() => void>();
+const projectTrackingListeners = new Set<() => void>();
+
+/** Detects the final progress phases that can close one task subscription. */
+function isTerminalProgressPhase(phase: string): boolean {
+  return phase === 'completed' || phase === 'failed';
+}
+
+/** Starts tracking one import source so progress listeners can subscribe to its event stream. */
+export function trackHsdataImportSourceProgress(sourceId: string) {
+  if (sourceId.length === 0) {
+    return;
+  }
+
+  trackedImportSourceIds.add(sourceId);
+  notifyImportTrackingChanged();
+}
+
+/** Starts tracking one projection source tag so progress listeners can subscribe to its event stream. */
+export function trackHsdataProjectSourceProgress(sourceTag: number) {
+  trackedProjectSourceTags.add(sourceTag);
+  notifyProjectTrackingChanged();
+}
+
+/** Notifies active import listeners that the tracked source set changed. */
+function notifyImportTrackingChanged() {
+  for (const listener of importTrackingListeners) {
+    listener();
+  }
+}
+
+/** Notifies active projection listeners that the tracked source set changed. */
+function notifyProjectTrackingChanged() {
+  for (const listener of projectTrackingListeners) {
+    listener();
+  }
+}
 
 export function getHsdataRepoPath() {
   return getDesktopGameRepo('hearthstone', 'hsdata');
@@ -254,7 +304,7 @@ export async function readHsdataSource(id: string) {
 }
 
 export async function importHsdataSource(id: string, dryRun: boolean, force: boolean) {
-  trackedImportSourceIds.add(id);
+  trackHsdataImportSourceProgress(id);
 
   return await useDesktopRuntimeClient().hsdata.importSource({
     id,
@@ -270,7 +320,7 @@ export function projectLocalHsdataSourceVersion(
   force: boolean,
 ) {
   return (async () => {
-    trackedProjectSourceTags.add(sourceTag);
+    trackHsdataProjectSourceProgress(sourceTag);
 
     return await useDesktopRuntimeClient().hsdata.projectSourceVersion({
       sourceTag,
@@ -301,109 +351,155 @@ export function getLocalHsdataOverview() {
   })();
 }
 
-/** Polls the local Bun runtime for the latest hsdata import progress snapshots. */
+/** Streams hsdata import progress snapshots from the local Bun runtime. */
 export function listenHsdataImportProgress(
   handler: (event: HsdataImportProgressEvent) => void,
 ) {
   const runtimeClient = useDesktopRuntimeClient();
-  const seenUpdates = new Map<string, string>();
   let stopped = false;
+  const unsubscribers = new Map<string, () => Promise<void>>();
 
-  const poll = async () => {
-    if (stopped || trackedImportSourceIds.size === 0) {
+  /** Closes one active import subscription if it exists. */
+  async function closeImportSubscription(sourceId: string): Promise<void> {
+    const unsubscribe = unsubscribers.get(sourceId);
+    if (!unsubscribe) {
       return;
     }
 
-    const sourceIds = [...trackedImportSourceIds];
-    const jobs = await Promise.all(sourceIds.map(async sourceId => {
-      try {
-        return await runtimeClient.hsdata.getLocalImportJob({ sourceId }) as {
-          updatedAt: string;
-          progress: HsdataImportProgressEvent;
-        } | null;
-      } catch {
-        return null;
-      }
-    }));
+    unsubscribers.delete(sourceId);
 
-    for (const [index, job] of jobs.entries()) {
-      const sourceId = sourceIds[index]!;
+    try {
+      await unsubscribe();
+    } catch {
+      // Ignore cancellation errors while the page is shutting down or switching jobs.
+    }
+  }
 
-      if (!job || seenUpdates.get(sourceId) === job.updatedAt) {
+  /** Opens streaming subscriptions for every currently tracked import source. */
+  function ensureImportSubscriptions() {
+    if (stopped) {
+      return;
+    }
+
+    for (const sourceId of trackedImportSourceIds) {
+      if (unsubscribers.has(sourceId)) {
         continue;
       }
 
-      seenUpdates.set(sourceId, job.updatedAt);
-      handler(job.progress);
+      const unsubscribe = consumeEventIterator(
+        runtimeClient.hsdata.watchImportJob({ sourceId }),
+        {
+          onEvent(event) {
+            handler(event);
 
-      if (job.progress.phase === 'completed' || job.progress.phase === 'failed') {
-        trackedImportSourceIds.delete(sourceId);
-      }
+            if (!isTerminalProgressPhase(event.phase)) {
+              return;
+            }
+
+            trackedImportSourceIds.delete(sourceId);
+            notifyImportTrackingChanged();
+            void closeImportSubscription(sourceId);
+          },
+          onError() {
+            trackedImportSourceIds.delete(sourceId);
+            notifyImportTrackingChanged();
+          },
+          onFinish() {
+            unsubscribers.delete(sourceId);
+          },
+        },
+      );
+
+      unsubscribers.set(sourceId, unsubscribe);
     }
-  };
+  }
 
-  const timer = window.setInterval(() => {
-    void poll();
-  }, 600);
-
-  void poll();
+  importTrackingListeners.add(ensureImportSubscriptions);
+  ensureImportSubscriptions();
 
   return Promise.resolve(() => {
     stopped = true;
-    window.clearInterval(timer);
+    importTrackingListeners.delete(ensureImportSubscriptions);
+
+    void Promise.all([...unsubscribers.keys()].map(async sourceId => {
+      await closeImportSubscription(sourceId);
+    }));
   });
 }
 
-/** hsdata projection progress listener for the desktop window. */
+/** Streams hsdata projection progress snapshots for the desktop window. */
 export function listenHsdataProjectProgress(
   handler: (event: HsdataProjectProgressEvent) => void,
 ) {
   const runtimeClient = useDesktopRuntimeClient();
-  const seenUpdates = new Map<number, string>();
   let stopped = false;
+  const unsubscribers = new Map<number, () => Promise<void>>();
 
-  const poll = async () => {
-    if (stopped || trackedProjectSourceTags.size === 0) {
+  /** Closes one active projection subscription if it exists. */
+  async function closeProjectSubscription(sourceTag: number): Promise<void> {
+    const unsubscribe = unsubscribers.get(sourceTag);
+    if (!unsubscribe) {
       return;
     }
 
-    const sourceTags = [...trackedProjectSourceTags];
-    const jobs = await Promise.all(sourceTags.map(async sourceTag => {
-      try {
-        return await runtimeClient.hsdata.getLocalProjectJob({ sourceTag }) as {
-          updatedAt: string;
-          progress: HsdataProjectProgressEvent;
-        } | null;
-      } catch {
-        return null;
-      }
-    }));
+    unsubscribers.delete(sourceTag);
 
-    for (const [index, job] of jobs.entries()) {
-      const sourceTag = sourceTags[index]!;
+    try {
+      await unsubscribe();
+    } catch {
+      // Ignore cancellation errors while the page is shutting down or switching jobs.
+    }
+  }
 
-      if (!job || seenUpdates.get(sourceTag) === job.updatedAt) {
+  /** Opens streaming subscriptions for every currently tracked projection source tag. */
+  function ensureProjectSubscriptions() {
+    if (stopped) {
+      return;
+    }
+
+    for (const sourceTag of trackedProjectSourceTags) {
+      if (unsubscribers.has(sourceTag)) {
         continue;
       }
 
-      seenUpdates.set(sourceTag, job.updatedAt);
-      handler(job.progress);
+      const unsubscribe = consumeEventIterator(
+        runtimeClient.hsdata.watchProjectJob({ sourceTag }),
+        {
+          onEvent(event) {
+            handler(event);
 
-      if (job.progress.phase === 'completed' || job.progress.phase === 'failed') {
-        trackedProjectSourceTags.delete(sourceTag);
-      }
+            if (!isTerminalProgressPhase(event.phase)) {
+              return;
+            }
+
+            trackedProjectSourceTags.delete(sourceTag);
+            notifyProjectTrackingChanged();
+            void closeProjectSubscription(sourceTag);
+          },
+          onError() {
+            trackedProjectSourceTags.delete(sourceTag);
+            notifyProjectTrackingChanged();
+          },
+          onFinish() {
+            unsubscribers.delete(sourceTag);
+          },
+        },
+      );
+
+      unsubscribers.set(sourceTag, unsubscribe);
     }
-  };
+  }
 
-  const timer = window.setInterval(() => {
-    void poll();
-  }, 600);
-
-  void poll();
+  projectTrackingListeners.add(ensureProjectSubscriptions);
+  ensureProjectSubscriptions();
 
   return Promise.resolve(() => {
     stopped = true;
-    window.clearInterval(timer);
+    projectTrackingListeners.delete(ensureProjectSubscriptions);
+
+    void Promise.all([...unsubscribers.keys()].map(async sourceTag => {
+      await closeProjectSubscription(sourceTag);
+    }));
   });
 }
 
