@@ -173,6 +173,20 @@ export type HsdataProjectPhase =
   | 'completed'
   | 'failed';
 
+/** One writing segment mirrored into the frontend stacked progress bar. */
+export interface HsdataProjectWriteSegment {
+  totalRowCount: number;
+  completedRowCount: number;
+}
+
+/** Writing breakdown mirrored into the frontend stacked progress bar. */
+export interface HsdataProjectWriteBreakdown {
+  entity:       HsdataProjectWriteSegment;
+  localization: HsdataProjectWriteSegment;
+  latest:       HsdataProjectWriteSegment;
+  relation:     HsdataProjectWriteSegment;
+}
+
 /** Desktop hsdata projection progress event payload. */
 export interface HsdataProjectProgressEvent {
   sourceTag:               number;
@@ -186,6 +200,7 @@ export interface HsdataProjectProgressEvent {
   totalWorkCount:          number | null;
   completedWorkCount:      number | null;
   workLabel:               string | null;
+  writeBreakdown:          HsdataProjectWriteBreakdown | null;
 }
 
 export interface HsdataProjectReport {

@@ -474,7 +474,7 @@
                     <div class="rounded-lg border border-default p-3">
                       <div class="text-xs text-muted">阶段耗时</div>
                       <div class="mt-1 break-all font-mono text-sm">
-                        {{ importPhaseElapsedText }}
+                        {{ importPhaseDurationText }}
                       </div>
                     </div>
                   </div>
@@ -646,9 +646,45 @@
                     </div>
                     <div class="h-2 overflow-hidden rounded-full bg-muted">
                       <div
+                        v-if="projectWriteSegments.length > 0"
+                        class="flex h-full transition-all duration-300"
+                        :style="{ width: `${projectProgressPercent}%` }"
+                      >
+                        <div
+                          v-for="segment in projectWriteSegments"
+                          :key="segment.key"
+                          class="h-full transition-all duration-300"
+                          :class="segment.colorClass"
+                          :style="{ width: `${segment.completedWidthPercent}%` }"
+                        />
+                      </div>
+                      <div
+                        v-else
                         class="h-full rounded-full bg-primary transition-all duration-300"
                         :style="{ width: `${projectProgressPercent}%` }"
                       />
+                    </div>
+
+                    <div
+                      v-if="projectWriteSegments.length > 0"
+                      class="grid gap-2 text-[11px] text-muted md:grid-cols-2"
+                    >
+                      <div
+                        v-for="segment in projectWriteSegments"
+                        :key="`${segment.key}-legend`"
+                        class="flex items-center justify-between gap-3 rounded-lg border border-default px-2 py-1.5"
+                      >
+                        <div class="flex items-center gap-2">
+                          <span
+                            class="inline-block size-2 rounded-full"
+                            :class="segment.colorClass"
+                          />
+                          <span>{{ segment.label }}</span>
+                        </div>
+                        <span class="font-mono text-xs">
+                          {{ segment.completedRowCount }} / {{ segment.totalRowCount }}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -683,7 +719,7 @@
                     <div class="rounded-lg border border-default p-3">
                       <div class="text-xs text-muted">阶段耗时</div>
                       <div class="mt-1 break-all font-mono text-sm">
-                        {{ projectPhaseElapsedText }}
+                        {{ projectPhaseDurationText }}
                       </div>
                     </div>
                   </div>
@@ -1819,6 +1855,24 @@ function formatElapsedDuration(
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+/** Formats one raw duration in milliseconds into the same compact time label used by elapsed counters. */
+function formatDurationMs(durationMs: number | null | undefined) {
+  if (durationMs == null || !Number.isFinite(durationMs) || durationMs < 0) {
+    return '-';
+  }
+
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 /** Converts one backend work-unit key into the short label shown beside progress counters. */
 function formatProgressWorkLabel(workLabel: string | null | undefined) {
   switch (workLabel) {
@@ -1880,6 +1934,78 @@ function formatProgressCountText(input: {
   }
 
   return '-';
+}
+
+/** Estimates one phase total duration from current phase progress and elapsed time. */
+function estimatePhaseTotalDurationMs(input: {
+  startedAt: string | null | undefined;
+  finishedAt?: string | null;
+  nowMs: number;
+  completedWorkCount: number | null;
+  totalWorkCount: number | null;
+  completedCount: number | null;
+  totalCount: number | null;
+  phase: string | null | undefined;
+}) {
+  if (input.phase === 'completed') {
+    if (!input.startedAt) {
+      return null;
+    }
+
+    const startedMs = new Date(input.startedAt).getTime();
+    const endMs = input.finishedAt ? new Date(input.finishedAt).getTime() : input.nowMs;
+
+    if (!Number.isFinite(startedMs) || !Number.isFinite(endMs)) {
+      return null;
+    }
+
+    return Math.max(0, endMs - startedMs);
+  }
+
+  if (!input.startedAt) {
+    return null;
+  }
+
+  const startedMs = new Date(input.startedAt).getTime();
+  if (!Number.isFinite(startedMs)) {
+    return null;
+  }
+
+  const elapsedMs = Math.max(0, input.nowMs - startedMs);
+  const total = input.totalWorkCount ?? input.totalCount ?? null;
+  const completed = input.completedWorkCount ?? input.completedCount ?? null;
+
+  if (total == null || completed == null || total <= 0 || completed <= 0 || completed >= total) {
+    return null;
+  }
+
+  if (elapsedMs < 2_000) {
+    return null;
+  }
+
+  const progressRatio = completed / total;
+  if (progressRatio < 0.02) {
+    return null;
+  }
+
+  return Math.round(elapsedMs / progressRatio);
+}
+
+/** Builds one `elapsed / estimated-total` label for the current phase. */
+function formatPhaseDurationWithEstimate(input: {
+  startedAt: string | null | undefined;
+  finishedAt?: string | null;
+  nowMs: number;
+  completedWorkCount: number | null;
+  totalWorkCount: number | null;
+  completedCount: number | null;
+  totalCount: number | null;
+  phase: string | null | undefined;
+}) {
+  const elapsedText = formatElapsedDuration(input.startedAt, input.nowMs, input.finishedAt);
+  const estimatedTotalMs = estimatePhaseTotalDurationMs(input);
+  const estimatedText = estimatedTotalMs == null ? '-' : formatDurationMs(estimatedTotalMs);
+  return `${elapsedText} / ${estimatedText}`;
 }
 
 const importProgressPhaseLabel = computed(() => {
@@ -1950,6 +2076,19 @@ const importPhaseElapsedText = computed(() =>
     progressClockMs.value,
     importProgress.value?.finishedAt,
   ));
+const importPhaseDurationText = computed(() => {
+  const progress = importProgress.value;
+  return formatPhaseDurationWithEstimate({
+    startedAt:          progress?.phaseStartedAt,
+    finishedAt:         progress?.finishedAt,
+    nowMs:              progressClockMs.value,
+    completedWorkCount: progress?.completedWorkCount ?? null,
+    totalWorkCount:     progress?.totalWorkCount ?? null,
+    completedCount:     progress?.completedEntityCount ?? progress?.completedBatchCount ?? null,
+    totalCount:         progress?.totalEntityCount ?? progress?.totalBatchCount ?? null,
+    phase:              progress?.phase,
+  });
+});
 const projectProgressPhaseLabel = computed(() => {
   switch (projectProgress.value?.phase) {
   case 'loading_snapshots':
@@ -2010,6 +2149,53 @@ const projectProgressCountText = computed(() => {
   });
 });
 const projectProgressMetricLabel = computed(() => formatProgressWorkLabel(projectProgress.value?.workLabel));
+const projectWriteSegments = computed(() => {
+  const breakdown = projectProgress.value?.writeBreakdown;
+
+  if (projectProgress.value?.phase !== 'writing_rows' || breakdown == null) {
+    return [];
+  }
+
+  const items = [
+    {
+      key:               'entity',
+      label:             'Entity',
+      colorClass:        'bg-sky-500',
+      totalRowCount:     breakdown.entity.totalRowCount,
+      completedRowCount: breakdown.entity.completedRowCount,
+    },
+    {
+      key:               'localization',
+      label:             'Localization',
+      colorClass:        'bg-amber-500',
+      totalRowCount:     breakdown.localization.totalRowCount,
+      completedRowCount: breakdown.localization.completedRowCount,
+    },
+    {
+      key:               'latest',
+      label:             'Latest',
+      colorClass:        'bg-emerald-500',
+      totalRowCount:     breakdown.latest.totalRowCount,
+      completedRowCount: breakdown.latest.completedRowCount,
+    },
+    {
+      key:               'relation',
+      label:             'Relation',
+      colorClass:        'bg-slate-500',
+      totalRowCount:     breakdown.relation.totalRowCount,
+      completedRowCount: breakdown.relation.completedRowCount,
+    },
+  ].filter(item => item.totalRowCount > 0);
+
+  const totalRows = items.reduce((count, item) => count + item.totalRowCount, 0);
+  const completedRows = items.reduce((count, item) => count + item.completedRowCount, 0);
+
+  return items.map(item => ({
+    ...item,
+    completedWidthPercent: completedRows === 0 ? 0 : (item.completedRowCount / completedRows) * 100,
+    totalWidthPercent: totalRows === 0 ? 0 : (item.totalRowCount / totalRows) * 100,
+  }));
+});
 const projectElapsedText = computed(() =>
   formatElapsedDuration(
     projectProgress.value?.startedAt,
@@ -2022,6 +2208,19 @@ const projectPhaseElapsedText = computed(() =>
     progressClockMs.value,
     projectProgress.value?.finishedAt,
   ));
+const projectPhaseDurationText = computed(() => {
+  const progress = projectProgress.value;
+  return formatPhaseDurationWithEstimate({
+    startedAt:          progress?.phaseStartedAt,
+    finishedAt:         progress?.finishedAt,
+    nowMs:              progressClockMs.value,
+    completedWorkCount: progress?.completedWorkCount ?? null,
+    totalWorkCount:     progress?.totalWorkCount ?? null,
+    completedCount:     progress?.completedSnapshotCount ?? null,
+    totalCount:         progress?.totalSnapshotCount ?? null,
+    phase:              progress?.phase,
+  });
+});
 
 const projectSourceTagInput = computed({
   get() {

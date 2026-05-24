@@ -17,6 +17,20 @@ export type HsdataProjectPhase =
   | 'completed'
   | 'failed';
 
+/** One writing segment mirrored into the frontend stacked progress bar. */
+export interface HsdataProjectWriteSegment {
+  totalRowCount: number;
+  completedRowCount: number;
+}
+
+/** Writing breakdown mirrored into the frontend stacked progress bar. */
+export interface HsdataProjectWriteBreakdown {
+  entity:       HsdataProjectWriteSegment;
+  localization: HsdataProjectWriteSegment;
+  latest:       HsdataProjectWriteSegment;
+  relation:     HsdataProjectWriteSegment;
+}
+
 /** Import progress payload mirrored by the frontend runtime polling adapter. */
 export interface HsdataImportProgressEvent {
   sourceId: string;
@@ -50,6 +64,7 @@ export interface HsdataProjectProgressEvent {
   totalWorkCount: number | null;
   completedWorkCount: number | null;
   workLabel: string | null;
+  writeBreakdown: HsdataProjectWriteBreakdown | null;
 }
 
 /** Import job snapshot returned to polling callers. */
@@ -303,6 +318,7 @@ export const startProjectJob = (input: {
     totalWorkCount:          null,
     completedWorkCount:      null,
     workLabel:               null,
+    writeBreakdown:          null,
   };
 
   const state: HsdataProjectJobState = {

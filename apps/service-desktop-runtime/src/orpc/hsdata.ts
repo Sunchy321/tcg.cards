@@ -314,6 +314,7 @@ const projectSourceVersion = os
         totalWorkCount: report.snapshotCount,
         completedWorkCount: report.snapshotCount,
         workLabel: 'snapshot',
+        writeBreakdown: null,
       });
 
       return report;
@@ -332,6 +333,7 @@ const projectSourceVersion = os
         phase: 'failed',
         message: error instanceof Error ? error.message : String(error),
         workLabel: null,
+        writeBreakdown: null,
       });
       throw toRuntimeError(error);
     }

@@ -17,6 +17,7 @@ import {
   SourceVersion,
   Tag,
 } from '@tcg-cards/db/schema/local/hearthstone';
+import type { HsdataProjectWriteBreakdown } from './hsdata-progress';
 import { createHsdataProfiler } from './hsdata-profile';
 
 type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -226,14 +227,36 @@ interface ProjectWriteProfiler {
   mark(step: string, extra?: Record<string, boolean | number | string | null | undefined>): void;
 }
 
-/** One write-progress update emitted while the transaction advances through major SQL operations. */
+/** Tracks completed row counts for each stacked write-progress segment. */
+interface WriteProgressBreakdown {
+  entity:       number;
+  localization: number;
+  latest:       number;
+  relation:     number;
+}
+
+/** Identifies one stacked write-progress segment. */
+type WriteProgressSegment = keyof WriteProgressBreakdown;
+
+/** One write-progress update emitted while the transaction advances through row-based work. */
 interface WriteProgressUpdate {
   message: string;
   advance?: number;
+  segment?: WriteProgressSegment;
 }
 
 /** Callback that advances one write-progress bar as major SQL operations finish. */
 type WriteProgressReporter = (update: WriteProgressUpdate) => Promise<void>;
+
+/** Callback that advances summarize progress while shared rows load and reconcile work proceeds. */
+type SummarizeProgressReporter = (message: string, advance?: number) => Promise<void>;
+
+/** Counts entity rows split by the write path they will take inside the current transaction. */
+interface EntityWriteBreakdown {
+  deleteCount: number;
+  metaCount: number;
+  insertCount: number;
+}
 
 /** Counts localization rows split by the write path they will take inside the current transaction. */
 interface LocalizationWriteBreakdown {
@@ -241,7 +264,9 @@ interface LocalizationWriteBreakdown {
   metaCount: number;
   appendCount: number;
   insertCount: number;
-  affectedGroupCount: number;
+  upsertCount: number;
+  affectedLatestRowCount: number;
+  latestRowCountByGroup: Map<RowKey, number>;
 }
 
 export interface ProjectHsdataInput {
@@ -249,13 +274,14 @@ export interface ProjectHsdataInput {
   dryRun?:   boolean;
   force?:    boolean;
   onProgress?: (input: {
-    phase: 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows';
+    phase: 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'completed' | 'failed';
     message: string;
     totalSnapshotCount?: number | null;
     completedSnapshotCount?: number | null;
     totalWorkCount?: number | null;
     completedWorkCount?: number | null;
     workLabel?: string | null;
+    writeBreakdown?: HsdataProjectWriteBreakdown | null;
   }) => void | Promise<void>;
 }
 
@@ -407,6 +433,10 @@ function mergeVersion(...inputs: Array<number[] | number>): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
 }
 
+const writeRowBatchSize = 5_000;
+const projectProgressBatchSize = 25;
+const summarizeProgressBatchSize = 5_000;
+
 /** Checks whether one reconciled version array only appends the current build to an existing sorted history. */
 function isAppendBuildVersion(
   existingVersion: number[],
@@ -437,6 +467,7 @@ function isAppendBuildVersion(
 /** Splits one localization sync plan into delete/replace/append/insert buckets before the transaction starts. */
 function buildLocalizationWriteBreakdown(
   plan: SyncPlan<LocalizationStateRow>,
+  finalRows: LocalizationStateRow[],
   existingRowsByKey: Map<RowKey, LocalizationStateRow>,
   build: number,
 ): LocalizationWriteBreakdown {
@@ -460,30 +491,133 @@ function buildLocalizationWriteBreakdown(
     metaCount += 1;
   }
 
-  const affectedGroupCount = new Set(
+  const affectedGroupKeys = new Set(
     [...plan.deleteRows, ...plan.upsertRows].map(row => localizationGroupKey(row)),
-  ).size;
+  );
+  const latestRowCountByGroup = new Map<RowKey, number>();
+
+  for (const row of finalRows) {
+    const groupKey = localizationGroupKey(row);
+
+    if (!affectedGroupKeys.has(groupKey)) {
+      continue;
+    }
+
+    latestRowCountByGroup.set(groupKey, (latestRowCountByGroup.get(groupKey) ?? 0) + 1);
+  }
+
+  const affectedLatestRowCount = [...latestRowCountByGroup.values()]
+    .reduce((count, rowCount) => count + rowCount, 0);
 
   return {
     deleteCount: plan.deleteRows.length,
     metaCount,
     appendCount,
     insertCount,
-    affectedGroupCount,
+    upsertCount: plan.upsertRows.length,
+    affectedLatestRowCount,
+    latestRowCountByGroup,
   };
 }
 
-/** Counts the major localization write operations that should advance the progress UI. */
-function countLocalizationWriteOperations(breakdown: LocalizationWriteBreakdown): number {
-  let operations = 0;
+/** Splits one entity sync plan into delete/update/insert buckets before the transaction starts. */
+function buildEntityWriteBreakdown(
+  plan: SyncPlan<EntityStateRow>,
+  existingRowsByKey: Map<RowKey, EntityStateRow>,
+): EntityWriteBreakdown {
+  let metaCount = 0;
+  let insertCount = 0;
 
-  if (breakdown.deleteCount > 0) operations += 1;
-  if (breakdown.metaCount > 0) operations += 1;
-  if (breakdown.appendCount > 0) operations += 1;
-  if (breakdown.insertCount > 0) operations += 1;
-  if (breakdown.affectedGroupCount > 0) operations += 1;
+  for (const row of plan.upsertRows) {
+    if (existingRowsByKey.has(entityKey(row))) {
+      metaCount += 1;
+      continue;
+    }
 
-  return operations;
+    insertCount += 1;
+  }
+
+  return {
+    deleteCount: plan.deleteRows.length,
+    metaCount,
+    insertCount,
+  };
+}
+
+/** Counts entity rows that should advance the write-progress UI. */
+function countEntityWriteRows(breakdown: EntityWriteBreakdown): number {
+  return breakdown.deleteCount + breakdown.metaCount + breakdown.insertCount;
+}
+
+/** Counts localization rows that should advance the write-progress UI. */
+function countLocalizationWriteRows(breakdown: LocalizationWriteBreakdown): number {
+  return (
+    breakdown.deleteCount
+    + breakdown.upsertCount
+    + breakdown.affectedLatestRowCount
+  );
+}
+
+/** Counts duplicate-safe rows when the write path only inserts missing rows. */
+function countIgnoreDuplicateWriteRows(input: {
+  entityCount: number;
+  localizationCount: number;
+  relationCount: number;
+}): number {
+  return input.entityCount + input.localizationCount + input.relationCount;
+}
+
+/** Builds stacked write-progress totals for entity, localization, latest, and relation work. */
+function buildWriteProgressTotals(input: {
+  ignoreDuplicates: boolean;
+  entity: EntityWriteBreakdown;
+  localization: LocalizationWriteBreakdown;
+  relationDeleteCount: number;
+  relationInsertCount: number;
+  targetEntityCount: number;
+  targetLocalizationCount: number;
+  targetRelationCount: number;
+}): WriteProgressBreakdown {
+  if (input.ignoreDuplicates) {
+    return {
+      entity:       input.targetEntityCount,
+      localization: input.targetLocalizationCount,
+      latest:       0,
+      relation:     input.targetRelationCount,
+    };
+  }
+
+  return {
+    entity:       countEntityWriteRows(input.entity),
+    localization: input.localization.deleteCount + input.localization.upsertCount,
+    latest:       input.localization.affectedLatestRowCount,
+    relation:     input.relationDeleteCount + input.relationInsertCount,
+  };
+}
+
+/** Converts internal write-progress counts into the frontend stacked progress payload. */
+function toWriteProgressBreakdown(
+  totals: WriteProgressBreakdown,
+  completed: WriteProgressBreakdown,
+): HsdataProjectWriteBreakdown {
+  return {
+    entity: {
+      totalRowCount: totals.entity,
+      completedRowCount: completed.entity,
+    },
+    localization: {
+      totalRowCount: totals.localization,
+      completedRowCount: completed.localization,
+    },
+    latest: {
+      totalRowCount: totals.latest,
+      completedRowCount: completed.latest,
+    },
+    relation: {
+      totalRowCount: totals.relation,
+      completedRowCount: completed.relation,
+    },
+  };
 }
 
 function normalizeLocaleKey(raw: string, override?: Record<string, string>): string | null {
@@ -540,6 +674,11 @@ function uniqueStrings(values: string[]): string[] {
   }
 
   return result;
+}
+
+/** Yields control to the event loop so streamed progress updates can flush during CPU-heavy loops. */
+async function yieldProgressEventLoop(): Promise<void> {
+  await new Promise<void>(resolve => setTimeout(resolve, 0));
 }
 
 function cleanNullValue<T>(value: T, config: JsonMap): T | null {
@@ -1302,11 +1441,13 @@ function relationState(row: RelationRow): string {
 }
 
 /** Reconciles one projected row family by updating version membership and comparing lightweight state signatures. */
-function reconcileRows<T extends { version: number[], isLatest: boolean }>(
+async function reconcileRows<T extends { version: number[], isLatest: boolean }>(
   existingRows: T[],
   targetRows: T[],
   options: ReconcileOptions<T>,
-): ReconcileResult<T> {
+  onProgress?: SummarizeProgressReporter,
+  progressLabel?: string,
+): Promise<ReconcileResult<T>> {
   // Keep the original rows as read-only lookup input. The final row set is rebuilt separately so
   // reconciliation does not deep-clone every existing row before any change is known.
   const existingByKey = new Map(existingRows.map(row => [options.keyOf(row), row]));
@@ -1329,6 +1470,7 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
   let inserted = 0;
   let reused = 0;
   let updated = 0;
+  let completedTargetRows = 0;
 
   for (const row of targetRows) {
     const key = options.keyOf(row);
@@ -1342,21 +1484,37 @@ function reconcileRows<T extends { version: number[], isLatest: boolean }>(
         version:  [options.build],
         isLatest: false,
       });
-      continue;
-    }
-
-    if (existing.version.includes(options.build)) {
-      reused += 1;
     } else {
-      updated += 1;
+      if (existing.version.includes(options.build)) {
+        reused += 1;
+      } else {
+        updated += 1;
+      }
+
+      finalByKey.set(key, {
+        ...(current ?? cloneReconcileRow(row)),
+        ...cloneReconcileRow(row),
+        version:  mergeVersion(current?.version ?? [], options.build),
+        isLatest: false,
+      });
     }
 
-    finalByKey.set(key, {
-      ...(current ?? cloneReconcileRow(row)),
-      ...cloneReconcileRow(row),
-      version:  mergeVersion(current?.version ?? [], options.build),
-      isLatest: false,
-    });
+    completedTargetRows += 1;
+    if (onProgress && completedTargetRows % summarizeProgressBatchSize === 0) {
+      await onProgress(
+        `Reconciled ${progressLabel ?? 'target'} rows (${completedTargetRows}/${targetRows.length})`,
+        summarizeProgressBatchSize,
+      );
+      await yieldProgressEventLoop();
+    }
+  }
+
+  if (onProgress && completedTargetRows % summarizeProgressBatchSize !== 0) {
+    await onProgress(
+      `Reconciled ${progressLabel ?? 'target'} rows (${completedTargetRows}/${targetRows.length})`,
+      completedTargetRows % summarizeProgressBatchSize,
+    );
+    await yieldProgressEventLoop();
   }
 
   recomputeLatest(finalByKey, options.groupKey);
@@ -1839,6 +1997,7 @@ async function loadExistingRowsForProjection(
   localizationKeys: Array<Pick<LocalizationStateRow, 'cardId' | 'lang' | 'revisionHash' | 'localizationHash'>>,
   relationSourceIds: string[],
   profiler?: ProjectWriteProfiler,
+  onProgress?: SummarizeProgressReporter,
 ): Promise<{
     entities: EntityStateRow[];
     localizations: LocalizationStateRow[];
@@ -1870,7 +2029,7 @@ async function loadExistingRowsForProjection(
 
   return await db.transaction(async tx => {
     const copyTx = tx as CopyTx;
-
+    const entities: EntityStateRow[] = [];
     if (entityCardIds.length > 0) {
       await copyTx.session.client.unsafe(`
         create temp table hsdata_projection_entity_existing_stage
@@ -1881,98 +2040,35 @@ async function loadExistingRowsForProjection(
         with no data
       `);
 
-      await copyEntityGroupIdsIntoTable(copyTx, entityCardIds, 'hsdata_projection_entity_existing_stage');
+      for (const chunk of chunkValues(entityCardIds, summarizeProgressBatchSize)) {
+        await copyTx.session.client.unsafe(`truncate hsdata_projection_entity_existing_stage`);
+        await copyEntityGroupIdsIntoTable(copyTx, chunk, 'hsdata_projection_entity_existing_stage');
+        await analyzeTempTable(copyTx, 'hsdata_projection_entity_existing_stage');
+
+        const rows = await tx.execute<EntityStateQueryRow>(sql`
+          select
+            target.card_id as "cardId",
+            target.version as "version",
+            target.revision_hash as "revisionHash",
+            target.is_latest as "isLatest"
+          from hearthstone.entities as target
+          inner join hsdata_projection_entity_existing_stage as stage
+            on target.card_id = stage.card_id
+        `);
+        entities.push(...rows);
+        await onProgress?.(
+          `Loaded existing entity rows for ${Math.min(entities.length, entityCardIds.length)} projected cards`,
+          chunk.length,
+        );
+      }
+
       profiler?.mark('load_existing_rows_copy_entity_stage', {
         rowCount: entityCardIds.length,
       });
-      await analyzeTempTable(copyTx, 'hsdata_projection_entity_existing_stage');
       profiler?.mark('load_existing_rows_analyze_entity_stage', {
         rowCount: entityCardIds.length,
       });
     }
-
-    if (localizationGroups.length > 0) {
-      await copyTx.session.client.unsafe(`
-        create temp table hsdata_projection_localization_existing_stage
-        on commit drop as
-        select
-          card_id,
-          lang
-        from hearthstone.entity_localizations
-        with no data
-      `);
-
-      await copyLocalizationGroupIdsIntoTable(
-        copyTx,
-        localizationGroups,
-        'hsdata_projection_localization_existing_stage',
-      );
-      profiler?.mark('load_existing_rows_copy_localization_stage', {
-        rowCount: localizationGroups.length,
-      });
-      await analyzeTempTable(copyTx, 'hsdata_projection_localization_existing_stage');
-      profiler?.mark('load_existing_rows_analyze_localization_stage', {
-        rowCount: localizationGroups.length,
-      });
-
-      await copyTx.session.client.unsafe(`
-        create temp table hsdata_projection_localization_existing_key_stage
-        on commit drop as
-        select
-          card_id,
-          lang,
-          revision_hash,
-          localization_hash
-        from hearthstone.entity_localizations
-        with no data
-      `);
-
-      await copyLocalizationKeysIntoTable(
-        copyTx,
-        localizationKeys,
-        'hsdata_projection_localization_existing_key_stage',
-      );
-      profiler?.mark('load_existing_rows_copy_localization_key_stage', {
-        rowCount: localizationKeys.length,
-      });
-      await analyzeTempTable(copyTx, 'hsdata_projection_localization_existing_key_stage');
-      profiler?.mark('load_existing_rows_analyze_localization_key_stage', {
-        rowCount: localizationKeys.length,
-      });
-    }
-
-    if (relationSourceIds.length > 0) {
-      await copyTx.session.client.unsafe(`
-        create temp table hsdata_projection_relation_existing_stage
-        on commit drop as
-        select
-          source_id
-        from hearthstone.entity_relations
-        with no data
-      `);
-
-      await copyRelationSourceIdsIntoTable(copyTx, relationSourceIds, 'hsdata_projection_relation_existing_stage');
-      profiler?.mark('load_existing_rows_copy_relation_stage', {
-        rowCount: relationSourceIds.length,
-      });
-      await analyzeTempTable(copyTx, 'hsdata_projection_relation_existing_stage');
-      profiler?.mark('load_existing_rows_analyze_relation_stage', {
-        rowCount: relationSourceIds.length,
-      });
-    }
-
-    const entities = entityCardIds.length === 0
-      ? [] as EntityStateRow[]
-      : await tx.execute<EntityStateQueryRow>(sql`
-        select
-          target.card_id as "cardId",
-          target.version as "version",
-          target.revision_hash as "revisionHash",
-          target.is_latest as "isLatest"
-        from hearthstone.entities as target
-        inner join hsdata_projection_entity_existing_stage as stage
-          on target.card_id = stage.card_id
-      `);
     profiler?.mark('load_existing_rows_select_entities', {
       rowCount: entities.length,
     });
@@ -1980,40 +2076,108 @@ async function loadExistingRowsForProjection(
     const localizations = localizationGroups.length === 0
       ? [] as LocalizationStateRow[]
       : await (async () => {
-        const exactRows = await tx.execute<LocalizationStateQueryRow>(sql`
+        const exactRows: LocalizationStateRow[] = [];
+        const buildRows: LocalizationStateRow[] = [];
+
+        await copyTx.session.client.unsafe(`
+          create temp table hsdata_projection_localization_existing_stage
+          on commit drop as
           select
-            target.card_id as "cardId",
-            target.version as "version",
-            target.lang as "lang",
-            target.revision_hash as "revisionHash",
-            target.localization_hash as "localizationHash",
-            target.render_hash as "renderHash",
-            target.is_latest as "isLatest"
-          from hearthstone.entity_localizations as target
-          inner join hsdata_projection_localization_existing_key_stage as stage
-            on target.card_id = stage.card_id
-           and target.lang = stage.lang
-           and target.revision_hash = stage.revision_hash
-           and target.localization_hash = stage.localization_hash
+            card_id,
+            lang
+          from hearthstone.entity_localizations
+          with no data
         `);
+        await copyTx.session.client.unsafe(`
+          create temp table hsdata_projection_localization_existing_key_stage
+          on commit drop as
+          select
+            card_id,
+            lang,
+            revision_hash,
+            localization_hash
+          from hearthstone.entity_localizations
+          with no data
+        `);
+
+        for (const chunk of chunkValues(localizationKeys, summarizeProgressBatchSize)) {
+          await copyTx.session.client.unsafe(`truncate hsdata_projection_localization_existing_key_stage`);
+          await copyLocalizationKeysIntoTable(
+            copyTx,
+            chunk,
+            'hsdata_projection_localization_existing_key_stage',
+          );
+          await analyzeTempTable(copyTx, 'hsdata_projection_localization_existing_key_stage');
+
+          const rows = await tx.execute<LocalizationStateQueryRow>(sql`
+            select
+              target.card_id as "cardId",
+              target.version as "version",
+              target.lang as "lang",
+              target.revision_hash as "revisionHash",
+              target.localization_hash as "localizationHash",
+              target.render_hash as "renderHash",
+              target.is_latest as "isLatest"
+            from hearthstone.entity_localizations as target
+            inner join hsdata_projection_localization_existing_key_stage as stage
+              on target.card_id = stage.card_id
+             and target.lang = stage.lang
+             and target.revision_hash = stage.revision_hash
+             and target.localization_hash = stage.localization_hash
+          `);
+          exactRows.push(...rows);
+          await onProgress?.(
+            `Loaded exact localization rows for ${Math.min(exactRows.length, localizationKeys.length)} projected revision keys`,
+            chunk.length,
+          );
+        }
+
+        for (const chunk of chunkValues(localizationGroups, summarizeProgressBatchSize)) {
+          await copyTx.session.client.unsafe(`truncate hsdata_projection_localization_existing_stage`);
+          await copyLocalizationGroupIdsIntoTable(
+            copyTx,
+            chunk,
+            'hsdata_projection_localization_existing_stage',
+          );
+          await analyzeTempTable(copyTx, 'hsdata_projection_localization_existing_stage');
+
+          const rows = await tx.execute<LocalizationStateQueryRow>(sql`
+            select
+              target.card_id as "cardId",
+              target.version as "version",
+              target.lang as "lang",
+              target.revision_hash as "revisionHash",
+              target.localization_hash as "localizationHash",
+              target.render_hash as "renderHash",
+              target.is_latest as "isLatest"
+            from hearthstone.entity_localizations as target
+            inner join hsdata_projection_localization_existing_stage as stage
+              on target.card_id = stage.card_id
+             and target.lang = stage.lang
+            where ${build} = any(target.version)
+          `);
+          buildRows.push(...rows);
+          await onProgress?.(
+            `Loaded current-build localization groups for ${Math.min(buildRows.length, localizationGroups.length)} projected card-language families`,
+            chunk.length,
+          );
+        }
+
+        profiler?.mark('load_existing_rows_copy_localization_stage', {
+          rowCount: localizationGroups.length,
+        });
+        profiler?.mark('load_existing_rows_analyze_localization_stage', {
+          rowCount: localizationGroups.length,
+        });
+        profiler?.mark('load_existing_rows_copy_localization_key_stage', {
+          rowCount: localizationKeys.length,
+        });
+        profiler?.mark('load_existing_rows_analyze_localization_key_stage', {
+          rowCount: localizationKeys.length,
+        });
         profiler?.mark('load_existing_rows_select_localizations_exact', {
           rowCount: exactRows.length,
         });
-        const buildRows = await tx.execute<LocalizationStateQueryRow>(sql`
-          select
-            target.card_id as "cardId",
-            target.version as "version",
-            target.lang as "lang",
-            target.revision_hash as "revisionHash",
-            target.localization_hash as "localizationHash",
-            target.render_hash as "renderHash",
-            target.is_latest as "isLatest"
-          from hearthstone.entity_localizations as target
-          inner join hsdata_projection_localization_existing_stage as stage
-            on target.card_id = stage.card_id
-           and target.lang = stage.lang
-          where ${build} = any(target.version)
-        `);
         profiler?.mark('load_existing_rows_select_localizations_current_build', {
           rowCount: buildRows.length,
         });
@@ -2034,20 +2198,48 @@ async function loadExistingRowsForProjection(
       rowCount: localizations.length,
     });
 
-    const relations = relationSourceIds.length === 0
-      ? [] as RelationRow[]
-      : await tx.execute<RelationQueryRow>(sql`
+    const relations: RelationRow[] = [];
+    if (relationSourceIds.length > 0) {
+      await copyTx.session.client.unsafe(`
+        create temp table hsdata_projection_relation_existing_stage
+        on commit drop as
         select
-          target.source_id as "sourceId",
-          target.source_revision_hash as "sourceRevisionHash",
-          target.relation as "relation",
-          target.target_id as "targetId",
-          target.version as "version",
-          target.is_latest as "isLatest"
-        from hearthstone.entity_relations as target
-        inner join hsdata_projection_relation_existing_stage as stage
-          on target.source_id = stage.source_id
+          source_id
+        from hearthstone.entity_relations
+        with no data
       `);
+
+      for (const chunk of chunkValues(relationSourceIds, summarizeProgressBatchSize)) {
+        await copyTx.session.client.unsafe(`truncate hsdata_projection_relation_existing_stage`);
+        await copyRelationSourceIdsIntoTable(copyTx, chunk, 'hsdata_projection_relation_existing_stage');
+        await analyzeTempTable(copyTx, 'hsdata_projection_relation_existing_stage');
+
+        const rows = await tx.execute<RelationQueryRow>(sql`
+          select
+            target.source_id as "sourceId",
+            target.source_revision_hash as "sourceRevisionHash",
+            target.relation as "relation",
+            target.target_id as "targetId",
+            target.version as "version",
+            target.is_latest as "isLatest"
+          from hearthstone.entity_relations as target
+          inner join hsdata_projection_relation_existing_stage as stage
+            on target.source_id = stage.source_id
+        `);
+        relations.push(...rows);
+        await onProgress?.(
+          `Loaded existing relation rows for ${Math.min(relations.length, relationSourceIds.length)} projected source cards`,
+          chunk.length,
+        );
+      }
+
+      profiler?.mark('load_existing_rows_copy_relation_stage', {
+        rowCount: relationSourceIds.length,
+      });
+      profiler?.mark('load_existing_rows_analyze_relation_stage', {
+        rowCount: relationSourceIds.length,
+      });
+    }
     profiler?.mark('load_existing_rows_select_relations', {
       rowCount: relations.length,
     });
@@ -2770,6 +2962,7 @@ async function upsertEntities(
   existingRowsByKey: Map<RowKey, EntityStateRow>,
   targetRowsByKey: Map<RowKey, EntityRow>,
   profiler?: ProjectWriteProfiler,
+  onProgress?: WriteProgressReporter,
 ) {
   if (plan.upsertRows.length === 0) {
     return;
@@ -2802,7 +2995,7 @@ async function upsertEntities(
   }
 
   if (metaRows.length > 0) {
-    await updateEntityMetaRows(tx, metaRows, profiler);
+    await updateEntityMetaRows(tx, metaRows, profiler, onProgress);
   }
 
   if (insertRows.length === 0) {
@@ -2815,111 +3008,115 @@ async function upsertEntities(
     ) on commit drop
   `);
 
-  await copyEntitiesIntoTable(tx, insertRows, 'hsdata_projection_entity_copy_stage');
-  profiler?.mark('write_entities_copy_insert_rows', {
-    rowCount: insertRows.length,
-  });
-  await analyzeTempTable(tx, 'hsdata_projection_entity_copy_stage');
-  profiler?.mark('write_entities_analyze_insert_stage', {
-    rowCount: insertRows.length,
-  });
+  for (const chunk of chunkValues(insertRows, writeRowBatchSize)) {
+    await tx.session.client.unsafe(`truncate hsdata_projection_entity_copy_stage`);
+    await copyEntitiesIntoTable(tx, chunk, 'hsdata_projection_entity_copy_stage');
+    await analyzeTempTable(tx, 'hsdata_projection_entity_copy_stage');
 
-  // The staged entity insert path only materializes new revision keys after existing keys have already
-  // received their metadata-only updates through the temp-table merge above.
-  await tx.session.client.unsafe(`
-    insert into hearthstone.entities (
-      card_id,
-      version,
-      revision_hash,
-      dbf_id,
-      legacy_payload,
-      set,
-      class,
-      type,
-      cost,
-      attack,
-      health,
-      durability,
-      armor,
-      rune,
-      race,
-      spell_school,
-      quest_type,
-      quest_progress,
-      quest_part,
-      hero_power,
-      tech_level,
-      in_bobs_tavern,
-      triple_card,
-      race_bucket,
-      armor_bucket,
-      buddy,
-      banned_race,
-      mercenary_role,
-      mercenary_faction,
-      colddown,
-      collectible,
-      elite,
-      rarity,
-      artist,
-      override_watermark,
-      faction,
-      mechanics,
-      referenced_tags,
-      text_builder_type,
-      change_type,
-      is_latest
-    )
-    select
-      stage.card_id,
-      stage.version,
-      stage.revision_hash,
-      stage.dbf_id,
-      stage.legacy_payload,
-      stage.set,
-      stage.class,
-      stage.type,
-      stage.cost,
-      stage.attack,
-      stage.health,
-      stage.durability,
-      stage.armor,
-      stage.rune,
-      stage.race,
-      stage.spell_school,
-      stage.quest_type,
-      stage.quest_progress,
-      stage.quest_part,
-      stage.hero_power,
-      stage.tech_level,
-      stage.in_bobs_tavern,
-      stage.triple_card,
-      stage.race_bucket,
-      stage.armor_bucket,
-      stage.buddy,
-      stage.banned_race,
-      stage.mercenary_role,
-      stage.mercenary_faction,
-      stage.colddown,
-      stage.collectible,
-      stage.elite,
-      stage.rarity,
-      stage.artist,
-      stage.override_watermark,
-      stage.faction,
-      stage.mechanics,
-      stage.referenced_tags,
-      stage.text_builder_type,
-      stage.change_type,
-      stage.is_latest
-    from hsdata_projection_entity_copy_stage as stage
-    where not exists (
-      select 1
-      from hearthstone.entities as target
-      where target.card_id = stage.card_id
-        and target.revision_hash = stage.revision_hash
-    )
-  `);
+    // The staged entity insert path only materializes new revision keys after existing keys have already
+    // received their metadata-only updates through the temp-table merge above.
+    await tx.session.client.unsafe(`
+      insert into hearthstone.entities (
+        card_id,
+        version,
+        revision_hash,
+        dbf_id,
+        legacy_payload,
+        set,
+        class,
+        type,
+        cost,
+        attack,
+        health,
+        durability,
+        armor,
+        rune,
+        race,
+        spell_school,
+        quest_type,
+        quest_progress,
+        quest_part,
+        hero_power,
+        tech_level,
+        in_bobs_tavern,
+        triple_card,
+        race_bucket,
+        armor_bucket,
+        buddy,
+        banned_race,
+        mercenary_role,
+        mercenary_faction,
+        colddown,
+        collectible,
+        elite,
+        rarity,
+        artist,
+        override_watermark,
+        faction,
+        mechanics,
+        referenced_tags,
+        text_builder_type,
+        change_type,
+        is_latest
+      )
+      select
+        stage.card_id,
+        stage.version,
+        stage.revision_hash,
+        stage.dbf_id,
+        stage.legacy_payload,
+        stage.set,
+        stage.class,
+        stage.type,
+        stage.cost,
+        stage.attack,
+        stage.health,
+        stage.durability,
+        stage.armor,
+        stage.rune,
+        stage.race,
+        stage.spell_school,
+        stage.quest_type,
+        stage.quest_progress,
+        stage.quest_part,
+        stage.hero_power,
+        stage.tech_level,
+        stage.in_bobs_tavern,
+        stage.triple_card,
+        stage.race_bucket,
+        stage.armor_bucket,
+        stage.buddy,
+        stage.banned_race,
+        stage.mercenary_role,
+        stage.mercenary_faction,
+        stage.colddown,
+        stage.collectible,
+        stage.elite,
+        stage.rarity,
+        stage.artist,
+        stage.override_watermark,
+        stage.faction,
+        stage.mechanics,
+        stage.referenced_tags,
+        stage.text_builder_type,
+        stage.change_type,
+        stage.is_latest
+      from hsdata_projection_entity_copy_stage as stage
+      where not exists (
+        select 1
+        from hearthstone.entities as target
+        where target.card_id = stage.card_id
+          and target.revision_hash = stage.revision_hash
+      )
+    `);
+
+    await onProgress?.({
+      message: `Inserted brand-new entity rows into the shared tables (${chunk.length} rows)`,
+      advance: chunk.length,
+      segment: 'entity',
+    });
+  }
+
   profiler?.mark('write_entities_insert_new_rows', {
     rowCount: insertRows.length,
   });
@@ -2930,6 +3127,7 @@ async function updateEntityMetaRows(
   tx: CopyTx,
   rows: EntityStateRow[],
   profiler?: ProjectWriteProfiler,
+  onProgress?: WriteProgressReporter,
 ) {
   if (rows.length === 0) {
     return;
@@ -2947,24 +3145,28 @@ async function updateEntityMetaRows(
     with no data
   `);
 
-  await copyEntityMetaRowsIntoTable(tx, rows, 'hsdata_projection_entity_meta_stage');
-  profiler?.mark('write_entities_copy_meta_rows', {
-    rowCount: rows.length,
-  });
-  await analyzeTempTable(tx, 'hsdata_projection_entity_meta_stage');
-  profiler?.mark('write_entities_analyze_meta_stage', {
-    rowCount: rows.length,
-  });
+  for (const chunk of chunkValues(rows, writeRowBatchSize)) {
+    await tx.session.client.unsafe(`truncate hsdata_projection_entity_meta_stage`);
+    await copyEntityMetaRowsIntoTable(tx, chunk, 'hsdata_projection_entity_meta_stage');
+    await analyzeTempTable(tx, 'hsdata_projection_entity_meta_stage');
 
-  await tx.session.client.unsafe(`
-    update hearthstone.entities as target
-    set
-      version = stage.version,
-      is_latest = stage.is_latest
-    from hsdata_projection_entity_meta_stage as stage
-    where target.card_id = stage.card_id
-      and target.revision_hash = stage.revision_hash
-  `);
+    await tx.session.client.unsafe(`
+      update hearthstone.entities as target
+      set
+        version = stage.version,
+        is_latest = stage.is_latest
+      from hsdata_projection_entity_meta_stage as stage
+      where target.card_id = stage.card_id
+        and target.revision_hash = stage.revision_hash
+    `);
+
+    await onProgress?.({
+      message: `Updated entity metadata rows (${Math.min(rows.length, chunk.length)} rows in current batch)`,
+      advance: chunk.length,
+      segment: 'entity',
+    });
+  }
+
   profiler?.mark('write_entities_update_meta_rows', {
     rowCount: rows.length,
   });
@@ -2979,6 +3181,7 @@ async function syncLocalizations(
   build: number,
   profiler?: ProjectWriteProfiler,
   onProgress?: WriteProgressReporter,
+  latestRowCountByGroup?: Map<RowKey, number>,
 ) {
   if (plan.deleteRows.length === 0 && plan.upsertRows.length === 0) {
     return;
@@ -3006,23 +3209,29 @@ async function syncLocalizations(
       with no data
     `);
 
-    await copyLocalizationKeysIntoTable(tx, plan.deleteRows, 'hsdata_projection_localization_delete_stage');
-    await analyzeTempTable(tx, 'hsdata_projection_localization_delete_stage');
+    for (const chunk of chunkValues(plan.deleteRows, writeRowBatchSize)) {
+      await tx.session.client.unsafe(`truncate hsdata_projection_localization_delete_stage`);
+      await copyLocalizationKeysIntoTable(tx, chunk, 'hsdata_projection_localization_delete_stage');
+      await analyzeTempTable(tx, 'hsdata_projection_localization_delete_stage');
 
-    await tx.session.client.unsafe(`
-      delete from hearthstone.entity_localizations as target
-      using hsdata_projection_localization_delete_stage as stage
-      where target.card_id = stage.card_id
-        and target.lang = stage.lang
-        and target.revision_hash = stage.revision_hash
-        and target.localization_hash = stage.localization_hash
-    `);
+      await tx.session.client.unsafe(`
+        delete from hearthstone.entity_localizations as target
+        using hsdata_projection_localization_delete_stage as stage
+        where target.card_id = stage.card_id
+          and target.lang = stage.lang
+          and target.revision_hash = stage.revision_hash
+          and target.localization_hash = stage.localization_hash
+      `);
+
+      await onProgress?.({
+        message: `Deleted obsolete localization rows from the shared tables (${chunk.length} rows)`,
+        advance: chunk.length,
+        segment: 'localization',
+      });
+    }
+
     profiler?.mark('write_localizations_delete_rows', {
       rowCount: plan.deleteRows.length,
-    });
-    await onProgress?.({
-      message: 'Deleted obsolete localization rows from the shared tables',
-      advance: 1,
     });
   }
 
@@ -3063,9 +3272,6 @@ async function syncLocalizations(
   }
 
   if (metaRows.length > 0) {
-    await onProgress?.({
-      message: 'Replacing localization version arrays for rows that need full metadata updates',
-    });
     await tx.session.client.unsafe(`
       create temp table hsdata_projection_localization_meta_stage
       on commit drop as
@@ -3079,38 +3285,35 @@ async function syncLocalizations(
       with no data
     `);
 
-    await copyLocalizationMetaRowsIntoTable(tx, metaRows, 'hsdata_projection_localization_meta_stage');
-    profiler?.mark('write_localizations_copy_meta_rows', {
-      rowCount: metaRows.length,
-    });
-    await analyzeTempTable(tx, 'hsdata_projection_localization_meta_stage');
-    profiler?.mark('write_localizations_analyze_meta_stage', {
-      rowCount: metaRows.length,
-    });
+    for (const chunk of chunkValues(metaRows, writeRowBatchSize)) {
+      await tx.session.client.unsafe(`truncate hsdata_projection_localization_meta_stage`);
+      await copyLocalizationMetaRowsIntoTable(tx, chunk, 'hsdata_projection_localization_meta_stage');
+      await analyzeTempTable(tx, 'hsdata_projection_localization_meta_stage');
 
-    await tx.session.client.unsafe(`
-      update hearthstone.entity_localizations as target
-      set
-        version = stage.version
-      from hsdata_projection_localization_meta_stage as stage
-      where target.card_id = stage.card_id
-        and target.lang = stage.lang
-        and target.revision_hash = stage.revision_hash
-        and target.localization_hash = stage.localization_hash
-    `);
+      await tx.session.client.unsafe(`
+        update hearthstone.entity_localizations as target
+        set
+          version = stage.version
+        from hsdata_projection_localization_meta_stage as stage
+        where target.card_id = stage.card_id
+          and target.lang = stage.lang
+          and target.revision_hash = stage.revision_hash
+          and target.localization_hash = stage.localization_hash
+      `);
+
+      await onProgress?.({
+        message: `Replaced localization version arrays for rows that need full metadata updates (${chunk.length} rows)`,
+        advance: chunk.length,
+        segment: 'localization',
+      });
+    }
+
     profiler?.mark('write_localizations_update_meta_rows', {
       rowCount: metaRows.length,
-    });
-    await onProgress?.({
-      message: 'Replaced localization version arrays for rows that need full metadata updates',
-      advance: 1,
     });
   }
 
   if (appendRows.length > 0) {
-    await onProgress?.({
-      message: 'Appending the current build to existing localization version arrays',
-    });
     await tx.session.client.unsafe(`
       create temp table hsdata_projection_localization_append_stage
       on commit drop as
@@ -3123,122 +3326,118 @@ async function syncLocalizations(
       with no data
     `);
 
-    await copyLocalizationKeysIntoTable(tx, appendRows, 'hsdata_projection_localization_append_stage');
-    profiler?.mark('write_localizations_copy_append_rows', {
-      rowCount: appendRows.length,
-    });
-    await analyzeTempTable(tx, 'hsdata_projection_localization_append_stage');
-    profiler?.mark('write_localizations_analyze_append_stage', {
-      rowCount: appendRows.length,
-    });
+    for (const chunk of chunkValues(appendRows, writeRowBatchSize)) {
+      await tx.session.client.unsafe(`truncate hsdata_projection_localization_append_stage`);
+      await copyLocalizationKeysIntoTable(tx, chunk, 'hsdata_projection_localization_append_stage');
+      await analyzeTempTable(tx, 'hsdata_projection_localization_append_stage');
 
-    await tx.session.client.unsafe(`
-      update hearthstone.entity_localizations as target
-      set version = array_append(target.version, ${build})
-      from hsdata_projection_localization_append_stage as stage
-      where target.card_id = stage.card_id
-        and target.lang = stage.lang
-        and target.revision_hash = stage.revision_hash
-        and target.localization_hash = stage.localization_hash
-        and not (${build} = any(target.version))
-    `);
+      await tx.session.client.unsafe(`
+        update hearthstone.entity_localizations as target
+        set version = array_append(target.version, ${build})
+        from hsdata_projection_localization_append_stage as stage
+        where target.card_id = stage.card_id
+          and target.lang = stage.lang
+          and target.revision_hash = stage.revision_hash
+          and target.localization_hash = stage.localization_hash
+          and not (${build} = any(target.version))
+      `);
+
+      await onProgress?.({
+        message: `Appended the current build to existing localization version arrays (${chunk.length} rows)`,
+        advance: chunk.length,
+        segment: 'localization',
+      });
+    }
+
     profiler?.mark('write_localizations_append_build_rows', {
       rowCount: appendRows.length,
-    });
-    await onProgress?.({
-      message: 'Appended the current build to existing localization version arrays',
-      advance: 1,
     });
   }
 
   if (insertRows.length > 0) {
-    await onProgress?.({
-      message: 'Inserting brand-new localization rows into the shared tables',
-    });
     await tx.session.client.unsafe(`
       create temp table hsdata_projection_localization_copy_stage (
         like hearthstone.entity_localizations including defaults
       ) on commit drop
     `);
 
-    await copyLocalizationsIntoTable(tx, insertRows, 'hsdata_projection_localization_copy_stage');
-    profiler?.mark('write_localizations_copy_insert_rows', {
-      rowCount: insertRows.length,
-    });
-    await analyzeTempTable(tx, 'hsdata_projection_localization_copy_stage');
-    profiler?.mark('write_localizations_analyze_insert_stage', {
-      rowCount: insertRows.length,
-    });
+    for (const chunk of chunkValues(insertRows, writeRowBatchSize)) {
+      await tx.session.client.unsafe(`truncate hsdata_projection_localization_copy_stage`);
+      await copyLocalizationsIntoTable(tx, chunk, 'hsdata_projection_localization_copy_stage');
+      await analyzeTempTable(tx, 'hsdata_projection_localization_copy_stage');
 
-    // The staged localization insert path only materializes new composite keys after existing keys have
-    // already received their metadata-only updates through the temp-table merge above.
-    await tx.session.client.unsafe(`
-      insert into hearthstone.entity_localizations (
-        card_id,
-        version,
-        lang,
-        revision_hash,
-        localization_hash,
-        render_hash,
-        render_model,
-        is_latest,
-        name,
-        text,
-        rich_text,
-        display_text,
-        target_text,
-        text_in_play,
-        how_to_earn,
-        how_to_earn_golden,
-        flavor_text,
-        loc_change_type
-      )
-      select
-        stage.card_id,
-        stage.version,
-        stage.lang,
-        stage.revision_hash,
-        stage.localization_hash,
-        stage.render_hash,
-        stage.render_model,
-        stage.is_latest,
-        stage.name,
-        stage.text,
-        stage.rich_text,
-        stage.display_text,
-        stage.target_text,
-        stage.text_in_play,
-        stage.how_to_earn,
-        stage.how_to_earn_golden,
-        stage.flavor_text,
-        stage.loc_change_type
-      from hsdata_projection_localization_copy_stage as stage
-      where not exists (
-        select 1
-        from hearthstone.entity_localizations as target
-        where target.card_id = stage.card_id
-          and target.lang = stage.lang
-          and target.revision_hash = stage.revision_hash
-          and target.localization_hash = stage.localization_hash
-      )
-    `);
+      // The staged localization insert path only materializes new composite keys after existing keys have
+      // already received their metadata-only updates through the temp-table merge above.
+      await tx.session.client.unsafe(`
+        insert into hearthstone.entity_localizations (
+          card_id,
+          version,
+          lang,
+          revision_hash,
+          localization_hash,
+          render_hash,
+          render_model,
+          is_latest,
+          name,
+          text,
+          rich_text,
+          display_text,
+          target_text,
+          text_in_play,
+          how_to_earn,
+          how_to_earn_golden,
+          flavor_text,
+          loc_change_type
+        )
+        select
+          stage.card_id,
+          stage.version,
+          stage.lang,
+          stage.revision_hash,
+          stage.localization_hash,
+          stage.render_hash,
+          stage.render_model,
+          stage.is_latest,
+          stage.name,
+          stage.text,
+          stage.rich_text,
+          stage.display_text,
+          stage.target_text,
+          stage.text_in_play,
+          stage.how_to_earn,
+          stage.how_to_earn_golden,
+          stage.flavor_text,
+          stage.loc_change_type
+        from hsdata_projection_localization_copy_stage as stage
+        where not exists (
+          select 1
+          from hearthstone.entity_localizations as target
+          where target.card_id = stage.card_id
+            and target.lang = stage.lang
+            and target.revision_hash = stage.revision_hash
+            and target.localization_hash = stage.localization_hash
+        )
+      `);
+
+      await onProgress?.({
+        message: `Inserted brand-new localization rows into the shared tables (${chunk.length} rows)`,
+        advance: chunk.length,
+        segment: 'localization',
+      });
+    }
+
     profiler?.mark('write_localizations_insert_new_rows', {
       rowCount: insertRows.length,
     });
-    await onProgress?.({
-      message: 'Inserted brand-new localization rows into the shared tables',
-      advance: 1,
-    });
   }
 
-  await onProgress?.({
-    message: 'Refreshing localization latest flags for affected card-language groups',
-  });
-  await refreshLocalizationLatestRows(tx, affectedGroups, profiler);
-  await onProgress?.({
-    message: 'Refreshed localization latest flags for affected card-language groups',
-    advance: 1,
-  });
+  await refreshLocalizationLatestRows(
+    tx,
+    affectedGroups,
+    profiler,
+    onProgress,
+    latestRowCountByGroup,
+  );
 }
 
 /** Recomputes one affected localization family's latest flag after version-only changes have been written. */
@@ -3246,6 +3445,8 @@ async function refreshLocalizationLatestRows(
   tx: CopyTx,
   rows: Array<Pick<LocalizationStateRow, 'cardId' | 'lang'>>,
   profiler?: ProjectWriteProfiler,
+  onProgress?: WriteProgressReporter,
+  latestRowCountByGroup?: Map<RowKey, number>,
 ) {
   if (rows.length === 0) {
     return;
@@ -3261,36 +3462,45 @@ async function refreshLocalizationLatestRows(
     with no data
   `);
 
-  await copyLocalizationGroupIdsIntoTable(tx, rows, 'hsdata_projection_localization_latest_group_stage');
-  profiler?.mark('write_localizations_copy_latest_groups', {
-    rowCount: rows.length,
-  });
-  await analyzeTempTable(tx, 'hsdata_projection_localization_latest_group_stage');
-  profiler?.mark('write_localizations_analyze_latest_groups', {
-    rowCount: rows.length,
-  });
+  for (const chunk of chunkValues(rows, writeRowBatchSize)) {
+    await tx.session.client.unsafe(`truncate hsdata_projection_localization_latest_group_stage`);
+    await copyLocalizationGroupIdsIntoTable(tx, chunk, 'hsdata_projection_localization_latest_group_stage');
+    await analyzeTempTable(tx, 'hsdata_projection_localization_latest_group_stage');
 
-  await tx.session.client.unsafe(`
-    with latest_version as (
-      select
-        target.card_id,
-        target.lang,
-        max(target.version[array_upper(target.version, 1)]) as latest_version
-      from hearthstone.entity_localizations as target
-      inner join hsdata_projection_localization_latest_group_stage as stage
-        on target.card_id = stage.card_id
-       and target.lang = stage.lang
-      group by
-        target.card_id,
-        target.lang
-    )
-    update hearthstone.entity_localizations as target
-    set is_latest = latest_version.latest_version = any(target.version)
-    from latest_version
-    where target.card_id = latest_version.card_id
-      and target.lang = latest_version.lang
-      and target.is_latest is distinct from (latest_version.latest_version = any(target.version))
-  `);
+    await tx.session.client.unsafe(`
+      with latest_version as (
+        select
+          target.card_id,
+          target.lang,
+          max(target.version[array_upper(target.version, 1)]) as latest_version
+        from hearthstone.entity_localizations as target
+        inner join hsdata_projection_localization_latest_group_stage as stage
+          on target.card_id = stage.card_id
+         and target.lang = stage.lang
+        group by
+          target.card_id,
+          target.lang
+      )
+      update hearthstone.entity_localizations as target
+      set is_latest = latest_version.latest_version = any(target.version)
+      from latest_version
+      where target.card_id = latest_version.card_id
+        and target.lang = latest_version.lang
+        and target.is_latest is distinct from (latest_version.latest_version = any(target.version))
+    `);
+
+    const chunkAdvance = chunk.reduce((count, row) => {
+      const groupKey = localizationGroupKey(row);
+      return count + (latestRowCountByGroup?.get(groupKey) ?? 0);
+    }, 0);
+
+    await onProgress?.({
+      message: `Refreshed localization latest flags for affected card-language groups (${chunk.length} groups)`,
+      advance: chunkAdvance,
+      segment: 'latest',
+    });
+  }
+
   profiler?.mark('write_localizations_refresh_latest_rows', {
     rowCount: rows.length,
   });
@@ -3429,31 +3639,40 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     workLabel:               'snapshot',
   });
 
-  const projected = snapshots.map((snapshot, index) => {
-    const result = projectSnapshot(
+  const projected: ProjectedSnapshot[] = [];
+
+  for (let index = 0; index < snapshots.length; index += 1) {
+    const snapshot = snapshots[index]!;
+    projected.push(projectSnapshot(
       snapshot,
       rawTagsBySnapshotId.get(snapshot.id) ?? [],
       tagMap,
       context,
+    ));
+
+    const completedSnapshotCount = index + 1;
+
+    const shouldReportProgress = (
+      completedSnapshotCount <= 10
+      || completedSnapshotCount === snapshots.length
+      || completedSnapshotCount % projectProgressBatchSize === 0
     );
 
-    if (
-      input.onProgress
-      && (index < 10 || index + 1 === snapshots.length || (index + 1) % 25 === 0)
-    ) {
-      void input.onProgress({
+    if (input.onProgress && shouldReportProgress) {
+      await input.onProgress({
         phase:                   'projecting_snapshots',
-        message:                 `Projected ${index + 1} of ${snapshots.length} snapshots`,
+        message:                 `Projected ${completedSnapshotCount} of ${snapshots.length} snapshots`,
         totalSnapshotCount:      snapshots.length,
-        completedSnapshotCount:  index + 1,
+        completedSnapshotCount,
         totalWorkCount:          snapshots.length,
-        completedWorkCount:      index + 1,
+        completedWorkCount:      completedSnapshotCount,
         workLabel:               'snapshot',
+        writeBreakdown:          null,
       });
-    }
 
-    return result;
-  });
+      await yieldProgressEventLoop();
+    }
+  }
   profiler.mark('project_snapshots', {
     snapshotCount:      projected.length,
     entityCount:        projected.length,
@@ -3506,9 +3725,30 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   });
   const targetEntityRowsByKey = new Map(targetEntities.map(row => [entityKey(row), row]));
   const targetLocalizationRowsByKey = new Map(targetLocalizations.map(row => [localizationKey(row), row]));
+  const summarizeTotalWork = entityCardIds.length
+    + localizationGroups.length
+    + targetEntityStates.length
+    + targetLocalizationStates.length
+    + targetRelations.length;
+  let completedSummarizeWork = 0;
+  const reportSummarizeProgress = async (message: string, advance = 0) => {
+    completedSummarizeWork += advance;
+
+    await input.onProgress?.({
+      phase:                   'summarizing_changes',
+      message,
+      totalSnapshotCount:      snapshots.length,
+      completedSnapshotCount:  snapshots.length,
+      totalWorkCount:          summarizeTotalWork,
+      completedWorkCount:      Math.min(completedSummarizeWork, summarizeTotalWork),
+      workLabel:               'row',
+      writeBreakdown:          null,
+    });
+  };
 
   const cardIds = entityCardIds;
   const sourceIds = [...cardIds];
+  await reportSummarizeProgress('Loading existing shared rows for the projected result set');
   const {
     entities: existingEntities,
     localizations: existingLocalizations,
@@ -3520,6 +3760,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     targetLocalizationStates,
     sourceIds,
     profiler,
+    reportSummarizeProgress,
   );
   profiler.mark('load_existing_rows', {
     cardCount:                   cardIds.length,
@@ -3533,22 +3774,14 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   const existingEntityRowsByKey = new Map(existingEntities.map(row => [entityKey(row), row]));
   const existingLocalizationRowsByKey = new Map(existingLocalizations.map(row => [localizationKey(row), row]));
 
-  await input.onProgress?.({
-    phase:                   'summarizing_changes',
-    message:                 'Reconciling projected rows against the shared tables',
-    totalSnapshotCount:      snapshots.length,
-    completedSnapshotCount:  snapshots.length,
-    totalWorkCount:          targetEntities.length + targetLocalizations.length + targetRelations.length,
-    completedWorkCount:      0,
-    workLabel:               'row',
-  });
+  await reportSummarizeProgress('Reconciling projected rows against the shared tables');
 
-  const entityResult = reconcileRows(existingEntities, targetEntityStates, {
+  const entityResult = await reconcileRows(existingEntities, targetEntityStates, {
     build:    sourceVersion.build,
     keyOf:    entityKey,
     groupKey: row => row.cardId,
     stateOf:  entityState,
-  });
+  }, reportSummarizeProgress, 'entity');
   profiler.mark('reconcile_entities', {
     insertedEntities: entityResult.inserted,
     reusedEntities:   entityResult.reused,
@@ -3556,12 +3789,12 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     finalEntityCount: entityResult.finalRows.length,
     changed:          entityResult.changed,
   });
-  const localizationResult = reconcileRows(existingLocalizations, targetLocalizationStates, {
+  const localizationResult = await reconcileRows(existingLocalizations, targetLocalizationStates, {
     build:    sourceVersion.build,
     keyOf:    localizationKey,
     groupKey: localizationGroupKey,
     stateOf:  localizationState,
-  });
+  }, reportSummarizeProgress, 'localization');
   profiler.mark('reconcile_localizations', {
     insertedLocalizations: localizationResult.inserted,
     reusedLocalizations:   localizationResult.reused,
@@ -3569,12 +3802,12 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     finalLocalizationCount: localizationResult.finalRows.length,
     changed:               localizationResult.changed,
   });
-  const relationResult = reconcileRows(existingRelations, targetRelations, {
+  const relationResult = await reconcileRows(existingRelations, targetRelations, {
     build:    sourceVersion.build,
     keyOf:    relationKey,
     groupKey: row => row.sourceId,
     stateOf:  relationState,
-  });
+  }, reportSummarizeProgress, 'relation');
   profiler.mark('reconcile_relations', {
     insertedRelations: relationResult.inserted,
     reusedRelations:   relationResult.reused,
@@ -3582,20 +3815,17 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     finalRelationCount: relationResult.finalRows.length,
     changed:           relationResult.changed,
   });
-  await input.onProgress?.({
-    phase:                   'summarizing_changes',
-    message:                 'Reconciled projected rows against the shared tables',
-    totalSnapshotCount:      snapshots.length,
-    completedSnapshotCount:  snapshots.length,
-    totalWorkCount:          targetEntities.length + targetLocalizations.length + targetRelations.length,
-    completedWorkCount:      targetEntities.length + targetLocalizations.length + targetRelations.length,
-    workLabel:               'row',
-  });
+  await reportSummarizeProgress('Reconciled projected rows against the shared tables');
 
   const entityPlan = entityResult.syncPlan;
   const localizationPlan = localizationResult.syncPlan;
+  const entityWriteBreakdown = buildEntityWriteBreakdown(
+    entityPlan,
+    existingEntityRowsByKey,
+  );
   const localizationWriteBreakdown = buildLocalizationWriteBreakdown(
     localizationPlan,
+    localizationResult.finalRows,
     existingLocalizationRowsByKey,
     sourceVersion.build,
   );
@@ -3614,35 +3844,64 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
   });
 
   if (!dryRun && shouldWrite) {
-    const totalWriteOperations = ignoreDuplicates
-      ? 3
-      : (entityPlan.deleted > 0 ? 1 : 0)
-        + (sourceIds.length > 0 ? 1 : 0)
-        + 1
-        + countLocalizationWriteOperations(localizationWriteBreakdown)
-        + 1;
+    const writeProgressTotals = buildWriteProgressTotals({
+      ignoreDuplicates,
+      entity: entityWriteBreakdown,
+      localization: localizationWriteBreakdown,
+      relationDeleteCount: ignoreDuplicates ? 0 : sourceIds.length,
+      relationInsertCount: ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
+      targetEntityCount: targetEntities.length,
+      targetLocalizationCount: targetLocalizations.length,
+      targetRelationCount: targetRelations.length,
+    });
+    const totalWriteRows = writeProgressTotals.entity
+      + writeProgressTotals.localization
+      + writeProgressTotals.latest
+      + writeProgressTotals.relation;
     await input.onProgress?.({
       phase:                   'writing_rows',
       message:                 'Preparing to write projected rows into the shared tables',
       totalSnapshotCount:      snapshots.length,
       completedSnapshotCount:  snapshots.length,
-      totalWorkCount:          totalWriteOperations,
+      totalWorkCount:          totalWriteRows,
       completedWorkCount:      0,
-      workLabel:               'operation',
+      workLabel:               'row',
+      writeBreakdown:          toWriteProgressBreakdown(writeProgressTotals, {
+        entity:       0,
+        localization: 0,
+        latest:       0,
+        relation:     0,
+      }),
     });
 
     await db.transaction(async tx => {
-      let completedWriteOperations = 0;
-      const reportWriteProgress = async (message: string, advance = 0) => {
-        completedWriteOperations += advance;
+      let completedWriteRows = 0;
+      const completedWriteBreakdown: WriteProgressBreakdown = {
+        entity:       0,
+        localization: 0,
+        latest:       0,
+        relation:     0,
+      };
+      const reportWriteProgress = async (
+        message: string,
+        advance = 0,
+        segment?: WriteProgressSegment,
+      ) => {
+        completedWriteRows += advance;
+
+        if (segment) {
+          completedWriteBreakdown[segment] += advance;
+        }
+
         await input.onProgress?.({
           phase:                   'writing_rows',
           message,
           totalSnapshotCount:      snapshots.length,
           completedSnapshotCount:  snapshots.length,
-          totalWorkCount:          totalWriteOperations,
-          completedWorkCount:      completedWriteOperations,
-          workLabel:               'operation',
+          totalWorkCount:          totalWriteRows,
+          completedWorkCount:      completedWriteRows,
+          workLabel:               'row',
+          writeBreakdown:          toWriteProgressBreakdown(writeProgressTotals, completedWriteBreakdown),
         });
       };
 
@@ -3652,20 +3911,20 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
           rowCount: entityPlan.deleted,
         });
         if (entityPlan.deleted > 0) {
-          await reportWriteProgress('Deleted obsolete entity rows from the shared tables', 1);
+          await reportWriteProgress('Deleted obsolete entity rows from the shared tables', entityPlan.deleted, 'entity');
         }
         await deleteBySourceIds(tx, sourceIds);
         profiler.mark('write_delete_relations', {
           sourceCount: sourceIds.length,
         });
         if (sourceIds.length > 0) {
-          await reportWriteProgress('Deleted stale relation rows for the projected source cards', 1);
+          await reportWriteProgress('Deleted stale relation rows for the projected source cards', sourceIds.length, 'relation');
         }
       }
 
-      await reportWriteProgress('Writing projected entity rows into the shared tables');
       if (ignoreDuplicates) {
         await insertEntitiesIgnoreDuplicates(tx as CopyTx, targetEntities);
+        await reportWriteProgress('Inserted projected entity rows with duplicate-safe writes', targetEntities.length, 'entity');
       } else {
         await upsertEntities(
           tx as CopyTx,
@@ -3673,17 +3932,18 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
           existingEntityRowsByKey,
           targetEntityRowsByKey,
           profiler,
+          async update => {
+            await reportWriteProgress(update.message, update.advance ?? 0, update.segment);
+          },
         );
       }
       profiler.mark('write_insert_entities', {
         rowCount: ignoreDuplicates ? targetEntities.length : entityPlan.upsertRows.length,
       });
-      await reportWriteProgress('Wrote projected entity rows into the shared tables', 1);
 
-      await reportWriteProgress('Writing projected localization rows into the shared tables');
       if (ignoreDuplicates) {
         await insertLocalizationsIgnoreDuplicates(tx as CopyTx, targetLocalizations);
-        await reportWriteProgress('Wrote projected localization rows into the shared tables', 1);
+        await reportWriteProgress('Inserted projected localization rows with duplicate-safe writes', targetLocalizations.length, 'localization');
       } else {
         await syncLocalizations(
           tx as CopyTx,
@@ -3693,15 +3953,15 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
           sourceVersion.build!,
           profiler,
           async update => {
-            await reportWriteProgress(update.message, update.advance ?? 0);
+            await reportWriteProgress(update.message, update.advance ?? 0, update.segment);
           },
+          localizationWriteBreakdown.latestRowCountByGroup,
         );
       }
       profiler.mark('write_insert_localizations', {
         rowCount: ignoreDuplicates ? targetLocalizations.length : localizationPlan.upsertRows.length,
       });
 
-      await reportWriteProgress('Writing projected relation rows into the shared tables');
       if (ignoreDuplicates) {
         await insertRelationsIgnoreDuplicates(tx, targetRelations);
       } else {
@@ -3710,10 +3970,25 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       profiler.mark('write_insert_relations', {
         rowCount: ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
       });
-      await reportWriteProgress('Wrote projected relation rows into the shared tables', 1);
+      await reportWriteProgress(
+        'Wrote projected relation rows into the shared tables',
+        ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
+        'relation',
+      );
     });
     profiler.mark('write_transaction_committed');
   }
+
+  await input.onProgress?.({
+    phase:                   'completed',
+    message:                 'Completed hsdata projection',
+    totalSnapshotCount:      snapshots.length,
+    completedSnapshotCount:  snapshots.length,
+    totalWorkCount:          snapshots.length,
+    completedWorkCount:      snapshots.length,
+    workLabel:               'snapshot',
+    writeBreakdown:          null,
+  });
 
     const report = {
       dryRun,
