@@ -112,8 +112,31 @@ interface SourceVersionWriteInput {
   importEngineVersion: string | null | undefined;
 }
 
+// Narrow view of the PostgreSQL error fields that matter during import failures.
+interface DbErrorCause {
+  code?: string;
+  detail?: string;
+  hint?: string;
+  constraint?: string;
+  table?: string;
+  column?: string;
+  position?: string;
+}
+
+// Import-side batch metadata attached to rethrown query failures for diagnosis.
+interface ImportBatchErrorContext {
+  operation: string;
+  chunkRowCount: number;
+  estimatedParameterCount: number;
+}
+
 const cardSetEnumId = 183;
 const cardSetRawName = 'CARD_SET';
+const maxQueryParameterCount = 65534;
+const queryParameterSafetyMargin = 1024;
+const rawEntitySnapshotInsertColumnCount = 7;
+const rawEntitySnapshotTagInsertColumnCount = 16;
+const placeholderSetInsertColumnCount = 9;
 
 // Modeled set ids accepted by downstream projection.
 function isModeledSetId(setId: string): boolean {
@@ -253,6 +276,53 @@ function chunkValues<T>(values: T[], size = 2000): T[][] {
   }
 
   return chunks;
+}
+
+// Maximum row count that keeps one parameterized insert below PostgreSQL's bind limit.
+function computeInsertBatchSize(columnCount: number, maxParameterCount = maxQueryParameterCount): number {
+  const safeParameterCount = Math.max(1, maxParameterCount - queryParameterSafetyMargin);
+  return Math.max(1, Math.floor(safeParameterCount / columnCount));
+}
+
+// Walks nested `cause` and wrapped `error` fields until the innermost error-like object.
+function findInnermostError(error: unknown): unknown {
+  let current = error;
+
+  while (current != null && typeof current === 'object') {
+    if ('error' in current && (current as { error?: unknown }).error != null) {
+      current = (current as { error: unknown }).error;
+      continue;
+    }
+
+    if ('cause' in current && (current as { cause?: unknown }).cause != null) {
+      current = (current as { cause: unknown }).cause;
+      continue;
+    }
+
+    break;
+  }
+
+  return current;
+}
+
+// Wraps one batch failure with the operation and estimated bind-parameter count.
+function withImportBatchError(
+  error: unknown,
+  operation: string,
+  chunkRowCount: number,
+  columnCount: number,
+) {
+  return new Error(
+    `${operation} failed for ${chunkRowCount} row(s) with about ${chunkRowCount * columnCount} parameters`,
+    {
+      cause: {
+        error,
+        operation,
+        chunkRowCount,
+        estimatedParameterCount: chunkRowCount * columnCount,
+      } satisfies ImportBatchErrorContext & { error: unknown },
+    },
+  );
 }
 
 // Sorted unique integers.
@@ -485,19 +555,32 @@ async function insertPlaceholderSets(dbfIds: number[]): Promise<number> {
     return 0;
   }
 
-  await db.insert(HearthstoneSet).values(
-    missingPlaceholderDbfIds.map(dbfId => ({
-      setId:         buildHsdataPlaceholderSetId(dbfId),
-      dbfId,
-      slug:          null,
-      rawName:       null,
-      type:          'unknown',
-      releaseDate:   '',
-      cardCountFull: null,
-      cardCount:     null,
-      group:         null,
-    })),
-  );
+  const insertBatchSize = computeInsertBatchSize(placeholderSetInsertColumnCount);
+
+  for (const chunk of chunkValues(missingPlaceholderDbfIds, insertBatchSize)) {
+    try {
+      await db.insert(HearthstoneSet).values(
+        chunk.map(dbfId => ({
+          setId:         buildHsdataPlaceholderSetId(dbfId),
+          dbfId,
+          slug:          null,
+          rawName:       null,
+          type:          'unknown',
+          releaseDate:   '',
+          cardCountFull: null,
+          cardCount:     null,
+          group:         null,
+        })),
+      );
+    } catch (error) {
+      throw withImportBatchError(
+        error,
+        'insert_placeholder_sets',
+        chunk.length,
+        placeholderSetInsertColumnCount,
+      );
+    }
+  }
 
   return missingPlaceholderDbfIds.length;
 }
@@ -684,7 +767,21 @@ async function insertSnapshotTags(
     };
   });
 
-  await tx.insert(RawEntitySnapshotTag).values(rows);
+  const insertBatchSize = computeInsertBatchSize(rawEntitySnapshotTagInsertColumnCount);
+
+  for (const chunk of chunkValues(rows, insertBatchSize)) {
+    try {
+      await tx.insert(RawEntitySnapshotTag).values(chunk);
+    } catch (error) {
+      throw withImportBatchError(
+        error,
+        'insert_raw_entity_snapshot_tags',
+        chunk.length,
+        rawEntitySnapshotTagInsertColumnCount,
+      );
+    }
+  }
+
   return rows.length;
 }
 
@@ -800,6 +897,57 @@ function shouldSkipSourceVersionImport(
   return sourceVersion?.status === 'completed' && sourceVersion.sourceHash === sourceHash;
 }
 
+// Extracts a compact PostgreSQL error summary without relying on driver-specific classes.
+function describeDbErrorCause(error: unknown) {
+  const root = findInnermostError(error);
+
+  if (root == null || typeof root !== 'object') {
+    return null;
+  }
+
+  const cause = 'cause' in root ? (root as { cause?: unknown }).cause : undefined;
+  if (cause == null || typeof cause !== 'object') {
+    return null;
+  }
+
+  const dbCause = cause as DbErrorCause;
+  return {
+    code:       dbCause.code ?? null,
+    detail:     dbCause.detail ?? null,
+    hint:       dbCause.hint ?? null,
+    constraint: dbCause.constraint ?? null,
+    table:      dbCause.table ?? null,
+    column:     dbCause.column ?? null,
+    position:   dbCause.position ?? null,
+  };
+}
+
+// Reduces one wrapped database error into the fields worth logging during import failures.
+function summarizeImportError(error: unknown) {
+  const dbError = describeDbErrorCause(error);
+  const cause = error != null && typeof error === 'object' && 'cause' in error
+    ? (error as { cause?: unknown }).cause
+    : undefined;
+  const causeMessage = cause != null
+    && typeof cause === 'object'
+    && 'message' in cause
+    && typeof (cause as { message?: unknown }).message === 'string'
+    ? (cause as { message: string }).message
+    : null;
+  const message = error instanceof Error
+    ? (error.message.startsWith('Failed query:')
+        ? causeMessage ?? 'Database query failed'
+        : error.message)
+    : String(error);
+
+  return {
+    name: error instanceof Error ? error.name : typeof error,
+    message,
+    causeMessage,
+    dbError,
+  };
+}
+
 // sourceTag overwrite rules enforced before import begins.
 function assertSourceVersionImportable(
   sourceVersion: SourceVersionRow | null,
@@ -897,26 +1045,41 @@ async function applyHsdataImport(
   const newSnapshotIds = new Map<string, string>();
 
   if (!input.dryRun && newEntities.length > 0) {
-    const inserted = await tx.insert(RawEntitySnapshot)
-      .values(newEntities.map(entity => ({
-        cardId:           entity.cardId,
-        dbfId:            entity.dbfId,
-        sourceTags:       [input.sourceTag],
-        entityXmlVersion: entity.entityXmlVersion,
-        snapshotHash:     entity.snapshotHash,
-        extraPayload:     entity.extraPayload,
-        isLatest:         false,
-      })))
-      .returning({
-        id:           RawEntitySnapshot.id,
-        cardId:       RawEntitySnapshot.cardId,
-        snapshotHash: RawEntitySnapshot.snapshotHash,
-      });
+    const insertBatchSize = computeInsertBatchSize(rawEntitySnapshotInsertColumnCount);
 
-    for (const row of inserted) {
-      const key = snapshotKey(row.cardId, row.snapshotHash);
-      newSnapshotIds.set(key, row.id);
-      snapshotIdByKey.set(key, row.id);
+    for (const chunk of chunkValues(newEntities, insertBatchSize)) {
+      let inserted: Array<{ id: string, cardId: string, snapshotHash: string }>;
+
+      try {
+        inserted = await tx.insert(RawEntitySnapshot)
+          .values(chunk.map(entity => ({
+            cardId:           entity.cardId,
+            dbfId:            entity.dbfId,
+            sourceTags:       [input.sourceTag],
+            entityXmlVersion: entity.entityXmlVersion,
+            snapshotHash:     entity.snapshotHash,
+            extraPayload:     entity.extraPayload,
+            isLatest:         false,
+          })))
+          .returning({
+            id:           RawEntitySnapshot.id,
+            cardId:       RawEntitySnapshot.cardId,
+            snapshotHash: RawEntitySnapshot.snapshotHash,
+          });
+      } catch (error) {
+        throw withImportBatchError(
+          error,
+          'insert_raw_entity_snapshots',
+          chunk.length,
+          rawEntitySnapshotInsertColumnCount,
+        );
+      }
+
+      for (const row of inserted) {
+        const key = snapshotKey(row.cardId, row.snapshotHash);
+        newSnapshotIds.set(key, row.id);
+        snapshotIdByKey.set(key, row.id);
+      }
     }
   }
 
@@ -1247,7 +1410,7 @@ export async function importParsedHsdata(input: ImportParsedHsdataInput): Promis
     console.error('[hearthstone][hsdata-import] failed', {
       sourceTag: input.sourceTag,
       build:     input.parsed.build,
-      error,
+      error:     summarizeImportError(error),
     });
 
     profiler.mark('failed', {

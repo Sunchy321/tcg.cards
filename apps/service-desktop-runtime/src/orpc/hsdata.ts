@@ -108,6 +108,98 @@ const publishReport = z.object({
   publishedAt: z.string(),
 });
 
+/** Reads one object-like cause from an unknown thrown value. */
+const readErrorCause = (error: unknown) => {
+  let current = error;
+
+  while (current != null && typeof current === 'object') {
+    if ('error' in current && (current as { error?: unknown }).error != null) {
+      current = (current as { error: unknown }).error;
+      continue;
+    }
+
+    if (!('cause' in current)) {
+      return null;
+    }
+
+    const cause = (current as { cause?: unknown }).cause;
+    if (cause == null || typeof cause !== 'object') {
+      return null;
+    }
+
+    if ('code' in cause || 'detail' in cause || 'hint' in cause || 'constraint' in cause) {
+      return cause as Record<string, unknown>;
+    }
+
+    current = cause;
+  }
+
+  return null;
+};
+
+/** Builds one compact database error message from a wrapped query failure. */
+const formatDbErrorMessage = (error: unknown) => {
+  const cause = readErrorCause(error);
+  if (cause == null) {
+    return null;
+  }
+
+  const code = typeof cause.code === 'string' ? cause.code : null;
+  const detail = typeof cause.detail === 'string' ? cause.detail : null;
+  const hint = typeof cause.hint === 'string' ? cause.hint : null;
+  const constraint = typeof cause.constraint === 'string' ? cause.constraint : null;
+  const table = typeof cause.table === 'string' ? cause.table : null;
+  const column = typeof cause.column === 'string' ? cause.column : null;
+  const causeMessage = typeof cause.message === 'string' ? cause.message : null;
+
+  if (
+    code == null
+    && detail == null
+    && hint == null
+    && constraint == null
+    && table == null
+    && column == null
+    && causeMessage == null
+  ) {
+    return null;
+  }
+
+  const header = [
+    'Database query failed',
+    code ? `(${code})` : null,
+    table ? `on ${table}` : null,
+    column ? `column ${column}` : null,
+    constraint ? `constraint ${constraint}` : null,
+  ]
+    .filter(part => part != null)
+    .join(' ');
+  const body = detail ?? causeMessage;
+
+  return hint != null
+    ? `${header}: ${body ?? 'No detail available'}. Hint: ${hint}`
+    : `${header}: ${body ?? 'No detail available'}`;
+};
+
+/** Formats one thrown value into the short message shown to desktop clients. */
+const formatRuntimeErrorMessage = (error: unknown) => {
+  if (error instanceof ORPCError) {
+    return error.message;
+  }
+
+  const dbMessage = formatDbErrorMessage(error);
+  if (dbMessage != null) {
+    return dbMessage;
+  }
+
+  if (error instanceof Error) {
+    return error.message.startsWith('Failed query:')
+      ? 'Database query failed'
+      : error.message;
+  }
+
+  return String(error);
+};
+
 /** Normalizes one thrown value into a runtime RPC error. */
 const toRuntimeError = (error: unknown) => {
   if (error instanceof ORPCError) {
@@ -115,7 +207,7 @@ const toRuntimeError = (error: unknown) => {
   }
 
   return new ORPCError('INTERNAL_SERVER_ERROR', {
-    message: error instanceof Error ? error.message : String(error),
+    message: formatRuntimeErrorMessage(error),
   });
 };
 
@@ -250,9 +342,10 @@ const importSource = os
 
       return report;
     } catch (error) {
+      const message = formatRuntimeErrorMessage(error);
       updateImportJob(job.jobId, {
         phase: 'failed',
-        message: error instanceof Error ? error.message : String(error),
+        message,
         workLabel: null,
       });
       throw toRuntimeError(error);
@@ -319,11 +412,12 @@ const projectSourceVersion = os
 
       return report;
     } catch (error) {
+      const message = formatRuntimeErrorMessage(error);
       if (!input.dryRun) {
         await getLocalDb().update(SourceVersion)
           .set({
             projectionStatus: 'failed',
-            projectionError:  error instanceof Error ? error.message : String(error),
+            projectionError:  message,
             projectedAt:      null,
           })
           .where(eq(SourceVersion.sourceTag, input.sourceTag));
@@ -331,7 +425,7 @@ const projectSourceVersion = os
 
       updateProjectJob(input.sourceTag, {
         phase: 'failed',
-        message: error instanceof Error ? error.message : String(error),
+        message,
         workLabel: null,
         writeBreakdown: null,
       });
