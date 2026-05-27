@@ -26,7 +26,7 @@ export default defineNuxtConfig({
       gameBaseUrls: {
         hearthstone: process.env.HEARTHSTONE_BASE_URL ?? 'http://localhost:3008',
         magic:       process.env.MAGIC_BASE_URL ?? 'https://magic.tcg.cards',
-        yugioh:      process.env.YUGIOH_BASE_URL ?? 'https://yugioh.tcg.cards',
+        yugioh:      process.env.YUGIOH_BASE_URL ?? 'http://localhost:3009',
         ptcg:        process.env.PTCG_BASE_URL ?? 'https://ptcg.tcg.cards',
         lorcana:     process.env.LORCANA_BASE_URL ?? 'https://lorcana.tcg.cards',
       },

@@ -7,6 +7,7 @@
 import omni from './omni';
 import magic from './magic';
 import hearthstone from './hearthstone';
+import yugioh from './yugioh';
 
 export default {
   lang: {
@@ -142,4 +143,5 @@ export default {
   omni,
   magic,
   hearthstone,
+  yugioh,
 };
