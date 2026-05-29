@@ -1743,13 +1743,7 @@ function projectSnapshot(
       continue;
     }
 
-    if (
-      projectKind === 'assign_scalar'
-      || projectKind === 'assign_bool'
-      || projectKind === 'assign_int'
-      || projectKind === 'assign_string'
-      || projectKind === 'assign_enum'
-    ) {
+    if (projectKind === 'assign_value') {
       applyEntityScalar(entityDraft, targetPath, cleaned);
       continue;
     }

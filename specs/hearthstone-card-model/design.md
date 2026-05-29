@@ -190,7 +190,7 @@
 - `normalizeConfig`：解析配置，如布尔值集合、枚举映射、语言映射
 - `projectTargetType`：目标层，如 `entity`、`entity_localization`
 - `projectTargetPath`：目标字段，如 `health`、`collectible`、`localization.name`
-- `projectKind`：投影方式，如 `assign_scalar`、`assign_card_ref`、`assign_localized_text`
+- `projectKind`：投影方式，如 `assign_value`、`assign_card_ref`、`assign_localized_text`
 - `projectConfig`：投影配置，如语言选择、空值规则、枚举 fallback
 - `status`：`active`、`discovered`、`deprecated`、`merged`
 - `description`：Tag 说明
@@ -333,8 +333,7 @@ Tag 重命名只修改 `tags`：
 
 `projectKind` 推荐支持：
 
-- `assign_scalar`
-- `assign_enum`
+- `assign_value`
 - `assign_card_ref`
 - `assign_localized_text`
 - `append_string_array`
@@ -354,8 +353,8 @@ Tag 重命名只修改 `tags`：
 
 - `CARDNAME` -> `entity_localization.name`，`projectionKind = assign_localized_text`
 - `CARDTEXT` -> `entity_localization.richText`，`projectionKind = assign_localized_text`
-- `HEALTH` -> `entity.health`，`projectionKind = assign_scalar`
-- `COLLECTIBLE` -> `entity.collectible`，`projectionKind = assign_scalar`
+- `HEALTH` -> `entity.health`，`projectionKind = assign_value`
+- `COLLECTIBLE` -> `entity.collectible`，`projectionKind = assign_value`
 - `HERO_POWER` -> `entity.heroPower.cardId`，`projectionKind = assign_card_ref`
 
 ### 5.7 Set 缺失发现与阻断策略

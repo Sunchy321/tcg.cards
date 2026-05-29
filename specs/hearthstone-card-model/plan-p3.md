@@ -222,10 +222,7 @@ P3 优先使用 `hearthstone.tags` 中的显式配置：
 
 首版支持以下 `projectKind`：
 
-- `assign_scalar`：写入普通结构字段
-- `assign_bool`：写入 boolean 字段
-- `assign_int`：写入 integer 字段
-- `assign_string`：写入 string 字段
+- `assign_value`：写入普通标量字段（bool/int/string/enum 由 normalizeKind 区分）
 - `append_string_array`：向 string 数组字段追加值，并保留首次出现顺序去重；`normalizeKind = enum_from_int` 时追加规范化后的 string/string[]，`normalizeKind = bool_from_int` 时在 `true` 时追加必填的 `projectConfig.value`
 - `assign_card_ref`：写入 card id 字段或关系字段
 - `assign_localized_text`：写入 localization 字段；`text` 和 `displayText` 不允许作为直接投影目标，只能从 `richText` 派生
