@@ -1,8 +1,8 @@
 import { ORPCError, os } from '@orpc/server';
 
 import z from 'zod';
-import { random as randomInt, omit } from 'lodash-es';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { omit } from 'lodash-es';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { diff as jsonDiff } from 'jsondiffpatch';
 
 import { db } from '#db/db';
@@ -12,6 +12,8 @@ import { EntityRelation } from '#schema/shared/hearthstone/entity-relation';
 import { locale } from '#model/hearthstone/schema/basic';
 import { cardProfile } from '#model/hearthstone/schema/card';
 import { cardEntityView, cardFullView } from '#model/hearthstone/schema/entity';
+
+import { getRandomCardId } from '~~/server/utils/random-card';
 
 const maxVersion = (version: typeof CardEntityView.version) => sql<number>`
   (
@@ -64,14 +66,11 @@ const random = os
   .input(z.any())
   .output(z.string())
   .handler(async () => {
-    const cards = await db.select({ cardId: CardEntityView.cardId })
-      .from(CardEntityView)
-      .where(and(
-        eq(CardEntityView.isLatest, true),
-        eq(CardEntityView.lang, 'en'),
-      ));
+    const cardId = await getRandomCardId();
 
-    const cardId = cards[randomInt(0, cards.length - 1)]!.cardId;
+    if (cardId == null) {
+      throw new ORPCError('NOT_FOUND');
+    }
 
     return cardId;
   });
@@ -139,6 +138,17 @@ const full = os
     const { cardId, lang, version } = input;
     const card = await findCardView(input);
 
+    if (card == null && version != null) {
+      card = await db.select().from(CardEntityView)
+        .where(and(
+          eq(CardEntityView.cardId, cardId),
+          eq(CardEntityView.lang, lang),
+        ))
+        .orderBy(desc(CardEntityView.version))
+        .limit(1)
+        .then(rows => rows[0]);
+    }
+
     if (card == null) {
       throw new ORPCError('NOT_FOUND');
     }
@@ -175,11 +185,44 @@ const full = os
         latestOrVersion(EntityRelation.version, EntityRelation.isLatest, version),
       ));
 
-    const relatedCards = [...sourceRelation, ...targetRelation]
-      .sort((left, right) =>
-        left.relation.localeCompare(right.relation)
-        || left.cardId.localeCompare(right.cardId),
-      );
+    const entourageRelation = (card.entourages ?? []).map(relatedCardId => ({
+      relation: 'entourage',
+      version:  card.version,
+      cardId:   relatedCardId,
+    }));
+
+    const relatedBase = dedupeRelatedCards([
+      ...sourceRelation,
+      ...targetRelation,
+      ...entourageRelation,
+    ]);
+
+    const relatedIds = [...new Set(relatedBase.map(rel => rel.cardId))];
+    const relatedRows = relatedIds.length === 0
+      ? []
+      : await db.select().from(CardEntityView)
+        .where(and(
+          eq(CardEntityView.lang, lang),
+          inArray(CardEntityView.cardId, relatedIds),
+        ))
+        .orderBy(desc(CardEntityView.version));
+
+    const relatedDetail = new Map<string, typeof relatedRows[number]>();
+    for (const row of relatedRows) {
+      if (!relatedDetail.has(row.cardId)) {
+        relatedDetail.set(row.cardId, row);
+      }
+    }
+
+    const relatedCards = relatedBase.map(rel => {
+      const detail = relatedDetail.get(rel.cardId);
+      return {
+        ...rel,
+        name:        detail?.localization.name ?? null,
+        displayText: detail?.localization.displayText ?? null,
+        type:        detail?.type ?? null,
+      };
+    });
 
     return {
       ...card,
@@ -268,3 +311,17 @@ export const cardApi = {
   full,
   diff,
 };
+
+function dedupeRelatedCards(cards: Array<{ relation: string; version: number[]; cardId: string }>) {
+  const seen = new Set<string>();
+  const result: Array<{ relation: string; version: number[]; cardId: string }> = [];
+
+  for (const card of cards) {
+    const key = `${card.relation}:${card.cardId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(card);
+  }
+
+  return result;
+}

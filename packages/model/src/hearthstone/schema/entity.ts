@@ -211,9 +211,12 @@ export const cardFullView = cardEntityView.extend({
     versions: z.number().array().array(),
 
     relatedCards: z.strictObject({
-        relation: z.string(),
-        cardId:   z.string(),
-        version:  z.number().array(),
+        relation:    z.string(),
+        cardId:      z.string(),
+        version:     z.number().array(),
+        name:        z.string().nullable(),
+        displayText: z.string().nullable(),
+        type:        types.nullable(),
     }).array(),
 });
 

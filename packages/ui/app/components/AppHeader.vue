@@ -66,7 +66,7 @@
           />
 
           <UDropdownMenu
-            v-if="gameLocales.length > 1"
+            v-if="showLocaleSwitcher && gameLocales.length > 1"
             :items="localeMenuItems"
             :ui="{ content: 'min-w-fit' }"
           >
@@ -94,6 +94,8 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n';
+
 const appConfig = useAppConfig();
 const router = useRouter();
 const route = useRoute();
@@ -111,18 +113,15 @@ const actionMeta = route.meta.actions ?? [];
 
 const actions = getActions();
 
-// ── Locale switcher ──────────────────────────────────────────────────────────
+// Locale switcher
 
 const gameLocales = appConfig.locales ?? [];
-const hasGameLocale = Boolean(appConfig.gameId) && gameLocales.length > 0;
-const gameLocale = hasGameLocale ? useGameLocale() : null;
+const showLocaleSwitcher = appConfig.showLocaleSwitcher ?? true;
+
+const gameLocale = useGameLocale();
 const { t } = useI18n();
 
 const localeMenuItems = computed(() => {
-  if (!gameLocale) {
-    return [];
-  }
-
   return gameLocales.map(l => ({
     code:     l,
     label:    t(`locale.${l}`, l),
@@ -130,8 +129,6 @@ const localeMenuItems = computed(() => {
     onSelect: () => { gameLocale.value = l; },
   }));
 });
-
-// ────────────────────────────────────────────────────────────────────────────
 
 const getHandler = (id: string) => {
   const action = actions.value.find(a => a.id === id);

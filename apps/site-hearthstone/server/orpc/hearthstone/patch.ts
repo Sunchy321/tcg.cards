@@ -1,4 +1,4 @@
-import { ORPCError, os } from '@orpc/server';
+import { os } from '@orpc/server';
 
 import z from 'zod';
 import { desc, eq } from 'drizzle-orm';
@@ -17,7 +17,14 @@ const list = os
   .input(z.any())
   .output(patch.array())
   .handler(async () => {
-    const patches = await db.select().from(Patch).orderBy(desc(Patch.buildNumber));
+    const patches = await db
+      .select()
+      .from(Patch)
+      .orderBy(desc(Patch.buildNumber))
+      .catch(error => {
+        if (isMissingPatchTable(error)) return [];
+        throw error;
+      });
 
     return patches;
   });
@@ -33,18 +40,18 @@ const full = os
   .handler(async ({ input }) => {
     const { buildNumber } = input;
 
-    const patch = await db
+    const found = await db
       .select()
       .from(Patch)
       .where(eq(Patch.buildNumber, buildNumber))
       .limit(1)
-      .then(rows => rows[0]);
+      .then(rows => rows[0])
+      .catch(error => {
+        if (isMissingPatchTable(error)) return null;
+        throw error;
+      });
 
-    if (patch == null) {
-      throw new ORPCError('NOT_FOUND');
-    }
-
-    return patch;
+    return found ?? fallbackPatch(buildNumber);
   });
 
 const save = os
@@ -90,3 +97,29 @@ export const patchApi = {
   list,
   '': full,
 };
+
+function fallbackPatch(buildNumber: number) {
+  return {
+    buildNumber,
+    name:      `${buildNumber}`,
+    shortName: `${buildNumber}`,
+    hash:      '',
+    isLatest:  false,
+    isUpdated: false,
+  };
+}
+
+function isMissingPatchTable(error: unknown): boolean {
+  if (typeof error !== 'object' || error == null) return false;
+
+  if ('code' in error && error.code === '42P01') return true;
+  if (
+    'message' in error
+    && typeof error.message === 'string'
+    && error.message.includes('hearthstone.patches')
+  ) {
+    return true;
+  }
+
+  return 'cause' in error && isMissingPatchTable(error.cause);
+}

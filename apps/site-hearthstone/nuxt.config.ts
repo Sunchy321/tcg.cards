@@ -25,18 +25,23 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
+      mainSiteUrl:  process.env.MAIN_SITE_URL ?? 'http://localhost:3000',
     },
   },
 
   css: ['~/assets/css/main.css'],
 
   alias: {
-    '#shared': fileURLToPath(new URL('./node_modules/@tcg-cards/shared/src', import.meta.url)),
-    '#model':  fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
-    '#search': fileURLToPath(new URL('./node_modules/@tcg-cards/search/src', import.meta.url)),
-    '#db':     fileURLToPath(new URL('./node_modules/@tcg-cards/db/src', import.meta.url)),
-    '#schema': fileURLToPath(new URL('./node_modules/@tcg-cards/db/src/schema', import.meta.url)),
+    '#shared': fileURLToPath(new URL('../../packages/shared/src', import.meta.url)),
+    '#model':  fileURLToPath(new URL('../../packages/model/src', import.meta.url)),
+    '#search': fileURLToPath(new URL('../../packages/search/src', import.meta.url)),
+    '#db':     fileURLToPath(new URL('../../packages/db/src', import.meta.url)),
+    '#schema': fileURLToPath(new URL('../../packages/db/src/schema', import.meta.url)),
   },
+
+  components: [
+    { path: '~/components', pathPrefix: false },
+  ],
 
   routeRules: {
     '/': { prerender: true },
@@ -58,12 +63,6 @@ export default defineNuxtConfig({
       warmup: {
         clientFiles: ['./app/**/*.vue'],
       },
-    },
-    optimizeDeps: {
-      include: [
-        '@iconify-json/lucide',
-        '@iconify-json/simple-icons',
-      ],
     },
   },
 

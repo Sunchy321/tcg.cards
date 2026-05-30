@@ -7,12 +7,18 @@ declare module 'nuxt/schema' {
     gameId?:  string;
     /** Available locales for the site-level locale switcher in the header. */
     locales?: string[];
+    /** Default game data locale when no cookie has been stored yet. */
+    defaultLocale?: string;
+    /** Whether to show the game locale switcher in the shared header. */
+    showLocaleSwitcher?: boolean;
   }
 
   interface AppConfig {
     appIcon?: string;
     gameId?:  string;
     locales?: string[];
+    defaultLocale?: string;
+    showLocaleSwitcher?: boolean;
   }
 }
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Mana crystal hexagon shape -->
+  <polygon points="12,2 21,7 21,17 12,22 3,17 3,7" fill="currentColor" opacity="0.2"/>
+  <polygon points="12,2 21,7 21,17 12,22 3,17 3,7" stroke="currentColor" stroke-width="1.5"/>
+  <!-- Inner gem -->
+  <polygon points="12,6 17,9 17,15 12,18 7,15 7,9" fill="currentColor" opacity="0.3"/>
+  <!-- Mana drop -->
+  <path d="M12 10 L10 14 L14 14 Z" fill="currentColor"/>
+</svg>

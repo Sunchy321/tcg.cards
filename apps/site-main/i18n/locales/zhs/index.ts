@@ -142,4 +142,5 @@ export default {
   omni,
   magic,
   hearthstone,
+
 };

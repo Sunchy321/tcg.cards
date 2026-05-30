@@ -23,11 +23,12 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const { public: { gameBaseUrls } } = useRuntimeConfig();
 
 const games = GAMES.map(g => ({
   id:   g,
   name: t(`${g}.$self`),
   icon: `i:${g}-logo`,
-  url:  `https://${g}.tcg.cards`,
+  url:  gameBaseUrls[g] ?? `https://${g}.tcg.cards`,
 }));
 </script>

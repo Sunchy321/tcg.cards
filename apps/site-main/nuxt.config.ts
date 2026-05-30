@@ -21,9 +21,20 @@ export default defineNuxtConfig({
     },
   },
 
+  runtimeConfig: {
+    public: {
+      gameBaseUrls: {
+        hearthstone: process.env.HEARTHSTONE_BASE_URL ?? 'http://localhost:3008',
+        magic:       process.env.MAGIC_BASE_URL ?? 'https://magic.tcg.cards',
+        ptcg:        process.env.PTCG_BASE_URL ?? 'https://ptcg.tcg.cards',
+        lorcana:     process.env.LORCANA_BASE_URL ?? 'https://lorcana.tcg.cards',
+      },
+    },
+  },
+
   alias: {
-    '#shared': fileURLToPath(new URL('./node_modules/@tcg-cards/shared/src', import.meta.url)),
-    '#app-ui': fileURLToPath(new URL('./node_modules/@tcg-cards/ui/app', import.meta.url)),
+    '#shared': fileURLToPath(new URL('../../packages/shared/src', import.meta.url)),
+    '#app-ui': fileURLToPath(new URL('../../packages/ui/app', import.meta.url)),
   },
 
   css: ['~/assets/css/main.css'],

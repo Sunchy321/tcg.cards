@@ -13,4 +13,6 @@ export default defineAppConfig({
   appIcon: 'i:hearthstone-logo',
 
   locales: mainLocale.options,
+  defaultLocale: 'zhs',
+  showLocaleSwitcher: false,
 });

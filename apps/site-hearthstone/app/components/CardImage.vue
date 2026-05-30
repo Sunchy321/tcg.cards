@@ -1,32 +1,60 @@
 <template>
   <div class="relative aspect-68/94 w-full overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
     <img
+      v-if="!hasError && imageUrl"
+      :key="imageUrl"
       :src="imageUrl"
       :alt="cardId"
       class="w-full h-full object-contain"
-      loading="lazy"
+      :loading="loading"
       @error="onError"
     >
+    <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
+      <UIcon name="lucide:image-off" class="text-3xl" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { Locale } from '#model/hearthstone/schema/basic';
 import type { CardImageOption } from '~/utils/card-image';
 import { buildCardImageUrl, buildLegacyCardImageUrl } from '~/utils/card-image';
 
 const props = withDefaults(defineProps<{
   cardId:      string;
   version:     number;
+  lang?:       Locale;
   renderHash?: string | null;
   variant?:    CardImageOption;
+  loading?:    'eager' | 'lazy';
 }>(), {
+  lang:       'zhs',
   variant:    'normal',
   renderHash: null,
+  loading:    'lazy',
 });
 
 const { public: { assetBaseUrl } } = useRuntimeConfig();
 
-const stage = ref<'primary' | 'legacy' | 'fallback'>('primary');
+const hearthstoneJsonLocales: Record<Locale, string> = {
+  en:  'enUS',
+  de:  'deDE',
+  es:  'esES',
+  fr:  'frFR',
+  it:  'itIT',
+  ja:  'jaJP',
+  ko:  'koKR',
+  mx:  'esMX',
+  pl:  'plPL',
+  pt:  'ptBR',
+  ru:  'ruRU',
+  th:  'thTH',
+  zhs: 'zhCN',
+  zht: 'zhTW',
+};
+
+const stage = ref<'primary' | 'legacy' | 'hearthstonejson' | 'fallback'>('primary');
+const hasError = ref(false);
 
 const primaryUrl = computed(() => {
   if (props.renderHash == null) {
@@ -40,21 +68,31 @@ const legacyUrl = computed(() =>
   buildLegacyCardImageUrl(assetBaseUrl, props.version, props.variant, props.cardId),
 );
 
-const imageUrl = computed(() => {
-  if (stage.value === 'fallback') {
-    return '/card-not-found.svg';
+const jsonUrl = computed(() => {
+  if (props.variant !== 'normal') {
+    return null;
   }
 
-  if (stage.value === 'legacy') {
-    return legacyUrl.value;
-  }
-
-  return primaryUrl.value ?? legacyUrl.value;
+  return `https://art.hearthstonejson.com/v1/render/latest/${hearthstoneJsonLocales[props.lang]}/256x/${props.cardId}.png`;
 });
 
-watch(() => [props.cardId, props.version, props.renderHash, props.variant], () => {
+const imageUrl = computed(() => {
+  switch (stage.value) {
+    case 'primary':
+      return primaryUrl.value ?? legacyUrl.value;
+    case 'legacy':
+      return legacyUrl.value;
+    case 'hearthstonejson':
+      return jsonUrl.value ?? '/card-not-found.svg';
+    default:
+      return '/card-not-found.svg';
+  }
+});
+
+watch(() => [props.cardId, props.version, props.renderHash, props.variant, props.lang], () => {
   stage.value = 'primary';
-}, { immediate: true });
+  hasError.value = false;
+});
 
 const onError = (e: Event) => {
   const img = e.target as HTMLImageElement;
@@ -65,7 +103,12 @@ const onError = (e: Event) => {
     return;
   }
 
-  stage.value = 'fallback';
-  img.src = '/card-not-found.svg';
+  if (stage.value === 'legacy' && jsonUrl.value != null) {
+    stage.value = 'hearthstonejson';
+    img.src = jsonUrl.value;
+    return;
+  }
+
+  hasError.value = true;
 };
 </script>

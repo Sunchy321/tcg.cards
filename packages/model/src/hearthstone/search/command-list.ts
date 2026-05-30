@@ -114,10 +114,14 @@ export const mercenaryRole = c
     .alt('role')
     .done();
 
+export const faction = c
+    .simple
+    .id('faction')
+    .done();
+
 export const mercenaryFaction = c
     .simple
     .id('mercenary-faction')
-    .alt('faction')
     .done();
 
 export const rarity = c
@@ -135,6 +139,11 @@ export const artist = c
 export const change = c
     .op([':'])
     .qual([])
+    .done();
+
+export const format = c
+    .simple
+    .alt('f')
     .done();
 
 export const order = c

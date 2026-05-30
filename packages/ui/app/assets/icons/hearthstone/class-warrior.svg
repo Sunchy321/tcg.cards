@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="warriorBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#8a5a3a"/>
+      <stop offset="100%" style="stop-color:#4a2a1a"/>
+    </linearGradient>
+  </defs>
+  <circle cx="24" cy="24" r="20" fill="url(#warriorBg)" stroke="#b87a5a" stroke-width="2"/>
+  <circle cx="24" cy="24" r="16" fill="none" stroke="#d49a78" stroke-width="1" opacity="0.5"/>
+  <!-- Warrior sword and shield -->
+  <!-- Shield -->
+  <path d="M14 14 L20 14 L20 30 L14 34 Z" fill="#d49a78" opacity="0.7" stroke="#e8b898" stroke-width="1"/>
+  <!-- Sword -->
+  <rect x="28" y="12" width="3" height="24" rx="1" fill="#e8b898" opacity="0.8"/>
+  <rect x="26" y="12" width="7" height="4" rx="1" fill="#e8b898" opacity="0.9"/>
+  <!-- Blade tip -->
+  <polygon points="28,12 29.5,8 31,12" fill="#fff0d0" opacity="0.7"/>
+</svg>
