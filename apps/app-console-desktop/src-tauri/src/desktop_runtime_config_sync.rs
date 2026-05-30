@@ -6,6 +6,7 @@ use serde_json::json;
 use tauri::AppHandle;
 
 use crate::desktop_database_settings::load_desktop_database_connection_string;
+use crate::desktop_hearthstone_image::load_image_settings;
 use crate::desktop_hearthstone_publish_target::{
     load_publish_target_connection_string, load_publish_target_profile,
 };
@@ -39,6 +40,7 @@ fn build_runtime_http_client(timeout_ms: u64) -> Result<reqwest::Client, String>
 fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, String> {
     let connection_string = load_desktop_database_connection_string(app)?;
     let repo_path = load_desktop_game_repo_path(app, "hearthstone", "hsdata")?;
+    let image_settings = load_image_settings(app)?;
     let publish_target = load_publish_target_profile(app)?;
     let publish_connection_string = load_publish_target_connection_string(app)?;
 
@@ -50,6 +52,10 @@ fn build_desktop_state_payload(app: &AppHandle) -> Result<serde_json::Value, Str
             "hearthstone": {
                 "hsdata": {
                     "repoPath": repo_path,
+                },
+                "image": {
+                    "rendererBaseUrl": image_settings.renderer_base_url,
+                    "bucketDir": image_settings.bucket_dir,
                 },
                 "publish": {
                     "publishTargetId": publish_target.as_ref().map(|profile| profile.publish_target_id.clone()),

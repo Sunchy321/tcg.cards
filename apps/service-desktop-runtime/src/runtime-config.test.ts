@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 
 import {
+  hasHearthstoneImageOverride,
   hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  readHearthstoneImageOverride,
   readHsdataRepoPath,
   readLocalDatabaseUrl,
+  setHearthstoneImageOverride,
   setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
 } from './runtime-config';
@@ -14,6 +17,7 @@ const originalLocalDatabaseUrl = process.env.DESKTOP_LOCAL_DATABASE_URL;
 afterEach(() => {
   setLocalDatabaseUrlOverride(null);
   setHsdataRepoPathOverride(null);
+  setHearthstoneImageOverride(null);
 
   if (originalLocalDatabaseUrl == null) {
     delete process.env.DESKTOP_LOCAL_DATABASE_URL;
@@ -43,6 +47,23 @@ describe('runtime-config', () => {
 
     expect(readHsdataRepoPath()).toBe('/tmp/hsdata');
     expect(hasHsdataRepoPath()).toBe(true);
+    expect(readLocalDatabaseUrl()).toBeNull();
+  });
+
+  test('tracks the Hearthstone image override independently from other runtime config', () => {
+    expect(readHearthstoneImageOverride()).toBeNull();
+    expect(hasHearthstoneImageOverride()).toBe(false);
+
+    setHearthstoneImageOverride({
+      rendererBaseUrl: '  http://127.0.0.1:58437  ',
+      bucketDir:       '  /tmp/hearthstone-assets  ',
+    });
+
+    expect(readHearthstoneImageOverride()).toEqual({
+      rendererBaseUrl: 'http://127.0.0.1:58437',
+      bucketDir:       '/tmp/hearthstone-assets',
+    });
+    expect(hasHearthstoneImageOverride()).toBe(true);
     expect(readLocalDatabaseUrl()).toBeNull();
   });
 });

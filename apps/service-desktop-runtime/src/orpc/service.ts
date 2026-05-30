@@ -1,4 +1,5 @@
 import { hsdataRouter } from './hsdata';
+import { imageRouter } from './image';
 import { runtimeRouter } from './runtime';
 import { tagRouter } from './tag';
 
@@ -6,6 +7,7 @@ import { tagRouter } from './tag';
 export const router = {
   runtime: runtimeRouter,
   hsdata:  hsdataRouter,
+  image:   imageRouter,
   tag:     tagRouter,
 };
 

@@ -5,6 +5,8 @@ mod desktop_database_commands;
 #[allow(dead_code)]
 mod desktop_database_settings;
 #[allow(dead_code)]
+mod desktop_hearthstone_image;
+#[allow(dead_code)]
 mod desktop_hearthstone_publish_target;
 #[allow(dead_code)]
 mod desktop_runtime_config_sync;
@@ -17,6 +19,9 @@ use crate::desktop_database_commands::{
     desktop_get_database_settings, desktop_set_database_settings, desktop_test_database_connection,
 };
 use crate::desktop_database_settings::DesktopDatabaseConnectionStringCache;
+use crate::desktop_hearthstone_image::{
+    desktop_get_hearthstone_image_settings, desktop_set_hearthstone_image_settings,
+};
 use crate::desktop_hearthstone_publish_target::{
     desktop_get_hearthstone_publish_target, desktop_set_hearthstone_publish_target,
     desktop_test_hearthstone_publish_target, desktop_validate_hearthstone_publish_target_binding,
@@ -201,12 +206,14 @@ struct StoredHearthstoneSettings {
     hsdata: Option<StoredRepoPath>,
     #[serde(skip_serializing_if = "Option::is_none")]
     publish: Option<StoredHearthstonePublishTargetProfile>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    image: Option<StoredHearthstoneImageSettings>,
 }
 
 impl StoredHearthstoneSettings {
     /// Whether the Hearthstone settings currently contain any persisted values.
     fn is_empty(&self) -> bool {
-        self.hsdata.is_none() && self.publish.is_none()
+        self.hsdata.is_none() && self.publish.is_none() && self.image.is_none()
     }
 }
 
@@ -224,6 +231,16 @@ struct StoredHearthstonePublishTargetProfile {
     publish_target_id: String,
     environment: String,
     target_fingerprint: String,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Hearthstone image settings persisted in the desktop config file.
+struct StoredHearthstoneImageSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    renderer_base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    bucket_dir: Option<String>,
 }
 
 const DEFAULT_AUTH_BASE_URL: &str = "http://127.0.0.1:2998";
@@ -1042,6 +1059,8 @@ pub fn run() {
             desktop_get_database_settings,
             desktop_set_database_settings,
             desktop_test_database_connection,
+            desktop_get_hearthstone_image_settings,
+            desktop_set_hearthstone_image_settings,
             desktop_get_hearthstone_publish_target,
             desktop_set_hearthstone_publish_target,
             desktop_test_hearthstone_publish_target,

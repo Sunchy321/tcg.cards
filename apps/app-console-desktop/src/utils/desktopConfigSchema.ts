@@ -46,6 +46,20 @@ export const desktopConfigSchema = {
                 },
               },
             },
+            image: {
+              type:                 'object',
+              additionalProperties: true,
+              properties:           {
+                rendererBaseUrl: {
+                  type:        'string',
+                  description: 'Local Hearthstone image renderer base URL.',
+                },
+                bucketDir: {
+                  type:        'string',
+                  description: 'Local Hearthstone image bucket directory.',
+                },
+              },
+            },
           },
         },
         magic: {

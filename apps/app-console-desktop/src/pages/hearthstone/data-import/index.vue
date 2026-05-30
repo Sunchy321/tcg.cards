@@ -1,6 +1,7 @@
 <template>
-  <div class="space-y-4">
-    <UCard>
+  <div class="desktop-page">
+    <div class="space-y-4">
+      <UCard>
       <div
         class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
       >
@@ -39,9 +40,9 @@
           />
         </div>
       </div>
-    </UCard>
+      </UCard>
 
-    <UAlert
+      <UAlert
       v-if="!state?.repoPath"
       color="warning"
       variant="soft"
@@ -72,17 +73,17 @@
       variant="soft"
       icon="i-lucide-circle-alert"
       :description="sourceError"
-    />
+      />
 
-    <UAlert
+      <UAlert
       v-if="sourceVersionError"
       color="error"
       variant="soft"
       icon="i-lucide-circle-alert"
       :description="`sourceTag 状态加载失败：${sourceVersionError}`"
-    />
+      />
 
-    <UCard>
+      <UCard>
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -1208,6 +1209,7 @@
         </div>
       </div>
     </UCard>
+    </div>
   </div>
 </template>
 

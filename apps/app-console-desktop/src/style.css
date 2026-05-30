@@ -43,7 +43,7 @@ body {
 
 @layer components {
   .desktop-page {
-    @apply space-y-6 p-6;
+    @apply space-y-2 p-2;
   }
 
   .desktop-panel {

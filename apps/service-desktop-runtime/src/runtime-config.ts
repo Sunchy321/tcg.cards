@@ -6,6 +6,16 @@ const hsdataRepoPathOverride = {
   current: null as string | null,
 };
 
+/** Image-settings override payload injected by the desktop shell. */
+export interface HearthstoneImageOverride {
+  rendererBaseUrl: string | null;
+  bucketDir: string | null;
+}
+
+const hearthstoneImageOverride = {
+  current: null as HearthstoneImageOverride | null,
+};
+
 /** Publish-target override payload injected by the desktop shell. */
 export interface HearthstonePublishTargetOverride {
   publishTargetId: string | null;
@@ -46,6 +56,30 @@ export function readHsdataRepoPath() {
 /** Reports whether the runtime currently has any usable hsdata repository path configured. */
 export function hasHsdataRepoPath() {
   return readHsdataRepoPath() != null;
+}
+
+/** Stores one runtime-local Hearthstone image override provided by the desktop shell. */
+export function setHearthstoneImageOverride(value: HearthstoneImageOverride | null) {
+  if (value == null) {
+    hearthstoneImageOverride.current = null;
+    return;
+  }
+
+  hearthstoneImageOverride.current = {
+    rendererBaseUrl: value.rendererBaseUrl?.trim() ?? null,
+    bucketDir: value.bucketDir?.trim() ?? null,
+  };
+}
+
+/** Resolves the active Hearthstone image override from runtime memory. */
+export function readHearthstoneImageOverride() {
+  return hearthstoneImageOverride.current;
+}
+
+/** Reports whether the runtime currently has any usable Hearthstone image override configured. */
+export function hasHearthstoneImageOverride() {
+  const image = readHearthstoneImageOverride();
+  return image?.rendererBaseUrl != null || image?.bucketDir != null;
 }
 
 /** Stores one runtime-local Hearthstone publish target override provided by the desktop shell. */

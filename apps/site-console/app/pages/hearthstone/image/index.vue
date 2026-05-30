@@ -433,7 +433,7 @@ const premiumItems: Array<{ label: string, value: ImagePremium }> = [
 const form = reactive({
   lang:      'zhs' as Locale,
   cardId:    '',
-  version:   '',
+  version:   'latest',
   zones:     ['hand'] as ImageZone[],
   templates: ['normal', 'battlegrounds'] as ImageTemplate[],
   premiums:  ['normal', 'golden', 'diamond', 'signature'] as ImagePremium[],

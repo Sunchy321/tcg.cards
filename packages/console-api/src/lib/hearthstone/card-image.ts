@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { R2Bucket } from '@cloudflare/workers-types';
 
+import { createDb } from '@tcg-cards/db';
 import { db } from '@tcg-cards/db/db';
 import type { Locale } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
@@ -22,7 +23,7 @@ import {
   type ImageStyle,
   type ImageVariant,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
-import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/schema/remote/hearthstone/card-image';
+import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
@@ -89,6 +90,9 @@ interface WebpMetadata {
   width:  number;
   height: number;
 }
+
+/** Drizzle client shape accepted by the export path. */
+type CardImageDb = ReturnType<typeof createDb>;
 
 function sha256(input: string) {
   return createHash('sha256').update(input, 'utf8').digest('hex');
@@ -480,7 +484,11 @@ export function collectImageRequirementRequests(input: {
   };
 }
 
-async function loadVariantMechanicIds(variants: ImageVariant[]): Promise<ImageVariantMechanicIds> {
+/** Resolves the mechanic ids needed by the current image variants. */
+async function loadVariantMechanicIds(
+  database: CardImageDb,
+  variants: ImageVariant[],
+): Promise<ImageVariantMechanicIds> {
   const slugs = uniqueValues(variants.flatMap(variant => {
     if (variant.premium === 'diamond') {
       return [diamondMechanicSlug];
@@ -500,7 +508,7 @@ async function loadVariantMechanicIds(variants: ImageVariant[]): Promise<ImageVa
     };
   }
 
-  const rows = await db.select({
+  const rows = await database.select({
     enumId: Tag.enumId,
     slug:   Tag.slug,
   })
@@ -513,7 +521,9 @@ async function loadVariantMechanicIds(variants: ImageVariant[]): Promise<ImageVa
   };
 }
 
+/** Loads candidate card rows that may need rendered image requirements. */
 async function loadCandidateRows(
+  database: CardImageDb,
   input: CardImageRequirementExportInput,
   rowOffset: number,
   rowLimit: number,
@@ -531,7 +541,7 @@ async function loadCandidateRows(
     filters.push(eq(Entity.cardId, input.cardId));
   }
 
-  return await db.select({
+  return await database.select({
     cardId:           Entity.cardId,
     version:          sql<number[]>`${Entity.version} & ${EntityLocalization.version}`.as('version'),
     lang:             EntityLocalization.lang,
@@ -551,7 +561,7 @@ async function loadCandidateRows(
       eq(Entity.revisionHash, EntityLocalization.revisionHash),
       sql`${Entity.version} && ${EntityLocalization.version}`,
     ))
-    .innerJoin(HearthstoneSet, eq(Entity.set, HearthstoneSet.setId))
+    .leftJoin(HearthstoneSet, eq(Entity.set, HearthstoneSet.setId))
     .where(and(...filters))
     .orderBy(
       asc(Entity.cardId),
@@ -560,24 +570,26 @@ async function loadCandidateRows(
     .limit(rowLimit)
     .offset(rowOffset)
     .then(rows => rows.flatMap(row => {
-      if (row.renderHash == null || row.renderModel == null) {
-        return [];
-      }
+    if (row.renderHash == null || row.renderModel == null) {
+      return [];
+    }
 
-      if (row.setDbfId == null) {
-        throw new Error(`Missing set dbf_id for card ${row.cardId} set ${row.set}`);
-      }
-
-      return [{
-        ...row,
-        renderHash:  row.renderHash,
-        renderModel: row.renderModel,
-        setDbfId:    row.setDbfId,
-      }];
-    }));
+    const result = {
+      ...row,
+      renderHash:  row.renderHash,
+      renderModel: row.renderModel,
+      setDbfId:    row.setDbfId ?? 0,
+    };
+    return [result];
+  }));
 }
 
-async function loadReadyKeys(renderHashes: string[], variants: ImageVariant[]) {
+/** Loads the ready image keys already present in storage for the current filters. */
+async function loadReadyKeys(
+  database: CardImageDb,
+  renderHashes: string[],
+  variants: ImageVariant[],
+) {
   if (renderHashes.length === 0 || variants.length === 0) {
     return new Set<string>();
   }
@@ -586,7 +598,7 @@ async function loadReadyKeys(renderHashes: string[], variants: ImageVariant[]) {
   const templates = uniqueValues(variants.map(variant => variant.template));
   const premiums = uniqueValues(variants.map(variant => variant.premium));
 
-  const rows = await db.select({
+  const rows = await database.select({
     renderHash: CardImageAsset.renderHash,
     zone:       CardImageAsset.zone,
     template:   CardImageAsset.template,
@@ -978,12 +990,14 @@ export async function importCardImageArchiveFromBrowser(input: {
 export async function exportCardImageRequirements(
   rawInput: CardImageRequirementExportInput,
   options?: {
+    db?: CardImageDb | undefined;
     r2Bucket?: string | undefined;
   },
 ): Promise<CardImageRequirementExportResult> {
   const input = cardImageRequirementExportInput.parse(rawInput);
   const variants = buildImageVariants(input);
-  const mechanicIds = await loadVariantMechanicIds(variants);
+  const database = options?.db ?? db;
+  const mechanicIds = await loadVariantMechanicIds(database, variants);
   const offset = decodeCursor(input.cursor);
   const r2Bucket = options?.r2Bucket ?? defaultR2AssetBucket;
 
@@ -992,15 +1006,16 @@ export async function exportCardImageRequirements(
   const requests: ImageRequirementRequest[] = [];
 
   while (true) {
-    const rows = await loadCandidateRows(input, rowOffset, exportBatchSize);
+    const rows = await loadCandidateRows(database, input, rowOffset, exportBatchSize);
 
-    if (rows.length === 0) {
+    if (rows.length === 0 || requests.length >= input.limit) {
       break;
     }
 
     rowOffset += rows.length;
 
     const readyKeys = await loadReadyKeys(
+      database,
       uniqueValues(rows.map(row => row.renderHash)),
       variants,
     );
@@ -1068,7 +1083,7 @@ export async function exportCardImageRequirements(
 
   const content = JSON.stringify(requirementFile, null, 2);
 
-  await db.insert(CardImageExport).values({
+  await database.insert(CardImageExport).values({
     exportId,
     imageSpecVersion: hearthstoneImageSpecVersion,
     filters:          {

@@ -1,6 +1,8 @@
 <template>
-  <div class="flex flex-1 items-center justify-center text-slate-400">
-    <p class="text-sm">Data Sources — Coming soon</p>
+  <div class="desktop-page h-full">
+    <div class="flex h-full items-center justify-center text-slate-400">
+      <p class="text-sm">Data Sources — Coming soon</p>
+    </div>
   </div>
 </template>
 

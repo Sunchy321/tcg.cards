@@ -2,9 +2,11 @@ import { z } from 'zod';
 
 import { os } from './index';
 import {
+  hasHearthstoneImageOverride,
   hasHearthstonePublishTargetOverride,
   hasHsdataRepoPath,
   hasLocalDatabaseUrl,
+  setHearthstoneImageOverride,
   setHearthstonePublishTargetOverride,
   setHsdataRepoPathOverride,
   setLocalDatabaseUrlOverride,
@@ -17,6 +19,7 @@ const runtimeStatus = z.object({
   status:                  z.literal('ok'),
   localDatabaseConfigured: z.boolean(),
   hsdataRepoConfigured:    z.boolean(),
+  imageConfigured:         z.boolean(),
   publishTargetConfigured: z.boolean(),
   time:                    z.string(),
 });
@@ -29,6 +32,7 @@ function buildStatus() {
     status:                  'ok' as const,
     localDatabaseConfigured: hasLocalDatabaseUrl(),
     hsdataRepoConfigured:    hasHsdataRepoPath(),
+    imageConfigured:         hasHearthstoneImageOverride(),
     publishTargetConfigured: hasHearthstonePublishTargetOverride(),
     time:                    new Date().toISOString(),
   };
@@ -51,6 +55,10 @@ const configureDesktopStateInput = z.strictObject({
       hsdata: z.strictObject({
         repoPath: z.string().trim().min(1).nullable(),
       }),
+      image: z.strictObject({
+        rendererBaseUrl: z.string().trim().min(1).nullable(),
+        bucketDir: z.string().trim().min(1).nullable(),
+      }),
       publish: z.strictObject({
         publishTargetId: z.string().trim().min(1).nullable(),
         environment: z.string().trim().min(1).nullable(),
@@ -67,6 +75,7 @@ function applyDesktopState(
 ) {
   setLocalDatabaseUrlOverride(input.localDatabase.connectionString);
   setHsdataRepoPathOverride(input.games.hearthstone.hsdata.repoPath);
+  setHearthstoneImageOverride(input.games.hearthstone.image);
   setHearthstonePublishTargetOverride(input.games.hearthstone.publish);
 }
 

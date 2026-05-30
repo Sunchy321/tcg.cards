@@ -20,6 +20,12 @@ export interface DesktopHearthstonePublishTargetSettings {
   connectionString:  string | null;
 }
 
+/** Hearthstone image settings returned by the desktop runtime. */
+export interface DesktopHearthstoneImageSettings {
+  rendererBaseUrl: string | null;
+  bucketDir:       string | null;
+}
+
 /** Hearthstone publish target test result returned by the desktop runtime. */
 export interface DesktopHearthstonePublishTargetTestResult {
   publishTargetId:   string;
@@ -105,6 +111,22 @@ export function testDesktopDatabaseConnection(
 /** Hearthstone publish target settings loaded from the desktop runtime. */
 export function getDesktopHearthstonePublishTarget() {
   return invoke<DesktopHearthstonePublishTargetSettings>('desktop_get_hearthstone_publish_target');
+}
+
+/** Hearthstone image settings loaded from the desktop runtime. */
+export function getDesktopHearthstoneImageSettings() {
+  return invoke<DesktopHearthstoneImageSettings>('desktop_get_hearthstone_image_settings');
+}
+
+/** Hearthstone image settings persisted in the desktop runtime. */
+export function setDesktopHearthstoneImageSettings(
+  rendererBaseUrl: string | null,
+  bucketDir: string | null,
+) {
+  return invoke<DesktopHearthstoneImageSettings>('desktop_set_hearthstone_image_settings', {
+    rendererBaseUrl,
+    bucketDir,
+  });
 }
 
 /** Hearthstone publish target settings persisted in the desktop runtime. */

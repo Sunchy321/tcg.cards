@@ -1,6 +1,7 @@
 <template>
-  <div class="space-y-6">
-    <UCard>
+  <div class="desktop-page">
+    <div class="space-y-6">
+      <UCard>
       <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <div class="flex items-center gap-2">
@@ -37,9 +38,9 @@
           />
         </div>
       </div>
-    </UCard>
+      </UCard>
 
-    <UCard>
+      <UCard>
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -111,9 +112,9 @@
           暂无本地数据库概览
         </div>
       </div>
-    </UCard>
+      </UCard>
 
-    <UCard>
+      <UCard>
       <template #header>
         <div>
           <div class="font-medium">仓库配置</div>
@@ -160,9 +161,9 @@
           :description="stateError"
         />
       </div>
-    </UCard>
+      </UCard>
 
-    <UCard>
+      <UCard>
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -234,7 +235,8 @@
           </div>
         </div>
       </div>
-    </UCard>
+      </UCard>
+    </div>
   </div>
 </template>
 
