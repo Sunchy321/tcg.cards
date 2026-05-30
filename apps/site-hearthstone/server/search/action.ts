@@ -6,7 +6,7 @@ import type { NormalResult } from '#model/hearthstone/schema/search';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '#db/db';
-import { CardEntityView } from '#schema/hearthstone/entity';
+import { CardEntityView } from '#schema/shared/hearthstone/entity';
 
 import { order } from './command-list';
 

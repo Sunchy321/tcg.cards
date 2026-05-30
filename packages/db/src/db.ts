@@ -22,6 +22,10 @@ type Db = ReturnType<typeof drizzle>;
 let _db: Db | null = null;
 const dbContext = new AsyncLocalStorage<Db>();
 
+export function getConnectionString(): string {
+  return getHyperdrive().connectionString;
+}
+
 export function createDb(connection: string): Db {
   return drizzle({ connection });
 }

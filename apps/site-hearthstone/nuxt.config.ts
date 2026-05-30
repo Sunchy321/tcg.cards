@@ -25,7 +25,6 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       assetBaseUrl: process.env.ASSET_BASE_URL ?? 'https://asset.tcg.cards',
-      mainSiteUrl:  process.env.MAIN_SITE_URL ?? 'http://localhost:3000',
     },
   },
 
@@ -63,6 +62,12 @@ export default defineNuxtConfig({
       warmup: {
         clientFiles: ['./app/**/*.vue'],
       },
+    },
+    optimizeDeps: {
+      include: [
+        '@iconify-json/lucide',
+        '@iconify-json/simple-icons',
+      ],
     },
   },
 
