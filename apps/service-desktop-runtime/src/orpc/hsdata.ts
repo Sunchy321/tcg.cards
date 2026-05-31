@@ -16,7 +16,7 @@ import {
   type HsdataImportProgressEvent,
   type HsdataProjectProgressEvent,
 } from '../lib/hearthstone/hsdata-progress';
-import { projectHsdata } from '../lib/hearthstone/hsdata-project';
+import { projectHsdata, recomputeLatestProjection } from '../lib/hearthstone/hsdata-project';
 import {
   getHsdataRepoState,
   readHsdataImportSource,
@@ -45,6 +45,7 @@ const projectSourceVersionInput = z.strictObject({
   sourceTag: z.number().int().nonnegative(),
   dryRun: z.boolean().optional(),
   force: z.boolean().optional(),
+  skipLatestUpdate: z.boolean().optional(),
 });
 
 const importJobInput = z.strictObject({
@@ -384,6 +385,7 @@ const projectSourceVersion = os
         sourceTag: input.sourceTag,
         dryRun: input.dryRun,
         force: input.force,
+        skipLatestUpdate: input.skipLatestUpdate,
         onProgress(progress) {
           updateProjectJob(input.sourceTag, progress);
         },
@@ -495,6 +497,31 @@ const publishCurrentToRemote = os
     }
   });
 
+const recomputeLatestOutput = z.object({
+  entityRowCount: z.number(),
+  localizationRowCount: z.number(),
+  relationRowCount: z.number(),
+  entityUpdatedCount: z.number(),
+  localizationUpdatedCount: z.number(),
+  relationUpdatedCount: z.number(),
+});
+
+/** Recomputes isLatest flags across the current local projection tables. */
+const recomputeLatest = os
+  .route({
+    method:      'POST',
+    description: 'Recompute isLatest across all local hearthstone projection tables',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(recomputeLatestOutput)
+  .handler(async () => {
+    try {
+      return await recomputeLatestProjection();
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
 /** Groups the desktop runtime hsdata procedures under one router namespace. */
 export const hsdataRouter = {
   getRepoState,
@@ -508,4 +535,5 @@ export const hsdataRouter = {
   watchImportJob,
   watchProjectJob,
   publishCurrentToRemote,
+  recomputeLatest,
 };

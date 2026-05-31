@@ -598,6 +598,22 @@
                       >
                     </span>
                   </label>
+
+                  <label
+                    class="flex items-start gap-3 rounded-lg border border-default p-3"
+                  >
+                    <input
+                      v-model="projectForm.skipLatestUpdate"
+                      type="checkbox"
+                      class="mt-0.5 size-4 rounded border-default"
+                    >
+                    <span>
+                      <span class="block text-sm font-medium">暂缓更新latest</span>
+                      <span class="text-xs text-muted"
+                        >跳过投影完成后的 isLatest 重新计算，批量投影结束后可手动触发。</span
+                      >
+                    </span>
+                  </label>
                 </div>
 
                 <UAlert
@@ -741,6 +757,30 @@
                     :loading="projecting"
                     :disabled="!canProject || batchRunning"
                     @click="submitProject"
+                  />
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default p-3">
+                  <div>
+                    <div class="text-sm font-medium">手动更新latest</div>
+                    <p class="mt-1 text-xs text-muted">
+                      重新扫描本地投影表，计算并更新 isLatest 标记。
+                      <template v-if="recomputeLatestResult">
+                        上次更新：
+                        实体 {{ recomputeLatestResult.entityUpdatedCount }}/{{ recomputeLatestResult.entityRowCount }}，
+                        本地化 {{ recomputeLatestResult.localizationUpdatedCount }}/{{ recomputeLatestResult.localizationRowCount }}，
+                        关系 {{ recomputeLatestResult.relationUpdatedCount }}/{{ recomputeLatestResult.relationRowCount }}
+                      </template>
+                    </p>
+                  </div>
+                  <UButton
+                    label="更新latest"
+                    icon="i-lucide-refresh-cw"
+                    color="neutral"
+                    variant="soft"
+                    :loading="recomputingLatest"
+                    :disabled="batchRunning"
+                    @click="submitRecomputeLatest"
                   />
                 </div>
               </div>
@@ -1228,6 +1268,7 @@ import {
   listHsdataSources,
   publishCurrentHsdataToRemote,
   projectLocalHsdataSourceVersion,
+  recomputeLatestHsdataProjection,
   syncHsdataRemoteVersions,
   trackHsdataImportSourceProgress,
   trackHsdataProjectSourceProgress,
@@ -1237,6 +1278,7 @@ import type {
   HsdataImportProgressEvent,
   HsdataImportReport,
   HsdataPublishReport,
+  HsdataRecomputeLatestReport,
   HsdataProjectProgressEvent,
   HsdataSourceVersionStatus,
   HsdataProjectReport,
@@ -1304,6 +1346,7 @@ interface HsdataBatchTaskState {
   order:           SourceListSortOrder;
   dryRun:          boolean;
   force:           boolean;
+  skipLatestUpdate: boolean;
   items:           HsdataBatchTaskItem[];
   activeKey:       string | null;
   startedAt:       string;
@@ -1322,6 +1365,7 @@ interface HsdataImportPageState {
   projectSourceTag:     number | null;
   projectDryRun:        boolean;
   projectForce:         boolean;
+  projectSkipLatestUpdate: boolean;
 }
 
 declare global {
@@ -1369,6 +1413,8 @@ const publishTargetError = ref('');
 const publishError = ref('');
 const publishing = ref(false);
 const publishResult = ref<HsdataPublishReport | null>(null);
+const recomputingLatest = ref(false);
+const recomputeLatestResult = ref<HsdataRecomputeLatestReport | null>(null);
 const syncing = ref(false);
 const sourceSortOrder = ref<SourceListSortOrder>('desc');
 const hideImportedSources = ref(false);
@@ -1413,6 +1459,7 @@ const projectForm = reactive({
   sourceTag: null as number | null,
   dryRun:    true,
   force:     false,
+  skipLatestUpdate: false,
 });
 
 const sourceError = computed(() => {
@@ -2187,7 +2234,7 @@ const projectWriteSegments = computed(() => {
       totalRowCount:     breakdown.relation.totalRowCount,
       completedRowCount: breakdown.relation.completedRowCount,
     },
-  ].filter(item => item.totalRowCount > 0);
+  ];
 
   const totalRows = items.reduce((count, item) => count + item.totalRowCount, 0);
   const completedRows = items.reduce((count, item) => count + item.completedRowCount, 0);
@@ -2374,6 +2421,7 @@ function createDefaultImportPageState(): HsdataImportPageState {
     projectSourceTag:     null,
     projectDryRun:        true,
     projectForce:         false,
+    projectSkipLatestUpdate: false,
   };
 }
 
@@ -2430,6 +2478,10 @@ function normalizeImportPageState(value: unknown): HsdataImportPageState {
       typeof data.projectForce === 'boolean'
         ? data.projectForce
         : defaults.projectForce,
+    projectSkipLatestUpdate:
+      typeof data.projectSkipLatestUpdate === 'boolean'
+        ? data.projectSkipLatestUpdate
+        : defaults.projectSkipLatestUpdate,
   };
 }
 
@@ -2475,6 +2527,7 @@ function persistImportPageState() {
     projectSourceTag:     projectForm.sourceTag,
     projectDryRun:        projectForm.dryRun,
     projectForce:         projectForm.force,
+    projectSkipLatestUpdate: projectForm.skipLatestUpdate,
   };
 
   try {
@@ -2496,6 +2549,7 @@ function restoreImportPageState() {
   projectForm.sourceTag = state.projectSourceTag;
   projectForm.dryRun = state.projectDryRun;
   projectForm.force = state.projectForce;
+  projectForm.skipLatestUpdate = state.projectSkipLatestUpdate;
   restoredSelectedSourceId.value = state.selectedSourceId;
 }
 
@@ -2656,6 +2710,10 @@ function normalizeBatchTaskState(value: unknown): HsdataBatchTaskState | null {
     ? data.requestedAction
     : null;
 
+  const skipLatestUpdate = typeof data.skipLatestUpdate === 'boolean'
+    ? data.skipLatestUpdate
+    : false;
+
   return {
     version: 1,
     executionId,
@@ -2665,6 +2723,7 @@ function normalizeBatchTaskState(value: unknown): HsdataBatchTaskState | null {
     order:   data.order,
     dryRun:  data.dryRun,
     force:   data.force,
+    skipLatestUpdate,
     items,
     activeKey,
     startedAt,
@@ -3120,6 +3179,7 @@ function createBatchTask(
   items: HsdataBatchTaskItem[],
   dryRun: boolean,
   force: boolean,
+  skipLatestUpdate?: boolean,
 ): HsdataBatchTaskState {
   const now = new Date().toISOString();
 
@@ -3132,6 +3192,7 @@ function createBatchTask(
     order:           sourceSortOrder.value,
     dryRun,
     force,
+    skipLatestUpdate: skipLatestUpdate ?? false,
     items,
     activeKey:       null,
     startedAt:       now,
@@ -3202,6 +3263,7 @@ async function runProjectForSourceTag(
   sourceTag: number,
   dryRun: boolean,
   force: boolean,
+  skipLatestUpdate?: boolean,
 ): Promise<HsdataProjectReport> {
   activeWorkflowTab.value = 'project';
   const file = findSourceByTag(sourceTag);
@@ -3218,7 +3280,7 @@ async function runProjectForSourceTag(
   projectResult.value = null;
 
   try {
-    const result = await projectLocalHsdataSourceVersion(sourceTag, dryRun, force);
+    const result = await projectLocalHsdataSourceVersion(sourceTag, dryRun, force, skipLatestUpdate);
     projectResult.value = result;
     return result;
   } catch (error) {
@@ -3506,7 +3568,7 @@ async function runBatchTask(task: HsdataBatchTaskState) {
       try {
         const report = currentTask.kind === 'import'
           ? await runImportForSource(item.sourceId!, currentTask.dryRun, currentTask.force)
-          : await runProjectForSourceTag(item.sourceTag!, currentTask.dryRun, currentTask.force);
+          : await runProjectForSourceTag(item.sourceTag!, currentTask.dryRun, currentTask.force, currentTask.skipLatestUpdate);
 
         setBatchTaskItemState(
           currentTask,
@@ -3562,7 +3624,7 @@ async function startBatchProject() {
     return;
   }
 
-  await runBatchTask(createBatchTask('project', items, projectForm.dryRun, projectForm.force));
+  await runBatchTask(createBatchTask('project', items, projectForm.dryRun, projectForm.force, projectForm.skipLatestUpdate));
 }
 
 /** Durable batch resumed from the remaining unresolved items in the stored task snapshot. */
@@ -3736,6 +3798,7 @@ async function submitProject() {
     projectForm.sourceTag,
     projectForm.dryRun,
     projectForm.force,
+    projectForm.skipLatestUpdate,
   );
 }
 
@@ -3770,6 +3833,30 @@ async function submitPublish() {
   }
 }
 
+async function submitRecomputeLatest() {
+  recomputingLatest.value = true;
+  recomputeLatestResult.value = null;
+
+  try {
+    const result = await recomputeLatestHsdataProjection();
+    recomputeLatestResult.value = result;
+    toast.add({
+      title:       'latest 已更新',
+      description: `entity ${result.entityUpdatedCount}/${result.entityRowCount} · localization ${result.localizationUpdatedCount}/${result.localizationRowCount} · relation ${result.relationUpdatedCount}/${result.relationRowCount}`,
+      color:       'success',
+    });
+  } catch (error) {
+    console.error('Failed to recompute latest projection:', error);
+    toast.add({
+      title:       '更新 latest 失败',
+      description: getHsdataErrorMessage(error),
+      color:       'error',
+    });
+  } finally {
+    recomputingLatest.value = false;
+  }
+}
+
 watch(
   () => route.query.source,
   () => {
@@ -3799,6 +3886,7 @@ watch(
     () => projectForm.sourceTag,
     () => projectForm.dryRun,
     () => projectForm.force,
+    () => projectForm.skipLatestUpdate,
   ],
   () => {
     persistImportPageState();

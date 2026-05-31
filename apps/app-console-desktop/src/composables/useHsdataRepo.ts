@@ -221,6 +221,16 @@ export interface HsdataProjectReport {
   unprojectedTags:       HsdataUnprojectedTagReportRow[];
 }
 
+/** Recompute-latest report returned after recalculating isLatest flags. */
+export interface HsdataRecomputeLatestReport {
+  entityRowCount: number;
+  localizationRowCount: number;
+  relationRowCount: number;
+  entityUpdatedCount: number;
+  localizationUpdatedCount: number;
+  relationUpdatedCount: number;
+}
+
 /** Remote publish report returned after applying the current local projection. */
 export interface HsdataPublishReport {
   batchId:              string;
@@ -333,6 +343,7 @@ export function projectLocalHsdataSourceVersion(
   sourceTag: number,
   dryRun: boolean,
   force: boolean,
+  skipLatestUpdate?: boolean,
 ) {
   return (async () => {
     trackHsdataProjectSourceProgress(sourceTag);
@@ -341,7 +352,15 @@ export function projectLocalHsdataSourceVersion(
       sourceTag,
       dryRun,
       force,
+      skipLatestUpdate,
     }) as HsdataProjectReport;
+  })();
+}
+
+/** Recomputes isLatest flags across the current local projection tables. */
+export function recomputeLatestHsdataProjection() {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.recomputeLatest() as HsdataRecomputeLatestReport;
   })();
 }
 
