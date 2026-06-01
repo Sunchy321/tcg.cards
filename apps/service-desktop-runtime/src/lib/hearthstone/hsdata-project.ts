@@ -436,9 +436,9 @@ function mergeVersion(...inputs: Array<number[] | number>): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
 }
 
-const writeRowBatchSize = 50_000;
+const writeRowBatchSize = 5_000;
 const projectProgressBatchSize = 25;
-const summarizeProgressBatchSize = 50_000;
+const summarizeProgressBatchSize = 5_000;
 
 /** Checks whether one reconciled version array only appends the current build to an existing sorted history. */
 function isAppendBuildVersion(
