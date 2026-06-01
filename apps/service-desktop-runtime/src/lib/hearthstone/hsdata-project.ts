@@ -3843,7 +3843,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       skipLatestUpdate,
       entity: entityWriteBreakdown,
       localization: localizationWriteBreakdown,
-      relationDeleteCount: ignoreDuplicates ? 0 : sourceIds.length,
+      relationDeleteCount: ignoreDuplicates ? 0 : existingRelations.length,
       relationInsertCount: ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
       targetEntityCount: targetEntities.length,
       targetLocalizationCount: targetLocalizations.length,
@@ -3911,9 +3911,10 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
         await deleteBySourceIds(tx, sourceIds);
         profiler.mark('write_delete_relations', {
           sourceCount: sourceIds.length,
+          deletedRowCount: existingRelations.length,
         });
-        if (sourceIds.length > 0) {
-          await reportWriteProgress('Deleted stale relation rows for the projected source cards', sourceIds.length, 'relation');
+        if (existingRelations.length > 0) {
+          await reportWriteProgress('Deleted stale relation rows for the projected source cards', existingRelations.length, 'relation');
         }
       }
 
