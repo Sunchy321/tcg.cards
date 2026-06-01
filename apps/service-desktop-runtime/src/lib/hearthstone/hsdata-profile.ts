@@ -4,6 +4,17 @@ export type HsdataProfileValue = boolean | number | string | null | undefined;
 /** Structured fields attached to one hsdata profiling event. */
 export type HsdataProfileFields = Record<string, HsdataProfileValue>;
 
+/** One recorded profiling step. */
+export interface HsdataProfileStep {
+  step: string;
+  elapsedMs: number;
+  totalMs: number;
+  extra?: HsdataProfileFields;
+}
+
+/** Callback invoked each time a profiling step completes. */
+export type HsdataProfileMarkHandler = (step: HsdataProfileStep) => void;
+
 /** Incremental profiler used by hsdata import, projection, and publish paths. */
 export interface HsdataProfiler {
   mark(step: string, extra?: HsdataProfileFields): void;
@@ -15,25 +26,38 @@ function logHsdataProfile(scope: string, event: string, fields: HsdataProfileFie
   console.info(`[hearthstone][hsdata][profile][${scope}] ${event}`, fields);
 }
 
+export interface CreateHsdataProfilerOptions {
+  onMark?: HsdataProfileMarkHandler;
+  silent?: boolean;
+}
+
 /** Profiler that records elapsed time since the previous step and the total start. */
 export function createHsdataProfiler(
   scope: string,
   context: HsdataProfileFields,
+  options?: CreateHsdataProfilerOptions,
 ): HsdataProfiler {
   const startedAt = Date.now();
   let lastStepAt = startedAt;
+  const { onMark, silent } = options ?? {};
 
   return {
     mark(step, extra = {}) {
       const now = Date.now();
+      const elapsedMs = now - lastStepAt;
+      const totalMs = now - startedAt;
 
-      logHsdataProfile(scope, 'step', {
-        ...context,
-        ...extra,
-        step,
-        elapsedMs: now - lastStepAt,
-        totalMs:   now - startedAt,
-      });
+      if (!silent) {
+        logHsdataProfile(scope, 'step', {
+          ...context,
+          ...extra,
+          step,
+          elapsedMs,
+          totalMs,
+        });
+      }
+
+      onMark?.({ step, elapsedMs, totalMs, extra });
 
       lastStepAt = now;
     },
@@ -41,11 +65,13 @@ export function createHsdataProfiler(
     done(extra = {}) {
       const now = Date.now();
 
-      logHsdataProfile(scope, 'summary', {
-        ...context,
-        ...extra,
-        totalMs: now - startedAt,
-      });
+      if (!silent) {
+        logHsdataProfile(scope, 'summary', {
+          ...context,
+          ...extra,
+          totalMs: now - startedAt,
+        });
+      }
     },
   };
 }

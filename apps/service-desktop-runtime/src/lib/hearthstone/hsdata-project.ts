@@ -275,6 +275,7 @@ export interface ProjectHsdataInput {
   dryRun?:   boolean;
   force?:    boolean;
   skipLatestUpdate?: boolean;
+  onProfileMark?: (step: { step: string; elapsedMs: number; totalMs: number }) => void;
   onProgress?: (input: {
     phase: 'loading_snapshots' | 'loading_tags' | 'projecting_snapshots' | 'summarizing_changes' | 'writing_rows' | 'completed' | 'failed';
     message: string;
@@ -435,9 +436,9 @@ function mergeVersion(...inputs: Array<number[] | number>): number[] {
   return [...new Set(values)].sort((left, right) => left - right);
 }
 
-const writeRowBatchSize = 5_000;
+const writeRowBatchSize = 50_000;
 const projectProgressBatchSize = 25;
-const summarizeProgressBatchSize = 5_000;
+const summarizeProgressBatchSize = 50_000;
 
 /** Checks whether one reconciled version array only appends the current build to an existing sorted history. */
 function isAppendBuildVersion(
@@ -3272,7 +3273,12 @@ async function syncLocalizations(
     });
   }
 
-  if (metaRows.length > 0) {
+  const combinedMetaRows = [
+    ...metaRows.map(row => ({ ...row, isAppend: false as const })),
+    ...appendRows.map(row => ({ ...row, isAppend: true as const })),
+  ];
+
+  if (combinedMetaRows.length > 0) {
     await tx.session.client.unsafe(`
       create temp table hsdata_projection_localization_meta_stage
       on commit drop as
@@ -3286,72 +3292,52 @@ async function syncLocalizations(
       with no data
     `);
 
-    for (const chunk of chunkValues(metaRows, writeRowBatchSize)) {
+    for (const chunk of chunkValues(combinedMetaRows, writeRowBatchSize)) {
       await tx.session.client.unsafe(`truncate hsdata_projection_localization_meta_stage`);
-      await copyLocalizationMetaRowsIntoTable(tx, chunk, 'hsdata_projection_localization_meta_stage');
+      await copyLocalizationMetaRowsIntoTable(tx, chunk.map(row => ({
+        cardId: row.cardId,
+        lang: row.lang,
+        revisionHash: row.revisionHash,
+        localizationHash: row.localizationHash,
+        renderHash: null,
+        isLatest: false,
+        version: row.isAppend ? [] : (row as typeof metaRows[number]).version,
+      } satisfies LocalizationStateRow)), 'hsdata_projection_localization_meta_stage');
       await analyzeTempTable(tx, 'hsdata_projection_localization_meta_stage');
 
       await tx.session.client.unsafe(`
         update hearthstone.entity_localizations as target
-        set
-          version = stage.version
+        set version = stage.version
         from hsdata_projection_localization_meta_stage as stage
         where target.card_id = stage.card_id
           and target.lang = stage.lang
           and target.revision_hash = stage.revision_hash
           and target.localization_hash = stage.localization_hash
+          and stage.version <> '{}'
+      `);
+
+      await tx.session.client.unsafe(`
+        update hearthstone.entity_localizations as target
+        set version = array_append(target.version, ${build})
+        from hsdata_projection_localization_meta_stage as stage
+        where target.card_id = stage.card_id
+          and target.lang = stage.lang
+          and target.revision_hash = stage.revision_hash
+          and target.localization_hash = stage.localization_hash
+          and stage.version = '{}'
+          and not (${build} = any(target.version))
       `);
 
       await onProgress?.({
-        message: `Replaced localization version arrays for rows that need full metadata updates (${chunk.length} rows)`,
+        message: `Updated localization metadata rows (${chunk.length} rows)`,
         advance: chunk.length,
         segment: 'localization',
       });
     }
 
     profiler?.mark('write_localizations_update_meta_rows', {
-      rowCount: metaRows.length,
-    });
-  }
-
-  if (appendRows.length > 0) {
-    await tx.session.client.unsafe(`
-      create temp table hsdata_projection_localization_append_stage
-      on commit drop as
-      select
-        card_id,
-        lang,
-        revision_hash,
-        localization_hash
-      from hearthstone.entity_localizations
-      with no data
-    `);
-
-    for (const chunk of chunkValues(appendRows, writeRowBatchSize)) {
-      await tx.session.client.unsafe(`truncate hsdata_projection_localization_append_stage`);
-      await copyLocalizationKeysIntoTable(tx, chunk, 'hsdata_projection_localization_append_stage');
-      await analyzeTempTable(tx, 'hsdata_projection_localization_append_stage');
-
-      await tx.session.client.unsafe(`
-        update hearthstone.entity_localizations as target
-        set version = array_append(target.version, ${build})
-        from hsdata_projection_localization_append_stage as stage
-        where target.card_id = stage.card_id
-          and target.lang = stage.lang
-          and target.revision_hash = stage.revision_hash
-          and target.localization_hash = stage.localization_hash
-          and not (${build} = any(target.version))
-      `);
-
-      await onProgress?.({
-        message: `Appended the current build to existing localization version arrays (${chunk.length} rows)`,
-        advance: chunk.length,
-        segment: 'localization',
-      });
-    }
-
-    profiler?.mark('write_localizations_append_build_rows', {
-      rowCount: appendRows.length,
+      metaRowCount: metaRows.length,
+      appendRowCount: appendRows.length,
     });
   }
 
@@ -3541,6 +3527,9 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     dryRun,
     force,
     skipLatestUpdate,
+  }, {
+    onMark: input.onProfileMark,
+    silent: input.onProfileMark != null,
   });
   try {
     const sourceVersion = await getSourceVersion(input.sourceTag);
