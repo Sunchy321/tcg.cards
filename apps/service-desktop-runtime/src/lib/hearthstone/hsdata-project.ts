@@ -582,7 +582,7 @@ function buildWriteProgressTotals(input: {
   targetLocalizationCount: number;
   targetRelationCount: number;
 }): WriteProgressBreakdown {
-  if (input.ignoreDuplicates || input.skipLatestUpdate) {
+  if (input.ignoreDuplicates) {
     return {
       entity:       input.targetEntityCount,
       localization: input.targetLocalizationCount,
@@ -594,7 +594,7 @@ function buildWriteProgressTotals(input: {
   return {
     entity:       countEntityWriteRows(input.entity),
     localization: input.localization.deleteCount + input.localization.upsertCount,
-    latest:       input.localization.affectedLatestRowCount,
+    latest:       input.skipLatestUpdate ? 0 : input.localization.affectedLatestRowCount,
     relation:     input.relationDeleteCount + input.relationInsertCount,
   };
 }
