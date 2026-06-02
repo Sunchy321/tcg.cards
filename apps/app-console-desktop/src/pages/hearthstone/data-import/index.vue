@@ -1113,19 +1113,40 @@
               <div class="rounded-lg border border-default p-3">
                 <div class="text-xs text-muted">变化统计</div>
                 <div class="mt-1 font-mono text-sm">
-                  {{ publishResult.changedCardCount }} / {{ publishResult.cardCount }}
+                  {{ publishResult.changedRowCount }} / {{ publishResult.totalRowCount }}
                 </div>
                 <div class="mt-1 text-xs text-muted">
-                  +{{ publishResult.insertedCardCount }}
-                  ~{{ publishResult.updatedCardCount }}
-                  -{{ publishResult.deletedCardCount }}
-                  ={{ publishResult.unchangedCardCount }}
+                  +{{ publishResult.insertedRowCount }}
+                  ~{{ publishResult.updatedRowCount }}
+                  -{{ publishResult.deletedRowCount }}
+                  ={{ publishResult.unchangedRowCount }}
                 </div>
               </div>
               <div class="rounded-lg border border-default p-3">
                 <div class="text-xs text-muted">发布时间</div>
                 <div class="mt-1 break-all font-mono text-sm">
                   {{ formatHsdataDate(publishResult.publishedAt) }}
+                </div>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <div class="text-xs text-muted">分表统计</div>
+                <div class="mt-1 grid grid-cols-4 gap-2 text-sm">
+                  <div>
+                    <span class="text-muted">Cards</span>
+                    <span class="ml-1 font-mono">{{ publishResult.cardRowCount }}</span>
+                  </div>
+                  <div>
+                    <span class="text-muted">Entities</span>
+                    <span class="ml-1 font-mono">{{ publishResult.entityRowCount }}</span>
+                  </div>
+                  <div>
+                    <span class="text-muted">Localizations</span>
+                    <span class="ml-1 font-mono">{{ publishResult.localizationRowCount }}</span>
+                  </div>
+                  <div>
+                    <span class="text-muted">Relations</span>
+                    <span class="ml-1 font-mono">{{ publishResult.relationRowCount }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3817,7 +3838,7 @@ async function submitPublish() {
     publishResult.value = result;
     toast.add({
       title:       '远端发布已完成',
-      description: `${result.publishTargetId} / ${result.environment} / changed=${result.changedCardCount}`,
+      description: `${result.publishTargetId} / ${result.environment} / changed=${result.changedRowCount}`,
       color:       'success',
     });
   } catch (error) {

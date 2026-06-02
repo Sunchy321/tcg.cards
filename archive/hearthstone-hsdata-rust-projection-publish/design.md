@@ -289,8 +289,8 @@ profile 存在 desktop 安全配置中，批次创建时必须绑定目标身份
 
 - `publish_batches`
   - 一次面向某个 publish target 的发布批次
-- `publish_batch_cards`
-  - 批次内每张卡的 manifest、动作和执行结果
+- `publish_batch_rows`（初始设计为 `publish_batch_cards`，后重构为表+行级别，每行按表追踪）
+  - 批次内每个表行的 manifest、动作和执行结果
 - `publish_baselines`
   - 每个 publish target 上次成功发布的总体基线
 
@@ -308,7 +308,7 @@ profile 存在 desktop 安全配置中，批次创建时必须绑定目标身份
 
 ### 4. 发布粒度
 
-发布粒度采用“整卡重发”，不是逐字段、逐 localization 或逐 relation 微调。
+发布粒度最初设计为”整卡重发”，后续重构为表+行级别，不是逐字段、逐 localization 或逐 relation 微调。
 当前这套 publish 模型只覆盖有限表集合，不是任意表发布框架。
 
 原因：
@@ -317,11 +317,13 @@ profile 存在 desktop 安全配置中，批次创建时必须绑定目标身份
 - `version[]` 变化会同时影响 entity、localization、relation 的行集
 - 按整卡重发更容易保证远端结果与本地 manifest 一致
 
-因此，一旦某张卡的 `cardManifestHash` 变化，就整张卡重发其：
+初始设计阶段，一旦某张卡的 `cardManifestHash` 变化，就整张卡重发其：
 
 - 全部 `entities` 行
 - 全部 `entity_localizations` 行
 - 全部以该卡为 `source_id` 的 `entity_relations` 行
+
+后续实现中改为表+行级别发布：每行独立计算 hash、独立 diff、独立 apply。`cards` 表支持 SQL UPDATE；其余表对 update 做 DELETE + INSERT。
 
 ### 5. manifest 生成
 

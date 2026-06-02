@@ -243,12 +243,16 @@ export interface HsdataPublishReport {
   sourceTagMax:         number;
   buildMin:             number;
   buildMax:             number;
-  cardCount:            number;
-  changedCardCount:     number;
-  insertedCardCount:    number;
-  updatedCardCount:     number;
-  deletedCardCount:     number;
-  unchangedCardCount:   number;
+  totalRowCount:        number;
+  changedRowCount:      number;
+  insertedRowCount:     number;
+  updatedRowCount:      number;
+  deletedRowCount:      number;
+  unchangedRowCount:    number;
+  cardRowCount:         number;
+  entityRowCount:       number;
+  localizationRowCount: number;
+  relationRowCount:     number;
   publishedAt:          string;
 }
 

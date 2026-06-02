@@ -25,8 +25,8 @@ export const PublishLedger = dataSchema.table('publish_ledgers', {
   buildMax:     integer('build_max').notNull(),
 
   manifestHash:     text('manifest_hash').notNull(),
-  cardCount:        integer('card_count').notNull(),
-  changedCardCount: integer('changed_card_count').notNull().default(0),
+  totalRowCount:    integer('total_row_count').notNull(),
+  changedRowCount:  integer('changed_row_count').notNull().default(0),
   publishedAt:      timestamp('published_at').notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -41,6 +41,6 @@ export const PublishLedger = dataSchema.table('publish_ledgers', {
   check('publish_ledgers_build_range_chk', sql`${table.buildMin} <= ${table.buildMax}`),
   check('publish_ledgers_source_tag_min_positive_chk', sql`${table.sourceTagMin} > 0`),
   check('publish_ledgers_build_min_positive_chk', sql`${table.buildMin} > 0`),
-  check('publish_ledgers_card_count_nonnegative_chk', sql`${table.cardCount} >= 0`),
-  check('publish_ledgers_changed_card_count_nonnegative_chk', sql`${table.changedCardCount} >= 0`),
+  check('publish_ledgers_total_row_count_nonnegative_chk', sql`${table.totalRowCount} >= 0`),
+  check('publish_ledgers_changed_row_count_nonnegative_chk', sql`${table.changedRowCount} >= 0`),
 ]);

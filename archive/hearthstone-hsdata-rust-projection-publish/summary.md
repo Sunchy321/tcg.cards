@@ -21,7 +21,7 @@
 - desktop 页面切换到本地 Tauri 投影入口，不再依赖旧 TS 投影主路径
 - 增加本地发布系统表：
   - `publish_batches`
-  - `publish_batch_cards`
+  - `publish_batch_rows`（初始设计为 `publish_batch_cards`，后重构为表+行级别）
   - `publish_baselines`
 - 增加远端最小发布 ledger：
   - `publish_ledgers`

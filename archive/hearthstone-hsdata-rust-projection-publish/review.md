@@ -36,7 +36,7 @@
 
 ### 4. 发布侧表先按有限范围建模是合理的
 
-当前 `publish_batches`、`publish_batch_cards`、`publish_baselines` 并不是任意表发布框架，而是面向当前 Hearthstone card family 的受控发布模型。
+当前 `publish_batches`、`publish_batch_cards`（后重构为 `publish_batch_rows`）、`publish_baselines` 并不是任意表发布框架，而是面向当前 Hearthstone card family 的受控发布模型。后续实现中将粒度从 card-family 改为表+行级别，`publish_batch_cards` 替换为 `publish_batch_rows`。
 
 这个边界是合理的，避免了过早抽象。
 

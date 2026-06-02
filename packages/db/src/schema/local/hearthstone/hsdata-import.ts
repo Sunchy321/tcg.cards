@@ -107,5 +107,5 @@ export const HsdataImportJobWorkspaceSnapshot = dataSchema.table('hsdata_import_
   index('hsdata_import_job_workspace_snapshots_job_id_chunk_index_idx').on(table.jobId, table.chunkIndex),
   index('hsdata_import_job_workspace_snapshots_job_id_snapshot_id_idx').on(table.jobId, table.snapshotId),
   index('hsdata_import_job_workspace_snapshots_job_id_snapshot_hash_idx').on(table.jobId, table.snapshotHash),
-  check('hsdata_import_job_workspace_snapshots_chunk_index_nonnegative_chk', sql`${table.chunkIndex} >= 0`),
+  check('hsdata_import_job_ws_snapshots_chunk_index_nonnegative_chk', sql`${table.chunkIndex} >= 0`),
 ]);

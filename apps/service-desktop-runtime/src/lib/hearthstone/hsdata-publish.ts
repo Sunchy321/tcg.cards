@@ -10,7 +10,7 @@ import {
   EntityRelation as LocalEntityRelation,
   PublishBaseline,
   PublishBatch,
-  PublishBatchCard,
+  PublishBatchRow,
   SourceVersion,
 } from '@tcg-cards/db/schema/local/hearthstone';
 import {
@@ -24,46 +24,33 @@ import {
 import { getLocalDb } from './hsdata-local-db';
 import { requireHearthstonePublishTarget } from './hsdata-publish-target';
 
-/** Drizzle database client used by the Bun publish workflow. */
 type PublishDb = ReturnType<typeof createDb>;
 
-/** Drizzle transaction client used by local and remote publish writes. */
 type PublishDbTx = Parameters<Parameters<PublishDb['transaction']>[0]>[0];
 
-/** One latest local card family prepared for publish hashing and remote apply. */
-interface PublishCardSnapshot {
-  cardId: string;
-  card: typeof LocalCard.$inferSelect;
-  entities: (typeof LocalEntity.$inferSelect)[];
-  localizations: (typeof LocalEntityLocalization.$inferSelect)[];
-  relations: (typeof LocalEntityRelation.$inferSelect)[];
-  entityFamilyHash: string;
-  localizationFamilyHash: string;
-  relationFamilyHash: string;
-  manifestHash: string;
+type TableName = 'cards' | 'entities' | 'entity_localizations' | 'entity_relations';
+
+interface PublishRowState {
+  tableName: TableName;
+  rowPk: string;
+  rowHash: string;
 }
 
-/** One per-card manifest row persisted in publish batch state. */
-export interface PublishCardManifestState {
-  cardId: string;
-  entityFamilyHash: string;
-  localizationFamilyHash: string;
-  relationFamilyHash: string;
-  manifestHash: string;
-  entityRowCount: number;
-  localizationRowCount: number;
-  relationRowCount: number;
+interface CurrentRowData {
+  cards: Map<string, typeof LocalCard.$inferSelect>;
+  entities: Map<string, typeof LocalEntity.$inferSelect>;
+  localizations: Map<string, typeof LocalEntityLocalization.$inferSelect>;
+  relations: Map<string, typeof LocalEntityRelation.$inferSelect>;
 }
 
-/** One card-level diff row derived from the current projection and previous baseline. */
-interface PublishBatchCardPlan {
-  cardId: string;
-  action: typeof PublishBatchCard.$inferSelect['action'];
-  current: PublishCardManifestState;
-  previousManifestHash: string | null;
+interface PublishBatchRowPlan {
+  tableName: TableName;
+  rowPk: string;
+  rowHash: string;
+  previousRowHash: string | null;
+  action: typeof PublishBatchRow.$inferSelect['action'];
 }
 
-/** Source-tag and build range derived from the current latest projected entities. */
 interface PublishDatasetRange {
   sourceTagMin: number;
   sourceTagMax: number;
@@ -71,17 +58,19 @@ interface PublishDatasetRange {
   buildMax: number;
 }
 
-/** Aggregate card counts persisted on publish batch and ledger rows. */
 interface PublishBatchCounts {
-  cardCount: number;
-  changedCardCount: number;
-  insertedCardCount: number;
-  updatedCardCount: number;
-  deletedCardCount: number;
-  unchangedCardCount: number;
+  totalRowCount: number;
+  changedRowCount: number;
+  insertedRowCount: number;
+  updatedRowCount: number;
+  deletedRowCount: number;
+  unchangedRowCount: number;
+  cardRowCount: number;
+  entityRowCount: number;
+  localizationRowCount: number;
+  relationRowCount: number;
 }
 
-/** Publish result returned to the desktop frontend after one remote apply attempt. */
 export interface HsdataPublishReport {
   batchId: string;
   publishTargetId: string;
@@ -93,48 +82,45 @@ export interface HsdataPublishReport {
   sourceTagMax: number;
   buildMin: number;
   buildMax: number;
-  cardCount: number;
-  changedCardCount: number;
-  insertedCardCount: number;
-  updatedCardCount: number;
-  deletedCardCount: number;
-  unchangedCardCount: number;
+  totalRowCount: number;
+  changedRowCount: number;
+  insertedRowCount: number;
+  updatedRowCount: number;
+  deletedRowCount: number;
+  unchangedRowCount: number;
+  cardRowCount: number;
+  entityRowCount: number;
+  localizationRowCount: number;
+  relationRowCount: number;
   publishedAt: string;
 }
 
-/** Failed remote apply state annotated with the card that caused the rollback when known. */
 interface PublishApplyFailure {
-  cardId: string | null;
+  tableName: TableName | null;
+  rowPk: string | null;
   message: string;
 }
 
-/** Stable empty-family hash reused by deleted-card manifest rows. */
 const emptyHash = sha256Hex(Buffer.from('[]'));
 
-/** Stable write batch size used for `publish_batch_cards` inserts. */
 const writeBatchSize = 500;
 
-/** Stable lowercase SHA-256 digest for one byte slice. */
 function sha256Hex(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-/** Closes one short-lived publish database client after the current apply finishes. */
 async function closePublishDb(db: PublishDb) {
   await db.$client.end({ timeout: 1 });
 }
 
-/** Stable SHA-256 digest for one JSON-serializable value. */
 function hashJson(value: unknown): string {
   return sha256Hex(Buffer.from(JSON.stringify(value)));
 }
 
-/** Short human-readable message normalized from one unknown thrown value. */
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Fixed-size chunks used by batched insert helpers. */
 function chunkValues<T>(values: T[], size = writeBatchSize): T[][] {
   const chunks: T[][] = [];
 
@@ -143,6 +129,22 @@ function chunkValues<T>(values: T[], size = writeBatchSize): T[][] {
   }
 
   return chunks;
+}
+
+/** Build a deterministic JSON string from a PK record with alphabetically sorted keys. */
+function serializeRowPk(pk: Record<string, string>): string {
+  const sorted: Record<string, string> = {};
+
+  for (const key of Object.keys(pk).sort()) {
+    sorted[key] = pk[key];
+  }
+
+  return JSON.stringify(sorted);
+}
+
+/** Parse a serialized row PK back into a record. */
+function parseRowPk(serialized: string): Record<string, string> {
+  return JSON.parse(serialized) as Record<string, string>;
 }
 
 /** Stable manifest projection for one entity row. */
@@ -236,132 +238,56 @@ function cardManifestValue(row: typeof LocalCard.$inferSelect) {
   };
 }
 
-/** Current per-card manifest reconstructed from one latest local card family. */
-function buildCurrentCardManifest(snapshot: PublishCardSnapshot): PublishCardManifestState {
-  return {
-    cardId: snapshot.cardId,
-    entityFamilyHash: snapshot.entityFamilyHash,
-    localizationFamilyHash: snapshot.localizationFamilyHash,
-    relationFamilyHash: snapshot.relationFamilyHash,
-    manifestHash: snapshot.manifestHash,
-    entityRowCount: snapshot.entities.length,
-    localizationRowCount: snapshot.localizations.length,
-    relationRowCount: snapshot.relations.length,
-  };
+function cardsRowPk(row: typeof LocalCard.$inferSelect): string {
+  return serializeRowPk({ cardId: row.cardId });
 }
 
-/** Card-level publish diff and aggregate counts derived from current and previous manifest rows. */
-function buildPublishBatchPlanFromCurrentManifests(
-  currentRows: PublishCardManifestState[],
-  previous: Map<string, PublishCardManifestState>,
-): {
-    plans: PublishBatchCardPlan[];
-    counts: PublishBatchCounts;
-    manifestHash: string;
-  } {
-  const current = new Map<string, PublishCardManifestState>(
-    currentRows.map(row => [row.cardId, row]),
-  );
-  const cardIds = [...new Set([
-    ...current.keys(),
-    ...previous.keys(),
-  ])].sort();
-  const counts: PublishBatchCounts = {
-    cardCount: cardIds.length,
-    changedCardCount: 0,
-    insertedCardCount: 0,
-    updatedCardCount: 0,
-    deletedCardCount: 0,
-    unchangedCardCount: 0,
-  };
-  const plans: PublishBatchCardPlan[] = [];
-
-  for (const cardId of cardIds) {
-    const currentRow = current.get(cardId);
-    const previousRow = previous.get(cardId);
-
-    if (currentRow != null && previousRow == null) {
-      counts.changedCardCount += 1;
-      counts.insertedCardCount += 1;
-      plans.push({
-        cardId,
-        action: 'insert',
-        current: currentRow,
-        previousManifestHash: null,
-      });
-      continue;
-    }
-
-    if (currentRow != null && previousRow != null && currentRow.manifestHash === previousRow.manifestHash) {
-      counts.unchangedCardCount += 1;
-      plans.push({
-        cardId,
-        action: 'unchanged',
-        current: currentRow,
-        previousManifestHash: previousRow.manifestHash,
-      });
-      continue;
-    }
-
-    if (currentRow != null && previousRow != null) {
-      counts.changedCardCount += 1;
-      counts.updatedCardCount += 1;
-      plans.push({
-        cardId,
-        action: 'update',
-        current: currentRow,
-        previousManifestHash: previousRow.manifestHash,
-      });
-      continue;
-    }
-
-    if (currentRow == null && previousRow != null) {
-      counts.changedCardCount += 1;
-      counts.deletedCardCount += 1;
-      plans.push({
-        cardId,
-        action: 'delete',
-        current: buildDeletedCardManifest(previousRow),
-        previousManifestHash: previousRow.manifestHash,
-      });
-    }
-  }
-
-  return {
-    plans,
-    counts,
-    manifestHash: hashJson(plans
-      .filter(plan => plan.action !== 'delete')
-      .map(plan => ({
-        cardId: plan.cardId,
-        entityFamilyHash: plan.current.entityFamilyHash,
-        localizationFamilyHash: plan.current.localizationFamilyHash,
-        relationFamilyHash: plan.current.relationFamilyHash,
-        manifestHash: plan.current.manifestHash,
-      }))),
-  };
+function entitiesRowPk(row: typeof LocalEntity.$inferSelect): string {
+  return serializeRowPk({
+    cardId: row.cardId,
+    revisionHash: row.revisionHash,
+  });
 }
 
-/** Deleted-card manifest synthesized from the previous successful baseline row. */
-function buildDeletedCardManifest(previous: PublishCardManifestState): PublishCardManifestState {
-  return {
-    cardId: previous.cardId,
-    entityFamilyHash: emptyHash,
-    localizationFamilyHash: emptyHash,
-    relationFamilyHash: emptyHash,
-    manifestHash: hashJson({
-      entityFamilyHash: emptyHash,
-      localizationFamilyHash: emptyHash,
-      relationFamilyHash: emptyHash,
-    }),
-    entityRowCount: 0,
-    localizationRowCount: 0,
-    relationRowCount: 0,
-  };
+function localizationsRowPk(row: typeof LocalEntityLocalization.$inferSelect): string {
+  return serializeRowPk({
+    cardId: row.cardId,
+    lang: row.lang,
+    localizationHash: row.localizationHash,
+    revisionHash: row.revisionHash,
+  });
 }
 
-/** Latest local card families loaded from the shared Hearthstone projection tables. */
-async function loadCurrentPublishSnapshots(db: PublishDb): Promise<PublishCardSnapshot[]> {
+function relationsRowPk(row: typeof LocalEntityRelation.$inferSelect): string {
+  return serializeRowPk({
+    relation: row.relation,
+    sourceId: row.sourceId,
+    sourceRevisionHash: row.sourceRevisionHash,
+    targetId: row.targetId,
+  });
+}
+
+function entityRowHash(row: typeof LocalEntity.$inferSelect): string {
+  return hashJson(entityManifestValue(row));
+}
+
+function localizationRowHash(row: typeof LocalEntityLocalization.$inferSelect): string {
+  return hashJson(localizationManifestValue(row));
+}
+
+function relationRowHash(row: typeof LocalEntityRelation.$inferSelect): string {
+  return hashJson(relationManifestValue(row));
+}
+
+function cardRowHash(row: typeof LocalCard.$inferSelect): string {
+  return hashJson(cardManifestValue(row));
+}
+
+/** Latest local rows loaded from all four publish tables and indexed by PK. */
+async function loadCurrentRowSnapshots(db: PublishDb): Promise<{
+  states: PublishRowState[];
+  data: CurrentRowData;
+}> {
   const entityRows = await db.select()
     .from(LocalEntity)
     .where(eq(LocalEntity.isLatest, true))
@@ -388,132 +314,112 @@ async function loadCurrentPublishSnapshots(db: PublishDb): Promise<PublishCardSn
       asc(LocalEntityRelation.sourceRevisionHash),
     );
 
-  const entityMap = new Map<string, (typeof LocalEntity.$inferSelect)[]>();
-  const localizationMap = new Map<string, (typeof LocalEntityLocalization.$inferSelect)[]>();
-  const relationMap = new Map<string, (typeof LocalEntityRelation.$inferSelect)[]>();
   const cardIds = new Set<string>();
 
   for (const row of entityRows) {
     cardIds.add(row.cardId);
-    entityMap.set(row.cardId, [...(entityMap.get(row.cardId) ?? []), row]);
   }
 
-  for (const row of localizationRows) {
-    cardIds.add(row.cardId);
-    localizationMap.set(row.cardId, [...(localizationMap.get(row.cardId) ?? []), row]);
-  }
-
-  for (const row of relationRows) {
-    cardIds.add(row.sourceId);
-    relationMap.set(row.sourceId, [...(relationMap.get(row.sourceId) ?? []), row]);
+  if (cardIds.size === 0) {
+    return { states: [], data: { cards: new Map(), entities: new Map(), localizations: new Map(), relations: new Map() } };
   }
 
   const sortedCardIds = [...cardIds].sort();
-
-  if (sortedCardIds.length === 0) {
-    return [];
-  }
-
   const cardRows = await db.select()
     .from(LocalCard)
     .where(inArray(LocalCard.cardId, sortedCardIds))
     .orderBy(asc(LocalCard.cardId));
-  const cardMap = new Map(cardRows.map(row => [row.cardId, row]));
-  const snapshots: PublishCardSnapshot[] = [];
+  const cardRowMap = new Map(cardRows.map(row => [row.cardId, row]));
+
+  const data: CurrentRowData = {
+    cards: new Map(),
+    entities: new Map(),
+    localizations: new Map(),
+    relations: new Map(),
+  };
+  const states: PublishRowState[] = [];
+
+  for (const row of entityRows) {
+    const pk = entitiesRowPk(row);
+
+    data.entities.set(pk, row);
+    states.push({ tableName: 'entities', rowPk: pk, rowHash: entityRowHash(row) });
+  }
+
+  for (const row of localizationRows) {
+    const pk = localizationsRowPk(row);
+
+    data.localizations.set(pk, row);
+    states.push({ tableName: 'entity_localizations', rowPk: pk, rowHash: localizationRowHash(row) });
+  }
+
+  for (const row of relationRows) {
+    const pk = relationsRowPk(row);
+
+    data.relations.set(pk, row);
+    states.push({ tableName: 'entity_relations', rowPk: pk, rowHash: relationRowHash(row) });
+  }
 
   for (const cardId of sortedCardIds) {
-    const card = cardMap.get(cardId) ?? {
+    const card = cardRowMap.get(cardId) ?? {
       cardId,
       legalities: {},
     } satisfies typeof LocalCard.$inferSelect;
-    const entities = entityMap.get(cardId) ?? [];
-    const localizations = localizationMap.get(cardId) ?? [];
-    const relations = relationMap.get(cardId) ?? [];
+    const pk = cardsRowPk(card);
 
-    if (entities.length === 0) {
-      throw new Error(`Local publish snapshot for card ${cardId} is missing latest entity rows.`);
-    }
-
-    const entityFamilyHash = hashJson(entities.map(entityManifestValue));
-    const localizationFamilyHash = hashJson(localizations.map(localizationManifestValue));
-    const relationFamilyHash = hashJson(relations.map(relationManifestValue));
-    const manifestHash = hashJson({
-      card: cardManifestValue(card),
-      entityFamilyHash,
-      localizationFamilyHash,
-      relationFamilyHash,
-    });
-
-    snapshots.push({
-      cardId,
-      card,
-      entities,
-      localizations,
-      relations,
-      entityFamilyHash,
-      localizationFamilyHash,
-      relationFamilyHash,
-      manifestHash,
-    });
+    data.cards.set(pk, card);
+    states.push({ tableName: 'cards', rowPk: pk, rowHash: cardRowHash(card) });
   }
 
-  return snapshots;
+  return { states, data };
 }
 
-/** Previous successful per-card manifests loaded from the current local publish baseline. */
-async function loadPreviousPublishManifests(
+/** Previous successful per-row hashes loaded from the current local publish baseline. */
+async function loadPreviousRowStates(
   db: PublishDb,
   publishTargetId: string,
 ): Promise<{
     baseline: typeof PublishBaseline.$inferSelect | null;
-    manifests: Map<string, PublishCardManifestState>;
+    previous: Map<TableName, Map<string, string>>;
   }> {
   const baseline = await db.select()
     .from(PublishBaseline)
     .where(eq(PublishBaseline.publishTargetId, publishTargetId))
     .then(rows => rows[0] ?? null);
 
+  const previous = new Map<TableName, Map<string, string>>();
+
   if (baseline == null) {
-    return {
-      baseline: null,
-      manifests: new Map(),
-    };
+    return { baseline: null, previous };
   }
 
   const rows = await db.select()
-    .from(PublishBatchCard)
-    .where(eq(PublishBatchCard.batchId, baseline.batchId));
-  const manifests = new Map<string, PublishCardManifestState>();
+    .from(PublishBatchRow)
+    .where(eq(PublishBatchRow.batchId, baseline.batchId));
 
   for (const row of rows) {
     if (row.action === 'delete') {
       continue;
     }
 
-    manifests.set(row.cardId, {
-      cardId: row.cardId,
-      entityFamilyHash: row.entityFamilyHash,
-      localizationFamilyHash: row.localizationFamilyHash,
-      relationFamilyHash: row.relationFamilyHash,
-      manifestHash: row.manifestHash,
-      entityRowCount: row.entityRowCount,
-      localizationRowCount: row.localizationRowCount,
-      relationRowCount: row.relationRowCount,
-    });
+    const tableName = row.tableName as TableName;
+
+    if (!previous.has(tableName)) {
+      previous.set(tableName, new Map());
+    }
+
+    previous.get(tableName)!.set(row.rowPk, row.rowHash);
   }
 
-  return {
-    baseline,
-    manifests,
-  };
+  return { baseline, previous };
 }
 
 /** Source-tag and build range mapped from the current latest local entity versions. */
 async function derivePublishDatasetRange(
   db: PublishDb,
-  snapshots: PublishCardSnapshot[],
+  entityRows: (typeof LocalEntity.$inferSelect)[],
 ): Promise<PublishDatasetRange> {
-  const builds = [...new Set(snapshots.flatMap(snapshot => snapshot.entities.flatMap(row => row.version)))].sort((left, right) => left - right);
+  const builds = [...new Set(entityRows.flatMap(row => row.version))].sort((left, right) => left - right);
 
   if (builds.length === 0) {
     throw new Error('Local publish snapshot does not include any Hearthstone build numbers.');
@@ -547,19 +453,92 @@ async function derivePublishDatasetRange(
   };
 }
 
-/** Card-level publish diff and aggregate counts derived from the previous baseline. */
-function buildPublishBatchPlan(
-  snapshots: PublishCardSnapshot[],
-  previous: Map<string, PublishCardManifestState>,
+/** Row-level publish diff and aggregate counts derived from current and previous row states. */
+function buildRowPlans(
+  currentStates: PublishRowState[],
+  previous: Map<TableName, Map<string, string>>,
 ): {
-    plans: PublishBatchCardPlan[];
+    plans: PublishBatchRowPlan[];
     counts: PublishBatchCounts;
     manifestHash: string;
   } {
-  return buildPublishBatchPlanFromCurrentManifests(
-    snapshots.map(buildCurrentCardManifest),
-    previous,
-  );
+  const currentByTable = new Map<TableName, Map<string, string>>();
+
+  for (const state of currentStates) {
+    if (!currentByTable.has(state.tableName)) {
+      currentByTable.set(state.tableName, new Map());
+    }
+
+    currentByTable.get(state.tableName)!.set(state.rowPk, state.rowHash);
+  }
+
+  const allTables = new Set<TableName>([...currentByTable.keys(), ...previous.keys()]);
+  const plans: PublishBatchRowPlan[] = [];
+  const counts: PublishBatchCounts = {
+    totalRowCount: 0,
+    changedRowCount: 0,
+    insertedRowCount: 0,
+    updatedRowCount: 0,
+    deletedRowCount: 0,
+    unchangedRowCount: 0,
+    cardRowCount: 0,
+    entityRowCount: 0,
+    localizationRowCount: 0,
+    relationRowCount: 0,
+  };
+
+  for (const tableName of allTables) {
+    const current = currentByTable.get(tableName) ?? new Map();
+    const prev = previous.get(tableName) ?? new Map();
+    const allPks = new Set([...current.keys(), ...prev.keys()]);
+
+    for (const rowPk of allPks) {
+      const curHash = current.get(rowPk) ?? null;
+      const prevHash = prev.get(rowPk) ?? null;
+
+      if (curHash != null && prevHash == null) {
+        counts.insertedRowCount += 1;
+        counts.changedRowCount += 1;
+        plans.push({ tableName, rowPk, rowHash: curHash, previousRowHash: null, action: 'insert' });
+      } else if (curHash != null && prevHash != null && curHash === prevHash) {
+        counts.unchangedRowCount += 1;
+        plans.push({ tableName, rowPk, rowHash: curHash, previousRowHash: prevHash, action: 'unchanged' });
+      } else if (curHash != null && prevHash != null) {
+        counts.updatedRowCount += 1;
+        counts.changedRowCount += 1;
+        plans.push({ tableName, rowPk, rowHash: curHash, previousRowHash: prevHash, action: 'update' });
+      } else if (curHash == null && prevHash != null) {
+        counts.deletedRowCount += 1;
+        counts.changedRowCount += 1;
+        plans.push({ tableName, rowPk, rowHash: '', previousRowHash: prevHash, action: 'delete' });
+      }
+
+      switch (tableName) {
+        case 'cards': counts.cardRowCount += 1; break;
+        case 'entities': counts.entityRowCount += 1; break;
+        case 'entity_localizations': counts.localizationRowCount += 1; break;
+        case 'entity_relations': counts.relationRowCount += 1; break;
+      }
+    }
+  }
+
+  counts.totalRowCount = plans.length;
+
+  plans.sort((a, b) => {
+    const cmp = a.tableName.localeCompare(b.tableName);
+
+    return cmp !== 0 ? cmp : a.rowPk.localeCompare(b.rowPk);
+  });
+
+  const manifestHash = hashJson(plans
+    .filter(p => p.action !== 'delete')
+    .map(p => ({
+      tableName: p.tableName,
+      rowPk: p.rowPk,
+      rowHash: p.rowHash,
+    })));
+
+  return { plans, counts, manifestHash };
 }
 
 /** Draft publish batch row inserted before remote apply begins. */
@@ -589,12 +568,16 @@ async function insertPublishBatch(
     buildMax: input.range.buildMax,
     manifestHash: input.manifestHash,
     previousManifestHash: input.previousManifestHash,
-    cardCount: input.counts.cardCount,
-    changedCardCount: input.counts.changedCardCount,
-    insertedCardCount: input.counts.insertedCardCount,
-    updatedCardCount: input.counts.updatedCardCount,
-    deletedCardCount: input.counts.deletedCardCount,
-    unchangedCardCount: input.counts.unchangedCardCount,
+    totalRowCount: input.counts.totalRowCount,
+    changedRowCount: input.counts.changedRowCount,
+    insertedRowCount: input.counts.insertedRowCount,
+    updatedRowCount: input.counts.updatedRowCount,
+    deletedRowCount: input.counts.deletedRowCount,
+    unchangedRowCount: input.counts.unchangedRowCount,
+    cardRowCount: input.counts.cardRowCount,
+    entityRowCount: input.counts.entityRowCount,
+    localizationRowCount: input.counts.localizationRowCount,
+    relationRowCount: input.counts.relationRowCount,
     status: 'draft',
     error: null,
     summary: null,
@@ -605,27 +588,22 @@ async function insertPublishBatch(
   });
 }
 
-/** Per-card publish rows inserted before the remote transaction starts. */
-async function insertPublishBatchCards(
+/** Per-row publish batch rows inserted before the remote transaction starts. */
+async function insertPublishBatchRows(
   db: PublishDb,
   batchId: string,
-  plans: PublishBatchCardPlan[],
+  plans: PublishBatchRowPlan[],
 ): Promise<void> {
   const now = new Date();
   const rows = plans.map(plan => ({
     batchId,
-    cardId: plan.cardId,
-    entityFamilyHash: plan.current.entityFamilyHash,
-    localizationFamilyHash: plan.current.localizationFamilyHash,
-    relationFamilyHash: plan.current.relationFamilyHash,
-    manifestHash: plan.current.manifestHash,
-    previousManifestHash: plan.previousManifestHash,
+    tableName: plan.tableName,
+    rowPk: plan.rowPk,
+    rowHash: plan.rowHash,
+    previousRowHash: plan.previousRowHash,
     action: plan.action,
     status: 'pending' as const,
     error: null,
-    entityRowCount: plan.current.entityRowCount,
-    localizationRowCount: plan.current.localizationRowCount,
-    relationRowCount: plan.current.relationRowCount,
     createdAt: now,
     updatedAt: now,
     appliedAt: null,
@@ -636,7 +614,7 @@ async function insertPublishBatchCards(
       continue;
     }
 
-    await db.insert(PublishBatchCard).values(chunk);
+    await db.insert(PublishBatchRow).values(chunk);
   }
 }
 
@@ -658,7 +636,7 @@ async function markPublishBatchApplying(
     .where(eq(PublishBatch.id, batchId));
 }
 
-/** Successful batch, batch-card, and baseline state persisted after remote commit. */
+/** Successful batch, batch-row, and baseline state persisted after remote commit. */
 async function finalizePublishBatchSuccess(
   db: PublishDb,
   input: {
@@ -669,7 +647,7 @@ async function finalizePublishBatchSuccess(
     range: PublishDatasetRange;
     counts: PublishBatchCounts;
     manifestHash: string;
-    plans: PublishBatchCardPlan[];
+    plans: PublishBatchRowPlan[];
     publishedAt: Date;
   },
 ): Promise<void> {
@@ -677,17 +655,21 @@ async function finalizePublishBatchSuccess(
     batchId: input.batchId,
     publishTargetId: input.publishTargetId,
     environment: input.environment,
-    cardCount: input.counts.cardCount,
-    changedCardCount: input.counts.changedCardCount,
-    insertedCardCount: input.counts.insertedCardCount,
-    updatedCardCount: input.counts.updatedCardCount,
-    deletedCardCount: input.counts.deletedCardCount,
-    unchangedCardCount: input.counts.unchangedCardCount,
+    totalRowCount: input.counts.totalRowCount,
+    changedRowCount: input.counts.changedRowCount,
+    insertedRowCount: input.counts.insertedRowCount,
+    updatedRowCount: input.counts.updatedRowCount,
+    deletedRowCount: input.counts.deletedRowCount,
+    unchangedRowCount: input.counts.unchangedRowCount,
+    cardRowCount: input.counts.cardRowCount,
+    entityRowCount: input.counts.entityRowCount,
+    localizationRowCount: input.counts.localizationRowCount,
+    relationRowCount: input.counts.relationRowCount,
     publishedAt: input.publishedAt.toISOString(),
   };
 
   for (const plan of input.plans) {
-    await db.update(PublishBatchCard)
+    await db.update(PublishBatchRow)
       .set({
         status: plan.action === 'unchanged' ? 'skipped' : 'applied',
         error: null,
@@ -695,8 +677,9 @@ async function finalizePublishBatchSuccess(
         updatedAt: input.publishedAt,
       })
       .where(and(
-        eq(PublishBatchCard.batchId, input.batchId),
-        eq(PublishBatchCard.cardId, plan.cardId),
+        eq(PublishBatchRow.batchId, input.batchId),
+        eq(PublishBatchRow.tableName, plan.tableName),
+        eq(PublishBatchRow.rowPk, plan.rowPk),
       ));
   }
 
@@ -720,7 +703,7 @@ async function finalizePublishBatchSuccess(
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
     manifestHash: input.manifestHash,
-    cardCount: input.counts.cardCount,
+    totalRowCount: input.counts.totalRowCount,
     publishedAt: input.publishedAt,
     createdAt: input.publishedAt,
     updatedAt: input.publishedAt,
@@ -736,7 +719,7 @@ async function finalizePublishBatchSuccess(
         buildMin: input.range.buildMin,
         buildMax: input.range.buildMax,
         manifestHash: input.manifestHash,
-        cardCount: input.counts.cardCount,
+        totalRowCount: input.counts.totalRowCount,
         publishedAt: input.publishedAt,
         updatedAt: input.publishedAt,
       },
@@ -747,28 +730,28 @@ async function finalizePublishBatchSuccess(
 async function finalizePublishBatchFailure(
   db: PublishDb,
   batchId: string,
-  failedCardId: string | null,
-  error: string,
+  failure: PublishApplyFailure,
 ): Promise<void> {
   const now = new Date();
 
-  if (failedCardId != null) {
-    await db.update(PublishBatchCard)
+  if (failure.tableName != null && failure.rowPk != null) {
+    await db.update(PublishBatchRow)
       .set({
         status: 'failed',
-        error,
+        error: failure.message,
         updatedAt: now,
       })
       .where(and(
-        eq(PublishBatchCard.batchId, batchId),
-        eq(PublishBatchCard.cardId, failedCardId),
+        eq(PublishBatchRow.batchId, batchId),
+        eq(PublishBatchRow.tableName, failure.tableName),
+        eq(PublishBatchRow.rowPk, failure.rowPk),
       ));
   }
 
   await db.update(PublishBatch)
     .set({
       status: 'failed',
-      error,
+      error: failure.message,
       completedAt: now,
       updatedAt: now,
     })
@@ -799,8 +782,8 @@ async function upsertRemotePublishLedger(
     buildMin: input.range.buildMin,
     buildMax: input.range.buildMax,
     manifestHash: input.manifestHash,
-    cardCount: input.counts.cardCount,
-    changedCardCount: input.counts.changedCardCount,
+    totalRowCount: input.counts.totalRowCount,
+    changedRowCount: input.counts.changedRowCount,
     publishedAt: input.publishedAt,
     createdAt: input.publishedAt,
     updatedAt: input.publishedAt,
@@ -816,87 +799,120 @@ async function upsertRemotePublishLedger(
         buildMin: input.range.buildMin,
         buildMax: input.range.buildMax,
         manifestHash: input.manifestHash,
-        cardCount: input.counts.cardCount,
-        changedCardCount: input.counts.changedCardCount,
+        totalRowCount: input.counts.totalRowCount,
+        changedRowCount: input.counts.changedRowCount,
         publishedAt: input.publishedAt,
         updatedAt: input.publishedAt,
       },
     });
 }
 
-/** Remote row family deleted for one card before re-inserting the current projection. */
-async function deleteRemoteCardFamily(
+/** Delete one row from the remote table using the parsed PK. */
+async function deleteRemoteRow(
   tx: PublishDbTx,
-  cardId: string,
+  tableName: TableName,
+  rowPk: Record<string, string>,
 ): Promise<void> {
-  await tx.delete(RemoteEntityLocalization).where(eq(RemoteEntityLocalization.cardId, cardId));
-  await tx.delete(RemoteEntityRelation).where(eq(RemoteEntityRelation.sourceId, cardId));
-  await tx.delete(RemoteEntity).where(eq(RemoteEntity.cardId, cardId));
+  switch (tableName) {
+    case 'cards':
+      await tx.delete(RemoteCard).where(eq(RemoteCard.cardId, rowPk.cardId!));
+      return;
+    case 'entities':
+      await tx.delete(RemoteEntity).where(and(
+        eq(RemoteEntity.cardId, rowPk.cardId!),
+        eq(RemoteEntity.revisionHash, rowPk.revisionHash!),
+      ));
+      return;
+    case 'entity_localizations':
+      await tx.delete(RemoteEntityLocalization).where(and(
+        eq(RemoteEntityLocalization.cardId, rowPk.cardId!),
+        eq(RemoteEntityLocalization.lang, rowPk.lang!),
+        eq(RemoteEntityLocalization.revisionHash, rowPk.revisionHash!),
+        eq(RemoteEntityLocalization.localizationHash, rowPk.localizationHash!),
+      ));
+      return;
+    case 'entity_relations':
+      await tx.delete(RemoteEntityRelation).where(and(
+        eq(RemoteEntityRelation.sourceId, rowPk.sourceId!),
+        eq(RemoteEntityRelation.sourceRevisionHash, rowPk.sourceRevisionHash!),
+        eq(RemoteEntityRelation.relation, rowPk.relation!),
+        eq(RemoteEntityRelation.targetId, rowPk.targetId!),
+      ));
+      return;
+  }
 }
 
-/** Remote card row inserted only when the current card id does not exist yet. */
-async function ensureRemoteCardRow(
+/** Insert one row into the remote table. For cards, uses upsert semantics. */
+async function insertRemoteRow(
   tx: PublishDbTx,
-  row: typeof LocalCard.$inferSelect,
+  tableName: TableName,
+  row: unknown,
+  action: 'insert' | 'update',
 ): Promise<void> {
-  await tx.insert(RemoteCard).values({
-    cardId: row.cardId,
-    legalities: row.legalities,
-  })
-    .onConflictDoNothing();
-}
+  if (tableName === 'cards') {
+    const cardRow = row as typeof LocalCard.$inferSelect;
 
-/** Remote row family inserted for one current local card snapshot. */
-async function insertRemoteCardFamily(
-  tx: PublishDbTx,
-  snapshot: PublishCardSnapshot,
-): Promise<void> {
-  await ensureRemoteCardRow(tx, snapshot.card);
+    if (action === 'update') {
+      await tx.insert(RemoteCard).values({
+        cardId: cardRow.cardId,
+        legalities: cardRow.legalities,
+      })
+        .onConflictDoUpdate({
+          target: RemoteCard.cardId,
+          set: { legalities: cardRow.legalities },
+        });
+    } else {
+      await tx.insert(RemoteCard).values({
+        cardId: cardRow.cardId,
+        legalities: cardRow.legalities,
+      })
+        .onConflictDoNothing();
+    }
 
-  if (snapshot.entities.length > 0) {
-    await tx.insert(RemoteEntity).values(snapshot.entities.map(row => ({
-      ...row,
-    })));
+    return;
   }
 
-  if (snapshot.localizations.length > 0) {
-    await tx.insert(RemoteEntityLocalization).values(snapshot.localizations.map(row => ({
-      ...row,
-    })));
+  if (tableName === 'entities') {
+    const entityRow = row as typeof LocalEntity.$inferSelect;
+
+    await tx.insert(RemoteEntity).values({ ...entityRow });
+    return;
   }
 
-  if (snapshot.relations.length > 0) {
-    await tx.insert(RemoteEntityRelation).values(snapshot.relations.map(row => ({
-      ...row,
-    })));
+  if (tableName === 'entity_localizations') {
+    const locRow = row as typeof LocalEntityLocalization.$inferSelect;
+
+    await tx.insert(RemoteEntityLocalization).values({ ...locRow });
+    return;
   }
+
+  const relRow = row as typeof LocalEntityRelation.$inferSelect;
+
+  await tx.insert(RemoteEntityRelation).values({ ...relRow });
 }
 
 /** Structured remote-apply failure normalized from an unknown thrown value. */
 function normalizePublishApplyFailure(error: unknown): PublishApplyFailure {
   if (typeof error === 'object' && error != null && 'message' in error && typeof error.message === 'string') {
-    const cardId = 'cardId' in error && typeof error.cardId === 'string'
-      ? error.cardId
+    const tableName = 'tableName' in error && typeof error.tableName === 'string'
+      ? error.tableName as TableName
+      : null;
+    const rowPk = 'rowPk' in error && typeof error.rowPk === 'string'
+      ? error.rowPk
       : null;
 
-    return {
-      cardId,
-      message: error.message,
-    };
+    return { tableName, rowPk, message: error.message };
   }
 
-  return {
-    cardId: null,
-    message: getErrorMessage(error),
-  };
+  return { tableName: null, rowPk: null, message: getErrorMessage(error) };
 }
 
-/** Remote transaction that applies one publish batch to the configured target database. */
-async function applyPublishBatchToRemote(
+/** Remote transaction that applies one publish batch at the row level. */
+async function applyRowPlansToRemote(
   remoteDb: PublishDb,
   input: {
-    snapshots: PublishCardSnapshot[];
-    plans: PublishBatchCardPlan[];
+    data: CurrentRowData;
+    plans: PublishBatchRowPlan[];
     batchId: string;
     publishTargetId: string;
     environment: string;
@@ -907,31 +923,54 @@ async function applyPublishBatchToRemote(
     publishedAt: Date;
   },
 ): Promise<void> {
-  const snapshotMap = new Map(input.snapshots.map(snapshot => [snapshot.cardId, snapshot]));
-
   try {
     await remoteDb.transaction(async tx => {
       for (const plan of input.plans) {
         try {
           if (plan.action === 'insert' || plan.action === 'update') {
-            await deleteRemoteCardFamily(tx, plan.cardId);
+            const rowPkParsed = parseRowPk(plan.rowPk);
+            let row: unknown;
 
-            const snapshot = snapshotMap.get(plan.cardId);
+            switch (plan.tableName) {
+              case 'cards':
+                row = input.data.cards.get(plan.rowPk);
 
-            if (snapshot == null) {
-              throw new Error(`Current publish snapshot for card ${plan.cardId} is missing during remote apply.`);
+                break;
+              case 'entities':
+                row = input.data.entities.get(plan.rowPk);
+
+                break;
+              case 'entity_localizations':
+                row = input.data.localizations.get(plan.rowPk);
+
+                break;
+              case 'entity_relations':
+                row = input.data.relations.get(plan.rowPk);
+
+                break;
             }
 
-            await insertRemoteCardFamily(tx, snapshot);
+            if (row == null) {
+              throw new Error(`Current row data for ${plan.tableName} ${plan.rowPk} is missing during remote apply.`);
+            }
+
+            if (plan.action === 'update' && plan.tableName !== 'cards') {
+              await deleteRemoteRow(tx, plan.tableName, rowPkParsed);
+            }
+
+            await insertRemoteRow(tx, plan.tableName, row, plan.action);
             continue;
           }
 
           if (plan.action === 'delete') {
-            await deleteRemoteCardFamily(tx, plan.cardId);
+            const rowPkParsed = parseRowPk(plan.rowPk);
+
+            await deleteRemoteRow(tx, plan.tableName, rowPkParsed);
           }
         } catch (error) {
           throw {
-            cardId: plan.cardId,
+            tableName: plan.tableName,
+            rowPk: plan.rowPk,
             message: getErrorMessage(error),
           } satisfies PublishApplyFailure;
         }
@@ -950,7 +989,8 @@ async function applyPublishBatchToRemote(
         });
       } catch (error) {
         throw {
-          cardId: null,
+          tableName: null,
+          rowPk: null,
           message: `Failed to update remote publish ledger: ${getErrorMessage(error)}`,
         } satisfies PublishApplyFailure;
       }
@@ -965,17 +1005,19 @@ export async function publishCurrentHsdataToRemote(): Promise<HsdataPublishRepor
   const target = requireHearthstonePublishTarget();
   const localDb = getLocalDb();
   const remoteDb = createDb(target.connectionString);
-  try {
-    const snapshots = await loadCurrentPublishSnapshots(localDb);
 
-    if (snapshots.length === 0) {
+  try {
+    const { states, data } = await loadCurrentRowSnapshots(localDb);
+
+    if (states.length === 0) {
       throw new Error('No latest local Hearthstone projection rows are available for publish.');
     }
 
-    const range = await derivePublishDatasetRange(localDb, snapshots);
-    const previous = await loadPreviousPublishManifests(localDb, target.publishTargetId);
-    const previousManifestHash = previous.baseline?.manifestHash ?? null;
-    const { plans, counts, manifestHash } = buildPublishBatchPlan(snapshots, previous.manifests);
+    const entityRows = [...data.entities.values()];
+    const range = await derivePublishDatasetRange(localDb, entityRows);
+    const { baseline, previous } = await loadPreviousRowStates(localDb, target.publishTargetId);
+    const previousManifestHash = baseline?.manifestHash ?? null;
+    const { plans, counts, manifestHash } = buildRowPlans(states, previous);
     const batchId = randomUUID();
     const publishedAt = new Date();
 
@@ -989,12 +1031,12 @@ export async function publishCurrentHsdataToRemote(): Promise<HsdataPublishRepor
       previousManifestHash,
       counts,
     });
-    await insertPublishBatchCards(localDb, batchId, plans);
+    await insertPublishBatchRows(localDb, batchId, plans);
     await markPublishBatchApplying(localDb, batchId);
 
     try {
-      await applyPublishBatchToRemote(remoteDb, {
-        snapshots,
+      await applyRowPlansToRemote(remoteDb, {
+        data,
         plans,
         batchId,
         publishTargetId: target.publishTargetId,
@@ -1008,7 +1050,7 @@ export async function publishCurrentHsdataToRemote(): Promise<HsdataPublishRepor
     } catch (error) {
       const failure = normalizePublishApplyFailure(error);
 
-      await finalizePublishBatchFailure(localDb, batchId, failure.cardId, failure.message);
+      await finalizePublishBatchFailure(localDb, batchId, failure);
       throw new Error(failure.message);
     }
 
@@ -1035,12 +1077,16 @@ export async function publishCurrentHsdataToRemote(): Promise<HsdataPublishRepor
       sourceTagMax: range.sourceTagMax,
       buildMin: range.buildMin,
       buildMax: range.buildMax,
-      cardCount: counts.cardCount,
-      changedCardCount: counts.changedCardCount,
-      insertedCardCount: counts.insertedCardCount,
-      updatedCardCount: counts.updatedCardCount,
-      deletedCardCount: counts.deletedCardCount,
-      unchangedCardCount: counts.unchangedCardCount,
+      totalRowCount: counts.totalRowCount,
+      changedRowCount: counts.changedRowCount,
+      insertedRowCount: counts.insertedRowCount,
+      updatedRowCount: counts.updatedRowCount,
+      deletedRowCount: counts.deletedRowCount,
+      unchangedRowCount: counts.unchangedRowCount,
+      cardRowCount: counts.cardRowCount,
+      entityRowCount: counts.entityRowCount,
+      localizationRowCount: counts.localizationRowCount,
+      relationRowCount: counts.relationRowCount,
       publishedAt: publishedAt.toISOString(),
     };
   } finally {
@@ -1048,9 +1094,18 @@ export async function publishCurrentHsdataToRemote(): Promise<HsdataPublishRepor
   }
 }
 
-/** Test-only publish helpers that lock the migrated Rust diff semantics in place. */
+/** Test-only publish helpers that lock row-level diff semantics in place. */
 export const hsdataPublishTestUtils = {
   emptyHash,
-  buildDeletedCardManifest,
-  buildPublishBatchPlanFromCurrentManifests,
+  buildRowPlans,
+  serializeRowPk,
+  parseRowPk,
+  cardsRowPk,
+  entitiesRowPk,
+  localizationsRowPk,
+  relationsRowPk,
+  cardRowHash,
+  entityRowHash,
+  localizationRowHash,
+  relationRowHash,
 };
