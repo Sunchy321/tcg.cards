@@ -138,17 +138,6 @@ const full = os
     const { cardId, lang, version } = input;
     const card = await findCardView(input);
 
-    if (card == null && version != null) {
-      card = await db.select().from(CardEntityView)
-        .where(and(
-          eq(CardEntityView.cardId, cardId),
-          eq(CardEntityView.lang, lang),
-        ))
-        .orderBy(desc(CardEntityView.version))
-        .limit(1)
-        .then(rows => rows[0]);
-    }
-
     if (card == null) {
       throw new ORPCError('NOT_FOUND');
     }
@@ -229,8 +218,7 @@ const full = os
       versions,
       relatedCards,
     };
-  })
-  .callable();
+  });
 
 const profile = os
   .input(z.string())
@@ -312,9 +300,9 @@ export const cardApi = {
   diff,
 };
 
-function dedupeRelatedCards(cards: Array<{ relation: string; version: number[]; cardId: string }>) {
+function dedupeRelatedCards(cards: Array<{ relation: string, version: number[], cardId: string }>) {
   const seen = new Set<string>();
-  const result: Array<{ relation: string; version: number[]; cardId: string }> = [];
+  const result: Array<{ relation: string, version: number[], cardId: string }> = [];
 
   for (const card of cards) {
     const key = `${card.relation}:${card.cardId}`;

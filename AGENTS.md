@@ -132,9 +132,9 @@ Only add manual SQL for migration behavior Drizzle cannot infer, such as determi
 
 Use Conventional Commits for all commit messages.
 
-Keep commit messages short and focused on the implemented feature or fixed issue, not on the specific implementation or fix method, unless explicitly requested.
+`fix` commits must describe the problem that was solved, not how it was fixed. State what was broken and why it mattered.
 
-Keep commit messages to a single line unless explicitly requested otherwise.
+Keep commit messages to a single line. Only include body text when explicitly requested.
 
 Do not create commits directly. Always show the proposed commit message to the user first, wait for explicit confirmation, and only then create the commit.
 

@@ -140,6 +140,8 @@ export const EntityView = schema.view('entity_view').as(qb => {
       'cardId',
       'version',
       'revisionHash',
+      'createdAt',
+      'updatedAt',
     ]),
 
     localization: {
@@ -152,6 +154,8 @@ export const EntityView = schema.view('entity_view').as(qb => {
         'renderHash',
         'renderModel',
         'isLatest',
+        'createdAt',
+        'updatedAt',
       ]),
     },
   })
@@ -176,6 +180,8 @@ export const CardEntityView = schema.view('card_entity_view').as(qb => {
       'cardId',
       'version',
       'revisionHash',
+      'createdAt',
+      'updatedAt',
     ]),
 
     localization: {
@@ -188,6 +194,8 @@ export const CardEntityView = schema.view('card_entity_view').as(qb => {
         'renderHash',
         'renderModel',
         'isLatest',
+        'createdAt',
+        'updatedAt',
       ]),
     },
 
