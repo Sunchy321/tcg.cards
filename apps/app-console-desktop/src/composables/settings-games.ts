@@ -1,22 +1,14 @@
 import { GAMES, type Game } from '@tcg-cards/shared';
 
-const gameMeta = {
-  magic: {
-    label: 'Magic',
-    icon:  'i:magic-logo',
-  },
-  hearthstone: {
-    label: 'Hearthstone',
-    icon:  'i:hearthstone-logo',
-  },
-} satisfies Record<Game, {
-  label: string;
-  icon:  string;
-}>;
+const gameLabels: Record<Game, string> = {
+  magic:      'Magic',
+  hearthstone: 'Hearthstone',
+  yugioh:     'Yu-Gi-Oh!',
+};
 
 export const settingsGameItems = GAMES.map(game => ({
   game,
-  label: gameMeta[game].label,
-  icon:  gameMeta[game].icon,
+  label: gameLabels[game] ?? game,
+  icon:  `i:${game}-logo`,
   to:    `/settings/games/${game}`,
 }));

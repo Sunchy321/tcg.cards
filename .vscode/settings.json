@@ -41,7 +41,8 @@
         "vnodes",
         "wotc",
         "wubrg",
-        "wubrgct"
+        "wubrgct",
+        "yugioh"
     ],
     "chat.tools.terminal.autoApprove": {
         "git add": true,
