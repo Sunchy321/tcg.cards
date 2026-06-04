@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./orpc": "./src/orpc/service.ts"
+    "./orpc": "./src/orpc/service.ts",
+    "./lib/hearthstone/*": "./src/lib/hearthstone/*.ts"
   },
   "scripts": {
     "build": "echo No build needed",

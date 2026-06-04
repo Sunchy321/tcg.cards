@@ -13,7 +13,7 @@ import { sql } from 'drizzle-orm';
 import { dataSchema } from '../../shared/hearthstone/schema';
 
 export const publishBatchStatus = dataSchema.enum('publish_batch_status', [
-  'draft',
+  'planning',
   'applying',
   'completed',
   'failed',
@@ -39,6 +39,7 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   publishTargetId:   text('publish_target_id').notNull(),
   environment:       text('environment').notNull(),
   targetFingerprint: text('target_fingerprint').notNull(),
+  publishType:       text('publish_type').notNull().default('card_data'),
 
   sourceTagMin: integer('source_tag_min').notNull(),
   sourceTagMax: integer('source_tag_max').notNull(),
@@ -60,7 +61,7 @@ export const PublishBatch = dataSchema.table('publish_batches', {
   localizationRowCount: integer('localization_row_count').notNull().default(0),
   relationRowCount:     integer('relation_row_count').notNull().default(0),
 
-  status:  publishBatchStatus('status').notNull().default('draft'),
+  status:  publishBatchStatus('status').notNull().default('planning'),
   error:   text('error'),
   summary: jsonb('summary').$type<Record<string, unknown>>(),
 
@@ -96,9 +97,9 @@ export const PublishBatchRow = dataSchema.table('publish_batch_rows', {
     .notNull()
     .references(() => PublishBatch.id, { onDelete: 'cascade' }),
 
-  tableName: text('table_name').notNull(),
-  rowPk:     text('row_pk').notNull(),
-  rowHash:   text('row_hash').notNull(),
+  tableName:       text('table_name').notNull(),
+  rowPk:           text('row_pk').notNull(),
+  rowHash:         text('row_hash').notNull(),
   previousRowHash: text('previous_row_hash'),
 
   action: publishBatchRowAction('action').notNull(),

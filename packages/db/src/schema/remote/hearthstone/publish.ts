@@ -24,10 +24,10 @@ export const PublishLedger = dataSchema.table('publish_ledgers', {
   buildMin:     integer('build_min').notNull(),
   buildMax:     integer('build_max').notNull(),
 
-  manifestHash:     text('manifest_hash').notNull(),
-  totalRowCount:    integer('total_row_count').notNull(),
-  changedRowCount:  integer('changed_row_count').notNull().default(0),
-  publishedAt:      timestamp('published_at').notNull(),
+  manifestHash:    text('manifest_hash').notNull(),
+  totalRowCount:   integer('total_row_count').notNull(),
+  changedRowCount: integer('changed_row_count').notNull().default(0),
+  publishedAt:     timestamp('published_at').notNull(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')

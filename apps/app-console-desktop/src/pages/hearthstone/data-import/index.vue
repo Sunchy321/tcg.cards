@@ -991,167 +991,6 @@
           </div>
         </UCard>
 
-        <UCard>
-          <template #header>
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <div class="font-medium">远端发布</div>
-                <p class="mt-1 text-xs text-muted">
-                  将当前本地最新投影结果按整卡 row family 发布到已配置的 remote target。
-                </p>
-              </div>
-              <UBadge
-                :label="hasPublishTarget ? 'Target ready' : 'Target missing'"
-                :color="hasPublishTarget ? 'success' : 'warning'"
-                variant="soft"
-              />
-            </div>
-          </template>
-
-          <div class="space-y-4">
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">Target ID</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ publishTargetId ?? '-' }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">Environment</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ publishTargetEnvironment ?? '-' }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">Fingerprint</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ publishTargetFingerprint ?? '-' }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">最近结果</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ publishResult?.batchId ?? '-' }}
-                </div>
-              </div>
-            </div>
-
-            <UAlert
-              v-if="!hasPublishTarget && publishTargetError.length === 0"
-              color="warning"
-              variant="soft"
-              icon="i-lucide-plug-zap"
-            >
-              <template #description>
-                <div
-                  class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <span>尚未配置远端 publish target，请先到设置页完成绑定。</span>
-                  <div class="sm:ml-auto">
-                    <UButton
-                      label="打开设置"
-                      icon="i-lucide-settings"
-                      color="warning"
-                      variant="soft"
-                      to="/settings/games/hearthstone"
-                    />
-                  </div>
-                </div>
-              </template>
-            </UAlert>
-
-            <UAlert
-              v-if="publishTargetError.length > 0"
-              color="error"
-              variant="soft"
-              icon="i-lucide-circle-alert"
-              :description="publishTargetError"
-            />
-
-            <UAlert
-              v-if="publishError.length > 0"
-              color="error"
-              variant="soft"
-              icon="i-lucide-octagon-alert"
-              :description="publishError"
-            />
-
-            <div class="flex flex-wrap justify-end gap-2">
-              <UButton
-                label="重新加载目标"
-                icon="i-lucide-refresh-cw"
-                color="neutral"
-                variant="ghost"
-                :disabled="publishing"
-                @click="loadPublishTarget"
-              />
-              <UButton
-                label="发布当前本地投影"
-                icon="i-lucide-upload"
-                :loading="publishing"
-                :disabled="!canPublish"
-                @click="submitPublish"
-              />
-            </div>
-
-            <div
-              v-if="publishResult"
-              class="grid gap-3 sm:grid-cols-2"
-            >
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">批次</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ publishResult.batchId }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">Manifest</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ publishResult.manifestHash }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">变化统计</div>
-                <div class="mt-1 font-mono text-sm">
-                  {{ publishResult.changedRowCount }} / {{ publishResult.totalRowCount }}
-                </div>
-                <div class="mt-1 text-xs text-muted">
-                  +{{ publishResult.insertedRowCount }}
-                  ~{{ publishResult.updatedRowCount }}
-                  -{{ publishResult.deletedRowCount }}
-                  ={{ publishResult.unchangedRowCount }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3">
-                <div class="text-xs text-muted">发布时间</div>
-                <div class="mt-1 break-all font-mono text-sm">
-                  {{ formatHsdataDate(publishResult.publishedAt) }}
-                </div>
-              </div>
-              <div class="rounded-lg border border-default p-3 sm:col-span-2">
-                <div class="text-xs text-muted">分表统计</div>
-                <div class="mt-1 grid grid-cols-4 gap-2 text-sm">
-                  <div>
-                    <span class="text-muted">Cards</span>
-                    <span class="ml-1 font-mono">{{ publishResult.cardRowCount }}</span>
-                  </div>
-                  <div>
-                    <span class="text-muted">Entities</span>
-                    <span class="ml-1 font-mono">{{ publishResult.entityRowCount }}</span>
-                  </div>
-                  <div>
-                    <span class="text-muted">Localizations</span>
-                    <span class="ml-1 font-mono">{{ publishResult.localizationRowCount }}</span>
-                  </div>
-                  <div>
-                    <span class="text-muted">Relations</span>
-                    <span class="ml-1 font-mono">{{ publishResult.relationRowCount }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </UCard>
       </div>
     </div>
 
@@ -1276,7 +1115,6 @@
 
 <script setup lang="ts">
 import { useToast } from '@nuxt/ui/composables';
-import { getDesktopHearthstonePublishTarget } from '~/composables/useDesktopSettings';
 import {
   formatHsdataBytes,
   formatHsdataDate,
@@ -1287,7 +1125,6 @@ import {
   listenHsdataProjectProgress,
   listLocalHsdataSourceVersions,
   listHsdataSources,
-  publishCurrentHsdataToRemote,
   projectLocalHsdataSourceVersion,
   recomputeLatestHsdataProjection,
   syncHsdataRemoteVersions,
@@ -1298,7 +1135,6 @@ import type {
   HsdataFile,
   HsdataImportProgressEvent,
   HsdataImportReport,
-  HsdataPublishReport,
   HsdataRecomputeLatestReport,
   HsdataProjectProgressEvent,
   HsdataSourceVersionStatus,
@@ -1427,13 +1263,6 @@ const projecting = ref(false);
 const activeProjectSourceTag = ref<number | null>(null);
 const projectProgress = ref<HsdataProjectProgressEvent | null>(null);
 const projectResult = ref<HsdataProjectReport | null>(null);
-const publishTargetId = ref<string | null>(null);
-const publishTargetEnvironment = ref<string | null>(null);
-const publishTargetFingerprint = ref<string | null>(null);
-const publishTargetError = ref('');
-const publishError = ref('');
-const publishing = ref(false);
-const publishResult = ref<HsdataPublishReport | null>(null);
 const recomputingLatest = ref(false);
 const recomputeLatestResult = ref<HsdataRecomputeLatestReport | null>(null);
 const syncing = ref(false);
@@ -1876,25 +1705,6 @@ const canStartBatchProject = computed(() => {
     && !importing.value
     && !projecting.value;
 });
-const hasPublishTarget = computed(() => {
-  return Boolean(
-    publishTargetId.value
-    && publishTargetEnvironment.value
-    && publishTargetFingerprint.value,
-  );
-});
-const canPublish = computed(() => {
-  return Boolean(state.value?.repoPath)
-    && hasPublishTarget.value
-    && !hasBlockingBatchTask.value
-    && !loadingState.value
-    && !loadingFiles.value
-    && !loadingSourceVersions.value
-    && !syncing.value
-    && !importing.value
-    && !projecting.value
-    && !publishing.value;
-});
 
 /** Formats one started-at timestamp into a compact elapsed duration label. */
 function formatElapsedDuration(
@@ -2254,6 +2064,13 @@ const projectWriteSegments = computed(() => {
       colorClass:        'bg-slate-500',
       totalRowCount:     breakdown.relation.totalRowCount,
       completedRowCount: breakdown.relation.completedRowCount,
+    },
+    {
+      key:               'card',
+      label:             'Card',
+      colorClass:        'bg-indigo-500',
+      totalRowCount:     breakdown.card.totalRowCount,
+      completedRowCount: breakdown.card.completedRowCount,
     },
   ];
 
@@ -3679,24 +3496,6 @@ async function loadState() {
   }
 }
 
-/** Saved publish-target profile loaded for the remote publish card. */
-async function loadPublishTarget() {
-  publishTargetError.value = '';
-
-  try {
-    const target = await getDesktopHearthstonePublishTarget();
-    publishTargetId.value = target.publishTargetId ?? null;
-    publishTargetEnvironment.value = target.environment ?? null;
-    publishTargetFingerprint.value = target.targetFingerprint ?? null;
-  } catch (error) {
-    console.error('Failed to load Hearthstone publish target:', error);
-    publishTargetError.value = getHsdataErrorMessage(error);
-    publishTargetId.value = null;
-    publishTargetEnvironment.value = null;
-    publishTargetFingerprint.value = null;
-  }
-}
-
 /** Local hsdata source files loaded from the configured desktop repository. */
 async function loadFiles() {
   if (!state.value?.repoPath) {
@@ -3766,7 +3565,7 @@ async function reloadSourceList() {
 
 /** Full page data reload that reapplies the preferred selection after async loading completes. */
 async function reloadAll(selectedId: string | null = resolvePreferredSelectionId()) {
-  await Promise.all([loadState(), loadSourceVersions(), loadPublishTarget()]);
+  await Promise.all([loadState(), loadSourceVersions()]);
   await loadFiles();
   restoreActiveProgressTracking();
   restoreSelection(selectedId);
@@ -3824,35 +3623,6 @@ async function submitProject() {
 }
 
 /** Current local latest projection published to the configured remote target. */
-async function submitPublish() {
-  if (!canPublish.value) {
-    return;
-  }
-
-  publishing.value = true;
-  publishError.value = '';
-  publishResult.value = null;
-
-  try {
-    const result = await publishCurrentHsdataToRemote();
-    publishResult.value = result;
-    toast.add({
-      title:       '远端发布已完成',
-      description: `${result.publishTargetId} / ${result.environment} / changed=${result.changedRowCount}`,
-      color:       'success',
-    });
-  } catch (error) {
-    console.error('Failed to publish hsdata projection to remote:', error);
-    publishError.value = getHsdataErrorMessage(error);
-    toast.add({
-      title:       '远端发布失败',
-      description: publishError.value,
-      color:       'error',
-    });
-  } finally {
-    publishing.value = false;
-  }
-}
 
 async function submitRecomputeLatest() {
   recomputingLatest.value = true;

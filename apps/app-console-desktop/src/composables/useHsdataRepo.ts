@@ -1,4 +1,5 @@
 import { consumeEventIterator } from '@orpc/client';
+import type { PublishReport } from 'service-desktop-runtime/lib/hearthstone/hsdata-publish';
 import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 
 import { useDesktopRuntimeClient } from './useDesktopRuntimeClient';
@@ -185,6 +186,7 @@ export interface HsdataProjectWriteBreakdown {
   localization: HsdataProjectWriteSegment;
   latest:       HsdataProjectWriteSegment;
   relation:     HsdataProjectWriteSegment;
+  card:         HsdataProjectWriteSegment;
 }
 
 /** Desktop hsdata projection progress event payload. */
@@ -217,6 +219,7 @@ export interface HsdataProjectReport {
   updatedLocalizations:  number;
   insertedRelations:     number;
   updatedRelations:      number;
+  cardRowCount:          number;
   unprojectedTagCount:   number;
   unprojectedTags:       HsdataUnprojectedTagReportRow[];
 }
@@ -231,29 +234,22 @@ export interface HsdataRecomputeLatestReport {
   relationUpdatedCount: number;
 }
 
-/** Remote publish report returned after applying the current local projection. */
-export interface HsdataPublishReport {
-  batchId:              string;
-  publishTargetId:      string;
-  environment:          string;
-  targetFingerprint:    string;
-  manifestHash:         string;
-  previousManifestHash: string | null;
-  sourceTagMin:         number;
-  sourceTagMax:         number;
-  buildMin:             number;
-  buildMax:             number;
-  totalRowCount:        number;
-  changedRowCount:      number;
-  insertedRowCount:     number;
-  updatedRowCount:      number;
-  deletedRowCount:      number;
-  unchangedRowCount:    number;
-  cardRowCount:         number;
-  entityRowCount:       number;
-  localizationRowCount: number;
-  relationRowCount:     number;
-  publishedAt:          string;
+/** Publish report type from the server zod schema. */
+export type HsdataPublishReport = PublishReport;
+
+/** Publish progress event streamed from the desktop runtime. */
+export interface PublishJobProgressEvent {
+  batchId: string;
+  publishType: string;
+  publishTargetId: string;
+  phase: string;
+  message: string;
+  startedAt: string;
+  phaseStartedAt: string;
+  finishedAt: string | null;
+  totalRowCount: number | null;
+  completedRowCount: number | null;
+  report: HsdataPublishReport | null;
 }
 
 export interface HsdataUnprojectedTagReportRow {
@@ -371,8 +367,32 @@ export function recomputeLatestHsdataProjection() {
 /** Current local latest projection published to the configured remote target. */
 export function publishCurrentHsdataToRemote() {
   return (async () => {
-    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote() as HsdataPublishReport;
+    return await useDesktopRuntimeClient().hsdata.publishCurrentToRemote();
   })();
+}
+
+/** Lists recent publish batches for the current target. */
+export function listPublishBatches() {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.listPublishBatches();
+  })();
+}
+
+/** Checks for an incomplete publish batch that can be resumed. */
+export function getIncompletePublishBatch() {
+  return (async () => {
+    return await useDesktopRuntimeClient().hsdata.getIncompletePublishBatch();
+  })();
+}
+
+/** Streams publish job progress snapshots from the local Bun runtime. */
+export function listenHsdataPublishProgress(
+  handler: (event: PublishJobProgressEvent) => void,
+): () => void {
+  return consumeEventIterator(
+    useDesktopRuntimeClient().hsdata.watchPublishJob(),
+    { onEvent: handler },
+  );
 }
 
 /** Local hsdata source version rows loaded from the configured desktop database. */

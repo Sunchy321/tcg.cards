@@ -5,6 +5,7 @@ import {
   integer,
   primaryKey,
   text,
+  timestamp,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -17,6 +18,12 @@ export const EntityRelation = schema.table('entity_relations', {
   targetId:           text('target_id').notNull(),
   version:            integer('version').array().notNull(),
   isLatest:           boolean('is_latest').notNull().default(false),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
 }, table => [
   primaryKey({
     columns: [

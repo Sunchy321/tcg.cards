@@ -8,6 +8,7 @@ import { db } from '@tcg-cards/db/db';
 import { renderModel as renderModelSchema, type RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import { mainLocale, type Rarity, rarity as raritySchema, type Types, types as typeSchema } from '@tcg-cards/model/src/hearthstone/schema/basic';
 import {
+  Card,
   Entity,
   EntityLocalization,
   EntityRelation,
@@ -234,6 +235,7 @@ interface WriteProgressBreakdown {
   localization: number;
   latest:       number;
   relation:     number;
+  card:         number;
 }
 
 /** Identifies one stacked write-progress segment. */
@@ -581,6 +583,7 @@ function buildWriteProgressTotals(input: {
   targetEntityCount: number;
   targetLocalizationCount: number;
   targetRelationCount: number;
+  targetCardCount: number;
 }): WriteProgressBreakdown {
   if (input.ignoreDuplicates) {
     return {
@@ -588,6 +591,7 @@ function buildWriteProgressTotals(input: {
       localization: input.targetLocalizationCount,
       latest:       0,
       relation:     input.targetRelationCount,
+      card:         input.targetCardCount,
     };
   }
 
@@ -596,6 +600,7 @@ function buildWriteProgressTotals(input: {
     localization: input.localization.deleteCount + input.localization.upsertCount,
     latest:       input.skipLatestUpdate ? 0 : input.localization.affectedLatestRowCount,
     relation:     input.relationDeleteCount + input.relationInsertCount,
+    card:         input.targetCardCount,
   };
 }
 
@@ -3837,6 +3842,8 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
     ignoreDuplicates,
   });
 
+  const publishedCardIds = [...new Set(targetEntities.map(e => e.cardId))].sort();
+
   if (!dryRun && shouldWrite) {
     const writeProgressTotals = buildWriteProgressTotals({
       ignoreDuplicates,
@@ -3848,11 +3855,13 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       targetEntityCount: targetEntities.length,
       targetLocalizationCount: targetLocalizations.length,
       targetRelationCount: targetRelations.length,
+      targetCardCount: publishedCardIds.length,
     });
     const totalWriteRows = writeProgressTotals.entity
       + writeProgressTotals.localization
       + writeProgressTotals.latest
-      + writeProgressTotals.relation;
+      + writeProgressTotals.relation
+      + writeProgressTotals.card;
     await input.onProgress?.({
       phase:                   'writing_rows',
       message:                 'Preparing to write projected rows into the shared tables',
@@ -3866,6 +3875,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
         localization: 0,
         latest:       0,
         relation:     0,
+        card:         0,
       }),
     });
 
@@ -3876,6 +3886,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
         localization: 0,
         latest:       0,
         relation:     0,
+        card:         0,
       };
       const reportWriteProgress = async (
         message: string,
@@ -3972,6 +3983,16 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
         ignoreDuplicates ? targetRelations.length : relationResult.finalRows.length,
         'relation',
       );
+
+      if (!dryRun && !skipped) {
+        if (publishedCardIds.length > 0) {
+          await tx.insert(Card).values(
+            publishedCardIds.map(cardId => ({ cardId, legalities: {} })),
+          ).onConflictDoNothing();
+          profiler.mark('write_ensure_cards', { rowCount: publishedCardIds.length });
+          await reportWriteProgress('Ensured card rows exist for projected entities', publishedCardIds.length, 'card');
+        }
+      }
     });
     profiler.mark('write_transaction_committed');
   }
@@ -4001,6 +4022,7 @@ export async function projectHsdata(input: ProjectHsdataInput): Promise<ProjectH
       updatedLocalizations:  localizationResult.updated,
       insertedRelations:     relationResult.inserted,
       updatedRelations:      relationResult.updated,
+      cardRowCount:          publishedCardIds.length,
       unprojectedTagCount:   projected.reduce((count, item) => count + item.unprojectedTagCount, 0),
     };
 

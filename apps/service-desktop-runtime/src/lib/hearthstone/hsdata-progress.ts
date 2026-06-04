@@ -29,6 +29,7 @@ export interface HsdataProjectWriteBreakdown {
   localization: HsdataProjectWriteSegment;
   latest:       HsdataProjectWriteSegment;
   relation:     HsdataProjectWriteSegment;
+  card:         HsdataProjectWriteSegment;
 }
 
 /** Import progress payload mirrored by the frontend runtime polling adapter. */

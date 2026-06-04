@@ -6,6 +6,7 @@ import {
   jsonb,
   primaryKey,
   text,
+  timestamp,
 } from 'drizzle-orm/pg-core';
 
 import { schema } from './schema';
@@ -77,6 +78,12 @@ export const Entity = schema.table('entities', {
 
   changeType: changeType('change_type').notNull().default('unknown'),
   isLatest:   boolean('is_latest').notNull().default(false),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
 }, table => [
   primaryKey({ columns: [table.cardId, table.revisionHash] }),
   index('entities_latest_idx').on(table.isLatest),
@@ -106,6 +113,12 @@ export const EntityLocalization = schema.table('entity_localizations', {
   flavorText:      text('flavor_text'),
 
   locChangeType: changeType('loc_change_type').notNull().default('unknown'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at')
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
 }, table => [
   primaryKey({ columns: [table.cardId, table.lang, table.revisionHash, table.localizationHash] }),
   index('entity_localizations_card_lang_idx').on(table.cardId, table.lang),

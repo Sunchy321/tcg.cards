@@ -137,6 +137,11 @@ export function getGameNavItems(game: Game): ConsoleNavItem[][] {
         icon: 'i-lucide-git-compare-arrows',
         to: `/${game}/conflict`,
       },
+      {
+        label: '发布',
+        icon: 'i-lucide-upload',
+        to: `/${game}/publish`,
+      },
     ]);
   }
 

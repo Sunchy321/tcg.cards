@@ -29,7 +29,13 @@ import {
   listLocalHsdataSourceVersions,
 } from '../lib/hearthstone/hsdata-status';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
-import { publishCurrentHsdataToRemote } from '../lib/hearthstone/hsdata-publish';
+import { getIncompletePublishBatch, listPublishBatches, publishCurrentHsdataToRemote, publishReport } from '../lib/hearthstone/hsdata-publish';
+import {
+  startPublishJob,
+  updatePublishJob,
+  watchPublishJob,
+  type PublishJobProgressEvent,
+} from '../lib/hearthstone/hsdata-publish-progress';
 
 const sourceIdInput = z.strictObject({
   id: z.string().trim().min(1),
@@ -87,30 +93,6 @@ const sourceVersionStatus = z.object({
   projectionStatus: z.string(),
   projectedAt: z.string().nullable(),
   projectionError: z.string().nullable(),
-});
-
-const publishReport = z.object({
-  batchId: z.string(),
-  publishTargetId: z.string(),
-  environment: z.string(),
-  targetFingerprint: z.string(),
-  manifestHash: z.string(),
-  previousManifestHash: z.string().nullable(),
-  sourceTagMin: z.number(),
-  sourceTagMax: z.number(),
-  buildMin: z.number(),
-  buildMax: z.number(),
-  totalRowCount: z.number(),
-  changedRowCount: z.number(),
-  insertedRowCount: z.number(),
-  updatedRowCount: z.number(),
-  deletedRowCount: z.number(),
-  unchangedRowCount: z.number(),
-  cardRowCount: z.number(),
-  entityRowCount: z.number(),
-  localizationRowCount: z.number(),
-  relationRowCount: z.number(),
-  publishedAt: z.string(),
 });
 
 /** Reads one object-like cause from an unknown thrown value. */
@@ -494,11 +476,40 @@ const publishCurrentToRemote = os
   })
   .output(publishReport)
   .handler(async () => {
+    const job = startPublishJob({ publishType: 'card_data', publishTargetId: '' });
+
     try {
-      return await publishCurrentHsdataToRemote();
+      const report = await publishCurrentHsdataToRemote({
+        publishType: 'card_data',
+        onProgress: (event) => {
+          updatePublishJob({
+            phase: event.phase,
+            message: event.message,
+            totalRowCount: event.totalRowCount,
+            completedRowCount: event.completedRowCount,
+          });
+        },
+      });
+
+      updatePublishJob({ phase: 'completed', message: '发布完成', report });
+
+      return report;
     } catch (error) {
+      updatePublishJob({ phase: 'failed', message: error instanceof Error ? error.message : String(error) });
       throw toRuntimeError(error);
     }
+  });
+
+/** Streams real-time publish job progress events. */
+const watchPublishJobRoute = os
+  .route({
+    method:      'GET',
+    description: 'Watch publish job progress events',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(eventIterator(z.custom<PublishJobProgressEvent>()))
+  .handler(async function* () {
+    yield* watchPublishJob();
   });
 
 const recomputeLatestOutput = z.object({
@@ -526,6 +537,38 @@ const recomputeLatest = os
     }
   });
 
+/** Lists publish batches for the current target. */
+const listPublishBatchesRoute = os
+  .route({
+    method:      'GET',
+    description: 'List publish batches for the current target',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(z.array(publishReport))
+  .handler(async () => {
+    try {
+      return await listPublishBatches();
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
+/** Checks for an incomplete publish batch that can be resumed. */
+const getIncompletePublishBatchRoute = os
+  .route({
+    method:      'GET',
+    description: 'Check for an incomplete publish batch',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Hsdata'],
+  })
+  .output(publishReport.nullable())
+  .handler(async () => {
+    try {
+      return await getIncompletePublishBatch();
+    } catch (error) {
+      throw toRuntimeError(error);
+    }
+  });
+
 /** Groups the desktop runtime hsdata procedures under one router namespace. */
 export const hsdataRouter = {
   getRepoState,
@@ -539,5 +582,8 @@ export const hsdataRouter = {
   watchImportJob,
   watchProjectJob,
   publishCurrentToRemote,
+  watchPublishJob: watchPublishJobRoute,
+  listPublishBatches: listPublishBatchesRoute,
+  getIncompletePublishBatch: getIncompletePublishBatchRoute,
   recomputeLatest,
 };

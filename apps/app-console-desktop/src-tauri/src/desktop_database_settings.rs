@@ -63,11 +63,11 @@ pub(crate) fn load_desktop_database_connection_string(
         .map_err(|_| "Failed to lock database connection string cache.".to_string())?;
 
     if let Some(connection_string) = current.clone() {
-        eprintln!(
-            "[desktop][database] reused cached external PostgreSQL connection string: found={}, nonEmpty={}",
-            connection_string.is_some(),
-            connection_string.is_some(),
-        );
+        // eprintln!(
+        //     "[desktop][database] reused cached external PostgreSQL connection string: found={}, nonEmpty={}",
+        //     connection_string.is_some(),
+        //     connection_string.is_some(),
+        // );
         return Ok(connection_string);
     }
 
