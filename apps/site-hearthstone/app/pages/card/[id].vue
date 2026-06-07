@@ -220,6 +220,11 @@ import { last } from 'lodash-es';
 import { locale as localeSchema, type Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
+import {
+  HAS_DIAMOND,
+  HAS_SIGNATURE,
+  PREMIUM,
+} from '#model/hearthstone/constant/tag';
 import type { CardImageOption } from '~/utils/card-image';
 
 import { getHearthstoneLabel } from '~/utils/hearthstone-labels';
@@ -415,19 +420,25 @@ const referencedTags = computed(() =>
     .map(([key, value]) => value === true ? key : `${key}:${value}`),
 );
 
-const hasMechanic = (key: string) =>
-  mechanicEntries.value.some(([name, value]) => name === key && (value === true || (typeof value === 'number' && value !== 0)));
+const hasMechanic = (enumId: string) =>
+  mechanicEntries.value.some(([name, value]) =>
+    name === enumId && (value === true || (typeof value === 'number' && value !== 0)),
+  );
 
 const mechanicText = (m: string) => {
+  const slugMap = data.value?.mechanicTags ?? {};
+  const resolveKey = (key: string) => slugMap[key] ?? key;
+
   if (m.includes(':')) {
     const sep = m.indexOf(':');
-    const mid = m.slice(0, sep);
+    const mid = resolveKey(m.slice(0, sep));
     const arg = m.slice(sep + 1);
     const key = `hearthstone.tag.${mid}`;
     return `${te(key) ? t(key) : mid}:${arg}`;
   }
-  const key = `hearthstone.tag.${m}`;
-  return te(key) ? t(key) : m;
+  const slug = resolveKey(m);
+  const key = `hearthstone.tag.${slug}`;
+  return te(key) ? t(key) : slug;
 };
 
 const toast = useToast();
@@ -575,7 +586,7 @@ const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]
 // Variant
 
 const hasPremium = computed(() =>
-  hasMechanic('12') || hasMechanic('premium'),
+  hasMechanic(String(PREMIUM)),
 );
 
 const isBattlegrounds = computed(() => {
@@ -596,10 +607,10 @@ const variantOptions = computed(() => {
     { label: t('hearthstone.card.variant.golden'), value: 'golden' },
   ];
 
-  if (hasMechanic('has_diamond')) {
+  if (hasMechanic(String(HAS_DIAMOND))) {
     opts.push({ label: t('hearthstone.card.variant.diamond'), value: 'diamond' });
   }
-  if (hasMechanic('has_signature')) {
+  if (hasMechanic(String(HAS_SIGNATURE))) {
     opts.push({ label: t('hearthstone.card.variant.signature'), value: 'signature' });
   }
   if (hasBattlegroundsVariant.value) {

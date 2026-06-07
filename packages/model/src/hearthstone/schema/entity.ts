@@ -210,6 +210,8 @@ export const cardEntityView = entityView.extend({
 export const cardFullView = cardEntityView.extend({
     versions: z.number().array().array(),
 
+    mechanicTags: z.record(z.string(), z.string()).default({}),
+
     relatedCards: z.strictObject({
         relation:    z.string(),
         cardId:      z.string(),

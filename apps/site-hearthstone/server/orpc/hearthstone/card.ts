@@ -8,6 +8,7 @@ import { diff as jsonDiff } from 'jsondiffpatch';
 import { db } from '#db/db';
 import { CardEntityView, EntityView } from '#schema/shared/hearthstone/entity';
 import { EntityRelation } from '#schema/shared/hearthstone/entity-relation';
+import { Tag } from '#schema/shared/hearthstone/tag';
 
 import { locale } from '#model/hearthstone/schema/basic';
 import { cardProfile } from '#model/hearthstone/schema/card';
@@ -142,6 +143,24 @@ const full = os
       throw new ORPCError('NOT_FOUND');
     }
 
+    // Resolve numeric mechanic/referencedTag keys to slugs
+    const mechanicKeys = [
+      ...Object.keys(card.mechanics ?? {}),
+      ...Object.keys(card.referencedTags ?? {}),
+    ];
+    const numericIds = mechanicKeys
+      .filter(k => /^\d+$/.test(k))
+      .map(Number);
+    const mechanicTags: Record<string, string> = {};
+    if (numericIds.length > 0) {
+      const tagRows = await db.select({ enumId: Tag.enumId, slug: Tag.slug })
+        .from(Tag)
+        .where(inArray(Tag.enumId, numericIds));
+      for (const row of tagRows) {
+        mechanicTags[String(row.enumId)] = row.slug;
+      }
+    }
+
     const versions = await db.select({ version: CardEntityView.version })
       .from(CardEntityView)
       .where(and(
@@ -216,6 +235,7 @@ const full = os
     return {
       ...card,
       versions,
+      mechanicTags,
       relatedCards,
     };
   });

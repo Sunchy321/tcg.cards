@@ -27,6 +27,11 @@ import { CardImageAsset, CardImageExport, CardImageImport } from '@tcg-cards/db/
 import { Entity, EntityLocalization } from '@tcg-cards/db/schema/shared/hearthstone/entity';
 import { Set as HearthstoneSet } from '@tcg-cards/db/schema/shared/hearthstone/set';
 import { Tag } from '@tcg-cards/db/schema/shared/hearthstone/tag';
+import {
+  HAS_DIAMOND_SLUG,
+  HAS_SIGNATURE_SLUG,
+  PREMIUM_SLUG,
+} from '@tcg-cards/model/src/hearthstone/constant/tag';
 
 export const hearthstoneImageSpecVersion = 'v1';
 export const hearthstoneImageRequirementSchema = 'tcg.cards.hearthstone.card-image-requirements.v1';
@@ -35,9 +40,6 @@ export const hardCardImageExportLimit = 500;
 
 const exportBatchSize = 1000;
 const defaultR2AssetBucket = 'asset';
-const diamondMechanicSlug = 'has-diamond';
-const signatureMechanicSlug = 'has-signature';
-const premiumMechanicSlug = 'premium';
 
 type MechanicValue = boolean | number;
 type MechanicMap = Record<string, MechanicValue>;
@@ -249,11 +251,7 @@ function isMechanicEnabled(value: unknown) {
   return value === true || (typeof value === 'number' && value !== 0);
 }
 
-function hasMechanic(mechanics: MechanicMap, slug: string, enumId: string | null) {
-  if (isMechanicEnabled(mechanics[slug])) {
-    return true;
-  }
-
+function hasMechanic(mechanics: MechanicMap, enumId: string | null) {
   return enumId != null && isMechanicEnabled(mechanics[enumId]);
 }
 
@@ -303,7 +301,7 @@ export function isCardImageVariantAllowed(
       return false;
     }
 
-    if (hasMechanic(row.mechanics, premiumMechanicSlug, mechanicIds.premium)) {
+    if (hasMechanic(row.mechanics, mechanicIds.premium)) {
       return variant.zone === 'hand' && variant.premium === 'golden';
     }
 
@@ -319,11 +317,11 @@ export function isCardImageVariantAllowed(
   }
 
   if (variant.premium === 'diamond') {
-    return hasMechanic(row.mechanics, diamondMechanicSlug, mechanicIds.diamond);
+    return hasMechanic(row.mechanics, mechanicIds.diamond);
   }
 
   if (variant.premium === 'signature') {
-    return hasMechanic(row.mechanics, signatureMechanicSlug, mechanicIds.signature);
+    return hasMechanic(row.mechanics, mechanicIds.signature);
   }
 
   return false;
@@ -499,15 +497,15 @@ export async function loadVariantMechanicIds(
 ): Promise<ImageVariantMechanicIds> {
   const slugs = uniqueValues(variants.flatMap(variant => {
     if (variant.premium === 'diamond') {
-      return [diamondMechanicSlug];
+      return [HAS_DIAMOND_SLUG];
     }
 
     if (variant.premium === 'signature') {
-      return [signatureMechanicSlug];
+      return [HAS_SIGNATURE_SLUG];
     }
 
     if (variant.template === 'battlegrounds') {
-      return [premiumMechanicSlug];
+      return [PREMIUM_SLUG];
     }
 
     return [];
@@ -529,9 +527,9 @@ export async function loadVariantMechanicIds(
     .where(inArray(Tag.slug, slugs));
 
   return {
-    diamond:   String(rows.find(row => row.slug === diamondMechanicSlug)?.enumId ?? '') || null,
-    signature: String(rows.find(row => row.slug === signatureMechanicSlug)?.enumId ?? '') || null,
-    premium:   String(rows.find(row => row.slug === premiumMechanicSlug)?.enumId ?? '') || null,
+    diamond:   String(rows.find(row => row.slug === HAS_DIAMOND_SLUG)?.enumId ?? '') || null,
+    signature: String(rows.find(row => row.slug === HAS_SIGNATURE_SLUG)?.enumId ?? '') || null,
+    premium:   String(rows.find(row => row.slug === PREMIUM_SLUG)?.enumId ?? '') || null,
   };
 }
 
