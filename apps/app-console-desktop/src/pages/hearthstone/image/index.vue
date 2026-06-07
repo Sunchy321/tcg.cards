@@ -274,6 +274,14 @@
                   variant="soft"
                   @click="resetJob"
                 />
+                <UButton
+                  v-if="currentJob && isJobTerminal && rejectedLogDir"
+                  label="打开拒收日志文件夹"
+                  icon="i-lucide-folder-open"
+                  color="neutral"
+                  variant="soft"
+                  @click="openRejectedLogFolder"
+                />
               </div>
             </div>
           </UCard>
@@ -479,6 +487,7 @@ import { getDesktopHearthstoneImageSettings } from '~/composables/useDesktopSett
 import {
   debugDesktopHearthstoneImageRenderRequest,
   detectDesktopHearthstoneImageRenderer,
+  openDesktopPath,
   submitDesktopHearthstoneImageJob,
   watchDesktopImageJobProgress,
   type DesktopDebugRenderRequestResult,
@@ -766,6 +775,7 @@ function applyProgressEvent(
   state.skippedCount = event.skippedCount;
   state.rejectedCount = event.rejectedCount;
   state.errorMessage = event.errorMessage;
+  state.rejectedLogPath = event.rejectedLogPath;
   currentJob.value = { ...state };
   if (isJobTerminal.value) stopProgressClock();
 }
@@ -776,6 +786,22 @@ function cleanupJobSubscription() {
   if (stopProgressStream != null) {
     stopProgressStream();
     stopProgressStream = null;
+  }
+}
+
+const rejectedLogDir = computed(() => {
+  const path = currentJob.value?.rejectedLogPath;
+  if (!path) return null;
+  const separator = path.includes('\\') ? '\\' : '/';
+  return path.slice(0, path.lastIndexOf(separator));
+});
+
+async function openRejectedLogFolder() {
+  if (!rejectedLogDir.value) return;
+  try {
+    await openDesktopPath(rejectedLogDir.value);
+  } catch (error) {
+    console.error('Failed to open rejected log folder:', error);
   }
 }
 

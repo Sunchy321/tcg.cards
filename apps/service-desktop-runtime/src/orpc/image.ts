@@ -12,6 +12,9 @@ import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-ima
 import { exportCardImageRequirements } from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
 import { os } from './index';
 import { getLocalDb } from '../lib/hearthstone/hsdata-local-db';
 import {
@@ -97,6 +100,7 @@ const imageJobState = z.strictObject({
   writtenCount: z.number().int().nonnegative().nullable(),
   skippedCount: z.number().int().nonnegative().nullable(),
   errorMessage: z.string().nullable(),
+  rejectedLogPath: z.string().nullable(),
 });
 
 const submitRenderJobResult = z.strictObject({
@@ -201,6 +205,24 @@ function toRenderJobError(error: unknown) {
   return new ORPCError('INTERNAL_SERVER_ERROR', {
     message: String(error),
   });
+}
+
+interface RejectedEntry {
+  requestId?: string;
+  fileName: string;
+  message: string;
+}
+
+/** Directory under system temp where rejected-file logs are written. */
+const rejectedLogBaseDir = join(tmpdir(), 'hs-render-rejected');
+
+/** Writes rejected-file details to a JSON log file under the system temp directory. Returns the absolute path. */
+async function writeRejectedLog(jobId: string, entries: RejectedEntry[]) {
+  const dir = rejectedLogBaseDir;
+  await Bun.spawn(['mkdir', '-p', dir]).exited;
+  const logPath = join(dir, `rejected-${jobId}.json`);
+  await Bun.write(logPath, JSON.stringify(entries, null, 2));
+  return logPath;
 }
 
 /** Returns one normalized renderer submit URL from the configured base URL. */
@@ -439,12 +461,14 @@ async function runRenderJob(jobId: string, input: CardImageRequirementExportInpu
     }
 
     if (renderedFiles.length === 0) {
+      const rejectedLogPath = await writeRejectedLog(jobId, failedFiles);
       updateImageJob(jobId, {
         phase: 'failed',
         message: 'All render requests failed',
         errorMessage: failedFiles.map(f => `${f.fileName}: ${f.message}`).join('; '),
         completedCount: 0,
         rejectedCount: failedFiles.length,
+        rejectedLogPath,
         finishedAt: new Date().toISOString(),
       });
       return;
@@ -515,9 +539,15 @@ async function runRenderJob(jobId: string, input: CardImageRequirementExportInpu
       }
     }
 
+    const rejectedLogPath = failedFiles.length > 0
+      ? await writeRejectedLog(jobId, failedFiles)
+      : importResult.problems.length > 0
+        ? await writeRejectedLog(jobId, importResult.problems)
+        : null;
+
     updateImageJob(jobId, {
-      phase: importResult.problems.length === 0 ? 'completed' : 'failed',
-      message: importResult.problems.length === 0
+      phase: importResult.problems.length === 0 && failedFiles.length === 0 ? 'completed' : 'failed',
+      message: importResult.problems.length === 0 && failedFiles.length === 0
         ? `Completed: ${importResult.summary.writtenCount} written, ${importResult.summary.skippedCount} skipped`
         : `Completed with issues: ${importResult.summary.writtenCount} written, ${importResult.summary.rejectedCount} rejected`,
       completedCount: importResult.summary.writtenCount,
@@ -528,6 +558,7 @@ async function runRenderJob(jobId: string, input: CardImageRequirementExportInpu
       errorMessage: importResult.problems.length > 0
         ? `${importResult.summary.rejectedCount} file(s) rejected; ${failedFiles.length} render failure(s)`
         : failedFiles.length > 0 ? `${failedFiles.length} render failure(s)` : null,
+      rejectedLogPath,
       finishedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -612,6 +643,7 @@ const imageJobProgressEvent = z.object({
   skippedCount:   z.number().int().nonnegative().nullable(),
   rejectedCount:  z.number().int().nonnegative().nullable(),
   errorMessage:   z.string().nullable(),
+  rejectedLogPath: z.string().nullable(),
 });
 
 /** Streams progress events for the current image render job via an ORPC event iterator. */

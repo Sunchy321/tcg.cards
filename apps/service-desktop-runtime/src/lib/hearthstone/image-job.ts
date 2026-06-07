@@ -42,6 +42,7 @@ export interface ImageJobState {
   writtenCount: number | null;
   skippedCount: number | null;
   errorMessage: string | null;
+  rejectedLogPath: string | null;
 }
 
 /** Lightweight progress event pushed to the frontend via the event iterator stream. */
@@ -57,6 +58,7 @@ export interface ImageJobProgressEvent {
   skippedCount: number | null;
   rejectedCount: number | null;
   errorMessage: string | null;
+  rejectedLogPath: string | null;
 }
 
 interface ImageProgressSubscriber {
@@ -83,6 +85,7 @@ function buildProgressFromJob(state: ImageJobState): ImageJobProgressEvent {
     skippedCount:   state.skippedCount,
     rejectedCount:  state.rejectedCount,
     errorMessage:   state.errorMessage,
+    rejectedLogPath: state.rejectedLogPath,
   };
 }
 
@@ -161,6 +164,7 @@ export function startImageJob(input: {
     writtenCount: null,
     skippedCount: null,
     errorMessage: null,
+    rejectedLogPath: null,
   };
 
   currentImageJob = state;

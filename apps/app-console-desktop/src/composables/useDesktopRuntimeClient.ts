@@ -79,6 +79,7 @@ export interface DesktopHearthstoneImageJob {
   writtenCount: number | null;
   skippedCount: number | null;
   errorMessage: string | null;
+  rejectedLogPath: string | null;
 }
 
 /** Renderer health status fields returned from GET /status per the renderer protocol. */
@@ -165,6 +166,7 @@ export interface DesktopImageJobProgressEvent {
   skippedCount: number | null;
   rejectedCount: number | null;
   errorMessage: string | null;
+  rejectedLogPath: string | null;
 }
 
 /** Input payload for the debug render request RPC. */
@@ -191,6 +193,11 @@ export interface DesktopDebugRenderRequestResult {
 /** Generates debug render request POST bodies for a given renderHash. */
 export function debugDesktopHearthstoneImageRenderRequest(input: DesktopDebugRenderRequestInput) {
   return useDesktopRuntimeClient().image.debugRenderRequest(input) as Promise<DesktopDebugRenderRequestResult>;
+}
+
+/** Opens a file or directory path in the OS-native file manager via the desktop runtime. */
+export function openDesktopPath(filePath: string) {
+  return useDesktopRuntimeClient().runtime.openPath({ path: filePath }) as Promise<{ ok: boolean }>;
 }
 
 /** Subscribes to the image job progress stream, calling handler on each event. Returns a cleanup function. */

@@ -127,10 +127,44 @@ const configureDesktopState = os
     return buildStatus();
   });
 
+const openPathInput = z.strictObject({
+  path: z.string().trim().min(1),
+});
+
+const openPathResult = z.strictObject({
+  ok: z.boolean(),
+});
+
+/** Opens a file or directory in the OS-native file manager. */
+function getOpenCommand() {
+  if (process.platform === 'darwin') return 'open';
+  if (process.platform === 'win32') return 'explorer';
+  return 'xdg-open';
+}
+
+const openPath = os
+  .route({
+    method:      'POST',
+    description: 'Open a file or directory path in the OS-native file manager',
+    tags:        ['Desktop Runtime'],
+  })
+  .input(openPathInput)
+  .output(openPathResult)
+  .handler(async ({ input }) => {
+    const cmd = getOpenCommand();
+    const proc = Bun.spawn([cmd, input.path], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    await proc.exited;
+    return { ok: proc.exitCode === 0 };
+  });
+
 /** Desktop runtime procedures exposed over the local RPC transport. */
 export const runtimeRouter = {
   health,
   configureDesktopState,
   configureLocalDatabase,
   configureHsdataRepo,
+  openPath,
 };
