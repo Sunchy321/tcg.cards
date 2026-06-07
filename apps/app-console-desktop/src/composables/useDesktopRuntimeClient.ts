@@ -136,6 +136,19 @@ export function submitDesktopHearthstoneImageJob(input: CardImageRequirementExpo
   return useDesktopRuntimeClient().image.submitRenderJob(input) as Promise<{ job: DesktopHearthstoneImageJob }>;
 }
 
+export type DesktopReimportByRenderHashInput = {
+  renderHash: string;
+  lang?: string;
+  zones?: string[];
+  templates?: string[];
+  premiums?: string[];
+};
+
+/** Reimports card images for one renderHash: builds requests, renders, and force-imports. */
+export function submitDesktopHearthstoneReimportByRenderHash(input: DesktopReimportByRenderHashInput) {
+  return useDesktopRuntimeClient().image.reimportByRenderHash(input) as Promise<{ job: DesktopHearthstoneImageJob }>;
+}
+
 /** Reads the current in-memory desktop Hearthstone image job snapshot. */
 export function getCurrentDesktopHearthstoneImageJob() {
   return useDesktopRuntimeClient().image.getCurrentJob() as Promise<DesktopHearthstoneImageJob | null>;

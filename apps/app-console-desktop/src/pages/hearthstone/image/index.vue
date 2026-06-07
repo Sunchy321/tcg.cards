@@ -304,16 +304,27 @@
                 语言、区域、模板、品质沿用上方「导出与渲染条件」中的选择。
               </p>
 
-              <UButton
-                label="生成请求"
-                icon="i-lucide-code"
-                color="neutral"
-                variant="soft"
-                :loading="generatingDebugRequest"
-                :disabled="debugRenderHash.trim().length === 0"
-                block
-                @click="generateDebugRequest"
-              />
+              <div class="flex gap-2">
+                <UButton
+                  label="生成请求"
+                  icon="i-lucide-code"
+                  color="neutral"
+                  variant="soft"
+                  :loading="generatingDebugRequest"
+                  :disabled="debugRenderHash.trim().length === 0"
+                  block
+                  @click="generateDebugRequest"
+                />
+                <UButton
+                  label="重新导入"
+                  icon="i-lucide-upload"
+                  color="primary"
+                  variant="soft"
+                  :loading="reimportingByHash"
+                  :disabled="debugRenderHash.trim().length === 0 || !hasImageConfig || (currentJob != null && !isJobTerminal)"
+                  @click="reimportByHash"
+                />
+              </div>
 
               <UAlert
                 v-if="debugRequestError.length > 0"
@@ -489,6 +500,7 @@ import {
   detectDesktopHearthstoneImageRenderer,
   openDesktopPath,
   submitDesktopHearthstoneImageJob,
+  submitDesktopHearthstoneReimportByRenderHash,
   watchDesktopImageJobProgress,
   type DesktopDebugRenderRequestResult,
   type DesktopHearthstoneImageJob,
@@ -921,6 +933,42 @@ async function generateDebugRequest() {
 
 function formatDebugRequestJson(request: unknown) {
   return JSON.stringify(request, null, 2);
+}
+
+const reimportingByHash = ref(false);
+
+async function reimportByHash() {
+  const hash = debugRenderHash.value.trim();
+  if (hash.length === 0) return;
+
+  reimportingByHash.value = true;
+  jobError.value = '';
+  cleanupJobSubscription();
+
+  try {
+    const result = await submitDesktopHearthstoneReimportByRenderHash({
+      renderHash: hash,
+      lang:       form.lang,
+      zones:      form.zones,
+      templates:  form.templates,
+      premiums:   form.premiums,
+    });
+    currentJob.value = result.job;
+
+    if (!isJobTerminal.value) {
+      startProgressClock();
+      stopProgressStream = watchDesktopImageJobProgress(event => {
+        applyProgressEvent(currentJob.value, event);
+      });
+    } else {
+      stopProgressClock();
+    }
+  } catch (error) {
+    console.error('Failed to reimport by renderHash:', error);
+    jobError.value = getConsoleErrorMessage(error, '重新导入失败');
+  } finally {
+    reimportingByHash.value = false;
+  }
 }
 
 async function copyDebugRequest(index: number) {

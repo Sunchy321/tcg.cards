@@ -9,7 +9,11 @@ import {
   type CardImageRequirementExportInput,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
-import { exportCardImageRequirements } from '@tcg-cards/console-api/lib/hearthstone/card-image';
+import {
+  exportCardImageRequirements,
+  hearthstoneImageRequirementSchema,
+  hearthstoneImageSpecVersion,
+} from '@tcg-cards/console-api/lib/hearthstone/card-image';
 import { importCardImageFilesToLocalBucket } from '@tcg-cards/console-api/lib/hearthstone/card-image-local-import';
 
 import { join } from 'node:path';
@@ -609,6 +613,218 @@ const submitRenderJob = os
     return { job: getCurrentImageJob() ?? job };
   });
 
+const reimportByRenderHashInput = z.strictObject({
+  renderHash: z.string().trim().min(1),
+  lang:       z.string().trim().min(1).optional(),
+  zones:      z.array(z.string()).optional(),
+  templates:  z.array(z.string()).optional(),
+  premiums:   z.array(z.string()).optional(),
+});
+
+/** Runs the full reimport pipeline in the background for one renderHash. */
+async function runReimportByRenderHash(jobId: string, input: z.infer<typeof reimportByRenderHashInput>) {
+  try {
+    const rendererBaseUrl = requireHearthstoneImageRendererBaseUrl();
+    const bucketDir = requireHearthstoneImageBucketDir();
+    const db = getLocalDb();
+
+    updateImageJob(jobId, {
+      phase: 'exporting_requirements',
+      message: 'Building requests from renderHash',
+    });
+
+    const debugResult = await buildDebugRenderRequests(db, input.renderHash, {
+      lang:      input.lang,
+      zones:     input.zones,
+      templates: input.templates,
+      premiums:  input.premiums,
+    });
+
+    const totalCount = debugResult.requests.length;
+
+    updateImageJob(jobId, {
+      phase: 'submitting_renderer_job',
+      message: 'Rendering images one-by-one',
+      requestCount: totalCount,
+      totalCount,
+    });
+
+    const renderedFiles: Array<{ requestId: string; fileName: string; bytes: Uint8Array }> = [];
+    const failedFiles: Array<{ requestId: string; fileName: string; message: string }> = [];
+
+    for (let i = 0; i < debugResult.requests.length; i++) {
+      const request = debugResult.requests[i]!;
+      const requestJson = JSON.stringify(request);
+
+      try {
+        const response = await fetch(buildRendererSubmitUrl(rendererBaseUrl), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: requestJson,
+        });
+
+        if (!response.ok) {
+          const body = await response.text().catch(() => '');
+          failedFiles.push({
+            requestId: request.requestId,
+            fileName: request.output.fileName,
+            message: body.trim().slice(0, 200) || `HTTP ${response.status}`,
+          });
+        } else {
+          const bytes = new Uint8Array(await response.arrayBuffer());
+          renderedFiles.push({ requestId: request.requestId, fileName: request.output.fileName, bytes });
+        }
+      } catch (error) {
+        failedFiles.push({
+          requestId: request.requestId,
+          fileName: request.output.fileName,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      updateImageJob(jobId, {
+        message: `Rendered ${i + 1}/${totalCount} (${renderedFiles.length} ok, ${failedFiles.length} failed)`,
+        completedCount: renderedFiles.length,
+        rejectedCount: failedFiles.length,
+      });
+    }
+
+    if (renderedFiles.length === 0) {
+      const rejectedLogPath = await writeRejectedLog(jobId, failedFiles);
+      updateImageJob(jobId, {
+        phase: 'failed',
+        message: 'All render requests failed',
+        errorMessage: failedFiles.map(f => `${f.fileName}: ${f.message}`).join('; '),
+        completedCount: 0,
+        rejectedCount: failedFiles.length,
+        rejectedLogPath,
+        finishedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    updateImageJob(jobId, {
+      phase: 'importing_local_bucket',
+      message: `Importing ${renderedFiles.length} rendered images to local bucket`,
+      completedCount: renderedFiles.length,
+      rejectedCount: failedFiles.length,
+    });
+
+    const requirementContent = JSON.stringify(imageRequirementFile.parse({
+      schema:           hearthstoneImageRequirementSchema,
+      exportId:         `reimport-${input.renderHash}`,
+      imageSpecVersion: hearthstoneImageSpecVersion,
+      generatedAt:      new Date().toISOString(),
+      toolContract:     {
+        inputFormat:         'json',
+        outputArchiveFormat: 'zip',
+        outputImageFormat:   'png',
+        fileNamePolicy:      'exact',
+      },
+      limits: {
+        defaultMaxRequests: debugResult.requests.length,
+        hardMaxRequests:    debugResult.requests.length,
+        maxRequests:        debugResult.requests.length,
+        requestCount:       debugResult.requests.length,
+        remainingEstimate:  0,
+      },
+      batch: {
+        index:  1,
+        cursor: null,
+        hasMore: false,
+      },
+      defaults: {
+        png: {
+          color:                 'rgba',
+          transparentBackground: true,
+        },
+        target: {
+          contentType: 'image/webp',
+          webpPreset:  'q86-m4-fast',
+        },
+      },
+      requests: debugResult.requests,
+    }));
+
+    const importResult = await importCardImageFilesToLocalBucket({
+      requirementContent,
+      requirementName: `reimport-${input.renderHash}.json`,
+      files: renderedFiles.map(f => ({ fileName: f.fileName, bytes: f.bytes })),
+      bucketDir,
+      force: true,
+      dryRun: false,
+    });
+
+    const rejectedLogPath = failedFiles.length > 0
+      ? await writeRejectedLog(jobId, failedFiles)
+      : importResult.problems.length > 0
+        ? await writeRejectedLog(jobId, importResult.problems)
+        : null;
+
+    updateImageJob(jobId, {
+      phase: importResult.problems.length === 0 && failedFiles.length === 0 ? 'completed' : 'failed',
+      message: importResult.problems.length === 0 && failedFiles.length === 0
+        ? `Completed: ${importResult.summary.writtenCount} written, ${importResult.summary.skippedCount} skipped`
+        : `Completed with issues: ${importResult.summary.writtenCount} written, ${importResult.summary.rejectedCount} rejected`,
+      completedCount: importResult.summary.writtenCount,
+      missingCount: importResult.summary.missingCount,
+      rejectedCount: importResult.summary.rejectedCount + failedFiles.length,
+      writtenCount: importResult.summary.writtenCount,
+      skippedCount: importResult.summary.skippedCount,
+      errorMessage: importResult.problems.length > 0
+        ? `${importResult.summary.rejectedCount} file(s) rejected; ${failedFiles.length} render failure(s)`
+        : failedFiles.length > 0 ? `${failedFiles.length} render failure(s)` : null,
+      rejectedLogPath,
+      finishedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    updateImageJob(jobId, {
+      phase: 'failed',
+      message,
+      errorMessage: message,
+      finishedAt: new Date().toISOString(),
+    });
+  }
+}
+
+/** Reimports card images for one renderHash: builds requirements, renders, and force-imports. */
+const reimportByRenderHash = os
+  .route({
+    method:      'POST',
+    description: 'Reimport card images for one renderHash in the configured local renderer',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .input(reimportByRenderHashInput)
+  .output(submitRenderJobResult)
+  .handler(async ({ input }) => {
+    const current = getCurrentImageJob();
+
+    if (current != null && current.finishedAt == null) {
+      throw new ORPCError('CONFLICT', {
+        message: 'Another Hearthstone image job is already running',
+      });
+    }
+
+    const job = startImageJob({
+      message: 'Building reimport requests from renderHash',
+      filters: {
+        lang:      input.lang ?? 'zhs',
+        version:   null,
+        cardId:    input.renderHash,
+        zones:     input.zones ?? ['hand'],
+        templates: input.templates ?? ['normal', 'battlegrounds'],
+        premiums:  input.premiums ?? ['normal', 'golden', 'diamond', 'signature'],
+        limit:     500,
+        cursor:    null,
+      },
+    });
+
+    void runReimportByRenderHash(job.jobId, input);
+
+    return { job: getCurrentImageJob() ?? job };
+  });
+
 /** Returns the current in-memory desktop image job snapshot when present. */
 const getCurrentJob = os
   .route({
@@ -743,6 +959,7 @@ export const imageRouter = {
   exportRequirements,
   importLocalFiles,
   submitRenderJob,
+  reimportByRenderHash,
   getCurrentJob,
   refreshCurrentJob,
   watchJobProgress,
