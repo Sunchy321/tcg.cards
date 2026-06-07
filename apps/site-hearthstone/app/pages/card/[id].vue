@@ -11,6 +11,7 @@
               :lang="lang"
               :render-hash="data.renderHash"
               :variant="variant"
+              :has-premium-mechanic="hasPremium"
               loading="eager"
             />
 
@@ -415,7 +416,7 @@ const referencedTags = computed(() =>
 );
 
 const hasMechanic = (key: string) =>
-  mechanicEntries.value.some(([name, value]) => name === key && value === true);
+  mechanicEntries.value.some(([name, value]) => name === key && (value === true || (typeof value === 'number' && value !== 0)));
 
 const mechanicText = (m: string) => {
   if (m.includes(':')) {
@@ -573,9 +574,21 @@ const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]
 
 // Variant
 
-const variant = ref<CardImageOption>('normal');
+const hasPremium = computed(() =>
+  hasMechanic('12') || hasMechanic('premium'),
+);
 
-const hasTechLevel = computed(() => data.value?.techLevel != null);
+const isBattlegrounds = computed(() => {
+  const d = data.value;
+  return d != null && (d.set === 'bgs' || (d.techLevel != null && !d.collectible));
+});
+
+const hasBattlegroundsVariant = computed(() => {
+  const d = data.value;
+  return d != null && (d.set === 'bgs' || d.techLevel != null);
+});
+
+const variant = ref<CardImageOption>(isBattlegrounds.value ? 'battlegrounds' : 'normal');
 
 const variantOptions = computed(() => {
   const opts: Array<{ label: string, value: CardImageOption }> = [
@@ -589,38 +602,42 @@ const variantOptions = computed(() => {
   if (hasMechanic('has_signature')) {
     opts.push({ label: t('hearthstone.card.variant.signature'), value: 'signature' });
   }
-  if (hasTechLevel.value) {
+  if (hasBattlegroundsVariant.value) {
     opts.push({ label: t('hearthstone.card.variant.battlegrounds'), value: 'battlegrounds' });
   }
 
   return opts;
 });
 
-watch(hasTechLevel, v => {
-  if (!v) variant.value = 'normal';
+watch(isBattlegrounds, v => {
+  if (v) variant.value = 'battlegrounds';
 }, { immediate: true });
+
+watch(hasBattlegroundsVariant, v => {
+  if (!v) variant.value = 'normal';
+});
 
 // Relation icon
 
 const relationIcon = (relation: string): string => ({
   collection_related: 'lucide:refresh-cw',
-  colossal_token: 'lucide:boxes',
-  cataclysm:      'lucide:flame',
-  emblem:         'lucide:shield',
-  intext:         'lucide:search',
-  meld:           'lucide:git-merge',
-  specialization: 'lucide:git-fork',
-  spellbook:      'lucide:book',
-  source:         'lucide:list-tree',
-  stick_on:       'lucide:layers',
-  token:          'lucide:square',
-  entourage:      'lucide:boxes',
-  fabled_related: 'lucide:sparkles',
-  herald_token:   'lucide:sparkles',
-  herald_upgrade: 'lucide:chevrons-up',
-  hero_power:     'lucide:zap',
-  heroic_hero_power: 'lucide:zap',
-  plague_token:   'lucide:biohazard',
-  titan_ability:  'lucide:badge-bolt',
+  colossal_token:     'lucide:boxes',
+  cataclysm:          'lucide:flame',
+  emblem:             'lucide:shield',
+  intext:             'lucide:search',
+  meld:               'lucide:git-merge',
+  specialization:     'lucide:git-fork',
+  spellbook:          'lucide:book',
+  source:             'lucide:list-tree',
+  stick_on:           'lucide:layers',
+  token:              'lucide:square',
+  entourage:          'lucide:boxes',
+  fabled_related:     'lucide:sparkles',
+  herald_token:       'lucide:sparkles',
+  herald_upgrade:     'lucide:chevrons-up',
+  hero_power:         'lucide:zap',
+  heroic_hero_power:  'lucide:zap',
+  plague_token:       'lucide:biohazard',
+  titan_ability:      'lucide:badge-bolt',
 } as Record<string, string>)[relation] ?? 'lucide:copy';
 </script>

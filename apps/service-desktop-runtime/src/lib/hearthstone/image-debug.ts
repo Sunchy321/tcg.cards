@@ -100,10 +100,13 @@ export async function buildDebugRenderRequests(
   }
 
   return {
-    cardId:      candidate.cardId,
-    lang:        candidate.lang,
-    renderHash:  candidate.renderHash,
-    variantCount: requests.length,
+    cardId:          candidate.cardId,
+    lang:            candidate.lang,
+    renderHash:      candidate.renderHash,
+    set:             candidate.set,
+    type:            candidate.type,
+    techLevel:       candidate.techLevel,
+    variantCount:    requests.length,
     requests,
   };
 }

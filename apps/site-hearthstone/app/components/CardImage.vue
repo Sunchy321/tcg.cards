@@ -21,17 +21,19 @@ import type { CardImageOption } from '~/utils/card-image';
 import { buildCardImageUrl, buildLegacyCardImageUrl } from '~/utils/card-image';
 
 const props = withDefaults(defineProps<{
-  cardId:      string;
-  version:     number;
-  lang?:       Locale;
-  renderHash?: string | null;
-  variant?:    CardImageOption;
-  loading?:    'eager' | 'lazy';
+  cardId:              string;
+  version:             number;
+  lang?:               Locale;
+  renderHash?:         string | null;
+  variant?:            CardImageOption;
+  hasPremiumMechanic?: boolean;
+  loading?:            'eager' | 'lazy';
 }>(), {
-  lang:       'zhs',
-  variant:    'normal',
-  renderHash: null,
-  loading:    'lazy',
+  lang:               'zhs',
+  variant:            'normal',
+  renderHash:         null,
+  hasPremiumMechanic: false,
+  loading:            'lazy',
 });
 
 const { public: { assetBaseUrl } } = useRuntimeConfig();
@@ -61,7 +63,7 @@ const primaryUrl = computed(() => {
     return null;
   }
 
-  return buildCardImageUrl(assetBaseUrl, props.renderHash, props.variant);
+  return buildCardImageUrl(assetBaseUrl, props.renderHash, props.variant, props.hasPremiumMechanic);
 });
 
 const legacyUrl = computed(() =>
@@ -78,18 +80,18 @@ const jsonUrl = computed(() => {
 
 const imageUrl = computed(() => {
   switch (stage.value) {
-    case 'primary':
-      return primaryUrl.value ?? legacyUrl.value;
-    case 'legacy':
-      return legacyUrl.value;
-    case 'hearthstonejson':
-      return jsonUrl.value ?? '/card-not-found.svg';
-    default:
-      return '/card-not-found.svg';
+  case 'primary':
+    return primaryUrl.value ?? legacyUrl.value;
+  case 'legacy':
+    return legacyUrl.value;
+  case 'hearthstonejson':
+    return jsonUrl.value ?? '/card-not-found.svg';
+  default:
+    return '/card-not-found.svg';
   }
 });
 
-watch(() => [props.cardId, props.version, props.renderHash, props.variant, props.lang], () => {
+watch(() => [props.cardId, props.version, props.renderHash, props.variant, props.lang, props.hasPremiumMechanic], () => {
   stage.value = 'primary';
   hasError.value = false;
 });

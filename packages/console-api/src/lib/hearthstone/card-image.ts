@@ -37,6 +37,7 @@ const exportBatchSize = 1000;
 const defaultR2AssetBucket = 'asset';
 const diamondMechanicSlug = 'has_diamond';
 const signatureMechanicSlug = 'has_signature';
+const premiumMechanicSlug = 'premium';
 
 type MechanicValue = boolean | number;
 type MechanicMap = Record<string, MechanicValue>;
@@ -59,6 +60,7 @@ export interface ImageCandidateRow {
 export interface ImageVariantMechanicIds {
   diamond:   string | null;
   signature: string | null;
+  premium:   string | null;
 }
 
 interface BrowserImportFile {
@@ -297,9 +299,15 @@ export function isCardImageVariantAllowed(
   }
 
   if (variant.template === 'battlegrounds') {
-    return variant.zone === 'hand'
-      && variant.premium === 'normal'
-      && (row.set === 'bgs' || row.techLevel != null);
+    if (row.set !== 'bgs' && row.techLevel == null) {
+      return false;
+    }
+
+    if (hasMechanic(row.mechanics, premiumMechanicSlug, mechanicIds.premium)) {
+      return variant.zone === 'hand' && variant.premium === 'golden';
+    }
+
+    return variant.zone === 'hand' && variant.premium === 'normal';
   }
 
   if (variant.zone !== 'hand' || variant.template !== 'normal') {
@@ -498,6 +506,10 @@ export async function loadVariantMechanicIds(
       return [signatureMechanicSlug];
     }
 
+    if (variant.template === 'battlegrounds') {
+      return [premiumMechanicSlug];
+    }
+
     return [];
   }));
 
@@ -505,6 +517,7 @@ export async function loadVariantMechanicIds(
     return {
       diamond:   null,
       signature: null,
+      premium:   null,
     };
   }
 
@@ -518,6 +531,7 @@ export async function loadVariantMechanicIds(
   return {
     diamond:   String(rows.find(row => row.slug === diamondMechanicSlug)?.enumId ?? '') || null,
     signature: String(rows.find(row => row.slug === signatureMechanicSlug)?.enumId ?? '') || null,
+    premium:   String(rows.find(row => row.slug === premiumMechanicSlug)?.enumId ?? '') || null,
   };
 }
 

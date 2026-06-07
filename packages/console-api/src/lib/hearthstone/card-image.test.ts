@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
 import type { R2Bucket } from '@cloudflare/workers-types';
 
-import { HAS_DIAMOND, HAS_SIGNATURE } from '@tcg-cards/model/src/hearthstone/constant/tag';
+import { HAS_DIAMOND, HAS_SIGNATURE, PREMIUM } from '@tcg-cards/model/src/hearthstone/constant/tag';
 import type { ImageRequirementFile } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import type { RenderModel } from '@tcg-cards/model/src/hearthstone/schema/entity';
 import type { ImageCandidateRow } from './card-image';
@@ -108,6 +108,7 @@ const {
 const mechanicIds = {
   diamond:   String(HAS_DIAMOND),
   signature: String(HAS_SIGNATURE),
+  premium:   String(PREMIUM),
 } as const;
 
 const renderModel: RenderModel = {
@@ -388,6 +389,7 @@ describe('card image helpers', () => {
         setDbfId:         1637,
         techLevel:        null,
         mechanics:        {},
+
       },
       {
         cardId:           'B',
@@ -405,6 +407,7 @@ describe('card image helpers', () => {
         setDbfId:  1637,
         techLevel: null,
         mechanics: {},
+
       },
     ] satisfies ImageCandidateRow[];
 
@@ -444,6 +447,7 @@ describe('card image helpers', () => {
         set:       'CORE',
         techLevel: null,
         mechanics: { [HAS_DIAMOND]: true },
+
       }, variant, mechanicIds))
       .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
 
@@ -462,6 +466,7 @@ describe('card image helpers', () => {
           [HAS_DIAMOND]:   true,
           [HAS_SIGNATURE]: true,
         },
+
       }, variant, mechanicIds))
       .map(variant => `${variant.zone}.${variant.template}.${variant.premium}`);
 
@@ -479,6 +484,7 @@ describe('card image helpers', () => {
         set:       'CORE',
         techLevel: null,
         mechanics: {},
+
       }, variant, mechanicIds));
 
     expect(enchantmentAllowed).toHaveLength(0);

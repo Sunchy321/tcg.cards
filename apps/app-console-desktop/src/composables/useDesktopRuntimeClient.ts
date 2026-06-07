@@ -181,6 +181,9 @@ export interface DesktopDebugRenderRequestResult {
   cardId: string;
   lang: string;
   renderHash: string;
+  set: string;
+  type: string;
+  techLevel: number | null;
   variantCount: number;
   requests: ImageRequirementRequest[];
 }

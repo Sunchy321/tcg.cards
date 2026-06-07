@@ -635,11 +635,14 @@ const debugRenderRequestInput = z.strictObject({
 });
 
 const debugRenderRequestOutput = z.strictObject({
-  cardId:       z.string(),
-  lang:         z.string(),
-  renderHash:   z.string(),
-  variantCount: z.number().int().nonnegative(),
-  requests:     z.array(imageRequirementRequest),
+  cardId:          z.string(),
+  lang:            z.string(),
+  renderHash:      z.string(),
+  set:             z.string(),
+  type:            z.string(),
+  techLevel:       z.number().int().nullable(),
+  variantCount:    z.number().int().nonnegative(),
+  requests:        z.array(imageRequirementRequest),
 });
 
 /** Generates render request POST bodies for a given renderHash, for debugging. */

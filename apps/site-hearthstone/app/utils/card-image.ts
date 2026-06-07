@@ -8,12 +8,12 @@ function trimBaseUrl(url: string) {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
-export function buildCardImageVariant(option: CardImageOption): ImageVariant {
+export function buildCardImageVariant(option: CardImageOption, hasPremiumMechanic?: boolean): ImageVariant {
   if (option === 'battlegrounds') {
     return {
       zone:     'hand',
       template: 'battlegrounds',
-      premium:  'normal',
+      premium:  hasPremiumMechanic ? 'golden' : 'normal',
     };
   }
 
@@ -28,9 +28,10 @@ export function buildCardImageUrl(
   assetBaseUrl: string,
   renderHash: string,
   option: CardImageOption,
+  hasPremiumMechanic?: boolean,
 ) {
   const baseUrl = trimBaseUrl(assetBaseUrl);
-  const variant = buildCardImageVariant(option);
+  const variant = buildCardImageVariant(option, hasPremiumMechanic);
 
   return [
     baseUrl,

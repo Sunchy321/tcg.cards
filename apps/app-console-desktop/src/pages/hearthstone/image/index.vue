@@ -319,8 +319,11 @@
                 v-if="debugRequestResult"
                 class="space-y-2"
               >
-                <div class="flex items-center gap-2 text-xs text-muted">
+                <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
                   <span>{{ debugRequestResult.cardId }}</span>
+                  <UBadge :label="`set: ${debugRequestResult.set}`" variant="soft" size="xs" />
+                  <UBadge :label="`type: ${debugRequestResult.type}`" variant="soft" size="xs" />
+                  <UBadge :label="`techLevel: ${debugRequestResult.techLevel ?? '-'}`" variant="soft" size="xs" />
                   <UBadge :label="`${debugRequestResult.variantCount} variant(s)`" variant="soft" size="xs" />
                 </div>
 

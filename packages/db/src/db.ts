@@ -34,16 +34,8 @@ export function runWithDb<T>(database: Db, handler: () => T): T {
   return dbContext.run(database, handler);
 }
 
-function shouldCacheDb() {
-  const runtimeGlobal = globalThis as typeof globalThis & {
-    __env__?:    { HYPERDRIVE?: HyperdriveBinding };
-    HYPERDRIVE?: HyperdriveBinding;
-  };
-
-  const hasWorkerBinding = runtimeGlobal.__env__?.HYPERDRIVE != null
-    || runtimeGlobal.HYPERDRIVE != null;
-
-  return process.env.NODE_ENV === 'development' && !hasWorkerBinding;
+function isDev() {
+  return process.env.NODE_ENV === 'development';
 }
 
 function getDb() {
@@ -53,12 +45,12 @@ function getDb() {
     return requestDb;
   }
 
-  if (shouldCacheDb()) {
+  if (isDev()) {
     _db ??= createDb(getHyperdrive().connectionString);
     return _db;
-  } else {
-    return createDb(getHyperdrive().connectionString);
   }
+
+  return createDb(getHyperdrive().connectionString);
 }
 
 export const db: Db = new Proxy({} as Db, {
