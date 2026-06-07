@@ -35,8 +35,8 @@ export const hardCardImageExportLimit = 500;
 
 const exportBatchSize = 1000;
 const defaultR2AssetBucket = 'asset';
-const diamondMechanicSlug = 'has_diamond';
-const signatureMechanicSlug = 'has_signature';
+const diamondMechanicSlug = 'has-diamond';
+const signatureMechanicSlug = 'has-signature';
 const premiumMechanicSlug = 'premium';
 
 type MechanicValue = boolean | number;
