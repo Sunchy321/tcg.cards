@@ -558,6 +558,84 @@ const form = reactive({
   cursor:    '',
 });
 
+const IMAGE_PAGE_STATE_KEY = 'console-desktop-hearthstone-image-page';
+
+interface ImagePageState {
+  lang: string;
+  cardId: string;
+  version: string;
+  zones: string[];
+  templates: string[];
+  premiums: string[];
+  limit: string;
+  cursor: string;
+}
+
+function createDefaultImagePageState(): ImagePageState {
+  return {
+    lang:      'zhs',
+    cardId:    '',
+    version:   'latest',
+    zones:     ['hand'],
+    templates: ['normal', 'battlegrounds'],
+    premiums:  ['normal', 'golden', 'diamond', 'signature'],
+    limit:     '500',
+    cursor:    '',
+  };
+}
+
+function normalizeImagePageState(value: unknown): ImagePageState {
+  const defaults = createDefaultImagePageState();
+  if (typeof value !== 'object' || value == null) return defaults;
+  const data = value as Record<string, unknown>;
+  return {
+    lang:      typeof data.lang === 'string' && data.lang.length > 0 ? data.lang : defaults.lang,
+    cardId:    typeof data.cardId === 'string' ? data.cardId : defaults.cardId,
+    version:   typeof data.version === 'string' && data.version.length > 0 ? data.version : defaults.version,
+    zones:     Array.isArray(data.zones) ? data.zones.filter((z): z is string => typeof z === 'string') : defaults.zones,
+    templates: Array.isArray(data.templates) ? data.templates.filter((t): t is string => typeof t === 'string') : defaults.templates,
+    premiums:  Array.isArray(data.premiums) ? data.premiums.filter((p): p is string => typeof p === 'string') : defaults.premiums,
+    limit:     typeof data.limit === 'string' && data.limit.length > 0 ? data.limit : defaults.limit,
+    cursor:    typeof data.cursor === 'string' ? data.cursor : defaults.cursor,
+  };
+}
+
+function persistImagePageState() {
+  try {
+    const payload: ImagePageState = {
+      lang:      form.lang,
+      cardId:    form.cardId,
+      version:   form.version,
+      zones:     form.zones,
+      templates: form.templates,
+      premiums:  form.premiums,
+      limit:     form.limit,
+      cursor:    form.cursor,
+    };
+    window.localStorage.setItem(IMAGE_PAGE_STATE_KEY, JSON.stringify(payload));
+  } catch {
+    // no-op
+  }
+}
+
+function restoreImagePageState() {
+  try {
+    const raw = window.localStorage.getItem(IMAGE_PAGE_STATE_KEY);
+    if (!raw) return;
+    const state = normalizeImagePageState(JSON.parse(raw));
+    form.lang = state.lang;
+    form.cardId = state.cardId;
+    form.version = state.version;
+    form.zones = state.zones.length > 0 ? (state.zones as ImageZone[]) : form.zones;
+    form.templates = state.templates.length > 0 ? (state.templates as ImageTemplate[]) : form.templates;
+    form.premiums = state.premiums.length > 0 ? (state.premiums as ImagePremium[]) : form.premiums;
+    form.limit = state.limit;
+    form.cursor = state.cursor;
+  } catch {
+    localStorage.removeItem(IMAGE_PAGE_STATE_KEY);
+  }
+}
+
 const loadingConfig = ref(false);
 const configError = ref('');
 const submittingJob = ref(false);
@@ -983,7 +1061,25 @@ async function copyDebugRequest(index: number) {
   }
 }
 
+watch(
+  [
+    () => form.lang,
+    () => form.cardId,
+    () => form.version,
+    () => form.zones,
+    () => form.templates,
+    () => form.premiums,
+    () => form.limit,
+    () => form.cursor,
+  ],
+  () => {
+    persistImagePageState();
+  },
+  { deep: true },
+);
+
 onMounted(() => {
+  restoreImagePageState();
   void loadImageSettings();
   void loadVersionItems();
   void loadRendererHealth();
