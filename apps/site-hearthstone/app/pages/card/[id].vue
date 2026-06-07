@@ -15,18 +15,12 @@
               loading="eager"
             />
 
-            <div class="mt-4 flex gap-2">
+            <div class="mt-4">
               <USelect
                 v-model="variant"
                 :items="variantOptions"
                 size="sm"
-                class="flex-1"
-              />
-              <USelect
-                v-model="lang"
-                :items="languageSelectItems"
-                size="sm"
-                class="flex-1"
+                class="w-full"
               />
             </div>
 
@@ -66,7 +60,7 @@
 
           <!-- Card text -->
           <div v-if="data.localization.displayText" class="border-l-2 border-primary bg-gray-50 dark:bg-gray-800 rounded-r-lg p-4 mb-6 leading-relaxed">
-            <RichText :key="`${data.cardId}:${lang}:${data.localization.displayText}`" :flatten-line-breaks="true">{{ data.localization.displayText }}</RichText>
+            <RichText :key="`${data.cardId}:${gameLocale}:${data.localization.displayText}`" :flatten-line-breaks="true">{{ data.localization.displayText }}</RichText>
           </div>
 
           <!-- Flavor text -->
@@ -112,7 +106,7 @@
             <div class="space-y-4">
               <div
                 v-for="group in relatedGroups"
-                :key="`${group.relation}:${lang}`"
+                :key="`${group.relation}:${gameLocale}`"
                 class="border rounded-lg overflow-hidden"
               >
                 <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm font-medium">
@@ -122,7 +116,7 @@
                 <div class="grid gap-2 p-3 sm:grid-cols-2">
                   <NuxtLink
                     v-for="rel in group.cards"
-                    :key="`${rel.relation}:${rel.cardId}:${lang}`"
+                    :key="`${rel.relation}:${rel.cardId}:${gameLocale}`"
                     :to="relatedLink(rel)"
                     class="block min-w-0 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 hover:opacity-80"
                   >
@@ -136,7 +130,7 @@
                     </div>
                     <RichText
                       v-if="rel.displayText"
-                      :key="`${rel.cardId}:${lang}:${rel.displayText}`"
+                      :key="`${rel.cardId}:${gameLocale}:${rel.displayText}`"
                       :flatten-line-breaks="true"
                       class="mt-2 text-sm leading-6 text-gray-700 dark:text-gray-300"
                     >
@@ -217,7 +211,7 @@
 <script setup lang="ts">
 import { last } from 'lodash-es';
 
-import { locale as localeSchema, type Locale } from '#model/hearthstone/schema/basic';
+import type { Locale } from '#model/hearthstone/schema/basic';
 import type { CardProfile } from '#model/hearthstone/schema/card';
 import type { Patch } from '#model/hearthstone/schema/patch';
 import {
@@ -247,10 +241,8 @@ setActions([actions.random]);
 
 // Language
 
-const lang = computed<Locale>({
-  get: () => localeSchema.safeParse(route.query.lang as string).data ?? 'zhs',
-  set: (v: string) => { void router.replace({ query: { ...route.query, lang: v } }); },
-});
+const gameLocale = useGameLocale();
+const lang = computed<Locale>(() => gameLocale.value as Locale);
 
 const profile = ref<CardProfile | null>(null);
 
@@ -261,44 +253,6 @@ watchEffect(async () => {
     profile.value = null;
   }
 });
-
-const localeOrder = localeSchema.options;
-
-const nativeLanguageNames: Record<Locale, string> = {
-  en:  'English',
-  de:  'Deutsch',
-  es:  'Español',
-  fr:  'Français',
-  it:  'Italiano',
-  ja:  '日本語',
-  ko:  '한국어',
-  mx:  'Español (México)',
-  pl:  'Polski',
-  pt:  'Português',
-  ru:  'Русский',
-  th:  'ไทย',
-  zhs: '简体中文',
-  zht: '繁體中文',
-};
-
-const languageOptions = computed(() => {
-  const byLang = new Map<Locale, CardProfile['localization'][number]>();
-
-  for (const localization of profile.value?.localization ?? []) {
-    byLang.set(localization.lang, localization);
-  }
-
-  return [...byLang.values()].sort((a, b) =>
-    localeOrder.indexOf(a.lang) - localeOrder.indexOf(b.lang),
-  );
-});
-
-const languageSelectItems = computed(() =>
-  languageOptions.value.map(option => ({
-    label: nativeLanguageNames[option.lang],
-    value: option.lang,
-  })),
-);
 
 // Data fetching
 
@@ -577,10 +531,7 @@ const spellSchoolLabel = (value: string) => getHearthstoneLabel('spellSchool', v
 
 const relatedLink = (rel: NonNullable<typeof data.value>['relatedCards'][number]) => ({
   path:  `/card/${rel.cardId}`,
-  query: {
-    lang: lang.value,
-    ...(rel.version[0] != null ? { version: rel.version[0] } : {}),
-  },
+  query: rel.version[0] != null ? { version: rel.version[0] } : undefined,
 });
 
 // Variant

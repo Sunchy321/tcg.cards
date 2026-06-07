@@ -66,7 +66,7 @@
           />
 
           <UDropdownMenu
-            v-if="showLocaleSwitcher && gameLocales.length > 1"
+            v-if="gameLocales.length > 1"
             :items="localeMenuItems"
             :ui="{ content: 'min-w-fit' }"
           >
@@ -116,8 +116,6 @@ const actions = getActions();
 // Locale switcher
 
 const gameLocales = appConfig.locales ?? [];
-const showLocaleSwitcher = appConfig.showLocaleSwitcher ?? true;
-
 const gameLocale = useGameLocale();
 const { t } = useI18n();
 

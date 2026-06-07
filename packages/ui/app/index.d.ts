@@ -2,23 +2,20 @@ import type { ActionDef } from '~/composables/action';
 
 declare module 'nuxt/schema' {
   interface AppConfigInput {
-    appIcon?: string;
+    appIcon?:       string;
     /** Game identifier for game-specific features such as roles and permissions. */
-    gameId?:  string;
+    gameId?:        string;
     /** Available locales for the site-level locale switcher in the header. */
-    locales?: string[];
+    locales?:       string[];
     /** Default game data locale when no cookie has been stored yet. */
     defaultLocale?: string;
-    /** Whether to show the game locale switcher in the shared header. */
-    showLocaleSwitcher?: boolean;
   }
 
   interface AppConfig {
-    appIcon?: string;
-    gameId?:  string;
-    locales?: string[];
+    appIcon?:       string;
+    gameId?:        string;
+    locales?:       string[];
     defaultLocale?: string;
-    showLocaleSwitcher?: boolean;
   }
 }
 
