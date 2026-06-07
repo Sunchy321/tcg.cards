@@ -34,6 +34,7 @@
         "@tcg-cards/console-core": "workspace:*",
         "@tcg-cards/console-platform": "workspace:*",
         "@tcg-cards/console-shell": "workspace:*",
+        "@tcg-cards/model": "workspace:*",
         "@tcg-cards/shared": "workspace:*",
         "@tcg-cards/ui": "workspace:*",
         "better-auth": "^1.5.5",

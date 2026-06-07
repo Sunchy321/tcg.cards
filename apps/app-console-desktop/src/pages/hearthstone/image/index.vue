@@ -277,6 +277,76 @@
               </div>
             </div>
           </UCard>
+
+          <UCard>
+            <template #header>
+              <div class="font-medium">调试：生成渲染请求</div>
+            </template>
+
+            <div class="space-y-3">
+              <div class="space-y-2">
+                <div class="text-xs text-muted">Render Hash</div>
+                <UInput
+                  v-model="debugRenderHash"
+                  placeholder="输入 renderHash..."
+                />
+              </div>
+
+              <p class="text-xs text-muted">
+                语言、区域、模板、品质沿用上方「导出与渲染条件」中的选择。
+              </p>
+
+              <UButton
+                label="生成请求"
+                icon="i-lucide-code"
+                color="neutral"
+                variant="soft"
+                :loading="generatingDebugRequest"
+                :disabled="debugRenderHash.trim().length === 0"
+                block
+                @click="generateDebugRequest"
+              />
+
+              <UAlert
+                v-if="debugRequestError.length > 0"
+                color="error"
+                variant="soft"
+                icon="i-lucide-circle-alert"
+                :description="debugRequestError"
+              />
+
+              <div
+                v-if="debugRequestResult"
+                class="space-y-2"
+              >
+                <div class="flex items-center gap-2 text-xs text-muted">
+                  <span>{{ debugRequestResult.cardId }}</span>
+                  <UBadge :label="`${debugRequestResult.variantCount} variant(s)`" variant="soft" size="xs" />
+                </div>
+
+                <div
+                  v-for="(req, index) in debugRequestResult.requests"
+                  :key="req.requestId"
+                  class="space-y-1"
+                >
+                  <div class="flex items-center justify-between">
+                    <div class="text-xs font-medium">
+                      {{ req.variant.zone }}.{{ req.variant.template }}.{{ req.variant.premium }}
+                    </div>
+                    <UButton
+                      :label="copiedIndex === index ? '已复制' : '复制'"
+                      :icon="copiedIndex === index ? 'i-lucide-check' : 'i-lucide-copy'"
+                      :color="copiedIndex === index ? 'success' : 'neutral'"
+                      variant="ghost"
+                      size="xs"
+                      @click="copyDebugRequest(index)"
+                    />
+                  </div>
+                  <pre class="max-h-48 overflow-auto rounded-lg border border-default bg-muted p-2 text-xs"><code>{{ formatDebugRequestJson(req) }}</code></pre>
+                </div>
+              </div>
+            </div>
+          </UCard>
         </div>
 
         <div class="space-y-4">
@@ -404,9 +474,11 @@ import { getConsoleErrorMessage } from '@tcg-cards/console-core';
 import { listLocalHsdataSourceVersions, type HsdataSourceVersionStatus } from '~/composables/useHsdataRepo';
 import { getDesktopHearthstoneImageSettings } from '~/composables/useDesktopSettings';
 import {
+  debugDesktopHearthstoneImageRenderRequest,
   detectDesktopHearthstoneImageRenderer,
   submitDesktopHearthstoneImageJob,
   watchDesktopImageJobProgress,
+  type DesktopDebugRenderRequestResult,
   type DesktopHearthstoneImageJob,
   type DesktopImageJobProgressEvent,
   type DesktopRendererHealthResult,
@@ -789,6 +861,49 @@ function toggleValue<T>(list: T[], value: T) {
   }
 
   list.push(value);
+}
+
+const debugRenderHash = ref('');
+const generatingDebugRequest = ref(false);
+const debugRequestError = ref('');
+const debugRequestResult = ref<DesktopDebugRenderRequestResult | null>(null);
+const copiedIndex = ref<number | null>(null);
+
+async function generateDebugRequest() {
+  generatingDebugRequest.value = true;
+  debugRequestError.value = '';
+  debugRequestResult.value = null;
+
+  try {
+    debugRequestResult.value = await debugDesktopHearthstoneImageRenderRequest({
+      renderHash: debugRenderHash.value.trim(),
+      lang:       form.lang,
+      zones:      form.zones,
+      templates:  form.templates,
+      premiums:   form.premiums,
+    });
+  } catch (error) {
+    console.error('Failed to generate debug render request:', error);
+    debugRequestError.value = getConsoleErrorMessage(error, '生成失败');
+  } finally {
+    generatingDebugRequest.value = false;
+  }
+}
+
+function formatDebugRequestJson(request: unknown) {
+  return JSON.stringify(request, null, 2);
+}
+
+async function copyDebugRequest(index: number) {
+  const request = debugRequestResult.value?.requests[index];
+  if (!request) return;
+  try {
+    await navigator.clipboard.writeText(formatDebugRequestJson(request));
+    copiedIndex.value = index;
+    setTimeout(() => { copiedIndex.value = null; }, 2000);
+  } catch {
+    // no-op
+  }
 }
 
 onMounted(() => {

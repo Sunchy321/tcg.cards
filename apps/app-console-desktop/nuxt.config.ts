@@ -77,4 +77,8 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: '2026-05-01',
+
+  alias: {
+    '#model': fileURLToPath(new URL('./node_modules/@tcg-cards/model/src', import.meta.url)),
+  },
 });

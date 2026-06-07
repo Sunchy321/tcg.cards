@@ -399,7 +399,7 @@ function buildImportErrorMessage(missingCount: number, problems: CardImageImport
   return parts.join('; ');
 }
 
-function buildImageRequestRenderModel(
+export function buildImageRequestRenderModel(
   model: RenderModel,
   setDbfId: number,
 ): ImageRequestRenderModel {
@@ -409,7 +409,7 @@ function buildImageRequestRenderModel(
   };
 }
 
-function buildRequest(
+export function buildRequest(
   row: ImageCandidateRow,
   variant: ImageVariant,
   r2Bucket: string,
@@ -485,7 +485,7 @@ export function collectImageRequirementRequests(input: {
 }
 
 /** Resolves the mechanic ids needed by the current image variants. */
-async function loadVariantMechanicIds(
+export async function loadVariantMechanicIds(
   database: CardImageDb,
   variants: ImageVariant[],
 ): Promise<ImageVariantMechanicIds> {

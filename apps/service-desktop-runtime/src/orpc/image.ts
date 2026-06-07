@@ -5,6 +5,7 @@ import {
   cardImageRequirementExportInput,
   cardImageRequirementExportResult,
   imageRequirementFile,
+  imageRequirementRequest,
   type CardImageRequirementExportInput,
 } from '@tcg-cards/model/src/hearthstone/schema/data/image';
 import { CardImageAsset } from '@tcg-cards/db/schema/shared/hearthstone/card-image';
@@ -24,6 +25,7 @@ import {
   updateImageJob,
   watchImageJob,
 } from '../lib/hearthstone/image-job';
+import { buildDebugRenderRequests } from '../lib/hearthstone/image-debug';
 
 const localImportFileInput = z.strictObject({
   fileName: z.string().trim().min(1),
@@ -624,6 +626,42 @@ const watchJobProgress = os
     yield* watchImageJob();
   });
 
+const debugRenderRequestInput = z.strictObject({
+  renderHash: z.string().trim().min(1),
+  lang:       z.string().trim().min(1).optional(),
+  zones:      z.array(z.string()).optional(),
+  templates:  z.array(z.string()).optional(),
+  premiums:   z.array(z.string()).optional(),
+});
+
+const debugRenderRequestOutput = z.strictObject({
+  cardId:       z.string(),
+  lang:         z.string(),
+  renderHash:   z.string(),
+  variantCount: z.number().int().nonnegative(),
+  requests:     z.array(imageRequirementRequest),
+});
+
+/** Generates render request POST bodies for a given renderHash, for debugging. */
+const debugRenderRequest = os
+  .route({
+    method:      'POST',
+    description: 'Generate debug render request JSON for a given renderHash',
+    tags:        ['Desktop Runtime', 'Hearthstone', 'Image'],
+  })
+  .input(debugRenderRequestInput)
+  .output(debugRenderRequestOutput)
+  .handler(async ({ input }) => {
+    const result = await buildDebugRenderRequests(getLocalDb(), input.renderHash, {
+      lang:      input.lang,
+      zones:     input.zones,
+      templates: input.templates,
+      premiums:  input.premiums,
+    });
+
+    return result;
+  });
+
 /** Detects whether the configured Hearthstone image renderer is reachable and reports its health status. */
 const detectRenderer = os
   .route({
@@ -673,5 +711,6 @@ export const imageRouter = {
   getCurrentJob,
   refreshCurrentJob,
   watchJobProgress,
+  debugRenderRequest,
   detectRenderer,
 };

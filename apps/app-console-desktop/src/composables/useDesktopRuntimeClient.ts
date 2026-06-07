@@ -3,7 +3,7 @@ import { RPCLink } from '@orpc/client/fetch';
 
 import type { RouterClient } from '@orpc/server';
 import type { Router } from 'service-desktop-runtime/orpc';
-import type { CardImageRequirementExportInput, CardImageRequirementExportResult } from '#model/hearthstone/schema/data/image';
+import type { CardImageRequirementExportInput, CardImageRequirementExportResult, ImageRequirementRequest } from '#model/hearthstone/schema/data/image';
 
 const defaultDesktopRuntimeRpcUrl = 'http://localhost:4318/rpc';
 
@@ -165,6 +165,29 @@ export interface DesktopImageJobProgressEvent {
   skippedCount: number | null;
   rejectedCount: number | null;
   errorMessage: string | null;
+}
+
+/** Input payload for the debug render request RPC. */
+export interface DesktopDebugRenderRequestInput {
+  renderHash: string;
+  lang?: string;
+  zones?: string[];
+  templates?: string[];
+  premiums?: string[];
+}
+
+/** Debug render request result returned by the desktop runtime. */
+export interface DesktopDebugRenderRequestResult {
+  cardId: string;
+  lang: string;
+  renderHash: string;
+  variantCount: number;
+  requests: ImageRequirementRequest[];
+}
+
+/** Generates debug render request POST bodies for a given renderHash. */
+export function debugDesktopHearthstoneImageRenderRequest(input: DesktopDebugRenderRequestInput) {
+  return useDesktopRuntimeClient().image.debugRenderRequest(input) as Promise<DesktopDebugRenderRequestResult>;
 }
 
 /** Subscribes to the image job progress stream, calling handler on each event. Returns a cleanup function. */
