@@ -20,29 +20,23 @@
             >
           </div>
 
-          <div class="lang-switch" aria-label="卡图语言">
-            <button
-              type="button"
-              :class="{ active: imageLang === 'zhs' }"
-              @click="imageLang = 'zhs'"
-            >
-              中文
-            </button>
-            <button
-              type="button"
-              :class="{ active: imageLang === 'en' }"
-              @click="imageLang = 'en'"
-            >
-              English
-            </button>
-          </div>
+          <label class="language-field">
+            <span>语言</span>
+            <select v-model="language" aria-label="卡牌语言">
+              <option
+                v-for="option in languageOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
         </aside>
 
         <section class="profile-panel">
           <p class="eyebrow">Card File</p>
-          <h1>{{ card.names.zhs }}</h1>
-          <p class="en-name">{{ card.names.en }}</p>
-          <p class="ja-name">{{ card.names.ja }}</p>
+          <h1>{{ activeLang.name }}</h1>
 
           <div class="id-row">
             <span>Passcode</span>
@@ -51,74 +45,76 @@
 
           <div class="stat-board">
             <div>
-              <span>属性</span>
-              <strong>{{ card.attribute.zhs }} / {{ card.attribute.en }}</strong>
+              <span>{{ language === 'zhs' ? '属性' : 'Attribute' }}</span>
+              <strong class="attribute-value">
+                <img
+                  v-if="activeAttributeIcon"
+                  :src="activeAttributeIcon"
+                  :alt="activeAttribute"
+                  class="attribute-icon"
+                >
+                <span>{{ activeAttributeLabel }}</span>
+              </strong>
             </div>
             <div>
-              <span>种族</span>
-              <strong>{{ card.race.zhs }} / {{ card.race.en }}</strong>
+              <span>{{ language === 'zhs' ? '种族' : 'Race' }}</span>
+              <strong>{{ activeRace }}</strong>
             </div>
             <div>
-              <span>等级</span>
+              <span>{{ language === 'zhs' ? '等级' : 'Level' }}</span>
               <strong>{{ card.level }}</strong>
             </div>
             <div>
-              <span>攻击力</span>
+              <span>ATK</span>
               <strong>{{ card.attack }}</strong>
             </div>
             <div>
-              <span>守备力</span>
+              <span>DEF</span>
               <strong>{{ card.defense }}</strong>
             </div>
             <div>
-              <span>灵摆刻度</span>
+              <span>{{ language === 'zhs' ? '灵摆刻度' : 'Pendulum Scale' }}</span>
               <strong>{{ card.pendulumScale.left }} / {{ card.pendulumScale.right }}</strong>
             </div>
           </div>
 
           <div class="tag-row">
             <span
-              v-for="tag in card.monsterTypes.zhs"
+              v-for="tag in activeTags"
               :key="tag"
             >
               {{ tag }}
             </span>
           </div>
+
+          <article>
+            <h2>{{ language === 'zhs' ? '灵摆效果' : 'Pendulum Effect' }}</h2>
+            <p>{{ activeLang.pendulumEffect }}</p>
+          </article>
+
+          <div class="effect-divider" aria-hidden="true" />
+
+          <article>
+            <h2>{{ language === 'zhs' ? '怪兽效果' : 'Monster Effect' }}</h2>
+            <p>{{ activeLang.monsterEffect }}</p>
+          </article>
         </section>
 
-        <section class="text-panel">
-          <div class="text-column">
-            <div class="text-head">
-              <p class="eyebrow">简体中文</p>
-              <h2>{{ card.lang.zhs.name }}</h2>
+        <aside class="ruling-panel">
+          <div class="ruling-head">
+            <div>
+              <p class="eyebrow">Rulings</p>
+              <h2>效果裁定</h2>
             </div>
-            <pre>{{ card.lang.zhs.typeLine }}</pre>
-            <article>
-              <h3>灵摆效果</h3>
-              <p>{{ card.lang.zhs.pendulumEffect }}</p>
-            </article>
-            <article>
-              <h3>怪兽效果</h3>
-              <p>{{ card.lang.zhs.monsterEffect }}</p>
-            </article>
+            <span>YGOCDB</span>
           </div>
 
-          <div class="text-column">
-            <div class="text-head">
-              <p class="eyebrow">English</p>
-              <h2>{{ card.lang.en.name }}</h2>
-            </div>
-            <pre>{{ card.lang.en.typeLine }}</pre>
-            <article>
-              <h3>Pendulum Effect</h3>
-              <p>{{ card.lang.en.pendulumEffect }}</p>
-            </article>
-            <article>
-              <h3>Monster Effect</h3>
-              <p>{{ card.lang.en.monsterEffect }}</p>
-            </article>
+          <div class="ruling-empty">
+            <UIcon name="lucide:scroll-text" class="ruling-icon" />
+            <h3>暂无裁定数据</h3>
+            <p>后续接入百鸽裁定后，这里放调整说明、问答和对应日期。</p>
           </div>
-        </section>
+        </aside>
       </section>
 
       <section v-else class="not-found">
@@ -140,16 +136,36 @@
 <script setup lang="ts">
 import { sampleCard } from '~/data/sample-card';
 
+type LangCode = keyof typeof sampleCard.lang;
+
 const route = useRoute();
 
-const imageLang = ref<'zhs' | 'en'>('zhs');
+const language = ref<LangCode>('zhs');
+const languageOptions: Array<{ label: string; value: LangCode }> = [
+  { label: '简体中文', value: 'zhs' },
+  { label: 'English', value: 'en' },
+];
+
 const card = computed(() => route.params.id === String(sampleCard.id) ? sampleCard : null);
-const activeLang = computed(() => card.value?.lang[imageLang.value] ?? sampleCard.lang.zhs);
+const activeLang = computed(() => card.value?.lang[language.value] ?? sampleCard.lang.zhs);
+const activeAttribute = computed(() => card.value?.attribute[language.value] ?? '');
+const activeAttributeLabel = computed(() =>
+  language.value === 'zhs' && activeAttribute.value
+    ? `${activeAttribute.value}属性`
+    : activeAttribute.value,
+);
+const activeAttributeIcon = computed(() => {
+  const key = card.value?.attribute.en.toLocaleLowerCase();
+
+  return key ? `/yugioh-icons/attribute-${key}-jp.png` : '';
+});
+const activeRace = computed(() => card.value?.race[language.value] ?? '');
+const activeTags = computed(() => card.value?.monsterTypes[language.value] ?? []);
 
 useHead({
   title: computed(() =>
     card.value
-      ? `${card.value.names.en} | TCG Cards`
+      ? `${activeLang.value.name} | TCG Cards`
       : 'Card Not Found | TCG Cards',
   ),
 });
@@ -206,14 +222,14 @@ useHead({
 
 .detail-layout {
   display: grid;
-  grid-template-columns: minmax(16rem, 0.74fr) minmax(18rem, 0.9fr) minmax(26rem, 1.55fr);
+  grid-template-columns: minmax(16rem, 0.72fr) minmax(24rem, 1.28fr) minmax(18rem, 0.88fr);
   gap: 0.75rem;
   align-items: start;
 }
 
 .art-panel,
 .profile-panel,
-.text-panel,
+.ruling-panel,
 .not-found {
   border: 1px solid rgb(254 215 170 / 0.14);
   border-radius: 0.5rem;
@@ -241,31 +257,38 @@ useHead({
   box-shadow: 0 1rem 2.2rem rgb(0 0 0 / 0.42);
 }
 
-.lang-switch {
+.language-field {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.25rem;
+  gap: 0.38rem;
   margin-top: 0.75rem;
-  border: 1px solid rgb(254 215 170 / 0.14);
-  border-radius: 0.45rem;
-  background: rgb(15 23 42 / 0.58);
-  padding: 0.25rem;
 }
 
-.lang-switch button {
-  min-height: 2.1rem;
-  border-radius: 0.35rem;
-  color: rgb(255 247 237 / 0.62);
-  font-size: 0.84rem;
+.language-field span {
+  color: rgb(253 186 116 / 0.82);
+  font-size: 0.76rem;
   font-weight: 850;
 }
 
-.lang-switch button.active {
-  background: #facc15;
-  color: #1c1009;
+.language-field select {
+  height: 2.35rem;
+  min-width: 0;
+  border: 1px solid rgb(254 215 170 / 0.16);
+  border-radius: 0.45rem;
+  background: rgb(15 23 42 / 0.68);
+  padding: 0 0.7rem;
+  color: #fff7ed;
+  font-size: 0.88rem;
+  font-weight: 800;
+  outline: none;
 }
 
-.profile-panel {
+.language-field select:focus {
+  border-color: rgb(251 191 36 / 0.72);
+  box-shadow: 0 0 0 3px rgb(251 191 36 / 0.12);
+}
+
+.profile-panel,
+.ruling-panel {
   padding: 1rem;
 }
 
@@ -283,20 +306,6 @@ h1 {
   font-size: 2rem;
   font-weight: 950;
   line-height: 1.08;
-}
-
-.en-name {
-  margin-top: 0.35rem;
-  color: rgb(255 247 237 / 0.7);
-  font-size: 1.05rem;
-  font-weight: 800;
-}
-
-.ja-name {
-  margin-top: 0.2rem;
-  color: rgb(255 247 237 / 0.48);
-  font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .id-row {
@@ -325,7 +334,7 @@ h1 {
 
 .stat-board {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.45rem;
   margin-top: 0.8rem;
 }
@@ -347,6 +356,21 @@ h1 {
   line-height: 1.25;
 }
 
+.stat-board .attribute-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.08rem;
+  line-height: 1;
+}
+
+.attribute-icon {
+  width: 1.55rem;
+  height: 1.55rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .tag-row {
   display: flex;
   flex-wrap: wrap;
@@ -364,49 +388,14 @@ h1 {
   font-weight: 850;
 }
 
-.text-panel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-  padding: 0.75rem;
-}
-
-.text-column {
-  border: 1px solid rgb(254 215 170 / 0.11);
-  border-radius: 0.45rem;
-  background: rgb(15 23 42 / 0.5);
-  padding: 0.8rem;
-}
-
-.text-head h2 {
-  margin-top: 0.18rem;
-  color: #fff7ed;
-  font-size: 1.25rem;
-  font-weight: 900;
-  line-height: 1.18;
-}
-
-pre {
-  margin-top: 0.65rem;
-  border: 1px solid rgb(254 215 170 / 0.12);
-  border-radius: 0.4rem;
-  background: rgb(0 0 0 / 0.2);
-  padding: 0.6rem;
-  color: rgb(255 247 237 / 0.72);
-  font-family: inherit;
-  font-size: 0.86rem;
-  font-weight: 800;
-  line-height: 1.55;
-  white-space: pre-wrap;
-}
-
 article {
-  margin-top: 0.75rem;
+  margin-top: 0.85rem;
 }
 
-article h3 {
-  color: rgb(253 186 116 / 0.82);
-  font-size: 0.82rem;
+article h2,
+.ruling-head h2 {
+  color: #fff7ed;
+  font-size: 1rem;
   font-weight: 900;
 }
 
@@ -416,6 +405,64 @@ article p {
   font-size: 0.93rem;
   line-height: 1.75;
   white-space: pre-line;
+}
+
+.effect-divider {
+  height: 1px;
+  margin: 1rem 0 0.95rem;
+  background:
+    linear-gradient(90deg, transparent, rgb(253 186 116 / 0.34), transparent);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.025);
+}
+
+.ruling-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ruling-head h2 {
+  margin-top: 0.18rem;
+}
+
+.ruling-head span {
+  flex-shrink: 0;
+  border: 1px solid rgb(251 191 36 / 0.26);
+  border-radius: 9999px;
+  background: rgb(251 191 36 / 0.08);
+  padding: 0.24rem 0.55rem;
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.ruling-empty {
+  margin-top: 0.85rem;
+  border: 1px dashed rgb(254 215 170 / 0.18);
+  border-radius: 0.45rem;
+  background: rgb(15 23 42 / 0.44);
+  padding: 0.9rem;
+}
+
+.ruling-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  color: #fdba74;
+}
+
+.ruling-empty h3 {
+  margin-top: 0.65rem;
+  color: #fff7ed;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.ruling-empty p {
+  margin-top: 0.35rem;
+  color: rgb(255 247 237 / 0.62);
+  font-size: 0.9rem;
+  line-height: 1.65;
 }
 
 .not-found {
@@ -442,7 +489,7 @@ article p {
     grid-template-columns: minmax(15rem, 0.72fr) minmax(0, 1fr);
   }
 
-  .text-panel {
+  .ruling-panel {
     grid-column: 1 / -1;
   }
 }
@@ -453,8 +500,8 @@ article p {
   }
 
   .detail-layout,
-  .text-panel,
-  .not-found {
+  .not-found,
+  .stat-board {
     grid-template-columns: 1fr;
   }
 

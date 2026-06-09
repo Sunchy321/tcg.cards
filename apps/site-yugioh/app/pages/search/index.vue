@@ -62,9 +62,23 @@
                 <h3>{{ result.names.zhs }}</h3>
                 <p>{{ result.names.en }}</p>
               </div>
-              <span class="card-id">#{{ result.id }}</span>
             </div>
 
+            <div class="effect-preview">
+              <section>
+                <h4>灵摆效果</h4>
+                <p>{{ result.lang.zhs.pendulumEffect }}</p>
+              </section>
+              <div class="preview-divider" aria-hidden="true" />
+              <section>
+                <h4>怪兽效果</h4>
+                <p>{{ result.lang.zhs.monsterEffect }}</p>
+              </section>
+            </div>
+          </div>
+
+          <div class="result-side">
+            <span class="card-id">{{ result.id }}</span>
             <div class="meta-grid">
               <span>{{ result.attribute.zhs }} / {{ result.attribute.en }}</span>
               <span>{{ result.race.zhs }} / {{ result.race.en }}</span>
@@ -73,16 +87,7 @@
               <span>灵摆 {{ result.pendulumScale.left }} / {{ result.pendulumScale.right }}</span>
               <span>{{ result.monsterTypes.zhs.join(' · ') }}</span>
             </div>
-
-            <p class="result-desc">
-              {{ result.lang.zhs.monsterEffect }}
-            </p>
           </div>
-
-          <span class="detail-action">
-            查看详情
-            <UIcon name="lucide:arrow-right" class="size-4" />
-          </span>
         </NuxtLink>
 
         <div v-else-if="query" class="empty-state">
@@ -320,9 +325,9 @@ h1 {
 
 .result-card {
   display: grid;
-  grid-template-columns: 7.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 7.25rem minmax(0, 1fr) minmax(11.5rem, 0.36fr);
   gap: 1rem;
-  align-items: center;
+  align-items: start;
   margin-top: 0.9rem;
   border: 1px solid rgb(254 215 170 / 0.16);
   border-radius: 0.5rem;
@@ -352,13 +357,12 @@ h1 {
 
 .result-content {
   min-width: 0;
+  padding-top: 0.25rem;
 }
 
 .result-title-row {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
 }
 
 .result-title-row h3 {
@@ -375,49 +379,59 @@ h1 {
 }
 
 .card-id {
-  flex-shrink: 0;
+  display: block;
   color: rgb(253 186 116 / 0.78);
-  font-size: 0.78rem;
-  font-weight: 850;
+  font-size: 0.88rem;
+  font-weight: 900;
+  text-align: right;
 }
 
 .meta-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.42rem;
+  margin-top: 0.8rem;
 }
 
 .meta-grid span {
   border: 1px solid rgb(254 215 170 / 0.13);
-  border-radius: 9999px;
+  border-radius: 0.42rem;
   background: rgb(0 0 0 / 0.18);
-  padding: 0.3rem 0.55rem;
+  padding: 0.46rem 0.58rem;
   color: rgb(255 247 237 / 0.78);
   font-size: 0.78rem;
   font-weight: 800;
+  line-height: 1.25;
 }
 
-.result-desc {
-  margin-top: 0.75rem;
-  color: rgb(255 247 237 / 0.68);
+.result-side {
+  min-width: 0;
+  border-left: 1px solid rgb(254 215 170 / 0.11);
+  padding: 0.25rem 0 0.15rem 1rem;
+}
+
+.effect-preview {
+  margin-top: 0.9rem;
+}
+
+.effect-preview h4 {
+  color: rgb(253 186 116 / 0.82);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.effect-preview p {
+  margin-top: 0.28rem;
+  color: rgb(255 247 237 / 0.7);
   font-size: 0.9rem;
   line-height: 1.65;
+  white-space: pre-line;
 }
 
-.detail-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  align-self: end;
-  border: 1px solid rgb(251 191 36 / 0.36);
-  border-radius: 0.45rem;
-  background: rgb(251 191 36 / 0.12);
-  padding: 0.52rem 0.7rem;
-  color: #fde68a;
-  font-size: 0.84rem;
-  font-weight: 850;
-  white-space: nowrap;
+.preview-divider {
+  height: 1px;
+  margin: 0.75rem 0;
+  background:
+    linear-gradient(90deg, rgb(253 186 116 / 0.22), transparent);
 }
 
 .empty-state {
@@ -456,8 +470,14 @@ h1 {
     width: min(12rem, 100%);
   }
 
-  .detail-action {
-    justify-content: center;
+  .result-side {
+    border-top: 1px solid rgb(254 215 170 / 0.11);
+    border-left: 0;
+    padding: 0.85rem 0 0;
+  }
+
+  .card-id {
+    text-align: left;
   }
 }
 </style>
